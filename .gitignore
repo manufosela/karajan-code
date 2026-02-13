@@ -4,3 +4,5 @@ node_modules/
 *.log
 .DS_Store
 coverage/
+kj.config.yml
+review-rules.md

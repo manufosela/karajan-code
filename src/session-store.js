@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ensureDir, exists } from "./utils/fs.js";
+import { getSessionRoot } from "./utils/paths.js";
 
-const SESSION_ROOT = path.resolve(process.cwd(), ".karajan", "sessions");
+const SESSION_ROOT = getSessionRoot();
 
 export function newSessionId() {
   const now = new Date();

@@ -1,11 +1,10 @@
 import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import { ensureDir } from "../utils/fs.js";
 import { runCommand } from "../utils/process.js";
+import { getKarajanHome, getSonarComposePath } from "../utils/paths.js";
 
-const KARJAN_HOME = path.join(os.homedir(), ".karajan");
-const COMPOSE_PATH = path.join(KARJAN_HOME, "docker-compose.sonar.yml");
+const KARJAN_HOME = getKarajanHome();
+const COMPOSE_PATH = getSonarComposePath();
 
 const composeTemplate = `services:
   sonarqube:

@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import { exists } from "../utils/fs.js";
+import { getSessionRoot } from "../utils/paths.js";
 
 export async function reportCommand({ list = false }) {
-  const dir = path.resolve(process.cwd(), ".karajan", "sessions");
+  const dir = getSessionRoot();
   if (!(await exists(dir))) {
     console.log("No reports yet");
     return;
