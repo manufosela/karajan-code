@@ -48,6 +48,8 @@ program
   .option("--reviewer <name>")
   .option("--mode <name>")
   .option("--max-iterations <n>")
+  .option("--max-iteration-minutes <n>")
+  .option("--max-total-minutes <n>")
   .option("--base-branch <name>")
   .option("--base-ref <ref>")
   .option("--no-sonar")

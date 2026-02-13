@@ -74,8 +74,10 @@ export function applyRunOverrides(config, flags) {
   if (flags.reviewer) out.reviewer = flags.reviewer;
   if (flags.mode) out.review_mode = flags.mode;
   if (flags.maxIterations) out.max_iterations = Number(flags.maxIterations);
+  if (flags.maxIterationMinutes) out.session.max_iteration_minutes = Number(flags.maxIterationMinutes);
+  if (flags.maxTotalMinutes) out.session.max_total_minutes = Number(flags.maxTotalMinutes);
   if (flags.baseBranch) out.base_branch = flags.baseBranch;
-  if (flags.noSonar) out.sonarqube.enabled = false;
+  if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
   return out;
 }
 
