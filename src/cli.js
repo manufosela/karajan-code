@@ -1,0 +1,133 @@
+#!/usr/bin/env node
+import { Command } from "commander";
+import { applyRunOverrides, loadConfig, validateConfig } from "./config.js";
+import { createLogger } from "./utils/logger.js";
+import { initCommand } from "./commands/init.js";
+import { configCommand } from "./commands/config.js";
+import { codeCommand } from "./commands/code.js";
+import { reviewCommand } from "./commands/review.js";
+import { scanCommand } from "./commands/scan.js";
+import { doctorCommand } from "./commands/doctor.js";
+import { reportCommand } from "./commands/report.js";
+import { planCommand } from "./commands/plan.js";
+import { runCommandHandler } from "./commands/run.js";
+import { resumeCommand } from "./commands/resume.js";
+import { sonarCommand } from "./commands/sonar.js";
+
+async function withConfig(commandName, flags, fn) {
+  const { config } = await loadConfig();
+  const merged = applyRunOverrides(config, flags || {});
+  validateConfig(merged, commandName);
+  const logger = createLogger(merged.output.log_level);
+  await fn({ config: merged, logger, flags });
+}
+
+const program = new Command();
+program.name("kj").description("Karajan Code CLI").version("0.1.0");
+
+program
+  .command("init")
+  .description("Initialize config, review rules and SonarQube")
+  .action(async () => {
+    await withConfig("init", {}, initCommand);
+  });
+
+program
+  .command("config")
+  .description("Show current config")
+  .option("--json", "Show as JSON")
+  .action(async (flags) => {
+    await configCommand(flags);
+  });
+
+program
+  .command("run")
+  .description("Run coder+sonar+reviewer loop")
+  .argument("<task>")
+  .option("--coder <name>")
+  .option("--reviewer <name>")
+  .option("--mode <name>")
+  .option("--max-iterations <n>")
+  .option("--base-branch <name>")
+  .option("--base-ref <ref>")
+  .option("--no-sonar")
+  .action(async (task, flags) => {
+    await withConfig("run", flags, async ({ config, logger }) => {
+      await runCommandHandler({ task, config, logger, flags });
+    });
+  });
+
+program
+  .command("code")
+  .description("Run only coder")
+  .argument("<task>")
+  .option("--coder <name>")
+  .action(async (task, flags) => {
+    await withConfig("code", flags, async ({ config, logger }) => {
+      await codeCommand({ task, config, logger });
+    });
+  });
+
+program
+  .command("review")
+  .description("Run only reviewer")
+  .argument("<task>")
+  .option("--base-ref <ref>")
+  .action(async (task, flags) => {
+    await withConfig("review", flags, async ({ config, logger }) => {
+      await reviewCommand({ task, config, logger, baseRef: flags.baseRef });
+    });
+  });
+
+program
+  .command("scan")
+  .description("Run SonarQube scan")
+  .action(async () => {
+    await withConfig("scan", {}, scanCommand);
+  });
+
+program
+  .command("doctor")
+  .description("Check environment requirements")
+  .action(async () => {
+    await withConfig("doctor", {}, doctorCommand);
+  });
+
+program
+  .command("report")
+  .description("Show latest session report")
+  .option("--list", "List session ids")
+  .action(async (flags) => {
+    await reportCommand(flags);
+  });
+
+program
+  .command("plan")
+  .description("Generate implementation plan")
+  .argument("<task>")
+  .action(async (task) => {
+    await withConfig("plan", {}, async ({ config, logger }) => {
+      await planCommand({ task, config, logger });
+    });
+  });
+
+program
+  .command("resume")
+  .description("Resume a previous session")
+  .argument("<sessionId>")
+  .action(async (sessionId) => {
+    await withConfig("resume", {}, async ({ logger }) => {
+      await resumeCommand({ sessionId, logger });
+    });
+  });
+
+const sonar = program.command("sonar").description("Manage SonarQube container");
+sonar.command("status").action(async () => sonarCommand({ action: "status" }));
+sonar.command("start").action(async () => sonarCommand({ action: "start" }));
+sonar.command("stop").action(async () => sonarCommand({ action: "stop" }));
+sonar.command("logs").action(async () => sonarCommand({ action: "logs" }));
+
+program.parseAsync().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
+});
