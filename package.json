@@ -1,0 +1,22 @@
+{
+  "name": "karajan-code",
+  "version": "0.1.0",
+  "description": "Local multi-agent coding orchestrator",
+  "type": "module",
+  "bin": {
+    "kj": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node --check src/cli.js"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "execa": "^9.6.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0"
+  }
+}

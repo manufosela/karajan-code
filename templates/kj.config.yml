@@ -1,0 +1,59 @@
+# AI Agents
+coder: codex
+reviewer: claude
+
+# Review settings
+review_mode: standard
+max_iterations: 5
+review_rules: ./review-rules.md
+base_branch: main
+
+# Coder settings
+coder_options:
+  model: null
+  auto_approve: true
+
+# Reviewer settings
+reviewer_options:
+  output_format: json
+  require_schema: true
+  model: null
+
+# SonarQube settings
+sonarqube:
+  enabled: true
+  host: http://localhost:9000
+  token: null
+  quality_gate: true
+  enforcement_profile: pragmatic
+  gate_block_on:
+    - new_reliability_rating=E
+    - new_security_rating=E
+    - new_maintainability_rating=E
+    - new_coverage<80
+    - new_duplicated_lines_density>5
+  fail_on:
+    - BLOCKER
+    - CRITICAL
+  ignore_on:
+    - INFO
+  max_scan_retries: 3
+
+# Git (post-approval)
+git:
+  auto_commit: false
+  auto_push: false
+  auto_pr: false
+  branch_prefix: feat/
+
+# Output
+output:
+  report_dir: ./.reviews
+  log_level: info
+
+# Session limits
+session:
+  max_iteration_minutes: 20
+  max_total_minutes: 120
+  max_budget_usd: null
+  fail_fast_repeats: 2
