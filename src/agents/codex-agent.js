@@ -3,14 +3,17 @@ import { runCommand } from "../utils/process.js";
 
 export class CodexAgent extends BaseAgent {
   async runTask(task) {
-    const args = ["exec", task.prompt];
-    if (this.config.coder_options?.auto_approve) args.unshift("--full-auto");
-    const res = await runCommand("codex", args);
-    return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr };
+    const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
+    const args = ["exec"];
+    if (this.config.coder_options?.auto_approve) args.push("--full-auto");
+    args.push(task.prompt);
+    const res = await runCommand("codex", args, { timeout });
+    return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 
   async reviewTask(task) {
-    const res = await runCommand("codex", ["exec", "--json", task.prompt]);
-    return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr };
+    const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
+    const res = await runCommand("codex", ["exec", "--json", task.prompt], { timeout });
+    return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 }

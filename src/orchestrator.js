@@ -13,17 +13,76 @@ function parseJsonOutput(raw) {
   const cleaned = raw.trim();
   if (!cleaned) return null;
   try {
-    return JSON.parse(cleaned);
+    const parsed = JSON.parse(cleaned);
+    return normalizeReviewPayload(parsed);
   } catch {
-    const lines = cleaned.split("\n").filter(Boolean);
+    const lines = cleaned
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const parsedLines = [];
+    for (const line of lines) {
+      try {
+        parsedLines.push(JSON.parse(line));
+      } catch {
+        continue;
+      }
+    }
+
+    const normalizedLines = normalizeReviewPayload(parsedLines);
+    if (normalizedLines) {
+      return normalizedLines;
+    }
+
     for (let i = lines.length - 1; i >= 0; i -= 1) {
       try {
-        return JSON.parse(lines[i]);
+        const parsed = JSON.parse(lines[i]);
+        return normalizeReviewPayload(parsed);
       } catch {
         continue;
       }
     }
   }
+  return null;
+}
+
+function normalizeReviewPayload(payload) {
+  if (!payload) return null;
+
+  if (payload.approved !== undefined && payload.blocking_issues !== undefined) {
+    return payload;
+  }
+
+  if (Array.isArray(payload)) {
+    for (let i = payload.length - 1; i >= 0; i -= 1) {
+      const item = payload[i];
+      if (item?.approved !== undefined && item?.blocking_issues !== undefined) {
+        return item;
+      }
+
+      const nested = item?.result || item?.message?.content?.[0]?.text;
+      if (typeof nested === "string") {
+        try {
+          const parsedNested = JSON.parse(nested);
+          if (parsedNested?.approved !== undefined) return parsedNested;
+        } catch {
+          continue;
+        }
+      }
+    }
+    return null;
+  }
+
+  if (typeof payload.result === "string") {
+    try {
+      const parsedResult = JSON.parse(payload.result);
+      if (parsedResult?.approved !== undefined) return parsedResult;
+    } catch {
+      return null;
+    }
+  }
+
   return null;
 }
 
@@ -69,7 +128,8 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     const coderResult = await coder.runTask({ prompt: coderPrompt });
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
-      throw new Error(`Coder failed: ${coderResult.error || coderResult.output}`);
+      const details = coderResult.error || coderResult.output || `exitCode=${coderResult.exitCode ?? "unknown"}`;
+      throw new Error(`Coder failed: ${details}`);
     }
 
     await addCheckpoint(session, { stage: "coder", iteration: i, note: "Coder applied changes" });
@@ -113,7 +173,8 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     const reviewerResult = await reviewer.reviewTask({ prompt: reviewerPrompt });
     if (!reviewerResult.ok) {
       await markSessionStatus(session, "failed");
-      throw new Error(`Reviewer failed: ${reviewerResult.error || reviewerResult.output}`);
+      const details = reviewerResult.error || reviewerResult.output || `exitCode=${reviewerResult.exitCode ?? "unknown"}`;
+      throw new Error(`Reviewer failed: ${details}`);
     }
 
     const parsed = parseJsonOutput(reviewerResult.output);
