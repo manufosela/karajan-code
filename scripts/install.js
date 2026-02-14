@@ -12,6 +12,98 @@ function printHeader() {
   console.log("\nKarajan Code Installer\n");
 }
 
+function printHelp() {
+  console.log(`Usage:
+  ./scripts/install.sh [options]
+  node scripts/install.js [options]
+
+Options:
+  --non-interactive               Run without prompts (CI-friendly)
+  --link-global <bool>            Run npm link (default: true interactive, false non-interactive)
+  --kj-home <path>                KJ_HOME path
+  --sonar-host <url>              SonarQube host (default: http://localhost:9000)
+  --generate-sonar-token <bool>   Generate token using sonar admin credentials
+  --sonar-user <user>             Sonar username (default: admin)
+  --sonar-password <pass>         Sonar password
+  --sonar-token-name <name>       Sonar token name (default: karajan-cli)
+  --sonar-token <token>           Existing KJ_SONAR_TOKEN
+  --coder <name>                  Default coder (default: codex)
+  --reviewer <name>               Default reviewer (default: claude)
+  --reviewer-fallback <name>      Default reviewer fallback (default: codex)
+  --setup-mcp-claude <bool>       Configure Claude MCP
+  --setup-mcp-codex <bool>        Configure Codex MCP
+  --run-doctor <bool>             Run kj doctor at end
+  --help                          Show this help
+
+Environment variable equivalents:
+  KJ_INSTALL_NON_INTERACTIVE
+  KJ_INSTALL_LINK_GLOBAL
+  KJ_INSTALL_KJ_HOME
+  KJ_INSTALL_SONAR_HOST
+  KJ_INSTALL_GENERATE_SONAR_TOKEN
+  KJ_INSTALL_SONAR_USER
+  KJ_INSTALL_SONAR_PASSWORD
+  KJ_INSTALL_SONAR_TOKEN_NAME
+  KJ_SONAR_TOKEN
+  KJ_INSTALL_CODER
+  KJ_INSTALL_REVIEWER
+  KJ_INSTALL_REVIEWER_FALLBACK
+  KJ_INSTALL_SETUP_MCP_CLAUDE
+  KJ_INSTALL_SETUP_MCP_CODEX
+  KJ_INSTALL_RUN_DOCTOR
+`);
+}
+
+function parseArgs(argv) {
+  const out = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (!token.startsWith("--")) continue;
+
+    const key = token.slice(2);
+    if (key === "help") {
+      out.help = true;
+      continue;
+    }
+
+    if (key === "non-interactive") {
+      out.nonInteractive = true;
+      continue;
+    }
+
+    const next = argv[i + 1];
+    if (!next || next.startsWith("--")) {
+      out[toCamelCase(key)] = true;
+      continue;
+    }
+
+    out[toCamelCase(key)] = next;
+    i += 1;
+  }
+  return out;
+}
+
+function toCamelCase(kebab) {
+  return kebab.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+function parseBool(value, defaultValue = false) {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "y", "si", "s"].includes(normalized)) return true;
+  if (["0", "false", "no", "n"].includes(normalized)) return false;
+  return defaultValue;
+}
+
+function pickSetting({ cli, cliKey, envKey, fallback }) {
+  const cliValue = cli?.[cliKey];
+  if (cliValue !== undefined) return cliValue;
+  const envValue = process.env[envKey];
+  if (envValue !== undefined) return envValue;
+  return fallback;
+}
+
 async function run(command, args = [], options = {}) {
   const { cwd, env, timeout } = options;
   return new Promise((resolve) => {
@@ -197,11 +289,125 @@ async function bootstrapKjConfig({ rootDir, kjHome, sonarToken, sonarHost, coder
   return configPath;
 }
 
+async function collectSettings(rootDir, parsedArgs) {
+  const kjHomeDefault = path.join(rootDir, ".karajan");
+  const nonInteractive = parseBool(
+    pickSetting({
+      cli: parsedArgs,
+      cliKey: "nonInteractive",
+      envKey: "KJ_INSTALL_NON_INTERACTIVE",
+      fallback: false
+    }),
+    false
+  );
+
+  if (nonInteractive) {
+    return {
+      nonInteractive,
+      linkGlobal: parseBool(
+        pickSetting({ cli: parsedArgs, cliKey: "linkGlobal", envKey: "KJ_INSTALL_LINK_GLOBAL", fallback: false }),
+        false
+      ),
+      kjHome: pickSetting({ cli: parsedArgs, cliKey: "kjHome", envKey: "KJ_INSTALL_KJ_HOME", fallback: kjHomeDefault }),
+      sonarHost: pickSetting({
+        cli: parsedArgs,
+        cliKey: "sonarHost",
+        envKey: "KJ_INSTALL_SONAR_HOST",
+        fallback: "http://localhost:9000"
+      }),
+      createSonarToken: parseBool(
+        pickSetting({
+          cli: parsedArgs,
+          cliKey: "generateSonarToken",
+          envKey: "KJ_INSTALL_GENERATE_SONAR_TOKEN",
+          fallback: false
+        }),
+        false
+      ),
+      sonarUser: pickSetting({ cli: parsedArgs, cliKey: "sonarUser", envKey: "KJ_INSTALL_SONAR_USER", fallback: "admin" }),
+      sonarPassword: pickSetting({
+        cli: parsedArgs,
+        cliKey: "sonarPassword",
+        envKey: "KJ_INSTALL_SONAR_PASSWORD",
+        fallback: ""
+      }),
+      sonarTokenName: pickSetting({
+        cli: parsedArgs,
+        cliKey: "sonarTokenName",
+        envKey: "KJ_INSTALL_SONAR_TOKEN_NAME",
+        fallback: "karajan-cli"
+      }),
+      sonarToken: pickSetting({ cli: parsedArgs, cliKey: "sonarToken", envKey: "KJ_SONAR_TOKEN", fallback: "" }),
+      coder: pickSetting({ cli: parsedArgs, cliKey: "coder", envKey: "KJ_INSTALL_CODER", fallback: "codex" }),
+      reviewer: pickSetting({ cli: parsedArgs, cliKey: "reviewer", envKey: "KJ_INSTALL_REVIEWER", fallback: "claude" }),
+      reviewerFallback: pickSetting({
+        cli: parsedArgs,
+        cliKey: "reviewerFallback",
+        envKey: "KJ_INSTALL_REVIEWER_FALLBACK",
+        fallback: "codex"
+      }),
+      setupMcpClaude: parseBool(
+        pickSetting({
+          cli: parsedArgs,
+          cliKey: "setupMcpClaude",
+          envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE",
+          fallback: true
+        }),
+        true
+      ),
+      setupMcpCodex: parseBool(
+        pickSetting({
+          cli: parsedArgs,
+          cliKey: "setupMcpCodex",
+          envKey: "KJ_INSTALL_SETUP_MCP_CODEX",
+          fallback: true
+        }),
+        true
+      ),
+      runDoctor: parseBool(
+        pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: true }),
+        true
+      )
+    };
+  }
+
+  const settings = {};
+  settings.nonInteractive = false;
+  settings.linkGlobal = await askBool("Link karajan binaries globally with npm link", true);
+  settings.kjHome = await ask("KJ_HOME directory", kjHomeDefault);
+  settings.sonarHost = await ask("SonarQube host", "http://localhost:9000");
+  settings.createSonarToken = await askBool("Generate Sonar token now with admin credentials", true);
+  settings.sonarUser = "admin";
+  settings.sonarPassword = "";
+  settings.sonarTokenName = "karajan-cli";
+  settings.sonarToken = "";
+  if (settings.createSonarToken) {
+    settings.sonarUser = await ask("Sonar username", "admin");
+    settings.sonarPassword = await ask("Sonar password", "");
+    settings.sonarTokenName = await ask("Sonar token name", "karajan-cli");
+  } else {
+    settings.sonarToken = await ask("Paste existing KJ_SONAR_TOKEN (optional)", "");
+  }
+
+  settings.coder = await ask("Default coder", "codex");
+  settings.reviewer = await ask("Default reviewer", "claude");
+  settings.reviewerFallback = await ask("Reviewer fallback", "codex");
+  settings.setupMcpClaude = await askBool("Configure Claude MCP automatically", true);
+  settings.setupMcpCodex = await askBool("Configure Codex MCP automatically", true);
+  settings.runDoctor = await askBool("Run kj doctor now", true);
+  return settings;
+}
+
 async function main() {
+  const parsedArgs = parseArgs(process.argv.slice(2));
+  if (parsedArgs.help) {
+    printHelp();
+    return;
+  }
+
   printHeader();
 
   const rootDir = process.cwd();
-  const kjHomeDefault = path.join(rootDir, ".karajan");
 
   console.log("Checking base requirements...");
   const required = ["node", "npm", "git", "docker", "curl"];
@@ -222,67 +428,55 @@ async function main() {
   let res = await run("npm", ["install"], { cwd: rootDir });
   if (res.exitCode !== 0) throw new Error(res.stderr || res.stdout || "npm install failed");
 
-  const linkGlobal = await askBool("Link karajan binaries globally with npm link", true);
-  if (linkGlobal) {
+  const settings = await collectSettings(rootDir, parsedArgs);
+
+  if (settings.linkGlobal) {
     res = await run("npm", ["link"], { cwd: rootDir });
     if (res.exitCode !== 0) throw new Error(res.stderr || res.stdout || "npm link failed");
   }
 
-  const kjHome = await ask("KJ_HOME directory", kjHomeDefault);
-  const sonarHost = await ask("SonarQube host", "http://localhost:9000");
-
-  const createSonarToken = await askBool("Generate Sonar token now with admin credentials", true);
-  let sonarToken = "";
-  if (createSonarToken) {
-    const sonarUser = await ask("Sonar username", "admin");
-    const sonarPassword = await ask("Sonar password", "");
-    const tokenName = await ask("Sonar token name", "karajan-cli");
-    if (!sonarPassword) {
+  let sonarToken = settings.sonarToken || "";
+  if (settings.createSonarToken) {
+    if (!settings.sonarPassword) {
+      if (settings.nonInteractive) {
+        throw new Error("Non-interactive mode requires --sonar-password when --generate-sonar-token=true");
+      }
       console.log("No Sonar password provided. Skipping automatic token generation.");
       sonarToken = await ask("Paste existing KJ_SONAR_TOKEN (optional)", "");
     } else {
       sonarToken = await generateSonarToken({
-        host: sonarHost,
-        user: sonarUser,
-        password: sonarPassword,
-        tokenName
+        host: settings.sonarHost,
+        user: settings.sonarUser,
+        password: settings.sonarPassword,
+        tokenName: settings.sonarTokenName
       });
       console.log("Sonar token generated.");
     }
-  } else {
-    sonarToken = await ask("Paste existing KJ_SONAR_TOKEN (optional)", "");
   }
 
-  const coder = await ask("Default coder", "codex");
-  const reviewer = await ask("Default reviewer", "claude");
-  const reviewerFallback = await ask("Reviewer fallback", "codex");
-
-  const envPath = await writeKarajanEnv({ kjHome, sonarToken, sonarHost });
+  const envPath = await writeKarajanEnv({ kjHome: settings.kjHome, sonarToken, sonarHost: settings.sonarHost });
   const configPath = await bootstrapKjConfig({
     rootDir,
-    kjHome,
+    kjHome: settings.kjHome,
     sonarToken,
-    sonarHost,
-    coder,
-    reviewer,
-    reviewerFallback
+    sonarHost: settings.sonarHost,
+    coder: settings.coder,
+    reviewer: settings.reviewer,
+    reviewerFallback: settings.reviewerFallback
   });
 
-  const setupMcpClaude = await askBool("Configure Claude MCP automatically", true);
   let claudePath = "";
-  if (setupMcpClaude) {
-    claudePath = await setupClaudeMcp({ rootDir, kjHome });
+  if (settings.setupMcpClaude) {
+    claudePath = await setupClaudeMcp({ rootDir, kjHome: settings.kjHome });
   }
 
-  const setupMcpCodex = await askBool("Configure Codex MCP automatically", true);
   let codexPath = "";
-  if (setupMcpCodex) {
-    codexPath = await setupCodexMcp({ rootDir, kjHome });
+  if (settings.setupMcpCodex) {
+    codexPath = await setupCodexMcp({ rootDir, kjHome: settings.kjHome });
   }
 
-  const runDoctor = await askBool("Run kj doctor now", true);
-  if (runDoctor) {
-    const env = { ...process.env, KJ_HOME: kjHome };
+  if (settings.runDoctor) {
+    const env = { ...process.env, KJ_HOME: settings.kjHome };
     if (sonarToken) env.KJ_SONAR_TOKEN = sonarToken;
     const doctor = await run("node", [path.join(rootDir, "src", "cli.js"), "doctor"], { env, cwd: rootDir });
     console.log(doctor.stdout || doctor.stderr);

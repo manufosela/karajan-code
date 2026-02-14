@@ -25,6 +25,25 @@ source .karajan/karajan.env
 kj run "Implement authentication flow" --coder codex --reviewer claude
 ```
 
+### Non-interactive setup (CI/automation)
+
+```bash
+./scripts/install.sh \
+  --non-interactive \
+  --link-global false \
+  --kj-home /absolute/path/to/.karajan \
+  --sonar-host http://localhost:9000 \
+  --sonar-token "$KJ_SONAR_TOKEN" \
+  --coder codex \
+  --reviewer claude \
+  --reviewer-fallback codex \
+  --setup-mcp-claude true \
+  --setup-mcp-codex true \
+  --run-doctor true
+```
+
+You can also pass the same values via environment variables (see `node scripts/install.js --help`).
+
 ## Commands
 
 - `kj init`
