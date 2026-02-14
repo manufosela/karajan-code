@@ -8,6 +8,13 @@ import { stdin as input, stdout as output } from "node:process";
 
 const rl = readline.createInterface({ input, output });
 const REGISTRY_PATH = path.join(os.homedir(), ".karajan", "instances.json");
+const INSTALL_STATE_PATH = path.join(os.homedir(), ".karajan", "install-state.json");
+const AGENT_META = {
+  codex: { bin: "codex", installUrl: "https://developers.openai.com/codex/cli" },
+  claude: { bin: "claude", installUrl: "https://docs.anthropic.com/en/docs/claude-code" },
+  gemini: { bin: "gemini", installUrl: "https://github.com/google-gemini/gemini-cli" },
+  aider: { bin: "aider", installUrl: "https://aider.chat/docs/install.html" }
+};
 
 function printHeader() {
   console.log("\nKarajan Code Installer\n");
@@ -22,6 +29,7 @@ Options:
   --non-interactive               Run without prompts (CI-friendly)
   --instance-name <name>          Instance name (default: default)
   --instance-action <mode>        add | update | replace
+  --recovery-action <mode>        continue | restart (if previous install was interrupted)
   --link-global <bool>            Run npm link (default: true interactive, false non-interactive)
   --kj-home <path>                KJ_HOME path
   --sonar-host <url>              SonarQube host (default: http://localhost:9000)
@@ -42,6 +50,7 @@ Environment variable equivalents:
   KJ_INSTALL_NON_INTERACTIVE
   KJ_INSTALL_INSTANCE_NAME
   KJ_INSTALL_INSTANCE_ACTION
+  KJ_INSTALL_RECOVERY_ACTION
   KJ_INSTALL_LINK_GLOBAL
   KJ_INSTALL_KJ_HOME
   KJ_INSTALL_SONAR_HOST
@@ -202,6 +211,22 @@ async function loadRegistry() {
 
 async function saveRegistry(registry) {
   await writeJson(REGISTRY_PATH, registry);
+}
+
+async function loadInstallState() {
+  try {
+    return await readJson(INSTALL_STATE_PATH);
+  } catch {
+    return null;
+  }
+}
+
+async function saveInstallState(state) {
+  await writeJson(INSTALL_STATE_PATH, state);
+}
+
+async function clearInstallState() {
+  await fs.rm(INSTALL_STATE_PATH, { force: true });
 }
 
 function upsertCodexMcpBlock(toml, block) {
@@ -389,6 +414,53 @@ async function resolveInstance(rootDir, parsedArgs, registry, nonInteractive) {
   };
 }
 
+async function resolveRecoveryAction(parsedArgs, nonInteractive) {
+  const prev = await loadInstallState();
+  if (!prev || prev.status !== "in_progress") {
+    return { action: "none", previous: null };
+  }
+
+  if (nonInteractive) {
+    const recoveryAction = String(
+      pickSetting({
+        cli: parsedArgs,
+        cliKey: "recoveryAction",
+        envKey: "KJ_INSTALL_RECOVERY_ACTION",
+        fallback: "continue"
+      })
+    );
+    if (!["continue", "restart"].includes(recoveryAction)) {
+      throw new Error("--recovery-action must be continue or restart");
+    }
+    return { action: recoveryAction, previous: prev };
+  }
+
+  const action = await askChoice(
+    `\nSe detecto una instalacion interrumpida (${prev.instanceName || "desconocida"}). ¿Que quieres hacer?`,
+    [
+      { value: "continue", label: "continuar (retomar e intentar completar desde el estado actual)" },
+      { value: "restart", label: "comenzar desde el principio (borrando lo generado para esa instancia)" }
+    ]
+  );
+  return { action, previous: prev };
+}
+
+async function checkSelectedAgents(settings) {
+  const selected = new Set([settings.coder, settings.reviewer, settings.reviewerFallback].filter(Boolean));
+  const missing = [];
+
+  for (const agent of selected) {
+    const meta = AGENT_META[agent];
+    if (!meta) continue;
+    const ok = await ensureCommand(meta.bin);
+    if (!ok) {
+      missing.push({ agent, ...meta });
+    }
+  }
+
+  return missing;
+}
+
 async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteractive) {
   const defaults = {
     linkGlobal: nonInteractive ? false : true,
@@ -466,25 +538,46 @@ async function main() {
     if (!ok) throw new Error(`Missing required command: ${cmd}`);
   }
 
-  const codexOk = await ensureCommand("codex");
-  const claudeOk = await ensureCommand("claude");
-  if (!codexOk || !claudeOk) {
-    throw new Error("Both codex and claude CLIs are required for this setup");
-  }
-
   console.log("Installing dependencies...");
   let res = await run("npm", ["install"], { cwd: rootDir });
   if (res.exitCode !== 0) throw new Error(res.stderr || res.stdout || "npm install failed");
 
+  const recovery = await resolveRecoveryAction(parsedArgs, nonInteractive);
+  if (recovery.action === "restart" && recovery.previous?.kjHome) {
+    console.log(`Reiniciando instalacion previa. Limpiando ${recovery.previous.kjHome} ...`);
+    await fs.rm(recovery.previous.kjHome, { recursive: true, force: true });
+    await fs.rm(path.join(rootDir, "kj.config.yml"), { force: true });
+    await fs.rm(path.join(rootDir, "review-rules.md"), { force: true });
+  }
+
   const registry = await loadRegistry();
   const instance = await resolveInstance(rootDir, parsedArgs, registry, nonInteractive);
   const settings = await collectSettings(rootDir, parsedArgs, instance, nonInteractive);
+
+  await saveInstallState({
+    status: "in_progress",
+    startedAt: new Date().toISOString(),
+    rootDir,
+    instanceName: instance.instanceName,
+    action: instance.action,
+    kjHome: settings.kjHome
+  });
 
   if (instance.action === "replace") {
     console.log(`Reemplazando instancia '${instance.instanceName}'...`);
     await fs.rm(settings.kjHome, { recursive: true, force: true });
     await fs.rm(path.join(rootDir, "kj.config.yml"), { force: true });
     await fs.rm(path.join(rootDir, "review-rules.md"), { force: true });
+  }
+
+  const missingAgents = await checkSelectedAgents(settings);
+  if (missingAgents.length > 0) {
+    console.warn("\nWARNING: Faltan CLIs de IA seleccionados. La instalacion continua, pero kj fallara al ejecutar esos agentes.\n");
+    for (const item of missingAgents) {
+      console.warn(`- ${item.agent}: comando '${item.bin}' no encontrado`);
+      console.warn(`  Instala aqui: ${item.installUrl}`);
+    }
+    console.warn("");
   }
 
   if (settings.linkGlobal) {
@@ -547,6 +640,7 @@ async function main() {
     updatedAt: new Date().toISOString()
   };
   await saveRegistry(registry);
+  await clearInstallState();
 
   console.log("\nSetup completed.\n");
   console.log(`- Instance: ${instance.instanceName}`);

@@ -16,11 +16,15 @@ The installer asks for:
   - `actualizar (editar configuracion de una instancia existente)`
   - `reemplazar (eliminar lo que hay y configurarlo todo de nuevo)`
   - `anadir nueva (crear otra instancia mas de KJ)`
+- if an interrupted install is detected:
+  - `continuar (retomar e intentar completar desde el estado actual)`
+  - `comenzar desde el principio (borrando lo generado para esa instancia)`
 - SonarQube host and token bootstrap
 - Default coder/reviewer/fallback
 - `KJ_HOME` path
 - Automatic MCP registration in Claude and Codex config files
 - Optional `kj doctor` execution
+- Checks selected AI CLIs; if missing, warns with install URLs (does not block install)
 
 After installation:
 

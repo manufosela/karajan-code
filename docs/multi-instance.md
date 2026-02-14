@@ -28,6 +28,10 @@ Nota: `scripts/install.sh` ahora detecta instancias existentes y pregunta:
 - `reemplazar (eliminar lo que hay y configurarlo todo de nuevo)`
 - `anadir nueva (crear otra instancia mas de KJ)`
 
+Si detecta una instalacion interrumpida, pregunta:
+- `continuar (retomar e intentar completar desde el estado actual)`
+- `comenzar desde el principio (borrando lo generado para esa instancia)`
+
 ## 1) Idea rapida
 
 Karajan guarda estado en `KJ_HOME`:
