@@ -44,6 +44,12 @@ kj run "Implement authentication flow" --coder codex --reviewer claude
 
 You can also pass the same values via environment variables (see `node scripts/install.js --help`).
 
+### Multi-instance setup (personal/pro)
+
+Full guide (step by step, with ready-to-copy examples):
+
+- `docs/multi-instance.md`
+
 ## Commands
 
 - `kj init`
