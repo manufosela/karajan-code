@@ -12,6 +12,10 @@ cd karajan-code
 ```
 
 The installer asks for:
+- if previous instances exist, action:
+  - `actualizar (editar configuracion de una instancia existente)`
+  - `reemplazar (eliminar lo que hay y configurarlo todo de nuevo)`
+  - `anadir nueva (crear otra instancia mas de KJ)`
 - SonarQube host and token bootstrap
 - Default coder/reviewer/fallback
 - `KJ_HOME` path

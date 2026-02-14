@@ -7,6 +7,7 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
 const rl = readline.createInterface({ input, output });
+const REGISTRY_PATH = path.join(os.homedir(), ".karajan", "instances.json");
 
 function printHeader() {
   console.log("\nKarajan Code Installer\n");
@@ -19,6 +20,8 @@ function printHelp() {
 
 Options:
   --non-interactive               Run without prompts (CI-friendly)
+  --instance-name <name>          Instance name (default: default)
+  --instance-action <mode>        add | update | replace
   --link-global <bool>            Run npm link (default: true interactive, false non-interactive)
   --kj-home <path>                KJ_HOME path
   --sonar-host <url>              SonarQube host (default: http://localhost:9000)
@@ -37,6 +40,8 @@ Options:
 
 Environment variable equivalents:
   KJ_INSTALL_NON_INTERACTIVE
+  KJ_INSTALL_INSTANCE_NAME
+  KJ_INSTALL_INSTANCE_ACTION
   KJ_INSTALL_LINK_GLOBAL
   KJ_INSTALL_KJ_HOME
   KJ_INSTALL_SONAR_HOST
@@ -164,6 +169,19 @@ async function askBool(question, defaultYes = true) {
   return ["y", "yes", "s", "si"].includes(raw);
 }
 
+async function askChoice(question, options) {
+  console.log(question);
+  for (let i = 0; i < options.length; i += 1) {
+    console.log(`${i + 1}) ${options[i].label}`);
+  }
+  const raw = (await rl.question("Selecciona una opcion: ")).trim();
+  const idx = Number(raw) - 1;
+  if (!Number.isFinite(idx) || idx < 0 || idx >= options.length) {
+    return options[0].value;
+  }
+  return options[idx].value;
+}
+
 async function readJson(file) {
   const raw = await fs.readFile(file, "utf8");
   return JSON.parse(raw);
@@ -172,6 +190,18 @@ async function readJson(file) {
 async function writeJson(file, obj) {
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, `${JSON.stringify(obj, null, 2)}\n`, "utf8");
+}
+
+async function loadRegistry() {
+  try {
+    return await readJson(REGISTRY_PATH);
+  } catch {
+    return { instances: {} };
+  }
+}
+
+async function saveRegistry(registry) {
+  await writeJson(REGISTRY_PATH, registry);
 }
 
 function upsertCodexMcpBlock(toml, block) {
@@ -289,113 +319,129 @@ async function bootstrapKjConfig({ rootDir, kjHome, sonarToken, sonarHost, coder
   return configPath;
 }
 
-async function collectSettings(rootDir, parsedArgs) {
-  const kjHomeDefault = path.join(rootDir, ".karajan");
-  const nonInteractive = parseBool(
-    pickSetting({
-      cli: parsedArgs,
-      cliKey: "nonInteractive",
-      envKey: "KJ_INSTALL_NON_INTERACTIVE",
-      fallback: false
-    }),
-    false
-  );
+async function resolveInstance(rootDir, parsedArgs, registry, nonInteractive) {
+  const existingNames = Object.keys(registry.instances || {});
+
+  if (nonInteractive) {
+    const instanceName = String(
+      pickSetting({ cli: parsedArgs, cliKey: "instanceName", envKey: "KJ_INSTALL_INSTANCE_NAME", fallback: "default" })
+    );
+    const action = String(
+      pickSetting({ cli: parsedArgs, cliKey: "instanceAction", envKey: "KJ_INSTALL_INSTANCE_ACTION", fallback: "" })
+    );
+    const exists = Boolean(registry.instances?.[instanceName]);
+    const resolvedAction = action || (exists ? "update" : "add");
+
+    if (!["add", "update", "replace"].includes(resolvedAction)) {
+      throw new Error("--instance-action must be one of: add, update, replace");
+    }
+    if (resolvedAction === "add" && exists) {
+      throw new Error(`Instance '${instanceName}' already exists. Use --instance-action update|replace`);
+    }
+    if ((resolvedAction === "update" || resolvedAction === "replace") && !exists) {
+      throw new Error(`Instance '${instanceName}' does not exist. Use --instance-action add`);
+    }
+
+    const defaultKjHome = exists
+      ? registry.instances[instanceName].kjHome
+      : path.join(rootDir, instanceName === "default" ? ".karajan" : `.karajan-${instanceName}`);
+
+    return { instanceName, action: resolvedAction, defaultKjHome, existing: registry.instances[instanceName] || null };
+  }
+
+  if (existingNames.length === 0) {
+    const instanceName = await ask("Nombre de instancia", "default");
+    const defaultKjHome = path.join(rootDir, instanceName === "default" ? ".karajan" : `.karajan-${instanceName}`);
+    return { instanceName, action: "add", defaultKjHome, existing: null };
+  }
+
+  console.log("\nInstancias detectadas:");
+  for (const name of existingNames) {
+    const item = registry.instances[name];
+    console.log(`- ${name} (KJ_HOME: ${item.kjHome})`);
+  }
+
+  const action = await askChoice("\nSe detecta una instalacion previa. ¿Que quieres hacer?", [
+    { value: "update", label: "actualizar (editar configuracion de una instancia existente)" },
+    { value: "replace", label: "reemplazar (eliminar lo que hay y configurarlo todo de nuevo)" },
+    { value: "add", label: "anadir nueva (crear otra instancia mas de KJ)" }
+  ]);
+
+  if (action === "add") {
+    const suggested = `instance-${existingNames.length + 1}`;
+    const instanceName = await ask("Nombre de nueva instancia", suggested);
+    if (registry.instances[instanceName]) {
+      throw new Error(`La instancia '${instanceName}' ya existe.`);
+    }
+    const defaultKjHome = path.join(rootDir, `.karajan-${instanceName}`);
+    return { instanceName, action, defaultKjHome, existing: null };
+  }
+
+  const selected = await ask("Instancia objetivo", existingNames[0]);
+  if (!registry.instances[selected]) {
+    throw new Error(`No existe la instancia '${selected}'.`);
+  }
+  return {
+    instanceName: selected,
+    action,
+    defaultKjHome: registry.instances[selected].kjHome,
+    existing: registry.instances[selected]
+  };
+}
+
+async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteractive) {
+  const defaults = {
+    linkGlobal: nonInteractive ? false : true,
+    kjHome: instanceContext.defaultKjHome,
+    sonarHost: instanceContext.existing?.sonarHost || "http://localhost:9000",
+    createSonarToken: false,
+    sonarUser: "admin",
+    sonarPassword: "",
+    sonarTokenName: "karajan-cli",
+    sonarToken: "",
+    coder: instanceContext.existing?.coder || "codex",
+    reviewer: instanceContext.existing?.reviewer || "claude",
+    reviewerFallback: instanceContext.existing?.reviewerFallback || "codex",
+    setupMcpClaude: true,
+    setupMcpCodex: true,
+    runDoctor: true
+  };
 
   if (nonInteractive) {
     return {
-      nonInteractive,
-      linkGlobal: parseBool(
-        pickSetting({ cli: parsedArgs, cliKey: "linkGlobal", envKey: "KJ_INSTALL_LINK_GLOBAL", fallback: false }),
-        false
-      ),
-      kjHome: pickSetting({ cli: parsedArgs, cliKey: "kjHome", envKey: "KJ_INSTALL_KJ_HOME", fallback: kjHomeDefault }),
-      sonarHost: pickSetting({
-        cli: parsedArgs,
-        cliKey: "sonarHost",
-        envKey: "KJ_INSTALL_SONAR_HOST",
-        fallback: "http://localhost:9000"
-      }),
-      createSonarToken: parseBool(
-        pickSetting({
-          cli: parsedArgs,
-          cliKey: "generateSonarToken",
-          envKey: "KJ_INSTALL_GENERATE_SONAR_TOKEN",
-          fallback: false
-        }),
-        false
-      ),
-      sonarUser: pickSetting({ cli: parsedArgs, cliKey: "sonarUser", envKey: "KJ_INSTALL_SONAR_USER", fallback: "admin" }),
-      sonarPassword: pickSetting({
-        cli: parsedArgs,
-        cliKey: "sonarPassword",
-        envKey: "KJ_INSTALL_SONAR_PASSWORD",
-        fallback: ""
-      }),
-      sonarTokenName: pickSetting({
-        cli: parsedArgs,
-        cliKey: "sonarTokenName",
-        envKey: "KJ_INSTALL_SONAR_TOKEN_NAME",
-        fallback: "karajan-cli"
-      }),
-      sonarToken: pickSetting({ cli: parsedArgs, cliKey: "sonarToken", envKey: "KJ_SONAR_TOKEN", fallback: "" }),
-      coder: pickSetting({ cli: parsedArgs, cliKey: "coder", envKey: "KJ_INSTALL_CODER", fallback: "codex" }),
-      reviewer: pickSetting({ cli: parsedArgs, cliKey: "reviewer", envKey: "KJ_INSTALL_REVIEWER", fallback: "claude" }),
-      reviewerFallback: pickSetting({
-        cli: parsedArgs,
-        cliKey: "reviewerFallback",
-        envKey: "KJ_INSTALL_REVIEWER_FALLBACK",
-        fallback: "codex"
-      }),
-      setupMcpClaude: parseBool(
-        pickSetting({
-          cli: parsedArgs,
-          cliKey: "setupMcpClaude",
-          envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE",
-          fallback: true
-        }),
-        true
-      ),
-      setupMcpCodex: parseBool(
-        pickSetting({
-          cli: parsedArgs,
-          cliKey: "setupMcpCodex",
-          envKey: "KJ_INSTALL_SETUP_MCP_CODEX",
-          fallback: true
-        }),
-        true
-      ),
-      runDoctor: parseBool(
-        pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: true }),
-        true
-      )
+      linkGlobal: parseBool(pickSetting({ cli: parsedArgs, cliKey: "linkGlobal", envKey: "KJ_INSTALL_LINK_GLOBAL", fallback: defaults.linkGlobal }), defaults.linkGlobal),
+      kjHome: pickSetting({ cli: parsedArgs, cliKey: "kjHome", envKey: "KJ_INSTALL_KJ_HOME", fallback: defaults.kjHome }),
+      sonarHost: pickSetting({ cli: parsedArgs, cliKey: "sonarHost", envKey: "KJ_INSTALL_SONAR_HOST", fallback: defaults.sonarHost }),
+      createSonarToken: parseBool(pickSetting({ cli: parsedArgs, cliKey: "generateSonarToken", envKey: "KJ_INSTALL_GENERATE_SONAR_TOKEN", fallback: defaults.createSonarToken }), defaults.createSonarToken),
+      sonarUser: pickSetting({ cli: parsedArgs, cliKey: "sonarUser", envKey: "KJ_INSTALL_SONAR_USER", fallback: defaults.sonarUser }),
+      sonarPassword: pickSetting({ cli: parsedArgs, cliKey: "sonarPassword", envKey: "KJ_INSTALL_SONAR_PASSWORD", fallback: defaults.sonarPassword }),
+      sonarTokenName: pickSetting({ cli: parsedArgs, cliKey: "sonarTokenName", envKey: "KJ_INSTALL_SONAR_TOKEN_NAME", fallback: defaults.sonarTokenName }),
+      sonarToken: pickSetting({ cli: parsedArgs, cliKey: "sonarToken", envKey: "KJ_SONAR_TOKEN", fallback: defaults.sonarToken }),
+      coder: pickSetting({ cli: parsedArgs, cliKey: "coder", envKey: "KJ_INSTALL_CODER", fallback: defaults.coder }),
+      reviewer: pickSetting({ cli: parsedArgs, cliKey: "reviewer", envKey: "KJ_INSTALL_REVIEWER", fallback: defaults.reviewer }),
+      reviewerFallback: pickSetting({ cli: parsedArgs, cliKey: "reviewerFallback", envKey: "KJ_INSTALL_REVIEWER_FALLBACK", fallback: defaults.reviewerFallback }),
+      setupMcpClaude: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpClaude", envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE", fallback: defaults.setupMcpClaude }), defaults.setupMcpClaude),
+      setupMcpCodex: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpCodex", envKey: "KJ_INSTALL_SETUP_MCP_CODEX", fallback: defaults.setupMcpCodex }), defaults.setupMcpCodex),
+      runDoctor: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor)
     };
   }
 
-  const settings = {};
-  settings.nonInteractive = false;
-  settings.linkGlobal = await askBool("Link karajan binaries globally with npm link", true);
-  settings.kjHome = await ask("KJ_HOME directory", kjHomeDefault);
-  settings.sonarHost = await ask("SonarQube host", "http://localhost:9000");
-  settings.createSonarToken = await askBool("Generate Sonar token now with admin credentials", true);
-  settings.sonarUser = "admin";
-  settings.sonarPassword = "";
-  settings.sonarTokenName = "karajan-cli";
-  settings.sonarToken = "";
-  if (settings.createSonarToken) {
-    settings.sonarUser = await ask("Sonar username", "admin");
-    settings.sonarPassword = await ask("Sonar password", "");
-    settings.sonarTokenName = await ask("Sonar token name", "karajan-cli");
-  } else {
-    settings.sonarToken = await ask("Paste existing KJ_SONAR_TOKEN (optional)", "");
-  }
-
-  settings.coder = await ask("Default coder", "codex");
-  settings.reviewer = await ask("Default reviewer", "claude");
-  settings.reviewerFallback = await ask("Reviewer fallback", "codex");
-  settings.setupMcpClaude = await askBool("Configure Claude MCP automatically", true);
-  settings.setupMcpCodex = await askBool("Configure Codex MCP automatically", true);
-  settings.runDoctor = await askBool("Run kj doctor now", true);
-  return settings;
+  return {
+    linkGlobal: await askBool("Link karajan binaries globally with npm link", defaults.linkGlobal),
+    kjHome: await ask("KJ_HOME directory", defaults.kjHome),
+    sonarHost: await ask("SonarQube host", defaults.sonarHost),
+    createSonarToken: await askBool("Generate Sonar token now with admin credentials", defaults.createSonarToken),
+    sonarUser: await ask("Sonar username", defaults.sonarUser),
+    sonarPassword: await ask("Sonar password", defaults.sonarPassword),
+    sonarTokenName: await ask("Sonar token name", defaults.sonarTokenName),
+    sonarToken: await ask("Paste existing KJ_SONAR_TOKEN (optional)", defaults.sonarToken),
+    coder: await ask("Default coder", defaults.coder),
+    reviewer: await ask("Default reviewer", defaults.reviewer),
+    reviewerFallback: await ask("Reviewer fallback", defaults.reviewerFallback),
+    setupMcpClaude: await askBool("Configure Claude MCP automatically", defaults.setupMcpClaude),
+    setupMcpCodex: await askBool("Configure Codex MCP automatically", defaults.setupMcpCodex),
+    runDoctor: await askBool("Run kj doctor now", defaults.runDoctor)
+  };
 }
 
 async function main() {
@@ -408,14 +454,16 @@ async function main() {
   printHeader();
 
   const rootDir = process.cwd();
+  const nonInteractive = parseBool(
+    pickSetting({ cli: parsedArgs, cliKey: "nonInteractive", envKey: "KJ_INSTALL_NON_INTERACTIVE", fallback: false }),
+    false
+  );
 
   console.log("Checking base requirements...");
   const required = ["node", "npm", "git", "docker", "curl"];
   for (const cmd of required) {
     const ok = await ensureCommand(cmd);
-    if (!ok) {
-      throw new Error(`Missing required command: ${cmd}`);
-    }
+    if (!ok) throw new Error(`Missing required command: ${cmd}`);
   }
 
   const codexOk = await ensureCommand("codex");
@@ -428,7 +476,16 @@ async function main() {
   let res = await run("npm", ["install"], { cwd: rootDir });
   if (res.exitCode !== 0) throw new Error(res.stderr || res.stdout || "npm install failed");
 
-  const settings = await collectSettings(rootDir, parsedArgs);
+  const registry = await loadRegistry();
+  const instance = await resolveInstance(rootDir, parsedArgs, registry, nonInteractive);
+  const settings = await collectSettings(rootDir, parsedArgs, instance, nonInteractive);
+
+  if (instance.action === "replace") {
+    console.log(`Reemplazando instancia '${instance.instanceName}'...`);
+    await fs.rm(settings.kjHome, { recursive: true, force: true });
+    await fs.rm(path.join(rootDir, "kj.config.yml"), { force: true });
+    await fs.rm(path.join(rootDir, "review-rules.md"), { force: true });
+  }
 
   if (settings.linkGlobal) {
     res = await run("npm", ["link"], { cwd: rootDir });
@@ -438,7 +495,7 @@ async function main() {
   let sonarToken = settings.sonarToken || "";
   if (settings.createSonarToken) {
     if (!settings.sonarPassword) {
-      if (settings.nonInteractive) {
+      if (nonInteractive) {
         throw new Error("Non-interactive mode requires --sonar-password when --generate-sonar-token=true");
       }
       console.log("No Sonar password provided. Skipping automatic token generation.");
@@ -466,14 +523,10 @@ async function main() {
   });
 
   let claudePath = "";
-  if (settings.setupMcpClaude) {
-    claudePath = await setupClaudeMcp({ rootDir, kjHome: settings.kjHome });
-  }
+  if (settings.setupMcpClaude) claudePath = await setupClaudeMcp({ rootDir, kjHome: settings.kjHome });
 
   let codexPath = "";
-  if (settings.setupMcpCodex) {
-    codexPath = await setupCodexMcp({ rootDir, kjHome: settings.kjHome });
-  }
+  if (settings.setupMcpCodex) codexPath = await setupCodexMcp({ rootDir, kjHome: settings.kjHome });
 
   if (settings.runDoctor) {
     const env = { ...process.env, KJ_HOME: settings.kjHome };
@@ -482,11 +535,27 @@ async function main() {
     console.log(doctor.stdout || doctor.stderr);
   }
 
+  registry.instances = registry.instances || {};
+  registry.instances[instance.instanceName] = {
+    name: instance.instanceName,
+    kjHome: settings.kjHome,
+    sonarHost: settings.sonarHost,
+    coder: settings.coder,
+    reviewer: settings.reviewer,
+    reviewerFallback: settings.reviewerFallback,
+    repoPath: rootDir,
+    updatedAt: new Date().toISOString()
+  };
+  await saveRegistry(registry);
+
   console.log("\nSetup completed.\n");
+  console.log(`- Instance: ${instance.instanceName}`);
+  console.log(`- Action: ${instance.action}`);
   console.log(`- Env file: ${envPath}`);
   console.log(`- Project config: ${configPath}`);
   if (claudePath) console.log(`- Claude MCP configured: ${claudePath}`);
   if (codexPath) console.log(`- Codex MCP configured: ${codexPath}`);
+  console.log(`- Registry: ${REGISTRY_PATH}`);
   console.log("\nBefore opening Claude/Codex, load environment variables in your shell:");
   console.log(`  source ${envPath}`);
   console.log("\nThen you can ask either assistant to run tasks through MCP tools (kj_run, kj_scan, ...).\n");

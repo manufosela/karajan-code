@@ -23,6 +23,11 @@ Este script:
 
 Luego solo reinicias Claude/Codex.
 
+Nota: `scripts/install.sh` ahora detecta instancias existentes y pregunta:
+- `actualizar (editar configuracion de una instancia existente)`
+- `reemplazar (eliminar lo que hay y configurarlo todo de nuevo)`
+- `anadir nueva (crear otra instancia mas de KJ)`
+
 ## 1) Idea rapida
 
 Karajan guarda estado en `KJ_HOME`:
