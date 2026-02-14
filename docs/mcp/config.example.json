@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "karajan-mcp": {
+      "command": "node",
+      "args": ["/ABSOLUTE/PATH/TO/karajan-code/src/mcp/server.js"],
+      "cwd": "/ABSOLUTE/PATH/TO/karajan-code",
+      "env": {
+        "KJ_HOME": "/ABSOLUTE/PATH/TO/karajan-code/.karajan"
+      }
+    }
+  }
+}

@@ -4,15 +4,18 @@
   "description": "Local multi-agent coding orchestrator",
   "type": "module",
   "bin": {
-    "kj": "./src/cli.js"
+    "kj": "./src/cli.js",
+    "karajan-mcp": "./src/mcp/server.js"
   },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
-    "validate": "npm run lint && npm test"
+    "validate": "npm run lint && npm test",
+    "mcp": "node src/mcp/server.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "commander": "^14.0.0",
     "execa": "^9.6.0",
     "js-yaml": "^4.1.0"
