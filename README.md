@@ -5,11 +5,24 @@ Local CLI to orchestrate two coding agents with SonarQube and an automated revie
 ## Quick start
 
 ```bash
-npm install
-npm link
-kj init
-kj doctor
-kj run "Implement authentication flow"
+git clone git@github.com:manufosela/karajan-code.git
+cd karajan-code
+./scripts/install.sh
+# or: npm run setup
+```
+
+The installer asks for:
+- SonarQube host and token bootstrap
+- Default coder/reviewer/fallback
+- `KJ_HOME` path
+- Automatic MCP registration in Claude and Codex config files
+- Optional `kj doctor` execution
+
+After installation:
+
+```bash
+source .karajan/karajan.env
+kj run "Implement authentication flow" --coder codex --reviewer claude
 ```
 
 ## Commands
