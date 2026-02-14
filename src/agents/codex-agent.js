@@ -13,7 +13,7 @@ export class CodexAgent extends BaseAgent {
 
   async reviewTask(task) {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
-    const res = await runCommand("codex", ["exec", "--json", task.prompt], { timeout });
+    const res = await runCommand("codex", ["exec", task.prompt], { timeout });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 }

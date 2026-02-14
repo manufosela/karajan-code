@@ -47,6 +47,25 @@ function parseJsonOutput(raw) {
   return null;
 }
 
+function parseMaybeJsonString(value) {
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    const start = value.indexOf("{");
+    const end = value.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      const candidate = value.slice(start, end + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 function normalizeReviewPayload(payload) {
   if (!payload) return null;
 
@@ -63,24 +82,17 @@ function normalizeReviewPayload(payload) {
 
       const nested = item?.result || item?.message?.content?.[0]?.text;
       if (typeof nested === "string") {
-        try {
-          const parsedNested = JSON.parse(nested);
-          if (parsedNested?.approved !== undefined) return parsedNested;
-        } catch {
-          continue;
-        }
+        const parsedNested = parseMaybeJsonString(nested);
+        if (parsedNested?.approved !== undefined) return parsedNested;
       }
     }
     return null;
   }
 
   if (typeof payload.result === "string") {
-    try {
-      const parsedResult = JSON.parse(payload.result);
-      if (parsedResult?.approved !== undefined) return parsedResult;
-    } catch {
-      return null;
-    }
+    const parsedResult = parseMaybeJsonString(payload.result);
+    if (parsedResult?.approved !== undefined) return parsedResult;
+    return null;
   }
 
   return null;
@@ -94,9 +106,39 @@ async function readReviewRules(path) {
   }
 }
 
+async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration }) {
+  const fallbackReviewer = config.reviewer_options?.fallback_reviewer;
+  const retries = Math.max(0, Number(config.reviewer_options?.retries ?? 1));
+  const candidates = [reviewerName];
+  if (fallbackReviewer && fallbackReviewer !== reviewerName) {
+    candidates.push(fallbackReviewer);
+  }
+
+  const attempts = [];
+  for (const name of candidates) {
+    const reviewer = createAgent(name, config, logger);
+    for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
+      const result = await reviewer.reviewTask({ prompt });
+      attempts.push({ reviewer: name, attempt, ok: result.ok, result });
+      await addCheckpoint(session, {
+        stage: "reviewer-attempt",
+        iteration,
+        reviewer: name,
+        attempt,
+        ok: result.ok
+      });
+
+      if (result.ok) {
+        return { result, attempts };
+      }
+    }
+  }
+
+  return { result: null, attempts };
+}
+
 export async function runFlow({ task, config, logger, flags = {} }) {
   const coder = createAgent(config.coder, config, logger);
-  const reviewer = createAgent(config.reviewer, config, logger);
 
   const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
   const session = await createSession({
@@ -170,14 +212,26 @@ export async function runFlow({ task, config, logger, flags = {} }) {
       reviewRules,
       mode: config.review_mode
     });
-    const reviewerResult = await reviewer.reviewTask({ prompt: reviewerPrompt });
-    if (!reviewerResult.ok) {
+    const reviewerExec = await runReviewerWithFallback({
+      reviewerName: config.reviewer,
+      config,
+      logger,
+      prompt: reviewerPrompt,
+      session,
+      iteration: i
+    });
+
+    if (!reviewerExec.result || !reviewerExec.result.ok) {
       await markSessionStatus(session, "failed");
-      const details = reviewerResult.error || reviewerResult.output || `exitCode=${reviewerResult.exitCode ?? "unknown"}`;
+      const lastAttempt = reviewerExec.attempts.at(-1);
+      const details =
+        lastAttempt?.result?.error ||
+        lastAttempt?.result?.output ||
+        `reviewer=${lastAttempt?.reviewer || "unknown"} exitCode=${lastAttempt?.result?.exitCode ?? "unknown"}`;
       throw new Error(`Reviewer failed: ${details}`);
     }
 
-    const parsed = parseJsonOutput(reviewerResult.output);
+    const parsed = parseJsonOutput(reviewerExec.result.output);
     if (!parsed) {
       await markSessionStatus(session, "failed");
       throw new Error("Reviewer output is not valid JSON");

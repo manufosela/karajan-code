@@ -52,6 +52,8 @@ program
   .option("--max-total-minutes <n>")
   .option("--base-branch <name>")
   .option("--base-ref <ref>")
+  .option("--reviewer-fallback <name>")
+  .option("--reviewer-retries <n>")
   .option("--no-sonar")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {

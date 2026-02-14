@@ -7,7 +7,8 @@ describe("applyRunOverrides", () => {
       review_mode: "standard",
       base_branch: "main",
       sonarqube: { enabled: true },
-      session: { max_iteration_minutes: 20, max_total_minutes: 120 }
+      session: { max_iteration_minutes: 20, max_total_minutes: 120 },
+      reviewer_options: { fallback_reviewer: "codex" }
     };
 
     const out = applyRunOverrides(base, {
@@ -15,7 +16,9 @@ describe("applyRunOverrides", () => {
       baseBranch: "develop",
       noSonar: true,
       maxIterationMinutes: 1,
-      maxTotalMinutes: 15
+      maxTotalMinutes: 15,
+      reviewerFallback: "gemini",
+      reviewerRetries: 0
     });
 
     expect(out.review_mode).toBe("paranoid");
@@ -23,5 +26,7 @@ describe("applyRunOverrides", () => {
     expect(out.sonarqube.enabled).toBe(false);
     expect(out.session.max_iteration_minutes).toBe(1);
     expect(out.session.max_total_minutes).toBe(15);
+    expect(out.reviewer_options.fallback_reviewer).toBe("gemini");
+    expect(out.reviewer_options.retries).toBe(0);
   });
 });

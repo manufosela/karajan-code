@@ -18,6 +18,9 @@ reviewer_options:
   output_format: json
   require_schema: true
   model: null
+  deterministic: true
+  retries: 1
+  fallback_reviewer: codex
 
 # SonarQube settings
 sonarqube:
@@ -53,7 +56,7 @@ output:
 
 # Session limits
 session:
-  max_iteration_minutes: 20
+  max_iteration_minutes: 5
   max_total_minutes: 120
   max_budget_usd: null
   fail_fast_repeats: 2

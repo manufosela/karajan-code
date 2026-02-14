@@ -11,7 +11,14 @@ const DEFAULTS = {
   review_rules: "./review-rules.md",
   base_branch: "main",
   coder_options: { model: null, auto_approve: true },
-  reviewer_options: { output_format: "json", require_schema: true, model: null },
+  reviewer_options: {
+    output_format: "json",
+    require_schema: true,
+    model: null,
+    deterministic: true,
+    retries: 1,
+    fallback_reviewer: "codex"
+  },
   sonarqube: {
     enabled: true,
     host: "http://localhost:9000",
@@ -31,7 +38,7 @@ const DEFAULTS = {
   },
   git: { auto_commit: false, auto_push: false, auto_pr: false, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
-  session: { max_iteration_minutes: 20, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
+  session: { max_iteration_minutes: 5, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
 };
 
 function mergeDeep(base, override) {
@@ -77,6 +84,8 @@ export function applyRunOverrides(config, flags) {
   if (flags.maxIterationMinutes) out.session.max_iteration_minutes = Number(flags.maxIterationMinutes);
   if (flags.maxTotalMinutes) out.session.max_total_minutes = Number(flags.maxTotalMinutes);
   if (flags.baseBranch) out.base_branch = flags.baseBranch;
+  if (flags.reviewerFallback) out.reviewer_options.fallback_reviewer = flags.reviewerFallback;
+  if (flags.reviewerRetries !== undefined) out.reviewer_options.retries = Number(flags.reviewerRetries);
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
   return out;
 }
