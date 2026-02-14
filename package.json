@@ -8,6 +8,7 @@
     "karajan-mcp": "./src/mcp/server.js"
   },
   "scripts": {
+    "setup": "node scripts/install.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
