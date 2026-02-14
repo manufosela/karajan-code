@@ -53,6 +53,7 @@ You can also pass the same values via environment variables (see `node scripts/i
 Full guide (step by step, with ready-to-copy examples):
 
 - `docs/multi-instance.md`
+- `docs/install-two-instances.md` (bloques exactos para crear `personal` y `profesional`)
 
 One-command helper script:
 
