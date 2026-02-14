@@ -50,6 +50,12 @@ Full guide (step by step, with ready-to-copy examples):
 
 - `docs/multi-instance.md`
 
+One-command helper script:
+
+```bash
+./scripts/setup-multi-instance.sh
+```
+
 ## Commands
 
 - `kj init`

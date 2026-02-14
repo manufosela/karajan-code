@@ -6,6 +6,23 @@ Esta guia crea 2 instancias separadas de Karajan Code usando el mismo repo:
 
 No necesitas duplicar el proyecto. Solo separas estado y credenciales con `KJ_HOME`.
 
+## 0) Opcion rapida (script automatico)
+
+Si quieres hacerlo casi todo de una vez:
+
+```bash
+cd /home/tu-usuario/ws/karajan-code
+./scripts/setup-multi-instance.sh
+```
+
+Este script:
+- crea/configura instancia `personal` y `pro` con `scripts/install.sh --non-interactive`
+- configura MCP `karajan-personal` y `karajan-pro` en:
+  - `~/.claude/settings.json`
+  - `~/.codex/config.toml`
+
+Luego solo reinicias Claude/Codex.
+
 ## 1) Idea rapida
 
 Karajan guarda estado en `KJ_HOME`:
