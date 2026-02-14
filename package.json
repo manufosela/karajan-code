@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "node --check src/cli.js"
+    "lint": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
+    "validate": "npm run lint && npm test"
   },
   "dependencies": {
     "commander": "^14.0.0",
