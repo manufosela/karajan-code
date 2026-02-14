@@ -26,6 +26,11 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   addOptionalValue(args, "--max-total-minutes", options.maxTotalMinutes);
   addOptionalValue(args, "--base-branch", options.baseBranch);
   addOptionalValue(args, "--base-ref", options.baseRef);
+  addOptionalValue(args, "--branch-prefix", options.branchPrefix);
+  normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
+  normalizeBoolFlag(options.autoPush, "--auto-push", args);
+  normalizeBoolFlag(options.autoPr, "--auto-pr", args);
+  if (options.autoRebase === false) args.push("--no-auto-rebase");
   normalizeBoolFlag(options.noSonar, "--no-sonar", args);
 
   const runEnv = {

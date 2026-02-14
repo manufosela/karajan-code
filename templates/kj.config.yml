@@ -47,6 +47,7 @@ git:
   auto_commit: false
   auto_push: false
   auto_pr: false
+  auto_rebase: true
   branch_prefix: feat/
 
 # Output

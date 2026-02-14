@@ -78,6 +78,8 @@ One-command helper script:
 - Default mode is `standard` (critical/important focus).
 - Set `review_mode: paranoid` and `sonarqube.enforcement_profile: paranoid` for strict gate compliance.
 - Use env vars for secrets (`KJ_SONAR_TOKEN`, provider keys).
+- If `--auto-commit/--auto-push/--auto-pr` is enabled, `kj` enforces base branch sync and uses auto-rebase by default.
+- Disable automatic rebase only if needed with `--no-auto-rebase`.
 
 ## Use From Other Agents
 

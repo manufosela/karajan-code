@@ -54,6 +54,11 @@ program
   .option("--base-ref <ref>")
   .option("--reviewer-fallback <name>")
   .option("--reviewer-retries <n>")
+  .option("--auto-commit")
+  .option("--auto-push")
+  .option("--auto-pr")
+  .option("--branch-prefix <prefix>")
+  .option("--no-auto-rebase")
   .option("--no-sonar")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {

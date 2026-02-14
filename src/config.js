@@ -36,7 +36,7 @@ const DEFAULTS = {
     ignore_on: ["INFO"],
     max_scan_retries: 3
   },
-  git: { auto_commit: false, auto_push: false, auto_pr: false, branch_prefix: "feat/" },
+  git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
   session: { max_iteration_minutes: 5, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
 };
@@ -86,6 +86,11 @@ export function applyRunOverrides(config, flags) {
   if (flags.baseBranch) out.base_branch = flags.baseBranch;
   if (flags.reviewerFallback) out.reviewer_options.fallback_reviewer = flags.reviewerFallback;
   if (flags.reviewerRetries !== undefined) out.reviewer_options.retries = Number(flags.reviewerRetries);
+  if (flags.autoCommit !== undefined) out.git.auto_commit = Boolean(flags.autoCommit);
+  if (flags.autoPush !== undefined) out.git.auto_push = Boolean(flags.autoPush);
+  if (flags.autoPr !== undefined) out.git.auto_pr = Boolean(flags.autoPr);
+  if (flags.autoRebase !== undefined) out.git.auto_rebase = Boolean(flags.autoRebase);
+  if (flags.branchPrefix) out.git.branch_prefix = String(flags.branchPrefix);
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
   return out;
 }
