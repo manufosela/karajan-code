@@ -22,6 +22,16 @@ reviewer_options:
   retries: 1
   fallback_reviewer: codex
 
+# Development methodology
+development:
+  methodology: tdd
+  require_test_changes: true
+  test_file_patterns:
+    - /tests/
+    - /__tests__/
+    - .test.
+    - .spec.
+
 # SonarQube settings
 sonarqube:
   enabled: true

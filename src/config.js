@@ -19,6 +19,12 @@ const DEFAULTS = {
     retries: 1,
     fallback_reviewer: "codex"
   },
+  development: {
+    methodology: "tdd",
+    require_test_changes: true,
+    test_file_patterns: ["/tests/", "/__tests__/", ".test.", ".spec."],
+    source_file_extensions: [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"]
+  },
   sonarqube: {
     enabled: true,
     host: "http://localhost:9000",

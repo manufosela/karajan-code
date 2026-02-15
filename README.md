@@ -80,6 +80,7 @@ One-command helper script:
 ## Notes
 
 - Default mode is `standard` (critical/important focus).
+- Default development methodology is `TDD` (test-first). `kj` enforces test updates when source files change.
 - Set `review_mode: paranoid` and `sonarqube.enforcement_profile: paranoid` for strict gate compliance.
 - Use env vars for secrets (`KJ_SONAR_TOKEN`, provider keys).
 - If `--auto-commit/--auto-push/--auto-pr` is enabled, `kj` enforces base branch sync and uses auto-rebase by default.

@@ -3,6 +3,7 @@ import { createAgent } from "./agents/index.js";
 import { addCheckpoint, createSession, loadSession, markSessionStatus, saveSession } from "./session-store.js";
 import { computeBaseRef, generateDiff } from "./review/diff-generator.js";
 import { validateReviewResult } from "./review/schema.js";
+import { evaluateTddPolicy } from "./review/tdd-policy.js";
 import { buildCoderPrompt } from "./prompts/coder.js";
 import { buildReviewerPrompt } from "./prompts/reviewer.js";
 import { getOpenIssues, getQualityGateStatus } from "./sonar/api.js";
@@ -257,7 +258,8 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     const coderPrompt = buildCoderPrompt({
       task,
       reviewerFeedback: session.last_reviewer_feedback,
-      sonarSummary: session.last_sonar_summary
+      sonarSummary: session.last_sonar_summary,
+      methodology: config.development?.methodology || "tdd"
     });
     const coderResult = await coder.runTask({ prompt: coderPrompt });
     if (!coderResult.ok) {
@@ -267,6 +269,28 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     }
 
     await addCheckpoint(session, { stage: "coder", iteration: i, note: "Coder applied changes" });
+
+    const tddDiff = await generateDiff({ baseRef: session.session_start_sha });
+    const tddEval = evaluateTddPolicy(tddDiff, config.development);
+    await addCheckpoint(session, {
+      stage: "tdd-policy",
+      iteration: i,
+      ok: tddEval.ok,
+      reason: tddEval.reason,
+      source_files: tddEval.sourceFiles?.length || 0,
+      test_files: tddEval.testFiles?.length || 0
+    });
+
+    if (!tddEval.ok) {
+      session.last_reviewer_feedback = tddEval.message;
+      session.repeated_issue_count += 1;
+      await saveSession(session);
+      if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
+        await markSessionStatus(session, "failed");
+        throw new Error("Fail-fast triggered: repeated TDD policy violations");
+      }
+      continue;
+    }
 
     if (config.sonarqube.enabled) {
       const scan = await runSonarScan(config);

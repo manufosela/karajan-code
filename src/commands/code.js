@@ -5,7 +5,7 @@ import { buildCoderPrompt } from "../prompts/coder.js";
 export async function codeCommand({ task, config, logger }) {
   await assertAgentsAvailable([config.coder]);
   const coder = createAgent(config.coder, config, logger);
-  const prompt = buildCoderPrompt({ task });
+  const prompt = buildCoderPrompt({ task, methodology: config.development?.methodology || "tdd" });
   const result = await coder.runTask({ prompt });
   if (!result.ok) {
     throw new Error(result.error || result.output || "Coder failed");
