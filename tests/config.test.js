@@ -9,6 +9,7 @@ describe("applyRunOverrides", () => {
       sonarqube: { enabled: true },
       session: { max_iteration_minutes: 20, max_total_minutes: 120 },
       reviewer_options: { fallback_reviewer: "codex" },
+      development: { methodology: "tdd", require_test_changes: true },
       git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" }
     };
 
@@ -24,7 +25,8 @@ describe("applyRunOverrides", () => {
       autoPush: true,
       autoPr: true,
       autoRebase: false,
-      branchPrefix: "chore/"
+      branchPrefix: "chore/",
+      methodology: "standard"
     });
 
     expect(out.review_mode).toBe("paranoid");
@@ -39,5 +41,7 @@ describe("applyRunOverrides", () => {
     expect(out.git.auto_pr).toBe(true);
     expect(out.git.auto_rebase).toBe(false);
     expect(out.git.branch_prefix).toBe("chore/");
+    expect(out.development.methodology).toBe("standard");
+    expect(out.development.require_test_changes).toBe(false);
   });
 });

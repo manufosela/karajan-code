@@ -97,6 +97,12 @@ export function applyRunOverrides(config, flags) {
   if (flags.autoPr !== undefined) out.git.auto_pr = Boolean(flags.autoPr);
   if (flags.autoRebase !== undefined) out.git.auto_rebase = Boolean(flags.autoRebase);
   if (flags.branchPrefix) out.git.branch_prefix = String(flags.branchPrefix);
+  if (flags.methodology) {
+    const methodology = String(flags.methodology).toLowerCase();
+    out.development = out.development || {};
+    out.development.methodology = methodology;
+    out.development.require_test_changes = methodology === "tdd";
+  }
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
   return out;
 }
@@ -105,6 +111,9 @@ export function validateConfig(config, commandName = "run") {
   const errors = [];
   if (!["paranoid", "strict", "standard", "relaxed", "custom"].includes(config.review_mode)) {
     errors.push(`Invalid review_mode: ${config.review_mode}`);
+  }
+  if (!["tdd", "standard"].includes(config.development?.methodology)) {
+    errors.push(`Invalid development.methodology: ${config.development?.methodology}`);
   }
 
   if (commandName === "run") {

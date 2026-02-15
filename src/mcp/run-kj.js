@@ -27,6 +27,7 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   addOptionalValue(args, "--base-branch", options.baseBranch);
   addOptionalValue(args, "--base-ref", options.baseRef);
   addOptionalValue(args, "--branch-prefix", options.branchPrefix);
+  addOptionalValue(args, "--methodology", options.methodology);
   normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
   normalizeBoolFlag(options.autoPush, "--auto-push", args);
   normalizeBoolFlag(options.autoPr, "--auto-pr", args);

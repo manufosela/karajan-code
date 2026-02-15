@@ -58,6 +58,7 @@ program
   .option("--auto-push")
   .option("--auto-pr")
   .option("--branch-prefix <prefix>")
+  .option("--methodology <name>")
   .option("--no-auto-rebase")
   .option("--no-sonar")
   .action(async (task, flags) => {

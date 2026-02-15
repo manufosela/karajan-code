@@ -30,7 +30,7 @@ After installation:
 
 ```bash
 source .karajan/karajan.env
-kj run "Implement authentication flow" --coder codex --reviewer claude
+kj run "Implement authentication flow" --coder codex --reviewer claude --methodology tdd
 ```
 
 ### Non-interactive setup (CI/automation)
@@ -81,6 +81,7 @@ One-command helper script:
 
 - Default mode is `standard` (critical/important focus).
 - Default development methodology is `TDD` (test-first). `kj` enforces test updates when source files change.
+- You can override per run with `--methodology tdd|standard` (for example, `--methodology standard`).
 - Set `review_mode: paranoid` and `sonarqube.enforcement_profile: paranoid` for strict gate compliance.
 - Use env vars for secrets (`KJ_SONAR_TOKEN`, provider keys).
 - If `--auto-commit/--auto-push/--auto-pr` is enabled, `kj` enforces base branch sync and uses auto-rebase by default.
@@ -97,7 +98,8 @@ kj run "Fix Sonar critical issues in auth module" \
   --coder codex \
   --reviewer claude \
   --reviewer-fallback codex \
-  --max-iteration-minutes 5
+  --max-iteration-minutes 5 \
+  --methodology tdd
 ```
 
 ### Option B: MCP Server (recommended for reusable tools)

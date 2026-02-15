@@ -156,6 +156,7 @@ const tools = [
         maxTotalMinutes: { type: "number" },
         baseBranch: { type: "string" },
         baseRef: { type: "string" },
+        methodology: { type: "string", enum: ["tdd", "standard"] },
         autoCommit: { type: "boolean" },
         autoPush: { type: "boolean" },
         autoPr: { type: "boolean" },
