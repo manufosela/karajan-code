@@ -1,7 +1,9 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
-const CLI_PATH = path.resolve(process.cwd(), "src", "cli.js");
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CLI_PATH = path.resolve(MODULE_DIR, "..", "cli.js");
 
 function normalizeBoolFlag(value, flagName, args) {
   if (value === true) args.push(flagName);
