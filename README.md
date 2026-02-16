@@ -77,6 +77,11 @@ One-command helper script:
 - `kj resume <session-id>`
 - `kj sonar status|start|stop|logs`
 
+## Agent Defaults
+
+- `CLAUDE.md`: comportamiento por defecto para Claude Code (`PG -> KJ` con `kj_run`).
+- `AGENTS.md`: comportamiento por defecto para Codex (`PG -> KJ` con `kj_run`).
+
 ## Notes
 
 - Default mode is `standard` (critical/important focus).
