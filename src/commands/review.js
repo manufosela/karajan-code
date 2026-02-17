@@ -6,6 +6,7 @@ import { buildReviewerPrompt } from "../prompts/reviewer.js";
 
 export async function reviewCommand({ task, config, logger, baseRef }) {
   await assertAgentsAvailable([config.reviewer, config.reviewer_options?.fallback_reviewer]);
+  logger.info(`Reviewer (${config.reviewer}) starting...`);
   const reviewer = createAgent(config.reviewer, config, logger);
   const resolvedBase = await computeBaseRef({ baseBranch: config.base_branch, baseRef });
   const diff = await generateDiff({ baseRef: resolvedBase });
@@ -17,9 +18,12 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
   }
 
   const prompt = buildReviewerPrompt({ task, diff, reviewRules: rules, mode: config.review_mode });
-  const result = await reviewer.reviewTask({ prompt });
+  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+  const result = await reviewer.reviewTask({ prompt, onOutput });
   if (!result.ok) {
-    throw new Error(result.error || result.output || "Reviewer failed");
+    if (result.error) logger.error(result.error);
+    throw new Error(result.error || result.output || `Reviewer failed (exit ${result.exitCode})`);
   }
   console.log(result.output);
+  logger.info(`Reviewer completed (exit ${result.exitCode})`);
 }
