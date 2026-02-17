@@ -141,6 +141,10 @@ export function printEvent(event) {
       console.log(`${ANSI.dim}Resume with: kj resume ${event.sessionId} --answer "<response>"${ANSI.reset}`);
       break;
 
+    case "agent:output":
+      console.log(`  \u2502 ${ANSI.dim}${event.message}${ANSI.reset}`);
+      break;
+
     default:
       console.log(`  \u251c\u2500 ${icon} ${event.message || event.type}  ${elapsed}`);
   }
