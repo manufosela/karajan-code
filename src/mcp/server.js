@@ -1,8 +1,13 @@
 #!/usr/bin/env node
+import { EventEmitter } from "node:events";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { runKjCommand } from "./run-kj.js";
+import { runFlow, resumeFlow } from "../orchestrator.js";
+import { loadConfig, applyRunOverrides, validateConfig } from "../config.js";
+import { createLogger } from "../utils/logger.js";
+import { assertAgentsAvailable } from "../agents/availability.js";
 
 function asObject(value) {
   if (value && typeof value === "object") return value;
@@ -23,7 +28,65 @@ function failPayload(message, details = {}) {
   };
 }
 
-async function handleToolCall(name, args) {
+async function buildConfig(options) {
+  const { config } = await loadConfig();
+  const merged = applyRunOverrides(config, options || {});
+  validateConfig(merged, "run");
+  return merged;
+}
+
+async function handleRunDirect(a, server) {
+  const config = await buildConfig(a);
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  await assertAgentsAvailable([config.coder, config.reviewer, config.reviewer_options?.fallback_reviewer]);
+
+  const emitter = new EventEmitter();
+  emitter.on("progress", (event) => {
+    try {
+      server.sendLoggingMessage({
+        level: event.status === "fail" ? "error" : "info",
+        logger: "karajan",
+        data: event
+      });
+    } catch {
+      // best-effort: if logging fails, continue
+    }
+  });
+
+  const result = await runFlow({ task: a.task, config, logger, flags: a, emitter });
+  return { ok: !result.paused && (result.approved !== false), ...result };
+}
+
+async function handleResumeDirect(a, server) {
+  const config = await buildConfig(a);
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const emitter = new EventEmitter();
+  emitter.on("progress", (event) => {
+    try {
+      server.sendLoggingMessage({
+        level: event.status === "fail" ? "error" : "info",
+        logger: "karajan",
+        data: event
+      });
+    } catch {
+      // best-effort
+    }
+  });
+
+  const result = await resumeFlow({
+    sessionId: a.sessionId,
+    answer: a.answer || null,
+    config,
+    logger,
+    flags: a,
+    emitter
+  });
+  return { ok: true, ...result };
+}
+
+async function handleToolCall(name, args, server) {
   const a = asObject(args);
 
   if (name === "kj_init") {
@@ -58,14 +121,14 @@ async function handleToolCall(name, args) {
     if (!a.sessionId) {
       return failPayload("Missing required field: sessionId");
     }
-    return runKjCommand({ command: "resume", commandArgs: [a.sessionId], options: a });
+    return handleResumeDirect(a, server);
   }
 
   if (name === "kj_run") {
     if (!a.task) {
       return failPayload("Missing required field: task");
     }
-    return runKjCommand({ command: "run", commandArgs: [a.task], options: a });
+    return handleRunDirect(a, server);
   }
 
   if (name === "kj_code") {
@@ -140,12 +203,13 @@ const tools = [
   },
   {
     name: "kj_run",
-    description: "Run full coder -> sonar -> reviewer loop",
+    description:
+      "Run full coder -> sonar -> reviewer loop. Sends real-time progress notifications via MCP logging. May return paused state with a question if fail-fast is triggered.",
     inputSchema: {
       type: "object",
       required: ["task"],
       properties: {
-        task: { type: "string" },
+        task: { type: "string", description: "Task description for the coder" },
         coder: { type: "string" },
         reviewer: { type: "string" },
         reviewerFallback: { type: "string" },
@@ -171,12 +235,14 @@ const tools = [
   },
   {
     name: "kj_resume",
-    description: "Resume a previous session by ID",
+    description:
+      "Resume a paused session by ID. Provide an answer to the question that caused the pause. Sends real-time progress notifications via MCP logging.",
     inputSchema: {
       type: "object",
       required: ["sessionId"],
       properties: {
-        sessionId: { type: "string" },
+        sessionId: { type: "string", description: "Session ID to resume" },
+        answer: { type: "string", description: "Answer to the question that caused the pause" },
         kjHome: { type: "string" }
       }
     }
@@ -244,7 +310,8 @@ const server = new Server(
   },
   {
     capabilities: {
-      tools: {}
+      tools: {},
+      logging: {}
     }
   }
 );
@@ -256,7 +323,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params?.arguments || {};
 
   try {
-    const result = await handleToolCall(name, args);
+    const result = await handleToolCall(name, args, server);
     return responseText(result);
   } catch (error) {
     return responseText(failPayload(error?.message || String(error)));
