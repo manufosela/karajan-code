@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import yaml from "js-yaml";
 import { ensureDir, exists } from "./utils/fs.js";
+import { getKarajanHome } from "./utils/paths.js";
 
 const DEFAULTS = {
   coder: "codex",
@@ -44,7 +45,7 @@ const DEFAULTS = {
   },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
-  session: { max_iteration_minutes: 5, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
+  session: { max_iteration_minutes: 15, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
 };
 
 function mergeDeep(base, override) {
@@ -61,12 +62,12 @@ function mergeDeep(base, override) {
   return output;
 }
 
-export function getConfigPath(cwd = process.cwd()) {
-  return path.join(cwd, "kj.config.yml");
+export function getConfigPath() {
+  return path.join(getKarajanHome(), "kj.config.yml");
 }
 
-export async function loadConfig(cwd = process.cwd()) {
-  const configPath = getConfigPath(cwd);
+export async function loadConfig() {
+  const configPath = getConfigPath();
   if (!(await exists(configPath))) {
     return { config: DEFAULTS, path: configPath, exists: false };
   }
