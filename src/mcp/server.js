@@ -35,6 +35,40 @@ async function buildConfig(options) {
   return merged;
 }
 
+function buildAskQuestion(server) {
+  return async (question) => {
+    try {
+      const result = await server.elicitInput({
+        message: question,
+        requestedSchema: {
+          type: "object",
+          properties: {
+            answer: { type: "string", description: "Your response" }
+          },
+          required: ["answer"]
+        }
+      });
+      return result.action === "accept" ? result.content?.answer || null : null;
+    } catch {
+      return null;
+    }
+  };
+}
+
+function buildProgressHandler(server) {
+  return (event) => {
+    try {
+      server.sendLoggingMessage({
+        level: event.type === "agent:output" ? "debug" : event.status === "fail" ? "error" : "info",
+        logger: "karajan",
+        data: event
+      });
+    } catch {
+      // best-effort: if logging fails, continue
+    }
+  };
+}
+
 async function handleRunDirect(a, server) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
@@ -42,19 +76,10 @@ async function handleRunDirect(a, server) {
   await assertAgentsAvailable([config.coder, config.reviewer, config.reviewer_options?.fallback_reviewer]);
 
   const emitter = new EventEmitter();
-  emitter.on("progress", (event) => {
-    try {
-      server.sendLoggingMessage({
-        level: event.status === "fail" ? "error" : "info",
-        logger: "karajan",
-        data: event
-      });
-    } catch {
-      // best-effort: if logging fails, continue
-    }
-  });
+  emitter.on("progress", buildProgressHandler(server));
 
-  const result = await runFlow({ task: a.task, config, logger, flags: a, emitter });
+  const askQuestion = buildAskQuestion(server);
+  const result = await runFlow({ task: a.task, config, logger, flags: a, emitter, askQuestion });
   return { ok: !result.paused && (result.approved !== false), ...result };
 }
 
@@ -63,25 +88,17 @@ async function handleResumeDirect(a, server) {
   const logger = createLogger(config.output.log_level, "mcp");
 
   const emitter = new EventEmitter();
-  emitter.on("progress", (event) => {
-    try {
-      server.sendLoggingMessage({
-        level: event.status === "fail" ? "error" : "info",
-        logger: "karajan",
-        data: event
-      });
-    } catch {
-      // best-effort
-    }
-  });
+  emitter.on("progress", buildProgressHandler(server));
 
+  const askQuestion = buildAskQuestion(server);
   const result = await resumeFlow({
     sessionId: a.sessionId,
     answer: a.answer || null,
     config,
     logger,
     flags: a,
-    emitter
+    emitter,
+    askQuestion
   });
   return { ok: true, ...result };
 }
@@ -311,7 +328,8 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
-      logging: {}
+      logging: {},
+      elicitation: {}
     }
   }
 );
