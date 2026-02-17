@@ -1,11 +1,27 @@
 import { execa } from "execa";
 
 export async function runCommand(command, args = [], options = {}) {
-  const { timeout, ...rest } = options;
+  const { timeout, onOutput, ...rest } = options;
   const subprocess = execa(command, args, {
     reject: false,
     ...rest
   });
+
+  if (onOutput) {
+    const handler = (stream) => {
+      let partial = "";
+      return (chunk) => {
+        partial += chunk.toString();
+        const lines = partial.split("\n");
+        partial = lines.pop();
+        for (const line of lines) {
+          if (line) onOutput({ stream, line });
+        }
+      };
+    };
+    if (subprocess.stdout) subprocess.stdout.on("data", handler("stdout"));
+    if (subprocess.stderr) subprocess.stderr.on("data", handler("stderr"));
+  }
 
   try {
     if (!timeout) {

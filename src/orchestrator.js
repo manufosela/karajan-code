@@ -147,7 +147,7 @@ async function readReviewRules(path) {
   }
 }
 
-async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration }) {
+async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput }) {
   const fallbackReviewer = config.reviewer_options?.fallback_reviewer;
   const retries = Math.max(0, Number(config.reviewer_options?.retries ?? 1));
   const candidates = [reviewerName];
@@ -159,7 +159,7 @@ async function runReviewerWithFallback({ reviewerName, config, logger, prompt, s
   for (const name of candidates) {
     const reviewer = createAgent(name, config, logger);
     for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
-      const result = await reviewer.reviewTask({ prompt });
+      const result = await reviewer.reviewTask({ prompt, onOutput });
       attempts.push({ reviewer: name, attempt, ok: result.ok, result });
       await addCheckpoint(session, {
         stage: "reviewer-attempt",
@@ -256,7 +256,7 @@ async function finalizeGitAutomation({ config, gitCtx, task, logger, session }) 
   return { committed, branch: gitCtx.branch, prUrl };
 }
 
-export async function runFlow({ task, config, logger, flags = {}, emitter = null }) {
+export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null }) {
   const coder = createAgent(config.coder, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
@@ -335,7 +335,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       sonarSummary: session.last_sonar_summary,
       methodology: config.development?.methodology || "tdd"
     });
-    const coderResult = await coder.runTask({ prompt: coderPrompt });
+    const coderOnOutput = ({ stream, line }) => {
+      emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "coder" }, {
+        message: line,
+        detail: { stream, agent: config.coder }
+      }));
+    };
+    const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
@@ -391,6 +397,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       await saveSession(session);
       if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
         const question = `TDD policy has failed ${session.repeated_issue_count} times. The coder is not creating tests. How should we proceed? Issue: ${tddEval.reason}`;
+        if (askQuestion) {
+          const answer = await askQuestion(question, { iteration: i, stage: "tdd" });
+          if (answer) {
+            session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
+            session.repeated_issue_count = 0;
+            await saveSession(session);
+            continue;
+          }
+        }
         await pauseSession(session, {
           question,
           context: {
@@ -463,6 +478,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         await saveSession(session);
         if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
           const question = `SonarQube quality gate has failed ${session.repeated_issue_count} times (${gate.status}). What should we do?`;
+          if (askQuestion) {
+            const answer = await askQuestion(question, { iteration: i, stage: "sonar" });
+            if (answer) {
+              session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
+              session.repeated_issue_count = 0;
+              await saveSession(session);
+              continue;
+            }
+          }
           await pauseSession(session, {
             question,
             context: {
@@ -504,13 +528,20 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       reviewRules,
       mode: config.review_mode
     });
+    const reviewerOnOutput = ({ stream, line }) => {
+      emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
+        message: line,
+        detail: { stream, agent: config.reviewer }
+      }));
+    };
     const reviewerExec = await runReviewerWithFallback({
       reviewerName: config.reviewer,
       config,
       logger,
       prompt: reviewerPrompt,
       session,
-      iteration: i
+      iteration: i,
+      onOutput: reviewerOnOutput
     });
 
     if (!reviewerExec.result || !reviewerExec.result.ok) {
@@ -597,6 +628,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
       const question = `Reviewer has rejected ${session.repeated_issue_count} times with the same issues. Blocking issues:\n${session.last_reviewer_feedback}\n\nHow should we proceed?`;
+      if (askQuestion) {
+        const answer = await askQuestion(question, { iteration: i, stage: "reviewer" });
+        if (answer) {
+          session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
+          session.repeated_issue_count = 0;
+          await saveSession(session);
+          continue;
+        }
+      }
       await pauseSession(session, {
         question,
         context: {
@@ -630,7 +670,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
 }
 
-export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null }) {
+export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null, askQuestion = null }) {
   const session = answer
     ? await resumeSessionWithAnswer(sessionId, answer)
     : await loadSession(sessionId);
@@ -662,5 +702,5 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
   await saveSession(session);
 
   // Re-run the flow with the existing session context
-  return runFlow({ task, config: sessionConfig, logger, flags, emitter });
+  return runFlow({ task, config: sessionConfig, logger, flags, emitter, askQuestion });
 }

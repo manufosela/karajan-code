@@ -4,11 +4,20 @@ import { buildCoderPrompt } from "../prompts/coder.js";
 
 export async function codeCommand({ task, config, logger }) {
   await assertAgentsAvailable([config.coder]);
+  logger.info(`Coder (${config.coder}) starting...`);
   const coder = createAgent(config.coder, config, logger);
   const prompt = buildCoderPrompt({ task, methodology: config.development?.methodology || "tdd" });
-  const result = await coder.runTask({ prompt });
+  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+  const result = await coder.runTask({ prompt, onOutput });
   if (!result.ok) {
-    throw new Error(result.error || result.output || "Coder failed");
+    if (result.error) logger.error(result.error);
+    throw new Error(result.error || result.output || `Coder failed (exit ${result.exitCode})`);
   }
-  logger.info("Coder completed");
+  if (result.output) {
+    console.log(result.output);
+  }
+  if (result.error) {
+    logger.warn(result.error);
+  }
+  logger.info(`Coder completed (exit ${result.exitCode})`);
 }

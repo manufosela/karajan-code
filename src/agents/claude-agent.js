@@ -6,13 +6,13 @@ export class ClaudeAgent extends BaseAgent {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
     const args = ["-p", task.prompt];
     if (this.config.coder_options?.model) args.push("--model", this.config.coder_options.model);
-    const res = await runCommand("claude", args, { timeout });
+    const res = await runCommand("claude", args, { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 
   async reviewTask(task) {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
-    const res = await runCommand("claude", ["-p", task.prompt, "--output-format", "json"], { timeout });
+    const res = await runCommand("claude", ["-p", task.prompt, "--output-format", "json"], { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 }
