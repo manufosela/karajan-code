@@ -52,3 +52,29 @@ export async function markSessionStatus(session, status) {
   session.status = status;
   await saveSession(session);
 }
+
+export async function pauseSession(session, { question, context: pauseContext }) {
+  session.status = "paused";
+  session.paused_state = {
+    question,
+    context: pauseContext,
+    paused_at: new Date().toISOString()
+  };
+  await saveSession(session);
+}
+
+export async function resumeSessionWithAnswer(sessionId, answer) {
+  const session = await loadSession(sessionId);
+  if (session.status !== "paused") {
+    throw new Error(`Session ${sessionId} is not paused (status: ${session.status})`);
+  }
+  const pausedState = session.paused_state;
+  if (!pausedState) {
+    throw new Error(`Session ${sessionId} has no paused state`);
+  }
+  session.paused_state.answer = answer;
+  session.paused_state.resumed_at = new Date().toISOString();
+  session.status = "running";
+  await saveSession(session);
+  return session;
+}
