@@ -43,6 +43,7 @@ Options:
   --reviewer-fallback <name>      Default reviewer fallback (default: codex)
   --setup-mcp-claude <bool>       Configure Claude MCP
   --setup-mcp-codex <bool>        Configure Codex MCP
+  --setup-chrome-devtools <bool>  Configure Chrome DevTools MCP (default: true)
   --run-doctor <bool>             Run kj doctor at end
   --run-tests <bool>              Run tests at end (default: true)
   --help                          Show this help
@@ -65,6 +66,7 @@ Environment variable equivalents:
   KJ_INSTALL_REVIEWER_FALLBACK
   KJ_INSTALL_SETUP_MCP_CLAUDE
   KJ_INSTALL_SETUP_MCP_CODEX
+  KJ_INSTALL_SETUP_CHROME_DEVTOOLS
   KJ_INSTALL_RUN_DOCTOR
   KJ_INSTALL_RUN_TESTS
 `);
@@ -306,6 +308,117 @@ async function generateSonarToken({ host, user, password, tokenName }) {
   return parsed.token;
 }
 
+async function readExistingSonarToken(kjHome) {
+  if (process.env.KJ_SONAR_TOKEN) return process.env.KJ_SONAR_TOKEN;
+  if (!kjHome) return "";
+  try {
+    const envContent = await fs.readFile(path.join(kjHome, "karajan.env"), "utf8");
+    const match = envContent.match(/export KJ_SONAR_TOKEN="([^"]*)"/);
+    return match?.[1] || "";
+  } catch {
+    return "";
+  }
+}
+
+async function ensureSonarQube(kjHome, nonInteractive) {
+  const composePath = path.join(kjHome, "docker-compose.sonar.yml");
+  const sonarUrl = "http://localhost:9000";
+
+  const hasDocker = await ensureCommand("docker");
+  if (!hasDocker) {
+    console.log("Docker not found. SonarQube requires Docker.");
+    console.log("Install Docker: https://docs.docker.com/get-docker/");
+    return false;
+  }
+
+  // Check if sonarqube container is already running
+  const ps = await run("docker", ["ps", "--format", "{{.Names}}"]);
+  if (ps.stdout.split("\n").some((n) => n.trim() === "sonarqube")) {
+    console.log("SonarQube already running at " + sonarUrl);
+    return true;
+  }
+
+  // Check if container exists but is stopped
+  const psAll = await run("docker", ["ps", "-a", "--format", "{{.Names}}"]);
+  if (psAll.stdout.split("\n").some((n) => n.trim() === "sonarqube")) {
+    console.log("SonarQube container exists but stopped, starting...");
+    const start = await run("docker", ["start", "sonarqube-db", "sonarqube"]);
+    if (start.exitCode === 0) {
+      console.log("SonarQube started at " + sonarUrl);
+      return true;
+    }
+    console.log("Failed to start existing container, will recreate.");
+  }
+
+  // Fresh install — copy compose if not present
+  try {
+    await fs.access(composePath);
+  } catch {
+    const templatePath = path.join(process.cwd(), "templates", "docker-compose.sonar.yml");
+    try {
+      await fs.mkdir(kjHome, { recursive: true });
+      await fs.copyFile(templatePath, composePath);
+    } catch {
+      console.log("docker-compose.sonar.yml template not found, skipping Docker setup.");
+      return false;
+    }
+  }
+
+  if (!nonInteractive) {
+    console.log("\nSonarQube is not running. Karajan uses SonarQube for code quality analysis.");
+    const install = await askBool("Install SonarQube + PostgreSQL via Docker now", true);
+    if (!install) return false;
+  }
+
+  console.log("Starting SonarQube + PostgreSQL (first start pulls images, may take a few minutes)...");
+  const up = await run("docker", ["compose", "-f", composePath, "up", "-d"], { timeout: 300_000 });
+  if (up.exitCode !== 0) {
+    console.log("Failed to start SonarQube: " + (up.stderr || up.stdout));
+    console.log("Start manually: docker compose -f " + composePath + " up -d");
+    return false;
+  }
+
+  // Wait for SonarQube to be ready
+  console.log("Waiting for SonarQube to be ready...");
+  const maxWait = 120_000;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    const check = await run("curl", ["-s", sonarUrl + "/api/system/status"], { timeout: 5_000 });
+    try {
+      const status = JSON.parse(check.stdout || "{}").status;
+      if (status === "UP") {
+        console.log("SonarQube ready at " + sonarUrl);
+        console.log("Default credentials: admin / admin (change on first login)");
+        return true;
+      }
+    } catch { /* not ready yet */ }
+    await new Promise((r) => setTimeout(r, 5_000));
+  }
+
+  console.log("SonarQube is still starting. Check status at: " + sonarUrl);
+  return true;
+}
+
+async function setupChromeDevtoolsMcp() {
+  const hasClaude = await ensureCommand("claude", ["--version"]);
+  if (!hasClaude) return null;
+
+  const mcpList = await run("claude", ["mcp", "list"]);
+  if (mcpList.stdout.includes("chrome-devtools")) {
+    console.log("Chrome DevTools MCP already configured.");
+    return "already-configured";
+  }
+
+  const res = await run("claude", ["mcp", "add", "chrome-devtools", "--scope", "user", "npx", "chrome-devtools-mcp@latest"]);
+  if (res.exitCode === 0) {
+    console.log("Chrome DevTools MCP configured.");
+    return "configured";
+  }
+  console.log("Failed to configure Chrome DevTools MCP. Manual install:");
+  console.log("  claude mcp add chrome-devtools --scope user npx chrome-devtools-mcp@latest");
+  return null;
+}
+
 const SHELL_SOURCE_MARKER = "# karajan-code env";
 
 async function addSourceToShellProfile(envPath) {
@@ -538,25 +651,64 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
       reviewerFallback: pickSetting({ cli: parsedArgs, cliKey: "reviewerFallback", envKey: "KJ_INSTALL_REVIEWER_FALLBACK", fallback: defaults.reviewerFallback }),
       setupMcpClaude: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpClaude", envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE", fallback: defaults.setupMcpClaude }), defaults.setupMcpClaude),
       setupMcpCodex: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpCodex", envKey: "KJ_INSTALL_SETUP_MCP_CODEX", fallback: defaults.setupMcpCodex }), defaults.setupMcpCodex),
+      setupChromeDevtools: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupChromeDevtools", envKey: "KJ_INSTALL_SETUP_CHROME_DEVTOOLS", fallback: true }), true),
       runDoctor: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor),
       runTests: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runTests", envKey: "KJ_INSTALL_RUN_TESTS", fallback: defaults.runTests }), defaults.runTests)
     };
   }
 
+  const linkGlobal = await askBool("Link karajan binaries globally with npm link", defaults.linkGlobal);
+  const kjHome = await ask("KJ_HOME directory", defaults.kjHome);
+  const sonarHost = await ask("SonarQube host", defaults.sonarHost);
+
+  // Smart SonarQube token flow
+  let createSonarToken = false;
+  let sonarUser = defaults.sonarUser;
+  let sonarPassword = "";
+  let sonarTokenName = defaults.sonarTokenName;
+  let sonarToken = "";
+
+  const existingToken = await readExistingSonarToken(kjHome);
+
+  if (existingToken) {
+    const keepSonar = await askBool("Keep current SonarQube token", true);
+    if (keepSonar) {
+      sonarToken = existingToken;
+    }
+  }
+
+  if (!sonarToken) {
+    console.log("\n  To create a token:");
+    console.log("    1. Open " + defaults.sonarHost);
+    console.log("    2. Log in (admin/admin on first access)");
+    console.log("    3. Go to: My Account > Security > Generate Token");
+    console.log("    4. Name: karajan-cli, Type: Global Analysis Token\n");
+
+    const tokenChoice = await askChoice("SonarQube token configuration:", [
+      { value: "paste", label: "Enter a SonarQube token" },
+      { value: "skip", label: "Skip for now (SonarQube won't work until configured)" }
+    ]);
+
+    if (tokenChoice === "paste") {
+      sonarToken = await ask("Paste your SonarQube token");
+    }
+  }
+
   return {
-    linkGlobal: await askBool("Link karajan binaries globally with npm link", defaults.linkGlobal),
-    kjHome: await ask("KJ_HOME directory", defaults.kjHome),
-    sonarHost: await ask("SonarQube host", defaults.sonarHost),
-    createSonarToken: await askBool("Generate Sonar token now with admin credentials", defaults.createSonarToken),
-    sonarUser: await ask("Sonar username", defaults.sonarUser),
-    sonarPassword: await ask("Sonar password", defaults.sonarPassword),
-    sonarTokenName: await ask("Sonar token name", defaults.sonarTokenName),
-    sonarToken: await ask("Paste existing KJ_SONAR_TOKEN (optional)", defaults.sonarToken),
+    linkGlobal,
+    kjHome,
+    sonarHost,
+    createSonarToken,
+    sonarUser,
+    sonarPassword,
+    sonarTokenName,
+    sonarToken,
     coder: await ask("Default coder", defaults.coder),
     reviewer: await ask("Default reviewer", defaults.reviewer),
     reviewerFallback: await ask("Reviewer fallback", defaults.reviewerFallback),
     setupMcpClaude: await askBool("Configure Claude MCP automatically", defaults.setupMcpClaude),
     setupMcpCodex: await askBool("Configure Codex MCP automatically", defaults.setupMcpCodex),
+    setupChromeDevtools: await askBool("Configure Chrome DevTools MCP", true),
     runDoctor: await askBool("Run kj doctor now", defaults.runDoctor),
     runTests: await askBool("Run tests now", defaults.runTests)
   };
@@ -598,6 +750,10 @@ async function main() {
 
   const registry = await loadRegistry();
   const instance = await resolveInstance(rootDir, parsedArgs, registry, nonInteractive);
+
+  // Ensure SonarQube Docker is running before asking for token
+  await ensureSonarQube(instance.defaultKjHome, nonInteractive);
+
   const settings = await collectSettings(rootDir, parsedArgs, instance, nonInteractive);
 
   await saveInstallState({
@@ -666,6 +822,8 @@ async function main() {
 
   let codexPath = "";
   if (settings.setupMcpCodex) codexPath = await setupCodexMcp({ rootDir, kjHome: settings.kjHome });
+
+  if (settings.setupChromeDevtools) await setupChromeDevtoolsMcp();
 
   if (settings.runDoctor) {
     const env = { ...process.env, KJ_HOME: settings.kjHome };
