@@ -46,23 +46,24 @@ async function resolveKjHomeFromRegistry() {
 }
 
 async function setupClaudeMcp(kjHome) {
-  const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
-  let settings = {};
+  const claudeJsonPath = path.join(os.homedir(), ".claude.json");
+  let config = {};
   try {
-    settings = await readJson(settingsPath);
+    config = await readJson(claudeJsonPath);
   } catch {
-    settings = {};
+    config = {};
   }
 
-  settings.mcpServers = settings.mcpServers || {};
-  settings.mcpServers["karajan-mcp"] = {
+  config.mcpServers = config.mcpServers || {};
+  config.mcpServers["karajan-mcp"] = {
+    type: "stdio",
     command: "node",
     args: [path.join(ROOT_DIR, "src", "mcp", "server.js")],
     cwd: ROOT_DIR,
     env: { KJ_HOME: kjHome }
   };
 
-  await writeJson(settingsPath, settings);
+  await writeJson(claudeJsonPath, config);
 }
 
 function upsertCodexMcpBlock(toml, block) {

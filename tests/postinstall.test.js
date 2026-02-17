@@ -24,11 +24,11 @@ function runScript(env = {}) {
 describe("postinstall", () => {
   const tmpDir = path.join(os.tmpdir(), `kj-postinstall-test-${Date.now()}`);
   const fakeHome = path.join(tmpDir, "home");
-  const claudeSettings = path.join(fakeHome, ".claude", "settings.json");
+  const claudeJson = path.join(fakeHome, ".claude.json");
   const codexConfig = path.join(fakeHome, ".codex", "config.toml");
 
   beforeEach(async () => {
-    await fs.mkdir(path.join(fakeHome, ".claude"), { recursive: true });
+    await fs.mkdir(fakeHome, { recursive: true });
     await fs.mkdir(path.join(fakeHome, ".codex"), { recursive: true });
   });
 
@@ -36,35 +36,34 @@ describe("postinstall", () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("registers MCP in Claude settings.json", async () => {
-    // Pre-create an empty settings file
-    await fs.writeFile(claudeSettings, "{}", "utf8");
+  it("registers MCP in ~/.claude.json", async () => {
+    await fs.writeFile(claudeJson, "{}", "utf8");
 
     const { code } = await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     expect(code).toBe(0);
 
-    const settings = JSON.parse(await fs.readFile(claudeSettings, "utf8"));
-    expect(settings.mcpServers).toBeDefined();
-    expect(settings.mcpServers["karajan-mcp"]).toBeDefined();
-    expect(settings.mcpServers["karajan-mcp"].command).toBe("node");
-    expect(settings.mcpServers["karajan-mcp"].args[0]).toContain("src/mcp/server.js");
-    expect(settings.mcpServers["karajan-mcp"].env.KJ_HOME).toBe("/tmp/kj-test-home");
+    const config = JSON.parse(await fs.readFile(claudeJson, "utf8"));
+    expect(config.mcpServers).toBeDefined();
+    expect(config.mcpServers["karajan-mcp"]).toBeDefined();
+    expect(config.mcpServers["karajan-mcp"].command).toBe("node");
+    expect(config.mcpServers["karajan-mcp"].args[0]).toContain("src/mcp/server.js");
+    expect(config.mcpServers["karajan-mcp"].env.KJ_HOME).toBe("/tmp/kj-test-home");
   });
 
-  it("preserves existing MCP servers in Claude settings", async () => {
+  it("preserves existing MCP servers in ~/.claude.json", async () => {
     const existing = {
       mcpServers: {
         "other-mcp": { command: "node", args: ["/other/server.js"] }
       }
     };
-    await fs.writeFile(claudeSettings, JSON.stringify(existing), "utf8");
+    await fs.writeFile(claudeJson, JSON.stringify(existing), "utf8");
 
     const { code } = await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     expect(code).toBe(0);
 
-    const settings = JSON.parse(await fs.readFile(claudeSettings, "utf8"));
-    expect(settings.mcpServers["other-mcp"]).toBeDefined();
-    expect(settings.mcpServers["karajan-mcp"]).toBeDefined();
+    const config = JSON.parse(await fs.readFile(claudeJson, "utf8"));
+    expect(config.mcpServers["other-mcp"]).toBeDefined();
+    expect(config.mcpServers["karajan-mcp"]).toBeDefined();
   });
 
   it("registers MCP in Codex config.toml", async () => {
@@ -79,13 +78,13 @@ describe("postinstall", () => {
   });
 
   it("is idempotent — running twice does not duplicate entries", async () => {
-    await fs.writeFile(claudeSettings, "{}", "utf8");
+    await fs.writeFile(claudeJson, "{}", "utf8");
 
     await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
 
-    const settings = JSON.parse(await fs.readFile(claudeSettings, "utf8"));
-    const mcpKeys = Object.keys(settings.mcpServers);
+    const config = JSON.parse(await fs.readFile(claudeJson, "utf8"));
+    const mcpKeys = Object.keys(config.mcpServers);
     const karajanEntries = mcpKeys.filter((k) => k === "karajan-mcp");
     expect(karajanEntries).toHaveLength(1);
 
@@ -94,21 +93,17 @@ describe("postinstall", () => {
     expect(beginCount).toBe(1);
   });
 
-  it("creates Claude settings.json if it does not exist", async () => {
-    // Remove the pre-created .claude dir
-    await fs.rm(path.join(fakeHome, ".claude"), { recursive: true, force: true });
-
+  it("creates ~/.claude.json if it does not exist", async () => {
     const { code } = await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     expect(code).toBe(0);
 
-    const settings = JSON.parse(await fs.readFile(claudeSettings, "utf8"));
-    expect(settings.mcpServers["karajan-mcp"]).toBeDefined();
+    const config = JSON.parse(await fs.readFile(claudeJson, "utf8"));
+    expect(config.mcpServers["karajan-mcp"]).toBeDefined();
   });
 
   it("exits 0 even if writing fails", async () => {
-    // Make .claude a file instead of directory to cause write failure
-    await fs.rm(path.join(fakeHome, ".claude"), { recursive: true, force: true });
-    await fs.writeFile(path.join(fakeHome, ".claude"), "not-a-dir", "utf8");
+    // Make .claude.json a directory to cause write failure
+    await fs.mkdir(claudeJson, { recursive: true });
 
     const { code } = await runScript({ HOME: fakeHome, KJ_HOME: "/tmp/kj-test-home" });
     expect(code).toBe(0);

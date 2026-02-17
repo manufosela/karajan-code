@@ -270,26 +270,25 @@ async function setupCodexMcp({ rootDir, kjHome }) {
 }
 
 async function setupClaudeMcp({ rootDir, kjHome }) {
-  const claudeSettingsPath = path.join(os.homedir(), ".claude", "settings.json");
-  let settings = {};
+  const claudeJsonPath = path.join(os.homedir(), ".claude.json");
+  let config = {};
   try {
-    settings = await readJson(claudeSettingsPath);
+    config = await readJson(claudeJsonPath);
   } catch {
-    settings = {};
+    config = {};
   }
 
-  settings.mcpServers = settings.mcpServers || {};
-  settings.mcpServers["karajan-mcp"] = {
+  config.mcpServers = config.mcpServers || {};
+  config.mcpServers["karajan-mcp"] = {
+    type: "stdio",
     command: "node",
     args: [path.join(rootDir, "src", "mcp", "server.js")],
     cwd: rootDir,
-    env: {
-      KJ_HOME: kjHome
-    }
+    env: { KJ_HOME: kjHome }
   };
 
-  await writeJson(claudeSettingsPath, settings);
-  return claudeSettingsPath;
+  await writeJson(claudeJsonPath, config);
+  return claudeJsonPath;
 }
 
 async function generateSonarToken({ host, user, password, tokenName }) {
