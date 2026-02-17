@@ -69,7 +69,7 @@ function buildProgressHandler(server) {
   };
 }
 
-async function handleRunDirect(a, server) {
+async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
 
@@ -77,18 +77,22 @@ async function handleRunDirect(a, server) {
 
   const emitter = new EventEmitter();
   emitter.on("progress", buildProgressHandler(server));
+  const progressNotifier = buildProgressNotifier(extra);
+  if (progressNotifier) emitter.on("progress", progressNotifier);
 
   const askQuestion = buildAskQuestion(server);
   const result = await runFlow({ task: a.task, config, logger, flags: a, emitter, askQuestion });
   return { ok: !result.paused && (result.approved !== false), ...result };
 }
 
-async function handleResumeDirect(a, server) {
+async function handleResumeDirect(a, server, extra) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
 
   const emitter = new EventEmitter();
   emitter.on("progress", buildProgressHandler(server));
+  const progressNotifier = buildProgressNotifier(extra);
+  if (progressNotifier) emitter.on("progress", progressNotifier);
 
   const askQuestion = buildAskQuestion(server);
   const result = await resumeFlow({
@@ -103,7 +107,38 @@ async function handleResumeDirect(a, server) {
   return { ok: true, ...result };
 }
 
-async function handleToolCall(name, args, server) {
+// Maps orchestrator event types to progress steps for notifications/progress
+const PROGRESS_STAGES = [
+  "session:start", "coder:start", "coder:end", "tdd:result",
+  "sonar:start", "sonar:end", "reviewer:start", "reviewer:end",
+  "iteration:end", "session:end"
+];
+
+function buildProgressNotifier(extra) {
+  const progressToken = extra?._meta?.progressToken;
+  if (progressToken === undefined) return null;
+
+  const total = PROGRESS_STAGES.length;
+  return (event) => {
+    const idx = PROGRESS_STAGES.indexOf(event.type);
+    if (idx < 0) return;
+    try {
+      extra.sendNotification({
+        method: "notifications/progress",
+        params: {
+          progressToken,
+          progress: idx + 1,
+          total,
+          message: event.message || event.type
+        }
+      });
+    } catch {
+      // best-effort
+    }
+  };
+}
+
+async function handleToolCall(name, args, server, extra) {
   const a = asObject(args);
 
   if (name === "kj_init") {
@@ -138,14 +173,14 @@ async function handleToolCall(name, args, server) {
     if (!a.sessionId) {
       return failPayload("Missing required field: sessionId");
     }
-    return handleResumeDirect(a, server);
+    return handleResumeDirect(a, server, extra);
   }
 
   if (name === "kj_run") {
     if (!a.task) {
       return failPayload("Missing required field: task");
     }
-    return handleRunDirect(a, server);
+    return handleRunDirect(a, server, extra);
   }
 
   if (name === "kj_code") {
@@ -336,12 +371,12 @@ const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const name = request.params?.name;
   const args = request.params?.arguments || {};
 
   try {
-    const result = await handleToolCall(name, args, server);
+    const result = await handleToolCall(name, args, server, extra);
     return responseText(result);
   } catch (error) {
     return responseText(failPayload(error?.message || String(error)));
