@@ -307,6 +307,48 @@ async function generateSonarToken({ host, user, password, tokenName }) {
   return parsed.token;
 }
 
+const SHELL_SOURCE_MARKER = "# karajan-code env";
+
+async function addSourceToShellProfile(envPath) {
+  const home = os.homedir();
+  const profiles = [path.join(home, ".bashrc"), path.join(home, ".zshrc")];
+  const sourceLine = `${SHELL_SOURCE_MARKER}\n[ -f "${envPath}" ] && source "${envPath}"`;
+  const updated = [];
+
+  for (const profile of profiles) {
+    let content = "";
+    try {
+      content = await fs.readFile(profile, "utf8");
+    } catch {
+      continue;
+    }
+
+    if (content.includes(SHELL_SOURCE_MARKER)) {
+      const lines = content.split("\n");
+      const filtered = [];
+      let skip = false;
+      for (const line of lines) {
+        if (line.trim() === SHELL_SOURCE_MARKER.trim()) {
+          skip = true;
+          continue;
+        }
+        if (skip) {
+          skip = false;
+          continue;
+        }
+        filtered.push(line);
+      }
+      content = filtered.join("\n");
+    }
+
+    const newContent = `${content.trimEnd()}\n\n${sourceLine}\n`;
+    await fs.writeFile(profile, newContent, "utf8");
+    updated.push(profile);
+  }
+
+  return updated;
+}
+
 async function writeKarajanEnv({ kjHome, sonarToken, sonarHost }) {
   const envPath = path.join(kjHome, "karajan.env");
   const lines = [
@@ -656,6 +698,8 @@ async function main() {
   await saveRegistry(registry);
   await clearInstallState();
 
+  const shellProfiles = await addSourceToShellProfile(envPath);
+
   console.log("\nSetup completed.\n");
   console.log(`- Instance: ${instance.instanceName}`);
   console.log(`- Action: ${instance.action}`);
@@ -664,8 +708,14 @@ async function main() {
   if (claudePath) console.log(`- Claude MCP configured: ${claudePath}`);
   if (codexPath) console.log(`- Codex MCP configured: ${codexPath}`);
   console.log(`- Registry: ${REGISTRY_PATH}`);
-  console.log("\nBefore opening Claude/Codex, load environment variables in your shell:");
-  console.log(`  source ${envPath}`);
+  if (shellProfiles.length > 0) {
+    console.log(`- Shell env auto-loaded in: ${shellProfiles.join(", ")}`);
+    console.log("\nReload your shell or run:");
+    console.log(`  source ${envPath}`);
+  } else {
+    console.log("\nNo shell profile found. Add this to your shell profile manually:");
+    console.log(`  source ${envPath}`);
+  }
   console.log("\nThen you can ask either assistant to run tasks through MCP tools (kj_run, kj_scan, ...).\n");
 }
 
