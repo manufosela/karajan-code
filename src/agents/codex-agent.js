@@ -7,13 +7,13 @@ export class CodexAgent extends BaseAgent {
     const args = ["exec"];
     if (this.config.coder_options?.auto_approve) args.push("--full-auto");
     args.push(task.prompt);
-    const res = await runCommand("codex", args, { timeout });
+    const res = await runCommand("codex", args, { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 
   async reviewTask(task) {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
-    const res = await runCommand("codex", ["exec", task.prompt], { timeout });
+    const res = await runCommand("codex", ["exec", task.prompt], { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 }
