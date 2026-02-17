@@ -44,6 +44,7 @@ Options:
   --setup-mcp-claude <bool>       Configure Claude MCP
   --setup-mcp-codex <bool>        Configure Codex MCP
   --run-doctor <bool>             Run kj doctor at end
+  --run-tests <bool>              Run tests at end (default: true)
   --help                          Show this help
 
 Environment variable equivalents:
@@ -65,6 +66,7 @@ Environment variable equivalents:
   KJ_INSTALL_SETUP_MCP_CLAUDE
   KJ_INSTALL_SETUP_MCP_CODEX
   KJ_INSTALL_RUN_DOCTOR
+  KJ_INSTALL_RUN_TESTS
 `);
 }
 
@@ -476,7 +478,8 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
     reviewerFallback: instanceContext.existing?.reviewerFallback || "codex",
     setupMcpClaude: true,
     setupMcpCodex: true,
-    runDoctor: true
+    runDoctor: true,
+    runTests: true
   };
 
   if (nonInteractive) {
@@ -494,7 +497,8 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
       reviewerFallback: pickSetting({ cli: parsedArgs, cliKey: "reviewerFallback", envKey: "KJ_INSTALL_REVIEWER_FALLBACK", fallback: defaults.reviewerFallback }),
       setupMcpClaude: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpClaude", envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE", fallback: defaults.setupMcpClaude }), defaults.setupMcpClaude),
       setupMcpCodex: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpCodex", envKey: "KJ_INSTALL_SETUP_MCP_CODEX", fallback: defaults.setupMcpCodex }), defaults.setupMcpCodex),
-      runDoctor: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor)
+      runDoctor: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor),
+      runTests: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runTests", envKey: "KJ_INSTALL_RUN_TESTS", fallback: defaults.runTests }), defaults.runTests)
     };
   }
 
@@ -512,7 +516,8 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
     reviewerFallback: await ask("Reviewer fallback", defaults.reviewerFallback),
     setupMcpClaude: await askBool("Configure Claude MCP automatically", defaults.setupMcpClaude),
     setupMcpCodex: await askBool("Configure Codex MCP automatically", defaults.setupMcpCodex),
-    runDoctor: await askBool("Run kj doctor now", defaults.runDoctor)
+    runDoctor: await askBool("Run kj doctor now", defaults.runDoctor),
+    runTests: await askBool("Run tests now", defaults.runTests)
   };
 }
 
@@ -626,6 +631,15 @@ async function main() {
     if (sonarToken) env.KJ_SONAR_TOKEN = sonarToken;
     const doctor = await run("node", [path.join(rootDir, "src", "cli.js"), "doctor"], { env, cwd: rootDir });
     console.log(doctor.stdout || doctor.stderr);
+  }
+
+  if (settings.runTests) {
+    console.log("Running tests...");
+    const testRes = await run("npm", ["test"], { cwd: rootDir });
+    console.log(testRes.stdout || testRes.stderr);
+    if (testRes.exitCode !== 0) {
+      console.warn("WARNING: Some tests failed. Review the output above.");
+    }
   }
 
   registry.instances = registry.instances || {};

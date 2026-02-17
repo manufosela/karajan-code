@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import { ensureDir } from "../utils/fs.js";
 import { runCommand } from "../utils/process.js";
 import { getKarajanHome, getSonarComposePath } from "../utils/paths.js";
+import { loadConfig } from "../config.js";
 
-const KARJAN_HOME = getKarajanHome();
+const KARAJAN_HOME = getKarajanHome();
 const COMPOSE_PATH = getSonarComposePath();
 
 const composeTemplate = `services:
@@ -33,12 +34,24 @@ networks:
 `;
 
 export async function ensureComposeFile() {
-  await ensureDir(KARJAN_HOME);
+  await ensureDir(KARAJAN_HOME);
   await fs.writeFile(COMPOSE_PATH, composeTemplate, "utf8");
   return COMPOSE_PATH;
 }
 
+async function isSonarReachable(host) {
+  const res = await runCommand("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", `${host}/api/system/status`]);
+  return res.exitCode === 0 && res.stdout.trim().startsWith("2");
+}
+
 export async function sonarUp() {
+  const { config } = await loadConfig();
+  const host = config.sonarqube.host || "http://localhost:9000";
+
+  if (await isSonarReachable(host)) {
+    return { exitCode: 0, stdout: `SonarQube already reachable at ${host}, skipping container start.`, stderr: "" };
+  }
+
   const compose = await ensureComposeFile();
   return runCommand("docker", ["compose", "-f", compose, "up", "-d"]);
 }
@@ -49,7 +62,16 @@ export async function sonarDown() {
 }
 
 export async function sonarStatus() {
-  return runCommand("docker", ["ps", "--filter", "name=karajan-sonarqube", "--format", "{{.Status}}"]);
+  const containerRes = await runCommand("docker", ["ps", "--filter", "name=karajan-sonarqube", "--format", "{{.Status}}"]);
+  if (containerRes.stdout?.trim()) return containerRes;
+
+  const { config } = await loadConfig();
+  const host = config.sonarqube.host || "http://localhost:9000";
+  if (await isSonarReachable(host)) {
+    return { exitCode: 0, stdout: `external SonarQube running at ${host}`, stderr: "" };
+  }
+
+  return containerRes;
 }
 
 export async function sonarLogs() {
