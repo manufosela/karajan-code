@@ -61,6 +61,7 @@ program
   .option("--methodology <name>")
   .option("--no-auto-rebase")
   .option("--no-sonar")
+  .option("--json", "Output JSON only (no styled display)")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {
       await runCommandHandler({ task, config, logger, flags });
@@ -123,11 +124,13 @@ program
 
 program
   .command("resume")
-  .description("Resume a previous session")
+  .description("Resume a paused session")
   .argument("<sessionId>")
-  .action(async (sessionId) => {
-    await withConfig("resume", {}, async ({ logger }) => {
-      await resumeCommand({ sessionId, logger });
+  .option("--answer <text>", "Answer to the question that caused the pause")
+  .option("--json", "Output JSON only")
+  .action(async (sessionId, flags) => {
+    await withConfig("resume", flags, async ({ config, logger }) => {
+      await resumeCommand({ sessionId, answer: flags.answer, config, logger, flags });
     });
   });
 
