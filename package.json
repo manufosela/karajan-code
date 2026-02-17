@@ -8,6 +8,7 @@
     "karajan-mcp": "./src/mcp/server.js"
   },
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "setup": "node scripts/install.js",
     "test": "vitest run",
     "test:watch": "vitest",
