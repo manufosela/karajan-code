@@ -1,6 +1,15 @@
 import fs from "node:fs/promises";
+import { EventEmitter } from "node:events";
 import { createAgent } from "./agents/index.js";
-import { addCheckpoint, createSession, loadSession, markSessionStatus, saveSession } from "./session-store.js";
+import {
+  addCheckpoint,
+  createSession,
+  loadSession,
+  markSessionStatus,
+  pauseSession,
+  resumeSessionWithAnswer,
+  saveSession
+} from "./session-store.js";
 import { computeBaseRef, generateDiff } from "./review/diff-generator.js";
 import { validateReviewResult } from "./review/schema.js";
 import { evaluateTddPolicy } from "./review/tdd-policy.js";
@@ -21,6 +30,25 @@ import {
   pushBranch,
   createPullRequest
 } from "./utils/git.js";
+
+function emitProgress(emitter, data) {
+  if (!emitter) return;
+  emitter.emit("progress", data);
+}
+
+function makeEvent(type, base, extra = {}) {
+  return {
+    type,
+    sessionId: base.sessionId,
+    iteration: base.iteration,
+    stage: base.stage,
+    status: extra.status || "ok",
+    message: extra.message || type,
+    detail: extra.detail || {},
+    elapsed: base.startedAt ? Date.now() - base.startedAt : 0,
+    timestamp: new Date().toISOString()
+  };
+}
 
 function parseJsonOutput(raw) {
   const cleaned = raw.trim();
@@ -228,8 +256,10 @@ async function finalizeGitAutomation({ config, gitCtx, task, logger, session }) 
   return { committed, branch: gitCtx.branch, prUrl };
 }
 
-export async function runFlow({ task, config, logger, flags = {} }) {
+export async function runFlow({ task, config, logger, flags = {}, emitter = null }) {
   const coder = createAgent(config.coder, config, logger);
+  const startedAt = Date.now();
+  const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
 
   const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
   const session = await createSession({
@@ -241,19 +271,63 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     repeated_issue_count: 0
   });
 
+  eventBase.sessionId = session.id;
+
+  emitProgress(
+    emitter,
+    makeEvent("session:start", eventBase, {
+      message: "Session started",
+      detail: {
+        task,
+        coder: config.coder,
+        reviewer: config.reviewer,
+        maxIterations: config.max_iterations
+      }
+    })
+  );
+
   const gitCtx = await prepareGitAutomation({ config, task, logger, session });
 
-  const startedAt = Date.now();
   const reviewRules = await readReviewRules(config.review_rules);
 
   for (let i = 1; i <= config.max_iterations; i += 1) {
     const elapsedMinutes = (Date.now() - startedAt) / 60000;
     if (elapsedMinutes > config.session.max_total_minutes) {
       await markSessionStatus(session, "failed");
+      emitProgress(
+        emitter,
+        makeEvent("session:end", { ...eventBase, iteration: i, stage: "timeout" }, {
+          status: "fail",
+          message: "Session timed out",
+          detail: { approved: false, reason: "timeout" }
+        })
+      );
       throw new Error("Session timed out");
     }
 
+    eventBase.iteration = i;
+    const iterStart = Date.now();
+    logger.setContext({ iteration: i, stage: "iteration" });
+
+    emitProgress(
+      emitter,
+      makeEvent("iteration:start", { ...eventBase, stage: "iteration" }, {
+        message: `Iteration ${i}/${config.max_iterations}`,
+        detail: { iteration: i, maxIterations: config.max_iterations }
+      })
+    );
+
     logger.info(`Iteration ${i}/${config.max_iterations}`);
+
+    // --- Coder ---
+    logger.setContext({ iteration: i, stage: "coder" });
+    emitProgress(
+      emitter,
+      makeEvent("coder:start", { ...eventBase, stage: "coder" }, {
+        message: `Coder (${config.coder}) running`,
+        detail: { coder: config.coder }
+      })
+    );
 
     const coderPrompt = buildCoderPrompt({
       task,
@@ -262,14 +336,30 @@ export async function runFlow({ task, config, logger, flags = {} }) {
       methodology: config.development?.methodology || "tdd"
     });
     const coderResult = await coder.runTask({ prompt: coderPrompt });
+
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
       const details = coderResult.error || coderResult.output || `exitCode=${coderResult.exitCode ?? "unknown"}`;
+      emitProgress(
+        emitter,
+        makeEvent("coder:end", { ...eventBase, stage: "coder" }, {
+          status: "fail",
+          message: `Coder failed: ${details}`
+        })
+      );
       throw new Error(`Coder failed: ${details}`);
     }
 
     await addCheckpoint(session, { stage: "coder", iteration: i, note: "Coder applied changes" });
+    emitProgress(
+      emitter,
+      makeEvent("coder:end", { ...eventBase, stage: "coder" }, {
+        message: "Coder completed"
+      })
+    );
 
+    // --- TDD Policy ---
+    logger.setContext({ iteration: i, stage: "tdd" });
     const tddDiff = await generateDiff({ baseRef: session.session_start_sha });
     const tddEval = evaluateTddPolicy(tddDiff, config.development);
     await addCheckpoint(session, {
@@ -281,21 +371,68 @@ export async function runFlow({ task, config, logger, flags = {} }) {
       test_files: tddEval.testFiles?.length || 0
     });
 
+    emitProgress(
+      emitter,
+      makeEvent("tdd:result", { ...eventBase, stage: "tdd" }, {
+        status: tddEval.ok ? "ok" : "fail",
+        message: tddEval.ok ? "TDD policy passed" : `TDD policy failed: ${tddEval.reason}`,
+        detail: {
+          ok: tddEval.ok,
+          reason: tddEval.reason,
+          sourceFiles: tddEval.sourceFiles?.length || 0,
+          testFiles: tddEval.testFiles?.length || 0
+        }
+      })
+    );
+
     if (!tddEval.ok) {
       session.last_reviewer_feedback = tddEval.message;
       session.repeated_issue_count += 1;
       await saveSession(session);
       if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
-        await markSessionStatus(session, "failed");
-        throw new Error("Fail-fast triggered: repeated TDD policy violations");
+        const question = `TDD policy has failed ${session.repeated_issue_count} times. The coder is not creating tests. How should we proceed? Issue: ${tddEval.reason}`;
+        await pauseSession(session, {
+          question,
+          context: {
+            iteration: i,
+            stage: "tdd",
+            lastFeedback: tddEval.message,
+            repeatedCount: session.repeated_issue_count
+          }
+        });
+        emitProgress(
+          emitter,
+          makeEvent("question", { ...eventBase, stage: "tdd" }, {
+            status: "paused",
+            message: question,
+            detail: { question, sessionId: session.id }
+          })
+        );
+        return { paused: true, sessionId: session.id, question, context: "tdd_fail_fast" };
       }
       continue;
     }
 
+    // --- SonarQube ---
     if (config.sonarqube.enabled) {
+      logger.setContext({ iteration: i, stage: "sonar" });
+      emitProgress(
+        emitter,
+        makeEvent("sonar:start", { ...eventBase, stage: "sonar" }, {
+          message: "SonarQube scanning"
+        })
+      );
+
       const scan = await runSonarScan(config);
       if (!scan.ok) {
         await markSessionStatus(session, "failed");
+        emitProgress(
+          emitter,
+          makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+            status: "fail",
+            message: `Sonar scan failed: ${scan.stderr || scan.stdout}`
+          })
+        );
         throw new Error(`Sonar scan failed: ${scan.stderr || scan.stdout}`);
       }
 
@@ -309,17 +446,56 @@ export async function runFlow({ task, config, logger, flags = {} }) {
         open_issues: issues.total
       });
 
+      emitProgress(
+        emitter,
+        makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+          status: shouldBlockByProfile({ gateStatus: gate.status, profile: config.sonarqube.enforcement_profile })
+            ? "fail"
+            : "ok",
+          message: `Quality gate: ${gate.status}`,
+          detail: { gateStatus: gate.status, openIssues: issues.total }
+        })
+      );
+
       if (shouldBlockByProfile({ gateStatus: gate.status, profile: config.sonarqube.enforcement_profile })) {
         session.last_reviewer_feedback = `Sonar gate blocking (${gate.status}). Resolve critical findings first.`;
         session.repeated_issue_count += 1;
         await saveSession(session);
         if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
-          await markSessionStatus(session, "failed");
-          throw new Error("Fail-fast triggered: repeated Sonar blocking issues");
+          const question = `SonarQube quality gate has failed ${session.repeated_issue_count} times (${gate.status}). What should we do?`;
+          await pauseSession(session, {
+            question,
+            context: {
+              iteration: i,
+              stage: "sonar",
+              gateStatus: gate.status,
+              openIssues: issues.total,
+              repeatedCount: session.repeated_issue_count
+            }
+          });
+          emitProgress(
+            emitter,
+            makeEvent("question", { ...eventBase, stage: "sonar" }, {
+              status: "paused",
+              message: question,
+              detail: { question, sessionId: session.id }
+            })
+          );
+          return { paused: true, sessionId: session.id, question, context: "sonar_fail_fast" };
         }
         continue;
       }
     }
+
+    // --- Reviewer ---
+    logger.setContext({ iteration: i, stage: "reviewer" });
+    emitProgress(
+      emitter,
+      makeEvent("reviewer:start", { ...eventBase, stage: "reviewer" }, {
+        message: `Reviewer (${config.reviewer}) running`,
+        detail: { reviewer: config.reviewer }
+      })
+    );
 
     const diff = await generateDiff({ baseRef: session.session_start_sha });
     const reviewerPrompt = buildReviewerPrompt({
@@ -344,12 +520,26 @@ export async function runFlow({ task, config, logger, flags = {} }) {
         lastAttempt?.result?.error ||
         lastAttempt?.result?.output ||
         `reviewer=${lastAttempt?.reviewer || "unknown"} exitCode=${lastAttempt?.result?.exitCode ?? "unknown"}`;
+      emitProgress(
+        emitter,
+        makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
+          status: "fail",
+          message: `Reviewer failed: ${details}`
+        })
+      );
       throw new Error(`Reviewer failed: ${details}`);
     }
 
     const parsed = parseJsonOutput(reviewerExec.result.output);
     if (!parsed) {
       await markSessionStatus(session, "failed");
+      emitProgress(
+        emitter,
+        makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
+          status: "fail",
+          message: "Reviewer output is not valid JSON"
+        })
+      );
       throw new Error("Reviewer output is not valid JSON");
     }
 
@@ -361,9 +551,41 @@ export async function runFlow({ task, config, logger, flags = {} }) {
       blocking_issues: review.blocking_issues.length
     });
 
+    emitProgress(
+      emitter,
+      makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
+        status: review.approved ? "ok" : "fail",
+        message: review.approved ? "Review approved" : `Review rejected (${review.blocking_issues.length} blocking)`,
+        detail: {
+          approved: review.approved,
+          blockingCount: review.blocking_issues.length,
+          issues: review.blocking_issues.map(
+            (x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`
+          )
+        }
+      })
+    );
+
+    // --- Iteration end ---
+    const iterDuration = Date.now() - iterStart;
+    emitProgress(
+      emitter,
+      makeEvent("iteration:end", { ...eventBase, stage: "iteration" }, {
+        message: `Iteration ${i} completed`,
+        detail: { duration: iterDuration }
+      })
+    );
+
     if (review.approved) {
       const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session });
       await markSessionStatus(session, "approved");
+      emitProgress(
+        emitter,
+        makeEvent("session:end", { ...eventBase, stage: "done" }, {
+          message: "Session approved",
+          detail: { approved: true, git: gitResult }
+        })
+      );
       return { approved: true, sessionId: session.id, review, git: gitResult };
     }
 
@@ -374,17 +596,71 @@ export async function runFlow({ task, config, logger, flags = {} }) {
     await saveSession(session);
 
     if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
-      await markSessionStatus(session, "failed");
-      throw new Error("Fail-fast triggered: repeated blocking reviewer issues");
+      const question = `Reviewer has rejected ${session.repeated_issue_count} times with the same issues. Blocking issues:\n${session.last_reviewer_feedback}\n\nHow should we proceed?`;
+      await pauseSession(session, {
+        question,
+        context: {
+          iteration: i,
+          stage: "reviewer",
+          lastFeedback: session.last_reviewer_feedback,
+          repeatedCount: session.repeated_issue_count
+        }
+      });
+      emitProgress(
+        emitter,
+        makeEvent("question", { ...eventBase, stage: "reviewer" }, {
+          status: "paused",
+          message: question,
+          detail: { question, sessionId: session.id }
+        })
+      );
+      return { paused: true, sessionId: session.id, question, context: "reviewer_fail_fast" };
     }
   }
 
   await markSessionStatus(session, "failed");
+  emitProgress(
+    emitter,
+    makeEvent("session:end", { ...eventBase, stage: "done" }, {
+      status: "fail",
+      message: "Max iterations reached",
+      detail: { approved: false, reason: "max_iterations" }
+    })
+  );
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
 }
 
-export async function resumeFlow({ sessionId, logger }) {
-  const session = await loadSession(sessionId);
-  logger.info(`Resuming session ${sessionId} with status ${session.status}`);
-  return session;
+export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null }) {
+  const session = answer
+    ? await resumeSessionWithAnswer(sessionId, answer)
+    : await loadSession(sessionId);
+
+  if (session.status === "paused" && !answer) {
+    logger.info(`Session ${sessionId} is paused. Provide --answer to resume.`);
+    return session;
+  }
+
+  if (session.status !== "running") {
+    logger.info(`Session ${sessionId} has status ${session.status}`);
+    return session;
+  }
+
+  // Session was paused and now resumed with answer - re-run the flow
+  const task = session.task;
+  const sessionConfig = config || session.config_snapshot;
+  if (!sessionConfig) {
+    throw new Error("No config available to resume session");
+  }
+
+  logger.info(`Resuming session ${sessionId} with answer: ${answer}`);
+
+  // Inject the answer as additional feedback for the coder
+  if (session.paused_state?.context?.lastFeedback) {
+    session.last_reviewer_feedback = `Previous feedback: ${session.paused_state.context.lastFeedback}\nUser guidance: ${answer}`;
+  }
+  session.repeated_issue_count = 0;
+  await saveSession(session);
+
+  // Re-run the flow with the existing session context
+  return runFlow({ task, config: sessionConfig, logger, flags, emitter });
 }
