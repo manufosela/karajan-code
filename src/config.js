@@ -41,7 +41,14 @@ const DEFAULTS = {
     ],
     fail_on: ["BLOCKER", "CRITICAL"],
     ignore_on: ["INFO"],
-    max_scan_retries: 3
+    max_scan_retries: 3,
+    scanner: {
+      sources: "src,public,lib",
+      exclusions: "**/node_modules/**,**/fake-apps/**,**/scripts/**,**/playground/**,**/dist/**,**/build/**,**/*.min.js",
+      test_inclusions: "**/*.test.js,**/*.spec.js,**/tests/**,**/__tests__/**",
+      coverage_exclusions: "**/tests/**,**/__tests__/**,**/*.test.js,**/*.spec.js",
+      disabled_rules: ["javascript:S1116", "javascript:S3776"]
+    }
   },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },

@@ -1,5 +1,20 @@
 import { runCommand } from "../utils/process.js";
 
+export function buildScannerOpts(projectKey, scanner = {}) {
+  const opts = [`-Dsonar.projectKey=${projectKey}`];
+  if (scanner.sources) opts.push(`-Dsonar.sources=${scanner.sources}`);
+  if (scanner.exclusions) opts.push(`-Dsonar.exclusions=${scanner.exclusions}`);
+  if (scanner.test_inclusions) opts.push(`-Dsonar.test.inclusions=${scanner.test_inclusions}`);
+  if (scanner.coverage_exclusions) opts.push(`-Dsonar.coverage.exclusions=${scanner.coverage_exclusions}`);
+  const rules = scanner.disabled_rules || [];
+  rules.forEach((rule, i) => {
+    opts.push(`-Dsonar.issue.ignore.multicriteria=e${i + 1}`);
+    opts.push(`-Dsonar.issue.ignore.multicriteria.e${i + 1}.ruleKey=${rule}`);
+    opts.push(`-Dsonar.issue.ignore.multicriteria.e${i + 1}.resourceKey=**/*`);
+  });
+  return opts.join(" ");
+}
+
 export async function runSonarScan(config, projectKey = "karajan-default") {
   const token = process.env.KJ_SONAR_TOKEN || config.sonarqube.token;
   const rawHost = config.sonarqube.host;
@@ -17,7 +32,7 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     "-e",
     `SONAR_TOKEN=${token || ""}`,
     "-e",
-    `SONAR_SCANNER_OPTS=-Dsonar.projectKey=${projectKey}`,
+    `SONAR_SCANNER_OPTS=${buildScannerOpts(projectKey, config.sonarqube.scanner)}`,
     "sonarsource/sonar-scanner-cli"
   ];
 
