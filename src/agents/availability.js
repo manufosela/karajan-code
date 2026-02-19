@@ -1,4 +1,5 @@
 import { runCommand } from "../utils/process.js";
+import { resolveBin } from "./resolve-bin.js";
 
 const AGENT_META = {
   codex: { bin: "codex", installUrl: "https://developers.openai.com/codex/cli" },
@@ -14,7 +15,7 @@ export async function assertAgentsAvailable(agentNames = []) {
   for (const name of unique) {
     const meta = AGENT_META[name];
     if (!meta) continue;
-    const res = await runCommand(meta.bin, ["--version"]);
+    const res = await runCommand(resolveBin(meta.bin), ["--version"]);
     if (res.exitCode !== 0) {
       missing.push({ name, ...meta });
     }

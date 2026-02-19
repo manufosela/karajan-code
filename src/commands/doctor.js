@@ -1,8 +1,10 @@
 import { runCommand } from "../utils/process.js";
+import { resolveBin } from "../agents/resolve-bin.js";
 
 async function checkBinary(name, versionArg = "--version") {
-  const res = await runCommand(name, [versionArg]);
-  return { ok: res.exitCode === 0, output: res.stdout || res.stderr };
+  const resolved = resolveBin(name);
+  const res = await runCommand(resolved, [versionArg]);
+  return { ok: res.exitCode === 0, output: res.stdout || res.stderr, path: resolved };
 }
 
 export async function doctorCommand({ config }) {
@@ -23,7 +25,8 @@ export async function doctorCommand({ config }) {
   }
 
   for (const [binary, result] of results) {
-    console.log(`${result.ok ? "OK" : "MISS"} ${binary}: ${(result.output || "").split("\n")[0]}`);
+    const output = (result.output || "").split("\n")[0];
+    console.log(`${result.ok ? "OK" : "MISS"} ${binary}: ${output} (${result.path})`);
   }
 
   console.log(`Review mode: ${config.review_mode}`);
