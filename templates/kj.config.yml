@@ -1,6 +1,6 @@
 # AI Agents
-coder: codex
-reviewer: claude
+coder: claude
+reviewer: codex
 
 # Review settings
 review_mode: standard

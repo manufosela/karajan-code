@@ -5,8 +5,8 @@ import { ensureDir, exists } from "./utils/fs.js";
 import { getKarajanHome } from "./utils/paths.js";
 
 const DEFAULTS = {
-  coder: "codex",
-  reviewer: "claude",
+  coder: "claude",
+  reviewer: "codex",
   review_mode: "standard",
   max_iterations: 5,
   review_rules: "./review-rules.md",
