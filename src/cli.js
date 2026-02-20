@@ -44,8 +44,16 @@ program
   .command("run")
   .description("Run coder+sonar+reviewer loop")
   .argument("<task>")
+  .option("--planner <name>")
   .option("--coder <name>")
   .option("--reviewer <name>")
+  .option("--refactorer <name>")
+  .option("--planner-model <name>")
+  .option("--coder-model <name>")
+  .option("--reviewer-model <name>")
+  .option("--refactorer-model <name>")
+  .option("--enable-planner")
+  .option("--enable-refactorer")
   .option("--mode <name>")
   .option("--max-iterations <n>")
   .option("--max-iteration-minutes <n>")
@@ -73,6 +81,7 @@ program
   .description("Run only coder")
   .argument("<task>")
   .option("--coder <name>")
+  .option("--coder-model <name>")
   .action(async (task, flags) => {
     await withConfig("code", flags, async ({ config, logger }) => {
       await codeCommand({ task, config, logger });
@@ -83,6 +92,8 @@ program
   .command("review")
   .description("Run only reviewer")
   .argument("<task>")
+  .option("--reviewer <name>")
+  .option("--reviewer-model <name>")
   .option("--base-ref <ref>")
   .action(async (task, flags) => {
     await withConfig("review", flags, async ({ config, logger }) => {
@@ -116,8 +127,10 @@ program
   .command("plan")
   .description("Generate implementation plan")
   .argument("<task>")
-  .action(async (task) => {
-    await withConfig("plan", {}, async ({ config, logger }) => {
+  .option("--planner <name>")
+  .option("--planner-model <name>")
+  .action(async (task, flags) => {
+    await withConfig("plan", flags, async ({ config, logger }) => {
       await planCommand({ task, config, logger });
     });
   });

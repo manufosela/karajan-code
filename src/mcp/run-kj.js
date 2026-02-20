@@ -20,6 +20,12 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
 
   addOptionalValue(args, "--coder", options.coder);
   addOptionalValue(args, "--reviewer", options.reviewer);
+  addOptionalValue(args, "--planner", options.planner);
+  addOptionalValue(args, "--refactorer", options.refactorer);
+  addOptionalValue(args, "--planner-model", options.plannerModel);
+  addOptionalValue(args, "--coder-model", options.coderModel);
+  addOptionalValue(args, "--reviewer-model", options.reviewerModel);
+  addOptionalValue(args, "--refactorer-model", options.refactorerModel);
   addOptionalValue(args, "--reviewer-fallback", options.reviewerFallback);
   addOptionalValue(args, "--reviewer-retries", options.reviewerRetries);
   addOptionalValue(args, "--mode", options.mode);
@@ -30,6 +36,8 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   addOptionalValue(args, "--base-ref", options.baseRef);
   addOptionalValue(args, "--branch-prefix", options.branchPrefix);
   addOptionalValue(args, "--methodology", options.methodology);
+  normalizeBoolFlag(options.enablePlanner, "--enable-planner", args);
+  normalizeBoolFlag(options.enableRefactorer, "--enable-refactorer", args);
   normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
   normalizeBoolFlag(options.autoPush, "--auto-push", args);
   normalizeBoolFlag(options.autoPr, "--auto-pr", args);

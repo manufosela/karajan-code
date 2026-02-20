@@ -7,6 +7,7 @@ import { exists } from "../utils/fs.js";
 export async function initCommand({ logger }) {
   const configPath = getConfigPath();
   const reviewRulesPath = path.resolve(process.cwd(), "review-rules.md");
+  const coderRulesPath = path.resolve(process.cwd(), "coder-rules.md");
 
   const { config, exists: configExists } = await loadConfig();
   if (!configExists) {
@@ -21,6 +22,27 @@ export async function initCommand({ logger }) {
       "utf8"
     );
     logger.info("Created review-rules.md");
+  }
+
+  if (!(await exists(coderRulesPath))) {
+    const templatePath = path.resolve(import.meta.dirname, "../../templates/coder-rules.md");
+    let content;
+    try {
+      content = await fs.readFile(templatePath, "utf8");
+    } catch {
+      content = [
+        "# Coder Rules",
+        "",
+        "## File modification safety",
+        "",
+        "- NEVER overwrite existing files entirely. Always make targeted, minimal edits.",
+        "- After each edit, verify with `git diff` that ONLY the intended lines changed.",
+        "- Do not modify code unrelated to the task.",
+        ""
+      ].join("\n");
+    }
+    await fs.writeFile(coderRulesPath, content, "utf8");
+    logger.info("Created coder-rules.md");
   }
 
   const sonar = await sonarUp();

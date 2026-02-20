@@ -4,8 +4,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { runKjCommand } from "./run-kj.js";
+import { normalizePlanArgs } from "./tool-arg-normalizers.js";
 import { runFlow, resumeFlow } from "../orchestrator.js";
-import { loadConfig, applyRunOverrides, validateConfig } from "../config.js";
+import { loadConfig, applyRunOverrides, validateConfig, resolveRole } from "../config.js";
 import { createLogger } from "../utils/logger.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 
@@ -73,7 +74,14 @@ async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
 
-  await assertAgentsAvailable([config.coder, config.reviewer, config.reviewer_options?.fallback_reviewer]);
+  const requiredProviders = [
+    resolveRole(config, "coder").provider,
+    resolveRole(config, "reviewer").provider,
+    config.reviewer_options?.fallback_reviewer
+  ];
+  if (config.pipeline?.planner?.enabled) requiredProviders.push(resolveRole(config, "planner").provider);
+  if (config.pipeline?.refactorer?.enabled) requiredProviders.push(resolveRole(config, "refactorer").provider);
+  await assertAgentsAvailable(requiredProviders);
 
   const emitter = new EventEmitter();
   emitter.on("progress", buildProgressHandler(server));
@@ -109,7 +117,7 @@ async function handleResumeDirect(a, server, extra) {
 
 // Maps orchestrator event types to progress steps for notifications/progress
 const PROGRESS_STAGES = [
-  "session:start", "coder:start", "coder:end", "tdd:result",
+  "session:start", "planner:start", "planner:end", "coder:start", "coder:end", "refactorer:start", "refactorer:end", "tdd:result",
   "sonar:start", "sonar:end", "reviewer:start", "reviewer:end",
   "iteration:end", "session:end"
 ];
@@ -201,7 +209,8 @@ async function handleToolCall(name, args, server, extra) {
     if (!a.task) {
       return failPayload("Missing required field: task");
     }
-    return runKjCommand({ command: "plan", commandArgs: [a.task], options: a });
+    const options = normalizePlanArgs(a);
+    return runKjCommand({ command: "plan", commandArgs: [a.task], options });
   }
 
   return failPayload(`Unknown tool: ${name}`);
@@ -262,8 +271,16 @@ const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description for the coder" },
+        planner: { type: "string" },
         coder: { type: "string" },
         reviewer: { type: "string" },
+        refactorer: { type: "string" },
+        plannerModel: { type: "string" },
+        coderModel: { type: "string" },
+        reviewerModel: { type: "string" },
+        refactorerModel: { type: "string" },
+        enablePlanner: { type: "boolean" },
+        enableRefactorer: { type: "boolean" },
         reviewerFallback: { type: "string" },
         reviewerRetries: { type: "number" },
         mode: { type: "string" },
@@ -319,6 +336,7 @@ const tools = [
       properties: {
         task: { type: "string" },
         coder: { type: "string" },
+        coderModel: { type: "string" },
         kjHome: { type: "string" },
         timeoutMs: { type: "number" }
       }
@@ -333,6 +351,7 @@ const tools = [
       properties: {
         task: { type: "string" },
         reviewer: { type: "string" },
+        reviewerModel: { type: "string" },
         baseRef: { type: "string" },
         kjHome: { type: "string" },
         timeoutMs: { type: "number" }
@@ -347,7 +366,10 @@ const tools = [
       required: ["task"],
       properties: {
         task: { type: "string" },
-        coder: { type: "string" },
+        planner: { type: "string" },
+        plannerModel: { type: "string" },
+        coder: { type: "string", description: "Legacy alias for planner" },
+        coderModel: { type: "string", description: "Legacy alias for plannerModel" },
         kjHome: { type: "string" },
         timeoutMs: { type: "number" }
       }

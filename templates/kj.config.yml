@@ -6,6 +6,7 @@ reviewer: codex
 review_mode: standard
 max_iterations: 5
 review_rules: ./review-rules.md
+coder_rules: ./coder-rules.md
 base_branch: main
 
 # Coder settings

@@ -13,9 +13,13 @@ const ANSI = {
 
 const ICONS = {
   "session:start": "\u25b6",
+  "planner:start": "\ud83e\udde0",
+  "planner:end": "\ud83e\udde0",
   "iteration:start": "\u25b6",
   "coder:start": "\ud83d\udd28",
   "coder:end": "\ud83d\udd28",
+  "refactorer:start": "\u267b\ufe0f",
+  "refactorer:end": "\u267b\ufe0f",
   "tdd:result": "\ud83d\udccb",
   "sonar:start": "\ud83d\udd0d",
   "sonar:end": "\ud83d\udd0d",
@@ -49,7 +53,7 @@ export function printHeader({ task, config }) {
   console.log(BAR);
   console.log(`${ANSI.bold}Task:${ANSI.reset} ${task}`);
   console.log(
-    `${ANSI.bold}Coder:${ANSI.reset} ${config.coder} ${ANSI.dim}|${ANSI.reset} ${ANSI.bold}Reviewer:${ANSI.reset} ${config.reviewer}`
+    `${ANSI.bold}Coder:${ANSI.reset} ${config.roles?.coder?.provider || config.coder} ${ANSI.dim}|${ANSI.reset} ${ANSI.bold}Reviewer:${ANSI.reset} ${config.roles?.reviewer?.provider || config.reviewer}`
   );
   console.log(
     `${ANSI.bold}Max iterations:${ANSI.reset} ${config.max_iterations} ${ANSI.dim}|${ANSI.reset} ${ANSI.bold}Timeout:${ANSI.reset} ${config.session.max_total_minutes}min`
@@ -73,12 +77,28 @@ export function printEvent(event) {
       );
       break;
 
+    case "planner:start":
+      console.log(`  \u251c\u2500 ${icon} Planner (${event.detail?.planner || "?"}) running...`);
+      break;
+
+    case "planner:end":
+      console.log(`  \u251c\u2500 ${status} Planner completed  ${elapsed}`);
+      break;
+
     case "coder:start":
       console.log(`  \u251c\u2500 ${icon} Coder (${event.detail?.coder || "?"}) running...`);
       break;
 
     case "coder:end":
       console.log(`  \u251c\u2500 ${status} Coder completed  ${elapsed}`);
+      break;
+
+    case "refactorer:start":
+      console.log(`  \u251c\u2500 ${icon} Refactorer (${event.detail?.refactorer || "?"}) running...`);
+      break;
+
+    case "refactorer:end":
+      console.log(`  \u251c\u2500 ${status} Refactorer completed  ${elapsed}`);
       break;
 
     case "tdd:result": {

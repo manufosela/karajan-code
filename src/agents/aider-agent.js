@@ -5,13 +5,21 @@ import { resolveBin } from "./resolve-bin.js";
 export class AiderAgent extends BaseAgent {
   async runTask(task) {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
-    const res = await runCommand(resolveBin("aider"), ["--yes", "--message", task.prompt], { timeout, onOutput: task.onOutput });
+    const role = task.role || "coder";
+    const args = ["--yes", "--message", task.prompt];
+    const model = this.getRoleModel(role);
+    if (model) args.push("--model", model);
+    const res = await runCommand(resolveBin("aider"), args, { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 
   async reviewTask(task) {
     const timeout = this.config.session.max_iteration_minutes * 60 * 1000;
-    const res = await runCommand(resolveBin("aider"), ["--yes", "--message", task.prompt], { timeout, onOutput: task.onOutput });
+    const role = task.role || "reviewer";
+    const args = ["--yes", "--message", task.prompt];
+    const model = this.getRoleModel(role);
+    if (model) args.push("--model", model);
+    const res = await runCommand(resolveBin("aider"), args, { timeout, onOutput: task.onOutput });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }
 }

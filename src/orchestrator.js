@@ -18,6 +18,7 @@ import { buildReviewerPrompt } from "./prompts/reviewer.js";
 import { getOpenIssues, getQualityGateStatus } from "./sonar/api.js";
 import { runSonarScan } from "./sonar/scanner.js";
 import { shouldBlockByProfile, summarizeIssues } from "./sonar/enforcer.js";
+import { resolveRole } from "./config.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -139,12 +140,20 @@ function normalizeReviewPayload(payload) {
   return null;
 }
 
-async function readReviewRules(path) {
+async function readRulesFile(path, fallback) {
   try {
     return await fs.readFile(path, "utf8");
   } catch {
-    return "Focus on critical issues only.";
+    return fallback;
   }
+}
+
+async function readReviewRules(path) {
+  return readRulesFile(path, "Focus on critical issues only.");
+}
+
+async function readCoderRules(path) {
+  return readRulesFile(path, null);
 }
 
 async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput }) {
@@ -159,7 +168,7 @@ async function runReviewerWithFallback({ reviewerName, config, logger, prompt, s
   for (const name of candidates) {
     const reviewer = createAgent(name, config, logger);
     for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
-      const result = await reviewer.reviewTask({ prompt, onOutput });
+      const result = await reviewer.reviewTask({ prompt, onOutput, role: "reviewer" });
       attempts.push({ reviewer: name, attempt, ok: result.ok, result });
       await addCheckpoint(session, {
         stage: "reviewer-attempt",
@@ -257,7 +266,13 @@ async function finalizeGitAutomation({ config, gitCtx, task, logger, session }) 
 }
 
 export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null }) {
-  const coder = createAgent(config.coder, config, logger);
+  const plannerRole = resolveRole(config, "planner");
+  const coderRole = resolveRole(config, "coder");
+  const reviewerRole = resolveRole(config, "reviewer");
+  const refactorerRole = resolveRole(config, "refactorer");
+  const plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
+  const refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
+  const coder = createAgent(coderRole.provider, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
 
@@ -279,16 +294,58 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       message: "Session started",
       detail: {
         task,
-        coder: config.coder,
-        reviewer: config.reviewer,
+        coder: coderRole.provider,
+        reviewer: reviewerRole.provider,
         maxIterations: config.max_iterations
       }
     })
   );
 
+  let plannedTask = task;
+  if (plannerEnabled) {
+    logger.setContext({ iteration: 0, stage: "planner" });
+    emitProgress(
+      emitter,
+      makeEvent("planner:start", { ...eventBase, stage: "planner" }, {
+        message: `Planner (${plannerRole.provider}) running`,
+        detail: { planner: plannerRole.provider }
+      })
+    );
+    const planner = createAgent(plannerRole.provider, config, logger);
+    const plannerPrompt = [
+      "Create an implementation plan for this task.",
+      "Return concise numbered steps focused on execution order and risk.",
+      "",
+      task
+    ].join("\n");
+    const plannerResult = await planner.runTask({ prompt: plannerPrompt, role: "planner" });
+    if (!plannerResult.ok) {
+      await markSessionStatus(session, "failed");
+      const details = plannerResult.error || plannerResult.output || `exitCode=${plannerResult.exitCode ?? "unknown"}`;
+      emitProgress(
+        emitter,
+        makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
+          status: "fail",
+          message: `Planner failed: ${details}`
+        })
+      );
+      throw new Error(`Planner failed: ${details}`);
+    }
+    if (plannerResult.output?.trim()) {
+      plannedTask = `${task}\n\nExecution plan:\n${plannerResult.output.trim()}`;
+    }
+    emitProgress(
+      emitter,
+      makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
+        message: "Planner completed"
+      })
+    );
+  }
+
   const gitCtx = await prepareGitAutomation({ config, task, logger, session });
 
   const reviewRules = await readReviewRules(config.review_rules);
+  const coderRules = await readCoderRules(config.coder_rules);
 
   for (let i = 1; i <= config.max_iterations; i += 1) {
     const elapsedMinutes = (Date.now() - startedAt) / 60000;
@@ -324,24 +381,25 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     emitProgress(
       emitter,
       makeEvent("coder:start", { ...eventBase, stage: "coder" }, {
-        message: `Coder (${config.coder}) running`,
-        detail: { coder: config.coder }
+        message: `Coder (${coderRole.provider}) running`,
+        detail: { coder: coderRole.provider }
       })
     );
 
     const coderPrompt = buildCoderPrompt({
-      task,
+      task: plannedTask,
       reviewerFeedback: session.last_reviewer_feedback,
       sonarSummary: session.last_sonar_summary,
+      coderRules,
       methodology: config.development?.methodology || "tdd"
     });
     const coderOnOutput = ({ stream, line }) => {
       emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "coder" }, {
         message: line,
-        detail: { stream, agent: config.coder }
+        detail: { stream, agent: coderRole.provider }
       }));
     };
-    const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput });
+    const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput, role: "coder" });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
@@ -363,6 +421,54 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         message: "Coder completed"
       })
     );
+
+    if (refactorerEnabled) {
+      logger.setContext({ iteration: i, stage: "refactorer" });
+      emitProgress(
+        emitter,
+        makeEvent("refactorer:start", { ...eventBase, stage: "refactorer" }, {
+          message: `Refactorer (${refactorerRole.provider}) running`,
+          detail: { refactorer: refactorerRole.provider }
+        })
+      );
+      const refactorer = createAgent(refactorerRole.provider, config, logger);
+      const refactorPrompt = [
+        `Task context:\n${plannedTask}`,
+        "",
+        "Refactor the current changes for clarity and maintainability without changing behavior.",
+        "Do not expand scope and keep tests green."
+      ].join("\n");
+      const refactorerOnOutput = ({ stream, line }) => {
+        emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "refactorer" }, {
+          message: line,
+          detail: { stream, agent: refactorerRole.provider }
+        }));
+      };
+      const refactorResult = await refactorer.runTask({
+        prompt: refactorPrompt,
+        onOutput: refactorerOnOutput,
+        role: "refactorer"
+      });
+      if (!refactorResult.ok) {
+        await markSessionStatus(session, "failed");
+        const details = refactorResult.error || refactorResult.output || `exitCode=${refactorResult.exitCode ?? "unknown"}`;
+        emitProgress(
+          emitter,
+          makeEvent("refactorer:end", { ...eventBase, stage: "refactorer" }, {
+            status: "fail",
+            message: `Refactorer failed: ${details}`
+          })
+        );
+        throw new Error(`Refactorer failed: ${details}`);
+      }
+      await addCheckpoint(session, { stage: "refactorer", iteration: i, note: "Refactorer applied cleanups" });
+      emitProgress(
+        emitter,
+        makeEvent("refactorer:end", { ...eventBase, stage: "refactorer" }, {
+          message: "Refactorer completed"
+        })
+      );
+    }
 
     // --- TDD Policy ---
     logger.setContext({ iteration: i, stage: "tdd" });
@@ -516,8 +622,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     emitProgress(
       emitter,
       makeEvent("reviewer:start", { ...eventBase, stage: "reviewer" }, {
-        message: `Reviewer (${config.reviewer}) running`,
-        detail: { reviewer: config.reviewer }
+        message: `Reviewer (${reviewerRole.provider}) running`,
+        detail: { reviewer: reviewerRole.provider }
       })
     );
 
@@ -531,11 +637,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     const reviewerOnOutput = ({ stream, line }) => {
       emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
         message: line,
-        detail: { stream, agent: config.reviewer }
+        detail: { stream, agent: reviewerRole.provider }
       }));
     };
     const reviewerExec = await runReviewerWithFallback({
-      reviewerName: config.reviewer,
+      reviewerName: reviewerRole.provider,
       config,
       logger,
       prompt: reviewerPrompt,

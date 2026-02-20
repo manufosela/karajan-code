@@ -3,9 +3,17 @@ import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
 import { printHeader, printEvent } from "../utils/display.js";
+import { resolveRole } from "../config.js";
 
 export async function runCommandHandler({ task, config, logger, flags }) {
-  await assertAgentsAvailable([config.coder, config.reviewer, config.reviewer_options?.fallback_reviewer]);
+  const requiredProviders = [
+    resolveRole(config, "coder").provider,
+    resolveRole(config, "reviewer").provider,
+    config.reviewer_options?.fallback_reviewer
+  ];
+  if (config.pipeline?.planner?.enabled) requiredProviders.push(resolveRole(config, "planner").provider);
+  if (config.pipeline?.refactorer?.enabled) requiredProviders.push(resolveRole(config, "refactorer").provider);
+  await assertAgentsAvailable(requiredProviders);
 
   const jsonMode = flags?.json;
 

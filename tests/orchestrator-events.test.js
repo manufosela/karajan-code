@@ -239,6 +239,62 @@ describe("orchestrator events", () => {
     }
   });
 
+  it("runs sonar scan before reviewer when SonarQube is enabled", async () => {
+    const { createAgent } = await import("../src/agents/index.js");
+    const coderAgent = {
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: "" })
+    };
+    const reviewerAgent = {
+      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK })
+    };
+    createAgent.mockImplementation((name) => {
+      if (name === "codex") return coderAgent;
+      return reviewerAgent;
+    });
+
+    const { runSonarScan } = await import("../src/sonar/scanner.js");
+    runSonarScan.mockResolvedValue({ ok: true, stdout: "scan ok", stderr: "" });
+    const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
+    getQualityGateStatus.mockResolvedValue({ status: "OK" });
+    getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
+
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (e) => events.push(e.type));
+
+    const config = {
+      coder: "codex",
+      reviewer: "claude",
+      review_mode: "standard",
+      max_iterations: 1,
+      review_rules: "./review-rules.md",
+      base_branch: "main",
+      development: { methodology: "tdd", require_test_changes: true },
+      sonarqube: { enabled: true, host: "http://localhost:9000" },
+      git: { auto_commit: false, auto_push: false, auto_pr: false },
+      session: { max_total_minutes: 120, fail_fast_repeats: 2 },
+      reviewer_options: { retries: 0, fallback_reviewer: null },
+      output: { log_level: "info" }
+    };
+
+    const logger = {
+      debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+      setContext: vi.fn(), resetContext: vi.fn()
+    };
+
+    const result = await runFlow({ task: "test", config, logger, flags: {}, emitter });
+
+    expect(result.approved).toBe(true);
+    expect(runSonarScan).toHaveBeenCalledTimes(1);
+    expect(runSonarScan.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
+
+    expect(events).toContain("sonar:start");
+    expect(events).toContain("sonar:end");
+    expect(events).toContain("reviewer:start");
+    expect(events.indexOf("sonar:start")).toBeLessThan(events.indexOf("sonar:end"));
+    expect(events.indexOf("sonar:end")).toBeLessThan(events.indexOf("reviewer:start"));
+  });
+
   it("emits agent:output events from coder and reviewer", async () => {
     const { createAgent } = await import("../src/agents/index.js");
     createAgent.mockReturnValue({
@@ -393,5 +449,76 @@ describe("orchestrator events", () => {
     // Should not throw even without emitter
     const result = await runFlow({ task: "test", config, logger, flags: {} });
     expect(result.approved).toBe(true);
+  });
+
+  it("runs planner and refactorer stages when enabled in pipeline", async () => {
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (e) => events.push(e.type));
+
+    const { createAgent } = await import("../src/agents/index.js");
+    const runTask = vi.fn().mockResolvedValue({ ok: true, output: "ok" });
+    createAgent.mockReturnValue({
+      runTask,
+      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK })
+    });
+
+    const config = {
+      coder: "codex",
+      reviewer: "claude",
+      review_mode: "standard",
+      max_iterations: 1,
+      review_rules: "./review-rules.md",
+      base_branch: "main",
+      development: { methodology: "tdd", require_test_changes: true },
+      sonarqube: { enabled: false },
+      git: { auto_commit: false, auto_push: false, auto_pr: false },
+      session: { max_total_minutes: 120, fail_fast_repeats: 2 },
+      reviewer_options: { retries: 0, fallback_reviewer: null },
+      output: { log_level: "info" },
+      roles: {
+        planner: { provider: "gemini", model: "plan-model" },
+        coder: { provider: "codex", model: "code-model" },
+        reviewer: { provider: "claude", model: "review-model" },
+        refactorer: { provider: "aider", model: "refactor-model" }
+      },
+      pipeline: {
+        planner: { enabled: true },
+        refactorer: { enabled: true }
+      }
+    };
+
+    const logger = {
+      debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+      setContext: vi.fn(), resetContext: vi.fn()
+    };
+
+    const result = await runFlow({
+      task: "test task",
+      config,
+      logger,
+      flags: {},
+      emitter
+    });
+
+    expect(result.approved).toBe(true);
+    expect(events).toEqual([
+      "session:start",
+      "planner:start",
+      "planner:end",
+      "iteration:start",
+      "coder:start",
+      "coder:end",
+      "refactorer:start",
+      "refactorer:end",
+      "tdd:result",
+      "reviewer:start",
+      "reviewer:end",
+      "iteration:end",
+      "session:end"
+    ]);
+    expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "planner" }));
+    expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "coder" }));
+    expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "refactorer" }));
   });
 });

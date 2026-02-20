@@ -4,13 +4,17 @@ const SUBAGENT_PREAMBLE = [
   "Execute the task directly. Do NOT use any MCP tools. Focus only on coding."
 ].join(" ");
 
-export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, methodology = "tdd" }) {
+export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd" }) {
   const sections = [
     SUBAGENT_PREAMBLE,
     `Task:\n${task}`,
     "Implement directly in the repository.",
     "Keep changes minimal and production-ready."
   ];
+
+  if (coderRules) {
+    sections.push(`Coder rules (MUST follow):\n${coderRules}`);
+  }
 
   if (methodology === "tdd") {
     sections.push(

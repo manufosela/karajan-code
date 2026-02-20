@@ -7,9 +7,20 @@ import { getKarajanHome } from "./utils/paths.js";
 const DEFAULTS = {
   coder: "claude",
   reviewer: "codex",
+  roles: {
+    planner: { provider: null, model: null },
+    coder: { provider: null, model: null },
+    reviewer: { provider: null, model: null },
+    refactorer: { provider: null, model: null }
+  },
+  pipeline: {
+    planner: { enabled: false },
+    refactorer: { enabled: false }
+  },
   review_mode: "standard",
   max_iterations: 5,
   review_rules: "./review-rules.md",
+  coder_rules: "./coder-rules.md",
   base_branch: "main",
   coder_options: { model: null, auto_approve: true },
   reviewer_options: {
@@ -30,6 +41,8 @@ const DEFAULTS = {
     enabled: true,
     host: "http://localhost:9000",
     token: null,
+    admin_user: "admin",
+    admin_password: null,
     quality_gate: true,
     enforcement_profile: "pragmatic",
     gate_block_on: [
@@ -91,8 +104,33 @@ export async function writeConfig(configPath, config) {
 
 export function applyRunOverrides(config, flags) {
   const out = mergeDeep(config, {});
+  out.coder_options = out.coder_options || {};
+  out.reviewer_options = out.reviewer_options || {};
+  out.session = out.session || {};
+  out.git = out.git || {};
+  out.development = out.development || {};
+  out.sonarqube = out.sonarqube || {};
+  out.roles = mergeDeep(DEFAULTS.roles, out.roles || {});
+  out.pipeline = mergeDeep(DEFAULTS.pipeline, out.pipeline || {});
+
+  if (flags.planner) out.roles.planner.provider = flags.planner;
   if (flags.coder) out.coder = flags.coder;
+  if (flags.coder) out.roles.coder.provider = flags.coder;
   if (flags.reviewer) out.reviewer = flags.reviewer;
+  if (flags.reviewer) out.roles.reviewer.provider = flags.reviewer;
+  if (flags.refactorer) out.roles.refactorer.provider = flags.refactorer;
+  if (flags.plannerModel) out.roles.planner.model = String(flags.plannerModel);
+  if (flags.coderModel) {
+    out.roles.coder.model = String(flags.coderModel);
+    out.coder_options.model = String(flags.coderModel);
+  }
+  if (flags.reviewerModel) {
+    out.roles.reviewer.model = String(flags.reviewerModel);
+    out.reviewer_options.model = String(flags.reviewerModel);
+  }
+  if (flags.refactorerModel) out.roles.refactorer.model = String(flags.refactorerModel);
+  if (flags.enablePlanner !== undefined) out.pipeline.planner.enabled = Boolean(flags.enablePlanner);
+  if (flags.enableRefactorer !== undefined) out.pipeline.refactorer.enabled = Boolean(flags.enableRefactorer);
   if (flags.mode) out.review_mode = flags.mode;
   if (flags.maxIterations) out.max_iterations = Number(flags.maxIterations);
   if (flags.maxIterationMinutes) out.session.max_iteration_minutes = Number(flags.maxIterationMinutes);
@@ -115,6 +153,42 @@ export function applyRunOverrides(config, flags) {
   return out;
 }
 
+export function resolveRole(config, role) {
+  const roles = config?.roles || {};
+  const roleConfig = roles[role] || {};
+  const legacyCoder = config?.coder || null;
+  const legacyReviewer = config?.reviewer || null;
+
+  let provider = roleConfig.provider ?? null;
+  if (!provider && role === "coder") provider = legacyCoder;
+  if (!provider && role === "reviewer") provider = legacyReviewer;
+  if (!provider && (role === "planner" || role === "refactorer")) {
+    provider = roles.coder?.provider || legacyCoder;
+  }
+
+  let model = roleConfig.model ?? null;
+  if (!model && role === "coder") model = config?.coder_options?.model ?? null;
+  if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
+  if (!model && (role === "planner" || role === "refactorer")) {
+    model = config?.coder_options?.model ?? null;
+  }
+
+  return { provider, model };
+}
+
+function requiredRolesFor(commandName, config) {
+  if (commandName === "run") {
+    const required = ["coder", "reviewer"];
+    if (config?.pipeline?.planner?.enabled) required.push("planner");
+    if (config?.pipeline?.refactorer?.enabled) required.push("refactorer");
+    return required;
+  }
+  if (commandName === "plan") return ["planner"];
+  if (commandName === "code") return ["coder"];
+  if (commandName === "review") return ["reviewer"];
+  return [];
+}
+
 export function validateConfig(config, commandName = "run") {
   const errors = [];
   if (!["paranoid", "strict", "standard", "relaxed", "custom"].includes(config.review_mode)) {
@@ -124,9 +198,14 @@ export function validateConfig(config, commandName = "run") {
     errors.push(`Invalid development.methodology: ${config.development?.methodology}`);
   }
 
-  if (commandName === "run") {
-    if (!config.coder) errors.push("Missing coder");
-    if (!config.reviewer) errors.push("Missing reviewer");
+  const requiredRoles = requiredRolesFor(commandName, config);
+  for (const role of requiredRoles) {
+    const { provider } = resolveRole(config, role);
+    if (!provider) {
+      errors.push(
+        `Missing provider for required role '${role}'. Set 'roles.${role}.provider' or pass '--${role} <name>'`
+      );
+    }
   }
 
   if (errors.length > 0) {

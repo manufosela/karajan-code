@@ -44,9 +44,9 @@ async function isSonarReachable(host) {
   return res.exitCode === 0 && res.stdout.trim().startsWith("2");
 }
 
-export async function sonarUp() {
+export async function sonarUp(hostOverride = null) {
   const { config } = await loadConfig();
-  const host = config.sonarqube.host || "http://localhost:9000";
+  const host = hostOverride || config.sonarqube.host || "http://localhost:9000";
 
   if (await isSonarReachable(host)) {
     return { exitCode: 0, stdout: `SonarQube already reachable at ${host}, skipping container start.`, stderr: "" };
