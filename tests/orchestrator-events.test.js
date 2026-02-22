@@ -253,7 +253,7 @@ describe("orchestrator events", () => {
     });
 
     const { runSonarScan } = await import("../src/sonar/scanner.js");
-    runSonarScan.mockResolvedValue({ ok: true, stdout: "scan ok", stderr: "" });
+    runSonarScan.mockResolvedValue({ ok: true, projectKey: "kj-repo-123", stdout: "scan ok", stderr: "" });
     const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
     getQualityGateStatus.mockResolvedValue({ status: "OK" });
     getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
@@ -286,6 +286,8 @@ describe("orchestrator events", () => {
 
     expect(result.approved).toBe(true);
     expect(runSonarScan).toHaveBeenCalledTimes(1);
+    expect(getQualityGateStatus).toHaveBeenCalledWith(config, "kj-repo-123");
+    expect(getOpenIssues).toHaveBeenCalledWith(config, "kj-repo-123");
     expect(runSonarScan.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
     expect(events).toContain("sonar:start");

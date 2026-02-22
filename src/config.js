@@ -41,8 +41,16 @@ const DEFAULTS = {
     enabled: true,
     host: "http://localhost:9000",
     token: null,
+    project_key: null,
     admin_user: "admin",
     admin_password: null,
+    coverage: {
+      enabled: false,
+      command: null,
+      timeout_ms: 300000,
+      block_on_failure: true,
+      lcov_report_path: null
+    },
     quality_gate: true,
     enforcement_profile: "pragmatic",
     gate_block_on: [

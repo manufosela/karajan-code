@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
+import { resolveSonarProjectKey } from "./project-key.js";
 
 export function buildScannerOpts(projectKey, scanner = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
@@ -8,6 +9,9 @@ export function buildScannerOpts(projectKey, scanner = {}) {
   if (scanner.exclusions) opts.push(`-Dsonar.exclusions=${scanner.exclusions}`);
   if (scanner.test_inclusions) opts.push(`-Dsonar.test.inclusions=${scanner.test_inclusions}`);
   if (scanner.coverage_exclusions) opts.push(`-Dsonar.coverage.exclusions=${scanner.coverage_exclusions}`);
+  if (scanner.javascript_lcov_report_paths) {
+    opts.push(`-Dsonar.javascript.lcov.reportPaths=${scanner.javascript_lcov_report_paths}`);
+  }
   const rules = scanner.disabled_rules || [];
   rules.forEach((rule, i) => {
     opts.push(`-Dsonar.issue.ignore.multicriteria=e${i + 1}`);
@@ -74,6 +78,89 @@ async function generateUserToken(host, user, password) {
   return parsed?.token || null;
 }
 
+function coverageConfig(config) {
+  return config?.sonarqube?.coverage || {};
+}
+
+async function maybeRunCoverage(config) {
+  const coverage = coverageConfig(config);
+  if (!coverage.enabled) {
+    return { ok: true, scannerPatch: {} };
+  }
+
+  const lcovPath = String(coverage.lcov_report_path || "").trim();
+  const blockOnFailure = coverage.block_on_failure !== false;
+
+  // Allow "consume existing lcov only" mode without running any coverage command.
+  if (!String(coverage.command || "").trim()) {
+    if (!lcovPath) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "Sonar coverage is enabled but neither coverage.command nor coverage.lcov_report_path is configured."
+      };
+    }
+    if (!fs.existsSync(lcovPath)) {
+      if (blockOnFailure) {
+        return {
+          ok: false,
+          exitCode: 1,
+          stdout: "",
+          stderr: `Configured lcov report path does not exist: ${lcovPath}`
+        };
+      }
+      return { ok: true, scannerPatch: {} };
+    }
+    return {
+      ok: true,
+      scannerPatch: {
+        javascript_lcov_report_paths: lcovPath
+      }
+    };
+  }
+
+  const command = String(coverage.command || "").trim();
+  const timeout = Number(coverage.timeout_ms) > 0 ? Number(coverage.timeout_ms) : 5 * 60 * 1000;
+  const run = await runCommand("bash", ["-lc", command], { timeout });
+
+  if (run.exitCode !== 0) {
+    if (blockOnFailure) {
+      return {
+        ok: false,
+        exitCode: run.exitCode,
+        stdout: run.stdout || "",
+        stderr: run.stderr || "Coverage command failed"
+      };
+    }
+    return { ok: true, scannerPatch: {} };
+  }
+
+  if (!lcovPath) {
+    return { ok: true, scannerPatch: {} };
+  }
+
+  if (!fs.existsSync(lcovPath)) {
+    if (blockOnFailure) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: run.stdout || "",
+        stderr: `Configured lcov report path does not exist: ${lcovPath}`
+      };
+    }
+    return { ok: true, scannerPatch: {} };
+  }
+
+  return {
+    ok: true,
+    scannerPatch: {
+      javascript_lcov_report_paths: lcovPath
+    }
+  };
+}
+
 async function resolveSonarToken(config, apiHost) {
   const explicitToken = process.env.KJ_SONAR_TOKEN || process.env.SONAR_TOKEN || config.sonarqube.token;
   if (explicitToken) return explicitToken;
@@ -95,7 +182,8 @@ async function resolveSonarToken(config, apiHost) {
   return null;
 }
 
-export async function runSonarScan(config, projectKey = "karajan-default") {
+export async function runSonarScan(config, projectKey = null) {
+  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
   const rawHost = config.sonarqube.host;
   const apiHost = normalizeApiHost(rawHost);
   const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
@@ -121,6 +209,19 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     };
   }
   process.env.KJ_SONAR_TOKEN = token;
+  const coverage = await maybeRunCoverage(config);
+  if (!coverage.ok) {
+    return {
+      ok: false,
+      stdout: coverage.stdout || "",
+      stderr: coverage.stderr || "Failed to generate coverage report for SonarQube",
+      exitCode: coverage.exitCode || 1
+    };
+  }
+  const scannerConfig = normalizeScannerConfig({
+    ...config.sonarqube.scanner,
+    ...coverage.scannerPatch
+  });
 
   const args = [
     "run",
@@ -133,13 +234,14 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     "-e",
     `SONAR_TOKEN=${token || ""}`,
     "-e",
-    `SONAR_SCANNER_OPTS=${buildScannerOpts(projectKey, normalizeScannerConfig(config.sonarqube.scanner))}`,
+    `SONAR_SCANNER_OPTS=${buildScannerOpts(effectiveProjectKey, scannerConfig)}`,
     "sonarsource/sonar-scanner-cli"
   ];
 
   const result = await runCommand("docker", args, { timeout: 15 * 60 * 1000 });
   return {
     ok: result.exitCode === 0,
+    projectKey: effectiveProjectKey,
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode

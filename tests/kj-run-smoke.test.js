@@ -237,7 +237,6 @@ describe("kj_run smoke", () => {
     const dockerCallIndex = runCommand.mock.calls.findIndex(
       ([bin, args]) => bin === "docker" && args.includes("sonarsource/sonar-scanner-cli")
     );
-
     expect(validateCallIndex).toBeGreaterThanOrEqual(0);
     expect(tokenCallIndex).toBeGreaterThanOrEqual(0);
     expect(dockerCallIndex).toBeGreaterThanOrEqual(0);
@@ -252,5 +251,64 @@ describe("kj_run smoke", () => {
     expect(events).toContain("sonar:end");
     expect(events.indexOf("sonar:start")).toBeLessThan(events.indexOf("sonar:end"));
     expect(events.indexOf("sonar:end")).toBeLessThan(events.indexOf("reviewer:start"));
+  });
+
+  it("runs configured coverage command before scan when enabled", async () => {
+    const { createAgent } = await import("../src/agents/index.js");
+    const coderAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }) };
+    const reviewerAgent = { reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK }) };
+    createAgent.mockImplementation((name) => {
+      if (name === "codex") return coderAgent;
+      return reviewerAgent;
+    });
+
+    const { sonarUp } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "started", stderr: "" });
+
+    const { runCommand } = await import("../src/utils/process.js");
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
+
+    const { runFlow } = await import("../src/orchestrator.js");
+    const emitter = new EventEmitter();
+    const config = {
+      coder: "codex",
+      reviewer: "claude",
+      review_mode: "standard",
+      max_iterations: 1,
+      review_rules: "./review-rules.md",
+      base_branch: "main",
+      development: { methodology: "tdd", require_test_changes: true },
+      sonarqube: {
+        enabled: true,
+        host: "http://localhost:9000",
+        token: "token-123",
+        coverage: {
+          enabled: true,
+          command: "echo coverage",
+          timeout_ms: 1000,
+          block_on_failure: true,
+          lcov_report_path: "package.json"
+        },
+        scanner: { sources: "src" }
+      },
+      git: { auto_commit: false, auto_push: false, auto_pr: false },
+      session: { max_total_minutes: 120, fail_fast_repeats: 2 },
+      reviewer_options: { retries: 0, fallback_reviewer: null },
+      output: { log_level: "info" }
+    };
+
+    const logger = {
+      debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+      setContext: vi.fn(), resetContext: vi.fn()
+    };
+
+    const result = await runFlow({ task: "smoke test", config, logger, flags: {}, emitter });
+
+    expect(result.approved).toBe(true);
+    expect(runCommand.mock.calls[0][0]).toBe("bash");
+    expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
+    expect(runCommand.mock.calls[1][0]).toBe("docker");
   });
 });

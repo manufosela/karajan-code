@@ -12,7 +12,8 @@ describe("buildScannerOpts", () => {
       sources: "src,lib",
       exclusions: "**/node_modules/**,**/dist/**",
       test_inclusions: "**/*.test.js",
-      coverage_exclusions: "**/tests/**"
+      coverage_exclusions: "**/tests/**",
+      javascript_lcov_report_paths: "coverage/lcov.info"
     };
     const result = buildScannerOpts("proj", scanner);
     expect(result).toContain("-Dsonar.projectKey=proj");
@@ -20,6 +21,7 @@ describe("buildScannerOpts", () => {
     expect(result).toContain("-Dsonar.exclusions=**/node_modules/**,**/dist/**");
     expect(result).toContain("-Dsonar.test.inclusions=**/*.test.js");
     expect(result).toContain("-Dsonar.coverage.exclusions=**/tests/**");
+    expect(result).toContain("-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info");
   });
 
   it("generates disabled_rules with multicriteria syntax", () => {
