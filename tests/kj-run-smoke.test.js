@@ -307,7 +307,7 @@ describe("kj_run smoke", () => {
     const result = await runFlow({ task: "smoke test", config, logger, flags: {}, emitter });
 
     expect(result.approved).toBe(true);
-    expect(runCommand.mock.calls[0][0]).toBe("/bin/bash");
+    expect(runCommand.mock.calls[0][0]).toBe("bash");
     expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
     expect(runCommand.mock.calls[1][0]).toBe("docker");
   });

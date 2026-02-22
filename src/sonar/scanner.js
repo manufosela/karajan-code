@@ -87,19 +87,42 @@ async function maybeRunCoverage(config) {
     return { ok: true, scannerPatch: {} };
   }
 
-  const command = String(coverage.command || "").trim();
-  if (!command) {
+  const lcovPath = String(coverage.lcov_report_path || "").trim();
+  const blockOnFailure = coverage.block_on_failure !== false;
+
+  // Allow "consume existing lcov only" mode without running any coverage command.
+  if (!String(coverage.command || "").trim()) {
+    if (!lcovPath) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "Sonar coverage is enabled but neither coverage.command nor coverage.lcov_report_path is configured."
+      };
+    }
+    if (!fs.existsSync(lcovPath)) {
+      if (blockOnFailure) {
+        return {
+          ok: false,
+          exitCode: 1,
+          stdout: "",
+          stderr: `Configured lcov report path does not exist: ${lcovPath}`
+        };
+      }
+      return { ok: true, scannerPatch: {} };
+    }
     return {
-      ok: false,
-      exitCode: 1,
-      stdout: "",
-      stderr: "Sonar coverage is enabled but no command is configured (sonarqube.coverage.command)."
+      ok: true,
+      scannerPatch: {
+        javascript_lcov_report_paths: lcovPath
+      }
     };
   }
 
+  const command = String(coverage.command || "").trim();
   const timeout = Number(coverage.timeout_ms) > 0 ? Number(coverage.timeout_ms) : 5 * 60 * 1000;
-  const blockOnFailure = coverage.block_on_failure !== false;
-  const run = await runCommand("/bin/bash", ["-lc", command], { timeout });
+  const run = await runCommand("bash", ["-lc", command], { timeout });
 
   if (run.exitCode !== 0) {
     if (blockOnFailure) {
@@ -113,7 +136,6 @@ async function maybeRunCoverage(config) {
     return { ok: true, scannerPatch: {} };
   }
 
-  const lcovPath = String(coverage.lcov_report_path || "").trim();
   if (!lcovPath) {
     return { ok: true, scannerPatch: {} };
   }

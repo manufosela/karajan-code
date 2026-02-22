@@ -154,7 +154,7 @@ describe("runSonarScan", () => {
     const result = await runSonarScan(config, "my-key");
 
     expect(result.ok).toBe(true);
-    expect(runCommand.mock.calls[0][0]).toBe("/bin/bash");
+    expect(runCommand.mock.calls[0][0]).toBe("bash");
     expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
     expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 12345 });
     expect(runCommand.mock.calls[1][0]).toBe("docker");
@@ -183,7 +183,7 @@ describe("runSonarScan", () => {
     expect(result.ok).toBe(false);
     expect(result.stderr).toContain("coverage failed");
     expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(runCommand.mock.calls[0][0]).toBe("/bin/bash");
+    expect(runCommand.mock.calls[0][0]).toBe("bash");
   });
 
   it("continues when coverage command fails and block_on_failure is false", async () => {
@@ -208,7 +208,33 @@ describe("runSonarScan", () => {
 
     expect(result.ok).toBe(true);
     expect(runCommand).toHaveBeenCalledTimes(2);
-    expect(runCommand.mock.calls[0][0]).toBe("/bin/bash");
+    expect(runCommand.mock.calls[0][0]).toBe("bash");
     expect(runCommand.mock.calls[1][0]).toBe("docker");
+  });
+
+  it("supports lcov-only mode without coverage command when report exists", async () => {
+    const config = {
+      sonarqube: {
+        host: "http://localhost:9000",
+        token: "token-123",
+        coverage: {
+          enabled: true,
+          command: null,
+          lcov_report_path: "package.json",
+          block_on_failure: true
+        },
+        scanner: { sources: "src" }
+      }
+    };
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
+
+    const result = await runSonarScan(config, "my-key");
+
+    expect(result.ok).toBe(true);
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(runCommand.mock.calls[0][0]).toBe("docker");
+    const scannerEnv = runCommand.mock.calls[0][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
   });
 });
