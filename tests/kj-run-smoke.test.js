@@ -132,7 +132,9 @@ describe("kj_run smoke", () => {
     });
 
     const { runCommand } = await import("../src/utils/process.js");
-    runCommand.mockResolvedValue({ exitCode: 0, stdout: "scan ok", stderr: "" });
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
     const { runFlow } = await import("../src/orchestrator.js");
     const emitter = new EventEmitter();
@@ -163,12 +165,18 @@ describe("kj_run smoke", () => {
 
     expect(result.approved).toBe(true);
     expect(sonarUp).toHaveBeenCalledWith("http://localhost:9000");
-    expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(runCommand.mock.calls[0][0]).toBe("docker");
-    expect(runCommand.mock.calls[0][1]).toContain("sonarsource/sonar-scanner-cli");
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(runCommand.mock.calls[0][0]).toBe("git");
+    expect(runCommand.mock.calls[0][1]).toEqual(["config", "--get", "remote.origin.url"]);
+    expect(runCommand.mock.calls[1][0]).toBe("docker");
+    expect(runCommand.mock.calls[1][1]).toContain("sonarsource/sonar-scanner-cli");
 
-    expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[0]);
-    expect(runCommand.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
+    const dockerCallIndex = runCommand.mock.calls.findIndex(
+      ([bin, args]) => bin === "docker" && args.includes("sonarsource/sonar-scanner-cli")
+    );
+    expect(dockerCallIndex).toBeGreaterThanOrEqual(0);
+    expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[dockerCallIndex]);
+    expect(runCommand.mock.invocationCallOrder[dockerCallIndex]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
     expect(events).toContain("sonar:start");
     expect(events).toContain("sonar:end");
@@ -190,6 +198,7 @@ describe("kj_run smoke", () => {
 
     const { runCommand } = await import("../src/utils/process.js");
     runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" })
       .mockResolvedValueOnce({
         exitCode: 0,
@@ -242,7 +251,7 @@ describe("kj_run smoke", () => {
     expect(dockerCallIndex).toBeGreaterThanOrEqual(0);
     expect(runCommand.mock.calls[dockerCallIndex][1]).toContain("SONAR_TOKEN=from-admin");
 
-    expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[0]);
+    expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[dockerCallIndex]);
     expect(validateCallIndex).toBeLessThan(tokenCallIndex);
     expect(tokenCallIndex).toBeLessThan(dockerCallIndex);
     expect(runCommand.mock.invocationCallOrder[dockerCallIndex]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
@@ -267,6 +276,7 @@ describe("kj_run smoke", () => {
 
     const { runCommand } = await import("../src/utils/process.js");
     runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
@@ -307,8 +317,9 @@ describe("kj_run smoke", () => {
     const result = await runFlow({ task: "smoke test", config, logger, flags: {}, emitter });
 
     expect(result.approved).toBe(true);
-    expect(runCommand.mock.calls[0][0]).toBe("bash");
-    expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
-    expect(runCommand.mock.calls[1][0]).toBe("docker");
+    expect(runCommand.mock.calls[0][0]).toBe("git");
+    expect(runCommand.mock.calls[1][0]).toBe("bash");
+    expect(runCommand.mock.calls[1][1]).toEqual(["-lc", "echo coverage"]);
+    expect(runCommand.mock.calls[2][0]).toBe("docker");
   });
 });

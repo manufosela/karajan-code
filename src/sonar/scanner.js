@@ -183,7 +183,18 @@ async function resolveSonarToken(config, apiHost) {
 }
 
 export async function runSonarScan(config, projectKey = null) {
-  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
+  let effectiveProjectKey;
+  try {
+    effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
+  } catch (error) {
+    return {
+      ok: false,
+      projectKey: null,
+      stdout: "",
+      stderr: error?.message || String(error),
+      exitCode: 1
+    };
+  }
   const rawHost = config.sonarqube.host;
   const apiHost = normalizeApiHost(rawHost);
   const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);

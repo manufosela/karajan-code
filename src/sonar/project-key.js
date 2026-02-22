@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import path from "node:path";
+import { runCommand } from "../utils/process.js";
 
 function slug(value) {
   return String(value || "")
@@ -19,6 +19,13 @@ function digest(input) {
   return crypto.createHash("sha1").update(String(input)).digest("hex").slice(0, 12);
 }
 
+function remoteRepoName(remoteUrl) {
+  const normalized = String(remoteUrl || "").trim().replace(/\/+$/, "");
+  if (!normalized) return "";
+  const lastSegment = normalized.split(/[:/]/).pop() || "";
+  return lastSegment.replace(/\.git$/i, "");
+}
+
 export async function resolveSonarProjectKey(config, options = {}) {
   const explicit = String(
     options.projectKey || process.env.KJ_SONAR_PROJECT_KEY || config?.sonarqube?.project_key || ""
@@ -27,7 +34,15 @@ export async function resolveSonarProjectKey(config, options = {}) {
     return normalizeProjectKey(explicit);
   }
 
-  const cwd = path.resolve(options.cwd || process.cwd());
-  const repo = slug(path.basename(cwd)) || "repo";
-  return normalizeProjectKey(`kj-${repo}-${digest(cwd)}`);
+  const remote = await runCommand("git", ["config", "--get", "remote.origin.url"]);
+  const remoteUrl = String(remote.stdout || "").trim();
+  if (remote.exitCode !== 0 || !remoteUrl) {
+    throw new Error(
+      "Missing git remote.origin.url. Configure remote origin or set sonarqube.project_key explicitly."
+    );
+  }
+
+  const repo = slug(remoteRepoName(remoteUrl));
+  const derived = repo ? `kj-${repo}-${digest(remoteUrl)}` : `kj-${digest(remoteUrl)}`;
+  return normalizeProjectKey(derived);
 }
