@@ -8,6 +8,9 @@ export function buildScannerOpts(projectKey, scanner = {}) {
   if (scanner.exclusions) opts.push(`-Dsonar.exclusions=${scanner.exclusions}`);
   if (scanner.test_inclusions) opts.push(`-Dsonar.test.inclusions=${scanner.test_inclusions}`);
   if (scanner.coverage_exclusions) opts.push(`-Dsonar.coverage.exclusions=${scanner.coverage_exclusions}`);
+  if (scanner.javascript_lcov_report_paths) {
+    opts.push(`-Dsonar.javascript.lcov.reportPaths=${scanner.javascript_lcov_report_paths}`);
+  }
   const rules = scanner.disabled_rules || [];
   rules.forEach((rule, i) => {
     opts.push(`-Dsonar.issue.ignore.multicriteria=e${i + 1}`);
@@ -74,6 +77,18 @@ async function generateUserToken(host, user, password) {
   return parsed?.token || null;
 }
 
+async function ensureCoverageReport() {
+  const result = await runCommand("npm", [
+    "test",
+    "--",
+    "--coverage.enabled",
+    "true",
+    "--coverage.reporter=lcov",
+    "--coverage.reporter=text-summary"
+  ]);
+  return result;
+}
+
 async function resolveSonarToken(config, apiHost) {
   const explicitToken = process.env.KJ_SONAR_TOKEN || process.env.SONAR_TOKEN || config.sonarqube.token;
   if (explicitToken) return explicitToken;
@@ -121,6 +136,19 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     };
   }
   process.env.KJ_SONAR_TOKEN = token;
+  const coverage = await ensureCoverageReport();
+  if (coverage.exitCode !== 0) {
+    return {
+      ok: false,
+      stdout: coverage.stdout || "",
+      stderr: coverage.stderr || "Failed to generate coverage report for SonarQube",
+      exitCode: coverage.exitCode
+    };
+  }
+  const scannerConfig = normalizeScannerConfig({
+    ...config.sonarqube.scanner,
+    javascript_lcov_report_paths: "coverage/lcov.info"
+  });
 
   const args = [
     "run",
@@ -133,7 +161,7 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     "-e",
     `SONAR_TOKEN=${token || ""}`,
     "-e",
-    `SONAR_SCANNER_OPTS=${buildScannerOpts(projectKey, normalizeScannerConfig(config.sonarqube.scanner))}`,
+    `SONAR_SCANNER_OPTS=${buildScannerOpts(projectKey, scannerConfig)}`,
     "sonarsource/sonar-scanner-cli"
   ];
 

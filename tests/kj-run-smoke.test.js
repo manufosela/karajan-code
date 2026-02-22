@@ -163,12 +163,13 @@ describe("kj_run smoke", () => {
 
     expect(result.approved).toBe(true);
     expect(sonarUp).toHaveBeenCalledWith("http://localhost:9000");
-    expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(runCommand.mock.calls[0][0]).toBe("docker");
-    expect(runCommand.mock.calls[0][1]).toContain("sonarsource/sonar-scanner-cli");
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(runCommand.mock.calls[0][0]).toBe("npm");
+    expect(runCommand.mock.calls[1][0]).toBe("docker");
+    expect(runCommand.mock.calls[1][1]).toContain("sonarsource/sonar-scanner-cli");
 
     expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[0]);
-    expect(runCommand.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
+    expect(runCommand.mock.invocationCallOrder[1]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
     expect(events).toContain("sonar:start");
     expect(events).toContain("sonar:end");
@@ -196,6 +197,7 @@ describe("kj_run smoke", () => {
         stdout: JSON.stringify({ login: "admin", name: "karajan-x", token: "from-admin" }),
         stderr: ""
       })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
     const { runFlow } = await import("../src/orchestrator.js");
@@ -237,15 +239,20 @@ describe("kj_run smoke", () => {
     const dockerCallIndex = runCommand.mock.calls.findIndex(
       ([bin, args]) => bin === "docker" && args.includes("sonarsource/sonar-scanner-cli")
     );
+    const coverageCallIndex = runCommand.mock.calls.findIndex(
+      ([bin, args]) => bin === "npm" && args.includes("test")
+    );
 
     expect(validateCallIndex).toBeGreaterThanOrEqual(0);
     expect(tokenCallIndex).toBeGreaterThanOrEqual(0);
+    expect(coverageCallIndex).toBeGreaterThanOrEqual(0);
     expect(dockerCallIndex).toBeGreaterThanOrEqual(0);
     expect(runCommand.mock.calls[dockerCallIndex][1]).toContain("SONAR_TOKEN=from-admin");
 
     expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[0]);
     expect(validateCallIndex).toBeLessThan(tokenCallIndex);
-    expect(tokenCallIndex).toBeLessThan(dockerCallIndex);
+    expect(tokenCallIndex).toBeLessThan(coverageCallIndex);
+    expect(coverageCallIndex).toBeLessThan(dockerCallIndex);
     expect(runCommand.mock.invocationCallOrder[dockerCallIndex]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
     expect(events).toContain("sonar:start");

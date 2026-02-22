@@ -14,7 +14,7 @@ export async function computeBaseRef({ baseBranch = "main", baseRef = null }) {
 }
 
 export async function generateDiff({ baseRef }) {
-  const result = await runCommand("git", ["diff", `${baseRef}..HEAD`]);
+  const result = await runCommand("git", ["diff", `${baseRef}`]);
   if (result.exitCode !== 0) {
     throw new Error(`git diff failed: ${result.stderr || result.stdout}`);
   }
