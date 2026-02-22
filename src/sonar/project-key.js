@@ -19,11 +19,41 @@ function digest(input) {
   return crypto.createHash("sha1").update(String(input)).digest("hex").slice(0, 12);
 }
 
-function remoteRepoName(remoteUrl) {
-  const normalized = String(remoteUrl || "").trim().replace(/\/+$/, "");
-  if (!normalized) return "";
-  const lastSegment = normalized.split(/[:/]/).pop() || "";
-  return lastSegment.replace(/\.git$/i, "");
+function parseScpLikeRemote(remoteUrl) {
+  // Example: git@github.com:owner/repo.git
+  const match = String(remoteUrl || "").trim().match(/^(?:[^@]+@)?([^:]+):(.+)$/);
+  if (!match) return null;
+  return { host: match[1], path: match[2] };
+}
+
+function parseUrlLikeRemote(remoteUrl) {
+  try {
+    const parsed = new URL(String(remoteUrl || "").trim());
+    return { host: parsed.hostname, path: parsed.pathname.replace(/^\/+/, "") };
+  } catch {
+    return null;
+  }
+}
+
+function canonicalRepoId(remoteUrl) {
+  const raw = String(remoteUrl || "").trim();
+  if (!raw) return null;
+
+  const parsed = raw.includes("://") ? parseUrlLikeRemote(raw) : (parseScpLikeRemote(raw) || parseUrlLikeRemote(raw));
+  if (!parsed) return null;
+
+  const host = String(parsed.host || "").trim().toLowerCase();
+  const cleanPath = String(parsed.path || "")
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\.git$/i, "")
+    .toLowerCase();
+  const segments = cleanPath.split("/").filter(Boolean);
+  if (!host || segments.length < 2) return null;
+
+  const owner = segments[segments.length - 2];
+  const repo = segments[segments.length - 1];
+  return `${host}/${owner}/${repo}`;
 }
 
 export async function resolveSonarProjectKey(config, options = {}) {
@@ -42,7 +72,13 @@ export async function resolveSonarProjectKey(config, options = {}) {
     );
   }
 
-  const repo = slug(remoteRepoName(remoteUrl));
-  const derived = repo ? `kj-${repo}-${digest(remoteUrl)}` : `kj-${digest(remoteUrl)}`;
-  return normalizeProjectKey(derived);
+  const repoId = canonicalRepoId(remoteUrl);
+  if (!repoId) {
+    throw new Error(
+      "Unable to parse git remote.origin.url. Use a valid SSH/HTTPS remote or set sonarqube.project_key explicitly."
+    );
+  }
+
+  const repo = slug(repoId.split("/").pop());
+  return normalizeProjectKey(`kj-${repo}-${digest(repoId)}`);
 }

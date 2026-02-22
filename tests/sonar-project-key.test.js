@@ -64,12 +64,45 @@ describe("resolveSonarProjectKey", () => {
     expect(runCommand).toHaveBeenCalledWith("git", ["config", "--get", "remote.origin.url"]);
   });
 
+  it("generates the same key for SSH and HTTPS remotes of the same repo", async () => {
+    const config = { sonarqube: {} };
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:Acme/Repo.git\n", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "https://github.com/acme/repo.git\n", stderr: "" });
+
+    const sshKey = await resolveSonarProjectKey(config);
+    const httpsKey = await resolveSonarProjectKey(config);
+
+    expect(sshKey).toBe(httpsKey);
+  });
+
+  it("generates different keys for different owner/repo pairs", async () => {
+    const config = { sonarqube: {} };
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:other/repo.git\n", stderr: "" });
+
+    const keyA = await resolveSonarProjectKey(config);
+    const keyB = await resolveSonarProjectKey(config);
+
+    expect(keyA).not.toBe(keyB);
+  });
+
   it("fails when remote.origin.url is missing and no explicit key is provided", async () => {
     const config = { sonarqube: {} };
     runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
 
     await expect(resolveSonarProjectKey(config)).rejects.toThrow(
       "Missing git remote.origin.url. Configure remote origin or set sonarqube.project_key explicitly."
+    );
+  });
+
+  it("fails with actionable error when remote.origin.url cannot be parsed", async () => {
+    const config = { sonarqube: {} };
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "not-a-remote-format\n", stderr: "" });
+
+    await expect(resolveSonarProjectKey(config)).rejects.toThrow(
+      "Unable to parse git remote.origin.url. Use a valid SSH/HTTPS remote or set sonarqube.project_key explicitly."
     );
   });
 });
