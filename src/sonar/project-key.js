@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import path from "node:path";
+import { runCommand } from "../utils/process.js";
 
 function slug(value) {
   return String(value || "")
@@ -19,6 +19,42 @@ function digest(input) {
   return crypto.createHash("sha1").update(String(input)).digest("hex").slice(0, 12);
 }
 
+function parseScpLikeRemote(remoteUrl) {
+  // Example: git@github.com:owner/repo.git
+  const match = String(remoteUrl || "").trim().match(/^(?:[^@]+@)?([^:]+):(.+)$/);
+  if (!match) return null;
+  return { host: match[1], path: match[2] };
+}
+
+function parseUrlLikeRemote(remoteUrl) {
+  try {
+    const parsed = new URL(String(remoteUrl || "").trim());
+    return { host: parsed.hostname, path: parsed.pathname.replace(/^\/+/, "") };
+  } catch {
+    return null;
+  }
+}
+
+function canonicalRepoId(remoteUrl) {
+  const raw = String(remoteUrl || "").trim();
+  if (!raw) return null;
+
+  const parsed = raw.includes("://") ? parseUrlLikeRemote(raw) : (parseScpLikeRemote(raw) || parseUrlLikeRemote(raw));
+  if (!parsed) return null;
+
+  const host = String(parsed.host || "").trim().toLowerCase();
+  const cleanPath = String(parsed.path || "")
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\.git$/i, "")
+    .toLowerCase();
+  const segments = cleanPath.split("/").filter(Boolean);
+  if (!host || segments.length < 2) return null;
+
+  // Keep full repository path (owner/subgroups/repo) to avoid collisions in nested groups.
+  return `${host}/${segments.join("/")}`;
+}
+
 export async function resolveSonarProjectKey(config, options = {}) {
   const explicit = String(
     options.projectKey || process.env.KJ_SONAR_PROJECT_KEY || config?.sonarqube?.project_key || ""
@@ -27,7 +63,21 @@ export async function resolveSonarProjectKey(config, options = {}) {
     return normalizeProjectKey(explicit);
   }
 
-  const cwd = path.resolve(options.cwd || process.cwd());
-  const repo = slug(path.basename(cwd)) || "repo";
-  return normalizeProjectKey(`kj-${repo}-${digest(cwd)}`);
+  const remote = await runCommand("git", ["config", "--get", "remote.origin.url"]);
+  const remoteUrl = String(remote.stdout || "").trim();
+  if (remote.exitCode !== 0 || !remoteUrl) {
+    throw new Error(
+      "Missing git remote.origin.url. Configure remote origin or set sonarqube.project_key explicitly."
+    );
+  }
+
+  const repoId = canonicalRepoId(remoteUrl);
+  if (!repoId) {
+    throw new Error(
+      "Unable to parse git remote.origin.url. Use a valid SSH/HTTPS remote or set sonarqube.project_key explicitly."
+    );
+  }
+
+  const repo = slug(repoId.split("/").pop());
+  return normalizeProjectKey(`kj-${repo}-${digest(repoId)}`);
 }

@@ -260,7 +260,7 @@ describe("orchestrator events", () => {
 
     const emitter = new EventEmitter();
     const events = [];
-    emitter.on("progress", (e) => events.push(e.type));
+    emitter.on("progress", (e) => events.push(e));
 
     const config = {
       coder: "codex",
@@ -290,11 +290,21 @@ describe("orchestrator events", () => {
     expect(getOpenIssues).toHaveBeenCalledWith(config, "kj-repo-123");
     expect(runSonarScan.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
-    expect(events).toContain("sonar:start");
-    expect(events).toContain("sonar:end");
-    expect(events).toContain("reviewer:start");
-    expect(events.indexOf("sonar:start")).toBeLessThan(events.indexOf("sonar:end"));
-    expect(events.indexOf("sonar:end")).toBeLessThan(events.indexOf("reviewer:start"));
+    const { addCheckpoint } = await import("../src/session-store.js");
+    expect(addCheckpoint).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      stage: "sonar",
+      project_key: "kj-repo-123"
+    }));
+
+    const eventTypes = events.map((e) => e.type);
+    expect(eventTypes).toContain("sonar:start");
+    expect(eventTypes).toContain("sonar:end");
+    expect(eventTypes).toContain("reviewer:start");
+    expect(eventTypes.indexOf("sonar:start")).toBeLessThan(eventTypes.indexOf("sonar:end"));
+    expect(eventTypes.indexOf("sonar:end")).toBeLessThan(eventTypes.indexOf("reviewer:start"));
+
+    const sonarEnd = events.find((e) => e.type === "sonar:end");
+    expect(sonarEnd?.detail?.projectKey).toBe("kj-repo-123");
   });
 
   it("emits agent:output events from coder and reviewer", async () => {

@@ -43,6 +43,26 @@ describe("runSonarScan", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("derives project key from git remote.origin.url when not provided explicitly", async () => {
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "git@github.com:Acme/MyRepo.git\n",
+        stderr: ""
+      })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "ok", stderr: "" });
+
+    const result = await runSonarScan(baseConfig);
+
+    expect(runCommand.mock.calls[0]).toEqual(["git", ["config", "--get", "remote.origin.url"]]);
+    expect(runCommand.mock.calls[1][0]).toBe("docker");
+    const scannerEnv = runCommand.mock.calls[1][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    expect(scannerEnv).toMatch(/-Dsonar\.projectKey=kj-myrepo-[a-f0-9]{12}/);
+    expect(result.projectKey).toMatch(/^kj-myrepo-[a-f0-9]{12}$/);
+    expect(result.ok).toBe(true);
+  });
+
   it("fails immediately when SonarQube service cannot be started", async () => {
     sonarUp.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "docker unavailable" });
 
@@ -51,6 +71,28 @@ describe("runSonarScan", () => {
     expect(runCommand).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
     expect(result.stderr).toContain("docker unavailable");
+  });
+
+  it("fails with actionable message when remote.origin.url is missing and no explicit key is provided", async () => {
+    const config = {
+      sonarqube: {
+        host: "http://localhost:9000",
+        token: "token-123",
+        project_key: null,
+        scanner: { sources: "src" }
+      }
+    };
+    runCommand.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "" });
+
+    const result = await runSonarScan(config);
+
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toBe(
+      "Missing git remote.origin.url. Configure remote origin or set sonarqube.project_key explicitly."
+    );
+    expect(sonarUp).not.toHaveBeenCalled();
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(runCommand.mock.calls[0]).toEqual(["git", ["config", "--get", "remote.origin.url"]]);
   });
 
   it("falls back to admin/admin when no token is configured", async () => {
