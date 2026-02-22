@@ -77,16 +77,65 @@ async function generateUserToken(host, user, password) {
   return parsed?.token || null;
 }
 
-async function ensureCoverageReport() {
-  const result = await runCommand("npm", [
-    "test",
-    "--",
-    "--coverage.enabled",
-    "true",
-    "--coverage.reporter=lcov",
-    "--coverage.reporter=text-summary"
-  ]);
-  return result;
+function coverageConfig(config) {
+  return config?.sonarqube?.coverage || {};
+}
+
+async function maybeRunCoverage(config) {
+  const coverage = coverageConfig(config);
+  if (!coverage.enabled) {
+    return { ok: true, scannerPatch: {} };
+  }
+
+  const command = String(coverage.command || "").trim();
+  if (!command) {
+    return {
+      ok: false,
+      exitCode: 1,
+      stdout: "",
+      stderr: "Sonar coverage is enabled but no command is configured (sonarqube.coverage.command)."
+    };
+  }
+
+  const timeout = Number(coverage.timeout_ms) > 0 ? Number(coverage.timeout_ms) : 5 * 60 * 1000;
+  const blockOnFailure = coverage.block_on_failure !== false;
+  const run = await runCommand("/bin/bash", ["-lc", command], { timeout });
+
+  if (run.exitCode !== 0) {
+    if (blockOnFailure) {
+      return {
+        ok: false,
+        exitCode: run.exitCode,
+        stdout: run.stdout || "",
+        stderr: run.stderr || "Coverage command failed"
+      };
+    }
+    return { ok: true, scannerPatch: {} };
+  }
+
+  const lcovPath = String(coverage.lcov_report_path || "").trim();
+  if (!lcovPath) {
+    return { ok: true, scannerPatch: {} };
+  }
+
+  if (!fs.existsSync(lcovPath)) {
+    if (blockOnFailure) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: run.stdout || "",
+        stderr: `Configured lcov report path does not exist: ${lcovPath}`
+      };
+    }
+    return { ok: true, scannerPatch: {} };
+  }
+
+  return {
+    ok: true,
+    scannerPatch: {
+      javascript_lcov_report_paths: lcovPath
+    }
+  };
 }
 
 async function resolveSonarToken(config, apiHost) {
@@ -136,18 +185,18 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     };
   }
   process.env.KJ_SONAR_TOKEN = token;
-  const coverage = await ensureCoverageReport();
-  if (coverage.exitCode !== 0) {
+  const coverage = await maybeRunCoverage(config);
+  if (!coverage.ok) {
     return {
       ok: false,
       stdout: coverage.stdout || "",
       stderr: coverage.stderr || "Failed to generate coverage report for SonarQube",
-      exitCode: coverage.exitCode
+      exitCode: coverage.exitCode || 1
     };
   }
   const scannerConfig = normalizeScannerConfig({
     ...config.sonarqube.scanner,
-    javascript_lcov_report_paths: "coverage/lcov.info"
+    ...coverage.scannerPatch
   });
 
   const args = [
