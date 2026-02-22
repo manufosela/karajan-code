@@ -90,6 +90,7 @@ One-command helper script:
 - Set `review_mode: paranoid` and `sonarqube.enforcement_profile: paranoid` for strict gate compliance.
 - Optional coverage pre-step is configured in `kj.config.yml` under `sonarqube.coverage`.
 - `sonarqube.coverage` supports both modes: run `coverage.command` before scan, or consume an existing `lcov_report_path` without command.
+- Sonar project key is isolated per repo by default; override with `sonarqube.project_key` if you need a fixed key.
 - Use env vars for secrets (`KJ_SONAR_TOKEN`, provider keys).
 - If `--auto-commit/--auto-push/--auto-pr` is enabled, `kj` enforces base branch sync and uses auto-rebase by default.
 - Disable automatic rebase only if needed with `--no-auto-rebase`.

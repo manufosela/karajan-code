@@ -37,6 +37,9 @@ describe("runSonarScan", () => {
     expect(sonarUp).toHaveBeenCalledWith("http://localhost:9000");
     expect(runCommand).toHaveBeenCalledTimes(1);
     expect(runCommand.mock.calls[0][0]).toBe("docker");
+    const scannerEnv = runCommand.mock.calls[0][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    expect(scannerEnv).toContain("-Dsonar.projectKey=my-key");
+    expect(result.projectKey).toBe("my-key");
     expect(result.ok).toBe(true);
   });
 

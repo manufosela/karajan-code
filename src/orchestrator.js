@@ -557,12 +557,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         throw new Error(`Sonar scan failed: ${scan.stderr || scan.stdout}`);
       }
 
-      const gate = await getQualityGateStatus(config);
-      const issues = await getOpenIssues(config);
+      const gate = await getQualityGateStatus(config, scan.projectKey);
+      const issues = await getOpenIssues(config, scan.projectKey);
       session.last_sonar_summary = `QualityGate=${gate.status}; Open issues=${issues.total}; ${summarizeIssues(issues.issues)}`;
       await addCheckpoint(session, {
         stage: "sonar",
         iteration: i,
+        project_key: scan.projectKey,
         quality_gate: gate.status,
         open_issues: issues.total
       });
@@ -574,7 +575,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             ? "fail"
             : "ok",
           message: `Quality gate: ${gate.status}`,
-          detail: { gateStatus: gate.status, openIssues: issues.total }
+          detail: { projectKey: scan.projectKey, gateStatus: gate.status, openIssues: issues.total }
         })
       );
 

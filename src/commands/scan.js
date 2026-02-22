@@ -8,9 +8,10 @@ export async function scanCommand({ config }) {
     throw new Error(`Sonar scan failed: ${scan.stderr || scan.stdout}`);
   }
 
-  const gate = await getQualityGateStatus(config);
-  const issues = await getOpenIssues(config);
+  const gate = await getQualityGateStatus(config, scan.projectKey);
+  const issues = await getOpenIssues(config, scan.projectKey);
 
+  console.log(`Project key: ${scan.projectKey}`);
   console.log(`Quality Gate: ${gate.status}`);
   console.log(`Open issues: ${issues.total}`);
   console.log(`By severity: ${summarizeIssues(issues.issues) || "none"}`);

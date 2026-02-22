@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
+import { resolveSonarProjectKey } from "./project-key.js";
 
 export function buildScannerOpts(projectKey, scanner = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
@@ -181,7 +182,8 @@ async function resolveSonarToken(config, apiHost) {
   return null;
 }
 
-export async function runSonarScan(config, projectKey = "karajan-default") {
+export async function runSonarScan(config, projectKey = null) {
+  const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
   const rawHost = config.sonarqube.host;
   const apiHost = normalizeApiHost(rawHost);
   const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
@@ -232,13 +234,14 @@ export async function runSonarScan(config, projectKey = "karajan-default") {
     "-e",
     `SONAR_TOKEN=${token || ""}`,
     "-e",
-    `SONAR_SCANNER_OPTS=${buildScannerOpts(projectKey, scannerConfig)}`,
+    `SONAR_SCANNER_OPTS=${buildScannerOpts(effectiveProjectKey, scannerConfig)}`,
     "sonarsource/sonar-scanner-cli"
   ];
 
   const result = await runCommand("docker", args, { timeout: 15 * 60 * 1000 });
   return {
     ok: result.exitCode === 0,
+    projectKey: effectiveProjectKey,
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode

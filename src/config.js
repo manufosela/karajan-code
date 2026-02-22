@@ -41,6 +41,7 @@ const DEFAULTS = {
     enabled: true,
     host: "http://localhost:9000",
     token: null,
+    project_key: null,
     admin_user: "admin",
     admin_password: null,
     coverage: {
