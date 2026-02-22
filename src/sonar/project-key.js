@@ -51,9 +51,8 @@ function canonicalRepoId(remoteUrl) {
   const segments = cleanPath.split("/").filter(Boolean);
   if (!host || segments.length < 2) return null;
 
-  const owner = segments[segments.length - 2];
-  const repo = segments[segments.length - 1];
-  return `${host}/${owner}/${repo}`;
+  // Keep full repository path (owner/subgroups/repo) to avoid collisions in nested groups.
+  return `${host}/${segments.join("/")}`;
 }
 
 export async function resolveSonarProjectKey(config, options = {}) {

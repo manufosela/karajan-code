@@ -88,6 +88,18 @@ describe("resolveSonarProjectKey", () => {
     expect(keyA).not.toBe(keyB);
   });
 
+  it("generates different keys for nested GitLab groups with same repo name", async () => {
+    const config = { sonarqube: {} };
+    runCommand
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@gitlab.com:team-a/subgroup/repo.git\n", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@gitlab.com:team-b/subgroup/repo.git\n", stderr: "" });
+
+    const keyA = await resolveSonarProjectKey(config);
+    const keyB = await resolveSonarProjectKey(config);
+
+    expect(keyA).not.toBe(keyB);
+  });
+
   it("fails when remote.origin.url is missing and no explicit key is provided", async () => {
     const config = { sonarqube: {} };
     runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
