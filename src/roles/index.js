@@ -1,1 +1,1 @@
-export { BaseRole, ROLE_EVENTS } from "./base-role.js";
+export { BaseRole, ROLE_EVENTS, resolveRoleMdPath, loadFirstExisting } from "./base-role.js";

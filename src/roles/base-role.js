@@ -124,4 +124,4 @@ export class BaseRole {
   }
 }
 
-export { ROLE_EVENTS };
+export { ROLE_EVENTS, resolveRoleMdPath, loadFirstExisting };
