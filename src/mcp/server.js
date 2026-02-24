@@ -30,6 +30,68 @@ function failPayload(message, details = {}) {
   };
 }
 
+function classifyError(error) {
+  const msg = error?.message || String(error);
+  const lower = msg.toLowerCase();
+
+  if (lower.includes("sonar") && (lower.includes("connect") || lower.includes("econnrefused") || lower.includes("not available") || lower.includes("not running"))) {
+    return {
+      category: "sonar_unavailable",
+      suggestion: "SonarQube is not reachable. Try: kj_init to set up SonarQube, or run 'docker start sonarqube' if already installed. Use --no-sonar to skip SonarQube."
+    };
+  }
+
+  if (lower.includes("401") || lower.includes("unauthorized") || lower.includes("invalid token")) {
+    return {
+      category: "auth_error",
+      suggestion: "Authentication failed. Regenerate the SonarQube token and update it via kj_init or in ~/.karajan/kj.config.yml under sonarqube.token."
+    };
+  }
+
+  if (lower.includes("config") && (lower.includes("missing") || lower.includes("not found") || lower.includes("invalid"))) {
+    return {
+      category: "config_error",
+      suggestion: "Configuration issue detected. Run kj_doctor to diagnose, or kj_init to create a fresh config."
+    };
+  }
+
+  if (lower.includes("missing provider") || lower.includes("not found") && (lower.includes("claude") || lower.includes("codex") || lower.includes("gemini") || lower.includes("aider"))) {
+    return {
+      category: "agent_missing",
+      suggestion: "Required agent CLI not found. Run kj_doctor to check which agents are installed and get installation instructions."
+    };
+  }
+
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return {
+      category: "timeout",
+      suggestion: "The operation timed out. Try increasing timeoutMs or maxIterationMinutes. If a scan timed out, check SonarQube health."
+    };
+  }
+
+  if (lower.includes("not a git repository")) {
+    return {
+      category: "git_error",
+      suggestion: "Current directory is not a git repository. Navigate to your project root or initialize git with 'git init'."
+    };
+  }
+
+  return { category: "unknown", suggestion: null };
+}
+
+function enrichedFailPayload(error, toolName) {
+  const msg = error?.message || String(error);
+  const { category, suggestion } = classifyError(error);
+  const payload = {
+    ok: false,
+    error: msg,
+    tool: toolName,
+    category
+  };
+  if (suggestion) payload.suggestion = suggestion;
+  return payload;
+}
+
 async function buildConfig(options) {
   const { config } = await loadConfig();
   const merged = applyRunOverrides(config, options || {});
@@ -241,7 +303,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const result = await handleToolCall(name, args, server, extra);
     return responseText(result);
   } catch (error) {
-    return responseText(failPayload(error?.message || String(error)));
+    return responseText(enrichedFailPayload(error, name));
   }
 });
 

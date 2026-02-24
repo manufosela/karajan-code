@@ -63,11 +63,17 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
     timeout: options.timeoutMs ? Number(options.timeoutMs) : undefined
   });
 
-  return {
-    ok: result.exitCode === 0,
+  const ok = result.exitCode === 0;
+  const payload = {
+    ok,
     exitCode: result.exitCode,
     stdout: result.stdout,
-    stderr: result.stderr,
-    command: `node ${args.join(" ")}`
+    stderr: result.stderr
   };
+
+  if (!ok && result.stderr) {
+    payload.errorSummary = result.stderr.split("\n").filter(Boolean).slice(-3).join(" | ");
+  }
+
+  return payload;
 }
