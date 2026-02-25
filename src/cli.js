@@ -70,6 +70,7 @@ program
   .option("--methodology <name>")
   .option("--no-auto-rebase")
   .option("--no-sonar")
+  .option("--dry-run", "Show what would be executed without running anything")
   .option("--json", "Output JSON only (no styled display)")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {
