@@ -36,6 +36,7 @@ program
   .command("config")
   .description("Show current config")
   .option("--json", "Show as JSON")
+  .option("--edit", "Open config in $EDITOR for editing")
   .action(async (flags) => {
     await configCommand(flags);
   });
