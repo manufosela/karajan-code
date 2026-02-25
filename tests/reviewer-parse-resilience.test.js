@@ -1,0 +1,260 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { EventEmitter } from "node:events";
+
+vi.mock("../src/agents/index.js", () => ({
+  createAgent: vi.fn()
+}));
+
+vi.mock("../src/session-store.js", () => {
+  let session = null;
+  return {
+    createSession: vi.fn(async (initial) => {
+      session = { id: "s_test", status: "running", checkpoints: [], ...initial };
+      return session;
+    }),
+    saveSession: vi.fn(async () => {}),
+    loadSession: vi.fn(async () => session),
+    addCheckpoint: vi.fn(async (s, cp) => { s.checkpoints.push(cp); }),
+    markSessionStatus: vi.fn(async (s, status) => { s.status = status; }),
+    pauseSession: vi.fn(async (s, data) => { s.status = "paused"; s.paused_state = data; }),
+    resumeSessionWithAnswer: vi.fn(async () => session)
+  };
+});
+
+vi.mock("../src/review/diff-generator.js", () => ({
+  computeBaseRef: vi.fn().mockResolvedValue("abc123"),
+  generateDiff: vi.fn().mockResolvedValue("diff content")
+}));
+
+vi.mock("../src/review/schema.js", () => ({
+  validateReviewResult: vi.fn((r) => r)
+}));
+
+vi.mock("../src/review/tdd-policy.js", () => ({
+  evaluateTddPolicy: vi.fn().mockReturnValue({ ok: true, reason: "pass", sourceFiles: ["a.js"], testFiles: ["a.test.js"], message: "OK" })
+}));
+
+vi.mock("../src/prompts/coder.js", () => ({
+  buildCoderPrompt: vi.fn().mockReturnValue("coder prompt")
+}));
+
+vi.mock("../src/prompts/reviewer.js", () => ({
+  buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
+}));
+
+vi.mock("../src/sonar/api.js", () => ({
+  getQualityGateStatus: vi.fn().mockResolvedValue({ status: "OK" }),
+  getOpenIssues: vi.fn().mockResolvedValue({ total: 0, issues: [] })
+}));
+
+vi.mock("../src/sonar/scanner.js", () => ({
+  runSonarScan: vi.fn().mockResolvedValue({ ok: true, projectKey: "test-key" })
+}));
+
+vi.mock("../src/sonar/enforcer.js", () => ({
+  shouldBlockByProfile: vi.fn().mockReturnValue(false),
+  summarizeIssues: vi.fn().mockReturnValue("")
+}));
+
+vi.mock("../src/utils/git.js", () => ({
+  ensureGitRepo: vi.fn().mockResolvedValue(true),
+  currentBranch: vi.fn().mockResolvedValue("feat/test"),
+  fetchBase: vi.fn(),
+  syncBaseBranch: vi.fn(),
+  ensureBranchUpToDateWithBase: vi.fn(),
+  createBranch: vi.fn(),
+  buildBranchName: vi.fn().mockReturnValue("feat/test"),
+  commitAll: vi.fn().mockResolvedValue({ committed: true }),
+  pushBranch: vi.fn(),
+  createPullRequest: vi.fn()
+}));
+
+vi.mock("node:fs/promises", () => ({
+  default: {
+    readFile: vi.fn().mockResolvedValue("role instructions"),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
+const REVIEW_OK = JSON.stringify({
+  approved: true,
+  blocking_issues: [],
+  non_blocking_suggestions: [],
+  summary: "OK",
+  confidence: 0.9
+});
+
+function makeConfig(overrides = {}) {
+  return {
+    coder: "codex",
+    reviewer: "claude",
+    review_mode: "standard",
+    max_iterations: 10,
+    base_branch: "main",
+    roles: {
+      planner: { provider: null },
+      coder: { provider: "codex" },
+      reviewer: { provider: "claude" },
+      refactorer: { provider: null }
+    },
+    pipeline: { planner: { enabled: false }, refactorer: { enabled: false }, solomon: { enabled: false } },
+    coder_options: { auto_approve: true },
+    reviewer_options: { retries: 0 },
+    development: { methodology: "tdd", require_test_changes: true },
+    sonarqube: { enabled: true, host: "http://localhost:9000", enforcement_profile: "pragmatic" },
+    git: { auto_commit: false, auto_push: false, auto_pr: false },
+    session: {
+      max_iteration_minutes: 15,
+      max_total_minutes: 120,
+      fail_fast_repeats: 2,
+      repeat_detection_threshold: 99,
+      max_sonar_retries: 3,
+      max_reviewer_retries: 3,
+      ...overrides
+    },
+    failFast: { repeatThreshold: 99 },
+    output: { log_level: "error" }
+  };
+}
+
+const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+
+describe("reviewer parse resilience", () => {
+  let runFlow;
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+
+    const { evaluateTddPolicy } = await import("../src/review/tdd-policy.js");
+    evaluateTddPolicy.mockReturnValue({ ok: true, reason: "pass", sourceFiles: ["a.js"], testFiles: ["a.test.js"], message: "OK" });
+
+    const { computeBaseRef, generateDiff } = await import("../src/review/diff-generator.js");
+    computeBaseRef.mockResolvedValue("abc123");
+    generateDiff.mockResolvedValue("diff content");
+
+    const { runSonarScan } = await import("../src/sonar/scanner.js");
+    runSonarScan.mockResolvedValue({ ok: true, projectKey: "test-key" });
+
+    const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
+    getQualityGateStatus.mockResolvedValue({ status: "OK" });
+    getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
+
+    const { shouldBlockByProfile } = await import("../src/sonar/enforcer.js");
+    shouldBlockByProfile.mockReturnValue(false);
+
+    const { buildCoderPrompt } = await import("../src/prompts/coder.js");
+    buildCoderPrompt.mockReturnValue("coder prompt");
+
+    const { buildReviewerPrompt } = await import("../src/prompts/reviewer.js");
+    buildReviewerPrompt.mockReturnValue("reviewer prompt");
+
+    const fs = await import("node:fs/promises");
+    fs.default.readFile.mockResolvedValue("role instructions");
+
+    const { validateReviewResult } = await import("../src/review/schema.js");
+    validateReviewResult.mockImplementation((r) => r);
+
+    const mod = await import("../src/orchestrator.js");
+    runFlow = mod.runFlow;
+  });
+
+  it("does not crash when reviewer returns non-JSON — treats as rejected iteration", async () => {
+    let reviewerCallCount = 0;
+    const { createAgent } = await import("../src/agents/index.js");
+    createAgent.mockReturnValue({
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
+      reviewTask: vi.fn().mockImplementation(() => {
+        reviewerCallCount += 1;
+        if (reviewerCallCount === 1) {
+          // First attempt: garbage output
+          return { ok: true, output: "This is not JSON at all!" };
+        }
+        // Second attempt: valid JSON
+        return { ok: true, output: REVIEW_OK };
+      })
+    });
+
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (e) => events.push(e));
+
+    const config = makeConfig({ max_iterations: 3 });
+    const result = await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
+
+    // Should not crash — should eventually approve on second iteration
+    expect(result.approved).toBe(true);
+    expect(reviewerCallCount).toBe(2);
+
+    // First reviewer:end should show parse failure
+    const reviewerEndEvents = events.filter((e) => e.type === "reviewer:end");
+    expect(reviewerEndEvents.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("includes PARSE_ERROR blocking issue when reviewer output is garbage", async () => {
+    const { createAgent } = await import("../src/agents/index.js");
+    let reviewerCallCount = 0;
+    createAgent.mockReturnValue({
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
+      reviewTask: vi.fn().mockImplementation(() => {
+        reviewerCallCount += 1;
+        if (reviewerCallCount === 1) {
+          return { ok: true, output: "garbage output" };
+        }
+        return { ok: true, output: REVIEW_OK };
+      })
+    });
+
+    const { validateReviewResult } = await import("../src/review/schema.js");
+    validateReviewResult.mockImplementation((r) => {
+      // Real validation for the second call
+      if (r.approved !== undefined) return r;
+      throw new Error("bad shape");
+    });
+
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (e) => events.push(e));
+
+    const config = makeConfig({ max_iterations: 3 });
+    await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
+
+    // The first reviewer:end should contain the parse error info
+    const firstReviewerEnd = events.find(
+      (e) => e.type === "reviewer:end" && e.detail?.issues?.some((i) => i.includes("PARSE_ERROR"))
+    );
+    expect(firstReviewerEnd).toBeTruthy();
+  });
+
+  it("does not crash when validateReviewResult throws", async () => {
+    const { createAgent } = await import("../src/agents/index.js");
+    let reviewerCallCount = 0;
+    createAgent.mockReturnValue({
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
+      reviewTask: vi.fn().mockImplementation(() => {
+        reviewerCallCount += 1;
+        if (reviewerCallCount === 1) {
+          // Valid JSON but missing required field
+          return { ok: true, output: JSON.stringify({ approved: "not-boolean", blocking_issues: [] }) };
+        }
+        return { ok: true, output: REVIEW_OK };
+      })
+    });
+
+    const { validateReviewResult } = await import("../src/review/schema.js");
+    validateReviewResult.mockImplementation((r) => {
+      if (typeof r.approved !== "boolean") {
+        throw new Error("Reviewer output missing boolean field: approved");
+      }
+      return r;
+    });
+
+    const emitter = new EventEmitter();
+    const config = makeConfig({ max_iterations: 3 });
+    const result = await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
+
+    // Should recover on second iteration
+    expect(result.approved).toBe(true);
+    expect(reviewerCallCount).toBe(2);
+  });
+});
