@@ -512,20 +512,27 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       throw new Error(`Reviewer failed: ${details}`);
     }
 
-    const parsed = parseJsonOutput(reviewerExec.result.output);
-    if (!parsed) {
-      await markSessionStatus(session, "failed");
-      emitProgress(
-        emitter,
-        makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
-          status: "fail",
-          message: "Reviewer output is not valid JSON"
-        })
-      );
-      throw new Error("Reviewer output is not valid JSON");
+    let review;
+    try {
+      const parsed = parseJsonOutput(reviewerExec.result.output);
+      if (!parsed) {
+        throw new Error("Reviewer output is not valid JSON");
+      }
+      review = validateReviewResult(parsed);
+    } catch (parseErr) {
+      logger.warn(`Reviewer output parse/validation failed: ${parseErr.message}`);
+      review = {
+        approved: false,
+        blocking_issues: [{
+          id: "PARSE_ERROR",
+          severity: "high",
+          description: `Reviewer output could not be parsed: ${parseErr.message}`
+        }],
+        non_blocking_suggestions: [],
+        summary: `Parse error: ${parseErr.message}`,
+        confidence: 0
+      };
     }
-
-    const review = validateReviewResult(parsed);
     await addCheckpoint(session, {
       stage: "reviewer",
       iteration: i,
