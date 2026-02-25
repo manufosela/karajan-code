@@ -11,6 +11,7 @@ import {
   saveSession
 } from "./session-store.js";
 import { computeBaseRef, generateDiff } from "./review/diff-generator.js";
+import { parseJsonOutput } from "./review/parser.js";
 import { validateReviewResult } from "./review/schema.js";
 import { evaluateTddPolicy } from "./review/tdd-policy.js";
 import { buildCoderPrompt } from "./prompts/coder.js";
@@ -19,6 +20,7 @@ import { getOpenIssues, getQualityGateStatus } from "./sonar/api.js";
 import { runSonarScan } from "./sonar/scanner.js";
 import { shouldBlockByProfile, summarizeIssues } from "./sonar/enforcer.js";
 import { resolveRole } from "./config.js";
+import { RepeatDetector } from "./repeat-detector.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -51,93 +53,15 @@ function makeEvent(type, base, extra = {}) {
   };
 }
 
-function parseJsonOutput(raw) {
-  const cleaned = raw.trim();
-  if (!cleaned) return null;
-  try {
-    const parsed = JSON.parse(cleaned);
-    return normalizeReviewPayload(parsed);
-  } catch {
-    const lines = cleaned
-      .split("\n")
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-    const parsedLines = [];
-    for (const line of lines) {
-      try {
-        parsedLines.push(JSON.parse(line));
-      } catch {
-        continue;
-      }
-    }
-
-    const normalizedLines = normalizeReviewPayload(parsedLines);
-    if (normalizedLines) {
-      return normalizedLines;
-    }
-
-    for (let i = lines.length - 1; i >= 0; i -= 1) {
-      try {
-        const parsed = JSON.parse(lines[i]);
-        return normalizeReviewPayload(parsed);
-      } catch {
-        continue;
-      }
-    }
-  }
-  return null;
-}
-
-function parseMaybeJsonString(value) {
-  if (typeof value !== "string") return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      const candidate = value.slice(start, end + 1);
-      try {
-        return JSON.parse(candidate);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-}
-
-function normalizeReviewPayload(payload) {
-  if (!payload) return null;
-
-  if (payload.approved !== undefined && payload.blocking_issues !== undefined) {
-    return payload;
-  }
-
-  if (Array.isArray(payload)) {
-    for (let i = payload.length - 1; i >= 0; i -= 1) {
-      const item = payload[i];
-      if (item?.approved !== undefined && item?.blocking_issues !== undefined) {
-        return item;
-      }
-
-      const nested = item?.result || item?.message?.content?.[0]?.text;
-      if (typeof nested === "string") {
-        const parsedNested = parseMaybeJsonString(nested);
-        if (parsedNested?.approved !== undefined) return parsedNested;
-      }
-    }
-    return null;
-  }
-
-  if (typeof payload.result === "string") {
-    const parsedResult = parseMaybeJsonString(payload.result);
-    if (parsedResult?.approved !== undefined) return parsedResult;
-    return null;
-  }
-
-  return null;
+function getRepeatThreshold(config) {
+  const raw =
+    config?.failFast?.repeatThreshold ??
+    config?.session?.repeat_detection_threshold ??
+    config?.session?.fail_fast_repeats ??
+    2;
+  const value = Number(raw);
+  if (Number.isFinite(value) && value > 0) return value;
+  return 2;
 }
 
 async function readRulesFile(path, fallback) {
@@ -270,6 +194,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
   const refactorerRole = resolveRole(config, "refactorer");
+  const repeatDetector = new RepeatDetector({ threshold: getRepeatThreshold(config) });
   const plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
   const refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
   const coder = createAgent(coderRole.provider, config, logger);
@@ -283,7 +208,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     base_ref: baseRef,
     session_start_sha: baseRef,
     last_reviewer_feedback: null,
-    repeated_issue_count: 0
+    repeated_issue_count: 0,
+    last_sonar_issue_signature: null,
+    sonar_repeat_count: 0,
+    last_reviewer_issue_signature: null,
+    reviewer_repeat_count: 0
   });
 
   eventBase.sessionId = session.id;
@@ -568,18 +497,39 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         open_issues: issues.total
       });
 
+      const sonarBlocking = shouldBlockByProfile({
+        gateStatus: gate.status,
+        profile: config.sonarqube.enforcement_profile
+      });
+
       emitProgress(
         emitter,
         makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
-          status: shouldBlockByProfile({ gateStatus: gate.status, profile: config.sonarqube.enforcement_profile })
-            ? "fail"
-            : "ok",
+          status: sonarBlocking ? "fail" : "ok",
           message: `Quality gate: ${gate.status}`,
           detail: { projectKey: scan.projectKey, gateStatus: gate.status, openIssues: issues.total }
         })
       );
 
-      if (shouldBlockByProfile({ gateStatus: gate.status, profile: config.sonarqube.enforcement_profile })) {
+      if (sonarBlocking) {
+        repeatDetector.addIteration(issues.issues, []);
+        const repeatState = repeatDetector.isStalled();
+        if (repeatState.stalled) {
+          const repeatCounts = repeatDetector.getRepeatCounts();
+          const message = `No progress: SonarQube issues repeated ${repeatCounts.sonar} times.`;
+          logger.warn(message);
+          await markSessionStatus(session, "stalled");
+          emitProgress(
+            emitter,
+            makeEvent("session:end", { ...eventBase, stage: "sonar" }, {
+              status: "stalled",
+              message,
+              detail: { reason: repeatState.reason, repeats: repeatCounts.sonar }
+            })
+          );
+          return { approved: false, sessionId: session.id, reason: "stalled" };
+        }
+
         session.last_reviewer_feedback = `Sonar gate blocking (${gate.status}). Resolve critical findings first.`;
         session.repeated_issue_count += 1;
         await saveSession(session);
@@ -704,6 +654,26 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       })
     );
 
+    if (!review.approved) {
+      repeatDetector.addIteration([], review.blocking_issues);
+      const repeatState = repeatDetector.isStalled();
+      if (repeatState.stalled) {
+        const repeatCounts = repeatDetector.getRepeatCounts();
+        const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer} times.`;
+        logger.warn(message);
+        await markSessionStatus(session, "stalled");
+        emitProgress(
+          emitter,
+          makeEvent("session:end", { ...eventBase, stage: "reviewer" }, {
+            status: "stalled",
+            message,
+            detail: { reason: repeatState.reason, repeats: repeatCounts.reviewer }
+          })
+        );
+        return { approved: false, sessionId: session.id, reason: "stalled" };
+      }
+    }
+
     // --- Iteration end ---
     const iterDuration = Date.now() - iterStart;
     emitProgress(
@@ -806,6 +776,10 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
     session.last_reviewer_feedback = `Previous feedback: ${session.paused_state.context.lastFeedback}\nUser guidance: ${answer}`;
   }
   session.repeated_issue_count = 0;
+  session.last_sonar_issue_signature = null;
+  session.sonar_repeat_count = 0;
+  session.last_reviewer_issue_signature = null;
+  session.reviewer_repeat_count = 0;
   await saveSession(session);
 
   // Re-run the flow with the existing session context
