@@ -15,7 +15,8 @@ const DEFAULTS = {
   },
   pipeline: {
     planner: { enabled: false },
-    refactorer: { enabled: false }
+    refactorer: { enabled: false },
+    solomon: { enabled: false }
   },
   review_mode: "standard",
   max_iterations: 5,
@@ -73,7 +74,18 @@ const DEFAULTS = {
   },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
-  session: { max_iteration_minutes: 15, max_total_minutes: 120, max_budget_usd: null, fail_fast_repeats: 2 }
+  session: {
+    max_iteration_minutes: 15,
+    max_total_minutes: 120,
+    max_budget_usd: null,
+    fail_fast_repeats: 2,
+    repeat_detection_threshold: 2,
+    max_sonar_retries: 3,
+    max_reviewer_retries: 3
+  },
+  failFast: {
+    repeatThreshold: 2
+  }
 };
 
 function mergeDeep(base, override) {
