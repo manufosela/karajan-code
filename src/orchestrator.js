@@ -89,6 +89,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     session_start_sha: baseRef,
     last_reviewer_feedback: null,
     repeated_issue_count: 0,
+    sonar_retry_count: 0,
+    reviewer_retry_count: 0,
     last_sonar_issue_signature: null,
     sonar_repeat_count: 0,
     last_reviewer_issue_signature: null,
@@ -412,15 +414,23 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         }
 
         session.last_reviewer_feedback = `Sonar gate blocking (${gate.status}). Resolve critical findings first.`;
-        session.repeated_issue_count += 1;
+        session.sonar_retry_count = (session.sonar_retry_count || 0) + 1;
         await saveSession(session);
-        if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
-          const question = `SonarQube quality gate has failed ${session.repeated_issue_count} times (${gate.status}). What should we do?`;
+        const maxSonarRetries = config.session.max_sonar_retries ?? config.session.fail_fast_repeats;
+        if (session.sonar_retry_count >= maxSonarRetries) {
+          emitProgress(
+            emitter,
+            makeEvent("solomon:escalate", { ...eventBase, stage: "sonar" }, {
+              message: `Sonar sub-loop limit reached (${session.sonar_retry_count}/${maxSonarRetries})`,
+              detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus: gate.status }
+            })
+          );
+          const question = `SonarQube quality gate has failed ${session.sonar_retry_count} times (${gate.status}). What should we do?`;
           if (askQuestion) {
             const answer = await askQuestion(question, { iteration: i, stage: "sonar" });
             if (answer) {
               session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
-              session.repeated_issue_count = 0;
+              session.sonar_retry_count = 0;
               await saveSession(session);
               continue;
             }
@@ -432,7 +442,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
               stage: "sonar",
               gateStatus: gate.status,
               openIssues: issues.total,
-              repeatedCount: session.repeated_issue_count
+              retryCount: session.sonar_retry_count
             }
           });
           emitProgress(
@@ -447,6 +457,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         }
         continue;
       }
+
+      // Sonar passed — reset retry counter
+      session.sonar_retry_count = 0;
     }
 
     // --- Reviewer ---
@@ -566,6 +579,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     );
 
     if (review.approved) {
+      session.reviewer_retry_count = 0;
       const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session });
       await markSessionStatus(session, "approved");
       emitProgress(
@@ -581,16 +595,24 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     session.last_reviewer_feedback = review.blocking_issues
       .map((x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`)
       .join("\n");
-    session.repeated_issue_count += 1;
+    session.reviewer_retry_count = (session.reviewer_retry_count || 0) + 1;
     await saveSession(session);
 
-    if (session.repeated_issue_count >= config.session.fail_fast_repeats) {
-      const question = `Reviewer has rejected ${session.repeated_issue_count} times with the same issues. Blocking issues:\n${session.last_reviewer_feedback}\n\nHow should we proceed?`;
+    const maxReviewerRetries = config.session.max_reviewer_retries ?? config.session.fail_fast_repeats;
+    if (session.reviewer_retry_count >= maxReviewerRetries) {
+      emitProgress(
+        emitter,
+        makeEvent("solomon:escalate", { ...eventBase, stage: "reviewer" }, {
+          message: `Reviewer sub-loop limit reached (${session.reviewer_retry_count}/${maxReviewerRetries})`,
+          detail: { subloop: "reviewer", retryCount: session.reviewer_retry_count, limit: maxReviewerRetries }
+        })
+      );
+      const question = `Reviewer has rejected ${session.reviewer_retry_count} times with the same issues. Blocking issues:\n${session.last_reviewer_feedback}\n\nHow should we proceed?`;
       if (askQuestion) {
         const answer = await askQuestion(question, { iteration: i, stage: "reviewer" });
         if (answer) {
           session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
-          session.repeated_issue_count = 0;
+          session.reviewer_retry_count = 0;
           await saveSession(session);
           continue;
         }
@@ -601,7 +623,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           iteration: i,
           stage: "reviewer",
           lastFeedback: session.last_reviewer_feedback,
-          repeatedCount: session.repeated_issue_count
+          retryCount: session.reviewer_retry_count
         }
       });
       emitProgress(
@@ -657,6 +679,8 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
     session.last_reviewer_feedback = `Previous feedback: ${session.paused_state.context.lastFeedback}\nUser guidance: ${answer}`;
   }
   session.repeated_issue_count = 0;
+  session.sonar_retry_count = 0;
+  session.reviewer_retry_count = 0;
   session.last_sonar_issue_signature = null;
   session.sonar_repeat_count = 0;
   session.last_reviewer_issue_signature = null;
