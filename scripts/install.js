@@ -333,16 +333,16 @@ async function ensureSonarQube(kjHome, nonInteractive) {
 
   // Check if sonarqube container is already running
   const ps = await run("docker", ["ps", "--format", "{{.Names}}"]);
-  if (ps.stdout.split("\n").some((n) => n.trim() === "sonarqube")) {
+  if (ps.stdout.split("\n").some((n) => n.trim() === "karajan-sonarqube")) {
     console.log("SonarQube already running at " + sonarUrl);
     return true;
   }
 
   // Check if container exists but is stopped
   const psAll = await run("docker", ["ps", "-a", "--format", "{{.Names}}"]);
-  if (psAll.stdout.split("\n").some((n) => n.trim() === "sonarqube")) {
+  if (psAll.stdout.split("\n").some((n) => n.trim() === "karajan-sonarqube")) {
     console.log("SonarQube container exists but stopped, starting...");
-    const start = await run("docker", ["start", "sonarqube-db", "sonarqube"]);
+    const start = await run("docker", ["start", "karajan-sonarqube"]);
     if (start.exitCode === 0) {
       console.log("SonarQube started at " + sonarUrl);
       return true;
@@ -361,6 +361,18 @@ async function ensureSonarQube(kjHome, nonInteractive) {
     } catch {
       console.log("docker-compose.sonar.yml template not found, skipping Docker setup.");
       return false;
+    }
+  }
+
+  // Check vm.max_map_count on Linux/WSL2 (required by Elasticsearch in SonarQube)
+  if (os.platform() === "linux") {
+    const sysctl = await run("sysctl", ["vm.max_map_count"]);
+    const match = sysctl.stdout?.match(/=\s*(\d+)/);
+    const current = match ? Number(match[1]) : 0;
+    if (current < 262144) {
+      console.log(`\nvm.max_map_count = ${current} (needs >= 262144 for SonarQube)`);
+      console.log("Fix with: sudo sysctl -w vm.max_map_count=262144");
+      console.log("Persist: echo 'vm.max_map_count=262144' | sudo tee -a /etc/sysctl.conf\n");
     }
   }
 

@@ -12,7 +12,7 @@
 services:
   sonarqube:
     image: sonarqube:community
-    container_name: sonarqube
+    container_name: karajan-sonarqube
     depends_on:
       sonarqube-db:
         condition: service_healthy
@@ -33,7 +33,7 @@ services:
 
   sonarqube-db:
     image: postgres:17
-    container_name: sonarqube-db
+    container_name: karajan-sonarqube-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sonar"]
       interval: 10s

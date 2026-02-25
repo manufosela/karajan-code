@@ -77,3 +77,33 @@ export async function sonarStatus() {
 export async function sonarLogs() {
   return runCommand("docker", ["logs", "--tail", "100", "karajan-sonarqube"]);
 }
+
+const MIN_MAP_COUNT = 262144;
+
+export async function checkVmMaxMapCount(platform) {
+  if (platform === "darwin" || platform === "win32") {
+    return { ok: true, reason: "vm.max_map_count check not required on this platform" };
+  }
+
+  const res = await runCommand("sysctl", ["vm.max_map_count"]);
+  if (res.exitCode !== 0) {
+    return {
+      ok: false,
+      reason: "Could not read vm.max_map_count",
+      fix: `sudo sysctl -w vm.max_map_count=${MIN_MAP_COUNT}`
+    };
+  }
+
+  const match = res.stdout.match(/=\s*(\d+)/);
+  const current = match ? Number(match[1]) : 0;
+
+  if (current >= MIN_MAP_COUNT) {
+    return { ok: true, reason: `vm.max_map_count = ${current}` };
+  }
+
+  return {
+    ok: false,
+    reason: `vm.max_map_count = ${current} (needs >= ${MIN_MAP_COUNT})`,
+    fix: `sudo sysctl -w vm.max_map_count=${MIN_MAP_COUNT} && echo "vm.max_map_count=${MIN_MAP_COUNT}" | sudo tee -a /etc/sysctl.conf`
+  };
+}
