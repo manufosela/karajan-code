@@ -6,6 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { runKjCommand } from "./run-kj.js";
 import { normalizePlanArgs } from "./tool-arg-normalizers.js";
 import { tools } from "./tools.js";
+import { buildProgressHandler, buildProgressNotifier } from "./progress.js";
 import { runFlow, resumeFlow } from "../orchestrator.js";
 import { loadConfig, applyRunOverrides, validateConfig, resolveRole } from "../config.js";
 import { createLogger } from "../utils/logger.js";
@@ -119,19 +120,6 @@ function buildAskQuestion(server) {
   };
 }
 
-function buildProgressHandler(server) {
-  return (event) => {
-    try {
-      server.sendLoggingMessage({
-        level: event.type === "agent:output" ? "debug" : event.status === "fail" ? "error" : "info",
-        logger: "karajan",
-        data: event
-      });
-    } catch {
-      // best-effort: if logging fails, continue
-    }
-  };
-}
 
 async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
@@ -178,36 +166,6 @@ async function handleResumeDirect(a, server, extra) {
   return { ok: true, ...result };
 }
 
-// Maps orchestrator event types to progress steps for notifications/progress
-const PROGRESS_STAGES = [
-  "session:start", "planner:start", "planner:end", "coder:start", "coder:end", "refactorer:start", "refactorer:end", "tdd:result",
-  "sonar:start", "sonar:end", "reviewer:start", "reviewer:end",
-  "iteration:end", "session:end"
-];
-
-function buildProgressNotifier(extra) {
-  const progressToken = extra?._meta?.progressToken;
-  if (progressToken === undefined) return null;
-
-  const total = PROGRESS_STAGES.length;
-  return (event) => {
-    const idx = PROGRESS_STAGES.indexOf(event.type);
-    if (idx < 0) return;
-    try {
-      extra.sendNotification({
-        method: "notifications/progress",
-        params: {
-          progressToken,
-          progress: idx + 1,
-          total,
-          message: event.message || event.type
-        }
-      });
-    } catch {
-      // best-effort
-    }
-  };
-}
 
 async function handleToolCall(name, args, server, extra) {
   const a = asObject(args);
