@@ -1,0 +1,152 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+vi.mock("../src/agents/index.js", () => ({
+  createAgent: vi.fn()
+}));
+
+vi.mock("../src/agents/availability.js", () => ({
+  assertAgentsAvailable: vi.fn()
+}));
+
+vi.mock("../src/config.js", () => ({
+  resolveRole: vi.fn((config, role) => ({
+    provider: config.roles?.[role]?.provider || role
+  }))
+}));
+
+vi.mock("../src/review/diff-generator.js", () => ({
+  computeBaseRef: vi.fn().mockResolvedValue("abc123"),
+  generateDiff: vi.fn().mockResolvedValue("diff --git a/file.js b/file.js\n+added line")
+}));
+
+vi.mock("../src/prompts/reviewer.js", () => ({
+  buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
+}));
+
+vi.mock("node:fs/promises", () => ({
+  default: {
+    readFile: vi.fn().mockResolvedValue("review rules content")
+  }
+}));
+
+function makeConfig(overrides = {}) {
+  return {
+    roles: { reviewer: { provider: "claude" } },
+    reviewer_options: { fallback_reviewer: "codex" },
+    base_branch: "main",
+    review_rules: "review-rules.md",
+    review_mode: "standard",
+    ...overrides
+  };
+}
+
+const noopLogger = {
+  info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn()
+};
+
+describe("commands/review", () => {
+  let createAgent, assertAgentsAvailable, computeBaseRef, generateDiff, buildReviewerPrompt;
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+
+    const agents = await import("../src/agents/index.js");
+    createAgent = agents.createAgent;
+
+    const avail = await import("../src/agents/availability.js");
+    assertAgentsAvailable = avail.assertAgentsAvailable;
+
+    const diff = await import("../src/review/diff-generator.js");
+    computeBaseRef = diff.computeBaseRef;
+    generateDiff = diff.generateDiff;
+    computeBaseRef.mockResolvedValue("abc123");
+    generateDiff.mockResolvedValue("diff content");
+
+    const prompts = await import("../src/prompts/reviewer.js");
+    buildReviewerPrompt = prompts.buildReviewerPrompt;
+    buildReviewerPrompt.mockReturnValue("reviewer prompt");
+
+    const fs = await import("node:fs/promises");
+    fs.default.readFile.mockResolvedValue("review rules content");
+
+    createAgent.mockReturnValue({
+      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: '{"approved": true}', exitCode: 0 })
+    });
+  });
+
+  it("asserts reviewer and fallback providers are available", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+
+    expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude", "codex"]);
+  });
+
+  it("creates agent with reviewer provider", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    const config = makeConfig();
+    await reviewCommand({ task: "review task", config, logger: noopLogger });
+
+    expect(createAgent).toHaveBeenCalledWith("claude", config, noopLogger);
+  });
+
+  it("computes base ref from config and override", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger, baseRef: "custom-ref" });
+
+    expect(computeBaseRef).toHaveBeenCalledWith({ baseBranch: "main", baseRef: "custom-ref" });
+  });
+
+  it("generates diff and builds reviewer prompt", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+
+    expect(generateDiff).toHaveBeenCalledWith({ baseRef: "abc123" });
+    expect(buildReviewerPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      task: "review task",
+      diff: "diff content",
+      reviewRules: "review rules content",
+      mode: "standard"
+    }));
+  });
+
+  it("calls reviewTask with prompt and role", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+
+    const agent = createAgent.mock.results[0].value;
+    expect(agent.reviewTask).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: "reviewer prompt",
+      role: "reviewer"
+    }));
+  });
+
+  it("throws when reviewer fails", async () => {
+    createAgent.mockReturnValue({
+      reviewTask: vi.fn().mockResolvedValue({ ok: false, error: "review crashed", exitCode: 1 })
+    });
+
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await expect(
+      reviewCommand({ task: "bad review", config: makeConfig(), logger: noopLogger })
+    ).rejects.toThrow("review crashed");
+  });
+
+  it("uses fallback rules when review-rules.md is missing", async () => {
+    const fs = await import("node:fs/promises");
+    fs.default.readFile.mockRejectedValue(new Error("ENOENT"));
+
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+
+    expect(buildReviewerPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      reviewRules: "Focus on critical issues only."
+    }));
+  });
+
+  it("logs completion on success", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+
+    expect(noopLogger.info).toHaveBeenCalledWith(expect.stringContaining("completed"));
+  });
+});
