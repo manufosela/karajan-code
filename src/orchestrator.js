@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import { createAgent } from "./agents/index.js";
 import {
   addCheckpoint,
@@ -26,6 +25,7 @@ import {
   prepareGitAutomation,
   finalizeGitAutomation
 } from "./git/automation.js";
+import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
 
 function getRepeatThreshold(config) {
   const raw =
@@ -36,22 +36,6 @@ function getRepeatThreshold(config) {
   const value = Number(raw);
   if (Number.isFinite(value) && value > 0) return value;
   return 2;
-}
-
-async function readRulesFile(path, fallback) {
-  try {
-    return await fs.readFile(path, "utf8");
-  } catch {
-    return fallback;
-  }
-}
-
-async function readReviewRules(path) {
-  return readRulesFile(path, "Focus on critical issues only.");
-}
-
-async function readCoderRules(path) {
-  return readRulesFile(path, null);
 }
 
 async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput }) {
@@ -169,8 +153,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
   const gitCtx = await prepareGitAutomation({ config, task, logger, session });
 
-  const reviewRules = await readReviewRules(config.review_rules);
-  const coderRules = await readCoderRules(config.coder_rules);
+  const projectDir = config.projectDir || process.cwd();
+  const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir)) || "Focus on critical issues only.";
+  const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
 
   for (let i = 1; i <= config.max_iterations; i += 1) {
     const elapsedMinutes = (Date.now() - startedAt) / 60000;
