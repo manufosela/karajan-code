@@ -131,9 +131,11 @@ program
   .argument("<task>")
   .option("--planner <name>")
   .option("--planner-model <name>")
+  .option("--context <text>", "Additional context for the planner")
+  .option("--json", "Output raw JSON plan")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
-      await planCommand({ task, config, logger });
+      await planCommand({ task, config, logger, json: flags.json, context: flags.context });
     });
   });
 
