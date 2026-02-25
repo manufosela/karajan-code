@@ -39,7 +39,7 @@ export async function ensureComposeFile() {
   return COMPOSE_PATH;
 }
 
-async function isSonarReachable(host) {
+export async function isSonarReachable(host) {
   const res = await runCommand("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", `${host}/api/system/status`]);
   return res.exitCode === 0 && res.stdout.trim().startsWith("2");
 }

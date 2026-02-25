@@ -12,7 +12,7 @@ import { reportCommand } from "./commands/report.js";
 import { planCommand } from "./commands/plan.js";
 import { runCommandHandler } from "./commands/run.js";
 import { resumeCommand } from "./commands/resume.js";
-import { sonarCommand } from "./commands/sonar.js";
+import { sonarCommand, sonarOpenCommand } from "./commands/sonar.js";
 
 async function withConfig(commandName, flags, fn) {
   const { config } = await loadConfig();
@@ -152,6 +152,18 @@ sonar.command("status").action(async () => sonarCommand({ action: "status" }));
 sonar.command("start").action(async () => sonarCommand({ action: "start" }));
 sonar.command("stop").action(async () => sonarCommand({ action: "stop" }));
 sonar.command("logs").action(async () => sonarCommand({ action: "logs" }));
+sonar
+  .command("open")
+  .description("Open SonarQube dashboard in the browser")
+  .action(async () => {
+    const { config } = await loadConfig();
+    const result = await sonarOpenCommand({ config });
+    if (!result.ok) {
+      console.error(result.error);
+      process.exit(1);
+    }
+    console.log(`Opened ${result.url}`);
+  });
 
 program.parseAsync().catch((error) => {
   console.error(error.message);
