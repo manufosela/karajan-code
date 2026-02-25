@@ -74,9 +74,57 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
   const refactorerRole = resolveRole(config, "refactorer");
-  const repeatDetector = new RepeatDetector({ threshold: getRepeatThreshold(config) });
   const plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
   const refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
+
+  // --- Dry-run: return summary without executing anything ---
+  if (flags.dryRun) {
+    const projectDir = config.projectDir || process.cwd();
+    const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir)) || "";
+    const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
+    const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology });
+    const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode });
+
+    const summary = {
+      dry_run: true,
+      task,
+      roles: {
+        planner: plannerRole,
+        coder: coderRole,
+        reviewer: reviewerRole,
+        refactorer: refactorerRole
+      },
+      pipeline: {
+        planner_enabled: plannerEnabled,
+        refactorer_enabled: refactorerEnabled,
+        sonar_enabled: Boolean(config.sonarqube?.enabled)
+      },
+      limits: {
+        max_iterations: config.max_iterations,
+        max_iteration_minutes: config.session?.max_iteration_minutes,
+        max_total_minutes: config.session?.max_total_minutes,
+        max_sonar_retries: config.session?.max_sonar_retries,
+        max_reviewer_retries: config.session?.max_reviewer_retries
+      },
+      prompts: {
+        coder: coderPrompt,
+        reviewer: reviewerPrompt
+      },
+      git: config.git
+    };
+
+    emitProgress(
+      emitter,
+      makeEvent("dry-run:summary", { sessionId: null, iteration: 0, stage: "dry-run", startedAt: Date.now() }, {
+        message: "Dry-run complete — no changes made",
+        detail: summary
+      })
+    );
+
+    return summary;
+  }
+
+  const repeatDetector = new RepeatDetector({ threshold: getRepeatThreshold(config) });
   const coder = createAgent(coderRole.provider, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
