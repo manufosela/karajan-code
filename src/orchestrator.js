@@ -14,9 +14,7 @@ import { validateReviewResult } from "./review/schema.js";
 import { evaluateTddPolicy } from "./review/tdd-policy.js";
 import { buildCoderPrompt } from "./prompts/coder.js";
 import { buildReviewerPrompt } from "./prompts/reviewer.js";
-import { getOpenIssues, getQualityGateStatus } from "./sonar/api.js";
-import { runSonarScan } from "./sonar/scanner.js";
-import { shouldBlockByProfile, summarizeIssues } from "./sonar/enforcer.js";
+import { SonarRole } from "./roles/sonar-role.js";
 import { resolveRole } from "./config.js";
 import { RepeatDetector } from "./repeat-detector.js";
 import { emitProgress, makeEvent } from "./utils/events.js";
@@ -394,7 +392,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       continue;
     }
 
-    // --- SonarQube ---
+    // --- SonarQube (via SonarRole) ---
     if (config.sonarqube.enabled) {
       logger.setContext({ iteration: i, stage: "sonar" });
       emitProgress(
@@ -404,46 +402,43 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         })
       );
 
-      const scan = await runSonarScan(config);
-      if (!scan.ok) {
+      const sonarRole = new SonarRole({ config, logger, emitter });
+      await sonarRole.init({ sessionId: session.id, iteration: i });
+      const sonarOutput = await sonarRole.run();
+      const { gateStatus, issues, openIssuesTotal, issuesSummary, blocking, projectKey } = sonarOutput.result;
+
+      if (!gateStatus && !sonarOutput.ok) {
         await markSessionStatus(session, "failed");
         emitProgress(
           emitter,
           makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
             status: "fail",
-            message: `Sonar scan failed: ${scan.stderr || scan.stdout}`
+            message: sonarOutput.summary
           })
         );
-        throw new Error(`Sonar scan failed: ${scan.stderr || scan.stdout}`);
+        throw new Error(sonarOutput.summary);
       }
 
-      const gate = await getQualityGateStatus(config, scan.projectKey);
-      const issues = await getOpenIssues(config, scan.projectKey);
-      session.last_sonar_summary = `QualityGate=${gate.status}; Open issues=${issues.total}; ${summarizeIssues(issues.issues)}`;
+      session.last_sonar_summary = sonarOutput.summary;
       await addCheckpoint(session, {
         stage: "sonar",
         iteration: i,
-        project_key: scan.projectKey,
-        quality_gate: gate.status,
-        open_issues: issues.total
-      });
-
-      const sonarBlocking = shouldBlockByProfile({
-        gateStatus: gate.status,
-        profile: config.sonarqube.enforcement_profile
+        project_key: projectKey,
+        quality_gate: gateStatus,
+        open_issues: openIssuesTotal
       });
 
       emitProgress(
         emitter,
         makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
-          status: sonarBlocking ? "fail" : "ok",
-          message: `Quality gate: ${gate.status}`,
-          detail: { projectKey: scan.projectKey, gateStatus: gate.status, openIssues: issues.total }
+          status: blocking ? "fail" : "ok",
+          message: `Quality gate: ${gateStatus}`,
+          detail: { projectKey, gateStatus, openIssues: openIssuesTotal }
         })
       );
 
-      if (sonarBlocking) {
-        repeatDetector.addIteration(issues.issues, []);
+      if (blocking) {
+        repeatDetector.addIteration(issues, []);
         const repeatState = repeatDetector.isStalled();
         if (repeatState.stalled) {
           const repeatCounts = repeatDetector.getRepeatCounts();
@@ -461,7 +456,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           return { approved: false, sessionId: session.id, reason: "stalled" };
         }
 
-        session.last_reviewer_feedback = `Sonar gate blocking (${gate.status}). Resolve critical findings first.`;
+        session.last_reviewer_feedback = `Sonar gate blocking (${gateStatus}). Resolve critical findings first.`;
         session.sonar_retry_count = (session.sonar_retry_count || 0) + 1;
         await saveSession(session);
         const maxSonarRetries = config.session.max_sonar_retries ?? config.session.fail_fast_repeats;
@@ -470,10 +465,10 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             emitter,
             makeEvent("solomon:escalate", { ...eventBase, stage: "sonar" }, {
               message: `Sonar sub-loop limit reached (${session.sonar_retry_count}/${maxSonarRetries})`,
-              detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus: gate.status }
+              detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus }
             })
           );
-          const question = `SonarQube quality gate has failed ${session.sonar_retry_count} times (${gate.status}). What should we do?`;
+          const question = `SonarQube quality gate has failed ${session.sonar_retry_count} times (${gateStatus}). What should we do?`;
           if (askQuestion) {
             const answer = await askQuestion(question, { iteration: i, stage: "sonar" });
             if (answer) {
@@ -488,8 +483,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             context: {
               iteration: i,
               stage: "sonar",
-              gateStatus: gate.status,
-              openIssues: issues.total,
+              gateStatus,
+              openIssues: openIssuesTotal,
               retryCount: session.sonar_retry_count
             }
           });
