@@ -255,6 +255,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     })
   );
 
+  // Accumulate stage results for final summary
+  const stageResults = {};
+
   // --- Researcher (pre-planning) ---
   let researchContext = null;
   if (researcherEnabled) {
@@ -280,6 +283,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       })
     );
 
+    stageResults.researcher = { ok: researchOutput.ok, summary: researchOutput.summary || null };
     if (researchOutput.ok) {
       researchContext = researchOutput.result;
     }
@@ -322,6 +326,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     if (plannerResult.output?.trim()) {
       plannedTask = `${task}\n\nExecution plan:\n${plannerResult.output.trim()}`;
     }
+    stageResults.planner = { ok: true };
     emitProgress(
       emitter,
       makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
@@ -634,6 +639,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
       // Sonar passed — reset retry counter
       session.sonar_retry_count = 0;
+      stageResults.sonar = { gateStatus: gate.status, openIssues: issues.total };
     }
 
     // --- Reviewer ---
@@ -821,6 +827,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           }
         } else {
           session.tester_retry_count = 0;
+          stageResults.tester = { ok: true, summary: testerOutput.summary || "All tests passed" };
         }
       }
 
@@ -880,6 +887,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           }
         } else {
           session.security_retry_count = 0;
+          stageResults.security = { ok: true, summary: securityOutput.summary || "No vulnerabilities found" };
         }
       }
 
@@ -890,7 +898,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         emitter,
         makeEvent("session:end", { ...eventBase, stage: "done" }, {
           message: "Session approved",
-          detail: { approved: true, git: gitResult }
+          detail: { approved: true, iterations: i, stages: stageResults, git: gitResult }
         })
       );
       return { approved: true, sessionId: session.id, review, git: gitResult };
@@ -946,7 +954,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
       status: "fail",
       message: "Max iterations reached",
-      detail: { approved: false, reason: "max_iterations" }
+      detail: { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults }
     })
   );
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
