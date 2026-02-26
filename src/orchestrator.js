@@ -14,6 +14,7 @@ import { validateReviewResult } from "./review/schema.js";
 import { evaluateTddPolicy } from "./review/tdd-policy.js";
 import { buildCoderPrompt } from "./prompts/coder.js";
 import { buildReviewerPrompt } from "./prompts/reviewer.js";
+import { CoderRole } from "./roles/coder-role.js";
 import { getOpenIssues, getQualityGateStatus } from "./sonar/api.js";
 import { runSonarScan } from "./sonar/scanner.js";
 import { shouldBlockByProfile, summarizeIssues } from "./sonar/enforcer.js";
@@ -125,7 +126,6 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   }
 
   const repeatDetector = new RepeatDetector({ threshold: getRepeatThreshold(config) });
-  const coder = createAgent(coderRole.provider, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
 
@@ -205,7 +205,6 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
   const projectDir = config.projectDir || process.cwd();
   const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir)) || "Focus on critical issues only.";
-  const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
 
   for (let i = 1; i <= config.max_iterations; i += 1) {
     const elapsedMinutes = (Date.now() - startedAt) / 60000;
@@ -236,7 +235,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     logger.info(`Iteration ${i}/${config.max_iterations}`);
 
-    // --- Coder ---
+    // --- Coder (via CoderRole) ---
     logger.setContext({ iteration: i, stage: "coder" });
     emitProgress(
       emitter,
@@ -246,24 +245,24 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       })
     );
 
-    const coderPrompt = buildCoderPrompt({
-      task: plannedTask,
-      reviewerFeedback: session.last_reviewer_feedback,
-      sonarSummary: session.last_sonar_summary,
-      coderRules,
-      methodology: config.development?.methodology || "tdd"
-    });
     const coderOnOutput = ({ stream, line }) => {
       emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "coder" }, {
         message: line,
         detail: { stream, agent: coderRole.provider }
       }));
     };
-    const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput, role: "coder" });
+    const coderRoleInstance = new CoderRole({ config, logger, emitter });
+    await coderRoleInstance.init({ sessionId: session.id, iteration: i, task: plannedTask });
+    const coderResult = await coderRoleInstance.run({
+      task: plannedTask,
+      reviewerFeedback: session.last_reviewer_feedback,
+      sonarSummary: session.last_sonar_summary,
+      onOutput: coderOnOutput
+    });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
-      const details = coderResult.error || coderResult.output || `exitCode=${coderResult.exitCode ?? "unknown"}`;
+      const details = coderResult.result?.error || coderResult.summary || "unknown error";
       emitProgress(
         emitter,
         makeEvent("coder:end", { ...eventBase, stage: "coder" }, {
