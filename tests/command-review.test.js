@@ -23,10 +23,8 @@ vi.mock("../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
 }));
 
-vi.mock("node:fs/promises", () => ({
-  default: {
-    readFile: vi.fn().mockResolvedValue("review rules content")
-  }
+vi.mock("../src/review/profiles.js", () => ({
+  resolveReviewProfile: vi.fn().mockResolvedValue({ mode: "standard", rules: "review rules content" })
 }));
 
 function makeConfig(overrides = {}) {
@@ -66,8 +64,8 @@ describe("commands/review", () => {
     buildReviewerPrompt = prompts.buildReviewerPrompt;
     buildReviewerPrompt.mockReturnValue("reviewer prompt");
 
-    const fs = await import("node:fs/promises");
-    fs.default.readFile.mockResolvedValue("review rules content");
+    const profiles = await import("../src/review/profiles.js");
+    profiles.resolveReviewProfile.mockResolvedValue({ mode: "standard", rules: "review rules content" });
 
     createAgent.mockReturnValue({
       reviewTask: vi.fn().mockResolvedValue({ ok: true, output: '{"approved": true}', exitCode: 0 })
@@ -131,15 +129,18 @@ describe("commands/review", () => {
     ).rejects.toThrow("review crashed");
   });
 
-  it("uses fallback rules when review-rules.md is missing", async () => {
-    const fs = await import("node:fs/promises");
-    fs.default.readFile.mockRejectedValue(new Error("ENOENT"));
+  it("uses fallback rules when no profile files found", async () => {
+    const profiles = await import("../src/review/profiles.js");
+    profiles.resolveReviewProfile.mockResolvedValue({
+      mode: "standard",
+      rules: "Focus on critical issues: security vulnerabilities, logic errors, and broken tests."
+    });
 
     const { reviewCommand } = await import("../src/commands/review.js");
     await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
 
     expect(buildReviewerPrompt).toHaveBeenCalledWith(expect.objectContaining({
-      reviewRules: "Focus on critical issues only."
+      reviewRules: "Focus on critical issues: security vulnerabilities, logic errors, and broken tests."
     }));
   });
 

@@ -24,6 +24,7 @@ import {
   finalizeGitAutomation
 } from "./git/automation.js";
 import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
+import { resolveReviewProfile } from "./review/profiles.js";
 import { ResearcherRole } from "./roles/researcher-role.js";
 import { TesterRole } from "./roles/tester-role.js";
 import { SecurityRole } from "./roles/security-role.js";
@@ -167,7 +168,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   // --- Dry-run: return summary without executing anything ---
   if (flags.dryRun) {
     const projectDir = config.projectDir || process.cwd();
-    const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir)) || "";
+    const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
     const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
     const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology });
     const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode });
@@ -336,7 +337,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const gitCtx = await prepareGitAutomation({ config, task, logger, session });
 
   const projectDir = config.projectDir || process.cwd();
-  const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir)) || "Focus on critical issues only.";
+  const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
 
   for (let i = 1; i <= config.max_iterations; i += 1) {
