@@ -2,3 +2,4 @@ export { BaseRole, ROLE_EVENTS, resolveRoleMdPath, loadFirstExisting } from "./b
 export { PlannerRole } from "./planner-role.js";
 export { ReviewerRole } from "./reviewer-role.js";
 export { CommiterRole } from "./commiter-role.js";
+export { TesterRole } from "./tester-role.js";
