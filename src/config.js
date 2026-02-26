@@ -11,12 +11,19 @@ const DEFAULTS = {
     planner: { provider: null, model: null },
     coder: { provider: null, model: null },
     reviewer: { provider: null, model: null },
-    refactorer: { provider: null, model: null }
+    refactorer: { provider: null, model: null },
+    solomon: { provider: null, model: null },
+    researcher: { provider: null, model: null },
+    tester: { provider: null, model: null },
+    security: { provider: null, model: null }
   },
   pipeline: {
     planner: { enabled: false },
     refactorer: { enabled: false },
-    solomon: { enabled: false }
+    solomon: { enabled: false },
+    researcher: { enabled: false },
+    tester: { enabled: false },
+    security: { enabled: false }
   },
   review_mode: "standard",
   max_iterations: 5,
@@ -81,7 +88,9 @@ const DEFAULTS = {
     fail_fast_repeats: 2,
     repeat_detection_threshold: 2,
     max_sonar_retries: 3,
-    max_reviewer_retries: 3
+    max_reviewer_retries: 3,
+    max_tester_retries: 1,
+    max_security_retries: 1
   },
   failFast: {
     repeatThreshold: 2
@@ -139,6 +148,10 @@ export function applyRunOverrides(config, flags) {
   if (flags.reviewer) out.reviewer = flags.reviewer;
   if (flags.reviewer) out.roles.reviewer.provider = flags.reviewer;
   if (flags.refactorer) out.roles.refactorer.provider = flags.refactorer;
+  if (flags.solomon) out.roles.solomon.provider = flags.solomon;
+  if (flags.researcher) out.roles.researcher.provider = flags.researcher;
+  if (flags.tester) out.roles.tester.provider = flags.tester;
+  if (flags.security) out.roles.security.provider = flags.security;
   if (flags.plannerModel) out.roles.planner.model = String(flags.plannerModel);
   if (flags.coderModel) {
     out.roles.coder.model = String(flags.coderModel);
@@ -149,8 +162,13 @@ export function applyRunOverrides(config, flags) {
     out.reviewer_options.model = String(flags.reviewerModel);
   }
   if (flags.refactorerModel) out.roles.refactorer.model = String(flags.refactorerModel);
+  if (flags.solomonModel) out.roles.solomon.model = String(flags.solomonModel);
   if (flags.enablePlanner !== undefined) out.pipeline.planner.enabled = Boolean(flags.enablePlanner);
   if (flags.enableRefactorer !== undefined) out.pipeline.refactorer.enabled = Boolean(flags.enableRefactorer);
+  if (flags.enableSolomon !== undefined) out.pipeline.solomon.enabled = Boolean(flags.enableSolomon);
+  if (flags.enableResearcher !== undefined) out.pipeline.researcher.enabled = Boolean(flags.enableResearcher);
+  if (flags.enableTester !== undefined) out.pipeline.tester.enabled = Boolean(flags.enableTester);
+  if (flags.enableSecurity !== undefined) out.pipeline.security.enabled = Boolean(flags.enableSecurity);
   if (flags.mode) out.review_mode = flags.mode;
   if (flags.maxIterations) out.max_iterations = Number(flags.maxIterations);
   if (flags.maxIterationMinutes) out.session.max_iteration_minutes = Number(flags.maxIterationMinutes);
@@ -182,14 +200,14 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
   let model = roleConfig.model ?? null;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer")) {
+  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security")) {
     model = config?.coder_options?.model ?? null;
   }
 
