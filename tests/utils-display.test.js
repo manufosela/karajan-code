@@ -120,5 +120,251 @@ describe("utils/display", () => {
       const output = spy.mock.calls.map((c) => c[0]).join("\n");
       expect(output).toContain("Something happened");
     });
+
+    // --- Researcher events ---
+
+    it("prints researcher start", () => {
+      printEvent({ type: "researcher:start", detail: { researcher: "claude" } });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Researcher");
+      expect(output).toContain("claude");
+    });
+
+    it("prints researcher end with status ok", () => {
+      printEvent({ type: "researcher:end", status: "ok", elapsed: 8000 });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Researcher");
+      expect(output).toContain("completed");
+    });
+
+    // --- Tester events ---
+
+    it("prints tester start", () => {
+      printEvent({ type: "tester:start", detail: {} });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Tester");
+    });
+
+    it("prints tester end passed", () => {
+      printEvent({ type: "tester:end", status: "ok", detail: { ok: true }, elapsed: 5000 });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Tester");
+      expect(output).toContain("passed");
+    });
+
+    it("prints tester end failed with summary", () => {
+      printEvent({ type: "tester:end", status: "fail", detail: { ok: false, summary: "3 tests failing" }, elapsed: 5000 });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Tester");
+      expect(output).toContain("3 tests failing");
+    });
+
+    // --- Security events ---
+
+    it("prints security start", () => {
+      printEvent({ type: "security:start", detail: {} });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Security");
+    });
+
+    it("prints security end passed", () => {
+      printEvent({ type: "security:end", status: "ok", detail: { ok: true }, elapsed: 4000 });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Security");
+      expect(output).toContain("passed");
+    });
+
+    it("prints security end failed", () => {
+      printEvent({ type: "security:end", status: "fail", detail: { ok: false, summary: "SQL injection found" }, elapsed: 4000 });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Security");
+      expect(output).toContain("SQL injection found");
+    });
+
+    // --- Solomon events ---
+
+    it("prints solomon start with conflict stage", () => {
+      printEvent({ type: "solomon:start", detail: { conflictStage: "reviewer" } });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Solomon");
+      expect(output).toContain("reviewer");
+    });
+
+    it("prints solomon end with approve ruling", () => {
+      printEvent({
+        type: "solomon:end",
+        detail: {
+          ruling: "approve",
+          dismissed: ["Style issue — preference"],
+          conditions: []
+        },
+        elapsed: 3000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Solomon");
+      expect(output).toContain("APPROVE");
+      expect(output).toContain("1 dismissed");
+    });
+
+    it("prints solomon end with approve_with_conditions ruling", () => {
+      printEvent({
+        type: "solomon:end",
+        detail: {
+          ruling: "approve_with_conditions",
+          conditions: ["Fix null check at auth.js:42"],
+          dismissed: []
+        },
+        elapsed: 3000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Solomon");
+      expect(output).toContain("1 condition");
+      expect(output).toContain("Fix null check at auth.js:42");
+    });
+
+    it("prints solomon end with escalate_human ruling", () => {
+      printEvent({
+        type: "solomon:end",
+        detail: {
+          ruling: "escalate_human",
+          escalate_reason: "Architecture decision beyond scope"
+        },
+        elapsed: 3000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Solomon");
+      expect(output).toContain("ESCALATE");
+      expect(output).toContain("Architecture decision beyond scope");
+    });
+
+    it("prints solomon end with create_subtask ruling", () => {
+      printEvent({
+        type: "solomon:end",
+        detail: {
+          ruling: "create_subtask",
+          subtask: { title: "Extract shared validation", description: "Create shared module" }
+        },
+        elapsed: 3000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Solomon");
+      expect(output).toContain("SUBTASK");
+      expect(output).toContain("Extract shared validation");
+    });
+
+    it("prints solomon escalate event (sub-loop limit)", () => {
+      printEvent({
+        type: "solomon:escalate",
+        detail: { subloop: "sonar", retryCount: 3, limit: 3, gateStatus: "ERROR" }
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("sonar");
+      expect(output).toContain("3/3");
+    });
+
+    // --- Enhanced session:end with full summary ---
+
+    it("prints session end with comprehensive summary when approved", () => {
+      printEvent({
+        type: "session:end",
+        detail: {
+          approved: true,
+          iterations: 2,
+          stages: {
+            researcher: { ok: true, summary: "Found 3 relevant patterns" },
+            planner: { ok: true },
+            sonar: { gateStatus: "OK", openIssues: 0 },
+            tester: { ok: true, summary: "All tests passed" },
+            security: { ok: true, summary: "No vulnerabilities found" }
+          },
+          git: { committed: true, branch: "feat/auth-fix", pushed: true }
+        },
+        elapsed: 120000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("APPROVED");
+      expect(output).toContain("02:00");
+    });
+
+    it("prints session end with pipeline summary lines", () => {
+      printEvent({
+        type: "session:end",
+        detail: {
+          approved: true,
+          iterations: 3,
+          stages: {
+            researcher: { ok: true, summary: "Analyzed 5 files" },
+            tester: { ok: true, summary: "12 tests passed" },
+            security: { ok: true, summary: "Clean" }
+          },
+          git: { committed: true, branch: "feat/task-42" }
+        },
+        elapsed: 180000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("APPROVED");
+      expect(output).toContain("Analyzed 5 files");
+      expect(output).toContain("12 tests passed");
+    });
+
+    it("prints session end failed with reason", () => {
+      printEvent({
+        type: "session:end",
+        detail: { approved: false, reason: "max_iterations", iterations: 5 },
+        elapsed: 300000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("max_iterations");
+    });
+
+    // --- Enhanced header ---
+
+    it("printHeader shows active pipeline roles", () => {
+      printHeader({
+        task: "Add login feature",
+        config: {
+          coder: "codex",
+          reviewer: "claude",
+          roles: {
+            coder: { provider: "codex" },
+            reviewer: { provider: "claude" },
+            planner: { provider: "claude" },
+            solomon: { provider: "gemini" }
+          },
+          pipeline: {
+            planner: { enabled: true },
+            researcher: { enabled: false },
+            tester: { enabled: true },
+            security: { enabled: true },
+            solomon: { enabled: true }
+          },
+          max_iterations: 5,
+          session: { max_total_minutes: 120 }
+        }
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Planner");
+      expect(output).toContain("Tester");
+      expect(output).toContain("Security");
+      expect(output).toContain("Solomon");
+    });
   });
 });
