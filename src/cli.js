@@ -70,6 +70,8 @@ program
   .option("--methodology <name>")
   .option("--no-auto-rebase")
   .option("--no-sonar")
+  .option("--pg-task <cardId>", "Planning Game card ID (e.g., KJC-TSK-0042)")
+  .option("--pg-project <projectId>", "Planning Game project ID")
   .option("--dry-run", "Show what would be executed without running anything")
   .option("--json", "Output JSON only (no styled display)")
   .action(async (task, flags) => {

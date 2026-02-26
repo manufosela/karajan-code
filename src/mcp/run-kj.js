@@ -43,6 +43,8 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   normalizeBoolFlag(options.autoPr, "--auto-pr", args);
   if (options.autoRebase === false) args.push("--no-auto-rebase");
   normalizeBoolFlag(options.noSonar, "--no-sonar", args);
+  addOptionalValue(args, "--pg-task", options.pgTask);
+  addOptionalValue(args, "--pg-project", options.pgProject);
 
   const runEnv = {
     ...process.env,

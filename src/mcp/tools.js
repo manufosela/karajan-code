@@ -52,7 +52,9 @@ export const tools = [
       type: "object",
       required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description for the coder" },
+        task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042)" },
+        pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as task context and updates card status on completion." },
+        pgProject: { type: "string", description: "Planning Game project ID (e.g., 'Karajan Code'). Required when pgTask is used." },
         planner: { type: "string" },
         coder: { type: "string" },
         reviewer: { type: "string" },
