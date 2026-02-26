@@ -26,6 +26,10 @@ import {
   finalizeGitAutomation
 } from "./git/automation.js";
 import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
+import { ResearcherRole } from "./roles/researcher-role.js";
+import { TesterRole } from "./roles/tester-role.js";
+import { SecurityRole } from "./roles/security-role.js";
+import { SolomonRole } from "./roles/solomon-role.js";
 
 function getRepeatThreshold(config) {
   const raw =
@@ -69,6 +73,88 @@ async function runReviewerWithFallback({ reviewerName, config, logger, prompt, s
   return { result: null, attempts };
 }
 
+async function invokeSolomon({ config, logger, emitter, eventBase, stage, conflict, askQuestion, session, iteration }) {
+  const solomonEnabled = Boolean(config.pipeline?.solomon?.enabled);
+
+  if (!solomonEnabled) {
+    return escalateToHuman({ askQuestion, session, emitter, eventBase, stage, conflict, iteration });
+  }
+
+  emitProgress(
+    emitter,
+    makeEvent("solomon:start", { ...eventBase, stage: "solomon" }, {
+      message: `Solomon arbitrating ${stage} conflict`,
+      detail: { conflictStage: stage }
+    })
+  );
+
+  const solomon = new SolomonRole({ config, logger, emitter });
+  await solomon.init({ task: conflict.task || session.task, iteration });
+  const ruling = await solomon.run({ conflict });
+
+  emitProgress(
+    emitter,
+    makeEvent("solomon:end", { ...eventBase, stage: "solomon" }, {
+      message: `Solomon ruling: ${ruling.result?.ruling || "unknown"}`,
+      detail: ruling.result
+    })
+  );
+
+  await addCheckpoint(session, {
+    stage: "solomon",
+    iteration,
+    ruling: ruling.result?.ruling,
+    escalate: ruling.result?.escalate,
+    subtask: ruling.result?.subtask?.title || null
+  });
+
+  if (!ruling.ok) {
+    // escalate_human
+    return escalateToHuman({
+      askQuestion, session, emitter, eventBase, stage, iteration,
+      conflict: { ...conflict, solomonReason: ruling.result?.escalate_reason }
+    });
+  }
+
+  const r = ruling.result?.ruling;
+  if (r === "approve" || r === "approve_with_conditions") {
+    return { action: "continue", conditions: ruling.result?.conditions || [], ruling };
+  }
+
+  if (r === "create_subtask") {
+    return { action: "subtask", subtask: ruling.result?.subtask, ruling };
+  }
+
+  return { action: "continue", conditions: [], ruling };
+}
+
+async function escalateToHuman({ askQuestion, session, emitter, eventBase, stage, conflict, iteration }) {
+  const reason = conflict?.solomonReason || `${stage} conflict unresolved`;
+  const question = `${stage} conflict requires human intervention: ${reason}\nDetails: ${JSON.stringify(conflict?.history?.slice(-2) || [], null, 2)}\n\nHow should we proceed?`;
+
+  if (askQuestion) {
+    const answer = await askQuestion(question, { iteration, stage });
+    if (answer) {
+      return { action: "continue", humanGuidance: answer };
+    }
+  }
+
+  await pauseSession(session, {
+    question,
+    context: { iteration, stage, conflict }
+  });
+  emitProgress(
+    emitter,
+    makeEvent("question", { ...eventBase, stage }, {
+      status: "paused",
+      message: question,
+      detail: { question, sessionId: session.id }
+    })
+  );
+
+  return { action: "pause", question };
+}
+
 export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null }) {
   const plannerRole = resolveRole(config, "planner");
   const coderRole = resolveRole(config, "coder");
@@ -76,6 +162,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const refactorerRole = resolveRole(config, "refactorer");
   const plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
   const refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
+  const researcherEnabled = Boolean(config.pipeline?.researcher?.enabled);
+  const testerEnabled = Boolean(config.pipeline?.tester?.enabled);
+  const securityEnabled = Boolean(config.pipeline?.security?.enabled);
 
   // --- Dry-run: return summary without executing anything ---
   if (flags.dryRun) {
@@ -97,14 +186,20 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       pipeline: {
         planner_enabled: plannerEnabled,
         refactorer_enabled: refactorerEnabled,
-        sonar_enabled: Boolean(config.sonarqube?.enabled)
+        sonar_enabled: Boolean(config.sonarqube?.enabled),
+        researcher_enabled: researcherEnabled,
+        tester_enabled: testerEnabled,
+        security_enabled: securityEnabled,
+        solomon_enabled: Boolean(config.pipeline?.solomon?.enabled)
       },
       limits: {
         max_iterations: config.max_iterations,
         max_iteration_minutes: config.session?.max_iteration_minutes,
         max_total_minutes: config.session?.max_total_minutes,
         max_sonar_retries: config.session?.max_sonar_retries,
-        max_reviewer_retries: config.session?.max_reviewer_retries
+        max_reviewer_retries: config.session?.max_reviewer_retries,
+        max_tester_retries: config.session?.max_tester_retries,
+        max_security_retries: config.session?.max_security_retries
       },
       prompts: {
         coder: coderPrompt,
@@ -160,6 +255,37 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     })
   );
 
+  // --- Researcher (pre-planning) ---
+  let researchContext = null;
+  if (researcherEnabled) {
+    logger.setContext({ iteration: 0, stage: "researcher" });
+    emitProgress(
+      emitter,
+      makeEvent("researcher:start", { ...eventBase, stage: "researcher" }, {
+        message: "Researcher investigating codebase"
+      })
+    );
+
+    const researcher = new ResearcherRole({ config, logger, emitter });
+    await researcher.init({ task });
+    const researchOutput = await researcher.run({ task });
+
+    await addCheckpoint(session, { stage: "researcher", iteration: 0, ok: researchOutput.ok });
+
+    emitProgress(
+      emitter,
+      makeEvent("researcher:end", { ...eventBase, stage: "researcher" }, {
+        status: researchOutput.ok ? "ok" : "fail",
+        message: researchOutput.ok ? "Research completed" : `Research failed: ${researchOutput.summary}`
+      })
+    );
+
+    if (researchOutput.ok) {
+      researchContext = researchOutput.result;
+    }
+  }
+
+  // --- Planner ---
   let plannedTask = task;
   if (plannerEnabled) {
     logger.setContext({ iteration: 0, stage: "planner" });
@@ -171,13 +297,16 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       })
     );
     const planner = createAgent(plannerRole.provider, config, logger);
-    const plannerPrompt = [
+    const plannerPromptParts = [
       "Create an implementation plan for this task.",
       "Return concise numbered steps focused on execution order and risk.",
       "",
       task
-    ].join("\n");
-    const plannerResult = await planner.runTask({ prompt: plannerPrompt, role: "planner" });
+    ];
+    if (researchContext) {
+      plannerPromptParts.push("", "## Research findings", JSON.stringify(researchContext, null, 2));
+    }
+    const plannerResult = await planner.runTask({ prompt: plannerPromptParts.join("\n"), role: "planner" });
     if (!plannerResult.ok) {
       await markSessionStatus(session, "failed");
       const details = plannerResult.error || plannerResult.output || `exitCode=${plannerResult.exitCode ?? "unknown"}`;
@@ -473,35 +602,32 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
               detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus: gate.status }
             })
           );
-          const question = `SonarQube quality gate has failed ${session.sonar_retry_count} times (${gate.status}). What should we do?`;
-          if (askQuestion) {
-            const answer = await askQuestion(question, { iteration: i, stage: "sonar" });
-            if (answer) {
-              session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
-              session.sonar_retry_count = 0;
-              await saveSession(session);
-              continue;
-            }
-          }
-          await pauseSession(session, {
-            question,
-            context: {
-              iteration: i,
+
+          const solomonResult = await invokeSolomon({
+            config, logger, emitter, eventBase, stage: "sonar", askQuestion, session, iteration: i,
+            conflict: {
               stage: "sonar",
-              gateStatus: gate.status,
-              openIssues: issues.total,
-              retryCount: session.sonar_retry_count
+              task,
+              iterationCount: session.sonar_retry_count,
+              maxIterations: maxSonarRetries,
+              history: [{ agent: "sonar", feedback: session.last_sonar_summary }]
             }
           });
-          emitProgress(
-            emitter,
-            makeEvent("question", { ...eventBase, stage: "sonar" }, {
-              status: "paused",
-              message: question,
-              detail: { question, sessionId: session.id }
-            })
-          );
-          return { paused: true, sessionId: session.id, question, context: "sonar_fail_fast" };
+
+          if (solomonResult.action === "pause") {
+            return { paused: true, sessionId: session.id, question: solomonResult.question, context: "sonar_fail_fast" };
+          }
+          if (solomonResult.action === "continue") {
+            if (solomonResult.humanGuidance) {
+              session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+            }
+            session.sonar_retry_count = 0;
+            await saveSession(session);
+            continue;
+          }
+          if (solomonResult.action === "subtask") {
+            return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "sonar_subtask" };
+          }
         }
         continue;
       }
@@ -635,6 +761,129 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     if (review.approved) {
       session.reviewer_retry_count = 0;
+
+      // --- Post-loop stages: Tester → Security ---
+      const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
+
+      // --- Tester ---
+      if (testerEnabled) {
+        logger.setContext({ iteration: i, stage: "tester" });
+        emitProgress(
+          emitter,
+          makeEvent("tester:start", { ...eventBase, stage: "tester" }, {
+            message: "Tester evaluating test quality"
+          })
+        );
+
+        const tester = new TesterRole({ config, logger, emitter });
+        await tester.init({ task, iteration: i });
+        const testerOutput = await tester.run({ task, diff: postLoopDiff });
+
+        await addCheckpoint(session, { stage: "tester", iteration: i, ok: testerOutput.ok });
+
+        emitProgress(
+          emitter,
+          makeEvent("tester:end", { ...eventBase, stage: "tester" }, {
+            status: testerOutput.ok ? "ok" : "fail",
+            message: testerOutput.ok ? "Tester passed" : `Tester: ${testerOutput.summary}`
+          })
+        );
+
+        if (!testerOutput.ok) {
+          const maxTesterRetries = config.session?.max_tester_retries ?? 1;
+          session.tester_retry_count = (session.tester_retry_count || 0) + 1;
+          await saveSession(session);
+
+          if (session.tester_retry_count >= maxTesterRetries) {
+            const solomonResult = await invokeSolomon({
+              config, logger, emitter, eventBase, stage: "tester", askQuestion, session, iteration: i,
+              conflict: {
+                stage: "tester",
+                task,
+                diff: postLoopDiff,
+                iterationCount: session.tester_retry_count,
+                maxIterations: maxTesterRetries,
+                history: [{ agent: "tester", feedback: testerOutput.summary }]
+              }
+            });
+
+            if (solomonResult.action === "pause") {
+              return { paused: true, sessionId: session.id, question: solomonResult.question, context: "tester_fail_fast" };
+            }
+            if (solomonResult.action === "subtask") {
+              return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "tester_subtask" };
+            }
+            // continue = Solomon approved, proceed to next stage
+          } else {
+            session.last_reviewer_feedback = `Tester feedback: ${testerOutput.summary}`;
+            await saveSession(session);
+            continue;
+          }
+        } else {
+          session.tester_retry_count = 0;
+        }
+      }
+
+      // --- Security ---
+      if (securityEnabled) {
+        logger.setContext({ iteration: i, stage: "security" });
+        emitProgress(
+          emitter,
+          makeEvent("security:start", { ...eventBase, stage: "security" }, {
+            message: "Security auditing code"
+          })
+        );
+
+        const security = new SecurityRole({ config, logger, emitter });
+        await security.init({ task, iteration: i });
+        const securityOutput = await security.run({ task, diff: postLoopDiff });
+
+        await addCheckpoint(session, { stage: "security", iteration: i, ok: securityOutput.ok });
+
+        emitProgress(
+          emitter,
+          makeEvent("security:end", { ...eventBase, stage: "security" }, {
+            status: securityOutput.ok ? "ok" : "fail",
+            message: securityOutput.ok ? "Security audit passed" : `Security: ${securityOutput.summary}`
+          })
+        );
+
+        if (!securityOutput.ok) {
+          const maxSecurityRetries = config.session?.max_security_retries ?? 1;
+          session.security_retry_count = (session.security_retry_count || 0) + 1;
+          await saveSession(session);
+
+          if (session.security_retry_count >= maxSecurityRetries) {
+            const solomonResult = await invokeSolomon({
+              config, logger, emitter, eventBase, stage: "security", askQuestion, session, iteration: i,
+              conflict: {
+                stage: "security",
+                task,
+                diff: postLoopDiff,
+                iterationCount: session.security_retry_count,
+                maxIterations: maxSecurityRetries,
+                history: [{ agent: "security", feedback: securityOutput.summary }]
+              }
+            });
+
+            if (solomonResult.action === "pause") {
+              return { paused: true, sessionId: session.id, question: solomonResult.question, context: "security_fail_fast" };
+            }
+            if (solomonResult.action === "subtask") {
+              return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "security_subtask" };
+            }
+            // continue = Solomon approved, proceed
+          } else {
+            session.last_reviewer_feedback = `Security feedback: ${securityOutput.summary}`;
+            await saveSession(session);
+            continue;
+          }
+        } else {
+          session.security_retry_count = 0;
+        }
+      }
+
+      // --- All post-loop checks passed → finalize ---
       const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session });
       await markSessionStatus(session, "approved");
       emitProgress(
@@ -662,34 +911,32 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           detail: { subloop: "reviewer", retryCount: session.reviewer_retry_count, limit: maxReviewerRetries }
         })
       );
-      const question = `Reviewer has rejected ${session.reviewer_retry_count} times with the same issues. Blocking issues:\n${session.last_reviewer_feedback}\n\nHow should we proceed?`;
-      if (askQuestion) {
-        const answer = await askQuestion(question, { iteration: i, stage: "reviewer" });
-        if (answer) {
-          session.last_reviewer_feedback += `\nUser guidance: ${answer}`;
-          session.reviewer_retry_count = 0;
-          await saveSession(session);
-          continue;
-        }
-      }
-      await pauseSession(session, {
-        question,
-        context: {
-          iteration: i,
+
+      const solomonResult = await invokeSolomon({
+        config, logger, emitter, eventBase, stage: "reviewer", askQuestion, session, iteration: i,
+        conflict: {
           stage: "reviewer",
-          lastFeedback: session.last_reviewer_feedback,
-          retryCount: session.reviewer_retry_count
+          task,
+          iterationCount: session.reviewer_retry_count,
+          maxIterations: maxReviewerRetries,
+          history: [{ agent: "reviewer", feedback: session.last_reviewer_feedback }]
         }
       });
-      emitProgress(
-        emitter,
-        makeEvent("question", { ...eventBase, stage: "reviewer" }, {
-          status: "paused",
-          message: question,
-          detail: { question, sessionId: session.id }
-        })
-      );
-      return { paused: true, sessionId: session.id, question, context: "reviewer_fail_fast" };
+
+      if (solomonResult.action === "pause") {
+        return { paused: true, sessionId: session.id, question: solomonResult.question, context: "reviewer_fail_fast" };
+      }
+      if (solomonResult.action === "continue") {
+        if (solomonResult.humanGuidance) {
+          session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+        }
+        session.reviewer_retry_count = 0;
+        await saveSession(session);
+        continue;
+      }
+      if (solomonResult.action === "subtask") {
+        return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "reviewer_subtask" };
+      }
     }
   }
 
@@ -736,6 +983,8 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
   session.repeated_issue_count = 0;
   session.sonar_retry_count = 0;
   session.reviewer_retry_count = 0;
+  session.tester_retry_count = 0;
+  session.security_retry_count = 0;
   session.last_sonar_issue_signature = null;
   session.sonar_repeat_count = 0;
   session.last_reviewer_issue_signature = null;
