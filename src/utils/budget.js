@@ -1,3 +1,5 @@
+import { calculateUsageCostUsd, DEFAULT_MODEL_PRICING, mergePricing } from "./pricing.js";
+
 function toSafeNumber(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return 0;
@@ -26,18 +28,30 @@ function addToBreakdown(map, key, entry) {
 }
 
 export class BudgetTracker {
-  constructor() {
+  constructor(options = {}) {
     this.entries = [];
+    this.pricing = mergePricing(DEFAULT_MODEL_PRICING, options.pricing || {});
   }
 
-  record({ role, provider, tokens_in, tokens_out, cost_usd } = {}) {
+  record({ role, provider, model, tokens_in, tokens_out, cost_usd } = {}) {
+    const safeTokensIn = toSafeNumber(tokens_in);
+    const safeTokensOut = toSafeNumber(tokens_out);
+    const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
+    const modelName = model || provider || null;
+    const computedCost = calculateUsageCostUsd({
+      model: modelName,
+      tokens_in: safeTokensIn,
+      tokens_out: safeTokensOut,
+      pricing: this.pricing
+    });
     const entry = {
       role: role || "unknown",
       provider: provider || "unknown",
+      model: modelName,
       timestamp: new Date().toISOString(),
-      tokens_in: toSafeNumber(tokens_in),
-      tokens_out: toSafeNumber(tokens_out),
-      cost_usd: roundUsd(cost_usd)
+      tokens_in: safeTokensIn,
+      tokens_out: safeTokensOut,
+      cost_usd: roundUsd(hasExplicitCost ? cost_usd : computedCost)
     };
     this.entries.push(entry);
     return entry;

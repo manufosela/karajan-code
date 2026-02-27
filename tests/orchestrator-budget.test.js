@@ -194,4 +194,59 @@ describe("orchestrator budget integration", () => {
     expect(endEvent.detail.reason).toBe("budget_exceeded");
     expect(endEvent.detail.budget.total_cost_usd).toBe(0.2);
   });
+
+  it("auto-calculates cost when only tokens and model are reported", async () => {
+    const { evaluateTddPolicy } = await import("../src/review/tdd-policy.js");
+    evaluateTddPolicy.mockReturnValue({
+      ok: true,
+      reason: "pass",
+      sourceFiles: ["a.js"],
+      testFiles: ["a.test.js"],
+      message: "OK"
+    });
+
+    createAgent.mockImplementation((name) => {
+      if (name === "codex") {
+        return {
+          runTask: vi.fn().mockResolvedValue({
+            ok: true,
+            output: "",
+            usage: { tokens_in: 1000000, tokens_out: 1000000, model: "codex/o4-mini" }
+          })
+        };
+      }
+      return {
+        reviewTask: vi.fn().mockResolvedValue({
+          ok: true,
+          output: REVIEW_APPROVED
+        })
+      };
+    });
+
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (event) => events.push(event));
+
+    const config = {
+      coder: "codex",
+      reviewer: "claude",
+      review_mode: "standard",
+      max_iterations: 1,
+      max_budget_usd: 5,
+      review_rules: "./review-rules.md",
+      base_branch: "main",
+      development: { methodology: "tdd", require_test_changes: true },
+      sonarqube: { enabled: false },
+      git: { auto_commit: false, auto_push: false, auto_pr: false },
+      session: { max_total_minutes: 120, fail_fast_repeats: 2 },
+      reviewer_options: { retries: 0, fallback_reviewer: null },
+      output: { log_level: "info" }
+    };
+
+    const result = await runFlow({ task: "budget model pricing", config, logger, emitter });
+    expect(result.approved).toBe(true);
+
+    const endEvent = events.find((e) => e.type === "session:end");
+    expect(endEvent.detail.budget.total_cost_usd).toBe(5.5);
+  });
 });

@@ -119,15 +119,40 @@ export function getConfigPath() {
   return path.join(getKarajanHome(), "kj.config.yml");
 }
 
+async function loadProjectPricingOverrides(projectDir = process.cwd()) {
+  const projectConfigPath = path.join(projectDir, ".karajan.yml");
+  if (!(await exists(projectConfigPath))) {
+    return null;
+  }
+
+  const raw = await fs.readFile(projectConfigPath, "utf8");
+  const parsed = yaml.load(raw) || {};
+  const pricing = parsed?.budget?.pricing;
+  if (!pricing || typeof pricing !== "object") {
+    return null;
+  }
+
+  return pricing;
+}
+
 export async function loadConfig() {
   const configPath = getConfigPath();
+  const projectPricing = await loadProjectPricingOverrides();
   if (!(await exists(configPath))) {
-    return { config: DEFAULTS, path: configPath, exists: false };
+    const baseDefaults = mergeDeep(DEFAULTS, {});
+    if (projectPricing) {
+      baseDefaults.budget = mergeDeep(baseDefaults.budget || {}, { pricing: projectPricing });
+    }
+    return { config: baseDefaults, path: configPath, exists: false };
   }
 
   const raw = await fs.readFile(configPath, "utf8");
   const parsed = yaml.load(raw) || {};
-  return { config: mergeDeep(DEFAULTS, parsed), path: configPath, exists: true };
+  const merged = mergeDeep(DEFAULTS, parsed);
+  if (projectPricing) {
+    merged.budget = mergeDeep(merged.budget || {}, { pricing: projectPricing });
+  }
+  return { config: merged, path: configPath, exists: true };
 }
 
 export async function writeConfig(configPath, config) {

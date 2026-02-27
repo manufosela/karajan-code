@@ -49,4 +49,29 @@ describe("BudgetTracker", () => {
     expect(summary.breakdown_by_role.coder.tokens_in).toBe(15);
     expect(summary.breakdown_by_role.reviewer.tokens_out).toBe(7);
   });
+
+  it("calculates cost from model pricing when cost_usd is missing", () => {
+    const tracker = new BudgetTracker();
+    tracker.record({ role: "coder", provider: "codex", model: "codex/o4-mini", tokens_in: 2000000, tokens_out: 1000000 });
+
+    expect(tracker.total()).toEqual({
+      tokens_in: 2000000,
+      tokens_out: 1000000,
+      cost_usd: 7
+    });
+  });
+
+  it("prefers explicit cost_usd over calculated pricing", () => {
+    const tracker = new BudgetTracker();
+    tracker.record({ role: "coder", provider: "codex", model: "codex/o4-mini", tokens_in: 2000000, tokens_out: 1000000, cost_usd: 0.99 });
+
+    expect(tracker.total().cost_usd).toBe(0.99);
+  });
+
+  it("supports pricing overrides through constructor options", () => {
+    const tracker = new BudgetTracker({ pricing: { "codex/o4-mini": { input_per_million: 2, output_per_million: 3 } } });
+    tracker.record({ role: "coder", provider: "codex", model: "codex/o4-mini", tokens_in: 500000, tokens_out: 500000 });
+
+    expect(tracker.total().cost_usd).toBe(2.5);
+  });
 });
