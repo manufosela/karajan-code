@@ -163,7 +163,6 @@ export function applyRunOverrides(config, flags) {
   if (flags.plannerModel) out.roles.planner.model = String(flags.plannerModel);
   if (flags.coderModel) {
     out.roles.coder.model = String(flags.coderModel);
-    out.coder_options.model = String(flags.coderModel);
   }
   if (flags.reviewerModel) {
     out.roles.reviewer.model = String(flags.reviewerModel);
