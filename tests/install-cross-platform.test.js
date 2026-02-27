@@ -61,5 +61,29 @@ describe("install cross-platform helpers", () => {
       expect(content).toContain("Generate Token");
       expect(content).toContain("Global Analysis Token");
     });
+
+    it("token instructions use the selected sonarHost value", async () => {
+      const { readFileSync } = await import("node:fs");
+      const content = readFileSync(`${process.cwd()}/scripts/install.js`, "utf8");
+      expect(content).toContain('console.log("    1. Open " + sonarHost);');
+    });
+
+    it("interactive token flow only offers manual token entry or skip", async () => {
+      const { readFileSync } = await import("node:fs");
+      const content = readFileSync(`${process.cwd()}/scripts/install.js`, "utf8");
+      expect(content).toContain('{ value: "paste", label: "Enter a SonarQube token" }');
+      expect(content).toContain('{ value: "skip", label: "Skip for now (SonarQube won\'t work until configured)" }');
+      expect(content).not.toContain("Generate automatically");
+    });
+  });
+
+  describe("Chrome DevTools setup", () => {
+    it("asks to configure Chrome DevTools MCP with default enabled", async () => {
+      const { readFileSync } = await import("node:fs");
+      const content = readFileSync(`${process.cwd()}/scripts/install.js`, "utf8");
+      expect(content).toContain('setupChromeDevtools: parseBool(');
+      expect(content).toContain('fallback: true');
+      expect(content).toContain('await askBool("Configure Chrome DevTools MCP", true)');
+    });
   });
 });
