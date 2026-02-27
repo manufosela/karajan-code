@@ -1,0 +1,61 @@
+#!/bin/bash
+#
+# Pre-commit hook: blocks commits containing attribution comments
+# or metadata that credit LLM tools for code authorship.
+#
+# Does NOT block functional code that uses provider names as values.
+#
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    against=HEAD
+else
+    against=$(git hash-object -t tree /dev/null)
+fi
+
+# Detect attribution phrases (not functional provider references)
+AI_ATTRIBUTION_PATTERN='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced|Suggested|Proposed|Drafted|Crafted|Designed) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)'
+CO_AUTHOR_PATTERN='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)\b'
+COMMENT_CREDIT_PATTERN='(//|#|/\*|\*|<!--|--)\s*.*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA).*(generated|assisted|helped|created|wrote|built|made)'
+
+# Get added lines from staged changes, skip binaries and non-relevant files
+DIFF_ADDED=$(git diff --cached --diff-filter=ACM -U0 "$against" -- \
+    ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.svg' ':!*.ico' \
+    ':!*.woff' ':!*.woff2' ':!*.ttf' ':!*.eot' \
+    ':!*.lock' ':!package-lock.json' ':!yarn.lock' \
+    ':!*.min.js' ':!*.min.css' \
+    ':!.githooks/*' \
+    | grep '^+' \
+    | grep -v '^+++' \
+    || true)
+
+[ -z "$DIFF_ADDED" ] && exit 0
+
+MATCHES=""
+
+for pattern in "$AI_ATTRIBUTION_PATTERN" "$CO_AUTHOR_PATTERN" "$COMMENT_CREDIT_PATTERN"; do
+    FOUND=$(echo "$DIFF_ADDED" | grep -i -E "$pattern" || true)
+    if [ -n "$FOUND" ]; then
+        MATCHES="${MATCHES}${FOUND}
+"
+    fi
+done
+
+MATCHES=$(echo "$MATCHES" | sed '/^$/d')
+
+if [ -n "$MATCHES" ]; then
+    echo "============================================================"
+    echo " COMMIT BLOCKED: LLM attribution references detected"
+    echo "============================================================"
+    echo ""
+    echo "The following lines attribute work to LLM tools,"
+    echo "which should not appear in commits:"
+    echo ""
+    echo "$MATCHES"
+    echo ""
+    echo "Please remove these references before committing."
+    echo "If this is a false positive, use: git commit --no-verify"
+    echo "============================================================"
+    exit 1
+fi
+
+exit 0
