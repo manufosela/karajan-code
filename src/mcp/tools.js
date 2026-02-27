@@ -107,6 +107,8 @@ export const tools = [
       type: "object",
       properties: {
         list: { type: "boolean" },
+        sessionId: { type: "string" },
+        format: { type: "string", enum: ["text", "json"] },
         kjHome: { type: "string" }
       }
     }

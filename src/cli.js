@@ -123,6 +123,8 @@ program
   .command("report")
   .description("Show latest session report")
   .option("--list", "List session ids")
+  .option("--session-id <id>", "Show report for a specific session ID")
+  .option("--format <type>", "Output format: text|json", "text")
   .action(async (flags) => {
     await reportCommand(flags);
   });

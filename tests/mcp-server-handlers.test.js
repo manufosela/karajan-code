@@ -289,6 +289,15 @@ describe("mcp/server-handlers", () => {
       });
     });
 
+    it("routes kj_report with sessionId and json format", async () => {
+      await handleToolCall("kj_report", { sessionId: "s_123", format: "json" }, mockServer, {});
+      expect(runKjCommand).toHaveBeenCalledWith({
+        command: "report",
+        commandArgs: ["--session-id", "s_123", "--format", "json"],
+        options: { sessionId: "s_123", format: "json" }
+      });
+    });
+
     it("routes kj_code with task arg", async () => {
       await handleToolCall("kj_code", { task: "Fix bug" }, mockServer, {});
       expect(runKjCommand).toHaveBeenCalledWith({
