@@ -189,9 +189,13 @@ export async function handleToolCall(name, args, server, extra) {
   }
 
   if (name === "kj_report") {
+    const commandArgs = [];
+    if (a.list) commandArgs.push("--list");
+    if (a.sessionId) commandArgs.push("--session-id", String(a.sessionId));
+    if (a.format) commandArgs.push("--format", String(a.format));
     return runKjCommand({
       command: "report",
-      commandArgs: a.list ? ["--list"] : [],
+      commandArgs,
       options: a
     });
   }

@@ -9,4 +9,12 @@ describe("MCP tools schema", () => {
     expect(planTool.inputSchema?.properties?.coder?.type).toBe("string");
     expect(planTool.inputSchema?.properties?.coderModel?.type).toBe("string");
   });
+
+  it("exposes sessionId and format fields for kj_report", () => {
+    const reportTool = tools.find((tool) => tool.name === "kj_report");
+
+    expect(reportTool).toBeDefined();
+    expect(reportTool.inputSchema?.properties?.sessionId?.type).toBe("string");
+    expect(reportTool.inputSchema?.properties?.format?.enum).toEqual(["text", "json"]);
+  });
 });
