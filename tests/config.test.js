@@ -84,6 +84,25 @@ describe("applyRunOverrides", () => {
     expect(out.roles.refactorer.model).toBe("ref-v2");
   });
 
+  it("does not leak coderModel override into planner model when plannerModel is not provided", () => {
+    const base = {
+      coder_options: { model: "legacy-coder-model" },
+      roles: {
+        planner: { provider: "claude", model: null },
+        coder: { provider: "codex", model: null },
+        reviewer: { provider: "claude", model: null },
+        refactorer: { provider: null, model: null }
+      }
+    };
+
+    const out = applyRunOverrides(base, {
+      coderModel: "code-v2"
+    });
+
+    expect(resolveRole(out, "coder").model).toBe("code-v2");
+    expect(resolveRole(out, "planner").model).toBe("legacy-coder-model");
+  });
+
   it("preserves legacy coder/reviewer provider fallback when roles block is absent", () => {
     const base = {
       coder: "gemini",
