@@ -1,5 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { applyRunOverrides, resolveRole, validateConfig } from "../src/config.js";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { applyRunOverrides, loadConfig, resolveRole, validateConfig } from "../src/config.js";
+
+const originalCwd = process.cwd();
+const originalKjHome = process.env.KJ_HOME;
+
+afterEach(async () => {
+  process.chdir(originalCwd);
+  if (originalKjHome === undefined) {
+    delete process.env.KJ_HOME;
+  } else {
+    process.env.KJ_HOME = originalKjHome;
+  }
+});
 
 describe("applyRunOverrides", () => {
   it("overrides review mode and base branch", () => {
@@ -136,5 +151,32 @@ describe("applyRunOverrides", () => {
     expect(() => validateConfig(config, "plan")).toThrow(
       "Missing provider for required role 'planner'. Set 'roles.planner.provider' or pass '--planner <name>'"
     );
+  });
+});
+
+describe("loadConfig", () => {
+  it("merges budget.pricing overrides from project .karajan.yml", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-config-"));
+    const kjHome = path.join(tmpDir, "home");
+    await fs.mkdir(kjHome, { recursive: true });
+    await fs.writeFile(
+      path.join(kjHome, "kj.config.yml"),
+      `budget:\n  pricing:\n    codex/o4-mini:\n      input_per_million: 1\n      output_per_million: 2\n`,
+      "utf8"
+    );
+    await fs.writeFile(
+      path.join(tmpDir, ".karajan.yml"),
+      `budget:\n  pricing:\n    codex/o4-mini:\n      output_per_million: 5\n`,
+      "utf8"
+    );
+
+    process.chdir(tmpDir);
+    process.env.KJ_HOME = kjHome;
+
+    const { config } = await loadConfig();
+    expect(config.budget.pricing["codex/o4-mini"]).toEqual({
+      input_per_million: 1,
+      output_per_million: 5
+    });
   });
 });

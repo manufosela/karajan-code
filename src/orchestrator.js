@@ -93,7 +93,7 @@ function getRepeatThreshold(config) {
   return 2;
 }
 
-function extractUsageMetrics(result) {
+function extractUsageMetrics(result, defaultModel = null) {
   const usage = result?.usage || result?.metrics || {};
   const tokens_in =
     result?.tokens_in ??
@@ -111,10 +111,16 @@ function extractUsageMetrics(result) {
     result?.cost_usd ??
     usage?.cost_usd ??
     usage?.usd_cost ??
-    usage?.cost ??
-    0;
+    usage?.cost;
+  const model =
+    result?.model ??
+    usage?.model ??
+    usage?.model_name ??
+    usage?.model_id ??
+    defaultModel ??
+    null;
 
-  return { tokens_in, tokens_out, cost_usd };
+  return { tokens_in, tokens_out, cost_usd, model };
 }
 
 async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput, onAttemptResult }) {
@@ -301,7 +307,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const coder = createAgent(coderRole.provider, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
-  const budgetTracker = new BudgetTracker();
+  const budgetTracker = new BudgetTracker({ pricing: config?.budget?.pricing });
   const budgetLimit = Number(config?.max_budget_usd);
   const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit >= 0;
   const warnThresholdPct = Number(config?.budget?.warn_threshold_pct ?? 80);
@@ -310,8 +316,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     return budgetTracker.summary();
   }
 
-  function trackBudget({ role, provider, result }) {
-    const metrics = extractUsageMetrics(result);
+  function trackBudget({ role, provider, model, result }) {
+    const metrics = extractUsageMetrics(result, model);
     budgetTracker.record({ role, provider, ...metrics });
 
     if (!hasBudgetLimit) return;
@@ -387,6 +393,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     trackBudget({
       role: "researcher",
       provider: config?.roles?.researcher?.provider || coderRole.provider,
+      model: config?.roles?.researcher?.model || coderRole.model,
       result: researchOutput
     });
 
@@ -428,7 +435,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       plannerPromptParts.push("", "## Research findings", JSON.stringify(researchContext, null, 2));
     }
     const plannerResult = await planner.runTask({ prompt: plannerPromptParts.join("\n"), role: "planner" });
-    trackBudget({ role: "planner", provider: plannerRole.provider, result: plannerResult });
+    trackBudget({ role: "planner", provider: plannerRole.provider, model: plannerRole.model, result: plannerResult });
     if (!plannerResult.ok) {
       await markSessionStatus(session, "failed");
       const details = plannerResult.error || plannerResult.output || `exitCode=${plannerResult.exitCode ?? "unknown"}`;
@@ -534,7 +541,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       }));
     };
     const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput, role: "coder" });
-    trackBudget({ role: "coder", provider: coderRole.provider, result: coderResult });
+    trackBudget({ role: "coder", provider: coderRole.provider, model: coderRole.model, result: coderResult });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
@@ -584,7 +591,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         onOutput: refactorerOnOutput,
         role: "refactorer"
       });
-      trackBudget({ role: "refactorer", provider: refactorerRole.provider, result: refactorResult });
+      trackBudget({ role: "refactorer", provider: refactorerRole.provider, model: refactorerRole.model, result: refactorResult });
       if (!refactorResult.ok) {
         await markSessionStatus(session, "failed");
         const details = refactorResult.error || refactorResult.output || `exitCode=${refactorResult.exitCode ?? "unknown"}`;
@@ -828,7 +835,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       iteration: i,
       onOutput: reviewerOnOutput,
       onAttemptResult: ({ reviewer, result }) => {
-        trackBudget({ role: "reviewer", provider: reviewer, result });
+        trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result });
       }
     });
 
@@ -944,6 +951,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         trackBudget({
           role: "tester",
           provider: config?.roles?.tester?.provider || coderRole.provider,
+          model: config?.roles?.tester?.model || coderRole.model,
           result: testerOutput
         });
 
@@ -1009,6 +1017,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         trackBudget({
           role: "security",
           provider: config?.roles?.security?.provider || coderRole.provider,
+          model: config?.roles?.security?.model || coderRole.model,
           result: securityOutput
         });
 
