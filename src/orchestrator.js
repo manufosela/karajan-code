@@ -30,6 +30,57 @@ import { TesterRole } from "./roles/tester-role.js";
 import { SecurityRole } from "./roles/security-role.js";
 import { SolomonRole } from "./roles/solomon-role.js";
 
+function parsePlannerOutput(output) {
+  const text = String(output || "").trim();
+  if (!text) return null;
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let title = null;
+  let approach = null;
+  const steps = [];
+
+  for (const line of lines) {
+    if (!title) {
+      const titleMatch = line.match(/^title\s*:\s*(.+)$/i);
+      if (titleMatch) {
+        title = titleMatch[1].trim();
+        continue;
+      }
+    }
+
+    if (!approach) {
+      const approachMatch = line.match(/^(approach|strategy)\s*:\s*(.+)$/i);
+      if (approachMatch) {
+        approach = approachMatch[2].trim();
+        continue;
+      }
+    }
+
+    const numberedStep = line.match(/^\d+[\).:-]\s*(.+)$/);
+    if (numberedStep) {
+      steps.push(numberedStep[1].trim());
+      continue;
+    }
+
+    const bulletStep = line.match(/^[-*]\s+(.+)$/);
+    if (bulletStep) {
+      steps.push(bulletStep[1].trim());
+      continue;
+    }
+  }
+
+  if (!title) {
+    const firstFreeLine = lines.find((line) => !/^(approach|strategy)\s*:/i.test(line) && !/^\d+[\).:-]\s*/.test(line));
+    title = firstFreeLine || null;
+  }
+
+  return { title, approach, steps };
+}
+
 function getRepeatThreshold(config) {
   const raw =
     config?.failFast?.repeatThreshold ??
@@ -256,6 +307,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
   // Accumulate stage results for final summary
   const stageResults = {};
+  let sonarIssuesInitial = null;
+  let sonarIssuesFinal = null;
 
   // --- Researcher (pre-planning) ---
   let researchContext = null;
@@ -325,7 +378,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     if (plannerResult.output?.trim()) {
       plannedTask = `${task}\n\nExecution plan:\n${plannerResult.output.trim()}`;
     }
-    stageResults.planner = { ok: true };
+    const parsedPlan = parsePlannerOutput(plannerResult.output);
+    stageResults.planner = {
+      ok: true,
+      title: parsedPlan?.title || null,
+      approach: parsedPlan?.approach || null,
+      steps: parsedPlan?.steps || [],
+      completedSteps: []
+    };
     emitProgress(
       emitter,
       makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
@@ -555,6 +615,12 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       }
 
       session.last_sonar_summary = sonarOutput.summary;
+      if (typeof sonarResult.openIssuesTotal === "number") {
+        if (sonarIssuesInitial === null) {
+          sonarIssuesInitial = sonarResult.openIssuesTotal;
+        }
+        sonarIssuesFinal = sonarResult.openIssuesTotal;
+      }
       await addCheckpoint(session, {
         stage: "sonar",
         iteration: i,
@@ -635,7 +701,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
       // Sonar passed — reset retry counter
       session.sonar_retry_count = 0;
-      stageResults.sonar = { gateStatus: sonarResult.gateStatus, openIssues: sonarResult.openIssuesTotal };
+      const issuesInitial = sonarIssuesInitial ?? sonarResult.openIssuesTotal ?? 0;
+      const issuesFinal = sonarIssuesFinal ?? sonarResult.openIssuesTotal ?? 0;
+      stageResults.sonar = {
+        gateStatus: sonarResult.gateStatus,
+        openIssues: sonarResult.openIssuesTotal,
+        issuesInitial,
+        issuesFinal,
+        issuesResolved: Math.max(issuesInitial - issuesFinal, 0)
+      };
     }
 
     // --- Reviewer ---
@@ -889,6 +963,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
       // --- All post-loop checks passed → finalize ---
       const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session });
+      if (stageResults.planner?.ok) {
+        stageResults.planner.completedSteps = [...(stageResults.planner.steps || [])];
+      }
       await markSessionStatus(session, "approved");
       emitProgress(
         emitter,

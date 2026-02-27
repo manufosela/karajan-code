@@ -82,7 +82,9 @@ export async function commitAll(message) {
   const changed = await hasChanges();
   if (!changed) return { committed: false };
   await runGit(["commit", "-m", message]);
-  return { committed: true };
+  const raw = await runGit(["log", "-1", "--pretty=format:%H%x1f%s"]);
+  const [hash, commitMessage] = raw.split("\x1f");
+  return { committed: true, commit: { hash, message: commitMessage } };
 }
 
 export async function pushBranch(branch) {

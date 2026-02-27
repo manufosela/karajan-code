@@ -533,4 +533,93 @@ describe("orchestrator events", () => {
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "coder" }));
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "refactorer" }));
   });
+
+  it("emits session:end with planner plan, sonar issue resolution, and commit details", async () => {
+    const emitter = new EventEmitter();
+    const events = [];
+    emitter.on("progress", (e) => events.push(e));
+
+    const { createAgent } = await import("../src/agents/index.js");
+    const agent = {
+      runTask: vi.fn().mockImplementation(async ({ role }) => {
+        if (role === "planner") {
+          return {
+            ok: true,
+            output: "Title: Auth hardening\nApproach: TDD\n1. Add tests\n2. Implement fix\n3. Refactor"
+          };
+        }
+        return { ok: true, output: "" };
+      }),
+      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK })
+    };
+    createAgent.mockReturnValue(agent);
+
+    const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
+    getQualityGateStatus
+      .mockResolvedValueOnce({ status: "ERROR" })
+      .mockResolvedValueOnce({ status: "OK" });
+    getOpenIssues
+      .mockResolvedValueOnce({ total: 7, issues: [] })
+      .mockResolvedValueOnce({ total: 2, issues: [] });
+
+    const { shouldBlockByProfile } = await import("../src/sonar/enforcer.js");
+    shouldBlockByProfile.mockImplementation(({ gateStatus }) => gateStatus !== "OK");
+
+    const finalizeSpy = vi.spyOn(await import("../src/git/automation.js"), "finalizeGitAutomation");
+    finalizeSpy.mockResolvedValue({
+      committed: true,
+      branch: "feat/auth-hardening",
+      prUrl: "https://github.com/org/repo/pull/9",
+      commits: [{ hash: "abc1234", message: "feat: auth hardening" }]
+    });
+
+    const { runSonarScan } = await import("../src/sonar/scanner.js");
+    runSonarScan
+      .mockResolvedValueOnce({ ok: true, projectKey: "kj-repo-123", stdout: "scan1 ok", stderr: "" })
+      .mockResolvedValueOnce({ ok: true, projectKey: "kj-repo-123", stdout: "scan2 ok", stderr: "" });
+
+    const config = {
+      coder: "codex",
+      reviewer: "claude",
+      review_mode: "standard",
+      max_iterations: 2,
+      review_rules: "./review-rules.md",
+      base_branch: "main",
+      development: { methodology: "tdd", require_test_changes: true },
+      sonarqube: { enabled: true, host: "http://localhost:9000" },
+      git: { auto_commit: false, auto_push: false, auto_pr: false },
+      session: { max_total_minutes: 120, fail_fast_repeats: 2 },
+      reviewer_options: { retries: 0, fallback_reviewer: null },
+      output: { log_level: "info" },
+      roles: {
+        planner: { provider: "gemini", model: "plan-model" },
+        coder: { provider: "codex", model: "code-model" },
+        reviewer: { provider: "claude", model: "review-model" }
+      },
+      pipeline: {
+        planner: { enabled: true }
+      }
+    };
+
+    const logger = {
+      debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+      setContext: vi.fn(), resetContext: vi.fn()
+    };
+
+    const result = await runFlow({
+      task: "improve auth flow",
+      config,
+      logger,
+      flags: {},
+      emitter
+    });
+
+    expect(result.approved).toBe(true);
+    const sessionEnd = events.findLast((e) => e.type === "session:end");
+    expect(sessionEnd?.detail?.stages?.planner).toBeTruthy();
+    expect(sessionEnd?.detail?.stages?.sonar?.issuesInitial).toBe(7);
+    expect(sessionEnd?.detail?.stages?.sonar?.issuesResolved).toBe(5);
+    expect(sessionEnd?.detail?.git?.commits).toEqual([{ hash: "abc1234", message: "feat: auth hardening" }]);
+    expect(sessionEnd?.detail?.git?.prUrl).toBe("https://github.com/org/repo/pull/9");
+  });
 });
