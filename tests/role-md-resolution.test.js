@@ -87,7 +87,7 @@ describe("Role .md file resolution", () => {
 });
 
 describe("Built-in role templates exist", () => {
-  const roles = ["coder", "reviewer", "researcher", "planner", "tester", "security", "commiter", "solomon", "karajan", "sonar"];
+  const roles = ["coder", "reviewer", "refactorer", "researcher", "planner", "tester", "security", "commiter", "solomon", "karajan", "sonar"];
 
   for (const roleName of roles) {
     it(`templates/roles/${roleName}.md exists and is non-empty`, async () => {
