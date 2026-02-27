@@ -367,6 +367,28 @@ describe("utils/display", () => {
       expect(output).toContain("pull/9");
     });
 
+    it("prints session end budget summary when available", () => {
+      printEvent({
+        type: "session:end",
+        detail: {
+          approved: true,
+          budget: {
+            total_tokens: 420,
+            total_cost_usd: 1.23,
+            breakdown_by_role: {
+              coder: { total_tokens: 300, total_cost_usd: 1, count: 2 },
+              reviewer: { total_tokens: 120, total_cost_usd: 0.23, count: 1 }
+            }
+          }
+        }
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Total tokens");
+      expect(output).toContain("Total cost");
+      expect(output).toContain("coder");
+    });
+
     it("prints session end failed with reason", () => {
       printEvent({
         type: "session:end",
@@ -376,6 +398,18 @@ describe("utils/display", () => {
 
       const output = spy.mock.calls.map((c) => c[0]).join("\n");
       expect(output).toContain("max_iterations");
+    });
+
+    it("prints budget progress updates", () => {
+      printEvent({
+        type: "budget:update",
+        detail: { total_cost_usd: 0.6, max_budget_usd: 1, warn_threshold_pct: 80 }
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Budget");
+      expect(output).toContain("0.60");
+      expect(output).toContain("1.00");
     });
 
     // --- Enhanced header ---
