@@ -80,3 +80,26 @@ export function buildCompletionUpdates({ approved, commits, startDate, codevelop
 
   return updates;
 }
+
+export function buildTaskPrompt({ task, card }) {
+  const cardId = parseCardId(task) || card?.cardId || null;
+  const prompt = card ? buildTaskFromCard(card) : task;
+  return { cardId, prompt };
+}
+
+export async function updateCardOnCompletion({
+  client,
+  projectId,
+  cardId,
+  firebaseId,
+  approved,
+  gitLog,
+  startDate,
+  codeveloper
+}) {
+  if (!approved) return null;
+
+  const commits = buildCommitsPayload(gitLog);
+  const updates = buildCompletionUpdates({ approved, commits, startDate, codeveloper });
+  return client.updateCard({ projectId, cardId, firebaseId, updates });
+}
