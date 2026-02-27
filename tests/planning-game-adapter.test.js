@@ -3,7 +3,9 @@ import {
   parseCardId,
   buildTaskFromCard,
   buildCommitsPayload,
-  buildCompletionUpdates
+  buildCompletionUpdates,
+  buildTaskPrompt,
+  updateCardOnCompletion
 } from "../src/planning-game/adapter.js";
 
 describe("planning-game/adapter", () => {
@@ -22,6 +24,10 @@ describe("planning-game/adapter", () => {
 
     it("extracts epic card ID", () => {
       expect(parseCardId("EX2-PCS-0003")).toBe("EX2-PCS-0003");
+    });
+
+    it("extracts QA card ID", () => {
+      expect(parseCardId("KJC-QA-0100")).toBe("KJC-QA-0100");
     });
 
     it("returns null when no card ID found", () => {
@@ -59,6 +65,29 @@ describe("planning-game/adapter", () => {
       expect(task).toContain("Implement auth module");
       expect(task).toContain("módulo de auth");
       expect(task).toContain("usuario no autenticado");
+    });
+
+    it("builds prompt with multiple stories and mixed criteria", () => {
+      const card = {
+        cardId: "KJC-TSK-0043",
+        title: "Planning-game tests",
+        descriptionStructured: [
+          { role: "QA", goal: "validar adapter", benefit: "evitar regresiones" },
+          { role: "Dev", goal: "cubrir client", benefit: "mejorar robustez" }
+        ],
+        acceptanceCriteriaStructured: [
+          { given: "API responde", when: "se solicita card", then: "retorna datos" },
+          { raw: "Timeout se reporta claramente" }
+        ]
+      };
+
+      const task = buildTaskFromCard(card);
+      expect(task).toContain("### User Story");
+      expect(task).toContain("- **Como** QA");
+      expect(task).toContain("- **Como** Dev");
+      expect(task).toContain("### Acceptance Criteria");
+      expect(task).toContain("- **Given** API responde");
+      expect(task).toContain("- Timeout se reporta claramente");
     });
 
     it("builds task string from card with plain description", () => {
@@ -146,6 +175,24 @@ describe("planning-game/adapter", () => {
       expect(updates.developer).toBe("dev_016");
     });
 
+    it("updates status including mapped commits payload", () => {
+      const commits = buildCommitsPayload([
+        { hash: "abc123", message: "feat: add pg tests", date: "2026-02-26T10:00:00Z", author: "dev@test.com" }
+      ]);
+
+      const updates = buildCompletionUpdates({
+        approved: true,
+        commits,
+        startDate: "2026-02-26T09:00:00Z"
+      });
+
+      expect(updates.status).toBe("To Validate");
+      expect(updates.startDate).toBe("2026-02-26T09:00:00Z");
+      expect(updates.commits).toEqual([
+        { hash: "abc123", message: "feat: add pg tests", date: "2026-02-26T10:00:00Z", author: "dev@test.com" }
+      ]);
+    });
+
     it("does not change status for failed runs", () => {
       const updates = buildCompletionUpdates({
         approved: false,
@@ -166,6 +213,95 @@ describe("planning-game/adapter", () => {
       });
 
       expect(updates.codeveloper).toBe("dev_001");
+    });
+  });
+
+  describe("buildTaskPrompt", () => {
+    it("parses card ID from task text and builds prompt from card", () => {
+      const result = buildTaskPrompt({
+        task: "Please execute KJC-TSK-0043",
+        card: {
+          cardId: "KJC-TSK-0043",
+          title: "Planning-game tests",
+          descriptionStructured: [
+            { role: "QA", goal: "validar adapter", benefit: "evitar regresiones" }
+          ],
+          acceptanceCriteriaStructured: [
+            { given: "API responde", when: "se solicita card", then: "retorna datos" }
+          ]
+        }
+      });
+
+      expect(result.cardId).toBe("KJC-TSK-0043");
+      expect(result.prompt).toContain("### User Story");
+      expect(result.prompt).toContain("### Acceptance Criteria");
+      expect(result.prompt).toContain("**Given** API responde");
+    });
+
+    it("falls back to raw task prompt when card is missing", () => {
+      const result = buildTaskPrompt({
+        task: "Do this task without PG card"
+      });
+
+      expect(result.cardId).toBeNull();
+      expect(result.prompt).toBe("Do this task without PG card");
+    });
+  });
+
+  describe("updateCardOnCompletion", () => {
+    it("updates card status with mapped commits when approved", async () => {
+      const client = {
+        updateCard: vi.fn().mockResolvedValue({ ok: true })
+      };
+
+      await updateCardOnCompletion({
+        client,
+        projectId: "Karajan Code",
+        cardId: "KJC-TSK-0043",
+        firebaseId: "fb-1",
+        approved: true,
+        gitLog: [
+          { hash: "abc123", message: "test: add pg tests", date: "2026-02-26T10:00:00Z", author: "dev@test.com" }
+        ],
+        startDate: "2026-02-26T09:00:00Z"
+      });
+
+      expect(client.updateCard).toHaveBeenCalledTimes(1);
+      expect(client.updateCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: "Karajan Code",
+          cardId: "KJC-TSK-0043",
+          firebaseId: "fb-1",
+          updates: expect.objectContaining({
+            status: "To Validate",
+            commits: [
+              {
+                hash: "abc123",
+                message: "test: add pg tests",
+                date: "2026-02-26T10:00:00Z",
+                author: "dev@test.com"
+              }
+            ]
+          })
+        })
+      );
+    });
+
+    it("skips update when completion is not approved", async () => {
+      const client = {
+        updateCard: vi.fn().mockResolvedValue({ ok: true })
+      };
+
+      await updateCardOnCompletion({
+        client,
+        projectId: "Karajan Code",
+        cardId: "KJC-TSK-0043",
+        firebaseId: "fb-1",
+        approved: false,
+        gitLog: []
+      });
+
+      expect(client.updateCard).not.toHaveBeenCalled();
     });
   });
 });
