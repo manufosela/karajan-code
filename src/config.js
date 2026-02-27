@@ -49,6 +49,21 @@ const DEFAULTS = {
   sonarqube: {
     enabled: true,
     host: "http://localhost:9000",
+    external: false,
+    container_name: "karajan-sonarqube",
+    network: "karajan_sonar_net",
+    volumes: {
+      data: "karajan_sonar_data",
+      logs: "karajan_sonar_logs",
+      extensions: "karajan_sonar_extensions"
+    },
+    timeouts: {
+      healthcheck_seconds: 5,
+      compose_up_ms: 300000,
+      compose_control_ms: 120000,
+      logs_ms: 30000,
+      scanner_ms: 900000
+    },
     token: null,
     project_key: null,
     admin_user: "admin",
