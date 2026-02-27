@@ -195,7 +195,13 @@ export async function runSonarScan(config, projectKey = null) {
       exitCode: 1
     };
   }
-  const rawHost = config.sonarqube.host;
+  const sonarConfig = config?.sonarqube || {};
+  const rawHost = sonarConfig.host || "http://localhost:9000";
+  const isExternalSonar = sonarConfig.external === true;
+  const scannerTimeout = Number(sonarConfig?.timeouts?.scanner_ms) > 0
+    ? Number(sonarConfig.timeouts.scanner_ms)
+    : 15 * 60 * 1000;
+  const sonarNetwork = sonarConfig.network || "karajan_sonar_net";
   const apiHost = normalizeApiHost(rawHost);
   const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
   const host = isLocalHost ? rawHost.replace(/localhost|127\.0\.0\.1/g, "host.docker.internal") : rawHost;
@@ -230,7 +236,7 @@ export async function runSonarScan(config, projectKey = null) {
     };
   }
   const scannerConfig = normalizeScannerConfig({
-    ...config.sonarqube.scanner,
+    ...sonarConfig.scanner,
     ...coverage.scannerPatch
   });
 
@@ -239,7 +245,8 @@ export async function runSonarScan(config, projectKey = null) {
     "--rm",
     "-v",
     `${process.cwd()}:/usr/src`,
-    ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : ["--network", "karajan_sonar_net"]),
+    ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
+    ...(!isLocalHost && !isExternalSonar ? ["--network", sonarNetwork] : []),
     "-e",
     `SONAR_HOST_URL=${host}`,
     "-e",
@@ -249,7 +256,7 @@ export async function runSonarScan(config, projectKey = null) {
     "sonarsource/sonar-scanner-cli"
   ];
 
-  const result = await runCommand("docker", args, { timeout: 15 * 60 * 1000 });
+  const result = await runCommand("docker", args, { timeout: scannerTimeout });
   return {
     ok: result.exitCode === 0,
     projectKey: effectiveProjectKey,

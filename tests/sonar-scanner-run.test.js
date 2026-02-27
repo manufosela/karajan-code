@@ -282,4 +282,47 @@ describe("runSonarScan", () => {
     const scannerEnv = runCommand.mock.calls[0][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
     expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
   });
+
+  it("uses configured Sonar network and scanner timeout", async () => {
+    const config = {
+      sonarqube: {
+        host: "http://sonar.internal:9000",
+        token: "token-123",
+        network: "custom_sonar_net",
+        timeouts: {
+          scanner_ms: 123456
+        },
+        scanner: { sources: "src" }
+      }
+    };
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" });
+
+    const result = await runSonarScan(config, "my-key");
+
+    expect(result.ok).toBe(true);
+    expect(runCommand.mock.calls[0][1]).toContain("--network");
+    expect(runCommand.mock.calls[0][1]).toContain("custom_sonar_net");
+    expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 123456 });
+  });
+
+  it("does not force custom docker network when sonarqube.external=true", async () => {
+    const config = {
+      sonarqube: {
+        host: "http://sonar.external:9000",
+        token: "token-123",
+        external: true,
+        network: "custom_sonar_net",
+        scanner: { sources: "src" }
+      }
+    };
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" });
+
+    const result = await runSonarScan(config, "my-key");
+
+    expect(result.ok).toBe(true);
+    expect(runCommand.mock.calls[0][1]).not.toContain("--network");
+    expect(runCommand.mock.calls[0][1]).not.toContain("custom_sonar_net");
+  });
 });
