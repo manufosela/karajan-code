@@ -27,6 +27,7 @@ const DEFAULTS = {
   },
   review_mode: "standard",
   max_iterations: 5,
+  max_budget_usd: null,
   review_rules: "./review-rules.md",
   coder_rules: "./coder-rules.md",
   base_branch: "main",
@@ -82,10 +83,12 @@ const DEFAULTS = {
   planning_game: { enabled: false, project_id: null, codeveloper: null },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
+  budget: {
+    warn_threshold_pct: 80
+  },
   session: {
     max_iteration_minutes: 15,
     max_total_minutes: 120,
-    max_budget_usd: null,
     fail_fast_repeats: 2,
     repeat_detection_threshold: 2,
     max_sonar_retries: 3,
@@ -140,6 +143,10 @@ export function applyRunOverrides(config, flags) {
   out.git = out.git || {};
   out.development = out.development || {};
   out.sonarqube = out.sonarqube || {};
+  if (out.max_budget_usd === undefined || out.max_budget_usd === null) {
+    out.max_budget_usd = out.session.max_budget_usd ?? null;
+  }
+  out.budget = mergeDeep(DEFAULTS.budget, out.budget || {});
   out.roles = mergeDeep(DEFAULTS.roles, out.roles || {});
   out.pipeline = mergeDeep(DEFAULTS.pipeline, out.pipeline || {});
 

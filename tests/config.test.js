@@ -97,6 +97,11 @@ describe("applyRunOverrides", () => {
     expect(resolveRole(out, "reviewer").provider).toBe("aider");
   });
 
+  it("keeps default budget warning threshold when not overridden", () => {
+    const out = applyRunOverrides({}, {});
+    expect(out.budget.warn_threshold_pct).toBe(80);
+  });
+
   it("returns actionable error when required role is not configured", () => {
     const config = {
       review_mode: "standard",

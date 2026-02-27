@@ -34,6 +34,7 @@ const ICONS = {
   "solomon:start": "\u2696\ufe0f",
   "solomon:end": "\u2696\ufe0f",
   "solomon:escalate": "\u26a0\ufe0f",
+  "budget:update": "\ud83d\udcb8",
   "iteration:end": "\u23f1\ufe0f",
   "session:end": "\ud83c\udfc1",
   question: "\u2753"
@@ -241,6 +242,18 @@ export function printEvent(event) {
       console.log(`  \u2514\u2500 ${icon} Duration: ${formatElapsed(event.detail?.duration)}  ${elapsed}`);
       break;
 
+    case "budget:update": {
+      const total = Number(event.detail?.total_cost_usd || 0);
+      const max = Number(event.detail?.max_budget_usd);
+      const pct = Number(event.detail?.pct_used ?? 0);
+      const warn = Number(event.detail?.warn_threshold_pct ?? 80);
+      const color = max > 0 && pct >= 100 ? ANSI.red : max > 0 && pct >= warn ? ANSI.yellow : ANSI.green;
+      if (Number.isFinite(max) && max >= 0) {
+        console.log(`  \u251c\u2500 ${icon} Budget: ${color}$${total.toFixed(2)} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}`);
+      }
+      break;
+    }
+
     case "session:end": {
       console.log();
       const resultLabel = event.detail?.approved
@@ -293,6 +306,21 @@ export function printEvent(event) {
             const shortHash = (commit.hash || "").slice(0, 7) || "unknown";
             const message = commit.message || "";
             console.log(`  ${ANSI.dim}   - ${shortHash} ${message}${ANSI.reset}`);
+          }
+        }
+      }
+
+      const budget = event.detail?.budget;
+      if (budget) {
+        console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${budget.total_tokens ?? 0}${ANSI.reset}`);
+        console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: $${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
+        const byRole = budget.breakdown_by_role || {};
+        const roles = Object.entries(byRole);
+        if (roles.length > 0) {
+          for (const [role, metrics] of roles) {
+            console.log(
+              `  ${ANSI.dim}   - ${role}: ${metrics.total_tokens ?? 0} tokens, $${Number(metrics.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`
+            );
           }
         }
       }

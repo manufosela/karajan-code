@@ -18,6 +18,7 @@ import { resolveRole } from "./config.js";
 import { SonarRole } from "./roles/sonar-role.js";
 import { RepeatDetector } from "./repeat-detector.js";
 import { emitProgress, makeEvent } from "./utils/events.js";
+import { BudgetTracker } from "./utils/budget.js";
 import {
   commitMessageFromTask,
   prepareGitAutomation,
@@ -92,7 +93,31 @@ function getRepeatThreshold(config) {
   return 2;
 }
 
-async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput }) {
+function extractUsageMetrics(result) {
+  const usage = result?.usage || result?.metrics || {};
+  const tokens_in =
+    result?.tokens_in ??
+    usage?.tokens_in ??
+    usage?.input_tokens ??
+    usage?.prompt_tokens ??
+    0;
+  const tokens_out =
+    result?.tokens_out ??
+    usage?.tokens_out ??
+    usage?.output_tokens ??
+    usage?.completion_tokens ??
+    0;
+  const cost_usd =
+    result?.cost_usd ??
+    usage?.cost_usd ??
+    usage?.usd_cost ??
+    usage?.cost ??
+    0;
+
+  return { tokens_in, tokens_out, cost_usd };
+}
+
+async function runReviewerWithFallback({ reviewerName, config, logger, prompt, session, iteration, onOutput, onAttemptResult }) {
   const fallbackReviewer = config.reviewer_options?.fallback_reviewer;
   const retries = Math.max(0, Number(config.reviewer_options?.retries ?? 1));
   const candidates = [reviewerName];
@@ -105,6 +130,9 @@ async function runReviewerWithFallback({ reviewerName, config, logger, prompt, s
     const reviewer = createAgent(name, config, logger);
     for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
       const result = await reviewer.reviewTask({ prompt, onOutput, role: "reviewer" });
+      if (onAttemptResult) {
+        await onAttemptResult({ reviewer: name, result });
+      }
       attempts.push({ reviewer: name, attempt, ok: result.ok, result });
       await addCheckpoint(session, {
         stage: "reviewer-attempt",
@@ -273,6 +301,38 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const coder = createAgent(coderRole.provider, config, logger);
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
+  const budgetTracker = new BudgetTracker();
+  const budgetLimit = Number(config?.max_budget_usd);
+  const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit >= 0;
+  const warnThresholdPct = Number(config?.budget?.warn_threshold_pct ?? 80);
+
+  function budgetSummary() {
+    return budgetTracker.summary();
+  }
+
+  function trackBudget({ role, provider, result }) {
+    const metrics = extractUsageMetrics(result);
+    budgetTracker.record({ role, provider, ...metrics });
+
+    if (!hasBudgetLimit) return;
+    const totalCost = budgetTracker.total().cost_usd;
+    const pctUsed = budgetLimit === 0 ? 100 : (totalCost / budgetLimit) * 100;
+    const status = totalCost > budgetLimit ? "fail" : pctUsed >= warnThresholdPct ? "paused" : "ok";
+    emitProgress(
+      emitter,
+      makeEvent("budget:update", { ...eventBase, stage: role }, {
+        status,
+        message: `Budget: $${totalCost.toFixed(2)} / $${budgetLimit.toFixed(2)}`,
+        detail: {
+          ...budgetSummary(),
+          max_budget_usd: budgetLimit,
+          warn_threshold_pct: warnThresholdPct,
+          pct_used: Number(pctUsed.toFixed(2)),
+          remaining_usd: budgetTracker.remaining(budgetLimit)
+        }
+      })
+    );
+  }
 
   const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
   const session = await createSession({
@@ -324,6 +384,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     const researcher = new ResearcherRole({ config, logger, emitter });
     await researcher.init({ task });
     const researchOutput = await researcher.run({ task });
+    trackBudget({
+      role: "researcher",
+      provider: config?.roles?.researcher?.provider || coderRole.provider,
+      result: researchOutput
+    });
 
     await addCheckpoint(session, { stage: "researcher", iteration: 0, ok: researchOutput.ok });
 
@@ -363,6 +428,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       plannerPromptParts.push("", "## Research findings", JSON.stringify(researchContext, null, 2));
     }
     const plannerResult = await planner.runTask({ prompt: plannerPromptParts.join("\n"), role: "planner" });
+    trackBudget({ role: "planner", provider: plannerRole.provider, result: plannerResult });
     if (!plannerResult.ok) {
       await markSessionStatus(session, "failed");
       const details = plannerResult.error || plannerResult.output || `exitCode=${plannerResult.exitCode ?? "unknown"}`;
@@ -409,10 +475,25 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         makeEvent("session:end", { ...eventBase, iteration: i, stage: "timeout" }, {
           status: "fail",
           message: "Session timed out",
-          detail: { approved: false, reason: "timeout" }
+          detail: { approved: false, reason: "timeout", budget: budgetSummary() }
         })
       );
       throw new Error("Session timed out");
+    }
+
+    if (budgetTracker.isOverBudget(config?.max_budget_usd)) {
+      await markSessionStatus(session, "failed");
+      const totalCost = budgetTracker.total().cost_usd;
+      const message = `Budget exceeded: $${totalCost.toFixed(2)} > $${budgetLimit.toFixed(2)}`;
+      emitProgress(
+        emitter,
+        makeEvent("session:end", { ...eventBase, iteration: i, stage: "budget" }, {
+          status: "fail",
+          message,
+          detail: { approved: false, reason: "budget_exceeded", budget: budgetSummary(), max_budget_usd: budgetLimit }
+        })
+      );
+      throw new Error(message);
     }
 
     eventBase.iteration = i;
@@ -453,6 +534,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       }));
     };
     const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput, role: "coder" });
+    trackBudget({ role: "coder", provider: coderRole.provider, result: coderResult });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
@@ -502,6 +584,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         onOutput: refactorerOnOutput,
         role: "refactorer"
       });
+      trackBudget({ role: "refactorer", provider: refactorerRole.provider, result: refactorResult });
       if (!refactorResult.ok) {
         await markSessionStatus(session, "failed");
         const details = refactorResult.error || refactorResult.output || `exitCode=${refactorResult.exitCode ?? "unknown"}`;
@@ -600,6 +683,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       const sonarRole = new SonarRole({ config, logger, emitter });
       await sonarRole.init({ iteration: i });
       const sonarOutput = await sonarRole.run();
+      trackBudget({ role: "sonar", provider: "sonar", result: sonarOutput });
       const sonarResult = sonarOutput.result;
 
       if (!sonarResult.gateStatus && sonarResult.error) {
@@ -651,7 +735,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             makeEvent("session:end", { ...eventBase, stage: "sonar" }, {
               status: "stalled",
               message,
-              detail: { reason: repeatState.reason, repeats: repeatCounts.sonar }
+              detail: { reason: repeatState.reason, repeats: repeatCounts.sonar, budget: budgetSummary() }
             })
           );
           return { approved: false, sessionId: session.id, reason: "stalled" };
@@ -742,7 +826,10 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       prompt: reviewerPrompt,
       session,
       iteration: i,
-      onOutput: reviewerOnOutput
+      onOutput: reviewerOnOutput,
+      onAttemptResult: ({ reviewer, result }) => {
+        trackBudget({ role: "reviewer", provider: reviewer, result });
+      }
     });
 
     if (!reviewerExec.result || !reviewerExec.result.ok) {
@@ -818,7 +905,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           makeEvent("session:end", { ...eventBase, stage: "reviewer" }, {
             status: "stalled",
             message,
-            detail: { reason: repeatState.reason, repeats: repeatCounts.reviewer }
+            detail: { reason: repeatState.reason, repeats: repeatCounts.reviewer, budget: budgetSummary() }
           })
         );
         return { approved: false, sessionId: session.id, reason: "stalled" };
@@ -854,6 +941,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         const tester = new TesterRole({ config, logger, emitter });
         await tester.init({ task, iteration: i });
         const testerOutput = await tester.run({ task, diff: postLoopDiff });
+        trackBudget({
+          role: "tester",
+          provider: config?.roles?.tester?.provider || coderRole.provider,
+          result: testerOutput
+        });
 
         await addCheckpoint(session, { stage: "tester", iteration: i, ok: testerOutput.ok });
 
@@ -914,6 +1006,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         const security = new SecurityRole({ config, logger, emitter });
         await security.init({ task, iteration: i });
         const securityOutput = await security.run({ task, diff: postLoopDiff });
+        trackBudget({
+          role: "security",
+          provider: config?.roles?.security?.provider || coderRole.provider,
+          result: securityOutput
+        });
 
         await addCheckpoint(session, { stage: "security", iteration: i, ok: securityOutput.ok });
 
@@ -971,7 +1068,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         emitter,
         makeEvent("session:end", { ...eventBase, stage: "done" }, {
           message: "Session approved",
-          detail: { approved: true, iterations: i, stages: stageResults, git: gitResult }
+          detail: { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary() }
         })
       );
       return { approved: true, sessionId: session.id, review, git: gitResult };
@@ -1027,7 +1124,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
       status: "fail",
       message: "Max iterations reached",
-      detail: { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults }
+      detail: { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() }
     })
   );
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
