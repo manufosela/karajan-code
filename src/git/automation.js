@@ -53,13 +53,17 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
 }
 
 export async function finalizeGitAutomation({ config, gitCtx, task, logger, session }) {
-  if (!gitCtx?.enabled) return { git: "disabled" };
+  if (!gitCtx?.enabled) return { git: "disabled", commits: [] };
 
   const commitMsg = config.git.commit_message || commitMessageFromTask(task);
   let committed = false;
+  const commits = [];
   if (config.git.auto_commit) {
     const commitResult = await commitAll(commitMsg);
     committed = commitResult.committed;
+    if (commitResult.commit) {
+      commits.push(commitResult.commit);
+    }
     await addCheckpoint(session, { stage: "git-commit", committed });
     logger.info(committed ? "Committed changes" : "No changes to commit");
   }
@@ -92,5 +96,5 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     logger.info("Pull request created");
   }
 
-  return { committed, branch: gitCtx.branch, prUrl };
+  return { committed, branch: gitCtx.branch, prUrl, pr: prUrl, commits };
 }

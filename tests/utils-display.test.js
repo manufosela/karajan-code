@@ -323,6 +323,50 @@ describe("utils/display", () => {
       expect(output).toContain("12 tests passed");
     });
 
+    it("prints session end with executed plan, resolved issues and commits", () => {
+      printEvent({
+        type: "session:end",
+        detail: {
+          approved: true,
+          stages: {
+            planner: {
+              title: "Auth hardening",
+              approach: "TDD",
+              completedSteps: [
+                "Add failing tests",
+                "Implement guard",
+                "Refactor"
+              ]
+            },
+            sonar: {
+              gateStatus: "OK",
+              openIssues: 2,
+              issuesInitial: 7,
+              issuesResolved: 5
+            }
+          },
+          git: {
+            branch: "feat/auth-hardening",
+            committed: true,
+            prUrl: "https://github.com/org/repo/pull/9",
+            commits: [
+              { hash: "abc1234", message: "test: add auth guard coverage" },
+              { hash: "def5678", message: "feat: add auth guard" }
+            ]
+          }
+        }
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Plan:");
+      expect(output).toContain("Auth hardening");
+      expect(output).toContain("Issues:");
+      expect(output).toContain("resolved");
+      expect(output).toContain("Commits:");
+      expect(output).toContain("abc1234");
+      expect(output).toContain("pull/9");
+    });
+
     it("prints session end failed with reason", () => {
       printEvent({
         type: "session:end",

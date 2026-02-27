@@ -101,11 +101,13 @@ describe("utils/git", () => {
       runCommand
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git add -A
         .mockResolvedValueOnce({ exitCode: 0, stdout: "M file.js", stderr: "" })  // git status --porcelain
-        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });  // git commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // git commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "abc123\x1ffeat: test commit", stderr: "" });  // git log -1
 
       const result = await git.commitAll("test commit");
 
       expect(result.committed).toBe(true);
+      expect(result.commit).toEqual({ hash: "abc123", message: "feat: test commit" });
       expect(runCommand).toHaveBeenCalledWith("git", ["add", "-A"], expect.anything());
       expect(runCommand).toHaveBeenCalledWith("git", ["commit", "-m", "test commit"], expect.anything());
     });

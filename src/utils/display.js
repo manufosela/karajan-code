@@ -253,6 +253,15 @@ export function printEvent(event) {
         if (stages.researcher?.summary) {
           console.log(`  ${ANSI.dim}\ud83d\udd2c Research: ${stages.researcher.summary}${ANSI.reset}`);
         }
+        if (stages.planner?.title || stages.planner?.approach || stages.planner?.completedSteps?.length) {
+          const planParts = [];
+          if (stages.planner.title) planParts.push(stages.planner.title);
+          if (stages.planner.approach) planParts.push(`approach: ${stages.planner.approach}`);
+          console.log(`  ${ANSI.dim}\ud83d\uddfa Plan: ${planParts.join(" | ")}${ANSI.reset}`);
+          for (const step of stages.planner.completedSteps || []) {
+            console.log(`  ${ANSI.dim}   \u2713 ${step}${ANSI.reset}`);
+          }
+        }
         if (stages.tester?.summary) {
           console.log(`  ${ANSI.dim}\ud83e\uddea Tester: ${stages.tester.summary}${ANSI.reset}`);
         }
@@ -262,6 +271,12 @@ export function printEvent(event) {
         if (stages.sonar) {
           const gateLabel = stages.sonar.gateStatus === "OK" ? ANSI.green : ANSI.red;
           console.log(`  ${ANSI.dim}\ud83d\udd0d Sonar: ${gateLabel}${stages.sonar.gateStatus}${ANSI.reset}${ANSI.dim} (${stages.sonar.openIssues ?? 0} issues)${ANSI.reset}`);
+          if (typeof stages.sonar.issuesInitial === "number" || typeof stages.sonar.issuesResolved === "number") {
+            const issuesInitial = stages.sonar.issuesInitial ?? stages.sonar.openIssues ?? 0;
+            const issuesFinal = stages.sonar.issuesFinal ?? stages.sonar.openIssues ?? 0;
+            const issuesResolved = stages.sonar.issuesResolved ?? Math.max(issuesInitial - issuesFinal, 0);
+            console.log(`  ${ANSI.dim}\ud83d\udee0 Issues: ${issuesInitial} detected, ${issuesFinal} open, ${issuesResolved} resolved${ANSI.reset}`);
+          }
         }
       }
 
@@ -270,8 +285,16 @@ export function printEvent(event) {
         const parts = [`branch: ${git.branch}`];
         if (git.committed) parts.push("committed");
         if (git.pushed) parts.push("pushed");
-        if (git.pr) parts.push(`PR: ${git.pr}`);
+        if (git.pr || git.prUrl) parts.push(`PR: ${git.pr || git.prUrl}`);
         console.log(`  ${ANSI.dim}\ud83d\udcce Git: ${parts.join(", ")}${ANSI.reset}`);
+        if (Array.isArray(git.commits) && git.commits.length > 0) {
+          console.log(`  ${ANSI.dim}\ud83e\uddfe Commits:${ANSI.reset}`);
+          for (const commit of git.commits) {
+            const shortHash = (commit.hash || "").slice(0, 7) || "unknown";
+            const message = commit.message || "";
+            console.log(`  ${ANSI.dim}   - ${shortHash} ${message}${ANSI.reset}`);
+          }
+        }
       }
 
       console.log(`${ANSI.dim}Session: ${event.sessionId}${ANSI.reset}`);
