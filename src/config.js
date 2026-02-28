@@ -15,7 +15,8 @@ const DEFAULTS = {
     solomon: { provider: null, model: null },
     researcher: { provider: null, model: null },
     tester: { provider: null, model: null },
-    security: { provider: null, model: null }
+    security: { provider: null, model: null },
+    triage: { provider: null, model: null }
   },
   pipeline: {
     planner: { enabled: false },
@@ -23,7 +24,8 @@ const DEFAULTS = {
     solomon: { enabled: false },
     researcher: { enabled: false },
     tester: { enabled: false },
-    security: { enabled: false }
+    security: { enabled: false },
+    triage: { enabled: false }
   },
   review_mode: "standard",
   max_iterations: 5,
@@ -200,6 +202,7 @@ export function applyRunOverrides(config, flags) {
   if (flags.researcher) out.roles.researcher.provider = flags.researcher;
   if (flags.tester) out.roles.tester.provider = flags.tester;
   if (flags.security) out.roles.security.provider = flags.security;
+  if (flags.triage) out.roles.triage.provider = flags.triage;
   if (flags.plannerModel) out.roles.planner.model = String(flags.plannerModel);
   if (flags.coderModel) {
     out.roles.coder.model = String(flags.coderModel);
@@ -216,6 +219,11 @@ export function applyRunOverrides(config, flags) {
   if (flags.enableResearcher !== undefined) out.pipeline.researcher.enabled = Boolean(flags.enableResearcher);
   if (flags.enableTester !== undefined) out.pipeline.tester.enabled = Boolean(flags.enableTester);
   if (flags.enableSecurity !== undefined) out.pipeline.security.enabled = Boolean(flags.enableSecurity);
+  if (flags.enableReviewer !== undefined) {
+    out.pipeline.reviewer = out.pipeline.reviewer || {};
+    out.pipeline.reviewer.enabled = Boolean(flags.enableReviewer);
+  }
+  if (flags.enableTriage !== undefined) out.pipeline.triage.enabled = Boolean(flags.enableTriage);
   if (flags.mode) out.review_mode = flags.mode;
   if (flags.maxIterations) out.max_iterations = Number(flags.maxIterations);
   if (flags.maxIterationMinutes) out.session.max_iteration_minutes = Number(flags.maxIterationMinutes);
@@ -250,14 +258,14 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
   let model = roleConfig.model ?? null;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security")) {
+  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage")) {
     model = config?.coder_options?.model ?? null;
   }
 
@@ -266,9 +274,14 @@ export function resolveRole(config, role) {
 
 function requiredRolesFor(commandName, config) {
   if (commandName === "run") {
-    const required = ["coder", "reviewer"];
+    const required = ["coder"];
+    if (config?.pipeline?.reviewer?.enabled !== false) required.push("reviewer");
+    if (config?.pipeline?.triage?.enabled) required.push("triage");
     if (config?.pipeline?.planner?.enabled) required.push("planner");
     if (config?.pipeline?.refactorer?.enabled) required.push("refactorer");
+    if (config?.pipeline?.researcher?.enabled) required.push("researcher");
+    if (config?.pipeline?.tester?.enabled) required.push("tester");
+    if (config?.pipeline?.security?.enabled) required.push("security");
     return required;
   }
   if (commandName === "plan") return ["planner"];

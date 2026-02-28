@@ -37,7 +37,12 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   addOptionalValue(args, "--branch-prefix", options.branchPrefix);
   addOptionalValue(args, "--methodology", options.methodology);
   normalizeBoolFlag(options.enablePlanner, "--enable-planner", args);
+  normalizeBoolFlag(options.enableReviewer, "--enable-reviewer", args);
   normalizeBoolFlag(options.enableRefactorer, "--enable-refactorer", args);
+  normalizeBoolFlag(options.enableResearcher, "--enable-researcher", args);
+  normalizeBoolFlag(options.enableTester, "--enable-tester", args);
+  normalizeBoolFlag(options.enableSecurity, "--enable-security", args);
+  normalizeBoolFlag(options.enableTriage, "--enable-triage", args);
   normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
   normalizeBoolFlag(options.autoPush, "--auto-push", args);
   normalizeBoolFlag(options.autoPr, "--auto-pr", args);
