@@ -108,13 +108,15 @@ export const tools = [
   },
   {
     name: "kj_report",
-    description: "Read latest or list session reports",
+    description: "Read latest or list session reports. Use trace=true for chronological stage-by-stage breakdown with timing and token usage.",
     inputSchema: {
       type: "object",
       properties: {
         list: { type: "boolean" },
         sessionId: { type: "string" },
         format: { type: "string", enum: ["text", "json"] },
+        trace: { type: "boolean", description: "Show chronological trace of all pipeline stages" },
+        currency: { type: "string", enum: ["usd", "eur"], description: "Display costs in this currency" },
         kjHome: { type: "string" }
       }
     }

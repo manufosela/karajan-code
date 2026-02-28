@@ -318,12 +318,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const warnThresholdPct = Number(config?.budget?.warn_threshold_pct ?? 80);
 
   function budgetSummary() {
-    return budgetTracker.summary();
+    const s = budgetTracker.summary();
+    s.trace = budgetTracker.trace();
+    return s;
   }
 
-  function trackBudget({ role, provider, model, result }) {
+  let stageCounter = 0;
+  function trackBudget({ role, provider, model, result, duration_ms }) {
     const metrics = extractUsageMetrics(result, model);
-    budgetTracker.record({ role, provider, ...metrics });
+    budgetTracker.record({ role, provider, ...metrics, duration_ms, stage_index: stageCounter++ });
 
     if (!hasBudgetLimit) return;
     const totalCost = budgetTracker.total().cost_usd;
@@ -392,12 +395,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     const triage = new TriageRole({ config, logger, emitter });
     await triage.init({ task, sessionId: session.id, iteration: 0 });
+    const triageStart = Date.now();
     const triageOutput = await triage.run({ task });
     trackBudget({
       role: "triage",
       provider: config?.roles?.triage?.provider || coderRole.provider,
       model: config?.roles?.triage?.model || coderRole.model,
-      result: triageOutput
+      result: triageOutput,
+      duration_ms: Date.now() - triageStart
     });
 
     await addCheckpoint(session, { stage: "triage", iteration: 0, ok: triageOutput.ok });
@@ -456,12 +461,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     const researcher = new ResearcherRole({ config, logger, emitter });
     await researcher.init({ task });
+    const researchStart = Date.now();
     const researchOutput = await researcher.run({ task });
     trackBudget({
       role: "researcher",
       provider: config?.roles?.researcher?.provider || coderRole.provider,
       model: config?.roles?.researcher?.model || coderRole.model,
-      result: researchOutput
+      result: researchOutput,
+      duration_ms: Date.now() - researchStart
     });
 
     await addCheckpoint(session, { stage: "researcher", iteration: 0, ok: researchOutput.ok });
@@ -492,6 +499,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       })
     );
     const planner = createAgent(plannerRole.provider, config, logger);
+    const plannerStart = Date.now();
     const plannerPromptParts = [
       "Create an implementation plan for this task.",
       "Return concise numbered steps focused on execution order and risk.",
@@ -502,7 +510,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       plannerPromptParts.push("", "## Research findings", JSON.stringify(researchContext, null, 2));
     }
     const plannerResult = await planner.runTask({ prompt: plannerPromptParts.join("\n"), role: "planner" });
-    trackBudget({ role: "planner", provider: plannerRole.provider, model: plannerRole.model, result: plannerResult });
+    trackBudget({ role: "planner", provider: plannerRole.provider, model: plannerRole.model, result: plannerResult, duration_ms: Date.now() - plannerStart });
     if (!plannerResult.ok) {
       await markSessionStatus(session, "failed");
       const details = plannerResult.error || plannerResult.output || `exitCode=${plannerResult.exitCode ?? "unknown"}`;
@@ -608,8 +616,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         detail: { stream, agent: coderRole.provider }
       }));
     };
+    const coderStart = Date.now();
     const coderResult = await coder.runTask({ prompt: coderPrompt, onOutput: coderOnOutput, role: "coder" });
-    trackBudget({ role: "coder", provider: coderRole.provider, model: coderRole.model, result: coderResult });
+    trackBudget({ role: "coder", provider: coderRole.provider, model: coderRole.model, result: coderResult, duration_ms: Date.now() - coderStart });
 
     if (!coderResult.ok) {
       await markSessionStatus(session, "failed");
@@ -654,12 +663,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           detail: { stream, agent: refactorerRole.provider }
         }));
       };
+      const refactorerStart = Date.now();
       const refactorResult = await refactorer.runTask({
         prompt: refactorPrompt,
         onOutput: refactorerOnOutput,
         role: "refactorer"
       });
-      trackBudget({ role: "refactorer", provider: refactorerRole.provider, model: refactorerRole.model, result: refactorResult });
+      trackBudget({ role: "refactorer", provider: refactorerRole.provider, model: refactorerRole.model, result: refactorResult, duration_ms: Date.now() - refactorerStart });
       if (!refactorResult.ok) {
         await markSessionStatus(session, "failed");
         const details = refactorResult.error || refactorResult.output || `exitCode=${refactorResult.exitCode ?? "unknown"}`;
@@ -757,8 +767,9 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
       const sonarRole = new SonarRole({ config, logger, emitter });
       await sonarRole.init({ iteration: i });
+      const sonarStart = Date.now();
       const sonarOutput = await sonarRole.run();
-      trackBudget({ role: "sonar", provider: "sonar", result: sonarOutput });
+      trackBudget({ role: "sonar", provider: "sonar", result: sonarOutput, duration_ms: Date.now() - sonarStart });
       const sonarResult = sonarOutput.result;
 
       if (!sonarResult.gateStatus && sonarResult.error) {
@@ -902,6 +913,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           detail: { stream, agent: reviewerRole.provider }
         }));
       };
+      const reviewerStart = Date.now();
       const reviewerExec = await runReviewerWithFallback({
         reviewerName: reviewerRole.provider,
         config,
@@ -911,7 +923,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         iteration: i,
         onOutput: reviewerOnOutput,
         onAttemptResult: ({ reviewer, result }) => {
-          trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result });
+          trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result, duration_ms: Date.now() - reviewerStart });
         }
       });
 
@@ -1023,12 +1035,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
         const tester = new TesterRole({ config, logger, emitter });
         await tester.init({ task, iteration: i });
+        const testerStart = Date.now();
         const testerOutput = await tester.run({ task, diff: postLoopDiff });
         trackBudget({
           role: "tester",
           provider: config?.roles?.tester?.provider || coderRole.provider,
           model: config?.roles?.tester?.model || coderRole.model,
-          result: testerOutput
+          result: testerOutput,
+          duration_ms: Date.now() - testerStart
         });
 
         await addCheckpoint(session, { stage: "tester", iteration: i, ok: testerOutput.ok });
@@ -1089,12 +1103,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
         const security = new SecurityRole({ config, logger, emitter });
         await security.init({ task, iteration: i });
+        const securityStart = Date.now();
         const securityOutput = await security.run({ task, diff: postLoopDiff });
         trackBudget({
           role: "security",
           provider: config?.roles?.security?.provider || coderRole.provider,
           model: config?.roles?.security?.model || coderRole.model,
-          result: securityOutput
+          result: securityOutput,
+          duration_ms: Date.now() - securityStart
         });
 
         await addCheckpoint(session, { stage: "security", iteration: i, ok: securityOutput.ok });
@@ -1148,6 +1164,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       if (stageResults.planner?.ok) {
         stageResults.planner.completedSteps = [...(stageResults.planner.steps || [])];
       }
+      session.budget = budgetSummary();
       await markSessionStatus(session, "approved");
       emitProgress(
         emitter,
@@ -1203,6 +1220,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     }
   }
 
+  session.budget = budgetSummary();
   await markSessionStatus(session, "failed");
   emitProgress(
     emitter,
