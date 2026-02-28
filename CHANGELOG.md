@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-28
+
+### Added
+- **Dynamic triage pipeline**: `TriageRole` classifies task complexity (trivial/simple/medium/complex) and activates only necessary pipeline roles (#53)
+- **Optional Serena MCP integration**: symbol-level code navigation (`find_symbol`, `find_referencing_symbols`, `insert_after_symbol`) injected into coder/reviewer prompts when `serena.enabled=true` (#54)
+- CLI flags: `--enable-triage`, `--enable-serena`, `--enable-reviewer`, `--enable-researcher`, `--enable-tester`, `--enable-security`
+- MCP parameters: `enableTriage`, `enableSerena`, `enableReviewer`, `enableResearcher`, `enableTester`, `enableSecurity`
+- Serena availability check in `kj doctor`
+- 17 new tests (721 total)
+
+### Changed
+- Reviewer is now conditionally skippable via triage or `--enable-reviewer=false`
+- Pipeline role flags (planner, refactorer, researcher, tester, security) now validated in `requiredRolesFor()`
+
 ## [1.0.0] - 2026-02-28
 
 ### Added
@@ -61,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/manufosela/karajan-code/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/manufosela/karajan-code/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/manufosela/karajan-code/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/manufosela/karajan-code/releases/tag/v0.1.0
