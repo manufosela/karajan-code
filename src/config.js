@@ -97,6 +97,7 @@ const DEFAULTS = {
       disabled_rules: ["javascript:S1116", "javascript:S3776"]
     }
   },
+  serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
@@ -243,6 +244,8 @@ export function applyRunOverrides(config, flags) {
     out.development.require_test_changes = methodology === "tdd";
   }
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
+  out.serena = out.serena || { enabled: false };
+  if (flags.enableSerena !== undefined) out.serena.enabled = Boolean(flags.enableSerena);
   out.planning_game = out.planning_game || {};
   if (flags.pgTask) out.planning_game.enabled = true;
   if (flags.pgProject) out.planning_game.project_id = flags.pgProject;

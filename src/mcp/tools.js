@@ -70,6 +70,7 @@ export const tools = [
         enableTester: { type: "boolean" },
         enableSecurity: { type: "boolean" },
         enableTriage: { type: "boolean" },
+        enableSerena: { type: "boolean" },
         reviewerFallback: { type: "string" },
         reviewerRetries: { type: "number" },
         mode: { type: "string" },
