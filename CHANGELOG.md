@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-02-28
+
 ### Added
 - `package.json` metadata for npm publish (repository, keywords, engines, author, license, files)
 - `SECURITY.md` with vulnerability reporting policy
-- `CHANGELOG.md`
+- `CHANGELOG.md` following Keep a Changelog format
 - Pre-commit hook blocking LLM attribution in commits (`.githooks/pre-commit`)
+- `RefactorerRole` class with BaseRole lifecycle (`src/roles/refactorer-role.js`)
+- Refactorer role template (`templates/roles/refactorer.md`)
+- Per-model pricing module (`src/utils/pricing.js`) with `calculateUsageCostUsd`, `mergePricing`, and `DEFAULT_MODEL_PRICING`
+- Installer end-to-end validation (#52)
+
+### Fixed
+- SonarQube host URL in token setup instructions (#52)
+- Missing files from orchestrator pipeline (pricing, refactorer role, refactorer template)
 
 ## [0.2.0] - 2026-02-27
 
@@ -51,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/manufosela/karajan-code/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/manufosela/karajan-code/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/manufosela/karajan-code/releases/tag/v0.1.0

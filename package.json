@@ -1,6 +1,6 @@
 {
   "name": "karajan-code",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Local multi-agent coding orchestrator with TDD, SonarQube, and code review pipeline",
   "type": "module",
   "license": "MIT",
