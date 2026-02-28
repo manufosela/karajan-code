@@ -194,6 +194,17 @@ export async function handleToolCall(name, args, server, extra) {
     return runKjCommand({ command: "scan", options: a });
   }
 
+  if (name === "kj_roles") {
+    const action = a.action || "list";
+    const commandArgs = [action];
+    if (action === "show" && a.roleName) commandArgs.push(a.roleName);
+    return runKjCommand({
+      command: "roles",
+      commandArgs,
+      options: a
+    });
+  }
+
   if (name === "kj_report") {
     const commandArgs = [];
     if (a.list) commandArgs.push("--list");

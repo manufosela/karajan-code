@@ -122,6 +122,18 @@ export const tools = [
     }
   },
   {
+    name: "kj_roles",
+    description: "List pipeline roles or show the template instructions for a specific role. Use action='list' to see all roles with their provider and status. Use action='show' with roleName to read the .md template.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["list", "show"], description: "Action: list all roles or show a specific role template" },
+        roleName: { type: "string", description: "Role name to show (e.g. coder, reviewer, triage, reviewer-paranoid)" },
+        kjHome: { type: "string" }
+      }
+    }
+  },
+  {
     name: "kj_code",
     description: "Run coder-only mode",
     inputSchema: {

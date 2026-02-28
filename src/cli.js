@@ -13,6 +13,7 @@ import { planCommand } from "./commands/plan.js";
 import { runCommandHandler } from "./commands/run.js";
 import { resumeCommand } from "./commands/resume.js";
 import { sonarCommand, sonarOpenCommand } from "./commands/sonar.js";
+import { rolesCommand } from "./commands/roles.js";
 
 async function withConfig(commandName, flags, fn) {
   const { config } = await loadConfig();
@@ -138,6 +139,15 @@ program
   .option("--currency <code>", "Display costs in currency: usd|eur", "usd")
   .action(async (flags) => {
     await reportCommand(flags);
+  });
+
+program
+  .command("roles [subcommand] [role]")
+  .description("List pipeline roles or show role template instructions")
+  .action(async (subcommand, role) => {
+    await withConfig("roles", {}, async ({ config }) => {
+      await rolesCommand({ config, subcommand: subcommand || "list", roleName: role });
+    });
   });
 
 program
