@@ -126,11 +126,17 @@ export async function handleRunDirect(a, server, extra) {
 
   const requiredProviders = [
     resolveRole(config, "coder").provider,
-    resolveRole(config, "reviewer").provider,
     config.reviewer_options?.fallback_reviewer
   ];
+  if (config.pipeline?.reviewer?.enabled !== false) {
+    requiredProviders.push(resolveRole(config, "reviewer").provider);
+  }
+  if (config.pipeline?.triage?.enabled) requiredProviders.push(resolveRole(config, "triage").provider);
   if (config.pipeline?.planner?.enabled) requiredProviders.push(resolveRole(config, "planner").provider);
   if (config.pipeline?.refactorer?.enabled) requiredProviders.push(resolveRole(config, "refactorer").provider);
+  if (config.pipeline?.researcher?.enabled) requiredProviders.push(resolveRole(config, "researcher").provider);
+  if (config.pipeline?.tester?.enabled) requiredProviders.push(resolveRole(config, "tester").provider);
+  if (config.pipeline?.security?.enabled) requiredProviders.push(resolveRole(config, "security").provider);
   await assertAgentsAvailable(requiredProviders);
 
   const emitter = new EventEmitter();

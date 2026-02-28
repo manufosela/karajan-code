@@ -27,6 +27,7 @@ import {
 import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
 import { resolveReviewProfile } from "./review/profiles.js";
 import { ResearcherRole } from "./roles/researcher-role.js";
+import { TriageRole } from "./roles/triage-role.js";
 import { TesterRole } from "./roles/tester-role.js";
 import { SecurityRole } from "./roles/security-role.js";
 import { SolomonRole } from "./roles/solomon-role.js";
@@ -244,11 +245,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
   const refactorerRole = resolveRole(config, "refactorer");
-  const plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
-  const refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
-  const researcherEnabled = Boolean(config.pipeline?.researcher?.enabled);
-  const testerEnabled = Boolean(config.pipeline?.tester?.enabled);
-  const securityEnabled = Boolean(config.pipeline?.security?.enabled);
+  let plannerEnabled = Boolean(config.pipeline?.planner?.enabled);
+  let refactorerEnabled = Boolean(config.pipeline?.refactorer?.enabled);
+  let researcherEnabled = Boolean(config.pipeline?.researcher?.enabled);
+  let testerEnabled = Boolean(config.pipeline?.tester?.enabled);
+  let securityEnabled = Boolean(config.pipeline?.security?.enabled);
+  let reviewerEnabled = config.pipeline?.reviewer?.enabled !== false;
+  const triageEnabled = Boolean(config.pipeline?.triage?.enabled);
 
   // --- Dry-run: return summary without executing anything ---
   if (flags.dryRun) {
@@ -268,9 +271,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         refactorer: refactorerRole
       },
       pipeline: {
+        triage_enabled: triageEnabled,
         planner_enabled: plannerEnabled,
         refactorer_enabled: refactorerEnabled,
         sonar_enabled: Boolean(config.sonarqube?.enabled),
+        reviewer_enabled: reviewerEnabled,
         researcher_enabled: researcherEnabled,
         tester_enabled: testerEnabled,
         security_enabled: securityEnabled,
@@ -375,6 +380,68 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const stageResults = {};
   let sonarIssuesInitial = null;
   let sonarIssuesFinal = null;
+
+  if (triageEnabled) {
+    logger.setContext({ iteration: 0, stage: "triage" });
+    emitProgress(
+      emitter,
+      makeEvent("triage:start", { ...eventBase, stage: "triage" }, {
+        message: "Triage classifying task complexity"
+      })
+    );
+
+    const triage = new TriageRole({ config, logger, emitter });
+    await triage.init({ task, sessionId: session.id, iteration: 0 });
+    const triageOutput = await triage.run({ task });
+    trackBudget({
+      role: "triage",
+      provider: config?.roles?.triage?.provider || coderRole.provider,
+      model: config?.roles?.triage?.model || coderRole.model,
+      result: triageOutput
+    });
+
+    await addCheckpoint(session, { stage: "triage", iteration: 0, ok: triageOutput.ok });
+
+    const recommendedRoles = new Set(triageOutput.result?.roles || []);
+    if (triageOutput.ok) {
+      plannerEnabled = recommendedRoles.has("planner");
+      researcherEnabled = recommendedRoles.has("researcher");
+      refactorerEnabled = recommendedRoles.has("refactorer");
+      reviewerEnabled = recommendedRoles.has("reviewer");
+      testerEnabled = recommendedRoles.has("tester");
+      securityEnabled = recommendedRoles.has("security");
+    }
+
+    if (flags.enablePlanner !== undefined) plannerEnabled = Boolean(flags.enablePlanner);
+    if (flags.enableResearcher !== undefined) researcherEnabled = Boolean(flags.enableResearcher);
+    if (flags.enableRefactorer !== undefined) refactorerEnabled = Boolean(flags.enableRefactorer);
+    if (flags.enableReviewer !== undefined) reviewerEnabled = Boolean(flags.enableReviewer);
+    if (flags.enableTester !== undefined) testerEnabled = Boolean(flags.enableTester);
+    if (flags.enableSecurity !== undefined) securityEnabled = Boolean(flags.enableSecurity);
+
+    stageResults.triage = {
+      ok: triageOutput.ok,
+      level: triageOutput.result?.level || null,
+      roles: Array.from(recommendedRoles),
+      reasoning: triageOutput.result?.reasoning || null
+    };
+
+    emitProgress(
+      emitter,
+      makeEvent("triage:end", { ...eventBase, stage: "triage" }, {
+        status: triageOutput.ok ? "ok" : "fail",
+        message: triageOutput.ok ? "Triage completed" : `Triage failed: ${triageOutput.summary}`,
+        detail: stageResults.triage
+      })
+    );
+  } else {
+    if (flags.enablePlanner !== undefined) plannerEnabled = Boolean(flags.enablePlanner);
+    if (flags.enableResearcher !== undefined) researcherEnabled = Boolean(flags.enableResearcher);
+    if (flags.enableRefactorer !== undefined) refactorerEnabled = Boolean(flags.enableRefactorer);
+    if (flags.enableReviewer !== undefined) reviewerEnabled = Boolean(flags.enableReviewer);
+    if (flags.enableTester !== undefined) testerEnabled = Boolean(flags.enableTester);
+    if (flags.enableSecurity !== undefined) securityEnabled = Boolean(flags.enableSecurity);
+  }
 
   // --- Researcher (pre-planning) ---
   let researchContext = null;
@@ -803,119 +870,126 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       };
     }
 
-    // --- Reviewer ---
-    logger.setContext({ iteration: i, stage: "reviewer" });
-    emitProgress(
-      emitter,
-      makeEvent("reviewer:start", { ...eventBase, stage: "reviewer" }, {
-        message: `Reviewer (${reviewerRole.provider}) running`,
-        detail: { reviewer: reviewerRole.provider }
-      })
-    );
-
-    const diff = await generateDiff({ baseRef: session.session_start_sha });
-    const reviewerPrompt = buildReviewerPrompt({
-      task,
-      diff,
-      reviewRules,
-      mode: config.review_mode
-    });
-    const reviewerOnOutput = ({ stream, line }) => {
-      emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
-        message: line,
-        detail: { stream, agent: reviewerRole.provider }
-      }));
+    let review = {
+      approved: true,
+      blocking_issues: [],
+      non_blocking_suggestions: [],
+      summary: "Reviewer disabled by pipeline",
+      confidence: 1
     };
-    const reviewerExec = await runReviewerWithFallback({
-      reviewerName: reviewerRole.provider,
-      config,
-      logger,
-      prompt: reviewerPrompt,
-      session,
-      iteration: i,
-      onOutput: reviewerOnOutput,
-      onAttemptResult: ({ reviewer, result }) => {
-        trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result });
-      }
-    });
+    if (reviewerEnabled) {
+      logger.setContext({ iteration: i, stage: "reviewer" });
+      emitProgress(
+        emitter,
+        makeEvent("reviewer:start", { ...eventBase, stage: "reviewer" }, {
+          message: `Reviewer (${reviewerRole.provider}) running`,
+          detail: { reviewer: reviewerRole.provider }
+        })
+      );
 
-    if (!reviewerExec.result || !reviewerExec.result.ok) {
-      await markSessionStatus(session, "failed");
-      const lastAttempt = reviewerExec.attempts.at(-1);
-      const details =
-        lastAttempt?.result?.error ||
-        lastAttempt?.result?.output ||
-        `reviewer=${lastAttempt?.reviewer || "unknown"} exitCode=${lastAttempt?.result?.exitCode ?? "unknown"}`;
+      const diff = await generateDiff({ baseRef: session.session_start_sha });
+      const reviewerPrompt = buildReviewerPrompt({
+        task,
+        diff,
+        reviewRules,
+        mode: config.review_mode
+      });
+      const reviewerOnOutput = ({ stream, line }) => {
+        emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
+          message: line,
+          detail: { stream, agent: reviewerRole.provider }
+        }));
+      };
+      const reviewerExec = await runReviewerWithFallback({
+        reviewerName: reviewerRole.provider,
+        config,
+        logger,
+        prompt: reviewerPrompt,
+        session,
+        iteration: i,
+        onOutput: reviewerOnOutput,
+        onAttemptResult: ({ reviewer, result }) => {
+          trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result });
+        }
+      });
+
+      if (!reviewerExec.result || !reviewerExec.result.ok) {
+        await markSessionStatus(session, "failed");
+        const lastAttempt = reviewerExec.attempts.at(-1);
+        const details =
+          lastAttempt?.result?.error ||
+          lastAttempt?.result?.output ||
+          `reviewer=${lastAttempt?.reviewer || "unknown"} exitCode=${lastAttempt?.result?.exitCode ?? "unknown"}`;
+        emitProgress(
+          emitter,
+          makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
+            status: "fail",
+            message: `Reviewer failed: ${details}`
+          })
+        );
+        throw new Error(`Reviewer failed: ${details}`);
+      }
+
+      try {
+        const parsed = parseJsonOutput(reviewerExec.result.output);
+        if (!parsed) {
+          throw new Error("Reviewer output is not valid JSON");
+        }
+        review = validateReviewResult(parsed);
+      } catch (parseErr) {
+        logger.warn(`Reviewer output parse/validation failed: ${parseErr.message}`);
+        review = {
+          approved: false,
+          blocking_issues: [{
+            id: "PARSE_ERROR",
+            severity: "high",
+            description: `Reviewer output could not be parsed: ${parseErr.message}`
+          }],
+          non_blocking_suggestions: [],
+          summary: `Parse error: ${parseErr.message}`,
+          confidence: 0
+        };
+      }
+      await addCheckpoint(session, {
+        stage: "reviewer",
+        iteration: i,
+        approved: review.approved,
+        blocking_issues: review.blocking_issues.length
+      });
+
       emitProgress(
         emitter,
         makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
-          status: "fail",
-          message: `Reviewer failed: ${details}`
+          status: review.approved ? "ok" : "fail",
+          message: review.approved ? "Review approved" : `Review rejected (${review.blocking_issues.length} blocking)`,
+          detail: {
+            approved: review.approved,
+            blockingCount: review.blocking_issues.length,
+            issues: review.blocking_issues.map(
+              (x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`
+            )
+          }
         })
       );
-      throw new Error(`Reviewer failed: ${details}`);
-    }
 
-    let review;
-    try {
-      const parsed = parseJsonOutput(reviewerExec.result.output);
-      if (!parsed) {
-        throw new Error("Reviewer output is not valid JSON");
-      }
-      review = validateReviewResult(parsed);
-    } catch (parseErr) {
-      logger.warn(`Reviewer output parse/validation failed: ${parseErr.message}`);
-      review = {
-        approved: false,
-        blocking_issues: [{
-          id: "PARSE_ERROR",
-          severity: "high",
-          description: `Reviewer output could not be parsed: ${parseErr.message}`
-        }],
-        non_blocking_suggestions: [],
-        summary: `Parse error: ${parseErr.message}`,
-        confidence: 0
-      };
-    }
-    await addCheckpoint(session, {
-      stage: "reviewer",
-      iteration: i,
-      approved: review.approved,
-      blocking_issues: review.blocking_issues.length
-    });
-
-    emitProgress(
-      emitter,
-      makeEvent("reviewer:end", { ...eventBase, stage: "reviewer" }, {
-        status: review.approved ? "ok" : "fail",
-        message: review.approved ? "Review approved" : `Review rejected (${review.blocking_issues.length} blocking)`,
-        detail: {
-          approved: review.approved,
-          blockingCount: review.blocking_issues.length,
-          issues: review.blocking_issues.map(
-            (x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`
-          )
+      if (!review.approved) {
+        repeatDetector.addIteration([], review.blocking_issues);
+        const repeatState = repeatDetector.isStalled();
+        if (repeatState.stalled) {
+          const repeatCounts = repeatDetector.getRepeatCounts();
+          const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer} times.`;
+          logger.warn(message);
+          await markSessionStatus(session, "stalled");
+          emitProgress(
+            emitter,
+            makeEvent("session:end", { ...eventBase, stage: "reviewer" }, {
+              status: "stalled",
+              message,
+              detail: { reason: repeatState.reason, repeats: repeatCounts.reviewer, budget: budgetSummary() }
+            })
+          );
+          return { approved: false, sessionId: session.id, reason: "stalled" };
         }
-      })
-    );
-
-    if (!review.approved) {
-      repeatDetector.addIteration([], review.blocking_issues);
-      const repeatState = repeatDetector.isStalled();
-      if (repeatState.stalled) {
-        const repeatCounts = repeatDetector.getRepeatCounts();
-        const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer} times.`;
-        logger.warn(message);
-        await markSessionStatus(session, "stalled");
-        emitProgress(
-          emitter,
-          makeEvent("session:end", { ...eventBase, stage: "reviewer" }, {
-            status: "stalled",
-            message,
-            detail: { reason: repeatState.reason, repeats: repeatCounts.reviewer, budget: budgetSummary() }
-          })
-        );
-        return { approved: false, sessionId: session.id, reason: "stalled" };
       }
     }
 

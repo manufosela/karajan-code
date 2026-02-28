@@ -6,6 +6,7 @@ export { CommiterRole } from "./commiter-role.js";
 export { CoderRole } from "./coder-role.js";
 export { SonarRole } from "./sonar-role.js";
 export { ResearcherRole } from "./researcher-role.js";
+export { TriageRole } from "./triage-role.js";
 export { TesterRole } from "./tester-role.js";
 export { SecurityRole } from "./security-role.js";
 export { SolomonRole } from "./solomon-role.js";
