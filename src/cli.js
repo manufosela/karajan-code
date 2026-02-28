@@ -28,8 +28,11 @@ program.name("kj").description("Karajan Code CLI").version("0.1.0");
 program
   .command("init")
   .description("Initialize config, review rules and SonarQube")
-  .action(async () => {
-    await withConfig("init", {}, initCommand);
+  .option("--no-interactive", "Skip wizard, use defaults (for CI/scripts)")
+  .action(async (flags) => {
+    await withConfig("init", flags, async ({ config, logger }) => {
+      await initCommand({ logger, flags });
+    });
   });
 
 program

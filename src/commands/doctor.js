@@ -1,17 +1,10 @@
 import { runCommand } from "../utils/process.js";
-import { resolveBin } from "../agents/resolve-bin.js";
 import { exists } from "../utils/fs.js";
 import { getConfigPath } from "../config.js";
 import { isSonarReachable } from "../sonar/manager.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { ensureGitRepo } from "../utils/git.js";
-
-async function checkBinary(name, versionArg = "--version") {
-  const resolved = resolveBin(name);
-  const res = await runCommand(resolved, [versionArg]);
-  const version = (res.stdout || res.stderr || "").split("\n")[0].trim();
-  return { ok: res.exitCode === 0, version, path: resolved };
-}
+import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 
 export async function runChecks({ config }) {
   const checks = [];
@@ -77,20 +70,14 @@ export async function runChecks({ config }) {
   });
 
   // 5. Agent CLIs
-  const agents = [
-    ["claude", "Install: npm install -g @anthropic-ai/claude-code"],
-    ["codex", "Install: npm install -g @openai/codex"],
-    ["gemini", "Install: npm install -g @anthropic-ai/gemini-code (or check Gemini CLI docs)"],
-    ["aider", "Install: pip install aider-chat"]
-  ];
-  for (const [agent, fixHint] of agents) {
-    const result = await checkBinary(agent);
+  for (const agent of KNOWN_AGENTS) {
+    const result = await checkBinary(agent.name);
     checks.push({
-      name: `agent:${agent}`,
-      label: `Agent: ${agent}`,
+      name: `agent:${agent.name}`,
+      label: `Agent: ${agent.name}`,
       ok: result.ok,
       detail: result.ok ? `${result.version} (${result.path})` : "Not found",
-      fix: result.ok ? null : fixHint
+      fix: result.ok ? null : `Install: ${agent.install}`
     });
   }
 
