@@ -33,7 +33,7 @@ export class BudgetTracker {
     this.pricing = mergePricing(DEFAULT_MODEL_PRICING, options.pricing || {});
   }
 
-  record({ role, provider, model, tokens_in, tokens_out, cost_usd } = {}) {
+  record({ role, provider, model, tokens_in, tokens_out, cost_usd, duration_ms, stage_index } = {}) {
     const safeTokensIn = toSafeNumber(tokens_in);
     const safeTokensOut = toSafeNumber(tokens_out);
     const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
@@ -53,6 +53,12 @@ export class BudgetTracker {
       tokens_out: safeTokensOut,
       cost_usd: roundUsd(hasExplicitCost ? cost_usd : computedCost)
     };
+    if (duration_ms !== undefined && duration_ms !== null) {
+      entry.duration_ms = toSafeNumber(duration_ms);
+    }
+    if (stage_index !== undefined && stage_index !== null) {
+      entry.stage_index = Number(stage_index);
+    }
     this.entries.push(entry);
     return entry;
   }
@@ -99,5 +105,19 @@ export class BudgetTracker {
       breakdown_by_role: byRole,
       entries: [...this.entries]
     };
+  }
+
+  trace() {
+    return this.entries.map((entry, index) => ({
+      index: entry.stage_index ?? index,
+      role: entry.role,
+      provider: entry.provider,
+      model: entry.model,
+      timestamp: entry.timestamp,
+      duration_ms: entry.duration_ms ?? null,
+      tokens_in: entry.tokens_in,
+      tokens_out: entry.tokens_out,
+      cost_usd: entry.cost_usd
+    }));
   }
 }

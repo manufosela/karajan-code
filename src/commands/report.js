@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { exists } from "../utils/fs.js";
 import { getSessionRoot } from "../utils/paths.js";
+import { loadConfig } from "../config.js";
 
 function parseBudgetFromActivityLog(logText) {
   if (!logText) {
@@ -132,6 +133,8 @@ async function buildReport(dir, sessionId) {
   const budget = parseBudgetFromActivityLog(activityLog);
   const commits = summarizeCommits(session, checkpoints);
 
+  const budgetTrace = Array.isArray(session.budget?.trace) ? session.budget.trace : [];
+
   return {
     session_id: session.id,
     task_description: session.task || "",
@@ -143,6 +146,7 @@ async function buildReport(dir, sessionId) {
       resolved: sonar.resolved
     },
     budget_consumed: budget,
+    budget_trace: budgetTrace,
     commits_generated: commits,
     status: session.status || "unknown"
   };
@@ -191,7 +195,105 @@ function printTextReport(report) {
   console.log(commitsText);
 }
 
-export async function reportCommand({ list = false, sessionId = null, format = "text" }) {
+function formatDuration(ms) {
+  if (ms === null || ms === undefined) return "-";
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainSeconds = (seconds % 60).toFixed(0);
+  return `${minutes}m${remainSeconds}s`;
+}
+
+function padRight(str, len) {
+  const s = String(str);
+  return s.length >= len ? s : s + " ".repeat(len - s.length);
+}
+
+function padLeft(str, len) {
+  const s = String(str);
+  return s.length >= len ? s : " ".repeat(len - s.length) + s;
+}
+
+function convertCost(costUsd, currency, exchangeRate) {
+  if (currency === "eur") return costUsd * exchangeRate;
+  return costUsd;
+}
+
+function formatCost(cost, currency) {
+  const symbol = currency === "eur" ? "\u20AC" : "$";
+  return `${symbol}${cost.toFixed(4)}`;
+}
+
+function printTraceTable(trace, { currency = "usd", exchangeRate = 0.92 } = {}) {
+  if (!trace || trace.length === 0) {
+    console.log("No trace data available.");
+    return;
+  }
+
+  const currencyLabel = currency.toUpperCase();
+
+  const headers = ["#", "Stage", "Provider", "Duration", "Tokens In", "Tokens Out", `Cost ${currencyLabel}`];
+  const rows = trace.map((entry) => {
+    const cost = convertCost(entry.cost_usd, currency, exchangeRate);
+    return [
+      String(entry.index ?? "-"),
+      entry.role,
+      entry.provider || "-",
+      formatDuration(entry.duration_ms),
+      String(entry.tokens_in),
+      String(entry.tokens_out),
+      formatCost(cost, currency)
+    ];
+  });
+
+  const totals = trace.reduce(
+    (acc, entry) => {
+      acc.tokens_in += entry.tokens_in;
+      acc.tokens_out += entry.tokens_out;
+      acc.cost += entry.cost_usd;
+      acc.duration += entry.duration_ms ?? 0;
+      return acc;
+    },
+    { tokens_in: 0, tokens_out: 0, cost: 0, duration: 0 }
+  );
+
+  const totalRow = [
+    "",
+    "TOTAL",
+    "",
+    formatDuration(totals.duration),
+    String(totals.tokens_in),
+    String(totals.tokens_out),
+    formatCost(convertCost(totals.cost, currency, exchangeRate), currency)
+  ];
+
+  const allRows = [headers, ...rows, totalRow];
+  const colWidths = headers.map((_, colIdx) =>
+    Math.max(...allRows.map((row) => String(row[colIdx]).length))
+  );
+
+  const rightAligned = new Set([0, 3, 4, 5, 6]);
+  function formatRow(row) {
+    return row
+      .map((cell, idx) =>
+        rightAligned.has(idx)
+          ? padLeft(cell, colWidths[idx])
+          : padRight(cell, colWidths[idx])
+      )
+      .join("  ");
+  }
+
+  console.log(formatRow(headers));
+  console.log(colWidths.map((w) => "-".repeat(w)).join("  "));
+  for (const row of rows) {
+    console.log(formatRow(row));
+  }
+  console.log(colWidths.map((w) => "-".repeat(w)).join("  "));
+  console.log(formatRow(totalRow));
+}
+
+export async function reportCommand({ list = false, sessionId = null, format = "text", trace = false, currency = "usd" }) {
   const dir = getSessionRoot();
   if (!(await exists(dir))) {
     console.log("No reports yet");
@@ -220,5 +322,19 @@ export async function reportCommand({ list = false, sessionId = null, format = "
     return;
   }
 
+  if (trace) {
+    const { config } = await loadConfig();
+    const cur = currency?.toLowerCase() || config?.budget?.currency || "usd";
+    const rate = config?.budget?.exchange_rate_eur ?? 0.92;
+    console.log(`Session: ${report.session_id}`);
+    console.log(`Status: ${report.status}`);
+    console.log(`Task: ${report.task_description || "N/A"}`);
+    console.log("");
+    printTraceTable(report.budget_trace, { currency: cur, exchangeRate: rate });
+    return;
+  }
+
   printTextReport(report);
 }
+
+export { formatDuration, convertCost, formatCost, printTraceTable, buildReport };

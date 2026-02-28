@@ -102,7 +102,9 @@ const DEFAULTS = {
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info" },
   budget: {
-    warn_threshold_pct: 80
+    warn_threshold_pct: 80,
+    currency: "usd",
+    exchange_rate_eur: 0.92
   },
   session: {
     max_iteration_minutes: 15,

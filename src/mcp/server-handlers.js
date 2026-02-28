@@ -199,6 +199,8 @@ export async function handleToolCall(name, args, server, extra) {
     if (a.list) commandArgs.push("--list");
     if (a.sessionId) commandArgs.push("--session-id", String(a.sessionId));
     if (a.format) commandArgs.push("--format", String(a.format));
+    if (a.trace) commandArgs.push("--trace");
+    if (a.currency) commandArgs.push("--currency", String(a.currency));
     return runKjCommand({
       command: "report",
       commandArgs,
