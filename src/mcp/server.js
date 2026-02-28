@@ -8,7 +8,7 @@ import { handleToolCall, responseText, enrichedFailPayload } from "./server-hand
 const server = new Server(
   {
     name: "karajan-mcp",
-    version: "0.1.0"
+    version: "1.0.0"
   },
   {
     capabilities: {
