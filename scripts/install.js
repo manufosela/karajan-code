@@ -691,7 +691,7 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
 
   if (!sonarToken) {
     console.log("\n  To create a token:");
-    console.log("    1. Open " + defaults.sonarHost);
+    console.log("    1. Open " + sonarHost);
     console.log("    2. Log in (admin/admin on first access)");
     console.log("    3. Go to: My Account > Security > Generate Token");
     console.log("    4. Name: karajan-cli, Type: Global Analysis Token\n");
