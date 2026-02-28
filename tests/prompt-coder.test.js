@@ -92,4 +92,29 @@ describe("buildCoderPrompt", () => {
     expect(result).not.toContain("Sonar summary");
     expect(result).not.toContain("Reviewer blocking feedback");
   });
+
+  it("includes Serena instructions when serenaEnabled is true", () => {
+    const result = buildCoderPrompt({ task: "Navigate code", serenaEnabled: true });
+
+    expect(result).toContain("Serena MCP");
+    expect(result).toContain("find_symbol");
+    expect(result).toContain("find_referencing_symbols");
+    expect(result).toContain("insert_after_symbol");
+    expect(result).not.toContain("Do NOT use any MCP tools");
+  });
+
+  it("does not include Serena instructions by default", () => {
+    const result = buildCoderPrompt({ task: "Normal task" });
+
+    expect(result).not.toContain("Serena MCP");
+    expect(result).not.toContain("find_symbol");
+    expect(result).toContain("Do NOT use any MCP tools");
+  });
+
+  it("does not include Serena when serenaEnabled is false", () => {
+    const result = buildCoderPrompt({ task: "Normal task", serenaEnabled: false });
+
+    expect(result).not.toContain("Serena MCP");
+    expect(result).toContain("Do NOT use any MCP tools");
+  });
 });

@@ -93,4 +93,28 @@ describe("buildReviewerPrompt", () => {
     // preamble, mode, JSON instruction, schema, task, rules, diff = at least 7
     expect(sections.length).toBeGreaterThanOrEqual(7);
   });
+
+  it("includes Serena instructions when serenaEnabled is true", () => {
+    const result = buildReviewerPrompt({ ...baseArgs, serenaEnabled: true });
+
+    expect(result).toContain("Serena MCP");
+    expect(result).toContain("find_symbol");
+    expect(result).toContain("find_referencing_symbols");
+    expect(result).not.toContain("Do NOT use any MCP tools");
+  });
+
+  it("does not include Serena instructions by default", () => {
+    const result = buildReviewerPrompt(baseArgs);
+
+    expect(result).not.toContain("Serena MCP");
+    expect(result).not.toContain("find_symbol");
+    expect(result).toContain("Do NOT use any MCP tools");
+  });
+
+  it("does not include Serena when serenaEnabled is false", () => {
+    const result = buildReviewerPrompt({ ...baseArgs, serenaEnabled: false });
+
+    expect(result).not.toContain("Serena MCP");
+    expect(result).toContain("Do NOT use any MCP tools");
+  });
 });

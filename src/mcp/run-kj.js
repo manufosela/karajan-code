@@ -43,6 +43,7 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   normalizeBoolFlag(options.enableTester, "--enable-tester", args);
   normalizeBoolFlag(options.enableSecurity, "--enable-security", args);
   normalizeBoolFlag(options.enableTriage, "--enable-triage", args);
+  normalizeBoolFlag(options.enableSerena, "--enable-serena", args);
   normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
   normalizeBoolFlag(options.autoPush, "--auto-push", args);
   normalizeBoolFlag(options.autoPr, "--auto-pr", args);

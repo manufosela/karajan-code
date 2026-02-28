@@ -60,6 +60,7 @@ program
   .option("--enable-tester")
   .option("--enable-security")
   .option("--enable-triage")
+  .option("--enable-serena")
   .option("--mode <name>")
   .option("--max-iterations <n>")
   .option("--max-iteration-minutes <n>")

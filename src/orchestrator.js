@@ -258,8 +258,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     const projectDir = config.projectDir || process.cwd();
     const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
     const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-    const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology });
-    const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode });
+    const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled) });
+    const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled) });
 
     const summary = {
       dry_run: true,
@@ -599,7 +599,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       reviewerFeedback: session.last_reviewer_feedback,
       sonarSummary: session.last_sonar_summary,
       coderRules,
-      methodology: config.development?.methodology || "tdd"
+      methodology: config.development?.methodology || "tdd",
+      serenaEnabled: Boolean(config.serena?.enabled)
     });
     const coderOnOutput = ({ stream, line }) => {
       emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "coder" }, {
@@ -892,7 +893,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         task,
         diff,
         reviewRules,
-        mode: config.review_mode
+        mode: config.review_mode,
+        serenaEnabled: Boolean(config.serena?.enabled)
       });
       const reviewerOnOutput = ({ stream, line }) => {
         emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {

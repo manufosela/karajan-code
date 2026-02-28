@@ -106,7 +106,25 @@ export async function runChecks({ config }) {
     });
   }
 
-  // 7. Review rules / Coder rules
+  // 7. Serena MCP
+  if (config.serena?.enabled) {
+    let serenaOk = false;
+    try {
+      const serenaCheck = await runCommand("serena", ["--version"]);
+      serenaOk = serenaCheck.exitCode === 0;
+    } catch {
+      serenaOk = false;
+    }
+    checks.push({
+      name: "serena",
+      label: "Serena MCP",
+      ok: serenaOk,
+      detail: serenaOk ? "Available" : "Not found (prompts will still include Serena instructions)",
+      fix: serenaOk ? null : "Install Serena: uvx --from git+https://github.com/oraios/serena serena --help"
+    });
+  }
+
+  // 8. Review rules / Coder rules
   const projectDir = config.projectDir || process.cwd();
   const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir));
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
