@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karajan Code — AI Orchestration for Code</title>
+  <meta name="description" content="Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review. Supports Claude, Codex, Gemini and Aider.">
+  <meta name="theme-color" content="#0a0e1a">
+  <link rel="icon" type="image/png" href="/logo.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Karajan Code — AI Orchestration for Code">
+  <meta property="og:description" content="Orchestrate multiple AI coding agents through an automated pipeline. TDD, SonarQube, code review — all in one command.">
+  <meta property="og:image" content="https://karajancode.com/og.png">
+  <meta property="og:url" content="https://karajancode.com">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0e1a;
+      --bg-card: #0f1425;
+      --bg-card-hover: #141a2e;
+      --border: #1e2740;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+      --accent-teal: #2dd4bf;
+      --accent-purple: #7c3aed;
+      --accent-blue: #3b82f6;
+      --accent-indigo: #6366f1;
+      --accent-amber: #fbbf24;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* --- HERO --- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse 600px 400px at 50% 40%, rgba(99,102,241,0.08), transparent),
+        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(45,212,191,0.05), transparent);
+      pointer-events: none;
+    }
+
+    .hero-logo {
+      width: 160px;
+      height: auto;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 40px rgba(99,102,241,0.15));
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent-teal) 50%, var(--accent-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-tagline {
+      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin-bottom: 2.5rem;
+      font-weight: 300;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.8rem;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-indigo));
+      color: #fff;
+    }
+    .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+    .hero-install {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 2rem;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      color: var(--accent-teal);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .hero-install:hover { border-color: var(--accent-teal); }
+    .hero-install .prompt { color: var(--text-dim); user-select: none; }
+    .hero-install .copy-hint {
+      font-family: var(--font);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      position: absolute;
+      right: -0.5rem;
+      top: -1.6rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .hero-install:hover .copy-hint { opacity: 1; }
+    .hero-install.copied .copy-hint { opacity: 1; color: var(--accent-teal); }
+
+    /* --- PIPELINE --- */
+    .pipeline-section {
+      padding: 4rem 2rem 6rem;
+      text-align: center;
+    }
+
+    .section-title {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 600px;
+      margin: 0 auto 3rem;
+    }
+
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      padding: 0 1rem;
+    }
+
+    .pipeline-node {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .pipeline-node.always {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(45,212,191,0.2));
+      border: 1px solid rgba(99,102,241,0.4);
+      color: var(--accent-teal);
+    }
+
+    .pipeline-node.optional {
+      background: rgba(30,39,64,0.5);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .pipeline-arrow {
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    /* --- FEATURES --- */
+    .features {
+      padding: 2rem 2rem 6rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.8rem;
+      transition: all 0.25s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent-indigo);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .fi-purple { background: rgba(124,58,237,0.15); color: var(--accent-purple); }
+    .fi-teal { background: rgba(45,212,191,0.15); color: var(--accent-teal); }
+    .fi-blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+    .fi-amber { background: rgba(251,191,36,0.15); color: var(--accent-amber); }
+    .fi-indigo { background: rgba(99,102,241,0.15); color: var(--accent-indigo); }
+
+    /* --- AGENTS --- */
+    .agents-section {
+      padding: 2rem 2rem 6rem;
+      text-align: center;
+    }
+
+    .agents-grid {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .agent-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.8rem 2.5rem;
+      text-align: center;
+      min-width: 150px;
+      transition: all 0.25s;
+    }
+    .agent-card:hover {
+      border-color: var(--accent-teal);
+      transform: translateY(-2px);
+    }
+
+    .agent-card .agent-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .agent-card .agent-cli {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* --- MCP --- */
+    .mcp-section {
+      padding: 2rem 2rem 6rem;
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .mcp-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2.5rem;
+      text-align: left;
+      margin-top: 2rem;
+    }
+
+    .mcp-box pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      overflow-x: auto;
+      color: var(--text-muted);
+      margin-top: 1rem;
+    }
+
+    .mcp-box pre .key { color: var(--accent-teal); }
+    .mcp-box pre .str { color: var(--accent-amber); }
+
+    .mcp-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    .mcp-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .mcp-tool {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 0.35rem 0.8rem;
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 6px;
+      color: var(--accent-indigo);
+    }
+
+    /* --- TERMINAL DEMO --- */
+    .demo-section {
+      padding: 2rem 2rem 6rem;
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .terminal {
+      background: #0c0f1a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      text-align: left;
+      margin-top: 2rem;
+    }
+
+    .terminal-bar {
+      display: flex;
+      gap: 6px;
+      padding: 12px 16px;
+      background: rgba(30,39,64,0.5);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .terminal-dot.r { background: #f87171; }
+    .terminal-dot.y { background: #fbbf24; }
+    .terminal-dot.g { background: #34d399; }
+
+    .terminal-body {
+      padding: 1.2rem 1.5rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+    }
+
+    .terminal-body .prompt { color: var(--accent-teal); }
+    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .comment { color: var(--text-dim); }
+    .terminal-body .output { color: var(--text-muted); }
+    .terminal-body .success { color: #34d399; }
+    .terminal-body .role { color: var(--accent-purple); }
+
+    /* --- FOOTER --- */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    footer a:hover { color: var(--accent-teal); }
+
+    .footer-links {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 640px) {
+      .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      .agents-grid { gap: 1rem; }
+      .agent-card { min-width: 130px; padding: 1.2rem 1.5rem; }
+      .pipeline-flow { gap: 0.15rem; }
+      .pipeline-node { padding: 0.35rem 0.6rem; font-size: 0.7rem; }
+    }
+
+    /* --- ANIMATIONS --- */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <section class="hero">
+    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="160" height="180">
+    <h1>Karajan Code</h1>
+    <p class="hero-tagline">Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command.</p>
+    <div class="hero-actions">
+      <a href="https://github.com/manufosela/karajan-code" class="btn btn-primary">GitHub</a>
+      <a href="https://www.npmjs.com/package/karajan-code" class="btn btn-secondary">npm</a>
+      <a href="https://github.com/manufosela/karajan-code#readme" class="btn btn-secondary">Docs</a>
+    </div>
+    <div class="hero-install" onclick="copyInstall(this)" role="button" tabindex="0">
+      <span class="prompt">$</span>
+      <span>npm install -g karajan-code</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section class="pipeline-section fade-in">
+    <h2 class="section-title">The Pipeline</h2>
+    <p class="section-sub">11 roles chained with quality gates. The loop runs until code is approved or the iteration limit is reached.</p>
+
+    <div class="pipeline-flow">
+      <span class="pipeline-node optional">triage</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">researcher</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">planner</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node always">coder</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">refactorer</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">sonar</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node always">reviewer</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">tester</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">security</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">commiter</span>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features fade-in">
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon fi-purple">&#9835;</div>
+        <h3>Multi-Agent Pipeline</h3>
+        <p>Chain coder, reviewer, tester, security auditor and more. Each role has its own AI agent and instructions. The orchestrator manages the loop.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-teal">&#10003;</div>
+        <h3>TDD Enforcement</h3>
+        <p>When source files change, test changes are required. The coder writes tests first — or the pipeline rejects the iteration.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-blue">&#9881;</div>
+        <h3>SonarQube Integration</h3>
+        <p>Static analysis with quality gates. Blocker and critical issues fail the build. Runs locally via Docker — no external services needed.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-indigo">&#11208;</div>
+        <h3>MCP Server</h3>
+        <p>11 tools exposed via MCP. Use <code>kj</code> from Claude, Codex, or any MCP-compatible host without leaving your agent.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-amber">&#9733;</div>
+        <h3>Review Profiles</h3>
+        <p>Standard, strict, relaxed, or paranoid. Configure how tough the reviewer should be. Solomon role resolves deadlocks.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-purple">&#9202;</div>
+        <h3>Session Management</h3>
+        <p>Pause and resume sessions. Fail-fast detection stops wasted iterations. Budget tracking monitors tokens and costs per session.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="agents-section fade-in">
+    <h2 class="section-title">4 AI Agents Supported</h2>
+    <p class="section-sub">Mix and match. Use Claude as coder, Codex as reviewer — or any combination you prefer.</p>
+    <div class="agents-grid">
+      <div class="agent-card">
+        <div class="agent-name">Claude</div>
+        <div class="agent-cli">claude</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">Codex</div>
+        <div class="agent-cli">codex</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">Gemini</div>
+        <div class="agent-cli">gemini</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">Aider</div>
+        <div class="agent-cli">aider</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TERMINAL DEMO -->
+  <section class="demo-section fade-in">
+    <h2 class="section-title">One Command</h2>
+    <p class="section-sub">That's all it takes. The pipeline does the rest.</p>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+      </div>
+      <div class="terminal-body">
+        <div><span class="prompt">$</span> <span class="cmd">kj run "Fix SQL injection in search endpoint"</span></div>
+        <br>
+        <div><span class="role">[triage]</span> <span class="output">Complexity: medium &mdash; enabling coder, sonar, reviewer, tester</span></div>
+        <div><span class="role">[coder]</span> <span class="output">Writing parameterized queries and tests...</span></div>
+        <div><span class="role">[sonar]</span> <span class="output">Quality gate passed &mdash; 0 blockers, 0 critical</span></div>
+        <div><span class="role">[reviewer]</span> <span class="output">APPROVED &mdash; no issues found</span></div>
+        <div><span class="role">[tester]</span> <span class="output">14 tests passed, coverage 92%</span></div>
+        <br>
+        <div><span class="success">&#10004; Pipeline completed in 2m 34s (iteration 1/5)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCP -->
+  <section class="mcp-section fade-in">
+    <h2 class="section-title">MCP Server Included</h2>
+    <p class="section-sub">Use <code>kj</code> as a tool inside your AI agent. Send tasks, get real-time progress, receive structured results.</p>
+    <div class="mcp-box">
+      <p class="mcp-desc">After <code>npm install -g karajan-code</code>, the MCP server auto-registers in Claude and Codex. Or add it manually:</p>
+      <pre><code>{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"karajan-mcp"</span>: {
+      <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
+    }
+  }
+}</code></pre>
+      <div class="mcp-tools">
+        <span class="mcp-tool">kj_run</span>
+        <span class="mcp-tool">kj_code</span>
+        <span class="mcp-tool">kj_review</span>
+        <span class="mcp-tool">kj_plan</span>
+        <span class="mcp-tool">kj_scan</span>
+        <span class="mcp-tool">kj_report</span>
+        <span class="mcp-tool">kj_resume</span>
+        <span class="mcp-tool">kj_doctor</span>
+        <span class="mcp-tool">kj_config</span>
+        <span class="mcp-tool">kj_init</span>
+        <span class="mcp-tool">kj_roles</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/manufosela/karajan-code">GitHub</a>
+      <a href="https://www.npmjs.com/package/karajan-code">npm</a>
+      <a href="https://github.com/manufosela/karajan-code#readme">Documentation</a>
+      <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
+      <a href="https://opensource.org/licenses/MIT">MIT License</a>
+    </div>
+    <p>Karajan Code &mdash; No API costs, runs on your existing AI subscriptions.</p>
+  </footer>
+
+  <script>
+    function copyInstall(el) {
+      navigator.clipboard.writeText('npm install -g karajan-code').then(function() {
+        el.classList.add('copied');
+        el.querySelector('.copy-hint').textContent = 'copied!';
+        setTimeout(function() {
+          el.classList.remove('copied');
+          el.querySelector('.copy-hint').textContent = 'click to copy';
+        }, 2000);
+      });
+    }
+
+    // Fade-in on scroll
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-in').forEach(function(el) {
+      observer.observe(el);
+    });
+  </script>
+
+</body>
+</html>
