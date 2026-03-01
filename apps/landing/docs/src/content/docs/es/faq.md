@@ -368,6 +368,17 @@ kj resume --session <session-id>
 
 Karajan reconoce patrones de rate-limit de todos los agentes soportados (Claude, Codex, Gemini, Aider), incluyendo errores HTTP 429 y mensajes específicos de límite de uso de cada proveedor.
 
+También puedes configurar un **agente de fallback automático** para que el pipeline continúe sin interrupción:
+
+```yaml
+coder_options:
+  fallback_coder: codex   # Cambiar a Codex si Claude llega a su límite
+```
+
+O por ejecución: `kj run "Tarea" --coder-fallback codex`
+
+Cuando el agente primario llega a su límite y hay un fallback configurado, Karajan cambia automáticamente al agente alternativo para esa iteración. Si todos los agentes están limitados, la sesión se pausa.
+
 ### ¿Cómo establezco un límite de presupuesto?
 
 Los límites de presupuesto actúan como guardarraíles sobre costes estimados:

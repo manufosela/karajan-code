@@ -369,6 +369,17 @@ kj resume --session <session-id>
 
 Karajan recognizes rate-limit patterns from all supported agents (Claude, Codex, Gemini, Aider), including HTTP 429 errors and provider-specific usage cap messages.
 
+You can also configure an **auto-fallback agent** so the pipeline continues uninterrupted:
+
+```yaml
+coder_options:
+  fallback_coder: codex   # Switch to Codex if Claude hits its limit
+```
+
+Or per-run: `kj run "Task" --coder-fallback codex`
+
+When the primary agent hits a rate limit and a fallback is configured, Karajan automatically switches to the fallback agent for that iteration. If all agents are rate-limited, the session pauses.
+
 ### How do I set a budget limit?
 
 Budget limits act as guardrails on estimated costs:
