@@ -262,6 +262,7 @@ Cuando `kj_run` u otras herramientas MCP devuelven errores, el campo `errorType`
 | `config_error` | Configuración inválida | Ejecuta `kj_doctor` o `kj_init` |
 | `agent_missing` | CLI no encontrado | Instala el agente, ejecuta `kj_doctor` |
 | `timeout` | Límite de tiempo excedido | Aumenta `timeoutMs` o `maxIterationMinutes` |
+| `rate_limit` | Agente alcanzó su límite de uso | Espera al reset de la ventana de tokens, luego `kj resume` |
 | `git_error` | No es un repo git | Ejecuta `git init` o navega a la raíz del proyecto |
 
 ---
@@ -359,7 +360,13 @@ kj report --trace
 
 Una ventaja clave del enfoque CLI de Karajan es el **coste predecible**. Tus agentes IA se ejecutan bajo tus planes de suscripción existentes (Claude Pro, Codex, etc.), así que nunca pagas más que la tarifa de tu plan independientemente de cuántas tareas ejecutes.
 
-Si un agente CLI alcanza su límite de ventana de uso (ej: el tope de tokens de Claude), el proceso del agente simplemente se detiene — Karajan lo detecta y pausa la sesión. Puedes reanudar cuando la ventana de tokens se restablezca sin coste adicional alguno.
+Si un agente CLI alcanza su límite de ventana de uso (ej: el tope de tokens de Claude), el proceso del agente se detiene — Karajan detecta automáticamente el mensaje de rate-limit en la salida del agente y pausa la sesión en lugar de marcarla como fallida. Puedes reanudar cuando la ventana de tokens se restablezca:
+
+```bash
+kj resume --session <session-id>
+```
+
+Karajan reconoce patrones de rate-limit de todos los agentes soportados (Claude, Codex, Gemini, Aider), incluyendo errores HTTP 429 y mensajes específicos de límite de uso de cada proveedor.
 
 ### ¿Cómo establezco un límite de presupuesto?
 

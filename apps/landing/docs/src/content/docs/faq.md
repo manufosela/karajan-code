@@ -263,6 +263,7 @@ When `kj_run` or other MCP tools return errors, the `errorType` field tells you 
 | `config_error` | Invalid configuration | Run `kj_doctor` or `kj_init` |
 | `agent_missing` | CLI not found | Install the agent, run `kj_doctor` |
 | `timeout` | Time limit exceeded | Increase `timeoutMs` or `maxIterationMinutes` |
+| `rate_limit` | Agent hit usage cap | Wait for token window reset, then `kj resume` |
 | `git_error` | Not in a git repo | Run `git init` or navigate to project root |
 
 ---
@@ -360,7 +361,13 @@ kj report --trace
 
 A key benefit of Karajan's CLI-based approach is **predictable cost**. Your AI agents run under your existing subscription plans (Claude Pro, Codex, etc.), so you never pay more than your plan rate regardless of how many tasks you run.
 
-If a CLI agent reaches its usage window limit (e.g., Claude's token cap), the agent process simply stops — Karajan detects this and pauses the session. You can resume once the token window resets without any additional cost.
+If a CLI agent reaches its usage window limit (e.g., Claude's token cap), the agent process stops — Karajan automatically detects the rate-limit message from the agent's output and pauses the session instead of marking it as failed. You can resume once the token window resets:
+
+```bash
+kj resume --session <session-id>
+```
+
+Karajan recognizes rate-limit patterns from all supported agents (Claude, Codex, Gemini, Aider), including HTTP 429 errors and provider-specific usage cap messages.
 
 ### How do I set a budget limit?
 
