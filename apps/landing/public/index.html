@@ -566,6 +566,18 @@
       </div>
 
       <div class="feature-card">
+        <div class="feature-icon fi-indigo">&#9878;</div>
+        <h3>Smart Model Selection</h3>
+        <p>Triage classifies complexity, then the optimal model is auto-selected per role. Trivial tasks use fast models (haiku, flash), complex tasks use powerful ones (opus, o3).</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-teal">&#8644;</div>
+        <h3>Rate Limit Resilience</h3>
+        <p>Detects CLI agent rate limits and pauses the session instead of failing. Auto-fallback to another available agent when the primary hits usage limits.</p>
+      </div>
+
+      <div class="feature-card">
         <div class="feature-icon fi-amber">&#9879;</div>
         <h3>Git Automation</h3>
         <p>Auto-commit, auto-push, and auto-PR after approval. Auto-rebase before push. Configurable branch naming prefixes.</p>
@@ -609,9 +621,10 @@
         <div class="terminal-dot g"></div>
       </div>
       <div class="terminal-body">
-        <div><span class="prompt">$</span> <span class="cmd">kj run "Fix SQL injection in search endpoint"</span></div>
+        <div><span class="prompt">$</span> <span class="cmd">kj run "Fix SQL injection in search endpoint" --enable-triage</span></div>
         <br>
         <div><span class="role">[triage]</span> <span class="output">Complexity: medium &mdash; enabling coder, sonar, reviewer, tester</span></div>
+        <div><span class="role">[models]</span> <span class="output">coder&rarr;claude/sonnet, reviewer&rarr;codex/o4-mini</span></div>
         <div><span class="role">[coder]</span> <span class="output">Writing parameterized queries and tests...</span></div>
         <div><span class="role">[sonar]</span> <span class="output">Quality gate passed &mdash; 0 blockers, 0 critical</span></div>
         <div><span class="role">[reviewer]</span> <span class="output">APPROVED &mdash; no issues found</span></div>
@@ -660,7 +673,7 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
     </div>
-    <p>Karajan Code v1.3.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p>Karajan Code v1.5.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
     <p style="margin-top: 0.5rem;">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
