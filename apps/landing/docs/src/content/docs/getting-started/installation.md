@@ -9,16 +9,58 @@ description: How to install Karajan Code.
 - **Docker** — required for SonarQube static analysis. If you don't have Docker or don't need SonarQube, disable it with `--no-sonar` or set `sonarqube.enabled: false` in config
 - At least one AI agent CLI installed: Claude, Codex, Gemini, or Aider
 
-## From npm (recommended)
+## Step 1: Install at least one AI agent
+
+You need at least one agent installed before running `kj init`. Install one or more:
+
+| Agent | CLI | Install |
+|-------|-----|---------|
+| **Claude** | `claude` | `npm install -g @anthropic-ai/claude-code` |
+| **Codex** | `codex` | `npm install -g @openai/codex` |
+| **Gemini** | `gemini` | See [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
+| **Aider** | `aider` | `pip install aider-chat` |
+
+## Step 2: Install Karajan Code
 
 ```bash
 npm install -g karajan-code
+```
+
+## Step 3: Run the setup wizard
+
+```bash
 kj init
 ```
 
-`kj init` runs an interactive wizard that auto-detects installed agents and guides you through coder/reviewer selection, SonarQube configuration, and methodology choice.
+The wizard auto-detects your installed agents and walks you through configuration:
 
-## From source
+1. **Select default coder agent** — Which AI writes the code (e.g., Claude)
+2. **Select default reviewer agent** — Which AI reviews the code (e.g., Codex)
+3. **Enable triage?** — Auto-classify task complexity to activate only necessary roles (default: No)
+4. **Enable SonarQube?** — Static analysis with quality gates via Docker (default: Yes)
+5. **Development methodology** — TDD (test-driven, recommended) or Standard
+
+:::tip[Single agent?]
+If only one agent is installed, `kj init` automatically assigns it to both coder and reviewer roles. You can always change this later in the config.
+:::
+
+After the wizard completes, it creates:
+
+- **`~/.karajan/kj.config.yml`** — Main configuration file (or `$KJ_HOME/kj.config.yml`)
+- **`review-rules.md`** — Default review guidelines (in your project directory)
+- **`coder-rules.md`** — Default coder guidelines (in your project directory)
+
+If SonarQube is enabled, the wizard also starts a Docker container (`karajan-sonarqube`) and provides instructions to generate your SonarQube token.
+
+## Step 4: Verify the installation
+
+```bash
+kj doctor
+```
+
+This checks your entire environment: git, Docker, SonarQube connectivity, agent CLIs, and rule files. Fix any issues it reports before running your first task.
+
+## Alternative: Install from source
 
 ```bash
 git clone https://github.com/manufosela/karajan-code.git
@@ -26,7 +68,9 @@ cd karajan-code
 ./scripts/install.sh
 ```
 
-## Non-interactive setup (CI/automation)
+## Alternative: Non-interactive setup (CI/automation)
+
+For CI pipelines or automated environments where you can't run the interactive wizard:
 
 ```bash
 ./scripts/install.sh \
@@ -39,24 +83,27 @@ cd karajan-code
   --run-doctor true
 ```
 
-## Supported Agents
+## SonarQube Token Setup
 
-| Agent | CLI | Install |
-|-------|-----|---------|
-| **Claude** | `claude` | `npm install -g @anthropic-ai/claude-code` |
-| **Codex** | `codex` | `npm install -g @openai/codex` |
-| **Gemini** | `gemini` | See [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
-| **Aider** | `aider` | `pip install aider-chat` |
+If you enabled SonarQube during `kj init`:
 
-`kj init` auto-detects installed agents. If only one is available, it is assigned to all roles automatically.
+1. Open http://localhost:9000 in your browser
+2. Log in with default credentials (`admin` / `admin`) — you'll be prompted to change the password
+3. Go to **My Account → Security → Generate Tokens**
+4. Create a **Global Analysis Token**
+5. Add it to your config:
 
-## Verify Installation
-
-```bash
-kj doctor
+```yaml
+# In ~/.karajan/kj.config.yml
+sonarqube:
+  token: "your-token-here"
 ```
 
-This checks your environment: git, Docker, SonarQube, agent CLIs, and rule files.
+Or set the environment variable:
+
+```bash
+export KJ_SONAR_TOKEN="your-token-here"
+```
 
 ## Next Steps
 
