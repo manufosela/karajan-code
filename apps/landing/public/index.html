@@ -550,7 +550,25 @@
       <div class="feature-card">
         <div class="feature-icon fi-purple">&#9202;</div>
         <h3>Session Management</h3>
-        <p>Pause and resume sessions. Fail-fast detection stops wasted iterations. Budget tracking monitors tokens and costs per session.</p>
+        <p>Pause and resume sessions. Fail-fast detection stops wasted iterations. Budget tracking monitors tokens and costs. Expired sessions are auto-cleaned.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-teal">&#9883;</div>
+        <h3>Plugin System</h3>
+        <p>Extend with custom agents via <code>.karajan/plugins/</code>. Plugins export a <code>register(api)</code> function and are auto-discovered at startup.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-blue">&#8634;</div>
+        <h3>Retry with Backoff</h3>
+        <p>Automatic recovery from transient API errors (429, 5xx). Exponential backoff with jitter and Retry-After header support.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-amber">&#9879;</div>
+        <h3>Git Automation</h3>
+        <p>Auto-commit, auto-push, and auto-PR after approval. Auto-rebase before push. Configurable branch naming prefixes.</p>
       </div>
 
     </div>
@@ -642,7 +660,8 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
     </div>
-    <p>Karajan Code &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p>Karajan Code v1.3.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p style="margin-top: 0.5rem;">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
   <script>
