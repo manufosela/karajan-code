@@ -1,43 +1,588 @@
 ---
 title: Configuration Reference
-description: Complete reference of all kj.config.yml fields.
+description: Complete reference of all kj.config.yml fields, environment variables, and project-level overrides.
 ---
 
-:::note
-This page is under construction. Full content coming soon.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Full Configuration Example
+## Config file location
+
+| File | Purpose |
+|------|---------|
+| `~/.karajan/kj.config.yml` | Main configuration (or `$KJ_HOME/kj.config.yml`) |
+| `<project>/.karajan.yml` | Project-level pricing overrides only |
+| `<project>/.karajan/roles/*.md` | Project-level role instructions |
+| `<project>/.karajan/plugins/*.js` | Project-level plugins |
+
+CLI flags override config file values. Config file values override defaults.
+
+---
+
+## Top-level fields
 
 ```yaml
-# AI Agents
-coder: claude
-reviewer: codex
+coder: claude                  # AI agent that writes code
+reviewer: codex                # AI agent that reviews code
+review_mode: standard          # Review strictness profile
+max_iterations: 5              # Max coder-reviewer loop iterations
+review_rules: ./review-rules.md   # Path to custom review rules
+coder_rules: ./coder-rules.md     # Path to custom coder rules
+base_branch: main              # Git base branch for diffs
+max_budget_usd: null           # Max budget in USD (null = unlimited)
+```
 
-# Review settings
-review_mode: standard          # standard | strict | paranoid | relaxed
-max_iterations: 5
-base_branch: main
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `coder` | string | `claude` | Agent CLI name: `claude`, `codex`, `gemini`, `aider`, or a custom plugin |
+| `reviewer` | string | `codex` | Agent CLI name for code review |
+| `review_mode` | enum | `standard` | `paranoid` \| `strict` \| `standard` \| `relaxed` \| `custom` |
+| `max_iterations` | number | `5` | Maximum coder-reviewer loop iterations (1-20) |
+| `review_rules` | string | `./review-rules.md` | Path to reviewer instruction file |
+| `coder_rules` | string | `./coder-rules.md` | Path to coder instruction file |
+| `base_branch` | string | `main` | Git branch used for diff comparison |
+| `max_budget_usd` | number \| null | `null` | Session budget cap in USD. `null` = unlimited |
 
-# Development methodology
+---
+
+## roles
+
+Override provider and model per role:
+
+```yaml
+roles:
+  coder:
+    provider: claude
+    model: claude-opus-4-6
+  reviewer:
+    provider: codex
+    model: null
+  planner:
+    provider: null
+    model: null
+  refactorer:
+    provider: null
+    model: null
+  solomon:
+    provider: null
+    model: null
+  researcher:
+    provider: null
+    model: null
+  tester:
+    provider: null
+    model: null
+  security:
+    provider: null
+    model: null
+  triage:
+    provider: null
+    model: null
+```
+
+| Role | Purpose |
+|------|---------|
+| `coder` | Writes code and tests |
+| `reviewer` | Reviews code for quality, security, correctness |
+| `planner` | Generates implementation plans before coding |
+| `refactorer` | Refactors code after approval |
+| `solomon` | Resolves conflicts between coder and reviewer |
+| `researcher` | Analyzes codebase before planning |
+| `tester` | Audits test quality after review |
+| `security` | OWASP security audit |
+| `triage` | Classifies task complexity |
+
+---
+
+## pipeline
+
+Enable or disable optional roles:
+
+```yaml
+pipeline:
+  planner:
+    enabled: false
+  refactorer:
+    enabled: false
+  solomon:
+    enabled: false
+  researcher:
+    enabled: false
+  tester:
+    enabled: false
+  security:
+    enabled: false
+  triage:
+    enabled: false
+  reviewer:
+    enabled: true
+```
+
+All optional roles are disabled by default. Enable them with `--enable-<role>` CLI flags or in config.
+
+---
+
+## development
+
+```yaml
 development:
-  methodology: tdd             # tdd | standard
+  methodology: tdd
   require_test_changes: true
+  test_file_patterns:
+    - /tests/
+    - /__tests__/
+    - .test.
+    - .spec.
+  source_file_extensions:
+    - .js
+    - .jsx
+    - .ts
+    - .tsx
+    - .py
+    - .go
+    - .java
+    - .rb
+    - .php
+    - .cs
+```
 
-# SonarQube
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `methodology` | enum | `tdd` | `tdd` (require tests first) or `standard` (tests optional) |
+| `require_test_changes` | boolean | `true` | When TDD, require test file changes alongside source changes |
+| `test_file_patterns` | string[] | See above | Patterns to identify test files |
+| `source_file_extensions` | string[] | See above | Source file extensions to monitor for TDD enforcement |
+
+---
+
+## coder_options
+
+```yaml
+coder_options:
+  model: null
+  auto_approve: true
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model` | string \| null | `null` | Model override for coder (e.g., `claude-opus-4-6`) |
+| `auto_approve` | boolean | `true` | Allow coder to approve its own output if reviewer approves |
+
+---
+
+## reviewer_options
+
+```yaml
+reviewer_options:
+  output_format: json
+  require_schema: true
+  model: null
+  deterministic: true
+  retries: 1
+  fallback_reviewer: codex
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `output_format` | string | `json` | Reviewer output format (always JSON for structured review) |
+| `require_schema` | boolean | `true` | Validate reviewer output matches expected schema |
+| `model` | string \| null | `null` | Model override for reviewer |
+| `deterministic` | boolean | `true` | Use deterministic mode for reproducible reviews |
+| `retries` | number | `1` | Number of reviewer retries on parse error |
+| `fallback_reviewer` | string | `codex` | Fallback provider if primary reviewer fails |
+
+---
+
+## sonarqube
+
+```yaml
 sonarqube:
   enabled: true
   host: http://localhost:9000
+  external: false
+  container_name: karajan-sonarqube
+  network: karajan_sonar_net
+  token: null
+  project_key: null
+  admin_user: admin
+  admin_password: null
+  quality_gate: true
+  enforcement_profile: pragmatic
+  max_scan_retries: 3
 
-# Git automation
+  gate_block_on:
+    - new_reliability_rating=E
+    - new_security_rating=E
+    - new_maintainability_rating=E
+    - new_coverage<80
+    - new_duplicated_lines_density>5
+
+  fail_on:
+    - BLOCKER
+    - CRITICAL
+
+  ignore_on:
+    - INFO
+
+  volumes:
+    data: karajan_sonar_data
+    logs: karajan_sonar_logs
+    extensions: karajan_sonar_extensions
+
+  timeouts:
+    healthcheck_seconds: 5
+    compose_up_ms: 300000
+    compose_control_ms: 120000
+    logs_ms: 30000
+    scanner_ms: 900000
+
+  coverage:
+    enabled: false
+    command: null
+    timeout_ms: 300000
+    block_on_failure: true
+    lcov_report_path: null
+
+  scanner:
+    sources: "src,public,lib"
+    exclusions: "**/node_modules/**,**/dist/**,**/build/**,**/*.min.js"
+    test_inclusions: "**/*.test.js,**/*.spec.js,**/tests/**,**/__tests__/**"
+    coverage_exclusions: "**/tests/**,**/__tests__/**,**/*.test.js,**/*.spec.js"
+    disabled_rules:
+      - "javascript:S1116"
+      - "javascript:S3776"
+```
+
+### Key SonarQube settings
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable SonarQube scanning |
+| `host` | string | `http://localhost:9000` | SonarQube server URL |
+| `external` | boolean | `false` | If `true`, assume an external SonarQube (don't manage Docker) |
+| `token` | string \| null | `null` | Authentication token. Prefer `KJ_SONAR_TOKEN` env var |
+| `quality_gate` | boolean | `true` | Check quality gate status after scan |
+| `enforcement_profile` | enum | `pragmatic` | `pragmatic` (block on ERROR only) or `paranoid` (block on anything not OK) |
+| `max_scan_retries` | number | `3` | Retry failed scans |
+
+### Issue severity levels
+
+| Severity | Meaning |
+|----------|---------|
+| `BLOCKER` | App crash, data loss |
+| `CRITICAL` | Security hole, logic error |
+| `MAJOR` | Quality issue affecting function |
+| `MINOR` | Code smell, inconsistency |
+| `INFO` | Convention, clarification |
+
+---
+
+## git
+
+```yaml
 git:
   auto_commit: false
   auto_push: false
   auto_pr: false
+  auto_rebase: true
+  branch_prefix: feat/
+```
 
-# Session limits
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `auto_commit` | boolean | `false` | Commit all changes after approval |
+| `auto_push` | boolean | `false` | Push branch to origin after commit |
+| `auto_pr` | boolean | `false` | Create pull request to `base_branch` |
+| `auto_rebase` | boolean | `true` | Rebase on `base_branch` before pushing |
+| `branch_prefix` | string | `feat/` | Prefix for branch names (e.g., `feat/`, `fix/`) |
+
+The Git automation flow after approval: rebase (if enabled) &rarr; commit &rarr; push &rarr; PR.
+
+---
+
+## session
+
+```yaml
 session:
   max_iteration_minutes: 15
   max_total_minutes: 120
+  fail_fast_repeats: 2
+  repeat_detection_threshold: 2
+  max_sonar_retries: 3
+  max_reviewer_retries: 3
+  max_tester_retries: 1
+  max_security_retries: 1
   expiry_days: 30
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_iteration_minutes` | number | `15` | Time limit per coder-reviewer cycle |
+| `max_total_minutes` | number | `120` | Total session time limit |
+| `fail_fast_repeats` | number | `2` | Exit after N repeated identical failures |
+| `repeat_detection_threshold` | number | `2` | Iterations before detecting repeating patterns |
+| `max_sonar_retries` | number | `3` | Max SonarQube scan retries |
+| `max_reviewer_retries` | number | `3` | Max reviewer retries on parse error |
+| `max_tester_retries` | number | `1` | Max test audit retries |
+| `max_security_retries` | number | `1` | Max security audit retries |
+| `expiry_days` | number | `30` | Auto-cleanup sessions older than this |
+
+---
+
+## budget
+
+```yaml
+budget:
+  warn_threshold_pct: 80
+  currency: usd
+  exchange_rate_eur: 0.92
+  pricing:
+    claude:
+      input_per_million: 0.003
+      output_per_million: 0.015
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `warn_threshold_pct` | number | `80` | Warn when spending reaches this % of `max_budget_usd` |
+| `currency` | enum | `usd` | Display currency: `usd` or `eur` |
+| `exchange_rate_eur` | number | `0.92` | EUR to USD exchange rate |
+| `pricing` | object | Built-in | Per-agent pricing overrides (`input_per_million`, `output_per_million`) |
+
+The `pricing` section can also be set in a project-level `.karajan.yml` file to override per-project costs.
+
+---
+
+## retry
+
+```yaml
+retry:
+  max_attempts: 3
+  initial_backoff_ms: 1000
+  max_backoff_ms: 30000
+  backoff_multiplier: 2
+  jitter_factor: 0.1
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_attempts` | number | `3` | Max retry attempts for transient API errors |
+| `initial_backoff_ms` | number | `1000` | Initial backoff delay (1 second) |
+| `max_backoff_ms` | number | `30000` | Maximum backoff delay (30 seconds) |
+| `backoff_multiplier` | number | `2` | Exponential backoff multiplier |
+| `jitter_factor` | number | `0.1` | Random jitter as fraction of backoff (10%) |
+
+---
+
+## output
+
+```yaml
+output:
+  report_dir: ./.reviews
+  log_level: info
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `report_dir` | string | `./.reviews` | Directory for session reports and logs |
+| `log_level` | enum | `info` | Logging level: `debug` \| `info` \| `warn` \| `error` |
+
+---
+
+## planning_game
+
+```yaml
+planning_game:
+  enabled: false
+  project_id: null
+  codeveloper: null
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable Planning Game MCP integration |
+| `project_id` | string \| null | `null` | Planning Game project ID |
+| `codeveloper` | string \| null | `null` | Developer ID for codeveloper field |
+
+---
+
+## Environment variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `KJ_HOME` | Override Karajan config directory | `~/.karajan` |
+| `KJ_SONAR_TOKEN` | SonarQube authentication token | From config |
+| `KJ_SONAR_ADMIN_USER` | SonarQube admin username | `admin` |
+| `KJ_SONAR_ADMIN_PASSWORD` | SonarQube admin password | From config |
+| `KJ_SONAR_PROJECT_KEY` | Override SonarQube project key | From config |
+| `VISUAL` / `EDITOR` | Editor for `kj config --edit` | `vi` |
+
+Environment variables take precedence over config file values for the fields they map to.
+
+---
+
+## Review mode profiles
+
+The `review_mode` setting controls how strictly the reviewer evaluates code:
+
+### standard (default)
+
+- **Priority**: Security &rarr; Correctness &rarr; Tests &rarr; Architecture &rarr; Style
+- **Blocking**: Security issues, logic errors, broken tests, file overwrites
+- **Non-blocking**: Style suggestions
+
+### paranoid
+
+- **Philosophy**: Every change is suspect until proven safe
+- **Priority**: Security &rarr; Correctness &rarr; Tests &rarr; Data integrity &rarr; Architecture &rarr; Style
+- **Blocking**: All security checks, missing error handling, missing input validation, missing tests, entire file rewrites
+- **Confidence threshold**: Approve only if confidence > 0.85. Default to REJECTION
+
+### strict
+
+- **Priority**: Security &rarr; Correctness &rarr; Tests &rarr; Architecture &rarr; Style
+- **Blocking**: All security issues, logic errors, insufficient test coverage, missing error handling for external calls
+- **Confidence threshold**: Reject if confidence < 0.80
+
+### relaxed
+
+- **Philosophy**: Prefer approving with suggestions
+- **Priority**: Critical security &rarr; Clear bugs &rarr; Critical path tests
+- **Blocking**: Only critical security (secrets, SQL injection, XSS) and clear logic errors
+- **Confidence threshold**: Reject if confidence < 0.60
+
+### custom
+
+Uses the base `reviewer.md` file (project-local, global, or built-in) without a pre-defined profile. Full control via your `review-rules.md` file.
+
+---
+
+## File resolution hierarchy
+
+Role instructions are resolved in this order (first found wins):
+
+1. **Project-local**: `<project>/.karajan/roles/{role}.md`
+2. **Global**: `~/.karajan/roles/{role}.md`
+3. **Built-in**: `templates/roles/{role}.md` (shipped with Karajan)
+
+Review mode profiles follow the same pattern:
+1. `.karajan/roles/reviewer-{mode}.md`
+2. `~/.karajan/roles/reviewer-{mode}.md`
+3. `templates/roles/reviewer-{mode}.md`
+
+Plugins are loaded from all locations (not first-wins):
+1. `<project>/.karajan/plugins/*.js`
+2. `~/.karajan/plugins/*.js`
+
+---
+
+## Directory structure
+
+```
+~/.karajan/                           # Global config ($KJ_HOME)
+├── kj.config.yml                     # Main configuration
+├── roles/                            # Global role instructions
+│   ├── coder.md
+│   ├── reviewer.md
+│   ├── reviewer-paranoid.md
+│   └── ...
+├── plugins/                          # Global plugins
+│   └── my-agent.js
+├── sessions/                         # Session logs
+│   └── session-{id}/
+└── docker-compose.sonar.yml          # SonarQube Docker config
+
+<project>/
+├── .karajan/                         # Project-level overrides
+│   ├── roles/                        # Project role instructions
+│   │   └── reviewer.md
+│   └── plugins/                      # Project plugins
+│       └── my-plugin.js
+├── .karajan.yml                      # Project pricing overrides
+├── coder-rules.md                    # Coder guidelines
+└── review-rules.md                   # Review guidelines
+```
+
+---
+
+## Configuration recipes
+
+<Tabs>
+<TabItem label="Strict security">
+
+```yaml
+review_mode: paranoid
+development:
+  methodology: tdd
+sonarqube:
+  enabled: true
+  enforcement_profile: paranoid
+  quality_gate: true
+pipeline:
+  security:
+    enabled: true
+  tester:
+    enabled: true
+max_iterations: 5
+git:
+  auto_commit: false
+```
+
+</TabItem>
+<TabItem label="Fast prototyping">
+
+```yaml
+review_mode: relaxed
+development:
+  methodology: standard
+sonarqube:
+  enabled: false
+max_iterations: 2
+session:
+  max_total_minutes: 30
+```
+
+</TabItem>
+<TabItem label="CI/CD pipeline">
+
+```yaml
+review_mode: strict
+development:
+  methodology: tdd
+sonarqube:
+  enabled: true
+  enforcement_profile: paranoid
+pipeline:
+  tester:
+    enabled: true
+  security:
+    enabled: true
+git:
+  auto_commit: true
+  auto_push: true
+  auto_pr: true
+max_iterations: 5
+max_budget_usd: 5.00
+```
+
+</TabItem>
+<TabItem label="Multi-agent">
+
+```yaml
+pipeline:
+  planner:
+    enabled: true
+  researcher:
+    enabled: true
+  refactorer:
+    enabled: true
+  security:
+    enabled: true
+development:
+  methodology: tdd
+session:
+  max_total_minutes: 240
+max_iterations: 7
+```
+
+</TabItem>
+</Tabs>
