@@ -1,0 +1,44 @@
+---
+title: Karajan Code
+description: Orquestador local multi-agente con TDD, SonarQube y revisión de código automatizada.
+template: splash
+hero:
+  tagline: Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando.
+  image:
+    file: ../../../assets/logo.svg
+  actions:
+    - text: Empezar
+      link: /docs/es/getting-started/introduction/
+      icon: right-arrow
+    - text: Ver en GitHub
+      link: https://github.com/manufosela/karajan-code
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## ¿Por qué Karajan Code?
+
+En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encadena agentes con quality gates. El coder escribe código, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad.
+
+<CardGrid stagger>
+  <Card title="Pipeline Multi-Agente" icon="rocket">
+    11 roles configurables: triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.
+  </Card>
+  <Card title="4 Agentes IA" icon="laptop">
+    Claude, Codex, Gemini y Aider. Combínalos — usa Claude como coder y Codex como reviewer, o cualquier combinación.
+  </Card>
+  <Card title="Servidor MCP" icon="puzzle">
+    11 herramientas expuestas via MCP. Usa `kj` desde Claude, Codex o cualquier host compatible con MCP.
+  </Card>
+  <Card title="TDD Obligatorio" icon="approve-check">
+    Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
+  </Card>
+  <Card title="Sistema de Plugins" icon="add-document">
+    Extiende con agentes custom via `.karajan/plugins/`. Auto-descubiertos al iniciar.
+  </Card>
+  <Card title="Sin Costes Extra" icon="star">
+    Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.
+  </Card>
+</CardGrid>
