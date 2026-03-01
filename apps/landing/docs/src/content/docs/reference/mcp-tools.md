@@ -1,24 +1,203 @@
 ---
 title: MCP Tools Reference
-description: Complete reference of all Karajan Code MCP tools.
+description: Complete parameter reference for all 11 Karajan Code MCP tools.
 ---
 
-:::note
-This page is under construction. Full content coming soon.
-:::
+## kj_run
 
-## Tools
+Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress notifications.
 
-| Tool | Description |
-|------|-------------|
-| `kj_init` | Initialize config and SonarQube |
-| `kj_doctor` | Check system dependencies |
-| `kj_config` | Show configuration |
-| `kj_scan` | Run SonarQube scan |
-| `kj_run` | Run full pipeline (with real-time progress notifications) |
-| `kj_resume` | Resume a paused session |
-| `kj_report` | Read session reports (supports `--trace`) |
-| `kj_roles` | List roles or show role templates |
-| `kj_code` | Run coder-only mode |
-| `kj_review` | Run reviewer-only mode |
-| `kj_plan` | Generate implementation plan |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description |
+| `coder` | string | No | From config | AI agent for code generation |
+| `coderModel` | string | No | `null` | Specific model for coder |
+| `reviewer` | string | No | From config | AI agent for code review |
+| `reviewerModel` | string | No | `null` | Specific model for reviewer |
+| `reviewerFallback` | string | No | From config | Fallback reviewer if primary fails |
+| `reviewerRetries` | number | No | `1` | Max review retries on parse error |
+| `planner` | string | No | `null` | AI agent for planning |
+| `plannerModel` | string | No | `null` | Specific model for planner |
+| `refactorer` | string | No | `null` | AI agent for refactoring |
+| `refactorerModel` | string | No | `null` | Specific model for refactorer |
+| `mode` | string | No | `standard` | Review mode: `paranoid` \| `strict` \| `standard` \| `relaxed` |
+| `methodology` | string | No | `tdd` | Development methodology: `tdd` \| `standard` |
+| `maxIterations` | number | No | `5` | Max coder/reviewer loop iterations |
+| `maxIterationMinutes` | number | No | `5` | Timeout per iteration (minutes) |
+| `maxTotalMinutes` | number | No | From config | Total session timeout (minutes) |
+| `baseBranch` | string | No | `main` | Git base branch for diffs |
+| `baseRef` | string | No | `null` | Explicit base git ref for diff |
+| `branchPrefix` | string | No | `feat/` | Git branch prefix |
+| `enablePlanner` | boolean | No | `false` | Enable planning role |
+| `enableReviewer` | boolean | No | `true` | Enable review role |
+| `enableRefactorer` | boolean | No | `false` | Enable refactoring role |
+| `enableResearcher` | boolean | No | `false` | Enable research role |
+| `enableTester` | boolean | No | `false` | Enable test quality audit |
+| `enableSecurity` | boolean | No | `false` | Enable OWASP security audit |
+| `enableTriage` | boolean | No | `false` | Enable task complexity triage |
+| `enableSerena` | boolean | No | `false` | Enable Serena semantic analysis |
+| `autoCommit` | boolean | No | `false` | Auto-commit after approval |
+| `autoPush` | boolean | No | `false` | Auto-push after commit |
+| `autoPr` | boolean | No | `false` | Create PR after push |
+| `autoRebase` | boolean | No | `true` | Rebase on base branch before push |
+| `noSonar` | boolean | No | `false` | Skip SonarQube analysis |
+| `pgTask` | string | No | `null` | Planning Game card ID (e.g., `PRJ-TSK-0042`) |
+| `pgProject` | string | No | `null` | Planning Game project ID |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `sonarToken` | string | No | From config | Override SonarQube token |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_code
+
+Run coder-only mode — skip the review loop. Useful for quick changes.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description |
+| `coder` | string | No | From config | AI agent for coding |
+| `coderModel` | string | No | `null` | Specific model for coder |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_review
+
+Run reviewer-only mode against the current diff. Useful after manual changes.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Review task description |
+| `reviewer` | string | No | From config | AI agent for review |
+| `reviewerModel` | string | No | `null` | Specific model for reviewer |
+| `baseRef` | string | No | `null` | Base ref for diff comparison |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_plan
+
+Generate an implementation plan without writing code.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description |
+| `planner` | string | No | From config | AI agent for planning |
+| `plannerModel` | string | No | `null` | Specific model for planner |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_resume
+
+Resume a paused session (e.g., after fail-fast or clarification question).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `sessionId` | string | **Yes** | — | Session ID to resume (e.g., `s_2026-02-28T20-47-24-270Z`) |
+| `answer` | string | No | `null` | Answer to the question that caused the pause |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## kj_report
+
+Read and display session reports with budget tracking.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `list` | boolean | No | `false` | List all session IDs instead of showing the latest |
+| `sessionId` | string | No | Latest | Specific session ID to read |
+| `format` | string | No | `text` | Output format: `text` \| `json` |
+| `trace` | boolean | No | `false` | Show stage-by-stage breakdown with timing and costs |
+| `currency` | string | No | `usd` | Cost display currency: `usd` \| `eur` |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## kj_scan
+
+Run SonarQube scan on the current project.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `sonarToken` | string | No | From config | Override SonarQube token |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_init
+
+Initialize karajan-code configuration, review rules, and SonarQube setup.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `kjHome` | string | No | `~/.karajan` | Custom KJ_HOME directory |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_doctor
+
+Check system dependencies and agent CLIs (claude, codex, gemini, aider).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+
+---
+
+## kj_config
+
+Show current configuration (pretty-print or JSON).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `json` | boolean | No | `false` | Output as JSON instead of pretty-print |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## kj_roles
+
+List pipeline roles or show a specific role template.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `action` | string | No | `list` | Action: `list` \| `show` |
+| `roleName` | string | No | `null` | Role to inspect (e.g., `coder`, `reviewer`, `reviewer-paranoid`) |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## Common response format
+
+All tools return a structured response:
+
+**Success:**
+```json
+{
+  "ok": true,
+  "sessionId": "s_...",
+  ...
+}
+```
+
+**Error:**
+```json
+{
+  "ok": false,
+  "error": "Error message",
+  "tool": "kj_run",
+  "category": "sonar_unavailable",
+  "suggestion": "Actionable fix suggestion"
+}
+```
+
+Error categories: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`, `unknown`.
