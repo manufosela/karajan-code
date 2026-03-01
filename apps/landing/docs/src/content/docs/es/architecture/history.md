@@ -130,6 +130,29 @@ coder (primario) ──rate limit──→ coder (fallback) ──rate limit─�
 
 **Por qué:** Los agentes CLI con planes de suscripción (Claude Pro, Codex, etc.) pueden alcanzar sus límites de uso a mitad del pipeline. Antes esto causaba que la sesión fallara, perdiendo el progreso. Ahora Karajan detecta rate limits, prueba un agente alternativo, y solo pausa como último recurso — preservando el estado de la sesión para reanudación transparente.
 
+## Fase 7: Selección Inteligente de Modelos (v1.5)
+
+**Qué cambió:** Selección automática de modelo por rol basada en la complejidad del triage — modelos ligeros para tareas triviales, modelos potentes para tareas complejas.
+
+**Adiciones clave:**
+- Selección inteligente de modelos: el triage clasifica la complejidad (trivial/simple/medium/complex), luego `model-selector.js` mapea cada rol al modelo óptimo
+- Tier map por defecto: trivial → haiku/flash/o4-mini, complex → opus/pro/o3
+- Overrides por rol: el reviewer siempre usa al menos tier "medium" para calidad; el triage siempre usa modelos ligeros
+- Los flags explícitos de CLI (`--coder-model`, `--reviewer-model`) siempre tienen prioridad sobre la selección automática
+- Flags CLI: `--smart-models` / `--no-smart-models`
+- Parámetro MCP: `smartModels` para `kj_run`
+- Tiers y role overrides configurables por el usuario via `model_selection` en `kj.config.yml`
+
+**Adición a la arquitectura:**
+```
+triage → level ("simple")
+       → model-selector → { coder: "claude/haiku", reviewer: "claude/sonnet" }
+       → config.roles.*.model rellenado (solo slots null — flags CLI ganan)
+       → agentes pasan --model flag como siempre
+```
+
+**Por qué:** No todas las tareas merecen el modelo más potente (y lento). Un fix de typo no necesita Opus, y un refactor complejo no debería usar Haiku. La selección inteligente optimiza tres cosas: velocidad (modelos ligeros responden más rápido), calidad (tareas complejas obtienen modelos potentes) y consumo de cuota de tokens (modelos ligeros consumen menos de tu ventana de suscripción, reduciendo el riesgo de rate limit).
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

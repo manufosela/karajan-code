@@ -130,6 +130,29 @@ coder (primary) ──rate limit──→ coder (fallback) ──rate limit─�
 
 **Why:** CLI agents running under subscription plans (Claude Pro, Codex, etc.) can hit usage caps mid-pipeline. Previously this caused the session to fail, losing progress. Now Karajan detects rate limits, tries an alternative agent, and only pauses as a last resort — preserving session state for seamless resumption.
 
+## Phase 7: Smart Model Selection (v1.5)
+
+**What changed:** Automatic model selection per role based on triage complexity — lighter models for trivial tasks, powerful models for complex ones.
+
+**Key additions:**
+- Smart model selection: triage classifies complexity (trivial/simple/medium/complex), then `model-selector.js` maps each role to the optimal model
+- Default tier map: trivial → haiku/flash/o4-mini, complex → opus/pro/o3
+- Role overrides: reviewer always uses at least "medium" tier for quality; triage always uses lightweight models
+- Explicit CLI flags (`--coder-model`, `--reviewer-model`) always take precedence over smart selection
+- CLI flags: `--smart-models` / `--no-smart-models`
+- MCP parameter: `smartModels` for `kj_run`
+- User-configurable tiers and role overrides via `model_selection` in `kj.config.yml`
+
+**Architecture addition:**
+```
+triage → level ("simple")
+       → model-selector → { coder: "claude/haiku", reviewer: "claude/sonnet" }
+       → config.roles.*.model populated (only null slots — CLI flags win)
+       → agents pass --model flag as usual
+```
+
+**Why:** Not all tasks deserve the most powerful (and slowest) model. A typo fix doesn't need Opus, and a complex refactor shouldn't use Haiku. Smart selection optimizes three things: speed (lighter models respond faster), quality (complex tasks get powerful models), and token quota usage (lighter models consume less of your subscription window, reducing rate limit risk).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
