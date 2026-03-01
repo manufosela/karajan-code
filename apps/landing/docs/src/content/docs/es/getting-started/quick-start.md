@@ -1,70 +1,90 @@
 ---
 title: Inicio Rápido
-description: Ejecuta tu primera tarea con Karajan Code.
+description: Ejecuta tu primera tarea con Karajan Code en 5 minutos.
 ---
 
-## Tu Primera Ejecución
+import { Steps } from '@astrojs/starlight/components';
 
-Después de [instalar](/docs/es/getting-started/installation/) Karajan Code y ejecutar `kj init`, estás listo:
+Esta guía asume que ya has [instalado Karajan Code](/docs/es/getting-started/installation/) y ejecutado `kj init`.
+
+## Tu primera ejecución
+
+<Steps>
+
+1. **Navega a tu proyecto**
+
+   ```bash
+   cd /ruta/a/tu/proyecto
+   ```
+
+2. **Ejecuta una tarea**
+
+   ```bash
+   kj run "Añadir validación de inputs al formulario de registro"
+   ```
+
+   Esto lanza el pipeline completo con tus defaults configurados (ej: Claude como coder, Codex como reviewer, metodología TDD).
+
+3. **Observa el pipeline**
+
+   Verás output en tiempo real a medida que cada rol se ejecuta:
+
+   ```
+   [coder]    Escribiendo lógica de validación y tests...
+   [sonar]    Quality gate passed — 0 blockers, 0 critical
+   [reviewer] APPROVED — no issues found
+   ✔ Pipeline completed in 2m 34s (iteration 1/5)
+   ```
+
+   Si el reviewer encuentra problemas, el coder recibe otra oportunidad. El bucle continúa hasta la aprobación o el límite de iteraciones.
+
+4. **Revisa los resultados**
+
+   ```bash
+   git diff                  # Ver qué cambió
+   kj report                 # Resumen de la sesión
+   kj report --trace         # Desglose detallado de coste por etapa
+   ```
+
+</Steps>
+
+## Tres formas de usar `kj`
+
+### 1. Pipeline completo (`kj run`)
+
+El workflow estándar — el coder escribe, SonarQube analiza, el reviewer revisa, bucle hasta aprobación:
 
 ```bash
-kj run "Implementar autenticación de usuario con JWT"
+kj run "Corregir el bug de login que ignora contraseñas vacías"
 ```
 
-Esto ejecuta el pipeline completo con defaults: Claude como coder, Codex como reviewer, metodología TDD.
+### 2. Solo coder (`kj code`)
 
-## Workflows Comunes
-
-### Solo coder (sin revisión)
+Sin bucle de revisión. Útil para cambios rápidos que revisarás tú mismo:
 
 ```bash
-kj code "Añadir validación de inputs al formulario de registro"
+kj code "Añadir un spinner de carga al dashboard"
 ```
 
-### Solo reviewer (revisar diff actual)
+### 3. Solo reviewer (`kj review`)
+
+Revisar el diff actual sin escribir código. Útil después de cambios manuales:
 
 ```bash
-kj review "Revisar los cambios de autenticación"
+kj review "Revisar mi refactor de autenticación"
 ```
 
-### Generar un plan de implementación
+## Uso via MCP (recomendado)
 
-```bash
-kj plan "Refactorizar la capa de base de datos para usar connection pooling"
-```
+La forma más potente de usar Karajan Code es como **servidor MCP** dentro de tu agente de IA. Tras `npm install -g karajan-code`, el servidor MCP se auto-registra en Claude y Codex.
 
-### Pipeline completo con todas las opciones
+Desde tu agente, simplemente pídele que ejecute una tarea:
 
-```bash
-kj run "Corregir inyección SQL crítica en el endpoint de búsqueda" \
-  --coder claude \
-  --reviewer codex \
-  --reviewer-fallback claude \
-  --methodology tdd \
-  --enable-triage \
-  --enable-tester \
-  --enable-security \
-  --auto-commit \
-  --auto-push \
-  --max-iterations 5
-```
+> "Usa kj_run para corregir la vulnerabilidad de inyección SQL en el endpoint de búsqueda"
 
-## Qué Ocurre Durante una Ejecución
+El agente envía la tarea a `kj_run`, recibe notificaciones de progreso en tiempo real, y obtiene resultados estructurados — todo sin salir de la conversación.
 
-```
-triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
-```
-
-1. **Triage** (opcional) clasifica la complejidad y activa roles
-2. **Coder** escribe código y tests siguiendo TDD
-3. **SonarQube** ejecuta análisis estático con quality gates
-4. **Reviewer** revisa el código con exigencia configurable
-5. Si hay problemas, el **coder** recibe otra oportunidad
-6. Bucle hasta aprobación o máximo de iteraciones
-
-## Uso via MCP (Recomendado)
-
-La mejor forma de usar Karajan Code es como servidor MCP dentro de tu agente de IA:
+Configuración MCP manual (si es necesario):
 
 ```json
 {
@@ -76,10 +96,42 @@ La mejor forma de usar Karajan Code es como servidor MCP dentro de tu agente de 
 }
 ```
 
-Desde tu agente, simplemente pídele que use la herramienta `kj_run`. Ver [guía del Servidor MCP](/docs/es/guides/mcp-server/) para más detalles.
+Ver la [guía del Servidor MCP](/docs/es/guides/mcp-server/) para la lista completa de 11 herramientas disponibles.
+
+## Opciones comunes
+
+| Flag | Qué hace |
+|------|----------|
+| `--coder claude` | Elegir qué agente escribe código |
+| `--reviewer codex` | Elegir qué agente revisa |
+| `--methodology tdd` | Forzar test-driven development |
+| `--mode paranoid` | Usar el perfil de revisión más estricto |
+| `--enable-triage` | Clasificar automáticamente la complejidad |
+| `--enable-security` | Ejecutar auditoría de seguridad OWASP |
+| `--auto-commit` | Git commit tras aprobación |
+| `--no-sonar` | Saltar análisis SonarQube |
+| `--max-iterations 3` | Limitar bucles coder/reviewer |
+
+Para la lista completa, ver la [Referencia CLI](/docs/es/reference/cli/).
+
+## Qué ocurre durante una ejecución
+
+```
+triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+```
+
+1. **Triage** (opcional) clasifica la complejidad de la tarea y activa solo los roles necesarios
+2. **Coder** escribe código y tests siguiendo metodología TDD
+3. **SonarQube** (opcional) ejecuta análisis estático con quality gates
+4. **Reviewer** revisa el código con exigencia configurable
+5. Si hay problemas, el **coder** recibe otra oportunidad con el feedback del reviewer
+6. Bucle hasta aprobación o límite de iteraciones
+
+Guardarraíles integrados previenen costes descontrolados: máximo de iteraciones, timeouts por iteración, timeout total de sesión, y topes de presupuesto opcionales.
 
 ## Siguientes Pasos
 
-- [Pipeline](/docs/es/guides/pipeline/) — Entender el pipeline completo
-- [Configuración](/docs/es/guides/configuration/) — Personalizar comportamiento
+- [Pipeline](/docs/es/guides/pipeline/) — Entender cada rol en detalle
+- [Configuración](/docs/es/guides/configuration/) — Personalizar el pipeline
 - [Referencia CLI](/docs/es/reference/cli/) — Todos los comandos y flags
+- [Ejemplos](/docs/es/examples/fix-a-bug/) — Ejemplos de workflows reales
