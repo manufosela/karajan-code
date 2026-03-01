@@ -3,38 +3,281 @@ title: Servidor MCP
 description: Usar Karajan Code como servidor MCP dentro de tu agente de IA.
 ---
 
-:::note
-Esta página está en construcción. Contenido completo próximamente.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Configuración
+La forma más potente de usar Karajan Code es como **servidor MCP** dentro de tu agente de IA. En lugar de alternar entre terminales y copiar/pegar outputs, tu agente envía tareas directamente a `kj_run` y recibe resultados estructurados — todo dentro de la conversación.
 
-Tras `npm install -g karajan-code`, el servidor MCP se auto-registra en las configs de Claude y Codex.
+## Auto-registro
 
-Configuración manual:
+Tras `npm install -g karajan-code`, el servidor MCP se **registra automáticamente** en Claude Code y Codex. No requiere configuración manual.
+
+El hook de postinstall escribe la configuración del servidor en:
+
+- **Claude Code**: `~/.claude.json` bajo `mcpServers`
+- **Codex**: `~/.codex/config.toml` bajo `mcp_servers`
+
+El registro es idempotente — se puede ejecutar múltiples veces sin problemas.
+
+## Configuración manual
+
+Si el auto-registro no funciona o necesitas rutas personalizadas:
+
+<Tabs>
+<TabItem label="Claude Code">
+
+Añadir a `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "karajan-mcp": {
+      "type": "stdio",
       "command": "karajan-mcp"
     }
   }
 }
 ```
 
-## Herramientas Disponibles
+</TabItem>
+<TabItem label="Codex">
 
-| Herramienta | Descripción |
-|-------------|-------------|
-| `kj_init` | Inicializar config y SonarQube |
-| `kj_doctor` | Verificar dependencias del sistema |
-| `kj_config` | Mostrar configuración |
-| `kj_scan` | Ejecutar análisis SonarQube |
-| `kj_run` | Ejecutar pipeline completo (con notificaciones de progreso en tiempo real) |
-| `kj_resume` | Reanudar sesión pausada |
-| `kj_report` | Leer informes de sesión (soporta `--trace`) |
-| `kj_roles` | Listar roles o mostrar templates |
-| `kj_code` | Modo solo coder |
-| `kj_review` | Modo solo reviewer |
-| `kj_plan` | Generar plan de implementación |
+Añadir a `~/.codex/config.toml`:
+
+```toml
+[mcp_servers."karajan-mcp"]
+command = "karajan-mcp"
+```
+
+</TabItem>
+<TabItem label="Host MCP custom">
+
+Iniciar el servidor vía stdio:
+
+```bash
+karajan-mcp
+```
+
+O con una ruta explícita:
+
+```bash
+node /path/to/karajan-code/src/mcp/server.js
+```
+
+</TabItem>
+</Tabs>
+
+## Herramientas disponibles
+
+Karajan Code expone **11 herramientas MCP**:
+
+| Herramienta | Params requeridos | Descripción |
+|-------------|------------------|-------------|
+| `kj_run` | `task` | Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer |
+| `kj_code` | `task` | Modo solo coder (sin revisión) |
+| `kj_review` | `task` | Modo solo reviewer sobre el diff actual |
+| `kj_plan` | `task` | Generar plan de implementación sin escribir código |
+| `kj_resume` | `sessionId` | Reanudar una sesión pausada |
+| `kj_report` | — | Leer informes de sesión con desglose de costes |
+| `kj_scan` | — | Ejecutar escaneo SonarQube en el proyecto actual |
+| `kj_init` | — | Inicializar config, reglas de revisión y SonarQube |
+| `kj_doctor` | — | Verificar dependencias del sistema y CLIs de agentes |
+| `kj_config` | — | Mostrar configuración actual |
+| `kj_roles` | — | Listar roles del pipeline o mostrar templates de roles |
+
+Ver la [Referencia de Herramientas MCP](/docs/es/reference/mcp-tools/) para la documentación completa de parámetros.
+
+## Usar kj_run
+
+`kj_run` es la herramienta principal. Orquesta el pipeline completo y devuelve resultados estructurados.
+
+### Uso básico
+
+Desde tu agente de IA, simplemente pide:
+
+> "Usa kj_run para añadir validación de inputs al formulario de registro"
+
+El agente llama:
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añadir validación de inputs al formulario de registro"
+  }
+}
+```
+
+### Con opciones
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Corregir la vulnerabilidad de inyección SQL en búsqueda",
+    "coder": "claude",
+    "reviewer": "codex",
+    "mode": "paranoid",
+    "methodology": "tdd",
+    "maxIterations": 5,
+    "autoCommit": true
+  }
+}
+```
+
+### Con integración Planning Game
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implementar autenticación de usuarios",
+    "pgTask": "PRJ-TSK-0042",
+    "pgProject": "MiProyecto"
+  }
+}
+```
+
+La herramienta obtiene el contexto completo de la card (descripción, criterios de aceptación) desde Planning Game.
+
+## Progreso en tiempo real
+
+Durante la ejecución, Karajan envía **notificaciones de progreso en tiempo real** vía logging MCP. Tu agente ve actualizaciones a medida que cada etapa se completa:
+
+```
+[1] coder:start — Escribiendo código y tests...
+[1] coder:end — Generación de código completada
+[1] sonar:start — Ejecutando análisis SonarQube...
+[1] sonar:end — Quality gate superado
+[1] reviewer:start — Revisando código...
+[1] reviewer:end — APROBADO
+[1] session:end — Pipeline completado
+```
+
+Las etapas de progreso incluyen: `session:start`, `iteration:start`, `planner:start/end`, `coder:start/end`, `refactorer:start/end`, `tdd:result`, `sonar:start/end`, `reviewer:start/end`, `iteration:end`, `solomon:escalate`, `question`, `session:end`.
+
+## Formato de respuesta
+
+### Ejecución exitosa
+
+```json
+{
+  "ok": true,
+  "sessionId": "s_2026-02-28T20-47-24-270Z",
+  "approved": true,
+  "review": {
+    "status": "approved",
+    "summary": "El código cumple todos los estándares",
+    "issues": [],
+    "suggestions": ["Considerar extraer la validación a un helper"]
+  },
+  "git": {
+    "committed": true,
+    "commits": ["abc123"],
+    "branch": "feat/signup-validation",
+    "pushed": false
+  }
+}
+```
+
+### Sesión pausada
+
+Cuando la detección fail-fast se activa o se necesita clarificación:
+
+```json
+{
+  "ok": false,
+  "paused": true,
+  "sessionId": "s_2026-02-28T20-47-24-270Z",
+  "question": "El reviewer rechazó el mismo issue dos veces. ¿Procedemos?",
+  "context": "reviewer_fail_fast"
+}
+```
+
+Reanudar con `kj_resume`:
+
+```json
+{
+  "tool": "kj_resume",
+  "params": {
+    "sessionId": "s_2026-02-28T20-47-24-270Z",
+    "answer": "Sí, proceder con el enfoque actual"
+  }
+}
+```
+
+### Respuesta de error
+
+```json
+{
+  "ok": false,
+  "error": "SonarQube no es accesible",
+  "tool": "kj_run",
+  "category": "sonar_unavailable",
+  "suggestion": "Intenta: docker start sonarqube, o usa noSonar: true"
+}
+```
+
+Categorías de error: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`.
+
+## Gestión de sesiones
+
+Las sesiones persisten en disco en `$KJ_HOME/sessions/{sessionId}/`. Esto permite:
+
+- **Pausar/reanudar** entre conversaciones del agente
+- **Tracking de costes** por sesión con `kj_report`
+- **Auto-limpieza** de sesiones más antiguas que `session.expiry_days` (por defecto: 30)
+
+### Listar sesiones
+
+```json
+{
+  "tool": "kj_report",
+  "params": { "list": true }
+}
+```
+
+### Desglose de costes
+
+```json
+{
+  "tool": "kj_report",
+  "params": {
+    "sessionId": "s_2026-02-28T20-47-24-270Z",
+    "trace": true,
+    "currency": "usd"
+  }
+}
+```
+
+Devuelve un desglose etapa por etapa con tiempos, tokens y costes.
+
+## MCPs complementarios
+
+Karajan Code funciona bien junto a otros servidores MCP:
+
+| MCP | Cómo complementa a Karajan |
+|-----|---------------------------|
+| **Planning Game** | Gestión de tareas — obtener tareas, actualizar estados, seguir sprints |
+| **GitHub** | Creación de PRs, gestión de issues, checks de CI/CD |
+| **Chrome DevTools** | Verificación visual de cambios de UI tras la codificación |
+| **SonarQube** | Acceso directo a informes de calidad (Karajan tiene SonarQube integrado, pero el MCP añade consulta directa) |
+
+### Ejemplo de workflow con Planning Game
+
+1. El agente obtiene la tarea de mayor prioridad desde Planning Game MCP
+2. El agente envía la tarea a `kj_run`
+3. Karajan orquesta coder &rarr; sonar &rarr; reviewer
+4. El agente actualiza el estado de la card a "To Validate" en Planning Game
+5. El agente crea una PR vía GitHub MCP
+
+Todo dentro de una única conversación, totalmente automatizado.
+
+## Solución de problemas
+
+| Problema | Solución |
+|----------|----------|
+| Servidor MCP no encontrado | Ejecutar `npm install -g karajan-code` para activar auto-registro |
+| Las herramientas no aparecen | Reiniciar tu agente de IA tras la instalación |
+| Conexión rechazada | Verificar que el binario `karajan-mcp` está en tu PATH |
+| Errores de SonarQube | Ejecutar `kj_doctor` para diagnosticar, o usar `noSonar: true` |
+| Sesión atascada | Usar `kj_report --list` para encontrar la sesión, luego `kj_resume` |

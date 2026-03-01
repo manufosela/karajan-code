@@ -3,38 +3,281 @@ title: MCP Server
 description: Using Karajan Code as an MCP server inside your AI agent.
 ---
 
-:::note
-This page is under construction. Full content coming soon.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Setup
+The most powerful way to use Karajan Code is as an **MCP server** inside your AI agent. Instead of switching between terminals and copy-pasting outputs, your agent sends tasks directly to `kj_run` and receives structured results — all within the conversation.
 
-After `npm install -g karajan-code`, the MCP server auto-registers in Claude and Codex configs.
+## Auto-registration
 
-Manual configuration:
+After `npm install -g karajan-code`, the MCP server **automatically registers** in Claude Code and Codex. No manual setup required.
+
+The postinstall hook writes the server configuration to:
+
+- **Claude Code**: `~/.claude.json` under `mcpServers`
+- **Codex**: `~/.codex/config.toml` under `mcp_servers`
+
+Registration is idempotent — safe to run multiple times.
+
+## Manual configuration
+
+If auto-registration doesn't work or you need custom paths:
+
+<Tabs>
+<TabItem label="Claude Code">
+
+Add to `~/.claude.json`:
 
 ```json
 {
   "mcpServers": {
     "karajan-mcp": {
+      "type": "stdio",
       "command": "karajan-mcp"
     }
   }
 }
 ```
 
-## Available Tools
+</TabItem>
+<TabItem label="Codex">
 
-| Tool | Description |
-|------|-------------|
-| `kj_init` | Initialize config and SonarQube |
-| `kj_doctor` | Check system dependencies |
-| `kj_config` | Show configuration |
-| `kj_scan` | Run SonarQube scan |
-| `kj_run` | Run full pipeline (with real-time progress notifications) |
-| `kj_resume` | Resume a paused session |
-| `kj_report` | Read session reports (supports `--trace`) |
-| `kj_roles` | List roles or show role templates |
-| `kj_code` | Run coder-only mode |
-| `kj_review` | Run reviewer-only mode |
-| `kj_plan` | Generate implementation plan |
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers."karajan-mcp"]
+command = "karajan-mcp"
+```
+
+</TabItem>
+<TabItem label="Custom MCP host">
+
+Start the server via stdio:
+
+```bash
+karajan-mcp
+```
+
+Or with an explicit path:
+
+```bash
+node /path/to/karajan-code/src/mcp/server.js
+```
+
+</TabItem>
+</Tabs>
+
+## Available tools
+
+Karajan Code exposes **11 MCP tools**:
+
+| Tool | Required params | Description |
+|------|----------------|-------------|
+| `kj_run` | `task` | Run the full coder &rarr; sonar &rarr; reviewer pipeline |
+| `kj_code` | `task` | Run coder-only mode (skip review) |
+| `kj_review` | `task` | Run reviewer-only mode on the current diff |
+| `kj_plan` | `task` | Generate an implementation plan without writing code |
+| `kj_resume` | `sessionId` | Resume a paused session |
+| `kj_report` | — | Read session reports with cost breakdown |
+| `kj_scan` | — | Run SonarQube scan on the current project |
+| `kj_init` | — | Initialize config, review rules, and SonarQube |
+| `kj_doctor` | — | Check system dependencies and agent CLIs |
+| `kj_config` | — | Show current configuration |
+| `kj_roles` | — | List pipeline roles or show role templates |
+
+See the [MCP Tools Reference](/docs/reference/mcp-tools/) for complete parameter documentation.
+
+## Using kj_run
+
+`kj_run` is the primary tool. It orchestrates the full pipeline and returns structured results.
+
+### Basic usage
+
+From your AI agent, simply ask:
+
+> "Use kj_run to add input validation to the signup form"
+
+The agent calls:
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Add input validation to the signup form"
+  }
+}
+```
+
+### With options
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Fix the SQL injection vulnerability in search",
+    "coder": "claude",
+    "reviewer": "codex",
+    "mode": "paranoid",
+    "methodology": "tdd",
+    "maxIterations": 5,
+    "autoCommit": true
+  }
+}
+```
+
+### With Planning Game integration
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implement user authentication",
+    "pgTask": "PRJ-TSK-0042",
+    "pgProject": "MyProject"
+  }
+}
+```
+
+The tool fetches the full card context (description, acceptance criteria) from Planning Game.
+
+## Real-time progress
+
+During execution, Karajan sends **real-time progress notifications** via MCP logging. Your agent sees updates as each stage completes:
+
+```
+[1] coder:start — Writing code and tests...
+[1] coder:end — Code generation complete
+[1] sonar:start — Running SonarQube analysis...
+[1] sonar:end — Quality gate passed
+[1] reviewer:start — Reviewing code...
+[1] reviewer:end — APPROVED
+[1] session:end — Pipeline completed
+```
+
+Progress stages include: `session:start`, `iteration:start`, `planner:start/end`, `coder:start/end`, `refactorer:start/end`, `tdd:result`, `sonar:start/end`, `reviewer:start/end`, `iteration:end`, `solomon:escalate`, `question`, `session:end`.
+
+## Response format
+
+### Successful run
+
+```json
+{
+  "ok": true,
+  "sessionId": "s_2026-02-28T20-47-24-270Z",
+  "approved": true,
+  "review": {
+    "status": "approved",
+    "summary": "Code meets all standards",
+    "issues": [],
+    "suggestions": ["Consider extracting validation to a helper"]
+  },
+  "git": {
+    "committed": true,
+    "commits": ["abc123"],
+    "branch": "feat/signup-validation",
+    "pushed": false
+  }
+}
+```
+
+### Paused session
+
+When fail-fast detection triggers or clarification is needed:
+
+```json
+{
+  "ok": false,
+  "paused": true,
+  "sessionId": "s_2026-02-28T20-47-24-270Z",
+  "question": "The reviewer rejected the same issue twice. Should we proceed?",
+  "context": "reviewer_fail_fast"
+}
+```
+
+Resume with `kj_resume`:
+
+```json
+{
+  "tool": "kj_resume",
+  "params": {
+    "sessionId": "s_2026-02-28T20-47-24-270Z",
+    "answer": "Yes, proceed with the current approach"
+  }
+}
+```
+
+### Error response
+
+```json
+{
+  "ok": false,
+  "error": "SonarQube is not reachable",
+  "tool": "kj_run",
+  "category": "sonar_unavailable",
+  "suggestion": "Try: docker start sonarqube, or use noSonar: true"
+}
+```
+
+Error categories: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`.
+
+## Session management
+
+Sessions persist to disk at `$KJ_HOME/sessions/{sessionId}/`. This enables:
+
+- **Pause/resume** across agent conversations
+- **Cost tracking** per session with `kj_report`
+- **Auto-cleanup** of sessions older than `session.expiry_days` (default: 30)
+
+### Listing sessions
+
+```json
+{
+  "tool": "kj_report",
+  "params": { "list": true }
+}
+```
+
+### Cost breakdown
+
+```json
+{
+  "tool": "kj_report",
+  "params": {
+    "sessionId": "s_2026-02-28T20-47-24-270Z",
+    "trace": true,
+    "currency": "usd"
+  }
+}
+```
+
+Returns a stage-by-stage breakdown with timing, tokens, and costs.
+
+## Companion MCPs
+
+Karajan Code works well alongside other MCP servers:
+
+| MCP | How it complements Karajan |
+|-----|--------------------------|
+| **Planning Game** | Task management — fetch tasks, update status, track sprints |
+| **GitHub** | PR creation, issue management, CI/CD checks |
+| **Chrome DevTools** | Visual verification of UI changes after coding |
+| **SonarQube** | Direct access to quality reports (Karajan has built-in SonarQube, but the MCP adds direct query access) |
+
+### Workflow example with Planning Game
+
+1. Agent fetches the highest priority task from Planning Game MCP
+2. Agent sends the task to `kj_run`
+3. Karajan orchestrates coder &rarr; sonar &rarr; reviewer
+4. Agent updates the card status to "To Validate" in Planning Game
+5. Agent creates a PR via GitHub MCP
+
+All within a single conversation, fully automated.
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| MCP server not found | Run `npm install -g karajan-code` to trigger auto-registration |
+| Tools not appearing | Restart your AI agent after installation |
+| Connection refused | Check that `karajan-mcp` binary is in your PATH |
+| SonarQube errors | Run `kj_doctor` to diagnose, or use `noSonar: true` |
+| Session stuck | Use `kj_report --list` to find the session, then `kj_resume` |
