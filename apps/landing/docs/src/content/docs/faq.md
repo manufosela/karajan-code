@@ -343,13 +343,28 @@ Test file patterns recognized: `/tests/`, `/__tests__/`, `.test.`, `.spec.`
 
 ### How does budget tracking work?
 
-Karajan tracks token usage (input/output) per agent per iteration and calculates cost based on model pricing. View a breakdown with:
+**Important:** Karajan's cost tracking is **estimated, not actual billing**. Since Karajan runs CLI agents (Claude Code, Codex CLI, etc.) that use your existing subscriptions, the reported costs are an approximation of what you *would spend* if using the APIs directly. They are calculated from token counts (input/output) multiplied by published model pricing rates.
+
+This is useful for:
+- Comparing relative cost between different agent/model combinations
+- Understanding which pipeline stages consume the most tokens
+- Setting guardrails to prevent runaway sessions
+
+View a breakdown with:
 
 ```bash
 kj report --trace
 ```
 
+### What's the advantage of using CLI agents vs APIs?
+
+A key benefit of Karajan's CLI-based approach is **predictable cost**. Your AI agents run under your existing subscription plans (Claude Pro, Codex, etc.), so you never pay more than your plan rate regardless of how many tasks you run.
+
+If a CLI agent reaches its usage window limit (e.g., Claude's token cap), the agent process simply stops — Karajan detects this and pauses the session. You can resume once the token window resets without any additional cost.
+
 ### How do I set a budget limit?
+
+Budget limits act as guardrails on estimated costs:
 
 ```yaml
 budget:
@@ -363,7 +378,7 @@ Or per-run:
 kj run "Task" --max-budget-usd 10
 ```
 
-When the budget reaches 100%, the session ends with reason `budget_exceeded`.
+When the estimated budget reaches 100%, the session ends with reason `budget_exceeded`.
 
 ### How do I see costs in EUR?
 
@@ -428,7 +443,7 @@ Claude, Codex, Gemini, and Aider out of the box. You can mix and match — use o
 
 ### Does it cost money?
 
-Karajan Code itself is free and open source (AGPL-3.0). It runs on your existing AI agent subscriptions — no additional API keys needed. Use `kj report --trace` to see per-run cost breakdowns.
+Karajan Code itself is free and open source (AGPL-3.0). It runs on your existing AI agent CLI subscriptions (Claude Pro, Codex, etc.) — no additional API keys needed. You pay only your existing plan, regardless of how many tasks you run. Use `kj report --trace` to see estimated per-run cost breakdowns.
 
 ### Do I need Docker?
 
