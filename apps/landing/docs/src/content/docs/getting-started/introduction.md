@@ -7,17 +7,25 @@ Karajan Code (`kj`) orchestrates multiple AI coding agents through an automated 
 
 ## The Problem
 
-Running an AI coding agent and manually reviewing its output is slow and error-prone. You write a prompt, wait for the code, check it yourself, find issues, re-prompt, and repeat. There's no systematic quality enforcement.
+There are two ways to use AI coding agents today, and both have serious issues:
+
+**Manual usage** — You run an agent, wait for the code, check it yourself, find issues, re-prompt, and repeat. There's no systematic quality enforcement. It's slow and entirely dependent on your own review skills.
+
+**Automated usage (CI/CD, GitHub Actions)** — You wire agents into pipelines that run on every push or issue. This removes the manual bottleneck, but introduces a new problem: **uncontrolled costs**. Without iteration limits, budget caps, or quality gates, a single task can burn through tokens indefinitely. An agent retrying a failing approach, a reviewer and coder stuck in a loop, or a flaky API triggering unlimited retries — all of these translate to real money with no visibility until the bill arrives.
+
+In both cases, there's no standard way to enforce quality, control spending, or know when to stop.
 
 ## The Solution
 
-Karajan Code chains agents together with **quality gates**:
+Karajan Code solves both problems by chaining agents with **quality gates** and **cost controls**:
 
 1. The **coder** writes code and tests
 2. **SonarQube** performs static analysis
 3. The **reviewer** checks for issues
 4. If problems are found, the **coder** gets another attempt
 5. This loop runs until the code is approved or the iteration limit is reached
+
+Every session has built-in guardrails: **max iterations**, **per-iteration timeouts**, **total session timeouts**, and optional **budget caps** (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full cost reports with `kj report --trace`.
 
 ## Key Features
 

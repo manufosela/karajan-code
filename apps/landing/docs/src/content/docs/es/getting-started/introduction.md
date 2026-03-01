@@ -7,17 +7,25 @@ Karajan Code (`kj`) orquesta múltiples agentes de IA a través de un pipeline a
 
 ## El Problema
 
-Ejecutar un agente de IA y revisar manualmente su output es lento y propenso a errores. Escribes un prompt, esperas el código, lo revisas tú mismo, encuentras problemas, vuelves a hacer prompt y repites. No hay control de calidad sistemático.
+Hoy hay dos formas de usar agentes de IA para programar, y ambas tienen problemas serios:
+
+**Uso manual** — Ejecutas un agente, esperas el código, lo revisas tú mismo, encuentras problemas, vuelves a hacer prompt y repites. No hay control de calidad sistemático. Es lento y depende enteramente de tu capacidad de revisión.
+
+**Uso automatizado (CI/CD, GitHub Actions)** — Conectas agentes a pipelines que se ejecutan en cada push o issue. Esto elimina el cuello de botella manual, pero introduce un problema nuevo: **costes sin control**. Sin límites de iteración, topes de presupuesto o quality gates, una sola tarea puede quemar tokens indefinidamente. Un agente reintentando un enfoque fallido, un reviewer y un coder atrapados en un bucle, o una API inestable disparando reintentos ilimitados — todo eso se traduce en dinero real sin visibilidad hasta que llega la factura.
+
+En ambos casos, no hay una forma estándar de asegurar calidad, controlar el gasto, o saber cuándo parar.
 
 ## La Solución
 
-Karajan Code encadena agentes con **quality gates**:
+Karajan Code resuelve ambos problemas encadenando agentes con **quality gates** y **controles de coste**:
 
 1. El **coder** escribe código y tests
 2. **SonarQube** realiza análisis estático
 3. El **reviewer** revisa el código
 4. Si hay problemas, el **coder** recibe otra oportunidad
 5. El bucle se repite hasta que el código es aprobado o se alcanza el límite de iteraciones
+
+Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **timeouts por iteración**, **timeout total de sesión**, y opcionalmente **topes de presupuesto** (en USD o EUR). La detección fail-fast para el bucle cuando los agentes están dando vueltas en círculos. Obtienes informes completos de coste con `kj report --trace`.
 
 ## Características Principales
 
