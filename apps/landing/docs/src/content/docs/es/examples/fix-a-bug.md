@@ -1,16 +1,466 @@
 ---
-title: Corregir un Bug
-description: Ejemplo de workflow para corregir un bug con Karajan Code.
+title: Ejemplos
+description: Ejemplos de workflows reales con Karajan Code.
 ---
 
-:::note
-Esta página está en construcción. Contenido completo próximamente.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Corregir un bug
+
+Pipeline completo con auditoría de seguridad:
+
+<Tabs>
+<TabItem label="CLI">
 
 ```bash
-kj run "Corregir vulnerabilidad de inyección SQL en el endpoint de búsqueda" \
-  --coder claude \
-  --reviewer codex \
+kj run "Corregir inyección SQL en endpoint de búsqueda - parametrizar la query" \
+  --mode strict \
   --enable-security \
-  --methodology tdd
+  --auto-commit
 ```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Corregir inyección SQL en endpoint de búsqueda - parametrizar la query",
+    "mode": "strict",
+    "enableSecurity": true,
+    "autoCommit": true
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+**Output esperado:**
+
+```
+[coder]    Reemplazando interpolación de strings con query parametrizada...
+[sonar]    Quality gate passed — 0 blockers, 0 critical
+[security] 0 vulnerabilidades encontradas — pass
+[reviewer] APPROVED — sin issues (confidence: 0.98)
+✔ Pipeline completado en 1m 42s (iteración 1/5)
+
+Commits:
+  fix: parameterize search query to prevent SQL injection
+```
+
+---
+
+## Añadir una feature con TDD
+
+Activar el planner para features complejas:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "Implementar subida de avatar con validación de tamaño e integración CDN" \
+  --methodology tdd \
+  --enable-planner \
+  --enable-refactorer \
+  --max-iterations 4
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implementar subida de avatar con validación de tamaño e integración CDN",
+    "methodology": "tdd",
+    "enablePlanner": true,
+    "enableRefactorer": true,
+    "maxIterations": 4
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+**Output esperado:**
+
+```
+[planner]    Plan: 3 fases — test fixtures, implementación del handler, integración CDN
+[coder]      Escribiendo tests primero, luego implementación...
+[refactorer] Extraída utilidad validateImageSize()
+[sonar]      Quality gate passed — coverage 94%
+[reviewer]   APPROVED — implementación limpia (confidence: 0.96)
+✔ Pipeline completado en 2m 34s (iteración 1/4)
+
+Commits:
+  test: add avatar upload handler test suite
+  feat: implement avatar upload with validation
+  refactor: extract image validation utility
+```
+
+---
+
+## Auditoría de seguridad
+
+Revisar código existente en busca de vulnerabilidades OWASP:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "Auditoría de seguridad de src/auth/ — comprobar OWASP top 10" \
+  --enable-security \
+  --mode paranoid \
+  --base-ref HEAD~10
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Auditoría de seguridad de src/auth/ — comprobar OWASP top 10",
+    "enableSecurity": true,
+    "mode": "paranoid",
+    "baseRef": "HEAD~10"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+**Output esperado:**
+
+```
+[security]  3 vulnerabilidades encontradas:
+            CRITICAL — JWT secret hardcoded (src/auth/jwt.js:28)
+            HIGH     — Email sin validar antes de query (src/auth/login.js:42)
+            MEDIUM   — Hash de password en logs de debug (src/auth/session.js:15)
+[coder]     Corrigiendo 3 vulnerabilidades...
+[reviewer]  APPROVED — todas las correcciones verificadas (confidence: 0.99)
+✔ Pipeline completado en 1m 45s (iteración 1/5)
+```
+
+---
+
+## Cambio rápido (sin revisión)
+
+Saltar el bucle de revisión para cambios simples:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj code "Añadir un spinner de carga al componente del dashboard"
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_code",
+  "params": {
+    "task": "Añadir un spinner de carga al componente del dashboard"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Sin reviewer, sin SonarQube, sin bucle. El coder escribe código y tú lo revisas.
+
+---
+
+## Revisar cambios existentes
+
+Revisar tus cambios manuales sin escribir código:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj review "Comprobar mi refactor de autenticación" \
+  --mode paranoid
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_review",
+  "params": {
+    "task": "Comprobar mi refactor de autenticación",
+    "mode": "paranoid"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+**Output esperado:**
+
+```
+Revisando diff de main..HEAD (12 commits, 340 líneas)
+
+REJECTED — 2 issues bloqueantes:
+  B1: Token de sesión no invalidado en logout (src/auth/session.js:58)
+  B2: Falta validación de input en claims del token (src/auth/jwt.js:22)
+
+Sugerencias:
+  S1: Usar crypto.timingSafeEqual() para comparación de passwords
+
+Confidence: 0.92
+```
+
+---
+
+## Workflow multi-agente
+
+Usar un coder rápido con un reviewer estricto:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "Implementar capa de caché para queries de base de datos" \
+  --coder codex \
+  --reviewer claude \
+  --reviewer-fallback claude \
+  --mode paranoid \
+  --max-iterations 6
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implementar capa de caché para queries de base de datos",
+    "coder": "codex",
+    "reviewer": "claude",
+    "reviewerFallback": "claude",
+    "mode": "paranoid",
+    "maxIterations": 6
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+**Flujo esperado:**
+
+```
+Iteración 1: codex escribe → claude rechaza (2 issues)
+Iteración 2: codex corrige  → claude rechaza (1 issue)
+Iteración 3: codex corrige  → claude APRUEBA ✓
+
+Total: 3m 27s | Coste: $1.42
+```
+
+---
+
+## Ejecución con control de presupuesto
+
+Establecer límites de gasto para prevenir costes descontrolados:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "Añadir soporte multi-idioma a componentes UI" \
+  --max-iterations 3 \
+  --max-iteration-minutes 8 \
+  --max-total-minutes 60
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añadir soporte multi-idioma a componentes UI",
+    "maxIterations": 3,
+    "maxIterationMinutes": 8,
+    "maxTotalMinutes": 60
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Añadir un tope presupuestario en la config:
+
+```yaml
+# ~/.karajan/kj.config.yml
+max_budget_usd: 2.00
+budget:
+  warn_threshold_pct: 80
+```
+
+Consultar costes tras la ejecución:
+
+```bash
+kj report --trace --currency eur
+```
+
+```
+Etapa    | Rol      | Duración | Coste (EUR)
+---------|----------|----------|------------
+1        | coder    | 45.2s    | €0.48
+2        | reviewer | 14.8s    | €0.28
+3        | coder    | 32.1s    | €0.39
+4        | reviewer | 12.4s    | €0.20
+---------|----------|----------|------------
+Total               | 1m 44s   | €1.35
+```
+
+---
+
+## Modo paranoid para sistemas críticos
+
+Máxima rigurosidad para pagos, auth o código que requiere compliance:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "Implementar procesador de pagos compatible con PCI-DSS" \
+  --coder claude \
+  --reviewer claude \
+  --mode paranoid \
+  --enable-security \
+  --enable-tester \
+  --enable-refactorer \
+  --max-iterations 10
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implementar procesador de pagos compatible con PCI-DSS",
+    "coder": "claude",
+    "reviewer": "claude",
+    "mode": "paranoid",
+    "enableSecurity": true,
+    "enableTester": true,
+    "enableRefactorer": true,
+    "maxIterations": 10
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+En modo paranoid, el reviewer tiende al **rechazo** y solo aprueba con confianza > 0.85. Se esperan más iteraciones pero mayor calidad:
+
+```
+Iteración 1: REJECTED — falta rate limiter
+Iteración 2: REJECTED — el error filtra número de tarjeta
+Iteración 3: APPROVED ✓ (confidence: 0.98)
+
+Auditoría de seguridad: 0 vulnerabilidades
+Cobertura de tests: 97%
+SonarQube: PASSED (0 bugs, 0 smells)
+```
+
+---
+
+## Integración con Planning Game
+
+Ejecutar tareas desde tu tablero de gestión de proyectos:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj run "KJC-TSK-0042" \
+  --pg-project "Mi Proyecto" \
+  --pg-task KJC-TSK-0042 \
+  --auto-commit \
+  --auto-push
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "KJC-TSK-0042",
+    "pgTask": "KJC-TSK-0042",
+    "pgProject": "Mi Proyecto",
+    "autoCommit": true,
+    "autoPush": true
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Karajan obtiene el contexto completo de la tarea (descripción, criterios de aceptación) desde Planning Game y actualiza el estado de la card al completar.
+
+---
+
+## Generar plan de implementación
+
+Planificar antes de codificar — útil para tareas complejas:
+
+<Tabs>
+<TabItem label="CLI">
+
+```bash
+kj plan "Migrar autenticación de sesiones a JWT"
+```
+
+</TabItem>
+<TabItem label="MCP">
+
+```json
+{
+  "tool": "kj_plan",
+  "params": {
+    "task": "Migrar autenticación de sesiones a JWT"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+Devuelve un plan estructurado con fases, riesgos y esfuerzo estimado — sin escribir código.
+
+---
+
+## Dry run
+
+Previsualizar qué ocurriría sin ejecutar:
+
+```bash
+kj run "Refactorizar capa de base de datos" --dry-run
+```
+
+Muestra qué agentes se ejecutarían, duración estimada y coste — sin realizar cambios.
