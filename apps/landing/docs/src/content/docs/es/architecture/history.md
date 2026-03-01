@@ -108,6 +108,28 @@ Esto influyó en la separación de Karajan entre la interfaz de agente (`BaseAge
 
 **Por qué:** Los usuarios necesitaban integrar Karajan en sus workflows existentes — gestión de proyectos (Planning Game), herramientas IA custom (plugins) y CI/CD (automatización git). El sistema de plugins fue particularmente importante: permite a cualquiera envolver su propia herramienta CLI como agente de Karajan sin modificar el código fuente.
 
+## Fase 6: Resiliencia (v1.4)
+
+**Qué cambió:** Detección automática y gestión de rate limits de agentes CLI, con fallback transparente a agentes alternativos.
+
+**Adiciones clave:**
+- Detección de rate limit: pattern matching en stderr/stdout del agente para todos los agentes soportados (Claude, Codex, Gemini, Aider)
+- Pausa de sesión por rate limit en lugar de fallo — reanudar con `kj resume` cuando la ventana de tokens se restablezca
+- Auto-fallback: cuando el coder primario alcanza un rate limit, cambiar automáticamente al agente de respaldo configurado
+- Flag CLI `--coder-fallback` y opción de config `coder_options.fallback_coder`
+- Tracking de checkpoints por cada intento de fallback
+
+**Adición a la arquitectura:**
+```
+coder (primario) ──rate limit──→ coder (fallback) ──rate limit──→ pausa sesión
+       │                              │
+       ok                             ok
+       ↓                              ↓
+    continuar                      continuar
+```
+
+**Por qué:** Los agentes CLI con planes de suscripción (Claude Pro, Codex, etc.) pueden alcanzar sus límites de uso a mitad del pipeline. Antes esto causaba que la sesión fallara, perdiendo el progreso. Ahora Karajan detecta rate limits, prueba un agente alternativo, y solo pausa como último recurso — preservando el estado de la sesión para reanudación transparente.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
@@ -123,7 +145,7 @@ Karajan envuelve CLIs existentes de agentes IA (claude, codex, gemini, aider) en
 **Trade-offs:**
 - Menos control granular sobre prompts y parámetros
 - El tracking de costes es estimado, no facturación real
-- El rate limiting lo gestiona el CLI, no Karajan
+- El rate limiting es detectado por Karajan (v1.4+) con fallback automático y pausa de sesión
 
 ### Instrucciones de roles basadas en Markdown
 

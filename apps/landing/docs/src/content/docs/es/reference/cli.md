@@ -102,6 +102,7 @@ El argumento `<task>` acepta:
 | `--methodology <name>` | string | `tdd` | Enfoque de desarrollo: `tdd` o `standard` |
 | `--reviewer-fallback <name>` | string | `codex` | Reviewer de respaldo si el primario falla |
 | `--reviewer-retries <n>` | number | `1` | Máximo de reintentos del reviewer |
+| `--coder-fallback <name>` | string | — | Coder de respaldo si el primario alcanza rate limit |
 
 ### Límites de sesión
 

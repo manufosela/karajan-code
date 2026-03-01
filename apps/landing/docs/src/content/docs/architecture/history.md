@@ -108,6 +108,28 @@ This influenced Karajan's separation between the agent interface (`BaseAgent` as
 
 **Why:** Users needed to integrate Karajan into their existing workflows — project management (Planning Game), custom AI tools (plugins), and CI/CD (git automation). The plugin system was particularly important: it allows anyone to wrap their own CLI tool as a Karajan agent without modifying the core codebase.
 
+## Phase 6: Resilience (v1.4)
+
+**What changed:** Automatic detection and handling of CLI agent rate limits, with seamless fallback to alternative agents.
+
+**Key additions:**
+- Rate limit detection: pattern matching on agent stderr/stdout for all supported agents (Claude, Codex, Gemini, Aider)
+- Session pause on rate limit instead of failure — resume with `kj resume` when the token window resets
+- Auto-fallback: when the primary coder agent hits a rate limit, automatically switch to a configured fallback agent
+- `--coder-fallback` CLI flag and `coder_options.fallback_coder` config option
+- Checkpoint tracking for each fallback attempt
+
+**Architecture addition:**
+```
+coder (primary) ──rate limit──→ coder (fallback) ──rate limit──→ session pause
+       │                              │
+       ok                             ok
+       ↓                              ↓
+    continue                       continue
+```
+
+**Why:** CLI agents running under subscription plans (Claude Pro, Codex, etc.) can hit usage caps mid-pipeline. Previously this caused the session to fail, losing progress. Now Karajan detects rate limits, tries an alternative agent, and only pauses as a last resort — preserving session state for seamless resumption.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
@@ -123,7 +145,7 @@ Karajan wraps existing AI agent CLIs (claude, codex, gemini, aider) rather than 
 **Trade-offs:**
 - Less granular control over prompts and parameters
 - Cost tracking is estimated, not actual billing
-- Rate limiting is handled by the CLI, not Karajan
+- Rate limiting is detected by Karajan (v1.4+) with automatic fallback and session pause
 
 ### Markdown-based role instructions
 

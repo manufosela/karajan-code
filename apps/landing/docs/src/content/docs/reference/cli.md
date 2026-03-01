@@ -102,6 +102,7 @@ The `<task>` argument accepts:
 | `--methodology <name>` | string | `tdd` | Development approach: `tdd` or `standard` |
 | `--reviewer-fallback <name>` | string | `codex` | Fallback reviewer if primary fails |
 | `--reviewer-retries <n>` | number | `1` | Max reviewer retry attempts |
+| `--coder-fallback <name>` | string | — | Fallback coder if primary hits rate limit |
 
 ### Session limits
 
