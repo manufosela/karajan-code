@@ -366,7 +366,13 @@
 
 
 
-<table><thead><tr><th>Flag</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr></thead><tbody><tr><td><code dir="auto">--max-iterations &#x3C;n></code></td><td>number</td><td><code dir="auto">5</code></td><td>Máximo de bucles coder/reviewer</td></tr><tr><td><code dir="auto">--max-iteration-minutes &#x3C;n></code></td><td>number</td><td><code dir="auto">15</code></td><td>Timeout por iteración (minutos)</td></tr><tr><td><code dir="auto">--max-total-minutes &#x3C;n></code></td><td>number</td><td><code dir="auto">120</code></td><td>Timeout total de sesión (minutos)</td></tr></tbody></table>
+
+
+
+
+
+
+<table><thead><tr><th>Flag</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr></thead><tbody><tr><td><code dir="auto">--max-iterations &#x3C;n></code></td><td>number</td><td><code dir="auto">5</code></td><td>Máximo de bucles coder/reviewer</td></tr><tr><td><code dir="auto">--max-iteration-minutes &#x3C;n></code></td><td>number</td><td><code dir="auto">15</code></td><td>Timeout por iteración (minutos)</td></tr><tr><td><code dir="auto">--max-total-minutes &#x3C;n></code></td><td>number</td><td><code dir="auto">120</code></td><td>Timeout total de sesión (minutos)</td></tr><tr><td><code dir="auto">--checkpoint-interval &#x3C;n></code></td><td>number</td><td><code dir="auto">5</code></td><td>Minutos entre checkpoints interactivos (0 para desactivar)</td></tr></tbody></table>
 <div class="sl-heading-wrapper level-h3"><h3 id="opciones-de-git">Opciones de Git</h3><a class="sl-anchor-link" href="#opciones-de-git"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Opciones de Git»</span></a></div>
 
 
@@ -452,7 +458,19 @@
 
 
 
-<table><thead><tr><th>Flag</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr></thead><tbody><tr><td><code dir="auto">--no-sonar</code></td><td>boolean</td><td><code dir="auto">false</code></td><td>Saltar análisis SonarQube</td></tr><tr><td><code dir="auto">--pg-task &#x3C;cardId></code></td><td>string</td><td>—</td><td>ID de card del Planning Game</td></tr><tr><td><code dir="auto">--pg-project &#x3C;projectId></code></td><td>string</td><td>—</td><td>ID de proyecto del Planning Game</td></tr></tbody></table>
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Flag</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr></thead><tbody><tr><td><code dir="auto">--no-sonar</code></td><td>boolean</td><td><code dir="auto">false</code></td><td>Saltar análisis SonarQube</td></tr><tr><td><code dir="auto">--pg-task &#x3C;cardId></code></td><td>string</td><td>—</td><td>ID de card del Planning Game</td></tr><tr><td><code dir="auto">--pg-project &#x3C;projectId></code></td><td>string</td><td>—</td><td>ID de proyecto del Planning Game</td></tr><tr><td><code dir="auto">--smart-models</code></td><td>boolean</td><td>de config</td><td>Activar selección inteligente de modelos según complejidad del triage</td></tr><tr><td><code dir="auto">--no-smart-models</code></td><td>boolean</td><td>—</td><td>Desactivar selección inteligente de modelos</td></tr></tbody></table>
 <div class="sl-heading-wrapper level-h3"><h3 id="output">Output</h3><a class="sl-anchor-link" href="#output"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Output»</span></a></div>
 
 

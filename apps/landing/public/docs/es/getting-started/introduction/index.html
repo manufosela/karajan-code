@@ -107,6 +107,10 @@
 <li><strong>Gestión de sesiones</strong> — pausa/reanudación con detección fail-fast</li>
 <li><strong>Sistema de plugins</strong> — extiende con agentes custom</li>
 <li><strong>Retry con backoff</strong> — recuperación automática ante errores transitorios de API</li>
+<li><strong>Selección inteligente de modelos</strong> — auto-selecciona el modelo óptimo por rol según la complejidad del triage</li>
+<li><strong>Resiliencia ante rate limits</strong> — detecta rate limits, pausa la sesión, auto-fallback a otro agente</li>
+<li><strong>Checkpoints interactivos</strong> — pausa cada 5 minutos con informe de progreso en lugar de matar tareas largas</li>
+<li><strong>Descomposición de tareas</strong> — triage detecta cuándo dividir tareas y crea subtareas vinculadas en Planning Game</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="mejor-con-mcp">Mejor con MCP</h2><a class="sl-anchor-link" href="#mejor-con-mcp"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Mejor con MCP»</span></a></div>
 <p>Karajan Code está diseñado para usarse como <strong>servidor MCP</strong> dentro de tu agente de IA (Claude, Codex, etc.). El agente envía tareas a <code dir="auto">kj_run</code>, recibe notificaciones de progreso en tiempo real, y obtiene resultados estructurados — sin copiar y pegar.</p>
