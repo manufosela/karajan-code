@@ -153,7 +153,29 @@ Durante la ejecución, Karajan envía **notificaciones de progreso en tiempo rea
 [1] session:end — Pipeline completado
 ```
 
-Las etapas de progreso incluyen: `session:start`, `iteration:start`, `planner:start/end`, `coder:start/end`, `refactorer:start/end`, `tdd:result`, `sonar:start/end`, `reviewer:start/end`, `iteration:end`, `solomon:escalate`, `question`, `session:end`.
+Las etapas de progreso incluyen: `session:start`, `iteration:start`, `planner:start/end`, `coder:start/end`, `refactorer:start/end`, `tdd:result`, `sonar:start/end`, `reviewer:start/end`, `iteration:end`, `solomon:escalate`, `question`, `session:end`, `pipeline:tracker`.
+
+### Tracker acumulativo del pipeline
+
+Además de los eventos individuales de stage, Karajan emite un evento `pipeline:tracker` tras cada transición de stage con el estado acumulativo completo:
+
+```json
+{
+  "type": "pipeline:tracker",
+  "detail": {
+    "stages": [
+      { "name": "triage", "status": "done", "summary": "medium" },
+      { "name": "coder", "status": "running", "summary": "claude/sonnet" },
+      { "name": "sonar", "status": "pending" },
+      { "name": "reviewer", "status": "pending" }
+    ]
+  }
+}
+```
+
+Esto permite a los hosts MCP renderizar un único widget de progreso mostrando todas las stages de un vistazo, en lugar de interpretar eventos individuales.
+
+Para herramientas single-agent (`kj_code`, `kj_review`, `kj_plan`), también se emiten logs de tracker start/end via `sendLoggingMessage`.
 
 ## Formato de respuesta
 

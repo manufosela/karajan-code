@@ -28,3 +28,23 @@ triage? → researcher? → planner? → coder → refactorer? → sonar? → re
 | **commiter** | Git commit, push, and PR automation after approval | Off |
 
 Roles marked with `?` are optional and can be enabled per-run or via config.
+
+## Pipeline Stage Tracker
+
+During `kj_run`, Karajan emits a cumulative `pipeline:tracker` event after every stage transition. This gives MCP hosts (Claude Code, Codex, etc.) a single event with the full state of all stages:
+
+```
+  ┌ Pipeline
+  │ ✓ triage → medium
+  │ ✓ planner → 5 steps
+  │ ▶ coder (claude/sonnet)
+  │ · sonar
+  │ · reviewer
+  └
+```
+
+Status icons: `✓` done, `▶` running, `·` pending, `✗` failed.
+
+Each stage includes an optional `summary` — the provider name while running, or a result summary when done.
+
+For single-agent tools (`kj_code`, `kj_review`, `kj_plan`), tracker start/end logs are also emitted so hosts can show which agent is active.

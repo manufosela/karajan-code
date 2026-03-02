@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador local multi-agente con TDD, SonarQube y revisión de código automatizada.
 template: splash
 hero:
-  tagline: "v1.4.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.8.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -37,6 +37,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
   </Card>
   <Card title="Sistema de Plugins" icon="add-document">
     Extiende con agentes custom via `.karajan/plugins/`. Auto-descubiertos al iniciar.
+  </Card>
+  <Card title="Pipeline Tracker" icon="list-format">
+    Vista de progreso acumulativo durante `kj_run` — ve qué stages están completadas, en ejecución o pendientes en tiempo real via MCP y CLI.
   </Card>
   <Card title="Resiliencia de Agentes" icon="random">
     Detecta rate limits automáticamente y cambia a agentes alternativos. Las sesiones se pausan en vez de fallar.

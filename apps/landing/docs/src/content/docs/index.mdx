@@ -3,7 +3,7 @@ title: Karajan Code
 description: Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.4.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
+  tagline: "v1.8.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -37,6 +37,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` chains a
   </Card>
   <Card title="Plugin System" icon="add-document">
     Extend with custom agents via `.karajan/plugins/`. Auto-discovered at startup.
+  </Card>
+  <Card title="Pipeline Tracker" icon="list-format">
+    Cumulative progress view during `kj_run` — see which stages are done, running, or pending in real time via MCP and CLI.
   </Card>
   <Card title="Agent Resilience" icon="random">
     Auto-detects rate limits and falls back to alternative agents. Sessions pause instead of failing.
