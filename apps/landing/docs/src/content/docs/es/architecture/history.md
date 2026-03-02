@@ -183,6 +183,44 @@ Descomposición de triage:
 
 **Por qué:** El timeout duro era un instrumento brusco — mataba el proceso sin importar el progreso, perdiendo todo el trabajo. Los checkpoints interactivos dan control al usuario: ver qué se ha hecho, decidir si continuar y ajustar el timing. La descomposición de tareas evita sobrecargar una sola ejecución del pipeline con trabajo que debería ser múltiples tareas secuenciales.
 
+## Fase 9: Handlers MCP In-Process (v1.7)
+
+**Qué cambió:** Se movieron `kj_code`, `kj_review` y `kj_plan` de ejecución como subproceso a ejecución in-process dentro del servidor MCP, y se añadió reinicio automático basado en versión.
+
+**Adiciones clave:**
+- Ejecución in-process: `kj_code`, `kj_review`, `kj_plan` ahora se ejecutan dentro del proceso del servidor MCP (como `kj_run`), eliminando los timeouts de subproceso que mataban tareas vía SIGKILL
+- Version watcher: `setupVersionWatcher` detecta cambios de versión en `package.json` tras `npm link`/`npm install` y termina limpiamente para que el host MCP reinicie con código fresco
+- Verificación de versión por llamada como fallback del watcher
+- Lecturas dinámicas de versión desde `package.json` en lugar de strings hardcoded
+
+**Por qué:** El modelo de subproceso imponía un timeout vía execa que mataba los agentes a mitad de trabajo con SIGKILL. La ejecución in-process da a los agentes tiempo ilimitado — el orquestador gestiona el ciclo de vida, no el gestor de procesos. El version watcher resolvió un problema doloroso del desarrollo: el caching de módulos ESM hacía que el servidor MCP siguiera ejecutando código antiguo tras actualizaciones.
+
+## Fase 10: Pipeline Stage Tracker (v1.8)
+
+**Qué cambió:** Se añadió tracking acumulativo del progreso del pipeline — un único evento mostrando el estado completo de todas las stages tras cada transición.
+
+**Adiciones clave:**
+- Evento `pipeline:tracker` emitido tras cada transición de stage durante `kj_run`, con estado acumulativo (done/running/pending/failed) para todas las stages del pipeline
+- Logging de progreso single-agent: `kj_code`, `kj_review`, `kj_plan` emiten logs de tracker start/end para que los hosts MCP puedan mostrar qué agente está activo
+- Renderizado CLI: `kj run` muestra un cuadro acumulativo del pipeline con iconos de estado por stage
+- `buildPipelineTracker(config, emitter)` construye la lista de stages desde la config y se auto-registra en el event emitter
+- `sendTrackerLog(server, stageName, status, summary)` helper para handlers single-agent
+
+**Adición a la arquitectura:**
+```
+Eventos del pipeline kj_run (antes de v1.8):
+  coder:start → coder:end → sonar:start → sonar:end → reviewer:start → ...
+  (el host debe reconstruir el estado desde eventos individuales)
+
+Eventos del pipeline kj_run (v1.8+):
+  coder:start → pipeline:tracker { stages: [{coder: running}, {sonar: pending}, ...] }
+  coder:end   → pipeline:tracker { stages: [{coder: done}, {sonar: pending}, ...] }
+  sonar:start → pipeline:tracker { stages: [{coder: done}, {sonar: running}, ...] }
+  (el host recibe el estado completo en cada evento — sin reconstrucción necesaria)
+```
+
+**Por qué:** Los hosts MCP recibían eventos individuales `*:start`/`*:end` pero no tenían una vista acumulativa. Cada host tenía que mantener su propia máquina de estados para reconstruir el progreso del pipeline. El tracker centraliza esta lógica — un evento, un snapshot, cero gestión de estado en el host. Para herramientas single-agent (`kj_code`/`kj_review`/`kj_plan`), antes no había feedback de progreso; ahora los hosts ven logs de tracker start/end.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
