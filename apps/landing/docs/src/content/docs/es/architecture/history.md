@@ -153,6 +153,36 @@ triage → level ("simple")
 
 **Por qué:** No todas las tareas merecen el modelo más potente (y lento). Un fix de typo no necesita Opus, y un refactor complejo no debería usar Haiku. La selección inteligente optimiza tres cosas: velocidad (modelos ligeros responden más rápido), calidad (tareas complejas obtienen modelos potentes) y consumo de cuota de tokens (modelos ligeros consumen menos de tu ventana de suscripción, reduciendo el riesgo de rate limit).
 
+## Fase 8: Checkpoints Interactivos y Descomposición de Tareas (v1.6)
+
+**Qué cambió:** Se reemplazó el timeout duro que mataba los procesos en ejecución por un sistema de checkpoints interactivos, y se añadió descomposición automática de tareas con integración Planning Game.
+
+**Adiciones clave:**
+- Checkpoints interactivos: cada 5 minutos (configurable con `--checkpoint-interval`), pausa la ejecución con un informe de progreso y pregunta al usuario si continuar (5 min más / hasta terminar / tiempo personalizado / parar)
+- Solo aplica cuando `askQuestion` está disponible (MCP `kj_run`); los comandos subprocess (`kj_code`, `kj_review`) ejecutan sin timeout por defecto
+- Descomposición de tareas en triage: analiza si la tarea debería dividirse, devolviendo `shouldDecompose` y `subtasks[]`
+- Creación de subtareas en PG: cuando triage recomienda descomposición y hay una card de Planning Game vinculada, crea cards de subtareas con relaciones `blocks/blockedBy` en cadena
+- El planner recibe contexto de descomposición, centrándose en la primera subtarea
+- Enriquecimiento del body de PR con approach, pasos y subtareas pendientes como checkboxes
+- Tracking de provider y modelo en todos los checkpoints de sesión
+
+**Adición a la arquitectura:**
+```
+MCP kj_run:
+  bucle de iteraciones
+    ├── temporizador de checkpoint (cada N min)
+    │     └── askQuestion → continuar / parar / ajustar
+    ├── coder → sonar → reviewer
+    └── siguiente iteración
+
+Descomposición de triage:
+  triage → shouldDecompose: true, subtasks: [...]
+         → askQuestion("¿Crear subtareas en PG?")
+         → PG API: createCard × N → relateCards (cadena blocks)
+```
+
+**Por qué:** El timeout duro era un instrumento brusco — mataba el proceso sin importar el progreso, perdiendo todo el trabajo. Los checkpoints interactivos dan control al usuario: ver qué se ha hecho, decidir si continuar y ajustar el timing. La descomposición de tareas evita sobrecargar una sola ejecución del pipeline con trabajo que debería ser múltiples tareas secuenciales.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

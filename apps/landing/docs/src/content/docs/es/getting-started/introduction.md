@@ -40,6 +40,10 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 - **Gestión de sesiones** — pausa/reanudación con detección fail-fast
 - **Sistema de plugins** — extiende con agentes custom
 - **Retry con backoff** — recuperación automática ante errores transitorios de API
+- **Selección inteligente de modelos** — auto-selecciona el modelo óptimo por rol según la complejidad del triage
+- **Resiliencia ante rate limits** — detecta rate limits, pausa la sesión, auto-fallback a otro agente
+- **Checkpoints interactivos** — pausa cada 5 minutos con informe de progreso en lugar de matar tareas largas
+- **Descomposición de tareas** — triage detecta cuándo dividir tareas y crea subtareas vinculadas en Planning Game
 
 ## Mejor con MCP
 

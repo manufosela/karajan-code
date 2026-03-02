@@ -111,6 +111,7 @@ The `<task>` argument accepts:
 | `--max-iterations <n>` | number | `5` | Max coder/reviewer loops |
 | `--max-iteration-minutes <n>` | number | `15` | Timeout per iteration (minutes) |
 | `--max-total-minutes <n>` | number | `120` | Total session timeout (minutes) |
+| `--checkpoint-interval <n>` | number | `5` | Minutes between interactive checkpoints (0 to disable) |
 
 ### Git options
 
@@ -131,6 +132,8 @@ The `<task>` argument accepts:
 | `--no-sonar` | boolean | `false` | Skip SonarQube analysis |
 | `--pg-task <cardId>` | string | — | Planning Game card ID |
 | `--pg-project <projectId>` | string | — | Planning Game project ID |
+| `--smart-models` | boolean | from config | Enable smart model selection based on triage complexity |
+| `--no-smart-models` | boolean | — | Disable smart model selection |
 
 ### Output
 

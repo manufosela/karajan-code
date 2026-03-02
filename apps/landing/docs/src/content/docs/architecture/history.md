@@ -153,6 +153,36 @@ triage → level ("simple")
 
 **Why:** Not all tasks deserve the most powerful (and slowest) model. A typo fix doesn't need Opus, and a complex refactor shouldn't use Haiku. Smart selection optimizes three things: speed (lighter models respond faster), quality (complex tasks get powerful models), and token quota usage (lighter models consume less of your subscription window, reducing rate limit risk).
 
+## Phase 8: Interactive Checkpoints & Task Decomposition (v1.6)
+
+**What changed:** Replaced the hard timeout that killed running processes with an interactive checkpoint system, and added automatic task decomposition with Planning Game integration.
+
+**Key additions:**
+- Interactive checkpoints: every 5 minutes (configurable with `--checkpoint-interval`), pauses execution with a progress report and asks the user to continue (5 more min / until done / custom time / stop)
+- Only applies when `askQuestion` is available (MCP `kj_run`); subprocess commands (`kj_code`, `kj_review`) run without timeout by default
+- Triage task decomposition: analyzes whether tasks should be split, returning `shouldDecompose` and `subtasks[]` fields
+- PG subtask creation: when triage recommends decomposition and a Planning Game card is linked, creates subtask cards with `blocks/blockedBy` chain relationships
+- Planner receives decomposition context, focusing on the first subtask
+- PR body enrichment with approach, steps, and pending subtasks as checkboxes
+- Provider and model tracking in all session checkpoints
+
+**Architecture addition:**
+```
+MCP kj_run:
+  iteration loop
+    ├── checkpoint timer (every N min)
+    │     └── askQuestion → continue / stop / adjust
+    ├── coder → sonar → reviewer
+    └── next iteration
+
+Triage decomposition:
+  triage → shouldDecompose: true, subtasks: [...]
+         → askQuestion("Create PG subtasks?")
+         → PG API: createCard × N → relateCards (blocks chain)
+```
+
+**Why:** The hard timeout was a blunt instrument — it killed the process regardless of progress, losing all work. Interactive checkpoints give the user control: see what's been done, decide whether to continue, and adjust timing. Task decomposition prevents overloading a single pipeline run with work that should be multiple sequential tasks.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
