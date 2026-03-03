@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 11 Karajan Code MCP tools.
+description: Complete parameter reference for all 12 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -173,6 +173,16 @@ List pipeline roles or show a specific role template.
 | `action` | string | No | `list` | Action: `list` \| `show` |
 | `roleName` | string | No | `null` | Role to inspect (e.g., `coder`, `reviewer`, `reviewer-paranoid`) |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## kj_status
+
+Show real-time log of the current or last Karajan run. Reads from `.kj/run.log` in the project directory.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `lines` | number | No | `50` | Number of log lines to show |
 
 ---
 

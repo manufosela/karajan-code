@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 11 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 12 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -173,6 +173,16 @@ Listar roles del pipeline o mostrar un template de rol específico.
 | `action` | string | No | `list` | Acción: `list` \| `show` |
 | `roleName` | string | No | `null` | Rol a inspeccionar (ej: `coder`, `reviewer`, `reviewer-paranoid`) |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
+
+---
+
+## kj_status
+
+Muestra el log en tiempo real de la ejecución actual o última de Karajan. Lee de `.kj/run.log` en el directorio del proyecto.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `lines` | number | No | `50` | Número de líneas del log a mostrar |
 
 ---
 

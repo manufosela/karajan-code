@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador local multi-agente con TDD, SonarQube y revisión de código automatizada.
 template: splash
 hero:
-  tagline: "v1.8.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.9.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -30,7 +30,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
     Claude, Codex, Gemini y Aider. Combínalos — usa Claude como coder y Codex como reviewer, o cualquier combinación.
   </Card>
   <Card title="Servidor MCP" icon="puzzle">
-    11 herramientas expuestas via MCP. Usa `kj` desde Claude, Codex o cualquier host compatible con MCP.
+    12 herramientas expuestas via MCP. Usa `kj` desde Claude, Codex o cualquier host compatible con MCP.
   </Card>
   <Card title="TDD Obligatorio" icon="approve-check">
     Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
@@ -43,6 +43,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
   </Card>
   <Card title="Resiliencia de Agentes" icon="random">
     Detecta rate limits automáticamente y cambia a agentes alternativos. Las sesiones se pausan en vez de fallar.
+  </Card>
+  <Card title="Monitorización en Tiempo Real" icon="seti:log">
+    Detector de stalls vigila cada agente con heartbeats y avisos. Log en tiempo real monitorizable con `tail -f` o `kj_status`.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.

@@ -488,7 +488,7 @@
   <!-- PIPELINE -->
   <section class="pipeline-section fade-in">
     <h2 class="section-title">The Pipeline</h2>
-    <p class="section-sub">11 roles chained with quality gates. The loop runs until code is approved or the iteration limit is reached.</p>
+    <p class="section-sub">11 roles chained with quality gates. Real-time monitoring with stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
 
     <div class="pipeline-flow">
       <span class="pipeline-node optional">triage</span>
@@ -538,7 +538,7 @@
       <div class="feature-card">
         <div class="feature-icon fi-indigo">&#11208;</div>
         <h3>MCP Server</h3>
-        <p>11 tools exposed via MCP. Use <code>kj</code> from Claude, Codex, or any MCP-compatible host without leaving your agent.</p>
+        <p>12 tools exposed via MCP. Use <code>kj</code> from Claude, Codex, or any MCP-compatible host without leaving your agent.</p>
       </div>
 
       <div class="feature-card">
@@ -593,6 +593,12 @@
         <div class="feature-icon fi-blue">&#9000;</div>
         <h3>Task Decomposition</h3>
         <p>Triage detects when a task should be split and recommends subtasks. With Planning Game integration, creates linked cards with sequential blocking for ordered execution.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-teal">&#9673;</div>
+        <h3>Real-Time Monitoring</h3>
+        <p>Stall detector watches every agent with heartbeats and warnings. File-based run log at <code>.kj/run.log</code> for live monitoring with <code>tail -f</code> or <code>kj_status</code>. Stream-JSON output from Claude CLI for instant feedback.</p>
       </div>
 
     </div>
@@ -650,7 +656,7 @@
   <!-- MCP -->
   <section class="mcp-section fade-in">
     <h2 class="section-title">MCP Server Included</h2>
-    <p class="section-sub">Use <code>kj</code> as a tool inside your AI agent. Send tasks, get real-time progress, receive structured results.</p>
+    <p class="section-sub">Use <code>kj</code> as a tool inside your AI agent. Send tasks, get real-time progress via <code>kj_status</code>, receive structured results.</p>
     <div class="mcp-box">
       <p class="mcp-desc">After <code>npm install -g karajan-code</code>, the MCP server auto-registers in Claude and Codex. Or add it manually:</p>
       <pre><code>{
@@ -672,6 +678,7 @@
         <span class="mcp-tool">kj_config</span>
         <span class="mcp-tool">kj_init</span>
         <span class="mcp-tool">kj_roles</span>
+        <span class="mcp-tool">kj_status</span>
       </div>
     </div>
   </section>
@@ -685,7 +692,7 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
     </div>
-    <p>Karajan Code v1.7.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p>Karajan Code v1.9.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
     <p style="margin-top: 0.5rem;">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
