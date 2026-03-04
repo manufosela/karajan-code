@@ -221,6 +221,26 @@ kj_run pipeline events (v1.8+):
 
 **Why:** MCP hosts received individual `*:start`/`*:end` events but had no cumulative view. Each host had to maintain its own state machine to reconstruct pipeline progress. The tracker centralizes this logic — one event, one snapshot, zero host-side state management. For single-agent tools (`kj_code`/`kj_review`/`kj_plan`), there was previously zero progress feedback; now hosts see start/end tracker logs.
 
+## Phase 11: Planner Reliability & MCP Lifecycle Hardening (v1.9 - v1.9.3)
+
+**What changed:** Strengthened `kj_plan` anti-hang behavior and clarified MCP lifecycle during upgrades.
+
+**Key additions:**
+- Planner guardrails promoted and documented: `session.max_agent_silence_minutes` and `session.max_planner_minutes` prevent silent or runaway planning executions
+- Better planner diagnostics in MCP responses/logs: clearer failure categories and actionable suggestions when stalls/timeouts happen
+- MCP lifecycle hardening for upgrades: stale server processes exit after version changes so hosts reconnect with fresh code instead of running mixed versions
+- Operational troubleshooting guidance added for the expected `Transport closed` scenario after updates
+
+**Architecture addition:**
+```
+MCP host session (old process)
+    └─ package version changes
+        └─ stale karajan-mcp exits
+            └─ host reconnects and spawns fresh version
+```
+
+**Why:** Long planning prompts can look "stuck" when an agent stays silent for too long, and upgrades can leave MCP hosts attached to stale processes. v1.9.x focused on operational reliability: fail fast with useful diagnostics, and make MCP process lifecycle predictable after version bumps.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

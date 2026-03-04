@@ -18,6 +18,18 @@ The postinstall hook writes the server configuration to:
 
 Registration is idempotent — safe to run multiple times.
 
+### After updates: `Transport closed`
+
+If you upgrade Karajan Code while your MCP host session is still open, the current `karajan-mcp` process may exit and the host can show `Transport closed`.
+
+This is expected: Karajan MCP exits stale processes after version changes so the host can restart with fresh code.
+
+Quick recovery:
+
+1. Restart your MCP host session (Claude/Codex).
+2. Confirm the server is listed (`codex mcp list` or host equivalent).
+3. Run `kj_config` (and optionally a short `kj_plan`) before long tasks.
+
 ## Manual configuration
 
 If auto-registration doesn't work or you need custom paths:

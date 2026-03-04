@@ -18,6 +18,18 @@ El hook de postinstall escribe la configuración del servidor en:
 
 El registro es idempotente — se puede ejecutar múltiples veces sin problemas.
 
+### Tras actualizar: `Transport closed`
+
+Si actualizas Karajan Code mientras la sesión de tu host MCP sigue abierta, el proceso actual de `karajan-mcp` puede cerrarse y el host mostrar `Transport closed`.
+
+Esto es esperado: Karajan MCP cierra procesos obsoletos tras cambios de versión para que el host reinicie con código fresco.
+
+Recuperación rápida:
+
+1. Reinicia la sesión del host MCP (Claude/Codex).
+2. Confirma que el servidor aparece listado (`codex mcp list` o equivalente en tu host).
+3. Ejecuta `kj_config` (y opcionalmente un `kj_plan` corto) antes de tareas largas.
+
 ## Configuración manual
 
 Si el auto-registro no funciona o necesitas rutas personalizadas:

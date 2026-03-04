@@ -225,6 +225,24 @@ reviewer_fallback: claude
 
 ## MCP Server Issues
 
+### `Transport closed` after updating Karajan Code
+
+**Symptom:** MCP calls fail immediately (even `kj_config` / `kj_plan`) and your host reports `Transport closed`.
+
+**Cause:** The MCP host is still connected to an older `karajan-mcp` process. After a version change, Karajan exits stale MCP processes so the host can restart with the updated code.
+
+**Fix:**
+
+```bash
+# 1) restart your MCP host session (Claude/Codex)
+
+# 2) verify server registration/list
+codex mcp list
+
+# 3) smoke check before long runs
+# call kj_config, then a short kj_plan
+```
+
 ### MCP server not responding
 
 **Symptom:** Claude Code or Codex can't connect to `karajan-mcp`.
