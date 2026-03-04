@@ -45,7 +45,7 @@ Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificacio
 | `pgProject` | string | No | `null` | ID de proyecto en Planning Game |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
@@ -59,7 +59,7 @@ Modo solo coder — salta el bucle de revisión. Útil para cambios rápidos.
 | `coder` | string | No | Desde config | Agente IA para codificación |
 | `coderModel` | string | No | `null` | Modelo específico para el coder |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
@@ -74,13 +74,13 @@ Modo solo reviewer sobre el diff actual. Útil tras cambios manuales.
 | `reviewerModel` | string | No | `null` | Modelo específico para el reviewer |
 | `baseRef` | string | No | `null` | Ref base para comparación de diff |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
 ## kj_plan
 
-Generar un plan de implementación sin escribir código.
+Generar un plan de implementación sin escribir código, con telemetría de heartbeat/stall y diagnóstico más claro en ejecuciones largas.
 
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
@@ -88,7 +88,7 @@ Generar un plan de implementación sin escribir código.
 | `planner` | string | No | Desde config | Agente IA para planificación |
 | `plannerModel` | string | No | `null` | Modelo específico para el planner |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
@@ -127,7 +127,7 @@ Ejecutar escaneo SonarQube en el proyecto actual.
 |-----------|------|-----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
@@ -138,7 +138,7 @@ Inicializar configuración de karajan-code, reglas de revisión y SonarQube.
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Directorio KJ_HOME personalizado |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 
@@ -149,7 +149,7 @@ Verificar dependencias del sistema y CLIs de agentes (claude, codex, gemini, aid
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
-| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos |
+| `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---
 

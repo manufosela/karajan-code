@@ -45,7 +45,7 @@ Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress
 | `pgProject` | string | No | `null` | Planning Game project ID |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 | `sonarToken` | string | No | From config | Override SonarQube token |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
@@ -59,7 +59,7 @@ Run coder-only mode — skip the review loop. Useful for quick changes.
 | `coder` | string | No | From config | AI agent for coding |
 | `coderModel` | string | No | `null` | Specific model for coder |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
@@ -74,13 +74,13 @@ Run reviewer-only mode against the current diff. Useful after manual changes.
 | `reviewerModel` | string | No | `null` | Specific model for reviewer |
 | `baseRef` | string | No | `null` | Base ref for diff comparison |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
 ## kj_plan
 
-Generate an implementation plan without writing code.
+Generate an implementation plan without writing code, with heartbeat/stall telemetry and clearer diagnostics for long runs.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -88,7 +88,7 @@ Generate an implementation plan without writing code.
 | `planner` | string | No | From config | AI agent for planning |
 | `plannerModel` | string | No | `null` | Specific model for planner |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
@@ -127,7 +127,7 @@ Run SonarQube scan on the current project.
 |-----------|------|----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 | `sonarToken` | string | No | From config | Override SonarQube token |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
@@ -138,7 +138,7 @@ Initialize karajan-code configuration, review rules, and SonarQube setup.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Custom KJ_HOME directory |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
@@ -149,7 +149,7 @@ Check system dependencies and agent CLIs (claude, codex, gemini, aider).
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
-| `timeoutMs` | number | No | `null` | Command timeout in milliseconds |
+| `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
 ---
 
