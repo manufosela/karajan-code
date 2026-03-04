@@ -305,6 +305,8 @@ The Git automation flow after approval: rebase (if enabled) &rarr; commit &rarr;
 session:
   max_iteration_minutes: 15
   max_total_minutes: 120
+  max_planner_minutes: 60
+  max_agent_silence_minutes: 20
   fail_fast_repeats: 2
   repeat_detection_threshold: 2
   max_sonar_retries: 3
@@ -318,6 +320,8 @@ session:
 |-------|------|---------|-------------|
 | `max_iteration_minutes` | number | `15` | Time limit per coder-reviewer cycle |
 | `max_total_minutes` | number | `120` | Total session time limit |
+| `max_planner_minutes` | number | `60` | Hard runtime cap for planner-only execution (`kj_plan`/`kj plan`) |
+| `max_agent_silence_minutes` | number | `20` | Kill agent run if no output is received for this many minutes |
 | `fail_fast_repeats` | number | `2` | Exit after N repeated identical failures |
 | `repeat_detection_threshold` | number | `2` | Iterations before detecting repeating patterns |
 | `max_sonar_retries` | number | `3` | Max SonarQube scan retries |
