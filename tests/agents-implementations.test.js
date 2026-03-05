@@ -205,4 +205,46 @@ describe("Agent implementations", () => {
       expect(args).toContain("gpt-4-turbo");
     });
   });
+
+  describe("OpenCodeAgent", () => {
+    it("runs task with opencode run and prompt as argument", async () => {
+      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
+      await agent.runTask({ prompt: "fix bug", role: "coder" });
+
+      const args = runCommand.mock.calls[0][1];
+      expect(args[0]).toBe("run");
+      expect(args[args.length - 1]).toBe("fix bug");
+    });
+
+    it("adds --model flag when configured", async () => {
+      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const config = { ...baseConfig, roles: { coder: { model: "anthropic/claude-3-5-sonnet" }, reviewer: {} } };
+      const agent = new OpenCodeAgent("opencode", config, logger);
+      await agent.runTask({ prompt: "work", role: "coder" });
+
+      const args = runCommand.mock.calls[0][1];
+      expect(args).toContain("--model");
+      expect(args).toContain("anthropic/claude-3-5-sonnet");
+    });
+
+    it("reviews with --format json", async () => {
+      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
+      await agent.reviewTask({ prompt: "review code", role: "reviewer" });
+
+      const args = runCommand.mock.calls[0][1];
+      expect(args).toContain("--format");
+      expect(args).toContain("json");
+    });
+
+    it("returns structured result", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "done", stderr: "warn" });
+      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
+      const result = await agent.runTask({ prompt: "work", role: "coder" });
+
+      expect(result).toEqual({ ok: true, output: "done", error: "warn", exitCode: 0 });
+    });
+  });
 });

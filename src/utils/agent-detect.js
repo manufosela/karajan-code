@@ -5,7 +5,8 @@ const KNOWN_AGENTS = [
   { name: "claude", install: "npm install -g @anthropic-ai/claude-code" },
   { name: "codex", install: "npm install -g @openai/codex" },
   { name: "gemini", install: "npm install -g @anthropic-ai/gemini-code (or check Gemini CLI docs)" },
-  { name: "aider", install: "pip install aider-chat" }
+  { name: "aider", install: "pip install aider-chat" },
+  { name: "opencode", install: "curl -fsSL https://opencode.ai/install | bash (or see https://opencode.ai)" }
 ];
 
 export async function checkBinary(name, versionArg = "--version") {

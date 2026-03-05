@@ -2,6 +2,7 @@ import { ClaudeAgent } from "./claude-agent.js";
 import { CodexAgent } from "./codex-agent.js";
 import { GeminiAgent } from "./gemini-agent.js";
 import { AiderAgent } from "./aider-agent.js";
+import { OpenCodeAgent } from "./opencode-agent.js";
 
 const agentRegistry = new Map();
 
@@ -38,3 +39,4 @@ registerAgent("claude", ClaudeAgent, { bin: "claude", installUrl: "https://docs.
 registerAgent("codex", CodexAgent, { bin: "codex", installUrl: "https://developers.openai.com/codex/cli" });
 registerAgent("gemini", GeminiAgent, { bin: "gemini", installUrl: "https://github.com/google-gemini/gemini-cli" });
 registerAgent("aider", AiderAgent, { bin: "aider", installUrl: "https://aider.chat/docs/install.html" });
+registerAgent("opencode", OpenCodeAgent, { bin: "opencode", installUrl: "https://opencode.ai" });

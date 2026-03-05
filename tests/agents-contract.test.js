@@ -11,8 +11,8 @@ const logger = { info() {}, warn() {}, error() {}, debug() {} };
 describe("agent contract tests", () => {
   const agents = getAvailableAgents();
 
-  it("has at least 4 registered agents", () => {
-    expect(agents.length).toBeGreaterThanOrEqual(4);
+  it("has at least 5 registered agents", () => {
+    expect(agents.length).toBeGreaterThanOrEqual(5);
   });
 
   describe.each(agents.map((a) => [a.name]))("%s", (name) => {

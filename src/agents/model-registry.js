@@ -60,3 +60,4 @@ registerModel("gemini", { provider: "google", pricing: { input_per_million: 1.25
 registerModel("gemini/pro", { provider: "google", pricing: { input_per_million: 1.25, output_per_million: 5 } });
 registerModel("gemini/flash", { provider: "google", pricing: { input_per_million: 0.075, output_per_million: 0.3 } });
 registerModel("aider", { provider: "aider", pricing: { input_per_million: 3, output_per_million: 15 } });
+registerModel("opencode", { provider: "opencode", pricing: { input_per_million: 0, output_per_million: 0 } });
