@@ -221,7 +221,7 @@ kj_run pipeline events (v1.8+):
 
 **Why:** MCP hosts received individual `*:start`/`*:end` events but had no cumulative view. Each host had to maintain its own state machine to reconstruct pipeline progress. The tracker centralizes this logic — one event, one snapshot, zero host-side state management. For single-agent tools (`kj_code`/`kj_review`/`kj_plan`), there was previously zero progress feedback; now hosts see start/end tracker logs.
 
-## Phase 11: Planner Reliability & MCP Lifecycle Hardening (v1.9 - v1.9.5)
+## Phase 11: Planner Reliability & MCP Lifecycle Hardening (v1.9 - v1.9.6)
 
 **What changed:** Strengthened `kj_plan` anti-hang behavior and clarified MCP lifecycle during upgrades.
 
@@ -231,7 +231,7 @@ kj_run pipeline events (v1.8+):
 - MCP lifecycle hardening for upgrades: stale server processes exit after version changes so hosts reconnect with fresh code instead of running mixed versions
 - Operational troubleshooting guidance added for the expected `Transport closed` scenario after updates
 - Branch guard for MCP tools: `kj_run`, `kj_code`, and `kj_review` reject execution when on the base branch to avoid empty diffs (v1.9.4)
-- Claude nesting guard bypass: `ClaudeAgent` strips `CLAUDECODE` env var before spawning subprocesses, fixing timeouts when running via MCP inside Claude Code 2.x (v1.9.5)
+- Claude subprocess compatibility: strips `CLAUDECODE` env var, detaches stdin, and reads structured output from stderr where Claude Code 2.x writes it (v1.9.5-v1.9.6)
 
 **Architecture addition:**
 ```

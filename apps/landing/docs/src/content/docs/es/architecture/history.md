@@ -221,7 +221,7 @@ Eventos del pipeline kj_run (v1.8+):
 
 **Por qué:** Los hosts MCP recibían eventos individuales `*:start`/`*:end` pero no tenían una vista acumulativa. Cada host tenía que mantener su propia máquina de estados para reconstruir el progreso del pipeline. El tracker centraliza esta lógica — un evento, un snapshot, cero gestión de estado en el host. Para herramientas single-agent (`kj_code`/`kj_review`/`kj_plan`), antes no había feedback de progreso; ahora los hosts ven logs de tracker start/end.
 
-## Fase 11: Fiabilidad del Planner y Hardening del Ciclo de Vida MCP (v1.9 - v1.9.5)
+## Fase 11: Fiabilidad del Planner y Hardening del Ciclo de Vida MCP (v1.9 - v1.9.6)
 
 **Qué cambió:** Se reforzó el comportamiento anti-cuelgue de `kj_plan` y se aclaró el ciclo de vida MCP durante actualizaciones.
 
@@ -231,7 +231,7 @@ Eventos del pipeline kj_run (v1.8+):
 - Hardening del ciclo de vida MCP en upgrades: los procesos obsoletos salen tras cambios de versión para que el host reconecte con código fresco en vez de mezclar versiones
 - Guía operativa de troubleshooting para el escenario esperado de `Transport closed` tras actualizaciones
 - Branch guard para herramientas MCP: `kj_run`, `kj_code` y `kj_review` rechazan la ejecución en la rama base para evitar diffs vacíos (v1.9.4)
-- Bypass del nesting guard de Claude: `ClaudeAgent` elimina la variable `CLAUDECODE` del entorno antes de lanzar subprocesos, corrigiendo timeouts al ejecutar vía MCP dentro de Claude Code 2.x (v1.9.5)
+- Compatibilidad del subprocess de Claude: elimina la variable `CLAUDECODE`, desvincula stdin y lee la salida estructurada de stderr donde Claude Code 2.x la escribe (v1.9.5-v1.9.6)
 
 **Adición a la arquitectura:**
 ```
