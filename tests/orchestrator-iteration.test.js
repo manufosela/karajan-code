@@ -282,8 +282,9 @@ describe("iteration-stages", () => {
       ).rejects.toThrow("Reviewer failed");
     });
 
-    it("returns stalled when reviewer issues repeat", async () => {
+    it("returns stalled when reviewer issues repeat and Solomon pauses", async () => {
       const { runReviewerWithFallback } = await import("../src/orchestrator/reviewer-fallback.js");
+      const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
       runReviewerWithFallback.mockResolvedValue({
         execResult: {
           ok: true,
@@ -291,12 +292,14 @@ describe("iteration-stages", () => {
         },
         attempts: []
       });
+      invokeSolomon.mockResolvedValue({ action: "pause", question: "Stalled" });
 
       const session = { id: "s1", session_start_sha: "abc", checkpoints: [] };
       const repeatDetector = {
         addIteration: vi.fn(),
         isStalled: vi.fn(() => ({ stalled: true, reason: "reviewer_repeat" })),
-        getRepeatCounts: vi.fn(() => ({ reviewer: 3 }))
+        getRepeatCounts: vi.fn(() => ({ reviewer: 3 })),
+        reviewer: { lastHash: null, repeatCount: 3 }
       };
 
       const result = await runReviewerStage({
@@ -307,7 +310,7 @@ describe("iteration-stages", () => {
       });
 
       expect(result.stalled).toBe(true);
-      expect(result.stalledResult.reason).toBe("stalled");
+      expect(result.stalledResult.context).toBe("reviewer_stalled");
     });
   });
 });

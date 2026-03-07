@@ -7,7 +7,8 @@ const DEFAULT_RULES = {
   max_files_per_iteration: 10,
   max_stale_iterations: 3,
   no_new_dependencies_without_task: true,
-  scope_guard: true
+  scope_guard: true,
+  reviewer_overreach: true
 };
 
 export function evaluateRules(context, rulesConfig = {}) {
@@ -59,6 +60,17 @@ export function evaluateRules(context, rulesConfig = {}) {
     });
   }
 
+  // Rule 5: Reviewer overreach — reviewer consistently flags out-of-scope issues
+  if (rules.reviewer_overreach && context.reviewerDemotedCount > 0) {
+    const severity = context.reviewerDemotedCount >= 3 ? "critical" : "warn";
+    alerts.push({
+      rule: "reviewer_overreach",
+      severity,
+      message: `Reviewer flagged ${context.reviewerDemotedCount} out-of-scope issue(s) that were auto-demoted by scope filter.`,
+      detail: { demotedCount: context.reviewerDemotedCount, autoApproved: context.reviewerAutoApproved || false }
+    });
+  }
+
   return {
     alerts,
     hasCritical: alerts.some(a => a.severity === "critical"),
@@ -76,8 +88,19 @@ export async function buildRulesContext({ session, task, iteration }) {
     filesChanged: 0,
     staleIterations: 0,
     newDependencies: [],
-    outOfScopeFiles: []
+    outOfScopeFiles: [],
+    reviewerDemotedCount: 0,
+    reviewerAutoApproved: false
   };
+
+  // Count reviewer scope-filter demotions from session checkpoints
+  const scopeFilterCheckpoints = (session.checkpoints || [])
+    .filter(cp => cp.stage === "reviewer-scope-filter");
+  if (scopeFilterCheckpoints.length > 0) {
+    const latest = scopeFilterCheckpoints.at(-1);
+    context.reviewerDemotedCount = latest.demoted_count || 0;
+    context.reviewerAutoApproved = latest.auto_approved || false;
+  }
 
   // Count files changed via git
   try {

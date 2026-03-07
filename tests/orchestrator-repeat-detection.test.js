@@ -69,6 +69,10 @@ vi.mock("../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
 }));
 
+vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Reviewer stalled" })
+}));
+
 vi.mock("../src/sonar/api.js", () => ({
   getQualityGateStatus: vi.fn(),
   getOpenIssues: vi.fn()
@@ -138,6 +142,9 @@ describe("orchestrator repeat detection", () => {
 
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("review rules");
+
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Reviewer stalled" });
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;
@@ -230,9 +237,9 @@ describe("orchestrator repeat detection", () => {
 
     const { markSessionStatus } = await import("../src/session-store.js");
     expect(markSessionStatus).toHaveBeenCalledWith(expect.any(Object), "stalled");
-    expect(result.approved).toBe(false);
-    expect(result.reason).toBe("stalled");
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Manual intervention"));
+    expect(result.paused).toBe(true);
+    expect(result.context).toBe("reviewer_stalled");
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Reviewer stalled"));
     expect(reviewerAgent.reviewTask).toHaveBeenCalledTimes(2);
   });
 });

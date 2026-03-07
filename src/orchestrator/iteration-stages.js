@@ -6,6 +6,7 @@ import { addCheckpoint, markSessionStatus, saveSession, pauseSession } from "../
 import { generateDiff } from "../review/diff-generator.js";
 import { evaluateTddPolicy } from "../review/tdd-policy.js";
 import { validateReviewResult } from "../review/schema.js";
+import { filterReviewScope, buildDeferredContext } from "../review/scope-filter.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { runReviewerWithFallback } from "./reviewer-fallback.js";
 import { runCoderWithFallback } from "./agent-fallback.js";
@@ -39,6 +40,7 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       task: plannedTask,
       reviewerFeedback: session.last_reviewer_feedback,
       sonarSummary: session.last_sonar_summary,
+      deferredContext: buildDeferredContext(session.deferred_issues),
       onOutput: coderStall.onOutput
     });
   } finally {
@@ -390,7 +392,7 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   return { action: "ok", stageResult };
 }
 
-export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary }) {
+export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary, askQuestion }) {
   logger.setContext({ iteration, stage: "reviewer" });
   emitProgress(
     emitter,
@@ -489,6 +491,39 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
       confidence: 0
     };
   }
+  // --- Scope filter: auto-defer out-of-scope blocking issues ---
+  const { review: filteredReview, demoted, deferred, allDemoted } = filterReviewScope(review, diff);
+  review = filteredReview;
+
+  if (demoted.length > 0) {
+    logger.info(`Scope filter: deferred ${demoted.length} out-of-scope issue(s)${allDemoted ? " — auto-approved" : ""}`);
+
+    // Accumulate deferred issues in session for tracking
+    if (!session.deferred_issues) session.deferred_issues = [];
+    session.deferred_issues.push(...deferred);
+    await saveSession(session);
+
+    emitProgress(
+      emitter,
+      makeEvent("reviewer:scope_filter", { ...eventBase, stage: "reviewer" }, {
+        message: `Scope filter deferred ${demoted.length} out-of-scope issue(s)`,
+        detail: {
+          demotedCount: demoted.length,
+          autoApproved: allDemoted,
+          totalDeferred: session.deferred_issues.length,
+          deferred: deferred.map(d => ({ file: d.file, id: d.id, description: d.description }))
+        }
+      })
+    );
+    await addCheckpoint(session, {
+      stage: "reviewer-scope-filter",
+      iteration,
+      demoted_count: demoted.length,
+      auto_approved: allDemoted,
+      total_deferred: session.deferred_issues.length
+    });
+  }
+
   await addCheckpoint(session, {
     stage: "reviewer",
     iteration,
@@ -518,8 +553,50 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     const repeatState = repeatDetector.isStalled();
     if (repeatState.stalled) {
       const repeatCounts = repeatDetector.getRepeatCounts();
+
+      // --- Solomon mediation for stalled reviewer ---
+      // Instead of immediately stopping, let Solomon arbitrate
+      logger.warn(`Reviewer stalled (${repeatCounts.reviewer} repeats). Invoking Solomon mediation.`);
+      emitProgress(
+        emitter,
+        makeEvent("solomon:escalate", { ...eventBase, stage: "reviewer" }, {
+          message: `Reviewer stalled — Solomon mediating`,
+          detail: { repeats: repeatCounts.reviewer, reason: repeatState.reason }
+        })
+      );
+
+      const solomonResult = await invokeSolomon({
+        config, logger, emitter, eventBase, stage: "reviewer", askQuestion, session, iteration,
+        conflict: {
+          stage: "reviewer",
+          task,
+          iterationCount: repeatCounts.reviewer,
+          maxIterations: config.session?.fail_fast_repeats ?? 2,
+          stalledReason: repeatState.reason,
+          blockingIssues: review.blocking_issues,
+          history: [{ agent: "reviewer", feedback: review.blocking_issues.map(x => x.description).join("; ") }]
+        }
+      });
+
+      if (solomonResult.action === "pause") {
+        await markSessionStatus(session, "stalled");
+        return { review, stalled: true, stalledResult: { paused: true, sessionId: session.id, question: solomonResult.question, context: "reviewer_stalled" } };
+      }
+      if (solomonResult.action === "continue") {
+        // Solomon says continue — reset repeat detector for reviewer
+        repeatDetector.reviewer = { lastHash: null, repeatCount: 0 };
+        if (solomonResult.humanGuidance) {
+          session.last_reviewer_feedback = `Solomon/user guidance: ${solomonResult.humanGuidance}`;
+          await saveSession(session);
+        }
+        return { review };
+      }
+      if (solomonResult.action === "subtask") {
+        return { review, stalled: true, stalledResult: { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "reviewer_subtask" } };
+      }
+
+      // Fallback: original stall behavior
       const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer} times.`;
-      logger.warn(message);
       await markSessionStatus(session, "stalled");
       emitProgress(
         emitter,

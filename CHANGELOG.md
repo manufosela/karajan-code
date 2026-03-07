@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-03-07
+
+### Added
+- **Intelligent reviewer mediation**: when the reviewer flags out-of-scope issues (files not in the diff), the scope filter auto-defers them instead of blocking the pipeline. Deferred issues are tracked as technical debt in the session and injected into the coder prompt as context
+- **Deferred issues tracking**: out-of-scope reviewer concerns are stored in `session.deferred_issues` with structured metadata (file, severity, description, suggested_fix). Returned in `deferredIssues` field of the session result for follow-up task creation
+- **Solomon mediation on reviewer stall**: when `RepeatDetector` detects a stalled reviewer (same issues repeated), Solomon now arbitrates before stopping — can override, continue with guidance, or create subtask. Falls back to pause only if Solomon can't resolve
+- **Solomon rule: reviewer_overreach**: new rule detects when the reviewer consistently flags out-of-scope issues that get auto-demoted by the scope filter
+- **Deferred context in coder prompt**: the coder receives a "Deferred reviewer concerns" section listing tracked tech debt, so it can naturally address issues if its changes touch the relevant areas
+- 4 new tests for scope filter and deferred context (1196 total)
+
 ## [1.11.1] - 2026-03-07
 
 ### Fixed

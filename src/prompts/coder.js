@@ -29,7 +29,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false }) {
+export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, deferredContext = null }) {
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
     `Task:\n${task}`,
@@ -63,6 +63,10 @@ export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary =
 
   if (reviewerFeedback) {
     sections.push(`Reviewer blocking feedback:\n${reviewerFeedback}`);
+  }
+
+  if (deferredContext) {
+    sections.push(deferredContext);
   }
 
   return sections.join("\n\n");

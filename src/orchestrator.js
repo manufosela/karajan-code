@@ -152,7 +152,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     last_sonar_issue_signature: null,
     sonar_repeat_count: 0,
     last_reviewer_issue_signature: null,
-    reviewer_repeat_count: 0
+    reviewer_repeat_count: 0,
+    deferred_issues: []
   };
   if (pgTaskId) sessionInit.pg_task_id = pgTaskId;
   if (pgProject) sessionInit.pg_project_id = pgProject;
@@ -496,7 +497,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     if (reviewerEnabled) {
       const reviewerResult = await runReviewerStage({
         reviewerRole, config, logger, emitter, eventBase, session, trackBudget,
-        iteration: i, reviewRules, task, repeatDetector, budgetSummary
+        iteration: i, reviewRules, task, repeatDetector, budgetSummary, askQuestion
       });
       if (reviewerResult.action === "pause") {
         return reviewerResult.result;
@@ -649,14 +650,17 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         }
       }
 
+      const deferredIssues = session.deferred_issues || [];
       emitProgress(
         emitter,
         makeEvent("session:end", { ...eventBase, stage: "done" }, {
-          message: "Session approved",
-          detail: { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary() }
+          message: deferredIssues.length > 0
+            ? `Session approved (${deferredIssues.length} deferred issue(s) tracked as tech debt)`
+            : "Session approved",
+          detail: { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues }
         })
       );
-      return { approved: true, sessionId: session.id, review, git: gitResult };
+      return { approved: true, sessionId: session.id, review, git: gitResult, deferredIssues };
     }
 
     session.last_reviewer_feedback = review.blocking_issues

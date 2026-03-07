@@ -17,8 +17,8 @@ export class CoderRole extends BaseRole {
   }
 
   async execute(input) {
-    const { task, reviewerFeedback, sonarSummary, onOutput } = typeof input === "string"
-      ? { task: input, reviewerFeedback: null, sonarSummary: null, onOutput: null }
+    const { task, reviewerFeedback, sonarSummary, deferredContext, onOutput } = typeof input === "string"
+      ? { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, onOutput: null }
       : input || {};
 
     const provider = resolveProvider(this.config);
@@ -28,6 +28,7 @@ export class CoderRole extends BaseRole {
       task: task || this.context?.task || "",
       reviewerFeedback: reviewerFeedback || null,
       sonarSummary: sonarSummary || null,
+      deferredContext: deferredContext || null,
       coderRules: this.instructions,
       methodology: this.config?.development?.methodology || "tdd",
       serenaEnabled: Boolean(this.config?.serena?.enabled)
