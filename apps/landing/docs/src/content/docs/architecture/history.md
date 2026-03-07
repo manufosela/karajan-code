@@ -243,6 +243,72 @@ MCP host session (old process)
 
 **Why:** Long planning prompts can look "stuck" when an agent stays silent for too long, and upgrades can leave MCP hosts attached to stale processes. v1.9.x also focused on operational reliability: fail fast with useful diagnostics, and make MCP process lifecycle predictable after version bumps.
 
+## Phase 12: Runtime Agent Management & Session Resilience (v1.10.0)
+
+**What changed:** Added runtime agent swapping per pipeline role, expanded session resumability, and hardened subprocess reliability.
+
+**Key additions:**
+- `kj_agents` MCP tool and `kj agents` CLI command: list or set the AI agent per pipeline role on the fly (`kj agents set coder gemini`), persists to `kj.config.yml`, no restart needed
+- Checkpoint resilience: null/empty `elicitInput` response defaults to "continue 5 min" instead of killing the session
+- `kj_resume` expanded: now accepts stopped and failed sessions, not just paused ones
+- Subprocess constraints: coder prompt tells the agent it is non-interactive — use `--yes`/`--no-input` flags or report inability
+- `kj doctor` version: shows Karajan Code version as first check line
+- 1084 tests total
+- Planning Game auto-status (v1.10.1): when `kj_run` has a `pgTaskId`, automatically marks the card as "In Progress" at start and "To Validate" on completion — works from both CLI and MCP
+- 1090 tests total (v1.10.1)
+
+**Architecture addition:**
+```
+kj agents set coder gemini
+    └─ update kj.config.yml (roles.coder.agent = "gemini")
+    └─ next kj_run / kj_code picks up new agent — no MCP restart
+
+kj_resume (v1.10.0):
+    paused sessions  ──→ resume (as before)
+    stopped sessions ──→ resume (new)
+    failed sessions  ──→ resume (new)
+```
+
+**Why:** Users needed to switch agents mid-session without restarting the MCP server or editing config files manually. The expanded `kj_resume` means sessions that stopped or failed due to transient issues (rate limits, network errors) can be recovered instead of abandoned. Subprocess constraints prevent agents from hanging on interactive prompts that will never receive input.
+
+## Phase 13: Pipeline Intelligence & Human Sovereignty (v1.11.0)
+
+**What changed:** Transformed from a passive pipeline executor into an intelligent orchestrator with human-first governance. Triage, tester, security, and Solomon are now on by default. Preflight handshake prevents AI agents from overriding human config decisions.
+
+**Key additions:**
+- Triage as pipeline director: analyzes task complexity and returns JSON with role activation decisions per task
+- Tester and security enabled by default — every task gets tested and security-audited
+- Solomon supervisor: runs after each iteration with 4 built-in rules (max_files, stale_iterations, dependency_guard, scope_guard), pauses on critical alerts
+- Preflight handshake (`kj_preflight`): mandatory human confirmation before `kj_run`/`kj_code` executes — blocks AI from changing agents silently
+- Session-scoped agent config: `kj_agents` via MCP defaults to session scope (in-memory), CLI defaults to project scope
+- 3-tier config merge: DEFAULTS < global (`~/.karajan/`) < project (`.karajan/`)
+- Rate-limit standby with auto-retry: parses cooldown from 5 error patterns, waits with exponential backoff (5min default, 30min max), emits standby/heartbeat/resume events, max 5 retries before human pause
+- MCP progress streaming extended to `kj_code`, `kj_review`, `kj_plan` (was only `kj_run`)
+- Enhanced `kj_status`: parsed status summary (currentStage, currentAgent, iteration, isRunning, errors)
+- `kj-tail` resilient tracking with `tail -F`
+- 1180 tests across 106 files
+
+**Architecture addition:**
+```
+Before v1.11.0:
+  AI calls kj_run(coder: "codex") → Karajan runs codex, no questions asked
+
+After v1.11.0:
+  AI calls kj_run → BLOCKED (preflight required)
+  AI calls kj_preflight → shows config to human → human says "ok" or adjusts
+  AI calls kj_run → triage evaluates task → activates roles → coder → solomon check → reviewer → tester → security
+
+Rate-limit standby:
+  coder hits rate limit → parse cooldown → wait (backoff) → retry same iteration
+  5 consecutive retries → pause for human
+
+Solomon supervisor:
+  after each iteration → evaluate 4 rules → warning/critical
+  critical → pause + ask human via elicitInput
+```
+
+**Why:** Running AI-generated code without testing or security checks was unacceptable ("vaya mierda de código"). Triage as director ensures the right roles activate for each task's complexity. The preflight handshake solved a fundamental trust issue: when an AI agent passes `coder: "codex"` to `kj_run`, there was no way to know if the human chose that or the AI decided on its own. Now the human explicitly confirms or adjusts before anything runs.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

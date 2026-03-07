@@ -243,6 +243,72 @@ Sesión del host MCP (proceso antiguo)
 
 **Por qué:** Los prompts largos de planificación pueden parecer "colgados" cuando un agente permanece en silencio demasiado tiempo, y las actualizaciones pueden dejar hosts MCP conectados a procesos obsoletos. v1.9.x también se enfocó en fiabilidad operativa: fallar rápido con diagnóstico útil y hacer predecible el ciclo de vida de procesos MCP tras cada bump de versión.
 
+## Fase 12: Gestión de Agentes en Runtime y Resiliencia de Sesiones (v1.10.0)
+
+**Qué cambió:** Se añadió intercambio de agentes en runtime por rol del pipeline, se amplió la reanudabilidad de sesiones y se reforzó la fiabilidad de subprocesos.
+
+**Adiciones clave:**
+- Herramienta MCP `kj_agents` y comando CLI `kj agents`: listar o cambiar el agente IA por rol del pipeline al vuelo (`kj agents set coder gemini`), se persiste en `kj.config.yml`, sin necesidad de reinicio
+- Resiliencia de checkpoints: una respuesta null/vacía de `elicitInput` se interpreta como "continuar 5 min" en lugar de matar la sesión
+- `kj_resume` ampliado: ahora acepta sesiones detenidas y fallidas, no solo pausadas
+- Restricciones de subproceso: el prompt del coder indica al agente que es no-interactivo — usar flags `--yes`/`--no-input` o reportar incapacidad
+- Versión en `kj doctor`: muestra la versión de Karajan Code como primera línea de verificación
+- 1084 tests en total
+- Planning Game auto-status (v1.10.1): cuando `kj_run` tiene un `pgTaskId`, marca automáticamente la card como "In Progress" al iniciar y "To Validate" al completar — funciona desde CLI y MCP
+- 1090 tests en total (v1.10.1)
+
+**Adición a la arquitectura:**
+```
+kj agents set coder gemini
+    └─ actualiza kj.config.yml (roles.coder.agent = "gemini")
+    └─ el siguiente kj_run / kj_code usa el nuevo agente — sin reinicio MCP
+
+kj_resume (v1.10.0):
+    sesiones pausadas   ──→ reanudar (como antes)
+    sesiones detenidas  ──→ reanudar (nuevo)
+    sesiones fallidas   ──→ reanudar (nuevo)
+```
+
+**Por qué:** Los usuarios necesitaban cambiar de agente a mitad de sesión sin reiniciar el servidor MCP ni editar ficheros de config manualmente. El `kj_resume` ampliado significa que las sesiones que se detuvieron o fallaron por problemas transitorios (rate limits, errores de red) pueden recuperarse en lugar de abandonarse. Las restricciones de subproceso evitan que los agentes se queden colgados en prompts interactivos que nunca recibirán input.
+
+## Fase 13: Inteligencia de Pipeline y Soberanía Humana (v1.11.0)
+
+**Qué cambió:** Transformación de un ejecutor pasivo de pipeline a un orquestador inteligente con gobernanza human-first. Triage, tester, security y Solomon ahora están activos por defecto. El preflight handshake impide que los agentes IA sobreescriban decisiones de configuración humanas.
+
+**Adiciones clave:**
+- Triage como director de pipeline: analiza la complejidad de la tarea y devuelve JSON con decisiones de activación de roles
+- Tester y security activos por defecto — cada tarea se testea y audita
+- Solomon supervisor: se ejecuta tras cada iteración con 4 reglas (max_files, stale_iterations, dependency_guard, scope_guard), pausa ante alertas críticas
+- Preflight handshake (`kj_preflight`): confirmación humana obligatoria antes de `kj_run`/`kj_code` — bloquea a la IA de cambiar agentes silenciosamente
+- Config de agentes por sesión: `kj_agents` via MCP usa scope de sesión (en memoria), CLI usa scope de proyecto
+- Merge de config en 3 niveles: DEFAULTS < global (`~/.karajan/`) < proyecto (`.karajan/`)
+- Standby por rate-limit con auto-retry: parsea cooldown de 5 patrones de error, espera con backoff exponencial (5min default, 30min max), emite eventos standby/heartbeat/resume, máximo 5 reintentos antes de pausa humana
+- MCP progress streaming extendido a `kj_code`, `kj_review`, `kj_plan` (antes solo `kj_run`)
+- `kj_status` mejorado: resumen de estado parseado (currentStage, currentAgent, iteration, isRunning, errors)
+- `kj-tail` con tracking resiliente usando `tail -F`
+- 1180 tests en 106 ficheros
+
+**Adición a la arquitectura:**
+```
+Antes de v1.11.0:
+  IA llama kj_run(coder: "codex") → Karajan ejecuta codex, sin preguntas
+
+Después de v1.11.0:
+  IA llama kj_run → BLOQUEADO (preflight requerido)
+  IA llama kj_preflight → muestra config al humano → humano dice "ok" o ajusta
+  IA llama kj_run → triage evalúa tarea → activa roles → coder → check solomon → reviewer → tester → security
+
+Standby por rate-limit:
+  coder alcanza rate limit → parsea cooldown → espera (backoff) → reintenta misma iteración
+  5 reintentos consecutivos → pausa para humano
+
+Solomon supervisor:
+  tras cada iteración → evalúa 4 reglas → warning/critical
+  critical → pausa + preguntar humano via elicitInput
+```
+
+**Por qué:** Ejecutar código generado por IA sin tests ni auditoría de seguridad era inaceptable. Triage como director asegura que los roles correctos se activen según la complejidad de cada tarea. El preflight handshake resolvió un problema fundamental de confianza: cuando un agente IA pasa `coder: "codex"` a `kj_run`, no había forma de saber si el humano lo eligió o la IA decidió por su cuenta. Ahora el humano confirma o ajusta explícitamente antes de que nada se ejecute.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 12 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 15 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -176,13 +176,49 @@ Listar roles del pipeline o mostrar un template de rol específico.
 
 ---
 
+## kj_agents
+
+Listar o cambiar asignaciones de agentes IA por rol. Soporta scope de sesión, proyecto y global.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `action` | string | No | `list` | Acción: `list` \| `set` |
+| `role` | string | No | `null` | Rol a cambiar (ej: `coder`, `reviewer`) — requerido para `set` |
+| `provider` | string | No | `null` | Provider a asignar (ej: `claude`, `codex`) — requerido para `set` |
+
+---
+
+## kj_preflight
+
+El humano confirma la configuración de agentes antes de que `kj_run`/`kj_code` se ejecuten. Requerido antes de la primera ejecución en cada sesión MCP.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `humanResponse` | string | **Sí** | — | Respuesta del humano: `"ok"` para confirmar, o lenguaje natural para ajustar (ej: `"use gemini as coder"`) |
+| `coder` | string | No | `null` | Override del agente coder |
+| `reviewer` | string | No | `null` | Override del agente reviewer |
+| `tester` | string | No | `null` | Override del agente tester |
+| `security` | string | No | `null` | Override del agente security |
+| `solomon` | string | No | `null` | Override del agente solomon |
+| `enableTester` | boolean | No | `null` | Activar/desactivar rol tester |
+| `enableSecurity` | boolean | No | `null` | Activar/desactivar rol security |
+
+---
+
 ## kj_status
 
-Muestra el log en tiempo real de la ejecución actual o última de Karajan. Lee de `.kj/run.log` en el directorio del proyecto.
+Muestra el estado en tiempo real y log de la ejecución actual o última de Karajan. Devuelve un resumen parseado (stage actual, agente, iteración, errores) más las líneas recientes del log.
 
 | Parámetro | Tipo | Requerido | Default | Descripción |
 |-----------|------|-----------|---------|-------------|
 | `lines` | number | No | `50` | Número de líneas del log a mostrar |
+
+**La respuesta incluye:**
+- `status.currentStage` — qué stage está ejecutándose
+- `status.currentAgent` — qué agente IA está activo
+- `status.iteration` — número de iteración actual
+- `status.isRunning` — si hay una ejecución en curso
+- `status.errors` — últimas 3 líneas de error
 
 ---
 
@@ -210,4 +246,4 @@ Todas las herramientas devuelven una respuesta estructurada:
 }
 ```
 
-Categorías de error: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`, `unknown`.
+Categorías de error: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `branch_error`, `agent_stall`, `git_error`, `unknown`.

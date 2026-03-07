@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 12 Karajan Code MCP tools.
+description: Complete parameter reference for all 15 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -176,13 +176,49 @@ List pipeline roles or show a specific role template.
 
 ---
 
+## kj_agents
+
+List or change AI agent assignments per role. Supports session, project, and global scope.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `action` | string | No | `list` | Action: `list` \| `set` |
+| `role` | string | No | `null` | Role to change (e.g., `coder`, `reviewer`) — required for `set` |
+| `provider` | string | No | `null` | Provider to assign (e.g., `claude`, `codex`) — required for `set` |
+
+---
+
+## kj_preflight
+
+Human confirms agent configuration before `kj_run`/`kj_code` executes. Required before first run in each MCP session.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `humanResponse` | string | **Yes** | — | Human's response: `"ok"` to confirm, or natural language to adjust (e.g., `"use gemini as coder"`) |
+| `coder` | string | No | `null` | Override coder agent |
+| `reviewer` | string | No | `null` | Override reviewer agent |
+| `tester` | string | No | `null` | Override tester agent |
+| `security` | string | No | `null` | Override security agent |
+| `solomon` | string | No | `null` | Override solomon agent |
+| `enableTester` | boolean | No | `null` | Enable/disable tester role |
+| `enableSecurity` | boolean | No | `null` | Enable/disable security role |
+
+---
+
 ## kj_status
 
-Show real-time log of the current or last Karajan run. Reads from `.kj/run.log` in the project directory.
+Show real-time status and log of the current or last Karajan run. Returns a parsed status summary (current stage, agent, iteration, errors) plus recent log lines.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `lines` | number | No | `50` | Number of log lines to show |
+
+**Response includes:**
+- `status.currentStage` — which stage is currently running
+- `status.currentAgent` — which AI agent is active
+- `status.iteration` — current iteration number
+- `status.isRunning` — whether a run is in progress
+- `status.errors` — last 3 error lines
 
 ---
 
@@ -210,4 +246,4 @@ All tools return a structured response:
 }
 ```
 
-Error categories: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `git_error`, `unknown`.
+Error categories: `sonar_unavailable`, `auth_error`, `config_error`, `agent_missing`, `timeout`, `branch_error`, `agent_stall`, `git_error`, `unknown`.

@@ -18,6 +18,7 @@ description: Complete reference of all kj CLI commands and flags.
 | `kj report` | Session reports with budget tracking |
 | `kj resume <id>` | Resume paused session |
 | `kj roles` | Inspect pipeline roles and templates |
+| `kj agents` | List or set AI agent per pipeline role |
 | `kj sonar <subcommand>` | Manage SonarQube Docker container |
 
 **Global options:** `--help`, `--version`
@@ -264,6 +265,7 @@ kj doctor
 
 | Check | What it verifies |
 |-------|-----------------|
+| Karajan version | Shows installed Karajan Code version |
 | Config file | `kj.config.yml` exists |
 | Git repository | Inside a git repo |
 | Docker | Docker is installed |
@@ -341,7 +343,7 @@ kj report --format json                # Machine-readable
 
 ## kj resume
 
-Resume a paused session. Sessions pause on repeat detection, budget warnings, or when human guidance is needed.
+Resume a paused, stopped, or failed session. Sessions pause on repeat detection, budget warnings, or when human guidance is needed.
 
 ```bash
 kj resume <sessionId> [options]
@@ -401,6 +403,30 @@ Review mode variants: `reviewer-strict`, `reviewer-relaxed`, `reviewer-paranoid`
 kj roles                    # List all roles
 kj roles show coder         # Show coder template
 kj roles show reviewer      # Show reviewer template
+```
+
+---
+
+## kj agents
+
+List or set the AI agent assigned to each pipeline role on the fly. Changes persist to `kj.config.yml` — no restart needed.
+
+```bash
+kj agents [subcommand] [role] [agent]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` (default) | Show current agent assignment per role |
+| `set <role> <agent>` | Assign an agent to a role and persist to config |
+
+**Examples:**
+
+```bash
+kj agents                    # List current agent per role
+kj agents list               # Same as above
+kj agents set coder gemini   # Switch the coder role to Gemini
+kj agents set reviewer claude # Switch the reviewer role to Claude
 ```
 
 ---

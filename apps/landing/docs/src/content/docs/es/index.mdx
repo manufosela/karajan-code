@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador local multi-agente con TDD, SonarQube y revisión de código automatizada.
 template: splash
 hero:
-  tagline: "v1.9.6 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.11.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -30,7 +30,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
     Claude, Codex, Gemini y Aider. Combínalos — usa Claude como coder y Codex como reviewer, o cualquier combinación.
   </Card>
   <Card title="Servidor MCP" icon="puzzle">
-    12 herramientas expuestas via MCP. Usa `kj` desde Claude, Codex o cualquier host compatible con MCP.
+    15 herramientas via MCP — incluyendo `kj_preflight` para configuración confirmada por humano y `kj_status` para estado parseado en vivo. Notificaciones de progreso en tiempo real para todas las herramientas.
   </Card>
   <Card title="TDD Obligatorio" icon="approve-check">
     Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
@@ -41,11 +41,17 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
   <Card title="Pipeline Tracker" icon="list-format">
     Vista de progreso acumulativo durante `kj_run` — ve qué stages están completadas, en ejecución o pendientes en tiempo real via MCP y CLI.
   </Card>
-  <Card title="Resiliencia de Agentes" icon="random">
-    Detecta rate limits automáticamente y cambia a agentes alternativos. Las sesiones se pausan en vez de fallar.
+  <Card title="Standby por Rate-Limit" icon="random">
+    Detecta rate limits, parsea tiempos de espera, espera con backoff exponencial y reanuda automáticamente — hasta 5 reintentos antes de preguntar al humano.
+  </Card>
+  <Card title="Preflight Handshake" icon="approve-check-circle">
+    `kj_preflight` requiere confirmación humana de la config de agentes antes de ejecutar. Config de 3 niveles: sesión > proyecto > global.
+  </Card>
+  <Card title="Solomon Supervisor" icon="seti:config">
+    Monitoriza la salud de iteraciones con 4 reglas (max ficheros, iteraciones estancadas, dependencias, scope). Pausa ante anomalías críticas.
   </Card>
   <Card title="Monitorización en Tiempo Real" icon="seti:log">
-    Detector de stalls vigila cada agente con heartbeats continuos y avisos, con guardarraíles de silencio máximo y límite duro de runtime para ejecuciones del planner. Log en tiempo real monitorizable con `tail -f` o `kj_status`.
+    Detector de stalls, heartbeats continuos, guardarraíles de silencio, límite de runtime. `kj-tail` para log colorizado en vivo. `kj_status` para estado parseado.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.

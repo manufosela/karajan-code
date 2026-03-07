@@ -80,15 +80,18 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Available tools
 
-Karajan Code exposes **11 MCP tools**:
+Karajan Code exposes **15 MCP tools**:
 
 | Tool | Required params | Description |
 |------|----------------|-------------|
 | `kj_run` | `task` | Run the full coder &rarr; sonar &rarr; reviewer pipeline |
 | `kj_code` | `task` | Run coder-only mode (skip review) |
 | `kj_review` | `task` | Run reviewer-only mode on the current diff |
-| `kj_plan` | `task` | Generate an implementation plan with heartbeat/stall telemetry and clearer diagnostics |
-| `kj_resume` | `sessionId` | Resume a paused session |
+| `kj_plan` | `task` | Generate an implementation plan with heartbeat/stall telemetry |
+| `kj_resume` | `sessionId` | Resume a paused, stopped, or failed session |
+| `kj_preflight` | `humanResponse` | Human confirms agent config before kj_run/kj_code executes |
+| `kj_agents` | — | List or set AI agent per pipeline role (session/project/global scope) |
+| `kj_status` | — | Live parsed status of current run (stage, agent, iteration, errors) |
 | `kj_report` | — | Read session reports with cost breakdown |
 | `kj_scan` | — | Run SonarQube scan on the current project |
 | `kj_init` | — | Initialize config, review rules, and SonarQube |

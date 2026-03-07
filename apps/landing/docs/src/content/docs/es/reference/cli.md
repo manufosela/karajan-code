@@ -18,6 +18,7 @@ description: Referencia completa de todos los comandos y flags de kj.
 | `kj report` | Informes de sesión con tracking de presupuesto |
 | `kj resume <id>` | Reanudar sesión pausada |
 | `kj roles` | Inspeccionar roles y templates del pipeline |
+| `kj agents` | Listar o cambiar el agente IA por rol del pipeline |
 | `kj sonar <subcommand>` | Gestionar contenedor Docker de SonarQube |
 
 **Opciones globales:** `--help`, `--version`
@@ -264,6 +265,7 @@ kj doctor
 
 | Check | Qué verifica |
 |-------|-------------|
+| Karajan version | Muestra la versión instalada de Karajan Code |
 | Config file | `kj.config.yml` existe |
 | Git repository | Dentro de un repo git |
 | Docker | Docker instalado |
@@ -341,7 +343,7 @@ kj report --format json                # Legible por máquina
 
 ## kj resume
 
-Reanudar una sesión pausada. Las sesiones se pausan por detección de repeticiones, avisos de presupuesto o cuando se necesita guía humana.
+Reanudar una sesión pausada, detenida o fallida. Las sesiones se pausan por detección de repeticiones, avisos de presupuesto o cuando se necesita guía humana.
 
 ```bash
 kj resume <sessionId> [options]
@@ -401,6 +403,30 @@ Variantes de modo de revisión: `reviewer-strict`, `reviewer-relaxed`, `reviewer
 kj roles                    # Listar todos los roles
 kj roles show coder         # Mostrar template del coder
 kj roles show reviewer      # Mostrar template del reviewer
+```
+
+---
+
+## kj agents
+
+Listar o cambiar el agente IA asignado a cada rol del pipeline al vuelo. Los cambios se persisten en `kj.config.yml` — no requiere reinicio.
+
+```bash
+kj agents [subcommand] [role] [agent]
+```
+
+| Subcomando | Descripción |
+|------------|-------------|
+| `list` (default) | Mostrar asignación actual de agente por rol |
+| `set <role> <agent>` | Asignar un agente a un rol y persistir en config |
+
+**Ejemplos:**
+
+```bash
+kj agents                    # Listar agente actual por rol
+kj agents list               # Igual que arriba
+kj agents set coder gemini   # Cambiar el rol coder a Gemini
+kj agents set reviewer claude # Cambiar el rol reviewer a Claude
 ```
 
 ---
