@@ -409,6 +409,89 @@ planning_game:
 
 ---
 
+## becaria
+
+```yaml
+becaria:
+  enabled: false
+  review_event: becaria-review
+  comment_event: becaria-comment
+  comment_prefix: true
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable BecarIA Gateway — publish pipeline results as PR comments/reviews via GitHub App |
+| `review_event` | string | `becaria-review` | GitHub `repository_dispatch` event type for formal reviews (APPROVE/REQUEST_CHANGES) |
+| `comment_event` | string | `becaria-comment` | GitHub `repository_dispatch` event type for agent comments |
+| `comment_prefix` | boolean | `true` | Prefix comments with `[Agent]` (e.g., `[Reviewer]`, `[Sonar]`) |
+
+When `enabled: true`, Karajan automatically sets `git.auto_commit`, `git.auto_push`, and `git.auto_pr` to `true`. See [Pipeline Flows](/docs/guides/flows/) for the full BecarIA architecture.
+
+---
+
+## serena
+
+```yaml
+serena:
+  enabled: false
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable Serena integration for codebase-aware context |
+
+---
+
+## model_selection
+
+```yaml
+model_selection:
+  enabled: true
+  tiers: {}
+  role_overrides: {}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable smart model selection based on task complexity |
+| `tiers` | object | `{}` | Named tiers with model assignments (e.g., `fast`, `balanced`, `powerful`) |
+| `role_overrides` | object | `{}` | Per-role model overrides that bypass tier selection |
+
+Example with tiers:
+
+```yaml
+model_selection:
+  enabled: true
+  tiers:
+    fast:
+      model: claude-sonnet-4-6
+    balanced:
+      model: claude-opus-4-6
+  role_overrides:
+    reviewer:
+      model: claude-opus-4-6
+```
+
+Disable with `--no-smart-models` CLI flag.
+
+---
+
+## failFast
+
+```yaml
+failFast:
+  repeatThreshold: 2
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `repeatThreshold` | number | `2` | Stop the pipeline after this many consecutive identical failures |
+
+This is separate from `session.fail_fast_repeats` — `failFast` applies to the orchestrator's global repeat detection across all stages.
+
+---
+
 ## Environment variables
 
 | Variable | Purpose | Default |
@@ -586,6 +669,32 @@ development:
 session:
   max_total_minutes: 240
 max_iterations: 7
+```
+
+</TabItem>
+<TabItem label="BecarIA Gateway">
+
+```yaml
+becaria:
+  enabled: true
+  review_event: becaria-review
+  comment_event: becaria-comment
+  comment_prefix: true
+pipeline:
+  triage:
+    enabled: true
+  planner:
+    enabled: true
+  tester:
+    enabled: true
+  security:
+    enabled: true
+  solomon:
+    enabled: true
+review_mode: strict
+development:
+  methodology: tdd
+max_iterations: 5
 ```
 
 </TabItem>

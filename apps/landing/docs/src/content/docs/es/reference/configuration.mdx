@@ -409,6 +409,89 @@ planning_game:
 
 ---
 
+## becaria
+
+```yaml
+becaria:
+  enabled: false
+  review_event: becaria-review
+  comment_event: becaria-comment
+  comment_prefix: true
+```
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Activar BecarIA Gateway — publica resultados del pipeline como comentarios/reviews en PRs vía GitHub App |
+| `review_event` | string | `becaria-review` | Tipo de evento `repository_dispatch` de GitHub para reviews formales (APPROVE/REQUEST_CHANGES) |
+| `comment_event` | string | `becaria-comment` | Tipo de evento `repository_dispatch` de GitHub para comentarios de agentes |
+| `comment_prefix` | boolean | `true` | Prefijar comentarios con `[Agente]` (ej: `[Reviewer]`, `[Sonar]`) |
+
+Cuando `enabled: true`, Karajan establece automáticamente `git.auto_commit`, `git.auto_push` y `git.auto_pr` a `true`. Ver [Flujos del Pipeline](/docs/es/guides/flows/) para la arquitectura completa de BecarIA.
+
+---
+
+## serena
+
+```yaml
+serena:
+  enabled: false
+```
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Activar integración con Serena para contexto con conocimiento del codebase |
+
+---
+
+## model_selection
+
+```yaml
+model_selection:
+  enabled: true
+  tiers: {}
+  role_overrides: {}
+```
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Activar selección inteligente de modelo basada en complejidad de la tarea |
+| `tiers` | object | `{}` | Tiers con nombre y asignación de modelo (ej: `fast`, `balanced`, `powerful`) |
+| `role_overrides` | object | `{}` | Overrides de modelo por rol que saltan la selección por tier |
+
+Ejemplo con tiers:
+
+```yaml
+model_selection:
+  enabled: true
+  tiers:
+    fast:
+      model: claude-sonnet-4-6
+    balanced:
+      model: claude-opus-4-6
+  role_overrides:
+    reviewer:
+      model: claude-opus-4-6
+```
+
+Desactivar con el flag CLI `--no-smart-models`.
+
+---
+
+## failFast
+
+```yaml
+failFast:
+  repeatThreshold: 2
+```
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `repeatThreshold` | number | `2` | Detener el pipeline tras este número de fallos idénticos consecutivos |
+
+Esto es independiente de `session.fail_fast_repeats` — `failFast` aplica a la detección global de repeticiones del orquestador entre todas las etapas.
+
+---
+
 ## Variables de entorno
 
 | Variable | Propósito | Default |
@@ -586,6 +669,32 @@ development:
 session:
   max_total_minutes: 240
 max_iterations: 7
+```
+
+</TabItem>
+<TabItem label="BecarIA Gateway">
+
+```yaml
+becaria:
+  enabled: true
+  review_event: becaria-review
+  comment_event: becaria-comment
+  comment_prefix: true
+pipeline:
+  triage:
+    enabled: true
+  planner:
+    enabled: true
+  tester:
+    enabled: true
+  security:
+    enabled: true
+  solomon:
+    enabled: true
+review_mode: strict
+development:
+  methodology: tdd
+max_iterations: 5
 ```
 
 </TabItem>
