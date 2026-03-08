@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-
 // https://astro.build/config
 export default defineConfig({
 	base: '/docs',
@@ -35,6 +34,7 @@ export default defineConfig({
 					translations: { es: 'Guías' },
 					items: [
 						{ label: 'Pipeline', slug: 'guides/pipeline' },
+						{ label: 'Pipeline Flows', slug: 'guides/flows', translations: { es: 'Flujos del Pipeline' } },
 						{ label: 'MCP Server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
 						{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 						{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
