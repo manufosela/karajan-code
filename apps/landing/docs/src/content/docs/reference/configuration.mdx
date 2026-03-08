@@ -40,7 +40,7 @@ max_budget_usd: null           # Max budget in USD (null = unlimited)
 | `review_rules` | string | `./review-rules.md` | Path to reviewer instruction file |
 | `coder_rules` | string | `./coder-rules.md` | Path to coder instruction file |
 | `base_branch` | string | `main` | Git branch used for diff comparison |
-| `max_budget_usd` | number \| null | `null` | Session budget cap in USD. `null` = unlimited |
+| `max_budget_usd` | number \| null | `null` | Estimated session budget cap in USD (based on API-equivalent pricing). `null` = unlimited |
 
 ---
 
@@ -334,6 +334,10 @@ session:
 
 ## budget
 
+:::note
+**Estimated costs, not real billing.** Karajan runs CLI agents (Claude Code, Codex, etc.) under your existing subscriptions — it adds no extra cost. The budget system counts tokens and estimates what the session *would cost* if you were using APIs directly, based on published pricing rates. This is useful for comparing approaches and setting guardrails, not for invoicing.
+:::
+
 ```yaml
 budget:
   warn_threshold_pct: 80
@@ -347,12 +351,12 @@ budget:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `warn_threshold_pct` | number | `80` | Warn when spending reaches this % of `max_budget_usd` |
+| `warn_threshold_pct` | number | `80` | Warn when estimated spending reaches this % of `max_budget_usd` |
 | `currency` | enum | `usd` | Display currency: `usd` or `eur` |
 | `exchange_rate_eur` | number | `0.92` | EUR to USD exchange rate |
-| `pricing` | object | Built-in | Per-agent pricing overrides (`input_per_million`, `output_per_million`) |
+| `pricing` | object | Built-in | Per-agent pricing rates for estimation (`input_per_million`, `output_per_million`) |
 
-The `pricing` section can also be set in a project-level `.karajan.yml` file to override per-project costs.
+The `pricing` section can also be set in a project-level `.karajan.yml` file to override per-project estimation rates.
 
 ---
 

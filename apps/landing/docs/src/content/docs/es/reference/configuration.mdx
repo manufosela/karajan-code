@@ -40,7 +40,7 @@ max_budget_usd: null           # Presupuesto máximo en USD (null = ilimitado)
 | `review_rules` | string | `./review-rules.md` | Ruta al fichero de instrucciones del reviewer |
 | `coder_rules` | string | `./coder-rules.md` | Ruta al fichero de instrucciones del coder |
 | `base_branch` | string | `main` | Rama de git usada para comparar diffs |
-| `max_budget_usd` | number \| null | `null` | Tope de presupuesto por sesión en USD. `null` = ilimitado |
+| `max_budget_usd` | number \| null | `null` | Tope de presupuesto estimado por sesión en USD (basado en pricing equivalente a API). `null` = ilimitado |
 
 ---
 
@@ -334,6 +334,10 @@ session:
 
 ## budget
 
+:::note
+**Costes estimados, no facturación real.** Karajan ejecuta agentes CLI (Claude Code, Codex, etc.) bajo tus suscripciones existentes — no tiene coste adicional. El sistema de budget cuenta tokens y estima lo que la sesión *habría costado* si usaras las APIs directamente, basándose en las tarifas publicadas. Es útil para comparar enfoques y establecer guardarraíles, no para facturación.
+:::
+
 ```yaml
 budget:
   warn_threshold_pct: 80
@@ -347,12 +351,12 @@ budget:
 
 | Campo | Tipo | Default | Descripción |
 |-------|------|---------|-------------|
-| `warn_threshold_pct` | number | `80` | Avisar cuando el gasto alcance este % de `max_budget_usd` |
+| `warn_threshold_pct` | number | `80` | Avisar cuando el gasto estimado alcance este % de `max_budget_usd` |
 | `currency` | enum | `usd` | Moneda de visualización: `usd` o `eur` |
 | `exchange_rate_eur` | number | `0.92` | Tipo de cambio EUR a USD |
-| `pricing` | object | Built-in | Overrides de pricing por agente (`input_per_million`, `output_per_million`) |
+| `pricing` | object | Built-in | Tarifas de pricing por agente para estimación (`input_per_million`, `output_per_million`) |
 
-La sección `pricing` también puede definirse en el fichero `.karajan.yml` a nivel de proyecto para sobrescribir costes por proyecto.
+La sección `pricing` también puede definirse en el fichero `.karajan.yml` a nivel de proyecto para sobrescribir tarifas de estimación por proyecto.
 
 ---
 

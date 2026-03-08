@@ -25,7 +25,7 @@ Karajan Code resuelve ambos problemas encadenando agentes con **quality gates** 
 4. Si hay problemas, el **coder** recibe otra oportunidad
 5. El bucle se repite hasta que el código es aprobado o se alcanza el límite de iteraciones
 
-Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **timeouts por iteración**, **timeout total de sesión**, y opcionalmente **topes de presupuesto** (en USD o EUR). La detección fail-fast para el bucle cuando los agentes están dando vueltas en círculos. Obtienes informes completos de coste con `kj report --trace`.
+Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **timeouts por iteración**, **timeout total de sesión**, y opcionalmente **topes de presupuesto estimado** (en USD o EUR). La detección fail-fast para el bucle cuando los agentes están dando vueltas en círculos. Obtienes informes de coste estimado con `kj report --trace`. Nota: Karajan ejecuta agentes CLI bajo tus suscripciones existentes — **no tiene coste adicional**. El tracking de presupuesto estima lo que costaría la sesión a precios de API, útil para comparar y como guardarraíl.
 
 ## Características Principales
 
@@ -35,7 +35,7 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 - **TDD obligatorio** — se exigen cambios en tests cuando se modifican ficheros fuente
 - **Integración con SonarQube** — análisis estático con quality gates
 - **Perfiles de revisión** — standard, strict, relaxed, paranoid
-- **Tracking de presupuesto** — monitorización de tokens y costes por sesión
+- **Tracking de presupuesto estimado** — conteo de tokens por sesión con coste estimado equivalente a API (Karajan no tiene coste adicional — usa tus suscripciones CLI)
 - **Automatización Git** — auto-commit, auto-push, auto-PR tras aprobación
 - **Gestión de sesiones** — pausa/reanudación con detección fail-fast
 - **Sistema de plugins** — extiende con agentes custom

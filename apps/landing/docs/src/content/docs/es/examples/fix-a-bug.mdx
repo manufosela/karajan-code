@@ -275,7 +275,7 @@ Total: 3m 27s | Coste: $1.42
 
 ## Ejecución con control de presupuesto
 
-Establecer límites de gasto para prevenir costes descontrolados:
+Karajan ejecuta agentes CLI bajo tus suscripciones existentes — **no tiene coste adicional**. El sistema de budget estima lo que cada sesión costaría a precios de API, útil para comparar enfoques y establecer guardarraíles. Establece límites sobre estos costes estimados:
 
 <Tabs>
 <TabItem label="CLI">
@@ -305,7 +305,7 @@ kj run "Añadir soporte multi-idioma a componentes UI" \
 </TabItem>
 </Tabs>
 
-Añadir un tope presupuestario en la config:
+Añadir un tope de presupuesto estimado en la config:
 
 ```yaml
 # ~/.karajan/kj.config.yml
@@ -314,7 +314,7 @@ budget:
   warn_threshold_pct: 80
 ```
 
-Consultar costes tras la ejecución:
+Consultar costes estimados tras la ejecución:
 
 ```bash
 kj report --trace --currency eur

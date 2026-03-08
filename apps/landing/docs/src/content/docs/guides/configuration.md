@@ -138,9 +138,9 @@ sonarqube:
   enabled: false
 ```
 
-### Budget Control
+### Budget Tracking (Estimated)
 
-Set a spending limit per session:
+Karajan adds **no extra cost** — it runs CLI agents (Claude Code, Codex, etc.) under your existing subscriptions. The budget system tracks tokens and estimates what the session *would cost* if you were using APIs directly, based on published pricing rates. This is useful for comparing approaches and setting guardrails, not for billing.
 
 ```yaml
 max_budget_usd: 5.00

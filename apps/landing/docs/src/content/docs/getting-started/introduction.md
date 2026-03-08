@@ -25,7 +25,7 @@ Karajan Code solves both problems by chaining agents with **quality gates** and 
 4. If problems are found, the **coder** gets another attempt
 5. This loop runs until the code is approved or the iteration limit is reached
 
-Every session has built-in guardrails: **max iterations**, **per-iteration timeouts**, **total session timeouts**, and optional **budget caps** (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full cost reports with `kj report --trace`.
+Every session has built-in guardrails: **max iterations**, **per-iteration timeouts**, **total session timeouts**, and optional **estimated budget caps** (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full estimated cost reports with `kj report --trace`. Note: Karajan runs CLI agents under your existing subscriptions — **it adds no extra cost**. Budget tracking estimates what the session would cost at API rates, useful for comparison and guardrails.
 
 ## Key Features
 
@@ -35,7 +35,7 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 - **TDD enforcement** — test changes required when source files change
 - **SonarQube integration** — static analysis with quality gates
 - **Review profiles** — standard, strict, relaxed, paranoid
-- **Budget tracking** — per-session token and cost monitoring
+- **Estimated budget tracking** — per-session token counting with estimated API-equivalent costs (Karajan itself adds no cost — it uses your CLI subscriptions)
 - **Git automation** — auto-commit, auto-push, auto-PR after approval
 - **Session management** — pause/resume with fail-fast detection
 - **Plugin system** — extend with custom agents

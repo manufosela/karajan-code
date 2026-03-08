@@ -93,7 +93,7 @@
 <li>If problems are found, the <strong>coder</strong> gets another attempt</li>
 <li>This loop runs until the code is approved or the iteration limit is reached</li>
 </ol>
-<p>Every session has built-in guardrails: <strong>max iterations</strong>, <strong>per-iteration timeouts</strong>, <strong>total session timeouts</strong>, and optional <strong>budget caps</strong> (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full cost reports with <code dir="auto">kj report --trace</code>.</p>
+<p>Every session has built-in guardrails: <strong>max iterations</strong>, <strong>per-iteration timeouts</strong>, <strong>total session timeouts</strong>, and optional <strong>estimated budget caps</strong> (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full estimated cost reports with <code dir="auto">kj report --trace</code>. Note: Karajan runs CLI agents under your existing subscriptions — <strong>it adds no extra cost</strong>. Budget tracking estimates what the session would cost at API rates, useful for comparison and guardrails.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="key-features">Key Features</h2><a class="sl-anchor-link" href="#key-features"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Key Features”</span></a></div>
 <ul>
 <li><strong>Multi-agent pipeline</strong> with 11 configurable roles</li>
@@ -102,7 +102,7 @@
 <li><strong>TDD enforcement</strong> — test changes required when source files change</li>
 <li><strong>SonarQube integration</strong> — static analysis with quality gates</li>
 <li><strong>Review profiles</strong> — standard, strict, relaxed, paranoid</li>
-<li><strong>Budget tracking</strong> — per-session token and cost monitoring</li>
+<li><strong>Estimated budget tracking</strong> — per-session token counting with estimated API-equivalent costs (Karajan itself adds no cost — it uses your CLI subscriptions)</li>
 <li><strong>Git automation</strong> — auto-commit, auto-push, auto-PR after approval</li>
 <li><strong>Session management</strong> — pause/resume with fail-fast detection</li>
 <li><strong>Plugin system</strong> — extend with custom agents</li>
