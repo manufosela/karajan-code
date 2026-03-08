@@ -3,7 +3,7 @@ title: Karajan Code
 description: Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.11.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
+  tagline: "v1.13.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -48,10 +48,16 @@ Instead of running one AI agent and manually reviewing its output, `kj` chains a
     `kj_preflight` requires human confirmation of agent assignments before execution. 3-tier config: session > project > global.
   </Card>
   <Card title="Solomon Supervisor" icon="seti:config">
-    Monitors iteration health with 4 rules (max files, stale iterations, dependency guard, scope guard). Pauses on critical anomalies.
+    Monitors iteration health with 5 rules (max files, stale iterations, dependency guard, scope guard, reviewer overreach). Mediates reviewer stalls instead of stopping.
+  </Card>
+  <Card title="Intelligent Reviewer Mediation" icon="approve-check">
+    Scope filter auto-defers out-of-scope reviewer issues instead of stalling the pipeline. Deferred issues tracked as tech debt and fed back to the coder.
   </Card>
   <Card title="Real-Time Monitoring" icon="seti:log">
     Stall detector, continuous heartbeats, max-silence guardrails, planner runtime cap. `kj-tail` for colorized live log. `kj_status` for parsed status.
+  </Card>
+  <Card title="BecarIA Gateway" icon="open-book">
+    Full CI/CD integration with GitHub PRs as source of truth. All agents post comments and reviews on PRs. Early PR creation, configurable dispatch events, and embedded workflow templates.
   </Card>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required.

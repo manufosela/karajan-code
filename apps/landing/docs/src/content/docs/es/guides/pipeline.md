@@ -24,7 +24,7 @@ triage? → researcher? → planner? → coder → refactorer? → sonar? → re
 | **reviewer** | Revisión de código con perfiles de exigencia configurables | **Siempre activo** |
 | **tester** | Quality gate de tests y verificación de cobertura | **On** |
 | **security** | Auditoría de seguridad OWASP | **On** |
-| **solomon** | Supervisor de sesión — monitoriza salud de iteraciones con 4 reglas, escala ante anomalías | **On** |
+| **solomon** | Supervisor de sesión — monitoriza salud de iteraciones con 5 reglas, media stalls del reviewer, escala ante anomalías | **On** |
 | **commiter** | Automatización de git commit, push y PR tras aprobación | Off |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecución o via config.
@@ -49,9 +49,9 @@ Cada stage incluye un `summary` opcional — el nombre del provider mientras est
 
 Para herramientas single-agent (`kj_code`, `kj_review`, `kj_plan`), también se emiten logs de tracker start/end para que los hosts puedan mostrar qué agente está activo.
 
-## Solomon Supervisor (v1.11.0)
+## Solomon Supervisor (v1.12.0)
 
-Solomon se ejecuta tras cada iteración como supervisor de sesión con 4 reglas:
+Solomon se ejecuta tras cada iteración como supervisor de sesión con 5 reglas:
 
 | Regla | Qué comprueba |
 |-------|--------------|
@@ -59,8 +59,25 @@ Solomon se ejecuta tras cada iteración como supervisor de sesión con 4 reglas:
 | `max_stale_iterations` | Mismos issues repitiéndose entre iteraciones (defecto: 3) |
 | `dependency_guard` | Nuevas dependencias añadidas sin aprobación explícita |
 | `scope_guard` | Cambios fuera del scope esperado de la tarea |
+| `reviewer_overreach` | El reviewer reporta issues en ficheros fuera del diff actual |
 
 Cuando se dispara una alerta crítica, Solomon pausa la sesión y pide input humano via `elicitInput`.
+
+A partir de v1.12.0, Solomon también media los stalls del reviewer. En lugar de detener el pipeline inmediatamente cuando el reviewer se estanca, Solomon interviene para evaluar la situación, pudiendo auto-diferir los issues fuera de scope y permitir que el pipeline continúe.
+
+## Scope Filter del Reviewer (v1.12.0)
+
+Cuando el reviewer reporta issues sobre ficheros que no están presentes en el diff actual, el scope filter los clasifica automáticamente como **issues diferidos** en lugar de bloquear el pipeline.
+
+**Comportamiento:**
+1. El reviewer ejecuta su revisión normalmente
+2. El scope filter analiza cada issue reportado y compara los ficheros afectados con el diff real
+3. Los issues sobre ficheros fuera de scope se auto-difieren — no bloquean la iteración
+4. Los issues diferidos se rastrean como deuda técnica dentro de la sesión
+5. En la siguiente iteración, los issues diferidos se inyectan en el prompt del coder como contexto adicional
+
+**Resultado de sesión:**
+El campo `deferredIssues` en el resultado de la sesión contiene la lista de issues diferidos con su fichero, descripción y la iteración en la que fueron detectados. Esto permite rastrear la deuda técnica generada durante la ejecución del pipeline.
 
 ## Standby por Rate-Limit (v1.11.0)
 
@@ -79,3 +96,45 @@ Antes de que `kj_run` o `kj_code` se ejecuten, Karajan requiere una llamada a `k
 El preflight soporta lenguaje natural: `"use gemini as coder"`, `"coder: claude"`, o `"set reviewer to codex"`.
 
 Los overrides de sesión se almacenan en memoria y mueren cuando el servidor MCP se reinicia.
+
+## BecarIA Gateway (v1.13.0)
+
+BecarIA Gateway añade integración CI/CD completa con GitHub PRs como fuente única de verdad. En lugar de ejecutar agentes localmente y crear PRs manualmente, el gateway convierte las PRs en el punto central de coordinación.
+
+### Cómo funciona
+
+1. **Creación temprana de PR**: Tras la primera iteración del coder, Karajan crea una PR en borrador automáticamente
+2. **Comentarios de agentes en PRs**: Todos los agentes (Coder, Reviewer, Sonar, Solomon, Tester, Security, Planner) publican sus resultados como comentarios o reviews en la PR
+3. **Dispatch events configurables**: La sección `becaria` del config define qué workflows de GitHub Actions disparar en cada etapa del pipeline
+4. **Workflow templates embebidos**: `kj init --scaffold-becaria` genera ficheros de workflow listos para usar (`becaria-gateway.yml`, `automerge.yml`, `houston-override.yml`)
+
+### Review standalone con diff de PR
+
+`kj review` ahora soporta revisar el diff de una PR existente directamente, haciéndolo utilizable como herramienta de code review independiente fuera del pipeline completo.
+
+### Configuración
+
+```bash
+kj init --scaffold-becaria
+kj doctor  # verifica la configuración de BecarIA
+```
+
+Activar vía CLI:
+
+```bash
+kj run --enable-becaria --task "Añadir validación de inputs"
+```
+
+O vía MCP:
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añadir validación de inputs",
+    "enableBecaria": true
+  }
+}
+```
+
+`kj doctor` incluye verificaciones específicas de BecarIA para confirmar que los workflow templates están presentes y que el token de GitHub tiene los permisos necesarios.

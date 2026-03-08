@@ -94,7 +94,7 @@ Karajan Code exposes **15 MCP tools**:
 | `kj_status` | — | Live parsed status of current run (stage, agent, iteration, errors) |
 | `kj_report` | — | Read session reports with cost breakdown |
 | `kj_scan` | — | Run SonarQube scan on the current project |
-| `kj_init` | — | Initialize config, review rules, and SonarQube |
+| `kj_init` | — | Initialize config, review rules, SonarQube, and BecarIA scaffolding (`--scaffold-becaria`) |
 | `kj_doctor` | — | Check system dependencies and agent CLIs |
 | `kj_config` | — | Show current configuration |
 | `kj_roles` | — | List pipeline roles or show role templates |
@@ -138,6 +138,20 @@ The agent calls:
   }
 }
 ```
+
+### With BecarIA Gateway
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Add input validation to the signup form",
+    "enableBecaria": true
+  }
+}
+```
+
+When `enableBecaria` is true, Karajan creates an early draft PR after the first coder iteration and all agents (Coder, Reviewer, Sonar, Solomon, Tester, Security, Planner) post their results as PR comments/reviews. Configurable dispatch events trigger GitHub Actions workflows at each pipeline stage.
 
 ### With Planning Game integration
 

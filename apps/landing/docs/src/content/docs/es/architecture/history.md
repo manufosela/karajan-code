@@ -309,6 +309,68 @@ Solomon supervisor:
 
 **Por qué:** Ejecutar código generado por IA sin tests ni auditoría de seguridad era inaceptable. Triage como director asegura que los roles correctos se activen según la complejidad de cada tarea. El preflight handshake resolvió un problema fundamental de confianza: cuando un agente IA pasa `coder: "codex"` a `kj_run`, no había forma de saber si el humano lo eligió o la IA decidió por su cuenta. Ahora el humano confirma o ajusta explícitamente antes de que nada se ejecute.
 
+## Fase 14: Mediación Inteligente del Reviewer (v1.12.0)
+
+**Qué cambió:** El reviewer ya no bloquea el pipeline cuando reporta issues fuera de scope. Solomon media los stalls del reviewer en lugar de detener la sesión inmediatamente.
+
+**Adiciones clave:**
+- Scope filter del reviewer: analiza cada issue reportado y compara los ficheros afectados con el diff real de la iteración. Los issues sobre ficheros fuera de scope se auto-difieren en vez de bloquear
+- Tracking de issues diferidos: los issues fuera de scope se registran como deuda técnica en la sesión y se inyectan en el prompt del coder en iteraciones posteriores
+- 5ª regla Solomon `reviewer_overreach`: detecta cuando el reviewer reporta issues en ficheros no presentes en el diff
+- Mediación de stalls del reviewer: Solomon interviene ante bloqueos del reviewer evaluando la situación antes de escalar al humano
+- Campo `deferredIssues` en el resultado de sesión para rastrear deuda técnica generada durante la ejecución
+
+**Adición a la arquitectura:**
+```
+Antes de v1.12.0:
+  reviewer reporta issue en fichero fuera de diff → coder intenta arreglar → scope creep → stall
+  reviewer se estanca → pipeline se detiene inmediatamente
+
+Después de v1.12.0:
+  reviewer reporta issue fuera de diff → scope filter lo auto-difiere → pipeline continúa
+  issues diferidos → se inyectan en prompt del coder como contexto → deuda técnica rastreada
+  reviewer se estanca → Solomon media → evalúa situación → continúa o escala
+```
+
+**Por qué:** Los reviewers frecuentemente reportan issues legítimos en ficheros que no forman parte del cambio actual. Antes esto provocaba scope creep — el coder intentaba arreglar ficheros que no debía tocar, generando más cambios fuera de scope y estancando el pipeline. El scope filter resuelve esto diferiendo automáticamente esos issues sin perderlos: se registran como deuda técnica y se comunican al coder como contexto para futuras iteraciones. La mediación de Solomon ante stalls del reviewer añade una capa de inteligencia antes de la intervención humana, reduciendo las pausas innecesarias del pipeline.
+
+## Fase 15: BecarIA Gateway (v1.13.0)
+
+**Qué cambió:** Integración CI/CD completa con GitHub PRs como fuente única de verdad. Todos los agentes del pipeline ahora publican sus resultados directamente en las PRs, y el pipeline crea PRs de forma temprana en el proceso.
+
+**Adiciones clave:**
+- BecarIA Gateway: las GitHub PRs se convierten en el punto central de coordinación para todos los agentes
+- Creación temprana de PR: se crea una PR en borrador tras la primera iteración del coder
+- Comentarios/reviews de agentes en PRs: todos los agentes (Coder, Reviewer, Sonar, Solomon, Tester, Security, Planner) publican resultados como comentarios o reviews en la PR
+- Dispatch events configurables via sección `becaria` del config — disparan workflows de GitHub Actions en cada etapa del pipeline
+- `kj review` standalone con soporte de diff de PR — utilizable como herramienta de code review independiente
+- Workflow templates embebidos: `kj init --scaffold-becaria` genera `becaria-gateway.yml`, `automerge.yml`, `houston-override.yml`
+- Verificaciones BecarIA en `kj doctor`: comprueba que los workflow templates están presentes y que el token de GitHub tiene los permisos necesarios
+- Flag CLI `--enable-becaria` y parámetro MCP `enableBecaria`
+
+**Adición a la arquitectura:**
+```
+Antes de v1.13.0 (pipeline local):
+  coder → sonar → reviewer → commiter → creación manual de PR
+
+Después de v1.13.0 (BecarIA Gateway):
+  coder (iteración 1) → crear PR en borrador
+  coder → publicar comentario en PR
+  sonar → publicar comentario en PR
+  reviewer → publicar review en PR
+  solomon → publicar comentario en PR
+  tester → publicar comentario en PR
+  security → publicar comentario en PR
+  dispatch events → workflows de GitHub Actions
+
+kj init --scaffold-becaria:
+  → .github/workflows/becaria-gateway.yml
+  → .github/workflows/automerge.yml
+  → .github/workflows/houston-override.yml
+```
+
+**Por qué:** Los pipelines solo locales requerían pasos manuales para conectar el código generado por IA con la colaboración en equipo. Las PRs son el punto natural de colaboración para code review y CI/CD, pero crearlas era un paso manual posterior. BecarIA Gateway convierte las PRs en el punto de integración de primera clase: los agentes publican sus hallazgos donde el equipo ya trabaja, los dispatch events disparan workflows CI/CD existentes, y la creación temprana de PR asegura visibilidad desde la primera iteración. Esto transforma Karajan de un orquestador local a un pipeline consciente de CI/CD que se integra sin fricciones con workflows basados en GitHub.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

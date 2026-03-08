@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador local multi-agente con TDD, SonarQube y revisión de código automatizada.
 template: splash
 hero:
-  tagline: "v1.11.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.13.0 — Orquesta múltiples agentes de IA a través de un pipeline automatizado. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -48,10 +48,16 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encad
     `kj_preflight` requiere confirmación humana de la config de agentes antes de ejecutar. Config de 3 niveles: sesión > proyecto > global.
   </Card>
   <Card title="Solomon Supervisor" icon="seti:config">
-    Monitoriza la salud de iteraciones con 4 reglas (max ficheros, iteraciones estancadas, dependencias, scope). Pausa ante anomalías críticas.
+    Monitoriza la salud de iteraciones con 5 reglas (max ficheros, iteraciones estancadas, dependencias, scope, reviewer overreach). Media conflictos del reviewer y pausa ante anomalías críticas.
   </Card>
   <Card title="Monitorización en Tiempo Real" icon="seti:log">
     Detector de stalls, heartbeats continuos, guardarraíles de silencio, límite de runtime. `kj-tail` para log colorizado en vivo. `kj_status` para estado parseado.
+  </Card>
+  <Card title="Mediación Inteligente del Reviewer" icon="approve-check">
+    El scope filter auto-difiere issues del reviewer fuera de scope en vez de bloquear el pipeline. Los issues diferidos se rastrean como deuda técnica y se inyectan en el prompt del coder.
+  </Card>
+  <Card title="BecarIA Gateway" icon="open-book">
+    Integración CI/CD completa con GitHub PRs como fuente de verdad. Todos los agentes publican comentarios y reviews en PRs. Creación temprana de PR, dispatch events configurables y workflow templates embebidos.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.
