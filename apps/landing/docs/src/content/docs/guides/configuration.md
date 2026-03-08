@@ -152,7 +152,7 @@ budget:
 
 ### Planning Game Integration
 
-Connect to a Planning Game project management system:
+Connect to [Planning Game](https://github.com/manufosela/planning-game-xp), an agile project management system (XP methodology) with MCP integration:
 
 ```yaml
 planning_game:

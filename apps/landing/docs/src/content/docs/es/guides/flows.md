@@ -215,7 +215,7 @@ kj doctor
 
 ## 6. Planning Game — Gestión Completa de Proyecto
 
-Se integra con el sistema de gestión de proyectos **Planning Game**. Las tareas se obtienen automáticamente, los estados se actualizan en tiempo real, y los commits se registran en las cards.
+Se integra con [**Planning Game**](https://github.com/manufosela/planning-game-xp), un sistema de gestión de proyectos ágil (metodología XP) disponible como [servidor MCP](https://www.npmjs.com/package/planning-game-mcp). Las tareas se obtienen automáticamente, los estados se actualizan en tiempo real, y los commits se registran en las cards.
 
 <pre class="mermaid">
 graph TD

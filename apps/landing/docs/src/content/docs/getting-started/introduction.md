@@ -43,7 +43,7 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 - **Smart model selection** — auto-selects optimal model per role based on triage complexity
 - **Rate limit resilience** — detects rate limits, pauses session, auto-fallback to another agent
 - **Interactive checkpoints** — pauses every 5 minutes with a progress report instead of killing long tasks
-- **Task decomposition** — triage detects when tasks should be split and creates linked subtasks in Planning Game
+- **Task decomposition** — triage detects when tasks should be split and creates linked subtasks in [Planning Game](https://github.com/manufosela/planning-game-xp)
 
 ## Best with MCP
 

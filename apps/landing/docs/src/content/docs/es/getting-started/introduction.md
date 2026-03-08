@@ -43,7 +43,7 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 - **Selección inteligente de modelos** — auto-selecciona el modelo óptimo por rol según la complejidad del triage
 - **Resiliencia ante rate limits** — detecta rate limits, pausa la sesión, auto-fallback a otro agente
 - **Checkpoints interactivos** — pausa cada 5 minutos con informe de progreso en lugar de matar tareas largas
-- **Descomposición de tareas** — triage detecta cuándo dividir tareas y crea subtareas vinculadas en Planning Game
+- **Descomposición de tareas** — triage detecta cuándo dividir tareas y crea subtareas vinculadas en [Planning Game](https://github.com/manufosela/planning-game-xp)
 
 ## Mejor con MCP
 

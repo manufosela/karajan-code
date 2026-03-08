@@ -215,7 +215,7 @@ kj doctor
 
 ## 6. Planning Game — Full Project Management
 
-Integrates with the **Planning Game** project management system. Tasks are fetched automatically, status updates happen in real-time, and commits are tracked back to cards.
+Integrates with [**Planning Game**](https://github.com/manufosela/planning-game-xp), an agile project management system (XP methodology) available as an [MCP server](https://www.npmjs.com/package/planning-game-mcp). Tasks are fetched automatically, status updates happen in real-time, and commits are tracked back to cards.
 
 <pre class="mermaid">
 graph TD
