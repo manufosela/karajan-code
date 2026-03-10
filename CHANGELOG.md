@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-03-10
+
+### Fixed
+- **Claude subprocess incompatible with Claude Code v2.1.71**: `--print` combined with `--output-format stream-json` now requires `--verbose` flag. Added `--verbose` to both `runTask` (streaming) and `reviewTask` in `ClaudeAgent`
+
 ## [1.13.0] - 2026-03-08
 
 ### Added
@@ -291,7 +296,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/manufosela/karajan-code/compare/v1.13.0...v1.13.1
+[1.13.0]: https://github.com/manufosela/karajan-code/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/manufosela/karajan-code/compare/v1.11.1...v1.12.0
+[1.11.1]: https://github.com/manufosela/karajan-code/compare/v1.11.0...v1.11.1
+[1.11.0]: https://github.com/manufosela/karajan-code/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/manufosela/karajan-code/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/manufosela/karajan-code/compare/v1.9.6...v1.10.0
 [1.9.6]: https://github.com/manufosela/karajan-code/compare/v1.9.4...v1.9.6

@@ -124,6 +124,10 @@ function pickOutput(res) {
 }
 ```
 
+4. **`--verbose` required with `stream-json`** (v2.1.71+): Claude Code now requires `--verbose` when combining `--print` with `--output-format stream-json`. Without it, the subprocess exits with an error.
+
+**Fix** (v1.13.1): Karajan adds `--verbose` alongside `--output-format stream-json` in both `runTask` and `reviewTask`.
+
 **Verify manually**:
 ```bash
 # Hangs (inherits env + stdin):
@@ -131,6 +135,9 @@ claude -p "Reply PONG" --output-format json
 
 # Works (clean env, no stdin, read stderr):
 env -u CLAUDECODE claude -p "Reply PONG" --output-format json < /dev/null 2>&1
+
+# For stream-json (requires --verbose since Claude Code v2.1.71):
+env -u CLAUDECODE claude -p "Reply PONG" --output-format stream-json --verbose < /dev/null 2>&1
 ```
 
 > This only affects Claude Code 2.x as a subprocess. Other agents (Codex, Gemini, Aider) are unaffected.

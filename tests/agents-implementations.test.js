@@ -53,7 +53,7 @@ describe("Agent implementations", () => {
       expect(args).toContain("opus");
     });
 
-    it("reviews task with --output-format stream-json", async () => {
+    it("reviews task with --output-format stream-json and --verbose", async () => {
       const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       await agent.reviewTask({ prompt: "review code", role: "reviewer" });
@@ -61,6 +61,7 @@ describe("Agent implementations", () => {
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--output-format");
       expect(args).toContain("stream-json");
+      expect(args).toContain("--verbose");
     });
 
     it("returns ok=false on non-zero exit with error from stderr", async () => {
@@ -74,7 +75,7 @@ describe("Agent implementations", () => {
       expect(result.error).toContain("error detail");
     });
 
-    it("uses stream-json and wraps onOutput when callback is provided", async () => {
+    it("uses stream-json with --verbose and wraps onOutput when callback is provided", async () => {
       const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       const onOutput = vi.fn();
@@ -83,6 +84,7 @@ describe("Agent implementations", () => {
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--output-format");
       expect(args).toContain("stream-json");
+      expect(args).toContain("--verbose");
       // The onOutput is wrapped in a stream-json filter, not passed directly
       expect(runCommand.mock.calls[0][2]).toHaveProperty("onOutput");
       expect(runCommand.mock.calls[0][2].onOutput).not.toBe(onOutput);

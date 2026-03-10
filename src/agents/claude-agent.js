@@ -120,7 +120,7 @@ export class ClaudeAgent extends BaseAgent {
 
     // Use stream-json when onOutput is provided to get real-time feedback
     if (task.onOutput) {
-      args.push("--output-format", "stream-json");
+      args.push("--output-format", "stream-json", "--verbose");
       const streamFilter = createStreamJsonFilter(task.onOutput);
       const res = await runCommand(resolveBin("claude"), args, cleanExecaOpts({
         onOutput: streamFilter,
@@ -141,7 +141,7 @@ export class ClaudeAgent extends BaseAgent {
   }
 
   async reviewTask(task) {
-    const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS, "--output-format", "stream-json"];
+    const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS, "--output-format", "stream-json", "--verbose"];
     const model = this.getRoleModel(task.role || "reviewer");
     if (model) args.push("--model", model);
     const res = await runCommand(resolveBin("claude"), args, cleanExecaOpts({
