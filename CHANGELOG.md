@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-03-11
+
+### Added
+- **DiscoverRole**: new pre-execution validation role that analyzes tasks for gaps, ambiguities, and missing information before pipeline execution
+- **5 discovery modes**: `gaps` (default gap detection), `momtest` (Mom Test question generation), `wendel` (behavior change adoption checklist), `classify` (START/STOP/DIFFERENT classification), `jtbd` (Jobs-to-be-Done generation)
+- **`kj_discover` MCP tool**: standalone gap detection tool with mode, context, and Planning Game task integration
+- **Pipeline integration**: discover runs as opt-in pre-pipeline stage before triage (`--enable-discover` flag or `pipeline.discover.enabled` config)
+- **Non-blocking discovery**: discover failures log warnings and continue pipeline execution gracefully
+
 ## [1.15.0] - 2026-03-11
 
 ### Added
