@@ -692,7 +692,7 @@ export async function handleToolCall(name, args, server, extra) {
     if (!a.task) {
       return failPayload("Missing required field: task");
     }
-    const validModes = ["gaps", "momtest", "wendel", "classify"];
+    const validModes = ["gaps", "momtest", "wendel", "classify", "jtbd"];
     if (a.mode && !validModes.includes(a.mode)) {
       return failPayload(`Invalid mode "${a.mode}". Valid values: ${validModes.join(", ")}`);
     }

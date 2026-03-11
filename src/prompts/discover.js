@@ -4,7 +4,7 @@ const SUBAGENT_PREAMBLE = [
   "Do NOT use any MCP tools. Focus only on discovering gaps in the task specification."
 ].join(" ");
 
-export const DISCOVER_MODES = ["gaps", "momtest", "wendel", "classify"];
+export const DISCOVER_MODES = ["gaps", "momtest", "wendel", "classify", "jtbd"];
 
 const VALID_VERDICTS = ["ready", "needs_validation"];
 const VALID_SEVERITIES = ["critical", "major", "minor"];
@@ -96,6 +96,25 @@ export function buildDiscoverPrompt({ task, instructions, mode = "gaps", context
     );
   }
 
+  if (mode === "jtbd") {
+    sections.push(
+      "## Jobs-to-be-Done Framework",
+      [
+        "Generate reinforced Jobs-to-be-Done from the task and any provided context (interview notes, field observations).",
+        "Each JTBD must include 5 layers:",
+        "",
+        "- **functional**: The practical job the user is trying to accomplish",
+        "- **emotionalPersonal**: How the user wants to feel personally",
+        "- **emotionalSocial**: How the user wants to be perceived by others",
+        "- **behaviorChange**: Type of change: START, STOP, DIFFERENT, or not_applicable",
+        "- **evidence**: Direct quotes or specific references from the context. If no context provided, set to 'not_available' and suggest what context is needed",
+        "",
+        "CRITICAL: evidence must contain real quotes or references from the provided context, NEVER invented assumptions",
+        "If no context is provided, mark evidence as 'not_available'"
+      ].join("\n")
+    );
+  }
+
   const baseSchema = '{"verdict":"ready|needs_validation","gaps":[{"id":string,"description":string,"severity":"critical|major|minor","suggestedQuestion":string}]';
   const momtestSchema = mode === "momtest"
     ? ',"momTestQuestions":[{"gapId":string,"question":string,"targetRole":string,"rationale":string}]'
@@ -106,10 +125,13 @@ export function buildDiscoverPrompt({ task, instructions, mode = "gaps", context
   const classifySchema = mode === "classify"
     ? ',"classification":{"type":"START|STOP|DIFFERENT|not_applicable","adoptionRisk":"none|low|medium|high","frictionEstimate":string}'
     : "";
+  const jtbdSchema = mode === "jtbd"
+    ? ',"jtbds":[{"id":string,"functional":string,"emotionalPersonal":string,"emotionalSocial":string,"behaviorChange":"START|STOP|DIFFERENT|not_applicable","evidence":string}]'
+    : "";
 
   sections.push(
     "Return a single valid JSON object and nothing else.",
-    `JSON schema: ${baseSchema}${momtestSchema}${wendelSchema}${classifySchema},"summary":string}`
+    `JSON schema: ${baseSchema}${momtestSchema}${wendelSchema}${classifySchema}${jtbdSchema},"summary":string}`
   );
 
   if (context) {
@@ -168,6 +190,18 @@ export function parseDiscoverOutput(raw) {
       justification: c.justification
     }));
 
+  const rawJtbds = Array.isArray(parsed.jtbds) ? parsed.jtbds : [];
+  const jtbds = rawJtbds
+    .filter((j) => j && j.id && j.functional && j.emotionalPersonal && j.emotionalSocial && j.behaviorChange && j.evidence)
+    .map((j) => ({
+      id: j.id,
+      functional: j.functional,
+      emotionalPersonal: j.emotionalPersonal,
+      emotionalSocial: j.emotionalSocial,
+      behaviorChange: j.behaviorChange,
+      evidence: j.evidence
+    }));
+
   let classification = null;
   if (parsed.classification && typeof parsed.classification === "object") {
     const rawType = String(parsed.classification.type || "").toUpperCase();
@@ -187,6 +221,7 @@ export function parseDiscoverOutput(raw) {
     momTestQuestions,
     wendelChecklist,
     classification,
+    jtbds,
     summary: parsed.summary || ""
   };
 }

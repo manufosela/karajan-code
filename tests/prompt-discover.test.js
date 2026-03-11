@@ -109,6 +109,28 @@ describe("buildDiscoverPrompt — classify mode", () => {
   });
 });
 
+describe("buildDiscoverPrompt — jtbd mode", () => {
+  it("includes JTBD framework when mode is jtbd", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "jtbd" });
+    expect(prompt).toContain("Jobs-to-be-Done");
+    expect(prompt).toContain("functional");
+    expect(prompt).toContain("emotionalPersonal");
+    expect(prompt).toContain("emotionalSocial");
+    expect(prompt).toContain("behaviorChange");
+    expect(prompt).toContain("evidence");
+  });
+
+  it("includes jtbds in JSON schema for jtbd mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "jtbd" });
+    expect(prompt).toContain("jtbds");
+  });
+
+  it("does not include JTBD in gaps mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "gaps" });
+    expect(prompt).not.toContain("Jobs-to-be-Done");
+  });
+});
+
 describe("DISCOVER_MODES", () => {
   it("exports gaps as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("gaps");
@@ -124,6 +146,10 @@ describe("DISCOVER_MODES", () => {
 
   it("exports classify as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("classify");
+  });
+
+  it("exports jtbd as a valid mode", () => {
+    expect(DISCOVER_MODES).toContain("jtbd");
   });
 });
 
@@ -351,6 +377,63 @@ describe("parseDiscoverOutput", () => {
     });
     const parsed = parseDiscoverOutput(raw);
     expect(parsed.wendelChecklist).toHaveLength(1);
+  });
+
+  it("parses jtbds from output", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      jtbds: [{
+        id: "jtbd-1",
+        functional: "Export data to CSV",
+        emotionalPersonal: "Feel in control of my data",
+        emotionalSocial: "Look competent in meetings",
+        behaviorChange: "START",
+        evidence: "User said: 'I spend 2 hours copying data manually'"
+      }]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.jtbds).toHaveLength(1);
+    expect(parsed.jtbds[0].id).toBe("jtbd-1");
+    expect(parsed.jtbds[0].functional).toBe("Export data to CSV");
+    expect(parsed.jtbds[0].evidence).toContain("copying data");
+  });
+
+  it("returns empty jtbds when not present", () => {
+    const raw = JSON.stringify({ verdict: "ready", gaps: [] });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.jtbds).toEqual([]);
+  });
+
+  it("filters jtbds missing required fields", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      jtbds: [
+        { id: "j1", functional: "x", emotionalPersonal: "y", emotionalSocial: "z", behaviorChange: "START", evidence: "data" },
+        { id: "j2", functional: "x" },
+        { emotionalPersonal: "missing id and functional" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.jtbds).toHaveLength(1);
+  });
+
+  it("handles not_available evidence", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      jtbds: [{
+        id: "j1",
+        functional: "x",
+        emotionalPersonal: "y",
+        emotionalSocial: "z",
+        behaviorChange: "START",
+        evidence: "not_available"
+      }]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.jtbds[0].evidence).toBe("not_available");
   });
 
   it("filters momTestQuestions missing required fields", () => {

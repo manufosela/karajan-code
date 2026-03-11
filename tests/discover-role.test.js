@@ -353,6 +353,75 @@ describe("DiscoverRole", () => {
       expect(result.result.classification.adoptionRisk).toBe("none");
     });
 
+    it("returns jtbds in jtbd mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "ready",
+        gaps: [],
+        jtbds: [{
+          id: "jtbd-1",
+          functional: "Export data",
+          emotionalPersonal: "Feel productive",
+          emotionalSocial: "Impress team",
+          behaviorChange: "START",
+          evidence: "User: 'I spend 2h copying'"
+        }]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Add export" });
+      const result = await role.run({ task: "Add export", mode: "jtbd" });
+
+      expect(result.ok).toBe(true);
+      expect(result.result.mode).toBe("jtbd");
+      expect(result.result.jtbds).toHaveLength(1);
+      expect(result.result.jtbds[0].functional).toBe("Export data");
+    });
+
+    it("returns empty jtbds when no context provided", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "ready",
+        gaps: [],
+        jtbds: [{
+          id: "j1",
+          functional: "x",
+          emotionalPersonal: "y",
+          emotionalSocial: "z",
+          behaviorChange: "START",
+          evidence: "not_available"
+        }]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "jtbd" });
+
+      expect(result.result.jtbds[0].evidence).toBe("not_available");
+    });
+
+    it("includes jtbd count in summary", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "ready",
+        gaps: [],
+        jtbds: [
+          { id: "j1", functional: "a", emotionalPersonal: "b", emotionalSocial: "c", behaviorChange: "START", evidence: "e" },
+          { id: "j2", functional: "d", emotionalPersonal: "e", emotionalSocial: "f", behaviorChange: "DIFFERENT", evidence: "g" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "jtbd" });
+
+      expect(result.summary).toContain("2");
+      expect(result.summary).toMatch(/JTBD/i);
+    });
+
     it("includes classification in summary for classify mode", async () => {
       const agentOutput = JSON.stringify({
         verdict: "needs_validation",

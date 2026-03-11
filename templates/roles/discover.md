@@ -132,3 +132,36 @@ When running in **classify** mode, classify the task by its impact on user behav
   }
 }
 ```
+
+## JTBD Mode
+
+When running in **jtbd** mode, generate reinforced Jobs-to-be-Done from the task and provided context (interview notes, field observations).
+
+Each JTBD must include 5 layers:
+
+| Layer | Description |
+|-------|-------------|
+| **functional** | The practical job the user is trying to accomplish |
+| **emotionalPersonal** | How the user wants to feel personally |
+| **emotionalSocial** | How the user wants to be perceived by others |
+| **behaviorChange** | Type of change: START, STOP, DIFFERENT, or not_applicable |
+| **evidence** | Direct quotes or references from context. Set to `not_available` if no context provided |
+
+**CRITICAL**: The `evidence` field must contain real quotes or specific references from the provided context. Never invent assumptions.
+
+### JTBD Output Schema (additional fields for jtbd mode)
+
+```json
+{
+  "jtbds": [
+    {
+      "id": "jtbd-1",
+      "functional": "The practical job",
+      "emotionalPersonal": "How the user wants to feel",
+      "emotionalSocial": "How the user wants to be perceived",
+      "behaviorChange": "START|STOP|DIFFERENT|not_applicable",
+      "evidence": "Direct quote or 'not_available'"
+    }
+  ]
+}
+```

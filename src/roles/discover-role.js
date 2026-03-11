@@ -12,7 +12,7 @@ function resolveProvider(config) {
 
 function buildSummary(parsed, mode) {
   const gapCount = parsed.gaps?.length || 0;
-  if (gapCount === 0 && mode !== "wendel") return "Discovery complete: task is ready";
+  if (gapCount === 0 && mode !== "wendel" && mode !== "jtbd") return "Discovery complete: task is ready";
   const parts = [];
   if (gapCount > 0) parts.push(`${gapCount} gap${gapCount !== 1 ? "s" : ""} found`);
   if (mode === "momtest") {
@@ -26,6 +26,11 @@ function buildSummary(parsed, mode) {
   }
   if (mode === "classify" && parsed.classification) {
     parts.push(`type: ${parsed.classification.type}, risk: ${parsed.classification.adoptionRisk}`);
+  }
+  if (mode === "jtbd") {
+    const jCount = parsed.jtbds?.length || 0;
+    if (jCount > 0) parts.push(`${jCount} JTBD${jCount !== 1 ? "s" : ""} generated`);
+    else if (gapCount === 0) return "Discovery complete: task is ready";
   }
   return `Discovery complete: ${parts.join(", ")} (verdict: ${parsed.verdict})`;
 }
@@ -96,6 +101,9 @@ export class DiscoverRole extends BaseRole {
       }
       if (mode === "classify") {
         resultObj.classification = parsed.classification || null;
+      }
+      if (mode === "jtbd") {
+        resultObj.jtbds = parsed.jtbds || [];
       }
 
       return {
