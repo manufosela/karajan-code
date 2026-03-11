@@ -16,7 +16,8 @@ const DEFAULTS = {
     researcher: { provider: null, model: null },
     tester: { provider: null, model: null },
     security: { provider: null, model: null },
-    triage: { provider: null, model: null }
+    triage: { provider: null, model: null },
+    discover: { provider: null, model: null }
   },
   pipeline: {
     planner: { enabled: false },
@@ -25,7 +26,8 @@ const DEFAULTS = {
     researcher: { enabled: false },
     tester: { enabled: true },
     security: { enabled: true },
-    triage: { enabled: true }
+    triage: { enabled: true },
+    discover: { enabled: false }
   },
   review_mode: "standard",
   max_iterations: 5,
@@ -245,6 +247,9 @@ export function applyRunOverrides(config, flags) {
   if (flags.tester) out.roles.tester.provider = flags.tester;
   if (flags.security) out.roles.security.provider = flags.security;
   if (flags.triage) out.roles.triage.provider = flags.triage;
+  if (flags.discover) out.roles.discover.provider = flags.discover;
+  if (flags.discoverModel) out.roles.discover.model = String(flags.discoverModel);
+  if (flags.enableDiscover !== undefined) out.pipeline.discover.enabled = Boolean(flags.enableDiscover);
   if (flags.plannerModel) out.roles.planner.model = String(flags.plannerModel);
   if (flags.coderModel) {
     out.roles.coder.model = String(flags.coderModel);
@@ -318,14 +323,14 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage" || role === "discover")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
   let model = roleConfig.model ?? null;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage")) {
+  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage" || role === "discover")) {
     model = config?.coder_options?.model ?? null;
   }
 

@@ -10,3 +10,4 @@ export { TriageRole } from "./triage-role.js";
 export { TesterRole } from "./tester-role.js";
 export { SecurityRole } from "./security-role.js";
 export { SolomonRole } from "./solomon-role.js";
+export { DiscoverRole } from "./discover-role.js";
