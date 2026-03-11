@@ -24,6 +24,9 @@ function buildSummary(parsed, mode) {
     if (failCount > 0) parts.push(`${failCount} Wendel condition${failCount !== 1 ? "s" : ""} failed`);
     else if (gapCount === 0) return "Discovery complete: task is ready";
   }
+  if (mode === "classify" && parsed.classification) {
+    parts.push(`type: ${parsed.classification.type}, risk: ${parsed.classification.adoptionRisk}`);
+  }
   return `Discovery complete: ${parts.join(", ")} (verdict: ${parsed.verdict})`;
 }
 
@@ -90,6 +93,9 @@ export class DiscoverRole extends BaseRole {
       }
       if (mode === "wendel") {
         resultObj.wendelChecklist = parsed.wendelChecklist || [];
+      }
+      if (mode === "classify") {
+        resultObj.classification = parsed.classification || null;
       }
 
       return {

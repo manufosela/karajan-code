@@ -109,3 +109,26 @@ If the task does NOT imply behavior change, set ALL conditions to `not_applicabl
   ]
 }
 ```
+
+## Classify Mode
+
+When running in **classify** mode, classify the task by its impact on user behavior:
+
+| Type | Description | Risk Level |
+|------|-------------|------------|
+| **START** | User must adopt a completely new behavior or workflow | Medium-High |
+| **STOP** | User must stop doing something they currently do | **Highest** resistance risk |
+| **DIFFERENT** | User must do something they already do, but differently | Low-Medium |
+| **not_applicable** | No user behavior impact (internal refactor, backend, infra) | None |
+
+### Classify Output Schema (additional fields for classify mode)
+
+```json
+{
+  "classification": {
+    "type": "START|STOP|DIFFERENT|not_applicable",
+    "adoptionRisk": "none|low|medium|high",
+    "frictionEstimate": "Description of expected friction"
+  }
+}
+```

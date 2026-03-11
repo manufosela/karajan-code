@@ -317,6 +317,59 @@ describe("DiscoverRole", () => {
       expect(result.result.wendelChecklist.every(c => c.status === "not_applicable")).toBe(true);
     });
 
+    it("returns classification in classify mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "x", severity: "major", suggestedQuestion: "q" }],
+        classification: { type: "STOP", adoptionRisk: "high", frictionEstimate: "Removing existing workflow" }
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Remove legacy export" });
+      const result = await role.run({ task: "Remove legacy export", mode: "classify" });
+
+      expect(result.ok).toBe(true);
+      expect(result.result.mode).toBe("classify");
+      expect(result.result.classification.type).toBe("STOP");
+      expect(result.result.classification.adoptionRisk).toBe("high");
+    });
+
+    it("returns not_applicable classification for technical tasks", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "ready",
+        gaps: [],
+        classification: { type: "not_applicable", adoptionRisk: "none", frictionEstimate: "No user impact" }
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Refactor DB module" });
+      const result = await role.run({ task: "Refactor DB module", mode: "classify" });
+
+      expect(result.result.classification.type).toBe("not_applicable");
+      expect(result.result.classification.adoptionRisk).toBe("none");
+    });
+
+    it("includes classification in summary for classify mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "x", severity: "major", suggestedQuestion: "q" }],
+        classification: { type: "STOP", adoptionRisk: "high", frictionEstimate: "x" }
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "classify" });
+
+      expect(result.summary).toContain("STOP");
+      expect(result.summary).toContain("high");
+    });
+
     it("includes wendel fail count in summary", async () => {
       const agentOutput = JSON.stringify({
         verdict: "needs_validation",

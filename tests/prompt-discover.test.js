@@ -89,6 +89,26 @@ describe("buildDiscoverPrompt — wendel mode", () => {
   });
 });
 
+describe("buildDiscoverPrompt — classify mode", () => {
+  it("includes START/STOP/DIFFERENT classification when mode is classify", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "classify" });
+    expect(prompt).toContain("START");
+    expect(prompt).toContain("STOP");
+    expect(prompt).toContain("DIFFERENT");
+  });
+
+  it("includes classification in JSON schema for classify mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "classify" });
+    expect(prompt).toContain("classification");
+    expect(prompt).toContain("adoptionRisk");
+  });
+
+  it("does not include classification in gaps mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "gaps" });
+    expect(prompt).not.toContain("adoptionRisk");
+  });
+});
+
 describe("DISCOVER_MODES", () => {
   it("exports gaps as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("gaps");
@@ -100,6 +120,10 @@ describe("DISCOVER_MODES", () => {
 
   it("exports wendel as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("wendel");
+  });
+
+  it("exports classify as a valid mode", () => {
+    expect(DISCOVER_MODES).toContain("classify");
   });
 });
 
@@ -250,6 +274,69 @@ describe("parseDiscoverOutput", () => {
     });
     const parsed = parseDiscoverOutput(raw);
     expect(parsed.wendelChecklist[0].status).toBe("unknown");
+  });
+
+  it("parses classification from output", () => {
+    const raw = JSON.stringify({
+      verdict: "needs_validation",
+      gaps: [],
+      classification: {
+        type: "START",
+        adoptionRisk: "medium",
+        frictionEstimate: "Users need to learn a new workflow"
+      }
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification).toBeDefined();
+    expect(parsed.classification.type).toBe("START");
+    expect(parsed.classification.adoptionRisk).toBe("medium");
+    expect(parsed.classification.frictionEstimate).toBe("Users need to learn a new workflow");
+  });
+
+  it("returns null classification when not present", () => {
+    const raw = JSON.stringify({ verdict: "ready", gaps: [] });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification).toBeNull();
+  });
+
+  it("normalizes classification type to uppercase", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      classification: { type: "stop", adoptionRisk: "high", frictionEstimate: "x" }
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification.type).toBe("STOP");
+  });
+
+  it("defaults invalid classification type to not_applicable", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      classification: { type: "INVALID", adoptionRisk: "low", frictionEstimate: "x" }
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification.type).toBe("not_applicable");
+  });
+
+  it("normalizes adoptionRisk to valid values", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      classification: { type: "START", adoptionRisk: "HIGH", frictionEstimate: "x" }
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification.adoptionRisk).toBe("high");
+  });
+
+  it("defaults invalid adoptionRisk to medium", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      classification: { type: "START", adoptionRisk: "extreme", frictionEstimate: "x" }
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.classification.adoptionRisk).toBe("medium");
   });
 
   it("filters wendelChecklist items missing required fields", () => {

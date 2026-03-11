@@ -4,11 +4,13 @@ const SUBAGENT_PREAMBLE = [
   "Do NOT use any MCP tools. Focus only on discovering gaps in the task specification."
 ].join(" ");
 
-export const DISCOVER_MODES = ["gaps", "momtest", "wendel"];
+export const DISCOVER_MODES = ["gaps", "momtest", "wendel", "classify"];
 
 const VALID_VERDICTS = ["ready", "needs_validation"];
 const VALID_SEVERITIES = ["critical", "major", "minor"];
 const VALID_WENDEL_STATUSES = ["pass", "fail", "unknown", "not_applicable"];
+const VALID_CLASSIFY_TYPES = ["START", "STOP", "DIFFERENT", "not_applicable"];
+const VALID_ADOPTION_RISKS = ["none", "low", "medium", "high"];
 
 export function buildDiscoverPrompt({ task, instructions, mode = "gaps", context = null }) {
   const sections = [SUBAGENT_PREAMBLE];
@@ -76,6 +78,24 @@ export function buildDiscoverPrompt({ task, instructions, mode = "gaps", context
     );
   }
 
+  if (mode === "classify") {
+    sections.push(
+      "## Behavior Change Classification",
+      [
+        "Classify the task by its impact on user behavior:",
+        "",
+        "- **START**: User must adopt a completely new behavior or workflow",
+        "- **STOP**: User must stop doing something they currently do (highest resistance risk)",
+        "- **DIFFERENT**: User must do something they already do, but differently",
+        "- **not_applicable**: Task has no user behavior impact (internal refactor, backend, infra)",
+        "",
+        "Assess adoption risk: none (no user impact), low, medium, high",
+        "STOP changes carry the highest risk of resistance — always flag them",
+        "Provide a frictionEstimate explaining the expected friction"
+      ].join("\n")
+    );
+  }
+
   const baseSchema = '{"verdict":"ready|needs_validation","gaps":[{"id":string,"description":string,"severity":"critical|major|minor","suggestedQuestion":string}]';
   const momtestSchema = mode === "momtest"
     ? ',"momTestQuestions":[{"gapId":string,"question":string,"targetRole":string,"rationale":string}]'
@@ -83,10 +103,13 @@ export function buildDiscoverPrompt({ task, instructions, mode = "gaps", context
   const wendelSchema = mode === "wendel"
     ? ',"wendelChecklist":[{"condition":"CUE|REACTION|EVALUATION|ABILITY|TIMING","status":"pass|fail|unknown|not_applicable","justification":string}]'
     : "";
+  const classifySchema = mode === "classify"
+    ? ',"classification":{"type":"START|STOP|DIFFERENT|not_applicable","adoptionRisk":"none|low|medium|high","frictionEstimate":string}'
+    : "";
 
   sections.push(
     "Return a single valid JSON object and nothing else.",
-    `JSON schema: ${baseSchema}${momtestSchema}${wendelSchema},"summary":string}`
+    `JSON schema: ${baseSchema}${momtestSchema}${wendelSchema}${classifySchema},"summary":string}`
   );
 
   if (context) {
@@ -145,11 +168,25 @@ export function parseDiscoverOutput(raw) {
       justification: c.justification
     }));
 
+  let classification = null;
+  if (parsed.classification && typeof parsed.classification === "object") {
+    const rawType = String(parsed.classification.type || "").toUpperCase();
+    const type = rawType === "NOT_APPLICABLE" ? "not_applicable"
+      : VALID_CLASSIFY_TYPES.includes(rawType) ? rawType : "not_applicable";
+    const rawRisk = String(parsed.classification.adoptionRisk || "").toLowerCase();
+    classification = {
+      type,
+      adoptionRisk: VALID_ADOPTION_RISKS.includes(rawRisk) ? rawRisk : "medium",
+      frictionEstimate: parsed.classification.frictionEstimate || ""
+    };
+  }
+
   return {
     verdict,
     gaps,
     momTestQuestions,
     wendelChecklist,
+    classification,
     summary: parsed.summary || ""
   };
 }
