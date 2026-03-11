@@ -371,6 +371,35 @@ kj init --scaffold-becaria:
 
 **Por qué:** Los pipelines solo locales requerían pasos manuales para conectar el código generado por IA con la colaboración en equipo. Las PRs son el punto natural de colaboración para code review y CI/CD, pero crearlas era un paso manual posterior. BecarIA Gateway convierte las PRs en el punto de integración de primera clase: los agentes publican sus hallazgos donde el equipo ya trabaja, los dispatch events disparan workflows CI/CD existentes, y la creación temprana de PR asegura visibilidad desde la primera iteración. Esto transforma Karajan de un orquestador local a un pipeline consciente de CI/CD que se integra sin fricciones con workflows basados en GitHub.
 
+## Fase 16: Pipeline Dirigido por Politicas (v1.14.0)
+
+**Que cambio:** El pipeline ahora activa o desactiva stages dinamicamente segun el tipo de tarea, reemplazando el enfoque unico para todo con configuracion dirigida por politicas.
+
+**Adiciones clave:**
+- Nuevo modulo `src/guards/policy-resolver.js`: mapea cada `taskType` a un conjunto de politicas de pipeline (tdd, sonar, reviewer, testsRequired)
+- 5 tipos de tarea integrados: `sw` (software), `infra`, `doc`, `add-tests`, `refactor` — cada uno con sus defaults de stages apropiados
+- Overrides de config via seccion `policies` en `kj.config.yml` — los proyectos pueden personalizar que stages aplican por tipo de tarea
+- El orquestador aplica gates de politicas con inmutabilidad de config: copias superficiales aseguran que la configuracion del llamante nunca se muta
+- Evento `policies:resolved` emitido tras la resolucion, permitiendo a los consumidores downstream reaccionar al conjunto de politicas activo
+- `taskType` desconocido o ausente aplica `sw` por defecto (la configuracion mas conservadora)
+
+**Adicion a la arquitectura:**
+```
+Antes de v1.14.0:
+  kj_run → todas las stages activadas segun config estatica
+  tarea infra → check TDD falla → pipeline se estanca en gate irrelevante
+
+Despues de v1.14.0:
+  kj_run(taskType: "infra") → policy-resolver → { tdd: false, sonar: false, reviewer: true }
+  kj_run(taskType: "sw")    → policy-resolver → { tdd: true, sonar: true, reviewer: true }
+  kj_run(taskType: null)    → policy-resolver → defaults to "sw" (mas conservador)
+
+Flujo de override:
+  defaults integrados → merge con seccion policies de kj.config.yml → copia superficial → aplicar gates
+```
+
+**Por que:** No todas las tareas se benefician de las mismas stages del pipeline. Ejecutar checks TDD en tareas de infraestructura (configs CI, Dockerfiles) o tareas de documentacion produce falsos positivos y desperdicia tiempo. Ejecutar SonarQube en cambios de documentacion pura no tiene sentido. El policy-resolver permite al pipeline adaptar sus quality gates a la naturaleza del trabajo, mientras aplica por defecto el perfil mas conservador (`sw`) cuando el tipo de tarea es desconocido — asegurando seguridad sin sacrificar flexibilidad.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

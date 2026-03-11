@@ -45,6 +45,7 @@ Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificacio
 | `pgProject` | string | No | `null` | ID de proyecto en Planning Game |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
+| `taskType` | string | No | `null` | Tipo de tarea para resolucion de politicas: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 
 ---

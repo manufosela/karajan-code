@@ -138,3 +138,29 @@ O vía MCP:
 ```
 
 `kj doctor` incluye verificaciones específicas de BecarIA para confirmar que los workflow templates están presentes y que el token de GitHub tiene los permisos necesarios.
+
+## Pipeline Dirigido por Politicas (v1.14.0+)
+
+El modulo **policy-resolver** mapea cada `taskType` a un conjunto de politicas de pipeline, determinando que stages estan activadas o desactivadas:
+
+| taskType | TDD | SonarQube | Reviewer | Tests Required |
+|----------|-----|-----------|----------|----------------|
+| `sw` | ✓ | ✓ | ✓ | ✓ |
+| `infra` | ✗ | ✗ | ✓ | ✗ |
+| `doc` | ✗ | ✗ | ✓ | ✗ |
+| `add-tests` | ✗ | ✓ | ✓ | ✓ |
+| `refactor` | ✓ | ✓ | ✓ | ✗ |
+
+Si el `taskType` es desconocido o no se proporciona, se aplica `sw` por defecto (la configuracion mas conservadora).
+
+Las politicas se pueden sobreescribir por proyecto en `kj.config.yml`:
+
+```yaml
+policies:
+  sw:
+    tdd: false
+  infra:
+    sonar: true
+```
+
+El orquestador emite un evento `policies:resolved` y aplica los gates de politicas usando copias superficiales — sin mutar nunca la configuracion del llamante.

@@ -372,6 +372,35 @@ kj init --scaffold-becaria:
 
 **Why:** Local-only pipelines required manual steps to bridge the gap between AI-generated code and team collaboration. PRs are the natural collaboration point for code review and CI/CD, but creating them was a manual afterthought. BecarIA Gateway makes PRs the first-class integration point: agents post their findings where the team already works, dispatch events trigger existing CI/CD workflows, and the early PR creation ensures visibility from the first iteration. This transforms Karajan from a local orchestrator into a CI/CD-aware pipeline that integrates seamlessly with GitHub-based workflows.
 
+## Phase 16: Policy-Driven Pipeline (v1.14.0)
+
+**What changed:** The pipeline now dynamically enables or disables stages based on task type, replacing the one-size-fits-all approach with policy-driven configuration.
+
+**Key additions:**
+- New `src/guards/policy-resolver.js` module: maps each `taskType` to a set of pipeline policies (tdd, sonar, reviewer, testsRequired)
+- 5 built-in task types: `sw` (software), `infra`, `doc`, `add-tests`, `refactor` — each with appropriate stage defaults
+- Config overrides via `policies` section in `kj.config.yml` — projects can customize which stages apply per task type
+- Orchestrator applies policy gates with config immutability: shallow copies ensure the caller's configuration is never mutated
+- `policies:resolved` event emitted after resolution, enabling downstream consumers to react to the active policy set
+- Unknown or missing `taskType` defaults to `sw` (most conservative)
+
+**Architecture addition:**
+```
+Before v1.14.0:
+  kj_run → all stages enabled based on static config
+  infra task → TDD check fails → pipeline stalls on irrelevant gate
+
+After v1.14.0:
+  kj_run(taskType: "infra") → policy-resolver → { tdd: false, sonar: false, reviewer: true }
+  kj_run(taskType: "sw")    → policy-resolver → { tdd: true, sonar: true, reviewer: true }
+  kj_run(taskType: null)    → policy-resolver → defaults to "sw" (most conservative)
+
+Override flow:
+  built-in defaults → merge with kj.config.yml policies section → shallow copy → apply gates
+```
+
+**Why:** Not all tasks benefit from the same pipeline stages. Running TDD checks on infrastructure tasks (CI configs, Dockerfiles) or documentation tasks produces false positives and wastes time. Running SonarQube on pure documentation changes is meaningless. The policy-resolver lets the pipeline adapt its quality gates to the nature of the work, while defaulting to the most conservative profile (`sw`) when the task type is unknown — ensuring safety without sacrificing flexibility.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
