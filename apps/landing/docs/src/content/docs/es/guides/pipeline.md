@@ -164,3 +164,14 @@ policies:
 ```
 
 El orquestador emite un evento `policies:resolved` y aplica los gates de politicas usando copias superficiales — sin mutar nunca la configuracion del llamante.
+
+### Triage Obligatorio (v1.15.0+)
+
+A partir de v1.15.0, el triage siempre se ejecuta para clasificar el `taskType` de la tarea. La prioridad de clasificacion es:
+
+1. Flag explicito `--taskType` (prioridad maxima)
+2. `taskType` en `kj.config.yml`
+3. Clasificacion por IA del triage
+4. Por defecto: `sw` (la configuracion mas conservadora)
+
+El triage puede activar roles adicionales pero no puede desactivar roles explicitamente habilitados en la configuracion del pipeline.

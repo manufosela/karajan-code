@@ -383,6 +383,9 @@ kj init --scaffold-becaria:
 - Orchestrator applies policy gates with config immutability: shallow copies ensure the caller's configuration is never mutated
 - `policies:resolved` event emitted after resolution, enabling downstream consumers to react to the active policy set
 - Unknown or missing `taskType` defaults to `sw` (most conservative)
+- Mandatory triage with taskType classification (v1.15.0)
+- `--taskType` CLI/MCP parameter for explicit override
+- Triage → policy-resolver integration chain
 
 **Architecture addition:**
 ```

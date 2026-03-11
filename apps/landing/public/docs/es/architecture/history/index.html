@@ -316,6 +316,9 @@
 <li>El orquestador aplica gates de politicas con inmutabilidad de config: copias superficiales aseguran que la configuracion del llamante nunca se muta</li>
 <li>Evento <code dir="auto">policies:resolved</code> emitido tras la resolucion, permitiendo a los consumidores downstream reaccionar al conjunto de politicas activo</li>
 <li><code dir="auto">taskType</code> desconocido o ausente aplica <code dir="auto">sw</code> por defecto (la configuracion mas conservadora)</li>
+<li>Triage obligatorio con clasificacion de taskType (v1.15.0)</li>
+<li>Parametro CLI/MCP <code dir="auto">--taskType</code> para override explicito</li>
+<li>Cadena de integracion triage → policy-resolver</li>
 </ul>
 <p><strong>Adicion a la arquitectura:</strong></p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Antes de v1.14.0:</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">kj_run → todas las stages activadas segun config estatica</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">tarea infra → check TDD falla → pipeline se estanca en gate irrelevante</span></div></div><div class="ec-line"><div class="code">

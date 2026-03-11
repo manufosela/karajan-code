@@ -160,3 +160,14 @@ policies:
 ```
 
 The orchestrator emits a `policies:resolved` event and applies policy gates using shallow copies — never mutating the caller's configuration.
+
+### Mandatory Triage (v1.15.0+)
+
+Starting from v1.15.0, triage always runs to classify the task's `taskType`. The classification priority is:
+
+1. Explicit `--taskType` flag (highest priority)
+2. `taskType` in `kj.config.yml`
+3. Triage AI classification
+4. Default: `sw` (most conservative)
+
+Triage can activate additional roles but cannot deactivate roles explicitly enabled in pipeline config.

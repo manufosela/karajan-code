@@ -316,6 +316,9 @@
 <li>Orchestrator applies policy gates with config immutability: shallow copies ensure the caller’s configuration is never mutated</li>
 <li><code dir="auto">policies:resolved</code> event emitted after resolution, enabling downstream consumers to react to the active policy set</li>
 <li>Unknown or missing <code dir="auto">taskType</code> defaults to <code dir="auto">sw</code> (most conservative)</li>
+<li>Mandatory triage with taskType classification (v1.15.0)</li>
+<li><code dir="auto">--taskType</code> CLI/MCP parameter for explicit override</li>
+<li>Triage → policy-resolver integration chain</li>
 </ul>
 <p><strong>Architecture addition:</strong></p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Before v1.14.0:</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">kj_run → all stages enabled based on static config</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">infra task → TDD check fails → pipeline stalls on irrelevant gate</span></div></div><div class="ec-line"><div class="code">
