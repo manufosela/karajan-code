@@ -428,6 +428,59 @@ export async function handleReviewDirect(a, server, extra) {
   return { ok: true, review: parsed || result.output, raw: result.output };
 }
 
+export async function handleDiscoverDirect(a, server, extra) {
+  const config = await buildConfig(a, "discover");
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const discoverRole = resolveRole(config, "discover");
+  await assertAgentsAvailable([discoverRole.provider]);
+
+  const projectDir = await resolveProjectDir(server);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_discover] started — mode=${a.mode || "gaps"}`);
+  const emitter = buildDirectEmitter(server, runLog, extra);
+  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+  const onOutput = ({ stream, line }) => {
+    emitter.emit("progress", { type: "agent:output", stage: "discover", message: line, detail: { stream, agent: discoverRole.provider } });
+  };
+  const stallDetector = createStallDetector({
+    onOutput, emitter, eventBase, stage: "discover", provider: discoverRole.provider
+  });
+
+  const { DiscoverRole } = await import("../roles/discover-role.js");
+  const discover = new DiscoverRole({ config, logger, emitter });
+  await discover.init({ task: a.task });
+
+  // Build context from pgTask if provided
+  let context = a.context || null;
+  if (a.pgTask && a.pgProject) {
+    try {
+      const pgContext = `Planning Game card: ${a.pgTask} (project: ${a.pgProject})`;
+      context = context ? `${context}\n\n${pgContext}` : pgContext;
+    } catch { /* PG not available — proceed without */ }
+  }
+
+  sendTrackerLog(server, "discover", "running", discoverRole.provider);
+  runLog.logText(`[discover] agent launched, waiting for response...`);
+  let result;
+  try {
+    result = await discover.run({ task: a.task, mode: a.mode || "gaps", context, onOutput: stallDetector.onOutput });
+  } finally {
+    stallDetector.stop();
+    const stats = stallDetector.stats();
+    runLog.logText(`[discover] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
+    runLog.close();
+  }
+
+  if (!result.ok) {
+    sendTrackerLog(server, "discover", "failed");
+    throw new Error(result.result?.error || result.summary || "Discovery failed");
+  }
+
+  sendTrackerLog(server, "discover", "done");
+  return { ok: true, ...result.result, summary: result.summary };
+}
+
 export async function handleToolCall(name, args, server, extra) {
   const a = asObject(args);
 
@@ -633,6 +686,17 @@ export async function handleToolCall(name, args, server, extra) {
       return failPayload("Missing required field: task");
     }
     return handlePlanDirect(a, server, extra);
+  }
+
+  if (name === "kj_discover") {
+    if (!a.task) {
+      return failPayload("Missing required field: task");
+    }
+    const validModes = ["gaps"];
+    if (a.mode && !validModes.includes(a.mode)) {
+      return failPayload(`Invalid mode "${a.mode}". Valid values: ${validModes.join(", ")}`);
+    }
+    return handleDiscoverDirect(a, server, extra);
   }
 
   return failPayload(`Unknown tool: ${name}`);

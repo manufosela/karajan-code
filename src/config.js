@@ -349,6 +349,7 @@ function requiredRolesFor(commandName, config) {
     if (config?.pipeline?.security?.enabled) required.push("security");
     return required;
   }
+  if (commandName === "discover") return ["discover"];
   if (commandName === "plan") return ["planner"];
   if (commandName === "code") return ["coder"];
   if (commandName === "review") return ["reviewer"];
