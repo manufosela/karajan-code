@@ -267,6 +267,79 @@ describe("DiscoverRole", () => {
       expect(result.result.momTestQuestions).toEqual([]);
     });
 
+    it("returns wendelChecklist in wendel mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "No CUE defined", severity: "critical", suggestedQuestion: "q" }],
+        wendelChecklist: [
+          { condition: "CUE", status: "fail", justification: "No trigger point" },
+          { condition: "REACTION", status: "pass", justification: "Users want this" },
+          { condition: "EVALUATION", status: "pass", justification: "Easy to evaluate" },
+          { condition: "ABILITY", status: "pass", justification: "No new skills needed" },
+          { condition: "TIMING", status: "pass", justification: "Good timing" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Add notification bell" });
+      const result = await role.run({ task: "Add notification bell", mode: "wendel" });
+
+      expect(result.ok).toBe(true);
+      expect(result.result.mode).toBe("wendel");
+      expect(result.result.wendelChecklist).toHaveLength(5);
+      expect(result.result.wendelChecklist[0].condition).toBe("CUE");
+      expect(result.result.wendelChecklist[0].status).toBe("fail");
+    });
+
+    it("returns not_applicable wendel checklist for non-behavior tasks", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "ready",
+        gaps: [],
+        wendelChecklist: [
+          { condition: "CUE", status: "not_applicable", justification: "Internal refactor" },
+          { condition: "REACTION", status: "not_applicable", justification: "Internal refactor" },
+          { condition: "EVALUATION", status: "not_applicable", justification: "Internal refactor" },
+          { condition: "ABILITY", status: "not_applicable", justification: "Internal refactor" },
+          { condition: "TIMING", status: "not_applicable", justification: "Internal refactor" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Refactor database module" });
+      const result = await role.run({ task: "Refactor database module", mode: "wendel" });
+
+      expect(result.ok).toBe(true);
+      expect(result.result.verdict).toBe("ready");
+      expect(result.result.wendelChecklist.every(c => c.status === "not_applicable")).toBe(true);
+    });
+
+    it("includes wendel fail count in summary", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "x", severity: "major", suggestedQuestion: "q" }],
+        wendelChecklist: [
+          { condition: "CUE", status: "fail", justification: "No trigger" },
+          { condition: "REACTION", status: "fail", justification: "No motivation" },
+          { condition: "EVALUATION", status: "pass", justification: "ok" },
+          { condition: "ABILITY", status: "pass", justification: "ok" },
+          { condition: "TIMING", status: "pass", justification: "ok" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "wendel" });
+
+      expect(result.summary).toContain("2");
+      expect(result.summary).toMatch(/fail/i);
+    });
+
     it("includes momTestQuestions count in summary for momtest mode", async () => {
       const agentOutput = JSON.stringify({
         verdict: "needs_validation",

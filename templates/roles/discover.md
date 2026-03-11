@@ -60,7 +60,7 @@ When running in **momtest** mode, for each gap generate questions following The 
 | "Do you think users need dark mode?" | "How many support tickets mentioned readability issues?" |
 | "Would it be useful to have X?" | "How are you currently handling X?" |
 
-### Mom Test Output Schema (additional fields)
+### Mom Test Output Schema (additional fields for momtest mode)
 
 ```json
 {
@@ -70,6 +70,41 @@ When running in **momtest** mode, for each gap generate questions following The 
       "question": "Past-behavior question to validate this gap",
       "targetRole": "Who should answer (end-user, developer, PM, etc.)",
       "rationale": "Why this question matters for the gap"
+    }
+  ]
+}
+```
+
+## Wendel Mode
+
+When running in **wendel** mode, evaluate whether the task implies a **user behavior change** and assess 5 adoption conditions:
+
+| Condition | Question |
+|-----------|----------|
+| **CUE** | Is there a clear trigger that will prompt the user to take the new action? |
+| **REACTION** | Will the user have a positive emotional reaction when encountering the cue? |
+| **EVALUATION** | Can the user quickly understand the value of the new behavior? |
+| **ABILITY** | Does the user have the skill and resources to perform the new behavior? |
+| **TIMING** | Is this the right moment to introduce this change? |
+
+### Status Values
+
+- **pass**: Condition is clearly met based on the task specification
+- **fail**: Condition is NOT met — adoption risk identified
+- **unknown**: Not enough information to evaluate
+- **not_applicable**: Task does not imply user behavior change (e.g., refactor, backend optimization)
+
+If the task does NOT imply behavior change, set ALL conditions to `not_applicable` and verdict to `ready`.
+
+### Wendel Output Schema (additional fields for wendel mode)
+
+```json
+{
+  "wendelChecklist": [
+    {
+      "condition": "CUE|REACTION|EVALUATION|ABILITY|TIMING",
+      "status": "pass|fail|unknown|not_applicable",
+      "justification": "Why this condition passes or fails"
     }
   ]
 }

@@ -66,6 +66,29 @@ describe("buildDiscoverPrompt — momtest mode", () => {
   });
 });
 
+describe("buildDiscoverPrompt — wendel mode", () => {
+  it("includes Wendel Checklist when mode is wendel", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "wendel" });
+    expect(prompt).toContain("Wendel");
+    expect(prompt).toContain("CUE");
+    expect(prompt).toContain("REACTION");
+    expect(prompt).toContain("EVALUATION");
+    expect(prompt).toContain("ABILITY");
+    expect(prompt).toContain("TIMING");
+  });
+
+  it("includes wendelChecklist in JSON schema for wendel mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "wendel" });
+    expect(prompt).toContain("wendelChecklist");
+    expect(prompt).toContain("pass");
+  });
+
+  it("does not include Wendel in gaps mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "gaps" });
+    expect(prompt).not.toContain("Wendel");
+  });
+});
+
 describe("DISCOVER_MODES", () => {
   it("exports gaps as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("gaps");
@@ -73,6 +96,10 @@ describe("DISCOVER_MODES", () => {
 
   it("exports momtest as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("momtest");
+  });
+
+  it("exports wendel as a valid mode", () => {
+    expect(DISCOVER_MODES).toContain("wendel");
   });
 });
 
@@ -175,6 +202,68 @@ describe("parseDiscoverOutput", () => {
     const raw = JSON.stringify({ verdict: "ready", gaps: [] });
     const parsed = parseDiscoverOutput(raw);
     expect(parsed.momTestQuestions).toEqual([]);
+  });
+
+  it("parses wendelChecklist from output", () => {
+    const raw = JSON.stringify({
+      verdict: "needs_validation",
+      gaps: [],
+      wendelChecklist: [
+        { condition: "CUE", status: "pass", justification: "Clear trigger exists" },
+        { condition: "REACTION", status: "fail", justification: "No motivation identified" },
+        { condition: "EVALUATION", status: "unknown", justification: "Not enough info" },
+        { condition: "ABILITY", status: "pass", justification: "Users have the skill" },
+        { condition: "TIMING", status: "not_applicable", justification: "Internal tool" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.wendelChecklist).toHaveLength(5);
+    expect(parsed.wendelChecklist[0].condition).toBe("CUE");
+    expect(parsed.wendelChecklist[1].status).toBe("fail");
+  });
+
+  it("returns empty wendelChecklist when not present", () => {
+    const raw = JSON.stringify({ verdict: "ready", gaps: [] });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.wendelChecklist).toEqual([]);
+  });
+
+  it("normalizes wendel status to valid values", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      wendelChecklist: [
+        { condition: "CUE", status: "PASS", justification: "ok" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.wendelChecklist[0].status).toBe("pass");
+  });
+
+  it("defaults invalid wendel status to unknown", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      wendelChecklist: [
+        { condition: "CUE", status: "invalid_status", justification: "ok" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.wendelChecklist[0].status).toBe("unknown");
+  });
+
+  it("filters wendelChecklist items missing required fields", () => {
+    const raw = JSON.stringify({
+      verdict: "ready",
+      gaps: [],
+      wendelChecklist: [
+        { condition: "CUE", status: "pass", justification: "ok" },
+        { condition: "REACTION" },
+        { status: "fail" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.wendelChecklist).toHaveLength(1);
   });
 
   it("filters momTestQuestions missing required fields", () => {

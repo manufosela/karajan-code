@@ -12,11 +12,17 @@ function resolveProvider(config) {
 
 function buildSummary(parsed, mode) {
   const gapCount = parsed.gaps?.length || 0;
-  if (gapCount === 0) return "Discovery complete: task is ready";
-  const parts = [`${gapCount} gap${gapCount !== 1 ? "s" : ""} found`];
+  if (gapCount === 0 && mode !== "wendel") return "Discovery complete: task is ready";
+  const parts = [];
+  if (gapCount > 0) parts.push(`${gapCount} gap${gapCount !== 1 ? "s" : ""} found`);
   if (mode === "momtest") {
     const qCount = parsed.momTestQuestions?.length || 0;
     if (qCount > 0) parts.push(`${qCount} Mom Test question${qCount !== 1 ? "s" : ""}`);
+  }
+  if (mode === "wendel") {
+    const failCount = (parsed.wendelChecklist || []).filter(c => c.status === "fail").length;
+    if (failCount > 0) parts.push(`${failCount} Wendel condition${failCount !== 1 ? "s" : ""} failed`);
+    else if (gapCount === 0) return "Discovery complete: task is ready";
   }
   return `Discovery complete: ${parts.join(", ")} (verdict: ${parsed.verdict})`;
 }
@@ -81,6 +87,9 @@ export class DiscoverRole extends BaseRole {
       };
       if (mode === "momtest") {
         resultObj.momTestQuestions = parsed.momTestQuestions || [];
+      }
+      if (mode === "wendel") {
+        resultObj.wendelChecklist = parsed.wendelChecklist || [];
       }
 
       return {
