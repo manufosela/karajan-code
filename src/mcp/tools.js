@@ -70,6 +70,7 @@ export const tools = [
         enableTester: { type: "boolean" },
         enableSecurity: { type: "boolean" },
         enableTriage: { type: "boolean" },
+        enableDiscover: { type: "boolean" },
         enableSerena: { type: "boolean" },
         enableBecaria: { type: "boolean", description: "Enable BecarIA Gateway (early PR + dispatch comments/reviews)" },
         reviewerFallback: { type: "string" },

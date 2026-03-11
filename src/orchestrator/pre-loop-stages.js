@@ -1,6 +1,7 @@
 import { TriageRole } from "../roles/triage-role.js";
 import { ResearcherRole } from "../roles/researcher-role.js";
 import { PlannerRole } from "../roles/planner-role.js";
+import { DiscoverRole } from "../roles/discover-role.js";
 import { createAgent } from "../agents/index.js";
 import { addCheckpoint, markSessionStatus } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
@@ -257,4 +258,69 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
   );
 
   return { plannedTask, stageResult };
+}
+
+export async function runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
+  logger.setContext({ iteration: 0, stage: "discover" });
+  emitProgress(
+    emitter,
+    makeEvent("discover:start", { ...eventBase, stage: "discover" }, {
+      message: "Discover analyzing task for gaps"
+    })
+  );
+
+  const discoverProvider = config?.roles?.discover?.provider || coderRole.provider;
+  const discoverOnOutput = ({ stream, line }) => {
+    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "discover" }, {
+      message: line,
+      detail: { stream, agent: discoverProvider }
+    }));
+  };
+  const discoverStall = createStallDetector({
+    onOutput: discoverOnOutput, emitter, eventBase, stage: "discover", provider: discoverProvider
+  });
+
+  const mode = config?.pipeline?.discover?.mode || "gaps";
+  const discover = new DiscoverRole({ config, logger, emitter });
+  await discover.init({ task: session.task, sessionId: session.id, iteration: 0 });
+  const discoverStart = Date.now();
+  let discoverOutput;
+  try {
+    discoverOutput = await discover.run({ task: session.task, mode, onOutput: discoverStall.onOutput });
+  } finally {
+    discoverStall.stop();
+  }
+  trackBudget({
+    role: "discover",
+    provider: discoverProvider,
+    model: config?.roles?.discover?.model || coderRole.model,
+    result: discoverOutput,
+    duration_ms: Date.now() - discoverStart
+  });
+
+  await addCheckpoint(session, {
+    stage: "discover",
+    iteration: 0,
+    ok: discoverOutput.ok,
+    provider: discoverProvider,
+    model: config?.roles?.discover?.model || coderRole.model || null
+  });
+
+  const stageResult = {
+    ok: discoverOutput.ok,
+    verdict: discoverOutput.result?.verdict || null,
+    gaps: discoverOutput.result?.gaps || [],
+    mode
+  };
+
+  emitProgress(
+    emitter,
+    makeEvent("discover:end", { ...eventBase, stage: "discover" }, {
+      status: discoverOutput.ok ? "ok" : "fail",
+      message: discoverOutput.ok ? "Discovery completed" : `Discovery failed: ${discoverOutput.summary}`,
+      detail: stageResult
+    })
+  );
+
+  return { stageResult };
 }

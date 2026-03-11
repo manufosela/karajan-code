@@ -26,7 +26,7 @@ import { applyPolicies } from "./guards/policy-resolver.js";
 import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
-import { runTriageStage, runResearcherStage, runPlannerStage } from "./orchestrator/pre-loop-stages.js";
+import { runTriageStage, runResearcherStage, runPlannerStage, runDiscoverStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
@@ -44,6 +44,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   let testerEnabled = Boolean(config.pipeline?.tester?.enabled);
   let securityEnabled = Boolean(config.pipeline?.security?.enabled);
   let reviewerEnabled = config.pipeline?.reviewer?.enabled !== false;
+  let discoverEnabled = Boolean(config.pipeline?.discover?.enabled);
   // Triage is always mandatory — it classifies taskType for policy resolution
   const triageEnabled = true;
 
@@ -70,6 +71,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         refactorer: refactorerRole
       },
       pipeline: {
+        discover_enabled: discoverEnabled,
         triage_enabled: triageEnabled,
         planner_enabled: plannerEnabled,
         refactorer_enabled: refactorerEnabled,
@@ -212,6 +214,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   // Accumulate stage results for final summary
   const stageResults = {};
   const sonarState = { issuesInitial: null, issuesFinal: null };
+
+  // --- Discover (pre-triage, opt-in) ---
+  if (flags.enableDiscover !== undefined) discoverEnabled = Boolean(flags.enableDiscover);
+  if (discoverEnabled) {
+    const discoverResult = await runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
+    stageResults.discover = discoverResult.stageResult;
+  }
 
   if (triageEnabled) {
     const triageResult = await runTriageStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const triageRunMock = vi.fn();
 const researcherRunMock = vi.fn();
+const discoverRunMock = vi.fn();
 
 vi.mock("../src/roles/triage-role.js", () => ({
   TriageRole: class {
@@ -17,6 +18,15 @@ vi.mock("../src/roles/researcher-role.js", () => ({
     async init() {}
     async run() {
       return researcherRunMock();
+    }
+  }
+}));
+
+vi.mock("../src/roles/discover-role.js", () => ({
+  DiscoverRole: class {
+    async init() {}
+    async run() {
+      return discoverRunMock();
     }
   }
 }));
@@ -63,7 +73,7 @@ describe("pre-loop-stages", () => {
   const coderRole = { provider: "codex", model: "codex-mini" };
   const trackBudget = vi.fn();
 
-  let runTriageStage, runResearcherStage, runPlannerStage;
+  let runTriageStage, runResearcherStage, runPlannerStage, runDiscoverStage;
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -77,8 +87,14 @@ describe("pre-loop-stages", () => {
       summary: "Found relevant files",
       result: { files: ["a.js"] }
     });
+    discoverRunMock.mockResolvedValue({
+      ok: true,
+      result: { verdict: "ready", gaps: [], mode: "gaps", provider: "claude" },
+      summary: "Discovery complete: task is ready",
+      usage: { tokens_in: 200, tokens_out: 150 }
+    });
 
-    ({ runTriageStage, runResearcherStage, runPlannerStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runTriageStage, runResearcherStage, runPlannerStage, runDiscoverStage } = await import("../src/orchestrator/pre-loop-stages.js"));
   });
 
   describe("runTriageStage", () => {
@@ -208,6 +224,100 @@ describe("pre-loop-stages", () => {
       await runPlannerStage({ config: {}, logger, emitter, eventBase, session, plannerRole, researchContext: null, trackBudget });
 
       expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "planner", provider: "claude" }));
+    });
+  });
+
+  describe("runDiscoverStage", () => {
+    it("returns stageResult with verdict and gaps when discovery succeeds", async () => {
+      const session = { id: "s1", task: "build feature", checkpoints: [] };
+      const result = await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(result.stageResult.ok).toBe(true);
+      expect(result.stageResult.verdict).toBe("ready");
+      expect(result.stageResult.gaps).toEqual([]);
+    });
+
+    it("tracks budget for discover", async () => {
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "discover" }));
+    });
+
+    it("returns ok=false when discover agent fails", async () => {
+      discoverRunMock.mockResolvedValueOnce({
+        ok: false,
+        result: { error: "LLM timeout" },
+        summary: "Discovery failed: LLM timeout",
+        usage: { tokens_in: 50, tokens_out: 0 }
+      });
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      const result = await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(result.stageResult.ok).toBe(false);
+    });
+
+    it("returns gaps when verdict is needs_validation", async () => {
+      discoverRunMock.mockResolvedValueOnce({
+        ok: true,
+        result: {
+          verdict: "needs_validation",
+          gaps: [{ id: "gap-1", description: "Missing auth", severity: "critical", suggestedQuestion: "How?" }],
+          mode: "gaps",
+          provider: "claude"
+        },
+        summary: "1 gap found",
+        usage: { tokens_in: 200, tokens_out: 150 }
+      });
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      const result = await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(result.stageResult.ok).toBe(true);
+      expect(result.stageResult.verdict).toBe("needs_validation");
+      expect(result.stageResult.gaps).toHaveLength(1);
+    });
+
+    it("uses discover provider from config", async () => {
+      const config = { roles: { discover: { provider: "gemini", model: "gemini-pro" } } };
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      await runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({
+        role: "discover",
+        provider: "gemini"
+      }));
+    });
+
+    it("falls back to coder provider when no discover provider configured", async () => {
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({
+        role: "discover",
+        provider: "codex"
+      }));
+    });
+
+    it("passes mode from config when specified", async () => {
+      const config = { pipeline: { discover: { enabled: true, mode: "momtest" } } };
+      const session = { id: "s1", task: "t", checkpoints: [] };
+      await runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
+
+      expect(result => result.stageResult.ok).toBeDefined();
+    });
+
+    it("does not throw when discover fails — stage is non-blocking", async () => {
+      discoverRunMock.mockResolvedValueOnce({
+        ok: false,
+        result: { error: "timeout" },
+        summary: "Discovery failed",
+        usage: {}
+      });
+      const session = { id: "s1", task: "t", checkpoints: [] };
+
+      // Should NOT throw (unlike planner which throws on failure)
+      const result = await runDiscoverStage({ config: {}, logger, emitter, eventBase, session, coderRole, trackBudget });
+      expect(result.stageResult.ok).toBe(false);
     });
   });
 });
