@@ -47,9 +47,32 @@ describe("buildDiscoverPrompt", () => {
   });
 });
 
+describe("buildDiscoverPrompt — momtest mode", () => {
+  it("includes Mom Test rules when mode is momtest", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "momtest" });
+    expect(prompt).toContain("Mom Test");
+    expect(prompt).toContain("past behavior");
+  });
+
+  it("includes momTestQuestions in JSON schema for momtest mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "momtest" });
+    expect(prompt).toContain("momTestQuestions");
+    expect(prompt).toContain("targetRole");
+  });
+
+  it("does not include Mom Test rules in gaps mode", () => {
+    const prompt = buildDiscoverPrompt({ task: "x", mode: "gaps" });
+    expect(prompt).not.toContain("Mom Test");
+  });
+});
+
 describe("DISCOVER_MODES", () => {
   it("exports gaps as a valid mode", () => {
     expect(DISCOVER_MODES).toContain("gaps");
+  });
+
+  it("exports momtest as a valid mode", () => {
+    expect(DISCOVER_MODES).toContain("momtest");
   });
 });
 
@@ -132,5 +155,39 @@ describe("parseDiscoverOutput", () => {
     const parsed = parseDiscoverOutput(raw);
     expect(parsed.gaps).toHaveLength(1);
     expect(parsed.gaps[0].id).toBe("g1");
+  });
+
+  it("parses momTestQuestions from output", () => {
+    const raw = JSON.stringify({
+      verdict: "needs_validation",
+      gaps: [{ id: "g1", description: "Missing auth", severity: "critical", suggestedQuestion: "q" }],
+      momTestQuestions: [
+        { gapId: "g1", question: "When was the last time you logged in manually?", targetRole: "end-user", rationale: "Validates if auth is actually needed" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.momTestQuestions).toHaveLength(1);
+    expect(parsed.momTestQuestions[0].gapId).toBe("g1");
+    expect(parsed.momTestQuestions[0].targetRole).toBe("end-user");
+  });
+
+  it("returns empty momTestQuestions when not present", () => {
+    const raw = JSON.stringify({ verdict: "ready", gaps: [] });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.momTestQuestions).toEqual([]);
+  });
+
+  it("filters momTestQuestions missing required fields", () => {
+    const raw = JSON.stringify({
+      verdict: "needs_validation",
+      gaps: [{ id: "g1", description: "x", severity: "major", suggestedQuestion: "q" }],
+      momTestQuestions: [
+        { gapId: "g1", question: "Valid question?", targetRole: "dev", rationale: "reason" },
+        { gapId: "g1" },
+        { question: "No gapId" }
+      ]
+    });
+    const parsed = parseDiscoverOutput(raw);
+    expect(parsed.momTestQuestions).toHaveLength(1);
   });
 });

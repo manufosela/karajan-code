@@ -233,6 +233,60 @@ describe("DiscoverRole", () => {
       expect(prompt).toContain("context task");
     });
 
+    it("returns momTestQuestions in momtest mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "Missing auth", severity: "critical", suggestedQuestion: "q" }],
+        momTestQuestions: [
+          { gapId: "g1", question: "When was the last time you had to log in?", targetRole: "end-user", rationale: "Validates auth need" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "Add auth" });
+      const result = await role.run({ task: "Add auth", mode: "momtest" });
+
+      expect(result.ok).toBe(true);
+      expect(result.result.mode).toBe("momtest");
+      expect(result.result.momTestQuestions).toHaveLength(1);
+      expect(result.result.momTestQuestions[0].gapId).toBe("g1");
+      expect(result.result.momTestQuestions[0].targetRole).toBe("end-user");
+    });
+
+    it("returns empty momTestQuestions when verdict is ready in momtest mode", async () => {
+      const agentOutput = JSON.stringify({ verdict: "ready", gaps: [] });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "momtest" });
+
+      expect(result.result.momTestQuestions).toEqual([]);
+    });
+
+    it("includes momTestQuestions count in summary for momtest mode", async () => {
+      const agentOutput = JSON.stringify({
+        verdict: "needs_validation",
+        gaps: [{ id: "g1", description: "x", severity: "major", suggestedQuestion: "q" }],
+        momTestQuestions: [
+          { gapId: "g1", question: "q1", targetRole: "dev", rationale: "r" },
+          { gapId: "g1", question: "q2", targetRole: "pm", rationale: "r" }
+        ]
+      });
+      const mockAgent = makeMockAgent({ ok: true, output: agentOutput });
+      const createAgentFn = () => mockAgent;
+
+      const role = new DiscoverRole({ config: makeConfig(), logger, createAgentFn });
+      await role.init({ task: "x" });
+      const result = await role.run({ task: "x", mode: "momtest" });
+
+      expect(result.summary).toContain("2");
+      expect(result.summary).toMatch(/question/i);
+    });
+
     it("forwards usage from agent result", async () => {
       const mockAgent = makeMockAgent({
         ok: true,

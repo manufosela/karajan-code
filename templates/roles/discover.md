@@ -43,3 +43,34 @@ Return a single valid JSON object and nothing else.
 ```
 
 If the task is well-defined with no gaps, return `verdict: "ready"` with an empty `gaps` array.
+
+## Mom Test Mode
+
+When running in **momtest** mode, for each gap generate questions following The Mom Test principles:
+
+- Ask about **past behavior** and real experiences, never hypothetical scenarios
+- Ask about **specifics**, not generalities
+- Focus on what people **actually do**, not what they say they would do
+
+### Good vs Bad Questions
+
+| Bad (hypothetical/opinion) | Good (past behavior) |
+|---|---|
+| "Would you use a notification system?" | "When was the last time you missed an important update?" |
+| "Do you think users need dark mode?" | "How many support tickets mentioned readability issues?" |
+| "Would it be useful to have X?" | "How are you currently handling X?" |
+
+### Mom Test Output Schema (additional fields)
+
+```json
+{
+  "momTestQuestions": [
+    {
+      "gapId": "gap-1",
+      "question": "Past-behavior question to validate this gap",
+      "targetRole": "Who should answer (end-user, developer, PM, etc.)",
+      "rationale": "Why this question matters for the gap"
+    }
+  ]
+}
+```

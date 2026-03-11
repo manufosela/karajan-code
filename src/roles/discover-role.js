@@ -10,10 +10,15 @@ function resolveProvider(config) {
   );
 }
 
-function buildSummary(parsed) {
-  const count = parsed.gaps?.length || 0;
-  if (count === 0) return "Discovery complete: task is ready";
-  return `Discovery complete: ${count} gap${count !== 1 ? "s" : ""} found (verdict: ${parsed.verdict})`;
+function buildSummary(parsed, mode) {
+  const gapCount = parsed.gaps?.length || 0;
+  if (gapCount === 0) return "Discovery complete: task is ready";
+  const parts = [`${gapCount} gap${gapCount !== 1 ? "s" : ""} found`];
+  if (mode === "momtest") {
+    const qCount = parsed.momTestQuestions?.length || 0;
+    if (qCount > 0) parts.push(`${qCount} Mom Test question${qCount !== 1 ? "s" : ""}`);
+  }
+  return `Discovery complete: ${parts.join(", ")} (verdict: ${parsed.verdict})`;
 }
 
 export class DiscoverRole extends BaseRole {
@@ -68,15 +73,20 @@ export class DiscoverRole extends BaseRole {
         };
       }
 
+      const resultObj = {
+        verdict: parsed.verdict,
+        gaps: parsed.gaps,
+        mode,
+        provider
+      };
+      if (mode === "momtest") {
+        resultObj.momTestQuestions = parsed.momTestQuestions || [];
+      }
+
       return {
         ok: true,
-        result: {
-          verdict: parsed.verdict,
-          gaps: parsed.gaps,
-          mode,
-          provider
-        },
-        summary: buildSummary(parsed),
+        result: resultObj,
+        summary: buildSummary(parsed, mode),
         usage: result.usage
       };
     } catch {

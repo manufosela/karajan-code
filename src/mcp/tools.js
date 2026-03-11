@@ -232,7 +232,7 @@ export const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description to analyze for gaps" },
-        mode: { type: "string", enum: ["gaps"], description: "Discovery mode (default: gaps)" },
+        mode: { type: "string", enum: ["gaps", "momtest"], description: "Discovery mode: gaps (default) or momtest (Mom Test questions)" },
         context: { type: "string", description: "Additional context for the analysis (e.g., research output)" },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as additional context." },
         pgProject: { type: "string", description: "Planning Game project ID. Required when pgTask is used." },
