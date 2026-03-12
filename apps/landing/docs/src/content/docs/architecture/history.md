@@ -48,7 +48,7 @@ task → coder → sonar → reviewer → done
 - `BaseRole` abstraction (init → execute → report lifecycle)
 - `BaseAgent` abstraction (uniform interface for all CLI agents)
 - Agent registry (register, create, resolve)
-- 11 configurable roles: triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
+- 12 configurable roles: discover, triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
 - Review profiles (standard, strict, paranoid, relaxed)
 - Role instructions as markdown templates (overridable)
 - Repeat detection and fail-fast logic
@@ -403,6 +403,53 @@ Override flow:
 ```
 
 **Why:** Not all tasks benefit from the same pipeline stages. Running TDD checks on infrastructure tasks (CI configs, Dockerfiles) or documentation tasks produces false positives and wastes time. Running SonarQube on pure documentation changes is meaningless. The policy-resolver lets the pipeline adapt its quality gates to the nature of the work, while defaulting to the most conservative profile (`sw`) when the task type is unknown — ensuring safety without sacrificing flexibility.
+
+## Phase 17: Pre-Execution Discovery (v1.16.0)
+
+**What changed:** Added a new pre-pipeline discovery stage that analyzes task specifications for gaps, ambiguities, and missing information before any code is written. Five specialized discovery modes provide different validation lenses.
+
+**Key additions:**
+- `DiscoverRole` extending `BaseRole` — 12th configurable pipeline role
+- 5 discovery modes: `gaps` (default gap detection), `momtest` (Mom Test validation questions), `wendel` (behavior change adoption checklist), `classify` (START/STOP/DIFFERENT classification), `jtbd` (Jobs-to-be-Done generation)
+- `kj_discover` MCP tool for standalone gap detection outside the pipeline
+- Pipeline integration: opt-in pre-triage stage via `--enable-discover` flag or `pipeline.discover.enabled` config
+- Non-blocking execution: discovery failures log warnings and continue the pipeline gracefully
+- Prompt builder with mode-specific sections and JSON schema enforcement
+- Output parser with field validation, severity normalization, and filtering of incomplete entries
+
+**Architecture addition:**
+```
+Before v1.16.0:
+  kj_run → triage → researcher? → planner? → coder → ...
+
+After v1.16.0:
+  kj_run → discover? → triage → researcher? → planner? → coder → ...
+
+  discover (gaps mode):
+    task spec → identify gaps, ambiguities, assumptions → verdict: ready | needs_validation
+    → gaps[]: { id, description, severity, suggestedQuestion }
+
+  discover (momtest mode):
+    task spec → gaps + Mom Test questions (past behavior, not hypotheticals)
+    → momTestQuestions[]: { gapId, question, targetRole, rationale }
+
+  discover (wendel mode):
+    task spec → 5 behavior change conditions (CUE, REACTION, EVALUATION, ABILITY, TIMING)
+    → wendelChecklist[]: { condition, status: pass|fail|unknown, justification }
+
+  discover (classify mode):
+    task spec → behavior change type (START, STOP, DIFFERENT, not_applicable)
+    → classification: { type, adoptionRisk, frictionEstimate }
+
+  discover (jtbd mode):
+    task spec + context → reinforced Jobs-to-be-Done
+    → jtbds[]: { id, functional, emotionalPersonal, emotionalSocial, behaviorChange, evidence }
+
+Standalone:
+  kj_discover(task, mode) → structured discovery output (no pipeline execution)
+```
+
+**Why:** AI-generated code is only as good as its input specification. When tasks are ambiguous or incomplete, the coder agent makes assumptions that may not match the stakeholder's intent — leading to rework cycles. The discovery stage catches these gaps before any code is written, when the cost of clarification is lowest. The five modes provide different validation lenses: `gaps` for technical completeness, `momtest` for stakeholder validation, `wendel` for adoption readiness, `classify` for change impact assessment, and `jtbd` for understanding the underlying user needs. Discovery is opt-in and non-blocking to avoid adding friction to well-defined tasks.
 
 ## Key Architectural Decisions
 

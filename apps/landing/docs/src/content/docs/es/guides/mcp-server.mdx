@@ -80,11 +80,12 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Herramientas disponibles
 
-Karajan Code expone **15 herramientas MCP**:
+Karajan Code expone **16 herramientas MCP**:
 
 | Herramienta | Params requeridos | Descripción |
 |-------------|------------------|-------------|
 | `kj_run` | `task` | Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer |
+| `kj_discover` | `task` | Detección de gaps pre-ejecución con 5 modos (gaps, momtest, wendel, classify, jtbd) |
 | `kj_code` | `task` | Modo solo coder (sin revisión) |
 | `kj_review` | `task` | Modo solo reviewer sobre el diff actual |
 | `kj_plan` | `task` | Generar plan de implementación con telemetría heartbeat/stall |

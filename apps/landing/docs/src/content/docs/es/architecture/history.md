@@ -48,7 +48,7 @@ tarea → coder → sonar → reviewer → done
 - Abstracción `BaseRole` (ciclo de vida init → execute → report)
 - Abstracción `BaseAgent` (interfaz uniforme para todos los agentes CLI)
 - Registry de agentes (register, create, resolve)
-- 11 roles configurables: triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
+- 12 roles configurables: discover, triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
 - Perfiles de revisión (standard, strict, paranoid, relaxed)
 - Instrucciones de roles como templates markdown (sobreescribibles)
 - Detección de repeticiones y lógica fail-fast
@@ -402,6 +402,53 @@ Flujo de override:
 ```
 
 **Por que:** No todas las tareas se benefician de las mismas stages del pipeline. Ejecutar checks TDD en tareas de infraestructura (configs CI, Dockerfiles) o tareas de documentacion produce falsos positivos y desperdicia tiempo. Ejecutar SonarQube en cambios de documentacion pura no tiene sentido. El policy-resolver permite al pipeline adaptar sus quality gates a la naturaleza del trabajo, mientras aplica por defecto el perfil mas conservador (`sw`) cuando el tipo de tarea es desconocido — asegurando seguridad sin sacrificar flexibilidad.
+
+## Fase 17: Discovery Pre-Ejecución (v1.16.0)
+
+**Qué cambió:** Se añadió un nuevo stage de discovery pre-pipeline que analiza las especificaciones de tareas buscando gaps, ambigüedades e información faltante antes de escribir código. Cinco modos de discovery especializados proporcionan diferentes lentes de validación.
+
+**Adiciones clave:**
+- `DiscoverRole` extendiendo `BaseRole` — 12º rol configurable del pipeline
+- 5 modos de discovery: `gaps` (detección de gaps por defecto), `momtest` (preguntas de validación Mom Test), `wendel` (checklist de adopción de cambio de comportamiento), `classify` (clasificación START/STOP/DIFFERENT), `jtbd` (generación de Jobs-to-be-Done)
+- Herramienta MCP `kj_discover` para detección de gaps independiente fuera del pipeline
+- Integración en pipeline: stage pre-triage opt-in via flag `--enable-discover` o config `pipeline.discover.enabled`
+- Ejecución no bloqueante: los fallos de discovery registran warnings y el pipeline continúa
+- Constructor de prompts con secciones específicas por modo y enforcement de JSON schema
+- Parser de output con validación de campos, normalización de severidad y filtrado de entradas incompletas
+
+**Adición a la arquitectura:**
+```
+Antes de v1.16.0:
+  kj_run → triage → researcher? → planner? → coder → ...
+
+Después de v1.16.0:
+  kj_run → discover? → triage → researcher? → planner? → coder → ...
+
+  discover (modo gaps):
+    spec tarea → identificar gaps, ambigüedades, asunciones → verdict: ready | needs_validation
+    → gaps[]: { id, description, severity, suggestedQuestion }
+
+  discover (modo momtest):
+    spec tarea → gaps + preguntas Mom Test (comportamiento pasado, no hipotéticos)
+    → momTestQuestions[]: { gapId, question, targetRole, rationale }
+
+  discover (modo wendel):
+    spec tarea → 5 condiciones de cambio de comportamiento (CUE, REACTION, EVALUATION, ABILITY, TIMING)
+    → wendelChecklist[]: { condition, status: pass|fail|unknown, justification }
+
+  discover (modo classify):
+    spec tarea → tipo de cambio de comportamiento (START, STOP, DIFFERENT, not_applicable)
+    → classification: { type, adoptionRisk, frictionEstimate }
+
+  discover (modo jtbd):
+    spec tarea + contexto → Jobs-to-be-Done reforzados
+    → jtbds[]: { id, functional, emotionalPersonal, emotionalSocial, behaviorChange, evidence }
+
+Standalone:
+  kj_discover(task, mode) → output de discovery estructurado (sin ejecución de pipeline)
+```
+
+**Por qué:** El código generado por IA es tan bueno como su especificación de entrada. Cuando las tareas son ambiguas o incompletas, el agente coder hace asunciones que pueden no coincidir con la intención del stakeholder — generando ciclos de retrabajo. El stage de discovery detecta estos gaps antes de escribir código, cuando el coste de clarificación es mínimo. Los cinco modos proporcionan diferentes lentes de validación: `gaps` para completitud técnica, `momtest` para validación con stakeholders, `wendel` para preparación para la adopción, `classify` para evaluación del impacto del cambio, y `jtbd` para entender las necesidades subyacentes del usuario. Discovery es opt-in y no bloqueante para evitar añadir fricción a tareas bien definidas.
 
 ## Decisiones Arquitectónicas Clave
 

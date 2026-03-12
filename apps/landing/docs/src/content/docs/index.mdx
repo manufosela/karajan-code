@@ -3,7 +3,7 @@ title: Karajan Code
 description: Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.15.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
+  tagline: "v1.16.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -24,13 +24,13 @@ Instead of running one AI agent and manually reviewing its output, `kj` chains a
 
 <CardGrid stagger>
   <Card title="Multi-Agent Pipeline" icon="rocket">
-    11 configurable roles: triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.
+    12 configurable roles: discover, triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.
   </Card>
   <Card title="4 AI Agents" icon="laptop">
     Claude, Codex, Gemini, and Aider. Mix and match — use Claude as coder and Codex as reviewer, or any combination.
   </Card>
   <Card title="MCP Server" icon="puzzle">
-    15 tools exposed via MCP — including `kj_preflight` for human-confirmed agent config and `kj_status` for live parsed status. Real-time progress notifications for all tools.
+    16 tools exposed via MCP — including `kj_discover` for pre-execution gap detection, `kj_preflight` for human-confirmed agent config, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
   </Card>
   <Card title="TDD Enforcement" icon="approve-check">
     Test changes required when source files change. The pipeline rejects iterations without matching tests.
@@ -58,6 +58,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` chains a
   </Card>
   <Card title="BecarIA Gateway" icon="open-book">
     Full CI/CD integration with GitHub PRs as source of truth. All agents post comments and reviews on PRs. Early PR creation, configurable dispatch events, and embedded workflow templates.
+  </Card>
+  <Card title="Pre-Execution Discovery" icon="magnifier">
+    `kj_discover` analyzes tasks for gaps before coding begins. 5 modes: gap detection, Mom Test questions, Wendel behavior change checklist, START/STOP/DIFFERENT classification, and Jobs-to-be-Done generation.
   </Card>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required.

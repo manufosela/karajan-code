@@ -10,11 +10,12 @@ Esta página está en construcción. Contenido completo próximamente.
 ## Visión General del Pipeline
 
 ```
-triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+discover? → triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
 ```
 
 | Rol | Descripción | Por defecto |
 |-----|-------------|-------------|
+| **discover** | Detección de gaps pre-ejecución — analiza tareas buscando información faltante, ambigüedades y asunciones | Off |
 | **triage** | Director de pipeline — analiza complejidad de la tarea y activa roles dinámicamente | **On** |
 | **researcher** | Investiga el contexto del codebase antes de planificar | Off |
 | **planner** | Genera planes de implementación estructurados | Off |
@@ -175,3 +176,61 @@ A partir de v1.15.0, el triage siempre se ejecuta para clasificar el `taskType` 
 4. Por defecto: `sw` (la configuracion mas conservadora)
 
 El triage puede activar roles adicionales pero no puede desactivar roles explicitamente habilitados en la configuracion del pipeline.
+
+## Discovery Stage (v1.16.0)
+
+El stage **discover** se ejecuta antes del triage como etapa pre-pipeline opt-in. Analiza la especificación de la tarea buscando gaps, ambigüedades e información faltante antes de escribir código.
+
+### Activar discovery
+
+Via CLI:
+```bash
+kj run --enable-discover --task "Añadir autenticación de usuarios"
+```
+
+Via MCP:
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añadir autenticación de usuarios",
+    "enableDiscover": true
+  }
+}
+```
+
+O permanentemente en `kj.config.yml`:
+```yaml
+pipeline:
+  discover:
+    enabled: true
+    mode: gaps  # o: momtest, wendel, classify, jtbd
+```
+
+### 5 Modos de Discovery
+
+| Modo | Qué hace |
+|------|----------|
+| `gaps` | Por defecto — identifica requisitos faltantes, ambigüedades, asunciones implícitas y contradicciones |
+| `momtest` | Genera preguntas de validación siguiendo los principios de The Mom Test (comportamiento pasado, no hipotéticos) |
+| `wendel` | Evalúa 5 condiciones de adopción de cambio de comportamiento: CUE, REACTION, EVALUATION, ABILITY, TIMING |
+| `classify` | Clasifica el impacto de la tarea como START (nuevo comportamiento), STOP (eliminar comportamiento) o DIFFERENT (cambiar existente) |
+| `jtbd` | Genera Jobs-to-be-Done reforzados con capas funcional, emocional y de comportamiento |
+
+### Uso standalone con kj_discover
+
+Discovery también está disponible como herramienta MCP independiente:
+
+```json
+{
+  "tool": "kj_discover",
+  "params": {
+    "task": "Añadir toggle de modo oscuro a la página de ajustes",
+    "mode": "wendel"
+  }
+}
+```
+
+### Comportamiento no bloqueante
+
+Discovery es no bloqueante: si falla, el pipeline registra un warning y continúa la ejecución. Cuando el verdict es `needs_validation`, el pipeline emite un warning con los gaps detectados pero procede normalmente.

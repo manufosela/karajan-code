@@ -10,11 +10,12 @@ This page is under construction. Full content coming soon.
 ## Pipeline Overview
 
 ```
-triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+discover? → triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
 ```
 
 | Role | Description | Default |
 |------|-------------|---------|
+| **discover** | Pre-execution gap detection — analyzes tasks for missing info, ambiguities, and assumptions | Off |
 | **triage** | Pipeline director — analyzes task complexity and activates roles dynamically | **On** |
 | **researcher** | Investigates codebase context before planning | Off |
 | **planner** | Generates structured implementation plans | Off |
@@ -171,3 +172,61 @@ Starting from v1.15.0, triage always runs to classify the task's `taskType`. The
 4. Default: `sw` (most conservative)
 
 Triage can activate additional roles but cannot deactivate roles explicitly enabled in pipeline config.
+
+## Discovery Stage (v1.16.0)
+
+The **discover** stage runs before triage as an opt-in pre-pipeline stage. It analyzes the task specification for gaps, ambiguities, and missing information before any code is written.
+
+### Enabling discovery
+
+Via CLI:
+```bash
+kj run --enable-discover --task "Add user authentication"
+```
+
+Via MCP:
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Add user authentication",
+    "enableDiscover": true
+  }
+}
+```
+
+Or permanently in `kj.config.yml`:
+```yaml
+pipeline:
+  discover:
+    enabled: true
+    mode: gaps  # or: momtest, wendel, classify, jtbd
+```
+
+### 5 Discovery Modes
+
+| Mode | What it does |
+|------|-------------|
+| `gaps` | Default — identifies missing requirements, ambiguities, implicit assumptions, and contradictions |
+| `momtest` | Generates validation questions following The Mom Test principles (past behavior, not hypotheticals) |
+| `wendel` | Evaluates 5 behavior change adoption conditions: CUE, REACTION, EVALUATION, ABILITY, TIMING |
+| `classify` | Classifies task impact as START (new behavior), STOP (remove behavior), or DIFFERENT (change existing) |
+| `jtbd` | Generates reinforced Jobs-to-be-Done with functional, emotional, and behavioral layers |
+
+### Standalone usage with kj_discover
+
+Discovery is also available as a standalone MCP tool:
+
+```json
+{
+  "tool": "kj_discover",
+  "params": {
+    "task": "Add dark mode toggle to settings page",
+    "mode": "wendel"
+  }
+}
+```
+
+### Non-blocking behavior
+
+Discovery is non-blocking: if it fails, the pipeline logs a warning and continues execution. When verdict is `needs_validation`, the pipeline emits a warning with the detected gaps but proceeds normally.
