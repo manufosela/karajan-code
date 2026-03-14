@@ -1162,5 +1162,10 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
   await saveSession(session);
 
   // Re-run the flow with the existing session context
-  return runFlow({ task, config: sessionConfig, logger, flags, emitter, askQuestion });
+  try {
+    return await runFlow({ task, config: sessionConfig, logger, flags, emitter, askQuestion });
+  } catch (err) {
+    await markSessionStatus(session, "failed");
+    throw err;
+  }
 }

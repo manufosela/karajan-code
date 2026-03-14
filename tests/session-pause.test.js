@@ -65,15 +65,15 @@ describe("resumeSessionWithAnswer", () => {
   });
 
   it("throws if session is not paused", async () => {
-    const runningSession = {
-      id: "s_not-paused",
-      status: "running",
+    const approvedSession = {
+      id: "s_not-resumable",
+      status: "approved",
       checkpoints: []
     };
 
-    vi.spyOn(fs, "readFile").mockResolvedValue(JSON.stringify(runningSession));
+    vi.spyOn(fs, "readFile").mockResolvedValue(JSON.stringify(approvedSession));
 
-    await expect(resumeSessionWithAnswer("s_not-paused", "answer")).rejects.toThrow("is not paused");
+    await expect(resumeSessionWithAnswer("s_not-resumable", "answer")).rejects.toThrow("cannot be resumed");
   });
 
   it("throws if session has no paused state", async () => {

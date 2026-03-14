@@ -287,22 +287,36 @@ export async function handleResumeDirect(a, server, extra) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
 
+  const projectDir = await resolveProjectDir(server);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_resume] started — session="${a.sessionId}"`);
+
   const emitter = new EventEmitter();
   emitter.on("progress", buildProgressHandler(server));
+  emitter.on("progress", (event) => runLog.logEvent(event));
   const progressNotifier = buildProgressNotifier(extra);
   if (progressNotifier) emitter.on("progress", progressNotifier);
 
   const askQuestion = buildAskQuestion(server);
-  const result = await resumeFlow({
-    sessionId: a.sessionId,
-    answer: a.answer || null,
-    config,
-    logger,
-    flags: a,
-    emitter,
-    askQuestion
-  });
-  return { ok: true, ...result };
+  try {
+    const result = await resumeFlow({
+      sessionId: a.sessionId,
+      answer: a.answer || null,
+      config,
+      logger,
+      flags: a,
+      emitter,
+      askQuestion
+    });
+    const ok = !result.paused && (result.approved !== false);
+    runLog.logText(`[kj_resume] finished — ok=${ok}`);
+    return { ok, ...result };
+  } catch (err) {
+    runLog.logText(`[kj_resume] failed: ${err.message}`);
+    throw err;
+  } finally {
+    runLog.close();
+  }
 }
 
 function buildDirectEmitter(server, runLog, extra) {

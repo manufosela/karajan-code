@@ -83,8 +83,9 @@ export async function loadMostRecentSession() {
 
 export async function resumeSessionWithAnswer(sessionId, answer) {
   const session = await loadSession(sessionId);
-  if (session.status !== "paused") {
-    throw new Error(`Session ${sessionId} is not paused (status: ${session.status})`);
+  const resumable = new Set(["paused", "running", "failed", "stopped"]);
+  if (!resumable.has(session.status)) {
+    throw new Error(`Session ${sessionId} cannot be resumed (status: ${session.status})`);
   }
   const pausedState = session.paused_state;
   if (!pausedState) {
