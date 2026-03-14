@@ -183,13 +183,15 @@ export function readRunLog(projectDir, maxLines = 50) {
     const total = lines.length;
     const shown = lines.slice(-maxLines);
     const status = parseRunStatus(lines);
+    const MAX_LINE_CHARS = 2000;
+    const truncated = shown.map(l => l.length > MAX_LINE_CHARS ? l.slice(0, MAX_LINE_CHARS) + "… [truncated]" : l);
     return {
       ok: true,
       path: logPath,
       totalLines: total,
       status,
-      lines: shown,
-      summary: shown.join("\n")
+      lines: truncated,
+      summary: truncated.join("\n")
     };
   } catch (err) {
     return {
