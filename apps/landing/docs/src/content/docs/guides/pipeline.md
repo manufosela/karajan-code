@@ -173,7 +173,7 @@ Starting from v1.15.0, triage always runs to classify the task's `taskType`. The
 
 Triage can activate additional roles but cannot deactivate roles explicitly enabled in pipeline config.
 
-## Discovery Stage (v1.16.0)
+## Discovery Stage (v1.16.0+)
 
 The **discover** stage runs before triage as an opt-in pre-pipeline stage. It analyzes the task specification for gaps, ambiguities, and missing information before any code is written.
 

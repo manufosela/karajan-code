@@ -451,6 +451,44 @@ Standalone:
 
 **Why:** AI-generated code is only as good as its input specification. When tasks are ambiguous or incomplete, the coder agent makes assumptions that may not match the stakeholder's intent — leading to rework cycles. The discovery stage catches these gaps before any code is written, when the cost of clarification is lowest. The five modes provide different validation lenses: `gaps` for technical completeness, `momtest` for stakeholder validation, `wendel` for adoption readiness, `classify` for change impact assessment, and `jtbd` for understanding the underlying user needs. Discovery is opt-in and non-blocking to avoid adding friction to well-defined tasks.
 
+## Phase 18: Architectural Design & Code Quality (v1.17.0)
+
+**What changed:** Added a pre-construction architecture design role and resolved all SonarQube issues across the codebase, reducing cognitive complexity from 345 to 15 in the main orchestrator.
+
+**Key additions:**
+- ArchitectRole: 13th configurable pipeline role that designs solution architecture (layers, patterns, data model, API contracts, tradeoffs) between researcher and planner
+- Interactive architecture pause: pipeline pauses with targeted questions when the architect detects design ambiguity (`verdict: "needs_clarification"`)
+- Auto ADR generation: architectural tradeoffs are automatically persisted as Architecture Decision Records in Planning Game
+- Triage → architect activation: triage auto-activates architect based on task complexity, scope, and design ambiguity
+- Planner architectContext: planner generates implementation steps aligned with architectural decisions
+- SonarQube full cleanup: 205 issues → 0 (CRITICAL, MAJOR, MINOR)
+- Cognitive complexity refactoring: orchestrator.js (345→15), display.js (134→2), server-handlers.js (101→3), config.js (55→10)
+- Handler dispatch maps: replaced large switch/if-else chains with object dispatch patterns
+- 1454 tests across 118 files
+
+**Architecture addition:**
+```
+Before v1.17.0:
+  kj_run → discover? → triage → researcher? → planner? → coder → ...
+
+After v1.17.0:
+  kj_run → discover? → triage → researcher? → architect? → planner? → coder → ...
+
+  architect:
+    task + researchContext + discoverResult → design architecture
+    → verdict: "ready" → architectContext passed to planner
+    → verdict: "needs_clarification" → askQuestion → human answers → re-evaluate
+    → tradeoffs[] → auto-create ADRs in Planning Game (if PG card linked)
+
+  Cognitive complexity before/after:
+    orchestrator.js:  345 → 15 (extracted 24+ helper functions)
+    display.js:       134 →  2 (EVENT_HANDLERS dispatch map)
+    server-handlers:  101 →  3 (toolHandlers dispatch map)
+    config.js:         55 → 10 (declarative flag maps)
+```
+
+**Why:** The pipeline had a gap between understanding (researcher) and planning (planner): nobody was making architectural decisions. The coder was forced to make design choices on the fly — layer boundaries, data models, API contracts, technology tradeoffs — without validation. This led to rework when decisions didn't match stakeholder expectations. The architect role fills this gap by producing explicit, reviewable design decisions before any code is written. The SonarQube cleanup was equally important: cognitive complexity had grown unchecked as the orchestrator evolved through 17 phases. The refactoring replaced monolithic functions with composable helpers and dispatch maps, making the codebase maintainable as it continues to grow.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

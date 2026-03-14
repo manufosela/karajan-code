@@ -177,7 +177,7 @@ A partir de v1.15.0, el triage siempre se ejecuta para clasificar el `taskType` 
 
 El triage puede activar roles adicionales pero no puede desactivar roles explicitamente habilitados en la configuracion del pipeline.
 
-## Discovery Stage (v1.16.0)
+## Discovery Stage (v1.16.0+)
 
 El stage **discover** se ejecuta antes del triage como etapa pre-pipeline opt-in. Analiza la especificación de la tarea buscando gaps, ambigüedades e información faltante antes de escribir código.
 

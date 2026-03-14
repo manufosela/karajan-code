@@ -48,7 +48,7 @@ tarea → coder → sonar → reviewer → done
 - Abstracción `BaseRole` (ciclo de vida init → execute → report)
 - Abstracción `BaseAgent` (interfaz uniforme para todos los agentes CLI)
 - Registry de agentes (register, create, resolve)
-- 12 roles configurables: discover, triage, researcher, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
+- 13 roles configurables: discover, triage, researcher, architect, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter
 - Perfiles de revisión (standard, strict, paranoid, relaxed)
 - Instrucciones de roles como templates markdown (sobreescribibles)
 - Detección de repeticiones y lógica fail-fast
@@ -408,7 +408,7 @@ Flujo de override:
 **Qué cambió:** Se añadió un nuevo stage de discovery pre-pipeline que analiza las especificaciones de tareas buscando gaps, ambigüedades e información faltante antes de escribir código. Cinco modos de discovery especializados proporcionan diferentes lentes de validación.
 
 **Adiciones clave:**
-- `DiscoverRole` extendiendo `BaseRole` — 12º rol configurable del pipeline
+- `DiscoverRole` extendiendo `BaseRole` — 12º rol configurable del pipeline (ahora 13 con architect)
 - 5 modos de discovery: `gaps` (detección de gaps por defecto), `momtest` (preguntas de validación Mom Test), `wendel` (checklist de adopción de cambio de comportamiento), `classify` (clasificación START/STOP/DIFFERENT), `jtbd` (generación de Jobs-to-be-Done)
 - Herramienta MCP `kj_discover` para detección de gaps independiente fuera del pipeline
 - Integración en pipeline: stage pre-triage opt-in via flag `--enable-discover` o config `pipeline.discover.enabled`
@@ -449,6 +449,44 @@ Standalone:
 ```
 
 **Por qué:** El código generado por IA es tan bueno como su especificación de entrada. Cuando las tareas son ambiguas o incompletas, el agente coder hace asunciones que pueden no coincidir con la intención del stakeholder — generando ciclos de retrabajo. El stage de discovery detecta estos gaps antes de escribir código, cuando el coste de clarificación es mínimo. Los cinco modos proporcionan diferentes lentes de validación: `gaps` para completitud técnica, `momtest` para validación con stakeholders, `wendel` para preparación para la adopción, `classify` para evaluación del impacto del cambio, y `jtbd` para entender las necesidades subyacentes del usuario. Discovery es opt-in y no bloqueante para evitar añadir fricción a tareas bien definidas.
+
+## Fase 18: Diseño Arquitectónico y Calidad de Código (v1.17.0)
+
+**Qué cambió:** Se añadió un nuevo rol de diseño arquitectónico pre-construcción y se resolvieron todos los issues de SonarQube del codebase, reduciendo la complejidad cognitiva de 345 a 15 en el orquestador principal.
+
+**Adiciones clave:**
+- ArchitectRole: 13º rol configurable del pipeline que diseña la arquitectura de la solución (capas, patrones, modelo de datos, contratos API, tradeoffs) entre researcher y planner
+- Pausa interactiva de arquitectura: el pipeline se pausa con preguntas específicas cuando el architect detecta ambigüedad de diseño (`verdict: "needs_clarification"`)
+- Generación automática de ADRs: los tradeoffs arquitectónicos se persisten automáticamente como Architecture Decision Records en Planning Game
+- Activación triage → architect: triage auto-activa architect según complejidad, alcance y ambigüedad de diseño
+- Planner architectContext: el planner genera pasos de implementación alineados con las decisiones arquitectónicas
+- Limpieza completa de SonarQube: 205 issues → 0 (CRITICAL, MAJOR, MINOR)
+- Refactorización de complejidad cognitiva: orchestrator.js (345→15), display.js (134→2), server-handlers.js (101→3), config.js (55→10)
+- Mapas de dispatch: reemplazo de switch/if-else grandes por patrones de dispatch con objetos
+- 1454 tests en 118 ficheros
+
+**Adición a la arquitectura:**
+```
+Antes de v1.17.0:
+  kj_run → discover? → triage → researcher? → planner? → coder → ...
+
+Después de v1.17.0:
+  kj_run → discover? → triage → researcher? → architect? → planner? → coder → ...
+
+  architect:
+    task + researchContext + discoverResult → diseñar arquitectura
+    → verdict: "ready" → architectContext pasado al planner
+    → verdict: "needs_clarification" → askQuestion → respuesta humana → re-evaluar
+    → tradeoffs[] → crear ADRs en Planning Game (si hay card PG vinculada)
+
+  Complejidad cognitiva antes/después:
+    orchestrator.js:  345 → 15 (extraídas 24+ funciones helper)
+    display.js:       134 →  2 (mapa dispatch EVENT_HANDLERS)
+    server-handlers:  101 →  3 (mapa dispatch toolHandlers)
+    config.js:         55 → 10 (mapas declarativos de flags)
+```
+
+**Por qué:** El pipeline tenía un hueco entre entender (researcher) y planificar (planner): nadie tomaba decisiones arquitectónicas. El coder se veía obligado a tomar decisiones de diseño sobre la marcha — límites de capas, modelos de datos, contratos API, tradeoffs tecnológicos — sin validación. Esto generaba rework cuando las decisiones no coincidían con las expectativas del stakeholder. El rol architect llena este hueco produciendo decisiones de diseño explícitas y revisables antes de escribir código. La limpieza de SonarQube fue igualmente importante: la complejidad cognitiva había crecido sin control a medida que el orquestador evolucionó a través de 17 fases. La refactorización reemplazó funciones monolíticas por helpers componibles y mapas de dispatch, haciendo el codebase mantenible a medida que sigue creciendo.
 
 ## Decisiones Arquitectónicas Clave
 

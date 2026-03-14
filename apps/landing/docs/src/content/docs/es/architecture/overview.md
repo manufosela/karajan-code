@@ -28,9 +28,9 @@ Karajan Code implementa un patrón de **Orquestación de IA basada en Roles**. E
 │                      Orchestrator                           │
 │         (bucle del pipeline, fail-fast, presupuesto)        │
 │                                                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │  Triage  │→ │Researcher│→ │ Planner  │→ │  Coder   │   │
-│  └──────────┘  └──────────┘  └──────────┘  └────┬─────┘   │
+│  ┌────────┐ ┌──────────┐ ┌─────────┐ ┌────────┐ ┌────────┐  │
+│  │ Triage │→│Researcher│→│Architect│→│Planner │→│ Coder  │  │
+│  └────────┘ └──────────┘ └─────────┘ └────────┘ └───┬────┘  │
 │                                                  │         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │         │
 │  │ Commiter │← │ Security │← │  Tester  │←──────┤         │
@@ -67,7 +67,7 @@ src/
 ├── activity-log.js           # Log de actividad de sesiones
 │
 ├── orchestrator/             # Implementaciones de etapas del pipeline
-│   ├── pre-loop-stages.js    #   Triage, researcher, planner
+│   ├── pre-loop-stages.js    #   Triage, researcher, architect, planner
 │   ├── iteration-stages.js   #   Coder, refactorer, TDD, sonar, reviewer
 │   ├── post-loop-stages.js   #   Tester, security
 │   ├── reviewer-fallback.js  #   Lógica de reviewer de respaldo
@@ -85,6 +85,7 @@ src/
 │   ├── solomon-role.js       #   Arbitraje de conflictos
 │   ├── sonar-role.js         #   SonarQube (no-IA)
 │   ├── triage-role.js        #   Clasificador de complejidad
+│   ├── architect-role.js     #   Diseño de arquitectura
 │   └── commiter-role.js      #   Automatización git
 │
 ├── agents/                   # Adaptadores de agentes IA
@@ -101,15 +102,26 @@ src/
 ├── commands/                 # Handlers de comandos CLI
 ├── mcp/                      # Servidor MCP (stdio transport)
 ├── prompts/                  # Constructores de prompts
+│   ├── coder.js              #   Tarea + feedback + reglas
+│   ├── reviewer.js           #   Diff + reglas
+│   ├── planner.js            #   Tarea + contexto de investigación
+│   └── architect.js          #   Prompt de diseño de arquitectura
+│
 ├── review/                   # Infraestructura de revisión de código
 ├── sonar/                    # Integración SonarQube
 ├── plugins/                  # Sistema de plugins
 ├── planning-game/            # Integración Planning Game
+│   ├── adapter.js            #   Parsing de card ID, enriquecimiento de tarea
+│   ├── client.js             #   Cliente REST
+│   └── architect-adrs.js     #   Generación automática de ADRs desde tradeoffs
+│
 ├── git/                      # Automatización git
 └── utils/                    # Utilidades compartidas
 
 templates/
 └── roles/                    # Ficheros de instrucciones de roles (.md)
+    ├── coder.md, reviewer.md, planner.md, architect.md, ...
+    ├── reviewer-strict.md, reviewer-paranoid.md, reviewer-relaxed.md
 ```
 
 ## Abstracciones Principales
@@ -160,7 +172,7 @@ const result = await agent.runTask({ prompt, role: "coder" })
 
 El orchestrator impulsa el pipeline completo a través de tres fases:
 
-1. **Pre-loop** — triage, researcher, planner (opcionales)
+1. **Pre-loop** — triage, researcher, architect, planner (opcionales)
 2. **Bucle de iteración** — coder → refactorer → TDD check → sonar → reviewer (se repite hasta aprobación o max iteraciones)
 3. **Post-loop** — tester, security, git finalize (solo tras aprobación)
 
@@ -171,9 +183,10 @@ Input (descripción de tarea)
     │
     ▼
 ┌─ Pre-loop ──────────────────┐
-│  [Triage?]    → clasificar  │
+│  [Triage?]     → clasificar  │
 │  [Researcher?] → investigar  │
-│  [Planner?]   → planificar  │
+│  [Architect?]  → diseñar     │
+│  [Planner?]    → planificar  │
 └─────────────────────────────┘
     │
     ▼
