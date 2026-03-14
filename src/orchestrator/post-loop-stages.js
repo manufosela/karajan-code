@@ -16,7 +16,13 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   const tester = new TesterRole({ config, logger, emitter });
   await tester.init({ task, iteration });
   const testerStart = Date.now();
-  const testerOutput = await tester.run({ task, diff });
+  let testerOutput;
+  try {
+    testerOutput = await tester.run({ task, diff });
+  } catch (err) {
+    logger.warn(`Tester threw: ${err.message}`);
+    testerOutput = { ok: false, summary: `Tester error: ${err.message}`, result: { error: err.message } };
+  }
   trackBudget({
     role: "tester",
     provider: config?.roles?.tester?.provider || coderRole.provider,
@@ -90,7 +96,13 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
   const security = new SecurityRole({ config, logger, emitter });
   await security.init({ task, iteration });
   const securityStart = Date.now();
-  const securityOutput = await security.run({ task, diff });
+  let securityOutput;
+  try {
+    securityOutput = await security.run({ task, diff });
+  } catch (err) {
+    logger.warn(`Security threw: ${err.message}`);
+    securityOutput = { ok: false, summary: `Security error: ${err.message}`, result: { error: err.message } };
+  }
   trackBudget({
     role: "security",
     provider: config?.roles?.security?.provider || coderRole.provider,
