@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 13 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.21.2 — Orquestador de IA basado en roles: 13 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.22.0 — Orquestador de IA basado en roles: 13 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -74,8 +74,11 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Resilient Run" icon="random">
     Auto-diagnostica fallos y reanuda sesiones caídas — hasta 2 reintentos. Errores no recuperables (config, auth, agente no encontrado) fallan inmediatamente. Configurable via `session.max_auto_resumes`.
   </Card>
-  <Card title="1559+ Tests Automatizados" icon="approve-check">
-    128 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
+  <Card title="Host-as-Coder" icon="laptop">
+    Cuando el host MCP es el mismo agente que el coder (ej. Claude llamando kj_run con coder=claude), Karajan delega directamente — sin subproceso, sin overhead. Todos los guardrails siguen activos.
+  </Card>
+  <Card title="1575+ Tests Automatizados" icon="approve-check">
+    130 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.

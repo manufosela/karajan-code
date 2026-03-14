@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Quality & Testing
 
-Karajan Code is tested with **1559+ automated tests** across 128 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
+Karajan Code is tested with **1575+ automated tests** across 130 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
 
 Quality is enforced at multiple layers:
 - **SonarQube** (local, via Docker) — full static analysis with quality gates, blocking on critical issues
