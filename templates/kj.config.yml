@@ -61,6 +61,39 @@ sonarqube:
       - "javascript:S1116"
       - "javascript:S3776"
 
+# Deterministic Guards
+guards:
+  output:
+    enabled: true
+    # Custom patterns (added to built-in destructive + credential patterns)
+    # patterns:
+    #   - id: custom-pattern
+    #     pattern: "DANGEROUS_FUNCTION"
+    #     severity: critical
+    #     message: "Custom dangerous pattern detected"
+    # Protected files (added to built-in: .env, serviceAccountKey.json, etc.)
+    # protected_files:
+    #   - secrets.yml
+    #   - .env.production
+    on_violation: block  # block | warn | skip
+  perf:
+    enabled: true
+    block_on_warning: false  # true to block on perf warnings (default: advisory only)
+    # Custom perf patterns (added to built-in frontend anti-patterns)
+    # patterns:
+    #   - id: custom-perf
+    #     pattern: "eval\\("
+    #     severity: warning
+    #     message: "eval() detected"
+  intent:
+    enabled: false  # enable for deterministic pre-triage classification
+    confidence_threshold: 0.85
+    # Custom intent patterns (evaluated before built-in)
+    # patterns:
+    #   - keywords: ["readme", "docs", "documentation"]
+    #     taskType: doc
+    #     confidence: 0.9
+
 # Git (post-approval)
 git:
   auto_commit: false

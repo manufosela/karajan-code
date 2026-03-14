@@ -193,6 +193,45 @@ describe("DEFAULTS pipeline", () => {
     expect(config.roles.architect.model).toBeNull();
   });
 
+  it("has guards with sensible defaults", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-defaults-guards-"));
+    const kjHome = path.join(tmpDir, "home");
+    await fs.mkdir(kjHome, { recursive: true });
+
+    process.chdir(tmpDir);
+    process.env.KJ_HOME = kjHome;
+
+    const { config } = await loadConfig();
+    expect(config.guards.output.enabled).toBe(true);
+    expect(config.guards.output.on_violation).toBe("block");
+    expect(config.guards.output.patterns).toEqual([]);
+    expect(config.guards.output.protected_files).toEqual([]);
+    expect(config.guards.perf.enabled).toBe(true);
+    expect(config.guards.perf.block_on_warning).toBe(false);
+    expect(config.guards.intent.enabled).toBe(false);
+    expect(config.guards.intent.confidence_threshold).toBe(0.85);
+  });
+
+  it("merges custom guards config over defaults", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-guards-merge-"));
+    const kjHome = path.join(tmpDir, "home");
+    await fs.mkdir(kjHome, { recursive: true });
+    await fs.writeFile(
+      path.join(kjHome, "kj.config.yml"),
+      `guards:\n  output:\n    protected_files:\n      - secrets.yml\n  perf:\n    block_on_warning: true\n  intent:\n    enabled: true\n`,
+      "utf8"
+    );
+
+    process.chdir(tmpDir);
+    process.env.KJ_HOME = kjHome;
+
+    const { config } = await loadConfig();
+    expect(config.guards.output.enabled).toBe(true);
+    expect(config.guards.output.protected_files).toEqual(["secrets.yml"]);
+    expect(config.guards.perf.block_on_warning).toBe(true);
+    expect(config.guards.intent.enabled).toBe(true);
+  });
+
   it("has tester and security enabled by default", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-defaults-"));
     const kjHome = path.join(tmpDir, "home");

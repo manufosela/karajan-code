@@ -140,6 +140,25 @@ const DEFAULTS = {
     max_backoff_ms: 30000,
     backoff_multiplier: 2,
     jitter_factor: 0.1
+  },
+  guards: {
+    output: {
+      enabled: true,
+      patterns: [],
+      protected_files: [],
+      on_violation: "block"
+    },
+    perf: {
+      enabled: true,
+      patterns: [],
+      block_on_warning: false,
+      frontend_extensions: []
+    },
+    intent: {
+      enabled: false,
+      patterns: [],
+      confidence_threshold: 0.85
+    }
   }
 };
 
