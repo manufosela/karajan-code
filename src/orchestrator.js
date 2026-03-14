@@ -25,6 +25,7 @@ import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
 import { applyPolicies } from "./guards/policy-resolver.js";
 import { scanDiff } from "./guards/output-guard.js";
 import { scanPerfDiff } from "./guards/perf-guard.js";
+import { classifyIntent } from "./guards/intent-guard.js";
 import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
@@ -274,7 +275,7 @@ function applyFlagOverrides(pipelineFlags, flags) {
 
 function resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags }) {
   const resolvedPolicies = applyPolicies({
-    taskType: flags.taskType || config.taskType || stageResults.triage?.taskType || null,
+    taskType: flags.taskType || config.taskType || stageResults.triage?.taskType || stageResults.intent?.taskType || null,
     policies: config.policies,
   });
   session.resolved_policies = resolvedPolicies;
@@ -766,6 +767,18 @@ async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBa
 
 
 async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults }) {
+  // --- Intent classifier (deterministic pre-triage, opt-in) ---
+  if (config.guards?.intent?.enabled) {
+    const intentResult = classifyIntent(task, config);
+    stageResults.intent = intentResult;
+    if (intentResult.classified) {
+      emitProgress(emitter, makeEvent("intent:classified", { ...eventBase, stage: "intent" }, {
+        message: `Intent classified: ${intentResult.taskType} (${intentResult.level}) — ${intentResult.message}`,
+        detail: intentResult
+      }));
+    }
+  }
+
   // --- Discover (pre-triage, opt-in) ---
   if (flags.enableDiscover !== undefined) pipelineFlags.discoverEnabled = Boolean(flags.enableDiscover);
   if (pipelineFlags.discoverEnabled) {

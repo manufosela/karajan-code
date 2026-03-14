@@ -232,6 +232,20 @@ describe("DEFAULTS pipeline", () => {
     expect(config.guards.intent.enabled).toBe(true);
   });
 
+  it("has intent guard disabled by default with confidence threshold", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-defaults-intent-"));
+    const kjHome = path.join(tmpDir, "home");
+    await fs.mkdir(kjHome, { recursive: true });
+
+    process.chdir(tmpDir);
+    process.env.KJ_HOME = kjHome;
+
+    const { config } = await loadConfig();
+    expect(config.guards.intent.enabled).toBe(false);
+    expect(config.guards.intent.confidence_threshold).toBe(0.85);
+    expect(config.guards.intent.patterns).toEqual([]);
+  });
+
   it("has tester and security enabled by default", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-defaults-"));
     const kjHome = path.join(tmpDir, "home");
