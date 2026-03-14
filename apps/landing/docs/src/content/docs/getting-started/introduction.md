@@ -3,7 +3,7 @@ title: Introduction
 description: What is Karajan Code and why use it.
 ---
 
-Karajan Code (`kj`) is a **role-based AI orchestrator**. It defines **13 specialized roles** (triage, researcher, architect, planner, coder, reviewer, tester, security...) and assigns each one to an **AI agent** (Claude, Codex, Gemini, or Aider). The roles determine *what* to do; the agents determine *who* does it. You can mix and match freely — use Claude as coder and Codex as reviewer, or any combination — while the pipeline enforces quality gates, estimated cost controls, and deterministic guards between every stage. Since Karajan uses agent CLIs (not direct APIs), it runs on your existing subscriptions at no extra cost.
+Karajan Code (`kj`) is a **role-based AI orchestrator**. It defines **13 specialized roles** (triage, researcher, architect, planner, coder, reviewer, tester, security...) and assigns each one to an **AI agent** (Claude, Codex, Gemini, Aider, or OpenCode). The roles determine *what* to do; the agents determine *who* does it. You can mix and match freely — use Claude as coder and Codex as reviewer, or any combination — while the pipeline enforces quality gates, estimated cost controls, and deterministic guards between every stage. Since Karajan uses agent CLIs (not direct APIs), it runs on your existing subscriptions at no extra cost.
 
 ## The Problem
 
@@ -31,7 +31,7 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 ## Key Features
 
 - **Role-based pipeline** with 13 specialized roles — each assignable to any agent
-- **4 AI agents supported**: Claude, Codex, Gemini, Aider — mix and match per role
+- **5 AI agents supported**: Claude, Codex, Gemini, Aider, OpenCode — mix and match per role
 - **Plugin system** — extend with custom agents via `.karajan/plugins/`
 - **Deterministic guards** — output guard (destructive ops, credential leaks), perf guard (frontend anti-patterns), intent classifier (pre-triage without LLM)
 - **MCP server** with 16 tools — use `kj` from your AI agent

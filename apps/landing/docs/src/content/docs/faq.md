@@ -475,7 +475,7 @@ module.exports = { register(api) { ... } }
 
 ### What AI agents does Karajan Code support?
 
-Claude, Codex, Gemini, and Aider out of the box. You can mix and match — use one as coder and another as reviewer. You can also create [custom agents via plugins](/docs/guides/plugins/).
+Claude, Codex, Gemini, Aider, and OpenCode out of the box. You can mix and match — use one as coder and another as reviewer. You can also create [custom agents via plugins](/docs/guides/plugins/).
 
 ### Does it cost money?
 

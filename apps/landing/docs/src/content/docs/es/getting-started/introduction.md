@@ -3,7 +3,7 @@ title: Introducción
 description: Qué es Karajan Code y por qué usarlo.
 ---
 
-Karajan Code (`kj`) es un **orquestador de IA basado en roles**. Define **13 roles especializados** (triage, researcher, architect, planner, coder, reviewer, tester, security...) y asigna cada uno a un **agente de IA** (Claude, Codex, Gemini o Aider). Los roles determinan *qué* hacer; los agentes determinan *quién* lo hace. Puedes combinarlos libremente — usar Claude como coder y Codex como reviewer, o cualquier combinación — mientras el pipeline aplica quality gates, controles de coste estimado y guards deterministas entre cada etapa. Como Karajan usa los CLIs de los agentes (no APIs directas), funciona con tus suscripciones existentes sin coste adicional.
+Karajan Code (`kj`) es un **orquestador de IA basado en roles**. Define **13 roles especializados** (triage, researcher, architect, planner, coder, reviewer, tester, security...) y asigna cada uno a un **agente de IA** (Claude, Codex, Gemini, Aider u OpenCode). Los roles determinan *qué* hacer; los agentes determinan *quién* lo hace. Puedes combinarlos libremente — usar Claude como coder y Codex como reviewer, o cualquier combinación — mientras el pipeline aplica quality gates, controles de coste estimado y guards deterministas entre cada etapa. Como Karajan usa los CLIs de los agentes (no APIs directas), funciona con tus suscripciones existentes sin coste adicional.
 
 ## El Problema
 
@@ -31,7 +31,7 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 ## Características Principales
 
 - **Pipeline basado en roles** con 13 roles especializados — cada uno asignable a cualquier agente
-- **4 agentes de IA soportados**: Claude, Codex, Gemini, Aider — combínalos por rol
+- **5 agentes de IA soportados**: Claude, Codex, Gemini, Aider, OpenCode — combinalos por rol
 - **Sistema de plugins** — extiende con agentes custom via `.karajan/plugins/`
 - **Guards deterministas** — output guard (ops destructivas, fugas de credenciales), perf guard (anti-patrones frontend), intent classifier (pre-triage sin LLM)
 - **Servidor MCP** con 16 herramientas — usa `kj` desde tu agente de IA

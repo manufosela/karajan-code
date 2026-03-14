@@ -7,7 +7,7 @@ description: How to install Karajan Code.
 
 - **Node.js** >= 18
 - **Docker** — required for SonarQube static analysis. If you don't have Docker or don't need SonarQube, disable it with `--no-sonar` or set `sonarqube.enabled: false` in config
-- At least one AI agent CLI installed: Claude, Codex, Gemini, or Aider
+- At least one AI agent CLI installed: Claude, Codex, Gemini, Aider, or OpenCode
 
 ## Step 1: Install at least one AI agent
 
@@ -19,6 +19,7 @@ You need at least one agent installed before running `kj init`. Install one or m
 | **Codex** | `codex` | `npm install -g @openai/codex` |
 | **Gemini** | `gemini` | See [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
 | **Aider** | `aider` | `pip install aider-chat` |
+| **OpenCode** | `opencode` | See [opencode.ai](https://opencode.ai) |
 
 ## Step 2: Install Karajan Code
 

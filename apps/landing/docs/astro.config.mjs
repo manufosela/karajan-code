@@ -63,6 +63,10 @@ export default defineConfig({
 					autogenerate: { directory: 'examples' },
 				},
 				{
+					label: 'Contributors',
+					slug: 'contributors',
+				},
+				{
 					label: 'FAQ',
 					slug: 'faq',
 				},
