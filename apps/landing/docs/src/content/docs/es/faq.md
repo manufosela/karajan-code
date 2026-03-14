@@ -476,6 +476,33 @@ module.exports = { register(api) { ... } }
 
 Claude, Codex, Gemini, Aider y OpenCode de serie. Puedes combinarlos — usa uno como coder y otro como reviewer. También puedes crear [agentes custom via plugins](/docs/es/guides/plugins/).
 
+### ¿Puedo elegir qué modelo usa cada rol?
+
+Sí. Karajan soporta **selección de modelo per-role** a tres niveles:
+
+**Flags CLI** (por ejecución):
+```bash
+kj run "Tarea" --coder-model claude/opus --reviewer-model codex/o4-mini
+```
+
+**Fichero de config** (persistente):
+```yaml
+roles:
+  coder:
+    provider: claude
+    model: claude/sonnet
+  reviewer:
+    provider: codex
+    model: codex/o3
+  planner:
+    provider: gemini
+    model: gemini/pro
+```
+
+**Smart model selection** (automático): Cuando `--smart-models` está habilitado (por defecto), triage clasifica la complejidad de la tarea y auto-selecciona el modelo óptimo por rol — modelos ligeros (haiku, flash, o4-mini) para tareas triviales, potentes (opus, o3, pro) para complejas. Los flags explícitos `--*-model` siempre prevalecen sobre la selección automática.
+
+Usa `kj agents` para ver la asignación actual de modelo para cada rol.
+
 ### ¿Tiene coste?
 
 Karajan Code es gratuito y open source (AGPL-3.0). Funciona con tus suscripciones CLI existentes de agentes IA (Claude Pro, Codex, etc.) — no necesita API keys adicionales. Solo pagas tu plan actual, independientemente de cuántas tareas ejecutes. Usa `kj report --trace` para ver el desglose estimado de costes por ejecución.
