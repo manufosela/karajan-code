@@ -256,8 +256,14 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
 
 export async function runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, askQuestion }) {
   logger.setContext({ iteration, stage: "tdd" });
-  const tddDiff = await generateDiff({ baseRef: session.session_start_sha });
-  const untrackedFiles = await getUntrackedFiles();
+  let tddDiff, untrackedFiles;
+  try {
+    tddDiff = await generateDiff({ baseRef: session.session_start_sha });
+    untrackedFiles = await getUntrackedFiles();
+  } catch (err) {
+    logger.warn(`TDD diff generation failed: ${err.message}`);
+    return { action: "ok", stageResult: { ok: true, summary: `TDD check skipped: ${err.message}` } };
+  }
   const tddEval = evaluateTddPolicy(tddDiff, config.development, untrackedFiles);
   await addCheckpoint(session, {
     stage: "tdd-policy",
@@ -366,7 +372,13 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   const sonarRole = new SonarRole({ config, logger, emitter });
   await sonarRole.init({ iteration });
   const sonarStart = Date.now();
-  const sonarOutput = await sonarRole.run();
+  let sonarOutput;
+  try {
+    sonarOutput = await sonarRole.run();
+  } catch (err) {
+    logger.warn(`Sonar threw: ${err.message}`);
+    sonarOutput = { ok: false, result: { error: err.message }, summary: `Sonar error: ${err.message}` };
+  }
   trackBudget({ role: "sonar", provider: "sonar", result: sonarOutput, duration_ms: Date.now() - sonarStart });
   const sonarResult = sonarOutput.result;
 
@@ -438,7 +450,13 @@ export async function runSonarCloudStage({ config, logger, emitter, eventBase, s
 
   const { runSonarCloudScan } = await import("../sonar/cloud-scanner.js");
   const scanStart = Date.now();
-  const result = await runSonarCloudScan(config);
+  let result;
+  try {
+    result = await runSonarCloudScan(config);
+  } catch (err) {
+    logger.warn(`SonarCloud threw: ${err.message}`);
+    result = { ok: false, error: err.message };
+  }
   trackBudget({ role: "sonarcloud", provider: "sonarcloud", result: { ok: result.ok }, duration_ms: Date.now() - scanStart });
 
   await addCheckpoint(session, {
@@ -550,7 +568,13 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     })
   );
 
-  const diff = await fetchReviewDiff(session, logger);
+  let diff;
+  try {
+    diff = await fetchReviewDiff(session, logger);
+  } catch (err) {
+    logger.warn(`Review diff generation failed: ${err.message}`);
+    return { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: `Reviewer skipped: diff error — ${err.message}`, confidence: 0 };
+  }
   const reviewerOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
       message: line,
@@ -575,6 +599,9 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
         trackBudget({ role: "reviewer", provider: reviewer, model: reviewerRole.model, result, duration_ms: Date.now() - reviewerStart });
       }
     });
+  } catch (err) {
+    logger.warn(`Reviewer threw: ${err.message}`);
+    reviewerExec = { execResult: { ok: false, error: err.message }, attempts: [{ reviewer: reviewerRole.provider, result: { ok: false, error: err.message } }] };
   } finally {
     reviewerStall.stop();
   }

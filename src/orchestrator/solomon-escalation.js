@@ -19,7 +19,16 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
 
   const solomon = new SolomonRole({ config, logger, emitter });
   await solomon.init({ task: conflict.task || session.task, iteration });
-  const ruling = await solomon.run({ conflict });
+  let ruling;
+  try {
+    ruling = await solomon.run({ conflict });
+  } catch (err) {
+    logger.warn(`Solomon threw: ${err.message}`);
+    return escalateToHuman({
+      askQuestion, session, emitter, eventBase, stage, iteration,
+      conflict: { ...conflict, solomonReason: `Solomon error: ${err.message}` }
+    });
+  }
 
   emitProgress(
     emitter,

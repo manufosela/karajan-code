@@ -69,6 +69,9 @@ export async function runTriageStage({ config, logger, emitter, eventBase, sessi
   let triageOutput;
   try {
     triageOutput = await triage.run({ task: session.task, onOutput: triageStall.onOutput });
+  } catch (err) {
+    logger.warn(`Triage threw: ${err.message}`);
+    triageOutput = { ok: false, summary: `Triage error: ${err.message}`, result: { error: err.message } };
   } finally {
     triageStall.stop();
   }
@@ -159,6 +162,9 @@ export async function runResearcherStage({ config, logger, emitter, eventBase, s
   let researchOutput;
   try {
     researchOutput = await researcher.run({ task: session.task, onOutput: researcherStall.onOutput });
+  } catch (err) {
+    logger.warn(`Researcher threw: ${err.message}`);
+    researchOutput = { ok: false, summary: `Researcher error: ${err.message}`, result: { error: err.message } };
   } finally {
     researcherStall.stop();
   }
@@ -281,6 +287,9 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
       discoverResult,
       triageLevel
     });
+  } catch (err) {
+    logger.warn(`Architect threw: ${err.message}`);
+    architectOutput = { ok: false, summary: `Architect error: ${err.message}`, result: { error: err.message } };
   } finally {
     architectStall.stop();
   }
@@ -380,6 +389,9 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
   let planResult;
   try {
     planResult = await planRole.execute({ task, onOutput: plannerStall.onOutput });
+  } catch (err) {
+    logger.warn(`Planner threw: ${err.message}`);
+    planResult = { ok: false, result: { error: err.message }, summary: `Planner error: ${err.message}` };
   } finally {
     plannerStall.stop();
   }
@@ -453,6 +465,9 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
   let discoverOutput;
   try {
     discoverOutput = await discover.run({ task: session.task, mode, onOutput: discoverStall.onOutput });
+  } catch (err) {
+    logger.warn(`Discover threw: ${err.message}`);
+    discoverOutput = { ok: false, summary: `Discover error: ${err.message}`, result: { error: err.message } };
   } finally {
     discoverStall.stop();
   }

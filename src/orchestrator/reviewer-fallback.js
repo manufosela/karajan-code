@@ -16,7 +16,13 @@ export async function runReviewerWithFallback({ reviewerName, config, logger, em
     const role = new ReviewerRole({ config: reviewerConfig, logger, emitter, createAgentFn: createAgent });
     await role.init();
     for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
-      const execResult = await role.execute(reviewInput);
+      let execResult;
+      try {
+        execResult = await role.execute(reviewInput);
+      } catch (err) {
+        logger.warn(`Reviewer ${name} attempt ${attempt} threw: ${err.message}`);
+        execResult = { ok: false, result: { error: err.message }, summary: `Reviewer error: ${err.message}` };
+      }
       if (onAttemptResult) {
         await onAttemptResult({ reviewer: name, result: execResult.result });
       }
