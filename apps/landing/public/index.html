@@ -488,12 +488,16 @@
   <!-- PIPELINE -->
   <section class="pipeline-section fade-in">
     <h2 class="section-title">The Pipeline</h2>
-    <p class="section-sub">11 roles chained with quality gates. Real-time monitoring with stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
+    <p class="section-sub">13 roles chained with quality gates. Deterministic guards, real-time monitoring, stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
 
     <div class="pipeline-flow">
+      <span class="pipeline-node optional">discover</span>
+      <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">triage</span>
       <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">researcher</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">architect</span>
       <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">planner</span>
       <span class="pipeline-arrow">&rarr;</span>
@@ -508,6 +512,8 @@
       <span class="pipeline-node optional">tester</span>
       <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">security</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">solomon</span>
       <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">commiter</span>
     </div>
@@ -531,14 +537,14 @@
 
       <div class="feature-card">
         <div class="feature-icon fi-blue">&#9881;</div>
-        <h3>SonarQube Integration</h3>
-        <p>Static analysis with quality gates. Blocker and critical issues fail the build. Runs locally via Docker — no external services needed.</p>
+        <h3>SonarQube + SonarCloud</h3>
+        <p>Dual static analysis: SonarQube (local Docker, blocking quality gates) and SonarCloud (cloud, advisory). Both run together in the same pipeline.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon fi-indigo">&#11208;</div>
-        <h3>MCP Server</h3>
-        <p>12 tools exposed via MCP. Use <code>kj</code> from Claude, Codex, or any MCP-compatible host without leaving your agent.</p>
+        <h3>MCP Server &mdash; 18 Tools</h3>
+        <p>18 tools exposed via MCP, including standalone roles (<code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>). Real-time progress notifications.</p>
       </div>
 
       <div class="feature-card">
@@ -598,7 +604,31 @@
       <div class="feature-card">
         <div class="feature-icon fi-teal">&#9673;</div>
         <h3>Real-Time Monitoring</h3>
-        <p>Stall detector watches every agent with heartbeats and warnings. File-based run log at <code>.kj/run.log</code> for live monitoring with <code>tail -f</code> or <code>kj_status</code>. Stream-JSON output from Claude CLI for instant feedback.</p>
+        <p>Stall detector watches every agent with heartbeats and warnings. File-based run log at <code>.kj/run.log</code> for live monitoring with <code>tail -f</code> or <code>kj_status</code>.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-amber">&#9888;</div>
+        <h3>Deterministic Guards</h3>
+        <p>Output guard blocks destructive operations and credential leaks. Perf guard catches frontend anti-patterns. Intent classifier pre-triages without LLM cost. All configurable.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-indigo">&#9851;</div>
+        <h3>Resilient Run</h3>
+        <p>Auto-diagnoses failures and resumes crashed sessions — up to 2 retries. Non-recoverable errors fail immediately. Configurable via <code>session.max_auto_resumes</code>.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-purple">&#9878;</div>
+        <h3>Solomon Supervisor</h3>
+        <p>Monitors iteration health with 5 rules: max files, stale iterations, dependency guard, scope guard, reviewer overreach. Mediates reviewer stalls instead of stopping.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon fi-blue">&#10004;</div>
+        <h3>Preflight Handshake</h3>
+        <p><code>kj_preflight</code> requires human confirmation of agent assignments before execution. 3-tier config: session &gt; project &gt; global.</p>
       </div>
 
     </div>
@@ -606,8 +636,8 @@
 
   <!-- AGENTS -->
   <section class="agents-section fade-in">
-    <h2 class="section-title">4 AI Agents Supported</h2>
-    <p class="section-sub">Mix and match. Use Claude as coder, Codex as reviewer — or any combination you prefer.</p>
+    <h2 class="section-title">5 AI Agents Supported</h2>
+    <p class="section-sub">Mix and match. Use Claude as coder, Codex as reviewer — or any combination you prefer. Extensible via plugins.</p>
     <div class="agents-grid">
       <div class="agent-card">
         <div class="agent-name">Claude</div>
@@ -624,6 +654,10 @@
       <div class="agent-card">
         <div class="agent-name">Aider</div>
         <div class="agent-cli">aider</div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">OpenCode</div>
+        <div class="agent-cli">opencode</div>
       </div>
     </div>
   </section>
@@ -679,6 +713,12 @@
         <span class="mcp-tool">kj_init</span>
         <span class="mcp-tool">kj_roles</span>
         <span class="mcp-tool">kj_status</span>
+        <span class="mcp-tool">kj_agents</span>
+        <span class="mcp-tool">kj_preflight</span>
+        <span class="mcp-tool">kj_discover</span>
+        <span class="mcp-tool">kj_triage</span>
+        <span class="mcp-tool">kj_researcher</span>
+        <span class="mcp-tool">kj_architect</span>
       </div>
     </div>
   </section>
@@ -692,7 +732,7 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
     </div>
-    <p>Karajan Code v1.9.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p>Karajan Code v1.21.1 &mdash; No API costs, runs on your existing AI subscriptions.</p>
     <p style="margin-top: 0.5rem;">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
