@@ -172,8 +172,8 @@ const result = await agent.runTask({ prompt, role: "coder" })
 
 El orchestrator impulsa el pipeline completo a través de tres fases:
 
-1. **Pre-loop** — triage, researcher, architect, planner (opcionales)
-2. **Bucle de iteración** — coder → refactorer → TDD check → sonar → reviewer (se repite hasta aprobación o max iteraciones)
+1. **Pre-loop** — intent classifier, triage, researcher, architect, planner (opcionales)
+2. **Bucle de iteración** — coder → refactorer → guards → TDD check → sonar → reviewer (se repite hasta aprobación o max iteraciones)
 3. **Post-loop** — tester, security, git finalize (solo tras aprobación)
 
 ## Flujo del Pipeline
@@ -183,7 +183,8 @@ Input (descripción de tarea)
     │
     ▼
 ┌─ Pre-loop ──────────────────┐
-│  [Triage?]     → clasificar  │
+│  [Intent?]     → clasificar  │
+│  [Triage?]     → complejidad │
 │  [Researcher?] → investigar  │
 │  [Architect?]  → diseñar     │
 │  [Planner?]    → planificar  │
@@ -194,6 +195,7 @@ Input (descripción de tarea)
 │                                                     │
 │  [Coder]      → escribir código y tests             │
 │  [Refactorer?] → mejorar claridad                   │
+│  [Guards]     → output + perf checks               │
 │  [TDD Check]  → verificar cambios en tests          │
 │  [SonarQube?] → análisis estático + quality gate    │
 │       └→ ¿repetición detectada? → pausa/escalado    │

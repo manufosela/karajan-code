@@ -489,6 +489,35 @@ After v1.17.0:
 
 **Why:** The pipeline had a gap between understanding (researcher) and planning (planner): nobody was making architectural decisions. The coder was forced to make design choices on the fly — layer boundaries, data models, API contracts, technology tradeoffs — without validation. This led to rework when decisions didn't match stakeholder expectations. The architect role fills this gap by producing explicit, reviewable design decisions before any code is written. The SonarQube cleanup was equally important: cognitive complexity had grown unchecked as the orchestrator evolved through 17 phases. The refactoring replaced monolithic functions with composable helpers and dispatch maps, making the codebase maintainable as it continues to grow.
 
+## Phase 19: Deterministic Guards Layer (v1.18.0)
+
+**What changed:** Added a regex/pattern-based validation layer that complements probabilistic LLM decisions with deterministic checks. Three guards now run at different pipeline stages.
+
+**Key additions:**
+- **Output guard**: scans git diffs for destructive operations (rm -rf, DROP TABLE, git push --force, disk format), exposed credentials (AWS keys, private keys, GitHub/npm tokens), and protected file modifications (.env, serviceAccountKey.json). Blocks pipeline on critical violations. Custom patterns and protected files configurable via `guards.output`.
+- **Perf guard**: scans frontend file diffs (.html, .css, .jsx, .tsx, .astro, .vue, .svelte) for performance anti-patterns — images without dimensions/lazy loading, render-blocking scripts, missing font-display, document.write, heavy dependencies (moment, lodash, jquery). Advisory by default, configurable to block via `guards.perf.block_on_warning`.
+- **Intent classifier**: keyword-based deterministic pre-triage. Classifies obvious task types (doc, add-tests, refactor, infra, trivial-fix) without LLM cost. Runs before discover/triage in pre-loop. Custom patterns with configurable confidence threshold via `guards.intent`.
+- Guards config schema in `kj.config.yml` with custom patterns, protected files, and thresholds
+- 1505 tests across 121 files
+
+**Architecture addition:**
+```
+Before v1.18.0:
+  kj_run → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → TDD → sonar → reviewer]
+
+After v1.18.0:
+  kj_run → intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar → reviewer]
+
+  guards layer:
+    output-guard: diff → scan for destructive ops + credential leaks + protected files
+    perf-guard:   diff → scan frontend files for performance anti-patterns
+    intent-guard: task description → keyword classification → skip LLM triage for obvious types
+```
+
+**Why:** LLM-based validation (reviewer, triage) is powerful but probabilistic — it can miss obvious patterns or hallucinate false negatives. Deterministic guards provide a fast, zero-cost, 100% reliable first line of defense for well-defined anti-patterns. The output guard prevents catastrophic mistakes (deleting files, leaking credentials). The perf guard catches common frontend performance issues that LLMs often overlook (CLS from images without dimensions, render-blocking scripts). The intent classifier saves LLM calls for tasks that are obviously documentation, tests, or refactoring — reducing latency and cost. All three are configurable with custom patterns, making them extensible without code changes.
+
+**Future: WebPerf Quality Gate** — The static perf guard is the first phase of a planned WebPerf quality gate. The second phase will integrate dynamic performance scanning using headless Chrome, inspired by [Joan León](https://joanleon.dev/)'s [WebPerf Snippets](https://webperf-snippets.nucliweb.net/) — a collection of performance measurement snippets for Core Web Vitals, resource loading, and runtime analysis. Joan is currently building a CLI tool for this; once available, it will be integrated as a post-loop performance scanner, complementing the static guard with real runtime metrics.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

@@ -488,6 +488,35 @@ Después de v1.17.0:
 
 **Por qué:** El pipeline tenía un hueco entre entender (researcher) y planificar (planner): nadie tomaba decisiones arquitectónicas. El coder se veía obligado a tomar decisiones de diseño sobre la marcha — límites de capas, modelos de datos, contratos API, tradeoffs tecnológicos — sin validación. Esto generaba rework cuando las decisiones no coincidían con las expectativas del stakeholder. El rol architect llena este hueco produciendo decisiones de diseño explícitas y revisables antes de escribir código. La limpieza de SonarQube fue igualmente importante: la complejidad cognitiva había crecido sin control a medida que el orquestador evolucionó a través de 17 fases. La refactorización reemplazó funciones monolíticas por helpers componibles y mapas de dispatch, haciendo el codebase mantenible a medida que sigue creciendo.
 
+## Fase 19: Capa de Guards Deterministas (v1.18.0)
+
+**Qué cambió:** Se añadió una capa de validación basada en regex/patrones que complementa las decisiones probabilísticas del LLM con comprobaciones deterministas. Tres guards ejecutan en distintas etapas del pipeline.
+
+**Adiciones clave:**
+- **Output guard**: escanea diffs de git buscando operaciones destructivas (rm -rf, DROP TABLE, git push --force, formateo de disco), credenciales expuestas (claves AWS, claves privadas, tokens GitHub/npm) y modificaciones a ficheros protegidos (.env, serviceAccountKey.json). Bloquea el pipeline ante violaciones críticas. Patrones custom y ficheros protegidos configurables via `guards.output`.
+- **Perf guard**: escanea diffs de ficheros frontend (.html, .css, .jsx, .tsx, .astro, .vue, .svelte) buscando anti-patrones de rendimiento — imágenes sin dimensiones/lazy loading, scripts bloqueantes, font-display ausente, document.write, dependencias pesadas (moment, lodash, jquery). Modo advisory por defecto, configurable para bloquear via `guards.perf.block_on_warning`.
+- **Intent classifier**: pre-triage determinista basado en keywords. Clasifica tareas obvias (doc, add-tests, refactor, infra, trivial-fix) sin coste LLM. Se ejecuta antes de discover/triage en pre-loop. Patrones custom con umbral de confianza configurable via `guards.intent`.
+- Schema de configuración de guards en `kj.config.yml` con patrones custom, ficheros protegidos y umbrales
+- 1505 tests en 121 ficheros
+
+**Adición a la arquitectura:**
+```
+Antes de v1.18.0:
+  kj_run → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → TDD → sonar → reviewer]
+
+Después de v1.18.0:
+  kj_run → intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar → reviewer]
+
+  capa de guards:
+    output-guard: diff → buscar ops destructivas + leaks de credenciales + ficheros protegidos
+    perf-guard:   diff → buscar anti-patrones de rendimiento en ficheros frontend
+    intent-guard: descripción de tarea → clasificación por keywords → saltar triage LLM para tipos obvios
+```
+
+**Por qué:** La validación basada en LLM (reviewer, triage) es potente pero probabilística — puede pasar por alto patrones obvios o generar falsos negativos. Los guards deterministas proporcionan una primera línea de defensa rápida, sin coste y 100% fiable para anti-patrones bien definidos. El output guard previene errores catastróficos (borrar ficheros, filtrar credenciales). El perf guard detecta problemas comunes de rendimiento frontend que los LLMs suelen ignorar (CLS por imágenes sin dimensiones, scripts bloqueantes). El intent classifier ahorra llamadas LLM para tareas que obviamente son documentación, tests o refactoring — reduciendo latencia y coste. Los tres son configurables con patrones custom, haciéndolos extensibles sin cambios de código.
+
+**Futuro: WebPerf Quality Gate** — El perf guard estático es la primera fase de un quality gate de WebPerf planificado. La segunda fase integrará escaneo dinámico de rendimiento usando headless Chrome, inspirado en los [WebPerf Snippets](https://webperf-snippets.nucliweb.net/) de [Joan León](https://joanleon.dev/) — una colección de snippets de medición de rendimiento para Core Web Vitals, carga de recursos y análisis en tiempo de ejecución. Joan está actualmente desarrollando un CLI para esto; una vez disponible, se integrará como scanner de rendimiento post-loop, complementando el guard estático con métricas reales de runtime.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
