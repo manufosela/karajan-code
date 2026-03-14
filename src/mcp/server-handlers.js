@@ -171,6 +171,69 @@ export function buildAskQuestion(server) {
   };
 }
 
+const MAX_AUTO_RESUMES = 2;
+const NON_RECOVERABLE_CATEGORIES = new Set([
+  "config_error", "auth_error", "agent_missing", "branch_error", "git_error"
+]);
+
+async function attemptAutoResume({ err, config, logger, emitter, askQuestion, runLog }) {
+  const { category } = classifyError(err);
+  if (NON_RECOVERABLE_CATEGORIES.has(category)) return null;
+
+  // Find session ID from most recent session file
+  const { loadMostRecentSession } = await import("../session-store.js");
+  let session;
+  try {
+    session = await loadMostRecentSession();
+  } catch {
+    return null;
+  }
+  if (!session || !["failed", "stopped"].includes(session.status)) return null;
+
+  const maxRetries = config.session?.max_auto_resumes ?? MAX_AUTO_RESUMES;
+  const autoResumeCount = session.auto_resume_count || 0;
+  if (autoResumeCount >= maxRetries) {
+    runLog.logText(`[resilient] auto-resume limit reached (${maxRetries}), giving up`);
+    return null;
+  }
+
+  runLog.logText(`[resilient] run failed (${category}), auto-resuming (${autoResumeCount + 1}/${maxRetries})...`);
+  emitter.emit("progress", {
+    type: "resilient:auto_resume",
+    attempt: autoResumeCount + 1,
+    maxRetries,
+    errorCategory: category,
+    sessionId: session.id
+  });
+
+  // Increment counter and save before resuming
+  const { saveSession } = await import("../session-store.js");
+  session.auto_resume_count = autoResumeCount + 1;
+  await saveSession(session);
+
+  try {
+    const result = await resumeFlow({
+      sessionId: session.id,
+      config,
+      logger,
+      flags: {},
+      emitter,
+      askQuestion
+    });
+    const ok = !result.paused && (result.approved !== false);
+    runLog.logText(`[resilient] auto-resume ${ok ? "succeeded" : "finished"} — ok=${ok}`);
+    return { ok, ...result, autoResumed: true, autoResumeAttempt: autoResumeCount + 1 };
+  } catch (error) {
+    // Recursive: try again if still within limits
+    const nestedResult = await attemptAutoResume({
+      err: error, config, logger, emitter, askQuestion, runLog
+    });
+    if (nestedResult) return nestedResult;
+    runLog.logText(`[resilient] auto-resume failed: ${error.message}`);
+    return null;
+  }
+}
+
 export async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
   await assertNotOnBaseBranch(config);
@@ -209,6 +272,12 @@ export async function handleRunDirect(a, server, extra) {
     const result = await runFlow({ task: a.task, config, logger, flags: a, emitter, askQuestion, pgTaskId, pgProject });
     runLog.logText(`[kj_run] finished — ok=${!result.paused && (result.approved !== false)}`);
     return { ok: !result.paused && (result.approved !== false), ...result };
+  } catch (err) {
+    const autoResumeResult = await attemptAutoResume({
+      err, config, logger, emitter, askQuestion, runLog, progressNotifier, extra
+    });
+    if (autoResumeResult) return autoResumeResult;
+    throw err;
   } finally {
     runLog.close();
   }

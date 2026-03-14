@@ -141,6 +141,7 @@ const DEFAULTS = {
     max_reviewer_retries: 3,
     max_tester_retries: 1,
     max_security_retries: 1,
+    max_auto_resumes: 2,
     expiry_days: 30
   },
   failFast: {

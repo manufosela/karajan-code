@@ -63,6 +63,24 @@ export async function pauseSession(session, { question, context: pauseContext })
   await saveSession(session);
 }
 
+export async function loadMostRecentSession() {
+  let entries;
+  try {
+    entries = await fs.readdir(SESSION_ROOT, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const dirs = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
+  for (let i = dirs.length - 1; i >= 0; i--) {
+    try {
+      return await loadSession(dirs[i]);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function resumeSessionWithAnswer(sessionId, answer) {
   const session = await loadSession(sessionId);
   if (session.status !== "paused") {
