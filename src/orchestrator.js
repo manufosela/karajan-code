@@ -958,14 +958,45 @@ async function handleApprovedReview({ config, session, emitter, eventBase, coder
   return { action: "return", result };
 }
 
-async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults }) {
+async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task }) {
+  // Escalate to Solomon / human before giving up
+  const solomonResult = await invokeSolomon({
+    config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
+    iteration: config.max_iterations,
+    conflict: {
+      stage: "max_iterations",
+      task,
+      iterationCount: config.max_iterations,
+      maxIterations: config.max_iterations,
+      history: [{ agent: "pipeline", feedback: session.last_reviewer_feedback || "Max iterations reached without reviewer approval" }]
+    }
+  });
+
+  if (solomonResult.action === "continue") {
+    if (solomonResult.humanGuidance) {
+      session.last_reviewer_feedback = `User guidance: ${solomonResult.humanGuidance}`;
+    }
+    session.reviewer_retry_count = 0;
+    await saveSession(session);
+    return { approved: false, sessionId: session.id, reason: "max_iterations_extended", humanGuidance: solomonResult.humanGuidance };
+  }
+
+  if (solomonResult.action === "pause") {
+    return { paused: true, sessionId: session.id, question: solomonResult.question, context: "max_iterations" };
+  }
+
+  if (solomonResult.action === "subtask") {
+    return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "max_iterations_subtask" };
+  }
+
+  // Solomon also couldn't resolve — fail
   session.budget = budgetSummary();
   await markSessionStatus(session, "failed");
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
       status: "fail",
-      message: "Max iterations reached",
+      message: "Max iterations reached (Solomon could not resolve)",
       detail: { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() }
     })
   );
@@ -1109,7 +1140,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     if (iterResult.action === "retry") { i -= 1; }
   }
 
-  return handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config, stageResults: ctx.stageResults });
+  return handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config, stageResults: ctx.stageResults, logger, askQuestion, task });
 }
 
 export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null, askQuestion = null }) {
