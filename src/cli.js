@@ -18,6 +18,10 @@ import { resumeCommand } from "./commands/resume.js";
 import { sonarCommand, sonarOpenCommand } from "./commands/sonar.js";
 import { rolesCommand } from "./commands/roles.js";
 import { agentsCommand } from "./commands/agents.js";
+import { discoverCommand } from "./commands/discover.js";
+import { triageCommand } from "./commands/triage.js";
+import { researcherCommand } from "./commands/researcher.js";
+import { architectCommand } from "./commands/architect.js";
 
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
@@ -188,6 +192,59 @@ program
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
       await planCommand({ task, config, logger, json: flags.json, context: flags.context });
+    });
+  });
+
+program
+  .command("discover")
+  .description("Analyze task for gaps, ambiguities and missing info")
+  .argument("<task>")
+  .option("--mode <name>", "Discovery mode: gaps|momtest|wendel|classify|jtbd", "gaps")
+  .option("--discover <name>", "Override discover agent")
+  .option("--discover-model <name>", "Override discover model")
+  .option("--json", "Output raw JSON")
+  .action(async (task, flags) => {
+    await withConfig("discover", flags, async ({ config, logger }) => {
+      await discoverCommand({ task, config, logger, mode: flags.mode, json: flags.json });
+    });
+  });
+
+program
+  .command("triage")
+  .description("Classify task complexity and recommend pipeline roles")
+  .argument("<task>")
+  .option("--triage <name>", "Override triage agent")
+  .option("--triage-model <name>", "Override triage model")
+  .option("--json", "Output raw JSON")
+  .action(async (task, flags) => {
+    await withConfig("triage", flags, async ({ config, logger }) => {
+      await triageCommand({ task, config, logger, json: flags.json });
+    });
+  });
+
+program
+  .command("researcher")
+  .description("Research codebase for a task (files, patterns, constraints)")
+  .argument("<task>")
+  .option("--researcher <name>", "Override researcher agent")
+  .option("--researcher-model <name>", "Override researcher model")
+  .action(async (task, flags) => {
+    await withConfig("researcher", flags, async ({ config, logger }) => {
+      await researcherCommand({ task, config, logger });
+    });
+  });
+
+program
+  .command("architect")
+  .description("Design solution architecture (layers, patterns, contracts)")
+  .argument("<task>")
+  .option("--architect <name>", "Override architect agent")
+  .option("--architect-model <name>", "Override architect model")
+  .option("--context <text>", "Additional context (e.g. researcher output)")
+  .option("--json", "Output raw JSON")
+  .action(async (task, flags) => {
+    await withConfig("architect", flags, async ({ config, logger }) => {
+      await architectCommand({ task, config, logger, context: flags.context, json: flags.json });
     });
   });
 
