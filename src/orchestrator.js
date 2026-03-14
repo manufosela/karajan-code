@@ -1004,13 +1004,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   const { plannedTask } = preLoopResult;
   const updatedConfig = preLoopResult.updatedConfig;
 
-  let gitCtx;
-  try {
-    gitCtx = await prepareGitAutomation({ config: updatedConfig, task, logger, session });
-  } catch (err) {
-    logger.warn(`Git automation setup failed: ${err.message}`);
-    gitCtx = { enabled: false };
-  }
+  const gitCtx = await prepareGitAutomation({ config: updatedConfig, task, logger, session });
   const projectDir = updatedConfig.projectDir || process.cwd();
   const { rules: reviewRules } = await resolveReviewProfile({ mode: updatedConfig.review_mode, projectDir });
   await coderRoleInstance.init();

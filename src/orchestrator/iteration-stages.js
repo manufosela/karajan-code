@@ -262,7 +262,7 @@ export async function runTddCheckStage({ config, logger, emitter, eventBase, ses
     untrackedFiles = await getUntrackedFiles();
   } catch (err) {
     logger.warn(`TDD diff generation failed: ${err.message}`);
-    return { action: "ok", stageResult: { ok: true, summary: `TDD check skipped: ${err.message}` } };
+    return { action: "continue", stageResult: { ok: false, summary: `TDD check failed: ${err.message}` } };
   }
   const tddEval = evaluateTddPolicy(tddDiff, config.development, untrackedFiles);
   await addCheckpoint(session, {
@@ -573,7 +573,7 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     diff = await fetchReviewDiff(session, logger);
   } catch (err) {
     logger.warn(`Review diff generation failed: ${err.message}`);
-    return { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: `Reviewer skipped: diff error — ${err.message}`, confidence: 0 };
+    return { approved: false, blocking_issues: [{ description: `Diff generation failed: ${err.message}` }], non_blocking_suggestions: [], summary: `Reviewer failed: cannot generate diff — ${err.message}`, confidence: 0 };
   }
   const reviewerOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
