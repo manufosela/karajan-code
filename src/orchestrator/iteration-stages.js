@@ -427,6 +427,47 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   return { action: "ok", stageResult };
 }
 
+export async function runSonarCloudStage({ config, logger, emitter, eventBase, session, trackBudget, iteration }) {
+  logger.setContext({ iteration, stage: "sonarcloud" });
+  emitProgress(
+    emitter,
+    makeEvent("sonarcloud:start", { ...eventBase, stage: "sonarcloud" }, {
+      message: "SonarCloud scanning"
+    })
+  );
+
+  const { runSonarCloudScan } = await import("../sonar/cloud-scanner.js");
+  const scanStart = Date.now();
+  const result = await runSonarCloudScan(config);
+  trackBudget({ role: "sonarcloud", provider: "sonarcloud", result: { ok: result.ok }, duration_ms: Date.now() - scanStart });
+
+  await addCheckpoint(session, {
+    stage: "sonarcloud",
+    iteration,
+    project_key: result.projectKey,
+    exitCode: result.exitCode,
+    provider: "sonarcloud",
+    model: null
+  });
+
+  const status = result.ok ? "ok" : "warn";
+  const message = result.ok
+    ? `SonarCloud scan passed (project: ${result.projectKey})`
+    : `SonarCloud scan issue: ${(result.stderr || "").slice(0, 200)}`;
+
+  emitProgress(
+    emitter,
+    makeEvent("sonarcloud:end", { ...eventBase, stage: "sonarcloud" }, {
+      status,
+      message,
+      detail: { projectKey: result.projectKey, exitCode: result.exitCode }
+    })
+  );
+
+  // SonarCloud is advisory — never blocks the pipeline
+  return { action: "ok", stageResult: { ok: result.ok, projectKey: result.projectKey, message } };
+}
+
 async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector }) {
   logger.warn(`Reviewer stalled (${repeatCounts.reviewer} repeats). Invoking Solomon mediation.`);
   emitProgress(

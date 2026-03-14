@@ -101,6 +101,18 @@ const DEFAULTS = {
       disabled_rules: ["javascript:S1116", "javascript:S3776"]
     }
   },
+  sonarcloud: {
+    enabled: false,
+    organization: null,
+    token: null,
+    project_key: null,
+    host: "https://sonarcloud.io",
+    scanner: {
+      sources: "src,public,lib",
+      exclusions: "**/node_modules/**,**/dist/**,**/build/**,**/*.min.js",
+      test_inclusions: "**/*.test.js,**/*.spec.js,**/tests/**,**/__tests__/**"
+    }
+  },
   policies: {},
   serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },
@@ -347,6 +359,9 @@ function applyBecariaOverride(out, flags) {
 
 function applyMiscOverrides(out, flags) {
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
+  out.sonarcloud = out.sonarcloud || {};
+  if (flags.enableSonarcloud === true) out.sonarcloud.enabled = true;
+  if (flags.noSonarcloud === true || flags.sonarcloud === false) out.sonarcloud.enabled = false;
 
   out.planning_game = out.planning_game || {};
   if (flags.pgTask) out.planning_game.enabled = true;

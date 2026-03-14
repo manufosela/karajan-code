@@ -30,7 +30,7 @@ import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage } from "./orchestrator/pre-loop-stages.js";
-import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
+import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
 
@@ -907,6 +907,15 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
     if (sonarResult.stageResult) {
       stageResults.sonar = sonarResult.stageResult;
       await tryBecariaComment({ config, session, logger, agent: "Sonar", body: `SonarQube scan: ${sonarResult.stageResult.summary || "completed"}` });
+    }
+  }
+
+  if (config.sonarcloud?.enabled) {
+    const cloudResult = await runSonarCloudStage({
+      config, logger, emitter, eventBase, session, trackBudget, iteration: i
+    });
+    if (cloudResult.stageResult) {
+      stageResults.sonarcloud = cloudResult.stageResult;
     }
   }
 
