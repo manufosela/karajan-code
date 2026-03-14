@@ -3,7 +3,7 @@ title: Introduction
 description: What is Karajan Code and why use it.
 ---
 
-Karajan Code (`kj`) is a **role-based AI orchestrator**. It defines **13 specialized roles** (triage, researcher, architect, planner, coder, reviewer, tester, security...) and assigns each one to an **AI agent** (Claude, Codex, Gemini, or Aider). The roles determine *what* to do; the agents determine *who* does it. You can mix and match freely — use Claude as coder and Codex as reviewer, or any combination — while the pipeline enforces quality gates, cost controls, and deterministic guards between every stage.
+Karajan Code (`kj`) is a **role-based AI orchestrator**. It defines **13 specialized roles** (triage, researcher, architect, planner, coder, reviewer, tester, security...) and assigns each one to an **AI agent** (Claude, Codex, Gemini, or Aider). The roles determine *what* to do; the agents determine *who* does it. You can mix and match freely — use Claude as coder and Codex as reviewer, or any combination — while the pipeline enforces quality gates, estimated cost controls, and deterministic guards between every stage. Since Karajan uses agent CLIs (not direct APIs), it runs on your existing subscriptions at no extra cost.
 
 ## The Problem
 
