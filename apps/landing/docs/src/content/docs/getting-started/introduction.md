@@ -21,7 +21,7 @@ Karajan Code solves both problems by chaining **roles** with **quality gates** a
 
 1. The **coder** role writes code and tests (e.g. Claude)
 2. **Deterministic guards** scan the diff for destructive operations, credential leaks, and perf anti-patterns
-3. **SonarQube** performs static analysis
+3. **SonarQube** performs static analysis (optionally complemented by **SonarCloud**)
 4. The **reviewer** role checks for issues (e.g. Codex)
 5. If problems are found, the **coder** gets another attempt
 6. This loop runs until the code is approved or the iteration limit is reached
@@ -34,9 +34,10 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 - **5 AI agents supported**: Claude, Codex, Gemini, Aider, OpenCode — mix and match per role
 - **Plugin system** — extend with custom agents via `.karajan/plugins/`
 - **Deterministic guards** — output guard (destructive ops, credential leaks), perf guard (frontend anti-patterns), intent classifier (pre-triage without LLM)
-- **MCP server** with 16 tools — use `kj` from your AI agent
+- **MCP server** with 18 tools — use `kj` from your AI agent
 - **TDD enforcement** — test changes required when source files change
-- **SonarQube integration** — static analysis with quality gates
+- **SonarQube + SonarCloud** — static analysis with quality gates (local Docker + cloud, complementary)
+- **Standalone role commands** — `kj discover`, `kj triage`, `kj researcher`, `kj architect` run each role independently
 - **Review profiles** — standard, strict, relaxed, paranoid
 - **Estimated budget tracking** — per-session token counting with estimated API-equivalent costs (Karajan itself adds no cost — it uses your CLI subscriptions)
 - **Git automation** — auto-commit, auto-push, auto-PR after approval
@@ -46,6 +47,18 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 - **Rate limit resilience** — detects rate limits, pauses session, auto-fallback to another agent
 - **Interactive checkpoints** — pauses every 5 minutes with a progress report instead of killing long tasks
 - **Task decomposition** — triage detects when tasks should be split and creates linked subtasks in [Planning Game](https://github.com/manufosela/planning-game-xp)
+
+## Quality & Testing
+
+Karajan Code is tested with **1549+ automated tests** across 127 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
+
+Quality is enforced at multiple layers:
+- **SonarQube** (local, via Docker) — full static analysis with quality gates, blocking on critical issues
+- **SonarCloud** (cloud, no Docker needed) — complementary cloud-based analysis, advisory mode by default
+- **Deterministic guards** — regex-based checks for destructive operations, credential leaks, and perf anti-patterns
+- **TDD enforcement** — source changes require corresponding test changes
+
+Both SonarQube and SonarCloud can run together in the same pipeline — SonarQube as the primary gate and SonarCloud as an additional lens.
 
 ## Best with MCP
 

@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 13 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.19.0 — Orquestador de IA basado en roles: 13 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.20.0 — Orquestador de IA basado en roles: 13 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -30,7 +30,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
     Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
   </Card>
   <Card title="Servidor MCP" icon="puzzle">
-    16 herramientas via MCP — incluyendo `kj_discover` para detección de gaps pre-ejecución, `kj_preflight` para configuración confirmada por humano y `kj_status` para estado parseado en vivo. Notificaciones de progreso en tiempo real para todas las herramientas.
+    18 herramientas via MCP — incluyendo `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` para ejecución standalone de roles, `kj_preflight` para configuración confirmada por humano y `kj_status` para estado parseado en vivo. Notificaciones de progreso en tiempo real para todas las herramientas.
   </Card>
   <Card title="TDD Obligatorio" icon="approve-check">
     Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
@@ -64,6 +64,15 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   </Card>
   <Card title="Guards Deterministas" icon="warning">
     Output guard bloquea operaciones destructivas y filtraciones de credenciales. Perf guard detecta anti-patrones de rendimiento en frontend. Intent classifier pre-clasifica tareas obvias sin coste LLM. Todo configurable con patrones custom.
+  </Card>
+  <Card title="SonarQube + SonarCloud" icon="seti:config">
+    Análisis estático dual: SonarQube (Docker local, quality gates bloqueantes) y SonarCloud (cloud, advisory). Ambos se ejecutan juntos en el mismo pipeline.
+  </Card>
+  <Card title="Comandos de Rol Standalone" icon="seti:shell">
+    Ejecuta cualquier rol pre-build de forma independiente: `kj discover`, `kj triage`, `kj researcher`, `kj architect`. Disponibles como comandos CLI y herramientas MCP.
+  </Card>
+  <Card title="1549+ Tests Automatizados" icon="approve-check">
+    127 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales.
