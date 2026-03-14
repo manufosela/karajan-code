@@ -3,22 +3,24 @@ title: Pipeline
 description: Cómo funciona el pipeline multi-agente de Karajan Code.
 ---
 
-:::note
-Esta página está en construcción. Contenido completo próximamente.
-:::
-
 ## Visión General del Pipeline
 
+Karajan orquesta **13 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
+
 ```
-discover? → triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → reviewer] → tester? → security? → commiter?
+                                                                       └─── bucle de iteración (1..N) ──────────────────────────┘
 ```
+
+### Roles
 
 | Rol | Descripción | Por defecto |
 |-----|-------------|-------------|
 | **discover** | Detección de gaps pre-ejecución — analiza tareas buscando información faltante, ambigüedades y asunciones | Off |
-| **triage** | Director de pipeline — analiza complejidad de la tarea y activa roles dinámicamente | **On** |
+| **triage** | Director de pipeline — analiza complejidad de la tarea, clasifica taskType y activa roles dinámicamente | **On** |
 | **researcher** | Investiga el contexto del codebase antes de planificar | Off |
-| **planner** | Genera planes de implementación estructurados | Off |
+| **architect** | Diseña la arquitectura de la solución — capas, patrones, modelo de datos, contratos API, tradeoffs | Off |
+| **planner** | Genera planes de implementación estructurados informados por la arquitectura | Off |
 | **coder** | Escribe código y tests siguiendo metodología TDD | **Siempre activo** |
 | **refactorer** | Mejora la claridad del código sin cambiar comportamiento | Off |
 | **sonar** | Ejecuta análisis estático SonarQube y quality gates | On (si configurado) |
@@ -29,6 +31,35 @@ discover? → triage? → researcher? → planner? → coder → refactorer? →
 | **commiter** | Automatización de git commit, push y PR tras aprobación | Off |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecución o via config.
+
+### Guards Deterministas
+
+Los guards son comprobaciones basadas en regex/patrones que se ejecutan entre el coder y los quality gates — sin coste LLM, 100% deterministas:
+
+| Guard | Qué comprueba | Por defecto |
+|-------|--------------|-------------|
+| **output-guard** | Operaciones destructivas (rm -rf, DROP TABLE, git push --force), credenciales expuestas (claves AWS, claves privadas, tokens), modificaciones de ficheros protegidos (.env, serviceAccountKey.json) | **On** (bloquea en crítico) |
+| **perf-guard** | Anti-patrones de rendimiento frontend — imágenes sin dimensiones/lazy, scripts bloqueantes, font-display ausente, document.write, deps pesadas (moment, lodash, jquery) | **On** (advisory, configurable para bloquear) |
+| **intent-classifier** | Clasificación pre-triage por keywords — salta el triage LLM para tipos de tarea obvios (doc, add-tests, refactor, infra, trivial-fix) | Off |
+
+Los guards son configurables via `kj.config.yml`:
+
+```yaml
+guards:
+  output:
+    enabled: true
+    on_violation: block  # block | warn | skip
+    # patterns: [{ id: "custom", pattern: "DANGEROUS", severity: "critical", message: "..." }]
+    # protected_files: [secrets.yml]
+  perf:
+    enabled: true
+    block_on_warning: false
+    # patterns: [{ id: "custom-perf", pattern: "eval\\(", severity: "warning" }]
+  intent:
+    enabled: false
+    confidence_threshold: 0.85
+    # patterns: [{ keywords: ["readme", "docs"], taskType: "doc", confidence: 0.9 }]
+```
 
 ## Pipeline Stage Tracker
 
@@ -139,6 +170,28 @@ O vía MCP:
 ```
 
 `kj doctor` incluye verificaciones específicas de BecarIA para confirmar que los workflow templates están presentes y que el token de GitHub tiene los permisos necesarios.
+
+## Architect Stage (v1.17.0+)
+
+El rol **architect** se ejecuta entre researcher y planner para definir la arquitectura de la solución antes de codificar. Produce decisiones de diseño explícitas: capas, patrones, modelo de datos, contratos API y tradeoffs.
+
+### Activación
+
+El triage auto-activa el architect cuando la tarea crea nuevos módulos/apps, afecta a modelos de datos o APIs, tiene complejidad media/alta, o tiene diseño ambiguo. También puedes activarlo explícitamente:
+
+```bash
+kj run --enable-architect --task "Construir sistema de autenticación"
+```
+
+### Clarificación interactiva
+
+Cuando el architect detecta ambigüedad de diseño, devuelve `verdict: "needs_clarification"` con preguntas específicas. El pipeline se pausa y pregunta al humano via `askQuestion`. Tras recibir respuestas, el architect re-evalúa con el contexto adicional.
+
+Si no hay input interactivo disponible (CLI no interactivo), el architect continúa con las mejores decisiones posibles y emite un warning.
+
+### Generación automática de ADRs
+
+Cuando hay una card de Planning Game vinculada (`pgTaskId` + `pgProject`), cada tradeoff arquitectónico se persiste automáticamente como Architecture Decision Record (ADR) via el MCP de Planning Game.
 
 ## Pipeline Dirigido por Politicas (v1.14.0+)
 

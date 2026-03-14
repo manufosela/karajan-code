@@ -3,22 +3,24 @@ title: Pipeline
 description: How the Karajan Code multi-agent pipeline works.
 ---
 
-:::note
-This page is under construction. Full content coming soon.
-:::
-
 ## Pipeline Overview
 
+Karajan orchestrates **13 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider) does it.
+
 ```
-discover? → triage? → researcher? → planner? → coder → refactorer? → sonar? → reviewer → tester? → security? → commiter?
+intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → reviewer] → tester? → security? → commiter?
+                                                                       └─── iteration loop (1..N) ───────────────────────────┘
 ```
+
+### Roles
 
 | Role | Description | Default |
 |------|-------------|---------|
 | **discover** | Pre-execution gap detection — analyzes tasks for missing info, ambiguities, and assumptions | Off |
-| **triage** | Pipeline director — analyzes task complexity and activates roles dynamically | **On** |
+| **triage** | Pipeline director — analyzes task complexity, classifies taskType, and activates roles dynamically | **On** |
 | **researcher** | Investigates codebase context before planning | Off |
-| **planner** | Generates structured implementation plans | Off |
+| **architect** | Designs solution architecture — layers, patterns, data model, API contracts, tradeoffs | Off |
+| **planner** | Generates structured implementation plans informed by architecture | Off |
 | **coder** | Writes code and tests following TDD | **Always on** |
 | **refactorer** | Improves code clarity without changing behavior | Off |
 | **sonar** | Runs SonarQube static analysis and quality gates | On (if configured) |
@@ -29,6 +31,35 @@ discover? → triage? → researcher? → planner? → coder → refactorer? →
 | **commiter** | Git commit, push, and PR automation after approval | Off |
 
 Roles marked with `?` are optional and can be enabled per-run or via config.
+
+### Deterministic Guards
+
+Guards are regex/pattern-based checks that run between coder and quality gates — no LLM cost, 100% deterministic:
+
+| Guard | What it checks | Default |
+|-------|---------------|---------|
+| **output-guard** | Destructive operations (rm -rf, DROP TABLE, git push --force), exposed credentials (AWS keys, private keys, tokens), protected file modifications (.env, serviceAccountKey.json) | **On** (blocks on critical) |
+| **perf-guard** | Frontend performance anti-patterns — images without dimensions/lazy, render-blocking scripts, missing font-display, document.write, heavy deps (moment, lodash, jquery) | **On** (advisory, configurable to block) |
+| **intent-classifier** | Pre-triage keyword classification — skips LLM triage for obvious task types (doc, add-tests, refactor, infra, trivial-fix) | Off |
+
+Guards are configurable via `kj.config.yml`:
+
+```yaml
+guards:
+  output:
+    enabled: true
+    on_violation: block  # block | warn | skip
+    # patterns: [{ id: "custom", pattern: "DANGEROUS", severity: "critical", message: "..." }]
+    # protected_files: [secrets.yml]
+  perf:
+    enabled: true
+    block_on_warning: false
+    # patterns: [{ id: "custom-perf", pattern: "eval\\(", severity: "warning" }]
+  intent:
+    enabled: false
+    confidence_threshold: 0.85
+    # patterns: [{ keywords: ["readme", "docs"], taskType: "doc", confidence: 0.9 }]
+```
 
 ## Pipeline Stage Tracker
 
@@ -135,6 +166,28 @@ Or via MCP:
 ```
 
 `kj doctor` includes BecarIA-specific checks to verify that workflow templates are present and the GitHub token has the required permissions.
+
+## Architect Stage (v1.17.0+)
+
+The **architect** role runs between researcher and planner to define the solution architecture before coding begins. It produces explicit design decisions: layers, patterns, data model, API contracts, and tradeoffs.
+
+### Activation
+
+Triage auto-activates the architect when the task creates new modules/apps, affects data models or APIs, has medium/complex complexity, or has ambiguous design. You can also enable it explicitly:
+
+```bash
+kj run --enable-architect --task "Build user authentication system"
+```
+
+### Interactive clarification
+
+When the architect detects design ambiguity, it returns `verdict: "needs_clarification"` with targeted questions. The pipeline pauses and asks the human via `askQuestion`. After receiving answers, the architect re-evaluates with the additional context.
+
+If no interactive input is available (non-interactive CLI), the architect continues with best-effort decisions and emits a warning.
+
+### Auto ADR generation
+
+When a Planning Game card is linked (`pgTaskId` + `pgProject`), each architectural tradeoff is automatically persisted as an Architecture Decision Record (ADR) via the Planning Game MCP.
 
 ## Policy-Driven Pipeline (v1.14.0+)
 
