@@ -50,9 +50,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 });
 
 // --- Orphan process protection + version watcher ---
-import { setupOrphanGuard, setupVersionWatcher } from "./orphan-guard.js";
+import { setupOrphanGuard, setupVersionWatcher, setupMemoryWatchdog } from "./orphan-guard.js";
 setupOrphanGuard();
 setupVersionWatcher({ pkgPath: PKG_PATH, currentVersion: LOADED_VERSION });
+setupMemoryWatchdog();
 
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
