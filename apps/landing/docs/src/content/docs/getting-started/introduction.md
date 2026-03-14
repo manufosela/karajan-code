@@ -27,11 +27,56 @@ There are two ways to use AI coding agents today, and both have serious issues:
 
 ## The Solution
 
-<div class="solution-visual">
-  <img src="/docs/img/pipeline-animation.gif" alt="Pipeline: 1) Coder writes code and tests (e.g. Claude) → 2) Deterministic guards scan for destructive ops, credential leaks, perf anti-patterns → 3) SonarQube static analysis, optionally complemented by SonarCloud → 4) Reviewer checks for issues (e.g. Codex) → 5) If problems found, coder gets another attempt → 6) Loop until approved or iteration limit reached" loading="lazy" />
-</div>
+Karajan Code solves both problems by chaining **roles** with **quality gates** and **cost controls**:
 
-Every session has built-in guardrails: **max iterations**, **per-iteration timeouts**, **total session timeouts**, and optional **estimated budget caps** (in USD or EUR). Fail-fast detection stops the loop early when agents go in circles.
+<div class="pipeline-carousel" id="pipeline-carousel">
+  <div class="pipeline-track">
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">1</div>
+      <div class="pipeline-step-icon">&#128187;</div>
+      <h3>Coder</h3>
+      <p>The <strong>coder</strong> role writes code and tests — executed by the AI agent you choose (e.g. Claude, Codex, Gemini).</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">2</div>
+      <div class="pipeline-step-icon">&#128737;</div>
+      <h3>Deterministic Guards</h3>
+      <p>Regex-based guards scan the diff for <strong>destructive operations</strong>, <strong>credential leaks</strong>, and <strong>performance anti-patterns</strong>. No LLM needed.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">3</div>
+      <div class="pipeline-step-icon">&#128269;</div>
+      <h3>Static Analysis</h3>
+      <p><strong>SonarQube</strong> performs full static analysis with quality gates. Optionally complemented by <strong>SonarCloud</strong> for cloud-based advisory analysis.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">4</div>
+      <div class="pipeline-step-icon">&#128065;</div>
+      <h3>Reviewer</h3>
+      <p>The <strong>reviewer</strong> role checks the code for issues (e.g. Codex). Scope filter auto-defers out-of-scope items as tech debt.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">5</div>
+      <div class="pipeline-step-icon">&#128260;</div>
+      <h3>Iterate or Approve</h3>
+      <p>If problems are found, the <strong>coder gets another attempt</strong>. The loop runs until the code is approved or the iteration limit is reached.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">6</div>
+      <div class="pipeline-step-icon">&#128170;</div>
+      <h3>Built-in Guardrails</h3>
+      <p><strong>Max iterations</strong>, <strong>per-iteration timeouts</strong>, <strong>session timeouts</strong>, and <strong>budget caps</strong> (USD/EUR). Fail-fast stops loops early. Full cost reports with <code>kj report --trace</code>.</p>
+    </div>
+  </div>
+  <div class="pipeline-progress">
+    <div class="pipeline-progress-bar"></div>
+  </div>
+  <div class="carousel-controls">
+    <button class="carousel-btn carousel-prev" aria-label="Previous">&#8249;</button>
+    <div class="carousel-dots" id="pipeline-dots"></div>
+    <button class="carousel-btn carousel-next" aria-label="Next">&#8250;</button>
+  </div>
+</div>
 
 ## Key Features
 
@@ -94,7 +139,8 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 </div>
 
 <style>
-.features-carousel {
+/* --- Shared carousel styles --- */
+.features-carousel, .pipeline-carousel {
   position: relative;
   overflow: hidden;
   border-radius: 12px;
@@ -103,24 +149,24 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
   margin: 1.5rem 0;
 }
 
-.carousel-track {
+.carousel-track, .pipeline-track {
   display: flex;
   transition: transform 0.4s ease;
 }
 
-.carousel-slide {
+.carousel-slide, .pipeline-slide {
   min-width: 100%;
   padding: 2rem 2.5rem;
   box-sizing: border-box;
 }
 
-.carousel-slide h3 {
+.carousel-slide h3, .pipeline-slide h3 {
   margin: 0 0 0.75rem 0;
   color: var(--sl-color-accent-high);
   font-size: 1.25rem;
 }
 
-.carousel-slide p {
+.carousel-slide p, .pipeline-slide p {
   margin: 0;
   line-height: 1.6;
   color: var(--sl-color-gray-1);
@@ -176,80 +222,130 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
   transform: scale(1.3);
 }
 
-.solution-visual {
-  text-align: center;
-  margin: 1.5rem 0;
+/* --- Pipeline-specific styles --- */
+.pipeline-carousel {
+  background: linear-gradient(135deg, var(--sl-color-gray-6) 0%, color-mix(in srgb, var(--sl-color-accent-low) 30%, var(--sl-color-gray-6)) 100%);
 }
 
-.solution-visual img {
-  max-width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--sl-color-gray-5);
+.pipeline-slide {
+  text-align: center;
+  padding: 2.5rem 2.5rem 1.5rem;
+}
+
+.pipeline-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--sl-color-accent);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.pipeline-step-icon {
+  font-size: 2.5rem;
+  margin: 0.5rem 0;
+  line-height: 1;
+}
+
+.pipeline-slide h3 {
+  font-size: 1.35rem;
+  margin-top: 0.5rem;
+}
+
+.pipeline-slide p {
+  max-width: 500px;
+  margin: 0.5rem auto 0;
+  font-size: 0.95rem;
+}
+
+.pipeline-progress {
+  height: 3px;
+  background: var(--sl-color-gray-5);
+  margin: 0 2rem;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pipeline-progress-bar {
+  height: 100%;
+  background: var(--sl-color-accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  width: 16.67%;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const carousel = document.getElementById('features-carousel');
-  if (!carousel) return;
+  function initCarousel(containerId, dotsId, trackSelector, slideSelector, autoInterval) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-  const track = carousel.querySelector('.carousel-track');
-  const slides = carousel.querySelectorAll('.carousel-slide');
-  const dotsContainer = carousel.querySelector('.carousel-dots');
-  const prevBtn = carousel.querySelector('.carousel-prev');
-  const nextBtn = carousel.querySelector('.carousel-next');
+    const track = container.querySelector(trackSelector);
+    const slides = container.querySelectorAll(slideSelector);
+    const dotsContainer = dotsId ? document.getElementById(dotsId) : container.querySelector('.carousel-dots');
+    const prevBtn = container.querySelector('.carousel-prev');
+    const nextBtn = container.querySelector('.carousel-next');
+    const progressBar = container.querySelector('.pipeline-progress-bar');
 
-  let current = 0;
-  let autoTimer = null;
-  const AUTO_INTERVAL = 5000;
+    let current = 0;
+    let autoTimer = null;
 
-  // Create dots
-  slides.forEach((_, i) => {
-    const dot = document.createElement('button');
-    dot.classList.add('carousel-dot');
-    dot.setAttribute('aria-label', `Slide ${i + 1}`);
-    if (i === 0) dot.classList.add('active');
-    dot.addEventListener('click', () => goTo(i));
-    dotsContainer.appendChild(dot);
-  });
-
-  function goTo(index) {
-    current = ((index % slides.length) + slides.length) % slides.length;
-    track.style.transform = `translateX(-${current * 100}%)`;
-    dotsContainer.querySelectorAll('.carousel-dot').forEach((d, i) => {
-      d.classList.toggle('active', i === current);
+    slides.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.classList.add('carousel-dot');
+      dot.setAttribute('aria-label', `Slide ${i + 1}`);
+      if (i === 0) dot.classList.add('active');
+      dot.addEventListener('click', () => goTo(i));
+      dotsContainer.appendChild(dot);
     });
+
+    function goTo(index) {
+      current = ((index % slides.length) + slides.length) % slides.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsContainer.querySelectorAll('.carousel-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === current);
+      });
+      if (progressBar) {
+        progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+      }
+      resetAuto();
+    }
+
+    function resetAuto() {
+      clearInterval(autoTimer);
+      autoTimer = setInterval(() => goTo(current + 1), autoInterval);
+    }
+
+    prevBtn.addEventListener('click', () => goTo(current - 1));
+    nextBtn.addEventListener('click', () => goTo(current + 1));
+
+    container.addEventListener('mouseenter', () => clearInterval(autoTimer));
+    container.addEventListener('mouseleave', resetAuto);
+
+    let startX = 0;
+    container.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    container.addEventListener('touchend', (e) => {
+      const diff = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 50) goTo(current + (diff > 0 ? 1 : -1));
+    }, { passive: true });
+
+    container.setAttribute('tabindex', '0');
+    container.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') goTo(current - 1);
+      if (e.key === 'ArrowRight') goTo(current + 1);
+    });
+
     resetAuto();
   }
 
-  function resetAuto() {
-    clearInterval(autoTimer);
-    autoTimer = setInterval(() => goTo(current + 1), AUTO_INTERVAL);
-  }
-
-  prevBtn.addEventListener('click', () => goTo(current - 1));
-  nextBtn.addEventListener('click', () => goTo(current + 1));
-
-  // Pause on hover
-  carousel.addEventListener('mouseenter', () => clearInterval(autoTimer));
-  carousel.addEventListener('mouseleave', resetAuto);
-
-  // Swipe support
-  let startX = 0;
-  carousel.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
-  carousel.addEventListener('touchend', (e) => {
-    const diff = startX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) goTo(current + (diff > 0 ? 1 : -1));
-  }, { passive: true });
-
-  // Keyboard
-  carousel.setAttribute('tabindex', '0');
-  carousel.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') goTo(current - 1);
-    if (e.key === 'ArrowRight') goTo(current + 1);
-  });
-
-  resetAuto();
+  initCarousel('pipeline-carousel', 'pipeline-dots', '.pipeline-track', '.pipeline-slide', 4000);
+  initCarousel('features-carousel', null, '.carousel-track', '.carousel-slide', 5000);
 });
 </script>
 

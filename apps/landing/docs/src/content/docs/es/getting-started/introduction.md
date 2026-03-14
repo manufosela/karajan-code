@@ -27,11 +27,56 @@ Hoy hay dos formas de usar agentes de IA para programar, y ambas tienen problema
 
 ## La Solución
 
-<div class="solution-visual">
-  <img src="/docs/img/pipeline-animation.gif" alt="Pipeline: 1) Coder escribe código y tests (ej. Claude) → 2) Guards deterministas escanean ops destructivas, fugas de credenciales, anti-patrones → 3) SonarQube análisis estático, opcionalmente complementado por SonarCloud → 4) Reviewer revisa el código (ej. Codex) → 5) Si hay problemas, el coder recibe otra oportunidad → 6) Bucle hasta aprobación o límite de iteraciones" loading="lazy" />
-</div>
+Karajan Code resuelve ambos problemas encadenando **roles** con **quality gates** y **controles de coste**:
 
-Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **timeouts por iteración**, **timeout total de sesión**, y opcionalmente **topes de presupuesto estimado** (en USD o EUR). La detección fail-fast para el bucle cuando los agentes dan vueltas en círculos.
+<div class="pipeline-carousel" id="pipeline-carousel">
+  <div class="pipeline-track">
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">1</div>
+      <div class="pipeline-step-icon">&#128187;</div>
+      <h3>Coder</h3>
+      <p>El rol <strong>coder</strong> escribe código y tests — ejecutado por el agente IA que tú elijas (ej. Claude, Codex, Gemini).</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">2</div>
+      <div class="pipeline-step-icon">&#128737;</div>
+      <h3>Guards Deterministas</h3>
+      <p>Guards basados en regex escanean el diff buscando <strong>operaciones destructivas</strong>, <strong>fugas de credenciales</strong> y <strong>anti-patrones de rendimiento</strong>. Sin LLM.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">3</div>
+      <div class="pipeline-step-icon">&#128269;</div>
+      <h3>Análisis Estático</h3>
+      <p><strong>SonarQube</strong> realiza análisis estático completo con quality gates. Opcionalmente complementado por <strong>SonarCloud</strong> para análisis advisory en la nube.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">4</div>
+      <div class="pipeline-step-icon">&#128065;</div>
+      <h3>Reviewer</h3>
+      <p>El rol <strong>reviewer</strong> revisa el código buscando issues (ej. Codex). El scope filter auto-difiere items fuera de scope como deuda técnica.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">5</div>
+      <div class="pipeline-step-icon">&#128260;</div>
+      <h3>Iterar o Aprobar</h3>
+      <p>Si hay problemas, el <strong>coder recibe otra oportunidad</strong>. El bucle se repite hasta que el código es aprobado o se alcanza el límite de iteraciones.</p>
+    </div>
+    <div class="pipeline-slide">
+      <div class="pipeline-step-number">6</div>
+      <div class="pipeline-step-icon">&#128170;</div>
+      <h3>Guardarraíles Integrados</h3>
+      <p><strong>Máximo de iteraciones</strong>, <strong>timeouts por iteración</strong>, <strong>timeout de sesión</strong> y <strong>topes de presupuesto</strong> (USD/EUR). Fail-fast para bucles. Informes de coste con <code>kj report --trace</code>.</p>
+    </div>
+  </div>
+  <div class="pipeline-progress">
+    <div class="pipeline-progress-bar"></div>
+  </div>
+  <div class="carousel-controls">
+    <button class="carousel-btn carousel-prev" aria-label="Anterior">&#8249;</button>
+    <div class="carousel-dots" id="pipeline-dots"></div>
+    <button class="carousel-btn carousel-next" aria-label="Siguiente">&#8250;</button>
+  </div>
+</div>
 
 ## Características Principales
 
@@ -94,7 +139,8 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 </div>
 
 <style>
-.features-carousel {
+/* --- Shared carousel styles --- */
+.features-carousel, .pipeline-carousel {
   position: relative;
   overflow: hidden;
   border-radius: 12px;
@@ -103,24 +149,24 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
   margin: 1.5rem 0;
 }
 
-.carousel-track {
+.carousel-track, .pipeline-track {
   display: flex;
   transition: transform 0.4s ease;
 }
 
-.carousel-slide {
+.carousel-slide, .pipeline-slide {
   min-width: 100%;
   padding: 2rem 2.5rem;
   box-sizing: border-box;
 }
 
-.carousel-slide h3 {
+.carousel-slide h3, .pipeline-slide h3 {
   margin: 0 0 0.75rem 0;
   color: var(--sl-color-accent-high);
   font-size: 1.25rem;
 }
 
-.carousel-slide p {
+.carousel-slide p, .pipeline-slide p {
   margin: 0;
   line-height: 1.6;
   color: var(--sl-color-gray-1);
@@ -176,76 +222,130 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
   transform: scale(1.3);
 }
 
-.solution-visual {
-  text-align: center;
-  margin: 1.5rem 0;
+/* --- Pipeline-specific styles --- */
+.pipeline-carousel {
+  background: linear-gradient(135deg, var(--sl-color-gray-6) 0%, color-mix(in srgb, var(--sl-color-accent-low) 30%, var(--sl-color-gray-6)) 100%);
 }
 
-.solution-visual img {
-  max-width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--sl-color-gray-5);
+.pipeline-slide {
+  text-align: center;
+  padding: 2.5rem 2.5rem 1.5rem;
+}
+
+.pipeline-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--sl-color-accent);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.pipeline-step-icon {
+  font-size: 2.5rem;
+  margin: 0.5rem 0;
+  line-height: 1;
+}
+
+.pipeline-slide h3 {
+  font-size: 1.35rem;
+  margin-top: 0.5rem;
+}
+
+.pipeline-slide p {
+  max-width: 500px;
+  margin: 0.5rem auto 0;
+  font-size: 0.95rem;
+}
+
+.pipeline-progress {
+  height: 3px;
+  background: var(--sl-color-gray-5);
+  margin: 0 2rem;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pipeline-progress-bar {
+  height: 100%;
+  background: var(--sl-color-accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  width: 16.67%;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const carousel = document.getElementById('features-carousel');
-  if (!carousel) return;
+  function initCarousel(containerId, dotsId, trackSelector, slideSelector, autoInterval) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-  const track = carousel.querySelector('.carousel-track');
-  const slides = carousel.querySelectorAll('.carousel-slide');
-  const dotsContainer = carousel.querySelector('.carousel-dots');
-  const prevBtn = carousel.querySelector('.carousel-prev');
-  const nextBtn = carousel.querySelector('.carousel-next');
+    const track = container.querySelector(trackSelector);
+    const slides = container.querySelectorAll(slideSelector);
+    const dotsContainer = dotsId ? document.getElementById(dotsId) : container.querySelector('.carousel-dots');
+    const prevBtn = container.querySelector('.carousel-prev');
+    const nextBtn = container.querySelector('.carousel-next');
+    const progressBar = container.querySelector('.pipeline-progress-bar');
 
-  let current = 0;
-  let autoTimer = null;
-  const AUTO_INTERVAL = 5000;
+    let current = 0;
+    let autoTimer = null;
 
-  slides.forEach((_, i) => {
-    const dot = document.createElement('button');
-    dot.classList.add('carousel-dot');
-    dot.setAttribute('aria-label', `Slide ${i + 1}`);
-    if (i === 0) dot.classList.add('active');
-    dot.addEventListener('click', () => goTo(i));
-    dotsContainer.appendChild(dot);
-  });
-
-  function goTo(index) {
-    current = ((index % slides.length) + slides.length) % slides.length;
-    track.style.transform = `translateX(-${current * 100}%)`;
-    dotsContainer.querySelectorAll('.carousel-dot').forEach((d, i) => {
-      d.classList.toggle('active', i === current);
+    slides.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.classList.add('carousel-dot');
+      dot.setAttribute('aria-label', `Slide ${i + 1}`);
+      if (i === 0) dot.classList.add('active');
+      dot.addEventListener('click', () => goTo(i));
+      dotsContainer.appendChild(dot);
     });
+
+    function goTo(index) {
+      current = ((index % slides.length) + slides.length) % slides.length;
+      track.style.transform = `translateX(-${current * 100}%)`;
+      dotsContainer.querySelectorAll('.carousel-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === current);
+      });
+      if (progressBar) {
+        progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+      }
+      resetAuto();
+    }
+
+    function resetAuto() {
+      clearInterval(autoTimer);
+      autoTimer = setInterval(() => goTo(current + 1), autoInterval);
+    }
+
+    prevBtn.addEventListener('click', () => goTo(current - 1));
+    nextBtn.addEventListener('click', () => goTo(current + 1));
+
+    container.addEventListener('mouseenter', () => clearInterval(autoTimer));
+    container.addEventListener('mouseleave', resetAuto);
+
+    let startX = 0;
+    container.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    container.addEventListener('touchend', (e) => {
+      const diff = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 50) goTo(current + (diff > 0 ? 1 : -1));
+    }, { passive: true });
+
+    container.setAttribute('tabindex', '0');
+    container.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') goTo(current - 1);
+      if (e.key === 'ArrowRight') goTo(current + 1);
+    });
+
     resetAuto();
   }
 
-  function resetAuto() {
-    clearInterval(autoTimer);
-    autoTimer = setInterval(() => goTo(current + 1), AUTO_INTERVAL);
-  }
-
-  prevBtn.addEventListener('click', () => goTo(current - 1));
-  nextBtn.addEventListener('click', () => goTo(current + 1));
-
-  carousel.addEventListener('mouseenter', () => clearInterval(autoTimer));
-  carousel.addEventListener('mouseleave', resetAuto);
-
-  let startX = 0;
-  carousel.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
-  carousel.addEventListener('touchend', (e) => {
-    const diff = startX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) goTo(current + (diff > 0 ? 1 : -1));
-  }, { passive: true });
-
-  carousel.setAttribute('tabindex', '0');
-  carousel.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') goTo(current - 1);
-    if (e.key === 'ArrowRight') goTo(current + 1);
-  });
-
-  resetAuto();
+  initCarousel('pipeline-carousel', 'pipeline-dots', '.pipeline-track', '.pipeline-slide', 4000);
+  initCarousel('features-carousel', null, '.carousel-track', '.carousel-slide', 5000);
 });
 </script>
 
