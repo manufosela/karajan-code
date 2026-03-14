@@ -3,7 +3,7 @@ title: Introduction
 description: What is Karajan Code and why use it.
 ---
 
-Karajan Code (`kj`) orchestrates multiple AI coding agents through an automated pipeline: code generation, static analysis, code review, testing, and security audits — all in a single command.
+Karajan Code (`kj`) is a **role-based AI orchestrator**. It defines **13 specialized roles** (triage, researcher, architect, planner, coder, reviewer, tester, security...) and assigns each one to an **AI agent** (Claude, Codex, Gemini, or Aider). The roles determine *what* to do; the agents determine *who* does it. You can mix and match freely — use Claude as coder and Codex as reviewer, or any combination — while the pipeline enforces quality gates, cost controls, and deterministic guards between every stage.
 
 ## The Problem
 
@@ -17,21 +17,23 @@ In both cases, there's no standard way to enforce quality, control spending, or 
 
 ## The Solution
 
-Karajan Code solves both problems by chaining agents with **quality gates** and **cost controls**:
+Karajan Code solves both problems by chaining **roles** with **quality gates** and **cost controls**. Each role is a pipeline stage with a clear responsibility, executed by the AI agent you choose:
 
-1. The **coder** writes code and tests
-2. **SonarQube** performs static analysis
-3. The **reviewer** checks for issues
-4. If problems are found, the **coder** gets another attempt
-5. This loop runs until the code is approved or the iteration limit is reached
+1. The **coder** role writes code and tests (e.g. Claude)
+2. **Deterministic guards** scan the diff for destructive operations, credential leaks, and perf anti-patterns
+3. **SonarQube** performs static analysis
+4. The **reviewer** role checks for issues (e.g. Codex)
+5. If problems are found, the **coder** gets another attempt
+6. This loop runs until the code is approved or the iteration limit is reached
 
 Every session has built-in guardrails: **max iterations**, **per-iteration timeouts**, **total session timeouts**, and optional **estimated budget caps** (in USD or EUR). Fail-fast detection stops the loop early when the agents are going in circles. You get full estimated cost reports with `kj report --trace`. Note: Karajan runs CLI agents under your existing subscriptions — **it adds no extra cost**. Budget tracking estimates what the session would cost at API rates, useful for comparison and guardrails.
 
 ## Key Features
 
-- **Multi-agent pipeline** with 11 configurable roles
-- **4 AI agents supported**: Claude, Codex, Gemini, Aider
-- **MCP server** with 11 tools — use `kj` from your AI agent
+- **Role-based pipeline** with 13 specialized roles — each assignable to any agent
+- **4 AI agents supported**: Claude, Codex, Gemini, Aider — mix and match per role
+- **Deterministic guards** — output guard (destructive ops, credential leaks), perf guard (frontend anti-patterns), intent classifier (pre-triage without LLM)
+- **MCP server** with 16 tools — use `kj` from your AI agent
 - **TDD enforcement** — test changes required when source files change
 - **SonarQube integration** — static analysis with quality gates
 - **Review profiles** — standard, strict, relaxed, paranoid

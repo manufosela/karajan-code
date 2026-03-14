@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review.
+description: Role-based AI orchestrator with 13 roles, 4 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.18.0 — Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command."
+  tagline: "v1.18.0 — Role-based AI orchestrator: 13 roles, 4 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -20,7 +20,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Why Karajan Code?
 
-Instead of running one AI agent and manually reviewing its output, `kj` chains agents together with quality gates. The coder writes code, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt.
+Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
   <Card title="Multi-Agent Pipeline" icon="rocket">

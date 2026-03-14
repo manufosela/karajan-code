@@ -3,7 +3,7 @@ title: Introducción
 description: Qué es Karajan Code y por qué usarlo.
 ---
 
-Karajan Code (`kj`) orquesta múltiples agentes de IA a través de un pipeline automatizado: generación de código, análisis estático, revisión de código, testing y auditorías de seguridad — todo en un solo comando.
+Karajan Code (`kj`) es un **orquestador de IA basado en roles**. Define **13 roles especializados** (triage, researcher, architect, planner, coder, reviewer, tester, security...) y asigna cada uno a un **agente de IA** (Claude, Codex, Gemini o Aider). Los roles determinan *qué* hacer; los agentes determinan *quién* lo hace. Puedes combinarlos libremente — usar Claude como coder y Codex como reviewer, o cualquier combinación — mientras el pipeline aplica quality gates, controles de coste y guards deterministas entre cada etapa.
 
 ## El Problema
 
@@ -17,21 +17,23 @@ En ambos casos, no hay una forma estándar de asegurar calidad, controlar el gas
 
 ## La Solución
 
-Karajan Code resuelve ambos problemas encadenando agentes con **quality gates** y **controles de coste**:
+Karajan Code resuelve ambos problemas encadenando **roles** con **quality gates** y **controles de coste**. Cada rol es una etapa del pipeline con una responsabilidad clara, ejecutada por el agente de IA que tú elijas:
 
-1. El **coder** escribe código y tests
-2. **SonarQube** realiza análisis estático
-3. El **reviewer** revisa el código
-4. Si hay problemas, el **coder** recibe otra oportunidad
-5. El bucle se repite hasta que el código es aprobado o se alcanza el límite de iteraciones
+1. El rol **coder** escribe código y tests (ej. Claude)
+2. **Guards deterministas** escanean el diff buscando operaciones destructivas, fugas de credenciales y anti-patrones de rendimiento
+3. **SonarQube** realiza análisis estático
+4. El rol **reviewer** revisa el código (ej. Codex)
+5. Si hay problemas, el **coder** recibe otra oportunidad
+6. El bucle se repite hasta que el código es aprobado o se alcanza el límite de iteraciones
 
 Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **timeouts por iteración**, **timeout total de sesión**, y opcionalmente **topes de presupuesto estimado** (en USD o EUR). La detección fail-fast para el bucle cuando los agentes están dando vueltas en círculos. Obtienes informes de coste estimado con `kj report --trace`. Nota: Karajan ejecuta agentes CLI bajo tus suscripciones existentes — **no tiene coste adicional**. El tracking de presupuesto estima lo que costaría la sesión a precios de API, útil para comparar y como guardarraíl.
 
 ## Características Principales
 
-- **Pipeline multi-agente** con 11 roles configurables
-- **4 agentes de IA soportados**: Claude, Codex, Gemini, Aider
-- **Servidor MCP** con 11 herramientas — usa `kj` desde tu agente de IA
+- **Pipeline basado en roles** con 13 roles especializados — cada uno asignable a cualquier agente
+- **4 agentes de IA soportados**: Claude, Codex, Gemini, Aider — combínalos por rol
+- **Guards deterministas** — output guard (ops destructivas, fugas de credenciales), perf guard (anti-patrones frontend), intent classifier (pre-triage sin LLM)
+- **Servidor MCP** con 16 herramientas — usa `kj` desde tu agente de IA
 - **TDD obligatorio** — se exigen cambios en tests cuando se modifican ficheros fuente
 - **Integración con SonarQube** — análisis estático con quality gates
 - **Perfiles de revisión** — standard, strict, relaxed, paranoid
