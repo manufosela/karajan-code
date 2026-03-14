@@ -99,6 +99,7 @@
 <ul>
 <li><strong>Role-based pipeline</strong> with 13 specialized roles — each assignable to any agent</li>
 <li><strong>4 AI agents supported</strong>: Claude, Codex, Gemini, Aider — mix and match per role</li>
+<li><strong>Plugin system</strong> — extend with custom agents via <code dir="auto">.karajan/plugins/</code></li>
 <li><strong>Deterministic guards</strong> — output guard (destructive ops, credential leaks), perf guard (frontend anti-patterns), intent classifier (pre-triage without LLM)</li>
 <li><strong>MCP server</strong> with 16 tools — use <code dir="auto">kj</code> from your AI agent</li>
 <li><strong>TDD enforcement</strong> — test changes required when source files change</li>
@@ -107,7 +108,6 @@
 <li><strong>Estimated budget tracking</strong> — per-session token counting with estimated API-equivalent costs (Karajan itself adds no cost — it uses your CLI subscriptions)</li>
 <li><strong>Git automation</strong> — auto-commit, auto-push, auto-PR after approval</li>
 <li><strong>Session management</strong> — pause/resume with fail-fast detection</li>
-<li><strong>Plugin system</strong> — extend with custom agents</li>
 <li><strong>Retry with backoff</strong> — automatic recovery from transient API errors</li>
 <li><strong>Smart model selection</strong> — auto-selects optimal model per role based on triage complexity</li>
 <li><strong>Rate limit resilience</strong> — detects rate limits, pauses session, auto-fallback to another agent</li>

@@ -32,6 +32,7 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 
 - **Pipeline basado en roles** con 13 roles especializados — cada uno asignable a cualquier agente
 - **4 agentes de IA soportados**: Claude, Codex, Gemini, Aider — combínalos por rol
+- **Sistema de plugins** — extiende con agentes custom via `.karajan/plugins/`
 - **Guards deterministas** — output guard (ops destructivas, fugas de credenciales), perf guard (anti-patrones frontend), intent classifier (pre-triage sin LLM)
 - **Servidor MCP** con 16 herramientas — usa `kj` desde tu agente de IA
 - **TDD obligatorio** — se exigen cambios en tests cuando se modifican ficheros fuente
@@ -40,7 +41,6 @@ Cada sesión tiene guardarraíles integrados: **máximo de iteraciones**, **time
 - **Tracking de presupuesto estimado** — conteo de tokens por sesión con coste estimado equivalente a API (Karajan no tiene coste adicional — usa tus suscripciones CLI)
 - **Automatización Git** — auto-commit, auto-push, auto-PR tras aprobación
 - **Gestión de sesiones** — pausa/reanudación con detección fail-fast
-- **Sistema de plugins** — extiende con agentes custom
 - **Retry con backoff** — recuperación automática ante errores transitorios de API
 - **Selección inteligente de modelos** — auto-selecciona el modelo óptimo por rol según la complejidad del triage
 - **Resiliencia ante rate limits** — detecta rate limits, pausa la sesión, auto-fallback a otro agente

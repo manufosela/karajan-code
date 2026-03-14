@@ -32,6 +32,7 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 
 - **Role-based pipeline** with 13 specialized roles — each assignable to any agent
 - **4 AI agents supported**: Claude, Codex, Gemini, Aider — mix and match per role
+- **Plugin system** — extend with custom agents via `.karajan/plugins/`
 - **Deterministic guards** — output guard (destructive ops, credential leaks), perf guard (frontend anti-patterns), intent classifier (pre-triage without LLM)
 - **MCP server** with 16 tools — use `kj` from your AI agent
 - **TDD enforcement** — test changes required when source files change
@@ -40,7 +41,6 @@ Every session has built-in guardrails: **max iterations**, **per-iteration timeo
 - **Estimated budget tracking** — per-session token counting with estimated API-equivalent costs (Karajan itself adds no cost — it uses your CLI subscriptions)
 - **Git automation** — auto-commit, auto-push, auto-PR after approval
 - **Session management** — pause/resume with fail-fast detection
-- **Plugin system** — extend with custom agents
 - **Retry with backoff** — automatic recovery from transient API errors
 - **Smart model selection** — auto-selects optimal model per role based on triage complexity
 - **Rate limit resilience** — detects rate limits, pauses session, auto-fallback to another agent
