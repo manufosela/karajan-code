@@ -1,6 +1,8 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
+import { isHostAgent } from "../utils/agent-detect.js";
+import { HostAgent } from "../agents/host-agent.js";
 
 function resolveProvider(config) {
   return (
@@ -11,9 +13,10 @@ function resolveProvider(config) {
 }
 
 export class CoderRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
+  constructor({ config, logger, emitter = null, createAgentFn = null, askHost = null }) {
     super({ name: "coder", config, logger, emitter });
     this._createAgent = createAgentFn || defaultCreateAgent;
+    this._askHost = askHost;
   }
 
   async execute(input) {
@@ -22,7 +25,14 @@ export class CoderRole extends BaseRole {
       : input || {};
 
     const provider = resolveProvider(this.config);
-    const agent = this._createAgent(provider, this.config, this.logger);
+    const useHost = this._askHost && isHostAgent(provider);
+    const agent = useHost
+      ? new HostAgent(this.config, this.logger, { askHost: this._askHost })
+      : this._createAgent(provider, this.config, this.logger);
+
+    if (useHost) {
+      this.logger.info(`Host-as-coder: delegating to host AI (skipping ${provider} subprocess)`);
+    }
 
     const prompt = buildCoderPrompt({
       task: task || this.context?.task || "",

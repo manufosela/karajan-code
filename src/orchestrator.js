@@ -978,7 +978,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   const refactorerRole = resolveRole(config, "refactorer");
   const pipelineFlags = resolvePipelineFlags(config);
   const repeatDetector = new RepeatDetector({ threshold: getRepeatThreshold(config) });
-  const coderRoleInstance = new CoderRole({ config, logger, emitter, createAgentFn: createAgent });
+  const coderRoleInstance = new CoderRole({ config, logger, emitter, createAgentFn: createAgent, askHost: askQuestion });
   const startedAt = Date.now();
   const eventBase = { sessionId: null, iteration: 0, stage: null, startedAt };
   const { budgetTracker, budgetLimit, budgetSummary, trackBudget } = createBudgetManager({ config, emitter, eventBase });

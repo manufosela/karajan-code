@@ -30,4 +30,25 @@ export async function detectAvailableAgents() {
   return results;
 }
 
+/**
+ * Detect which AI agent is the current MCP host (if any).
+ * Returns the agent name ("claude", "codex", etc.) or null if not inside an agent.
+ */
+export function detectHostAgent() {
+  if (process.env.CLAUDECODE === "1" || process.env.CLAUDE_CODE === "1") return "claude";
+  if (process.env.CODEX_CLI === "1" || process.env.CODEX === "1") return "codex";
+  if (process.env.GEMINI_CLI === "1") return "gemini";
+  if (process.env.OPENCODE === "1") return "opencode";
+  return null;
+}
+
+/**
+ * Check if a given provider matches the current host agent.
+ * When true, we can skip subprocess spawning and delegate to the host.
+ */
+export function isHostAgent(provider) {
+  const host = detectHostAgent();
+  return host !== null && host === provider;
+}
+
 export { KNOWN_AGENTS };
