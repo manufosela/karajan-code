@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 13 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.20.0 — Role-based AI orchestrator: 13 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.21.1 — Role-based AI orchestrator: 13 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -71,8 +71,11 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Standalone Role Commands" icon="seti:shell">
     Run any pre-build role independently: `kj discover`, `kj triage`, `kj researcher`, `kj architect`. Available as both CLI commands and MCP tools.
   </Card>
-  <Card title="1549+ Automated Tests" icon="approve-check">
-    127 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
+  <Card title="Resilient Run" icon="random">
+    Auto-diagnoses failures and resumes crashed sessions — up to 2 retries. Non-recoverable errors (config, auth, missing agent) fail immediately. Configurable via `session.max_auto_resumes`.
+  </Card>
+  <Card title="1559+ Automated Tests" icon="approve-check">
+    128 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required.
