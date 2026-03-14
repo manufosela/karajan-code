@@ -18,8 +18,8 @@ Karajan Code is built by its community. Thanks to everyone who has contributed c
 ## Contributors
 
 <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
-  <a href="https://github.com/aitorGeniova" style="text-align: center; text-decoration: none; color: inherit;">
-    <img src="https://avatars.githubusercontent.com/u/194591491?v=4" width="80" height="80" style="border-radius: 50%;" alt="aitorGeniova" />
+  <a href="https://github.com/aitormf" style="text-align: center; text-decoration: none; color: inherit;">
+    <img src="https://avatars.githubusercontent.com/u/16046048?v=4" width="80" height="80" style="border-radius: 50%;" alt="aitormf" />
     <br/><strong>Aitor Martinez</strong>
     <br/><small>OpenCode agent (#75)</small>
   </a>
@@ -28,6 +28,11 @@ Karajan Code is built by its community. Thanks to everyone who has contributed c
 ## Inspirations & Collaborations
 
 <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
+  <a href="https://github.com/jorgecasar" style="text-align: center; text-decoration: none; color: inherit;">
+    <img src="https://avatars.githubusercontent.com/u/948953?v=4" width="80" height="80" style="border-radius: 50%;" alt="jorgecasar" />
+    <br/><strong>Jorge del Casar</strong>
+    <br/><small><a href="https://github.com/jorgecasar/legacy-s-end-2/tree/main/packages/ai-orchestration">ai-orchestration</a> — hexagonal architecture inspiration</small>
+  </a>
   <a href="https://joanleon.dev/" style="text-align: center; text-decoration: none; color: inherit;">
     <img src="https://avatars.githubusercontent.com/u/1307927?v=4" width="80" height="80" style="border-radius: 50%;" alt="joanleon" />
     <br/><strong>Joan Leon</strong>

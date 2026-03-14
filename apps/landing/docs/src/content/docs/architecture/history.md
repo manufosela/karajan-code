@@ -569,5 +569,6 @@ Token usage is counted and costs are estimated using published pricing rates, ra
 ## References
 
 - [jorgecasar/ai-orchestration](https://github.com/jorgecasar/legacy-s-end-2/tree/main/packages/ai-orchestration) — Hexagonal architecture patterns (ports & adapters) that influenced the agent adapter design
+- [Joan León](https://joanleon.dev/) — [WebPerf Snippets](https://webperf-snippets.nucliweb.net/) for Core Web Vitals measurement, inspiring the future WebPerf quality gate
 - [ADR-001: Role-Based AI Architecture](/docs/architecture/overview/) — Architecture decision record in the karajan-code repository
 - [Model Context Protocol](https://modelcontextprotocol.io/) — The standard used for Karajan's MCP server integration
