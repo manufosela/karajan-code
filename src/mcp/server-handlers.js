@@ -469,6 +469,138 @@ export async function handleDiscoverDirect(a, server, extra) {
   return { ok: true, ...result.result, summary: result.summary };
 }
 
+export async function handleTriageDirect(a, server, extra) {
+  const config = await buildConfig(a, "triage");
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const triageRole = resolveRole(config, "triage");
+  await assertAgentsAvailable([triageRole.provider]);
+
+  const projectDir = await resolveProjectDir(server);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_triage] started`);
+  const emitter = buildDirectEmitter(server, runLog, extra);
+  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+  const onOutput = ({ stream, line }) => {
+    emitter.emit("progress", { type: "agent:output", stage: "triage", message: line, detail: { stream, agent: triageRole.provider } });
+  };
+  const stallDetector = createStallDetector({
+    onOutput, emitter, eventBase, stage: "triage", provider: triageRole.provider
+  });
+
+  const { TriageRole } = await import("../roles/triage-role.js");
+  const triage = new TriageRole({ config, logger, emitter });
+  await triage.init({ task: a.task });
+
+  sendTrackerLog(server, "triage", "running", triageRole.provider);
+  runLog.logText(`[triage] agent launched, waiting for response...`);
+  let result;
+  try {
+    result = await triage.run({ task: a.task, onOutput: stallDetector.onOutput });
+  } finally {
+    stallDetector.stop();
+    const stats = stallDetector.stats();
+    runLog.logText(`[triage] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
+    runLog.close();
+  }
+
+  if (!result.ok) {
+    sendTrackerLog(server, "triage", "failed");
+    throw new Error(result.result?.error || result.summary || "Triage failed");
+  }
+
+  sendTrackerLog(server, "triage", "done");
+  return { ok: true, ...result.result, summary: result.summary };
+}
+
+export async function handleResearcherDirect(a, server, extra) {
+  const config = await buildConfig(a, "researcher");
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const researcherRole = resolveRole(config, "researcher");
+  await assertAgentsAvailable([researcherRole.provider]);
+
+  const projectDir = await resolveProjectDir(server);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_researcher] started`);
+  const emitter = buildDirectEmitter(server, runLog, extra);
+  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+  const onOutput = ({ stream, line }) => {
+    emitter.emit("progress", { type: "agent:output", stage: "researcher", message: line, detail: { stream, agent: researcherRole.provider } });
+  };
+  const stallDetector = createStallDetector({
+    onOutput, emitter, eventBase, stage: "researcher", provider: researcherRole.provider
+  });
+
+  const { ResearcherRole } = await import("../roles/researcher-role.js");
+  const researcher = new ResearcherRole({ config, logger, emitter });
+  await researcher.init({ task: a.task });
+
+  sendTrackerLog(server, "researcher", "running", researcherRole.provider);
+  runLog.logText(`[researcher] agent launched, waiting for response...`);
+  let result;
+  try {
+    result = await researcher.run({ task: a.task, onOutput: stallDetector.onOutput });
+  } finally {
+    stallDetector.stop();
+    const stats = stallDetector.stats();
+    runLog.logText(`[researcher] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
+    runLog.close();
+  }
+
+  if (!result.ok) {
+    sendTrackerLog(server, "researcher", "failed");
+    throw new Error(result.result?.error || result.summary || "Researcher failed");
+  }
+
+  sendTrackerLog(server, "researcher", "done");
+  return { ok: true, ...result.result, summary: result.summary };
+}
+
+export async function handleArchitectDirect(a, server, extra) {
+  const config = await buildConfig(a, "architect");
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const architectRole = resolveRole(config, "architect");
+  await assertAgentsAvailable([architectRole.provider]);
+
+  const projectDir = await resolveProjectDir(server);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_architect] started`);
+  const emitter = buildDirectEmitter(server, runLog, extra);
+  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+  const onOutput = ({ stream, line }) => {
+    emitter.emit("progress", { type: "agent:output", stage: "architect", message: line, detail: { stream, agent: architectRole.provider } });
+  };
+  const stallDetector = createStallDetector({
+    onOutput, emitter, eventBase, stage: "architect", provider: architectRole.provider
+  });
+
+  const { ArchitectRole } = await import("../roles/architect-role.js");
+  const architect = new ArchitectRole({ config, logger, emitter });
+  await architect.init({ task: a.task });
+
+  sendTrackerLog(server, "architect", "running", architectRole.provider);
+  runLog.logText(`[architect] agent launched, waiting for response...`);
+  let result;
+  try {
+    result = await architect.run({ task: a.task, researchContext: a.context || null, onOutput: stallDetector.onOutput });
+  } finally {
+    stallDetector.stop();
+    const stats = stallDetector.stats();
+    runLog.logText(`[architect] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
+    runLog.close();
+  }
+
+  if (!result.ok) {
+    sendTrackerLog(server, "architect", "failed");
+    throw new Error(result.result?.error || result.summary || "Architect failed");
+  }
+
+  sendTrackerLog(server, "architect", "done");
+  return { ok: true, ...result.result, summary: result.summary };
+}
+
 /* ── Preflight helpers ─────────────────────────────────────────────── */
 
 const AGENT_ROLES = new Set(["coder", "reviewer", "tester", "security", "solomon"]);
@@ -662,6 +794,27 @@ async function handleDiscover(a, server, extra) {
   return handleDiscoverDirect(a, server, extra);
 }
 
+async function handleTriage(a, server, extra) {
+  if (!a.task) {
+    return failPayload("Missing required field: task");
+  }
+  return handleTriageDirect(a, server, extra);
+}
+
+async function handleResearcher(a, server, extra) {
+  if (!a.task) {
+    return failPayload("Missing required field: task");
+  }
+  return handleResearcherDirect(a, server, extra);
+}
+
+async function handleArchitect(a, server, extra) {
+  if (!a.task) {
+    return failPayload("Missing required field: task");
+  }
+  return handleArchitectDirect(a, server, extra);
+}
+
 /* ── Handler dispatch map ─────────────────────────────────────────── */
 
 const toolHandlers = {
@@ -679,7 +832,10 @@ const toolHandlers = {
   kj_code:      (a, server, extra) => handleCode(a, server, extra),
   kj_review:    (a, server, extra) => handleReview(a, server, extra),
   kj_plan:      (a, server, extra) => handlePlan(a, server, extra),
-  kj_discover:  (a, server, extra) => handleDiscover(a, server, extra)
+  kj_discover:    (a, server, extra) => handleDiscover(a, server, extra),
+  kj_triage:      (a, server, extra) => handleTriage(a, server, extra),
+  kj_researcher:  (a, server, extra) => handleResearcher(a, server, extra),
+  kj_architect:   (a, server, extra) => handleArchitect(a, server, extra)
 };
 
 export async function handleToolCall(name, args, server, extra) {

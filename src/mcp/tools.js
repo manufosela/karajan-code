@@ -242,5 +242,42 @@ export const tools = [
         kjHome: { type: "string" }
       }
     }
+  },
+  {
+    name: "kj_triage",
+    description: "Classify task complexity and recommend which pipeline roles to activate. Returns level (trivial/simple/medium/complex), taskType, recommended roles, and optional decomposition.",
+    inputSchema: {
+      type: "object",
+      required: ["task"],
+      properties: {
+        task: { type: "string", description: "Task description to classify" },
+        kjHome: { type: "string" }
+      }
+    }
+  },
+  {
+    name: "kj_researcher",
+    description: "Research the codebase for a task. Identifies affected files, patterns, constraints, prior decisions, risks, and test coverage.",
+    inputSchema: {
+      type: "object",
+      required: ["task"],
+      properties: {
+        task: { type: "string", description: "Task description to research" },
+        kjHome: { type: "string" }
+      }
+    }
+  },
+  {
+    name: "kj_architect",
+    description: "Design solution architecture for a task. Returns layers, patterns, data model, API contracts, tradeoffs, and a verdict (ready/needs_clarification).",
+    inputSchema: {
+      type: "object",
+      required: ["task"],
+      properties: {
+        task: { type: "string", description: "Task description to architect" },
+        context: { type: "string", description: "Additional context (e.g., researcher output)" },
+        kjHome: { type: "string" }
+      }
+    }
   }
 ];
