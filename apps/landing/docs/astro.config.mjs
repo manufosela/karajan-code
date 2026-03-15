@@ -22,7 +22,7 @@ export default defineConfig({
 				},
 				{
 					tag: 'script',
-					content: `document.addEventListener('DOMContentLoaded',()=>{const f=document.querySelector('footer.sl-flex');if(f){const p=document.createElement('p');p.style.cssText='margin-top:1rem;text-align:center;';p.innerHTML='<a href="https://librecounter.org/referer/show" target="_blank"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" /></a>';f.appendChild(p);}});`,
+					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';const f=document.querySelector('footer.sl-flex');if(f){const p=document.createElement('p');p.style.cssText='margin-top:1rem;text-align:center;';p.innerHTML='<a href="https://librecounter.org/referer/show" target="_blank"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" /></a>';f.appendChild(p);}});`,
 				},
 			],
 			logo: {
