@@ -361,11 +361,18 @@ Quality is enforced at multiple layers:
 
 Both SonarQube and SonarCloud can run together in the same pipeline — SonarQube as the primary gate and SonarCloud as an additional lens.
 
-## Best with MCP
+## Two Modes
 
-Karajan Code is designed to be used as an **MCP server** inside your AI agent (Claude, Codex, etc.). The agent sends tasks to `kj_run`, gets real-time progress notifications, and receives structured results — no copy-pasting needed.
+Karajan offers two ways to work:
+
+**Skills mode** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) installed directly in Claude Code. Each command includes built-in guardrails. No MCP server needed — ideal for single-agent workflows. Install with `kj init`.
+
+**Orchestrator mode** — Full MCP server with 18 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
+
+Both modes can coexist. Use skills for quick tasks and the orchestrator when you need multiple agents or full pipeline control. See the [Skills Guide](/docs/guides/skills/) for details.
 
 ## Next Steps
 
 - [Installation](/docs/getting-started/installation/) — Install Karajan Code
 - [Quick Start](/docs/getting-started/quick-start/) — Run your first task
+- [Skills Mode](/docs/guides/skills/) — Use as slash commands

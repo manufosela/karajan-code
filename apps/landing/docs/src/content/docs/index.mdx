@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 13 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.22.0 — Role-based AI orchestrator: 13 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.23.0 — Role-based AI orchestrator: 13 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -77,7 +77,10 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Host-as-Coder" icon="laptop">
     When the MCP host is the same agent as the coder (e.g., Claude calling kj_run with coder=claude), Karajan delegates directly — no subprocess, no overhead. All guardrails still apply.
   </Card>
-  <Card title="1575+ Automated Tests" icon="approve-check">
+  <Card title="Skills Mode" icon="open-book">
+    8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) with built-in guardrails. No MCP needed — works directly in Claude Code.
+  </Card>
+  <Card title="1577+ Automated Tests" icon="approve-check">
     130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Zero API Costs" icon="star">

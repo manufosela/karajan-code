@@ -42,6 +42,7 @@ export default defineConfig({
 						{ label: 'Pipeline', slug: 'guides/pipeline' },
 						{ label: 'Pipeline Flows', slug: 'guides/flows', translations: { es: 'Flujos del Pipeline' } },
 						{ label: 'MCP Server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
+						{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
 						{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 						{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
 					],
