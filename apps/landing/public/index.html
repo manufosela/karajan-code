@@ -472,6 +472,126 @@
     .footer-counter { margin-top: 1rem; }
     .features-cta { text-align: center; margin-top: 2.5rem; }
 
+    /* --- SETUP SECTION --- */
+    .setup-section {
+      padding: 2rem 2rem 6rem;
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .setup-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 0;
+    }
+
+    .setup-tab {
+      padding: 0.6rem 1.4rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .setup-tab:first-child { border-radius: 8px 0 0 0; }
+    .setup-tab:last-child { border-radius: 0 8px 0 0; }
+    .setup-tab.active {
+      background: var(--bg-card);
+      color: var(--text);
+      border-color: var(--accent-indigo);
+      border-bottom-color: var(--bg-card);
+    }
+    .setup-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: -2px; }
+
+    .setup-panel {
+      display: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 0 0 12px 12px;
+      padding: 2rem;
+      text-align: left;
+    }
+    .setup-panel.active { display: block; }
+
+    .setup-subtabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+      flex-wrap: wrap;
+    }
+
+    .setup-subtab {
+      padding: 0.35rem 0.9rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .setup-subtab.active {
+      background: rgba(99,102,241,0.15);
+      border-color: var(--accent-indigo);
+      color: var(--accent-indigo);
+    }
+    .setup-subtab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+
+    .setup-subpanel { display: none; }
+    .setup-subpanel.active { display: block; }
+
+    .setup-code {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: var(--text-muted);
+      position: relative;
+      white-space: pre;
+    }
+
+    .setup-code .key { color: var(--accent-teal); }
+    .setup-code .str { color: var(--accent-amber); }
+    .setup-code .cmt { color: var(--text-dim); }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      padding: 0.3rem 0.7rem;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 4px;
+      color: var(--accent-indigo);
+      font-family: var(--font);
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: rgba(99,102,241,0.25); }
+    .copy-btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+
+    .setup-note {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      margin-top: 0.8rem;
+      line-height: 1.5;
+    }
+    .setup-note a { color: var(--accent-indigo); text-decoration: none; }
+    .setup-note a:hover { color: var(--accent-teal); }
+
     /* --- RESPONSIVE --- */
     @media (max-width: 640px) {
       .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
@@ -711,6 +831,126 @@
     </div>
   </section>
 
+  <!-- SETUP -->
+  <section class="setup-section fade-in">
+    <h2 class="section-title">Set Up</h2>
+    <p class="section-sub">Install the CLI, connect the MCP server, or add skills to your AI agent. Mix and match.</p>
+
+    <div class="setup-tabs" role="tablist">
+      <button class="setup-tab active" role="tab" aria-selected="true" onclick="showTab('cli',this)">CLI</button>
+      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('mcp',this)">MCP</button>
+      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('skills',this)">Skills</button>
+    </div>
+
+    <!-- CLI -->
+    <div id="tab-cli" class="setup-panel active">
+      <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Install globally</span>
+npm install -g karajan-code
+
+<span class="cmt"># Interactive setup (agents, SonarQube, methodology)</span>
+kj init</div>
+      <p class="setup-note">Requires Node.js &ge; 18. Auto-detects installed AI agents (Claude, Codex, Gemini, Aider, OpenCode).</p>
+    </div>
+
+    <!-- MCP -->
+    <div id="tab-mcp" class="setup-panel">
+      <div class="setup-subtabs" role="tablist">
+        <button class="setup-subtab active" onclick="showSubtab('mcp','claude-mcp',this)">Claude</button>
+        <button class="setup-subtab" onclick="showSubtab('mcp','codex-mcp',this)">Codex</button>
+        <button class="setup-subtab" onclick="showSubtab('mcp','generic-mcp',this)">Generic</button>
+      </div>
+      <div id="mcp-claude-mcp" class="setup-subpanel active">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt">// Add to ~/.claude.json → "mcpServers"</span>
+{
+  <span class="key">"karajan-mcp"</span>: {
+    <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
+  }
+}</div>
+        <p class="setup-note">Auto-registered by <code>npm install -g karajan-code</code>. Manual config only needed if auto-registration failed.</p>
+      </div>
+      <div id="mcp-codex-mcp" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>codex mcp add karajan-mcp -- karajan-mcp</div>
+        <p class="setup-note">Auto-registered by <code>npm install -g karajan-code</code>. Run this only if <code>codex mcp list</code> doesn't show karajan-mcp.</p>
+      </div>
+      <div id="mcp-generic-mcp" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt">// Add to your MCP host config</span>
+{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"karajan-mcp"</span>: {
+      <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
+    }
+  }
+}</div>
+        <p class="setup-note">Works with any <a href="https://modelcontextprotocol.io">MCP-compatible</a> host. The server exposes 18 tools.</p>
+      </div>
+    </div>
+
+    <!-- SKILLS -->
+    <div id="tab-skills" class="setup-panel">
+      <div class="setup-subtabs" role="tablist">
+        <button class="setup-subtab active" onclick="showSubtab('skills','claude-sk',this)">Claude Code</button>
+        <button class="setup-subtab" onclick="showSubtab('skills','codex-sk',this)">Codex</button>
+        <button class="setup-subtab" onclick="showSubtab('skills','gemini-sk',this)">Gemini</button>
+        <button class="setup-subtab" onclick="showSubtab('skills','aider-sk',this)">Aider</button>
+      </div>
+      <div id="skills-claude-sk" class="setup-subpanel active">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Install as slash commands (via kj init)</span>
+kj init  <span class="cmt"># Select "Install skills" when prompted</span>
+
+<span class="cmt"># Or manually</span>
+mkdir -p .claude/commands
+cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
+
+<span class="cmt"># Use: /kj-run "Fix the login bug"</span>
+<span class="cmt"># Available: /kj-run /kj-code /kj-review /kj-test</span>
+<span class="cmt">#            /kj-security /kj-discover /kj-architect /kj-sonar</span></div>
+        <p class="setup-note">Skills install as native Claude Code slash commands. No MCP needed &mdash; works offline.</p>
+      </div>
+      <div id="skills-codex-sk" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
+mkdir -p .karajan/skills
+cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+
+<span class="cmt"># Use with Codex (full-auto mode)</span>
+TASK="Fix the login bug"
+SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
+codex -q --full-auto -p "$SKILL"
+
+<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
+<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
+        <p class="setup-note">Codex doesn't have slash commands, but you can feed skill prompts via <code>-p</code>. Use <code>--full-auto</code> for unattended execution.</p>
+      </div>
+      <div id="skills-gemini-sk" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
+mkdir -p .karajan/skills
+cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+
+<span class="cmt"># Use with Gemini CLI</span>
+TASK="Fix the login bug"
+SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
+gemini -p "$SKILL"
+
+<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
+<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
+        <p class="setup-note">Gemini CLI accepts prompts via <code>-p</code>. The skill prompts are AI-agnostic &mdash; they work with any CLI agent.</p>
+      </div>
+      <div id="skills-aider-sk" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
+mkdir -p .karajan/skills
+cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+
+<span class="cmt"># Use with Aider</span>
+TASK="Fix the login bug"
+SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
+aider --yes --message "$SKILL"
+
+<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
+<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
+        <p class="setup-note">Aider uses <code>--message</code> for non-interactive mode. Add <code>--yes</code> to auto-approve file changes.</p>
+      </div>
+    </div>
+  </section>
+
   </main>
 
   <!-- FOOTER -->
@@ -761,6 +1001,35 @@
       document.execCommand('copy');
       document.body.removeChild(ta);
       cb();
+    }
+
+    // Setup tabs
+    function showTab(id, btn) {
+      document.querySelectorAll('.setup-panel').forEach(function(p) { p.classList.remove('active'); });
+      document.querySelectorAll('.setup-tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      document.getElementById('tab-' + id).classList.add('active');
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+    }
+    function showSubtab(group, id, btn) {
+      var panel = btn.closest('.setup-panel');
+      panel.querySelectorAll('.setup-subpanel').forEach(function(p) { p.classList.remove('active'); });
+      panel.querySelectorAll('.setup-subtab').forEach(function(t) { t.classList.remove('active'); });
+      document.getElementById(group + '-' + id).classList.add('active');
+      btn.classList.add('active');
+    }
+    function copyBlock(btn) {
+      var code = btn.parentElement.textContent.replace('Copy', '').trim();
+      // Strip HTML-rendered comments markers
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(function() { showCopied(btn); }).catch(function() { fallbackCopy(code, function() { showCopied(btn); }); });
+        } else { fallbackCopy(code, function() { showCopied(btn); }); }
+      } catch(e) { fallbackCopy(code, function() { showCopied(btn); }); }
+    }
+    function showCopied(btn) {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
     }
 
     // Fade-in on scroll
