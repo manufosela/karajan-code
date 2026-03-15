@@ -1,4 +1,6 @@
 :root {
+	--sl-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
 	--sl-color-accent-low: #1a1040;
 	--sl-color-accent: #7c3aed;
 	--sl-color-accent-high: #c4b5fd;

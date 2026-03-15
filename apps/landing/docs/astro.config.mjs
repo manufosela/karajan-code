@@ -9,6 +9,18 @@ export default defineConfig({
 			title: 'Karajan Code',
 			head: [
 				{
+					tag: 'link',
+					attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+				},
+				{
+					tag: 'link',
+					attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: true },
+				},
+				{
+					tag: 'link',
+					attrs: { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap' },
+				},
+				{
 					tag: 'script',
 					content: `document.addEventListener('DOMContentLoaded',()=>{const f=document.querySelector('footer.sl-flex');if(f){const p=document.createElement('p');p.style.cssText='margin-top:1rem;text-align:center;';p.innerHTML='<a href="https://librecounter.org/referer/show" target="_blank"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" /></a>';f.appendChild(p);}});`,
 				},
