@@ -8,7 +8,8 @@ const DEFAULT_RULES = {
   max_stale_iterations: 3,
   no_new_dependencies_without_task: true,
   scope_guard: true,
-  reviewer_overreach: true
+  reviewer_overreach: true,
+  reviewer_style_block: true
 };
 
 export function evaluateRules(context, rulesConfig = {}) {
@@ -71,6 +72,25 @@ export function evaluateRules(context, rulesConfig = {}) {
     });
   }
 
+  // Rule 6: Reviewer style-only block — all blocking issues are style/naming/formatting, not security/correctness
+  if (rules.reviewer_style_block && context.blockingIssues?.length > 0) {
+    const styleKeywords = /\b(naming|name|rename|style|format|formatting|indent|spacing|camelCase|snake_case|convention|cosmetic|readability|comment|jsdoc|documentation|whitespace|semicolon|quotes|trailing)\b/i;
+    const styleSeverities = new Set(["low", "minor"]);
+    const allStyle = context.blockingIssues.every(issue => {
+      const desc = issue.description || "";
+      const sev = (issue.severity || "").toLowerCase();
+      return styleSeverities.has(sev) || styleKeywords.test(desc);
+    });
+    if (allStyle) {
+      alerts.push({
+        rule: "reviewer_style_block",
+        severity: "critical",
+        message: `Reviewer blocked on ${context.blockingIssues.length} style-only issue(s). Style preferences should not block approval — escalating to Solomon mediation.`,
+        detail: { issueCount: context.blockingIssues.length, issues: context.blockingIssues.map(i => i.description) }
+      });
+    }
+  }
+
   return {
     alerts,
     hasCritical: alerts.some(a => a.severity === "critical"),
@@ -81,7 +101,7 @@ export function evaluateRules(context, rulesConfig = {}) {
 /**
  * Build context for rules evaluation from git diff and session state.
  */
-export async function buildRulesContext({ session, task, iteration }) {
+export async function buildRulesContext({ session, task, iteration, blockingIssues }) {
   const context = {
     task,
     iteration,
@@ -90,7 +110,8 @@ export async function buildRulesContext({ session, task, iteration }) {
     newDependencies: [],
     outOfScopeFiles: [],
     reviewerDemotedCount: 0,
-    reviewerAutoApproved: false
+    reviewerAutoApproved: false,
+    blockingIssues: blockingIssues || []
   };
 
   // Count reviewer scope-filter demotions from session checkpoints

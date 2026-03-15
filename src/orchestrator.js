@@ -534,12 +534,12 @@ async function handleBecariaEarlyPrOrPush({ becariaEnabled, config, session, emi
   }
 }
 
-async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, becariaEnabled }) {
+async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, becariaEnabled, blockingIssues }) {
   if (config.pipeline?.solomon?.enabled === false) return { action: "continue" };
 
   try {
     const { evaluateRules, buildRulesContext } = await import("./orchestrator/solomon-rules.js");
-    const rulesContext = await buildRulesContext({ session, task, iteration: i });
+    const rulesContext = await buildRulesContext({ session, task, iteration: i, blockingIssues });
     const rulesResult = evaluateRules(rulesContext, config.solomon?.rules);
 
     if (rulesResult.alerts.length > 0) {
@@ -1100,7 +1100,7 @@ async function runSingleIteration(ctx) {
   }));
   session.standby_retry_count = 0;
 
-  const solomonResult = await handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, becariaEnabled });
+  const solomonResult = await handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, becariaEnabled, blockingIssues: review?.blocking_issues });
   if (solomonResult.action === "pause") return { action: "return", result: solomonResult.result };
 
   await handleBecariaReviewDispatch({ becariaEnabled, config, session, review, i, logger });
