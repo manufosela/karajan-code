@@ -204,6 +204,56 @@ async function scaffoldBecariaGateway(config, flags, logger) {
   logger.info("  4. Push the workflow files and enable 'kj run --enable-becaria'");
 }
 
+async function installSkills(logger, interactive) {
+  const projectDir = process.cwd();
+  const commandsDir = path.join(projectDir, ".claude", "commands");
+  const skillsTemplateDir = path.resolve(import.meta.dirname, "../../templates/skills");
+
+  let doInstall = true;
+  if (interactive) {
+    const wizard = createWizard();
+    try {
+      doInstall = await wizard.confirm("Install Karajan skills as slash commands (/kj-code, /kj-review, etc.)?", true);
+    } finally {
+      wizard.close();
+    }
+  }
+
+  if (!doInstall) {
+    logger.info("Skills installation skipped.");
+    return;
+  }
+
+  await ensureDir(commandsDir);
+
+  let installed = 0;
+  try {
+    const files = await fs.readdir(skillsTemplateDir);
+    for (const file of files) {
+      if (!file.endsWith(".md")) continue;
+      const src = path.join(skillsTemplateDir, file);
+      const dest = path.join(commandsDir, file);
+      if (await exists(dest)) {
+        logger.info(`  ${file} already exists — skipping`);
+        continue;
+      }
+      const content = await fs.readFile(src, "utf8");
+      await fs.writeFile(dest, content, "utf8");
+      installed += 1;
+    }
+  } catch (err) {
+    logger.warn(`Could not install skills: ${err.message}`);
+    return;
+  }
+
+  if (installed > 0) {
+    logger.info(`Installed ${installed} Karajan skill(s) in .claude/commands/`);
+    logger.info("Available as slash commands: /kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar");
+  } else {
+    logger.info("All skills already installed.");
+  }
+}
+
 export async function initCommand({ logger, flags = {} }) {
   const karajanHome = getKarajanHome();
   await ensureDir(karajanHome);
@@ -219,6 +269,7 @@ export async function initCommand({ logger, flags = {} }) {
   await handleConfigSetup({ config, configExists, interactive, configPath, logger });
   await ensureReviewRules(reviewRulesPath, logger);
   await ensureCoderRules(coderRulesPath, logger);
+  await installSkills(logger, interactive);
   await setupSonarQube(config, logger);
   await scaffoldBecariaGateway(config, flags, logger);
 }
