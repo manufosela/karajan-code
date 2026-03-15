@@ -1,48 +1,72 @@
 /**
  * Automatic cleanup of expired sessions.
- * Removes session directories older than session.expiry_days (default: 30).
+ *
+ * Policy (by status):
+ * - failed / stopped: removed after 1 day
+ * - approved: removed after 7 days
+ * - running (stale): marked failed + removed after 1 day (crash without cleanup)
+ * - paused: kept (user may want to resume)
+ *
+ * Runs automatically at the start of every kj_run (best-effort, non-blocking).
  */
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getSessionRoot } from "./utils/paths.js";
 
-const DEFAULT_EXPIRY_DAYS = 30;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-async function tryRemoveOrphan({ sessionDir, dirName, cutoff, removed, errors, logger }) {
-  const stat = await fs.stat(sessionDir).catch(() => null);
-  if (!stat || stat.mtimeMs >= cutoff) return;
+const POLICY = {
+  failed:   { expiryMs: ONE_DAY_MS },
+  stopped:  { expiryMs: ONE_DAY_MS },
+  running:  { expiryMs: ONE_DAY_MS },   // stale — crashed without marking failed
+  approved: { expiryMs: 7 * ONE_DAY_MS },
+  paused:   null                          // never auto-delete
+};
+
+function shouldRemove(session) {
+  const status = session.status || "unknown";
+  const policy = POLICY[status];
+  if (!policy) return false;
+
+  const updatedAt = new Date(session.updated_at || session.created_at).getTime();
+  return Date.now() - updatedAt > policy.expiryMs;
+}
+
+async function tryCleanupSession({ sessionDir, dirName, removed, errors, logger }) {
+  const sessionFile = path.join(sessionDir, "session.json");
+  let session;
+  try {
+    const raw = await fs.readFile(sessionFile, "utf8");
+    session = JSON.parse(raw);
+  } catch {
+    // Orphan dir without valid session.json — remove if older than 1 day
+    const stat = await fs.stat(sessionDir).catch(() => null);
+    if (stat && Date.now() - stat.mtimeMs > ONE_DAY_MS) {
+      try {
+        await fs.rm(sessionDir, { recursive: true, force: true });
+        removed.push(dirName);
+        logger?.debug?.(`Orphan session dir removed: ${dirName}`);
+      } catch (err) {
+        errors.push({ session: dirName, error: err.message });
+      }
+    }
+    return;
+  }
+
+  if (!shouldRemove(session)) return;
+
   try {
     await fs.rm(sessionDir, { recursive: true, force: true });
     removed.push(dirName);
-    logger?.debug?.(`Orphan session dir removed: ${dirName}`);
-  } catch (error_) {
-    errors.push({ session: dirName, error: error_.message });
+    logger?.debug?.(`Session cleaned up: ${dirName} (status: ${session.status})`);
+  } catch (err) {
+    errors.push({ session: dirName, error: err.message });
   }
 }
 
-async function tryCleanupSession({ sessionDir, dirName, cutoff, removed, errors, logger }) {
-  const sessionFile = path.join(sessionDir, "session.json");
-  try {
-    const raw = await fs.readFile(sessionFile, "utf8");
-    const session = JSON.parse(raw);
-    const updatedAt = new Date(session.updated_at || session.created_at).getTime();
-    if (updatedAt < cutoff) {
-      await fs.rm(sessionDir, { recursive: true, force: true });
-      removed.push(dirName);
-      logger?.debug?.(`Session expired and removed: ${dirName}`);
-    }
-  } catch {
-    await tryRemoveOrphan({ sessionDir, dirName, cutoff, removed, errors, logger });
-  }
-}
-
-export async function cleanupExpiredSessions({ config, logger } = {}) {
-  const expiryDays = config?.session?.expiry_days ?? DEFAULT_EXPIRY_DAYS;
-  if (expiryDays <= 0) return { removed: 0, errors: [] };
-
+export async function cleanupExpiredSessions({ logger } = {}) {
   const sessionRoot = getSessionRoot();
-  const cutoff = Date.now() - expiryDays * 24 * 60 * 60 * 1000;
 
   let entries;
   try {
@@ -57,7 +81,7 @@ export async function cleanupExpiredSessions({ config, logger } = {}) {
 
   for (const dir of dirs) {
     const sessionDir = path.join(sessionRoot, dir.name);
-    await tryCleanupSession({ sessionDir, dirName: dir.name, cutoff, removed, errors, logger });
+    await tryCleanupSession({ sessionDir, dirName: dir.name, removed, errors, logger });
   }
 
   if (removed.length > 0) {

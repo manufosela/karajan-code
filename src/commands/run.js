@@ -7,6 +7,12 @@ import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
 
 export async function runCommandHandler({ task, config, logger, flags }) {
+  // Best-effort session cleanup before starting
+  try {
+    const { cleanupExpiredSessions } = await import("../session-cleanup.js");
+    await cleanupExpiredSessions({ logger });
+  } catch { /* non-blocking */ }
+
   const requiredProviders = [
     resolveRole(config, "coder").provider,
     config.reviewer_options?.fallback_reviewer

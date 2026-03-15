@@ -239,6 +239,12 @@ export async function handleRunDirect(a, server, extra) {
   await assertNotOnBaseBranch(config);
   const logger = createLogger(config.output.log_level, "mcp");
 
+  // Best-effort session cleanup before starting
+  try {
+    const { cleanupExpiredSessions } = await import("../session-cleanup.js");
+    await cleanupExpiredSessions({ logger });
+  } catch { /* non-blocking */ }
+
   const requiredProviders = [
     resolveRole(config, "coder").provider,
     config.reviewer_options?.fallback_reviewer
