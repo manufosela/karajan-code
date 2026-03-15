@@ -42,6 +42,7 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   normalizeBoolFlag(options.enableResearcher, "--enable-researcher", args);
   normalizeBoolFlag(options.enableTester, "--enable-tester", args);
   normalizeBoolFlag(options.enableSecurity, "--enable-security", args);
+  normalizeBoolFlag(options.enableImpeccable, "--enable-impeccable", args);
   normalizeBoolFlag(options.enableTriage, "--enable-triage", args);
   normalizeBoolFlag(options.enableDiscover, "--enable-discover", args);
   normalizeBoolFlag(options.enableArchitect, "--enable-architect", args);

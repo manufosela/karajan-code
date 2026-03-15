@@ -16,6 +16,7 @@ const DEFAULTS = {
     researcher: { provider: null, model: null },
     tester: { provider: null, model: null },
     security: { provider: null, model: null },
+    impeccable: { provider: null, model: null },
     triage: { provider: null, model: null },
     discover: { provider: null, model: null },
     architect: { provider: null, model: null }
@@ -27,6 +28,7 @@ const DEFAULTS = {
     researcher: { enabled: false },
     tester: { enabled: true },
     security: { enabled: true },
+    impeccable: { enabled: false },
     triage: { enabled: true },
     discover: { enabled: false },
     architect: { enabled: false }
@@ -276,7 +278,7 @@ const ROLE_MODEL_FLAGS = [
 const PIPELINE_ENABLE_FLAGS = [
   ["enablePlanner", "planner"], ["enableRefactorer", "refactorer"],
   ["enableSolomon", "solomon"], ["enableResearcher", "researcher"],
-  ["enableTester", "tester"], ["enableSecurity", "security"],
+  ["enableTester", "tester"], ["enableSecurity", "security"], ["enableImpeccable", "impeccable"],
   ["enableTriage", "triage"], ["enableDiscover", "discover"],
   ["enableArchitect", "architect"]
 ];
@@ -408,14 +410,14 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage" || role === "discover" || role === "architect")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
   let model = roleConfig.model ?? null;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "triage" || role === "discover" || role === "architect")) {
+  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect")) {
     model = config?.coder_options?.model ?? null;
   }
 
@@ -426,7 +428,7 @@ export function resolveRole(config, role) {
 const RUN_PIPELINE_ROLES = [
   ["reviewer", "reviewer"], ["triage", "triage"], ["planner", "planner"],
   ["refactorer", "refactorer"], ["researcher", "researcher"],
-  ["tester", "tester"], ["security", "security"]
+  ["tester", "tester"], ["security", "security"], ["impeccable", "impeccable"]
 ];
 
 // Direct command-to-role mapping for non-"run" commands

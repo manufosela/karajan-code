@@ -1,5 +1,6 @@
 import { TesterRole } from "../roles/tester-role.js";
 import { SecurityRole } from "../roles/security-role.js";
+import { ImpeccableRole } from "../roles/impeccable-role.js";
 import { addCheckpoint, saveSession } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
@@ -162,4 +163,54 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
 
   session.security_retry_count = 0;
   return { action: "ok", stageResult: { ok: true, summary: securityOutput.summary || "No vulnerabilities found" } };
+}
+
+export async function runImpeccableStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff }) {
+  logger.setContext({ iteration, stage: "impeccable" });
+  emitProgress(
+    emitter,
+    makeEvent("impeccable:start", { ...eventBase, stage: "impeccable" }, {
+      message: "Impeccable auditing frontend design quality"
+    })
+  );
+
+  const impeccable = new ImpeccableRole({ config, logger, emitter });
+  await impeccable.init({ task, iteration });
+  const impeccableStart = Date.now();
+  let impeccableOutput;
+  try {
+    impeccableOutput = await impeccable.run({ task, diff });
+  } catch (err) {
+    logger.warn(`Impeccable threw: ${err.message}`);
+    impeccableOutput = { ok: false, summary: `Impeccable error: ${err.message}`, result: { error: err.message } };
+  }
+  trackBudget({
+    role: "impeccable",
+    provider: config?.roles?.impeccable?.provider || coderRole.provider,
+    model: config?.roles?.impeccable?.model || coderRole.model,
+    result: impeccableOutput,
+    duration_ms: Date.now() - impeccableStart
+  });
+
+  await addCheckpoint(session, {
+    stage: "impeccable",
+    iteration,
+    ok: impeccableOutput.ok,
+    provider: config?.roles?.impeccable?.provider || coderRole.provider,
+    model: config?.roles?.impeccable?.model || coderRole.model || null
+  });
+
+  const verdict = impeccableOutput.result?.verdict || "APPROVED";
+  emitProgress(
+    emitter,
+    makeEvent("impeccable:end", { ...eventBase, stage: "impeccable" }, {
+      status: impeccableOutput.ok ? "ok" : "fail",
+      message: impeccableOutput.ok
+        ? (verdict === "IMPROVED" ? "Impeccable applied design fixes" : "Impeccable audit passed")
+        : `Impeccable: ${impeccableOutput.summary}`
+    })
+  );
+
+  // Impeccable is advisory — failures do not block the pipeline
+  return { action: "ok", stageResult: { ok: impeccableOutput.ok, verdict, summary: impeccableOutput.summary || "No frontend design issues found" } };
 }

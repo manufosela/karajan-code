@@ -9,7 +9,7 @@ Return a single valid JSON object and nothing else:
 {
   "level": "trivial|simple|medium|complex",
   "taskType": "sw|infra|doc|add-tests|refactor",
-  "roles": ["planner", "researcher", "refactorer", "reviewer", "tester", "security"],
+  "roles": ["planner", "researcher", "refactorer", "reviewer", "tester", "security", "impeccable"],
   "reasoning": "brief practical justification",
   "shouldDecompose": false,
   "subtasks": []
@@ -40,6 +40,13 @@ Analyze whether the task is too large for a single agent iteration. Set `shouldD
 When `shouldDecompose` is true, provide `subtasks`: an array of 2-5 short strings, each describing one focused, independently deliverable piece of work. Order them by dependency (do first → do last).
 
 When `shouldDecompose` is false, `subtasks` must be an empty array.
+
+## Frontend detection
+If the task involves frontend/UI work, include `"impeccable"` in `roles`. Detect frontend tasks by:
+- **File extensions**: .html, .css, .astro, .jsx, .tsx, .vue, .svelte
+- **Keywords in description**: UI, landing, component, responsive, accessibility, a11y, frontend, design, layout, styling, dark mode, animation, CSS, HTML
+
+The `impeccable` role audits and fixes frontend design quality (a11y, performance, theming, responsive, anti-patterns).
 
 ## Rules
 - Keep `reasoning` short.

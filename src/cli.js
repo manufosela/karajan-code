@@ -75,6 +75,7 @@ program
   .option("--enable-researcher")
   .option("--enable-tester")
   .option("--enable-security")
+  .option("--enable-impeccable")
   .option("--enable-triage")
   .option("--enable-discover")
   .option("--enable-architect")

@@ -11,7 +11,7 @@ import { parsePlannerOutput } from "../prompts/planner.js";
 import { selectModelsForRoles } from "../utils/model-selector.js";
 import { createStallDetector } from "../utils/stall-detector.js";
 
-const ROLE_NAMES = ["planner", "researcher", "architect", "refactorer", "reviewer", "tester", "security"];
+const ROLE_NAMES = ["planner", "researcher", "architect", "refactorer", "reviewer", "tester", "security", "impeccable"];
 
 function buildRoleOverrides(recommendedRoles, pipelineConfig) {
   const overrides = {};

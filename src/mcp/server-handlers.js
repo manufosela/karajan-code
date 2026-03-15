@@ -843,7 +843,7 @@ async function handleRun(a, server, extra) {
   if (!isPreflightAcked()) {
     return buildPreflightRequiredResponse("kj_run");
   }
-  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity"]);
+  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
   return handleRunDirect(a, server, extra);
 }
 

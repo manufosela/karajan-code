@@ -4,7 +4,7 @@ import { buildTriagePrompt } from "../prompts/triage.js";
 import { VALID_TASK_TYPES } from "../guards/policy-resolver.js";
 
 const VALID_LEVELS = new Set(["trivial", "simple", "medium", "complex"]);
-const VALID_ROLES = new Set(["planner", "researcher", "refactorer", "reviewer", "tester", "security"]);
+const VALID_ROLES = new Set(["planner", "researcher", "refactorer", "reviewer", "tester", "security", "impeccable"]);
 const FALLBACK_TASK_TYPE = "sw";
 
 function resolveProvider(config) {

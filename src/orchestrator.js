@@ -31,7 +31,7 @@ import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
-import { runTesterStage, runSecurityStage } from "./orchestrator/post-loop-stages.js";
+import { runTesterStage, runSecurityStage, runImpeccableStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
 
 
@@ -44,6 +44,7 @@ function resolvePipelineFlags(config) {
     researcherEnabled: Boolean(config.pipeline?.researcher?.enabled),
     testerEnabled: Boolean(config.pipeline?.tester?.enabled),
     securityEnabled: Boolean(config.pipeline?.security?.enabled),
+    impeccableEnabled: Boolean(config.pipeline?.impeccable?.enabled),
     reviewerEnabled: config.pipeline?.reviewer?.enabled !== false,
     discoverEnabled: Boolean(config.pipeline?.discover?.enabled),
     architectEnabled: Boolean(config.pipeline?.architect?.enabled),
@@ -51,7 +52,7 @@ function resolvePipelineFlags(config) {
 }
 
 async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
-  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, reviewerEnabled, discoverEnabled, architectEnabled } = pipelineFlags;
+  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, reviewerEnabled, discoverEnabled, architectEnabled } = pipelineFlags;
   const plannerRole = resolveRole(config, "planner");
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
@@ -84,6 +85,7 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
       researcher_enabled: researcherEnabled,
       tester_enabled: testerEnabled,
       security_enabled: securityEnabled,
+      impeccable_enabled: impeccableEnabled,
       solomon_enabled: Boolean(config.pipeline?.solomon?.enabled)
     },
     limits: {
@@ -203,7 +205,7 @@ async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
 }
 
 function applyTriageOverrides(pipelineFlags, roleOverrides) {
-  const keys = ["plannerEnabled", "researcherEnabled", "architectEnabled", "refactorerEnabled", "reviewerEnabled", "testerEnabled", "securityEnabled"];
+  const keys = ["plannerEnabled", "researcherEnabled", "architectEnabled", "refactorerEnabled", "reviewerEnabled", "testerEnabled", "securityEnabled", "impeccableEnabled"];
   for (const key of keys) {
     if (roleOverrides[key] !== undefined) {
       pipelineFlags[key] = roleOverrides[key];
@@ -271,6 +273,7 @@ function applyFlagOverrides(pipelineFlags, flags) {
   if (flags.enableReviewer !== undefined) pipelineFlags.reviewerEnabled = Boolean(flags.enableReviewer);
   if (flags.enableTester !== undefined) pipelineFlags.testerEnabled = Boolean(flags.enableTester);
   if (flags.enableSecurity !== undefined) pipelineFlags.securityEnabled = Boolean(flags.enableSecurity);
+  if (flags.enableImpeccable !== undefined) pipelineFlags.impeccableEnabled = Boolean(flags.enableImpeccable);
 }
 
 function resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags }) {
@@ -892,7 +895,7 @@ async function runGuardStages({ config, logger, emitter, eventBase, session, ite
   return { action: "ok" };
 }
 
-async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults }) {
+async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags }) {
   const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion });
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
@@ -916,6 +919,17 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
     });
     if (cloudResult.stageResult) {
       stageResults.sonarcloud = cloudResult.stageResult;
+    }
+  }
+
+  if (pipelineFlags?.impeccableEnabled) {
+    const diff = await generateDiff({ baseRef: session.session_start_sha });
+    const impeccableResult = await runImpeccableStage({
+      config, logger, emitter, eventBase, session, coderRole, trackBudget,
+      iteration: i, task, diff
+    });
+    if (impeccableResult.stageResult) {
+      stageResults.impeccable = impeccableResult.stageResult;
     }
   }
 
@@ -1071,7 +1085,7 @@ async function runSingleIteration(ctx) {
   const guardResult = await runGuardStages({ config, logger, emitter, eventBase, session, iteration: i });
   if (guardResult.action === "return") return guardResult;
 
-  const qgResult = await runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults });
+  const qgResult = await runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags });
   if (qgResult.action === "return" || qgResult.action === "continue") return qgResult;
 
   await handleBecariaEarlyPrOrPush({ becariaEnabled, config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i });

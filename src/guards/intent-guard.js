@@ -51,6 +51,16 @@ const INTENT_PATTERNS = [
     confidence: 0.9,
     message: "Trivial fix detected",
   },
+  // Frontend / UI tasks (sets hasFrontend flag for impeccable role activation)
+  {
+    id: "frontend-ui",
+    keywords: ["html", "css", "ui", "landing", "component", "responsive", "accessibility", "a11y", "frontend", "design", "layout", "styling", "dark mode", "animation"],
+    taskType: "sw",
+    level: "simple",
+    confidence: 0.8,
+    message: "Frontend/UI task detected",
+    hasFrontend: true,
+  },
 ];
 
 /**
@@ -106,7 +116,7 @@ export function classifyIntent(task, config = {}) {
     if (!matchesKeywords(task, pattern.keywords)) continue;
 
     if (pattern.confidence >= threshold) {
-      return {
+      const result = {
         classified: true,
         taskType: pattern.taskType,
         level: pattern.level,
@@ -114,6 +124,8 @@ export function classifyIntent(task, config = {}) {
         patternId: pattern.id,
         message: pattern.message,
       };
+      if (pattern.hasFrontend) result.hasFrontend = true;
+      return result;
     }
   }
 
