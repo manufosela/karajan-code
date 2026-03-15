@@ -94,6 +94,7 @@ El argumento `<task>` acepta:
 | `--enable-triage` | off | Habilitar clasificación de complejidad |
 | `--enable-reviewer` | on | Habilitar etapa de revisión |
 | `--enable-serena` | off | Habilitar integración Serena MCP |
+| `--enable-impeccable` | off | Habilitar auditoría de diseño Impeccable (quality gate automatizado de UI/UX) |
 
 ### Revisión y metodología
 

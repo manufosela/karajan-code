@@ -5,11 +5,11 @@ description: How the Karajan Code multi-agent pipeline works.
 
 ## Pipeline Overview
 
-Karajan orchestrates **13 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider) does it.
+Karajan orchestrates **14 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider) does it.
 
 ```
-intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → reviewer] → tester? → security? → commiter?
-                                                                       └─── iteration loop (1..N) ───────────────────────────┘
+intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → commiter?
+                                                                       └─── iteration loop (1..N) ──────────────────────────────────────┘
 ```
 
 ### Roles
@@ -24,6 +24,7 @@ intent? → discover? → triage → researcher? → architect? → planner? →
 | **coder** | Writes code and tests following TDD | **Always on** |
 | **refactorer** | Improves code clarity without changing behavior | Off |
 | **sonar** | Runs SonarQube static analysis and quality gates | On (if configured) |
+| **impeccable** | Automated UI/UX design audit — accessibility, performance, theming, responsive, anti-patterns | Off |
 | **reviewer** | Code review with configurable strictness profiles | **Always on** |
 | **tester** | Test quality gate and coverage verification | **On** |
 | **security** | OWASP security audit | **On** |

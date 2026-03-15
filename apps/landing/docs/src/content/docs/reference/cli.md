@@ -94,6 +94,7 @@ The `<task>` argument accepts:
 | `--enable-triage` | off | Enable task complexity classification |
 | `--enable-reviewer` | on | Enable reviewer stage |
 | `--enable-serena` | off | Enable Serena MCP integration |
+| `--enable-impeccable` | off | Enable Impeccable design audit (automated UI/UX quality gate) |
 
 ### Review and methodology
 

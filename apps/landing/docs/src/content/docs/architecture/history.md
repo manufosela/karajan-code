@@ -518,6 +518,44 @@ After v1.18.0:
 
 **Future: WebPerf Quality Gate** — The static perf guard is the first phase of a planned WebPerf quality gate. The second phase will integrate dynamic performance scanning using headless Chrome, inspired by [Joan León](https://joanleon.dev/)'s [WebPerf Snippets](https://webperf-snippets.nucliweb.net/) — a collection of performance measurement snippets for Core Web Vitals, resource loading, and runtime analysis. Joan is currently building a CLI tool for this; once available, it will be integrated as a post-loop performance scanner, complementing the static guard with real runtime metrics.
 
+## Phase 20: Impeccable Design Auditor (v1.24.0)
+
+**What changed:** Added an automated UI/UX quality gate that audits changed frontend files for design issues, and enhanced triage and intent classifier with frontend detection.
+
+**Key additions:**
+- **Impeccable role**: 14th configurable pipeline role — automated design auditor that checks changed frontend files for accessibility, performance, theming, responsive, and anti-pattern issues. Runs after SonarQube, before reviewer. Applies fixes automatically.
+- Frontend detection in triage: triage now identifies frontend tasks and auto-activates the impeccable role when appropriate
+- Frontend detection in intent classifier: deterministic keyword-based frontend classification without LLM cost
+- `enableImpeccable` config/CLI/MCP flag for explicit activation
+- `--enable-impeccable` CLI flag for `kj run`
+- `enableImpeccable` MCP parameter for `kj_run`
+- 1586 tests across 130 files
+
+**Architecture addition:**
+```
+Before v1.24.0:
+  [coder → refactorer? → guards → TDD → sonar? → reviewer]
+
+After v1.24.0:
+  [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer]
+
+  impeccable:
+    changed frontend files → audit for a11y, perf, theming, responsive, anti-patterns
+    → auto-fix issues → report remaining issues to reviewer
+```
+
+**Why:** SonarQube catches code quality issues but misses UI/UX design problems — wrong contrast ratios, missing aria attributes, non-responsive layouts, hardcoded colors instead of theme tokens, layout shifts from images without dimensions. The impeccable role fills this gap with a specialized design audit focused exclusively on frontend quality. It runs after SonarQube (which handles code quality) and before the reviewer (which handles logic and architecture), giving the reviewer a cleaner diff to focus on. Triage auto-activates it for frontend tasks so developers don't need to remember the flag.
+
+## Phase 20.1: Session Overrides & Solomon Style-Only Blocks (v1.24.1)
+
+**What changed:** Fixed two issues — session overrides lost on resume, and Solomon not detecting reviewer style-only blocks.
+
+**Key fixes:**
+- Session overrides (agent assignments, flags) are now preserved when resuming a session via `kj_resume`
+- Solomon Rule 6: detects when a reviewer is blocking exclusively on style/formatting issues (not logic or correctness) and auto-escalates to human review instead of stalling the pipeline
+
+**Why:** Session overrides set via `kj_preflight` were lost on resume, causing resumed sessions to revert to default config. Solomon's existing rules caught scope and overreach issues but missed a common stall pattern: reviewers blocking on style-only concerns (naming, formatting, comment style) that are subjective and unlikely to converge through automated iteration.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

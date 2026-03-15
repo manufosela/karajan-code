@@ -5,11 +5,11 @@ description: Cómo funciona el pipeline multi-agente de Karajan Code.
 
 ## Visión General del Pipeline
 
-Karajan orquesta **13 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
+Karajan orquesta **14 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
 
 ```
-intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → reviewer] → tester? → security? → commiter?
-                                                                       └─── bucle de iteración (1..N) ──────────────────────────┘
+intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → commiter?
+                                                                       └─── bucle de iteración (1..N) ─────────────────────────────────────┘
 ```
 
 ### Roles
@@ -24,6 +24,7 @@ intent? → discover? → triage → researcher? → architect? → planner? →
 | **coder** | Escribe código y tests siguiendo metodología TDD | **Siempre activo** |
 | **refactorer** | Mejora la claridad del código sin cambiar comportamiento | Off |
 | **sonar** | Ejecuta análisis estático SonarQube y quality gates | On (si configurado) |
+| **impeccable** | Auditoría automatizada de diseño UI/UX — accesibilidad, rendimiento, theming, responsive, anti-patrones | Off |
 | **reviewer** | Revisión de código con perfiles de exigencia configurables | **Siempre activo** |
 | **tester** | Quality gate de tests y verificación de cobertura | **On** |
 | **security** | Auditoría de seguridad OWASP | **On** |

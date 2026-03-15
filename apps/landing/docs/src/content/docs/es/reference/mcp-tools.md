@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 15 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 16 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -45,6 +45,7 @@ Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificacio
 | `pgProject` | string | No | `null` | ID de proyecto en Planning Game |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
+| `enableImpeccable` | boolean | No | `false` | Activar auditoría de diseño Impeccable (quality gate automatizado de UI/UX) |
 | `taskType` | string | No | `null` | Tipo de tarea para resolucion de politicas: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
 

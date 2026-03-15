@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Role-based AI orchestrator with 13 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
+description: Role-based AI orchestrator with 14 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.23.0 — Role-based AI orchestrator: 13 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.24.1 — Role-based AI orchestrator: 14 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -24,13 +24,13 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
 
 <CardGrid stagger>
   <Card title="Multi-Agent Pipeline" icon="rocket">
-    13 configurable roles: discover, triage, researcher, architect, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.
+    14 configurable roles: discover, triage, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter.
   </Card>
   <Card title="5 AI Agents" icon="laptop">
     Claude, Codex, Gemini, Aider, and OpenCode. Mix and match — use Claude as coder and Codex as reviewer, or any combination. Extensible via plugins.
   </Card>
   <Card title="MCP Server" icon="puzzle">
-    18 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
+    19 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
   </Card>
   <Card title="TDD Enforcement" icon="approve-check">
     Test changes required when source files change. The pipeline rejects iterations without matching tests.
@@ -65,6 +65,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Deterministic Guards" icon="warning">
     Output guard blocks destructive operations and credential leaks. Perf guard catches frontend anti-patterns. Intent classifier pre-triages obvious tasks without LLM cost. All configurable with custom patterns.
   </Card>
+  <Card title="Impeccable Design Audit" icon="approve-check">
+    Automated UI/UX quality gate. Audits changed frontend files for accessibility, performance, theming, responsive, and anti-pattern issues. Runs after SonarQube, applies fixes automatically.
+  </Card>
   <Card title="SonarQube + SonarCloud" icon="seti:config">
     Dual static analysis: SonarQube (local Docker, blocking quality gates) and SonarCloud (cloud, advisory). Both run together in the same pipeline.
   </Card>
@@ -80,7 +83,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Skills Mode" icon="open-book">
     8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) with built-in guardrails. No MCP needed — works directly in Claude Code.
   </Card>
-  <Card title="1577+ Automated Tests" icon="approve-check">
+  <Card title="1586+ Automated Tests" icon="approve-check">
     130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Zero API Costs" icon="star">

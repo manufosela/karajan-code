@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 15 Karajan Code MCP tools.
+description: Complete parameter reference for all 16 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -45,6 +45,7 @@ Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress
 | `pgProject` | string | No | `null` | Planning Game project ID |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 | `sonarToken` | string | No | From config | Override SonarQube token |
+| `enableImpeccable` | boolean | No | `false` | Enable Impeccable design audit (automated UI/UX quality gate) |
 | `taskType` | string | No | `null` | Task type for policy resolution: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
 
