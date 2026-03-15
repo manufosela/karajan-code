@@ -827,6 +827,7 @@ async function handleResume(a, server, extra) {
   if (!a.sessionId) {
     return failPayload("Missing required field: sessionId");
   }
+  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
   return handleResumeDirect(a, server, extra);
 }
 
