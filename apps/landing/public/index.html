@@ -16,6 +16,9 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
 
+  <link rel="alternate" hreflang="en" href="https://karajancode.com">
+  <link rel="alternate" hreflang="es" href="https://karajancode.com/docs/es/">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -41,6 +44,23 @@
     }
 
     html { scroll-behavior: smooth; }
+
+    /* --- SKIP LINK --- */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-purple);
+      color: #fff;
+      padding: 0.5rem 1.5rem;
+      border-radius: 0 0 8px 8px;
+      z-index: 100;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 0; }
 
     body {
       font-family: var(--font);
@@ -125,6 +145,7 @@
       background: linear-gradient(135deg, var(--accent-purple), var(--accent-indigo));
       color: #fff;
     }
+    .btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
     .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
 
     .btn-secondary {
@@ -149,7 +170,9 @@
       transition: border-color 0.2s;
       position: relative;
     }
-    .hero-install:hover { border-color: var(--accent-teal); }
+    .hero-install:hover,
+    .hero-install:focus-visible { border-color: var(--accent-teal); }
+    .hero-install:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
     .hero-install .prompt { color: var(--text-dim); user-select: none; }
     .hero-install .copy-hint {
       font-family: var(--font);
@@ -411,9 +434,6 @@
       font-family: var(--mono);
       font-size: 0.82rem;
       line-height: 1.8;
-      max-height: 520px;
-      overflow-y: auto;
-      scroll-behavior: smooth;
     }
 
     .terminal-body .prompt { color: var(--accent-teal); }
@@ -422,85 +442,6 @@
     .terminal-body .output { color: var(--text-muted); }
     .terminal-body .success { color: #34d399; }
     .terminal-body .role { color: var(--accent-purple); }
-
-    /* --- ANIMATED TERMINAL --- */
-    .terminal-body .term-line {
-      opacity: 0;
-      transform: translateX(-6px);
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .terminal-body .term-line.visible {
-      opacity: 1;
-      transform: translateX(0);
-      transition: opacity 0.35s ease, transform 0.35s ease;
-    }
-    .terminal-body .term-line.line-blank { height: 0.6em; }
-    .terminal-body .term-line .ts {
-      color: var(--text-dim);
-      font-size: 0.75em;
-    }
-    .terminal-body .term-line .sep {
-      color: var(--text-dim);
-    }
-    .terminal-body .term-line .banner {
-      color: var(--accent-teal);
-      font-weight: 500;
-    }
-    .terminal-body .term-line .label {
-      color: var(--text-muted);
-    }
-    .terminal-body .term-line .val {
-      color: var(--text);
-    }
-    .terminal-body .term-line .icon-pass { color: #34d399; }
-    .terminal-body .term-line .icon-fail { color: #f87171; }
-    .terminal-body .term-line .icon-warn { color: #fbbf24; }
-    .terminal-body .term-line .icon-info { color: var(--accent-blue); }
-    .terminal-body .term-line .detail {
-      color: var(--text-dim);
-      font-size: 0.78em;
-    }
-    .terminal-body .term-line .iter-header {
-      color: var(--text);
-      font-weight: 600;
-    }
-    .terminal-body .term-line.line-result {
-      margin-top: 0.3em;
-    }
-    .terminal-body .term-line.line-result .result-approved {
-      color: #34d399;
-      font-weight: 700;
-      text-shadow: 0 0 12px rgba(52,211,153,0.4);
-    }
-    .terminal-body .term-line .tree { color: var(--text-dim); }
-    .terminal-body .term-line .tdd-pass { color: #34d399; }
-    .terminal-body .term-line .sonar-ok { color: #34d399; }
-    .terminal-body .term-line .review-reject { color: #f87171; font-weight: 500; }
-    .terminal-body .term-line .review-approve { color: #34d399; font-weight: 500; }
-    .terminal-body .term-line .solomon-cond { color: #fbbf24; font-weight: 500; }
-    .terminal-body .term-line .summary-dim { color: var(--text-dim); font-size: 0.82em; }
-
-    @keyframes glowPulse {
-      0%, 100% { text-shadow: 0 0 8px rgba(52,211,153,0.3); }
-      50% { text-shadow: 0 0 20px rgba(52,211,153,0.6), 0 0 40px rgba(52,211,153,0.2); }
-    }
-    .term-line.line-result.visible .result-approved {
-      animation: glowPulse 2s ease-in-out infinite;
-    }
-
-    .terminal-body .cursor-blink {
-      display: inline-block;
-      width: 8px;
-      height: 1.1em;
-      background: var(--accent-teal);
-      vertical-align: text-bottom;
-      animation: blink 1s step-end infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
-    }
 
     /* --- FOOTER --- */
     footer {
@@ -516,7 +457,9 @@
       text-decoration: none;
       transition: color 0.2s;
     }
-    footer a:hover { color: var(--accent-teal); }
+    footer a:hover,
+    footer a:focus-visible { color: var(--accent-teal); }
+    footer a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     .footer-links {
       display: flex;
@@ -546,13 +489,24 @@
       opacity: 1;
       transform: translateY(0);
     }
+
+    /* --- REDUCED MOTION --- */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .fade-in { opacity: 1; transform: none; transition: none; }
+      .feature-card, .agent-card, .btn-primary { transition: none; }
+    }
   </style>
+  <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <main id="main-content">
 
   <!-- HERO -->
   <section class="hero">
-    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="160" height="180">
+    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="160" height="180" fetchpriority="high">
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command.</p>
     <div class="hero-actions">
@@ -560,11 +514,11 @@
       <a href="https://www.npmjs.com/package/karajan-code" class="btn btn-secondary">npm</a>
       <a href="/docs/" class="btn btn-secondary">Docs</a>
     </div>
-    <div class="hero-install" onclick="copyInstall(this)" role="button" tabindex="0">
-      <span class="prompt">$</span>
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Copy install command: npm install -g karajan-code">
+      <span class="prompt" aria-hidden="true">$</span>
       <span>npm install -g karajan-code</span>
-      <span class="copy-hint">click to copy</span>
-    </div>
+      <span class="copy-hint" aria-live="polite">click to copy</span>
+    </button>
   </section>
 
   <!-- PIPELINE -->
@@ -763,17 +717,26 @@
   </section>
 
   <!-- TERMINAL DEMO -->
-  <section class="demo-section fade-in" id="demo-terminal-section">
+  <section class="demo-section fade-in">
     <h2 class="section-title">One Command</h2>
     <p class="section-sub">That's all it takes. The pipeline does the rest.</p>
-    <div class="terminal" id="demo-terminal">
-      <div class="terminal-bar">
+    <div class="terminal" role="img" aria-label="Terminal showing: kj run with triage, coder, sonar, reviewer and tester stages all passing in 2 minutes 34 seconds">
+      <div class="terminal-bar" aria-hidden="true">
         <div class="terminal-dot r"></div>
         <div class="terminal-dot y"></div>
         <div class="terminal-dot g"></div>
       </div>
-      <div class="terminal-body" id="demo-terminal-body">
-        <!-- Lines injected by JS animation -->
+      <div class="terminal-body">
+        <div><span class="prompt">$</span> <span class="cmd">kj run "Fix SQL injection in search endpoint" --enable-triage</span></div>
+        <br>
+        <div><span class="role">[triage]</span> <span class="output">Complexity: medium &mdash; enabling coder, sonar, reviewer, tester</span></div>
+        <div><span class="role">[models]</span> <span class="output">coder&rarr;claude/sonnet, reviewer&rarr;codex/o4-mini</span></div>
+        <div><span class="role">[coder]</span> <span class="output">Writing parameterized queries and tests...</span></div>
+        <div><span class="role">[sonar]</span> <span class="output">Quality gate passed &mdash; 0 blockers, 0 critical</span></div>
+        <div><span class="role">[reviewer]</span> <span class="output">APPROVED &mdash; no issues found</span></div>
+        <div><span class="role">[tester]</span> <span class="output">14 tests passed, coverage 92%</span></div>
+        <br>
+        <div><span class="success">&#10004; Pipeline completed in 2m 34s (iteration 1/5)</span></div>
       </div>
     </div>
   </section>
@@ -814,6 +777,8 @@
     </div>
   </section>
 
+  </main>
+
   <!-- FOOTER -->
   <footer>
     <div class="footer-links">
@@ -825,19 +790,43 @@
     </div>
     <p>Karajan Code v1.23.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
     <p style="margin-top: 0.5rem;">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
-    <p style="margin-top: 1rem;"><a href="https://librecounter.org/referer/show" target="_blank"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" /></a></p>
+    <p style="margin-top: 1rem;"><a href="https://librecounter.org/referer/show" target="_blank" rel="noopener"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" width="80" height="15" loading="lazy" /></a></p>
   </footer>
 
   <script>
     function copyInstall(el) {
-      navigator.clipboard.writeText('npm install -g karajan-code').then(function() {
+      var text = 'npm install -g karajan-code';
+      var hint = el.querySelector('.copy-hint');
+      function onSuccess() {
         el.classList.add('copied');
-        el.querySelector('.copy-hint').textContent = 'copied!';
+        hint.textContent = 'copied!';
         setTimeout(function() {
           el.classList.remove('copied');
-          el.querySelector('.copy-hint').textContent = 'click to copy';
+          hint.textContent = 'click to copy';
         }, 2000);
-      });
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(onSuccess).catch(function() {
+            fallbackCopy(text, onSuccess);
+          });
+        } else {
+          fallbackCopy(text, onSuccess);
+        }
+      } catch (e) {
+        fallbackCopy(text, onSuccess);
+      }
+    }
+    function fallbackCopy(text, cb) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      cb();
     }
 
     // Fade-in on scroll
@@ -852,200 +841,6 @@
     document.querySelectorAll('.fade-in').forEach(function(el) {
       observer.observe(el);
     });
-
-    // --- Animated Terminal Demo ---
-    (function() {
-      var DEMO_LINES = [
-        { type: 'cmd', text: '$ kj run "Complete calculator module with TDD" --mode paranoid --coder claude --reviewer codex', delay: 0 },
-        { type: 'blank', delay: 600 },
-        { type: 'sep', text: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', delay: 200 },
-        { type: 'banner', text: '\u25b6 Karajan Code v1.35.0', delay: 150 },
-        { type: 'sep', text: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', delay: 150 },
-        { type: 'meta', label: 'Task:', val: 'Complete the calculator module with subtract, multiply, divide...', delay: 100 },
-        { type: 'meta', label: 'Coder:', val: 'claude | Reviewer: codex', delay: 80 },
-        { type: 'meta', label: 'Max iterations:', val: '3 | Timeout: 30min', delay: 80 },
-        { type: 'meta', label: 'Pipeline:', val: 'Planner | Researcher | Tester | Security | Solomon', delay: 80 },
-        { type: 'sep', text: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', delay: 200 },
-        { type: 'blank', delay: 300 },
-        { type: 'tree', icon: '\u2022', text: 'Triage classifying task complexity', ts: '[00:00]', cls: '', delay: 600 },
-        { type: 'tree', icon: '\u2022', text: 'Smart model selection applied', ts: '[06:40]', cls: '', delay: 800 },
-        { type: 'tree', icon: '\u2022', text: 'Triage completed', ts: '[06:40]', cls: '', delay: 200 },
-        { type: 'tree', icon: '\u2022', text: 'Preflight passed \u2014 all checks OK', ts: '[06:50]', cls: '', delay: 400 },
-        { type: 'tree', icon: '\ud83d\udd2c', text: 'Researcher investigating...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Researcher completed', ts: '[14:20]', cls: 'icon-pass', delay: 1200 },
-        { type: 'tree', icon: '\u2022', text: 'Architect designing solution', ts: '[14:20]', cls: '', delay: 400 },
-        { type: 'tree', icon: '\u2022', text: 'Architecture completed', ts: '[20:60]', cls: '', delay: 900 },
-        { type: 'tree', icon: '\ud83e\udde0', text: 'Planner running...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Planner completed', ts: '[28:30]', cls: 'icon-pass', delay: 1100 },
-        { type: 'blank', delay: 400 },
-        { type: 'iter', text: '\u25b6 Iteration 1/3', ts: '[28:30]', delay: 500 },
-        { type: 'tree', icon: '\ud83d\udd28', text: 'Coder (claude) running...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Coder completed', ts: '[33:30]', cls: 'icon-pass', delay: 900 },
-        { type: 'tree', icon: '\ud83d\udccb', text: 'TDD policy: <span class="tdd-pass">PASS</span> (1 src, 1 test)', ts: '', cls: '', delay: 300, raw: true },
-        { type: 'tree', icon: '\ud83d\udd0d', text: 'SonarQube scanning...', ts: '', cls: '', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Quality gate: <span class="sonar-ok">OK</span>', ts: '[38:50]', cls: 'icon-pass', delay: 800, raw: true },
-        { type: 'tree', icon: '\ud83d\udc41\ufe0f', text: 'Reviewer (codex) running...', ts: '', cls: 'icon-info', delay: 800 },
-        { type: 'treefail', icon: '\u274c', text: 'Review: <span class="review-reject">REJECTED</span> (1 blocking)', ts: '', cls: 'icon-fail', delay: 1200, raw: true },
-        { type: 'detail', text: '  Missing input validation for operands...', delay: 300 },
-        { type: 'treewarn', icon: '\u2696\ufe0f', text: 'Solomon: <span class="solomon-cond">2 conditions</span>', ts: '[51:40]', cls: 'icon-warn', delay: 800, raw: true },
-        { type: 'detail', text: '  Add numeric validation at top of each function...', delay: 300 },
-        { type: 'detail', text: '  Add tests for non-numeric inputs...', delay: 300 },
-        { type: 'blank', delay: 500 },
-        { type: 'iter', text: '\u25b6 Iteration 2/3', ts: '[53:00]', delay: 500 },
-        { type: 'tree', icon: '\ud83d\udd28', text: 'Coder (claude) running...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Coder completed', ts: '[63:30]', cls: 'icon-pass', delay: 1000 },
-        { type: 'tree', icon: '\ud83d\udccb', text: 'TDD policy: <span class="tdd-pass">PASS</span> (1 src, 1 test)', ts: '', cls: '', delay: 300, raw: true },
-        { type: 'tree', icon: '\ud83d\udd0d', text: 'SonarQube scanning...', ts: '', cls: '', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Quality gate: <span class="sonar-ok">OK</span>', ts: '[68:10]', cls: 'icon-pass', delay: 700, raw: true },
-        { type: 'tree', icon: '\ud83d\udc41\ufe0f', text: 'Reviewer (codex) running...', ts: '', cls: 'icon-info', delay: 800 },
-        { type: 'tree', icon: '\u2705', text: 'Review: <span class="review-approve">APPROVED</span>', ts: '[78:30]', cls: 'icon-pass', delay: 1200, raw: true },
-        { type: 'tree', icon: '\ud83e\uddea', text: 'Tester evaluating...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Tester: passed', ts: '[105:30]', cls: 'icon-pass', delay: 1400 },
-        { type: 'tree', icon: '\ud83d\udd12', text: 'Security auditing...', ts: '', cls: 'icon-info', delay: 600 },
-        { type: 'tree', icon: '\u2705', text: 'Security: passed', ts: '[111:00]', cls: 'icon-pass', delay: 900 },
-        { type: 'tree', icon: '\u2022', text: 'Audit: CERTIFIED', ts: '[124:30]', cls: 'icon-pass', delay: 800 },
-        { type: 'blank', delay: 400 },
-        { type: 'result', text: '\ud83c\udfc1 Result: <span class="result-approved">APPROVED</span>', delay: 800, raw: true },
-        { type: 'summary', text: '  \ud83d\udd2c Research complete: 2 files, 5 risks, 10 patterns', delay: 200 },
-        { type: 'summary', text: '  \ud83d\uddfa Plan: 7 steps (tests first, then implementation)', delay: 200 },
-        { type: 'summary', text: '  \ud83e\uddea Coverage: 93.75%, 28 tests passed', delay: 200 },
-        { type: 'summary', text: '  \ud83d\udd12 Security: passed, 2 low', delay: 200 },
-        { type: 'summary', text: '  \ud83d\udd0d Sonar: OK', delay: 200 },
-      ];
-
-      var LOOP_PAUSE = 5000; // pause before restarting
-      var body = document.getElementById('demo-terminal-body');
-      var animTimer = null;
-      var running = false;
-
-      function buildLine(item) {
-        var div = document.createElement('div');
-        div.className = 'term-line';
-        if (item.type === 'blank') {
-          div.classList.add('line-blank');
-          return div;
-        }
-        if (item.type === 'cmd') {
-          div.innerHTML = '<span class="prompt">$</span> <span class="cmd">' + escHtml(item.text.substring(2)) + '</span>';
-          return div;
-        }
-        if (item.type === 'sep') {
-          div.innerHTML = '<span class="sep">' + escHtml(item.text) + '</span>';
-          return div;
-        }
-        if (item.type === 'banner') {
-          div.innerHTML = '<span class="banner">' + escHtml(item.text) + '</span>';
-          return div;
-        }
-        if (item.type === 'meta') {
-          div.innerHTML = '<span class="label">' + escHtml(item.label) + '</span> <span class="val">' + escHtml(item.val) + '</span>';
-          return div;
-        }
-        if (item.type === 'iter') {
-          var tsHtml = item.ts ? '  <span class="ts">' + escHtml(item.ts) + '</span>' : '';
-          div.innerHTML = '<span class="iter-header">' + escHtml(item.text) + '</span>' + tsHtml;
-          return div;
-        }
-        if (item.type === 'tree' || item.type === 'treefail' || item.type === 'treewarn') {
-          var iconCls = item.cls || '';
-          var tsHtml2 = item.ts ? '  <span class="ts">' + escHtml(item.ts) + '</span>' : '';
-          var textContent = item.raw ? item.text : escHtml(item.text);
-          div.innerHTML = '<span class="tree">\u251c\u2500 </span><span class="' + iconCls + '">' + escHtml(item.icon) + '</span> ' + textContent + tsHtml2;
-          return div;
-        }
-        if (item.type === 'detail') {
-          div.innerHTML = '<span class="tree">\u2502</span> <span class="detail">' + escHtml(item.text) + '</span>';
-          return div;
-        }
-        if (item.type === 'result') {
-          div.classList.add('line-result');
-          var content = item.raw ? item.text : escHtml(item.text);
-          div.innerHTML = content;
-          return div;
-        }
-        if (item.type === 'summary') {
-          div.innerHTML = '<span class="summary-dim">' + escHtml(item.text) + '</span>';
-          return div;
-        }
-        div.textContent = item.text || '';
-        return div;
-      }
-
-      function escHtml(str) {
-        var d = document.createElement('span');
-        d.textContent = str;
-        return d.innerHTML;
-      }
-
-      function runAnimation() {
-        if (running) return;
-        running = true;
-        body.innerHTML = '';
-        var i = 0;
-        var cumDelay = 0;
-        var timers = [];
-
-        function scheduleNext() {
-          if (i >= DEMO_LINES.length) {
-            // Add cursor at end, then pause and restart
-            var cursor = document.createElement('span');
-            cursor.className = 'cursor-blink';
-            body.appendChild(cursor);
-            animTimer = setTimeout(function() {
-              running = false;
-              runAnimation();
-            }, LOOP_PAUSE);
-            return;
-          }
-          var item = DEMO_LINES[i];
-          cumDelay += item.delay;
-          var idx = i;
-          i++;
-          animTimer = setTimeout(function() {
-            var el = buildLine(DEMO_LINES[idx]);
-            body.appendChild(el);
-            // Trigger reflow for transition
-            void el.offsetWidth;
-            el.classList.add('visible');
-            // Auto-scroll terminal body
-            body.scrollTop = body.scrollHeight;
-            scheduleNext();
-          }, item.delay);
-        }
-        scheduleNext();
-      }
-
-      function stopAnimation() {
-        running = false;
-        if (animTimer) {
-          clearTimeout(animTimer);
-          animTimer = null;
-        }
-      }
-
-      // Start animation when terminal section scrolls into view
-      var demoSection = document.getElementById('demo-terminal-section');
-      var demoStarted = false;
-      var demoObserver = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting && !running) {
-            demoStarted = true;
-            runAnimation();
-          }
-        });
-      }, { threshold: 0.2 });
-      demoObserver.observe(demoSection);
-
-      // Pause when not visible to save resources
-      var visObserver = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (!entry.isIntersecting && running) {
-            stopAnimation();
-          }
-        });
-      }, { threshold: 0 });
-      visObserver.observe(demoSection);
-    })();
   </script>
 
 </body>
