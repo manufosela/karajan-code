@@ -831,61 +831,166 @@
     </div>
   </section>
 
-  <!-- SETUP -->
+  <!-- SETUP PROMPTS -->
   <section class="setup-section fade-in">
-    <h2 class="section-title">Set Up</h2>
-    <p class="section-sub">Install the CLI, connect the MCP server, or add skills to your AI agent. Mix and match.</p>
+    <h2 class="section-title">Prompt Your AI to Install</h2>
+    <p class="section-sub">Copy a prompt, paste it into your AI agent, and let it handle the setup. Pick what you need.</p>
 
     <div class="setup-tabs" role="tablist">
-      <button class="setup-tab active" role="tab" aria-selected="true" onclick="showTab('cli',this)">CLI</button>
-      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('mcp',this)">MCP</button>
-      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('skills',this)">Skills</button>
+      <button class="setup-tab active" role="tab" aria-selected="true" onclick="showTab('all',this)">All-in-one</button>
+      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('cli',this)">CLI only</button>
+      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('mcp',this)">MCP only</button>
+      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('skills',this)">Skills only</button>
     </div>
 
-    <!-- CLI -->
-    <div id="tab-cli" class="setup-panel active">
-      <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Install globally</span>
-npm install -g karajan-code
+    <!-- ALL-IN-ONE -->
+    <div id="tab-all" class="setup-panel active">
+      <div class="setup-subtabs" role="tablist">
+        <button class="setup-subtab active" onclick="showSubtab('all','claude-all',this)">Claude Code</button>
+        <button class="setup-subtab" onclick="showSubtab('all','codex-all',this)">Codex</button>
+        <button class="setup-subtab" onclick="showSubtab('all','gemini-all',this)">Gemini</button>
+        <button class="setup-subtab" onclick="showSubtab('all','aider-all',this)">Aider</button>
+      </div>
+      <div id="all-claude-all" class="setup-subpanel active">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
 
-<span class="cmt"># Interactive setup (agents, SonarQube, methodology)</span>
-kj init</div>
-      <p class="setup-note">Requires Node.js &ge; 18. Auto-detects installed AI agents (Claude, Codex, Gemini, Aider, OpenCode).</p>
+1. Run: npm install -g karajan-code
+2. Run: kj init --no-interactive
+3. The MCP server "karajan-mcp" is auto-registered in ~/.claude.json during install.
+   Verify with: cat ~/.claude.json | grep karajan-mcp
+   If missing, add to the "mcpServers" section of ~/.claude.json:
+   { "karajan-mcp": { "command": "karajan-mcp" } }
+4. Install skills as slash commands:
+   mkdir -p .claude/commands
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
+5. Verify: run "kj doctor" to check the installation.
+
+After setup, these slash commands are available:
+/kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar
+
+And these MCP tools: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
+      </div>
+      <div id="all-codex-all" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
+
+1. Run: npm install -g karajan-code
+2. Run: kj init --no-interactive
+3. Register the MCP server:
+   codex mcp add karajan-mcp -- karajan-mcp
+   Verify with: codex mcp list
+4. Copy skill prompts for later use:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+5. Verify: run "kj doctor" to check the installation.
+
+To use a skill, read the prompt file replacing $ARGUMENTS with the task:
+  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
+  cat .karajan/skills/kj-review.md  (for code review)
+  cat .karajan/skills/kj-run.md  (for the full pipeline)
+
+MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
+      </div>
+      <div id="all-gemini-all" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
+
+1. Run: npm install -g karajan-code
+2. Run: kj init --no-interactive
+3. Register the MCP server in your Gemini MCP config.
+   Add to the "mcpServers" section:
+   { "karajan-mcp": { "command": "karajan-mcp" } }
+4. Copy skill prompts for later use:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+5. Verify: run "kj doctor" to check the installation.
+
+To use a skill, read the prompt file replacing $ARGUMENTS with the task:
+  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
+  cat .karajan/skills/kj-review.md  (for code review)
+  cat .karajan/skills/kj-run.md  (for the full pipeline)
+
+MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
+      </div>
+      <div id="all-aider-all" class="setup-subpanel">
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
+
+1. Run: npm install -g karajan-code
+2. Run: kj init --no-interactive
+3. Copy skill prompts for later use:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+4. Verify: run "kj doctor" to check the installation.
+
+Note: Aider does not support MCP. Use Karajan via CLI (kj run, kj code, kj review) or via skill prompts.
+
+To use a skill, read the prompt file replacing $ARGUMENTS with the task:
+  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
+  cat .karajan/skills/kj-review.md  (for code review)
+  cat .karajan/skills/kj-run.md  (for the full pipeline)
+
+Available skills: kj-run, kj-code, kj-review, kj-test, kj-security, kj-discover, kj-architect, kj-sonar</div>
+      </div>
     </div>
 
-    <!-- MCP -->
+    <!-- CLI ONLY -->
+    <div id="tab-cli" class="setup-panel">
+      <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code globally and run the setup wizard:
+
+1. Run: npm install -g karajan-code
+2. Run: kj init --no-interactive
+3. Verify: run "kj doctor" to check all dependencies are available.
+
+This installs the "kj" CLI with commands: kj run, kj code, kj review, kj plan, kj scan, kj doctor, kj config, kj report, kj resume, kj roles, kj agents, kj sonar.
+Requires Node.js >= 18.</div>
+    </div>
+
+    <!-- MCP ONLY -->
     <div id="tab-mcp" class="setup-panel">
       <div class="setup-subtabs" role="tablist">
-        <button class="setup-subtab active" onclick="showSubtab('mcp','claude-mcp',this)">Claude</button>
+        <button class="setup-subtab active" onclick="showSubtab('mcp','claude-mcp',this)">Claude Code</button>
         <button class="setup-subtab" onclick="showSubtab('mcp','codex-mcp',this)">Codex</button>
         <button class="setup-subtab" onclick="showSubtab('mcp','generic-mcp',this)">Generic</button>
       </div>
       <div id="mcp-claude-mcp" class="setup-subpanel active">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt">// Add to ~/.claude.json → "mcpServers"</span>
-{
-  <span class="key">"karajan-mcp"</span>: {
-    <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
-  }
-}</div>
-        <p class="setup-note">Auto-registered by <code>npm install -g karajan-code</code>. Manual config only needed if auto-registration failed.</p>
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server for Claude Code:
+
+1. Run: npm install -g karajan-code
+2. The MCP server "karajan-mcp" is auto-registered in ~/.claude.json during install.
+   Verify with: cat ~/.claude.json | grep karajan-mcp
+   If missing, add this to the "mcpServers" section of ~/.claude.json:
+   { "karajan-mcp": { "command": "karajan-mcp" } }
+3. Restart your Claude Code session to pick up the new MCP server.
+4. Verify by running the kj_doctor MCP tool.
+
+18 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
       </div>
       <div id="mcp-codex-mcp" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>codex mcp add karajan-mcp -- karajan-mcp</div>
-        <p class="setup-note">Auto-registered by <code>npm install -g karajan-code</code>. Run this only if <code>codex mcp list</code> doesn't show karajan-mcp.</p>
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server for Codex:
+
+1. Run: npm install -g karajan-code
+2. Register the MCP server:
+   codex mcp add karajan-mcp -- karajan-mcp
+3. Verify with: codex mcp list (should show karajan-mcp)
+
+18 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
       </div>
       <div id="mcp-generic-mcp" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt">// Add to your MCP host config</span>
-{
-  <span class="key">"mcpServers"</span>: {
-    <span class="key">"karajan-mcp"</span>: {
-      <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
-    }
-  }
-}</div>
-        <p class="setup-note">Works with any <a href="https://modelcontextprotocol.io">MCP-compatible</a> host. The server exposes 18 tools.</p>
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server:
+
+1. Run: npm install -g karajan-code
+2. Add this to your MCP host configuration file under "mcpServers":
+   {
+     "karajan-mcp": {
+       "command": "karajan-mcp"
+     }
+   }
+3. Restart your MCP host session.
+4. Verify by calling the kj_doctor tool.
+
+18 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect</div>
       </div>
     </div>
 
-    <!-- SKILLS -->
+    <!-- SKILLS ONLY -->
     <div id="tab-skills" class="setup-panel">
       <div class="setup-subtabs" role="tablist">
         <button class="setup-subtab active" onclick="showSubtab('skills','claude-sk',this)">Claude Code</button>
@@ -894,59 +999,89 @@ kj init</div>
         <button class="setup-subtab" onclick="showSubtab('skills','aider-sk',this)">Aider</button>
       </div>
       <div id="skills-claude-sk" class="setup-subpanel active">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Install as slash commands (via kj init)</span>
-kj init  <span class="cmt"># Select "Install skills" when prompted</span>
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skills as Claude Code slash commands:
 
-<span class="cmt"># Or manually</span>
-mkdir -p .claude/commands
-cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
+1. Ensure karajan-code is installed: npm install -g karajan-code
+2. In the project root, run:
+   mkdir -p .claude/commands
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
+3. The following slash commands are now available in this project:
+   /kj-run     — Full pipeline: code, review, test, security, commit
+   /kj-code    — Coder with TDD guardrails
+   /kj-review  — Code review with quality gates
+   /kj-test    — Test quality audit
+   /kj-security — OWASP security scan
+   /kj-discover — Gap detection before coding
+   /kj-architect — Architecture design
+   /kj-sonar   — Static analysis check
 
-<span class="cmt"># Use: /kj-run "Fix the login bug"</span>
-<span class="cmt"># Available: /kj-run /kj-code /kj-review /kj-test</span>
-<span class="cmt">#            /kj-security /kj-discover /kj-architect /kj-sonar</span></div>
-        <p class="setup-note">Skills install as native Claude Code slash commands. No MCP needed &mdash; works offline.</p>
+No MCP server needed. Skills work as standalone prompts with built-in guardrails.</div>
       </div>
       <div id="skills-codex-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
-mkdir -p .karajan/skills
-cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Codex:
 
-<span class="cmt"># Use with Codex (full-auto mode)</span>
-TASK="Fix the login bug"
-SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
-codex -q --full-auto -p "$SKILL"
+1. Ensure karajan-code is installed: npm install -g karajan-code
+2. Copy skill prompts to the project:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
+   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
 
-<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
-<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
-        <p class="setup-note">Codex doesn't have slash commands, but you can feed skill prompts via <code>-p</code>. Use <code>--full-auto</code> for unattended execution.</p>
+Available skills:
+  kj-run.md     — Full pipeline: code, review, test, security, commit
+  kj-code.md    — Coder with TDD guardrails
+  kj-review.md  — Code review with quality gates
+  kj-test.md    — Test quality audit
+  kj-security.md — OWASP security scan
+  kj-discover.md — Gap detection before coding
+  kj-architect.md — Architecture design
+  kj-sonar.md   — Static analysis check
+
+Codex tip: use --full-auto flag for unattended execution of skill prompts.</div>
       </div>
       <div id="skills-gemini-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
-mkdir -p .karajan/skills
-cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Gemini:
 
-<span class="cmt"># Use with Gemini CLI</span>
-TASK="Fix the login bug"
-SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
-gemini -p "$SKILL"
+1. Ensure karajan-code is installed: npm install -g karajan-code
+2. Copy skill prompts to the project:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
+   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
 
-<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
-<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
-        <p class="setup-note">Gemini CLI accepts prompts via <code>-p</code>. The skill prompts are AI-agnostic &mdash; they work with any CLI agent.</p>
+Available skills:
+  kj-run.md     — Full pipeline: code, review, test, security, commit
+  kj-code.md    — Coder with TDD guardrails
+  kj-review.md  — Code review with quality gates
+  kj-test.md    — Test quality audit
+  kj-security.md — OWASP security scan
+  kj-discover.md — Gap detection before coding
+  kj-architect.md — Architecture design
+  kj-sonar.md   — Static analysis check
+
+The skill prompts are AI-agnostic markdown — they work with any AI agent.</div>
       </div>
       <div id="skills-aider-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button><span class="cmt"># Copy skill prompts to your project</span>
-mkdir -p .karajan/skills
-cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Aider:
 
-<span class="cmt"># Use with Aider</span>
-TASK="Fix the login bug"
-SKILL=$(sed "s/\$ARGUMENTS/$TASK/" .karajan/skills/kj-code.md)
-aider --yes --message "$SKILL"
+1. Ensure karajan-code is installed: npm install -g karajan-code
+2. Copy skill prompts to the project:
+   mkdir -p .karajan/skills
+   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
+3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
+   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
 
-<span class="cmt"># Available skills: kj-run kj-code kj-review kj-test</span>
-<span class="cmt">#   kj-security kj-discover kj-architect kj-sonar</span></div>
-        <p class="setup-note">Aider uses <code>--message</code> for non-interactive mode. Add <code>--yes</code> to auto-approve file changes.</p>
+Available skills:
+  kj-run.md     — Full pipeline: code, review, test, security, commit
+  kj-code.md    — Coder with TDD guardrails
+  kj-review.md  — Code review with quality gates
+  kj-test.md    — Test quality audit
+  kj-security.md — OWASP security scan
+  kj-discover.md — Gap detection before coding
+  kj-architect.md — Architecture design
+  kj-sonar.md   — Static analysis check
+
+Aider tip: use --yes flag to auto-approve file changes when following skill instructions.</div>
       </div>
     </div>
   </section>
