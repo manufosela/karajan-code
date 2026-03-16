@@ -90,6 +90,7 @@ export const tools = [
         autoPr: { type: "boolean" },
         autoRebase: { type: "boolean" },
         branchPrefix: { type: "string" },
+        autoSimplify: { type: "boolean", description: "Auto-simplify pipeline for simple tasks (level trivial/simple). Disable with false to force full pipeline." },
         smartModels: { type: "boolean", description: "Enable/disable smart model selection based on triage complexity" },
         checkpointInterval: { type: "number", description: "Minutes between interactive checkpoints (default: 5). Set 0 to disable." },
         taskType: { type: "string", enum: ["sw", "infra", "doc", "add-tests", "refactor"], description: "Explicit task type for policy resolution. Overrides triage classification." },

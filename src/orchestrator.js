@@ -214,6 +214,29 @@ function applyTriageOverrides(pipelineFlags, roleOverrides) {
   }
 }
 
+const SIMPLE_LEVELS = new Set(["trivial", "simple"]);
+
+function applyAutoSimplify({ pipelineFlags, triageLevel, config, flags, logger, emitter, eventBase }) {
+  if (!config.pipeline?.auto_simplify) return false;
+  if (!triageLevel || !SIMPLE_LEVELS.has(triageLevel)) return false;
+  if (flags.mode) return false;
+  if (flags.enableReviewer !== undefined || flags.enableTester !== undefined) return false;
+
+  pipelineFlags.reviewerEnabled = false;
+  pipelineFlags.testerEnabled = false;
+
+  const disabledRoles = ["reviewer", "tester"];
+  logger.info(`Simple task (${triageLevel}) — lightweight pipeline (disabled: ${disabledRoles.join(", ")})`);
+  emitProgress(
+    emitter,
+    makeEvent("pipeline:simplify", { ...eventBase, stage: "triage" }, {
+      message: `Simple task (${triageLevel}) — lightweight pipeline`,
+      detail: { level: triageLevel, disabledRoles }
+    })
+  );
+  return true;
+}
+
 async function handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger }) {
   const shouldDecompose = triageResult.stageResult?.shouldDecompose
     && triageResult.stageResult.subtasks?.length > 1
@@ -794,6 +817,14 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   const triageResult = await runTriageStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
+
+  // --- Auto-simplify pipeline for simple tasks (before explicit flag overrides) ---
+  const simplified = applyAutoSimplify({
+    pipelineFlags,
+    triageLevel: triageResult.stageResult?.level || null,
+    config, flags, logger, emitter, eventBase
+  });
+  if (simplified) stageResults.triage.autoSimplified = true;
 
   await handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger });
 

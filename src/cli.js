@@ -103,6 +103,8 @@ program
   .option("--checkpoint-interval <n>", "Minutes between interactive checkpoints (default: 5)")
   .option("--pg-task <cardId>", "Planning Game card ID (e.g., KJC-TSK-0042)")
   .option("--pg-project <projectId>", "Planning Game project ID")
+  .option("--auto-simplify", "Auto-simplify pipeline for simple tasks (disable reviewer/tester)")
+  .option("--no-auto-simplify", "Force full pipeline regardless of triage level")
   .option("--smart-models", "Enable smart model selection based on triage complexity")
   .option("--no-smart-models", "Disable smart model selection")
   .option("--dry-run", "Show what would be executed without running anything")

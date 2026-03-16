@@ -31,7 +31,8 @@ const DEFAULTS = {
     impeccable: { enabled: false },
     triage: { enabled: true },
     discover: { enabled: false },
-    architect: { enabled: false }
+    architect: { enabled: false },
+    auto_simplify: true
   },
   review_mode: "standard",
   max_iterations: 5,
@@ -283,6 +284,8 @@ const PIPELINE_ENABLE_FLAGS = [
   ["enableArchitect", "architect"]
 ];
 
+const AUTO_SIMPLIFY_FLAG = "autoSimplify";
+
 // Scalar flags: [flagName, setter] — truthy check
 const SCALAR_FLAGS = [
   ["mode", (out, v) => { out.review_mode = v; }],
@@ -361,6 +364,7 @@ function applyBecariaOverride(out, flags) {
 }
 
 function applyMiscOverrides(out, flags) {
+  if (flags[AUTO_SIMPLIFY_FLAG] !== undefined) out.pipeline.auto_simplify = Boolean(flags[AUTO_SIMPLIFY_FLAG]);
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
   out.sonarcloud = out.sonarcloud || {};
   if (flags.enableSonarcloud === true) out.sonarcloud.enabled = true;

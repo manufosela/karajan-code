@@ -53,6 +53,8 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   if (options.autoRebase === false) args.push("--no-auto-rebase");
   addOptionalValue(args, "--task-type", options.taskType);
   normalizeBoolFlag(options.noSonar, "--no-sonar", args);
+  if (options.autoSimplify === true) args.push("--auto-simplify");
+  if (options.autoSimplify === false) args.push("--no-auto-simplify");
   if (options.smartModels === true) args.push("--smart-models");
   if (options.smartModels === false) args.push("--no-smart-models");
   addOptionalValue(args, "--checkpoint-interval", options.checkpointInterval);
