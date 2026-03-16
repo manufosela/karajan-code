@@ -823,9 +823,42 @@ function handleRoles(a) {
   return runKjCommand({ command: "roles", commandArgs, options: a });
 }
 
+const RESUME_MAX_ANSWER_LENGTH = 500;
+const RESUME_INJECTION_PATTERNS = [
+  /ignore\s+(previous|all|above)\s+(instructions|rules|prompts)/i,
+  /you\s+are\s+now/i,
+  /new\s+instructions?:/i,
+  /override\s+(all|security|guardrails|rules)/i,
+  /skip\s+(all\s+)?(review|test|sonar|security|solomon|guard)s?\b/i,
+  /disable\s+(tdd|review|test|sonar|security)\b/i,
+  /set\s+(status|approved|verdict)\s*(=|to|:)/i,
+  /force\s+(approve|merge|push|commit)\b/i,
+];
+
+export function validateResumeAnswer(answer) {
+  if (answer == null || answer === "") return { valid: true, sanitized: answer ?? null };
+  if (typeof answer !== "string") return { valid: true, sanitized: String(answer) };
+  if (answer.length > RESUME_MAX_ANSWER_LENGTH) {
+    return { valid: false, reason: `Answer too long (${answer.length} chars, max ${RESUME_MAX_ANSWER_LENGTH})` };
+  }
+  for (const pattern of RESUME_INJECTION_PATTERNS) {
+    if (pattern.test(answer)) {
+      return { valid: false, reason: "Answer rejected: matches guardrail bypass pattern" };
+    }
+  }
+  return { valid: true, sanitized: answer.trim() };
+}
+
 async function handleResume(a, server, extra) {
   if (!a.sessionId) {
     return failPayload("Missing required field: sessionId");
+  }
+  if (a.answer) {
+    const validation = validateResumeAnswer(a.answer);
+    if (!validation.valid) {
+      return failPayload(`Resume answer rejected: ${validation.reason}`);
+    }
+    a.answer = validation.sanitized;
   }
   applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
   return handleResumeDirect(a, server, extra);
