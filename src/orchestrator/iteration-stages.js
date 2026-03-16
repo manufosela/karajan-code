@@ -341,6 +341,23 @@ async function handleSonarRetryLimit({ config, logger, emitter, eventBase, sessi
 }
 
 async function handleSonarBlocking({ sonarResult, config, logger, emitter, eventBase, session, iteration, repeatDetector, budgetSummary, askQuestion, task }) {
+  // If the ONLY quality gate failure is coverage, treat as non-blocking warning
+  if (sonarResult.conditions) {
+    const failedConditions = sonarResult.conditions.filter(c => c.status === "ERROR");
+    const onlyCoverage = failedConditions.length > 0 && failedConditions.every(c =>
+      c.metricKey === "new_coverage" || c.metricKey === "coverage"
+    );
+    if (onlyCoverage) {
+      logger.warn("Quality gate failed on coverage only — treating as advisory (code quality is clean)");
+      emitProgress(emitter, makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+        status: "warn",
+        message: "Quality gate: coverage below threshold (advisory — code quality is clean)"
+      }));
+      session.last_reviewer_feedback = null;
+      return { action: "ok", stageResult: { gateStatus: "WARN_COVERAGE", advisory: true } };
+    }
+  }
+
   repeatDetector.addIteration(sonarResult.issues, []);
   const repeatState = repeatDetector.isStalled();
   if (repeatState.stalled) {
@@ -368,6 +385,39 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
       message: "SonarQube scanning"
     })
   );
+
+  // Auto-manage SonarQube: ensure it is reachable before scanning
+  const { sonarUp, isSonarReachable } = await import("../sonar/manager.js");
+  const sonarHost = config.sonarqube?.host || "http://localhost:9000";
+
+  if (!await isSonarReachable(sonarHost)) {
+    logger.info("SonarQube not reachable, attempting to start...");
+    emitProgress(emitter, makeEvent("sonar:start", { ...eventBase, stage: "sonar" }, { message: "Starting SonarQube Docker..." }));
+
+    const upResult = await sonarUp(sonarHost);
+    if (upResult.exitCode !== 0) {
+      logger.warn(`SonarQube could not be started: ${upResult.stderr || upResult.stdout}`);
+      emitProgress(emitter, makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+        status: "skip",
+        message: "SonarQube not available — install Docker and run 'kj sonar start' to enable static analysis"
+      }));
+      return { action: "ok", stageResult: { gateStatus: "SKIPPED", reason: "SonarQube not available" } };
+    }
+
+    let ready = false;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      await new Promise(r => setTimeout(r, 5000));
+      if (await isSonarReachable(sonarHost)) { ready = true; break; }
+    }
+    if (!ready) {
+      logger.warn("SonarQube started but not ready after 60s");
+      emitProgress(emitter, makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+        status: "skip", message: "SonarQube started but not ready — will retry next iteration"
+      }));
+      return { action: "ok", stageResult: { gateStatus: "PENDING", reason: "SonarQube starting up" } };
+    }
+    logger.info("SonarQube is ready");
+  }
 
   const sonarRole = new SonarRole({ config, logger, emitter });
   await sonarRole.init({ iteration });

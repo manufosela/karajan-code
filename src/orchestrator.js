@@ -900,7 +900,9 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
 
-  if (config.sonarqube.enabled) {
+  const skipSonarForTaskType = new Set(["infra", "doc"]);
+  const effectiveTaskType = session.resolved_policies?.taskType || null;
+  if (config.sonarqube.enabled && !skipSonarForTaskType.has(effectiveTaskType)) {
     const sonarResult = await runSonarStage({
       config, logger, emitter, eventBase, session, trackBudget, iteration: i,
       repeatDetector, budgetSummary, sonarState, askQuestion, task

@@ -54,6 +54,7 @@ export class SonarRole extends BaseRole {
       result: {
         projectKey: scan.projectKey,
         gateStatus: gate.status,
+        conditions: gate.conditions || [],
         issues,
         openIssuesTotal: openIssues.total || 0,
         issuesSummary,

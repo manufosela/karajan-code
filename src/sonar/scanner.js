@@ -1,4 +1,6 @@
 import fs from "node:fs";
+import fsPromises from "node:fs/promises";
+import path from "node:path";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
 import { resolveSonarProjectKey } from "./project-key.js";
@@ -151,6 +153,33 @@ async function resolveSonarToken(config, apiHost) {
   return null;
 }
 
+export async function ensureSonarProjectProperties(cwd = process.cwd()) {
+  const propsPath = path.join(cwd, "sonar-project.properties");
+  try {
+    await fsPromises.access(propsPath);
+    return; // already exists
+  } catch {
+    // Auto-generate based on project structure
+    let pkg = {};
+    try {
+      const raw = await fsPromises.readFile(path.join(cwd, "package.json"), "utf8");
+      pkg = JSON.parse(raw);
+    } catch {
+      // no package.json or invalid JSON — use defaults
+    }
+    const projectKey = (pkg.name || path.basename(cwd)).replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const props = [
+      `sonar.projectKey=${projectKey}`,
+      `sonar.projectName=${pkg.name || path.basename(cwd)}`,
+      `sonar.sources=src`,
+      `sonar.tests=tests`,
+      `sonar.javascript.lcov.reportPaths=coverage/lcov.info`,
+      `sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**`,
+    ].join("\n");
+    await fsPromises.writeFile(propsPath, props + "\n", "utf8");
+  }
+}
+
 export async function runSonarScan(config, projectKey = null) {
   let effectiveProjectKey;
   try {
@@ -184,6 +213,7 @@ export async function runSonarScan(config, projectKey = null) {
       exitCode: start.exitCode
     };
   }
+  await ensureSonarProjectProperties();
   const token = await resolveSonarToken(config, apiHost);
   if (!token) {
     return {

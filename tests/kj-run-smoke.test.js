@@ -98,12 +98,14 @@ vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("review rules"),
     writeFile: vi.fn().mockResolvedValue(undefined),
-    mkdir: vi.fn().mockResolvedValue(undefined)
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    access: vi.fn().mockResolvedValue(undefined)
   }
 }));
 
 vi.mock("../src/sonar/manager.js", () => ({
-  sonarUp: vi.fn()
+  sonarUp: vi.fn(),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock("../src/utils/process.js", () => ({

@@ -72,9 +72,9 @@ export async function getQualityGateStatus(config, projectKey = null) {
 
   try {
     const parsed = JSON.parse(body);
-    return { ok: true, status: parsed.projectStatus?.status || "ERROR", raw: parsed };
+    return { ok: true, status: parsed.projectStatus?.status || "ERROR", conditions: parsed.projectStatus?.conditions || [], raw: parsed };
   } catch {
-    return { ok: false, status: "ERROR", raw: body };
+    return { ok: false, status: "ERROR", conditions: [], raw: body };
   }
 }
 
