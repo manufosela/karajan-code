@@ -595,6 +595,10 @@ SonarQube auto-manage:
 
 Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight coder-only flow, skipping reviewer, tester, and other post-coder stages. Level 3+ (medium/complex) gets the full pipeline. Configurable via `--no-auto-simplify` CLI flag or `autoSimplify: false` MCP parameter.
 
+### v1.25.2: Anti-Bypass Guardrail
+
+**v1.25.2** — Anti-bypass guardrail for `kj_resume`: validates answers against prompt injection patterns, rejects too-long inputs, defense-in-depth truncation. 36 new tests.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
