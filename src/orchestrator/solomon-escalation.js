@@ -54,8 +54,18 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
   }
 
   const r = ruling.result?.ruling;
-  if (r === "approve" || r === "approve_with_conditions") {
+  if (r === "approve") {
+    return { action: "approve", conditions: [], ruling };
+  }
+  if (r === "approve_with_conditions") {
     return { action: "continue", conditions: ruling.result?.conditions || [], ruling };
+  }
+
+  if (r === "escalate_human") {
+    return escalateToHuman({
+      askQuestion, session, emitter, eventBase, stage, iteration,
+      conflict: { ...conflict, solomonReason: ruling.result?.escalate_reason || "Solomon escalated to human" }
+    });
   }
 
   if (r === "create_subtask") {

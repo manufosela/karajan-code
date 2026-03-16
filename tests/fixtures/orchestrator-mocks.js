@@ -265,6 +265,9 @@ export async function reapplyDefaultMocks(reviewOutput = REVIEW_OK) {
   const { buildReviewerPrompt } = await import("../../src/prompts/reviewer.js");
   buildReviewerPrompt.mockReturnValue("reviewer prompt");
 
+  const { detectTestFramework } = await import("../../src/utils/project-detect.js");
+  detectTestFramework.mockResolvedValue({ hasTests: true, framework: "vitest" });
+
   const fs = await import("node:fs/promises");
   fs.default.readFile.mockResolvedValue("role instructions");
 }

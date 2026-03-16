@@ -88,6 +88,11 @@ vi.mock("../src/sonar/enforcer.js", () => ({
   summarizeIssues: vi.fn().mockReturnValue("")
 }));
 
+vi.mock("../src/utils/project-detect.js", () => ({
+  detectTestFramework: vi.fn().mockResolvedValue({ hasTests: true, framework: "vitest" }),
+  detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
@@ -140,6 +145,9 @@ describe("orchestrator repeat detection", () => {
     const { shouldBlockByProfile, summarizeIssues } = await import("../src/sonar/enforcer.js");
     shouldBlockByProfile.mockReturnValue(false);
     summarizeIssues.mockReturnValue("");
+
+    const { detectTestFramework } = await import("../src/utils/project-detect.js");
+    detectTestFramework.mockResolvedValue({ hasTests: true, framework: "vitest" });
 
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("review rules");

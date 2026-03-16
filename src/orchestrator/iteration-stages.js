@@ -264,7 +264,8 @@ export async function runTddCheckStage({ config, logger, emitter, eventBase, ses
     logger.warn(`TDD diff generation failed: ${err.message}`);
     return { action: "continue", stageResult: { ok: false, summary: `TDD check failed: ${err.message}` } };
   }
-  const tddEval = evaluateTddPolicy(tddDiff, config.development, untrackedFiles);
+  const effectiveTaskType = session.resolved_policies?.taskType || null;
+  const tddEval = evaluateTddPolicy(tddDiff, config.development, untrackedFiles, effectiveTaskType);
   await addCheckpoint(session, {
     stage: "tdd-policy",
     iteration,
@@ -536,13 +537,39 @@ export async function runSonarCloudStage({ config, logger, emitter, eventBase, s
   return { action: "ok", stageResult: { ok: result.ok, projectKey: result.projectKey, message } };
 }
 
+function categorizeIssues(issues) {
+  const categories = { security: 0, correctness: 0, tests: 0, style: 0, other: 0 };
+  const securityKw = /inject|xss|csrf|secret|credential|auth|vulnerab|exploit/i;
+  const styleKw = /naming|name|rename|style|format|indent|spacing|convention|cosmetic|readability|comment|jsdoc|whitespace/i;
+  const testKw = /test|coverage|assert|spec|mock/i;
+
+  for (const issue of issues || []) {
+    const desc = issue.description || "";
+    const sev = (issue.severity || "").toLowerCase();
+    if (sev === "critical" || securityKw.test(desc)) categories.security++;
+    else if (testKw.test(desc)) categories.tests++;
+    else if (sev === "low" || sev === "minor" || styleKw.test(desc)) categories.style++;
+    else categories.correctness++;
+  }
+  return categories;
+}
+
+function buildReviewHistory(session) {
+  return (session.checkpoints || [])
+    .filter(cp => cp.stage === "reviewer")
+    .map(cp => ({ iteration: cp.iteration, note: cp.note || "" }));
+}
+
 async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector }) {
-  logger.warn(`Reviewer stalled (${repeatCounts.reviewer} repeats). Invoking Solomon mediation.`);
+  const logPrefix = repeatState.stalled
+    ? `Reviewer stalled (${repeatCounts.reviewer} repeats)`
+    : `Reviewer rejected (first rejection)`;
+  logger.warn(`${logPrefix}. Invoking Solomon mediation.`);
   emitProgress(
     emitter,
     makeEvent("solomon:escalate", { ...eventBase, stage: "reviewer" }, {
-      message: `Reviewer stalled — Solomon mediating`,
-      detail: { repeats: repeatCounts.reviewer, reason: repeatState.reason }
+      message: `${logPrefix} — Solomon mediating`,
+      detail: { repeats: repeatCounts.reviewer || 1, reason: repeatState.reason || "first_rejection" }
     })
   );
 
@@ -551,14 +578,28 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
     conflict: {
       stage: "reviewer",
       task,
-      iterationCount: repeatCounts.reviewer,
+      iterationCount: repeatCounts.reviewer || 1,
       maxIterations: config.session?.fail_fast_repeats ?? 2,
-      stalledReason: repeatState.reason,
+      isFirstRejection: !repeatState.stalled,
+      isRepeat: repeatState.stalled,
+      stalledReason: repeatState.reason || "first_rejection",
       blockingIssues: review.blocking_issues,
-      history: [{ agent: "reviewer", feedback: review.blocking_issues.map(x => x.description).join("; ") }]
+      issueCategories: categorizeIssues(review.blocking_issues),
+      history: [
+        ...buildReviewHistory(session),
+        { agent: "reviewer", feedback: review.blocking_issues.map(x => x.description).join("; ") }
+      ]
     }
   });
 
+  if (solomonResult.action === "approve") {
+    logger.info("Solomon overrode reviewer — approving code");
+    emitProgress(emitter, makeEvent("solomon:override", { ...eventBase, stage: "solomon" }, {
+      message: "Solomon overrode reviewer rejection — code approved",
+      detail: { ruling: solomonResult.ruling?.result?.ruling }
+    }));
+    return { review: { ...review, approved: true, solomon_override: true }, solomonApproved: true };
+  }
   if (solomonResult.action === "pause") {
     await markSessionStatus(session, "stalled");
     return { review, stalled: true, stalledResult: { paused: true, sessionId: session.id, question: solomonResult.question, context: "reviewer_stalled" } };
@@ -576,7 +617,7 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
   }
 
   // Fallback
-  const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer} times.`;
+  const message = `Manual intervention required: reviewer issues repeated ${repeatCounts.reviewer || 1} times.`;
   await markSessionStatus(session, "stalled");
   emitProgress(
     emitter,
@@ -592,10 +633,33 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
 async function handleReviewerRejection({ review, repeatDetector, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary }) {
   repeatDetector.addIteration([], review.blocking_issues);
   const repeatState = repeatDetector.isStalled();
-  if (!repeatState.stalled) return null;
 
+  const solomonEnabled = Boolean(config.pipeline?.solomon?.enabled);
+
+  // When Solomon is disabled, only act on stalls (legacy behavior)
+  if (!solomonEnabled) {
+    if (!repeatState.stalled) return null;
+    const repeatCounts = repeatDetector.getRepeatCounts();
+    return handleReviewerStalledSolomon({
+      review, repeatCounts, repeatState, config, logger, emitter,
+      eventBase, session, iteration, task, askQuestion,
+      budgetSummary, repeatDetector
+    });
+  }
+
+  // Solomon evaluates EVERY rejection
   const repeatCounts = repeatDetector.getRepeatCounts();
-  return handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector });
+  logger.info(`Reviewer rejected — Solomon evaluating ${review.blocking_issues.length} blocking issue(s)`);
+  emitProgress(emitter, makeEvent("solomon:evaluate", { ...eventBase, stage: "solomon" }, {
+    message: `Solomon evaluating reviewer rejection`,
+    detail: { blockingCount: review.blocking_issues.length, isRepeat: repeatState.stalled }
+  }));
+
+  return handleReviewerStalledSolomon({
+    review, repeatCounts, repeatState, config, logger, emitter,
+    eventBase, session, iteration, task, askQuestion,
+    budgetSummary, repeatDetector
+  });
 }
 
 async function fetchReviewDiff(session, logger) {

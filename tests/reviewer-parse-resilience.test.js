@@ -74,6 +74,11 @@ vi.mock("../src/sonar/enforcer.js", () => ({
   summarizeIssues: vi.fn().mockReturnValue("")
 }));
 
+vi.mock("../src/utils/project-detect.js", () => ({
+  detectTestFramework: vi.fn().mockResolvedValue({ hasTests: true, framework: "vitest" }),
+  detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),

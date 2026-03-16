@@ -74,6 +74,11 @@ vi.mock("../src/sonar/enforcer.js", () => ({
   summarizeIssues: vi.fn().mockReturnValue("2 issues")
 }));
 
+vi.mock("../src/utils/project-detect.js", () => ({
+  detectTestFramework: vi.fn().mockResolvedValue({ hasTests: true, framework: "vitest" }),
+  detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
@@ -133,6 +138,9 @@ describe("configurable sub-loop limits", () => {
 
     const { buildReviewerPrompt } = await import("../src/prompts/reviewer.js");
     buildReviewerPrompt.mockReturnValue("reviewer prompt");
+
+    const { detectTestFramework } = await import("../src/utils/project-detect.js");
+    detectTestFramework.mockResolvedValue({ hasTests: true, framework: "vitest" });
 
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("role instructions");

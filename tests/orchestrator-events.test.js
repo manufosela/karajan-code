@@ -47,6 +47,11 @@ vi.mock("../src/session-store.js", () => {
   };
 });
 
+vi.mock("../src/utils/project-detect.js", () => ({
+  detectTestFramework: vi.fn().mockResolvedValue({ hasTests: true, framework: "vitest" }),
+  detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
+}));
+
 vi.mock("../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
@@ -153,6 +158,9 @@ describe("orchestrator events", () => {
     const { buildReviewerPrompt } = await import("../src/prompts/reviewer.js");
     buildReviewerPrompt.mockReturnValue("reviewer prompt");
 
+    const { detectTestFramework } = await import("../src/utils/project-detect.js");
+    detectTestFramework.mockResolvedValue({ hasTests: true, framework: "vitest" });
+
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("review rules");
 
@@ -198,6 +206,7 @@ describe("orchestrator events", () => {
       "session:start",
       "triage:start",
       "triage:end",
+      "tdd:auto-detect",
       "policies:resolved",
       "iteration:start",
       "coder:start",
@@ -537,6 +546,7 @@ describe("orchestrator events", () => {
       "session:start",
       "triage:start",
       "triage:end",
+      "tdd:auto-detect",
       "policies:resolved",
       "planner:start",
       "planner:end",

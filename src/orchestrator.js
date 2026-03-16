@@ -33,6 +33,7 @@ import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage,
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage, runImpeccableStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
+import { detectTestFramework } from "./utils/project-detect.js";
 
 
 // --- Extracted helper functions (pure refactoring, zero behavior change) ---
@@ -797,6 +798,26 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   await handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger });
 
   applyFlagOverrides(pipelineFlags, flags);
+
+  // --- Auto-detect TDD applicability when methodology not explicitly set ---
+  if (!flags.methodology) {
+    const projectDir = config.projectDir || process.cwd();
+    const detection = await detectTestFramework(projectDir);
+    if (!detection.hasTests) {
+      config = { ...config, development: { ...config.development, methodology: "standard", require_test_changes: false } };
+      logger.info("No test framework detected — using standard methodology");
+    } else {
+      config = { ...config, development: { ...config.development, methodology: "tdd", require_test_changes: true } };
+      logger.info(`Test framework detected (${detection.framework}) — using TDD methodology`);
+    }
+    emitProgress(emitter, makeEvent("tdd:auto-detect", { ...eventBase, stage: "pre-loop" }, {
+      message: detection.hasTests
+        ? `TDD auto-detected: ${detection.framework}`
+        : "TDD skipped: no test framework found",
+      detail: detection
+    }));
+  }
+
   const updatedConfig = resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags });
 
   // --- Researcher → Planner ---
@@ -1112,8 +1133,18 @@ async function runSingleIteration(ctx) {
     if (approvedResult.action === "return" || approvedResult.action === "continue") return approvedResult;
   }
 
-  const retryResult = await handleReviewerRetryAndSolomon({ config, session, emitter, eventBase, logger, review, task, i, askQuestion });
-  if (retryResult.action === "return") return retryResult;
+  // Solomon already evaluated the rejection in runReviewerStage → handleReviewerRejection
+  // Only use retry counter as fallback if Solomon is disabled
+  if (!config.pipeline?.solomon?.enabled) {
+    const retryResult = await handleReviewerRetryAndSolomon({ config, session, emitter, eventBase, logger, review, task, i, askQuestion });
+    if (retryResult.action === "return") return retryResult;
+  } else {
+    // Solomon is enabled — feed back the blocking issues for the next coder iteration
+    session.last_reviewer_feedback = review.blocking_issues
+      .map((x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`)
+      .join("\n");
+    await saveSession(session);
+  }
 
   return { action: "next" };
 }

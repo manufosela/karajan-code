@@ -19,7 +19,13 @@ function isSourceFile(file, extensions = []) {
   return extensions.some((ext) => file.endsWith(ext));
 }
 
-export function evaluateTddPolicy(diff, developmentConfig = {}, untrackedFiles = []) {
+const SKIP_TDD_TASK_TYPES = new Set(["doc", "infra"]);
+
+export function evaluateTddPolicy(diff, developmentConfig = {}, untrackedFiles = [], taskType = null) {
+  if (taskType && SKIP_TDD_TASK_TYPES.has(taskType)) {
+    return { ok: true, reason: "tdd_not_applicable_for_task_type", sourceFiles: [], testFiles: [] };
+  }
+
   const requireTestChanges = developmentConfig.require_test_changes !== false;
   const patterns = developmentConfig.test_file_patterns || ["/tests/", "/__tests__/", ".test.", ".spec."];
   const extensions =

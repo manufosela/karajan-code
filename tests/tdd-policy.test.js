@@ -45,6 +45,45 @@ describe("evaluateTddPolicy", () => {
     expect(out.reason).toBe("no_source_changes");
   });
 
+  describe("taskType skip", () => {
+    const diff = [
+      "diff --git a/src/auth.js b/src/auth.js",
+      "index 111..222 100644",
+      "--- a/src/auth.js",
+      "+++ b/src/auth.js"
+    ].join("\n");
+
+    it("skips TDD for doc taskType", () => {
+      const out = evaluateTddPolicy(diff, { require_test_changes: true }, [], "doc");
+      expect(out.ok).toBe(true);
+      expect(out.reason).toBe("tdd_not_applicable_for_task_type");
+    });
+
+    it("skips TDD for infra taskType", () => {
+      const out = evaluateTddPolicy(diff, { require_test_changes: true }, [], "infra");
+      expect(out.ok).toBe(true);
+      expect(out.reason).toBe("tdd_not_applicable_for_task_type");
+    });
+
+    it("does NOT skip TDD for sw taskType", () => {
+      const out = evaluateTddPolicy(diff, { require_test_changes: true }, [], "sw");
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe("source_changes_without_tests");
+    });
+
+    it("does NOT skip TDD when taskType is null", () => {
+      const out = evaluateTddPolicy(diff, { require_test_changes: true }, [], null);
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe("source_changes_without_tests");
+    });
+
+    it("does NOT skip TDD for refactor taskType", () => {
+      const out = evaluateTddPolicy(diff, { require_test_changes: true }, [], "refactor");
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe("source_changes_without_tests");
+    });
+  });
+
   describe("untracked files support", () => {
     it("passes when source is only in diff but tests are untracked (new files)", () => {
       const diff = [
