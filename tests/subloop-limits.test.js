@@ -79,6 +79,11 @@ vi.mock("../src/utils/project-detect.js", () => ({
   detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
 }));
 
+vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human intervention needed" })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
@@ -144,6 +149,9 @@ describe("configurable sub-loop limits", () => {
 
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("role instructions");
+
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;
