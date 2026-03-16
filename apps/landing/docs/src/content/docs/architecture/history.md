@@ -556,6 +556,41 @@ After v1.24.0:
 
 **Why:** Session overrides set via `kj_preflight` were lost on resume, causing resumed sessions to revert to default config. Solomon's existing rules caught scope and overreach issues but missed a common stall pattern: reviewers blocking on style-only concerns (naming, formatting, comment style) that are subjective and unlikely to converge through automated iteration.
 
+## Phase 21: Autonomous Orchestrator (v1.25.0)
+
+**What changed:** Solomon becomes the Pipeline Boss that evaluates every reviewer rejection with smart iteration logic. The pipeline auto-detects TDD and auto-manages SonarQube, reducing configuration to near-zero for standard projects.
+
+**Key additions:**
+- **Solomon as Pipeline Boss**: evaluates every reviewer rejection, classifies issues as critical vs. style-only, can override style-only blocks. Smart iteration control decides whether to retry or proceed based on issue classification
+- **Auto-detect TDD**: pipeline detects the project's test framework (Vitest, Jest, Mocha, etc.) and enables TDD methodology automatically — no `--methodology` flag needed
+- **SonarQube auto-manage**: auto-starts Docker container, auto-generates `sonar-project.properties` if missing, treats coverage-only results as advisory (non-blocking)
+- **Skip sonar/TDD for infra/doc tasks**: policy-resolver now skips SonarQube and TDD for infrastructure and documentation tasks automatically, reducing false positives
+- 1605 tests across 130 files
+
+**Architecture addition:**
+```
+Before v1.25.0:
+  reviewer rejects → coder retries (same approach) → reviewer rejects again → stall
+
+After v1.25.0:
+  reviewer rejects → Solomon evaluates rejection
+    → critical issues → coder retries with targeted feedback
+    → style-only issues → Solomon overrides, pipeline continues
+    → mixed issues → coder retries on critical only, style deferred
+
+TDD auto-detect:
+  project has vitest/jest/mocha → methodology = "tdd" (auto)
+  project has no test runner → methodology = "standard" (auto)
+  --methodology flag → always wins (explicit override)
+
+SonarQube auto-manage:
+  sonar enabled + Docker not running → auto-start container
+  sonar enabled + no config file → auto-generate sonar-project.properties
+  sonar result = coverage-only → advisory (non-blocking)
+```
+
+**Why:** The pipeline was becoming increasingly autonomous but still required manual configuration for TDD methodology and SonarQube setup. Solomon's evolution from supervisor to Pipeline Boss addresses a key bottleneck: reviewer rejections that stall the pipeline on style-only concerns while critical issues get lost in the noise. Auto-detecting TDD and auto-managing SonarQube removes the two most common configuration friction points, making the pipeline truly zero-config for standard projects.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

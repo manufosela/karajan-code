@@ -28,7 +28,7 @@ intent? → discover? → triage → researcher? → architect? → planner? →
 | **reviewer** | Revisión de código con perfiles de exigencia configurables | **Siempre activo** |
 | **tester** | Quality gate de tests y verificación de cobertura | **On** |
 | **security** | Auditoría de seguridad OWASP | **On** |
-| **solomon** | Supervisor de sesión — monitoriza salud de iteraciones con 5 reglas, media stalls del reviewer, escala ante anomalías | **On** |
+| **solomon** | Pipeline Boss & Árbitro — evalúa cada rechazo del reviewer, clasifica issues, puede anular bloqueos por estilo. 6 reglas con control inteligente de iteraciones | **On** |
 | **commiter** | Automatización de git commit, push y PR tras aprobación | Off |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecución o via config.
@@ -82,9 +82,9 @@ Cada stage incluye un `summary` opcional — el nombre del provider mientras est
 
 Para herramientas single-agent (`kj_code`, `kj_review`, `kj_plan`), también se emiten logs de tracker start/end para que los hosts puedan mostrar qué agente está activo.
 
-## Solomon Supervisor (v1.12.0)
+## Solomon — Pipeline Boss (v1.12.0, mejorado en v1.25.0)
 
-Solomon se ejecuta tras cada iteración como supervisor de sesión con 5 reglas:
+Solomon se ejecuta tras cada iteración como Pipeline Boss & Árbitro. Evalúa cada rechazo del reviewer, clasifica issues como críticos vs. solo estilo, y puede anular bloqueos por estilo para mantener el pipeline en movimiento. 6 reglas:
 
 | Regla | Qué comprueba |
 |-------|--------------|
@@ -93,10 +93,13 @@ Solomon se ejecuta tras cada iteración como supervisor de sesión con 5 reglas:
 | `dependency_guard` | Nuevas dependencias añadidas sin aprobación explícita |
 | `scope_guard` | Cambios fuera del scope esperado de la tarea |
 | `reviewer_overreach` | El reviewer reporta issues en ficheros fuera del diff actual |
+| `style_only_block` | El reviewer bloquea exclusivamente por issues de estilo/formato — auto-escala a revisión humana (v1.24.1) |
 
 Cuando se dispara una alerta crítica, Solomon pausa la sesión y pide input humano via `elicitInput`.
 
 A partir de v1.12.0, Solomon también media los stalls del reviewer. En lugar de detener el pipeline inmediatamente cuando el reviewer se estanca, Solomon interviene para evaluar la situación, pudiendo auto-diferir los issues fuera de scope y permitir que el pipeline continúe.
+
+Desde v1.25.0, Solomon evalúa **cada** rechazo del reviewer, clasificando issues y aplicando lógica de iteración inteligente. Los bloqueos por solo estilo se anulan automáticamente, permitiendo que el pipeline continúe sin intervención humana para cuestiones subjetivas.
 
 ## Scope Filter del Reviewer (v1.12.0)
 
@@ -219,6 +222,10 @@ policies:
 ```
 
 El orquestador emite un evento `policies:resolved` y aplica los gates de politicas usando copias superficiales — sin mutar nunca la configuracion del llamante.
+
+### Auto-Detección de TDD (v1.25.0+)
+
+La metodología TDD ahora se auto-detecta según el framework de tests del proyecto. Si el proyecto tiene un test runner configurado (Vitest, Jest, Mocha, etc.), el pipeline activa TDD automáticamente sin necesitar `--methodology tdd`. Puedes forzar con `--methodology standard` si lo necesitas.
 
 ### Triage Obligatorio (v1.15.0+)
 

@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 14 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.24.1 — Role-based AI orchestrator: 14 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.25.0 — Role-based AI orchestrator: 14 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -47,8 +47,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Preflight Handshake" icon="approve-check-circle">
     `kj_preflight` requires human confirmation of agent assignments before execution. 3-tier config: session > project > global.
   </Card>
-  <Card title="Solomon Supervisor" icon="seti:config">
-    Monitors iteration health with 5 rules (max files, stale iterations, dependency guard, scope guard, reviewer overreach). Mediates reviewer stalls instead of stopping.
+  <Card title="Solomon — Pipeline Boss" icon="seti:config">
+    Evaluates every reviewer rejection, classifies issues as critical vs. style-only, and can override style-only blocks. 6 rules including scope guard, reviewer overreach, and smart iteration control.
   </Card>
   <Card title="Intelligent Reviewer Mediation" icon="approve-check">
     Scope filter auto-defers out-of-scope reviewer issues instead of stalling the pipeline. Deferred issues tracked as tech debt and fed back to the coder.
@@ -83,7 +83,10 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Skills Mode" icon="open-book">
     8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) with built-in guardrails. No MCP needed — works directly in Claude Code.
   </Card>
-  <Card title="1586+ Automated Tests" icon="approve-check">
+  <Card title="Zero-Config Pipeline" icon="setting">
+    Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically.
+  </Card>
+  <Card title="1605+ Automated Tests" icon="approve-check">
     130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Zero API Costs" icon="star">

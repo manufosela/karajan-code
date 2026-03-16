@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 14 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.24.1 — Orquestador de IA basado en roles: 14 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.25.0 — Orquestador de IA basado en roles: 14 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -47,8 +47,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Preflight Handshake" icon="approve-check-circle">
     `kj_preflight` requiere confirmación humana de la config de agentes antes de ejecutar. Config de 3 niveles: sesión > proyecto > global.
   </Card>
-  <Card title="Solomon Supervisor" icon="seti:config">
-    Monitoriza la salud de iteraciones con 5 reglas (max ficheros, iteraciones estancadas, dependencias, scope, reviewer overreach). Media conflictos del reviewer y pausa ante anomalías críticas.
+  <Card title="Solomon — Pipeline Boss" icon="seti:config">
+    Evalúa cada rechazo del reviewer, clasifica issues como críticos vs. solo estilo, y puede anular bloqueos por estilo. 6 reglas incluyendo scope guard, reviewer overreach y control inteligente de iteraciones.
   </Card>
   <Card title="Monitorización en Tiempo Real" icon="seti:log">
     Detector de stalls, heartbeats continuos, guardarraíles de silencio, límite de runtime. `kj-tail` para log colorizado en vivo. `kj_status` para estado parseado.
@@ -83,7 +83,10 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Modo Skills" icon="open-book">
     8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) con guardrails integrados. Sin MCP — funciona directamente en Claude Code.
   </Card>
-  <Card title="1586+ Tests Automatizados" icon="approve-check">
+  <Card title="Pipeline Zero-Config" icon="setting">
+    Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente.
+  </Card>
+  <Card title="1605+ Tests Automatizados" icon="approve-check">
     130 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
   </Card>
   <Card title="Sin Costes Extra" icon="star">

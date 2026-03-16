@@ -101,7 +101,7 @@ The `<task>` argument accepts:
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--mode <name>` | string | `standard` | Review strictness: `paranoid`, `strict`, `standard`, `relaxed` |
-| `--methodology <name>` | string | `tdd` | Development approach: `tdd` or `standard` |
+| `--methodology <name>` | string | auto-detected | Development approach: `tdd` or `standard`. Auto-detected from project test framework since v1.25.0 |
 | `--reviewer-fallback <name>` | string | `codex` | Fallback reviewer if primary fails |
 | `--reviewer-retries <n>` | number | `1` | Max reviewer retry attempts |
 | `--coder-fallback <name>` | string | — | Fallback coder if primary hits rate limit |
