@@ -95,6 +95,8 @@ The `<task>` argument accepts:
 | `--enable-reviewer` | on | Enable reviewer stage |
 | `--enable-serena` | off | Enable Serena MCP integration |
 | `--enable-impeccable` | off | Enable Impeccable design audit (automated UI/UX quality gate) |
+| `--auto-simplify` | on | Auto-simplify pipeline for triage level 1-2 (coder-only, skip reviewer/tester) |
+| `--no-auto-simplify` | — | Disable auto-simplify: always run full pipeline regardless of triage level |
 
 ### Review and methodology
 

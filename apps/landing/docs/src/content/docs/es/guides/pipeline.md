@@ -223,6 +223,12 @@ policies:
 
 El orquestador emite un evento `policies:resolved` y aplica los gates de politicas usando copias superficiales — sin mutar nunca la configuracion del llamante.
 
+### Pipeline Auto-Simplify (v1.25.1+)
+
+Cuando el triage clasifica una tarea como nivel 1-2 (trivial o simple), el pipeline ejecuta automáticamente un flujo ligero solo con coder — reviewer, tester y otras etapas post-coder se auto-desactivan. Las tareas de nivel 3+ (medio, complejo) ejecutan el pipeline completo con todas las etapas habilitadas. Esto reduce overhead para tareas simples mientras preserva el rigor para las complejas.
+
+Desactivar con `--no-auto-simplify` (CLI) o `autoSimplify: false` (MCP).
+
 ### Auto-Detección de TDD (v1.25.0+)
 
 La metodología TDD ahora se auto-detecta según el framework de tests del proyecto. Si el proyecto tiene un test runner configurado (Vitest, Jest, Mocha, etc.), el pipeline activa TDD automáticamente sin necesitar `--methodology tdd`. Puedes forzar con `--methodology standard` si lo necesitas.

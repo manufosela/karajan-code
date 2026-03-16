@@ -591,6 +591,10 @@ SonarQube auto-manage:
 
 **Why:** The pipeline was becoming increasingly autonomous but still required manual configuration for TDD methodology and SonarQube setup. Solomon's evolution from supervisor to Pipeline Boss addresses a key bottleneck: reviewer rejections that stall the pipeline on style-only concerns while critical issues get lost in the noise. Auto-detecting TDD and auto-managing SonarQube removes the two most common configuration friction points, making the pipeline truly zero-config for standard projects.
 
+### v1.25.1: Auto-Simplify Pipeline
+
+Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight coder-only flow, skipping reviewer, tester, and other post-coder stages. Level 3+ (medium/complex) gets the full pipeline. Configurable via `--no-auto-simplify` CLI flag or `autoSimplify: false` MCP parameter.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

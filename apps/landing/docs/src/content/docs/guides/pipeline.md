@@ -219,6 +219,12 @@ policies:
 
 The orchestrator emits a `policies:resolved` event and applies policy gates using shallow copies — never mutating the caller's configuration.
 
+### Auto-Simplify Pipeline (v1.25.1+)
+
+When triage classifies a task as level 1-2 (trivial or simple), the pipeline automatically runs a lightweight coder-only flow — reviewer, tester, and other post-coder stages are auto-disabled. Level 3+ tasks (medium, complex) get the full pipeline with all enabled stages. This reduces overhead for simple tasks while preserving rigor for complex ones.
+
+Disable with `--no-auto-simplify` (CLI) or `autoSimplify: false` (MCP).
+
 ### Auto-Detect TDD (v1.25.0+)
 
 TDD methodology is now auto-detected based on the project's test framework. If the project has a test runner configured (Vitest, Jest, Mocha, etc.), the pipeline automatically enables TDD without requiring `--methodology tdd`. You can still override with `--methodology standard` if needed.
