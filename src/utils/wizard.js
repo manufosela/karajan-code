@@ -1,7 +1,7 @@
 import readline from "node:readline";
 
 export function createWizard(input = process.stdin, output = process.stdout) {
-  const rl = readline.createInterface({ input, output });
+  const rl = readline.createInterface({ input, output, terminal: false });
 
   function ask(question) {
     return new Promise((resolve) => {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Readable, Writable } from "node:stream";
+import readline from "node:readline";
 import { createWizard, isTTY } from "../src/utils/wizard.js";
 
 function makeInput(answers) {
@@ -93,6 +94,17 @@ describe("wizard", () => {
     expect(text).toContain("gemini (not installed)");
     expect(text).not.toContain("claude (not installed)");
     wizard.close();
+  });
+
+  it("createInterface is called with terminal: false to prevent double-echo on TTY", () => {
+    const spy = vi.spyOn(readline, "createInterface");
+    const input = makeInput([""]);
+    const output = makeOutput();
+    createWizard(input, output);
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ terminal: false })
+    );
+    spy.mockRestore();
   });
 
   it("select defaults to first option on invalid input", async () => {
