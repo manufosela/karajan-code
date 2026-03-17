@@ -10,6 +10,7 @@ const SEARCH_DIRS = [
   path.join(os.homedir(), ".npm-global", "bin"),
   "/usr/local/bin",
   path.join(os.homedir(), ".local", "bin"),
+  path.join(os.homedir(), ".opencode", "bin"),
 ];
 
 function getNvmDirs() {
