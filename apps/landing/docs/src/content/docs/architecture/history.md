@@ -599,6 +599,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.25.2** — Anti-bypass guardrail for `kj_resume`: validates answers against prompt injection patterns, rejects too-long inputs, defense-in-depth truncation. 36 new tests.
 
+### v1.25.3: Provider Outage Resilience
+
+**v1.25.3** — Provider outage resilience: 500/502/503/504 and connection errors now trigger automatic standby and retry (same as rate limits). On resume after outage, the coder is explicitly informed it was an external provider failure, not a code or KJ problem.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

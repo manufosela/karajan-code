@@ -598,6 +598,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.25.2** — Guardarraíl anti-bypass para `kj_resume`: valida respuestas contra patrones de inyección de prompts, rechaza inputs demasiado largos, truncamiento defensivo. 36 tests nuevos.
 
+### v1.25.3: Resiliencia ante Caídas del Proveedor
+
+**v1.25.3** — Resiliencia ante caídas del proveedor: errores 500/502/503/504 y de conexión ahora activan standby y reintento automático (igual que los rate limits). Al resumir tras una caída, se informa explícitamente al coder de que fue un fallo externo del proveedor, no un problema del código ni de KJ.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
