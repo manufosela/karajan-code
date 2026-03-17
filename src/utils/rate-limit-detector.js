@@ -77,22 +77,35 @@ const RATE_LIMIT_PATTERNS = [
   { pattern: /resource exhausted/i, agent: "gemini" },
   { pattern: /quota exceeded/i, agent: "gemini" },
 
-  // Generic (match any agent)
+  // Generic rate limits (match any agent)
   { pattern: /rate limit/i, agent: "unknown" },
   { pattern: /token limit reached/i, agent: "unknown" },
   { pattern: /\b429\b/, agent: "unknown" },
   { pattern: /too many requests/i, agent: "unknown" },
   { pattern: /throttl/i, agent: "unknown" },
+
+  // Provider outages / transient errors (treat like rate limits → retry)
+  { pattern: /\b500\b.*(?:internal server error|error)/i, agent: "unknown" },
+  { pattern: /\b502\b|bad gateway/i, agent: "unknown" },
+  { pattern: /\b503\b|service unavailable/i, agent: "unknown" },
+  { pattern: /\b504\b|gateway timeout/i, agent: "unknown" },
+  { pattern: /overloaded/i, agent: "unknown" },
+  { pattern: /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up/i, agent: "unknown" },
+  { pattern: /network error|fetch failed/i, agent: "unknown" },
 ];
 
 export function detectRateLimit({ stderr = "", stdout = "" }) {
   const combined = `${stderr}\n${stdout}`;
 
+  const PROVIDER_OUTAGE_PATTERNS = /\b50[0-4]\b|bad gateway|service unavailable|gateway timeout|overloaded|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up|network error|fetch failed/i;
+
   for (const { pattern, agent } of RATE_LIMIT_PATTERNS) {
     if (pattern.test(combined)) {
       const matchedLine = combined.split("\n").find((l) => pattern.test(l)) || combined.trim();
+      const isProviderOutage = PROVIDER_OUTAGE_PATTERNS.test(matchedLine);
       return {
         isRateLimit: true,
+        isProviderOutage,
         agent,
         message: matchedLine.trim(),
         ...parseCooldown(matchedLine)
@@ -100,5 +113,5 @@ export function detectRateLimit({ stderr = "", stdout = "" }) {
     }
   }
 
-  return { isRateLimit: false, agent: "", message: "", cooldownUntil: null, cooldownMs: null };
+  return { isRateLimit: false, isProviderOutage: false, agent: "", message: "", cooldownUntil: null, cooldownMs: null };
 }

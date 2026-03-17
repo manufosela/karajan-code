@@ -100,9 +100,10 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
         action: "standby",
         standbyInfo: {
           agent: coderRole.provider,
-          cooldownMs: rateLimitCheck.cooldownMs,
+          cooldownMs: rateLimitCheck.cooldownMs || (rateLimitCheck.isProviderOutage ? 30000 : null),
           cooldownUntil: rateLimitCheck.cooldownUntil,
-          message: rateLimitCheck.message
+          message: rateLimitCheck.message,
+          isProviderOutage: rateLimitCheck.isProviderOutage || false
         }
       };
     }
@@ -169,9 +170,10 @@ export async function runRefactorerStage({ refactorerRole, config, logger, emitt
         action: "standby",
         standbyInfo: {
           agent: refactorerRole.provider,
-          cooldownMs: rateLimitCheck.cooldownMs,
+          cooldownMs: rateLimitCheck.cooldownMs || (rateLimitCheck.isProviderOutage ? 30000 : null),
           cooldownUntil: rateLimitCheck.cooldownUntil,
-          message: rateLimitCheck.message
+          message: rateLimitCheck.message,
+          isProviderOutage: rateLimitCheck.isProviderOutage || false
         }
       };
     }
@@ -738,9 +740,10 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
         action: "standby",
         standbyInfo: {
           agent: reviewerRole.provider,
-          cooldownMs: rateLimitCheck.cooldownMs,
+          cooldownMs: rateLimitCheck.cooldownMs || (rateLimitCheck.isProviderOutage ? 30000 : null),
           cooldownUntil: rateLimitCheck.cooldownUntil,
-          message: rateLimitCheck.message
+          message: rateLimitCheck.message,
+          isProviderOutage: rateLimitCheck.isProviderOutage || false
         }
       };
     }

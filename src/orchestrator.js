@@ -485,10 +485,18 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
   }
 
   const standbyRetries = session.standby_retry_count || 0;
+  const isOutage = stageResult.standbyInfo.isProviderOutage;
+  const pauseReason = isOutage
+    ? `Provider outage (${stageResult.standbyInfo.message || "5xx/connection error"}) — retried ${standbyRetries} times. This is NOT a KJ or code problem.`
+    : `Rate limit standby exhausted after ${standbyRetries} retries. Agent: ${stageResult.standbyInfo.agent}`;
+
   if (standbyRetries >= MAX_STANDBY_RETRIES) {
+    session.last_reviewer_feedback = isOutage
+      ? "IMPORTANT: The previous interruption was caused by a provider outage (API 500 error), NOT by a problem in your code or in Karajan. Continue from where you left off."
+      : session.last_reviewer_feedback;
     await pauseSession(session, {
-      question: `Rate limit standby exhausted after ${standbyRetries} retries. Agent: ${stageResult.standbyInfo.agent}`,
-      context: { iteration: i, stage, reason: "standby_exhausted" }
+      question: pauseReason,
+      context: { iteration: i, stage, reason: isOutage ? "provider_outage" : "standby_exhausted" }
     });
     emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
       status: "paused",
