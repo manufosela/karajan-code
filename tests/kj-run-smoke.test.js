@@ -103,7 +103,18 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 vi.mock("../src/sonar/manager.js", () => ({
-  sonarUp: vi.fn()
+  sonarUp: vi.fn(),
+  isSonarReachable: vi.fn()
+}));
+
+vi.mock("../src/orchestrator/preflight-checks.js", () => ({
+  runPreflightChecks: vi.fn().mockResolvedValue({
+    ok: true,
+    checks: [],
+    remediations: [],
+    configOverrides: {},
+    warnings: [],
+  })
 }));
 
 vi.mock("../src/utils/process.js", () => ({

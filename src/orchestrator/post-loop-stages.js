@@ -4,6 +4,95 @@ import { addCheckpoint, saveSession } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 
+const KNOWN_AGENTS = ["claude", "codex", "gemini"];
+
+/**
+ * Build an ordered fallback chain for a role.
+ * Primary provider first, then remaining known agents (no duplicates).
+ */
+function buildFallbackChain(config, roleName) {
+  const primary =
+    config?.roles?.[roleName]?.provider ||
+    config?.roles?.coder?.provider ||
+    config?.coder ||
+    "claude";
+  return [primary, ...KNOWN_AGENTS.filter((a) => a !== primary)];
+}
+
+/**
+ * Detect if a role output is an agent/spawn failure (vs a genuine evaluation failure).
+ * Agent failures have `result.error` but no `result.verdict`.
+ */
+function isAgentFailure(output) {
+  if (!output || output.ok) return false;
+  return Boolean(output.result?.error) && !output.result?.verdict;
+}
+
+/**
+ * Run a role (TesterRole or SecurityRole) with agent fallback chain.
+ * If the primary agent fails to start (spawn/auth failure), tries the next agent.
+ * Genuine evaluation failures (agent ran but verdict=fail) are NOT retried.
+ *
+ * @returns {{ output, provider, attempts }}
+ */
+async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitter, eventBase, task, iteration, diff }) {
+  const chain = buildFallbackChain(config, roleName);
+  const attempts = [];
+
+  for (const provider of chain) {
+    const overrideConfig = {
+      ...config,
+      roles: { ...config.roles, [roleName]: { ...config.roles?.[roleName], provider } }
+    };
+
+    const role = new RoleClass({ config: overrideConfig, logger, emitter });
+    await role.init({ task, iteration });
+
+    const start = Date.now();
+    let output;
+    try {
+      output = await role.run({ task, diff });
+    } catch (err) {
+      output = {
+        ok: false,
+        result: { error: err.message, provider },
+        summary: `${roleName} threw: ${err.message}`
+      };
+    }
+    const duration = Date.now() - start;
+
+    attempts.push({ provider, ok: output.ok, duration, summary: output.summary });
+
+    if (output.ok || !isAgentFailure(output)) {
+      // Either success or a genuine evaluation failure — don't try another agent
+      return { output, provider, attempts };
+    }
+
+    // Agent failure — log and try next
+    logger.warn(`${roleName} agent "${provider}" failed (${duration}ms): ${output.summary} — trying next agent`);
+    emitProgress(emitter, makeEvent(`${roleName}:fallback`, { ...eventBase, stage: roleName }, {
+      status: "warn",
+      message: `Agent "${provider}" failed, falling back`,
+      detail: { provider, duration, summary: output.summary, remaining: chain.length - attempts.length }
+    }));
+  }
+
+  // All agents failed
+  const lastAttempt = attempts[attempts.length - 1];
+  const allProviders = attempts.map((a) => a.provider).join(", ");
+  logger.error(`${roleName}: all agents failed (${allProviders})`);
+
+  return {
+    output: {
+      ok: false,
+      result: { error: `All agents failed: ${allProviders}`, attempts },
+      summary: `All ${roleName} agents failed (${allProviders}) — check agent installation and configuration`
+    },
+    provider: lastAttempt?.provider,
+    attempts
+  };
+}
+
 export async function runTesterStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion }) {
   logger.setContext({ iteration, stage: "tester" });
   emitProgress(
@@ -13,24 +102,28 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
     })
   );
 
-  const tester = new TesterRole({ config, logger, emitter });
-  await tester.init({ task, iteration });
   const testerStart = Date.now();
-  const testerOutput = await tester.run({ task, diff });
+  const { output: testerOutput, provider, attempts } = await runRoleWithFallback(
+    TesterRole,
+    { roleName: "tester", config, logger, emitter, eventBase, task, iteration, diff }
+  );
+  const totalDuration = Date.now() - testerStart;
+
   trackBudget({
     role: "tester",
-    provider: config?.roles?.tester?.provider || coderRole.provider,
+    provider: provider || coderRole.provider,
     model: config?.roles?.tester?.model || coderRole.model,
     result: testerOutput,
-    duration_ms: Date.now() - testerStart
+    duration_ms: totalDuration
   });
 
   await addCheckpoint(session, {
     stage: "tester",
     iteration,
     ok: testerOutput.ok,
-    provider: config?.roles?.tester?.provider || coderRole.provider,
-    model: config?.roles?.tester?.model || coderRole.model || null
+    provider: provider || coderRole.provider,
+    model: config?.roles?.tester?.model || coderRole.model || null,
+    attempts: attempts.length > 1 ? attempts : undefined
   });
 
   emitProgress(
@@ -87,24 +180,28 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
     })
   );
 
-  const security = new SecurityRole({ config, logger, emitter });
-  await security.init({ task, iteration });
   const securityStart = Date.now();
-  const securityOutput = await security.run({ task, diff });
+  const { output: securityOutput, provider, attempts } = await runRoleWithFallback(
+    SecurityRole,
+    { roleName: "security", config, logger, emitter, eventBase, task, iteration, diff }
+  );
+  const totalDuration = Date.now() - securityStart;
+
   trackBudget({
     role: "security",
-    provider: config?.roles?.security?.provider || coderRole.provider,
+    provider: provider || coderRole.provider,
     model: config?.roles?.security?.model || coderRole.model,
     result: securityOutput,
-    duration_ms: Date.now() - securityStart
+    duration_ms: totalDuration
   });
 
   await addCheckpoint(session, {
     stage: "security",
     iteration,
     ok: securityOutput.ok,
-    provider: config?.roles?.security?.provider || coderRole.provider,
-    model: config?.roles?.security?.model || coderRole.model || null
+    provider: provider || coderRole.provider,
+    model: config?.roles?.security?.model || coderRole.model || null,
+    attempts: attempts.length > 1 ? attempts : undefined
   });
 
   emitProgress(
@@ -151,3 +248,6 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
   session.security_retry_count = 0;
   return { action: "ok", stageResult: { ok: true, summary: securityOutput.summary || "No vulnerabilities found" } };
 }
+
+// Exported for testing
+export { buildFallbackChain, isAgentFailure, runRoleWithFallback };

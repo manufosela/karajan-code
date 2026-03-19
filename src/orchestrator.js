@@ -30,6 +30,7 @@ import { runTriageStage, runResearcherStage, runPlannerStage } from "./orchestra
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
+import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
 
 
 
@@ -306,6 +307,20 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       detail: resolvedPolicies
     })
   );
+
+  // --- Preflight environment checks ---
+  const preflightResult = await runPreflightChecks({
+    config, logger, emitter, eventBase, resolvedPolicies, securityEnabled
+  });
+  session.preflight = preflightResult;
+  await saveSession(session);
+
+  if (preflightResult.configOverrides.sonarDisabled) {
+    config = { ...config, sonarqube: { ...config.sonarqube, enabled: false } };
+  }
+  if (preflightResult.configOverrides.securityDisabled) {
+    securityEnabled = false;
+  }
 
   // --- Researcher (pre-planning) ---
   let researchContext = null;

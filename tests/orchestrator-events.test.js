@@ -197,6 +197,7 @@ describe("orchestrator events", () => {
     expect(events).toEqual([
       "session:start",
       "policies:resolved",
+      "preflight:end",
       "iteration:start",
       "coder:start",
       "coder:end",
@@ -532,6 +533,7 @@ describe("orchestrator events", () => {
     expect(events).toEqual([
       "session:start",
       "policies:resolved",
+      "preflight:end",
       "planner:start",
       "planner:end",
       "iteration:start",
