@@ -6,3 +6,4 @@ node_modules/
 coverage/
 kj.config.yml
 review-rules.md
+.sonar-env

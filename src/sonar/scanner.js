@@ -144,6 +144,10 @@ async function resolveSonarToken(config, apiHost) {
   ].filter(Boolean);
 
   for (const password of new Set(candidates)) {
+    if (password === "admin") {
+      // eslint-disable-next-line no-console
+      console.warn("[karajan] WARNING: Using default admin/admin credentials for SonarQube. Set KJ_SONAR_TOKEN for production use.");
+    }
     const valid = await validateAdminCredentials(apiHost, adminUser, password);
     if (!valid) continue;
     const token = await generateUserToken(apiHost, adminUser, password);
