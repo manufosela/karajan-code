@@ -30,6 +30,11 @@ vi.mock("../src/agents/index.js", () => ({
   })
 }));
 
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
+}));
+
 vi.mock("../src/roles/sonar-role.js", () => ({
   SonarRole: class {
     async init() {}
