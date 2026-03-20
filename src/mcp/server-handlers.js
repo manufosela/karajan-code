@@ -9,6 +9,7 @@ import { runKjCommand } from "./run-kj.js";
 import { normalizePlanArgs } from "./tool-arg-normalizers.js";
 import { buildProgressHandler, buildProgressNotifier, buildPipelineTracker, sendTrackerLog } from "./progress.js";
 import { createStallDetector } from "../utils/stall-detector.js";
+import { runDirectRole } from "./direct-role-runner.js";
 import { runFlow, resumeFlow } from "../orchestrator.js";
 import { loadConfig, applyRunOverrides, validateConfig, resolveRole } from "../config.js";
 import { createLogger } from "../utils/logger.js";
@@ -523,28 +524,6 @@ export async function handleReviewDirect(a, server, extra) {
 }
 
 export async function handleDiscoverDirect(a, server, extra) {
-  const config = await buildConfig(a, "discover");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const discoverRole = resolveRole(config, "discover");
-  await assertAgentsAvailable([discoverRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_discover] started — mode=${a.mode || "gaps"}`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "discover", message: line, detail: { stream, agent: discoverRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "discover", provider: discoverRole.provider
-  });
-
-  const { DiscoverRole } = await import("../roles/discover-role.js");
-  const discover = new DiscoverRole({ config, logger, emitter });
-  await discover.init({ task: a.task });
-
   // Build context from pgTask if provided
   let context = a.context || null;
   if (a.pgTask && a.pgProject) {
@@ -554,205 +533,76 @@ export async function handleDiscoverDirect(a, server, extra) {
     } catch { /* PG not available — proceed without */ }
   }
 
-  sendTrackerLog(server, "discover", "running", discoverRole.provider);
-  runLog.logText(`[discover] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await discover.run({ task: a.task, mode: a.mode || "gaps", context, onOutput: stallDetector.onOutput });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[discover] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "discover", "failed");
-    throw new Error(result.result?.error || result.summary || "Discovery failed");
-  }
-
-  sendTrackerLog(server, "discover", "done");
-  return { ok: true, ...result.result, summary: result.summary };
+  return runDirectRole({
+    roleName: "discover",
+    importRole: async () => {
+      const { DiscoverRole } = await import("../roles/discover-role.js");
+      return { RoleClass: DiscoverRole };
+    },
+    initContext: { task: a.task },
+    runInput: { task: a.task, mode: a.mode || "gaps", context },
+    logStartMsg: `[kj_discover] started — mode=${a.mode || "gaps"}`,
+    args: a, server, extra,
+    resolveProjectDir, buildConfig, buildDirectEmitter
+  });
 }
 
 export async function handleTriageDirect(a, server, extra) {
-  const config = await buildConfig(a, "triage");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const triageRole = resolveRole(config, "triage");
-  await assertAgentsAvailable([triageRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_triage] started`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "triage", message: line, detail: { stream, agent: triageRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "triage", provider: triageRole.provider
+  return runDirectRole({
+    roleName: "triage",
+    importRole: async () => {
+      const { TriageRole } = await import("../roles/triage-role.js");
+      return { RoleClass: TriageRole };
+    },
+    initContext: { task: a.task },
+    runInput: { task: a.task },
+    args: a, server, extra,
+    resolveProjectDir, buildConfig, buildDirectEmitter
   });
-
-  const { TriageRole } = await import("../roles/triage-role.js");
-  const triage = new TriageRole({ config, logger, emitter });
-  await triage.init({ task: a.task });
-
-  sendTrackerLog(server, "triage", "running", triageRole.provider);
-  runLog.logText(`[triage] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await triage.run({ task: a.task, onOutput: stallDetector.onOutput });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[triage] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "triage", "failed");
-    throw new Error(result.result?.error || result.summary || "Triage failed");
-  }
-
-  sendTrackerLog(server, "triage", "done");
-  return { ok: true, ...result.result, summary: result.summary };
 }
 
 export async function handleResearcherDirect(a, server, extra) {
-  const config = await buildConfig(a, "researcher");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const researcherRole = resolveRole(config, "researcher");
-  await assertAgentsAvailable([researcherRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_researcher] started`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "researcher", message: line, detail: { stream, agent: researcherRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "researcher", provider: researcherRole.provider
+  return runDirectRole({
+    roleName: "researcher",
+    importRole: async () => {
+      const { ResearcherRole } = await import("../roles/researcher-role.js");
+      return { RoleClass: ResearcherRole };
+    },
+    initContext: { task: a.task },
+    runInput: { task: a.task },
+    args: a, server, extra,
+    resolveProjectDir, buildConfig, buildDirectEmitter
   });
-
-  const { ResearcherRole } = await import("../roles/researcher-role.js");
-  const researcher = new ResearcherRole({ config, logger, emitter });
-  await researcher.init({ task: a.task });
-
-  sendTrackerLog(server, "researcher", "running", researcherRole.provider);
-  runLog.logText(`[researcher] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await researcher.run({ task: a.task, onOutput: stallDetector.onOutput });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[researcher] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "researcher", "failed");
-    throw new Error(result.result?.error || result.summary || "Researcher failed");
-  }
-
-  sendTrackerLog(server, "researcher", "done");
-  return { ok: true, ...result.result, summary: result.summary };
 }
 
 export async function handleAuditDirect(a, server, extra) {
-  const config = await buildConfig(a, "audit");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const auditRole = resolveRole(config, "audit");
-  await assertAgentsAvailable([auditRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_audit] started — dimensions=${a.dimensions || "all"}`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "audit", message: line, detail: { stream, agent: auditRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "audit", provider: auditRole.provider
+  const task = a.task || "Analyze the full codebase";
+  return runDirectRole({
+    roleName: "audit",
+    importRole: async () => {
+      const { AuditRole } = await import("../roles/audit-role.js");
+      return { RoleClass: AuditRole };
+    },
+    initContext: { task },
+    runInput: { task, dimensions: a.dimensions || null },
+    logStartMsg: `[kj_audit] started — dimensions=${a.dimensions || "all"}`,
+    args: a, server, extra,
+    resolveProjectDir, buildConfig, buildDirectEmitter
   });
-
-  const { AuditRole } = await import("../roles/audit-role.js");
-  const audit = new AuditRole({ config, logger, emitter });
-  await audit.init({ task: a.task || "Analyze the full codebase" });
-
-  sendTrackerLog(server, "audit", "running", auditRole.provider);
-  runLog.logText(`[audit] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await audit.run({
-      task: a.task || "Analyze the full codebase",
-      dimensions: a.dimensions || null,
-      onOutput: stallDetector.onOutput
-    });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[audit] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "audit", "failed");
-    throw new Error(result.result?.error || result.summary || "Audit failed");
-  }
-
-  sendTrackerLog(server, "audit", "done");
-  return { ok: true, ...result.result, summary: result.summary };
 }
 
 export async function handleArchitectDirect(a, server, extra) {
-  const config = await buildConfig(a, "architect");
-  const logger = createLogger(config.output.log_level, "mcp");
-
-  const architectRole = resolveRole(config, "architect");
-  await assertAgentsAvailable([architectRole.provider]);
-
-  const projectDir = await resolveProjectDir(server, a.projectDir);
-  const runLog = createRunLog(projectDir);
-  runLog.logText(`[kj_architect] started`);
-  const emitter = buildDirectEmitter(server, runLog, extra);
-  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
-  const onOutput = ({ stream, line }) => {
-    emitter.emit("progress", { type: "agent:output", stage: "architect", message: line, detail: { stream, agent: architectRole.provider } });
-  };
-  const stallDetector = createStallDetector({
-    onOutput, emitter, eventBase, stage: "architect", provider: architectRole.provider
+  return runDirectRole({
+    roleName: "architect",
+    importRole: async () => {
+      const { ArchitectRole } = await import("../roles/architect-role.js");
+      return { RoleClass: ArchitectRole };
+    },
+    initContext: { task: a.task },
+    runInput: { task: a.task, researchContext: a.context || null },
+    args: a, server, extra,
+    resolveProjectDir, buildConfig, buildDirectEmitter
   });
-
-  const { ArchitectRole } = await import("../roles/architect-role.js");
-  const architect = new ArchitectRole({ config, logger, emitter });
-  await architect.init({ task: a.task });
-
-  sendTrackerLog(server, "architect", "running", architectRole.provider);
-  runLog.logText(`[architect] agent launched, waiting for response...`);
-  let result;
-  try {
-    result = await architect.run({ task: a.task, researchContext: a.context || null, onOutput: stallDetector.onOutput });
-  } finally {
-    stallDetector.stop();
-    const stats = stallDetector.stats();
-    runLog.logText(`[architect] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
-    runLog.close();
-  }
-
-  if (!result.ok) {
-    sendTrackerLog(server, "architect", "failed");
-    throw new Error(result.result?.error || result.summary || "Architect failed");
-  }
-
-  sendTrackerLog(server, "architect", "done");
-  return { ok: true, ...result.result, summary: result.summary };
 }
 
 /* ── Preflight helpers ─────────────────────────────────────────────── */
