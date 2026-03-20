@@ -42,6 +42,13 @@ Karajan Code lo construye su comunidad. Gracias a todos los que han contribuido 
       <small><a href="https://webperf-snippets.nucliweb.net/">WebPerf Snippets</a> — futuro quality gate de WebPerf</small>
     </div>
   </div>
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <a href="https://github.com/rtk-ai/rtk"><img src="https://avatars.githubusercontent.com/u/212417825?v=4" width="60" height="60" style="border-radius: 50%;" alt="rtk-ai" /></a>
+    <div>
+      <strong><a href="https://github.com/rtk-ai/rtk" style="text-decoration: none; color: inherit;">RTK</a></strong><br/>
+      <small><a href="https://github.com/rtk-ai/rtk">rtk-ai/rtk</a> — Complemento de optimizacion de tokens. Reduce el consumo de tokens LLM en un 60-90% comprimiendo inteligentemente las salidas de comandos Bash.</small>
+    </div>
+  </div>
 </div>
 
 ## Como Contribuir

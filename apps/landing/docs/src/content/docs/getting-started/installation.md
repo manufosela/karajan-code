@@ -106,6 +106,17 @@ Or set the environment variable:
 export KJ_SONAR_TOKEN="your-token-here"
 ```
 
+## Optional: Install RTK for Token Savings
+
+[RTK](https://github.com/rtk-ai/rtk) (Rust Token Killer) reduces token consumption by 60-90% on Bash command outputs. Install it globally and KJ benefits automatically:
+
+```bash
+brew install rtk
+rtk init --global
+```
+
+See [RTK on GitHub](https://github.com/rtk-ai/rtk) for more details.
+
 ## Next Steps
 
 - [Quick Start](/docs/getting-started/quick-start/) — Run your first task
