@@ -179,33 +179,7 @@ async function initializeSession({ task, config, flags, pgTaskId, pgProject }) {
   return createSession(sessionInit);
 }
 
-async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
-  if (!pgTaskId || !pgProject || config.planning_game?.enabled === false) {
-    return null;
-  }
-  try {
-    const { fetchCard, updateCard } = await import("./planning-game/client.js");
-    const pgCard = await fetchCard({ projectId: pgProject, cardId: pgTaskId });
-    if (pgCard && pgCard.status !== "In Progress") {
-      await updateCard({
-        projectId: pgProject,
-        cardId: pgTaskId,
-        firebaseId: pgCard.firebaseId,
-        updates: {
-          status: "In Progress",
-          startDate: new Date().toISOString(),
-          developer: "dev_016",
-          codeveloper: config.planning_game?.codeveloper || null
-        }
-      });
-      logger.info(`Planning Game: ${pgTaskId} → In Progress`);
-    }
-    return pgCard;
-  } catch (err) {
-    logger.warn(`Planning Game: could not update ${pgTaskId}: ${err.message}`);
-    return null;
-  }
-}
+// PG card "In Progress" logic moved to src/planning-game/pipeline-adapter.js → initPgAdapter()
 
 function applyTriageOverrides(pipelineFlags, roleOverrides) {
   const keys = ["plannerEnabled", "researcherEnabled", "architectEnabled", "refactorerEnabled", "reviewerEnabled", "testerEnabled", "securityEnabled", "impeccableEnabled"];
@@ -239,57 +213,7 @@ function applyAutoSimplify({ pipelineFlags, triageLevel, config, flags, logger, 
   return true;
 }
 
-async function handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger }) {
-  const shouldDecompose = triageResult.stageResult?.shouldDecompose
-    && triageResult.stageResult.subtasks?.length > 1
-    && pgTaskId
-    && pgProject
-    && config.planning_game?.enabled !== false
-    && askQuestion;
-
-  if (!shouldDecompose) return;
-
-  try {
-    const { buildDecompositionQuestion, createDecompositionSubtasks } = await import("./planning-game/decomposition.js");
-    const { createCard, relateCards, fetchCard } = await import("./planning-game/client.js");
-
-    const question = buildDecompositionQuestion(triageResult.stageResult.subtasks, pgTaskId);
-    const answer = await askQuestion(question);
-
-    if (answer && (answer.trim().toLowerCase() === "yes" || answer.trim().toLowerCase() === "sí" || answer.trim().toLowerCase() === "si")) {
-      const parentCard = await fetchCard({ projectId: pgProject, cardId: pgTaskId }).catch(() => null);
-      const createdSubtasks = await createDecompositionSubtasks({
-        client: { createCard, relateCards },
-        projectId: pgProject,
-        parentCardId: pgTaskId,
-        parentFirebaseId: parentCard?.firebaseId || null,
-        subtasks: triageResult.stageResult.subtasks,
-        epic: parentCard?.epic || null,
-        sprint: parentCard?.sprint || null,
-        codeveloper: config.planning_game?.codeveloper || null
-      });
-
-      stageResults.triage.pgSubtasks = createdSubtasks;
-      logger.info(`Planning Game: created ${createdSubtasks.length} subtasks from decomposition`);
-
-      emitProgress(
-        emitter,
-        makeEvent("pg:decompose", { ...eventBase, stage: "triage" }, {
-          message: `Created ${createdSubtasks.length} subtasks in Planning Game`,
-          detail: { subtasks: createdSubtasks.map((s) => ({ cardId: s.cardId, title: s.title })) }
-        })
-      );
-
-      await addCheckpoint(session, {
-        stage: "pg-decompose",
-        subtasksCreated: createdSubtasks.length,
-        cardIds: createdSubtasks.map((s) => s.cardId)
-      });
-    }
-  } catch (err) {
-    logger.warn(`Planning Game decomposition failed: ${err.message}`);
-  }
-}
+// PG decomposition logic moved to src/planning-game/pipeline-adapter.js → handlePgDecomposition()
 
 function applyFlagOverrides(pipelineFlags, flags) {
   if (flags.enablePlanner !== undefined) pipelineFlags.plannerEnabled = Boolean(flags.enablePlanner);
@@ -714,6 +638,7 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   session.budget = budgetSummary();
   await markSessionStatus(session, "approved");
 
+  const { markPgCardToValidate } = await import("./planning-game/pipeline-adapter.js");
   await markPgCardToValidate({ pgCard, pgProject, config, session, gitResult, logger });
 
   const deferredIssues = session.deferred_issues || [];
@@ -729,29 +654,7 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   return { approved: true, sessionId: session.id, review, git: gitResult, deferredIssues };
 }
 
-async function markPgCardToValidate({ pgCard, pgProject, config, session, gitResult, logger }) {
-  if (!pgCard || !pgProject) return;
-
-  try {
-    const { updateCard } = await import("./planning-game/client.js");
-    const { buildCompletionUpdates } = await import("./planning-game/adapter.js");
-    const pgUpdates = buildCompletionUpdates({
-      approved: true,
-      commits: gitResult?.commits || [],
-      startDate: session.pg_card?.startDate || session.created_at,
-      codeveloper: config.planning_game?.codeveloper || null
-    });
-    await updateCard({
-      projectId: pgProject,
-      cardId: session.pg_task_id,
-      firebaseId: pgCard.firebaseId,
-      updates: pgUpdates
-    });
-    logger.info(`Planning Game: ${session.pg_task_id} → To Validate`);
-  } catch (err) {
-    logger.warn(`Planning Game: could not update ${session.pg_task_id} on completion: ${err.message}`);
-  }
-}
+// PG card "To Validate" logic moved to src/planning-game/pipeline-adapter.js → markPgCardToValidate()
 
 async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBase, logger, review, task, i, askQuestion }) {
   session.last_reviewer_feedback = review.blocking_issues
@@ -836,6 +739,7 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   });
   if (simplified) stageResults.triage.autoSimplified = true;
 
+  const { handlePgDecomposition } = await import("./planning-game/pipeline-adapter.js");
   await handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger });
 
   applyFlagOverrides(pipelineFlags, flags);
@@ -1120,7 +1024,9 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.session = await initializeSession({ task, config, flags, pgTaskId, pgProject });
   ctx.eventBase.sessionId = ctx.session.id;
 
-  ctx.pgCard = await markPgCardInProgress({ pgTaskId, pgProject, config, logger });
+  const { initPgAdapter } = await import("./planning-game/pipeline-adapter.js");
+  const pgAdapterResult = await initPgAdapter({ session: ctx.session, config, logger, pgTaskId, pgProject });
+  ctx.pgCard = pgAdapterResult.pgCard;
   ctx.session.pg_card = ctx.pgCard || null;
 
   emitProgress(

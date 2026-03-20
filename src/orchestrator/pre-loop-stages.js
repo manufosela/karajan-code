@@ -333,6 +333,8 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
 
   const architectContext = architectOutput.ok ? architectOutput.result : null;
 
+  // TODO: Move ADR creation to planning-game/pipeline-adapter.js (PG coupling still here because
+  // stageResult.adrs is consumed synchronously within runArchitectStage's return value).
   // Generate ADRs from architect tradeoffs when PG is linked
   const tradeoffs = architectOutput.result?.architecture?.tradeoffs;
   if (architectOutput.ok
