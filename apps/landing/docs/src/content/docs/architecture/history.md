@@ -607,6 +607,8 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.27.0** — RTK integration: `kj doctor` detects RTK for 60-90% token savings, `kj init` recommends installation, README and docs updated with RTK as recommended companion tool.
 
+**v1.27.1** — Fix MCP project directory resolution: all MCP tools now accept explicit `projectDir` parameter. Resolution order: explicit param > MCP roots > cwd validation > error with instructions (no silent fallback).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

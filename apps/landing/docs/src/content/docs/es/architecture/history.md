@@ -606,6 +606,8 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.27.0** — Integración RTK: `kj doctor` detecta RTK para ahorro de 60-90% en tokens, `kj init` recomienda instalación, README y docs actualizados con RTK como herramienta complementaria recomendada.
 
+**v1.27.1** — Corrección resolución de directorio del proyecto MCP: todos los tools MCP aceptan parámetro `projectDir` explícito. Orden de resolución: parámetro explícito > MCP roots > validación de cwd > error con instrucciones (sin fallback silencioso).
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
