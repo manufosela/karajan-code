@@ -602,6 +602,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.25.3** — Resiliencia ante caídas del proveedor: errores 500/502/503/504 y de conexión ahora activan standby y reintento automático (igual que los rate limits). Al resumir tras una caída, se informa explícitamente al coder de que fue un fallo externo del proveedor, no un problema del código ni de KJ.
 
+## Fase 22: Integración RTK (v1.27.0)
+
+**v1.27.0** — Integración RTK: `kj doctor` detecta RTK para ahorro de 60-90% en tokens, `kj init` recomienda instalación, README y docs actualizados con RTK como herramienta complementaria recomendada.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
