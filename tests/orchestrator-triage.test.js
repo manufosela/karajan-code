@@ -129,6 +129,11 @@ vi.mock("../src/git/automation.js", () => ({
   finalizeGitAutomation: vi.fn().mockResolvedValue({ committed: false, pushed: false, pr: null, branch: null, commits: [] })
 }));
 
+vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("rules"),
@@ -204,6 +209,8 @@ describe("orchestrator triage pipeline", () => {
       testFiles: ["a.test.js"],
       message: "OK"
     });
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
   });
 
   it("trivial task runs only coder + sonar (without reviewer)", async () => {
