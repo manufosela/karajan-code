@@ -53,6 +53,7 @@ export const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042)" },
+        projectDir: { type: "string", description: "Absolute path to the project directory. Required when KJ MCP server runs from a different directory than the target project." },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as task context and updates card status on completion." },
         pgProject: { type: "string", description: "Planning Game project ID (e.g., 'Karajan Code'). Required when pgTask is used." },
         planner: { type: "string" },
@@ -112,6 +113,7 @@ export const tools = [
       properties: {
         sessionId: { type: "string", description: "Session ID to resume" },
         answer: { type: "string", description: "Answer to the question that caused the pause" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -185,6 +187,7 @@ export const tools = [
         task: { type: "string" },
         coder: { type: "string" },
         coderModel: { type: "string" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -200,6 +203,7 @@ export const tools = [
         reviewer: { type: "string" },
         reviewerModel: { type: "string" },
         baseRef: { type: "string" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -226,6 +230,7 @@ export const tools = [
         plannerModel: { type: "string" },
         coder: { type: "string", description: "Legacy alias for planner" },
         coderModel: { type: "string", description: "Legacy alias for plannerModel" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -242,6 +247,7 @@ export const tools = [
         context: { type: "string", description: "Additional context for the analysis (e.g., research output)" },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as additional context." },
         pgProject: { type: "string", description: "Planning Game project ID. Required when pgTask is used." },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -254,6 +260,7 @@ export const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description to classify" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -266,6 +273,7 @@ export const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description to research" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }
@@ -279,6 +287,7 @@ export const tools = [
       properties: {
         task: { type: "string", description: "Task description to architect" },
         context: { type: "string", description: "Additional context (e.g., researcher output)" },
+        projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
     }

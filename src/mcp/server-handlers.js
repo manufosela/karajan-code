@@ -25,20 +25,37 @@ import { currentBranch } from "../utils/git.js";
 import { isPreflightAcked, ackPreflight, getSessionOverrides } from "./preflight.js";
 
 /**
- * Resolve the user's project directory via MCP roots.
- * Falls back to process.cwd() if roots are not available.
+ * Resolve the user's project directory.
+ * Priority: 1) explicit projectDir param, 2) MCP roots, 3) error with instructions.
  */
-async function resolveProjectDir(server) {
+async function resolveProjectDir(server, explicitProjectDir) {
+  // 1. Explicit projectDir from tool parameter — always wins
+  if (explicitProjectDir) return explicitProjectDir;
+
+  // 2. MCP roots (host-provided workspace directory)
   try {
     const { roots } = await server.listRoots();
     if (roots?.length > 0) {
       const uri = roots[0].uri;
-      // MCP roots use file:// URIs
       if (uri.startsWith("file://")) return new URL(uri).pathname;
       return uri;
     }
   } catch { /* client may not support roots */ }
-  return process.cwd();
+
+  // 3. Check if process.cwd() looks like a real project (has package.json or .git)
+  const cwd = process.cwd();
+  try {
+    const hasGit = await fs.access(`${cwd}/.git`).then(() => true).catch(() => false);
+    const hasPkg = await fs.access(`${cwd}/package.json`).then(() => true).catch(() => false);
+    if (hasGit || hasPkg) return cwd;
+  } catch { /* ignore */ }
+
+  // 4. No valid project directory — fail with clear instructions
+  throw new Error(
+    `Cannot determine project directory. The MCP server is running from "${cwd}" which does not appear to be your project. ` +
+    `Fix: pass the "projectDir" parameter with the absolute path to your project (e.g., projectDir: "/home/user/my-project"), ` +
+    `or run "kj init" inside your project directory.`
+  );
 }
 
 export function asObject(value) {
@@ -260,7 +277,7 @@ export async function handleRunDirect(a, server, extra) {
   if (config.pipeline?.security?.enabled) requiredProviders.push(resolveRole(config, "security").provider);
   await assertAgentsAvailable(requiredProviders);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_run] started — task="${a.task.slice(0, 80)}..."`);
 
@@ -293,7 +310,7 @@ export async function handleResumeDirect(a, server, extra) {
   const config = await buildConfig(a);
   const logger = createLogger(config.output.log_level, "mcp");
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_resume] started — session="${a.sessionId}"`);
 
@@ -349,7 +366,7 @@ export async function handlePlanDirect(a, server, extra) {
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   const silenceTimeoutMs = Number(config?.session?.max_agent_silence_minutes) > 0
     ? Math.round(Number(config.session.max_agent_silence_minutes) * 60 * 1000)
@@ -416,7 +433,7 @@ export async function handleCodeDirect(a, server, extra) {
   const coderRole = resolveRole(config, "coder");
   await assertAgentsAvailable([coderRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_code] started — provider=${coderRole.provider}`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -465,7 +482,7 @@ export async function handleReviewDirect(a, server, extra) {
   const reviewerRole = resolveRole(config, "reviewer");
   await assertAgentsAvailable([reviewerRole.provider, config.reviewer_options?.fallback_reviewer]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_review] started — provider=${reviewerRole.provider}`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -512,7 +529,7 @@ export async function handleDiscoverDirect(a, server, extra) {
   const discoverRole = resolveRole(config, "discover");
   await assertAgentsAvailable([discoverRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_discover] started — mode=${a.mode || "gaps"}`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -565,7 +582,7 @@ export async function handleTriageDirect(a, server, extra) {
   const triageRole = resolveRole(config, "triage");
   await assertAgentsAvailable([triageRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_triage] started`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -609,7 +626,7 @@ export async function handleResearcherDirect(a, server, extra) {
   const researcherRole = resolveRole(config, "researcher");
   await assertAgentsAvailable([researcherRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_researcher] started`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -653,7 +670,7 @@ export async function handleArchitectDirect(a, server, extra) {
   const architectRole = resolveRole(config, "architect");
   await assertAgentsAvailable([architectRole.provider]);
 
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_architect] started`);
   const emitter = buildDirectEmitter(server, runLog, extra);
@@ -780,7 +797,7 @@ function buildReportArgs(a) {
 
 async function handleStatus(a, server) {
   const maxLines = a.lines || 50;
-  const projectDir = await resolveProjectDir(server);
+  const projectDir = await resolveProjectDir(server, a.projectDir);
   return readRunLog(projectDir, maxLines);
 }
 

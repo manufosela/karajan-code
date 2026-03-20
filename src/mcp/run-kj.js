@@ -76,11 +76,14 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
 
   const timeout = options.timeoutMs ? Number(options.timeoutMs) : undefined;
 
-  const result = await execa("node", args, {
+  const execOpts = {
     env: runEnv,
     reject: false,
     timeout
-  });
+  };
+  if (options.projectDir) execOpts.cwd = options.projectDir;
+
+  const result = await execa("node", args, execOpts);
 
   const ok = result.exitCode === 0;
   const payload = {

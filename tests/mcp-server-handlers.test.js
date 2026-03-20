@@ -97,7 +97,9 @@ vi.mock("../src/review/profiles.js", () => ({
 }));
 
 vi.mock("node:fs/promises", () => ({
-  default: { readFile: vi.fn().mockResolvedValue("coder rules content") }
+  default: { readFile: vi.fn().mockResolvedValue("coder rules content"), access: vi.fn().mockResolvedValue(undefined) },
+  readFile: vi.fn().mockResolvedValue("coder rules content"),
+  access: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock("../src/utils/git.js", () => ({
