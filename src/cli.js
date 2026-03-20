@@ -22,6 +22,7 @@ import { discoverCommand } from "./commands/discover.js";
 import { triageCommand } from "./commands/triage.js";
 import { researcherCommand } from "./commands/researcher.js";
 import { architectCommand } from "./commands/architect.js";
+import { auditCommand } from "./commands/audit.js";
 
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
@@ -250,6 +251,18 @@ program
   .action(async (task, flags) => {
     await withConfig("architect", flags, async ({ config, logger }) => {
       await architectCommand({ task, config, logger, context: flags.context, json: flags.json });
+    });
+  });
+
+program
+  .command("audit")
+  .description("Analyze codebase health (read-only)")
+  .argument("[task]")
+  .option("--dimensions <list>", "Comma-separated: security,quality,performance,architecture,testing", "all")
+  .option("--json", "Output raw JSON")
+  .action(async (task, flags) => {
+    await withConfig("audit", flags, async ({ config, logger }) => {
+      await auditCommand({ task: task || "Analyze the full codebase", config, logger, dimensions: flags.dimensions, json: flags.json });
     });
   });
 

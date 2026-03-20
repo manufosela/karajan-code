@@ -663,6 +663,54 @@ export async function handleResearcherDirect(a, server, extra) {
   return { ok: true, ...result.result, summary: result.summary };
 }
 
+export async function handleAuditDirect(a, server, extra) {
+  const config = await buildConfig(a, "audit");
+  const logger = createLogger(config.output.log_level, "mcp");
+
+  const auditRole = resolveRole(config, "audit");
+  await assertAgentsAvailable([auditRole.provider]);
+
+  const projectDir = await resolveProjectDir(server, a.projectDir);
+  const runLog = createRunLog(projectDir);
+  runLog.logText(`[kj_audit] started — dimensions=${a.dimensions || "all"}`);
+  const emitter = buildDirectEmitter(server, runLog, extra);
+  const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+  const onOutput = ({ stream, line }) => {
+    emitter.emit("progress", { type: "agent:output", stage: "audit", message: line, detail: { stream, agent: auditRole.provider } });
+  };
+  const stallDetector = createStallDetector({
+    onOutput, emitter, eventBase, stage: "audit", provider: auditRole.provider
+  });
+
+  const { AuditRole } = await import("../roles/audit-role.js");
+  const audit = new AuditRole({ config, logger, emitter });
+  await audit.init({ task: a.task || "Analyze the full codebase" });
+
+  sendTrackerLog(server, "audit", "running", auditRole.provider);
+  runLog.logText(`[audit] agent launched, waiting for response...`);
+  let result;
+  try {
+    result = await audit.run({
+      task: a.task || "Analyze the full codebase",
+      dimensions: a.dimensions || null,
+      onOutput: stallDetector.onOutput
+    });
+  } finally {
+    stallDetector.stop();
+    const stats = stallDetector.stats();
+    runLog.logText(`[audit] finished — lines=${stats.lineCount}, bytes=${stats.bytesReceived}, elapsed=${Math.round(stats.elapsedMs / 1000)}s`);
+    runLog.close();
+  }
+
+  if (!result.ok) {
+    sendTrackerLog(server, "audit", "failed");
+    throw new Error(result.result?.error || result.summary || "Audit failed");
+  }
+
+  sendTrackerLog(server, "audit", "done");
+  return { ok: true, ...result.result, summary: result.summary };
+}
+
 export async function handleArchitectDirect(a, server, extra) {
   const config = await buildConfig(a, "architect");
   const logger = createLogger(config.output.log_level, "mcp");
@@ -955,6 +1003,10 @@ async function handleArchitect(a, server, extra) {
   return handleArchitectDirect(a, server, extra);
 }
 
+async function handleAudit(a, server, extra) {
+  return handleAuditDirect(a, server, extra);
+}
+
 /* ── Handler dispatch map ─────────────────────────────────────────── */
 
 const toolHandlers = {
@@ -975,7 +1027,8 @@ const toolHandlers = {
   kj_discover:    (a, server, extra) => handleDiscover(a, server, extra),
   kj_triage:      (a, server, extra) => handleTriage(a, server, extra),
   kj_researcher:  (a, server, extra) => handleResearcher(a, server, extra),
-  kj_architect:   (a, server, extra) => handleArchitect(a, server, extra)
+  kj_architect:   (a, server, extra) => handleArchitect(a, server, extra),
+  kj_audit:       (a, server, extra) => handleAudit(a, server, extra)
 };
 
 export async function handleToolCall(name, args, server, extra) {

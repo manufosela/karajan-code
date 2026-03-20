@@ -12,3 +12,4 @@ export { SecurityRole } from "./security-role.js";
 export { SolomonRole } from "./solomon-role.js";
 export { DiscoverRole } from "./discover-role.js";
 export { ArchitectRole } from "./architect-role.js";
+export { AuditRole } from "./audit-role.js";

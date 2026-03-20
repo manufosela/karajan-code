@@ -84,7 +84,7 @@ describe("kj_architect handler validation", () => {
 });
 
 describe("MCP tools count", () => {
-  it("has 18 tools registered", () => {
-    expect(tools).toHaveLength(18);
+  it("has 19 tools registered", () => {
+    expect(tools).toHaveLength(19);
   });
 });

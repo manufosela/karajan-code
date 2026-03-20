@@ -291,5 +291,17 @@ export const tools = [
         kjHome: { type: "string" }
       }
     }
+  },
+  {
+    name: "kj_audit",
+    description: "Analyze codebase health without modifying files. Returns findings across security, code quality, performance, architecture, and testing dimensions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectDir: { type: "string", description: "Absolute path to the project to audit" },
+        dimensions: { type: "string", description: "Comma-separated dimensions to analyze: security,codeQuality,performance,architecture,testing (default: all)" },
+        kjHome: { type: "string" }
+      }
+    }
   }
 ];

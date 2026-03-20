@@ -414,7 +414,7 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "audit")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
