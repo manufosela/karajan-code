@@ -12,6 +12,7 @@ import { runReviewerWithFallback } from "./reviewer-fallback.js";
 import { runCoderWithFallback } from "./agent-fallback.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 import { detectRateLimit } from "../utils/rate-limit-detector.js";
+import { sonarUp, isSonarReachable } from "../sonar/manager.js";
 import { createStallDetector } from "../utils/stall-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration }) {
@@ -390,7 +391,7 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   );
 
   // Auto-manage SonarQube: ensure it is reachable before scanning
-  const { sonarUp, isSonarReachable } = await import("../sonar/manager.js");
+  // sonarUp, isSonarReachable imported at top level for testability
   const sonarHost = config.sonarqube?.host || "http://localhost:9000";
 
   if (!await isSonarReachable(sonarHost)) {
