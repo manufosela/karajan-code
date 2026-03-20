@@ -93,7 +93,7 @@ vi.mock("../src/utils/git.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" }),
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
 }));
 
@@ -118,7 +118,7 @@ describe("reviewer parse resilience", () => {
     await reapplyDefaultMocks();
 
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+    invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
 
     const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });

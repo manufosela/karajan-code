@@ -71,7 +71,7 @@ vi.mock("../src/prompts/reviewer.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Reviewer stalled" }),
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" }),
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
 }));
 
@@ -159,7 +159,7 @@ describe("orchestrator repeat detection", () => {
     fs.default.readFile.mockResolvedValue("review rules");
 
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-    invokeSolomon.mockResolvedValue({ action: "pause", question: "Reviewer stalled" });
+    invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
 
     const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
@@ -223,6 +223,9 @@ describe("orchestrator repeat detection", () => {
   });
 
   it("stalls when reviewer blocking issues repeat consecutively", async () => {
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Reviewer stalled" });
+
     const { createAgent } = await import("../src/agents/index.js");
     const coderAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }) };
     const reviewerAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }), reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_BLOCKING }) };

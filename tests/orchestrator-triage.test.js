@@ -135,7 +135,7 @@ vi.mock("../src/git/automation.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" }),
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
 }));
 
@@ -215,7 +215,7 @@ describe("orchestrator triage pipeline", () => {
       message: "OK"
     });
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+    invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
   });
 
   it("trivial task runs only coder + sonar (without reviewer)", async () => {

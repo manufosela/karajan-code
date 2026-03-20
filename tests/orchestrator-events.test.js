@@ -171,7 +171,7 @@ describe("orchestrator events", () => {
     fs.default.readFile.mockResolvedValue("review rules");
 
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+    invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
 
     const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
