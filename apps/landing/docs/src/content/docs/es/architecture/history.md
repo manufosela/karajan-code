@@ -612,6 +612,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **Fase 23: Auditoría de Salud del Codebase (v1.28.0)** — Nuevo comando `kj audit` para análisis de solo lectura del codebase. Analiza 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Disponible como CLI, herramienta MCP (`kj_audit`) y skill (`/kj-audit`). Genera informes estructurados con puntuaciones A-F por dimensión y recomendaciones priorizadas.
 
+## Fase 24: Refactor de Calidad del Codebase (v1.29.0)
+
+**v1.29.0** — Refactor de calidad del código impulsado por auto-auditoría: objeto PipelineContext reemplaza destructuring de 15+ parámetros, handlers MCP reducidos 151 líneas via `runDirectRole()` compartido, lógica de Planning Game extraída a adaptador event-driven, 105 tests unitarios nuevos para agentes, vulnerabilidades npm parcheadas.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
