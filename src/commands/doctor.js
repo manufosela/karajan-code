@@ -204,6 +204,36 @@ async function checkBecariaInfra(config) {
   return checks;
 }
 
+async function checkRtk() {
+  try {
+    const res = await runCommand("rtk", ["--version"]);
+    if (res.exitCode === 0) {
+      return {
+        name: "rtk",
+        label: "RTK (Rust Token Killer)",
+        ok: true,
+        detail: `${res.stdout.trim()} — token savings active`,
+        fix: null
+      };
+    }
+    return {
+      name: "rtk",
+      label: "RTK (Rust Token Killer)",
+      ok: true,
+      detail: "Not found — install for 60-90% token savings: brew install rtk",
+      fix: null
+    };
+  } catch {
+    return {
+      name: "rtk",
+      label: "RTK (Rust Token Killer)",
+      ok: true,
+      detail: "Not found — install for 60-90% token savings: brew install rtk",
+      fix: null
+    };
+  }
+}
+
 async function checkRuleFiles(config) {
   const projectDir = config.projectDir || process.cwd();
   const reviewRules = await loadFirstExisting(resolveRoleMdPath("reviewer", projectDir));
@@ -248,6 +278,7 @@ export async function runChecks({ config }) {
   }
 
   checks.push(...await checkRuleFiles(config));
+  checks.push(await checkRtk());
 
   return checks;
 }

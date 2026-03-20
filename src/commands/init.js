@@ -7,6 +7,7 @@ import { exists, ensureDir } from "../utils/fs.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
+import { runCommand } from "../utils/process.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -270,6 +271,21 @@ export async function initCommand({ logger, flags = {} }) {
   await ensureReviewRules(reviewRulesPath, logger);
   await ensureCoderRules(coderRulesPath, logger);
   await installSkills(logger, interactive);
+
+  // Check RTK availability and inform user
+  let hasRtk = false;
+  try {
+    const rtkRes = await runCommand("rtk", ["--version"]);
+    hasRtk = rtkRes.exitCode === 0;
+  } catch {
+    hasRtk = false;
+  }
+  if (!hasRtk) {
+    logger.info("");
+    logger.info("RTK (Rust Token Killer) can reduce token usage by 60-90%.");
+    logger.info("  Install: brew install rtk && rtk init --global");
+  }
+
   await setupSonarQube(config, logger);
   await scaffoldBecariaGateway(config, flags, logger);
 }

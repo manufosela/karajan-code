@@ -459,6 +459,7 @@ Karajan Code works great on its own, but combining it with these MCP servers giv
 | [**GitHub MCP**](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | Create PRs, manage issues, read repos directly from the agent | Combine with `--auto-push` for end-to-end: code → review → push → PR |
 | [**Serena**](https://github.com/oramasearch/serena) | Symbol-level code navigation (find references, go-to-definition) for JS/TS projects | Enable with `--enable-serena` to inject symbol context into coder/reviewer prompts |
 | [**Chrome DevTools MCP**](https://github.com/anthropics/anthropic-quickstarts/tree/main/chrome-devtools-mcp) | Browser automation, screenshots, console/network inspection | Verify UI changes visually after `kj` modifies frontend code |
+| [**RTK**](https://github.com/rtk-ai/rtk) | Reduces LLM token consumption by 60-90% on Bash command outputs (git, test, build) | Install globally with `brew install rtk && rtk init --global` — all KJ agent commands automatically compressed |
 
 ## Role Templates
 
