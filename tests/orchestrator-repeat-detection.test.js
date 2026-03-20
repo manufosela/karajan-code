@@ -71,7 +71,13 @@ vi.mock("../src/prompts/reviewer.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Reviewer stalled" })
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Reviewer stalled" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock("../src/sonar/api.js", () => ({
@@ -154,6 +160,10 @@ describe("orchestrator repeat detection", () => {
 
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
     invokeSolomon.mockResolvedValue({ action: "pause", question: "Reviewer stalled" });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;

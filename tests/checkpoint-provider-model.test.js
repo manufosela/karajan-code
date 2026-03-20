@@ -115,7 +115,13 @@ vi.mock("../src/orchestrator/agent-fallback.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn()
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock("../src/utils/rate-limit-detector.js", () => ({

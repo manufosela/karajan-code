@@ -92,6 +92,16 @@ vi.mock("../src/utils/git.js", () => ({
   createPullRequest: vi.fn()
 }));
 
+vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
+}));
+
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("role instructions"),
@@ -106,6 +116,13 @@ describe("reviewer parse resilience", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
     await reapplyDefaultMocks();
+
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
 
     const { runSonarScan } = await import("../src/sonar/scanner.js");
     runSonarScan.mockResolvedValue({ ok: true, projectKey: "test-key" });

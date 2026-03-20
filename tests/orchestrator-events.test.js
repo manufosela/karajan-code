@@ -73,7 +73,13 @@ vi.mock("../src/review/tdd-policy.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" })
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
 vi.mock("../src/prompts/coder.js", () => ({
@@ -163,6 +169,13 @@ describe("orchestrator events", () => {
 
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockResolvedValue("review rules");
+
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;

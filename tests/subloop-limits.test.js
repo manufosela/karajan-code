@@ -162,7 +162,7 @@ describe("configurable sub-loop limits", () => {
     runFlow = mod.runFlow;
   });
 
-  it.skip("emits solomon:escalate when sonar sub-loop limit is reached — flaky in CI Node 22, async () => {
+  it.skip("emits solomon:escalate when sonar sub-loop limit is reached — flaky in CI Node 22", async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));

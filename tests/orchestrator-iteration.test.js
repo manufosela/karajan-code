@@ -54,7 +54,13 @@ vi.mock("../src/orchestrator/reviewer-fallback.js", () => ({
 }));
 
 vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
-  invokeSolomon: vi.fn()
+  invokeSolomon: vi.fn().mockResolvedValue({ action: "pause", question: "Solomon escalated" }),
+  escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
+}));
+
+vi.mock("../src/sonar/manager.js", () => ({
+  sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
+  isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
 describe("iteration-stages", () => {
@@ -89,6 +95,13 @@ describe("iteration-stages", () => {
 
     const { validateReviewResult } = await import("../src/review/schema.js");
     validateReviewResult.mockImplementation((r) => r);
+
+    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
 
     ({ runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runReviewerStage } =
       await import("../src/orchestrator/iteration-stages.js"));
