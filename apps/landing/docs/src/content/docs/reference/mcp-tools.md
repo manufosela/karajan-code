@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 16 Karajan Code MCP tools.
+description: Complete parameter reference for all 20 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -222,6 +222,18 @@ Show real-time status and log of the current or last Karajan run. Returns a pars
 - `status.iteration` — current iteration number
 - `status.isRunning` — whether a run is in progress
 - `status.errors` — last 3 error lines
+
+---
+
+## kj_audit
+
+Read-only codebase health audit across 5 dimensions: security, code quality, performance, architecture, and testing. Generates a structured report with A-F scores and prioritized recommendations without modifying any files.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | No | `null` | Optional focus area or specific concern to audit |
+| `projectDir` | string | No | cwd | Project directory to audit |
+| `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 
 ---
 

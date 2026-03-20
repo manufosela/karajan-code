@@ -609,6 +609,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.27.1** — Fix MCP project directory resolution: all MCP tools now accept explicit `projectDir` parameter. Resolution order: explicit param > MCP roots > cwd validation > error with instructions (no silent fallback).
 
+## Phase 23: Codebase Health Audit (v1.28.0)
+
+**Phase 23: Codebase Health Audit (v1.28.0)** — New `kj audit` command for read-only codebase analysis. Analyzes 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Available as CLI, MCP tool (`kj_audit`), and skill (`/kj-audit`). Generates structured reports with A-F scores per dimension and prioritized recommendations.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

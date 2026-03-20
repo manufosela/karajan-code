@@ -608,6 +608,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.27.1** — Corrección resolución de directorio del proyecto MCP: todos los tools MCP aceptan parámetro `projectDir` explícito. Orden de resolución: parámetro explícito > MCP roots > validación de cwd > error con instrucciones (sin fallback silencioso).
 
+## Fase 23: Auditoría de Salud del Codebase (v1.28.0)
+
+**Fase 23: Auditoría de Salud del Codebase (v1.28.0)** — Nuevo comando `kj audit` para análisis de solo lectura del codebase. Analiza 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Disponible como CLI, herramienta MCP (`kj_audit`) y skill (`/kj-audit`). Genera informes estructurados con puntuaciones A-F por dimensión y recomendaciones priorizadas.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 16 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 20 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -222,6 +222,18 @@ Muestra el estado en tiempo real y log de la ejecución actual o última de Kara
 - `status.iteration` — número de iteración actual
 - `status.isRunning` — si hay una ejecución en curso
 - `status.errors` — últimas 3 líneas de error
+
+---
+
+## kj_audit
+
+Auditoría de salud del codebase de solo lectura en 5 dimensiones: seguridad, calidad de código, rendimiento, arquitectura y testing. Genera un informe estructurado con puntuaciones A-F y recomendaciones priorizadas sin modificar ningún fichero.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `task` | string | No | `null` | Área de enfoque opcional o preocupación específica a auditar |
+| `projectDir` | string | No | cwd | Directorio del proyecto a auditar |
+| `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 
 ---
 

@@ -19,6 +19,7 @@ description: Referencia completa de todos los comandos y flags de kj.
 | `kj resume <id>` | Reanudar sesión pausada |
 | `kj roles` | Inspeccionar roles y templates del pipeline |
 | `kj agents` | Listar o cambiar el agente IA por rol del pipeline |
+| `kj audit [task]` | Auditoría de salud del codebase de solo lectura (5 dimensiones, puntuaciones A-F) |
 | `kj sonar <subcommand>` | Gestionar contenedor Docker de SonarQube |
 
 **Opciones globales:** `--help`, `--version`

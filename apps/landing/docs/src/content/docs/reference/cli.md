@@ -19,6 +19,7 @@ description: Complete reference of all kj CLI commands and flags.
 | `kj resume <id>` | Resume paused session |
 | `kj roles` | Inspect pipeline roles and templates |
 | `kj agents` | List or set AI agent per pipeline role |
+| `kj audit [task]` | Read-only codebase health audit (5 dimensions, A-F scores) |
 | `kj sonar <subcommand>` | Manage SonarQube Docker container |
 
 **Global options:** `--help`, `--version`
