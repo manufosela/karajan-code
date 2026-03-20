@@ -1,6 +1,6 @@
 {
   "name": "karajan-code",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "description": "Local multi-agent coding orchestrator with TDD, SonarQube, and code review pipeline",
   "type": "module",
   "license": "AGPL-3.0",
