@@ -290,23 +290,30 @@
 
     /* --- TERMINAL DEMO ANIMATION --- */
     var DEMO_LINES = [
-      { html: '$ kj run "Build a REST API for notes with Express"', cls: 'cmd' },
+      { html: '$ kj run --hu-file stories.yaml --enable-hu-reviewer', cls: 'cmd' },
       { html: '\u25b6 Karajan Code v1.31.1 \u2014 Coder: claude | Reviewer: codex', cls: 'header' },
-      { html: '<span class="role">[triage]</span>      simple \u2014 TDD auto-detected (vitest)', cls: 'stage' },
-      { html: '<span class="role">[researcher]</span>  4 files analyzed, 5 patterns identified', cls: 'stage' },
-      { html: '<span class="role">[planner]</span>     3 steps planned', cls: 'stage' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[hu-reviewer]</span>  Evaluating 3 stories\u2026 48/60, 52/60, 44/60 \u2014 all certified \u2713', cls: 'approved' },
+      { html: '<span class="role">[triage]</span>       medium \u2014 enabling all quality gates', cls: 'stage' },
+      { html: '<span class="role">[researcher]</span>   12 files analyzed, 3 patterns, 2 risks identified', cls: 'stage' },
+      { html: '<span class="role">[architect]</span>    Layered: routes \u2192 service \u2192 store \u2192 validation', cls: 'stage' },
+      { html: '<span class="role">[planner]</span>      5 implementation steps planned', cls: 'stage' },
+      { html: '', cls: '' },
       { html: '\u25b6 Iteration 1/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>       Writing tests first... 15 cases', cls: 'stage' },
-      { html: '<span class="role">[coder]</span>       Implementing routes, validation, store', cls: 'stage' },
-      { html: '<span class="role">[reviewer]</span>    REJECTED \u2014 missing endpoints', cls: 'rejected' },
-      { html: '              \u2192 Solomon: valid, sending back to coder', cls: 'dim' },
+      { html: '<span class="role">[coder]</span>        Tests first: 18 test cases written', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>        Implementing 4 files (routes, service, validation, store)', cls: 'stage' },
+      { html: '<span class="role">[sonar]</span>        Quality gate PASSED \u2014 0 bugs, 0 vulnerabilities, 0 smells', cls: 'approved' },
+      { html: '<span class="role">[reviewer]</span>     REJECTED \u2014 missing input sanitization on PUT', cls: 'rejected' },
+      { html: '                \u2192 Solomon: valid security concern, fix required', cls: 'dim' },
+      { html: '', cls: '' },
       { html: '\u25b6 Iteration 2/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>       Added all CRUD endpoints + validation', cls: 'stage' },
-      { html: '<span class="role">[coder]</span>       All 15 tests passing \u2713', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>    APPROVED', cls: 'approved' },
-      { html: '<span class="role">[tester]</span>      15 tests passed', cls: 'stage' },
-      { html: '<span class="role">[security]</span>    No vulnerabilities', cls: 'stage' },
-      { html: '\u2714 Pipeline completed \u2014 3 files, 15 tests', cls: 'success' }
+      { html: '<span class="role">[coder]</span>        Fixed: added sanitization + 3 edge case tests', cls: 'stage' },
+      { html: '<span class="role">[sonar]</span>        Quality gate PASSED \u2014 0 issues', cls: 'approved' },
+      { html: '<span class="role">[reviewer]</span>     APPROVED \u2014 all endpoints validated', cls: 'approved' },
+      { html: '<span class="role">[tester]</span>       21 tests, 94% coverage', cls: 'stage' },
+      { html: '<span class="role">[security]</span>     OWASP scan: no vulnerabilities', cls: 'stage' },
+      { html: '', cls: '' },
+      { html: '\u2714 Pipeline completed \u2014 4 files, 21 tests, 2 iterations, 94% coverage', cls: 'success' }
     ];
 
     var demoTimer = null;
@@ -316,7 +323,7 @@
       var terminal = document.getElementById('demo-terminal');
       if (!terminal) return;
       terminal.innerHTML = '';
-      var delay = reducedMotion ? 0 : 1.2;
+      var delay = reducedMotion ? 0 : 1;
       DEMO_LINES.forEach(function(line, i) {
         var div = document.createElement('div');
         div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
