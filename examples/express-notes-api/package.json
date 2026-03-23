@@ -1,0 +1,17 @@
+{
+  "name": "kj-demo-notes-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Karajan Code demo — Express REST API built with AI pipeline",
+  "scripts": {
+    "test": "vitest run",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0",
+    "supertest": "^7.1.0"
+  }
+}
