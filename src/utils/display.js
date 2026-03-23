@@ -245,8 +245,13 @@ const EVENT_HANDLERS = {
   "session:start": () => {},
 
   "iteration:start": (event, icon, elapsed) => {
+    const retryCount = event.detail?.reviewerRetryCount || 0;
+    const maxRetries = event.detail?.maxReviewerRetries;
+    const retrySuffix = retryCount > 0 && maxRetries
+      ? ` ${ANSI.dim}\u2014 reviewer retry ${retryCount}/${maxRetries}${ANSI.reset}`
+      : "";
     console.log(
-      `\n${ANSI.bold}${icon} Iteration ${event.detail?.iteration}/${event.detail?.maxIterations}${ANSI.reset}  ${elapsed}`
+      `\n${ANSI.bold}${icon} Iteration ${event.detail?.iteration}/${event.detail?.maxIterations}${ANSI.reset}${retrySuffix}  ${elapsed}`
     );
   },
 

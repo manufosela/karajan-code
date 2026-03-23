@@ -1069,9 +1069,11 @@ async function runSingleIteration(ctx) {
   const becariaEnabled = Boolean(config.becaria?.enabled) && ctx.gitCtx?.enabled;
   logger.setContext({ iteration: i, stage: "iteration" });
 
+  const reviewerRetryCount = session.reviewer_retry_count || 0;
+  const maxReviewerRetries = config.session.max_reviewer_retries ?? config.session.fail_fast_repeats;
   emitProgress(emitter, makeEvent("iteration:start", { ...eventBase, stage: "iteration" }, {
     message: `Iteration ${i}/${config.max_iterations}`,
-    detail: { iteration: i, maxIterations: config.max_iterations }
+    detail: { iteration: i, maxIterations: config.max_iterations, reviewerRetryCount, maxReviewerRetries }
   }));
   logger.info(`Iteration ${i}/${config.max_iterations}`);
 

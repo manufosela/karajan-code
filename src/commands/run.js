@@ -1,10 +1,31 @@
 import { EventEmitter } from "node:events";
+import readline from "node:readline";
 import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
 import { printHeader, printEvent } from "../utils/display.js";
 import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
+
+function createCliAskQuestion() {
+  return async (question, context) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => {
+      console.log(`\n\u2753 ${question}`);
+      if (context?.detail) {
+        console.log(`   Context: ${JSON.stringify(context.detail, null, 2)}`);
+      }
+      rl.question("\n> Your response (or 'stop' to exit): ", (answer) => {
+        rl.close();
+        if (answer.trim().toLowerCase() === "stop") {
+          resolve(null);
+        } else {
+          resolve(answer.trim());
+        }
+      });
+    });
+  };
+}
 
 export async function runCommandHandler({ task, config, logger, flags }) {
   // Best-effort session cleanup before starting
@@ -58,7 +79,8 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     printHeader({ task: task, config });
   }
 
-  const result = await runFlow({ task: task, config, logger, flags, emitter, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+  const askQuestion = createCliAskQuestion();
+  const result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
 
   if (jsonMode) {
     console.log(JSON.stringify(result, null, 2));
