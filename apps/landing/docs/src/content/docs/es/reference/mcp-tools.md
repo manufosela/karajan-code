@@ -46,6 +46,8 @@ Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificacio
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
 | `enableImpeccable` | boolean | No | `false` | Activar auditoría de diseño Impeccable (quality gate automatizado de UI/UX) |
+| `enableHuReviewer` | boolean | No | `false` | Activar certificación de HUs (quality gate de historias de usuario) |
+| `huFile` | string | No | `null` | Ruta al fichero de historia de usuario para el HU reviewer |
 | `taskType` | string | No | `null` | Tipo de tarea para resolucion de politicas: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `autoSimplify` | boolean | No | `true` | Auto-simplificar pipeline para triage nivel 1-2 (solo coder, omite reviewer/tester). Establecer a `false` para ejecutar siempre el pipeline completo |
 | `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |

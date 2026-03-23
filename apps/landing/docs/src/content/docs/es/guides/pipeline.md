@@ -5,11 +5,11 @@ description: Cómo funciona el pipeline multi-agente de Karajan Code.
 
 ## Visión General del Pipeline
 
-Karajan orquesta **14 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
+Karajan orquesta **15 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
 
 ```
-intent? → discover? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → commiter?
-                                                                       └─── bucle de iteración (1..N) ─────────────────────────────────────┘
+intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → commiter?
+                                                                                   └─── bucle de iteración (1..N) ─────────────────────────────────────┘
 ```
 
 ### Roles
@@ -30,6 +30,7 @@ intent? → discover? → triage → researcher? → architect? → planner? →
 | **security** | Auditoría de seguridad OWASP | **On** |
 | **solomon** | Pipeline Boss & Árbitro — evalúa cada rechazo del reviewer, clasifica issues, puede anular bloqueos por estilo. 6 reglas con control inteligente de iteraciones | **On** |
 | **commiter** | Automatización de git commit, push y PR tras aprobación | Off |
+| **hu-reviewer** | Certificación de HUs — evalúa historias de usuario en 6 dimensiones de calidad, detecta 7 antipatrones, reescribe historias débiles, soporta grafos de dependencias | Off |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecución o via config.
 

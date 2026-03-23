@@ -46,6 +46,8 @@ Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 | `sonarToken` | string | No | From config | Override SonarQube token |
 | `enableImpeccable` | boolean | No | `false` | Enable Impeccable design audit (automated UI/UX quality gate) |
+| `enableHuReviewer` | boolean | No | `false` | Enable HU story certification (user story quality gate) |
+| `huFile` | string | No | `null` | Path to user story file for HU reviewer |
 | `taskType` | string | No | `null` | Task type for policy resolution: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `autoSimplify` | boolean | No | `true` | Auto-simplify pipeline for triage level 1-2 (coder-only, skip reviewer/tester). Set to `false` to always run the full pipeline |
 | `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |

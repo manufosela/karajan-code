@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Role-based AI orchestrator with 14 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
+description: Role-based AI orchestrator with 15 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.29.0 — Role-based AI orchestrator: 14 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.30.0 — Role-based AI orchestrator: 15 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -24,7 +24,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
 
 <CardGrid stagger>
   <Card title="Multi-Agent Pipeline" icon="rocket">
-    14 configurable roles: discover, triage, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter.
+    15 configurable roles: discover, triage, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer.
   </Card>
   <Card title="5 AI Agents" icon="laptop">
     Claude, Codex, Gemini, Aider, and OpenCode. Mix and match — use Claude as coder and Codex as reviewer, or any combination. Extensible via plugins.
@@ -86,11 +86,14 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
   </Card>
-  <Card title="1807+ Automated Tests" icon="approve-check">
+  <Card title="1847+ Automated Tests" icon="approve-check">
     130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A-F scores and prioritized recommendations without modifying any files.
+  </Card>
+  <Card title="HU Story Certification" icon="approve-check">
+    Mandatory quality gate that evaluates user stories across 6 dimensions (JTBD context, user specificity, behavior change, control zone, time constraints, survivable experiment). Detects 7 antipatterns, rewrites weak stories, pauses for FDE context. Supports dependency graphs.
   </Card>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required. Pair with [RTK](https://github.com/rtk-ai/rtk) for additional 60-90% token savings.

@@ -647,7 +647,7 @@
   <!-- PIPELINE -->
   <section class="pipeline-section fade-in">
     <h2 class="section-title">The Pipeline</h2>
-    <p class="section-sub">13 roles chained with quality gates. Deterministic guards, real-time monitoring, stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
+    <p class="section-sub">15 roles chained with quality gates. Deterministic guards, real-time monitoring, stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
 
     <div class="pipeline-flow">
       <span class="pipeline-node optional">discover</span>
@@ -675,6 +675,8 @@
       <span class="pipeline-node optional">solomon</span>
       <span class="pipeline-arrow">&rarr;</span>
       <span class="pipeline-node optional">commiter</span>
+      <span class="pipeline-arrow">&rarr;</span>
+      <span class="pipeline-node optional">hu-reviewer</span>
     </div>
   </section>
 
@@ -702,8 +704,8 @@
 
       <div class="feature-card">
         <div class="feature-icon fi-indigo">&#11208;</div>
-        <h3>MCP Server &mdash; 18 Tools</h3>
-        <p>18 tools exposed via MCP, including standalone roles (<code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>). Real-time progress notifications.</p>
+        <h3>MCP Server &mdash; 20 Tools</h3>
+        <p>20 tools exposed via MCP, including standalone roles (<code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>). Real-time progress notifications.</p>
       </div>
 
       <div class="feature-card">
@@ -870,7 +872,7 @@
 After setup, these slash commands are available:
 /kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar
 
-And these MCP tools: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+And these MCP tools: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
       <div id="all-codex-all" class="setup-subpanel">
         <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
@@ -890,7 +892,7 @@ To use a skill, read the prompt file replacing $ARGUMENTS with the task:
   cat .karajan/skills/kj-review.md  (for code review)
   cat .karajan/skills/kj-run.md  (for the full pipeline)
 
-MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
       <div id="all-gemini-all" class="setup-subpanel">
         <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
@@ -910,7 +912,7 @@ To use a skill, read the prompt file replacing $ARGUMENTS with the task:
   cat .karajan/skills/kj-review.md  (for code review)
   cat .karajan/skills/kj-run.md  (for the full pipeline)
 
-MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
       <div id="all-aider-all" class="setup-subpanel">
         <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
@@ -963,7 +965,7 @@ Requires Node.js >= 18.</div>
 3. Restart your Claude Code session to pick up the new MCP server.
 4. Verify by running the kj_doctor MCP tool.
 
-19 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
       <div id="mcp-codex-mcp" class="setup-subpanel">
         <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server for Codex:
@@ -973,7 +975,7 @@ Requires Node.js >= 18.</div>
    codex mcp add karajan-mcp -- karajan-mcp
 3. Verify with: codex mcp list (should show karajan-mcp)
 
-19 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
       <div id="mcp-generic-mcp" class="setup-subpanel">
         <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server:
@@ -988,7 +990,7 @@ Requires Node.js >= 18.</div>
 3. Restart your MCP host session.
 4. Verify by calling the kj_doctor tool.
 
-19 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_impeccable</div>
+20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
       </div>
     </div>
 
@@ -1099,7 +1101,7 @@ Aider tip: use --yes flag to auto-approve file changes when following skill inst
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
     </div>
-    <p>Karajan Code v1.29.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+    <p>Karajan Code v1.30.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
     <p class="footer-counter"><a href="https://librecounter.org/referer/show" target="_blank" rel="noopener"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" width="80" height="15" loading="lazy" /></a></p>
   </footer>

@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Orquestador de IA basado en roles con 14 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
+description: Orquestador de IA basado en roles con 15 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.29.0 — Orquestador de IA basado en roles: 14 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.30.0 — Orquestador de IA basado en roles: 15 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -24,7 +24,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
 
 <CardGrid stagger>
   <Card title="Pipeline Multi-Agente" icon="rocket">
-    14 roles configurables: discover, triage, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter.
+    15 roles configurables: discover, triage, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer.
   </Card>
   <Card title="5 Agentes IA" icon="laptop">
     Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
@@ -86,11 +86,14 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
   </Card>
-  <Card title="1807+ Tests Automatizados" icon="approve-check">
+  <Card title="1847+ Tests Automatizados" icon="approve-check">
     130 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
   </Card>
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A-F y recomendaciones priorizadas sin modificar ningún fichero.
+  </Card>
+  <Card title="Certificacion de Historias de Usuario" icon="approve-check">
+    Quality gate obligatorio que evalua historias de usuario en 6 dimensiones (contexto JTBD, especificidad de usuario, cambio de comportamiento, zona de control, restricciones temporales, experimento viable). Detecta 7 antipatrones, reescribe historias debiles, pausa para contexto FDE. Soporta grafos de dependencias.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con [RTK](https://github.com/rtk-ai/rtk) para un ahorro adicional del 60-90% en tokens.

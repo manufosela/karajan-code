@@ -96,6 +96,8 @@ El argumento `<task>` acepta:
 | `--enable-reviewer` | on | Habilitar etapa de revisión |
 | `--enable-serena` | off | Habilitar integración Serena MCP |
 | `--enable-impeccable` | off | Habilitar auditoría de diseño Impeccable (quality gate automatizado de UI/UX) |
+| `--enable-hu-reviewer` | off | Habilitar certificación de HUs (quality gate de historias de usuario) |
+| `--hu-file <path>` | string | Ruta al fichero de historia de usuario para el HU reviewer |
 | `--auto-simplify` | on | Auto-simplificar pipeline para triage nivel 1-2 (solo coder, omite reviewer/tester) |
 | `--no-auto-simplify` | — | Desactivar auto-simplify: ejecutar siempre el pipeline completo independientemente del nivel de triage |
 

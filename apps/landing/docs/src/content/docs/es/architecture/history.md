@@ -616,6 +616,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.29.0** — Refactor de calidad del código impulsado por auto-auditoría: objeto PipelineContext reemplaza destructuring de 15+ parámetros, handlers MCP reducidos 151 líneas via `runDirectRole()` compartido, lógica de Planning Game extraída a adaptador event-driven, 105 tests unitarios nuevos para agentes, vulnerabilidades npm parcheadas.
 
+## Fase 25: HU Reviewer (v1.30.0)
+
+**v1.30.0** — Nuevo stage obligatorio en el pipeline para certificacion de historias de usuario. Puntua 6 dimensiones de calidad (0-10 cada una, umbral 40/60), detecta 7 antipatrones, reescribe HUs debiles, pausa para contexto FDE cuando es necesario. Soporta grafos de dependencias con ordenacion topologica de ejecucion. Almacenamiento local en ficheros con patron adapter para el futuro.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

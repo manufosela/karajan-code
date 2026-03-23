@@ -617,6 +617,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.29.0** — Codebase quality refactor driven by self-audit findings: PipelineContext object replaces 15+ parameter destructuring, MCP handlers reduced by 151 lines via shared `runDirectRole()`, Planning Game logic extracted into event-driven adapter, 105 new agent unit tests, npm audit vulnerabilities patched.
 
+## Phase 25: HU Reviewer (v1.30.0)
+
+**v1.30.0** — New mandatory pipeline stage for user story certification. Scores 6 quality dimensions (0-10 each, threshold 40/60), detects 7 antipatterns, rewrites weak HUs, pauses for FDE context when needed. Supports dependency graphs with topological execution ordering. Local file storage with future adapter pattern.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
