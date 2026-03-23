@@ -73,14 +73,12 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("continue");
-      expect(session.last_reviewer_feedback).toContain("Tester feedback");
+      expect(result.action).toBe("ok");
+      expect(result.stageResult.auto_continued).toBe(true);
     });
 
-    it("escalates to Solomon when tester retries exhausted", async () => {
+    it("auto-continues with advisory when tester retries exhausted (Solomon autonomous)", async () => {
       testerRunMock.mockResolvedValueOnce({ ok: false, summary: "Tests failing" });
-      const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-      invokeSolomon.mockResolvedValue({ action: "pause", question: "What now?" });
 
       const session = { id: "s1", task: "t", checkpoints: [], tester_retry_count: 0 };
 
@@ -89,9 +87,8 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("pause");
-      expect(result.result.paused).toBe(true);
-      expect(invokeSolomon).toHaveBeenCalled();
+      expect(result.action).toBe("ok");
+      expect(result.stageResult.auto_continued).toBe(true);
     });
   });
 
@@ -108,7 +105,7 @@ describe("post-loop-stages", () => {
       expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "security" }));
     });
 
-    it("returns continue when security fails (under retry limit)", async () => {
+    it("auto-continues with advisory when security fails non-critical (Solomon autonomous)", async () => {
       securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found" });
       const session = { id: "s1", task: "t", checkpoints: [], security_retry_count: 0 };
 
@@ -117,14 +114,12 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("continue");
-      expect(session.last_reviewer_feedback).toContain("Security feedback");
+      expect(result.action).toBe("ok");
+      expect(result.stageResult.auto_continued).toBe(true);
     });
 
-    it("escalates to Solomon when security retries exhausted", async () => {
+    it("auto-continues with advisory when security retries exhausted (Solomon autonomous)", async () => {
       securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found" });
-      const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
-      invokeSolomon.mockResolvedValue({ action: "continue" });
 
       const session = { id: "s1", task: "t", checkpoints: [], security_retry_count: 0 };
 
@@ -134,7 +129,7 @@ describe("post-loop-stages", () => {
       });
 
       expect(result.action).toBe("ok");
-      expect(invokeSolomon).toHaveBeenCalled();
+      expect(result.stageResult.auto_continued).toBe(true);
     });
   });
 });

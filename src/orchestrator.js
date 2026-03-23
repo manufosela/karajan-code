@@ -1199,7 +1199,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const checkpointIntervalMs = (ctx.config.session.checkpoint_interval_minutes ?? 5) * 60 * 1000;
   let lastCheckpointAt = Date.now();
   let checkpointDisabled = false;
-  let lastCheckpointSnapshot = null;
+  let lastCheckpointSnapshot = takeCheckpointSnapshot(ctx.session);
 
   let i = 0;
   while (i < ctx.config.max_iterations) {
