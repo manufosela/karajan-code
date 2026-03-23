@@ -57,6 +57,7 @@ export default defineConfig({
 						{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
 						{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 						{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
+						{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
 					],
 				},
 				{

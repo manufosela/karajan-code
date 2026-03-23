@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 15 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.34.0 — Role-based AI orchestrator: 15 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.34.2 — Role-based AI orchestrator: 15 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
     file: ../../assets/logo.svg
   actions:
@@ -30,7 +30,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
     Claude, Codex, Gemini, Aider, and OpenCode. Mix and match — use Claude as coder and Codex as reviewer, or any combination. Extensible via plugins.
   </Card>
   <Card title="MCP Server" icon="puzzle">
-    20 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
+    21 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, `kj_board` for HU Board management, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
   </Card>
   <Card title="TDD Enforcement" icon="approve-check">
     Test changes required when source files change. The pipeline rejects iterations without matching tests.
@@ -86,7 +86,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
   </Card>
-  <Card title="1920+ Automated Tests" icon="approve-check">
+  <Card title="1925+ Automated Tests" icon="approve-check">
     130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
   </Card>
   <Card title="Codebase Health Audit" icon="magnifier">

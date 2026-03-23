@@ -632,6 +632,14 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.34.0** — HU Board: dashboard web full-stack para visualizar datos de HU (historias de usuario) y sesiones del pipeline en todos los proyectos. Tablero kanban con drag-and-drop, timeline de sesiones con superposicion de puntuaciones de calidad, filtrado multi-proyecto. Despliegue listo para Docker con auto-sincronizacion desde ficheros locales de sesion y HU en `.karajan/`. Aplicacion standalone que lee los datos locales de Karajan y los presenta en una interfaz web.
 
+### v1.34.1: Correcciones de Fiabilidad
+
+**v1.34.1** — 5 correcciones de fiabilidad: auto-preflight para inicio del pipeline sin fricciones, parser JSON robusto que maneja output malformado de agentes, capa de compatibilidad de modelos para nombres de modelos entre proveedores, estimacion de presupuesto con fallback para modelos desconocidos, y prompt no-placeholder del coder que evita que los agentes dejen stubs TODO.
+
+### v1.34.2: Integración HU Board en CLI y MCP
+
+**v1.34.2** — HU Board integrado en CLI (`kj board start/stop/status/open`), MCP (herramienta `kj_board` para start/stop/status), wizard de init (activar HU Board durante `kj init`), opcion de auto-start (el board arranca automaticamente con `kj run`), y soporte de modo skills.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
