@@ -5,6 +5,7 @@ import { printEvent } from "../utils/display.js";
 
 export async function resumeCommand({ sessionId, answer, config, logger, flags }) {
   const jsonMode = flags?.json;
+  const quietMode = config.output?.quiet !== false;
 
   const emitter = new EventEmitter();
   let activityLog = null;
@@ -20,7 +21,7 @@ export async function resumeCommand({ sessionId, answer, config, logger, flags }
     }
 
     if (!jsonMode) {
-      printEvent(event);
+      printEvent(event, { quiet: quietMode });
     }
   });
 

@@ -62,6 +62,8 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   addOptionalValue(args, "--checkpoint-interval", options.checkpointInterval);
   addOptionalValue(args, "--pg-task", options.pgTask);
   addOptionalValue(args, "--pg-project", options.pgProject);
+  if (options.quiet === true) args.push("--quiet");
+  if (options.quiet === false) args.push("--verbose");
 
   const runEnv = {
     ...process.env,

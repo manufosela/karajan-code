@@ -123,7 +123,7 @@ const DEFAULTS = {
   planning_game: { enabled: false, project_id: null, codeveloper: null },
   becaria: { enabled: false, review_event: "becaria-review", comment_event: "becaria-comment", comment_prefix: true },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
-  output: { report_dir: "./.reviews", log_level: "info" },
+  output: { report_dir: "./.reviews", log_level: "info", quiet: true },
   budget: {
     warn_threshold_pct: 80,
     currency: "usd",
@@ -366,6 +366,17 @@ function applyBecariaOverride(out, flags) {
   }
 }
 
+function applyOutputModeOverrides(out, flags) {
+  out.output = out.output || {};
+  // --verbose explicitly overrides quiet
+  if (flags.verbose === true) {
+    out.output.quiet = false;
+  } else if (flags.quiet === true) {
+    out.output.quiet = true;
+  }
+  // quiet defaults to true (set in DEFAULTS)
+}
+
 function applyMiscOverrides(out, flags) {
   if (flags[AUTO_SIMPLIFY_FLAG] !== undefined) out.pipeline.auto_simplify = Boolean(flags[AUTO_SIMPLIFY_FLAG]);
   if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
@@ -404,6 +415,7 @@ export function applyRunOverrides(config, flags) {
   applyMethodologyOverride(out, flags);
   applyBecariaOverride(out, flags);
   applyMiscOverrides(out, flags);
+  applyOutputModeOverrides(out, flags);
 
   return out;
 }

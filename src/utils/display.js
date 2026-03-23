@@ -418,9 +418,25 @@ const EVENT_HANDLERS = {
   }
 };
 
+/* ── Quiet-mode filter ──────────────────────────────────────── */
+
+/** Event types suppressed in quiet mode (raw agent output noise). */
+const QUIET_SUPPRESSED = new Set([
+  "agent:output"
+]);
+
 /* ── Main entry point ───────────────────────────────────────── */
 
-export function printEvent(event) {
+/**
+ * @param {object} event
+ * @param {object} [opts]
+ * @param {boolean} [opts.quiet] - When true, suppress raw agent output lines.
+ */
+export function printEvent(event, opts = {}) {
+  if (opts.quiet && QUIET_SUPPRESSED.has(event.type)) {
+    return;
+  }
+
   const icon = ICONS[event.type] || "\u2022";
   const elapsed = event.elapsed === undefined ? "" : `${ANSI.dim}[${formatElapsed(event.elapsed)}]${ANSI.reset}`;
   const status = event.status ? STATUS_ICON[event.status] || "" : "";

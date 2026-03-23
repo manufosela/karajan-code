@@ -97,6 +97,7 @@ export const tools = [
         smartModels: { type: "boolean", description: "Enable/disable smart model selection based on triage complexity" },
         checkpointInterval: { type: "number", description: "Minutes between interactive checkpoints (default: 5). Set 0 to disable." },
         taskType: { type: "string", enum: ["sw", "infra", "doc", "add-tests", "refactor"], description: "Explicit task type for policy resolution. Overrides triage classification." },
+        quiet: { type: "boolean", description: "Suppress raw agent output lines, show only stage status (default: true). Set false for verbose output." },
         noSonar: { type: "boolean" },
         enableSonarcloud: { type: "boolean", description: "Enable SonarCloud scan (complementary to SonarQube)" },
         kjHome: { type: "string" },

@@ -112,6 +112,8 @@ program
   .option("--no-smart-models", "Disable smart model selection")
   .option("--dry-run", "Show what would be executed without running anything")
   .option("--json", "Output JSON only (no styled display)")
+  .option("-q, --quiet", "Show only stage status lines, suppress raw agent output (default)")
+  .option("-v, --verbose", "Show full agent output (stream-json, raw lines)")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {
       await runCommandHandler({ task, config, logger, flags });

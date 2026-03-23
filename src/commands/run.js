@@ -33,6 +33,8 @@ export async function runCommandHandler({ task, config, logger, flags }) {
   const pgProject = flags?.pgProject || config.planning_game?.project_id || null;
 
   const jsonMode = flags?.json;
+  // Quiet mode is the default; --verbose disables it
+  const quietMode = config.output?.quiet !== false;
 
   const emitter = new EventEmitter();
   let activityLog = null;
@@ -48,7 +50,7 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     }
 
     if (!jsonMode) {
-      printEvent(event);
+      printEvent(event, { quiet: quietMode });
     }
   });
 
