@@ -6,11 +6,16 @@
   "private": true,
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
     "chokidar": "^4.0.0",
     "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0",
+    "supertest": "^7.1.0"
   }
 }

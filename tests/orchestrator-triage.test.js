@@ -139,6 +139,24 @@ vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: false })
+}));
+
+vi.mock("../src/utils/agent-detect.js", () => ({
+  checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0" }),
+  isHostAgent: vi.fn().mockReturnValue(false)
+}));
+
+vi.mock("../src/utils/process.js", () => ({
+  runCommand: vi.fn().mockImplementation((_cmd, args) => {
+    if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+      return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+    }
+    return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+  })
+}));
+
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("rules"),
@@ -216,6 +234,25 @@ describe("orchestrator triage pipeline", () => {
     });
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
     invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
+
+    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    detectRtk.mockResolvedValue({ available: false });
+
+    const { checkBinary, isHostAgent } = await import("../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: true, version: "1.0.0" });
+    isHostAgent.mockReturnValue(false);
+
+    const { runCommand } = await import("../src/utils/process.js");
+    runCommand.mockImplementation((_cmd, args) => {
+      if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+        return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+      }
+      return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+    });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
   });
 
   it("trivial task runs only coder + sonar (without reviewer)", async () => {
@@ -245,7 +282,7 @@ describe("orchestrator triage pipeline", () => {
     expect(agents.filter((a) => a === "claude")).toHaveLength(1);
   });
 
-  it.skip("complex task activates full optional pipeline — CI-only failure: passes locally, mock timing differs in GitHub Actions", async () => {
+  it("complex task activates full optional pipeline", async () => {
     triageRunMock.mockResolvedValueOnce({
       ok: true,
       result: {

@@ -104,6 +104,24 @@ vi.mock("../src/sonar/enforcer.js", () => ({
   summarizeIssues: vi.fn().mockReturnValue("")
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: false })
+}));
+
+vi.mock("../src/utils/agent-detect.js", () => ({
+  checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0" }),
+  isHostAgent: vi.fn().mockReturnValue(false)
+}));
+
+vi.mock("../src/utils/process.js", () => ({
+  runCommand: vi.fn().mockImplementation((_cmd, args) => {
+    if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+      return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+    }
+    return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+  })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
@@ -176,6 +194,21 @@ describe("orchestrator events", () => {
     const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     isSonarReachable.mockResolvedValue(true);
+
+    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    detectRtk.mockResolvedValue({ available: false });
+
+    const { checkBinary, isHostAgent } = await import("../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: true, version: "1.0.0" });
+    isHostAgent.mockReturnValue(false);
+
+    const { runCommand } = await import("../src/utils/process.js");
+    runCommand.mockImplementation((_cmd, args) => {
+      if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+        return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+      }
+      return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+    });
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;
@@ -273,7 +306,7 @@ describe("orchestrator events", () => {
     }
   });
 
-  it.skip("runs sonar scan before reviewer when SonarQube is enabled — CI-only failure: passes locally, mock timing differs in GitHub Actions", async () => {
+  it("runs sonar scan before reviewer when SonarQube is enabled", async () => {
     const { createAgent } = await import("../src/agents/index.js");
     const coderAgent = {
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "" })
@@ -321,8 +354,8 @@ describe("orchestrator events", () => {
 
     expect(result.approved).toBe(true);
     expect(runSonarScan).toHaveBeenCalledTimes(1);
-    expect(getQualityGateStatus).toHaveBeenCalledWith(config, "kj-repo-123");
-    expect(getOpenIssues).toHaveBeenCalledWith(config, "kj-repo-123");
+    expect(getQualityGateStatus).toHaveBeenCalledWith(expect.objectContaining({ coder: "codex" }), "kj-repo-123");
+    expect(getOpenIssues).toHaveBeenCalledWith(expect.objectContaining({ coder: "codex" }), "kj-repo-123");
     expect(runSonarScan.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
     const { addCheckpoint } = await import("../src/session-store.js");
@@ -587,7 +620,7 @@ describe("orchestrator events", () => {
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "refactorer" }));
   });
 
-  it.skip("emits session:end with planner plan, sonar issue resolution, and commit details — CI-only failure: passes locally, mock timing differs in GitHub Actions", async () => {
+  it("emits session:end with planner plan, sonar issue resolution, and commit details", async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));

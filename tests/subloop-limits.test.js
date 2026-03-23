@@ -89,6 +89,24 @@ vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human intervention needed" })
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: false })
+}));
+
+vi.mock("../src/utils/agent-detect.js", () => ({
+  checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0" }),
+  isHostAgent: vi.fn().mockReturnValue(false)
+}));
+
+vi.mock("../src/utils/process.js", () => ({
+  runCommand: vi.fn().mockImplementation((_cmd, args) => {
+    if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+      return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+    }
+    return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+  })
+}));
+
 vi.mock("../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
@@ -158,11 +176,30 @@ describe("configurable sub-loop limits", () => {
     const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
     invokeSolomon.mockResolvedValue({ action: "pause", question: "Solomon escalated" });
 
+    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    detectRtk.mockResolvedValue({ available: false });
+
+    const { checkBinary, isHostAgent } = await import("../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: true, version: "1.0.0" });
+    isHostAgent.mockReturnValue(false);
+
+    const { runCommand } = await import("../src/utils/process.js");
+    runCommand.mockImplementation((_cmd, args) => {
+      if (args?.some(a => String(a).includes("user_tokens/generate"))) {
+        return Promise.resolve({ exitCode: 0, stdout: '{"token":"mock-token"}', stderr: "" });
+      }
+      return Promise.resolve({ exitCode: 0, stdout: '{"valid":true}', stderr: "" });
+    });
+
+    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    isSonarReachable.mockResolvedValue(true);
+
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;
   });
 
-  it.skip("emits solomon:escalate when sonar sub-loop limit is reached — flaky in CI Node 22", async () => {
+  it("emits solomon:escalate when sonar sub-loop limit is reached", async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));
@@ -180,7 +217,7 @@ describe("configurable sub-loop limits", () => {
     expect(result.context).toBe("sonar_fail_fast");
   });
 
-  it.skip("sonar retries respect max_sonar_retries independently from fail_fast_repeats — skipped: Solomon boss changes iteration flow", async () => {
+  it("sonar retries respect max_sonar_retries independently from fail_fast_repeats", async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));
