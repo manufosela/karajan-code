@@ -306,5 +306,16 @@ export const tools = [
         kjHome: { type: "string" }
       }
     }
+  },
+  {
+    name: "kj_board",
+    description: "Start, stop, or check status of the HU Board dashboard",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["start", "stop", "status"], description: "Action to perform (default: status)" },
+        port: { type: "number", description: "Port (default: 4000)" }
+      }
+    }
   }
 ];

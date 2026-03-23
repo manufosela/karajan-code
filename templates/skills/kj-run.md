@@ -61,6 +61,10 @@ If all steps pass:
 2. Commit with conventional commit message: `feat:`, `fix:`, `refactor:`, etc.
 3. Do NOT push unless the user explicitly asks
 
+## HU Board Integration
+If HU Board is enabled (`hu_board.enabled: true` in config), stories and sessions
+are automatically tracked and visible at the board URL. Run `kj board` to start it.
+
 ## Important rules
 
 - **Never skip steps** — execute all applicable steps in order

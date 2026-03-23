@@ -1126,6 +1126,26 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
     }));
   }
 
+  // --- HU Board auto-start ---
+  if (config.hu_board?.enabled && config.hu_board?.auto_start) {
+    try {
+      const { startBoard } = await import("./commands/board.js");
+      const boardPort = config.hu_board.port || 4000;
+      const boardResult = await startBoard(boardPort);
+      if (boardResult.alreadyRunning) {
+        logger.info(`HU Board already running at ${boardResult.url}`);
+      } else {
+        logger.info(`HU Board started at ${boardResult.url}`);
+      }
+      emitProgress(emitter, makeEvent("board:started", ctx.eventBase, {
+        message: `HU Board running at ${boardResult.url}`,
+        detail: { pid: boardResult.pid, port: boardPort }
+      }));
+    } catch (err) {
+      logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
+    }
+  }
+
   // --- Product Context ---
   const ctxProjectDir = config.projectDir || process.cwd();
   const { content: productContext, source: productContextSource } = await loadProductContext(ctxProjectDir);

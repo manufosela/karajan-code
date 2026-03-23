@@ -118,6 +118,11 @@ const DEFAULTS = {
       test_inclusions: "**/*.test.js,**/*.spec.js,**/tests/**,**/__tests__/**"
     }
   },
+  hu_board: {
+    enabled: false,
+    port: 4000,
+    auto_start: false
+  },
   policies: {},
   serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },

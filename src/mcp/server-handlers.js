@@ -863,6 +863,20 @@ async function handleAudit(a, server, extra) {
   return handleAuditDirect(a, server, extra);
 }
 
+async function handleBoard(a) {
+  const action = a.action || "status";
+  const { loadConfig: lc } = await import("../config.js");
+  const { config } = await lc();
+  const port = a.port || config.hu_board?.port || 4000;
+  const { startBoard, stopBoard, boardStatus } = await import("../commands/board.js");
+  switch (action) {
+    case "start": return startBoard(port);
+    case "stop": return stopBoard();
+    case "status": return boardStatus(port);
+    default: return failPayload(`Unknown board action: ${action}`);
+  }
+}
+
 /* ── Handler dispatch map ─────────────────────────────────────────── */
 
 const toolHandlers = {
@@ -884,7 +898,8 @@ const toolHandlers = {
   kj_triage:      (a, server, extra) => handleTriage(a, server, extra),
   kj_researcher:  (a, server, extra) => handleResearcher(a, server, extra),
   kj_architect:   (a, server, extra) => handleArchitect(a, server, extra),
-  kj_audit:       (a, server, extra) => handleAudit(a, server, extra)
+  kj_audit:       (a, server, extra) => handleAudit(a, server, extra),
+  kj_board:       (a) => handleBoard(a)
 };
 
 export async function handleToolCall(name, args, server, extra) {

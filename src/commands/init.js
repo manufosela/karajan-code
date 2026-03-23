@@ -70,6 +70,15 @@ async function runWizard(config, logger) {
     config.sonarqube.enabled = enableSonar;
     logger.info(`  -> SonarQube: ${enableSonar ? "enabled" : "disabled"}`);
 
+    const enableHuBoard = await wizard.confirm("Enable HU Board for story tracking?", false);
+    config.hu_board = config.hu_board || {};
+    config.hu_board.enabled = enableHuBoard;
+    if (enableHuBoard) {
+      config.hu_board.port = 4000;
+      config.hu_board.auto_start = true;
+    }
+    logger.info(`  -> HU Board: ${enableHuBoard ? "enabled (auto-start on kj run)" : "disabled"}`);
+
     const methodology = await wizard.select("Development methodology:", [
       { label: "TDD (test-driven development)", value: "tdd", available: true },
       { label: "Standard (no TDD enforcement)", value: "standard", available: true }

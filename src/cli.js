@@ -23,6 +23,7 @@ import { triageCommand } from "./commands/triage.js";
 import { researcherCommand } from "./commands/researcher.js";
 import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
+import { boardCommand } from "./commands/board.js";
 
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
@@ -303,6 +304,17 @@ program
       console.error(`Update failed: ${err.message}`);
       process.exit(1);
     }
+  });
+
+program
+  .command("board [action]")
+  .description("Manage HU Board (start|stop|status|open)")
+  .option("--port <number>", "Port (default: 4000)", "4000")
+  .action(async (action = "start", opts) => {
+    await withConfig("board", opts, async ({ config, logger }) => {
+      const port = Number(opts.port) || config.hu_board?.port || 4000;
+      await boardCommand({ action, port, logger });
+    });
   });
 
 const sonar = program.command("sonar").description("Manage SonarQube container");
