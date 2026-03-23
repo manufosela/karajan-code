@@ -410,21 +410,35 @@
       var terminal = document.getElementById('demo-terminal');
       if (!terminal) return;
       terminal.innerHTML = '';
-      var delay = reducedMotion ? 0 : 0.6;
-      DEMO_LINES.forEach(function(line, i) {
+      var delayMs = reducedMotion ? 0 : 600;
+
+      if (reducedMotion) {
+        DEMO_LINES.forEach(function(line) {
+          var div = document.createElement('div');
+          div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
+          div.style.opacity = '1';
+          div.innerHTML = line.html || '&nbsp;';
+          terminal.appendChild(div);
+        });
+        return;
+      }
+
+      var i = 0;
+      function addNextLine() {
+        if (i >= DEMO_LINES.length) {
+          demoTimer = setTimeout(function() { runDemo(); }, 5000);
+          return;
+        }
+        var line = DEMO_LINES[i];
         var div = document.createElement('div');
         div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
         div.innerHTML = line.html || '&nbsp;';
-        div.style.animationDelay = (i * delay) + 's';
         terminal.appendChild(div);
-        if (!reducedMotion) {
-          setTimeout(function() { terminal.scrollTop = terminal.scrollHeight; }, i * delay * 1000 + 300);
-        }
-      });
-      if (!reducedMotion) {
-        var totalMs = (DEMO_LINES.length * delay + 5) * 1000;
-        demoTimer = setTimeout(function() { terminal.scrollTop = 0; runDemo(); }, totalMs);
+        terminal.scrollTop = terminal.scrollHeight;
+        i++;
+        demoTimer = setTimeout(addNextLine, delayMs);
       }
+      addNextLine();
     }
 
     runDemo();
