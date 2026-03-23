@@ -64,6 +64,8 @@ That's it. No Docker required (SonarQube uses Docker, but Karajan auto-manages i
 kj run "Create a utility function that validates Spanish DNI numbers, with tests"
 ```
 
+[**▶ Watch the full pipeline demo**](https://karajancode.com#demo) — HU certification, triage, architecture, TDD, SonarQube, code review, Solomon arbitration, security audit.
+
 Karajan will:
 1. Triage the task complexity and activate the right roles
 2. Write tests first (TDD)
