@@ -468,8 +468,9 @@
         demoAddNext = addNextLine;
         if (demoPaused) return;
         if (i >= DEMO_LINES.length) {
-          demoAddNext = null;
-          demoTimer = setTimeout(runDemo, 6000);
+          demoPaused = true;
+          demoAddNext = runDemo;
+          document.getElementById('pause-btn').textContent = '\u25b6';
           return;
         }
         var line = DEMO_LINES[i];
