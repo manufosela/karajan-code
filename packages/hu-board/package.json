@@ -1,0 +1,16 @@
+{
+  "name": "@karajan/hu-board",
+  "version": "1.0.0",
+  "description": "HU Story Board dashboard for Karajan Code",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "chokidar": "^4.0.0",
+    "express": "^5.1.0"
+  }
+}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karajan HU Board</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='16' font-family='sans-serif' font-weight='bold'>K</text></svg>">
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo">
+      <svg viewBox="0 0 32 32" width="32" height="32">
+        <rect width="32" height="32" rx="6" fill="#7c3aed"/>
+        <text x="16" y="22" text-anchor="middle" fill="white" font-size="16" font-family="sans-serif" font-weight="bold">K</text>
+      </svg>
+      <div>
+        <div class="header__title">Karajan HU Board</div>
+        <div class="header__subtitle">story management dashboard</div>
+      </div>
+    </div>
+    <nav class="header__nav">
+      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="board">Board</button>
+      <button class="nav-btn" data-view="sessions">Sessions</button>
+      <select class="project-select" id="project-select">
+        <option value="">All Projects</option>
+      </select>
+    </nav>
+  </header>
+
+  <main class="main" id="app">
+    <div class="loading">
+      <div class="loading__spinner"></div>
+      <p>Loading...</p>
+    </div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal" id="modal-content"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

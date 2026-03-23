@@ -1,0 +1,10 @@
+services:
+  hu-board:
+    build: .
+    ports:
+      - "${HU_BOARD_PORT:-4000}:4000"
+    volumes:
+      - ${KJ_HOME:-~/.karajan}:/data
+    environment:
+      - KJ_HOME=/data
+    restart: unless-stopped
