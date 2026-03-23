@@ -625,6 +625,14 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.32.0** — Mandatory audit post-approval: final quality gate runs after reviewer+tester+security pass. Checks generated code for critical/high issues — if found, loops coder back to fix. If clean, pipeline is CERTIFIED. Also: quiet mode by default (raw agent output suppressed), Solomon autonomous decisions (checkpoints auto-continue, tester/security advisory), CLI inline readline prompt, budget N/A when provider doesn't report usage.
 
+## Phase 27: Product Context & Multi-Format AC (v1.33.0)
+
+**v1.33.0** — Product context via `.karajan/context.md`: projects can define domain knowledge, glossary, and constraints that are injected into every pipeline role prompt. Multi-format acceptance criteria: supports Gherkin (Given/When/Then), Checklist, Pre/Post-conditions, and Invariants — auto-detected from task input. RTK auto-integration: when RTK is installed, Karajan auto-configures token optimization without manual setup. Architect containerization: architect role outputs are now isolated in structured containers for cleaner planner handoff.
+
+## Phase 28: HU Board Dashboard (v1.34.0)
+
+**v1.34.0** — HU Board: full-stack web dashboard for visualizing HU (user story) data and pipeline sessions across all projects. Kanban board with drag-and-drop, session timeline with quality score overlays, multi-project filtering. Docker-ready deployment with auto-sync from local `.karajan/` session and HU files. Standalone app that reads Karajan's local data and presents it in a browser-based UI.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

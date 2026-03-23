@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 15 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.32.0 — Orquestador de IA basado en roles: 15 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v1.34.0 — Orquestador de IA basado en roles: 15 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
     file: ../../../assets/logo.svg
   actions:
@@ -86,7 +86,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
   </Card>
-  <Card title="1875+ Tests Automatizados" icon="approve-check">
+  <Card title="1920+ Tests Automatizados" icon="approve-check">
     130 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en menos de 14 segundos con Vitest.
   </Card>
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
@@ -94,6 +94,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   </Card>
   <Card title="Certificacion de Historias de Usuario" icon="approve-check">
     Quality gate obligatorio que evalua historias de usuario en 6 dimensiones (contexto JTBD, especificidad de usuario, cambio de comportamiento, zona de control, restricciones temporales, experimento viable). Detecta 7 antipatrones, reescribe historias debiles, pausa para contexto FDE. Soporta grafos de dependencias.
+  </Card>
+  <Card title="Dashboard HU Board" icon="list-format">
+    Dashboard web para visualizar historias de usuario y sesiones de todos los proyectos. Tablero kanban, timeline de sesiones, puntuaciones de calidad. Listo para Docker, sincroniza automáticamente desde ficheros locales.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con [RTK](https://github.com/rtk-ai/rtk) para un ahorro adicional del 60-90% en tokens.
