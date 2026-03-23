@@ -223,7 +223,8 @@ describe("orchestrator triage pipeline", () => {
 
     expect(result.approved).toBe(true);
     const agents = createAgent.mock.calls.map((call) => call[0]);
-    expect(agents.filter((a) => a === "codex")).toHaveLength(1);
+    // codex is used for coder + final audit (audit inherits coder's provider)
+    expect(agents.filter((a) => a === "codex")).toHaveLength(2);
     expect(agents.filter((a) => a === "claude")).toHaveLength(0);
     expect(researcherRunMock).not.toHaveBeenCalled();
     expect(testerRunMock).not.toHaveBeenCalled();

@@ -32,7 +32,7 @@ import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
 import { PipelineContext } from "./orchestrator/pipeline-context.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
-import { runTesterStage, runSecurityStage, runImpeccableStage } from "./orchestrator/post-loop-stages.js";
+import { runTesterStage, runSecurityStage, runImpeccableStage, runFinalAuditStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
 import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
@@ -667,6 +667,22 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
       stageResults.security = securityResult.stageResult;
       await tryBecariaComment({ config, session, logger, agent: "Security", body: `Security scan: ${securityResult.stageResult.summary || "completed"}` });
     }
+  }
+
+  // Final audit — last quality gate before declaring success
+  const auditResult = await runFinalAuditStage({
+    config, logger, emitter, eventBase, session, coderRole, trackBudget,
+    iteration: i, task, diff: postLoopDiff
+  });
+  if (auditResult.stageResult) {
+    stageResults.audit = auditResult.stageResult;
+    await tryBecariaComment({ config, session, logger, agent: "Audit", body: `Final audit: ${auditResult.stageResult.summary || "completed"}` });
+  }
+  if (auditResult.action === "retry") {
+    // Audit found actionable issues — loop back to coder
+    session.last_reviewer_feedback = auditResult.feedback;
+    await saveSession(session);
+    return { action: "continue" };
   }
 
   return { action: "proceed" };

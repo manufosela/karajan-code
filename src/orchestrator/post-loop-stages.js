@@ -1,6 +1,7 @@
 import { TesterRole } from "../roles/tester-role.js";
 import { SecurityRole } from "../roles/security-role.js";
 import { ImpeccableRole } from "../roles/impeccable-role.js";
+import { AuditRole } from "../roles/audit-role.js";
 import { addCheckpoint, saveSession } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
@@ -288,6 +289,114 @@ export async function runImpeccableStage({ config, logger, emitter, eventBase, s
 
   // Impeccable is advisory — failures do not block the pipeline
   return { action: "ok", stageResult: { ok: impeccableOutput.ok, verdict, summary: impeccableOutput.summary || "No frontend design issues found" } };
+}
+
+export async function runFinalAuditStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff }) {
+  logger.setContext({ iteration, stage: "audit" });
+  emitProgress(
+    emitter,
+    makeEvent("audit:start", { ...eventBase, stage: "audit" }, {
+      message: "Final audit — verifying code quality"
+    })
+  );
+
+  const auditStart = Date.now();
+  const { output: auditOutput, provider, attempts } = await runRoleWithFallback(
+    AuditRole,
+    { roleName: "audit", config, logger, emitter, eventBase, task, iteration, diff }
+  );
+  const totalDuration = Date.now() - auditStart;
+
+  trackBudget({
+    role: "audit",
+    provider: provider || coderRole.provider,
+    model: config?.roles?.audit?.model || coderRole.model,
+    result: auditOutput,
+    duration_ms: totalDuration
+  });
+
+  await addCheckpoint(session, {
+    stage: "audit",
+    iteration,
+    ok: auditOutput.ok,
+    provider: provider || coderRole.provider,
+    model: config?.roles?.audit?.model || coderRole.model || null,
+    attempts: attempts.length > 1 ? attempts : undefined
+  });
+
+  if (!auditOutput.ok) {
+    // Audit agent failed to run — treat as advisory, don't block pipeline
+    logger.warn(`Audit agent error (advisory): ${auditOutput.summary}`);
+    emitProgress(
+      emitter,
+      makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
+        status: "warn",
+        message: `Audit: agent error (advisory), continuing — ${auditOutput.summary}`
+      })
+    );
+    return { action: "ok", stageResult: { ok: false, summary: auditOutput.summary || "Audit agent error (advisory)", auto_continued: true } };
+  }
+
+  // Parse findings from audit result
+  const result = auditOutput.result || {};
+  const summary = result.summary || {};
+  const overallHealth = summary.overallHealth || "fair";
+  const criticalCount = summary.critical || 0;
+  const highCount = summary.high || 0;
+
+  // Collect critical and high findings for feedback
+  const actionableFindings = [];
+  if (result.dimensions) {
+    for (const [dimName, dim] of Object.entries(result.dimensions)) {
+      for (const finding of (dim.findings || [])) {
+        if (finding.severity === "critical" || finding.severity === "high") {
+          actionableFindings.push({
+            dimension: dimName,
+            ...finding
+          });
+        }
+      }
+    }
+  }
+
+  const hasActionableIssues = (overallHealth === "poor" || overallHealth === "critical") && (criticalCount > 0 || highCount > 0);
+
+  if (hasActionableIssues) {
+    // Build feedback string for the coder
+    const feedbackLines = actionableFindings.map(f => {
+      const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "";
+      return `[${f.severity.toUpperCase()}] ${loc} ${f.description}${f.recommendation ? ` — Fix: ${f.recommendation}` : ""}`;
+    });
+    const feedback = `Audit found ${criticalCount + highCount} critical/high issue(s) that must be fixed:\n${feedbackLines.join("\n")}`;
+
+    logger.warn(`Audit: ${criticalCount + highCount} actionable issues found, sending back to coder`);
+    emitProgress(
+      emitter,
+      makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
+        status: "fail",
+        message: `Audit: ${criticalCount + highCount} issue(s) found, sending back to coder`
+      })
+    );
+
+    return { action: "retry", feedback, stageResult: { ok: false, summary: auditOutput.summary || `${criticalCount + highCount} actionable issues` } };
+  }
+
+  // Audit passed (good/fair or no critical/high findings)
+  const hasAdvisory = (summary.medium || 0) + (summary.low || 0) > 0;
+  const certifiedMsg = hasAdvisory
+    ? `Audit: CERTIFIED (with ${(summary.medium || 0) + (summary.low || 0)} advisory warning(s))`
+    : "Audit: CERTIFIED";
+
+  logger.info(certifiedMsg);
+  emitProgress(
+    emitter,
+    makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
+      status: "ok",
+      message: certifiedMsg
+    })
+  );
+
+  return { action: "ok", stageResult: { ok: true, summary: certifiedMsg } };
 }
 
 // Exported for testing

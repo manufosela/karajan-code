@@ -60,7 +60,8 @@ vi.mock("../src/orchestrator/iteration-stages.js", () => ({
 
 vi.mock("../src/orchestrator/post-loop-stages.js", () => ({
   runTesterStage: vi.fn(),
-  runSecurityStage: vi.fn()
+  runSecurityStage: vi.fn(),
+  runFinalAuditStage: vi.fn().mockResolvedValue({ action: "ok", stageResult: { ok: true, summary: "Audit: CERTIFIED" } })
 }));
 
 const { runFlow, resumeFlow } = await import("../src/orchestrator.js");

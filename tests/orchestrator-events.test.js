@@ -229,6 +229,8 @@ describe("orchestrator events", () => {
       "reviewer:start",
       "reviewer:end",
       "iteration:end",
+      "audit:start",
+      "audit:end",
       "session:end"
     ]);
   });
@@ -574,6 +576,8 @@ describe("orchestrator events", () => {
       "reviewer:start",
       "reviewer:end",
       "iteration:end",
+      "audit:start",
+      "audit:end",
       "session:end"
     ]);
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "planner" }));
