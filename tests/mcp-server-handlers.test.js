@@ -473,20 +473,16 @@ describe("mcp/server-handlers", () => {
 
     // --- Preflight gate ---
 
-    it("kj_run returns preflightRequired when preflight not acked", async () => {
+    it("kj_run auto-acknowledges preflight when not acked", async () => {
       const result = await handleToolCall("kj_run", { task: "Do stuff" }, mockServer, {});
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.ok).toBe(false);
-      expect(parsed.preflightRequired).toBe(true);
-      expect(parsed.message).toContain("PREFLIGHT REQUIRED");
+      // With auto-ack, kj_run proceeds to execution instead of returning preflightRequired
+      expect(result.ok).toBe(true);
     });
 
-    it("kj_code returns preflightRequired when preflight not acked", async () => {
+    it("kj_code auto-acknowledges preflight when not acked", async () => {
       const result = await handleToolCall("kj_code", { task: "Do stuff" }, mockServer, {});
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.ok).toBe(false);
-      expect(parsed.preflightRequired).toBe(true);
-      expect(parsed.message).toContain("PREFLIGHT REQUIRED");
+      // With auto-ack, kj_code proceeds to execution instead of returning preflightRequired
+      expect(result.ok).toBe(true);
     });
 
     it("kj_preflight acks and returns config", async () => {

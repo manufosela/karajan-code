@@ -21,6 +21,13 @@ Before reporting done, verify that ALL parts of the task are addressed:
 - Run the test suite after implementation to verify nothing is broken.
 - An incomplete implementation is worse than an error — never report success if parts are missing.
 
+## Implementation Rules
+- NEVER generate placeholder, stub, or TODO code. Every function must be fully implemented.
+- If the task says "create X", create the complete working implementation, not a skeleton.
+- If tests exist, the implementation MUST make all tests pass.
+- If you write tests first (TDD), the implementation MUST make those tests pass.
+- Do NOT commit code that doesn't compile or doesn't pass tests.
+
 ## File modification safety
 
 - NEVER overwrite existing files entirely. Always make targeted, minimal edits.

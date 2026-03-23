@@ -156,8 +156,10 @@ function createBudgetManager({ config, emitter, eventBase }) {
     return s;
   }
 
-  function trackBudget({ role, provider, model, result, duration_ms }) {
-    const metrics = extractUsageMetrics(result, model);
+  function trackBudget({ role, provider, model, result, duration_ms, promptSize }) {
+    // Attach promptSize to result if provided, so extractUsageMetrics can estimate tokens
+    const enrichedResult = promptSize && result ? { ...result, promptSize } : result;
+    const metrics = extractUsageMetrics(enrichedResult, model);
     budgetTracker.record({ role, provider, ...metrics, duration_ms, stage_index: stageCounter++ });
 
     if (!hasBudgetLimit) return;

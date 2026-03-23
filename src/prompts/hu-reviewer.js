@@ -1,3 +1,5 @@
+import { extractFirstJson } from "../utils/json-extract.js";
+
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
   "Do NOT ask about using Karajan, do NOT mention Karajan, do NOT suggest orchestration.",
@@ -135,16 +137,8 @@ export function normalizeAcceptanceCriteria(criteria) {
  * @returns {object|null} Parsed result with evaluations and batch_summary, or null.
  */
 export function parseHuReviewerOutput(raw) {
-  const text = raw?.trim() || "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(text);
-  if (!jsonMatch) return null;
-
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    return null;
-  }
+  const parsed = extractFirstJson(raw);
+  if (!parsed) return null;
 
   if (!Array.isArray(parsed.evaluations)) return null;
 

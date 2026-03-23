@@ -1,3 +1,5 @@
+import { extractFirstJson } from "../utils/json-extract.js";
+
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
   "Do NOT ask about using Karajan, do NOT mention Karajan, do NOT suggest orchestration.",
@@ -154,16 +156,8 @@ function parseRecommendation(raw) {
 }
 
 export function parseAuditOutput(raw) {
-  const text = raw?.trim() || "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(text);
-  if (!jsonMatch) return null;
-
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    return null;
-  }
+  const parsed = extractFirstJson(raw);
+  if (!parsed) return null;
 
   // Handle both wrapped (result.summary) and flat structures
   const resultObj = parsed.result || parsed;

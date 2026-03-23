@@ -1,5 +1,17 @@
 import { calculateUsageCostUsd, DEFAULT_MODEL_PRICING, mergePricing } from "./pricing.js";
 
+/**
+ * Estimate token counts from character lengths when CLIs don't report usage.
+ * Rough heuristic: ~4 characters per token for English text.
+ */
+export function estimateTokens(promptLength, responseLength) {
+  return {
+    tokens_in: Math.ceil((promptLength || 0) / 4),
+    tokens_out: Math.ceil((responseLength || 0) / 4),
+    estimated: true
+  };
+}
+
 export function extractUsageMetrics(result, defaultModel = null) {
   const usage = result?.usage || result?.metrics || {};
   const tokens_in =
@@ -27,7 +39,22 @@ export function extractUsageMetrics(result, defaultModel = null) {
     defaultModel ??
     null;
 
-  return { tokens_in, tokens_out, cost_usd, model };
+  // If no real token data AND no explicit cost, estimate from prompt/output sizes.
+  // Estimation is opt-in: only triggered when result.promptSize is explicitly provided.
+  let estimated = false;
+  let finalTokensIn = tokens_in;
+  let finalTokensOut = tokens_out;
+  const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
+  if (!tokens_in && !tokens_out && !hasExplicitCost && result?.promptSize > 0) {
+    const promptSize = result.promptSize;
+    const outputSize = (result?.output || result?.summary || "").length;
+    const est = estimateTokens(promptSize, outputSize);
+    finalTokensIn = est.tokens_in;
+    finalTokensOut = est.tokens_out;
+    estimated = true;
+  }
+
+  return { tokens_in: finalTokensIn, tokens_out: finalTokensOut, cost_usd, model, estimated };
 }
 
 function toSafeNumber(value) {
@@ -63,7 +90,7 @@ export class BudgetTracker {
     this.pricing = mergePricing(DEFAULT_MODEL_PRICING, options.pricing || {});
   }
 
-  record({ role, provider, model, tokens_in, tokens_out, cost_usd, duration_ms, stage_index } = {}) {
+  record({ role, provider, model, tokens_in, tokens_out, cost_usd, duration_ms, stage_index, estimated } = {}) {
     const safeTokensIn = toSafeNumber(tokens_in);
     const safeTokensOut = toSafeNumber(tokens_out);
     const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
@@ -88,6 +115,9 @@ export class BudgetTracker {
     }
     if (stage_index !== undefined && stage_index !== null) {
       entry.stage_index = Number(stage_index);
+    }
+    if (estimated) {
+      entry.estimated = true;
     }
     this.entries.push(entry);
     return entry;
@@ -133,26 +163,33 @@ export class BudgetTracker {
       addToBreakdown(byRole, entry.role, entry);
     }
 
-    return {
+    const hasEstimates = this.entries.some(e => e.estimated);
+    const result = {
       total_tokens: totals.tokens_in + totals.tokens_out,
       total_cost_usd: totals.cost_usd,
       breakdown_by_role: byRole,
       entries: [...this.entries],
       usage_available: this.hasUsageData()
     };
+    if (hasEstimates) result.includes_estimates = true;
+    return result;
   }
 
   trace() {
-    return this.entries.map((entry, index) => ({
-      index: entry.stage_index ?? index,
-      role: entry.role,
-      provider: entry.provider,
-      model: entry.model,
-      timestamp: entry.timestamp,
-      duration_ms: entry.duration_ms ?? null,
-      tokens_in: entry.tokens_in,
-      tokens_out: entry.tokens_out,
-      cost_usd: entry.cost_usd
-    }));
+    return this.entries.map((entry, index) => {
+      const item = {
+        index: entry.stage_index ?? index,
+        role: entry.role,
+        provider: entry.provider,
+        model: entry.model,
+        timestamp: entry.timestamp,
+        duration_ms: entry.duration_ms ?? null,
+        tokens_in: entry.tokens_in,
+        tokens_out: entry.tokens_out,
+        cost_usd: entry.cost_usd
+      };
+      if (entry.estimated) item.estimated = true;
+      return item;
+    });
   }
 }

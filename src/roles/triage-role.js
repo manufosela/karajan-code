@@ -2,6 +2,7 @@ import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { buildTriagePrompt } from "../prompts/triage.js";
 import { VALID_TASK_TYPES } from "../guards/policy-resolver.js";
+import { extractFirstJson } from "../utils/json-extract.js";
 
 const VALID_LEVELS = new Set(["trivial", "simple", "medium", "complex"]);
 const VALID_ROLES = new Set(["planner", "researcher", "refactorer", "reviewer", "tester", "security", "impeccable"]);
@@ -16,10 +17,7 @@ function resolveProvider(config) {
 }
 
 function parseTriageOutput(raw) {
-  const text = raw?.trim() || "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(text);
-  if (!jsonMatch) return null;
-  return JSON.parse(jsonMatch[0]);
+  return extractFirstJson(raw);
 }
 
 function normalizeRoles(roles) {

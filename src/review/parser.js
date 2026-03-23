@@ -3,23 +3,11 @@
  * Extracted from orchestrator.js to improve testability and reduce complexity.
  */
 
+import { extractFirstJson } from "../utils/json-extract.js";
+
 export function parseMaybeJsonString(value) {
   if (typeof value !== "string") return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      const candidate = value.slice(start, end + 1);
-      try {
-        return JSON.parse(candidate);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
+  return extractFirstJson(value);
 }
 
 function isReviewPayload(obj) {

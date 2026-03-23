@@ -790,7 +790,10 @@ async function handleRun(a, server, extra) {
     }
   }
   if (!isPreflightAcked()) {
-    return buildPreflightRequiredResponse("kj_run");
+    // Auto-acknowledge with defaults for autonomous operation
+    ackPreflight({});
+    const logger = createLogger("info", "mcp");
+    logger.info("Preflight auto-acknowledged with default agent config");
   }
   applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
   return handleRunDirect(a, server, extra);
@@ -801,7 +804,10 @@ async function handleCode(a, server, extra) {
     return failPayload("Missing required field: task");
   }
   if (!isPreflightAcked()) {
-    return buildPreflightRequiredResponse("kj_code");
+    // Auto-acknowledge with defaults for autonomous operation
+    ackPreflight({});
+    const logger = createLogger("info", "mcp");
+    logger.info("Preflight auto-acknowledged with default agent config");
   }
   applySessionOverrides(a, ["coder"]);
   return handleCodeDirect(a, server, extra);

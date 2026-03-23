@@ -225,11 +225,13 @@ function printSessionBudget(budget) {
     console.log(`  ${ANSI.dim}\ud83d\udcb0 Budget: N/A (provider does not report usage)${ANSI.reset}`);
     return;
   }
-  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${budget.total_tokens ?? 0}${ANSI.reset}`);
-  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: $${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
+  const estPrefix = budget.includes_estimates ? "~" : "";
+  const estNote = budget.includes_estimates ? " (includes estimates)" : "";
+  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${estPrefix}${budget.total_tokens ?? 0}${estNote}${ANSI.reset}`);
+  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: ${estPrefix}$${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
   for (const [role, metrics] of Object.entries(budget.breakdown_by_role || {})) {
     console.log(
-      `  ${ANSI.dim}   - ${role}: ${metrics.total_tokens ?? 0} tokens, $${Number(metrics.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`
+      `  ${ANSI.dim}   - ${role}: ${estPrefix}${metrics.total_tokens ?? 0} tokens, ${estPrefix}$${Number(metrics.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`
     );
   }
 }

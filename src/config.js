@@ -420,6 +420,34 @@ export function applyRunOverrides(config, flags) {
   return out;
 }
 
+/**
+ * Check if a model string is compatible with an agent provider.
+ * Only returns false when the model clearly belongs to a DIFFERENT provider.
+ * Returns true if we can't determine or if the model is ambiguous.
+ */
+const AGENT_MODEL_SIGNATURES = {
+  claude: ["claude", "sonnet", "opus", "haiku"],
+  codex: ["o4-", "o3-", "gpt-", "codex"],
+  gemini: ["gemini", "flash-"]
+};
+
+export function isModelCompatible(agent, model) {
+  if (!model || !agent) return true;
+  const lower = model.toLowerCase();
+
+  // Check if model clearly belongs to a different provider
+  for (const [provider, signatures] of Object.entries(AGENT_MODEL_SIGNATURES)) {
+    if (provider === agent) continue;
+    if (signatures.some(s => lower.includes(s))) {
+      // Model belongs to a different provider — incompatible
+      return false;
+    }
+  }
+
+  // Model doesn't clearly belong to any other provider — allow it
+  return true;
+}
+
 export function resolveRole(config, role) {
   const roles = config?.roles || {};
   const roleConfig = roles[role] || {};
@@ -434,10 +462,17 @@ export function resolveRole(config, role) {
   }
 
   let model = roleConfig.model ?? null;
+  let modelIsInherited = false;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
   if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "hu_reviewer" || role === "hu-reviewer")) {
     model = config?.coder_options?.model ?? null;
+    modelIsInherited = !!model;
+  }
+
+  // Drop inherited model if incompatible with the resolved provider
+  if (modelIsInherited && provider && model && !isModelCompatible(provider, model)) {
+    model = null;
   }
 
   return { provider, model };
