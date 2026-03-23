@@ -63,7 +63,7 @@ function appendArchitectSection(sections, architectContext) {
   sections.push("");
 }
 
-function buildPrompt({ task, instructions, research, triageDecomposition, architectContext }) {
+function buildPrompt({ task, instructions, research, triageDecomposition, architectContext, productContext = null }) {
   const sections = [];
 
   if (instructions) {
@@ -75,6 +75,10 @@ function buildPrompt({ task, instructions, research, triageDecomposition, archit
     "Return concise numbered steps focused on execution order and risk.",
     ""
   );
+
+  if (productContext) {
+    sections.push("## Product Context", productContext, "");
+  }
 
   appendDecompositionSection(sections, triageDecomposition);
   appendArchitectSection(sections, architectContext);
@@ -102,7 +106,7 @@ export class PlannerRole extends BaseRole {
     const provider = resolveProvider(this.config);
 
     const agent = this._createAgent(provider, this.config, this.logger);
-    const prompt = buildPrompt({ task: taskStr, instructions: this.instructions, research, triageDecomposition, architectContext });
+    const prompt = buildPrompt({ task: taskStr, instructions: this.instructions, research, triageDecomposition, architectContext, productContext: this.config?.productContext || null });
 
     const runArgs = { prompt, role: "planner" };
     if (onOutput) runArgs.onOutput = onOutput;

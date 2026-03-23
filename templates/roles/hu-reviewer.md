@@ -100,6 +100,46 @@ The HU depends on other work, APIs, or decisions that are not documented.
 The HU optimizes something without evidence that it is a real problem.
 - Example: "Cache all API responses to improve performance." (Is performance actually a problem? Where is the data?)
 
+## Acceptance Criteria Format
+
+Choose the format that best fits the task type:
+
+### For user-facing behavior → Gherkin
+Use Given/When/Then when the task describes observable user behavior:
+- Given [precondition], When [action], Then [observable result]
+
+### For technical tasks → Verifiable Checklist
+Use when the task is implementation/refactoring without new user behavior:
+- [ ] Module exports function X with signature Y
+- [ ] All existing tests still pass
+- [ ] Build time does not exceed N seconds
+
+### For infrastructure → Pre/Post Conditions
+Use when the task changes system configuration or environment:
+- Before: [current state]
+- After: [target state with measurable criteria]
+
+### For refactors → Invariants
+Use when the task changes internal structure without changing external behavior:
+- External behavior unchanged (same API, same outputs)
+- Test coverage does not decrease below X%
+- Zero regressions in existing test suite
+- [Specific quality metric maintained or improved]
+
+### Selection rule
+Classify the task FIRST, then apply the matching format:
+- If the HU starts with "As a [user role]" and describes user action → Gherkin
+- If it's about internal code structure, performance, or technical debt → Checklist or Invariants
+- If it's about infrastructure, deployment, or environment → Pre/Post Conditions
+- When in doubt, use Checklist — it's the most universal format
+
+### Prefixing convention
+When writing acceptance criteria, prefix each criterion with the format tag:
+- `[GHERKIN] Given X, When Y, Then Z`
+- `[CHECKLIST] Function exported as named export from src/validate.js`
+- `[PRE_POST] Before: no cache layer; After: Redis cache with TTL 300s`
+- `[INVARIANT] All existing tests still pass after changes`
+
 ## Rewrite Instructions
 
 When a HU scores below certification threshold but has enough information to improve:
@@ -108,7 +148,7 @@ When a HU scores below certification threshold but has enough information to imp
 2. Make the user more specific (D2)
 3. Add quantification where possible (D3)
 4. Clarify boundaries (D4)
-5. Add acceptance criteria in Given/When/Then format
+5. Add acceptance criteria using the appropriate format (see Acceptance Criteria Format above)
 6. Flag what you assumed vs. what was in the original
 
 **Never invent business requirements.** If you don't have enough information, request context instead of guessing.
@@ -124,8 +164,10 @@ When a HU is certified, produce it in this structured format:
   "want": "single, focused behavior change",
   "so_that": "measurable business outcome with quantification",
   "acceptance_criteria": [
-    {"given": "...", "when": "...", "then": "..."},
-    {"given": "...", "when": "...", "then": "..."}
+    "[GHERKIN] Given precondition, When action, Then result",
+    "[CHECKLIST] Specific verifiable criterion",
+    "[PRE_POST] Before: X; After: Y",
+    "[INVARIANT] Behavior unchanged, tests pass"
   ],
   "boundaries": {
     "in_scope": ["..."],
@@ -136,6 +178,8 @@ When a HU is certified, produce it in this structured format:
   "risk": "rollback plan and blast radius"
 }
 ```
+
+Note: `acceptance_criteria` supports both legacy Gherkin objects (`{"given":"...","when":"...","then":"..."}`) and prefixed strings. Use prefixed strings for new evaluations.
 
 ## Output Format
 

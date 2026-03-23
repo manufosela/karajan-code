@@ -216,6 +216,7 @@ describe("orchestrator events", () => {
 
     expect(result.approved).toBe(true);
     expect(events).toEqual([
+      "context:loaded",
       "session:start",
       "triage:start",
       "triage:end",
@@ -559,6 +560,7 @@ describe("orchestrator events", () => {
 
     expect(result.approved).toBe(true);
     expect(events).toEqual([
+      "context:loaded",
       "session:start",
       "triage:start",
       "triage:end",

@@ -19,7 +19,7 @@ const DIMENSION_KEYS = [
  * @param {{stories: Array<{id: string, text: string}>, instructions: string|null, context?: string|null}} params
  * @returns {string} The assembled prompt.
  */
-export function buildHuReviewerPrompt({ stories, instructions, context = null }) {
+export function buildHuReviewerPrompt({ stories, instructions, context = null, productContext = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -36,6 +36,10 @@ export function buildHuReviewerPrompt({ stories, instructions, context = null })
     "Return a single valid JSON object and nothing else.",
     `JSON schema: {"evaluations":[{"story_id":string,"scores":{"D1_jtbd_context":number,"D2_user_specificity":number,"D3_behavior_change":number,"D4_control_zone":number,"D5_time_constraints":number,"D6_survivable_experiment":number},"total":number,"antipatterns_detected":[string],"verdict":"certified|needs_rewrite|needs_context","evaluation_notes":string,"rewritten":object|null,"certified_hu":object|null,"context_needed":object|null}],"batch_summary":{"total":number,"certified":number,"needs_rewrite":number,"needs_context":number,"consolidated_questions":string}}`
   );
+
+  if (productContext) {
+    sections.push(`## Product Context\n${productContext}`);
+  }
 
   if (context) {
     sections.push(`## Additional Context\n${context}`);
@@ -86,6 +90,43 @@ function parseEvaluation(raw) {
     certified_hu: raw.certified_hu || null,
     context_needed: raw.context_needed || null
   };
+}
+
+const VALID_AC_FORMATS = new Set(["gherkin", "checklist", "pre_post", "invariant"]);
+const AC_PREFIX_RE = /^\[(GHERKIN|CHECKLIST|PRE_POST|INVARIANT)]\s*/i;
+
+/**
+ * Detect the format of a single acceptance criterion.
+ * Supports both prefixed strings ("[GHERKIN] Given...") and legacy Gherkin objects ({given, when, then}).
+ * @param {string|object} criterion
+ * @returns {{format: string, text: string}}
+ */
+export function detectAcFormat(criterion) {
+  if (typeof criterion === "object" && criterion !== null && ("given" in criterion || "when" in criterion || "then" in criterion)) {
+    const text = `Given ${criterion.given || "..."}, When ${criterion.when || "..."}, Then ${criterion.then || "..."}`;
+    return { format: "gherkin", text };
+  }
+  if (typeof criterion === "string") {
+    const match = AC_PREFIX_RE.exec(criterion);
+    if (match) {
+      const format = match[1].toLowerCase();
+      const text = criterion.slice(match[0].length);
+      return { format, text };
+    }
+    return { format: "checklist", text: criterion };
+  }
+  return { format: "checklist", text: String(criterion) };
+}
+
+/**
+ * Normalize an acceptance_criteria array to a uniform structure.
+ * Handles both legacy Gherkin objects and prefixed strings.
+ * @param {Array} criteria
+ * @returns {Array<{format: string, text: string}>}
+ */
+export function normalizeAcceptanceCriteria(criteria) {
+  if (!Array.isArray(criteria)) return [];
+  return criteria.map(detectAcFormat);
 }
 
 /**

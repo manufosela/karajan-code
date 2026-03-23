@@ -31,7 +31,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null }) {
+export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null }) {
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
     `Task:\n${task}`,
@@ -46,6 +46,10 @@ export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary =
 
   if (rtkAvailable) {
     sections.push(RTK_INSTRUCTIONS);
+  }
+
+  if (productContext) {
+    sections.push(`## Product Context\n${productContext}`);
   }
 
   if (coderRules) {

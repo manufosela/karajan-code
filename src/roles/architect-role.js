@@ -59,7 +59,7 @@ export class ArchitectRole extends BaseRole {
     const provider = resolveProvider(this.config);
     const agent = this._createAgent(provider, this.config, this.logger);
 
-    const prompt = buildArchitectPrompt({ task, instructions: this.instructions, researchContext });
+    const prompt = buildArchitectPrompt({ task, instructions: this.instructions, researchContext, productContext: this.config?.productContext || null });
     const runArgs = { prompt, role: "architect" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);

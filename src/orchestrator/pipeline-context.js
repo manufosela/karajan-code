@@ -37,6 +37,9 @@ export class PipelineContext {
     this.pgProject = null;
     this.pgCard = null;
 
+    // Product context (loaded from .karajan/context.md or product-vision.md)
+    this.productContext = null;
+
     // Planned task (may differ from original task after planner)
     this.plannedTask = null;
 

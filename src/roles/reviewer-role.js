@@ -25,7 +25,7 @@ function truncateDiff(diff) {
     : diff;
 }
 
-function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false }) {
+function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false, productContext = null }) {
   const sections = [];
 
   sections.push(SUBAGENT_PREAMBLE);
@@ -41,6 +41,10 @@ function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAva
     '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}',
     `Task context:\n${task}`
   );
+
+  if (productContext) {
+    sections.push(`## Product Context\n${productContext}`);
+  }
 
   if (rtkAvailable) {
     sections.push(RTK_INSTRUCTIONS);
@@ -84,7 +88,8 @@ export class ReviewerRole extends BaseRole {
       reviewRules: reviewRules || null,
       reviewMode: this.config?.review_mode || "standard",
       instructions: this.instructions,
-      rtkAvailable: Boolean(this.config?.rtk?.available)
+      rtkAvailable: Boolean(this.config?.rtk?.available),
+      productContext: this.config?.productContext || null
     });
 
     const reviewArgs = { prompt, role: "reviewer" };

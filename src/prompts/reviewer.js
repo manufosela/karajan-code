@@ -22,7 +22,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false }) {
+export function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null }) {
   const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
 
   const sections = [
@@ -41,6 +41,10 @@ export function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabl
 
   if (rtkAvailable) {
     sections.push(RTK_INSTRUCTIONS);
+  }
+
+  if (productContext) {
+    sections.push(`## Product Context\n${productContext}`);
   }
 
   sections.push(

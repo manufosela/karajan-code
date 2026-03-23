@@ -6,7 +6,7 @@ const SUBAGENT_PREAMBLE = [
 
 export const VALID_VERDICTS = new Set(["ready", "needs_clarification"]);
 
-export function buildArchitectPrompt({ task, instructions, researchContext = null }) {
+export function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -30,6 +30,10 @@ export function buildArchitectPrompt({ task, instructions, researchContext = nul
     "Return a single valid JSON object and nothing else.",
     'JSON schema: {"verdict":"ready|needs_clarification","architecture":{"type":string,"layers":[string],"patterns":[string],"dataModel":{"entities":[string]},"apiContracts":[string],"dependencies":[string],"tradeoffs":[string]},"questions":[string],"summary":string}'
   );
+
+  if (productContext) {
+    sections.push(`## Product Context\n${productContext}`);
+  }
 
   if (researchContext) {
     sections.push(`## Research Context\n${researchContext}`);

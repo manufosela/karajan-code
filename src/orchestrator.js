@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { createAgent } from "./agents/index.js";
 import {
   createSession,
@@ -39,6 +41,29 @@ import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
 import { detectRtk } from "./utils/rtk-detect.js";
 
 
+// --- Product Context loader ---
+
+/**
+ * Load product context from well-known file locations.
+ * Returns the file content or null if no file is found.
+ * @param {string|null} projectDir
+ * @returns {Promise<{content: string|null, source: string|null}>}
+ */
+export async function loadProductContext(projectDir) {
+  const base = projectDir || process.cwd();
+  const candidates = [
+    path.join(base, ".karajan", "context.md"),
+    path.join(base, "product-vision.md")
+  ];
+  for (const file of candidates) {
+    try {
+      const content = await fs.readFile(file, "utf8");
+      return { content, source: file };
+    } catch { /* not found, try next */ }
+  }
+  return { content: null, source: null };
+}
+
 // --- Extracted helper functions (pure refactoring, zero behavior change) ---
 
 function resolvePipelineFlags(config) {
@@ -71,8 +96,8 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
   const projectDir = config.projectDir || process.cwd();
   const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-  const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available) });
-  const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available) });
+  const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
+  const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
 
   const summary = {
     dry_run: true,
@@ -1096,6 +1121,18 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
     emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
       message: "RTK detected — agent commands will use token optimization",
       detail: { version: rtkResult.version }
+    }));
+  }
+
+  // --- Product Context ---
+  const ctxProjectDir = config.projectDir || process.cwd();
+  const { content: productContext, source: productContextSource } = await loadProductContext(ctxProjectDir);
+  if (productContext) {
+    config = { ...config, productContext };
+    logger.info(`Product context loaded from ${productContextSource}`);
+    emitProgress(emitter, makeEvent("context:loaded", ctx.eventBase, {
+      message: "Product context loaded",
+      detail: { source: productContextSource }
     }));
   }
 

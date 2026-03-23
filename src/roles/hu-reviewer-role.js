@@ -52,7 +52,7 @@ export class HuReviewerRole extends BaseRole {
     const provider = resolveProvider(this.config);
     const agent = this._createAgent(provider, this.config, this.logger);
 
-    const prompt = buildHuReviewerPrompt({ stories, instructions: this.instructions, context });
+    const prompt = buildHuReviewerPrompt({ stories, instructions: this.instructions, context, productContext: this.config?.productContext || null });
     const runArgs = { prompt, role: "hu-reviewer" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);
