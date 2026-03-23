@@ -114,12 +114,33 @@
     .terminal-dot.r { background: #f87171; }
     .terminal-dot.y { background: #fbbf24; }
     .terminal-dot.g { background: #34d399; }
-    .terminal-body { padding: 1.2rem 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.9; }
-    .terminal-body .p { color: var(--accent-teal); }
-    .terminal-body .cmd { color: var(--text); }
-    .terminal-body .out { color: var(--text-muted); }
+    .terminal-body {
+      padding: 1.2rem 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.9;
+      max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
     .terminal-body .role { color: var(--accent-purple); }
-    .terminal-body .ok { color: #34d399; }
+
+    .demo-line {
+      opacity: 0; animation: fadeInLine 0.3s ease forwards;
+      font-family: var(--mono); font-size: 0.82rem; line-height: 1.8; white-space: pre;
+      min-height: 1.5em;
+    }
+    .demo-line.cmd { color: var(--text); }
+    .demo-line.header { color: #38bdf8; font-weight: 600; }
+    .demo-line.dim { color: var(--text-dim); }
+    .demo-line.stage { color: var(--text-muted); }
+    .demo-line.rejected { color: #f87171; }
+    .demo-line.approved { color: #34d399; }
+    .demo-line.success { color: #34d399; font-weight: 600; }
+
+    @keyframes fadeInLine {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .demo-line { opacity: 1; animation: none; transform: none; }
+    }
 
     /* --- MORE --- */
     .more-section { padding: 0 2rem 5rem; max-width: 720px; margin: 0 auto; }
@@ -196,8 +217,14 @@
 
   <!-- TERMINAL DEMO -->
   <section class="terminal-section fade-in">
-    <div style="max-width: 800px; margin: 0 auto;">
-      <script src="https://asciinema.org/a/FPrlKGsjjtyc0HJF.js" id="asciicast-FPrlKGsjjtyc0HJF" async data-autoplay="true" data-loop="true" data-speed="3" data-theme="monokai" data-cols="100" data-rows="27"></script>
+    <div class="terminal">
+      <div class="terminal-bar" aria-hidden="true">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+      </div>
+      <div class="terminal-body" id="demo-terminal" aria-label="Animated demo of Karajan Code pipeline output">
+      </div>
     </div>
     <noscript>
       <p style="text-align:center; color: var(--text-muted); margin-top: 2rem;">
@@ -260,6 +287,61 @@
       entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
     }, { threshold: 0.1 });
     document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+
+    /* --- TERMINAL DEMO ANIMATION --- */
+    var DEMO_LINES = [
+      { html: '$ kj run "Build a REST API for notes with Express"', cls: 'cmd' },
+      { html: '', cls: '' },
+      { html: '\u25b6 Karajan Code v1.31.0', cls: 'header' },
+      { html: '  Coder: claude | Reviewer: codex', cls: 'dim' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[triage]</span>      simple \u2014 TDD auto-detected (vitest)', cls: 'stage' },
+      { html: '<span class="role">[researcher]</span>  4 files analyzed, 5 patterns identified', cls: 'stage' },
+      { html: '<span class="role">[planner]</span>     3 implementation steps planned', cls: 'stage' },
+      { html: '', cls: '' },
+      { html: '\u25b6 Iteration 1/5', cls: 'header' },
+      { html: '<span class="role">[coder]</span>       Writing tests first... 15 test cases', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>       Implementing routes, validation, store', cls: 'stage' },
+      { html: '<span class="role">[reviewer]</span>    REJECTED \u2014 missing endpoints', cls: 'rejected' },
+      { html: '              \u2192 Solomon: valid issue, sending back to coder', cls: 'dim' },
+      { html: '', cls: '' },
+      { html: '\u25b6 Iteration 2/5', cls: 'header' },
+      { html: '<span class="role">[coder]</span>       Fixing: added all CRUD endpoints', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>       All 15 tests passing \u2713', cls: 'approved' },
+      { html: '<span class="role">[reviewer]</span>    APPROVED \u2014 clean implementation', cls: 'approved' },
+      { html: '<span class="role">[tester]</span>      15 tests, all passing', cls: 'stage' },
+      { html: '<span class="role">[security]</span>    No vulnerabilities found', cls: 'stage' },
+      { html: '', cls: '' },
+      { html: '\u2714 Pipeline completed \u2014 3 files generated, 15 tests', cls: 'success' }
+    ];
+
+    var demoTimer = null;
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function runDemo() {
+      var terminal = document.getElementById('demo-terminal');
+      if (!terminal) return;
+      terminal.innerHTML = '';
+      var delay = reducedMotion ? 0 : 1.2;
+      DEMO_LINES.forEach(function(line, i) {
+        var div = document.createElement('div');
+        div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
+        div.innerHTML = line.html || '&nbsp;';
+        div.style.animationDelay = (i * delay) + 's';
+        terminal.appendChild(div);
+      });
+      if (!reducedMotion) {
+        var totalMs = (DEMO_LINES.length * delay + 3) * 1000;
+        demoTimer = setTimeout(function() { terminal.scrollTop = 0; runDemo(); }, totalMs);
+        /* auto-scroll as lines appear */
+        var scrollInterval = setInterval(function() {
+          terminal.scrollTop = terminal.scrollHeight;
+        }, 400);
+        setTimeout(function() { clearInterval(scrollInterval); }, DEMO_LINES.length * delay * 1000);
+      }
+    }
+
+    runDemo();
   </script>
 
 </body>
