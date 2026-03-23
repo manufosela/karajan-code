@@ -31,593 +31,142 @@
     :root {
       --bg: #0a0e1a;
       --bg-card: #0f1425;
-      --bg-card-hover: #141a2e;
       --border: #1e2740;
       --text: #e2e8f0;
       --text-muted: #64748b;
       --text-dim: #475569;
       --accent-teal: #2dd4bf;
       --accent-purple: #7c3aed;
-      --accent-blue: #3b82f6;
       --accent-indigo: #6366f1;
-      --accent-amber: #fbbf24;
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     }
 
     html { scroll-behavior: smooth; }
 
-    /* --- SKIP LINK --- */
     .skip-link {
-      position: absolute;
-      top: -100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--accent-purple);
-      color: #fff;
-      padding: 0.5rem 1.5rem;
-      border-radius: 0 0 8px 8px;
-      z-index: 100;
-      font-size: 0.9rem;
-      text-decoration: none;
+      position: absolute; top: -100%; left: 50%; transform: translateX(-50%);
+      background: var(--accent-purple); color: #fff; padding: 0.5rem 1.5rem;
+      border-radius: 0 0 8px 8px; z-index: 100; font-size: 0.9rem; text-decoration: none;
       transition: top 0.2s;
     }
     .skip-link:focus { top: 0; }
 
     body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      overflow-x: hidden;
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      line-height: 1.6; overflow-x: hidden;
     }
 
     /* --- HERO --- */
     .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 2rem;
-      position: relative;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 2rem; position: relative;
     }
-
     .hero::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      content: ''; position: absolute; inset: 0; pointer-events: none;
       background:
         radial-gradient(ellipse 600px 400px at 50% 40%, rgba(99,102,241,0.08), transparent),
         radial-gradient(ellipse 400px 300px at 60% 35%, rgba(45,212,191,0.05), transparent);
-      pointer-events: none;
     }
 
-    .hero-logo {
-      width: 160px;
-      height: auto;
-      margin-bottom: 2rem;
-      filter: drop-shadow(0 0 40px rgba(99,102,241,0.15));
-    }
-
-    .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
-    .hero-tagline {
-      font-size: clamp(1.1rem, 2.5vw, 1.4rem);
-      color: var(--text-muted);
-      max-width: 600px;
-      margin-bottom: 2.5rem;
-      font-weight: 300;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-bottom: 3rem;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.8rem 1.8rem;
-      border-radius: 8px;
-      font-family: var(--font);
-      font-size: 0.95rem;
-      font-weight: 500;
-      text-decoration: none;
-      transition: all 0.2s;
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent-purple), var(--accent-indigo));
-      color: #fff;
-    }
-    .btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+    .hero-logo { width: 140px; height: auto; margin-bottom: 1.5rem; filter: drop-shadow(0 0 40px rgba(99,102,241,0.15)); }
+    .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+    .hero-tagline { font-size: clamp(1rem, 2vw, 1.15rem); color: var(--text-muted); max-width: 480px; margin-bottom: 0.25rem; font-weight: 300; }
+    .hero-sub { font-family: var(--mono); font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.02em; }
 
     .hero-install {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 2rem;
-      font-family: var(--mono);
-      font-size: 0.95rem;
-      color: var(--accent-teal);
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      position: relative;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 0.9rem 1.8rem; font-family: var(--mono); font-size: 0.95rem;
+      color: var(--accent-teal); display: flex; align-items: center; gap: 1rem;
+      cursor: pointer; transition: border-color 0.2s; position: relative;
+      margin-bottom: 2.5rem;
     }
-    .hero-install:hover,
-    .hero-install:focus-visible { border-color: var(--accent-teal); }
+    .hero-install:hover, .hero-install:focus-visible { border-color: var(--accent-teal); }
     .hero-install:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
     .hero-install .prompt { color: var(--text-dim); user-select: none; }
     .hero-install .copy-hint {
-      font-family: var(--font);
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      position: absolute;
-      right: -0.5rem;
-      top: -1.6rem;
-      opacity: 0;
-      transition: opacity 0.2s;
+      font-family: var(--font); font-size: 0.75rem; color: var(--text-dim);
+      position: absolute; right: -0.5rem; top: -1.6rem; opacity: 0; transition: opacity 0.2s;
     }
     .hero-install:hover .copy-hint { opacity: 1; }
     .hero-install.copied .copy-hint { opacity: 1; color: var(--accent-teal); }
 
-    /* --- PIPELINE --- */
-    .pipeline-section {
-      padding: 4rem 2rem 6rem;
-      text-align: center;
+    .hero-links { display: flex; gap: 1.5rem; }
+    .hero-links a {
+      color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
+      transition: color 0.2s;
     }
+    .hero-links a:hover, .hero-links a:focus-visible { color: var(--accent-teal); }
+    .hero-links a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
-    .section-title {
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    .section-sub {
-      color: var(--text-muted);
-      font-size: 1.05rem;
-      max-width: 600px;
-      margin: 0 auto 3rem;
-    }
-
-    .pipeline-flow {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.25rem;
-      flex-wrap: wrap;
-      max-width: 900px;
-      margin: 0 auto 3rem;
-      padding: 0 1rem;
-    }
-
-    .pipeline-node {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-
-    .pipeline-node.always {
-      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(45,212,191,0.2));
-      border: 1px solid rgba(99,102,241,0.4);
-      color: var(--accent-teal);
-    }
-
-    .pipeline-node.optional {
-      background: rgba(30,39,64,0.5);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
-
-    .pipeline-arrow {
-      color: var(--text-dim);
-      font-size: 1.2rem;
-      flex-shrink: 0;
-    }
-
-    /* --- FEATURES --- */
-    .features {
-      padding: 2rem 2rem 6rem;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.8rem;
-      transition: all 0.25s;
-    }
-    .feature-card:hover {
-      border-color: var(--accent-indigo);
-      background: var(--bg-card-hover);
-      transform: translateY(-2px);
-    }
-
-    .feature-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-    }
-
-    .feature-card h3 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    .feature-card p {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
-
-    .fi-purple { background: rgba(124,58,237,0.15); color: var(--accent-purple); }
-    .fi-teal { background: rgba(45,212,191,0.15); color: var(--accent-teal); }
-    .fi-blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
-    .fi-amber { background: rgba(251,191,36,0.15); color: var(--accent-amber); }
-    .fi-indigo { background: rgba(99,102,241,0.15); color: var(--accent-indigo); }
-
-    /* --- AGENTS --- */
-    .agents-section {
-      padding: 2rem 2rem 6rem;
-      text-align: center;
-    }
-
-    .agents-grid {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      flex-wrap: wrap;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    .agent-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.8rem 2.5rem;
-      text-align: center;
-      min-width: 150px;
-      transition: all 0.25s;
-    }
-    .agent-card:hover {
-      border-color: var(--accent-teal);
-      transform: translateY(-2px);
-    }
-
-    .agent-card .agent-name {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
-
-    .agent-card .agent-cli {
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    /* --- MCP --- */
-    .mcp-section {
-      padding: 2rem 2rem 6rem;
-      max-width: 900px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .mcp-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2.5rem;
-      text-align: left;
-      margin-top: 2rem;
-    }
-
-    .mcp-box pre {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.2rem;
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      overflow-x: auto;
-      color: var(--text-muted);
-      margin-top: 1rem;
-    }
-
-    .mcp-box pre .key { color: var(--accent-teal); }
-    .mcp-box pre .str { color: var(--accent-amber); }
-
-    .mcp-desc {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-      line-height: 1.7;
-    }
-
-    .mcp-tools {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 1.5rem;
-    }
-
-    .mcp-tool {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      padding: 0.35rem 0.8rem;
-      background: rgba(99,102,241,0.1);
-      border: 1px solid rgba(99,102,241,0.25);
-      border-radius: 6px;
-      color: var(--accent-indigo);
-    }
-
-    /* --- TERMINAL DEMO --- */
-    .demo-section {
-      padding: 2rem 2rem 6rem;
-      max-width: 800px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
+    /* --- TERMINAL --- */
+    .terminal-section { padding: 4rem 2rem 5rem; max-width: 720px; margin: 0 auto; }
     .terminal {
-      background: #0c0f1a;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      text-align: left;
-      margin-top: 2rem;
+      background: #0c0f1a; border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; text-align: left;
     }
-
     .terminal-bar {
-      display: flex;
-      gap: 6px;
-      padding: 12px 16px;
-      background: rgba(30,39,64,0.5);
-      border-bottom: 1px solid var(--border);
+      display: flex; gap: 6px; padding: 12px 16px;
+      background: rgba(30,39,64,0.5); border-bottom: 1px solid var(--border);
     }
-
-    .terminal-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
     .terminal-dot.r { background: #f87171; }
     .terminal-dot.y { background: #fbbf24; }
     .terminal-dot.g { background: #34d399; }
-
-    .terminal-body {
-      padding: 1.2rem 1.5rem;
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      line-height: 1.8;
-    }
-
-    .terminal-body .prompt { color: var(--accent-teal); }
+    .terminal-body { padding: 1.2rem 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.9; }
+    .terminal-body .p { color: var(--accent-teal); }
     .terminal-body .cmd { color: var(--text); }
-    .terminal-body .comment { color: var(--text-dim); }
-    .terminal-body .output { color: var(--text-muted); }
-    .terminal-body .success { color: #34d399; }
+    .terminal-body .out { color: var(--text-muted); }
     .terminal-body .role { color: var(--accent-purple); }
+    .terminal-body .ok { color: #34d399; }
+
+    /* --- MORE --- */
+    .more-section { padding: 0 2rem 5rem; max-width: 720px; margin: 0 auto; }
+    .more-section details {
+      border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card);
+    }
+    .more-section summary {
+      padding: 1rem 1.5rem; cursor: pointer; font-weight: 500; font-size: 1rem;
+      color: var(--text-muted); list-style: none; transition: color 0.2s;
+    }
+    .more-section summary::-webkit-details-marker { display: none; }
+    .more-section summary::before { content: '+ '; font-family: var(--mono); color: var(--accent-indigo); }
+    .more-section details[open] summary::before { content: '- '; }
+    .more-section details[open] summary { color: var(--text); }
+    .more-list { padding: 0 1.5rem 1.5rem; list-style: none; }
+    .more-list li { padding: 0.6rem 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; }
+    .more-list li + li { border-top: 1px solid var(--border); }
+    .more-list strong { color: var(--text); font-weight: 600; }
+    .more-list a { color: var(--accent-indigo); text-decoration: none; transition: color 0.2s; }
+    .more-list a:hover { color: var(--accent-teal); }
+    .more-list a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     /* --- FOOTER --- */
     footer {
-      text-align: center;
-      padding: 3rem 2rem;
-      border-top: 1px solid var(--border);
-      color: var(--text-dim);
-      font-size: 0.85rem;
+      text-align: center; padding: 3rem 2rem; border-top: 1px solid var(--border);
+      color: var(--text-dim); font-size: 0.85rem;
     }
-
-    footer a {
-      color: var(--text-muted);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    footer a:hover,
-    footer a:focus-visible { color: var(--accent-teal); }
+    footer a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+    footer a:hover, footer a:focus-visible { color: var(--accent-teal); }
     footer a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    .footer-links {
-      display: flex;
-      gap: 2rem;
-      justify-content: center;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .footer-author { margin-top: 0.5rem; }
+    .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .footer-version { margin-top: 0.4rem; }
+    .footer-author { margin-top: 0.4rem; }
     .footer-counter { margin-top: 1rem; }
-    .features-cta { text-align: center; margin-top: 2.5rem; }
-
-    /* --- SETUP SECTION --- */
-    .setup-section {
-      padding: 2rem 2rem 6rem;
-      max-width: 900px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .setup-tabs {
-      display: flex;
-      justify-content: center;
-      gap: 0;
-      margin-bottom: 0;
-    }
-
-    .setup-tab {
-      padding: 0.6rem 1.4rem;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-bottom: none;
-      color: var(--text-muted);
-      font-family: var(--font);
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .setup-tab:first-child { border-radius: 8px 0 0 0; }
-    .setup-tab:last-child { border-radius: 0 8px 0 0; }
-    .setup-tab.active {
-      background: var(--bg-card);
-      color: var(--text);
-      border-color: var(--accent-indigo);
-      border-bottom-color: var(--bg-card);
-    }
-    .setup-tab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: -2px; }
-
-    .setup-panel {
-      display: none;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 0 0 12px 12px;
-      padding: 2rem;
-      text-align: left;
-    }
-    .setup-panel.active { display: block; }
-
-    .setup-subtabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      flex-wrap: wrap;
-    }
-
-    .setup-subtab {
-      padding: 0.35rem 0.9rem;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text-muted);
-      font-family: var(--font);
-      font-size: 0.78rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .setup-subtab.active {
-      background: rgba(99,102,241,0.15);
-      border-color: var(--accent-indigo);
-      color: var(--accent-indigo);
-    }
-    .setup-subtab:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    .setup-subpanel { display: none; }
-    .setup-subpanel.active { display: block; }
-
-    .setup-code {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.2rem;
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      line-height: 1.7;
-      overflow-x: auto;
-      color: var(--text-muted);
-      position: relative;
-      white-space: pre;
-    }
-
-    .setup-code .key { color: var(--accent-teal); }
-    .setup-code .str { color: var(--accent-amber); }
-    .setup-code .cmt { color: var(--text-dim); }
-
-    .copy-btn {
-      position: absolute;
-      top: 0.6rem;
-      right: 0.6rem;
-      padding: 0.3rem 0.7rem;
-      background: rgba(99,102,241,0.15);
-      border: 1px solid rgba(99,102,241,0.3);
-      border-radius: 4px;
-      color: var(--accent-indigo);
-      font-family: var(--font);
-      font-size: 0.7rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .copy-btn:hover { background: rgba(99,102,241,0.25); }
-    .copy-btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-
-    .setup-note {
-      color: var(--text-dim);
-      font-size: 0.8rem;
-      margin-top: 0.8rem;
-      line-height: 1.5;
-    }
-    .setup-note a { color: var(--accent-indigo); text-decoration: none; }
-    .setup-note a:hover { color: var(--accent-teal); }
 
     /* --- RESPONSIVE --- */
     @media (max-width: 640px) {
       .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
-      .features-grid { grid-template-columns: 1fr; }
-      .agents-grid { gap: 1rem; }
-      .agent-card { min-width: 130px; padding: 1.2rem 1.5rem; }
-      .pipeline-flow { gap: 0.15rem; }
-      .pipeline-node { padding: 0.35rem 0.6rem; font-size: 0.7rem; }
     }
 
     /* --- ANIMATIONS --- */
-    .fade-in {
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .fade-in.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade-in.visible { opacity: 1; transform: translateY(0); }
 
-    /* --- REDUCED MOTION --- */
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .fade-in { opacity: 1; transform: none; transition: none; }
-      .feature-card, .agent-card, .btn-primary { transition: none; }
     }
   </style>
   <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
@@ -629,481 +178,72 @@
 
   <!-- HERO -->
   <section class="hero">
-    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="160" height="180" fetchpriority="high">
+    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="140" height="158" fetchpriority="high">
     <h1>Karajan Code</h1>
-    <p class="hero-tagline">Orchestrate multiple AI agents through one automated pipeline. Code, review, test, secure — in a single command.</p>
-    <div class="hero-actions">
-      <a href="https://github.com/manufosela/karajan-code" class="btn btn-primary">GitHub</a>
-      <a href="https://www.npmjs.com/package/karajan-code" class="btn btn-secondary">npm</a>
-      <a href="/docs/" class="btn btn-secondary">Docs</a>
-    </div>
+    <p class="hero-tagline">Local multi-agent coding orchestrator.</p>
+    <p class="hero-sub">TDD-first. MCP-based. Vanilla JavaScript.</p>
     <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Copy install command: npm install -g karajan-code">
       <span class="prompt" aria-hidden="true">$</span>
       <span>npm install -g karajan-code</span>
       <span class="copy-hint" aria-live="polite">click to copy</span>
     </button>
-  </section>
-
-  <!-- PIPELINE -->
-  <section class="pipeline-section fade-in">
-    <h2 class="section-title">The Pipeline</h2>
-    <p class="section-sub">15 roles chained with quality gates. Deterministic guards, real-time monitoring, stall detection. The loop runs until code is approved or the iteration limit is reached.</p>
-
-    <div class="pipeline-flow">
-      <span class="pipeline-node optional">discover</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">triage</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">researcher</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">architect</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">planner</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node always">coder</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">refactorer</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">sonar</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node always">reviewer</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">tester</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">security</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">solomon</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">commiter</span>
-      <span class="pipeline-arrow">&rarr;</span>
-      <span class="pipeline-node optional">hu-reviewer</span>
-    </div>
-  </section>
-
-  <!-- FEATURES -->
-  <section class="features fade-in">
-    <div class="features-grid">
-
-      <div class="feature-card">
-        <div class="feature-icon fi-purple">&#9835;</div>
-        <h3>Multi-Agent Pipeline</h3>
-        <p>Chain coder, reviewer, tester, security auditor and more. Each role has its own AI agent and instructions. The orchestrator manages the loop.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-teal">&#10003;</div>
-        <h3>TDD Enforcement</h3>
-        <p>When source files change, test changes are required. The coder writes tests first — or the pipeline rejects the iteration.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-blue">&#9881;</div>
-        <h3>SonarQube + SonarCloud</h3>
-        <p>Dual static analysis: SonarQube (local Docker, blocking quality gates) and SonarCloud (cloud, advisory). Both run together in the same pipeline.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-indigo">&#11208;</div>
-        <h3>MCP Server &mdash; 20 Tools</h3>
-        <p>20 tools exposed via MCP, including standalone roles (<code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>). Real-time progress notifications.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-amber">&#9733;</div>
-        <h3>Review Profiles</h3>
-        <p>Standard, strict, relaxed, or paranoid. Configure how tough the reviewer should be. Solomon role resolves deadlocks.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-amber">&#9888;</div>
-        <h3>Deterministic Guards</h3>
-        <p>Output guard blocks destructive operations and credential leaks. Perf guard catches frontend anti-patterns. Intent classifier pre-triages without LLM cost.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-indigo">&#9878;</div>
-        <h3>Smart Model Selection</h3>
-        <p>Triage classifies complexity, then the optimal model is auto-selected per role. Trivial tasks use fast models, complex tasks use powerful ones.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-purple">&#9202;</div>
-        <h3>Session Management</h3>
-        <p>Pause and resume sessions. Fail-fast detection stops wasted iterations. Budget tracking monitors tokens and costs. Expired sessions are auto-cleaned.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon fi-teal">&#9998;</div>
-        <h3>Skills Mode</h3>
-        <p>8 slash commands (<code>/kj-run</code>, <code>/kj-code</code>, <code>/kj-review</code>, etc.) with guardrails baked in. No MCP needed &mdash; works directly in Claude Code.</p>
-      </div>
-
-    </div>
-    <p class="features-cta">
-      <a href="/docs/" class="btn btn-secondary">See all features &rarr;</a>
-    </p>
-  </section>
-
-  <!-- AGENTS -->
-  <section class="agents-section fade-in">
-    <h2 class="section-title">5 AI Agents Supported</h2>
-    <p class="section-sub">Mix and match. Use Claude as coder, Codex as reviewer — or any combination you prefer. Extensible via plugins.</p>
-    <div class="agents-grid">
-      <div class="agent-card">
-        <div class="agent-name">Claude</div>
-        <div class="agent-cli">claude</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name">Codex</div>
-        <div class="agent-cli">codex</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name">Gemini</div>
-        <div class="agent-cli">gemini</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name">Aider</div>
-        <div class="agent-cli">aider</div>
-      </div>
-      <div class="agent-card">
-        <div class="agent-name">OpenCode</div>
-        <div class="agent-cli">opencode</div>
-      </div>
-    </div>
+    <nav class="hero-links" aria-label="Project links">
+      <a href="https://github.com/manufosela/karajan-code">GitHub</a>
+      <a href="https://www.npmjs.com/package/karajan-code">npm</a>
+      <a href="/docs/">Docs</a>
+    </nav>
   </section>
 
   <!-- TERMINAL DEMO -->
-  <section class="demo-section fade-in">
-    <h2 class="section-title">One Command</h2>
-    <p class="section-sub">That's all it takes. The pipeline does the rest.</p>
-    <div class="terminal" role="img" aria-label="Terminal showing: kj run with triage, coder, sonar, reviewer and tester stages all passing in 2 minutes 34 seconds">
+  <section class="terminal-section fade-in">
+    <div class="terminal" role="img" aria-label="Terminal showing kj run completing a task with triage, coder, sonar, reviewer and solomon stages">
       <div class="terminal-bar" aria-hidden="true">
         <div class="terminal-dot r"></div>
         <div class="terminal-dot y"></div>
         <div class="terminal-dot g"></div>
       </div>
       <div class="terminal-body">
-        <div><span class="prompt">$</span> <span class="cmd">kj run "Fix SQL injection in search endpoint" --enable-triage</span></div>
+        <div><span class="p">$</span> <span class="cmd">kj run "Create a function that validates Spanish DNI numbers, with tests"</span></div>
         <br>
-        <div><span class="role">[triage]</span> <span class="output">Complexity: medium &mdash; enabling coder, sonar, reviewer, tester</span></div>
-        <div><span class="role">[models]</span> <span class="output">coder&rarr;claude/sonnet, reviewer&rarr;codex/o4-mini</span></div>
-        <div><span class="role">[coder]</span> <span class="output">Writing parameterized queries and tests...</span></div>
-        <div><span class="role">[sonar]</span> <span class="output">Quality gate passed &mdash; 0 blockers, 0 critical</span></div>
-        <div><span class="role">[reviewer]</span> <span class="output">APPROVED &mdash; no issues found</span></div>
-        <div><span class="role">[tester]</span> <span class="output">14 tests passed, coverage 92%</span></div>
+        <div><span class="role">[triage]</span>    <span class="out">Complexity: simple &mdash; TDD auto-detected (vitest)</span></div>
+        <div><span class="role">[coder]</span>     <span class="out">Writing tests first... 8 tests created</span></div>
+        <div><span class="role">[coder]</span>     <span class="out">Implementing validateDNI() &mdash; all tests passing</span></div>
+        <div><span class="role">[sonar]</span>     <span class="out">Quality gate passed &mdash; 0 issues</span></div>
+        <div><span class="role">[reviewer]</span>  <span class="out">APPROVED &mdash; clean implementation</span></div>
+        <div><span class="role">[solomon]</span>   <span class="out">Certified</span></div>
         <br>
-        <div><span class="success">&#10004; Pipeline completed in 2m 34s (iteration 1/5)</span></div>
+        <div><span class="ok">&#10004; Pipeline completed in 1m 42s (iteration 1/5)</span></div>
       </div>
     </div>
   </section>
 
-  <!-- MCP -->
-  <section class="mcp-section fade-in">
-    <h2 class="section-title">MCP Server Included</h2>
-    <p class="section-sub">Use <code>kj</code> as a tool inside your AI agent. Send tasks, get real-time progress via <code>kj_status</code>, receive structured results.</p>
-    <div class="mcp-box">
-      <p class="mcp-desc">After <code>npm install -g karajan-code</code>, the MCP server auto-registers in Claude and Codex. Or add it manually:</p>
-      <pre><code>{
-  <span class="key">"mcpServers"</span>: {
-    <span class="key">"karajan-mcp"</span>: {
-      <span class="key">"command"</span>: <span class="str">"karajan-mcp"</span>
-    }
-  }
-}</code></pre>
-      <div class="mcp-tools">
-        <span class="mcp-tool">kj_run</span>
-        <span class="mcp-tool">kj_code</span>
-        <span class="mcp-tool">kj_review</span>
-        <span class="mcp-tool">kj_plan</span>
-        <span class="mcp-tool">kj_scan</span>
-        <span class="mcp-tool">kj_report</span>
-        <span class="mcp-tool">kj_resume</span>
-        <span class="mcp-tool">kj_doctor</span>
-        <span class="mcp-tool">kj_config</span>
-        <span class="mcp-tool">kj_init</span>
-        <span class="mcp-tool">kj_roles</span>
-        <span class="mcp-tool">kj_status</span>
-        <span class="mcp-tool">kj_agents</span>
-        <span class="mcp-tool">kj_preflight</span>
-        <span class="mcp-tool">kj_discover</span>
-        <span class="mcp-tool">kj_triage</span>
-        <span class="mcp-tool">kj_researcher</span>
-        <span class="mcp-tool">kj_architect</span>
-        <span class="mcp-tool">kj_audit</span>
-      </div>
-      <p class="mcp-desc" style="margin-top: 1rem; opacity: 0.8; font-size: 0.95rem;">Pair with <a href="https://github.com/rtk-ai/rtk" style="color: #60a5fa;">RTK</a> for 60-90% token savings on Bash outputs.</p>
-    </div>
-  </section>
-
-  <!-- SETUP PROMPTS -->
-  <section class="setup-section fade-in">
-    <h2 class="section-title">Prompt Your AI to Install</h2>
-    <p class="section-sub">Copy a prompt, paste it into your AI agent, and let it handle the setup. Pick what you need.</p>
-
-    <div class="setup-tabs" role="tablist">
-      <button class="setup-tab active" role="tab" aria-selected="true" onclick="showTab('all',this)">All-in-one</button>
-      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('cli',this)">CLI only</button>
-      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('mcp',this)">MCP only</button>
-      <button class="setup-tab" role="tab" aria-selected="false" onclick="showTab('skills',this)">Skills only</button>
-    </div>
-
-    <!-- ALL-IN-ONE -->
-    <div id="tab-all" class="setup-panel active">
-      <div class="setup-subtabs" role="tablist">
-        <button class="setup-subtab active" onclick="showSubtab('all','claude-all',this)">Claude Code</button>
-        <button class="setup-subtab" onclick="showSubtab('all','codex-all',this)">Codex</button>
-        <button class="setup-subtab" onclick="showSubtab('all','gemini-all',this)">Gemini</button>
-        <button class="setup-subtab" onclick="showSubtab('all','aider-all',this)">Aider</button>
-      </div>
-      <div id="all-claude-all" class="setup-subpanel active">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
-
-1. Run: npm install -g karajan-code
-2. Run: kj init --no-interactive
-3. The MCP server "karajan-mcp" is auto-registered in ~/.claude.json during install.
-   Verify with: cat ~/.claude.json | grep karajan-mcp
-   If missing, add to the "mcpServers" section of ~/.claude.json:
-   { "karajan-mcp": { "command": "karajan-mcp" } }
-4. Install skills as slash commands:
-   mkdir -p .claude/commands
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
-5. Verify: run "kj doctor" to check the installation.
-
-After setup, these slash commands are available:
-/kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar
-
-And these MCP tools: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-      <div id="all-codex-all" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
-
-1. Run: npm install -g karajan-code
-2. Run: kj init --no-interactive
-3. Register the MCP server:
-   codex mcp add karajan-mcp -- karajan-mcp
-   Verify with: codex mcp list
-4. Copy skill prompts for later use:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-5. Verify: run "kj doctor" to check the installation.
-
-To use a skill, read the prompt file replacing $ARGUMENTS with the task:
-  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
-  cat .karajan/skills/kj-review.md  (for code review)
-  cat .karajan/skills/kj-run.md  (for the full pipeline)
-
-MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-      <div id="all-gemini-all" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
-
-1. Run: npm install -g karajan-code
-2. Run: kj init --no-interactive
-3. Register the MCP server in your Gemini MCP config.
-   Add to the "mcpServers" section:
-   { "karajan-mcp": { "command": "karajan-mcp" } }
-4. Copy skill prompts for later use:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-5. Verify: run "kj doctor" to check the installation.
-
-To use a skill, read the prompt file replacing $ARGUMENTS with the task:
-  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
-  cat .karajan/skills/kj-review.md  (for code review)
-  cat .karajan/skills/kj-run.md  (for the full pipeline)
-
-MCP tools available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-      <div id="all-aider-all" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code, the multi-agent coding orchestrator. Follow these steps in order:
-
-1. Run: npm install -g karajan-code
-2. Run: kj init --no-interactive
-3. Copy skill prompts for later use:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-4. Verify: run "kj doctor" to check the installation.
-
-Note: Aider does not support MCP. Use Karajan via CLI (kj run, kj code, kj review) or via skill prompts.
-
-To use a skill, read the prompt file replacing $ARGUMENTS with the task:
-  cat .karajan/skills/kj-code.md  (for coding with TDD guardrails)
-  cat .karajan/skills/kj-review.md  (for code review)
-  cat .karajan/skills/kj-run.md  (for the full pipeline)
-
-Available skills: kj-run, kj-code, kj-review, kj-test, kj-security, kj-discover, kj-architect, kj-sonar</div>
-      </div>
-    </div>
-
-    <!-- CLI ONLY -->
-    <div id="tab-cli" class="setup-panel">
-      <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code globally and run the setup wizard:
-
-1. Run: npm install -g karajan-code
-2. Run: kj init --no-interactive
-3. Verify: run "kj doctor" to check all dependencies are available.
-
-This installs the "kj" CLI with commands: kj run, kj code, kj review, kj plan, kj scan, kj doctor, kj config, kj report, kj resume, kj roles, kj agents, kj sonar.
-Requires Node.js >= 18.</div>
-    </div>
-
-    <!-- MCP ONLY -->
-    <div id="tab-mcp" class="setup-panel">
-      <div class="setup-subtabs" role="tablist">
-        <button class="setup-subtab active" onclick="showSubtab('mcp','claude-mcp',this)">Claude Code</button>
-        <button class="setup-subtab" onclick="showSubtab('mcp','codex-mcp',this)">Codex</button>
-        <button class="setup-subtab" onclick="showSubtab('mcp','generic-mcp',this)">Generic</button>
-      </div>
-      <div id="mcp-claude-mcp" class="setup-subpanel active">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server for Claude Code:
-
-1. Run: npm install -g karajan-code
-2. The MCP server "karajan-mcp" is auto-registered in ~/.claude.json during install.
-   Verify with: cat ~/.claude.json | grep karajan-mcp
-   If missing, add this to the "mcpServers" section of ~/.claude.json:
-   { "karajan-mcp": { "command": "karajan-mcp" } }
-3. Restart your Claude Code session to pick up the new MCP server.
-4. Verify by running the kj_doctor MCP tool.
-
-20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-      <div id="mcp-codex-mcp" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server for Codex:
-
-1. Run: npm install -g karajan-code
-2. Register the MCP server:
-   codex mcp add karajan-mcp -- karajan-mcp
-3. Verify with: codex mcp list (should show karajan-mcp)
-
-20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-      <div id="mcp-generic-mcp" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install and register the Karajan Code MCP server:
-
-1. Run: npm install -g karajan-code
-2. Add this to your MCP host configuration file under "mcpServers":
-   {
-     "karajan-mcp": {
-       "command": "karajan-mcp"
-     }
-   }
-3. Restart your MCP host session.
-4. Verify by calling the kj_doctor tool.
-
-20 tools become available: kj_run, kj_code, kj_review, kj_plan, kj_scan, kj_doctor, kj_config, kj_report, kj_resume, kj_roles, kj_agents, kj_preflight, kj_status, kj_init, kj_discover, kj_triage, kj_researcher, kj_architect, kj_audit, kj_impeccable</div>
-      </div>
-    </div>
-
-    <!-- SKILLS ONLY -->
-    <div id="tab-skills" class="setup-panel">
-      <div class="setup-subtabs" role="tablist">
-        <button class="setup-subtab active" onclick="showSubtab('skills','claude-sk',this)">Claude Code</button>
-        <button class="setup-subtab" onclick="showSubtab('skills','codex-sk',this)">Codex</button>
-        <button class="setup-subtab" onclick="showSubtab('skills','gemini-sk',this)">Gemini</button>
-        <button class="setup-subtab" onclick="showSubtab('skills','aider-sk',this)">Aider</button>
-      </div>
-      <div id="skills-claude-sk" class="setup-subpanel active">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skills as Claude Code slash commands:
-
-1. Ensure karajan-code is installed: npm install -g karajan-code
-2. In the project root, run:
-   mkdir -p .claude/commands
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .claude/commands/
-3. The following slash commands are now available in this project:
-   /kj-run     — Full pipeline: code, review, test, security, commit
-   /kj-code    — Coder with TDD guardrails
-   /kj-review  — Code review with quality gates
-   /kj-test    — Test quality audit
-   /kj-security — OWASP security scan
-   /kj-discover — Gap detection before coding
-   /kj-architect — Architecture design
-   /kj-sonar   — Static analysis check
-
-No MCP server needed. Skills work as standalone prompts with built-in guardrails.</div>
-      </div>
-      <div id="skills-codex-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Codex:
-
-1. Ensure karajan-code is installed: npm install -g karajan-code
-2. Copy skill prompts to the project:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
-   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
-
-Available skills:
-  kj-run.md     — Full pipeline: code, review, test, security, commit
-  kj-code.md    — Coder with TDD guardrails
-  kj-review.md  — Code review with quality gates
-  kj-test.md    — Test quality audit
-  kj-security.md — OWASP security scan
-  kj-discover.md — Gap detection before coding
-  kj-architect.md — Architecture design
-  kj-sonar.md   — Static analysis check
-
-Codex tip: use --full-auto flag for unattended execution of skill prompts.</div>
-      </div>
-      <div id="skills-gemini-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Gemini:
-
-1. Ensure karajan-code is installed: npm install -g karajan-code
-2. Copy skill prompts to the project:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
-   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
-
-Available skills:
-  kj-run.md     — Full pipeline: code, review, test, security, commit
-  kj-code.md    — Coder with TDD guardrails
-  kj-review.md  — Code review with quality gates
-  kj-test.md    — Test quality audit
-  kj-security.md — OWASP security scan
-  kj-discover.md — Gap detection before coding
-  kj-architect.md — Architecture design
-  kj-sonar.md   — Static analysis check
-
-The skill prompts are AI-agnostic markdown — they work with any AI agent.</div>
-      </div>
-      <div id="skills-aider-sk" class="setup-subpanel">
-        <div class="setup-code"><button class="copy-btn" onclick="copyBlock(this)">Copy</button>Install Karajan Code skill prompts for use with Aider:
-
-1. Ensure karajan-code is installed: npm install -g karajan-code
-2. Copy skill prompts to the project:
-   mkdir -p .karajan/skills
-   cp $(npm root -g)/karajan-code/templates/skills/*.md .karajan/skills/
-3. To use a skill, read the file and replace $ARGUMENTS with your task description. For example, to use kj-code:
-   Read .karajan/skills/kj-code.md, replace "$ARGUMENTS" with the actual task, and follow the instructions in the prompt.
-
-Available skills:
-  kj-run.md     — Full pipeline: code, review, test, security, commit
-  kj-code.md    — Coder with TDD guardrails
-  kj-review.md  — Code review with quality gates
-  kj-test.md    — Test quality audit
-  kj-security.md — OWASP security scan
-  kj-discover.md — Gap detection before coding
-  kj-architect.md — Architecture design
-  kj-sonar.md   — Static analysis check
-
-Aider tip: use --yes flag to auto-approve file changes when following skill instructions.</div>
-      </div>
-    </div>
+  <!-- WANT TO KNOW MORE? -->
+  <section class="more-section fade-in">
+    <details>
+      <summary>Want to know more?</summary>
+      <ul class="more-list">
+        <li><strong>15 roles</strong> in the pipeline &mdash; triage, coder, reviewer, sonar, solomon, and more. <a href="/docs/guides/pipeline/">See pipeline &rarr;</a></li>
+        <li><strong>5 AI agents</strong> &mdash; Claude, Codex, Gemini, Aider, OpenCode. Mix and match. <a href="/docs/">See agents &rarr;</a></li>
+        <li><strong>20 MCP tools</strong> &mdash; use from inside Claude Code or Codex. <a href="/docs/guides/mcp-server/">See MCP setup &rarr;</a></li>
+        <li><strong>1,847 tests. 52 releases in 23 days. Vanilla JS.</strong> <a href="https://github.com/manufosela/karajan-code">Read why &rarr;</a></li>
+      </ul>
+    </details>
   </section>
 
   </main>
 
   <!-- FOOTER -->
   <footer>
-    <div class="footer-links">
+    <nav class="footer-links" aria-label="Footer links">
       <a href="https://github.com/manufosela/karajan-code">GitHub</a>
       <a href="https://www.npmjs.com/package/karajan-code">npm</a>
-      <a href="/docs/">Documentation</a>
+      <a href="/docs/">Docs</a>
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
-      <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0 License</a>
-    </div>
-    <p>Karajan Code v1.30.0 &mdash; No API costs, runs on your existing AI subscriptions.</p>
+      <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
+    </nav>
+    <p class="footer-version">Karajan Code v1.30.0</p>
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
-    <p class="footer-counter"><a href="https://librecounter.org/referer/show" target="_blank" rel="noopener"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" width="80" height="15" loading="lazy" /></a></p>
+    <p class="footer-counter"><a href="https://librecounter.org/referer/show" target="_blank" rel="noopener"><img src="https://librecounter.org/outline.svg" referrerPolicy="unsafe-url" alt="LibreCounter" width="80" height="15" loading="lazy"></a></p>
   </footer>
 
   <script>
@@ -1113,76 +253,24 @@ Aider tip: use --yes flag to auto-approve file changes when following skill inst
       function onSuccess() {
         el.classList.add('copied');
         hint.textContent = 'copied!';
-        setTimeout(function() {
-          el.classList.remove('copied');
-          hint.textContent = 'click to copy';
-        }, 2000);
+        setTimeout(function() { el.classList.remove('copied'); hint.textContent = 'click to copy'; }, 2000);
       }
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(onSuccess).catch(function() {
-            fallbackCopy(text, onSuccess);
-          });
-        } else {
-          fallbackCopy(text, onSuccess);
-        }
-      } catch (e) {
-        fallbackCopy(text, onSuccess);
-      }
+          navigator.clipboard.writeText(text).then(onSuccess).catch(function() { fallbackCopy(text, onSuccess); });
+        } else { fallbackCopy(text, onSuccess); }
+      } catch (e) { fallbackCopy(text, onSuccess); }
     }
     function fallbackCopy(text, cb) {
       var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      cb();
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta); cb();
     }
-
-    // Setup tabs
-    function showTab(id, btn) {
-      document.querySelectorAll('.setup-panel').forEach(function(p) { p.classList.remove('active'); });
-      document.querySelectorAll('.setup-tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-      document.getElementById('tab-' + id).classList.add('active');
-      btn.classList.add('active');
-      btn.setAttribute('aria-selected', 'true');
-    }
-    function showSubtab(group, id, btn) {
-      var panel = btn.closest('.setup-panel');
-      panel.querySelectorAll('.setup-subpanel').forEach(function(p) { p.classList.remove('active'); });
-      panel.querySelectorAll('.setup-subtab').forEach(function(t) { t.classList.remove('active'); });
-      document.getElementById(group + '-' + id).classList.add('active');
-      btn.classList.add('active');
-    }
-    function copyBlock(btn) {
-      var code = btn.parentElement.textContent.replace('Copy', '').trim();
-      // Strip HTML-rendered comments markers
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(code).then(function() { showCopied(btn); }).catch(function() { fallbackCopy(code, function() { showCopied(btn); }); });
-        } else { fallbackCopy(code, function() { showCopied(btn); }); }
-      } catch(e) { fallbackCopy(code, function() { showCopied(btn); }); }
-    }
-    function showCopied(btn) {
-      btn.textContent = 'Copied!';
-      setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
-    }
-
-    // Fade-in on scroll
     var observer = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-        }
-      });
+      entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
     }, { threshold: 0.1 });
-
-    document.querySelectorAll('.fade-in').forEach(function(el) {
-      observer.observe(el);
-    });
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
   </script>
 
 </body>
