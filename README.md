@@ -46,6 +46,7 @@ Use Karajan when you want:
 - **Zero-config operation** — auto-detects test frameworks, starts SonarQube, simplifies pipeline for trivial tasks
 - **Composable role architecture** — define agent behaviors as plain markdown files that travel with your project
 - **Local-first** — your code, your keys, your machine, no data leaves unless you say so
+- **Zero API costs** — Karajan uses AI agent CLIs (Claude Code, Codex, Gemini CLI), not APIs. You pay your existing subscription (Claude Pro, ChatGPT Plus), not per-token API fees. No surprise bills.
 
 If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-assisted development. They work great together — Karajan is designed to be used as an MCP server inside Claude Code.
 
