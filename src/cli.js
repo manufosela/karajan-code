@@ -80,6 +80,8 @@ program
   .option("--enable-triage")
   .option("--enable-discover")
   .option("--enable-architect")
+  .option("--enable-hu-reviewer")
+  .option("--hu-file <path>", "YAML file with HU stories to certify before coding")
   .option("--enable-serena")
   .option("--mode <name>")
   .option("--max-iterations <n>")

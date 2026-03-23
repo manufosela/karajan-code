@@ -30,7 +30,7 @@ import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
 import { PipelineContext } from "./orchestrator/pipeline-context.js";
-import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage } from "./orchestrator/pre-loop-stages.js";
+import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage, runImpeccableStage } from "./orchestrator/post-loop-stages.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
@@ -51,11 +51,12 @@ function resolvePipelineFlags(config) {
     reviewerEnabled: config.pipeline?.reviewer?.enabled !== false,
     discoverEnabled: Boolean(config.pipeline?.discover?.enabled),
     architectEnabled: Boolean(config.pipeline?.architect?.enabled),
+    huReviewerEnabled: Boolean(config.pipeline?.hu_reviewer?.enabled),
   };
 }
 
 async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
-  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, reviewerEnabled, discoverEnabled, architectEnabled } = pipelineFlags;
+  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, reviewerEnabled, discoverEnabled, architectEnabled, huReviewerEnabled } = pipelineFlags;
   const plannerRole = resolveRole(config, "planner");
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
@@ -89,7 +90,8 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
       tester_enabled: testerEnabled,
       security_enabled: securityEnabled,
       impeccable_enabled: impeccableEnabled,
-      solomon_enabled: Boolean(config.pipeline?.solomon?.enabled)
+      solomon_enabled: Boolean(config.pipeline?.solomon?.enabled),
+      hu_reviewer_enabled: huReviewerEnabled
     },
     limits: {
       max_iterations: config.max_iterations,
@@ -707,6 +709,14 @@ async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBa
 
 
 async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults }) {
+  // --- HU Reviewer (first stage, before everything else, opt-in) ---
+  const huFile = flags.huFile || null;
+  if (flags.enableHuReviewer !== undefined) pipelineFlags.huReviewerEnabled = Boolean(flags.enableHuReviewer);
+  if (pipelineFlags.huReviewerEnabled && huFile) {
+    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion });
+    stageResults.huReviewer = huResult.stageResult;
+  }
+
   // --- Intent classifier (deterministic pre-triage, opt-in) ---
   if (config.guards?.intent?.enabled) {
     const intentResult = classifyIntent(task, config);

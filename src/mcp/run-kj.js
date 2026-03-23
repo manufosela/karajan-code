@@ -46,6 +46,8 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
   normalizeBoolFlag(options.enableTriage, "--enable-triage", args);
   normalizeBoolFlag(options.enableDiscover, "--enable-discover", args);
   normalizeBoolFlag(options.enableArchitect, "--enable-architect", args);
+  normalizeBoolFlag(options.enableHuReviewer, "--enable-hu-reviewer", args);
+  addOptionalValue(args, "--hu-file", options.huFile);
   normalizeBoolFlag(options.enableSerena, "--enable-serena", args);
   normalizeBoolFlag(options.autoCommit, "--auto-commit", args);
   normalizeBoolFlag(options.autoPush, "--auto-push", args);

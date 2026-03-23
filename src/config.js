@@ -19,7 +19,8 @@ const DEFAULTS = {
     impeccable: { provider: null, model: null },
     triage: { provider: null, model: null },
     discover: { provider: null, model: null },
-    architect: { provider: null, model: null }
+    architect: { provider: null, model: null },
+    hu_reviewer: { provider: null, model: null }
   },
   pipeline: {
     planner: { enabled: false },
@@ -32,6 +33,7 @@ const DEFAULTS = {
     triage: { enabled: true },
     discover: { enabled: false },
     architect: { enabled: false },
+    hu_reviewer: { enabled: false },
     auto_simplify: true
   },
   review_mode: "standard",
@@ -281,7 +283,8 @@ const PIPELINE_ENABLE_FLAGS = [
   ["enableSolomon", "solomon"], ["enableResearcher", "researcher"],
   ["enableTester", "tester"], ["enableSecurity", "security"], ["enableImpeccable", "impeccable"],
   ["enableTriage", "triage"], ["enableDiscover", "discover"],
-  ["enableArchitect", "architect"]
+  ["enableArchitect", "architect"],
+  ["enableHuReviewer", "hu_reviewer"]
 ];
 
 const AUTO_SIMPLIFY_FLAG = "autoSimplify";
@@ -414,14 +417,14 @@ export function resolveRole(config, role) {
   let provider = roleConfig.provider ?? null;
   if (!provider && role === "coder") provider = legacyCoder;
   if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "audit")) {
+  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "audit" || role === "hu_reviewer" || role === "hu-reviewer")) {
     provider = roles.coder?.provider || legacyCoder;
   }
 
   let model = roleConfig.model ?? null;
   if (!model && role === "coder") model = config?.coder_options?.model ?? null;
   if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect")) {
+  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "hu_reviewer" || role === "hu-reviewer")) {
     model = config?.coder_options?.model ?? null;
   }
 

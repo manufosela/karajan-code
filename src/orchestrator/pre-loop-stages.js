@@ -3,6 +3,7 @@ import { ResearcherRole } from "../roles/researcher-role.js";
 import { PlannerRole } from "../roles/planner-role.js";
 import { DiscoverRole } from "../roles/discover-role.js";
 import { ArchitectRole } from "../roles/architect-role.js";
+import { HuReviewerRole } from "../roles/hu-reviewer-role.js";
 import { createAgent } from "../agents/index.js";
 import { createArchitectADRs } from "../planning-game/architect-adrs.js";
 import { addCheckpoint, markSessionStatus } from "../session-store.js";
@@ -10,6 +11,8 @@ import { emitProgress, makeEvent } from "../utils/events.js";
 import { parsePlannerOutput } from "../prompts/planner.js";
 import { selectModelsForRoles } from "../utils/model-selector.js";
 import { createStallDetector } from "../utils/stall-detector.js";
+import { createHuBatch, loadHuBatch, saveHuBatch, updateStoryStatus, updateStoryQuality, updateStoryCertified, addContextRequest, answerContextRequest } from "../hu/store.js";
+import { topologicalSort } from "../hu/graph.js";
 
 const ROLE_NAMES = ["planner", "researcher", "architect", "refactorer", "reviewer", "tester", "security", "impeccable"];
 
@@ -501,6 +504,213 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
     makeEvent("discover:end", { ...eventBase, stage: "discover" }, {
       status: discoverOutput.ok ? "ok" : "fail",
       message: discoverOutput.ok ? "Discovery completed" : `Discovery failed: ${discoverOutput.summary}`,
+      detail: stageResult
+    })
+  );
+
+  return { stageResult };
+}
+
+/**
+ * Run the HU Reviewer stage: load stories from YAML, evaluate, certify, and return in topological order.
+ * @param {object} params
+ * @returns {Promise<{stageResult: object}>}
+ */
+export async function runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion }) {
+  logger.setContext({ iteration: 0, stage: "hu-reviewer" });
+  emitProgress(
+    emitter,
+    makeEvent("hu-reviewer:start", { ...eventBase, stage: "hu-reviewer" }, {
+      message: "HU Reviewer certifying user stories"
+    })
+  );
+
+  // --- Load YAML file ---
+  const yaml = await import("js-yaml");
+  const fs = await import("node:fs/promises");
+  let rawYaml;
+  try {
+    rawYaml = await fs.readFile(huFile, "utf8");
+  } catch (err) {
+    const stageResult = { ok: false, error: `Could not read HU file: ${err.message}` };
+    emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+      status: "fail", message: stageResult.error
+    }));
+    return { stageResult };
+  }
+
+  let stories;
+  try {
+    const parsed = yaml.load(rawYaml);
+    stories = Array.isArray(parsed) ? parsed : (parsed?.stories || []);
+  } catch (err) {
+    const stageResult = { ok: false, error: `Invalid YAML in HU file: ${err.message}` };
+    emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+      status: "fail", message: stageResult.error
+    }));
+    return { stageResult };
+  }
+
+  if (stories.length === 0) {
+    const stageResult = { ok: true, certified: 0, stories: [] };
+    emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+      status: "ok", message: "No stories to evaluate"
+    }));
+    return { stageResult };
+  }
+
+  // --- Create or load batch ---
+  const batchSessionId = `hu-${session.id}`;
+  let batch;
+  try {
+    batch = await loadHuBatch(batchSessionId);
+  } catch {
+    batch = await createHuBatch(batchSessionId, stories);
+  }
+
+  // --- Evaluate loop (re-evaluate entire batch until all certified or needs_context with no askQuestion) ---
+  const huReviewerProvider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
+  const huReviewerOnOutput = ({ stream, line }) => {
+    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "hu-reviewer" }, {
+      message: line,
+      detail: { stream, agent: huReviewerProvider }
+    }));
+  };
+
+  let maxRounds = 5;
+  let round = 0;
+
+  while (round < maxRounds) {
+    round += 1;
+
+    const pendingStories = batch.stories.filter(s => s.status === "pending" || s.status === "needs_context");
+    if (pendingStories.length === 0) break;
+
+    const storiesToEvaluate = pendingStories.map(s => ({ id: s.id, text: s.original.text }));
+
+    const stall = createStallDetector({
+      onOutput: huReviewerOnOutput, emitter, eventBase, stage: "hu-reviewer", provider: huReviewerProvider
+    });
+
+    const huReviewer = new HuReviewerRole({ config, logger, emitter, createAgentFn: createAgent });
+    await huReviewer.init({ task: session.task, sessionId: session.id, iteration: 0 });
+    const reviewStart = Date.now();
+    let reviewOutput;
+    try {
+      reviewOutput = await huReviewer.run({ stories: storiesToEvaluate, onOutput: stall.onOutput });
+    } catch (err) {
+      logger.warn(`HU Reviewer threw: ${err.message}`);
+      reviewOutput = { ok: false, summary: `HU Reviewer error: ${err.message}`, result: { error: err.message } };
+    } finally {
+      stall.stop();
+    }
+
+    trackBudget({
+      role: "hu-reviewer",
+      provider: huReviewerProvider,
+      model: config?.roles?.hu_reviewer?.model || coderRole.model,
+      result: reviewOutput,
+      duration_ms: Date.now() - reviewStart
+    });
+
+    if (!reviewOutput.ok || !reviewOutput.result?.evaluations) {
+      break;
+    }
+
+    // --- Process evaluations ---
+    for (const evaluation of reviewOutput.result.evaluations) {
+      const storyId = evaluation.story_id;
+      try {
+        updateStoryQuality(batch, storyId, evaluation.scores);
+      } catch {
+        continue; // story not found in batch, skip
+      }
+
+      if (evaluation.verdict === "certified") {
+        updateStoryCertified(batch, storyId, evaluation.certified_hu);
+      } else if (evaluation.verdict === "needs_context" && evaluation.context_needed) {
+        addContextRequest(batch, storyId, {
+          fields_needed: evaluation.context_needed.fields_needed || [],
+          question: evaluation.context_needed.question_to_fde || ""
+        });
+      } else if (evaluation.verdict === "needs_rewrite" && evaluation.rewritten) {
+        // Accept the rewrite and re-certify
+        updateStoryCertified(batch, storyId, evaluation.rewritten);
+      } else {
+        updateStoryStatus(batch, storyId, "pending");
+      }
+    }
+
+    await saveHuBatch(batchSessionId, batch);
+
+    // --- Check if any need context ---
+    const needsContext = batch.stories.filter(s => s.status === "needs_context");
+    if (needsContext.length > 0) {
+      const consolidatedQuestions = reviewOutput.result.batch_summary?.consolidated_questions
+        || needsContext.map(s => {
+          const pending = s.context_requests.find(r => !r.answered_at);
+          return pending ? `[${s.id}] ${pending.question_to_fde}` : null;
+        }).filter(Boolean).join("\n");
+
+      if (!askQuestion) {
+        // No interactive input — pause session
+        break;
+      }
+
+      emitProgress(emitter, makeEvent("hu-reviewer:needs-context", { ...eventBase, stage: "hu-reviewer" }, {
+        message: `${needsContext.length} story(ies) need context from FDE`,
+        detail: { questions: consolidatedQuestions }
+      }));
+
+      const answer = await askQuestion(
+        `The HU Reviewer needs additional context:\n\n${consolidatedQuestions}\n\nPlease provide your answers:`,
+        { iteration: 0, stage: "hu-reviewer" }
+      );
+
+      if (!answer) break;
+
+      // --- Incorporate FDE answers and re-evaluate ---
+      for (const s of needsContext) {
+        answerContextRequest(batch, s.id, answer);
+      }
+      await saveHuBatch(batchSessionId, batch);
+      // Loop will re-evaluate entire batch
+    }
+  }
+
+  await addCheckpoint(session, {
+    stage: "hu-reviewer",
+    iteration: 0,
+    ok: true,
+    certified: batch.stories.filter(s => s.status === "certified").length,
+    total: batch.stories.length
+  });
+
+  // --- Return certified stories in topological order ---
+  const certifiedStories = batch.stories.filter(s => s.status === "certified");
+  let orderedIds;
+  try {
+    orderedIds = topologicalSort(certifiedStories);
+  } catch {
+    orderedIds = certifiedStories.map(s => s.id);
+  }
+
+  const orderedStories = orderedIds.map(id => batch.stories.find(s => s.id === id)).filter(Boolean);
+
+  const stageResult = {
+    ok: true,
+    certified: certifiedStories.length,
+    total: batch.stories.length,
+    needsContext: batch.stories.filter(s => s.status === "needs_context").length,
+    stories: orderedStories,
+    batchSessionId
+  };
+
+  emitProgress(
+    emitter,
+    makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+      status: "ok",
+      message: `HU Review complete: ${certifiedStories.length}/${batch.stories.length} certified`,
       detail: stageResult
     })
   );
