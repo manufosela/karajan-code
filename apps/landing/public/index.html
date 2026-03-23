@@ -115,8 +115,9 @@
     .terminal-dot.y { background: #fbbf24; }
     .terminal-dot.g { background: #34d399; }
     .terminal-body {
-      padding: 1.2rem 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.9;
-      max-height: 420px; overflow-y: auto; scroll-behavior: smooth;
+      padding: 1rem 1.5rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.7;
+      max-height: 480px; overflow-y: auto; scroll-behavior: smooth;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
     }
     .terminal-body .role { color: var(--accent-purple); }
 
@@ -290,30 +291,116 @@
 
     /* --- TERMINAL DEMO ANIMATION --- */
     var DEMO_LINES = [
-      { html: '$ kj run --hu-file stories.yaml --enable-hu-reviewer', cls: 'cmd' },
-      { html: '\u25b6 Karajan Code v1.31.1 \u2014 Coder: claude | Reviewer: codex', cls: 'header' },
+      { html: '$ kj run --hu-file stories.yaml --enable-hu-reviewer --enable-architect', cls: 'cmd' },
       { html: '', cls: '' },
-      { html: '<span class="role">[hu-reviewer]</span>  Evaluating 3 stories\u2026 48/60, 52/60, 44/60 \u2014 all certified \u2713', cls: 'approved' },
-      { html: '<span class="role">[triage]</span>       medium \u2014 enabling all quality gates', cls: 'stage' },
-      { html: '<span class="role">[researcher]</span>   12 files analyzed, 3 patterns, 2 risks identified', cls: 'stage' },
-      { html: '<span class="role">[architect]</span>    Layered: routes \u2192 service \u2192 store \u2192 validation', cls: 'stage' },
-      { html: '<span class="role">[planner]</span>      5 implementation steps planned', cls: 'stage' },
+      { html: '\u25b6 Karajan Code v1.31.1', cls: 'header' },
+      { html: '  Coder: claude | Reviewer: codex | Solomon: active', cls: 'dim' },
       { html: '', cls: '' },
+      // HU Reviewer
+      { html: '<span class="role">[hu-reviewer]</span>  Evaluating 3 user stories\u2026', cls: 'stage' },
+      { html: '  HU-1: "As a clinic admin, I want to create patient records" \u2014 52/60 \u2713', cls: 'dim' },
+      { html: '  HU-2: "As a doctor, I want to search patients by DNI" \u2014 48/60 \u2713', cls: 'dim' },
+      { html: '  HU-3: "As a nurse, I want to update vital signs" \u2014 38/60 \u2717', cls: 'rejected' },
+      { html: '    D2: User specificity 4/10 \u2014 "nurse" too generic, which department?', cls: 'rejected' },
+      { html: '    D3: No measurable AC \u2014 what vital signs? what validation?', cls: 'rejected' },
+      { html: '    Antipattern: ghost_user, ghost_benefit', cls: 'rejected' },
+      { html: '    \u2192 Rewriting with available context\u2026', cls: 'dim' },
+      { html: '    Rewritten: 44/60 \u2713 \u2014 "As an ER nurse, I want to record BPM, SpO2, temp"', cls: 'approved' },
+      { html: '  All 3 stories certified. Proceeding.', cls: 'approved' },
+      { html: '', cls: '' },
+      // Triage
+      { html: '<span class="role">[triage]</span>       Complexity: medium \u2014 3 stories, 2 entities, REST API', cls: 'stage' },
+      { html: '  Enabling: researcher, architect, planner, sonar, tester, security', cls: 'dim' },
+      { html: '  TDD auto-detected: vitest', cls: 'dim' },
+      { html: '  Smart models: coder\u2192claude/sonnet, reviewer\u2192codex/o4-mini', cls: 'dim' },
+      { html: '', cls: '' },
+      // Researcher
+      { html: '<span class="role">[researcher]</span>   Investigating codebase\u2026', cls: 'stage' },
+      { html: '  Found: Express 5.x, vitest, supertest in devDeps', cls: 'dim' },
+      { html: '  Patterns: MVC in src/, integration tests in tests/', cls: 'dim' },
+      { html: '  Risks: no input sanitization middleware, no error handler', cls: 'rejected' },
+      { html: '  Prior art: existing /auth routes follow same pattern', cls: 'dim' },
+      { html: '', cls: '' },
+      // Architect
+      { html: '<span class="role">[architect]</span>    Designing solution architecture\u2026', cls: 'stage' },
+      { html: '  Layer 1: src/routes/patients.js \u2014 Express router, HTTP concerns only', cls: 'dim' },
+      { html: '  Layer 2: src/services/patient-service.js \u2014 business logic, validation', cls: 'dim' },
+      { html: '  Layer 3: src/stores/patient-store.js \u2014 in-memory Map, CRUD ops', cls: 'dim' },
+      { html: '  Layer 4: src/middleware/validate.js \u2014 input sanitization, schema check', cls: 'dim' },
+      { html: '  Verdict: ready \u2014 no clarification needed', cls: 'approved' },
+      { html: '', cls: '' },
+      // Planner
+      { html: '<span class="role">[planner]</span>      Planning implementation\u2026', cls: 'stage' },
+      { html: '  Step 1: Create patient-store.js with Map + CRUD + reset()', cls: 'dim' },
+      { html: '  Step 2: Create patient-service.js with validation logic', cls: 'dim' },
+      { html: '  Step 3: Create validate.js middleware (DNI format, required fields)', cls: 'dim' },
+      { html: '  Step 4: Create patients.js router (GET, GET/:id, POST, PUT/:id, DELETE/:id)', cls: 'dim' },
+      { html: '  Step 5: Integration tests with supertest (happy path + edge cases)', cls: 'dim' },
+      { html: '  Estimated: 5 files, ~300 lines', cls: 'dim' },
+      { html: '', cls: '' },
+      // Iteration 1
       { html: '\u25b6 Iteration 1/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>        Tests first: 18 test cases written', cls: 'stage' },
-      { html: '<span class="role">[coder]</span>        Implementing 4 files (routes, service, validation, store)', cls: 'stage' },
-      { html: '<span class="role">[sonar]</span>        Quality gate PASSED \u2014 0 bugs, 0 vulnerabilities, 0 smells', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>     REJECTED \u2014 missing input sanitization on PUT', cls: 'rejected' },
-      { html: '                \u2192 Solomon: valid security concern, fix required', cls: 'dim' },
+      { html: '<span class="role">[coder]</span>        Writing tests first (TDD)\u2026', cls: 'stage' },
+      { html: '  tests/patients.test.js \u2014 24 test cases:', cls: 'dim' },
+      { html: '    POST /patients \u2014 valid, missing fields, invalid DNI, duplicate', cls: 'dim' },
+      { html: '    GET /patients \u2014 list all, empty, with filters', cls: 'dim' },
+      { html: '    GET /patients/:id \u2014 found, not found, invalid id', cls: 'dim' },
+      { html: '    PUT /patients/:id \u2014 update, partial, not found, invalid', cls: 'dim' },
+      { html: '    DELETE /patients/:id \u2014 success, not found, idempotent', cls: 'dim' },
+      { html: '    Vital signs \u2014 record, validate ranges, missing patient', cls: 'dim' },
+      { html: '<span class="role">[coder]</span>        Implementing 5 files\u2026', cls: 'stage' },
+      { html: '  src/stores/patient-store.js \u2014 42 lines', cls: 'dim' },
+      { html: '  src/services/patient-service.js \u2014 67 lines', cls: 'dim' },
+      { html: '  src/middleware/validate.js \u2014 38 lines', cls: 'dim' },
+      { html: '  src/routes/patients.js \u2014 54 lines', cls: 'dim' },
+      { html: '  src/app.js \u2014 updated with new routes', cls: 'dim' },
+      { html: '<span class="role">[coder]</span>        Running tests\u2026 24 passed \u2713', cls: 'approved' },
       { html: '', cls: '' },
+      { html: '<span class="role">[sonar]</span>        Scanning\u2026', cls: 'stage' },
+      { html: '  Quality gate: PASSED', cls: 'approved' },
+      { html: '  0 bugs | 0 vulnerabilities | 2 code smells (minor)', cls: 'dim' },
+      { html: '  Cognitive complexity: all functions under threshold', cls: 'dim' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[impeccable]</span>   No frontend files in diff \u2014 skipped', cls: 'dim' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[reviewer]</span>     Reviewing diff (6 files, +201 lines)\u2026', cls: 'stage' },
+      { html: '  R-1 [high]: PUT /patients/:id accepts body without sanitization', cls: 'rejected' },
+      { html: '  R-2 [medium]: patient-store.js missing concurrent access guard', cls: 'rejected' },
+      { html: '  Verdict: REJECTED (2 blocking issues)', cls: 'rejected' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[solomon]</span>      Evaluating rejection\u2026', cls: 'stage' },
+      { html: '  R-1: security concern \u2192 must fix', cls: 'rejected' },
+      { html: '  R-2: correctness \u2192 must fix', cls: 'rejected' },
+      { html: '  Decision: send back to coder with specific fixes', cls: 'dim' },
+      { html: '', cls: '' },
+      // Iteration 2
       { html: '\u25b6 Iteration 2/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>        Fixed: added sanitization + 3 edge case tests', cls: 'stage' },
-      { html: '<span class="role">[sonar]</span>        Quality gate PASSED \u2014 0 issues', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>     APPROVED \u2014 all endpoints validated', cls: 'approved' },
-      { html: '<span class="role">[tester]</span>       21 tests, 94% coverage', cls: 'stage' },
-      { html: '<span class="role">[security]</span>     OWASP scan: no vulnerabilities', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>        Fixing R-1: added express-validator sanitization', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>        Fixing R-2: added optimistic locking to store', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>        Added 4 new edge case tests \u2014 28 total, all passing \u2713', cls: 'approved' },
       { html: '', cls: '' },
-      { html: '\u2714 Pipeline completed \u2014 4 files, 21 tests, 2 iterations, 94% coverage', cls: 'success' }
+      { html: '<span class="role">[sonar]</span>        Quality gate: PASSED \u2014 0 bugs, 0 vulnerabilities, 0 smells', cls: 'approved' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[reviewer]</span>     Reviewing diff (+47 lines)\u2026', cls: 'stage' },
+      { html: '  All blocking issues resolved. No new issues.', cls: 'dim' },
+      { html: '  Verdict: APPROVED \u2014 confidence 0.95', cls: 'approved' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[tester]</span>       Running test audit\u2026', cls: 'stage' },
+      { html: '  28 tests | 96% line coverage | 91% branch coverage', cls: 'dim' },
+      { html: '  All changed files have corresponding tests \u2713', cls: 'approved' },
+      { html: '', cls: '' },
+      { html: '<span class="role">[security]</span>     OWASP Top 10 scan\u2026', cls: 'stage' },
+      { html: '  Injection: clean (parameterized queries)', cls: 'dim' },
+      { html: '  XSS: clean (input sanitized)', cls: 'dim' },
+      { html: '  Auth: N/A (no auth endpoints in diff)', cls: 'dim' },
+      { html: '  Verdict: PASS \u2014 0 vulnerabilities', cls: 'approved' },
+      { html: '', cls: '' },
+      // Final
+      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { html: '\u2714 PIPELINE COMPLETED', cls: 'success' },
+      { html: '  5 files generated | 28 tests | 96% coverage | 2 iterations', cls: 'success' },
+      { html: '  SonarQube: PASSED | Security: PASSED | Solomon: certified', cls: 'success' },
+      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
     ];
 
     var demoTimer = null;
@@ -323,7 +410,7 @@
       var terminal = document.getElementById('demo-terminal');
       if (!terminal) return;
       terminal.innerHTML = '';
-      var delay = reducedMotion ? 0 : 1;
+      var delay = reducedMotion ? 0 : 0.6;
       DEMO_LINES.forEach(function(line, i) {
         var div = document.createElement('div');
         div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
