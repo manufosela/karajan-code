@@ -116,7 +116,7 @@
     .terminal-dot.g { background: #34d399; }
     .terminal-body {
       padding: 1.2rem 1.5rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.9;
-      max-height: 520px; overflow: hidden;
+      max-height: 420px; overflow-y: auto; scroll-behavior: smooth;
     }
     .terminal-body .role { color: var(--accent-purple); }
 
@@ -291,28 +291,22 @@
     /* --- TERMINAL DEMO ANIMATION --- */
     var DEMO_LINES = [
       { html: '$ kj run "Build a REST API for notes with Express"', cls: 'cmd' },
-      { html: '', cls: '' },
-      { html: '\u25b6 Karajan Code v1.31.0', cls: 'header' },
-      { html: '  Coder: claude | Reviewer: codex', cls: 'dim' },
-      { html: '', cls: '' },
+      { html: '\u25b6 Karajan Code v1.31.1 \u2014 Coder: claude | Reviewer: codex', cls: 'header' },
       { html: '<span class="role">[triage]</span>      simple \u2014 TDD auto-detected (vitest)', cls: 'stage' },
       { html: '<span class="role">[researcher]</span>  4 files analyzed, 5 patterns identified', cls: 'stage' },
-      { html: '<span class="role">[planner]</span>     3 implementation steps planned', cls: 'stage' },
-      { html: '', cls: '' },
+      { html: '<span class="role">[planner]</span>     3 steps planned', cls: 'stage' },
       { html: '\u25b6 Iteration 1/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>       Writing tests first... 15 test cases', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>       Writing tests first... 15 cases', cls: 'stage' },
       { html: '<span class="role">[coder]</span>       Implementing routes, validation, store', cls: 'stage' },
       { html: '<span class="role">[reviewer]</span>    REJECTED \u2014 missing endpoints', cls: 'rejected' },
-      { html: '              \u2192 Solomon: valid issue, sending back to coder', cls: 'dim' },
-      { html: '', cls: '' },
+      { html: '              \u2192 Solomon: valid, sending back to coder', cls: 'dim' },
       { html: '\u25b6 Iteration 2/5', cls: 'header' },
-      { html: '<span class="role">[coder]</span>       Fixing: added all CRUD endpoints', cls: 'stage' },
+      { html: '<span class="role">[coder]</span>       Added all CRUD endpoints + validation', cls: 'stage' },
       { html: '<span class="role">[coder]</span>       All 15 tests passing \u2713', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>    APPROVED \u2014 clean implementation', cls: 'approved' },
-      { html: '<span class="role">[tester]</span>      15 tests, all passing', cls: 'stage' },
-      { html: '<span class="role">[security]</span>    No vulnerabilities found', cls: 'stage' },
-      { html: '', cls: '' },
-      { html: '\u2714 Pipeline completed \u2014 3 files generated, 15 tests', cls: 'success' }
+      { html: '<span class="role">[reviewer]</span>    APPROVED', cls: 'approved' },
+      { html: '<span class="role">[tester]</span>      15 tests passed', cls: 'stage' },
+      { html: '<span class="role">[security]</span>    No vulnerabilities', cls: 'stage' },
+      { html: '\u2714 Pipeline completed \u2014 3 files, 15 tests', cls: 'success' }
     ];
 
     var demoTimer = null;
@@ -329,10 +323,13 @@
         div.innerHTML = line.html || '&nbsp;';
         div.style.animationDelay = (i * delay) + 's';
         terminal.appendChild(div);
+        if (!reducedMotion) {
+          setTimeout(function() { terminal.scrollTop = terminal.scrollHeight; }, i * delay * 1000 + 300);
+        }
       });
       if (!reducedMotion) {
-        var totalMs = (DEMO_LINES.length * delay + 3) * 1000;
-        demoTimer = setTimeout(function() { runDemo(); }, totalMs);
+        var totalMs = (DEMO_LINES.length * delay + 5) * 1000;
+        demoTimer = setTimeout(function() { terminal.scrollTop = 0; runDemo(); }, totalMs);
       }
     }
 
