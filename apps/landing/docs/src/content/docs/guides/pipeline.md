@@ -8,7 +8,7 @@ description: How the Karajan Code multi-agent pipeline works.
 Karajan orchestrates **15 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider) does it.
 
 ```
-intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → commiter?
+intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
                                                                                    └─── iteration loop (1..N) ──────────────────────────────────────┘
 ```
 
@@ -31,6 +31,7 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | **solomon** | Pipeline Boss & Arbiter — evaluates every reviewer rejection, classifies issues, can override style-only blocks. 6 rules including smart iteration control | **On** |
 | **commiter** | Git commit, push, and PR automation after approval | Off |
 | **hu-reviewer** | HU story certification — evaluates user stories across 6 quality dimensions, detects 7 antipatterns, rewrites weak stories, supports dependency graphs | Off |
+| **audit** | Mandatory post-approval quality gate — runs after reviewer+tester+security pass. Checks generated code for critical/high issues; if found, loops coder back to fix. If clean, pipeline is CERTIFIED | **On** (v1.32.0+) |
 
 Roles marked with `?` are optional and can be enabled per-run or via config.
 

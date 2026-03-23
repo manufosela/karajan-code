@@ -620,6 +620,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.30.0** — Nuevo stage obligatorio en el pipeline para certificacion de historias de usuario. Puntua 6 dimensiones de calidad (0-10 cada una, umbral 40/60), detecta 7 antipatrones, reescribe HUs debiles, pausa para contexto FDE cuando es necesario. Soporta grafos de dependencias con ordenacion topologica de ejecucion. Almacenamiento local en ficheros con patron adapter para el futuro.
 
+## Fase 26: Auditoría Obligatoria Post-Aprobación (v1.32.0)
+
+**v1.32.0** — Auditoría obligatoria post-aprobación: quality gate final que se ejecuta después de que reviewer+tester+security aprueben. Comprueba el código generado buscando issues críticos/altos — si los encuentra, devuelve al coder para corregir. Si está limpio, el pipeline queda CERTIFICADO. También: modo silencioso por defecto (output crudo de agentes suprimido), decisiones autónomas de Solomon (checkpoints auto-continúan, tester/security como advisory), prompt readline inline en CLI, presupuesto N/A cuando el proveedor no reporta uso.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

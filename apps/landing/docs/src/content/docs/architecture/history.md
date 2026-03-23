@@ -621,6 +621,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.30.0** — New mandatory pipeline stage for user story certification. Scores 6 quality dimensions (0-10 each, threshold 40/60), detects 7 antipatterns, rewrites weak HUs, pauses for FDE context when needed. Supports dependency graphs with topological execution ordering. Local file storage with future adapter pattern.
 
+## Phase 26: Mandatory Audit Post-Approval (v1.32.0)
+
+**v1.32.0** — Mandatory audit post-approval: final quality gate runs after reviewer+tester+security pass. Checks generated code for critical/high issues — if found, loops coder back to fix. If clean, pipeline is CERTIFIED. Also: quiet mode by default (raw agent output suppressed), Solomon autonomous decisions (checkpoints auto-continue, tester/security advisory), CLI inline readline prompt, budget N/A when provider doesn't report usage.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
