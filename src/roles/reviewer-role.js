@@ -1,5 +1,6 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { RTK_INSTRUCTIONS } from "../prompts/rtk-snippet.js";
 
 const MAX_DIFF_LENGTH = 12000;
 
@@ -24,7 +25,7 @@ function truncateDiff(diff) {
     : diff;
 }
 
-function buildPrompt({ task, diff, reviewRules, reviewMode, instructions }) {
+function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false }) {
   const sections = [];
 
   sections.push(SUBAGENT_PREAMBLE);
@@ -40,6 +41,10 @@ function buildPrompt({ task, diff, reviewRules, reviewMode, instructions }) {
     '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}',
     `Task context:\n${task}`
   );
+
+  if (rtkAvailable) {
+    sections.push(RTK_INSTRUCTIONS);
+  }
 
   if (reviewRules) {
     sections.push(`Review rules:\n${reviewRules}`);
@@ -78,7 +83,8 @@ export class ReviewerRole extends BaseRole {
       diff: diff || "",
       reviewRules: reviewRules || null,
       reviewMode: this.config?.review_mode || "standard",
-      instructions: this.instructions
+      instructions: this.instructions,
+      rtkAvailable: Boolean(this.config?.rtk?.available)
     });
 
     const reviewArgs = { prompt, role: "reviewer" };

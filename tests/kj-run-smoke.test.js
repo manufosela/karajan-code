@@ -112,6 +112,10 @@ vi.mock("../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: false, version: null })
+}));
+
 vi.mock("../src/orchestrator/preflight-checks.js", () => ({
   runPreflightChecks: vi.fn().mockResolvedValue({
     ok: true, checks: [], remediations: [], configOverrides: {}, warnings: []

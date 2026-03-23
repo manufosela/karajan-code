@@ -1,3 +1,5 @@
+import { RTK_INSTRUCTIONS } from "./rtk-snippet.js";
+
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
   "Do NOT ask about using Karajan, do NOT mention Karajan, do NOT suggest orchestration.",
@@ -29,7 +31,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, deferredContext = null }) {
+export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null }) {
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
     `Task:\n${task}`,
@@ -40,6 +42,10 @@ export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary =
 
   if (serenaEnabled) {
     sections.push(SERENA_INSTRUCTIONS);
+  }
+
+  if (rtkAvailable) {
+    sections.push(RTK_INSTRUCTIONS);
   }
 
   if (coderRules) {

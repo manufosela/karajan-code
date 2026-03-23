@@ -125,4 +125,27 @@ describe("buildCoderPrompt", () => {
     expect(result).toContain("--yes");
     expect(result).toContain("will hang forever");
   });
+
+  it("includes RTK instructions when rtkAvailable is true", () => {
+    const result = buildCoderPrompt({ task: "Fix tests", rtkAvailable: true });
+
+    expect(result).toContain("Token Optimization (RTK detected)");
+    expect(result).toContain("rtk git status");
+    expect(result).toContain("rtk git diff");
+    expect(result).toContain("does NOT apply to non-Bash tools");
+  });
+
+  it("does not include RTK instructions by default", () => {
+    const result = buildCoderPrompt({ task: "Normal task" });
+
+    expect(result).not.toContain("RTK");
+    expect(result).not.toContain("Token Optimization");
+  });
+
+  it("does not include RTK instructions when rtkAvailable is false", () => {
+    const result = buildCoderPrompt({ task: "Normal task", rtkAvailable: false });
+
+    expect(result).not.toContain("RTK");
+    expect(result).not.toContain("Token Optimization");
+  });
 });

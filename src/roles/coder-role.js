@@ -41,7 +41,8 @@ export class CoderRole extends BaseRole {
       deferredContext: deferredContext || null,
       coderRules: this.instructions,
       methodology: this.config?.development?.methodology || "tdd",
-      serenaEnabled: Boolean(this.config?.serena?.enabled)
+      serenaEnabled: Boolean(this.config?.serena?.enabled),
+      rtkAvailable: Boolean(this.config?.rtk?.available)
     });
 
     const coderArgs = { prompt, role: "coder" };

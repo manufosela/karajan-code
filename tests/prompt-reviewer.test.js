@@ -117,4 +117,27 @@ describe("buildReviewerPrompt", () => {
     expect(result).not.toContain("Serena MCP");
     expect(result).toContain("Do NOT use any MCP tools");
   });
+
+  it("includes RTK instructions when rtkAvailable is true", () => {
+    const result = buildReviewerPrompt({ ...baseArgs, rtkAvailable: true });
+
+    expect(result).toContain("Token Optimization (RTK detected)");
+    expect(result).toContain("rtk git status");
+    expect(result).toContain("rtk git diff");
+    expect(result).toContain("does NOT apply to non-Bash tools");
+  });
+
+  it("does not include RTK instructions by default", () => {
+    const result = buildReviewerPrompt(baseArgs);
+
+    expect(result).not.toContain("RTK");
+    expect(result).not.toContain("Token Optimization");
+  });
+
+  it("does not include RTK instructions when rtkAvailable is false", () => {
+    const result = buildReviewerPrompt({ ...baseArgs, rtkAvailable: false });
+
+    expect(result).not.toContain("RTK");
+    expect(result).not.toContain("Token Optimization");
+  });
 });

@@ -36,6 +36,7 @@ import { runTesterStage, runSecurityStage, runImpeccableStage, runFinalAuditStag
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
 import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
+import { detectRtk } from "./utils/rtk-detect.js";
 
 
 // --- Extracted helper functions (pure refactoring, zero behavior change) ---
@@ -70,8 +71,8 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
   const projectDir = config.projectDir || process.cwd();
   const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-  const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled) });
-  const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled) });
+  const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available) });
+  const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available) });
 
   const summary = {
     dry_run: true,
@@ -1086,6 +1087,17 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.budgetLimit = budgetLimit;
   ctx.budgetSummary = budgetSummary;
   ctx.trackBudget = trackBudget;
+
+  // --- RTK detection ---
+  const rtkResult = await detectRtk();
+  if (rtkResult.available) {
+    config = { ...config, rtk: { available: true, version: rtkResult.version } };
+    logger.info(`RTK detected (${rtkResult.version}) — instructing agents to prefix Bash commands with rtk`);
+    emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
+      message: "RTK detected — agent commands will use token optimization",
+      detail: { version: rtkResult.version }
+    }));
+  }
 
   ctx.session = await initializeSession({ task, config, flags, pgTaskId, pgProject });
   ctx.eventBase.sessionId = ctx.session.id;
