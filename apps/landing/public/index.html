@@ -432,8 +432,6 @@
       demoSpeed = speed;
       document.querySelectorAll('.speed-btn').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
-      if (demoTimer) { clearTimeout(demoTimer); }
-      runDemo();
     }
 
     function runDemo() {
