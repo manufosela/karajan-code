@@ -155,50 +155,49 @@ async function buildReport(dir, sessionId) {
   return report;
 }
 
-function printTextReport(report) {
-  let budgetText = "N/A";
-  if (typeof report.budget_consumed?.consumed_usd === "number") {
-    const limitSuffix = typeof report.budget_consumed?.limit_usd === "number"
-      ? ` / $${report.budget_consumed.limit_usd.toFixed(2)}`
-      : "";
-    budgetText = `$${report.budget_consumed.consumed_usd.toFixed(2)}${limitSuffix}`;
-  }
+function formatBudgetText(budget) {
+  if (typeof budget?.consumed_usd !== "number") return "N/A";
+  const limitSuffix = typeof budget.limit_usd === "number" ? ` / $${budget.limit_usd.toFixed(2)}` : "";
+  return `$${budget.consumed_usd.toFixed(2)}${limitSuffix}`;
+}
 
-  const planText = report.plan_executed.length > 0 ? report.plan_executed.join(" -> ") : "N/A";
-  const iterationText =
-    report.iterations.length > 0
-      ? report.iterations
-          .map(
-            (item) =>
-              `#${item.iteration} coder=${item.coder_runs} reviewer_attempts=${item.reviewer_attempts} approved=${item.reviewer_approved}`
-          )
-          .join("\n")
-      : "N/A";
-  const commitsText =
-    report.commits_generated.ids.length > 0
-      ? `${report.commits_generated.count} (${report.commits_generated.ids.join(", ")})`
-      : String(report.commits_generated.count);
+function formatIterationsText(iterations) {
+  if (iterations.length === 0) return "N/A";
+  return iterations
+    .map((item) => `#${item.iteration} coder=${item.coder_runs} reviewer_attempts=${item.reviewer_attempts} approved=${item.reviewer_approved}`)
+    .join("\n");
+}
+
+function formatCommitsText(commits) {
+  return commits.ids.length > 0
+    ? `${commits.count} (${commits.ids.join(", ")})`
+    : String(commits.count);
+}
+
+function printPgCardLine(report) {
+  if (!report.pg_task_id) return;
+  const projectLabel = report.pg_project_id ? ` (${report.pg_project_id})` : "";
+  console.log(`Planning Game Card: ${report.pg_task_id}${projectLabel}`);
+}
+
+function printTextReport(report) {
+  const sonar = report.sonar_issues_resolved;
 
   console.log(`Session: ${report.session_id}`);
-  if (report.pg_task_id) {
-    const projectLabel = report.pg_project_id ? ` (${report.pg_project_id})` : "";
-    console.log(`Planning Game Card: ${report.pg_task_id}${projectLabel}`);
-  }
+  printPgCardLine(report);
   console.log(`Status: ${report.status}`);
   console.log("Task Description:");
   console.log(report.task_description || "N/A");
   console.log("Plan Executed:");
-  console.log(planText);
+  console.log(report.plan_executed.length > 0 ? report.plan_executed.join(" -> ") : "N/A");
   console.log("Iterations (Coder/Reviewer):");
-  console.log(iterationText);
+  console.log(formatIterationsText(report.iterations));
   console.log("Sonar Issues Resolved:");
-  console.log(
-    `initial=${report.sonar_issues_resolved.initial_open_issues ?? "N/A"} final=${report.sonar_issues_resolved.final_open_issues ?? "N/A"} resolved=${report.sonar_issues_resolved.resolved}`
-  );
+  console.log(`initial=${sonar.initial_open_issues ?? "N/A"} final=${sonar.final_open_issues ?? "N/A"} resolved=${sonar.resolved}`);
   console.log("Budget Consumed:");
-  console.log(budgetText);
+  console.log(formatBudgetText(report.budget_consumed));
   console.log("Commits Generated:");
-  console.log(commitsText);
+  console.log(formatCommitsText(report.commits_generated));
 }
 
 function formatDuration(ms) {
@@ -329,10 +328,7 @@ async function resolveTraceOptions(currency) {
 
 function printTraceReport(report, currency, exchangeRate) {
   console.log(`Session: ${report.session_id}`);
-  if (report.pg_task_id) {
-    const projectLabel = report.pg_project_id ? ` (${report.pg_project_id})` : "";
-    console.log(`Planning Game Card: ${report.pg_task_id}${projectLabel}`);
-  }
+  printPgCardLine(report);
   console.log(`Status: ${report.status}`);
   console.log(`Task: ${report.task_description || "N/A"}`);
   console.log("");

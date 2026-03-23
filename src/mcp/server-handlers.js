@@ -252,6 +252,31 @@ async function attemptAutoResume({ err, config, logger, emitter, askQuestion, ru
   }
 }
 
+const PIPELINE_PROVIDER_ROLES = [
+  ["triage", true],
+  ["planner", true],
+  ["refactorer", true],
+  ["researcher", true],
+  ["tester", true],
+  ["security", true]
+];
+
+function collectRequiredProviders(config) {
+  const providers = [
+    resolveRole(config, "coder").provider,
+    config.reviewer_options?.fallback_reviewer
+  ];
+  if (config.pipeline?.reviewer?.enabled !== false) {
+    providers.push(resolveRole(config, "reviewer").provider);
+  }
+  for (const [role, requireEnabled] of PIPELINE_PROVIDER_ROLES) {
+    if (requireEnabled && config.pipeline?.[role]?.enabled) {
+      providers.push(resolveRole(config, role).provider);
+    }
+  }
+  return providers;
+}
+
 export async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
   await assertNotOnBaseBranch(config);
@@ -263,20 +288,7 @@ export async function handleRunDirect(a, server, extra) {
     await cleanupExpiredSessions({ logger });
   } catch { /* non-blocking */ }
 
-  const requiredProviders = [
-    resolveRole(config, "coder").provider,
-    config.reviewer_options?.fallback_reviewer
-  ];
-  if (config.pipeline?.reviewer?.enabled !== false) {
-    requiredProviders.push(resolveRole(config, "reviewer").provider);
-  }
-  if (config.pipeline?.triage?.enabled) requiredProviders.push(resolveRole(config, "triage").provider);
-  if (config.pipeline?.planner?.enabled) requiredProviders.push(resolveRole(config, "planner").provider);
-  if (config.pipeline?.refactorer?.enabled) requiredProviders.push(resolveRole(config, "refactorer").provider);
-  if (config.pipeline?.researcher?.enabled) requiredProviders.push(resolveRole(config, "researcher").provider);
-  if (config.pipeline?.tester?.enabled) requiredProviders.push(resolveRole(config, "tester").provider);
-  if (config.pipeline?.security?.enabled) requiredProviders.push(resolveRole(config, "security").provider);
-  await assertAgentsAvailable(requiredProviders);
+  await assertAgentsAvailable(collectRequiredProviders(config));
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
@@ -343,13 +355,16 @@ export async function handleResumeDirect(a, server, extra) {
   }
 }
 
+const EVENT_LOG_LEVELS = {
+  "agent:stall": "warning",
+  "agent:heartbeat": "info"
+};
+
 function buildDirectEmitter(server, runLog, extra) {
   const emitter = new EventEmitter();
   emitter.on("progress", (event) => {
     try {
-      let level = "debug";
-      if (event.type === "agent:stall") level = "warning";
-      else if (event.type === "agent:heartbeat") level = "info";
+      const level = EVENT_LOG_LEVELS[event.type] || "debug";
       server.sendLoggingMessage({ level, logger: "karajan", data: event });
     } catch { /* best-effort */ }
     if (runLog) runLog.logEvent(event);

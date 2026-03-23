@@ -453,27 +453,39 @@ export function isModelCompatible(agent, model) {
   return true;
 }
 
+// Roles that inherit provider/model from the coder when not explicitly configured
+const CODER_INHERITED_ROLES = new Set([
+  "planner", "refactorer", "solomon", "researcher", "tester", "security",
+  "impeccable", "triage", "discover", "architect", "audit", "hu_reviewer", "hu-reviewer"
+]);
+
+function resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer) {
+  if (roleConfig.provider) return roleConfig.provider;
+  if (role === "coder") return legacyCoder;
+  if (role === "reviewer") return legacyReviewer;
+  if (CODER_INHERITED_ROLES.has(role)) return roles.coder?.provider || legacyCoder;
+  return null;
+}
+
+function resolveModel(roleConfig, role, config) {
+  if (roleConfig.model) return { model: roleConfig.model, inherited: false };
+  if (role === "coder") return { model: config?.coder_options?.model ?? null, inherited: false };
+  if (role === "reviewer") return { model: config?.reviewer_options?.model ?? null, inherited: false };
+  if (CODER_INHERITED_ROLES.has(role)) {
+    const model = config?.coder_options?.model ?? null;
+    return { model, inherited: !!model };
+  }
+  return { model: null, inherited: false };
+}
+
 export function resolveRole(config, role) {
   const roles = config?.roles || {};
   const roleConfig = roles[role] || {};
   const legacyCoder = config?.coder || null;
   const legacyReviewer = config?.reviewer || null;
 
-  let provider = roleConfig.provider ?? null;
-  if (!provider && role === "coder") provider = legacyCoder;
-  if (!provider && role === "reviewer") provider = legacyReviewer;
-  if (!provider && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "audit" || role === "hu_reviewer" || role === "hu-reviewer")) {
-    provider = roles.coder?.provider || legacyCoder;
-  }
-
-  let model = roleConfig.model ?? null;
-  let modelIsInherited = false;
-  if (!model && role === "coder") model = config?.coder_options?.model ?? null;
-  if (!model && role === "reviewer") model = config?.reviewer_options?.model ?? null;
-  if (!model && (role === "planner" || role === "refactorer" || role === "solomon" || role === "researcher" || role === "tester" || role === "security" || role === "impeccable" || role === "triage" || role === "discover" || role === "architect" || role === "hu_reviewer" || role === "hu-reviewer")) {
-    model = config?.coder_options?.model ?? null;
-    modelIsInherited = !!model;
-  }
+  const provider = resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer);
+  let { model, inherited: modelIsInherited } = resolveModel(roleConfig, role, config);
 
   // Drop inherited model if incompatible with the resolved provider
   if (modelIsInherited && provider && model && !isModelCompatible(provider, model)) {

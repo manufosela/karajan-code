@@ -476,7 +476,7 @@ async function checkBudgetExceeded({ budgetTracker, config, session, emitter, ev
 }
 
 async function handleStandbyResult({ stageResult, session, emitter, eventBase, i, stage, logger }) {
-  if (!stageResult?.action || stageResult.action !== "standby") {
+  if (stageResult?.action !== "standby") {
     return { handled: false };
   }
 
@@ -511,6 +511,47 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
   return { handled: true, action: "retry" };
 }
 
+function formatCommitList(commits) {
+  return commits.map((c) => `- \`${c.hash.slice(0, 7)}\` ${c.message}`).join("\n");
+}
+
+async function becariaIncrementalPush({ config, session, gitCtx, task, logger, repo, dispatchComment }) {
+  const pushResult = await incrementalPush({ gitCtx, task, logger, session });
+  if (!pushResult) return;
+
+  session.becaria_commits = [...(session.becaria_commits ?? []), ...pushResult.commits];
+  await saveSession(session);
+
+  if (!repo) return;
+  const feedback = session.last_reviewer_feedback || "N/A";
+  await dispatchComment({
+    repo, prNumber: session.becaria_pr_number, agent: "Coder",
+    body: `Issues corregidos:\n${feedback}\n\nCommits:\n${formatCommitList(pushResult.commits)}`,
+    becariaConfig: config.becaria
+  });
+}
+
+async function becariaCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i, repo, dispatchComment }) {
+  const earlyPr = await earlyPrCreation({ gitCtx, task, logger, session, stageResults });
+  if (!earlyPr) return;
+
+  session.becaria_pr_number = earlyPr.prNumber;
+  session.becaria_pr_url = earlyPr.prUrl;
+  session.becaria_commits = earlyPr.commits;
+  await saveSession(session);
+  emitProgress(emitter, makeEvent("becaria:pr-created", { ...eventBase, stage: "becaria" }, {
+    message: `Early PR created: #${earlyPr.prNumber}`,
+    detail: { prNumber: earlyPr.prNumber, prUrl: earlyPr.prUrl }
+  }));
+
+  if (!repo) return;
+  await dispatchComment({
+    repo, prNumber: earlyPr.prNumber, agent: "Coder",
+    body: `Iteración ${i} completada.\n\nCommits:\n${formatCommitList(earlyPr.commits)}`,
+    becariaConfig: config.becaria
+  });
+}
+
 async function handleBecariaEarlyPrOrPush({ becariaEnabled, config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i }) {
   if (!becariaEnabled) return;
 
@@ -520,45 +561,23 @@ async function handleBecariaEarlyPrOrPush({ becariaEnabled, config, session, emi
     const repo = await detectRepo();
 
     if (session.becaria_pr_number) {
-      const pushResult = await incrementalPush({ gitCtx, task, logger, session });
-      if (pushResult) {
-        session.becaria_commits = [...(session.becaria_commits ?? []), ...pushResult.commits];
-        await saveSession(session);
-
-        if (repo) {
-          const feedback = session.last_reviewer_feedback || "N/A";
-          const commitList = pushResult.commits.map((c) => `- \`${c.hash.slice(0, 7)}\` ${c.message}`).join("\n");
-          await dispatchComment({
-            repo, prNumber: session.becaria_pr_number, agent: "Coder",
-            body: `Issues corregidos:\n${feedback}\n\nCommits:\n${commitList}`,
-            becariaConfig: config.becaria
-          });
-        }
-      }
+      await becariaIncrementalPush({ config, session, gitCtx, task, logger, repo, dispatchComment });
     } else {
-      const earlyPr = await earlyPrCreation({ gitCtx, task, logger, session, stageResults });
-      if (earlyPr) {
-        session.becaria_pr_number = earlyPr.prNumber;
-        session.becaria_pr_url = earlyPr.prUrl;
-        session.becaria_commits = earlyPr.commits;
-        await saveSession(session);
-        emitProgress(emitter, makeEvent("becaria:pr-created", { ...eventBase, stage: "becaria" }, {
-          message: `Early PR created: #${earlyPr.prNumber}`,
-          detail: { prNumber: earlyPr.prNumber, prUrl: earlyPr.prUrl }
-        }));
-
-        if (repo) {
-          const commitList = earlyPr.commits.map((c) => `- \`${c.hash.slice(0, 7)}\` ${c.message}`).join("\n");
-          await dispatchComment({
-            repo, prNumber: earlyPr.prNumber, agent: "Coder",
-            body: `Iteración ${i} completada.\n\nCommits:\n${commitList}`,
-            becariaConfig: config.becaria
-          });
-        }
-      }
+      await becariaCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i, repo, dispatchComment });
     }
   } catch (err) {
     logger.warn(`BecarIA early PR/push failed (non-blocking): ${err.message}`);
+  }
+}
+
+function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
+  for (const alert of alerts) {
+    emitProgress(emitter, makeEvent("solomon:alert", { ...eventBase, stage: "solomon" }, {
+      status: alert.severity === "critical" ? "fail" : "warn",
+      message: alert.message,
+      detail: alert.detail
+    }));
+    logger.warn(`Solomon alert [${alert.rule}]: ${alert.message}`);
   }
 }
 
@@ -571,15 +590,7 @@ async function handleSolomonCheck({ config, session, emitter, eventBase, logger,
     const rulesResult = evaluateRules(rulesContext, config.solomon?.rules);
 
     if (rulesResult.alerts.length > 0) {
-      for (const alert of rulesResult.alerts) {
-        emitProgress(emitter, makeEvent("solomon:alert", { ...eventBase, stage: "solomon" }, {
-          status: alert.severity === "critical" ? "fail" : "warn",
-          message: alert.message,
-          detail: alert.detail
-        }));
-        logger.warn(`Solomon alert [${alert.rule}]: ${alert.message}`);
-      }
-
+      emitSolomonAlerts(rulesResult.alerts, emitter, eventBase, logger);
       const pauseResult = await checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i });
       if (pauseResult) return pauseResult;
     }
@@ -623,6 +634,27 @@ async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i
   return null;
 }
 
+function formatBlockingIssues(issues) {
+  return issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
+}
+
+function formatSuggestions(suggestions) {
+  return suggestions?.map((s) => {
+    const detail = typeof s === "string" ? s : `${s.id || ""} ${s.description || s}`;
+    return `- ${detail}`;
+  }).join("\n") || "";
+}
+
+function buildReviewCommentBody(review, i) {
+  const status = review.approved ? "APPROVED" : "REQUEST_CHANGES";
+  const blocking = formatBlockingIssues(review.blocking_issues);
+  const suggestions = formatSuggestions(review.non_blocking_suggestions);
+  let body = `Review iteración ${i}: ${status}`;
+  if (blocking) body += `\n\n**Blocking:**\n${blocking}`;
+  if (suggestions) body += `\n\n**Suggestions:**\n${suggestions}`;
+  return body;
+}
+
 async function handleBecariaReviewDispatch({ becariaEnabled, config, session, review, i, logger }) {
   if (!becariaEnabled || !session.becaria_pr_number) return;
 
@@ -633,33 +665,19 @@ async function handleBecariaReviewDispatch({ becariaEnabled, config, session, re
     if (!repo) return;
 
     const bc = config.becaria;
-    if (review.approved) {
-      await dispatchReview({
-        repo, prNumber: session.becaria_pr_number,
-        event: "APPROVE", body: review.summary || "Approved", agent: "Reviewer", becariaConfig: bc
-      });
-    } else {
-      const blocking = review.blocking_issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
-      await dispatchReview({
-        repo, prNumber: session.becaria_pr_number,
-        event: "REQUEST_CHANGES",
-        body: blocking || review.summary || "Changes requested",
-        agent: "Reviewer", becariaConfig: bc
-      });
-    }
+    const reviewEvent = review.approved ? "APPROVE" : "REQUEST_CHANGES";
+    const reviewBody = review.approved
+      ? (review.summary || "Approved")
+      : (formatBlockingIssues(review.blocking_issues) || review.summary || "Changes requested");
 
-    const status = review.approved ? "APPROVED" : "REQUEST_CHANGES";
-    const blocking = review.blocking_issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
-    const suggestions = review.non_blocking_suggestions?.map((s) => {
-      const detail = typeof s === "string" ? s : `${s.id || ""} ${s.description || s}`;
-      return `- ${detail}`;
-    }).join("\n") || "";
-    let reviewBody = `Review iteración ${i}: ${status}`;
-    if (blocking) reviewBody += `\n\n**Blocking:**\n${blocking}`;
-    if (suggestions) reviewBody += `\n\n**Suggestions:**\n${suggestions}`;
+    await dispatchReview({
+      repo, prNumber: session.becaria_pr_number,
+      event: reviewEvent, body: reviewBody, agent: "Reviewer", becariaConfig: bc
+    });
+
     await dispatchComment({
       repo, prNumber: session.becaria_pr_number, agent: "Reviewer",
-      body: reviewBody, becariaConfig: bc
+      body: buildReviewCommentBody(review, i), becariaConfig: bc
     });
 
     logger.info(`BecarIA: dispatched review for PR #${session.becaria_pr_number}`);
@@ -1095,6 +1113,24 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
 }
 
+async function tryAutoStartBoard(config, logger, emitter, eventBase) {
+  if (!config.hu_board?.enabled || !config.hu_board?.auto_start) return;
+
+  try {
+    const { startBoard } = await import("./commands/board.js");
+    const boardPort = config.hu_board.port || 4000;
+    const boardResult = await startBoard(boardPort);
+    const status = boardResult.alreadyRunning ? "already running" : "started";
+    logger.info(`HU Board ${status} at ${boardResult.url}`);
+    emitProgress(emitter, makeEvent("board:started", eventBase, {
+      message: `HU Board running at ${boardResult.url}`,
+      detail: { pid: boardResult.pid, port: boardPort }
+    }));
+  } catch (err) {
+    logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
+  }
+}
+
 async function initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags }) {
   const ctx = new PipelineContext({ config, session: null, logger, emitter, task, flags });
   ctx.askQuestion = askQuestion;
@@ -1127,24 +1163,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   }
 
   // --- HU Board auto-start ---
-  if (config.hu_board?.enabled && config.hu_board?.auto_start) {
-    try {
-      const { startBoard } = await import("./commands/board.js");
-      const boardPort = config.hu_board.port || 4000;
-      const boardResult = await startBoard(boardPort);
-      if (boardResult.alreadyRunning) {
-        logger.info(`HU Board already running at ${boardResult.url}`);
-      } else {
-        logger.info(`HU Board started at ${boardResult.url}`);
-      }
-      emitProgress(emitter, makeEvent("board:started", ctx.eventBase, {
-        message: `HU Board running at ${boardResult.url}`,
-        detail: { pid: boardResult.pid, port: boardPort }
-      }));
-    } catch (err) {
-      logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
-    }
-  }
+  await tryAutoStartBoard(config, logger, emitter, ctx.eventBase);
 
   // --- Product Context ---
   const ctxProjectDir = config.projectDir || process.cwd();

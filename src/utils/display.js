@@ -219,9 +219,14 @@ function printSessionGit(git) {
   }
 }
 
+function isBudgetUnavailable(budget) {
+  return budget.usage_available === false ||
+    (budget.total_tokens === 0 && budget.total_cost_usd === 0 && Object.keys(budget.breakdown_by_role || {}).length > 0);
+}
+
 function printSessionBudget(budget) {
   if (!budget) return;
-  if (budget.usage_available === false || (budget.total_tokens === 0 && budget.total_cost_usd === 0 && Object.keys(budget.breakdown_by_role || {}).length > 0)) {
+  if (isBudgetUnavailable(budget)) {
     console.log(`  ${ANSI.dim}\ud83d\udcb0 Budget: N/A (provider does not report usage)${ANSI.reset}`);
     return;
   }
@@ -381,12 +386,13 @@ const EVENT_HANDLERS = {
   },
 
   "budget:update": (event, icon) => {
-    const total = Number(event.detail?.total_cost_usd || 0);
-    const totalTokens = Number(event.detail?.total_tokens || 0);
-    const max = Number(event.detail?.max_budget_usd);
-    const pct = Number(event.detail?.pct_used ?? 0);
-    const warn = Number(event.detail?.warn_threshold_pct ?? 80);
-    const hasEntries = (event.detail?.entries?.length ?? 0) > 0 || Object.keys(event.detail?.breakdown_by_role || {}).length > 0;
+    const d = event.detail || {};
+    const total = Number(d.total_cost_usd || 0);
+    const totalTokens = Number(d.total_tokens || 0);
+    const max = Number(d.max_budget_usd);
+    const pct = Number(d.pct_used ?? 0);
+    const warn = Number(d.warn_threshold_pct ?? 80);
+    const hasEntries = (d.entries?.length ?? 0) > 0 || Object.keys(d.breakdown_by_role || {}).length > 0;
     if (hasEntries && totalTokens === 0 && total === 0) {
       console.log(`  \u251c\u2500 ${icon} Budget: ${ANSI.dim}N/A (provider does not report usage)${ANSI.reset}`);
       return;

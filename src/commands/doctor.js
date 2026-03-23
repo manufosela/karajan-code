@@ -162,23 +162,23 @@ async function checkBecariaSecrets() {
     const { detectRepo } = await import("../becaria/repo.js");
     const repo = await detectRepo();
     if (!repo) return null;
+
     const secretsRes = await runCommand("gh", ["api", `repos/${repo}/actions/secrets`, "--jq", ".secrets[].name"]);
     if (secretsRes.exitCode !== 0) return null;
+
     const names = new Set(secretsRes.stdout.split("\n").map((s) => s.trim()));
     const hasAppId = names.has("BECARIA_APP_ID");
     const hasKey = names.has("BECARIA_APP_PRIVATE_KEY");
     const secretsOk = hasAppId && hasKey;
+    const missing = [!hasAppId && "BECARIA_APP_ID", !hasKey && "BECARIA_APP_PRIVATE_KEY"].filter(Boolean).join(" ");
     return {
       name: "becaria:secrets",
       label: "BecarIA: GitHub secrets",
       ok: secretsOk,
-      detail: secretsOk
-        ? "BECARIA_APP_ID + BECARIA_APP_PRIVATE_KEY found"
-        : `Missing: ${[!hasAppId && "BECARIA_APP_ID", !hasKey && "BECARIA_APP_PRIVATE_KEY"].filter(Boolean).join(" ")}`,
+      detail: secretsOk ? "BECARIA_APP_ID + BECARIA_APP_PRIVATE_KEY found" : `Missing: ${missing}`,
       fix: secretsOk ? null : "Add BECARIA_APP_ID and BECARIA_APP_PRIVATE_KEY as GitHub repository secrets"
     };
   } catch {
-    // Skip secrets check if we can't access the API
     return null;
   }
 }
@@ -205,33 +205,15 @@ async function checkBecariaInfra(config) {
 }
 
 async function checkRtk() {
+  const NOT_FOUND_DETAIL = "Not found — install for 60-90% token savings: brew install rtk";
+  let detail = NOT_FOUND_DETAIL;
   try {
     const res = await runCommand("rtk", ["--version"]);
     if (res.exitCode === 0) {
-      return {
-        name: "rtk",
-        label: "RTK (Rust Token Killer)",
-        ok: true,
-        detail: `${res.stdout.trim()} — token savings active`,
-        fix: null
-      };
+      detail = `${res.stdout.trim()} — token savings active`;
     }
-    return {
-      name: "rtk",
-      label: "RTK (Rust Token Killer)",
-      ok: true,
-      detail: "Not found — install for 60-90% token savings: brew install rtk",
-      fix: null
-    };
-  } catch {
-    return {
-      name: "rtk",
-      label: "RTK (Rust Token Killer)",
-      ok: true,
-      detail: "Not found — install for 60-90% token savings: brew install rtk",
-      fix: null
-    };
-  }
+  } catch { /* not installed */ }
+  return { name: "rtk", label: "RTK (Rust Token Killer)", ok: true, detail, fix: null };
 }
 
 async function checkRuleFiles(config) {
