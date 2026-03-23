@@ -434,10 +434,10 @@
     function togglePause(btn) {
       demoPaused = !demoPaused;
       btn.textContent = demoPaused ? '\u25b6' : '\u23f8';
-      if (!demoPaused && demoAddNext) {
-        demoAddNext();
-      } else if (demoPaused && demoTimer) {
-        clearTimeout(demoTimer);
+      if (demoPaused) {
+        if (demoTimer) clearTimeout(demoTimer);
+      } else if (demoAddNext) {
+        demoTimer = setTimeout(demoAddNext, BASE_DELAY / demoSpeed);
       }
     }
 
@@ -465,7 +465,8 @@
 
       var i = 0;
       function addNextLine() {
-        if (demoPaused) { demoAddNext = addNextLine; return; }
+        demoAddNext = addNextLine;
+        if (demoPaused) return;
         if (i >= DEMO_LINES.length) {
           demoAddNext = null;
           demoTimer = setTimeout(runDemo, 6000);
