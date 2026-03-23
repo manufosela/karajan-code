@@ -134,36 +134,18 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   );
 
   if (!testerOutput.ok) {
-    const maxTesterRetries = config.session?.max_tester_retries ?? 1;
-    session.tester_retry_count = (session.tester_retry_count || 0) + 1;
-    await saveSession(session);
-
-    if (session.tester_retry_count >= maxTesterRetries) {
-      const solomonResult = await invokeSolomon({
-        config, logger, emitter, eventBase, stage: "tester", askQuestion, session, iteration,
-        conflict: {
-          stage: "tester",
-          task,
-          diff,
-          iterationCount: session.tester_retry_count,
-          maxIterations: maxTesterRetries,
-          history: [{ agent: "tester", feedback: testerOutput.summary }]
-        }
-      });
-
-      if (solomonResult.action === "pause") {
-        return { action: "pause", result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "tester_fail_fast" } };
-      }
-      if (solomonResult.action === "subtask") {
-        return { action: "pause", result: { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "tester_subtask" } };
-      }
-      // Solomon approved — proceed to next stage
-      return { action: "ok" };
-    }
-
-    session.last_reviewer_feedback = `Tester feedback: ${testerOutput.summary}`;
-    await saveSession(session);
-    return { action: "continue" };
+    // Tester findings are advisory when reviewer already approved.
+    // Auto-continue with a warning — no human escalation needed.
+    logger.warn(`Tester failed (advisory): ${testerOutput.summary}`);
+    emitProgress(
+      emitter,
+      makeEvent("tester:auto-continue", { ...eventBase, stage: "tester" }, {
+        status: "warn",
+        message: `Tester issues are advisory (reviewer approved), continuing: ${testerOutput.summary}`,
+        detail: { summary: testerOutput.summary, auto_continued: true }
+      })
+    );
+    return { action: "ok", stageResult: { ok: false, summary: testerOutput.summary || "Tester issues (advisory)", auto_continued: true } };
   }
 
   session.tester_retry_count = 0;
@@ -212,36 +194,46 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
   );
 
   if (!securityOutput.ok) {
-    const maxSecurityRetries = config.session?.max_security_retries ?? 1;
-    session.security_retry_count = (session.security_retry_count || 0) + 1;
-    await saveSession(session);
+    // Check if the security finding is critical (SQL injection, RCE, auth bypass, etc.)
+    const summary = (securityOutput.summary || "").toLowerCase();
+    const criticalPatterns = ["injection", "rce", "remote code", "auth bypass", "authentication bypass", "privilege escalation", "credentials exposed", "secret", "critical vulnerability"];
+    const isCritical = criticalPatterns.some((p) => summary.includes(p));
 
-    if (session.security_retry_count >= maxSecurityRetries) {
+    if (isCritical) {
+      // Critical security issue — escalate to Solomon/human
+      logger.warn(`Critical security finding — escalating: ${securityOutput.summary}`);
       const solomonResult = await invokeSolomon({
         config, logger, emitter, eventBase, stage: "security", askQuestion, session, iteration,
         conflict: {
           stage: "security",
           task,
           diff,
-          iterationCount: session.security_retry_count,
-          maxIterations: maxSecurityRetries,
+          iterationCount: 1,
+          maxIterations: 1,
           history: [{ agent: "security", feedback: securityOutput.summary }]
         }
       });
 
       if (solomonResult.action === "pause") {
-        return { action: "pause", result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "security_fail_fast" } };
+        return { action: "pause", result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "security_critical" } };
       }
       if (solomonResult.action === "subtask") {
         return { action: "pause", result: { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "security_subtask" } };
       }
-      // Solomon approved — proceed
       return { action: "ok" };
     }
 
-    session.last_reviewer_feedback = `Security feedback: ${securityOutput.summary}`;
-    await saveSession(session);
-    return { action: "continue" };
+    // Non-critical security findings are advisory when reviewer already approved.
+    logger.warn(`Security failed (advisory): ${securityOutput.summary}`);
+    emitProgress(
+      emitter,
+      makeEvent("security:auto-continue", { ...eventBase, stage: "security" }, {
+        status: "warn",
+        message: `Security issues are advisory (reviewer approved), continuing: ${securityOutput.summary}`,
+        detail: { summary: securityOutput.summary, auto_continued: true }
+      })
+    );
+    return { action: "ok", stageResult: { ok: false, summary: securityOutput.summary || "Security issues (advisory)", auto_continued: true } };
   }
 
   session.security_retry_count = 0;

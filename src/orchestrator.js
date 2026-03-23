@@ -313,22 +313,60 @@ async function tryBecariaComment({ config, session, logger, agent, body }) {
   } catch { /* non-blocking */ }
 }
 
-async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes, i, config, budgetTracker, stageResults, emitter, eventBase, session, budgetSummary }) {
+function detectCheckpointProgress(session, lastCheckpointSnapshot) {
+  if (!lastCheckpointSnapshot) return true; // First checkpoint — assume progress
+  const currentIteration = session.reviewer_retry_count ?? 0;
+  const currentStages = Object.keys(session.resolved_policies || {}).length;
+  const currentCheckpoints = (session.checkpoints || []).length;
+
+  const iterationAdvanced = currentIteration !== lastCheckpointSnapshot.iteration;
+  const stagesChanged = currentStages !== lastCheckpointSnapshot.stagesCount;
+  const checkpointsChanged = currentCheckpoints !== lastCheckpointSnapshot.checkpointsCount;
+
+  return iterationAdvanced || stagesChanged || checkpointsChanged;
+}
+
+function takeCheckpointSnapshot(session) {
+  return {
+    iteration: session.reviewer_retry_count ?? 0,
+    stagesCount: Object.keys(session.resolved_policies || {}).length,
+    checkpointsCount: (session.checkpoints || []).length
+  };
+}
+
+async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes, i, config, budgetTracker, stageResults, emitter, eventBase, session, budgetSummary, lastCheckpointSnapshot }) {
   if (checkpointDisabled || !askQuestion || (Date.now() - lastCheckpointAt) < checkpointIntervalMs) {
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt };
+    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt, lastCheckpointSnapshot };
   }
 
   const elapsedStr = elapsedMinutes.toFixed(1);
+  const stagesCompleted = Object.keys(stageResults).join(", ") || "none";
+
+  // Auto-continue if progress detected since last checkpoint
+  const hasProgress = detectCheckpointProgress(session, lastCheckpointSnapshot);
+  const newSnapshot = takeCheckpointSnapshot(session);
+
+  if (hasProgress) {
+    emitProgress(
+      emitter,
+      makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
+        message: `Checkpoint: progress detected, continuing (${elapsedStr} min elapsed)`,
+        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true }
+      })
+    );
+    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now(), lastCheckpointSnapshot: newSnapshot };
+  }
+
+  // No progress — ask human
   const iterInfo = `${i - 1}/${config.max_iterations} iterations completed`;
   const budgetInfo = budgetTracker.total().cost_usd > 0 ? ` | Budget: $${budgetTracker.total().cost_usd.toFixed(2)}` : "";
-  const stagesCompleted = Object.keys(stageResults).join(", ") || "none";
-  const checkpointMsg = `Checkpoint — ${elapsedStr} min elapsed | ${iterInfo}${budgetInfo} | Stages completed: ${stagesCompleted}. What would you like to do?`;
+  const checkpointMsg = `Checkpoint — ${elapsedStr} min elapsed | ${iterInfo}${budgetInfo} | Stages completed: ${stagesCompleted}. No progress since last checkpoint. What would you like to do?`;
 
   emitProgress(
     emitter,
     makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
-      message: `Interactive checkpoint at ${elapsedStr} min`,
-      detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted }
+      message: `Interactive checkpoint at ${elapsedStr} min (stalled)`,
+      detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: false }
     })
   );
 
@@ -354,7 +392,9 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
     return { action: "stop", result: { approved: false, sessionId: session.id, reason: "user_stopped", elapsed_minutes: Number(elapsedStr) } };
   }
 
-  return parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config });
+  const parsed = parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config });
+  parsed.lastCheckpointSnapshot = newSnapshot;
+  return parsed;
 }
 
 function parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config }) {
@@ -1159,6 +1199,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const checkpointIntervalMs = (ctx.config.session.checkpoint_interval_minutes ?? 5) * 60 * 1000;
   let lastCheckpointAt = Date.now();
   let checkpointDisabled = false;
+  let lastCheckpointSnapshot = null;
 
   let i = 0;
   while (i < ctx.config.max_iterations) {
@@ -1167,11 +1208,12 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     const cpResult = await handleCheckpoint({
       checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes,
-      i, config: ctx.config, budgetTracker: ctx.budgetTracker, stageResults: ctx.stageResults, emitter, eventBase: ctx.eventBase, session: ctx.session, budgetSummary: ctx.budgetSummary
+      i, config: ctx.config, budgetTracker: ctx.budgetTracker, stageResults: ctx.stageResults, emitter, eventBase: ctx.eventBase, session: ctx.session, budgetSummary: ctx.budgetSummary, lastCheckpointSnapshot
     });
     if (cpResult.action === "stop") return cpResult.result;
     checkpointDisabled = cpResult.checkpointDisabled;
     lastCheckpointAt = cpResult.lastCheckpointAt;
+    if (cpResult.lastCheckpointSnapshot !== undefined) lastCheckpointSnapshot = cpResult.lastCheckpointSnapshot;
 
     await checkSessionTimeout({ askQuestion, elapsedMinutes, config: ctx.config, session: ctx.session, emitter, eventBase: ctx.eventBase, i, budgetSummary: ctx.budgetSummary });
     await checkBudgetExceeded({ budgetTracker: ctx.budgetTracker, config: ctx.config, session: ctx.session, emitter, eventBase: ctx.eventBase, i, budgetLimit: ctx.budgetLimit, budgetSummary: ctx.budgetSummary });

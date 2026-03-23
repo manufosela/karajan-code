@@ -121,6 +121,10 @@ export class BudgetTracker {
     return this.total().cost_usd > n;
   }
 
+  hasUsageData() {
+    return this.entries.length > 0 && (this.total().tokens_in > 0 || this.total().tokens_out > 0 || this.total().cost_usd > 0);
+  }
+
   summary() {
     const totals = this.total();
     const byRole = {};
@@ -133,7 +137,8 @@ export class BudgetTracker {
       total_tokens: totals.tokens_in + totals.tokens_out,
       total_cost_usd: totals.cost_usd,
       breakdown_by_role: byRole,
-      entries: [...this.entries]
+      entries: [...this.entries],
+      usage_available: this.hasUsageData()
     };
   }
 

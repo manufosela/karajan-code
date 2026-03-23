@@ -221,6 +221,10 @@ function printSessionGit(git) {
 
 function printSessionBudget(budget) {
   if (!budget) return;
+  if (budget.usage_available === false || (budget.total_tokens === 0 && budget.total_cost_usd === 0 && Object.keys(budget.breakdown_by_role || {}).length > 0)) {
+    console.log(`  ${ANSI.dim}\ud83d\udcb0 Budget: N/A (provider does not report usage)${ANSI.reset}`);
+    return;
+  }
   console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${budget.total_tokens ?? 0}${ANSI.reset}`);
   console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: $${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
   for (const [role, metrics] of Object.entries(budget.breakdown_by_role || {})) {
@@ -376,9 +380,15 @@ const EVENT_HANDLERS = {
 
   "budget:update": (event, icon) => {
     const total = Number(event.detail?.total_cost_usd || 0);
+    const totalTokens = Number(event.detail?.total_tokens || 0);
     const max = Number(event.detail?.max_budget_usd);
     const pct = Number(event.detail?.pct_used ?? 0);
     const warn = Number(event.detail?.warn_threshold_pct ?? 80);
+    const hasEntries = (event.detail?.entries?.length ?? 0) > 0 || Object.keys(event.detail?.breakdown_by_role || {}).length > 0;
+    if (hasEntries && totalTokens === 0 && total === 0) {
+      console.log(`  \u251c\u2500 ${icon} Budget: ${ANSI.dim}N/A (provider does not report usage)${ANSI.reset}`);
+      return;
+    }
     const color = budgetColor(max, pct, warn);
     if (Number.isFinite(max) && max >= 0) {
       console.log(`  \u251c\u2500 ${icon} Budget: ${color}$${total.toFixed(2)} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}`);
