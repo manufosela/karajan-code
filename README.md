@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/karajan-code-logo-small.png" alt="Karajan Code" width="200">
+  <img src="docs/karajan-code-logo.svg" alt="Karajan Code" width="180">
 </p>
 
 <h1 align="center">Karajan Code</h1>
