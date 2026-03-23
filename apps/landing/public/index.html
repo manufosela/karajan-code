@@ -118,7 +118,21 @@
       padding: 1rem 1.5rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.7;
       max-height: 480px; overflow-y: auto; scroll-behavior: smooth;
       scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+      min-height: 0;
     }
+    .speed-controls {
+      display: flex; justify-content: flex-end; gap: 0.25rem;
+      padding: 0.4rem 1rem; background: rgba(30,39,64,0.5);
+      border-top: 1px solid var(--border);
+    }
+    .speed-btn {
+      padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 4px;
+      background: transparent; color: var(--text-dim); font-family: var(--mono);
+      font-size: 0.65rem; cursor: pointer; transition: all 0.2s;
+    }
+    .speed-btn.active { background: rgba(99,102,241,0.2); border-color: var(--accent-indigo); color: var(--accent-indigo); }
+    .speed-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+    .speed-btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 1px; }
     .terminal-body .role { color: var(--accent-purple); }
 
     .demo-line {
@@ -225,6 +239,12 @@
         <div class="terminal-dot g"></div>
       </div>
       <div class="terminal-body" id="demo-terminal" aria-label="Animated demo of Karajan Code pipeline output">
+      </div>
+      <div class="speed-controls" aria-label="Playback speed">
+        <button class="speed-btn" onclick="setSpeed(0.5, this)">0.5x</button>
+        <button class="speed-btn active" onclick="setSpeed(1, this)">1x</button>
+        <button class="speed-btn" onclick="setSpeed(1.5, this)">1.5x</button>
+        <button class="speed-btn" onclick="setSpeed(2, this)">2x</button>
       </div>
     </div>
     <noscript>
@@ -404,13 +424,22 @@
     ];
 
     var demoTimer = null;
+    var demoSpeed = 1;
+    var BASE_DELAY = 1200;
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function setSpeed(speed, btn) {
+      demoSpeed = speed;
+      document.querySelectorAll('.speed-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      if (demoTimer) { clearTimeout(demoTimer); }
+      runDemo();
+    }
 
     function runDemo() {
       var terminal = document.getElementById('demo-terminal');
       if (!terminal) return;
       terminal.innerHTML = '';
-      var delayMs = reducedMotion ? 0 : 600;
 
       if (reducedMotion) {
         DEMO_LINES.forEach(function(line) {
@@ -426,7 +455,7 @@
       var i = 0;
       function addNextLine() {
         if (i >= DEMO_LINES.length) {
-          demoTimer = setTimeout(function() { runDemo(); }, 5000);
+          demoTimer = setTimeout(runDemo, 6000);
           return;
         }
         var line = DEMO_LINES[i];
@@ -436,7 +465,7 @@
         terminal.appendChild(div);
         terminal.scrollTop = terminal.scrollHeight;
         i++;
-        demoTimer = setTimeout(addNextLine, delayMs);
+        demoTimer = setTimeout(addNextLine, BASE_DELAY / demoSpeed);
       }
       addNextLine();
     }
