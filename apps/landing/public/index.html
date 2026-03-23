@@ -240,7 +240,8 @@
       </div>
       <div class="terminal-body" id="demo-terminal" aria-label="Animated demo of Karajan Code pipeline output">
       </div>
-      <div class="speed-controls" aria-label="Playback speed">
+      <div class="speed-controls" aria-label="Playback controls">
+        <button class="speed-btn" id="pause-btn" onclick="togglePause(this)">&#10074;&#10074;</button>
         <button class="speed-btn" onclick="setSpeed(0.5, this)">0.5x</button>
         <button class="speed-btn active" onclick="setSpeed(1, this)">1x</button>
         <button class="speed-btn" onclick="setSpeed(1.5, this)">1.5x</button>
@@ -425,12 +426,24 @@
 
     var demoTimer = null;
     var demoSpeed = 1;
+    var demoPaused = false;
+    var demoAddNext = null;
     var BASE_DELAY = 1200;
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    function togglePause(btn) {
+      demoPaused = !demoPaused;
+      btn.textContent = demoPaused ? '\u25b6' : '\u23f8';
+      if (!demoPaused && demoAddNext) {
+        demoAddNext();
+      } else if (demoPaused && demoTimer) {
+        clearTimeout(demoTimer);
+      }
+    }
+
     function setSpeed(speed, btn) {
       demoSpeed = speed;
-      document.querySelectorAll('.speed-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.speed-btn:not(#pause-btn)').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
     }
 
@@ -452,7 +465,9 @@
 
       var i = 0;
       function addNextLine() {
+        if (demoPaused) { demoAddNext = addNextLine; return; }
         if (i >= DEMO_LINES.length) {
+          demoAddNext = null;
           demoTimer = setTimeout(runDemo, 6000);
           return;
         }
