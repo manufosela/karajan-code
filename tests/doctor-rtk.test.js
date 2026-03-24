@@ -99,7 +99,7 @@ describe("doctor RTK check", () => {
     expect(rtkCheck).toBeDefined();
     expect(rtkCheck.ok).toBe(true);
     expect(rtkCheck.detail).toContain("Not found");
-    expect(rtkCheck.detail).toContain("brew install rtk");
+    expect(rtkCheck.detail).toContain("token savings");
     expect(rtkCheck.fix).toBeNull();
   });
 

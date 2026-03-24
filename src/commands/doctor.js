@@ -8,6 +8,7 @@ import { isSonarReachable } from "../sonar/manager.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { ensureGitRepo } from "../utils/git.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
+import { getInstallCommand } from "../utils/os-detect.js";
 
 function getPackageVersion() {
   const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../package.json");
@@ -205,7 +206,7 @@ async function checkBecariaInfra(config) {
 }
 
 async function checkRtk() {
-  const NOT_FOUND_DETAIL = "Not found — install for 60-90% token savings: brew install rtk";
+  const NOT_FOUND_DETAIL = `Not found — install for 60-90% token savings: ${getInstallCommand("rtk")}`;
   let detail = NOT_FOUND_DETAIL;
   try {
     const res = await runCommand("rtk", ["--version"]);

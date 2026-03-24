@@ -8,6 +8,7 @@ import { getKarajanHome } from "../utils/paths.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
+import { getInstallCommand } from "../utils/os-detect.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -292,7 +293,7 @@ export async function initCommand({ logger, flags = {} }) {
   if (!hasRtk) {
     logger.info("");
     logger.info("RTK (Rust Token Killer) can reduce token usage by 60-90%.");
-    logger.info("  Install: brew install rtk && rtk init --global");
+    logger.info(`  Install: ${getInstallCommand("rtk")}`);
   }
 
   await setupSonarQube(config, logger);

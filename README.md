@@ -116,7 +116,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 | **Claude** | `claude` | `npm install -g @anthropic-ai/claude-code` |
 | **Codex** | `codex` | `npm install -g @openai/codex` |
 | **Gemini** | `gemini` | See [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
-| **Aider** | `aider` | `pip install aider-chat` |
+| **Aider** | `aider` | `pipx install aider-chat` (or `pip3 install aider-chat`) |
 | **OpenCode** | `opencode` | See [OpenCode docs](https://github.com/nicepkg/opencode) |
 
 Mix and match. Use Claude as coder and Codex as reviewer. Karajan auto-detects installed agents during `kj init`.

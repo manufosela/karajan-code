@@ -124,7 +124,7 @@ Guias completas: [`docs/multi-instance.md`](multi-instance.md) | [`docs/install-
 | **Claude** | `claude` | `npm install -g @anthropic-ai/claude-code` |
 | **Codex** | `codex` | `npm install -g @openai/codex` |
 | **Gemini** | `gemini` | Ver [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
-| **Aider** | `aider` | `pip install aider-chat` |
+| **Aider** | `aider` | `pipx install aider-chat` (o `pip3 install aider-chat`) |
 
 `kj init` auto-detecta los agentes instalados. Si solo hay uno disponible, se asigna a todos los roles automaticamente.
 

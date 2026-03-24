@@ -1,12 +1,13 @@
 import { runCommand } from "./process.js";
 import { resolveBin } from "../agents/resolve-bin.js";
+import { getInstallCommand } from "./os-detect.js";
 
 const KNOWN_AGENTS = [
-  { name: "claude", install: "npm install -g @anthropic-ai/claude-code" },
-  { name: "codex", install: "npm install -g @openai/codex" },
-  { name: "gemini", install: "npm install -g @google/gemini-cli (or check https://geminicli.com/docs/get-started/installation/)" },
-  { name: "aider", install: "pip install aider-chat" },
-  { name: "opencode", install: "curl -fsSL https://opencode.ai/install | bash (or see https://opencode.ai)" }
+  { name: "claude", install: getInstallCommand("claude") },
+  { name: "codex", install: getInstallCommand("codex") },
+  { name: "gemini", install: getInstallCommand("gemini") },
+  { name: "aider", install: getInstallCommand("aider") },
+  { name: "opencode", install: getInstallCommand("opencode") }
 ];
 
 export async function checkBinary(name, versionArg = "--version") {
