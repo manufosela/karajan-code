@@ -177,7 +177,8 @@ function createBudgetManager({ config, emitter, eventBase }) {
           max_budget_usd: budgetLimit,
           warn_threshold_pct: warnThresholdPct,
           pct_used: Number(pctUsed.toFixed(2)),
-          remaining_usd: budgetTracker.remaining(budgetLimit)
+          remaining_usd: budgetTracker.remaining(budgetLimit),
+          executorType: "system"
         }
       })
     );
@@ -379,7 +380,7 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
       emitter,
       makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
         message: `Checkpoint: progress detected, continuing (${elapsedStr} min elapsed)`,
-        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true }
+        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true, executorType: "system" }
       })
     );
     return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now(), lastCheckpointSnapshot: newSnapshot };
@@ -956,7 +957,7 @@ async function runGuardStages({ config, logger, emitter, eventBase, session, ite
       const warnings = outputResult.violations.filter(v => v.severity === "warning");
       emitProgress(emitter, makeEvent("guard:output", { ...eventBase, stage: "guard" }, {
         message: `Output guard: ${critical.length} critical, ${warnings.length} warnings`,
-        detail: { violations: outputResult.violations }
+        detail: { violations: outputResult.violations, executorType: "local" }
       }));
       logger.info(`Output guard: ${outputResult.violations.length} violation(s) found`);
       for (const v of outputResult.violations) {
@@ -983,7 +984,7 @@ async function runGuardStages({ config, logger, emitter, eventBase, session, ite
     if (!perfResult.skipped && perfResult.violations.length > 0) {
       emitProgress(emitter, makeEvent("guard:perf", { ...eventBase, stage: "guard" }, {
         message: `Perf guard: ${perfResult.violations.length} issue(s)`,
-        detail: { violations: perfResult.violations }
+        detail: { violations: perfResult.violations, executorType: "local" }
       }));
       logger.info(`Perf guard: ${perfResult.violations.length} issue(s) found`);
       for (const v of perfResult.violations) {
@@ -1165,7 +1166,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
     logger.info(`RTK detected (${rtkResult.version}) — instructing agents to prefix Bash commands with rtk`);
     emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
       message: "RTK detected — agent commands will use token optimization",
-      detail: { version: rtkResult.version }
+      detail: { version: rtkResult.version, executorType: "local" }
     }));
   }
 

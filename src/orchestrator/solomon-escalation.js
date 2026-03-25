@@ -9,11 +9,12 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     return escalateToHuman({ askQuestion, session, emitter, eventBase, stage, conflict, iteration });
   }
 
+  const solomonProvider = config?.roles?.solomon?.provider || "gemini";
   emitProgress(
     emitter,
     makeEvent("solomon:start", { ...eventBase, stage: "solomon" }, {
       message: `Solomon arbitrating ${stage} conflict`,
-      detail: { conflictStage: stage }
+      detail: { conflictStage: stage, provider: solomonProvider, executorType: "agent" }
     })
   );
 
@@ -41,7 +42,7 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
       message: ruling.ok
         ? `Solomon ruling: ${ruling.result?.ruling || "unknown"}`
         : `Solomon failed: ${(solomonError || ruling.summary || "unknown error").slice(0, 200)}`,
-      detail: ruling.result
+      detail: { ...ruling.result, provider: solomonProvider, executorType: "agent" }
     })
   );
 

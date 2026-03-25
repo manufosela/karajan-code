@@ -98,7 +98,8 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   emitProgress(
     emitter,
     makeEvent("tester:start", { ...eventBase, stage: "tester" }, {
-      message: "Tester evaluating test quality"
+      message: "Tester evaluating test quality",
+      detail: { provider: config?.roles?.tester?.provider || config?.roles?.coder?.provider || config?.coder || "claude", executorType: "agent" }
     })
   );
 
@@ -126,11 +127,13 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
     attempts: attempts.length > 1 ? attempts : undefined
   });
 
+  const testerProvider = provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("tester:end", { ...eventBase, stage: "tester" }, {
       status: testerOutput.ok ? "ok" : "fail",
-      message: testerOutput.ok ? "Tester passed" : `Tester: ${testerOutput.summary}`
+      message: testerOutput.ok ? "Tester passed" : `Tester: ${testerOutput.summary}`,
+      detail: { ok: testerOutput.ok, summary: testerOutput.summary, provider: testerProvider, executorType: "agent" }
     })
   );
 
@@ -143,7 +146,7 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
       makeEvent("tester:auto-continue", { ...eventBase, stage: "tester" }, {
         status: "warn",
         message: `Tester issues are advisory (reviewer approved), continuing: ${testerOutput.summary}`,
-        detail: { summary: testerOutput.summary, auto_continued: true }
+        detail: { summary: testerOutput.summary, auto_continued: true, provider: testerProvider, executorType: "agent" }
       })
     );
     return { action: "ok", stageResult: { ok: false, summary: testerOutput.summary || "Tester issues (advisory)", auto_continued: true } };
@@ -158,7 +161,8 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
   emitProgress(
     emitter,
     makeEvent("security:start", { ...eventBase, stage: "security" }, {
-      message: "Security auditing code"
+      message: "Security auditing code",
+      detail: { provider: config?.roles?.security?.provider || config?.roles?.coder?.provider || config?.coder || "claude", executorType: "agent" }
     })
   );
 
@@ -186,11 +190,13 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
     attempts: attempts.length > 1 ? attempts : undefined
   });
 
+  const securityProvider = provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("security:end", { ...eventBase, stage: "security" }, {
       status: securityOutput.ok ? "ok" : "fail",
-      message: securityOutput.ok ? "Security audit passed" : `Security: ${securityOutput.summary}`
+      message: securityOutput.ok ? "Security audit passed" : `Security: ${securityOutput.summary}`,
+      detail: { ok: securityOutput.ok, summary: securityOutput.summary, provider: securityProvider, executorType: "agent" }
     })
   );
 
@@ -246,7 +252,8 @@ export async function runImpeccableStage({ config, logger, emitter, eventBase, s
   emitProgress(
     emitter,
     makeEvent("impeccable:start", { ...eventBase, stage: "impeccable" }, {
-      message: "Impeccable auditing frontend design quality"
+      message: "Impeccable auditing frontend design quality",
+      detail: { provider: config?.roles?.impeccable?.provider || coderRole.provider, executorType: "agent" }
     })
   );
 
@@ -277,13 +284,15 @@ export async function runImpeccableStage({ config, logger, emitter, eventBase, s
   });
 
   const verdict = impeccableOutput.result?.verdict || "APPROVED";
+  const impeccableProvider = config?.roles?.impeccable?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("impeccable:end", { ...eventBase, stage: "impeccable" }, {
       status: impeccableOutput.ok ? "ok" : "fail",
       message: impeccableOutput.ok
         ? (verdict === "IMPROVED" ? "Impeccable applied design fixes" : "Impeccable audit passed")
-        : `Impeccable: ${impeccableOutput.summary}`
+        : `Impeccable: ${impeccableOutput.summary}`,
+      detail: { provider: impeccableProvider, executorType: "agent" }
     })
   );
 
@@ -296,7 +305,8 @@ export async function runFinalAuditStage({ config, logger, emitter, eventBase, s
   emitProgress(
     emitter,
     makeEvent("audit:start", { ...eventBase, stage: "audit" }, {
-      message: "Final audit — verifying code quality"
+      message: "Final audit — verifying code quality",
+      detail: { provider: config?.roles?.audit?.provider || config?.roles?.coder?.provider || config?.coder || "claude", executorType: "agent" }
     })
   );
 
@@ -324,6 +334,7 @@ export async function runFinalAuditStage({ config, logger, emitter, eventBase, s
     attempts: attempts.length > 1 ? attempts : undefined
   });
 
+  const auditProvider = provider || coderRole.provider;
   if (!auditOutput.ok) {
     // Audit agent failed to run — treat as advisory, don't block pipeline
     logger.warn(`Audit agent error (advisory): ${auditOutput.summary}`);
@@ -331,7 +342,8 @@ export async function runFinalAuditStage({ config, logger, emitter, eventBase, s
       emitter,
       makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
         status: "warn",
-        message: `Audit: agent error (advisory), continuing — ${auditOutput.summary}`
+        message: `Audit: agent error (advisory), continuing — ${auditOutput.summary}`,
+        detail: { provider: auditProvider, executorType: "agent" }
       })
     );
     return { action: "ok", stageResult: { ok: false, summary: auditOutput.summary || "Audit agent error (advisory)", auto_continued: true } };
@@ -374,7 +386,8 @@ export async function runFinalAuditStage({ config, logger, emitter, eventBase, s
       emitter,
       makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
         status: "fail",
-        message: `Audit: ${criticalCount + highCount} issue(s) found, sending back to coder`
+        message: `Audit: ${criticalCount + highCount} issue(s) found, sending back to coder`,
+        detail: { provider: auditProvider, executorType: "agent" }
       })
     );
 
@@ -392,7 +405,8 @@ export async function runFinalAuditStage({ config, logger, emitter, eventBase, s
     emitter,
     makeEvent("audit:end", { ...eventBase, stage: "audit" }, {
       status: "ok",
-      message: certifiedMsg
+      message: certifiedMsg,
+      detail: { provider: auditProvider, executorType: "agent" }
     })
   );
 
