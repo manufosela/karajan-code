@@ -102,6 +102,19 @@ vi.mock("../src/sonar/manager.js", () => ({
   isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: false })
+}));
+
+vi.mock("../src/orchestrator/preflight-checks.js", () => ({
+  runPreflightChecks: vi.fn().mockResolvedValue({ ok: true, checks: [], configOverrides: {} })
+}));
+
+vi.mock("../src/utils/agent-detect.js", () => ({
+  checkBinary: vi.fn().mockResolvedValue({ ok: true }),
+  isHostAgent: vi.fn().mockReturnValue(false)
+}));
+
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockResolvedValue("role instructions"),
@@ -130,6 +143,29 @@ describe("reviewer parse resilience", () => {
     const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
     getQualityGateStatus.mockResolvedValue({ status: "OK" });
     getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
+
+    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    detectRtk.mockResolvedValue({ available: false });
+
+    const { runPreflightChecks } = await import("../src/orchestrator/preflight-checks.js");
+    runPreflightChecks.mockResolvedValue({ ok: true, checks: [], configOverrides: {} });
+
+    const { checkBinary, isHostAgent } = await import("../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: true });
+    isHostAgent.mockReturnValue(false);
+
+    const { getUntrackedFiles } = await import("../src/review/diff-generator.js");
+    getUntrackedFiles.mockResolvedValue([]);
+
+    const { detectSonarConfig } = await import("../src/utils/project-detect.js");
+    detectSonarConfig.mockResolvedValue({ configured: false });
+
+    const { shouldBlockByProfile, summarizeIssues } = await import("../src/sonar/enforcer.js");
+    shouldBlockByProfile.mockReturnValue(false);
+    summarizeIssues.mockReturnValue("");
+
+    const { escalateToHuman } = await import("../src/orchestrator/solomon-escalation.js");
+    escalateToHuman.mockResolvedValue({ action: "pause", question: "Human needed" });
 
     const mod = await import("../src/orchestrator.js");
     runFlow = mod.runFlow;
