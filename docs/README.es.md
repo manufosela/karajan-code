@@ -23,39 +23,40 @@
 
 ## Que es Karajan Code?
 
-Karajan Code (`kj`) orquesta multiples agentes de IA a traves de un pipeline automatizado: generacion de codigo, analisis estatico, revision de codigo, testing y auditorias de seguridad — todo en un solo comando.
+Karajan Code (`kj`) orquesta multiples agentes de IA a traves de un pipeline automatizado: generacion de codigo, analisis estatico, revision de codigo, testing y auditorias de seguridad. Todo en un solo comando.
 
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` encadena agentes con quality gates. El coder escribe codigo, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Este bucle se repite hasta que el codigo es aprobado o se alcanza el limite de iteraciones.
 
 **Caracteristicas principales:**
 - **Pipeline multi-agente** con 11 roles configurables
 - **5 agentes de IA soportados**: Claude, Codex, Gemini, Aider, OpenCode
-- **Servidor MCP** con 20 herramientas — usa `kj` desde Claude, Codex o cualquier host compatible con MCP sin salir de tu agente. [Ver configuracion MCP](#servidor-mcp)
-- **Bootstrap obligatorio** — valida prerequisitos del entorno (git, remote, config, agentes, SonarQube) antes de cada ejecucion. Si algo falta, para con instrucciones claras
-- **TDD obligatorio** — se exigen cambios en tests cuando se modifican ficheros fuente
-- **Integracion con SonarQube** — analisis estatico con quality gates (requiere [Docker](#requisitos))
-- **Perfiles de revision** — standard, strict, relaxed, paranoid
-- **Tracking de presupuesto** — monitorizacion de tokens y costes por sesion con `--trace`
-- **Automatizacion Git** — auto-commit, auto-push, auto-PR tras aprobacion
-- **Gestion de sesiones** — pausa/reanudacion con deteccion fail-fast y limpieza automatica de sesiones expiradas
-- **Sistema de plugins** — extiende con agentes custom via `.karajan/plugins/`
-- **Checkpoints interactivos** — en lugar de matar tareas largas, pausa cada 5 minutos con un informe de progreso y te deja decidir: continuar, parar o ajustar el tiempo
-- **Descomposicion de tareas** — triage detecta cuando una tarea debe dividirse y recomienda subtareas; con integracion Planning Game, crea cards vinculadas con bloqueo secuencial
-- **Retry con backoff** — recuperacion automatica ante errores transitorios de API (429, 5xx) con backoff exponencial y jitter
-- **Pipeline stage tracker** — vista de progreso acumulativo durante `kj_run` mostrando que stages estan completadas, en ejecucion o pendientes — tanto en CLI como via eventos MCP para renderizado en tiempo real en el host
-- **Guardarrailes de observabilidad del planner** — telemetria continua de heartbeat/stall, proteccion configurable por silencio maximo (`session.max_agent_silence_minutes`) y limite duro de ejecucion (`session.max_planner_minutes`) para evitar bloqueos prolongados en `kj_plan`/planner
-- **Standby por rate-limit** — cuando un agente alcanza limites de uso, Karajan parsea el tiempo de espera, espera con backoff exponencial y reanuda automaticamente en vez de fallar
-- **Preflight handshake** — `kj_preflight` requiere confirmacion humana de la configuracion de agentes antes de ejecutar, previniendo que la IA cambie asignaciones silenciosamente
-- **Config de 3 niveles** — sesion > proyecto > global con scoping de `kj_agents`
-- **Mediacion inteligente del reviewer** — el scope filter difiere automaticamente issues del reviewer fuera de scope (ficheros no presentes en el diff) como deuda tecnica rastreada en vez de bloquear; Solomon media reviews estancados; el contexto diferido se inyecta en el prompt del coder
-- **Integracion con Planning Game** — combina opcionalmente con [Planning Game](https://github.com/AgenteIA-Geniova/planning-game) para gestion agil de proyectos (tareas, sprints, estimacion) — como Jira, pero open-source y nativo XP
+- **Servidor MCP** con 20 herramientas. Usa `kj` desde Claude, Codex o cualquier host compatible con MCP sin salir de tu agente. [Ver configuracion MCP](#servidor-mcp)
+- **Bootstrap obligatorio.** Valida prerequisitos del entorno (git, remote, config, agentes, SonarQube) antes de cada ejecucion. Si algo falta, para con instrucciones claras
+- **Guardia anti-inyeccion.** Escanea diffs antes de pasarlos a la IA: detecta directivas de override, Unicode invisible y payloads ocultos en comentarios. Tambien como GitHub Action en cada PR
+- **TDD obligatorio.** Se exigen cambios en tests cuando se modifican ficheros fuente
+- **Integracion con SonarQube.** Analisis estatico con quality gates (requiere [Docker](#requisitos))
+- **Perfiles de revision.** standard, strict, relaxed, paranoid
+- **Tracking de presupuesto.** Monitorizacion de tokens y costes por sesion con `--trace`
+- **Automatizacion Git.** Auto-commit, auto-push, auto-PR tras aprobacion
+- **Gestion de sesiones.** Pausa/reanudacion con deteccion fail-fast y limpieza automatica de sesiones expiradas
+- **Sistema de plugins.** Extiende con agentes custom via `.karajan/plugins/`
+- **Checkpoints interactivos.** En lugar de matar tareas largas, pausa cada 5 minutos con un informe de progreso y te deja decidir: continuar, parar o ajustar el tiempo
+- **Descomposicion de tareas.** Triage detecta cuando una tarea debe dividirse y recomienda subtareas; con integracion Planning Game, crea cards vinculadas con bloqueo secuencial
+- **Retry con backoff.** Recuperacion automatica ante errores transitorios de API (429, 5xx) con backoff exponencial y jitter
+- **Pipeline stage tracker.** Vista de progreso acumulativo durante `kj_run` mostrando que stages estan completadas, en ejecucion o pendientes, tanto en CLI como via eventos MCP para renderizado en tiempo real en el host
+- **Guardarrailes de observabilidad del planner.** Telemetria continua de heartbeat/stall, proteccion configurable por silencio maximo (`session.max_agent_silence_minutes`) y limite duro de ejecucion (`session.max_planner_minutes`) para evitar bloqueos prolongados en `kj_plan`/planner
+- **Standby por rate-limit.** Cuando un agente alcanza limites de uso, Karajan parsea el tiempo de espera, espera con backoff exponencial y reanuda automaticamente en vez de fallar
+- **Preflight handshake.** `kj_preflight` requiere confirmacion humana de la configuracion de agentes antes de ejecutar, previniendo que la IA cambie asignaciones silenciosamente
+- **Config de 3 niveles.** Sesion > proyecto > global con scoping de `kj_agents`
+- **Mediacion inteligente del reviewer.** El scope filter difiere automaticamente issues del reviewer fuera de scope (ficheros no presentes en el diff) como deuda tecnica rastreada en vez de bloquear; Solomon media reviews estancados; el contexto diferido se inyecta en el prompt del coder
+- **Integracion con Planning Game.** Combina opcionalmente con [Planning Game](https://github.com/AgenteIA-Geniova/planning-game) para gestion agil de proyectos (tareas, sprints, estimacion). Como Jira, pero open-source y nativo XP
 
-> **Mejor con MCP** — Karajan Code esta disenado para usarse como servidor MCP dentro de tu agente de IA (Claude, Codex, etc.). El agente envia tareas a `kj_run`, recibe notificaciones de progreso en tiempo real, y obtiene resultados estructurados — sin copiar y pegar.
+> **Mejor con MCP.** Karajan Code esta disenado para usarse como servidor MCP dentro de tu agente de IA (Claude, Codex, etc.). El agente envia tareas a `kj_run`, recibe notificaciones de progreso en tiempo real, y obtiene resultados estructurados. Sin copiar y pegar.
 
 ## Requisitos
 
 - **Node.js** >= 18
-- **Docker** — necesario para el analisis estatico con SonarQube. Si no tienes Docker o no necesitas SonarQube, desactivalo con `--no-sonar` o `sonarqube.enabled: false` en la config
+- **Docker** (necesario para SonarQube). Si no lo necesitas, desactivalo con `--no-sonar` o `sonarqube.enabled: false`
 - Al menos un agente de IA instalado: Claude, Codex, Gemini o Aider
 
 ## Pipeline
@@ -66,7 +67,7 @@ triage? ─> researcher? ─> planner? ─> coder ─> refactorer? ─> sonar? �
 
 | Rol | Descripcion | Por defecto |
 |-----|-------------|-------------|
-| **triage** | Director de pipeline — analiza la complejidad y activa roles dinamicamente | **On** |
+| **triage** | Director de pipeline: analiza la complejidad y activa roles dinamicamente | **On** |
 | **researcher** | Investiga el contexto del codebase antes de planificar | Off |
 | **planner** | Genera planes de implementacion estructurados | Off |
 | **coder** | Escribe codigo y tests siguiendo metodologia TDD | **Siempre activo** |
@@ -75,7 +76,7 @@ triage? ─> researcher? ─> planner? ─> coder ─> refactorer? ─> sonar? �
 | **reviewer** | Revision de codigo con perfiles de exigencia configurables | **Siempre activo** |
 | **tester** | Quality gate de tests y verificacion de cobertura | **On** |
 | **security** | Auditoria de seguridad OWASP | **On** |
-| **solomon** | Supervisor de sesion — monitoriza salud de iteraciones con 5 reglas (incl. reviewer overreach), media reviews estancados, escala ante anomalias | **On** |
+| **solomon** | Supervisor de sesion: monitoriza salud de iteraciones con 5 reglas (incl. reviewer overreach), media reviews estancados, escala ante anomalias | **On** |
 | **commiter** | Automatizacion de git commit, push y PR tras aprobacion | Off |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecucion o via config.
@@ -133,7 +134,7 @@ Guias completas: [`docs/multi-instance.md`](multi-instance.md) | [`docs/install-
 
 Karajan instala **tres comandos**: `kj`, `kj-tail` y `karajan-mcp`.
 
-### 1. CLI — Directamente desde terminal
+### 1. CLI: directamente desde terminal
 
 ```bash
 kj run "Implementar autenticacion de usuario con JWT"
@@ -142,7 +143,7 @@ kj review "Revisar los cambios de autenticacion"
 kj plan "Refactorizar la capa de base de datos"
 ```
 
-### 2. MCP — Dentro de tu agente de IA
+### 2. MCP: dentro de tu agente de IA
 
 El caso de uso principal. Karajan corre como servidor MCP dentro de Claude Code, Codex o Gemini. El agente tiene acceso a 20 herramientas (`kj_run`, `kj_code`, `kj_review`, etc.) y delega el trabajo pesado al pipeline de Karajan.
 
@@ -152,7 +153,7 @@ Tu → Claude Code → kj_run (via MCP) → triage → coder → sonar → revie
 
 **El problema**: cuando Karajan corre dentro de un agente de IA, pierdes visibilidad. El agente te muestra el resultado final, pero no las etapas del pipeline, iteraciones o decisiones de Solomon en tiempo real.
 
-### 3. kj-tail — Monitorizar desde otro terminal
+### 3. kj-tail: monitorizar desde otro terminal
 
 **La herramienta companera.** Abre un segundo terminal en el **mismo directorio del proyecto** donde esta trabajando tu agente de IA:
 
@@ -160,7 +161,7 @@ Tu → Claude Code → kj_run (via MCP) → triage → coder → sonar → revie
 kj-tail
 ```
 
-Veras la salida del pipeline en vivo — etapas, resultados, iteraciones, errores — tal como ocurren.
+Veras la salida del pipeline en vivo (etapas, resultados, iteraciones, errores) tal como ocurren.
 
 ```bash
 kj-tail                  # Seguir pipeline en tiempo real (por defecto)
@@ -185,7 +186,7 @@ kj-tail --help           # Todas las opciones
 │    prioritaria            │    │  ├─ 🔬 Researcher ✅      │
 │                           │    │  ├─ 🧠 Planner ✅         │
 │  (Claude llama a kj_run   │    │  ├─ 🔨 Coder ✅           │
-│   via MCP — solo ves      │    │  ├─ 🔍 Sonar: OK         │
+│   via MCP, solo ves       │    │  ├─ 🔍 Sonar: OK         │
 │   el resultado final)     │    │  ├─ 👁️ Reviewer ❌        │
 │                           │    │  ├─ ⚖️ Solomon: 2 cond.   │
 │                           │    │  ├─ 🔨 Coder (iter 2) ✅  │
@@ -195,7 +196,7 @@ kj-tail --help           # Todas las opciones
 └──────────────────────────┘    └──────────────────────────┘
 ```
 
-**Ejemplo con pipeline completo** — tarea compleja con todos los roles:
+**Ejemplo con pipeline completo**, tarea compleja con todos los roles:
 
 ```
 ┌─ Terminal 1 ─────────────────────────────────────────────────────────────────┐
@@ -221,7 +222,7 @@ kj-tail --help           # Todas las opciones
 
 ┌─ Terminal 2: kj-tail ────────────────────────────────────────────────────────┐
 │                                                                              │
-│  kj-tail v1.36.1 — .kj/run.log                                              │
+│  kj-tail v1.37.0 — .kj/run.log                                              │
 │                                                                              │
 │  ├─ 📋 Triage: medium (sw) — activando researcher, architect, planner        │
 │  ├─ ⚙️ Preflight passed — all checks OK                                     │
@@ -332,7 +333,7 @@ Cada rol tiene un template `.md` con instrucciones que el agente de IA sigue. Lo
 
 Usa `kj roles show <rol>` para inspeccionar cualquier template. Crea un override de proyecto para personalizar el comportamiento por proyecto.
 
-**Variantes de revision**: `reviewer-strict`, `reviewer-relaxed`, `reviewer-paranoid` — seleccionables via flag `--mode` o config `review_mode`.
+**Variantes de revision**: `reviewer-strict`, `reviewer-relaxed`, `reviewer-paranoid`, seleccionables via flag `--mode` o config `review_mode`.
 
 ## Contribuir
 
@@ -340,7 +341,7 @@ Usa `kj roles show <rol>` para inspeccionar cualquier template. Crea un override
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Ejecutar 1040+ tests con Vitest
+npm test              # Ejecutar 2044 tests con Vitest
 npm run test:watch    # Modo watch
 npm run validate      # Lint + test
 ```

@@ -22,7 +22,7 @@
 
 ---
 
-You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate — without you babysitting every step.
+You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
 ## What is Karajan?
 
@@ -30,7 +30,7 @@ Karajan is a local coding orchestrator. It runs on your machine, uses your exist
 
 It is not a hosted service. It is not a VS Code extension. It is a tool you install once and use from the terminal or as an MCP server inside your AI agent.
 
-The name comes from Herbert von Karajan — the conductor who believed that the best orchestras are made of great independent musicians who know exactly when to play and when to listen. Same idea here, applied to AI agents.
+The name comes from Herbert von Karajan, the conductor who believed that the best orchestras are made of great independent musicians who know exactly when to play and when to listen. Same idea, applied to AI agents.
 
 ## Why not just use Claude Code?
 
@@ -39,16 +39,16 @@ Claude Code is excellent. Use it for interactive, session-based coding.
 Use Karajan when you want:
 
 - **A repeatable, documented pipeline** that runs the same way every time
-- **TDD by default** — tests are written before implementation, not after
-- **SonarQube integration** — code quality gates as part of the flow, not an afterthought
-- **Solomon as pipeline boss** — every reviewer rejection is evaluated by a supervisor that decides if it's valid or just style noise
-- **Multi-provider routing** — Claude as coder, Codex as reviewer, or any combination
-- **Zero-config operation** — auto-detects test frameworks, starts SonarQube, simplifies pipeline for trivial tasks
-- **Composable role architecture** — define agent behaviors as plain markdown files that travel with your project
-- **Local-first** — your code, your keys, your machine, no data leaves unless you say so
-- **Zero API costs** — Karajan uses AI agent CLIs (Claude Code, Codex, Gemini CLI), not APIs. You pay your existing subscription (Claude Pro, ChatGPT Plus), not per-token API fees. No surprise bills.
+- **TDD by default.** Tests are written before implementation, not after
+- **SonarQube integration.** Code quality gates as part of the flow, not an afterthought
+- **Solomon as pipeline boss.** Every reviewer rejection is evaluated by a supervisor that decides if it's valid or just style noise
+- **Multi-provider routing.** Claude as coder, Codex as reviewer, or any combination
+- **Zero-config operation.** Auto-detects test frameworks, starts SonarQube, simplifies pipeline for trivial tasks
+- **Composable role architecture.** Agent behaviors defined as plain markdown files that travel with your project
+- **Local-first.** Your code, your keys, your machine. No data leaves unless you say so
+- **Zero API costs.** Karajan uses AI agent CLIs (Claude Code, Codex, Gemini CLI), not APIs. You pay your existing subscription (Claude Pro, ChatGPT Plus), not per-token API fees
 
-If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-assisted development. They work great together — Karajan is designed to be used as an MCP server inside Claude Code.
+If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-assisted development. They work great together: Karajan is designed to be used as an MCP server inside Claude Code.
 
 ## Install
 
@@ -62,7 +62,7 @@ That's it. No Docker required (SonarQube uses Docker, but Karajan auto-manages i
 
 Karajan installs **three commands**: `kj`, `kj-tail`, and `karajan-mcp`.
 
-### 1. CLI — Direct from terminal
+### 1. CLI: direct from terminal
 
 Run Karajan directly. You see the full pipeline output in real time.
 
@@ -74,7 +74,7 @@ kj audit "Full health analysis of this codebase"       # Read-only audit
 kj plan "Refactor the database layer"                  # Plan without coding
 ```
 
-### 2. MCP — Inside your AI agent
+### 2. MCP: inside your AI agent
 
 This is the primary use case. Karajan runs as an MCP server inside Claude Code, Codex, or Gemini. You ask your AI agent to do something, and it delegates the heavy lifting to Karajan's pipeline.
 
@@ -86,7 +86,7 @@ The MCP server auto-registers during `npm install`. Your AI agent sees 20 tools 
 
 **The problem**: when Karajan runs inside an AI agent, you lose visibility. The agent shows you the final result, but not the pipeline stages, iterations, or Solomon decisions happening in real time.
 
-### 3. kj-tail — Monitor from a separate terminal
+### 3. kj-tail: monitor from a separate terminal
 
 **This is the companion tool.** Open a second terminal in the **same project directory** where your AI agent is working, and run:
 
@@ -94,7 +94,7 @@ The MCP server auto-registers during `npm install`. Your AI agent sees 20 tools 
 kj-tail
 ```
 
-You'll see the live pipeline output — stages, results, iterations, errors — as they happen. Same view as running `kj run` directly.
+You'll see the live pipeline output (stages, results, iterations, errors) as they happen. Same view as running `kj run` directly.
 
 ```
 kj-tail                  # Follow pipeline in real time (default)
@@ -118,7 +118,7 @@ kj-tail --help           # Full options
 │    priority task         │    │  ├─ 📋 Triage: medium    │
 │                          │    │  ├─ 🔬 Researcher ✅     │
 │  (Claude calls kj_run   │    │  ├─ 🧠 Planner ✅        │
-│   via MCP — you see      │    │  ├─ 🔨 Coder ✅          │
+│   via MCP, you see       │    │  ├─ 🔨 Coder ✅          │
 │   only the final result) │    │  ├─ 🔍 Sonar: OK        │
 │                          │    │  ├─ 👁️ Reviewer ❌       │
 │                          │    │  ├─ ⚖️ Solomon: 2 cond.  │
@@ -129,7 +129,7 @@ kj-tail --help           # Full options
 └─────────────────────────┘    └─────────────────────────┘
 ```
 
-**Full pipeline example** — a complex task with all roles:
+**Full pipeline example**, a complex task with all roles:
 
 ```
 ┌─ Terminal 1 ─────────────────────────────────────────────────────────────────┐
@@ -154,7 +154,7 @@ kj-tail --help           # Full options
 
 ┌─ Terminal 2: kj-tail ────────────────────────────────────────────────────────┐
 │                                                                              │
-│  kj-tail v1.36.1 — .kj/run.log                                              │
+│  kj-tail v1.37.0 — .kj/run.log                                              │
 │                                                                              │
 │  ├─ 📋 Triage: medium (sw) — enabling researcher, architect, planner         │
 │  ├─ ⚙️ Preflight passed — all checks OK                                     │
@@ -193,7 +193,7 @@ kj-tail --help           # Full options
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-[**▶ Watch the full pipeline demo**](https://karajancode.com#demo) — triage, architecture, TDD, SonarQube, code review, Solomon arbitration, security audit.
+[**Watch the full pipeline demo**](https://karajancode.com#demo): triage, architecture, TDD, SonarQube, code review, Solomon arbitration, security audit.
 
 ## The pipeline
 
@@ -217,7 +217,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 | **reviewer** | Code review with configurable strictness profiles | **Always on** |
 | **tester** | Test quality gate and coverage verification | **On** |
 | **security** | OWASP security audit | **On** |
-| **solomon** | Pipeline boss — evaluates every rejection, overrides style-only blocks | **On** |
+| **solomon** | Pipeline boss: evaluates every rejection, overrides style-only blocks | **On** |
 | **commiter** | Git commit, push, and PR automation after approval | Off |
 | **audit** | Read-only codebase health analysis (5 dimensions, A-F scores) | Standalone |
 
@@ -233,7 +233,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 
 Mix and match. Use Claude as coder and Codex as reviewer. Karajan auto-detects installed agents during `kj init`.
 
-## MCP server — 20 tools
+## MCP server (20 tools)
 
 After `npm install -g karajan-code`, the MCP server auto-registers in Claude and Codex. Manual config if needed:
 
@@ -251,7 +251,7 @@ Use `kj-tail` in a separate terminal to see what the pipeline is doing in real t
 
 ## The role architecture
 
-Every role in Karajan is defined by a markdown file — a plain document that describes how the agent should behave, what to check, and what good output looks like.
+Every role in Karajan is defined by a markdown file: a plain document that describes how the agent should behave, what to check, and what good output looks like.
 
 ```
 .karajan/roles/         # Project overrides (optional)
@@ -259,7 +259,7 @@ Every role in Karajan is defined by a markdown file — a plain document that de
 templates/roles/        # Built-in defaults (shipped with package)
 ```
 
-You can override any built-in role or create new ones. No code required. The agents read the role files and adapt their behavior. This means you can encode your team's conventions, domain rules, and quality standards — and every run of Karajan will apply them automatically.
+You can override any built-in role or create new ones. No code required. The agents read the role files and adapt their behavior. Encode your team's conventions, domain rules, and quality standards, and every run of Karajan applies them automatically.
 
 Use `kj roles show <role>` to inspect any template.
 
@@ -268,7 +268,8 @@ Use `kj roles show <role>` to inspect any template.
 Karajan auto-detects and auto-configures everything it can:
 
 - **TDD**: Detects test framework (vitest, jest, mocha) → auto-enables TDD
-- **Bootstrap gate**: Validates all prerequisites (git repo, remote, config, agents, SonarQube) before any tool runs. Fails hard with actionable fix instructions — never silently degrades
+- **Bootstrap gate**: Validates all prerequisites (git repo, remote, config, agents, SonarQube) before any tool runs. Fails hard with actionable fix instructions, never silently degrades
+- **Injection guard**: Scans diffs for prompt injection before AI review. Detects directive overrides, invisible Unicode, oversized comment payloads. Also runs as a GitHub Action on every PR
 - **SonarQube**: Auto-starts Docker container, generates config if missing
 - **Pipeline complexity**: Triage classifies task → trivial tasks skip reviewer loop
 - **Provider outages**: Retries on 500/502/503/504 with backoff (same as rate limits)
@@ -280,16 +281,16 @@ No per-project configuration required. If you want to customize, config is layer
 
 Because it should be.
 
-Karajan has **1966 tests** across 157 files. It runs on Node.js without a build step. You can read the source, understand it, fork it, and modify it without a TypeScript compiler between you and the code.
+Karajan has **2044 tests** across 161 files. It runs on Node.js without a build step. You can read the source, understand it, fork it, and modify it without a TypeScript compiler between you and the code.
 
-This is a deliberate choice, not a limitation. The tests are the type safety. The legibility is a feature. **55 releases in 26 days** — that velocity is possible precisely because vanilla JS with good tests lets you move fast without fear.
+This is a deliberate choice, not a limitation. The tests are the type safety. The legibility is a feature. 57 releases in 45 days. That velocity is possible precisely because vanilla JS with good tests lets you move fast without fear.
 
 ## Recommended companions
 
 | Tool | Why |
 |------|-----|
 | [**RTK**](https://github.com/rtk-ai/rtk) | Reduces token consumption by 60-90% on Bash command outputs |
-| [**Planning Game MCP**](https://github.com/AgenteIA-Geniova/planning-game-mcp) | Agile project management (tasks, sprints, estimation) — XP-native |
+| [**Planning Game MCP**](https://github.com/AgenteIA-Geniova/planning-game-mcp) | Agile project management (tasks, sprints, estimation), XP-native |
 | [**GitHub MCP**](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | Create PRs, manage issues directly from the agent |
 | [**Chrome DevTools MCP**](https://github.com/anthropics/anthropic-quickstarts/tree/main/chrome-devtools-mcp) | Verify UI changes visually after frontend modifications |
 
@@ -299,11 +300,11 @@ This is a deliberate choice, not a limitation. The tests are the type safety. Th
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Run 1847 tests with Vitest
+npm test              # Run 2044 tests with Vitest
 npm run validate      # Lint + test
 ```
 
-Issues and pull requests welcome. If something doesn't work as documented, [open an issue](https://github.com/manufosela/karajan-code/issues) — that's the most useful contribution at this stage.
+Issues and pull requests welcome. If something doesn't work as documented, [open an issue](https://github.com/manufosela/karajan-code/issues). That's the most useful contribution at this stage.
 
 ## Links
 
@@ -315,4 +316,4 @@ Issues and pull requests welcome. If something doesn't work as documented, [open
 
 ---
 
-Built by [@manufosela](https://github.com/manufosela) — Head of Engineering at Geniova Technologies, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.amazon.es/dp/B0D7F4C8KC). 90+ npm packages published.
+Built by [@manufosela](https://github.com/manufosela). Head of Engineering at Geniova Technologies, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.amazon.es/dp/B0D7F4C8KC). 90+ npm packages published.
