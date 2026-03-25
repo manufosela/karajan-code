@@ -1,0 +1,67 @@
+name: Injection Guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  scan:
+    name: Scan PR for prompt injection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr-diff.txt
+
+      - name: Get PR metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} --json title,body --jq '.title + "\n" + .body' > /tmp/pr-meta.txt 2>/dev/null || echo "" > /tmp/pr-meta.txt
+
+      - name: Scan for injection patterns
+        run: |
+          node --input-type=module << 'SCRIPT'
+          import { scanDiff, scanForInjection } from "./src/utils/injection-guard.js";
+          import { readFileSync } from "node:fs";
+
+          const diff = readFileSync("/tmp/pr-diff.txt", "utf8");
+          const meta = readFileSync("/tmp/pr-meta.txt", "utf8");
+
+          const diffResult = scanDiff(diff);
+          const metaResult = scanForInjection(meta);
+
+          let failed = false;
+
+          if (!diffResult.clean) {
+            console.error("::error::Injection patterns detected in PR diff");
+            for (const f of diffResult.findings) {
+              console.error(`  [${f.type}] line ${f.line}: ${f.snippet}`);
+            }
+            failed = true;
+          }
+
+          if (!metaResult.clean) {
+            console.error("::error::Injection patterns detected in PR title/description");
+            for (const f of metaResult.findings) {
+              console.error(`  [${f.type}] line ${f.line}: ${f.snippet}`);
+            }
+            failed = true;
+          }
+
+          if (failed) {
+            console.error("\nPR blocked: potential prompt injection detected.");
+            console.error("If this is a false positive, a maintainer can override.");
+            process.exit(1);
+          }
+
+          console.log("Injection guard: clean");
+          SCRIPT

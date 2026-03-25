@@ -700,6 +700,30 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     logger.warn(`Review diff generation failed: ${err.message}`);
     return { approved: false, blocking_issues: [{ description: `Diff generation failed: ${err.message}` }], non_blocking_suggestions: [], summary: `Reviewer failed: cannot generate diff — ${err.message}`, confidence: 0 };
   }
+
+  // Injection guard: scan diff before sending to AI reviewer
+  const { scanDiff } = await import("../utils/injection-guard.js");
+  const guardResult = scanDiff(diff);
+  if (!guardResult.clean) {
+    logger.warn(`Injection guard: ${guardResult.summary}`);
+    emitProgress(emitter, makeEvent("guard:injection", { ...eventBase, stage: "reviewer" }, {
+      message: `Injection guard blocked review: ${guardResult.summary}`,
+      detail: { findings: guardResult.findings, summary: guardResult.summary }
+    }));
+    return {
+      approved: false,
+      blocking_issues: guardResult.findings.map((f) => ({
+        id: `INJECTION_${f.type.toUpperCase()}`,
+        severity: "critical",
+        description: `Potential prompt injection (${f.type}): ${f.snippet}`,
+        line: f.line,
+      })),
+      non_blocking_suggestions: [],
+      summary: `Review blocked by injection guard: ${guardResult.summary}`,
+      confidence: 1,
+    };
+  }
+
   const reviewerOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
       message: line,
