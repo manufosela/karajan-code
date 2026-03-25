@@ -48,14 +48,16 @@ function applyModelSelection(triageOutput, config, emitter, eventBase) {
 
 export async function runTriageStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
   logger.setContext({ iteration: 0, stage: "triage" });
+
+  const triageProvider = config?.roles?.triage?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("triage:start", { ...eventBase, stage: "triage" }, {
-      message: "Triage classifying task complexity"
+      message: "Triage classifying task complexity",
+      detail: { provider: triageProvider, executorType: "agent" }
     })
   );
 
-  const triageProvider = config?.roles?.triage?.provider || coderRole.provider;
   const triageOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "triage" }, {
       message: line,
@@ -132,7 +134,7 @@ export async function runTriageStage({ config, logger, emitter, eventBase, sessi
     makeEvent("triage:end", { ...eventBase, stage: "triage" }, {
       status: triageOutput.ok ? "ok" : "fail",
       message: triageOutput.ok ? "Triage completed" : `Triage failed: ${triageOutput.summary}`,
-      detail: stageResult
+      detail: { ...stageResult, provider: triageProvider, executorType: "agent" }
     })
   );
 
@@ -141,14 +143,16 @@ export async function runTriageStage({ config, logger, emitter, eventBase, sessi
 
 export async function runResearcherStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
   logger.setContext({ iteration: 0, stage: "researcher" });
+
+  const researcherProvider = config?.roles?.researcher?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("researcher:start", { ...eventBase, stage: "researcher" }, {
-      message: "Researcher investigating codebase"
+      message: "Researcher investigating codebase",
+      detail: { researcher: researcherProvider, provider: researcherProvider, executorType: "agent" }
     })
   );
 
-  const researcherProvider = config?.roles?.researcher?.provider || coderRole.provider;
   const researcherOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "researcher" }, {
       message: line,
@@ -191,7 +195,8 @@ export async function runResearcherStage({ config, logger, emitter, eventBase, s
     emitter,
     makeEvent("researcher:end", { ...eventBase, stage: "researcher" }, {
       status: researchOutput.ok ? "ok" : "fail",
-      message: researchOutput.ok ? "Research completed" : `Research failed: ${researchOutput.summary}`
+      message: researchOutput.ok ? "Research completed" : `Research failed: ${researchOutput.summary}`,
+      detail: { provider: researcherProvider, executorType: "agent" }
     })
   );
 
@@ -260,14 +265,14 @@ async function handleArchitectClarification({ architectOutput, askQuestion, conf
 
 export async function runArchitectStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, researchContext = null, discoverResult = null, triageLevel = null, askQuestion = null }) {
   logger.setContext({ iteration: 0, stage: "architect" });
+  const architectProvider = config?.roles?.architect?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("architect:start", { ...eventBase, stage: "architect" }, {
-      message: "Architect designing solution architecture"
+      message: "Architect designing solution architecture",
+      detail: { architect: architectProvider, provider: architectProvider, executorType: "agent" }
     })
   );
-
-  const architectProvider = config?.roles?.architect?.provider || coderRole.provider;
   const architectOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "architect" }, {
       message: line,
@@ -330,7 +335,7 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
     makeEvent("architect:end", { ...eventBase, stage: "architect" }, {
       status: architectOutput.ok ? "ok" : "fail",
       message: architectOutput.ok ? "Architecture completed" : `Architecture failed: ${architectOutput.summary}`,
-      detail: stageResult
+      detail: { ...stageResult, provider: architectProvider, executorType: "agent" }
     })
   );
 
@@ -373,7 +378,7 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
     emitter,
     makeEvent("planner:start", { ...eventBase, stage: "planner" }, {
       message: `Planner (${plannerRole.provider}) running`,
-      detail: { planner: plannerRole.provider }
+      detail: { planner: plannerRole.provider, provider: plannerRole.provider, executorType: "agent" }
     })
   );
 
@@ -416,7 +421,8 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
       emitter,
       makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
         status: "fail",
-        message: `Planner failed: ${details}`
+        message: `Planner failed: ${details}`,
+        detail: { provider: plannerRole.provider, executorType: "agent" }
       })
     );
     throw new Error(`Planner failed: ${details}`);
@@ -436,7 +442,8 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
   emitProgress(
     emitter,
     makeEvent("planner:end", { ...eventBase, stage: "planner" }, {
-      message: "Planner completed"
+      message: "Planner completed",
+      detail: { provider: plannerRole.provider, executorType: "agent" }
     })
   );
 
@@ -445,14 +452,14 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
 
 export async function runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
   logger.setContext({ iteration: 0, stage: "discover" });
+  const discoverProvider = config?.roles?.discover?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("discover:start", { ...eventBase, stage: "discover" }, {
-      message: "Discover analyzing task for gaps"
+      message: "Discover analyzing task for gaps",
+      detail: { discover: discoverProvider, provider: discoverProvider, executorType: "agent" }
     })
   );
-
-  const discoverProvider = config?.roles?.discover?.provider || coderRole.provider;
   const discoverOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "discover" }, {
       message: line,
@@ -504,7 +511,7 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
     makeEvent("discover:end", { ...eventBase, stage: "discover" }, {
       status: discoverOutput.ok ? "ok" : "fail",
       message: discoverOutput.ok ? "Discovery completed" : `Discovery failed: ${discoverOutput.summary}`,
-      detail: stageResult
+      detail: { ...stageResult, provider: discoverProvider, executorType: "agent" }
     })
   );
 
@@ -518,10 +525,12 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
  */
 export async function runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion }) {
   logger.setContext({ iteration: 0, stage: "hu-reviewer" });
+  const huReviewerProvider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
   emitProgress(
     emitter,
     makeEvent("hu-reviewer:start", { ...eventBase, stage: "hu-reviewer" }, {
-      message: "HU Reviewer certifying user stories"
+      message: "HU Reviewer certifying user stories",
+      detail: { provider: huReviewerProvider, executorType: "agent" }
     })
   );
 
@@ -569,7 +578,6 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
   }
 
   // --- Evaluate loop (re-evaluate entire batch until all certified or needs_context with no askQuestion) ---
-  const huReviewerProvider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
   const huReviewerOnOutput = ({ stream, line }) => {
     emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "hu-reviewer" }, {
       message: line,
@@ -711,7 +719,7 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
     makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
       status: "ok",
       message: `HU Review complete: ${certifiedStories.length}/${batch.stories.length} certified`,
-      detail: stageResult
+      detail: { ...stageResult, provider: huReviewerProvider, executorType: "agent" }
     })
   );
 

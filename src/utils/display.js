@@ -47,6 +47,20 @@ const ICONS = {
   "budget:update": "\ud83d\udcb8",
   "iteration:end": "\u23f1\ufe0f",
   "session:end": "\ud83c\udfc1",
+  "discover:start": "\ud83d\udd0e",
+  "discover:end": "\ud83d\udd0e",
+  "architect:start": "\ud83c\udfdb\ufe0f",
+  "architect:end": "\ud83c\udfdb\ufe0f",
+  "hu-reviewer:start": "\ud83d\udcdd",
+  "hu-reviewer:end": "\ud83d\udcdd",
+  "impeccable:start": "\ud83c\udfa8",
+  "impeccable:end": "\ud83c\udfa8",
+  "audit:start": "\ud83d\udccb",
+  "audit:end": "\ud83d\udccb",
+  "sonarcloud:start": "\u2601\ufe0f",
+  "sonarcloud:end": "\u2601\ufe0f",
+  "preflight:start": "\ud83d\udee1\ufe0f",
+  "preflight:end": "\ud83d\udee1\ufe0f",
   question: "\u2753"
 };
 
@@ -95,24 +109,37 @@ export function printHeader({ task, config }) {
   console.log();
 }
 
+/* ── Helper: executor/provider tag ───────────────────────────── */
+
+function formatExecutor(detail) {
+  if (!detail) return '';
+  const provider = detail.provider || '';
+  const type = detail.executorType || '';
+  if (provider) return `  ${ANSI.dim}${provider}${ANSI.reset}`;
+  if (type === 'local') return `  ${ANSI.dim}local${ANSI.reset}`;
+  if (type === 'system') return `  ${ANSI.dim}system${ANSI.reset}`;
+  return '';
+}
+
 /* ── Helper: role start/end one-liners ───────────────────────── */
 
 function roleStart(icon, label, provider) {
   console.log(`  \u251c\u2500 ${icon} ${label} (${provider || "?"}) running...`);
 }
 
-function roleEnd(status, label, elapsed) {
-  console.log(`  \u251c\u2500 ${status} ${label} completed  ${elapsed}`);
+function roleEnd(status, label, elapsed, executor) {
+  console.log(`  \u251c\u2500 ${status} ${label} completed${executor || ''}  ${elapsed}`);
 }
 
 /* ── Helper: pass/fail stage result ─────────────────────────── */
 
 function passFailStage(detail, label, failDefault, elapsed) {
+  const executor = formatExecutor(detail);
   if (detail?.ok === false) {
     const summary = detail?.summary || failDefault;
-    console.log(`  \u251c\u2500 ${ANSI.red}\u274c ${label}: ${summary}${ANSI.reset}  ${elapsed}`);
+    console.log(`  \u251c\u2500 ${ANSI.red}\u274c ${label}: ${summary}${ANSI.reset}${executor}  ${elapsed}`);
   } else {
-    console.log(`  \u251c\u2500 ${ANSI.green}\u2705 ${label}: passed${ANSI.reset}  ${elapsed}`);
+    console.log(`  \u251c\u2500 ${ANSI.green}\u2705 ${label}: passed${ANSI.reset}${executor}  ${elapsed}`);
   }
 }
 
@@ -270,49 +297,52 @@ const EVENT_HANDLERS = {
     roleStart(icon, "Planner", event.detail?.planner);
   },
 
-  "planner:end": (_event, _icon, elapsed, status) => {
-    roleEnd(status, "Planner", elapsed);
+  "planner:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Planner", elapsed, formatExecutor(event.detail));
   },
 
   "coder:start": (event, icon) => {
     roleStart(icon, "Coder", event.detail?.coder);
   },
 
-  "coder:end": (_event, _icon, elapsed, status) => {
-    roleEnd(status, "Coder", elapsed);
+  "coder:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Coder", elapsed, formatExecutor(event.detail));
   },
 
   "refactorer:start": (event, icon) => {
     roleStart(icon, "Refactorer", event.detail?.refactorer);
   },
 
-  "refactorer:end": (_event, _icon, elapsed, status) => {
-    roleEnd(status, "Refactorer", elapsed);
+  "refactorer:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Refactorer", elapsed, formatExecutor(event.detail));
   },
 
   "tdd:result": (event, icon) => {
     const tdd = event.detail || {};
     const label = tdd.ok ? `${ANSI.green}PASS${ANSI.reset}` : `${ANSI.red}FAIL${ANSI.reset}`;
     const files = tdd.sourceFiles === undefined ? "" : ` (${tdd.sourceFiles} src, ${tdd.testFiles} test)`;
-    console.log(`  \u251c\u2500 ${icon} TDD policy: ${label}${files}`);
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${icon} TDD policy: ${label}${files}${executor}`);
   },
 
   "researcher:start": (event, icon) => {
     console.log(`  \u251c\u2500 ${icon} Researcher (${event.detail?.researcher || "?"}) investigating...`);
   },
 
-  "researcher:end": (_event, _icon, elapsed, status) => {
-    roleEnd(status, "Researcher", elapsed);
+  "researcher:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Researcher", elapsed, formatExecutor(event.detail));
   },
 
-  "sonar:start": (_event, icon) => {
-    console.log(`  \u251c\u2500 ${icon} SonarQube scanning...`);
+  "sonar:start": (event, icon) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${icon} SonarQube scanning...${executor}`);
   },
 
   "sonar:end": (event, _icon, elapsed, status) => {
     const gate = event.detail?.gateStatus || "?";
     const gateColor = gate === "OK" ? ANSI.green : ANSI.red;
-    console.log(`  \u251c\u2500 ${status} Quality gate: ${gateColor}${gate}${ANSI.reset}  ${elapsed}`);
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${status} Quality gate: ${gateColor}${gate}${ANSI.reset}${executor}  ${elapsed}`);
   },
 
   "reviewer:start": (event, icon) => {
@@ -321,11 +351,12 @@ const EVENT_HANDLERS = {
 
   "reviewer:end": (event, _icon, elapsed) => {
     const review = event.detail || {};
+    const executor = formatExecutor(event.detail);
     if (review.approved) {
-      console.log(`  \u251c\u2500 ${ANSI.green}\u2705 Review: APPROVED${ANSI.reset}  ${elapsed}`);
+      console.log(`  \u251c\u2500 ${ANSI.green}\u2705 Review: APPROVED${ANSI.reset}${executor}  ${elapsed}`);
     } else {
       const count = review.blockingCount || 0;
-      console.log(`  \u251c\u2500 ${ANSI.red}\u274c Review: REJECTED (${count} blocking)${ANSI.reset}`);
+      console.log(`  \u251c\u2500 ${ANSI.red}\u274c Review: REJECTED (${count} blocking)${ANSI.reset}${executor}`);
       if (review.issues) {
         for (const issue of review.issues) {
           console.log(`  \u2502   ${ANSI.dim}${issue}${ANSI.reset}`);
@@ -334,16 +365,18 @@ const EVENT_HANDLERS = {
     }
   },
 
-  "tester:start": (_event, icon) => {
-    console.log(`  \u251c\u2500 ${icon} Tester evaluating...`);
+  "tester:start": (event, icon) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${icon} Tester evaluating...${executor}`);
   },
 
   "tester:end": (event, _icon, elapsed) => {
     passFailStage(event.detail, "Tester", "issues found", elapsed);
   },
 
-  "security:start": (_event, icon) => {
-    console.log(`  \u251c\u2500 ${icon} Security auditing...`);
+  "security:start": (event, icon) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${icon} Security auditing...${executor}`);
   },
 
   "security:end": (event, _icon, elapsed) => {
@@ -351,7 +384,8 @@ const EVENT_HANDLERS = {
   },
 
   "solomon:start": (event, icon) => {
-    console.log(`  \u251c\u2500 ${icon} Solomon arbitrating ${event.detail?.conflictStage || "?"} conflict...`);
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 ${icon} Solomon arbitrating ${event.detail?.conflictStage || "?"} conflict...${executor}`);
   },
 
   "solomon:end": (event, _icon, elapsed) => {
@@ -420,6 +454,82 @@ const EVENT_HANDLERS = {
     console.log(`${ANSI.bold}${ANSI.yellow}${icon} Paused - question:${ANSI.reset}`);
     console.log(`  ${event.detail?.question || event.message}`);
     console.log(`${ANSI.dim}Resume with: kj resume ${event.sessionId} --answer "<response>"${ANSI.reset}`);
+  },
+
+  "preflight:start": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \ud83d\udee1\ufe0f Preflight checks running...${executor}`);
+  },
+
+  "preflight:end": (event, _icon, elapsed) => {
+    const executor = formatExecutor(event.detail);
+    const ok = event.status === "ok";
+    const statusIcon = ok ? `${ANSI.green}\u2705` : `${ANSI.red}\u274c`;
+    console.log(`  \u251c\u2500 ${statusIcon} Preflight: ${event.message}${ANSI.reset}${executor}  ${elapsed}`);
+  },
+
+  "discover:start": (event, icon) => {
+    const provider = event.detail?.provider || event.detail?.discover || "?";
+    console.log(`  \u251c\u2500 ${icon || "\ud83d\udd0e"} Discover (${provider}) analyzing...`);
+  },
+
+  "discover:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Discover", elapsed, formatExecutor(event.detail));
+  },
+
+  "architect:start": (event) => {
+    const provider = event.detail?.provider || event.detail?.architect || "?";
+    console.log(`  \u251c\u2500 \ud83c\udfdb\ufe0f Architect (${provider}) designing...`);
+  },
+
+  "architect:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Architect", elapsed, formatExecutor(event.detail));
+  },
+
+  "hu-reviewer:start": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \ud83d\udcdd HU Reviewer certifying...${executor}`);
+  },
+
+  "hu-reviewer:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "HU Reviewer", elapsed, formatExecutor(event.detail));
+  },
+
+  "impeccable:start": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \ud83c\udfa8 Impeccable auditing design...${executor}`);
+  },
+
+  "impeccable:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Impeccable", elapsed, formatExecutor(event.detail));
+  },
+
+  "audit:start": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \ud83d\udccb Final audit running...${executor}`);
+  },
+
+  "audit:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "Audit", elapsed, formatExecutor(event.detail));
+  },
+
+  "sonarcloud:start": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \u2601\ufe0f SonarCloud scanning...${executor}`);
+  },
+
+  "sonarcloud:end": (event, _icon, elapsed, status) => {
+    roleEnd(status, "SonarCloud", elapsed, formatExecutor(event.detail));
+  },
+
+  "guard:output": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \ud83d\udee1\ufe0f ${event.message}${executor}`);
+  },
+
+  "guard:perf": (event) => {
+    const executor = formatExecutor(event.detail);
+    console.log(`  \u251c\u2500 \u26a1 ${event.message}${executor}`);
   },
 
   "pipeline:tracker": (event) => {

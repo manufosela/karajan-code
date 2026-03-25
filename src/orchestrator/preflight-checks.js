@@ -167,14 +167,14 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
     logger.info("Preflight: skipped (no sonar, no security)");
     emitProgress(emitter, makeEvent("preflight:end", { ...eventBase, stage: "preflight" }, {
       message: "Preflight skipped (no checks needed)",
-      detail: result
+      detail: { ...result, executorType: "local" }
     }));
     return result;
   }
 
   emitProgress(emitter, makeEvent("preflight:start", { ...eventBase, stage: "preflight" }, {
     message: "Running preflight environment checks",
-    detail: { sonarEnabled, securityEnabled }
+    detail: { sonarEnabled, securityEnabled, executorType: "local" }
   }));
 
   // --- 1. Docker (only if sonar enabled and not external) ---
@@ -286,7 +286,7 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       : hasWarnings
         ? `Preflight completed with ${result.warnings.length} warning(s)`
         : "Preflight passed — all checks OK",
-    detail: result
+    detail: { ...result, executorType: "local" }
   }));
 
   return result;
