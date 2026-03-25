@@ -311,117 +311,144 @@
     document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
 
     /* --- TERMINAL DEMO ANIMATION --- */
+    // t = timestamp in seconds from real log. delay between lines = (t[n] - t[n-1]) / 10
+    // t=0 means instant (sub-line, appears with parent)
     var DEMO_LINES = [
-      // Header
-      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { html: '\u25b6 Karajan Code v1.36.1', cls: 'header' },
-      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { html: 'Task: Complete the calculator module. Add subtract, multiply, divide', cls: 'dim' },
-      { html: '      with input validation and comprehensive tests. TDD methodology.', cls: 'dim' },
-      { html: 'Coder: claude | Reviewer: codex', cls: 'dim' },
-      { html: 'Max iterations: 3 | Timeout: 30min', cls: 'dim' },
-      { html: 'Pipeline: Researcher | Architect | Planner | Tester | Security | Solomon', cls: 'dim' },
-      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { html: '', cls: '' },
-      // RTK + Triage
-      { html: '<span class="role">[rtk]</span>          RTK detected (v0.31.0) \u2014 token optimization active', cls: 'approved' },
-      { html: '<span class="role">[triage]</span>       Classifying task complexity\u2026', cls: 'stage' },
-      { html: '  Smart model selection applied', cls: 'dim' },
-      { html: '  TDD auto-detected: vitest', cls: 'dim' },
-      { html: '  Policies resolved for taskType="sw"                             [00:40]', cls: 'dim' },
-      { html: '', cls: '' },
-      // Preflight
-      { html: '<span class="role">[preflight]</span>    Running environment checks\u2026', cls: 'stage' },
-      { html: '  Docker: v29.3.0 \u2713', cls: 'dim' },
-      { html: '  SonarQube: reachable at localhost:9000 \u2713', cls: 'dim' },
-      { html: '  SonarQube auth: token valid \u2713', cls: 'dim' },
-      { html: '  Security agent: claude 2.1.83 \u2713', cls: 'dim' },
-      { html: '  Preflight passed \u2014 all checks OK                               [00:41]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Researcher
-      { html: '<span class="role">[researcher]</span>   Investigating codebase\u2026', cls: 'stage' },
-      { html: '  Found: 2 source files, vitest configured', cls: 'dim' },
-      { html: '  Patterns: 10 identified, 5 risks flagged', cls: 'dim' },
-      { html: '  Researcher completed                                            [01:26]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Architect
-      { html: '<span class="role">[architect]</span>    Designing solution architecture\u2026', cls: 'stage' },
-      { html: '  Module pattern: pure functions with input validation', cls: 'dim' },
-      { html: '  TypeError for non-numeric inputs, Error for divide-by-zero', cls: 'dim' },
-      { html: '  Architecture completed                                          [02:06]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Planner
-      { html: '<span class="role">[planner]</span>      Planning implementation\u2026', cls: 'stage' },
-      { html: '  Steps 1-4 (tests first): TDD for each operation', cls: 'dim' },
-      { html: '  Steps 5-7 (implementation): one function at a time', cls: 'dim' },
-      { html: '  Risk: use toBeCloseTo() for floating point assertions', cls: 'dim' },
-      { html: '  Planner completed                                               [02:51]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Iteration 1
-      { html: '\u25b6 Iteration 1/3                                                   [02:51]', cls: 'header' },
-      { html: '<span class="role">[coder]</span>        Writing tests + implementation (TDD)\u2026', cls: 'stage' },
-      { html: '  Coder completed                                                 [03:33]', cls: 'approved' },
-      { html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
-      { html: '<span class="role">[sonar]</span>        Scanning\u2026 Quality gate: OK                         [03:53]', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
-      { html: '  \u274c REJECTED (1 blocking)', cls: 'rejected' },
-      { html: '  R-1: Missing input validation \u2014 non-numeric inputs yield NaN/Infinity', cls: 'rejected' },
-      { html: '', cls: '' },
-      // Solomon mediates
-      { html: '<span class="role">[solomon]</span>      Evaluating reviewer rejection\u2026', cls: 'stage' },
-      { html: '  R-1: correctness concern \u2192 valid, must fix', cls: 'rejected' },
-      { html: '  Decision: add numeric coercion + TypeError for NaN inputs', cls: 'dim' },
-      { html: '  Add tests for non-numeric inputs (string, null, undefined)', cls: 'dim' },
-      { html: '  Solomon: 2 conditions                                           [05:18]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Iteration 2
-      { html: '\u25b6 Iteration 2/3                                                   [05:18]', cls: 'header' },
-      { html: '<span class="role">[coder]</span>        Applying Solomon conditions\u2026', cls: 'stage' },
-      { html: '  Added Number() coercion + TypeError for NaN', cls: 'dim' },
-      { html: '  Added 5 new validation tests', cls: 'dim' },
-      { html: '  Coder completed                                                 [06:21]', cls: 'approved' },
-      { html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
-      { html: '<span class="role">[sonar]</span>        Quality gate: OK                                      [06:49]', cls: 'approved' },
-      { html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
-      { html: '  \u2713 APPROVED                                                      [07:51]', cls: 'approved' },
-      { html: '', cls: '' },
+      // Header — all instant
+      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { t:0, html: '\u25b6 Karajan Code v1.36.1', cls: 'header' },
+      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { t:0, html: 'Task: Complete the calculator module. Add subtract, multiply, divide', cls: 'dim' },
+      { t:0, html: '      with input validation and comprehensive tests. TDD methodology.', cls: 'dim' },
+      { t:0, html: 'Coder: claude | Reviewer: codex', cls: 'dim' },
+      { t:0, html: 'Max iterations: 3 | Timeout: 30min', cls: 'dim' },
+      { t:0, html: 'Pipeline: Researcher | Architect | Planner | Tester | Security | Solomon', cls: 'dim' },
+      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { t:0, html: '', cls: '' },
+      // RTK instant, then triage takes 40s real = 4s demo
+      { t:0, html: '<span class="role">[rtk]</span>          RTK detected (v0.31.0) \u2014 token optimization active', cls: 'approved' },
+      { t:0, html: '<span class="role">[triage]</span>       Classifying task complexity\u2026', cls: 'stage' },
+      { t:40, html: '  Smart model selection applied', cls: 'dim' },
+      { t:0, html: '  TDD auto-detected: vitest', cls: 'dim' },
+      { t:0, html: '  Policies resolved for taskType="sw"                             [00:40]', cls: 'dim' },
+      { t:0, html: '', cls: '' },
+      // Preflight — 1s after triage (41-40)
+      { t:41, html: '<span class="role">[preflight]</span>    Running environment checks\u2026', cls: 'stage' },
+      { t:0, html: '  Docker: v29.3.0 \u2713', cls: 'dim' },
+      { t:0, html: '  SonarQube: reachable at localhost:9000 \u2713', cls: 'dim' },
+      { t:0, html: '  SonarQube auth: token valid \u2713', cls: 'dim' },
+      { t:0, html: '  Security agent: claude 2.1.83 \u2713', cls: 'dim' },
+      { t:0, html: '  Preflight passed \u2014 all checks OK                               [00:41]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Researcher — 45s after preflight (86-41)
+      { t:86, html: '<span class="role">[researcher]</span>   Investigating codebase\u2026', cls: 'stage' },
+      { t:0, html: '  Found: 2 source files, vitest configured', cls: 'dim' },
+      { t:0, html: '  Patterns: 10 identified, 5 risks flagged', cls: 'dim' },
+      { t:0, html: '  Researcher completed                                            [01:26]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Architect — 40s (126-86)
+      { t:126, html: '<span class="role">[architect]</span>    Designing solution architecture\u2026', cls: 'stage' },
+      { t:0, html: '  Module pattern: pure functions with input validation', cls: 'dim' },
+      { t:0, html: '  TypeError for non-numeric inputs, Error for divide-by-zero', cls: 'dim' },
+      { t:0, html: '  Architecture completed                                          [02:06]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Planner — 45s (171-126)
+      { t:171, html: '<span class="role">[planner]</span>      Planning implementation\u2026', cls: 'stage' },
+      { t:0, html: '  Steps 1-4 (tests first): TDD for each operation', cls: 'dim' },
+      { t:0, html: '  Steps 5-7 (implementation): one function at a time', cls: 'dim' },
+      { t:0, html: '  Risk: use toBeCloseTo() for floating point assertions', cls: 'dim' },
+      { t:0, html: '  Planner completed                                               [02:51]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Iteration 1 — instant after planner
+      { t:171, html: '\u25b6 Iteration 1/3                                                   [02:51]', cls: 'header' },
+      { t:171, html: '<span class="role">[coder]</span>        Writing tests + implementation (TDD)\u2026', cls: 'stage' },
+      { t:213, html: '  Coder completed                                                 [03:33]', cls: 'approved' },
+      { t:0, html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
+      { t:233, html: '<span class="role">[sonar]</span>        Scanning\u2026 Quality gate: OK                         [03:53]', cls: 'approved' },
+      { t:243, html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
+      { t:0, html: '  \u274c REJECTED (1 blocking)', cls: 'rejected' },
+      { t:0, html: '  R-1: Missing input validation \u2014 non-numeric inputs yield NaN/Infinity', cls: 'rejected' },
+      { t:0, html: '', cls: '' },
+      // Solomon — 75s after reviewer start (318-243)
+      { t:252, html: '<span class="role">[solomon]</span>      Evaluating reviewer rejection\u2026', cls: 'stage' },
+      { t:0, html: '  R-1: correctness concern \u2192 valid, must fix', cls: 'rejected' },
+      { t:0, html: '  Decision: add numeric coercion + TypeError for NaN inputs', cls: 'dim' },
+      { t:0, html: '  Add tests for non-numeric inputs (string, null, undefined)', cls: 'dim' },
+      { t:318, html: '  Solomon: 2 conditions                                           [05:18]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Iteration 2 — instant after solomon
+      { t:318, html: '\u25b6 Iteration 2/3                                                   [05:18]', cls: 'header' },
+      { t:318, html: '<span class="role">[coder]</span>        Applying Solomon conditions\u2026', cls: 'stage' },
+      { t:0, html: '  Added Number() coercion + TypeError for NaN', cls: 'dim' },
+      { t:0, html: '  Added 5 new validation tests', cls: 'dim' },
+      { t:381, html: '  Coder completed                                                 [06:21]', cls: 'approved' },
+      { t:0, html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
+      { t:409, html: '<span class="role">[sonar]</span>        Quality gate: OK                                      [06:49]', cls: 'approved' },
+      { t:420, html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
+      { t:471, html: '  \u2713 APPROVED                                                      [07:51]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
       // Post-approval
-      { html: '<span class="role">[tester]</span>       Running test audit\u2026', cls: 'stage' },
-      { html: '  28 tests | 93.75% coverage | 5 missing scenarios (advisory)', cls: 'dim' },
-      { html: '  Tester: passed                                                  [10:35]', cls: 'approved' },
-      { html: '<span class="role">[security]</span>     OWASP scan\u2026', cls: 'stage' },
-      { html: '  2 low severity findings (advisory)', cls: 'dim' },
-      { html: '  Security: passed                                                [11:08]', cls: 'approved' },
-      { html: '<span class="role">[audit]</span>        Final audit \u2014 verifying code quality\u2026', cls: 'stage' },
-      { html: '  CERTIFIED (with 7 advisory warnings)                            [12:27]', cls: 'approved' },
-      { html: '', cls: '' },
-      // Result
-      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { html: '\ud83c\udfc1 Result: APPROVED                                                [12:27]', cls: 'success' },
-      { html: '  \ud83d\udd2c Research: 2 files, 5 risks, 10 patterns identified', cls: 'dim' },
-      { html: '  \ud83d\uddfa Plan: TDD steps 1-4 (tests), 5-7 (implementation)', cls: 'dim' },
-      { html: '  \ud83e\uddea Tester: 28 tests | 93.75% coverage', cls: 'dim' },
-      { html: '  \ud83d\udd12 Security: pass (2 low)', cls: 'dim' },
-      { html: '  \ud83d\udd0d Sonar: OK', cls: 'dim' },
-      { html: '  \u2714 Audit: CERTIFIED', cls: 'success' },
-      { html: '  Session: s_2026-03-25T16-40-13-733Z', cls: 'dim' },
-      { html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { t:471, html: '<span class="role">[tester]</span>       Running test audit\u2026', cls: 'stage' },
+      { t:0, html: '  28 tests | 93.75% coverage | 5 missing scenarios (advisory)', cls: 'dim' },
+      { t:635, html: '  Tester: passed                                                  [10:35]', cls: 'approved' },
+      { t:635, html: '<span class="role">[security]</span>     OWASP scan\u2026', cls: 'stage' },
+      { t:0, html: '  2 low severity findings (advisory)', cls: 'dim' },
+      { t:668, html: '  Security: passed                                                [11:08]', cls: 'approved' },
+      { t:669, html: '<span class="role">[audit]</span>        Final audit \u2014 verifying code quality\u2026', cls: 'stage' },
+      { t:747, html: '  CERTIFIED (with 7 advisory warnings)                            [12:27]', cls: 'approved' },
+      { t:0, html: '', cls: '' },
+      // Result — instant
+      { t:747, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
+      { t:0, html: '\ud83c\udfc1 Result: APPROVED                                                [12:27]', cls: 'success' },
+      { t:0, html: '  \ud83d\udd2c Research: 2 files, 5 risks, 10 patterns identified', cls: 'dim' },
+      { t:0, html: '  \ud83d\uddfa Plan: TDD steps 1-4 (tests), 5-7 (implementation)', cls: 'dim' },
+      { t:0, html: '  \ud83e\uddea Tester: 28 tests | 93.75% coverage', cls: 'dim' },
+      { t:0, html: '  \ud83d\udd12 Security: pass (2 low)', cls: 'dim' },
+      { t:0, html: '  \ud83d\udd0d Sonar: OK', cls: 'dim' },
+      { t:0, html: '  \u2714 Audit: CERTIFIED', cls: 'success' },
+      { t:0, html: '  Session: s_2026-03-25T16-40-13-733Z', cls: 'dim' },
+      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
     ];
 
+    var SPINNER = ['\u280b','\u2819','\u2839','\u2838','\u283c','\u2834','\u2826','\u2827','\u2807','\u280f'];
     var demoTimer = null;
+    var spinnerTimer = null;
+    var spinnerEl = null;
     var demoSpeed = 1;
     var demoPaused = false;
     var demoAddNext = null;
-    var BASE_DELAY = 1200;
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function startSpinner(terminal) {
+      if (spinnerEl) stopSpinner();
+      spinnerEl = document.createElement('div');
+      spinnerEl.className = 'demo-line stage';
+      spinnerEl.style.opacity = '1';
+      spinnerEl.textContent = SPINNER[0];
+      terminal.appendChild(spinnerEl);
+      terminal.scrollTop = terminal.scrollHeight;
+      var si = 0;
+      spinnerTimer = setInterval(function() {
+        si = (si + 1) % SPINNER.length;
+        if (spinnerEl) spinnerEl.textContent = SPINNER[si];
+      }, 100);
+    }
+
+    function stopSpinner() {
+      if (spinnerTimer) clearInterval(spinnerTimer);
+      spinnerTimer = null;
+      if (spinnerEl && spinnerEl.parentNode) spinnerEl.parentNode.removeChild(spinnerEl);
+      spinnerEl = null;
+    }
 
     function togglePause(btn) {
       demoPaused = !demoPaused;
       btn.textContent = demoPaused ? '\u25b6' : '\u23f8';
       if (demoPaused) {
         if (demoTimer) clearTimeout(demoTimer);
+        stopSpinner();
       } else if (demoAddNext) {
-        demoTimer = setTimeout(demoAddNext, BASE_DELAY / demoSpeed);
+        demoTimer = setTimeout(demoAddNext, 100);
       }
     }
 
@@ -435,6 +462,9 @@
       var terminal = document.getElementById('demo-terminal');
       if (!terminal) return;
       terminal.innerHTML = '';
+      stopSpinner();
+      demoPaused = false;
+      document.getElementById('pause-btn').textContent = '\u23f8';
 
       if (reducedMotion) {
         DEMO_LINES.forEach(function(line) {
@@ -448,9 +478,12 @@
       }
 
       var i = 0;
+      var lastT = 0;
+
       function addNextLine() {
         demoAddNext = addNextLine;
         if (demoPaused) return;
+        stopSpinner();
         if (i >= DEMO_LINES.length) {
           demoPaused = true;
           demoAddNext = runDemo;
@@ -463,8 +496,22 @@
         div.innerHTML = line.html || '&nbsp;';
         terminal.appendChild(div);
         terminal.scrollTop = terminal.scrollHeight;
+
+        var curT = line.t || lastT;
+        if (line.t > 0) lastT = line.t;
         i++;
-        demoTimer = setTimeout(addNextLine, BASE_DELAY / demoSpeed);
+
+        // Calculate delay to next line
+        var nextT = (i < DEMO_LINES.length && DEMO_LINES[i].t > 0) ? DEMO_LINES[i].t : 0;
+        var delayMs = 0;
+        if (nextT > curT) {
+          delayMs = ((nextT - curT) * 1000) / (10 * demoSpeed);
+        }
+
+        if (delayMs > 500) {
+          startSpinner(terminal);
+        }
+        demoTimer = setTimeout(addNextLine, Math.max(delayMs, 50));
       }
       addNextLine();
     }
