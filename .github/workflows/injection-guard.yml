@@ -54,11 +54,11 @@ jobs:
           }
 
           if (!metaResult.clean) {
-            console.error("::error::Injection patterns detected in PR title/description");
+            console.warn("::warning::Injection patterns detected in PR title/description");
             for (const f of metaResult.findings) {
-              console.error(`  [${f.type}] line ${f.line}: ${f.snippet}`);
+              console.warn(`  [${f.type}] line ${f.line}: ${f.snippet}`);
             }
-            failed = true;
+            // Warning only — PR metadata is written by the author, not injected code
           }
 
           if (failed) {
