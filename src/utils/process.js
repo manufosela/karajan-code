@@ -1,12 +1,15 @@
 import { execa } from "execa";
 
+const isWin = process.platform === "win32";
+const KILL_SIGNAL = isWin ? "SIGTERM" : "SIGKILL";
+
 function buildSilenceKilledResult(silenceTimeoutMs, stdout, signal) {
   return {
     exitCode: 143,
     stdout,
     stderr: `Command killed after ${Number(silenceTimeoutMs)}ms without output`,
     timedOut: true,
-    signal: signal || "SIGKILL"
+    signal: signal || KILL_SIGNAL
   };
 }
 
@@ -52,7 +55,7 @@ async function awaitWithTimeout(subprocess, timeout, getStdout) {
   const timeoutResult = new Promise((resolve) => {
     timer = setTimeout(() => {
       try {
-        subprocess.kill("SIGKILL", { forceKillAfterDelay: 1000 });
+        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
       } catch {
         // no-op
       }
@@ -61,7 +64,7 @@ async function awaitWithTimeout(subprocess, timeout, getStdout) {
         stdout: getStdout(),
         stderr: `Command timed out after ${timeout}ms`,
         timedOut: true,
-        signal: "SIGKILL"
+        signal: KILL_SIGNAL
       });
     }, timeout);
   });
@@ -94,7 +97,7 @@ export async function runCommand(command, args = [], options = {}) {
     outputSilenceTimer = setTimeout(() => {
       silenceTimedOut = true;
       try {
-        subprocess.kill("SIGKILL", { forceKillAfterDelay: 1000 });
+        subprocess.kill(KILL_SIGNAL, { forceKillAfterDelay: 1000 });
       } catch {
         // no-op
       }

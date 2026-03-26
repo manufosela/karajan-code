@@ -66,8 +66,8 @@ Karajan instala **tres comandos**: `kj`, `kj-tail` y `karajan-mcp`.
 Ejecuta Karajan directamente. Ves la salida completa del pipeline en tiempo real.
 
 ```bash
-kj run "Crea una utilidad que valide numeros de DNI espanol, con tests"
-kj code "Anade validacion de inputs al formulario de registro"     # Solo coder
+kj run "Crea una utilidad que valide numeros de DNI español, con tests"
+kj code "Añade validacion de inputs al formulario de registro"     # Solo coder
 kj review "Revisa los cambios de autenticacion"                     # Revisar diff actual
 kj audit "Analisis completo de salud de este codebase"              # Auditoria solo-lectura
 kj plan "Refactorizar la capa de base de datos"                     # Planificar sin codificar
@@ -87,7 +87,7 @@ El servidor MCP se auto-registra durante `npm install`. Tu agente de IA ve 20 he
 
 ### 3. kj-tail: monitorizar desde otro terminal
 
-**La herramienta companera.** Abre un segundo terminal en el **mismo directorio del proyecto** donde esta trabajando tu agente de IA:
+**La herramienta compañera.** Abre un segundo terminal en el **mismo directorio del proyecto** donde esta trabajando tu agente de IA:
 
 ```bash
 kj-tail
@@ -198,7 +198,7 @@ Puedes sobreescribir cualquier rol built-in o crear nuevos. Sin codigo. Los agen
 
 Usa `kj roles show <rol>` para inspeccionar cualquier template.
 
-## Zero-config por diseno
+## Zero-config por diseño
 
 Karajan auto-detecta y auto-configura todo lo que puede:
 
@@ -220,7 +220,7 @@ Karajan tiene **2044 tests** en 161 ficheros. Corre en Node.js sin paso de build
 
 Es una decision deliberada, no una limitacion. Los tests son la seguridad de tipos. La legibilidad es una feature. 57 releases en 45 dias. Esa velocidad es posible precisamente porque JavaScript vanilla con buenos tests te deja moverte rapido sin miedo.
 
-## Companeros recomendados
+## Compañeros recomendados
 
 | Herramienta | Por que |
 |-------------|---------|
