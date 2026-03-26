@@ -844,6 +844,14 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
 
+  // --- HU Reviewer auto-activation from triage (post-triage, no huFile needed) ---
+  const triageRoles = new Set(triageResult.stageResult?.roles || []);
+  if (triageRoles.has("hu-reviewer") && !stageResults.huReviewer) {
+    pipelineFlags.huReviewerEnabled = true;
+    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile: null, askQuestion });
+    stageResults.huReviewer = huResult.stageResult;
+  }
+
   // --- Auto-simplify pipeline for simple tasks (before explicit flag overrides) ---
   const simplified = applyAutoSimplify({
     pipelineFlags,

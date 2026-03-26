@@ -519,7 +519,7 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
 }
 
 /**
- * Run the HU Reviewer stage: load stories from YAML, evaluate, certify, and return in topological order.
+ * Run the HU Reviewer stage: load stories from YAML or generate from task, evaluate, certify, and return in topological order.
  * @param {object} params
  * @returns {Promise<{stageResult: object}>}
  */
@@ -534,30 +534,36 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
     })
   );
 
-  // --- Load YAML file ---
-  const yaml = await import("js-yaml");
-  const fs = await import("node:fs/promises");
-  let rawYaml;
-  try {
-    rawYaml = await fs.readFile(huFile, "utf8");
-  } catch (err) {
-    const stageResult = { ok: false, error: `Could not read HU file: ${err.message}` };
-    emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
-      status: "fail", message: stageResult.error
-    }));
-    return { stageResult };
-  }
-
   let stories;
-  try {
-    const parsed = yaml.load(rawYaml);
-    stories = Array.isArray(parsed) ? parsed : (parsed?.stories || []);
-  } catch (err) {
-    const stageResult = { ok: false, error: `Invalid YAML in HU file: ${err.message}` };
-    emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
-      status: "fail", message: stageResult.error
-    }));
-    return { stageResult };
+
+  if (huFile) {
+    // --- Load YAML file ---
+    const yaml = await import("js-yaml");
+    const fs = await import("node:fs/promises");
+    let rawYaml;
+    try {
+      rawYaml = await fs.readFile(huFile, "utf8");
+    } catch (err) {
+      const stageResult = { ok: false, error: `Could not read HU file: ${err.message}` };
+      emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+        status: "fail", message: stageResult.error
+      }));
+      return { stageResult };
+    }
+
+    try {
+      const parsed = yaml.load(rawYaml);
+      stories = Array.isArray(parsed) ? parsed : (parsed?.stories || []);
+    } catch (err) {
+      const stageResult = { ok: false, error: `Invalid YAML in HU file: ${err.message}` };
+      emitProgress(emitter, makeEvent("hu-reviewer:end", { ...eventBase, stage: "hu-reviewer" }, {
+        status: "fail", message: stageResult.error
+      }));
+      return { stageResult };
+    }
+  } else {
+    // --- Generate stories from task description ---
+    stories = [{ id: "HU-AUTO-001", text: session.task }];
   }
 
   if (stories.length === 0) {
