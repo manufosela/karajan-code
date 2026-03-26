@@ -140,7 +140,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 
 | Rol | Que hace | Por defecto |
 |-----|----------|-------------|
-| **hu-reviewer** | Certifica historias de usuario antes de codificar (6 dimensiones, 7 antipatrones) | Off |
+| **hu-reviewer** | Certifica historias de usuario antes de codificar (6 dimensiones, 7 antipatrones) | Auto (media/compleja) |
 | **triage** | Clasifica complejidad, activa roles, auto-simplifica para tareas triviales | **On** |
 | **discover** | Detecta huecos en requisitos (Mom Test, Wendel, JTBD) | Off |
 | **architect** | Disena la arquitectura de la solucion antes de planificar | Off |
@@ -209,6 +209,7 @@ Karajan auto-detecta y auto-configura todo lo que puede:
 - **Complejidad del pipeline**: Triage clasifica la tarea, las triviales saltan el loop del reviewer
 - **Caidas de proveedor**: Reintentos en 500/502/503/504 con backoff (igual que rate limits)
 - **Cobertura**: Fallos de quality gate solo por cobertura se tratan como advisory
+- **HU Manager**: Las tareas complejas se descomponen automaticamente en historias de usuario formales con dependencias. Cada HU se ejecuta como su propio sub-pipeline con seguimiento de estado visible en el HU Board
 
 Sin configuracion por proyecto requerida. Si quieres personalizar, la config se apila: sesion > proyecto > global.
 
@@ -233,7 +234,7 @@ No es nostalgia ni cabezonería. Es que llevo usando JavaScript desde 1997, cuan
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Ejecutar 2044 tests con Vitest
+npm test              # Ejecutar 2093 tests con Vitest
 npm run validate      # Lint + test
 ```
 

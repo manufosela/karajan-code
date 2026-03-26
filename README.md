@@ -154,7 +154,7 @@ kj-tail --help           # Full options
 
 ┌─ Terminal 2: kj-tail ────────────────────────────────────────────────────────┐
 │                                                                              │
-│  kj-tail v1.37.0 — .kj/run.log                                              │
+│  kj-tail v1.38.0 — .kj/run.log                                              │
 │                                                                              │
 │  ├─ 📋 Triage: medium (sw) — enabling researcher, architect, planner         │
 │  ├─ ⚙️ Preflight passed — all checks OK                                     │
@@ -205,7 +205,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 
 | Role | What it does | Default |
 |------|-------------|---------|
-| **hu-reviewer** | Certifies user stories before coding (6 dimensions, 7 antipatterns) | Off |
+| **hu-reviewer** | Certifies user stories before coding (6 dimensions, 7 antipatterns) | Auto (medium/complex) |
 | **triage** | Classifies complexity, activates roles, auto-simplifies for trivial tasks | **On** |
 | **discover** | Detects gaps in requirements (Mom Test, Wendel, JTBD) | Off |
 | **architect** | Designs solution architecture before planning | Off |
@@ -274,6 +274,7 @@ Karajan auto-detects and auto-configures everything it can:
 - **Pipeline complexity**: Triage classifies task → trivial tasks skip reviewer loop
 - **Provider outages**: Retries on 500/502/503/504 with backoff (same as rate limits)
 - **Coverage**: Coverage-only quality gate failures treated as advisory
+- **HU Manager**: Complex tasks auto-decompose into formal user stories with dependencies. Each HU runs as its own sub-pipeline with state tracking visible in the HU Board
 
 No per-project configuration required. If you want to customize, config is layered: session > project > global.
 
@@ -298,7 +299,7 @@ Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Bre
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Run 2044 tests with Vitest
+npm test              # Run 2093 tests with Vitest
 npm run validate      # Lint + test
 ```
 
