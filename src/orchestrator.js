@@ -816,7 +816,7 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   const huFile = flags.huFile || null;
   if (flags.enableHuReviewer !== undefined) pipelineFlags.huReviewerEnabled = Boolean(flags.enableHuReviewer);
   if (pipelineFlags.huReviewerEnabled && huFile) {
-    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion });
+    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion, pgStories: null });
     stageResults.huReviewer = huResult.stageResult;
   }
 
@@ -848,7 +848,13 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   const triageRoles = new Set(triageResult.stageResult?.roles || []);
   if (triageRoles.has("hu-reviewer") && !stageResults.huReviewer) {
     pipelineFlags.huReviewerEnabled = true;
-    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile: null, askQuestion });
+    // Feed PG card structured data to hu-reviewer when available
+    let pgStories = null;
+    if (pgTaskId && pgProject && session.pg_card) {
+      const { buildHuStoriesFromPgCard } = await import("./planning-game/pipeline-adapter.js");
+      pgStories = buildHuStoriesFromPgCard(session.pg_card);
+    }
+    const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile: null, askQuestion, pgStories });
     stageResults.huReviewer = huResult.stageResult;
   }
 

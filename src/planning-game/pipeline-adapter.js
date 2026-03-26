@@ -119,6 +119,43 @@ export async function markPgCardToValidate({ pgCard, pgProject, config, session,
   }
 }
 
+/**
+ * Convert a PG card's structured data into HU stories for the hu-reviewer stage.
+ * Returns an array of story objects ({id, text}) or null if the card lacks structured data.
+ *
+ * @param {object} pgCard - The PG card object (from fetchCard)
+ * @returns {Array<{id: string, text: string}>|null}
+ */
+export function buildHuStoriesFromPgCard(pgCard) {
+  if (!pgCard?.descriptionStructured?.length) return null;
+
+  const parts = [];
+
+  // User stories (Como/Quiero/Para → As/I want/So that)
+  for (const s of pgCard.descriptionStructured) {
+    parts.push(`As ${s.role}, I want ${s.goal}, so that ${s.benefit}.`);
+  }
+
+  // Acceptance criteria
+  if (pgCard.acceptanceCriteriaStructured?.length) {
+    parts.push("", "Acceptance Criteria:");
+    for (const ac of pgCard.acceptanceCriteriaStructured) {
+      if (ac.given && ac.when && ac.then) {
+        parts.push(`- Given ${ac.given}, When ${ac.when}, Then ${ac.then}`);
+      } else if (ac.raw) {
+        parts.push(`- ${ac.raw}`);
+      }
+    }
+  } else if (pgCard.acceptanceCriteria) {
+    parts.push("", "Acceptance Criteria:", pgCard.acceptanceCriteria);
+  }
+
+  const storyId = pgCard.cardId || "HU-PG-001";
+  const storyText = parts.join("\n");
+
+  return [{ id: storyId, text: storyText }];
+}
+
 // --- Internal helpers ---
 
 async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
