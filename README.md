@@ -279,11 +279,9 @@ No per-project configuration required. If you want to customize, config is layer
 
 ## Why vanilla JavaScript?
 
-Because it should be.
+Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Brendan Eich created it in a week and changed the lives of everyone building for the web. I know its guts, its bugs, its quirks. And I know that whoever truly understands JS turns those bugs into features. TypeScript exists so that developers used to strongly-typed languages don't panic when they see JS. I respect that. But I don't need it. Tests are my type safety. JSDoc and a good IDE are my intellisense. And not having a compiler between the code and me is what lets me ship 57 releases in 45 days without fear.
 
-Karajan has **2044 tests** across 161 files. It runs on Node.js without a build step. You can read the source, understand it, fork it, and modify it without a TypeScript compiler between you and the code.
-
-This is a deliberate choice, not a limitation. The tests are the type safety. The legibility is a feature. 57 releases in 45 days. That velocity is possible precisely because vanilla JS with good tests lets you move fast without fear.
+[Why vanilla JavaScript: the long version](docs/why-vanilla-js.md)
 
 ## Recommended companions
 
