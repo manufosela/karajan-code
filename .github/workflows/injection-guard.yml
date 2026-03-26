@@ -23,6 +23,7 @@ jobs:
             -- ':!src/utils/injection-guard.js' \
             ':!tests/injection-guard.test.js' \
             ':!.github/workflows/injection-guard.yml' \
+            ':!CHANGELOG.md' \
             > /tmp/pr-diff.txt
 
       - name: Get PR metadata
