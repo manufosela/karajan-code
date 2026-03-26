@@ -250,4 +250,4 @@ Issues y pull requests bienvenidos. Si algo no funciona como esta documentado, [
 
 ---
 
-Construido por [@manufosela](https://github.com/manufosela). Head of Engineering en Geniova Technologies, co-organizador de NodeJS Madrid, autor de [Liderazgo Afectivo](https://www.amazon.es/dp/B0D7F4C8KC). 90+ paquetes npm publicados.
+Construido por [@manufosela](https://github.com/manufosela). Head of Engineering en Geniova Technologies, co-organizador de NodeJS Madrid, autor de [Liderazgo Afectivo](https://www.liderazgoafectivo.com). 90+ paquetes npm publicados.

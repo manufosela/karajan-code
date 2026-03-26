@@ -315,4 +315,4 @@ Issues and pull requests welcome. If something doesn't work as documented, [open
 
 ---
 
-Built by [@manufosela](https://github.com/manufosela). Head of Engineering at Geniova Technologies, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.amazon.es/dp/B0D7F4C8KC). 90+ npm packages published.
+Built by [@manufosela](https://github.com/manufosela). Head of Engineering at Geniova Technologies, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.liderazgoafectivo.com). 90+ npm packages published.
