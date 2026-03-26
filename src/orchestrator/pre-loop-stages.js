@@ -9,6 +9,7 @@ import { createArchitectADRs } from "../planning-game/architect-adrs.js";
 import { addCheckpoint, markSessionStatus } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { parsePlannerOutput } from "../prompts/planner.js";
+import { buildDecompositionPrompt, parseDecompositionOutput } from "../prompts/hu-reviewer.js";
 import { selectModelsForRoles } from "../utils/model-selector.js";
 import { createStallDetector } from "../utils/stall-detector.js";
 import { createHuBatch, loadHuBatch, saveHuBatch, updateStoryStatus, updateStoryQuality, updateStoryCertified, addContextRequest, answerContextRequest } from "../hu/store.js";
@@ -519,11 +520,81 @@ export async function runDiscoverStage({ config, logger, emitter, eventBase, ses
 }
 
 /**
+ * Use an AI agent to decompose a complex task into multiple formal HUs.
+ * Returns null if decomposition fails or the task is too simple.
+ * @param {object} params
+ * @returns {Promise<Array|null>} Array of decomposed HUs or null.
+ */
+async function decomposeTaskIntoHUs({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
+  const provider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
+  const prompt = buildDecompositionPrompt(session.task);
+
+  emitProgress(
+    emitter,
+    makeEvent("hu-reviewer:decompose-start", { ...eventBase, stage: "hu-reviewer" }, {
+      message: "Decomposing complex task into formal HUs",
+      detail: { provider }
+    })
+  );
+
+  const onOutput = ({ stream, line }) => {
+    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "hu-reviewer" }, {
+      message: line,
+      detail: { stream, agent: provider }
+    }));
+  };
+  const stall = createStallDetector({
+    onOutput, emitter, eventBase, stage: "hu-reviewer", provider
+  });
+
+  const agent = createAgent(provider, config, logger);
+  const decompStart = Date.now();
+  let result;
+  try {
+    result = await agent.runTask({ prompt, role: "hu-reviewer", onOutput: stall.onOutput });
+  } catch (err) {
+    logger.warn(`HU decomposition threw: ${err.message}`);
+    return null;
+  } finally {
+    stall.stop();
+  }
+
+  trackBudget({
+    role: "hu-reviewer-decompose",
+    provider,
+    model: config?.roles?.hu_reviewer?.model || coderRole.model,
+    result,
+    duration_ms: Date.now() - decompStart
+  });
+
+  if (!result.ok) {
+    logger.warn(`HU decomposition failed: ${result.error || "unknown"}`);
+    return null;
+  }
+
+  const stories = parseDecompositionOutput(result.output);
+  if (!stories || stories.length < 2) {
+    logger.info("HU decomposition returned < 2 stories, falling back to single auto-story");
+    return null;
+  }
+
+  emitProgress(
+    emitter,
+    makeEvent("hu-reviewer:decompose-end", { ...eventBase, stage: "hu-reviewer" }, {
+      message: `Task decomposed into ${stories.length} HUs`,
+      detail: { count: stories.length, ids: stories.map(s => s.id) }
+    })
+  );
+
+  return stories;
+}
+
+/**
  * Run the HU Reviewer stage: load stories from YAML or generate from task, evaluate, certify, and return in topological order.
  * @param {object} params
  * @returns {Promise<{stageResult: object}>}
  */
-export async function runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion }) {
+export async function runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion, pgStories = null }) {
   logger.setContext({ iteration: 0, stage: "hu-reviewer" });
   const huReviewerProvider = config?.roles?.hu_reviewer?.provider || coderRole.provider;
   emitProgress(
@@ -561,9 +632,28 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
       }));
       return { stageResult };
     }
+  } else if (pgStories && pgStories.length > 0) {
+    // --- Use pre-built stories from Planning Game card structured data ---
+    stories = pgStories;
+    logger.info(`HU Reviewer: using ${pgStories.length} story(ies) from PG card`);
+    emitProgress(emitter, makeEvent("hu-reviewer:pg-feed", { ...eventBase, stage: "hu-reviewer" }, {
+      message: `Using ${pgStories.length} story(ies) from Planning Game card`,
+      detail: { source: "pg-card", storyIds: pgStories.map(s => s.id) }
+    }));
   } else {
-    // --- Generate stories from task description ---
-    stories = [{ id: "HU-AUTO-001", text: session.task }];
+    // --- Decompose task into formal HUs via AI, or fall back to single auto-story ---
+    const decomposed = await decomposeTaskIntoHUs({
+      config, logger, emitter, eventBase, session, coderRole, trackBudget
+    });
+    if (decomposed && decomposed.length > 1) {
+      stories = decomposed.map(hu => ({
+        id: hu.id,
+        text: `As a ${hu.role}, I want to ${hu.goal}, so that ${hu.benefit}\n\nTitle: ${hu.title}\nAcceptance Criteria:\n${hu.acceptanceCriteria.map(ac => `- ${ac}`).join("\n")}`,
+        blocked_by: hu.dependsOn || []
+      }));
+    } else {
+      stories = [{ id: "HU-AUTO-001", text: session.task }];
+    }
   }
 
   if (stories.length === 0) {

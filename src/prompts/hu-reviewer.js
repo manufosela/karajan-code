@@ -132,6 +132,61 @@ export function normalizeAcceptanceCriteria(criteria) {
 }
 
 /**
+ * Build a prompt that asks the AI to decompose a complex task into 2-5 formal HUs.
+ * Each HU follows the role/goal/benefit format with acceptance criteria and optional dependencies.
+ * @param {string} task - The complex task description to decompose.
+ * @returns {string} The assembled decomposition prompt.
+ */
+export function buildDecompositionPrompt(task) {
+  const sections = [SUBAGENT_PREAMBLE];
+
+  sections.push("## Task Decomposition");
+  sections.push(
+    "You are a senior product owner. Decompose the following complex task into 2-5 independent, implementable user stories (HUs).",
+    "Each HU must be small enough to implement in a single iteration and must follow the role/goal/benefit format."
+  );
+
+  sections.push(`## Task to Decompose\n${task}`);
+
+  sections.push(
+    "Return a single valid JSON object and nothing else.",
+    `JSON schema: {"stories":[{"id":string,"title":string,"role":string,"goal":string,"benefit":string,"acceptanceCriteria":[string],"dependsOn":[string]}]}`,
+    "Rules:",
+    "- Generate between 2 and 5 HUs",
+    "- Each id must be unique, formatted as HU-DECOMP-NNN (e.g. HU-DECOMP-001)",
+    "- dependsOn is an array of other HU ids from this decomposition that must be completed first (empty array if no dependencies)",
+    "- acceptanceCriteria should be concrete, testable statements",
+    "- Order stories so that dependencies are respected (a story should only depend on stories with lower ids)"
+  );
+
+  return sections.join("\n\n");
+}
+
+/**
+ * Parse the output from a decomposition prompt.
+ * @param {string} raw - Raw text output from the agent.
+ * @returns {Array<{id: string, title: string, role: string, goal: string, benefit: string, acceptanceCriteria: string[], dependsOn: string[]}>|null}
+ */
+export function parseDecompositionOutput(raw) {
+  const parsed = extractFirstJson(raw);
+  if (!parsed || !Array.isArray(parsed.stories)) return null;
+
+  const stories = parsed.stories
+    .filter(s => s && s.id && s.title)
+    .map(s => ({
+      id: s.id,
+      title: s.title,
+      role: s.role || "developer",
+      goal: s.goal || s.title,
+      benefit: s.benefit || "",
+      acceptanceCriteria: Array.isArray(s.acceptanceCriteria) ? s.acceptanceCriteria : [],
+      dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn : []
+    }));
+
+  return stories.length > 0 ? stories : null;
+}
+
+/**
  * Parse the raw output from the HU reviewer agent.
  * @param {string} raw - Raw text output from the agent.
  * @returns {object|null} Parsed result with evaluations and batch_summary, or null.
