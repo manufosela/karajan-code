@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.0] - 2026-03-26
+
+### Added
+- **Integrated HU Manager** (epic KJC-PCS-0021): the HU system is now the nervous system for complex tasks
+- **Triage auto-activates hu-reviewer**: medium/complex tasks get automatic story decomposition without manual flags (#197)
+- **AI-driven task decomposition**: complex tasks decompose into 2-5 formal HUs with structured descriptions, acceptance criteria, and dependency graphs (#199)
+- **Sub-pipeline per HU**: each certified HU runs as its own sub-pipeline (coder, sonar, reviewer) with per-HU state tracking (pending, coding, reviewing, done, failed, blocked). Failed HUs block dependents via transitive dependency resolution (#201)
+- **PG adapter feeds hu-reviewer**: Planning Game card data (descriptionStructured, acceptanceCriteria) automatically converted to HU format when pgTaskId is set (#200)
+- **History records for all pipeline runs**: every pipeline run (simple or complex) creates a lightweight HU record visible in the HU Board (#198)
+- **"Why vanilla JavaScript?" essay**: personal perspective on the JS vs TS choice (docs/why-vanilla-js.md)
+- 49 new tests (2093 total across 166 files)
+
+## [1.37.0] - 2026-03-25
+
+### Added
+- **Injection guard**: prompt injection scanner for AI-reviewed diffs and PRs. Scans diffs before passing them to AI reviewers, detecting directive overrides ("ignore previous instructions"), invisible Unicode characters (zero-width spaces, bidi overrides), and oversized comment block payloads. Integrated in pipeline (blocks review) and as GitHub Action on every PR
+- **Community templates**: CODE_OF_CONDUCT.md, CONTRIBUTING.md, issue/PR templates (bilingual EN/ES)
+- **Executor info in pipeline output**: all stage events show provider name and execution type (AI/skill/local)
+- **Windows compatibility**: `where` instead of `which`, AppData search dirs, .cmd/.exe/.bat extensions, SIGTERM on Windows, Windows install commands
+- 33 new injection guard tests (2044 total across 161 files)
+
+### Fixed
+- CI test failures (missing mocks after vi.resetAllMocks)
+- Branch protection enabled on main (PR required)
+- Auto-delete merged branches enabled
+
+### Security
+- SECURITY.md made bilingual (EN + ES)
+
+## [1.36.1] - 2026-03-25
+
+### Added
+- **kj-tail as installable CLI command**: `kj-tail` with `--help`, filtering (`-v`, `-t`, `-s`, `-n`), and snapshot mode
+- **Three ways to use Karajan** documented: CLI, MCP, kj-tail with full pipeline example
+- **Executor info**: provider and execution type (AI/skill/local) in all pipeline stage events
+
+### Fixed
+- Propagate Solomon error details to escalation and activity log
+
 ## [1.36.0] - 2026-03-25
 
 ### Added
@@ -410,7 +449,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.35.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.0...HEAD
+[1.38.0]: https://github.com/manufosela/karajan-code/compare/v1.37.0...v1.38.0
+[1.37.0]: https://github.com/manufosela/karajan-code/compare/v1.36.1...v1.37.0
+[1.36.1]: https://github.com/manufosela/karajan-code/compare/v1.36.0...v1.36.1
+[1.36.0]: https://github.com/manufosela/karajan-code/compare/v1.35.0...v1.36.0
 [1.35.0]: https://github.com/manufosela/karajan-code/compare/v1.34.4...v1.35.0
 [1.34.4]: https://github.com/manufosela/karajan-code/compare/v1.34.3...v1.34.4
 [1.34.3]: https://github.com/manufosela/karajan-code/compare/v1.34.2...v1.34.3

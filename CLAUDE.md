@@ -1,43 +1,42 @@
 # KJ Default Workflow (Claude Code)
 
-## Objetivo
-Usar Karajan Code (KJ) como orquestador por defecto para implementar tareas y corregir bugs.
+## Objective
+Use Karajan Code (KJ) as the default orchestrator for implementing tasks and fixing bugs in this project.
 
-## Regla por defecto
-Si el usuario pide implementar/fix/refactor (o "hacer la siguiente tarea prioritaria"), no edites manualmente primero:
-1. Obtener tarea (si aplica) desde Planning Game MCP.
-2. Ejecutar KJ por MCP con `karajan-mcp` usando `kj_run`.
+## Default rule
+When asked to implement, fix, or refactor code, use `kj_run` via MCP instead of editing manually:
+1. If a Planning Game MCP is available and a task ID is provided, fetch the task context first.
+2. Run `kj_run` with the task description and defaults below.
+3. If neither KJ MCP nor PG MCP are available, implement directly.
 
-## Flujo operativo por defecto
-1. Si la petición no trae tarea concreta:
-   - Consultar Planning Game MCP y recuperar la tarea más prioritaria.
-2. Ejecutar `kj_run` con estos defaults:
-   - `mode: "standard"`
-   - `methodology: "tdd"`
-   - `coder: "claude"`
-   - `reviewer: "codex"`
-   - `reviewerFallback: "claude"`
-   - `maxIterations: 5`
-   - `maxIterationMinutes: 5`
-3. Mostrar resultado y resumen de cambios.
+## Default execution parameters
+For `kj_run`, use:
+- `mode: "standard"`
+- `methodology: "tdd"`
+- `coder: "claude"`
+- `reviewer: "codex"`
+- `reviewerFallback: "claude"`
+- `maxIterations: 5`
+- `maxIterationMinutes: 5`
 
-## Cuándo cambiar el comportamiento
-- Si el usuario pide máxima rigurosidad: usar `mode: "paranoid"`.
-- Si el usuario pide explícitamente no TDD: usar `methodology: "standard"`.
-- Si `kj_run` falla, diagnosticar (`kj_doctor`, `kj_config`) y reintentar.
-- Solo editar manualmente si el usuario lo pide o KJ no puede completar.
+## When to change behavior
+- Maximum rigor requested: use `mode: "paranoid"`.
+- User explicitly requests no TDD: use `methodology: "standard"`.
+- If `kj_run` fails, diagnose with `kj_doctor` / `kj_config` and retry.
+- Edit manually only if the user asks or KJ cannot complete the task.
 
-## Troubleshooting y arquitectura de subprocesos
+## Troubleshooting and subprocess architecture
 
-Ver `docs/troubleshooting.md` para problemas comunes. Puntos clave:
+See `docs/troubleshooting.md` for common issues. Key points:
 
-- **Claude como subproceso**: Claude Code 2.x requiere 3 workarounds al lanzar `claude -p` desde Node.js: strip `CLAUDECODE` env var, `stdin: "ignore"`, leer de stderr (no stdout). Ver `src/agents/claude-agent.js` → `cleanExecaOpts()` / `pickOutput()`.
-- **Wizards interactivos**: El coder corre sin stdin. Tareas que requieren `pnpm create astro`, `npm init`, etc. deben usar flags `--yes`/`--no-input` o reportar que no pueden completarse.
-- **Checkpoint**: Si `elicitInput` devuelve null, la sesión continúa (no se para). Solo "stop" o "4" explícito la detiene.
-- **Resume**: `kj_resume` acepta sesiones stopped, failed y paused.
+- **Claude as subprocess**: Claude Code 2.x requires 3 workarounds when launching `claude -p` from Node.js: strip `CLAUDECODE` env var, `stdin: "ignore"`, read from stderr (not stdout). See `src/agents/claude-agent.js` -> `cleanExecaOpts()` / `pickOutput()`.
+- **Interactive wizards**: The coder runs without stdin. Tasks requiring `pnpm create astro`, `npm init`, etc. must use `--yes`/`--no-input` flags or report that they cannot complete.
+- **Checkpoint**: If `elicitInput` returns null, the session continues (does not stop). Only explicit "stop" or "4" stops it.
+- **Resume**: `kj_resume` accepts stopped, failed, and paused sessions.
 
-## Ejemplo natural
-Input usuario: "realiza la tarea siguiente más prioritaria del proyecto".
-Acción esperada:
-1. Leer tarea prioritaria en PG MCP.
-2. Lanzar `kj_run` con esa tarea y defaults anteriores.
+## Example
+User input: "implement the next priority task"
+Expected action:
+1. If PG MCP is available, fetch the priority task.
+2. Run `kj_run` with that task and defaults above.
+3. If no PG MCP, ask the user what to implement.

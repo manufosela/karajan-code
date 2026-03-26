@@ -1,31 +1,32 @@
 # KJ Default Workflow (Codex)
 
-## Objetivo
-Usar Karajan Code (KJ) como vía principal para implementar tareas y resolver bugs.
+## Objective
+Use Karajan Code (KJ) as the default orchestrator for implementing tasks and fixing bugs.
 
-## Regla por defecto
-Ante peticiones de implementación/fix/refactor (incluyendo "haz la tarea más prioritaria"), no empezar con edición manual:
-1. Si falta contexto de tarea, obtenerla del Planning Game MCP.
-2. Ejecutar KJ por MCP (`karajan-mcp`) con `kj_run`.
+## Default rule
+When asked to implement, fix, or refactor, use `kj_run` via MCP instead of editing manually:
+1. If a Planning Game MCP is available and a task ID is provided, fetch the task context first.
+2. Run `kj_run` with defaults below.
+3. If neither KJ MCP nor PG MCP are available, implement directly.
 
-## Defaults de ejecución
-Para `kj_run`, usar por defecto:
-- `mode: "standard"` (enfocado en crítico/importante)
-- `methodology: "tdd"` (obligatorio por defecto)
+## Default execution parameters
+- `mode: "standard"`
+- `methodology: "tdd"`
 - `coder: "codex"`
 - `reviewer: "claude"`
 - `reviewerFallback: "codex"`
 - `maxIterations: 5`
 - `maxIterationMinutes: 5`
 
-## Excepciones
-- Si el usuario pide más estricto: `mode: "paranoid"`.
-- Si el usuario pide explícitamente no TDD: `methodology: "standard"`.
-- Si falla KJ: ejecutar `kj_doctor`/`kj_config`, corregir y reintentar.
-- Edición manual directa solo si el usuario lo pide o KJ no puede completar.
+## When to change behavior
+- Maximum rigor: `mode: "paranoid"`.
+- No TDD requested: `methodology: "standard"`.
+- If KJ fails: run `kj_doctor` / `kj_config`, fix, and retry.
+- Manual editing only if the user asks or KJ cannot complete.
 
-## Comportamiento esperado con prompt natural
-Prompt: "realiza la tarea siguiente más prioritaria del proyecto".
-Acción:
-1. Consultar PG MCP para extraer la tarea prioritaria.
-2. Ejecutar `kj_run` con esa tarea y los defaults anteriores.
+## Example
+User: "implement the next priority task"
+Action:
+1. If PG MCP available, fetch priority task.
+2. Run `kj_run` with that task and defaults above.
+3. If no PG MCP, ask what to implement.
