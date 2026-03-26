@@ -35,6 +35,7 @@ import { PipelineContext } from "./orchestrator/pipeline-context.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage, runImpeccableStage, runFinalAuditStage } from "./orchestrator/post-loop-stages.js";
+import { needsSubPipeline, runHuSubPipeline } from "./orchestrator/hu-sub-pipeline.js";
 import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js";
 import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
@@ -1331,14 +1332,13 @@ async function writeHistoryRecord({ sessionId, task, result, logger }) {
   }
 }
 
-export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
-  const pipelineFlags = resolvePipelineFlags(config);
-
-  if (flags.dryRun) {
-    return handleDryRun({ task, config, flags, emitter, pipelineFlags });
-  }
-
-  const ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
+/**
+ * Run the standard iteration loop for a given task using the pipeline context.
+ * Returns a result object with at least { approved: boolean }.
+ * Used both as the main loop and as the per-HU callback in sub-pipeline mode.
+ */
+async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, logger }) {
+  ctx.plannedTask = loopTask;
 
   const checkpointIntervalMs = (ctx.config.session.checkpoint_interval_minutes ?? 5) * 60 * 1000;
   let lastCheckpointAt = Date.now();
@@ -1355,7 +1355,6 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       i, config: ctx.config, budgetTracker: ctx.budgetTracker, stageResults: ctx.stageResults, emitter, eventBase: ctx.eventBase, session: ctx.session, budgetSummary: ctx.budgetSummary, lastCheckpointSnapshot
     });
     if (cpResult.action === "stop") {
-      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: cpResult.result, logger });
       return cpResult.result;
     }
     checkpointDisabled = cpResult.checkpointDisabled;
@@ -1370,15 +1369,62 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
     const iterResult = await runSingleIteration(ctx);
     if (iterResult.action === "return") {
-      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: iterResult.result, logger });
       return iterResult.result;
     }
     if (iterResult.action === "retry") { i -= 1; }
   }
 
-  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task });
-  await writeHistoryRecord({ sessionId: ctx.session.id, task, result: maxIterResult, logger });
+  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask });
   return maxIterResult;
+}
+
+export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
+  const pipelineFlags = resolvePipelineFlags(config);
+
+  if (flags.dryRun) {
+    return handleDryRun({ task, config, flags, emitter, pipelineFlags });
+  }
+
+  const ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
+
+  // --- HU Sub-Pipeline: run each certified HU as an independent iteration loop ---
+  if (needsSubPipeline(ctx.stageResults.huReviewer)) {
+    logger.info(`HU sub-pipeline: ${ctx.stageResults.huReviewer.certified} certified stories — running each as a sub-pipeline`);
+    emitProgress(emitter, makeEvent("hu:sub-pipeline:start", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
+      message: `Running ${ctx.stageResults.huReviewer.certified} HUs as sub-pipelines`,
+      detail: { total: ctx.stageResults.huReviewer.total, certified: ctx.stageResults.huReviewer.certified }
+    }));
+
+    const subPipelineResult = await runHuSubPipeline({
+      huReviewerResult: ctx.stageResults.huReviewer,
+      runIterationFn: async (huTask) => runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger }),
+      emitter,
+      eventBase: ctx.eventBase,
+      logger
+    });
+
+    emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
+      status: subPipelineResult.approved ? "ok" : "fail",
+      message: subPipelineResult.approved
+        ? "All HUs completed successfully"
+        : `Sub-pipeline finished with failures (${subPipelineResult.blockedIds.length} blocked)`,
+      detail: { results: subPipelineResult.results, blockedIds: subPipelineResult.blockedIds }
+    }));
+
+    const finalResult = {
+      approved: subPipelineResult.approved,
+      sessionId: ctx.session.id,
+      huResults: subPipelineResult.results,
+      blockedIds: subPipelineResult.blockedIds
+    };
+    await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
+    return finalResult;
+  }
+
+  // --- Standard single-task pipeline (1 HU or no HU reviewer) ---
+  const result = await runIterationLoop(ctx, { task: ctx.plannedTask, askQuestion, emitter, logger });
+  await writeHistoryRecord({ sessionId: ctx.session.id, task, result, logger });
+  return result;
 }
 
 export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null, askQuestion = null }) {
