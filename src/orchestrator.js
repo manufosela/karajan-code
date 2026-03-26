@@ -1301,6 +1301,22 @@ async function runSingleIteration(ctx) {
   return { action: "next" };
 }
 
+async function writeHistoryRecord({ sessionId, task, result, logger }) {
+  try {
+    const { createHistoryRecord } = await import("./hu/store.js");
+    const approved = Boolean(result?.approved);
+    const summary = result?.review?.summary || result?.reason || null;
+    await createHistoryRecord(sessionId, {
+      task,
+      result: JSON.stringify(result),
+      approved,
+      summary
+    });
+  } catch (err) {
+    logger.warn(`HU history record failed (non-blocking): ${err.message}`);
+  }
+}
+
 export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
   const pipelineFlags = resolvePipelineFlags(config);
 
@@ -1324,7 +1340,10 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes,
       i, config: ctx.config, budgetTracker: ctx.budgetTracker, stageResults: ctx.stageResults, emitter, eventBase: ctx.eventBase, session: ctx.session, budgetSummary: ctx.budgetSummary, lastCheckpointSnapshot
     });
-    if (cpResult.action === "stop") return cpResult.result;
+    if (cpResult.action === "stop") {
+      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: cpResult.result, logger });
+      return cpResult.result;
+    }
     checkpointDisabled = cpResult.checkpointDisabled;
     lastCheckpointAt = cpResult.lastCheckpointAt;
     if (cpResult.lastCheckpointSnapshot !== undefined) lastCheckpointSnapshot = cpResult.lastCheckpointSnapshot;
@@ -1336,11 +1355,16 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     ctx.iteration = i;
 
     const iterResult = await runSingleIteration(ctx);
-    if (iterResult.action === "return") return iterResult.result;
+    if (iterResult.action === "return") {
+      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: iterResult.result, logger });
+      return iterResult.result;
+    }
     if (iterResult.action === "retry") { i -= 1; }
   }
 
-  return handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task });
+  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task });
+  await writeHistoryRecord({ sessionId: ctx.session.id, task, result: maxIterResult, logger });
+  return maxIterResult;
 }
 
 export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null, askQuestion = null }) {
