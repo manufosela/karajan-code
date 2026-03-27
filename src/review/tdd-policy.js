@@ -21,15 +21,17 @@ function isSourceFile(file, extensions = []) {
 
 const SKIP_TDD_TASK_TYPES = new Set(["doc", "infra"]);
 
+const DEFAULT_TEST_PATTERNS = ["/tests/", "/__tests__/", ".test.", ".spec.", "/src/test/", "/test/", "Test.java", "Test.kt", "test_", "_test.py", "_test.go", "Test.cs", "_spec.rb", "Test.php", "_test.dart", "Tests.swift"];
+const DEFAULT_SOURCE_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".kt", ".rb", ".php", ".cs", ".rs", ".swift", ".dart"];
+
 export function evaluateTddPolicy(diff, developmentConfig = {}, untrackedFiles = [], taskType = null) {
   if (taskType && SKIP_TDD_TASK_TYPES.has(taskType)) {
     return { ok: true, reason: "tdd_not_applicable_for_task_type", sourceFiles: [], testFiles: [] };
   }
 
   const requireTestChanges = developmentConfig.require_test_changes !== false;
-  const patterns = developmentConfig.test_file_patterns || ["/tests/", "/__tests__/", ".test.", ".spec."];
-  const extensions =
-    developmentConfig.source_file_extensions || [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"];
+  const patterns = developmentConfig.test_file_patterns || DEFAULT_TEST_PATTERNS;
+  const extensions = developmentConfig.source_file_extensions || DEFAULT_SOURCE_EXTENSIONS;
 
   const diffFiles = extractChangedFiles(diff);
   const extra = Array.isArray(untrackedFiles) ? untrackedFiles : [];
