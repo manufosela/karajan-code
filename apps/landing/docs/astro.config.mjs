@@ -22,7 +22,11 @@ export default defineConfig({
 				},
 				{
 					tag: 'script',
-					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';const f=document.querySelector('footer.sl-flex');if(f){const p=document.createElement('p');p.style.cssText='margin-top:1rem;text-align:center;';p.innerHTML='<a href="https://librecounter.org/referer/show" target="_blank"><img src="https://librecounter.org/outline-orange.svg" referrerPolicy="unsafe-url" alt="LibreCounter" /></a>';f.appendChild(p);}});`,
+					content: `document.addEventListener('DOMContentLoaded',()=>{const a=document.querySelector('.site-title');if(a)a.href='/';});`,
+				},
+				{
+					tag: 'script',
+					attrs: { defer: true, src: 'https://stats.manulitics.com/script.js', 'data-website-id': '8871eadf-4414-4baf-b83a-9f3da27b97fe' },
 				},
 			],
 			logo: {
