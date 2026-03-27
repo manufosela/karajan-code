@@ -7,7 +7,7 @@ description: What is Karajan Code and why use it.
 
 Karajan Code (`kj`) orchestrates AI agents like a conductor orchestrates an orchestra. You define **what** needs to happen — code, review, test, secure — and Karajan assigns **who** does each part.
 
-**13 specialized roles.** Triage, researcher, architect, planner, coder, reviewer, tester, security, and more.
+**15 specialized roles.** Triage, researcher, architect, planner, coder, reviewer, tester, security, and more.
 
 **5 AI agents.** Claude, Codex, Gemini, Aider, OpenCode. Mix and match freely.
 
@@ -84,19 +84,27 @@ Karajan Code solves both problems by chaining **roles** with **quality gates** a
   <div class="carousel-track">
     <div class="carousel-slide">
       <h3>Role-based Pipeline</h3>
-      <p>13 specialized roles — each assignable to any agent. Triage, researcher, architect, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.</p>
+      <p>15 specialized roles — each assignable to any agent. Triage, discover, researcher, architect, planner, coder, refactorer, sonar, reviewer, hu-reviewer, tester, security, audit, solomon, commiter.</p>
     </div>
     <div class="carousel-slide">
       <h3>5 AI Agents</h3>
       <p>Claude, Codex, Gemini, Aider, OpenCode — mix and match per role. Extensible via plugins in <code>.karajan/plugins/</code>.</p>
     </div>
     <div class="carousel-slide">
-      <h3>MCP Server — 18 Tools</h3>
+      <h3>MCP Server — 20 Tools</h3>
       <p>Use <code>kj</code> from your AI agent. Standalone tools: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>. Real-time progress notifications.</p>
     </div>
     <div class="carousel-slide">
       <h3>Deterministic Guards</h3>
       <p>Output guard blocks destructive operations and credential leaks. Perf guard catches frontend anti-patterns. Intent classifier pre-triages without LLM cost.</p>
+    </div>
+    <div class="carousel-slide">
+      <h3>Injection Guard</h3>
+      <p>Prompt injection scanner that protects AI code review from manipulation. Detects directive overrides, invisible Unicode characters, and oversized comment payloads. Also runs as a GitHub Action on every PR.</p>
+    </div>
+    <div class="carousel-slide">
+      <h3>Integrated HU Manager</h3>
+      <p>Auto-decomposes complex tasks into formal user stories (HUs). Triage activates hu-reviewer for medium/complex tasks, generating 2-5 HUs with dependencies. Each HU runs its own sub-pipeline (coder→sonar→reviewer) with state tracking. Full PG integration and board visualization.</p>
     </div>
     <div class="carousel-slide">
       <h3>SonarQube + SonarCloud</h3>
@@ -351,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Quality & Testing
 
-Karajan Code is tested with **1575+ automated tests** across 130 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
+Karajan Code is tested with **2093 automated tests** across 166 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
 
 Quality is enforced at multiple layers:
 - **SonarQube** (local, via Docker) — full static analysis with quality gates, blocking on critical issues
@@ -367,7 +375,7 @@ Karajan offers two ways to work:
 
 **Skills mode** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) installed directly in Claude Code. Each command includes built-in guardrails. No MCP server needed — ideal for single-agent workflows. Install with `kj init`.
 
-**Orchestrator mode** — Full MCP server with 18 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
+**Orchestrator mode** — Full MCP server with 20 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
 
 Both modes can coexist. Use skills for quick tasks and the orchestrator when you need multiple agents or full pipeline control. See the [Skills Guide](/docs/guides/skills/) for details.
 

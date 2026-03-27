@@ -640,6 +640,32 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.34.2** — HU Board integrado en CLI (`kj board start/stop/status/open`), MCP (herramienta `kj_board` para start/stop/status), wizard de init (activar HU Board durante `kj init`), opcion de auto-start (el board arranca automaticamente con `kj run`), y soporte de modo skills.
 
+### v1.34.3: Refactor de complejidad cognitiva
+
+**v1.34.3** — Reduccion de complejidad cognitiva en 6 ficheros core. Cero tests saltados, 44 nuevos tests de backend del board.
+
+### v1.34.4: Instalacion multiplataforma
+
+**v1.34.4** — Comandos de instalacion adaptados al SO: macOS usa brew, Linux usa curl/apt/pipx. Las instrucciones de instalacion de agentes se adaptan a la plataforma del usuario.
+
+## Fase 29: Bootstrap Gate (v1.35.0)
+
+**v1.35.0** — Bootstrap gate obligatorio para todas las herramientas KJ: valida prerequisitos (repo git, remote, config, agentes, SonarQube) antes de ejecutar cualquier herramienta. Falla con instrucciones claras, nunca degrada silenciosamente. Eliminadas credenciales por defecto admin/admin de SonarQube (fix de seguridad).
+
+### v1.36.0: Metricas de uso reales y kj-tail
+
+**v1.36.0** — Extraccion de metricas de uso reales de CLIs de Claude y Codex. `kj doctor` valida ficheros de configuracion de agentes (JSON, TOML, YAML). Fallback de modelos resiliente y contexto de conflicto en Solomon. Nombre del stage en mensajes de heartbeat/stall de agentes.
+
+**v1.36.1** — `kj-tail` como comando CLI instalable con `--help` y filtrado. Documentacion de tres formas de usar Karajan: CLI, MCP, kj-tail. Ejemplo completo de pipeline con API de booking. Info de ejecutor en todos los eventos de stages del pipeline (proveedor, AI/skill/local).
+
+## Fase 30: Injection Guard (v1.37.0)
+
+**v1.37.0** — Injection Guard: escáner de inyección de prompts para diffs y PRs revisados por IA. Escanea diffs antes de pasarlos a los reviewers IA, detectando directivas override ("ignore previous instructions"), caracteres Unicode invisibles (zero-width spaces, bidi overrides) y payloads de comentarios sobredimensionados. Se ejecuta como guard determinista en el pipeline (antes del stage de reviewer) y como GitHub Action standalone en cada PR.
+
+## Fase 31: Gestor Integrado de HUs (v1.38.0)
+
+**v1.38.0** — Gestor Integrado de HUs: el triage auto-activa hu-reviewer para tareas medias/complejas, descomposición por IA en 2-5 HUs formales con dependencias, ejecución de sub-pipeline por HU con tracking de estado (pending→coding→reviewing→done/failed/blocked), adaptador PG alimenta datos de card al hu-reviewer, registros de historial para todas las ejecuciones del pipeline. 49 tests nuevos.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

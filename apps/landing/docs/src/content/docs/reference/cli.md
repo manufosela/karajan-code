@@ -20,6 +20,7 @@ description: Complete reference of all kj CLI commands and flags.
 | `kj roles` | Inspect pipeline roles and templates |
 | `kj agents` | List or set AI agent per pipeline role |
 | `kj audit [task]` | Read-only codebase health audit (5 dimensions, A-F scores) |
+| `kj board <subcommand>` | Manage HU Board dashboard |
 | `kj sonar <subcommand>` | Manage SonarQube Docker container |
 
 **Global options:** `--help`, `--version`
@@ -74,7 +75,7 @@ The `<task>` argument accepts:
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--coder <name>` | string | from config | AI agent for coding (claude, codex, gemini, aider) |
+| `--coder <name>` | string | from config | AI agent for coding (claude, codex, gemini, aider, opencode) |
 | `--reviewer <name>` | string | from config | AI agent for review |
 | `--planner <name>` | string | — | AI agent for planning |
 | `--refactorer <name>` | string | — | AI agent for refactoring |
@@ -400,6 +401,10 @@ kj roles [subcommand] [role]
 | `security` | OWASP security audit |
 | `solomon` | Conflict resolution |
 | `commiter` | Git automation |
+| `discover` | Pre-execution gap detection |
+| `hu-reviewer` | User story certification |
+| `architect` | Solution architecture design |
+| `audit` | Read-only codebase health audit |
 
 Review mode variants: `reviewer-strict`, `reviewer-relaxed`, `reviewer-paranoid`
 
@@ -433,6 +438,32 @@ kj agents                    # List current agent per role
 kj agents list               # Same as above
 kj agents set coder gemini   # Switch the coder role to Gemini
 kj agents set reviewer claude # Switch the reviewer role to Claude
+```
+
+---
+
+## kj board
+
+Manage the HU Board dashboard for visual task tracking.
+
+```bash
+kj board <subcommand>
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `start` | Start the HU Board dashboard |
+| `stop` | Stop the HU Board dashboard |
+| `status` | Check if the HU Board is running |
+| `open` | Open the HU Board in the browser |
+
+**Examples:**
+
+```bash
+kj board start      # Start the dashboard
+kj board status     # Check if it's running
+kj board open       # Open in browser
+kj board stop       # Stop the dashboard
 ```
 
 ---

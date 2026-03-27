@@ -231,5 +231,6 @@ Los agentes built-in siguen el mismo patrón que los plugins:
 - `src/agents/codex-agent.js` — OpenAI Codex
 - `src/agents/gemini-agent.js` — Google Gemini
 - `src/agents/aider-agent.js` — Aider
+- `src/agents/opencode-agent.js` — OpenCode CLI wrapper
 
 Estudia estos ficheros para ver ejemplos reales de implementaciones de `runTask` y `reviewTask`.

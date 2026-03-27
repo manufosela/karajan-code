@@ -5,7 +5,7 @@ description: Cómo funciona el pipeline multi-agente de Karajan Code.
 
 ## Visión General del Pipeline
 
-Karajan orquesta **15 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider) lo ejecuta.
+Karajan orquesta **15 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider, OpenCode) lo ejecuta.
 
 ```
 intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
@@ -30,7 +30,7 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | **security** | Auditoría de seguridad OWASP | **On** |
 | **solomon** | Pipeline Boss & Árbitro — evalúa cada rechazo del reviewer, clasifica issues, puede anular bloqueos por estilo. 6 reglas con control inteligente de iteraciones | **On** |
 | **commiter** | Automatización de git commit, push y PR tras aprobación | Off |
-| **hu-reviewer** | Certificación de HUs — evalúa historias de usuario en 6 dimensiones de calidad, detecta 7 antipatrones, reescribe historias débiles, soporta grafos de dependencias | Off |
+| **hu-reviewer** | Certificación de HUs — evalúa historias de usuario en 6 dimensiones de calidad, detecta 7 antipatrones, reescribe historias débiles, soporta grafos de dependencias | Auto (medio/complejo) |
 | **audit** | Quality gate obligatorio post-aprobación — se ejecuta después de que reviewer+tester+security aprueben. Comprueba el código generado buscando issues críticos/altos; si los encuentra, devuelve al coder. Si está limpio, el pipeline queda CERTIFICADO | **On** (v1.32.0+) |
 
 Los roles marcados con `?` son opcionales y se pueden activar por ejecución o via config.
@@ -44,6 +44,7 @@ Los guards son comprobaciones basadas en regex/patrones que se ejecutan entre el
 | **output-guard** | Operaciones destructivas (rm -rf, DROP TABLE, git push --force), credenciales expuestas (claves AWS, claves privadas, tokens), modificaciones de ficheros protegidos (.env, serviceAccountKey.json) | **On** (bloquea en crítico) |
 | **perf-guard** | Anti-patrones de rendimiento frontend — imágenes sin dimensiones/lazy, scripts bloqueantes, font-display ausente, document.write, deps pesadas (moment, lodash, jquery) | **On** (advisory, configurable para bloquear) |
 | **intent-classifier** | Clasificación pre-triage por keywords — salta el triage LLM para tipos de tarea obvios (doc, add-tests, refactor, infra, trivial-fix) | Off |
+| **injection-guard** | Escáner de inyección de prompts — detecta directivas override ("ignore previous instructions"), caracteres Unicode invisibles (zero-width spaces, bidi overrides) y payloads de comentarios sobredimensionados en diffs antes de pasarlos a los reviewers IA. También disponible como GitHub Action | **On** |
 
 Los guards son configurables via `kj.config.yml`:
 
@@ -303,3 +304,42 @@ Discovery también está disponible como herramienta MCP independiente:
 ### Comportamiento no bloqueante
 
 Discovery es no bloqueante: si falla, el pipeline registra un warning y continúa la ejecución. Cuando el verdict es `needs_validation`, el pipeline emite un warning con los gaps detectados pero procede normalmente.
+
+## Gestor Integrado de HUs (v1.38.0+)
+
+Cuando el triage clasifica una tarea como media o compleja, el rol **hu-reviewer** se auto-activa y descompone la tarea en 2-5 historias de usuario (HUs) formales con ordenación por dependencias. Cada HU ejecuta su propia iteración en el pipeline (coder → sonar → reviewer), con tracking de estado individual (pending → coding → reviewing → done/failed/blocked).
+
+### Cómo funciona
+
+1. **Clasificación del triage**: el triage analiza la tarea y determina el nivel de complejidad
+2. **Auto-activación**: para tareas medias/complejas, hu-reviewer se activa automáticamente (no necesita `--enable-hu-reviewer`)
+3. **Descomposición por IA**: hu-reviewer descompone la tarea en 2-5 HUs formales con criterios de aceptación y grafos de dependencias
+4. **Ejecución de sub-pipeline**: cada HU ejecuta su propio ciclo coder → sonar → reviewer con tracking de estado
+5. **Adaptador PG**: cuando hay una card de Planning Game vinculada, los datos de la card se envían a hu-reviewer para enriquecer el contexto
+6. **Registros de historial**: se generan registros de historial del pipeline para todas las ejecuciones, proporcionando trazabilidad completa
+
+### Tracking de estado
+
+Cada HU progresa a través de estados de forma independiente:
+
+```
+pending → coding → reviewing → done
+                             → failed
+                             → blocked
+```
+
+El pipeline rastrea qué HUs están completadas y cuáles quedan pendientes, respetando las dependencias durante la ejecución.
+
+### Override manual
+
+Puedes activar hu-reviewer explícitamente para tareas simples:
+
+```bash
+kj run --enable-hu-reviewer --task "Añadir validación de inputs"
+```
+
+O desactivar la auto-activación:
+
+```bash
+kj run --no-hu-reviewer --task "Tarea compleja sin descomposición en HUs"
+```

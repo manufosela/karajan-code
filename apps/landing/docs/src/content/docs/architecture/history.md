@@ -641,6 +641,32 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.34.2** — HU Board integrated into CLI (`kj board start/stop/status/open`), MCP (`kj_board` tool for start/stop/status), init wizard (enable HU Board during `kj init`), auto-start option (board starts automatically on `kj run`), and skills mode support.
 
+### v1.34.3: Cognitive Complexity Refactor
+
+**v1.34.3** — Reduced cognitive complexity across 6 core files. Zero skipped tests, 44 new board backend tests.
+
+### v1.34.4: Cross-Platform Install
+
+**v1.34.4** — OS-aware install commands: macOS uses brew, Linux uses curl/apt/pipx. Agent install instructions adapt to the user's platform.
+
+## Phase 29: Bootstrap Gate (v1.35.0)
+
+**v1.35.0** — Mandatory bootstrap gate for all KJ tools: validates prerequisites (git repo, remote, config, agents, SonarQube) before any tool runs. Hard-fail with actionable fix instructions, never silently degrades. Removed default admin/admin SonarQube credentials (security fix).
+
+### v1.36.0: Real Usage Metrics & kj-tail
+
+**v1.36.0** — Extract real usage metrics from Claude and Codex CLIs. `kj doctor` validates agent config files (JSON, TOML, YAML). Resilient model fallback and Solomon conflict context. Stage name in agent heartbeat/stall messages.
+
+**v1.36.1** — `kj-tail` as installable CLI command with `--help` and filtering. Three ways to use Karajan documented: CLI, MCP, kj-tail. Full pipeline example with booking API output. Executor info in all pipeline stage events (provider, AI/skill/local).
+
+## Phase 30: Injection Guard (v1.37.0)
+
+**v1.37.0** — Injection Guard: prompt injection scanner for AI-reviewed diffs and PRs. Scans diffs before passing them to AI reviewers, detecting directive overrides ("ignore previous instructions"), invisible Unicode characters (zero-width spaces, bidi overrides), and oversized comment block payloads. Runs as a deterministic guard in the pipeline (before reviewer stage) and as a standalone GitHub Action on every PR.
+
+## Phase 31: Integrated HU Manager (v1.38.0)
+
+**v1.38.0** — Integrated HU Manager: triage auto-activates hu-reviewer for medium/complex tasks, AI-driven decomposition into 2-5 formal HUs with dependencies, sub-pipeline execution per HU with state tracking (pending→coding→reviewing→done/failed/blocked), PG adapter feeds card data to hu-reviewer, history records for all pipeline runs. 49 new tests.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

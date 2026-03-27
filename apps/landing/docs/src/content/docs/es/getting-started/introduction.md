@@ -7,7 +7,7 @@ description: Qué es Karajan Code y por qué usarlo.
 
 Karajan Code (`kj`) orquesta agentes de IA como un director de orquesta dirige una sinfonía. Tú defines **qué** tiene que pasar — codificar, revisar, testear, securizar — y Karajan asigna **quién** hace cada parte.
 
-**13 roles especializados.** Triage, researcher, architect, planner, coder, reviewer, tester, security, y más.
+**15 roles especializados.** Triage, researcher, architect, planner, coder, reviewer, tester, security, y más.
 
 **5 agentes IA.** Claude, Codex, Gemini, Aider, OpenCode. Combínalos libremente.
 
@@ -84,19 +84,27 @@ Karajan Code resuelve ambos problemas encadenando **roles** con **quality gates*
   <div class="carousel-track">
     <div class="carousel-slide">
       <h3>Pipeline basado en Roles</h3>
-      <p>13 roles especializados — cada uno asignable a cualquier agente. Triage, researcher, architect, planner, coder, refactorer, sonar, reviewer, tester, security, solomon, commiter.</p>
+      <p>15 roles especializados — cada uno asignable a cualquier agente. Triage, discover, researcher, architect, planner, coder, refactorer, sonar, reviewer, hu-reviewer, tester, security, audit, solomon, commiter.</p>
     </div>
     <div class="carousel-slide">
       <h3>5 Agentes IA</h3>
       <p>Claude, Codex, Gemini, Aider, OpenCode — combínalos por rol. Extensible via plugins en <code>.karajan/plugins/</code>.</p>
     </div>
     <div class="carousel-slide">
-      <h3>Servidor MCP — 18 Herramientas</h3>
+      <h3>Servidor MCP — 20 Herramientas</h3>
       <p>Usa <code>kj</code> desde tu agente IA. Herramientas standalone: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>. Notificaciones de progreso en tiempo real.</p>
     </div>
     <div class="carousel-slide">
       <h3>Guards Deterministas</h3>
       <p>Output guard bloquea operaciones destructivas y fugas de credenciales. Perf guard detecta anti-patrones frontend. Intent classifier pre-clasifica sin coste LLM.</p>
+    </div>
+    <div class="carousel-slide">
+      <h3>Injection Guard</h3>
+      <p>Escáner de inyección de prompts que protege la revisión de código por IA contra manipulación. Detecta directivas override, caracteres Unicode invisibles y payloads de comentarios sobredimensionados. También se ejecuta como GitHub Action en cada PR.</p>
+    </div>
+    <div class="carousel-slide">
+      <h3>Gestor Integrado de HUs</h3>
+      <p>Auto-descompone tareas complejas en historias de usuario (HUs) formales. El triage activa hu-reviewer para tareas medias/complejas, generando 2-5 HUs con dependencias. Cada HU ejecuta su propio sub-pipeline (coder→sonar→reviewer) con tracking de estado. Integración completa con PG y visualización en el board.</p>
     </div>
     <div class="carousel-slide">
       <h3>SonarQube + SonarCloud</h3>
@@ -351,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Calidad y Testing
 
-Karajan Code está testeado con **1575+ tests automatizados** en 130 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.
+Karajan Code está testeado con **2093 tests automatizados** en 166 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.
 
 La calidad se aplica en múltiples capas:
 - **SonarQube** (local, via Docker) — análisis estático completo con quality gates, bloquea en issues críticos
@@ -367,7 +375,7 @@ Karajan ofrece dos formas de trabajar:
 
 **Modo Skills** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) instalados directamente en Claude Code. Cada comando incluye guardrails integrados. Sin servidor MCP — ideal para flujos con un solo agente. Instalar con `kj init`.
 
-**Modo Orchestrator** — Servidor MCP completo con 18 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.
+**Modo Orchestrator** — Servidor MCP completo con 20 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.
 
 Ambos modos pueden convivir. Usa skills para tareas rápidas y el orchestrator cuando necesites múltiples agentes o control total del pipeline. Ver la [Guía de Skills](/docs/es/guides/skills/) para detalles.
 

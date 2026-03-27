@@ -53,6 +53,8 @@ kj init  # Select "Enable HU Board" when prompted
 - **Multi-Project**: Auto-discovers all projects from ~/.karajan/
 - **Auto-Sync**: Watches JSON files for real-time updates
 - **Dark Theme**: Matches Karajan Code design
+- **Auto-Generated HUs**: Since v1.38.0, the board displays automatically generated HUs from complex tasks — not just manually provided ones. When triage activates hu-reviewer for medium/complex tasks, the decomposed HUs appear on the board with their sub-pipeline state (pending/coding/reviewing/done/failed/blocked)
+- **Pipeline History**: History records are generated for all pipeline runs, providing full traceability across tasks and their HU decompositions
 
 ## How It Works
 

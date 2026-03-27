@@ -80,7 +80,7 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Available tools
 
-Karajan Code exposes **16 MCP tools**:
+Karajan Code exposes **20 MCP tools**:
 
 | Tool | Required params | Description |
 |------|----------------|-------------|
@@ -99,6 +99,10 @@ Karajan Code exposes **16 MCP tools**:
 | `kj_doctor` | — | Check system dependencies and agent CLIs |
 | `kj_config` | — | Show current configuration |
 | `kj_roles` | — | List pipeline roles or show role templates |
+| `kj_triage` | `task` | Classify task complexity and activate roles |
+| `kj_researcher` | `task` | Investigate codebase context |
+| `kj_architect` | `task` | Design solution architecture |
+| `kj_board` | `action` | Start/stop/status HU Board dashboard |
 
 See the [MCP Tools Reference](/docs/reference/mcp-tools/) for complete parameter documentation.
 

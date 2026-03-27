@@ -77,6 +77,24 @@ roles:
   triage:
     provider: null
     model: null
+  discover:
+    provider: null
+    model: null
+  hu-reviewer:
+    provider: null
+    model: null
+  architect:
+    provider: null
+    model: null
+  audit:
+    provider: null
+    model: null
+  impeccable:
+    provider: null
+    model: null
+  commiter:
+    provider: null
+    model: null
 ```
 
 | Role | Purpose |
@@ -90,6 +108,12 @@ roles:
 | `tester` | Audits test quality after review |
 | `security` | OWASP security audit |
 | `triage` | Classifies task complexity |
+| `discover` | Pre-execution gap detection |
+| `hu-reviewer` | User story certification |
+| `architect` | Solution architecture design |
+| `audit` | Read-only codebase health audit |
+| `impeccable` | Automated UI/UX design audit |
+| `commiter` | Git automation |
 
 ---
 
@@ -115,6 +139,18 @@ pipeline:
     enabled: false
   reviewer:
     enabled: true
+  discover:
+    enabled: false
+  hu-reviewer:
+    enabled: false
+  architect:
+    enabled: false
+  audit:
+    enabled: false
+  impeccable:
+    enabled: false
+  commiter:
+    enabled: false
 ```
 
 All optional roles are disabled by default. Enable them with `--enable-<role>` CLI flags or in config.

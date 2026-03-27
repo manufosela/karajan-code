@@ -90,6 +90,15 @@ roles:
     provider: claude
   security:
     provider: claude
+  discover:
+    provider: claude
+  hu-reviewer:
+    provider: claude
+    # Auto-activado por triage para tareas medias/complejas (v1.38.0+)
+  audit:
+    provider: claude
+  impeccable:
+    provider: claude
 ```
 
 ### Automatización Git

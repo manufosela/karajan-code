@@ -5,7 +5,7 @@ description: How the Karajan Code multi-agent pipeline works.
 
 ## Pipeline Overview
 
-Karajan orchestrates **15 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider) does it.
+Karajan orchestrates **15 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider, OpenCode) does it.
 
 ```
 intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
@@ -30,7 +30,7 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | **security** | OWASP security audit | **On** |
 | **solomon** | Pipeline Boss & Arbiter — evaluates every reviewer rejection, classifies issues, can override style-only blocks. 6 rules including smart iteration control | **On** |
 | **commiter** | Git commit, push, and PR automation after approval | Off |
-| **hu-reviewer** | HU story certification — evaluates user stories across 6 quality dimensions, detects 7 antipatterns, rewrites weak stories, supports dependency graphs | Off |
+| **hu-reviewer** | HU story certification — evaluates user stories across 6 quality dimensions, detects 7 antipatterns, rewrites weak stories, supports dependency graphs | Auto (medium/complex) |
 | **audit** | Mandatory post-approval quality gate — runs after reviewer+tester+security pass. Checks generated code for critical/high issues; if found, loops coder back to fix. If clean, pipeline is CERTIFIED | **On** (v1.32.0+) |
 
 Roles marked with `?` are optional and can be enabled per-run or via config.
@@ -44,6 +44,7 @@ Guards are regex/pattern-based checks that run between coder and quality gates �
 | **output-guard** | Destructive operations (rm -rf, DROP TABLE, git push --force), exposed credentials (AWS keys, private keys, tokens), protected file modifications (.env, serviceAccountKey.json) | **On** (blocks on critical) |
 | **perf-guard** | Frontend performance anti-patterns — images without dimensions/lazy, render-blocking scripts, missing font-display, document.write, heavy deps (moment, lodash, jquery) | **On** (advisory, configurable to block) |
 | **intent-classifier** | Pre-triage keyword classification — skips LLM triage for obvious task types (doc, add-tests, refactor, infra, trivial-fix) | Off |
+| **injection-guard** | Prompt injection scanner — detects directive overrides ("ignore previous instructions"), invisible Unicode characters (zero-width spaces, bidi overrides), and oversized comment block payloads in diffs before passing them to AI reviewers. Also available as a GitHub Action | **On** |
 
 Guards are configurable via `kj.config.yml`:
 
@@ -299,3 +300,42 @@ Discovery is also available as a standalone MCP tool:
 ### Non-blocking behavior
 
 Discovery is non-blocking: if it fails, the pipeline logs a warning and continues execution. When verdict is `needs_validation`, the pipeline emits a warning with the detected gaps but proceeds normally.
+
+## Integrated HU Manager (v1.38.0+)
+
+When triage classifies a task as medium or complex, the **hu-reviewer** role auto-activates and decomposes the task into 2-5 formal user stories (HUs) with dependency ordering. Each HU then runs as its own iteration through the pipeline (coder → sonar → reviewer), with individual state tracking (pending → coding → reviewing → done/failed/blocked).
+
+### How it works
+
+1. **Triage classification**: triage analyzes the task and determines complexity level
+2. **Auto-activation**: for medium/complex tasks, hu-reviewer activates automatically (no `--enable-hu-reviewer` needed)
+3. **AI-driven decomposition**: hu-reviewer decomposes the task into 2-5 formal HUs with acceptance criteria and dependency graphs
+4. **Sub-pipeline execution**: each HU runs its own coder → sonar → reviewer cycle with state tracking
+5. **PG adapter**: when a Planning Game card is linked, card data is fed to hu-reviewer for richer context
+6. **History records**: pipeline history records are generated for all task runs, providing full traceability
+
+### State tracking
+
+Each HU progresses through states independently:
+
+```
+pending → coding → reviewing → done
+                             → failed
+                             → blocked
+```
+
+The pipeline tracks which HUs are complete and which remain, ensuring dependencies are respected during execution.
+
+### Manual override
+
+You can still enable hu-reviewer explicitly for simple tasks:
+
+```bash
+kj run --enable-hu-reviewer --task "Add input validation"
+```
+
+Or disable the auto-activation:
+
+```bash
+kj run --no-hu-reviewer --task "Complex task without HU decomposition"
+```

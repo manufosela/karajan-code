@@ -46,8 +46,8 @@ Run the full coder &rarr; sonar &rarr; reviewer pipeline with real-time progress
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
 | `sonarToken` | string | No | From config | Override SonarQube token |
 | `enableImpeccable` | boolean | No | `false` | Enable Impeccable design audit (automated UI/UX quality gate) |
-| `enableHuReviewer` | boolean | No | `false` | Enable HU story certification (user story quality gate) |
-| `huFile` | string | No | `null` | Path to user story file for HU reviewer |
+| `enableHuReviewer` | boolean | No | `false` | Enable HU story certification (user story quality gate). Auto-activated by triage for medium/complex tasks since v1.38.0 |
+| `huFile` | string | No | `null` | Path to user story file for HU reviewer. Optional — when auto-activated by triage, hu-reviewer works without a file |
 | `taskType` | string | No | `null` | Task type for policy resolution: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `autoSimplify` | boolean | No | `true` | Auto-simplify pipeline for triage level 1-2 (coder-only, skip reviewer/tester). Set to `false` to always run the full pipeline |
 | `timeoutMs` | number | No | `null` | Command timeout in milliseconds (legacy; prefer heartbeat/stall telemetry and session silence guardrails) |
@@ -236,6 +236,118 @@ Read-only codebase health audit across 5 dimensions: security, code quality, per
 | `task` | string | No | `null` | Optional focus area or specific concern to audit |
 | `projectDir` | string | No | cwd | Project directory to audit |
 | `kjHome` | string | No | `~/.karajan` | Override KJ_HOME directory |
+
+---
+
+## kj_discover
+
+Run discovery analysis on a task using multiple analytical frameworks (gaps, Mom Test, Wendel, JTBD).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description to analyze |
+| `mode` | string | No | `gaps` | Discovery mode: `gaps` \| `momtest` \| `wendel` \| `classify` \| `jtbd` |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_discover",
+  "params": {
+    "task": "Add multi-tenancy support",
+    "mode": "jtbd"
+  }
+}
+```
+
+---
+
+## kj_triage
+
+Classify task complexity and determine which pipeline roles should be activated.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description to classify |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_triage",
+  "params": {
+    "task": "Fix typo in the README"
+  }
+}
+```
+
+---
+
+## kj_researcher
+
+Investigate codebase context relevant to a task before planning or coding.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description to research |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_researcher",
+  "params": {
+    "task": "Refactor the authentication module"
+  }
+}
+```
+
+---
+
+## kj_architect
+
+Design solution architecture for a task, producing a structured design document.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task` | string | **Yes** | — | Task description to architect |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_architect",
+  "params": {
+    "task": "Migrate from REST to GraphQL"
+  }
+}
+```
+
+---
+
+## kj_board
+
+Start, stop, or check the status of the HU Board dashboard.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `action` | string | **Yes** | — | Action: `start` \| `stop` \| `status` |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_board",
+  "params": {
+    "action": "start"
+  }
+}
+```
 
 ---
 

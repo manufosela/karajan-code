@@ -3,11 +3,11 @@ title: Dashboard HU Board
 description: Dashboard web para visualizar historias de usuario y sesiones de Karajan Code.
 ---
 
-## Que es el HU Board?
+## Qué es el HU Board?
 
 Un dashboard web que visualiza todas las historias de usuario (HU) y sesiones del pipeline gestionadas por Karajan Code. Proporciona un tablero kanban, timeline de sesiones, puntuaciones de calidad y soporte multi-proyecto.
 
-## Inicio Rapido
+## Inicio Rápido
 
 ### Sin Docker
 ```bash
@@ -26,18 +26,18 @@ docker compose up -d
 ```bash
 kj board start    # Iniciar el dashboard
 kj board stop     # Detenerlo
-kj board status   # Comprobar si esta corriendo
+kj board status   # Comprobar si está corriendo
 kj board open     # Abrir en el navegador
 ```
 
-## Configuracion
+## Configuración
 
 Activar en `kj.config.yml`:
 ```yaml
 hu_board:
   enabled: true
   port: 4000
-  auto_start: true  # Iniciar automaticamente con kj run
+  auto_start: true  # Iniciar automáticamente con kj run
 ```
 
 O activar durante el setup:
@@ -45,18 +45,20 @@ O activar durante el setup:
 kj init  # Seleccionar "Enable HU Board" cuando se pregunte
 ```
 
-## Caracteristicas
+## Características
 
 - **Tablero Kanban**: Historias en columnas (Pending → Certified → Coding → Done)
 - **Puntuaciones de Calidad**: Puntuaciones en 6 dimensiones con barras de progreso visuales
 - **Timeline de Sesiones**: Desglose etapa por etapa con duraciones
 - **Multi-Proyecto**: Auto-descubre todos los proyectos desde ~/.karajan/
-- **Auto-Sincronizacion**: Vigila ficheros JSON para actualizaciones en tiempo real
-- **Tema Oscuro**: Coincide con el diseno de Karajan Code
+- **Auto-Sincronización**: Vigila ficheros JSON para actualizaciones en tiempo real
+- **Tema Oscuro**: Coincide con el diseño de Karajan Code
+- **HUs Auto-Generadas**: Desde v1.38.0, el board muestra HUs generadas automáticamente a partir de tareas complejas — no solo las proporcionadas manualmente. Cuando el triage activa hu-reviewer para tareas medias/complejas, las HUs descompuestas aparecen en el board con su estado de sub-pipeline (pending/coding/reviewing/done/failed/blocked)
+- **Historial de Pipeline**: Se generan registros de historial para todas las ejecuciones del pipeline, proporcionando trazabilidad completa entre tareas y sus descomposiciones en HUs
 
-## Como Funciona
+## Cómo Funciona
 
-El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como indice para consultas rapidas — si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
+El board lee ficheros JSON desde `~/.karajan/hu-stories/` y `~/.karajan/sessions/`. SQLite se usa como índice para consultas rápidas — si se elimina, se reconstruye desde los ficheros JSON en el siguiente arranque.
 
 ## Herramienta MCP
 

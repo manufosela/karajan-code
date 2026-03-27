@@ -20,6 +20,7 @@ description: Referencia completa de todos los comandos y flags de kj.
 | `kj roles` | Inspeccionar roles y templates del pipeline |
 | `kj agents` | Listar o cambiar el agente IA por rol del pipeline |
 | `kj audit [task]` | Auditoría de salud del codebase de solo lectura (5 dimensiones, puntuaciones A-F) |
+| `kj board <subcommand>` | Gestionar dashboard HU Board |
 | `kj sonar <subcommand>` | Gestionar contenedor Docker de SonarQube |
 
 **Opciones globales:** `--help`, `--version`
@@ -74,7 +75,7 @@ El argumento `<task>` acepta:
 
 | Flag | Tipo | Default | Descripción |
 |------|------|---------|-------------|
-| `--coder <name>` | string | de config | Agente IA para codificar (claude, codex, gemini, aider) |
+| `--coder <name>` | string | de config | Agente IA para codificar (claude, codex, gemini, aider, opencode) |
 | `--reviewer <name>` | string | de config | Agente IA para revisión |
 | `--planner <name>` | string | — | Agente IA para planificación |
 | `--refactorer <name>` | string | — | Agente IA para refactoring |
@@ -400,6 +401,10 @@ kj roles [subcommand] [role]
 | `security` | Auditoría de seguridad OWASP |
 | `solomon` | Resolución de conflictos |
 | `commiter` | Automatización git |
+| `discover` | Detección de gaps pre-ejecución |
+| `hu-reviewer` | Certificación de historias de usuario |
+| `architect` | Diseño de arquitectura de solución |
+| `audit` | Auditoría de salud del codebase de solo lectura |
 
 Variantes de modo de revisión: `reviewer-strict`, `reviewer-relaxed`, `reviewer-paranoid`
 
@@ -433,6 +438,32 @@ kj agents                    # Listar agente actual por rol
 kj agents list               # Igual que arriba
 kj agents set coder gemini   # Cambiar el rol coder a Gemini
 kj agents set reviewer claude # Cambiar el rol reviewer a Claude
+```
+
+---
+
+## kj board
+
+Gestionar el dashboard HU Board para seguimiento visual de tareas.
+
+```bash
+kj board <subcommand>
+```
+
+| Subcomando | Descripción |
+|------------|-------------|
+| `start` | Arrancar el dashboard HU Board |
+| `stop` | Parar el dashboard HU Board |
+| `status` | Comprobar si el HU Board está corriendo |
+| `open` | Abrir el HU Board en el navegador |
+
+**Ejemplos:**
+
+```bash
+kj board start      # Arrancar el dashboard
+kj board status     # Comprobar si está corriendo
+kj board open       # Abrir en el navegador
+kj board stop       # Parar el dashboard
 ```
 
 ---

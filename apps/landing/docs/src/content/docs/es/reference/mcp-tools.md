@@ -46,8 +46,8 @@ Ejecutar el pipeline completo coder &rarr; sonar &rarr; reviewer con notificacio
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
 | `sonarToken` | string | No | Desde config | Override del token SonarQube |
 | `enableImpeccable` | boolean | No | `false` | Activar auditoría de diseño Impeccable (quality gate automatizado de UI/UX) |
-| `enableHuReviewer` | boolean | No | `false` | Activar certificación de HUs (quality gate de historias de usuario) |
-| `huFile` | string | No | `null` | Ruta al fichero de historia de usuario para el HU reviewer |
+| `enableHuReviewer` | boolean | No | `false` | Activar certificación de HUs (quality gate de historias de usuario). Auto-activado por triage para tareas medias/complejas desde v1.38.0 |
+| `huFile` | string | No | `null` | Ruta al fichero de historia de usuario para el HU reviewer. Opcional — cuando se auto-activa por triage, hu-reviewer funciona sin fichero |
 | `taskType` | string | No | `null` | Tipo de tarea para resolucion de politicas: `sw`, `infra`, `doc`, `add-tests`, `refactor` |
 | `autoSimplify` | boolean | No | `true` | Auto-simplificar pipeline para triage nivel 1-2 (solo coder, omite reviewer/tester). Establecer a `false` para ejecutar siempre el pipeline completo |
 | `timeoutMs` | number | No | `null` | Timeout del comando en milisegundos (legado; preferir telemetría heartbeat/stall y guardarraíles de silencio en sesión) |
@@ -236,6 +236,118 @@ Auditoría de salud del codebase de solo lectura en 5 dimensiones: seguridad, ca
 | `task` | string | No | `null` | Área de enfoque opcional o preocupación específica a auditar |
 | `projectDir` | string | No | cwd | Directorio del proyecto a auditar |
 | `kjHome` | string | No | `~/.karajan` | Override del directorio KJ_HOME |
+
+---
+
+## kj_discover
+
+Ejecutar análisis de descubrimiento sobre una tarea usando múltiples frameworks analíticos (gaps, Mom Test, Wendel, JTBD).
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `task` | string | **Sí** | — | Descripción de la tarea a analizar |
+| `mode` | string | No | `gaps` | Modo de descubrimiento: `gaps` \| `momtest` \| `wendel` \| `classify` \| `jtbd` |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_discover",
+  "params": {
+    "task": "Añadir soporte multi-tenancy",
+    "mode": "jtbd"
+  }
+}
+```
+
+---
+
+## kj_triage
+
+Clasificar la complejidad de una tarea y determinar qué roles del pipeline deben activarse.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `task` | string | **Sí** | — | Descripción de la tarea a clasificar |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_triage",
+  "params": {
+    "task": "Corregir errata en el README"
+  }
+}
+```
+
+---
+
+## kj_researcher
+
+Investigar el contexto del codebase relevante para una tarea antes de planificar o codificar.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `task` | string | **Sí** | — | Descripción de la tarea a investigar |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_researcher",
+  "params": {
+    "task": "Refactorizar el módulo de autenticación"
+  }
+}
+```
+
+---
+
+## kj_architect
+
+Diseñar la arquitectura de solución para una tarea, produciendo un documento de diseño estructurado.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `task` | string | **Sí** | — | Descripción de la tarea a diseñar |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_architect",
+  "params": {
+    "task": "Migrar de REST a GraphQL"
+  }
+}
+```
+
+---
+
+## kj_board
+
+Iniciar, detener o consultar el estado del dashboard HU Board.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `action` | string | **Sí** | — | Acción: `start` \| `stop` \| `status` |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_board",
+  "params": {
+    "action": "start"
+  }
+}
+```
 
 ---
 
