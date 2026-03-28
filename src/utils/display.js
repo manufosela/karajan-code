@@ -452,7 +452,11 @@ const EVENT_HANDLERS = {
   question: (event, icon) => {
     console.log();
     console.log(`${ANSI.bold}${ANSI.yellow}${icon} Paused - question:${ANSI.reset}`);
-    console.log(`  ${event.detail?.question || event.message}`);
+    const questionText = event.detail?.question || event.message || "";
+    const questionLines = questionText.split("\n");
+    for (const line of questionLines) {
+      console.log(`  ${line}`);
+    }
     console.log(`${ANSI.dim}Resume with: kj resume ${event.sessionId} --answer "<response>"${ANSI.reset}`);
   },
 
