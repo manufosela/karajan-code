@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-<<<<<<< HEAD
-=======
+## [1.38.1] - 2026-03-28
+
+### Added
+- **`kj_hu` MCP tool** (21st tool): create, update, list, get HUs manually in the board. Auto-creates project from directory name + git remote (#208)
+- **Multi-language TDD**: detects test frameworks for 12 languages (Java/JUnit, Python/pytest, Go, Rust/cargo, C#/.NET, Ruby/RSpec, PHP/PHPUnit, Swift/XCTest, Dart). TDD enforcement works for all languages, not just JS (#207)
+- **MCP sovereignty**: tool descriptions explicitly instruct host AIs to pass tasks as-is without grouping, reordering, or overriding pipeline decisions (#210)
+- 35 new tests (2142 total across 170 files)
+
+### Fixed
+- **Solomon messages**: escalation messages are now human-readable structured text instead of raw JSON. Shows reviewer feedback, Solomon decision, and clear options (#209)
+- **Sonar token**: actionable error with 3 fix options when token is missing, instead of silently disabling sonar (#211)
+
 ## [1.38.0] - 2026-03-26
 
 ### Added
@@ -48,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Propagate Solomon error details to escalation and activity log
 
->>>>>>> 8792e49efcdc75995e024d81339b100c7b253920
 ## [1.36.0] - 2026-03-25
 
 ### Added
@@ -452,15 +461,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-<<<<<<< HEAD
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.35.0...HEAD
-=======
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.1...HEAD
+[1.38.1]: https://github.com/manufosela/karajan-code/compare/v1.38.0...v1.38.1
 [1.38.0]: https://github.com/manufosela/karajan-code/compare/v1.37.0...v1.38.0
 [1.37.0]: https://github.com/manufosela/karajan-code/compare/v1.36.1...v1.37.0
 [1.36.1]: https://github.com/manufosela/karajan-code/compare/v1.36.0...v1.36.1
 [1.36.0]: https://github.com/manufosela/karajan-code/compare/v1.35.0...v1.36.0
->>>>>>> 8792e49efcdc75995e024d81339b100c7b253920
 [1.35.0]: https://github.com/manufosela/karajan-code/compare/v1.34.4...v1.35.0
 [1.34.4]: https://github.com/manufosela/karajan-code/compare/v1.34.3...v1.34.4
 [1.34.3]: https://github.com/manufosela/karajan-code/compare/v1.34.2...v1.34.3
