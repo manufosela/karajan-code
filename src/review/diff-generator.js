@@ -13,8 +13,12 @@ export async function computeBaseRef({ baseBranch = "main", baseRef = null }) {
   return mergeBase.stdout.trim();
 }
 
-export async function generateDiff({ baseRef }) {
-  const result = await runCommand("git", ["diff", `${baseRef}`]);
+export async function generateDiff({ baseRef, stageNewFiles = false }) {
+  // Stage untracked files so they appear in the diff (coder creates files but doesn't git add)
+  if (stageNewFiles) {
+    await runCommand("git", ["add", "-A"]);
+  }
+  const result = await runCommand("git", ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean));
   if (result.exitCode !== 0) {
     throw new Error(`git diff failed: ${result.stderr || result.stdout}`);
   }

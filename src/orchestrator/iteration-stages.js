@@ -685,7 +685,7 @@ async function fetchReviewDiff(session, logger) {
     logger.info(`Reviewer reading PR diff #${session.becaria_pr_number}`);
     return diff;
   }
-  return generateDiff({ baseRef: session.session_start_sha });
+  return generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });
 }
 
 export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary, askQuestion }) {
