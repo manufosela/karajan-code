@@ -47,7 +47,7 @@ export const tools = [
   {
     name: "kj_run",
     description:
-      "Run full coder -> sonar -> reviewer loop. Sends real-time progress notifications via MCP logging. May return paused state with a question if fail-fast is triggered.",
+      "Run the full Karajan pipeline. IMPORTANT: Pass the user's task description exactly as they wrote it. Do NOT group, split, reorder, or modify tasks yourself. Karajan handles decomposition, role activation, iteration, and quality gates internally. Do NOT override pipeline parameters (enableHuReviewer, mode, methodology) unless the user explicitly requested it. If you have observations about the task, use kj_suggest instead.",
     inputSchema: {
       type: "object",
       required: ["task"],
@@ -182,7 +182,7 @@ export const tools = [
   },
   {
     name: "kj_code",
-    description: "Run coder-only mode",
+    description: "Run coder-only mode. Pass the user's task exactly as described. Do NOT split or reinterpret the task.",
     inputSchema: {
       type: "object",
       required: ["task"],
@@ -197,7 +197,7 @@ export const tools = [
   },
   {
     name: "kj_review",
-    description: "Run reviewer-only mode against current diff",
+    description: "Run reviewer-only mode against current diff. Do NOT filter or pre-process the diff before passing it.",
     inputSchema: {
       type: "object",
       required: ["task"],
@@ -223,7 +223,7 @@ export const tools = [
   },
   {
     name: "kj_plan",
-    description: "Generate implementation plan for a task",
+    description: "Generate implementation plan for a task. Pass the task as the user described it. Karajan's planner decides the approach.",
     inputSchema: {
       type: "object",
       required: ["task"],
