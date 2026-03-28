@@ -225,7 +225,7 @@ export async function runSonarScan(config, projectKey = null) {
       ok: false,
       stdout: "",
       stderr:
-        "Unable to resolve Sonar token. Set KJ_SONAR_TOKEN env var, configure sonarqube.token in kj.config.yml, or save credentials in ~/.karajan/sonar-credentials.json.",
+        "Unable to resolve Sonar token. Fix: (1) run 'kj init' to configure it, (2) set KJ_SONAR_TOKEN env var, or (3) add sonarqube.token to ~/.karajan/kj.config.yml.",
       exitCode: 1
     };
   }

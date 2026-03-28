@@ -444,15 +444,20 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   const sonarResult = sonarOutput.result;
 
   if (!sonarResult.gateStatus && sonarResult.error) {
+    const isTokenError = /unable to resolve sonar token/i.test(sonarResult.error);
+    const errorMessage = isTokenError
+      ? "SonarQube is running but no authentication token is configured. Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml."
+      : `Sonar scan failed: ${sonarResult.error}`;
+
     await markSessionStatus(session, "failed");
     emitProgress(
       emitter,
       makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
         status: "fail",
-        message: `Sonar scan failed: ${sonarResult.error}`
+        message: errorMessage
       })
     );
-    throw new Error(`Sonar scan failed: ${sonarResult.error}`);
+    throw new Error(errorMessage);
   }
 
   session.last_sonar_summary = sonarOutput.summary;

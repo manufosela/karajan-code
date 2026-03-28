@@ -145,7 +145,8 @@ describe("runSonarScan", () => {
     const result = await runSonarScan(config, "my-key");
 
     expect(result.ok).toBe(false);
-    expect(result.stderr).toContain("sonar-credentials.json");
+    expect(result.stderr).toContain("Unable to resolve Sonar token");
+    expect(result.stderr).toContain("kj init");
   });
 
   it("tries configured admin password before credentials file", async () => {

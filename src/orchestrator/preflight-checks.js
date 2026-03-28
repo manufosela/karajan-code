@@ -252,8 +252,8 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       result.ok = false;
       result.errors.push({
         check: "sonar-auth",
-        message: "SonarQube authentication failed.",
-        fix: "Regenerate the SonarQube token and update it via kj_init or in kj.config.yml under sonarqube.token."
+        message: "SonarQube is running but no authentication token is configured.",
+        fix: "Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml."
       });
       logger.error("Preflight: Sonar auth failed");
     }
