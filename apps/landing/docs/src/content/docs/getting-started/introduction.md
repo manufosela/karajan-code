@@ -91,8 +91,8 @@ Karajan Code solves both problems by chaining **roles** with **quality gates** a
       <p>Claude, Codex, Gemini, Aider, OpenCode — mix and match per role. Extensible via plugins in <code>.karajan/plugins/</code>.</p>
     </div>
     <div class="carousel-slide">
-      <h3>MCP Server — 20 Tools</h3>
-      <p>Use <code>kj</code> from your AI agent. Standalone tools: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>. Real-time progress notifications.</p>
+      <h3>MCP Server — 21 Tools</h3>
+      <p>Use <code>kj</code> from your AI agent. Standalone tools: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>, <code>kj_hu</code>. Real-time progress notifications.</p>
     </div>
     <div class="carousel-slide">
       <h3>Deterministic Guards</h3>
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Quality & Testing
 
-Karajan Code is tested with **2093 automated tests** across 166 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
+Karajan Code is tested with **2142 automated tests** across 170 test files, covering every pipeline role, guard, config option, and MCP tool. The test suite runs in under 14 seconds using Vitest.
 
 Quality is enforced at multiple layers:
 - **SonarQube** (local, via Docker) — full static analysis with quality gates, blocking on critical issues
@@ -375,7 +375,7 @@ Karajan offers two ways to work:
 
 **Skills mode** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) installed directly in Claude Code. Each command includes built-in guardrails. No MCP server needed — ideal for single-agent workflows. Install with `kj init`.
 
-**Orchestrator mode** — Full MCP server with 20 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
+**Orchestrator mode** — Full MCP server with 21 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
 
 Both modes can coexist. Use skills for quick tasks and the orchestrator when you need multiple agents or full pipeline control. See the [Skills Guide](/docs/guides/skills/) for details.
 

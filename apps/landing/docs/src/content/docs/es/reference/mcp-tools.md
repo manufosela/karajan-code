@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 20 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 21 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -345,6 +345,34 @@ Iniciar, detener o consultar el estado del dashboard HU Board.
   "tool": "kj_board",
   "params": {
     "action": "start"
+  }
+}
+```
+
+---
+
+## kj_hu
+
+Gestionar historias de usuario (crear, actualizar, listar, obtener) en el HU Board local.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `action` | string | **Sí** | — | Acción: `create` \| `update` \| `list` \| `get` |
+| `title` | string | No | `null` | Título de la historia de usuario (requerido para `create`) |
+| `description` | string | No | `null` | Descripción de la historia de usuario |
+| `huId` | string | No | `null` | Identificador de la HU (requerido para `update` y `get`) |
+| `status` | string | No | `null` | Estado de la HU |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_hu",
+  "params": {
+    "action": "create",
+    "title": "Como usuario quiero restablecer mi contraseña",
+    "description": "Flujo de restablecimiento de contraseña con verificación por email"
   }
 }
 ```

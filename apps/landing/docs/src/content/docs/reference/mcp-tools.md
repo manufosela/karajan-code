@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 20 Karajan Code MCP tools.
+description: Complete parameter reference for all 21 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -345,6 +345,34 @@ Start, stop, or check the status of the HU Board dashboard.
   "tool": "kj_board",
   "params": {
     "action": "start"
+  }
+}
+```
+
+---
+
+## kj_hu
+
+Manage user stories (create, update, list, get) in the local HU Board.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `action` | string | **Yes** | — | Action: `create` \| `update` \| `list` \| `get` |
+| `title` | string | No | `null` | User story title (required for `create`) |
+| `description` | string | No | `null` | User story description |
+| `huId` | string | No | `null` | HU identifier (required for `update` and `get`) |
+| `status` | string | No | `null` | HU status |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_hu",
+  "params": {
+    "action": "create",
+    "title": "As a user I want to reset my password",
+    "description": "Password reset flow with email verification"
   }
 }
 ```

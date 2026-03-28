@@ -236,6 +236,8 @@ Desactivar con `--no-auto-simplify` (CLI) o `autoSimplify: false` (MCP).
 
 La metodología TDD ahora se auto-detecta según el framework de tests del proyecto. Si el proyecto tiene un test runner configurado (Vitest, Jest, Mocha, etc.), el pipeline activa TDD automáticamente sin necesitar `--methodology tdd`. Puedes forzar con `--methodology standard` si lo necesitas.
 
+Desde v1.38.1, TDD soporta **12 lenguajes** además de JavaScript/TypeScript: Java (JUnit/Maven/Gradle), Python (pytest/unittest), Go (go test), Rust (cargo test), C# (dotnet test/NUnit/xUnit), Ruby (RSpec/Minitest), PHP (PHPUnit), Swift (XCTest), Dart (dart test/Flutter) y Kotlin (JUnit/Gradle). El enforcer TDD auto-detecta el lenguaje y framework de tests del proyecto.
+
 ### Triage Obligatorio (v1.15.0+)
 
 A partir de v1.15.0, el triage siempre se ejecuta para clasificar el `taskType` de la tarea. La prioridad de clasificacion es:

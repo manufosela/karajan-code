@@ -91,8 +91,8 @@ Karajan Code resuelve ambos problemas encadenando **roles** con **quality gates*
       <p>Claude, Codex, Gemini, Aider, OpenCode — combínalos por rol. Extensible via plugins en <code>.karajan/plugins/</code>.</p>
     </div>
     <div class="carousel-slide">
-      <h3>Servidor MCP — 20 Herramientas</h3>
-      <p>Usa <code>kj</code> desde tu agente IA. Herramientas standalone: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>. Notificaciones de progreso en tiempo real.</p>
+      <h3>Servidor MCP — 21 Herramientas</h3>
+      <p>Usa <code>kj</code> desde tu agente IA. Herramientas standalone: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>, <code>kj_hu</code>. Notificaciones de progreso en tiempo real.</p>
     </div>
     <div class="carousel-slide">
       <h3>Guards Deterministas</h3>
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## Calidad y Testing
 
-Karajan Code está testeado con **2093 tests automatizados** en 166 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.
+Karajan Code está testeado con **2142 tests automatizados** en 170 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.
 
 La calidad se aplica en múltiples capas:
 - **SonarQube** (local, via Docker) — análisis estático completo con quality gates, bloquea en issues críticos
@@ -375,7 +375,7 @@ Karajan ofrece dos formas de trabajar:
 
 **Modo Skills** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) instalados directamente en Claude Code. Cada comando incluye guardrails integrados. Sin servidor MCP — ideal para flujos con un solo agente. Instalar con `kj init`.
 
-**Modo Orchestrator** — Servidor MCP completo con 20 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.
+**Modo Orchestrator** — Servidor MCP completo con 21 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.
 
 Ambos modos pueden convivir. Usa skills para tareas rápidas y el orchestrator cuando necesites múltiples agentes o control total del pipeline. Ver la [Guía de Skills](/docs/es/guides/skills/) para detalles.
 

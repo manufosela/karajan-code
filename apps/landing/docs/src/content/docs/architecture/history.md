@@ -667,6 +667,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.38.0** — Integrated HU Manager: triage auto-activates hu-reviewer for medium/complex tasks, AI-driven decomposition into 2-5 formal HUs with dependencies, sub-pipeline execution per HU with state tracking (pending→coding→reviewing→done/failed/blocked), PG adapter feeds card data to hu-reviewer, history records for all pipeline runs. 49 new tests.
 
+### v1.38.1: kj_hu Tool, Multi-Language TDD, Solomon Readable Messages
+
+**v1.38.1** — New `kj_hu` MCP tool for managing user stories (create, update, list, get) directly from the HU Board. Multi-language TDD support: 12 languages beyond JS/TS (Java, Python, Go, Rust, C#, Ruby, PHP, Swift, Dart, Kotlin). Solomon readable messages for clearer pipeline decisions. Sonar token fix for secure credential handling. MCP sovereignty: tools reject external override attempts, preserving human-confirmed configuration. 2142 tests across 170 files.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

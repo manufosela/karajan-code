@@ -142,9 +142,9 @@ src/
 │   ├── init.js, doctor.js, config.js, report.js, board.js
 │   ├── roles.js, agents.js, scan.js, sonar.js
 │
-├── mcp/                      # MCP server (20 tools)
+├── mcp/                      # MCP server (21 tools)
 │   ├── server.js             #   Stdio transport entry point
-│   ├── tools.js              #   Tool schemas (20 tools)
+│   ├── tools.js              #   Tool schemas (21 tools)
 │   ├── server-handlers.js    #   Tool handlers
 │   ├── direct-role-runner.js #   Shared boilerplate for standalone role MCP tools
 │   ├── run-kj.js             #   Subprocess spawner
