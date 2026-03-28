@@ -10,13 +10,23 @@ const DESTRUCTIVE_PATTERNS = [
   { id: "format-disk", pattern: /mkfs\.|fdisk|dd\s+if=/, severity: "critical", message: "Disk format operation detected" },
 ];
 
-// Built-in credential patterns
+// Built-in credential patterns (ALL critical — secrets must NEVER be committed)
 const CREDENTIAL_PATTERNS = [
   { id: "aws-key", pattern: /AKIA[0-9A-Z]{16}/, severity: "critical", message: "AWS access key exposed" },
   { id: "private-key", pattern: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/, severity: "critical", message: "Private key exposed" },
-  { id: "generic-secret", pattern: /(password|secret|token|api_key|apikey)\s*[:=]\s*["'][^"']{8,}["']/i, severity: "warning", message: "Potential secret/credential exposed" },
+  { id: "generic-secret", pattern: /(password|secret|token|api_key|apikey)\s*[:=]\s*["'][^"']{8,}["']/i, severity: "critical", message: "Hardcoded secret detected. Use .env file + process.env instead" },
   { id: "github-token", pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/, severity: "critical", message: "GitHub token exposed" },
   { id: "npm-token", pattern: /npm_[A-Za-z0-9]{36,}/, severity: "critical", message: "npm token exposed" },
+  { id: "openai-key", pattern: /sk-[A-Za-z0-9]{20,}/, severity: "critical", message: "OpenAI API key exposed" },
+  { id: "anthropic-key", pattern: /sk-ant-[A-Za-z0-9_-]{20,}/, severity: "critical", message: "Anthropic API key exposed" },
+  { id: "stripe-key", pattern: /sk_live_[A-Za-z0-9]{20,}/, severity: "critical", message: "Stripe secret key exposed" },
+  { id: "stripe-test", pattern: /sk_test_[A-Za-z0-9]{20,}/, severity: "critical", message: "Stripe test key exposed. Use .env even for test keys" },
+  { id: "google-api-key", pattern: /AIza[A-Za-z0-9_-]{35}/, severity: "critical", message: "Google API key exposed" },
+  { id: "firebase-key", pattern: /"apiKey"\s*:\s*"AIza[A-Za-z0-9_-]{35}"/, severity: "critical", message: "Firebase API key hardcoded. Use .env file" },
+  { id: "slack-token", pattern: /xox[bpors]-[A-Za-z0-9-]{10,}/, severity: "critical", message: "Slack token exposed" },
+  { id: "jwt-secret", pattern: /jwt[_-]?secret\s*[:=]\s*["'][^"']{8,}["']/i, severity: "critical", message: "JWT secret hardcoded. Use .env file" },
+  { id: "database-url", pattern: /(mongodb|postgres|mysql|redis):\/\/[^"'\s]+:[^"'\s]+@/i, severity: "critical", message: "Database URL with credentials exposed. Use .env file" },
+  { id: "hardcoded-key-assignment", pattern: /(?:const|let|var)\s+\w*(?:key|secret|token|password)\w*\s*=\s*["'][A-Za-z0-9_-]{16,}["']/i, severity: "critical", message: "Hardcoded key in variable. Use process.env or .env file" },
 ];
 
 // Default protected files (block if these appear in added/modified lines)

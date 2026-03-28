@@ -104,14 +104,61 @@ describe("scanDiff", () => {
     expect(violation.severity).toBe("critical");
   });
 
-  it("detects generic secret pattern -> warning severity, pass still true", () => {
+  it("detects generic secret pattern -> critical severity, pass: false", () => {
     const diff = makeDiff("src/config.js", ['const password = "supersecretvalue123";'], ['// settings']);
     const result = scanDiff(diff);
 
     const violation = result.violations.find(v => v.id === "generic-secret");
     expect(violation).toBeDefined();
-    expect(violation.severity).toBe("warning");
-    // warnings alone do not block
+    expect(violation.severity).toBe("critical");
+    expect(result.pass).toBe(false);
+  });
+
+  it("detects OpenAI API key", () => {
+    const diff = makeDiff("src/ai.js", ['const key = "sk-abc123def456ghi789jkl012mno345pqr678"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "openai-key")).toBe(true);
+  });
+
+  it("detects Anthropic API key", () => {
+    const diff = makeDiff("src/ai.js", ['const key = "sk-ant-abc123def456ghi789jkl012mno"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "anthropic-key")).toBe(true);
+  });
+
+  it("detects Google API key", () => {
+    const diff = makeDiff("src/maps.js", ['const key = "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "google-api-key")).toBe(true);
+  });
+
+  it("detects Firebase config with hardcoded key", () => {
+    const diff = makeDiff("src/firebase.js", ['"apiKey": "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "firebase-key")).toBe(true);
+  });
+
+  it("detects database URL with credentials", () => {
+    const diff = makeDiff("src/db.js", ['const url = "mongodb://admin:secretpass@localhost:27017/mydb"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "database-url")).toBe(true);
+  });
+
+  it("detects hardcoded key in variable assignment", () => {
+    const diff = makeDiff("src/config.js", ['const apiKey = "abcdef1234567890abcdef"'], []);
+    const result = scanDiff(diff);
+    expect(result.pass).toBe(false);
+    expect(result.violations.some(v => v.id === "hardcoded-key-assignment")).toBe(true);
+  });
+
+  it("allows process.env usage (no false positive)", () => {
+    const diff = makeDiff("src/config.js", ['const apiKey = process.env.API_KEY'], []);
+    const result = scanDiff(diff);
     expect(result.pass).toBe(true);
   });
 

@@ -28,6 +28,15 @@ Before reporting done, verify that ALL parts of the task are addressed:
 - If you write tests first (TDD), the implementation MUST make those tests pass.
 - Do NOT commit code that doesn't compile or doesn't pass tests.
 
+## Secrets and environment variables
+
+- NEVER hardcode API keys, tokens, passwords, secrets, or credentials in source code. No exceptions, not even for public keys or test keys.
+- ALWAYS use environment variables via `process.env` (Node.js), `os.environ` (Python), or the equivalent for the project's language.
+- If the project needs API keys, create a `.env.example` file with placeholder values and add `.env` to `.gitignore`.
+- If `.gitignore` does not already include `.env`, add it.
+- If the task requires Firebase, Stripe, OpenAI, or any third-party API: use `.env` for the keys and document required variables in `.env.example` or README.
+- Database connection strings with credentials MUST use environment variables.
+
 ## File modification safety
 
 - NEVER overwrite existing files entirely. Always make targeted, minimal edits.
