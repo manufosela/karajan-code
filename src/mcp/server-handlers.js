@@ -906,6 +906,44 @@ async function handleAudit(a, server, extra) {
   return handleAuditDirect(a, server, extra);
 }
 
+async function handleHu(a, server) {
+  const action = a.action;
+  if (!action) return failPayload("Missing required field: action");
+
+  const projectDir = await resolveProjectDir(server, a.projectDir);
+  const { createManualHu, listHus, getHu, updateHuStatus } = await import("../hu/store.js");
+
+  switch (action) {
+    case "create": {
+      if (!a.title) return failPayload("Missing required field: title (required for create)");
+      const hu = await createManualHu(projectDir, {
+        title: a.title,
+        description: a.description,
+        status: a.status,
+        acceptanceCriteria: a.acceptanceCriteria
+      });
+      return { ok: true, hu };
+    }
+    case "list": {
+      const hus = await listHus(projectDir);
+      return { ok: true, hus };
+    }
+    case "get": {
+      if (!a.huId) return failPayload("Missing required field: huId (required for get)");
+      const hu = await getHu(projectDir, a.huId);
+      return { ok: true, hu };
+    }
+    case "update": {
+      if (!a.huId) return failPayload("Missing required field: huId (required for update)");
+      if (!a.status) return failPayload("Missing required field: status (required for update)");
+      const hu = await updateHuStatus(projectDir, a.huId, a.status);
+      return { ok: true, hu };
+    }
+    default:
+      return failPayload(`Unknown hu action: ${action}`);
+  }
+}
+
 async function handleBoard(a) {
   const action = a.action || "status";
   const { loadConfig: lc } = await import("../config.js");
@@ -947,7 +985,8 @@ const toolHandlers = {
   kj_researcher:  (a, server, extra) => handleResearcher(a, server, extra),
   kj_architect:   (a, server, extra) => handleArchitect(a, server, extra),
   kj_audit:       (a, server, extra) => handleAudit(a, server, extra),
-  kj_board:       (a) => handleBoard(a)
+  kj_board:       (a) => handleBoard(a),
+  kj_hu:          (a, server) => handleHu(a, server)
 };
 
 export async function handleToolCall(name, args, server, extra) {

@@ -317,5 +317,22 @@ export const tools = [
         port: { type: "number", description: "Port (default: 4000)" }
       }
     }
+  },
+  {
+    name: "kj_hu",
+    description: "Manage user stories (HUs) in the local board",
+    inputSchema: {
+      type: "object",
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["create", "update", "list", "get"], description: "Action to perform" },
+        title: { type: "string", description: "HU title (required for create)" },
+        description: { type: "string", description: "HU description" },
+        acceptanceCriteria: { type: "string", description: "Acceptance criteria" },
+        huId: { type: "string", description: "HU ID (required for update/get)" },
+        status: { type: "string", description: "HU status (for create/update)", enum: ["pending", "coding", "reviewing", "done", "failed", "blocked"] },
+        projectDir: { type: "string", description: "Project directory (defaults to cwd)" }
+      }
+    }
   }
 ];

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { getKarajanHome } from "../utils/paths.js";
 
 // FUTURE: hu-storage adapter for PG/Trello/etc — currently local files only
@@ -207,4 +208,139 @@ export async function createHistoryRecord(sessionId, { task, result, approved, s
 
   await fs.writeFile(path.join(dir, "batch.json"), JSON.stringify(batch, null, 2));
   return batch;
+}
+
+/* ── Manual HU management ─────────────────────────────────────────── */
+
+/**
+ * Detect project info from the given directory.
+ * @param {string} cwd - Directory to detect project from.
+ * @returns {{ name: string, remoteUrl: string|null }}
+ */
+export function detectProject(cwd) {
+  const name = path.basename(cwd);
+  let remoteUrl = null;
+  try {
+    remoteUrl = execSync("git remote get-url origin", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+  } catch { /* not a git repo or no remote */ }
+  return { name, remoteUrl };
+}
+
+/**
+ * Derive a project slug from a directory path.
+ * @param {string} projectDir - Absolute path to the project.
+ * @returns {string}
+ */
+function projectSlug(projectDir) {
+  return path.basename(projectDir);
+}
+
+/**
+ * Get the batch file path for a project.
+ * @param {string} projectDir
+ * @returns {string}
+ */
+function projectBatchPath(projectDir) {
+  return path.join(getHuDir(), projectSlug(projectDir), "batch.json");
+}
+
+/**
+ * Load the project batch, or return a fresh empty batch if none exists.
+ * @param {string} projectDir
+ * @returns {Promise<object>}
+ */
+async function loadProjectBatch(projectDir) {
+  const filePath = projectBatchPath(projectDir);
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {
+      project: projectSlug(projectDir),
+      created_at: new Date().toISOString(),
+      stories: []
+    };
+  }
+}
+
+/**
+ * Save a project batch to disk (auto-creates directory).
+ * @param {string} projectDir
+ * @param {object} batch
+ */
+async function saveProjectBatch(projectDir, batch) {
+  const filePath = projectBatchPath(projectDir);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  batch.updated_at = new Date().toISOString();
+  await fs.writeFile(filePath, JSON.stringify(batch, null, 2));
+}
+
+/**
+ * Create a manual HU (user story) for a project.
+ * Auto-creates the batch file if it doesn't exist.
+ * @param {string} projectDir
+ * @param {{ title: string, description?: string, status?: string, acceptanceCriteria?: string }} data
+ * @returns {Promise<object>} The created HU.
+ */
+export async function createManualHu(projectDir, { title, description, status, acceptanceCriteria }) {
+  if (!title) throw new Error("title is required to create a HU");
+  const batch = await loadProjectBatch(projectDir);
+  const now = new Date().toISOString();
+  const hu = {
+    id: `HU-${Date.now()}-${batch.stories.length}`,
+    title,
+    description: description || "",
+    status: status || HU_STATUS.PENDING,
+    acceptanceCriteria: acceptanceCriteria || "",
+    createdAt: now,
+    updatedAt: now
+  };
+  batch.stories.push(hu);
+  await saveProjectBatch(projectDir, batch);
+  return hu;
+}
+
+/**
+ * List all HUs for a project.
+ * @param {string} projectDir
+ * @returns {Promise<Array<{ id: string, title: string, status: string, createdAt: string }>>}
+ */
+export async function listHus(projectDir) {
+  const batch = await loadProjectBatch(projectDir);
+  return batch.stories.map(s => ({
+    id: s.id,
+    title: s.title,
+    status: s.status,
+    createdAt: s.createdAt
+  }));
+}
+
+/**
+ * Update the status of a specific HU.
+ * @param {string} projectDir
+ * @param {string} huId
+ * @param {string} status
+ * @returns {Promise<object>} The updated HU.
+ */
+export async function updateHuStatus(projectDir, huId, status) {
+  const batch = await loadProjectBatch(projectDir);
+  const hu = batch.stories.find(s => s.id === huId);
+  if (!hu) throw new Error(`HU ${huId} not found`);
+  hu.status = status;
+  hu.updatedAt = new Date().toISOString();
+  await saveProjectBatch(projectDir, batch);
+  return hu;
+}
+
+/**
+ * Get a single HU by id.
+ * @param {string} projectDir
+ * @param {string} huId
+ * @returns {Promise<object>}
+ */
+export async function getHu(projectDir, huId) {
+  const batch = await loadProjectBatch(projectDir);
+  const hu = batch.stories.find(s => s.id === huId);
+  if (!hu) throw new Error(`HU ${huId} not found`);
+  return hu;
 }
