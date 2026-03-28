@@ -129,14 +129,14 @@ describe("scanDiff", () => {
   });
 
   it("detects Google API key", () => {
-    const diff = makeDiff("src/maps.js", ['const key = "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"'], []);
+    const diff = makeDiff("src/maps.js", ['const key = "AIzaTEST_FAKE_KEY_000000000000000000000"'], []);
     const result = scanDiff(diff);
     expect(result.pass).toBe(false);
     expect(result.violations.some(v => v.id === "google-api-key")).toBe(true);
   });
 
   it("detects Firebase config with hardcoded key", () => {
-    const diff = makeDiff("src/firebase.js", ['"apiKey": "AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"'], []);
+    const diff = makeDiff("src/firebase.js", ['"apiKey": "AIzaTEST_FAKE_KEY_000000000000000000000"'], []);
     const result = scanDiff(diff);
     expect(result.pass).toBe(false);
     expect(result.violations.some(v => v.id === "firebase-key")).toBe(true);
