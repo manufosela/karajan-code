@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.38.2] - 2026-03-28
+
+### Fixed
+- **Reviewer sees new files**: `git add -A` before generating reviewer diff, so coder-created files are visible. Fixes scaffold tasks looping forever (#214)
+- **Secrets always block**: all 15 credential patterns now critical severity. Hardcoded keys block the pipeline. Added: OpenAI, Anthropic, Stripe, Google, Firebase, Slack, JWT, database URLs (#213)
+- **Coder .env mandate**: coder template explicitly requires `.env` + `process.env` for all keys, `.env.example` creation, `.gitignore` check
+
 ## [1.38.1] - 2026-03-28
 
 ### Added
@@ -461,7 +468,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.1...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.2...HEAD
+[1.38.2]: https://github.com/manufosela/karajan-code/compare/v1.38.1...v1.38.2
 [1.38.1]: https://github.com/manufosela/karajan-code/compare/v1.38.0...v1.38.1
 [1.38.0]: https://github.com/manufosela/karajan-code/compare/v1.37.0...v1.38.0
 [1.37.0]: https://github.com/manufosela/karajan-code/compare/v1.36.1...v1.37.0
