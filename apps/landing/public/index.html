@@ -264,7 +264,7 @@
         <li><strong>15 roles</strong> in the pipeline &mdash; triage, coder, reviewer, sonar, solomon, and more. <a href="/docs/guides/pipeline/">See pipeline &rarr;</a></li>
         <li><strong>5 AI agents</strong> &mdash; Claude, Codex, Gemini, Aider, OpenCode. Mix and match. <a href="/docs/">See agents &rarr;</a></li>
         <li><strong>21 MCP tools</strong> &mdash; use from inside Claude Code or Codex. <a href="/docs/guides/mcp-server/">See MCP setup &rarr;</a></li>
-        <li><strong>1,925 tests. 52 releases in 23 days. Vanilla JS.</strong> <a href="https://github.com/manufosela/karajan-code">Read why &rarr;</a></li>
+        <li><strong>2,142 tests. 60 releases in 48 days. Vanilla JS.</strong> <a href="https://github.com/manufosela/karajan-code">Read why &rarr;</a></li>
       </ul>
     </details>
   </section>
@@ -280,7 +280,7 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
     </nav>
-    <p class="footer-version">Karajan Code v1.34.2</p>
+    <p class="footer-version">Karajan Code v1.38.1</p>
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
@@ -316,7 +316,7 @@
     var DEMO_LINES = [
       // Header — all instant
       { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { t:0, html: '\u25b6 Karajan Code v1.36.1', cls: 'header' },
+      { t:0, html: '\u25b6 Karajan Code v1.38.1', cls: 'header' },
       { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
       { t:0, html: 'Task: Complete the calculator module. Add subtract, multiply, divide', cls: 'dim' },
       { t:0, html: '      with input validation and comprehensive tests. TDD methodology.', cls: 'dim' },
@@ -517,6 +517,16 @@
     }
 
     runDemo();
+
+    // Language-aware doc links: redirect /docs/ to /docs/es/ for Spanish browsers
+    if (navigator.language && navigator.language.startsWith('es')) {
+      document.querySelectorAll('a[href]').forEach(function(a) {
+        var href = a.getAttribute('href');
+        if (href && href.startsWith('/docs/') && !href.startsWith('/docs/es/')) {
+          a.setAttribute('href', href.replace('/docs/', '/docs/es/'));
+        }
+      });
+    }
   </script>
 
 </body>
