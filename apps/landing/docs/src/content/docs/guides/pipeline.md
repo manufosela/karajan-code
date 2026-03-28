@@ -41,7 +41,7 @@ Guards are regex/pattern-based checks that run between coder and quality gates �
 
 | Guard | What it checks | Default |
 |-------|---------------|---------|
-| **output-guard** | Destructive operations (rm -rf, DROP TABLE, git push --force), exposed credentials (AWS keys, private keys, tokens), protected file modifications (.env, serviceAccountKey.json) | **On** (blocks on critical) |
+| **output-guard** | Destructive operations (rm -rf, DROP TABLE, git push --force), exposed credentials (15 patterns: AWS keys, private keys, GitHub/npm/PyPI/Slack tokens, Google OAuth, JWTs, generic secrets), protected file modifications (.env, serviceAccountKey.json). All 15 credential patterns are blocking — secrets never pass (v1.38.2) | **On** (blocks on critical) |
 | **perf-guard** | Frontend performance anti-patterns — images without dimensions/lazy, render-blocking scripts, missing font-display, document.write, heavy deps (moment, lodash, jquery) | **On** (advisory, configurable to block) |
 | **intent-classifier** | Pre-triage keyword classification — skips LLM triage for obvious task types (doc, add-tests, refactor, infra, trivial-fix) | Off |
 | **injection-guard** | Prompt injection scanner — detects directive overrides ("ignore previous instructions"), invisible Unicode characters (zero-width spaces, bidi overrides), and oversized comment block payloads in diffs before passing them to AI reviewers. Also available as a GitHub Action | **On** |

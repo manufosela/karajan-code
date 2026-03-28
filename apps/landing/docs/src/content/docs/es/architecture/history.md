@@ -670,6 +670,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.38.1** — Nueva herramienta MCP `kj_hu` para gestionar historias de usuario (crear, actualizar, listar, obtener) directamente desde el HU Board. Soporte TDD multi-lenguaje: 12 lenguajes además de JS/TS (Java, Python, Go, Rust, C#, Ruby, PHP, Swift, Dart, Kotlin). Mensajes legibles de Solomon para decisiones de pipeline más claras. Corrección del token de Sonar para manejo seguro de credenciales. Soberanía MCP: las herramientas rechazan intentos de override externo, preservando la configuración confirmada por el humano. 2142 tests en 170 ficheros.
 
+### v1.38.2: Visibilidad del Reviewer y Endurecimiento de Credenciales
+
+**v1.38.2** — El reviewer ahora ve ficheros nuevos creados por el coder (git add -A antes del diff). Los 15 patrones de credenciales bloquean el pipeline (los secrets nunca pasan). El template del coder obliga a usar .env para todas las keys.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

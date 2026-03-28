@@ -41,7 +41,7 @@ Los guards son comprobaciones basadas en regex/patrones que se ejecutan entre el
 
 | Guard | Qué comprueba | Por defecto |
 |-------|--------------|-------------|
-| **output-guard** | Operaciones destructivas (rm -rf, DROP TABLE, git push --force), credenciales expuestas (claves AWS, claves privadas, tokens), modificaciones de ficheros protegidos (.env, serviceAccountKey.json) | **On** (bloquea en crítico) |
+| **output-guard** | Operaciones destructivas (rm -rf, DROP TABLE, git push --force), credenciales expuestas (15 patrones: claves AWS, claves privadas, tokens GitHub/npm/PyPI/Slack, Google OAuth, JWTs, secrets genéricos), modificaciones de ficheros protegidos (.env, serviceAccountKey.json). Los 15 patrones de credenciales son bloqueantes — los secrets nunca pasan (v1.38.2) | **On** (bloquea en crítico) |
 | **perf-guard** | Anti-patrones de rendimiento frontend — imágenes sin dimensiones/lazy, scripts bloqueantes, font-display ausente, document.write, deps pesadas (moment, lodash, jquery) | **On** (advisory, configurable para bloquear) |
 | **intent-classifier** | Clasificación pre-triage por keywords — salta el triage LLM para tipos de tarea obvios (doc, add-tests, refactor, infra, trivial-fix) | Off |
 | **injection-guard** | Escáner de inyección de prompts — detecta directivas override ("ignore previous instructions"), caracteres Unicode invisibles (zero-width spaces, bidi overrides) y payloads de comentarios sobredimensionados en diffs antes de pasarlos a los reviewers IA. También disponible como GitHub Action | **On** |
