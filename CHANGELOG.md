@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.44.0] - 2026-03-30
+
+### Added
+- **i18n**: `kj init` detects OS locale and asks for pipeline language + HU language. Agents respond in the configured language. Supports English and Spanish, extensible. 18 new tests (#240)
+
 ## [1.43.0] - 2026-03-29
 
 ### Added
@@ -503,7 +508,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.43.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.44.0...HEAD
+[1.44.0]: https://github.com/manufosela/karajan-code/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/manufosela/karajan-code/compare/v1.42.0...v1.43.0
 [1.42.0]: https://github.com/manufosela/karajan-code/compare/v1.41.0...v1.42.0
 [1.41.0]: https://github.com/manufosela/karajan-code/compare/v1.40.0...v1.41.0
