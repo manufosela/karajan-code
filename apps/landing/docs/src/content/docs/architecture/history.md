@@ -693,6 +693,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.43.0** — Docker image (Alpine + Node 20) for containerized execution. Shell installer (`curl | sh`) for one-line installation without npm.
 
+## Phase 36: i18n (v1.44.0)
+
+**v1.44.0** — i18n: kj init detects OS locale, asks for pipeline and HU language. Agents respond in the configured language. Supports English and Spanish.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

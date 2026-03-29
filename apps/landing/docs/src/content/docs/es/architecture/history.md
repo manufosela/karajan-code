@@ -692,6 +692,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.43.0** — Imagen Docker (Alpine + Node 20) para ejecución en contenedores. Instalador shell (`curl | sh`) para instalación en una línea sin npm.
 
+## Fase 36: i18n (v1.44.0)
+
+**v1.44.0** — i18n: kj init detecta el idioma del SO, pregunta idioma del pipeline y de las HUs. Los agentes responden en el idioma configurado. Soporta ingles y español.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API

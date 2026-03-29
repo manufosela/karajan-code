@@ -193,6 +193,17 @@ model_selection:
       model: claude-opus-4-6
 ```
 
+### Language (i18n)
+
+Configure the language for pipeline messages and user stories:
+
+```yaml
+language: en             # Pipeline language (en | es). Auto-detected from OS locale by kj init
+hu_language: en          # Language for user stories / HUs (en | es). Independent from pipeline language
+```
+
+Agents respond in the configured `language`. The `hu_language` controls the language used for generated user stories (HUs) and acceptance criteria. Both default to English and can be set independently.
+
 ### Fail-Fast on Repeated Errors
 
 Stop the pipeline early when the same error keeps repeating:
