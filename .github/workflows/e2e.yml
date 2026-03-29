@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  e2e:
+  e2e-unix:
     name: E2E (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -71,3 +71,68 @@ jobs:
           test -f "$KJ_ROOT/templates/roles/reviewer.md"
           test -f "$KJ_ROOT/templates/roles/solomon.md"
           echo "Templates OK"
+
+  e2e-windows:
+    name: E2E (windows-latest, Node 20)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Pack and install globally
+        shell: pwsh
+        run: |
+          npm pack
+          $tgz = Get-ChildItem karajan-code-*.tgz | Select-Object -First 1
+          npm install -g $tgz.FullName
+
+      - name: Verify CLI commands exist
+        shell: pwsh
+        run: |
+          kj --version
+          kj-tail --help
+          Get-Command karajan-mcp
+
+      - name: Create test project
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path $env:TEMP\kj-e2e-project -Force
+          Set-Location $env:TEMP\kj-e2e-project
+          git init
+          git remote add origin https://github.com/example/test.git
+
+      - name: Run kj doctor
+        shell: pwsh
+        working-directory: ${{ runner.temp }}\kj-e2e-project
+        run: kj doctor; exit 0
+
+      - name: Run kj init (non-interactive)
+        shell: pwsh
+        working-directory: ${{ runner.temp }}\kj-e2e-project
+        run: kj init --no-interactive
+
+      - name: Verify config created
+        shell: pwsh
+        run: |
+          $configPath = Join-Path $env:USERPROFILE ".karajan" "kj.config.yml"
+          if (Test-Path $configPath) { Write-Host "Config OK" } else { throw "Config not found" }
+
+      - name: Run kj config
+        shell: pwsh
+        working-directory: ${{ runner.temp }}\kj-e2e-project
+        run: kj config
+
+      - name: Run kj roles list
+        shell: pwsh
+        working-directory: ${{ runner.temp }}\kj-e2e-project
+        run: kj roles list
+
+      - name: Verify templates installed
+        shell: pwsh
+        run: |
+          $kjRoot = "$(npm root -g)\karajan-code"
+          if (Test-Path "$kjRoot\templates\roles\coder.md") { Write-Host "Templates OK" } else { throw "Templates not found at $kjRoot" }
