@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-03-29
+
+### Added
+- **Lean audit: basal cost** (epic KJC-PCS-0023): `kj audit` now measures dead code, unused dependencies, complexity growth between audits. Saves snapshots for trend tracking. Uses `git ls-files` for fast file enumeration (#235)
+- **Lazy HU planning**: subsequent HUs are refined with context from completed ones instead of all planned upfront. First HU fully planned, rest get `needsRefinement: true` and are refined lazily (#234)
+- 17 new tests (2257 total across 178 files)
+
 ## [1.41.0] - 2026-03-29
 
 ### Added
@@ -490,7 +497,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.41.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.42.0...HEAD
+[1.42.0]: https://github.com/manufosela/karajan-code/compare/v1.41.0...v1.42.0
 [1.41.0]: https://github.com/manufosela/karajan-code/compare/v1.40.0...v1.41.0
 [1.40.0]: https://github.com/manufosela/karajan-code/compare/v1.39.0...v1.40.0
 [1.39.0]: https://github.com/manufosela/karajan-code/compare/v1.38.2...v1.39.0
