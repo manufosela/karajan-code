@@ -100,19 +100,20 @@ jobs:
       - name: Create test project
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path $env:TEMP\kj-e2e-project -Force
-          Set-Location $env:TEMP\kj-e2e-project
+          $projectDir = "${{ runner.temp }}/kj-e2e-project"
+          New-Item -ItemType Directory -Path $projectDir -Force
+          Set-Location $projectDir
           git init
           git remote add origin https://github.com/example/test.git
 
       - name: Run kj doctor
         shell: pwsh
-        working-directory: ${{ runner.temp }}\kj-e2e-project
+        working-directory: ${{ runner.temp }}/kj-e2e-project
         run: kj doctor; exit 0
 
       - name: Run kj init (non-interactive)
         shell: pwsh
-        working-directory: ${{ runner.temp }}\kj-e2e-project
+        working-directory: ${{ runner.temp }}/kj-e2e-project
         run: kj init --no-interactive
 
       - name: Verify config created
@@ -123,12 +124,12 @@ jobs:
 
       - name: Run kj config
         shell: pwsh
-        working-directory: ${{ runner.temp }}\kj-e2e-project
+        working-directory: ${{ runner.temp }}/kj-e2e-project
         run: kj config
 
       - name: Run kj roles list
         shell: pwsh
-        working-directory: ${{ runner.temp }}\kj-e2e-project
+        working-directory: ${{ runner.temp }}/kj-e2e-project
         run: kj roles list
 
       - name: Verify templates installed
