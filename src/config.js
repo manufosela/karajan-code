@@ -168,7 +168,8 @@ const DEFAULTS = {
   },
   webperf: {
     enabled: true,
-    devtools_mcp: false
+    devtools_mcp: false,
+    thresholds: { lcp: 2500, cls: 0.1, inp: 200 }
   },
   guards: {
     output: {
