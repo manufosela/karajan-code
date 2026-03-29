@@ -1,5 +1,5 @@
 import { SolomonRole } from "../roles/solomon-role.js";
-import { addCheckpoint, pauseSession } from "../session-store.js";
+import { addCheckpoint, pauseSession, saveSession } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 
 /**
@@ -80,17 +80,31 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     })
   );
 
+  // Collect pending suggestions from the session for Solomon's context
+  const pendingSuggestions = Array.isArray(session.suggestions) && session.suggestions.length > 0
+    ? session.suggestions.slice()
+    : null;
+
   const solomon = new SolomonRole({ config, logger, emitter });
   await solomon.init({ task: conflict.task || session.task, iteration });
   let ruling;
   try {
-    ruling = await solomon.run({ conflict });
+    const conflictWithSuggestions = pendingSuggestions
+      ? { ...conflict, hostSuggestions: pendingSuggestions }
+      : conflict;
+    ruling = await solomon.run({ conflict: conflictWithSuggestions });
   } catch (err) {
     logger.warn(`Solomon threw: ${err.message}`);
     return escalateToHuman({
       askQuestion, session, emitter, eventBase, stage, iteration,
       conflict: { ...conflict, solomonReason: `Solomon error: ${err.message}` }
     });
+  }
+
+  // Clear processed suggestions from session
+  if (pendingSuggestions) {
+    session.suggestions = [];
+    try { await saveSession(session); } catch { /* best-effort */ }
   }
 
   const solomonError = ruling.result?.error;

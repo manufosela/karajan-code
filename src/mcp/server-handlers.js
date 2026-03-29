@@ -26,6 +26,7 @@ import { currentBranch } from "../utils/git.js";
 import { isPreflightAcked, ackPreflight, getSessionOverrides } from "./preflight.js";
 import { ensureBootstrap } from "../bootstrap.js";
 import { validateSovereignty } from "./sovereignty-guard.js";
+import { handleSuggestion } from "./suggest-handler.js";
 
 /**
  * Resolve the user's project directory.
@@ -977,6 +978,17 @@ async function handleScan(a, server) {
   return runKjCommand({ command: "scan", options: a });
 }
 
+async function handleSuggest(a) {
+  if (!a.suggestion) {
+    return failPayload("Missing required field: suggestion");
+  }
+  return handleSuggestion({
+    suggestion: a.suggestion,
+    context: a.context || null,
+    projectDir: a.projectDir || null
+  });
+}
+
 /* ── Handler dispatch map ─────────────────────────────────────────── */
 
 const toolHandlers = {
@@ -1000,7 +1012,8 @@ const toolHandlers = {
   kj_architect:   (a, server, extra) => handleArchitect(a, server, extra),
   kj_audit:       (a, server, extra) => handleAudit(a, server, extra),
   kj_board:       (a) => handleBoard(a),
-  kj_hu:          (a, server) => handleHu(a, server)
+  kj_hu:          (a, server) => handleHu(a, server),
+  kj_suggest:     (a) => handleSuggest(a)
 };
 
 export async function handleToolCall(name, args, server, extra) {

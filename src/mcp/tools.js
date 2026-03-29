@@ -334,5 +334,18 @@ export const tools = [
         projectDir: { type: "string", description: "Project directory (defaults to cwd)" }
       }
     }
+  },
+  {
+    name: "kj_suggest",
+    description: "Propose an observation or suggestion to Karajan's Solomon engine. Solomon will evaluate it and decide whether to accept, reject, or ask the human. You CANNOT override pipeline decisions through this tool, only propose.",
+    inputSchema: {
+      type: "object",
+      required: ["suggestion"],
+      properties: {
+        suggestion: { type: "string", description: "What you observed or want to propose" },
+        context: { type: "string", description: "Additional context (current HU, iteration, etc.)" },
+        projectDir: { type: "string", description: "Project directory" }
+      }
+    }
   }
 ];
