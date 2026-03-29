@@ -52,6 +52,14 @@ If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-
 
 ## Install
 
+**One-liner** (detects your OS, installs via npm):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
+```
+
+**Or directly with npm:**
+
 ```bash
 npm install -g karajan-code
 ```
