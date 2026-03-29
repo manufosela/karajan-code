@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 21 Karajan Code MCP tools.
+description: Complete parameter reference for all 23 Karajan Code MCP tools.
 ---
 
 ## kj_run
@@ -373,6 +373,53 @@ Manage user stories (create, update, list, get) in the local HU Board.
     "action": "create",
     "title": "As a user I want to reset my password",
     "description": "Password reset flow with email verification"
+  }
+}
+```
+
+---
+
+## kj_suggest
+
+Send an observation to Solomon without interrupting the pipeline. Useful for providing context or hints that Solomon can consider in its next evaluation.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `observation` | string | **Yes** | — | Observation or suggestion for Solomon |
+| `sessionId` | string | No | Latest | Session ID to target |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_suggest",
+  "params": {
+    "observation": "The reviewer is focusing on naming conventions — consider overriding"
+  }
+}
+```
+
+---
+
+## kj_skills
+
+List, install, or remove domain-specific skills for pipeline roles. Skills extend coder, reviewer, and architect prompts with domain knowledge.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `action` | string | No | `list` | Action: `list` \| `install` \| `remove` |
+| `skill` | string | No | `null` | Skill identifier (required for `install` and `remove`) |
+| `projectDir` | string | No | cwd | Project directory |
+
+**Example:**
+
+```json
+{
+  "tool": "kj_skills",
+  "params": {
+    "action": "install",
+    "skill": "react-patterns"
   }
 }
 ```

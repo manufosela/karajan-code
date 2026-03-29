@@ -151,7 +151,7 @@
       <p>Claude, Codex, Gemini, Aider, OpenCode — combínalos por rol. Extensible via plugins en <code>.karajan/plugins/</code>.</p>
     </div>
     <div class="carousel-slide">
-      <h3>Servidor MCP — 21 Herramientas</h3>
+      <h3>Servidor MCP — 23 Herramientas</h3>
       <p>Usa <code>kj</code> desde tu agente IA. Herramientas standalone: <code>kj_discover</code>, <code>kj_triage</code>, <code>kj_researcher</code>, <code>kj_architect</code>, <code>kj_hu</code>. Notificaciones de progreso en tiempo real.</p>
     </div>
     <div class="carousel-slide">
@@ -415,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <div class="sl-heading-wrapper level-h2"><h2 id="calidad-y-testing">Calidad y Testing</h2><a class="sl-anchor-link" href="#calidad-y-testing"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Calidad y Testing»</span></a></div>
-<p>Karajan Code está testeado con <strong>2142 tests automatizados</strong> en 170 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.</p>
+<p>Karajan Code está testeado con <strong>2257 tests automatizados</strong> en 178 ficheros de test, cubriendo cada rol del pipeline, guard, opción de config y herramienta MCP. La suite de tests se ejecuta en menos de 14 segundos con Vitest.</p>
 <p>La calidad se aplica en múltiples capas:</p>
 <ul>
 <li><strong>SonarQube</strong> (local, via Docker) — análisis estático completo con quality gates, bloquea en issues críticos</li>
@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="sl-heading-wrapper level-h2"><h2 id="dos-modos">Dos Modos</h2><a class="sl-anchor-link" href="#dos-modos"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Dos Modos»</span></a></div>
 <p>Karajan ofrece dos formas de trabajar:</p>
 <p><strong>Modo Skills</strong> — 8 slash commands (<code dir="auto">/kj-code</code>, <code dir="auto">/kj-review</code>, <code dir="auto">/kj-run</code>, etc.) instalados directamente en Claude Code. Cada comando incluye guardrails integrados. Sin servidor MCP — ideal para flujos con un solo agente. Instalar con <code dir="auto">kj init</code>.</p>
-<p><strong>Modo Orchestrator</strong> — Servidor MCP completo con 21 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.</p>
+<p><strong>Modo Orchestrator</strong> — Servidor MCP completo con 23 herramientas. Pipeline multi-agente con orquestación de subprocesos, gestión de sesiones, tracking de presupuesto y resiliencia ante rate limits. Ideal para tareas complejas e integración CI/CD.</p>
 <p>Ambos modos pueden convivir. Usa skills para tareas rápidas y el orchestrator cuando necesites múltiples agentes o control total del pipeline. Ver la <a href="/docs/es/guides/skills/">Guía de Skills</a> para detalles.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="siguientes-pasos">Siguientes Pasos</h2><a class="sl-anchor-link" href="#siguientes-pasos"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Sección titulada «Siguientes Pasos»</span></a></div>
 <ul>

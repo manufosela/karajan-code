@@ -677,6 +677,22 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.39.0** — CLI update notification: non-blocking npm version check at startup, cached 24h.
 
+## Phase 32: Pipeline Sovereignty & Observations (v1.40.0)
+
+**v1.40.0** — Pipeline sovereignty: MCP input guard strips host AI overrides, preventing external agents from silently changing pipeline configuration. New `kj_suggest` MCP tool (22nd) allows observations to Solomon without interrupting the pipeline. E2E install tests across ubuntu, macOS, and Windows. CLI update notification at startup.
+
+## Phase 33: OpenSkills Integration (v1.41.0)
+
+**v1.41.0** — OpenSkills integration: new `kj_skills` MCP tool (23rd) for managing domain-specific skills. Skill injection in coder, reviewer, and architect prompts. Triage auto-detects and installs domain skills relevant to the current task.
+
+## Phase 34: Lean Audit & Lazy HU Planning (v1.42.0)
+
+**v1.42.0** — Lean audit measures basal cost: dead code detection, unused dependency analysis, and complexity growth tracking. Lazy HU planning: refine one HU at a time with context from completed ones, reducing upfront planning overhead.
+
+## Phase 35: Docker & Shell Installer (v1.43.0)
+
+**v1.43.0** — Docker image (Alpine + Node 20) for containerized execution. Shell installer (`curl | sh`) for one-line installation without npm.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

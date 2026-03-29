@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 21 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 23 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run
@@ -373,6 +373,53 @@ Gestionar historias de usuario (crear, actualizar, listar, obtener) en el HU Boa
     "action": "create",
     "title": "Como usuario quiero restablecer mi contraseña",
     "description": "Flujo de restablecimiento de contraseña con verificación por email"
+  }
+}
+```
+
+---
+
+## kj_suggest
+
+Enviar una observación a Solomon sin interrumpir el pipeline. Útil para proporcionar contexto o pistas que Solomon puede considerar en su próxima evaluación.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `observation` | string | **Sí** | — | Observación o sugerencia para Solomon |
+| `sessionId` | string | No | Último | ID de sesión objetivo |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_suggest",
+  "params": {
+    "observation": "El reviewer se está centrando en convenciones de nombrado — considerar anular"
+  }
+}
+```
+
+---
+
+## kj_skills
+
+Listar, instalar o eliminar skills específicos de dominio para los roles del pipeline. Los skills extienden los prompts de coder, reviewer y architect con conocimiento de dominio.
+
+| Parámetro | Tipo | Requerido | Default | Descripción |
+|-----------|------|-----------|---------|-------------|
+| `action` | string | No | `list` | Acción: `list` \| `install` \| `remove` |
+| `skill` | string | No | `null` | Identificador del skill (requerido para `install` y `remove`) |
+| `projectDir` | string | No | cwd | Directorio del proyecto |
+
+**Ejemplo:**
+
+```json
+{
+  "tool": "kj_skills",
+  "params": {
+    "action": "install",
+    "skill": "react-patterns"
   }
 }
 ```

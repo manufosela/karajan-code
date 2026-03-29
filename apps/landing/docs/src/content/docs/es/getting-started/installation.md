@@ -106,6 +106,33 @@ O establece la variable de entorno:
 export KJ_SONAR_TOKEN="tu-token-aqui"
 ```
 
+## Alternativa: Docker
+
+Ejecuta Karajan Code en un contenedor (Alpine + Node 20) — sin necesidad de instalacion local de Node.js:
+
+```bash
+docker run --rm -it ghcr.io/manufosela/karajan-code kj doctor
+```
+
+O usalo como imagen base para pipelines de CI:
+
+```dockerfile
+FROM ghcr.io/manufosela/karajan-code
+COPY . /workspace
+WORKDIR /workspace
+RUN kj init --non-interactive --coder claude --reviewer codex
+```
+
+## Alternativa: Instalador shell (curl | sh)
+
+Instalacion en una linea sin npm:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install.sh | sh
+```
+
+Esto descarga la ultima version, la instala globalmente y ejecuta `kj init`.
+
 ## Opcional: Instalar RTK para Ahorro de Tokens
 
 [RTK](https://github.com/rtk-ai/rtk) (Rust Token Killer) reduce el consumo de tokens en un 60-90% en las salidas de comandos Bash. Instálalo globalmente y KJ se beneficia automáticamente:
