@@ -177,7 +177,9 @@ async function setupSonarQube(config, logger) {
 
   const sonar = await sonarUp();
   if (sonar.exitCode !== 0) {
-    throw new Error(`Failed to start SonarQube: ${sonar.stderr || sonar.stdout}`);
+    logger.info(`SonarQube could not be started — disabling for now. You can enable it later with 'kj sonar start'.`);
+    config.sonarqube.enabled = false;
+    return;
   }
 
   logger.info("SonarQube container started");
