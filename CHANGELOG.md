@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.43.0] - 2026-03-29
+
+### Added
+- **Docker image**: Alpine + Node 20, `docker run karajan-code kj --version`. Includes docker-compose.yml and bilingual docs/DOCKER.md (#237)
+- **Shell installer**: `curl https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh` detects OS/arch, installs Node.js if needed, installs karajan-code, runs kj init (#238)
+
 ## [1.42.0] - 2026-03-29
 
 ### Added
@@ -497,7 +503,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.42.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.43.0...HEAD
+[1.43.0]: https://github.com/manufosela/karajan-code/compare/v1.42.0...v1.43.0
 [1.42.0]: https://github.com/manufosela/karajan-code/compare/v1.41.0...v1.42.0
 [1.41.0]: https://github.com/manufosela/karajan-code/compare/v1.40.0...v1.41.0
 [1.40.0]: https://github.com/manufosela/karajan-code/compare/v1.39.0...v1.40.0
