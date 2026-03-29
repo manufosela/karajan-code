@@ -1,0 +1,73 @@
+name: E2E Install Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'scripts/**'
+      - 'src/**'
+      - 'bin/**'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: E2E (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Pack and install globally
+        run: |
+          npm pack
+          npm install -g karajan-code-*.tgz
+
+      - name: Verify CLI commands exist
+        run: |
+          kj --version
+          kj-tail --help
+          which karajan-mcp
+
+      - name: Create test project
+        run: |
+          mkdir /tmp/kj-e2e-project
+          cd /tmp/kj-e2e-project
+          git init
+          git remote add origin https://github.com/example/test.git
+
+      - name: Run kj doctor
+        working-directory: /tmp/kj-e2e-project
+        run: kj doctor || true
+
+      - name: Run kj init (non-interactive)
+        working-directory: /tmp/kj-e2e-project
+        run: kj init --no-interactive
+
+      - name: Verify config created
+        run: test -f ~/.karajan/kj.config.yml
+
+      - name: Run kj config
+        working-directory: /tmp/kj-e2e-project
+        run: kj config
+
+      - name: Run kj roles list
+        working-directory: /tmp/kj-e2e-project
+        run: kj roles list
+
+      - name: Verify templates installed
+        run: |
+          KJ_ROOT=$(npm root -g)/karajan-code
+          test -f "$KJ_ROOT/templates/roles/coder.md"
+          test -f "$KJ_ROOT/templates/roles/reviewer.md"
+          test -f "$KJ_ROOT/templates/roles/solomon.md"
+          echo "Templates OK"

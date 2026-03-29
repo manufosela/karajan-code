@@ -8,3 +8,4 @@ kj.config.yml
 review-rules.md
 .sonar-env
 .kj-ready.json
+tests/e2e/karajan-code.tgz
