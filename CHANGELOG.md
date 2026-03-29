@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-03-29
+
+### Added
+- **Pipeline sovereignty guard**: MCP handler validates kj_run params, strips host AI overrides (enableHuReviewer, enableTriage), clamps maxIterations [1,10], blocks duplicate sessions. 18 new tests (#227)
+- **`kj_suggest` MCP tool** (22nd): host AI proposes observations to Solomon without override power. Solomon reads suggestions in next evaluation. 8 new tests (#228)
+- **E2E install tests**: Docker smoke tests (14 checks) + GitHub Actions matrix (ubuntu, macOS, Windows). `kj init` disables sonar gracefully when Docker unavailable (#221, #222, #223, #226)
+- **CLI update notification**: non-blocking npm version check at startup, cached 24h (#218)
+
 ## [1.39.0] - 2026-03-29
 
 ### Added
@@ -473,7 +481,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.39.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.40.0...HEAD
+[1.40.0]: https://github.com/manufosela/karajan-code/compare/v1.39.0...v1.40.0
 [1.39.0]: https://github.com/manufosela/karajan-code/compare/v1.38.2...v1.39.0
 [1.38.2]: https://github.com/manufosela/karajan-code/compare/v1.38.1...v1.38.2
 [1.38.1]: https://github.com/manufosela/karajan-code/compare/v1.38.0...v1.38.1
