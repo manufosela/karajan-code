@@ -53,9 +53,8 @@ check "solomon.md template" test -f "$(npm root -g)/karajan-code/templates/roles
 # 9. MCP server starts and responds (quick check, kill after 2s)
 check "karajan-mcp starts" timeout 3 karajan-mcp || test $? -eq 124
 
-# 10. Package has expected file count
-FILE_COUNT=$(find "$(npm root -g)/karajan-code" -name "*.js" -not -path "*/node_modules/*" | wc -l)
-check "package has >100 JS files" test "$FILE_COUNT" -gt 100
+# 10. kj audit runs (standalone command)
+check "kj audit --help" kj audit --help
 
 echo ""
 echo "=== Results: $PASS/$TOTAL passed, $FAIL failed ==="

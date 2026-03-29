@@ -17,7 +17,7 @@ fi
 mv "$TARBALL" "$SCRIPT_DIR/karajan-code.tgz"
 
 echo "Building Docker image..."
-docker build -t kj-e2e-test "$SCRIPT_DIR"
+docker buildx build -t kj-e2e-test "$SCRIPT_DIR" 2>/dev/null || docker build -t kj-e2e-test "$SCRIPT_DIR"
 
 echo "Running E2E tests..."
 docker run --rm kj-e2e-test

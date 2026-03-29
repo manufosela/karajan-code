@@ -8,7 +8,12 @@ RUN useradd -m -s /bin/bash kjuser
 USER kjuser
 WORKDIR /home/kjuser
 
-# Install karajan-code from local tarball (mounted at build or copied)
+# Configure npm global installs in user home (no sudo needed)
+RUN mkdir -p /home/kjuser/.npm-global \
+    && npm config set prefix /home/kjuser/.npm-global
+ENV PATH="/home/kjuser/.npm-global/bin:$PATH"
+
+# Install karajan-code from local tarball
 COPY --chown=kjuser:kjuser karajan-code.tgz /tmp/karajan-code.tgz
 RUN npm install -g /tmp/karajan-code.tgz
 
