@@ -120,6 +120,18 @@ vi.mock("../src/utils/rtk-detect.js", () => ({
   detectRtk: vi.fn().mockResolvedValue({ available: false, version: null })
 }));
 
+vi.mock("../src/skills/openskills-client.js", () => ({
+  isOpenSkillsAvailable: vi.fn().mockResolvedValue(false),
+  installSkill: vi.fn().mockResolvedValue({ ok: false }),
+  removeSkill: vi.fn().mockResolvedValue({ ok: true })
+}));
+
+vi.mock("../src/skills/skill-detector.js", () => ({
+  detectNeededSkills: vi.fn().mockResolvedValue([]),
+  autoInstallSkills: vi.fn().mockResolvedValue({ installed: [], failed: [], alreadyInstalled: [] }),
+  cleanupAutoInstalledSkills: vi.fn().mockResolvedValue({ removed: [], failed: [] })
+}));
+
 vi.mock("../src/orchestrator/preflight-checks.js", () => ({
   runPreflightChecks: vi.fn().mockResolvedValue({
     ok: true, checks: [], remediations: [], configOverrides: {}, warnings: [], errors: []

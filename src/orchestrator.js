@@ -40,6 +40,8 @@ import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js"
 import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
 import { detectRtk } from "./utils/rtk-detect.js";
+import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
+import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
 
 
 // --- Product Context loader ---
@@ -845,6 +847,29 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
 
+  // --- Auto-install skills based on task + project detection ---
+  const projectDir = config.projectDir || process.cwd();
+  try {
+    const osAvailable = await isOpenSkillsAvailable();
+    if (osAvailable) {
+      const neededSkills = await detectNeededSkills(task, projectDir);
+      if (neededSkills.length > 0) {
+        const skillResult = await autoInstallSkills(neededSkills, projectDir);
+        if (skillResult.installed.length > 0) {
+          session.autoInstalledSkills = skillResult.installed;
+        }
+        emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "triage" }, {
+          message: skillResult.installed.length > 0
+            ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
+            : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
+          detail: skillResult
+        }));
+      }
+    }
+  } catch (err) {
+    logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);
+  }
+
   // --- HU Reviewer auto-activation from triage (post-triage, no huFile needed) ---
   const triageRoles = new Set(triageResult.stageResult?.roles || []);
   if (triageRoles.has("hu-reviewer") && !stageResults.huReviewer) {
@@ -1387,44 +1412,60 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
 
   const ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
 
-  // --- HU Sub-Pipeline: run each certified HU as an independent iteration loop ---
-  if (needsSubPipeline(ctx.stageResults.huReviewer)) {
-    logger.info(`HU sub-pipeline: ${ctx.stageResults.huReviewer.certified} certified stories — running each as a sub-pipeline`);
-    emitProgress(emitter, makeEvent("hu:sub-pipeline:start", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
-      message: `Running ${ctx.stageResults.huReviewer.certified} HUs as sub-pipelines`,
-      detail: { total: ctx.stageResults.huReviewer.total, certified: ctx.stageResults.huReviewer.certified }
-    }));
+  try {
+    // --- HU Sub-Pipeline: run each certified HU as an independent iteration loop ---
+    if (needsSubPipeline(ctx.stageResults.huReviewer)) {
+      logger.info(`HU sub-pipeline: ${ctx.stageResults.huReviewer.certified} certified stories — running each as a sub-pipeline`);
+      emitProgress(emitter, makeEvent("hu:sub-pipeline:start", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
+        message: `Running ${ctx.stageResults.huReviewer.certified} HUs as sub-pipelines`,
+        detail: { total: ctx.stageResults.huReviewer.total, certified: ctx.stageResults.huReviewer.certified }
+      }));
 
-    const subPipelineResult = await runHuSubPipeline({
-      huReviewerResult: ctx.stageResults.huReviewer,
-      runIterationFn: async (huTask) => runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger }),
-      emitter,
-      eventBase: ctx.eventBase,
-      logger
-    });
+      const subPipelineResult = await runHuSubPipeline({
+        huReviewerResult: ctx.stageResults.huReviewer,
+        runIterationFn: async (huTask) => runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger }),
+        emitter,
+        eventBase: ctx.eventBase,
+        logger
+      });
 
-    emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
-      status: subPipelineResult.approved ? "ok" : "fail",
-      message: subPipelineResult.approved
-        ? "All HUs completed successfully"
-        : `Sub-pipeline finished with failures (${subPipelineResult.blockedIds.length} blocked)`,
-      detail: { results: subPipelineResult.results, blockedIds: subPipelineResult.blockedIds }
-    }));
+      emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
+        status: subPipelineResult.approved ? "ok" : "fail",
+        message: subPipelineResult.approved
+          ? "All HUs completed successfully"
+          : `Sub-pipeline finished with failures (${subPipelineResult.blockedIds.length} blocked)`,
+        detail: { results: subPipelineResult.results, blockedIds: subPipelineResult.blockedIds }
+      }));
 
-    const finalResult = {
-      approved: subPipelineResult.approved,
-      sessionId: ctx.session.id,
-      huResults: subPipelineResult.results,
-      blockedIds: subPipelineResult.blockedIds
-    };
-    await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
-    return finalResult;
+      const finalResult = {
+        approved: subPipelineResult.approved,
+        sessionId: ctx.session.id,
+        huResults: subPipelineResult.results,
+        blockedIds: subPipelineResult.blockedIds
+      };
+      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
+      return finalResult;
+    }
+
+    // --- Standard single-task pipeline (1 HU or no HU reviewer) ---
+    const result = await runIterationLoop(ctx, { task: ctx.plannedTask, askQuestion, emitter, logger });
+    await writeHistoryRecord({ sessionId: ctx.session.id, task, result, logger });
+    return result;
+  } finally {
+    // --- Cleanup auto-installed skills ---
+    const autoSkills = ctx.session?.autoInstalledSkills;
+    if (autoSkills && autoSkills.length > 0) {
+      const cleanProjectDir = ctx.config?.projectDir || process.cwd();
+      try {
+        const cleanupResult = await cleanupAutoInstalledSkills(autoSkills, cleanProjectDir);
+        if (cleanupResult.removed.length > 0) {
+          logger.info(`Cleaned up ${cleanupResult.removed.length} auto-installed skill(s): ${cleanupResult.removed.join(", ")}`);
+        }
+      } catch (err) {
+        logger.warn(`Skill cleanup failed (non-blocking): ${err.message}`);
+      }
+    }
   }
-
-  // --- Standard single-task pipeline (1 HU or no HU reviewer) ---
-  const result = await runIterationLoop(ctx, { task: ctx.plannedTask, askQuestion, emitter, logger });
-  await writeHistoryRecord({ sessionId: ctx.session.id, task, result, logger });
-  return result;
 }
 
 export async function resumeFlow({ sessionId, answer, config, logger, flags = {}, emitter = null, askQuestion = null }) {
