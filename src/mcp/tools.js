@@ -347,5 +347,20 @@ export const tools = [
         projectDir: { type: "string", description: "Project directory" }
       }
     }
+  },
+  {
+    name: "kj_skills",
+    description: "Manage OpenSkills for domain-specific agent knowledge. Install skills from the marketplace or GitHub repos to give coders domain expertise.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["install", "remove", "list", "read"], description: "Action to perform" },
+        source: { type: "string", description: "Skill source: marketplace name, GitHub URL, or local path (for install)" },
+        name: { type: "string", description: "Skill name (for remove/read)" },
+        global: { type: "boolean", description: "Install globally (~/.agent/skills/) instead of project-local" },
+        projectDir: { type: "string", description: "Project directory" }
+      },
+      required: ["action"]
+    }
   }
 ];

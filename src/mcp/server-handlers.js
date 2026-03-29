@@ -989,6 +989,40 @@ async function handleSuggest(a) {
   });
 }
 
+async function handleSkills(a) {
+  const action = a.action;
+  if (!action) return failPayload("Missing required field: action");
+
+  const { isOpenSkillsAvailable, installSkill, removeSkill, listSkills, readSkill } =
+    await import("../skills/openskills-client.js");
+
+  const opts = { projectDir: a.projectDir || null };
+
+  switch (action) {
+    case "install": {
+      if (!a.source) return failPayload("Missing required field: source (required for install)");
+      const available = await isOpenSkillsAvailable();
+      if (!available) {
+        return failPayload("OpenSkills CLI is not available. Install it with: npm install -g openskills");
+      }
+      return installSkill(a.source, { ...opts, global: a.global || false });
+    }
+    case "remove": {
+      if (!a.name) return failPayload("Missing required field: name (required for remove)");
+      return removeSkill(a.name, opts);
+    }
+    case "list": {
+      return listSkills(opts);
+    }
+    case "read": {
+      if (!a.name) return failPayload("Missing required field: name (required for read)");
+      return readSkill(a.name, opts);
+    }
+    default:
+      return failPayload(`Unknown skills action: ${action}`);
+  }
+}
+
 /* ── Handler dispatch map ─────────────────────────────────────────── */
 
 const toolHandlers = {
@@ -1013,7 +1047,8 @@ const toolHandlers = {
   kj_audit:       (a, server, extra) => handleAudit(a, server, extra),
   kj_board:       (a) => handleBoard(a),
   kj_hu:          (a, server) => handleHu(a, server),
-  kj_suggest:     (a) => handleSuggest(a)
+  kj_suggest:     (a) => handleSuggest(a),
+  kj_skills:      (a) => handleSkills(a)
 };
 
 export async function handleToolCall(name, args, server, extra) {
