@@ -1,0 +1,19 @@
+# Karajan Code - Docker Compose
+#
+# Usage:
+#   docker compose run --rm kj doctor          # run kj doctor
+#   docker compose run --rm kj run             # run kj pipeline
+#   docker compose run --rm kj --help          # show kj help
+#
+# To use kj-tail or karajan-mcp, override the entrypoint:
+#   docker compose run --rm --entrypoint kj-tail kj
+#   docker compose run --rm --entrypoint karajan-mcp kj
+
+services:
+  kj:
+    build: .
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=production

@@ -1,0 +1,10 @@
+node_modules
+.git
+.github
+.claude
+.scannerwork
+coverage
+tests
+*.tgz
+.DS_Store
+sonar-project.properties
