@@ -14,7 +14,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -111,6 +111,40 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     'Each finding: {"severity":"critical|high|medium|low","file":string,"line":number,"rule":string,"description":string,"recommendation":string}',
     `Only include dimensions you were asked to analyze: ${activeDimensions.join(", ")}`
   );
+
+  if (basalCost) {
+    const lines = [
+      "## Basal Cost",
+      `- Total source lines: ${basalCost.totalLines}`,
+      `- Total source files: ${basalCost.totalFiles}`,
+      `- Dependencies: ${basalCost.dependencies?.total ?? 0} (${basalCost.dependencies?.dependencies ?? 0} prod + ${basalCost.dependencies?.devDependencies ?? 0} dev)`
+    ];
+    if (basalCost.unusedDependencies?.unused?.length > 0) {
+      lines.push(`- Unused dependencies: ${basalCost.unusedDependencies.unused.join(", ")}`);
+    } else if (basalCost.unusedDependencies?.note) {
+      lines.push(`- Unused dependencies: ${basalCost.unusedDependencies.note}`);
+    }
+    if (basalCost.deadExports?.length > 0) {
+      lines.push(`- Dead exports (exported but never imported): ${basalCost.deadExports.length}`);
+      for (const de of basalCost.deadExports.slice(0, 20)) {
+        lines.push(`  - ${de.name} in ${de.file}`);
+      }
+      if (basalCost.deadExports.length > 20) {
+        lines.push(`  - ... and ${basalCost.deadExports.length - 20} more`);
+      }
+    }
+    if (growthDelta) {
+      lines.push("");
+      lines.push("### Growth since last audit");
+      lines.push(`- Lines: ${growthDelta.lines >= 0 ? "+" : ""}${growthDelta.lines}`);
+      lines.push(`- Files: ${growthDelta.files >= 0 ? "+" : ""}${growthDelta.files}`);
+      lines.push(`- Dependencies: ${growthDelta.deps >= 0 ? "+" : ""}${growthDelta.deps}`);
+      if (growthDelta.since) lines.push(`- Since: ${growthDelta.since}`);
+    }
+    lines.push("");
+    lines.push("Flag if basal cost is growing faster than feature delivery. Recommend elimination of unused code and dependencies.");
+    sections.push(lines.join("\n"));
+  }
 
   if (context) {
     sections.push(`## Context\n${context}`);

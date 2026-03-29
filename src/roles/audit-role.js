@@ -1,6 +1,7 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
+import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
 
 function resolveProvider(config) {
   return (
@@ -57,7 +58,18 @@ export class AuditRole extends BaseRole {
     const provider = resolveProvider(this.config);
     const agent = this._createAgent(provider, this.config, this.logger);
 
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context });
+    const projectDir = this.config?.projectDir || process.cwd();
+    let basalCost = null;
+    let growthDelta = null;
+    try {
+      basalCost = await measureBasalCost(projectDir);
+      const previous = loadPreviousAudit(projectDir);
+      growthDelta = computeGrowthDelta(basalCost, previous);
+    } catch {
+      // basal cost is best-effort, don't fail the audit
+    }
+
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);
@@ -82,12 +94,18 @@ export class AuditRole extends BaseRole {
         };
       }
 
+      if (basalCost) {
+        try { saveAuditSnapshot(projectDir, basalCost); } catch { /* best-effort */ }
+      }
+
       return {
         ok: true,
         result: {
           summary: parsed.summary,
           dimensions: parsed.dimensions,
           topRecommendations: parsed.topRecommendations,
+          basalCost: basalCost || undefined,
+          growthDelta: growthDelta || undefined,
           provider
         },
         summary: buildSummary(parsed),
