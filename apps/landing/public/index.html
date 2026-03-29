@@ -188,15 +188,8 @@
     footer a:hover, footer a:focus-visible { color: var(--accent-teal); }
     footer a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
     .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
-    .footer-version { margin-top: 0.4rem; position: relative; display: inline-block; }
-    .version-tooltip {
-      visibility: hidden; opacity: 0; position: absolute; bottom: 130%; left: 50%;
-      transform: translateX(-50%); background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 6px; padding: 0.4rem 0.8rem; font-family: var(--mono); font-size: 0.75rem;
-      color: var(--accent-teal); white-space: nowrap; transition: opacity 0.2s;
-      pointer-events: none;
-    }
-    .footer-version:hover .version-tooltip { visibility: visible; opacity: 1; }
+    .footer-version { margin-top: 0.4rem; }
+    .hero-badge { margin-bottom: 1.5rem; }
     .footer-author { margin-top: 0.4rem; }
     .footer-counter { margin-top: 1rem; }
 
@@ -227,6 +220,11 @@
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Local multi-agent coding orchestrator.</p>
     <p class="hero-sub">TDD-first. MCP-based. Vanilla JavaScript.</p>
+    <p class="hero-badge">
+      <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
+        <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=2dd4bf&label=latest" alt="npm version" height="22">
+      </a>
+    </p>
     <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Copy install command: npm install -g karajan-code">
       <span class="prompt" aria-hidden="true">$</span>
       <span>npm install -g karajan-code</span>
@@ -288,12 +286,7 @@
       <a href="https://github.com/manufosela/karajan-code/issues">Issues</a>
       <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a>
     </nav>
-    <p class="footer-version" style="position:relative;display:inline-block">
-      <a href="https://www.npmjs.com/package/karajan-code" class="version-badge" aria-label="Current version on npm">
-        <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=2dd4bf&label=karajan-code" alt="npm version" height="20">
-      </a>
-      <span class="version-tooltip">npm install -g karajan-code</span>
-    </p>
+    <p class="footer-version">Karajan Code</p>
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
