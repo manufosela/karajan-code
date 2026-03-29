@@ -5,6 +5,7 @@
 import { topologicalSort } from "../hu/graph.js";
 import { updateStoryStatus, loadHuBatch, saveHuBatch, HU_STATUS } from "../hu/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { refineHuWithContext } from "../hu/lazy-planner.js";
 
 /**
  * Determine whether the HU reviewer result requires a sub-pipeline
@@ -72,7 +73,7 @@ function buildHuTask(story) {
  * @param {object} params.logger - Logger instance
  * @returns {Promise<{approved: boolean, results: object[], blockedIds: string[]}>}
  */
-export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger }) {
+export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null }) {
   const batchSessionId = huReviewerResult.batchSessionId;
   let batch;
   try {
@@ -106,6 +107,40 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
     if (story.status === HU_STATUS.BLOCKED) {
       blockedIds.push(story.id);
       continue;
+    }
+
+    // --- Lazy refinement: refine HU if it needs it, using completed HU context ---
+    if (story.needsRefinement && config) {
+      const completedHus = results
+        .filter(r => r.approved)
+        .map(r => {
+          const completedStory = batch.stories.find(s => s.id === r.huId);
+          return {
+            ...completedStory,
+            resultSummary: r.result?.summary || r.result?.reason || null
+          };
+        });
+
+      emitProgress(emitter, makeEvent("hu:refine-start", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        message: `Refining HU ${story.id} with context from ${completedHus.length} completed HU(s)`,
+        detail: { huId: story.id, completedCount: completedHus.length }
+      }));
+
+      try {
+        const refined = await refineHuWithContext(story, completedHus, config, logger);
+        // Apply refinement to the batch story in-place
+        Object.assign(story, refined);
+        story.needsRefinement = false;
+        await saveHuBatch(batchSessionId, batch);
+
+        emitProgress(emitter, makeEvent("hu:refine-end", { ...eventBase, stage: "hu-sub-pipeline" }, {
+          message: `HU ${story.id} refined successfully`,
+          detail: { huId: story.id }
+        }));
+      } catch (err) {
+        logger.warn(`Lazy refinement failed for HU ${story.id}: ${err.message} — proceeding with original`);
+        story.needsRefinement = false;
+      }
     }
 
     const huTask = buildHuTask(story);

@@ -646,11 +646,17 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
       config, logger, emitter, eventBase, session, coderRole, trackBudget
     });
     if (decomposed && decomposed.length > 1) {
-      stories = decomposed.map(hu => ({
-        id: hu.id,
-        text: `As a ${hu.role}, I want to ${hu.goal}, so that ${hu.benefit}\n\nTitle: ${hu.title}\nAcceptance Criteria:\n${hu.acceptanceCriteria.map(ac => `- ${ac}`).join("\n")}`,
-        blocked_by: hu.dependsOn || []
-      }));
+      stories = decomposed.map((hu, idx) => {
+        const isFirst = idx === 0;
+        const fullText = `As a ${hu.role}, I want to ${hu.goal}, so that ${hu.benefit}\n\nTitle: ${hu.title}\nAcceptance Criteria:\n${hu.acceptanceCriteria.map(ac => `- ${ac}`).join("\n")}`;
+        const skeletonText = `As a ${hu.role}, I want to ${hu.goal}, so that ${hu.benefit}\n\nTitle: ${hu.title}`;
+        return {
+          id: hu.id,
+          text: isFirst ? fullText : skeletonText,
+          blocked_by: hu.dependsOn || [],
+          needsRefinement: !isFirst
+        };
+      });
     } else {
       stories = [{ id: "HU-AUTO-001", text: session.task }];
     }

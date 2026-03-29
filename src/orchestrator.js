@@ -1426,7 +1426,8 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         runIterationFn: async (huTask) => runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger }),
         emitter,
         eventBase: ctx.eventBase,
-        logger
+        logger,
+        config: ctx.config
       });
 
       emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
