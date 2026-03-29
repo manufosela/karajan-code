@@ -25,6 +25,7 @@ import { createRunLog, readRunLog } from "../utils/run-log.js";
 import { currentBranch } from "../utils/git.js";
 import { isPreflightAcked, ackPreflight, getSessionOverrides } from "./preflight.js";
 import { ensureBootstrap } from "../bootstrap.js";
+import { validateSovereignty } from "./sovereignty-guard.js";
 
 /**
  * Resolve the user's project directory.
@@ -823,6 +824,19 @@ async function handleRun(a, server, extra) {
       return failPayload(`Invalid taskType "${a.taskType}". Valid values: ${[...validTypes].join(", ")}`);
     }
   }
+
+  // Sovereignty guard: sanitise params and check for active sessions
+  const projectDir = await resolveProjectDir(server, a.projectDir);
+  const sovereignty = validateSovereignty(a, { projectDir });
+  if (sovereignty.error) {
+    return failPayload(sovereignty.error);
+  }
+  if (sovereignty.warnings.length > 0) {
+    const logger = createLogger("info", "mcp");
+    for (const w of sovereignty.warnings) logger.warn(`[sovereignty] ${w}`);
+  }
+  Object.assign(a, sovereignty.params);
+
   await runBootstrapGate(server, a);
   if (!isPreflightAcked()) {
     // Auto-acknowledge with defaults for autonomous operation

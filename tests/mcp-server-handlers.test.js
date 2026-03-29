@@ -110,6 +110,10 @@ vi.mock("../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock("../src/mcp/sovereignty-guard.js", () => ({
+  validateSovereignty: vi.fn((params) => ({ params: { ...params }, warnings: [] }))
+}));
+
 const {
   asObject,
   responseText,
