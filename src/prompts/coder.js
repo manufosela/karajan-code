@@ -1,4 +1,5 @@
 import { RTK_INSTRUCTIONS } from "./rtk-snippet.js";
+import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -31,7 +32,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, plan = null }) {
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, plan = null, projectDir = null }) {
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
     `Task:\n${task}`,
@@ -81,6 +82,14 @@ export function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary =
 
   if (deferredContext) {
     sections.push(deferredContext);
+  }
+
+  if (projectDir) {
+    const skills = await loadAvailableSkills(projectDir);
+    const skillSection = buildSkillSection(skills);
+    if (skillSection) {
+      sections.push(skillSection);
+    }
   }
 
   return sections.join("\n\n");

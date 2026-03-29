@@ -32,7 +32,7 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
 
   const { rules } = await resolveReviewProfile({ mode: config.review_mode, projectDir: process.cwd() });
 
-  const prompt = buildReviewerPrompt({ task, diff, reviewRules: rules, mode: config.review_mode });
+  const prompt = await buildReviewerPrompt({ task, diff, reviewRules: rules, mode: config.review_mode });
   const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
   const result = await reviewer.reviewTask({ prompt, onOutput, role: "reviewer" });
   if (!result.ok) {

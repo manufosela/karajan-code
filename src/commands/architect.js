@@ -63,7 +63,7 @@ export async function architectCommand({ task, config, logger, context, json }) 
   logger.info(`Architect (${architectRole.provider}) starting...`);
 
   const agent = createAgent(architectRole.provider, config, logger);
-  const prompt = buildArchitectPrompt({ task, researchContext: context });
+  const prompt = await buildArchitectPrompt({ task, researchContext: context });
   const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
   const result = await agent.runTask({ prompt, onOutput, role: "architect" });
 

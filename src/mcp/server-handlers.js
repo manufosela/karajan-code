@@ -488,7 +488,7 @@ export async function handleCodeDirect(a, server, extra) {
       try { coderRules = await fs.readFile("coder-rules.md", "utf8"); } catch { /* no coder rules file */ }
     }
   }
-  const prompt = buildCoderPrompt({ task: a.task, coderRules, methodology: config.development?.methodology || "tdd" });
+  const prompt = await buildCoderPrompt({ task: a.task, coderRules, methodology: config.development?.methodology || "tdd" });
   sendTrackerLog(server, "coder", "running", coderRole.provider);
   runLog.logText(`[coder] agent launched, waiting for response...`);
   let result;
@@ -535,7 +535,7 @@ export async function handleReviewDirect(a, server, extra) {
   const diff = await generateDiff({ baseRef: resolvedBase });
   const { rules } = await resolveReviewProfile({ mode: config.review_mode, projectDir: process.cwd() });
 
-  const prompt = buildReviewerPrompt({ task: a.task, diff, reviewRules: rules, mode: config.review_mode });
+  const prompt = await buildReviewerPrompt({ task: a.task, diff, reviewRules: rules, mode: config.review_mode });
   sendTrackerLog(server, "reviewer", "running", reviewerRole.provider);
   runLog.logText(`[reviewer] agent launched, waiting for response...`);
   let result;

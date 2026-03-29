@@ -65,24 +65,24 @@ describe("loadProductContext", () => {
 describe("productContext injection into prompts", () => {
   const productContext = "We build dental treatment planning software for orthodontists.";
 
-  it("buildCoderPrompt includes productContext when provided", () => {
-    const result = buildCoderPrompt({ task: "Add login", productContext });
+  it("buildCoderPrompt includes productContext when provided", async () => {
+    const result = await buildCoderPrompt({ task: "Add login", productContext });
     expect(result).toContain("## Product Context");
     expect(result).toContain(productContext);
   });
 
-  it("buildCoderPrompt omits productContext when null", () => {
-    const result = buildCoderPrompt({ task: "Add login", productContext: null });
+  it("buildCoderPrompt omits productContext when null", async () => {
+    const result = await buildCoderPrompt({ task: "Add login", productContext: null });
     expect(result).not.toContain("## Product Context");
   });
 
-  it("buildCoderPrompt omits productContext by default", () => {
-    const result = buildCoderPrompt({ task: "Add login" });
+  it("buildCoderPrompt omits productContext by default", async () => {
+    const result = await buildCoderPrompt({ task: "Add login" });
     expect(result).not.toContain("## Product Context");
   });
 
-  it("buildReviewerPrompt includes productContext when provided", () => {
-    const result = buildReviewerPrompt({
+  it("buildReviewerPrompt includes productContext when provided", async () => {
+    const result = await buildReviewerPrompt({
       task: "Add login",
       diff: "some diff",
       reviewRules: "rules",
@@ -93,8 +93,8 @@ describe("productContext injection into prompts", () => {
     expect(result).toContain(productContext);
   });
 
-  it("buildReviewerPrompt omits productContext when null", () => {
-    const result = buildReviewerPrompt({
+  it("buildReviewerPrompt omits productContext when null", async () => {
+    const result = await buildReviewerPrompt({
       task: "Add login",
       diff: "some diff",
       reviewRules: "rules",
@@ -103,7 +103,7 @@ describe("productContext injection into prompts", () => {
     expect(result).not.toContain("## Product Context");
   });
 
-  it("buildHuReviewerPrompt includes productContext when provided", () => {
+  it("buildHuReviewerPrompt includes productContext when provided", async () => {
     const result = buildHuReviewerPrompt({
       stories: [{ id: "HU-001", text: "As a doctor..." }],
       instructions: null,
@@ -113,7 +113,7 @@ describe("productContext injection into prompts", () => {
     expect(result).toContain(productContext);
   });
 
-  it("buildHuReviewerPrompt omits productContext when null", () => {
+  it("buildHuReviewerPrompt omits productContext when null", async () => {
     const result = buildHuReviewerPrompt({
       stories: [{ id: "HU-001", text: "As a doctor..." }],
       instructions: null
@@ -121,8 +121,8 @@ describe("productContext injection into prompts", () => {
     expect(result).not.toContain("## Product Context");
   });
 
-  it("buildArchitectPrompt includes productContext when provided", () => {
-    const result = buildArchitectPrompt({
+  it("buildArchitectPrompt includes productContext when provided", async () => {
+    const result = await buildArchitectPrompt({
       task: "Design auth system",
       instructions: null,
       productContext
@@ -131,15 +131,15 @@ describe("productContext injection into prompts", () => {
     expect(result).toContain(productContext);
   });
 
-  it("buildArchitectPrompt omits productContext when null", () => {
-    const result = buildArchitectPrompt({
+  it("buildArchitectPrompt omits productContext when null", async () => {
+    const result = await buildArchitectPrompt({
       task: "Design auth system",
       instructions: null
     });
     expect(result).not.toContain("## Product Context");
   });
 
-  it("buildPlannerPrompt includes productContext when provided", () => {
+  it("buildPlannerPrompt includes productContext when provided", async () => {
     const result = buildPlannerPrompt({
       task: "Implement caching",
       context: null,
@@ -150,7 +150,7 @@ describe("productContext injection into prompts", () => {
     expect(result).toContain(productContext);
   });
 
-  it("buildPlannerPrompt omits productContext when null", () => {
+  it("buildPlannerPrompt omits productContext when null", async () => {
     const result = buildPlannerPrompt({
       task: "Implement caching",
       context: null,

@@ -2,30 +2,30 @@ import { describe, it, expect } from "vitest";
 import { buildArchitectPrompt, parseArchitectOutput, VALID_VERDICTS } from "../src/prompts/architect.js";
 
 describe("buildArchitectPrompt", () => {
-  it("returns a string containing the task", () => {
-    const prompt = buildArchitectPrompt({ task: "Design auth system" });
+  it("returns a string containing the task", async () => {
+    const prompt = await buildArchitectPrompt({ task: "Design auth system" });
     expect(prompt).toContain("Design auth system");
   });
 
-  it("includes sub-agent preamble", () => {
-    const prompt = buildArchitectPrompt({ task: "x" });
+  it("includes sub-agent preamble", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x" });
     expect(prompt).toContain("Karajan sub-agent");
     expect(prompt).toContain("Do NOT use any MCP tools");
   });
 
-  it("includes instructions when provided", () => {
-    const prompt = buildArchitectPrompt({ task: "x", instructions: "Custom architect instructions" });
+  it("includes instructions when provided", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x", instructions: "Custom architect instructions" });
     expect(prompt).toContain("Custom architect instructions");
   });
 
-  it("omits instructions section when null", () => {
-    const prompt = buildArchitectPrompt({ task: "x", instructions: null });
+  it("omits instructions section when null", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x", instructions: null });
     expect(typeof prompt).toBe("string");
     expect(prompt.length).toBeGreaterThan(0);
   });
 
-  it("includes JSON schema with architecture fields", () => {
-    const prompt = buildArchitectPrompt({ task: "x" });
+  it("includes JSON schema with architecture fields", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x" });
     expect(prompt).toContain("verdict");
     expect(prompt).toContain("architecture");
     expect(prompt).toContain("layers");
@@ -38,28 +38,28 @@ describe("buildArchitectPrompt", () => {
     expect(prompt).toContain("summary");
   });
 
-  it("includes research context when provided", () => {
-    const prompt = buildArchitectPrompt({ task: "x", researchContext: "Files: src/auth.js" });
+  it("includes research context when provided", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x", researchContext: "Files: src/auth.js" });
     expect(prompt).toContain("Files: src/auth.js");
   });
 
-  it("omits research context section when not provided", () => {
-    const prompt = buildArchitectPrompt({ task: "x" });
+  it("omits research context section when not provided", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x" });
     expect(prompt).not.toContain("## Research Context");
   });
 
-  it("includes architecture role description", () => {
-    const prompt = buildArchitectPrompt({ task: "x" });
+  it("includes architecture role description", async () => {
+    const prompt = await buildArchitectPrompt({ task: "x" });
     expect(prompt).toContain("architect");
   });
 });
 
 describe("VALID_VERDICTS", () => {
-  it("includes ready", () => {
+  it("includes ready", async () => {
     expect(VALID_VERDICTS).toContain("ready");
   });
 
-  it("includes needs_clarification", () => {
+  it("includes needs_clarification", async () => {
     expect(VALID_VERDICTS).toContain("needs_clarification");
   });
 });
@@ -80,7 +80,7 @@ describe("parseArchitectOutput", () => {
     summary: "Well-defined auth architecture"
   };
 
-  it("parses valid JSON output", () => {
+  it("parses valid JSON output", async () => {
     const parsed = parseArchitectOutput(JSON.stringify(validOutput));
     expect(parsed).not.toBeNull();
     expect(parsed.verdict).toBe("ready");
@@ -95,7 +95,7 @@ describe("parseArchitectOutput", () => {
     expect(parsed.summary).toBe("Well-defined auth architecture");
   });
 
-  it("parses JSON embedded in markdown code blocks", () => {
+  it("parses JSON embedded in markdown code blocks", async () => {
     const raw = `Here is my analysis:\n\`\`\`json\n${JSON.stringify(validOutput)}\n\`\`\`\nDone.`;
     const parsed = parseArchitectOutput(raw);
     expect(parsed).not.toBeNull();
@@ -103,33 +103,33 @@ describe("parseArchitectOutput", () => {
     expect(parsed.architecture.type).toBe("layered");
   });
 
-  it("returns null for non-JSON output", () => {
+  it("returns null for non-JSON output", async () => {
     expect(parseArchitectOutput("no json here")).toBeNull();
   });
 
-  it("returns null for empty/null input", () => {
+  it("returns null for empty/null input", async () => {
     expect(parseArchitectOutput("")).toBeNull();
     expect(parseArchitectOutput(null)).toBeNull();
     expect(parseArchitectOutput(undefined)).toBeNull();
   });
 
-  it("returns null for invalid JSON", () => {
+  it("returns null for invalid JSON", async () => {
     expect(parseArchitectOutput("{invalid json}")).toBeNull();
   });
 
-  it("normalizes verdict to valid values", () => {
+  it("normalizes verdict to valid values", async () => {
     const raw = JSON.stringify({ ...validOutput, verdict: "ready" });
     const parsed = parseArchitectOutput(raw);
     expect(VALID_VERDICTS).toContain(parsed.verdict);
   });
 
-  it("defaults invalid verdict to needs_clarification", () => {
+  it("defaults invalid verdict to needs_clarification", async () => {
     const raw = JSON.stringify({ ...validOutput, verdict: "unknown_verdict" });
     const parsed = parseArchitectOutput(raw);
     expect(parsed.verdict).toBe("needs_clarification");
   });
 
-  it("defaults missing architecture to empty structure", () => {
+  it("defaults missing architecture to empty structure", async () => {
     const raw = JSON.stringify({ verdict: "ready", questions: [], summary: "ok" });
     const parsed = parseArchitectOutput(raw);
     expect(parsed.architecture.type).toBe("");
@@ -141,19 +141,19 @@ describe("parseArchitectOutput", () => {
     expect(parsed.architecture.tradeoffs).toEqual([]);
   });
 
-  it("defaults missing questions to empty array", () => {
+  it("defaults missing questions to empty array", async () => {
     const raw = JSON.stringify({ verdict: "ready", architecture: validOutput.architecture, summary: "ok" });
     const parsed = parseArchitectOutput(raw);
     expect(parsed.questions).toEqual([]);
   });
 
-  it("defaults missing summary to empty string", () => {
+  it("defaults missing summary to empty string", async () => {
     const raw = JSON.stringify({ verdict: "ready", architecture: validOutput.architecture, questions: [] });
     const parsed = parseArchitectOutput(raw);
     expect(parsed.summary).toBe("");
   });
 
-  it("filters non-string items from arrays", () => {
+  it("filters non-string items from arrays", async () => {
     const raw = JSON.stringify({
       verdict: "ready",
       architecture: {
@@ -178,7 +178,7 @@ describe("parseArchitectOutput", () => {
     expect(parsed.questions).toEqual(["Is this right?"]);
   });
 
-  it("parses needs_clarification verdict with questions", () => {
+  it("parses needs_clarification verdict with questions", async () => {
     const raw = JSON.stringify({
       verdict: "needs_clarification",
       architecture: validOutput.architecture,
@@ -191,7 +191,7 @@ describe("parseArchitectOutput", () => {
     expect(parsed.questions[0]).toBe("Which auth provider to use?");
   });
 
-  it("handles architecture with partial fields", () => {
+  it("handles architecture with partial fields", async () => {
     const raw = JSON.stringify({
       verdict: "ready",
       architecture: { type: "microservices", layers: ["api"] },
@@ -205,7 +205,7 @@ describe("parseArchitectOutput", () => {
     expect(parsed.architecture.dataModel.entities).toEqual([]);
   });
 
-  it("handles dataModel without entities", () => {
+  it("handles dataModel without entities", async () => {
     const raw = JSON.stringify({
       verdict: "ready",
       architecture: { type: "x", dataModel: {} },

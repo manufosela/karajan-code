@@ -34,7 +34,7 @@ export class CoderRole extends BaseRole {
       this.logger.info(`Host-as-coder: delegating to host AI (skipping ${provider} subprocess)`);
     }
 
-    const prompt = buildCoderPrompt({
+    const prompt = await buildCoderPrompt({
       task: task || this.context?.task || "",
       reviewerFeedback: reviewerFeedback || null,
       sonarSummary: sonarSummary || null,

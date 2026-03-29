@@ -1,3 +1,5 @@
+import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
+
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
   "Do NOT ask about using Karajan, do NOT mention Karajan, do NOT suggest orchestration.",
@@ -6,7 +8,7 @@ const SUBAGENT_PREAMBLE = [
 
 export const VALID_VERDICTS = new Set(["ready", "needs_clarification"]);
 
-export function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null }) {
+export async function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null, projectDir = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -40,6 +42,14 @@ export function buildArchitectPrompt({ task, instructions, researchContext = nul
   }
 
   sections.push(`## Task\n${task}`);
+
+  if (projectDir) {
+    const skills = await loadAvailableSkills(projectDir);
+    const skillSection = buildSkillSection(skills);
+    if (skillSection) {
+      sections.push(skillSection);
+    }
+  }
 
   return sections.join("\n\n");
 }

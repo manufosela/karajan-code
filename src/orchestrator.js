@@ -97,8 +97,8 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
   const projectDir = config.projectDir || process.cwd();
   const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-  const coderPrompt = buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
-  const reviewerPrompt = buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
+  const coderPrompt = await buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
+  const reviewerPrompt = await buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
 
   const summary = {
     dry_run: true,
