@@ -1,5 +1,6 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { isDevToolsMcpAvailable, ensureWebPerfSkills } from "../webperf/devtools-detect.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -64,14 +65,32 @@ export class ImpeccableRole extends BaseRole {
   }
 
   async execute(input) {
-    const { task, diff } = typeof input === "string"
-      ? { task: input, diff: null }
-      : { task: input?.task || this.context?.task || "", diff: input?.diff || null };
+    const { task, diff, projectDir } = typeof input === "string"
+      ? { task: input, diff: null, projectDir: null }
+      : { task: input?.task || this.context?.task || "", diff: input?.diff || null, projectDir: input?.projectDir || null };
+
+    // Auto-install WebPerf skills when DevTools MCP is configured
+    if (isDevToolsMcpAvailable(this.config)) {
+      const dir = projectDir || process.cwd();
+      try {
+        const webperfResult = await ensureWebPerfSkills(dir, this.logger);
+        if (webperfResult.installed.length > 0) {
+          this.logger?.info?.(`WebPerf skills installed: ${webperfResult.installed.join(", ")}`);
+        }
+      } catch (err) {
+        this.logger?.warn?.(`WebPerf skill installation failed: ${err.message}`);
+      }
+    } else {
+      this.logger?.info?.("Chrome DevTools MCP not configured — skipping WebPerf skills");
+    }
 
     const provider = resolveProvider(this.config);
     const agent = this._createAgent(provider, this.config, this.logger);
 
-    const prompt = buildPrompt({ task, diff, instructions: this.instructions });
+    const webperfNote = isDevToolsMcpAvailable(this.config)
+      ? "\n\nNote: WebPerf domain skills are available. Use them for Core Web Vitals analysis if the audit involves frontend performance."
+      : "";
+    const prompt = buildPrompt({ task, diff, instructions: this.instructions }) + webperfNote;
     const result = await agent.runTask({ prompt, role: "impeccable" });
 
     if (!result.ok) {

@@ -166,6 +166,10 @@ const DEFAULTS = {
     backoff_multiplier: 2,
     jitter_factor: 0.1
   },
+  webperf: {
+    enabled: true,
+    devtools_mcp: false
+  },
   guards: {
     output: {
       enabled: true,
