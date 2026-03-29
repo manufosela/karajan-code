@@ -25,8 +25,13 @@ import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
 
+import { printUpdateNotice } from "./utils/update-check.js";
+
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
+
+// Non-blocking update check (runs in background, prints after command output)
+printUpdateNotice(PKG_VERSION).catch(() => {});
 
 async function withConfig(commandName, flags, fn) {
   const { config } = await loadConfig();
