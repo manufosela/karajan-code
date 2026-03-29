@@ -1,4 +1,5 @@
 import { extractFirstJson } from "../utils/json-extract.js";
+import { getLanguageInstruction } from "../utils/locale.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -21,8 +22,9 @@ const DIMENSION_KEYS = [
  * @param {{stories: Array<{id: string, text: string}>, instructions: string|null, context?: string|null}} params
  * @returns {string} The assembled prompt.
  */
-export function buildHuReviewerPrompt({ stories, instructions, context = null, productContext = null }) {
-  const sections = [SUBAGENT_PREAMBLE];
+export function buildHuReviewerPrompt({ stories, instructions, context = null, productContext = null, hu_language = "en" }) {
+  const langInstruction = getLanguageInstruction(hu_language);
+  const sections = [SUBAGENT_PREAMBLE, ...(langInstruction ? [langInstruction] : [])];
 
   if (instructions) {
     sections.push(instructions);

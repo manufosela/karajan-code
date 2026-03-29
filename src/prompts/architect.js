@@ -1,4 +1,5 @@
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
+import { getLanguageInstruction } from "../utils/locale.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -8,8 +9,9 @@ const SUBAGENT_PREAMBLE = [
 
 export const VALID_VERDICTS = new Set(["ready", "needs_clarification"]);
 
-export async function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null, projectDir = null }) {
-  const sections = [SUBAGENT_PREAMBLE];
+export async function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null, projectDir = null, language = "en" }) {
+  const langInstruction = getLanguageInstruction(language);
+  const sections = [SUBAGENT_PREAMBLE, ...(langInstruction ? [langInstruction] : [])];
 
   if (instructions) {
     sections.push(instructions);

@@ -123,7 +123,9 @@ describe("initCommand", () => {
       select: vi.fn()
         .mockResolvedValueOnce("codex")  // coder
         .mockResolvedValueOnce("claude") // reviewer
-        .mockResolvedValueOnce("tdd"),   // methodology
+        .mockResolvedValueOnce("tdd")    // methodology
+        .mockResolvedValueOnce("en")     // pipeline language
+        .mockResolvedValueOnce("en"),    // HU language
       close: vi.fn()
     };
     createWizard.mockReturnValue(mockWizard);
@@ -131,11 +133,13 @@ describe("initCommand", () => {
     await initCommand({ logger, flags: {} });
 
     expect(detectAvailableAgents).toHaveBeenCalled();
-    expect(mockWizard.select).toHaveBeenCalledTimes(3);
+    expect(mockWizard.select).toHaveBeenCalledTimes(5);
     expect(writeConfig).toHaveBeenCalled();
     const writtenConfig = writeConfig.mock.calls[0][1];
     expect(writtenConfig.coder).toBe("codex");
     expect(writtenConfig.reviewer).toBe("claude");
+    expect(writtenConfig.language).toBe("en");
+    expect(writtenConfig.hu_language).toBe("en");
     mockWizard.close();
   });
 

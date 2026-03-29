@@ -123,6 +123,8 @@ const DEFAULTS = {
     port: 4000,
     auto_start: false
   },
+  language: "en",
+  hu_language: "en",
   policies: {},
   serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },

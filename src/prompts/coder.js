@@ -1,5 +1,6 @@
 import { RTK_INSTRUCTIONS } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
+import { getLanguageInstruction } from "../utils/locale.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -32,9 +33,11 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, plan = null, projectDir = null }) {
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, plan = null, projectDir = null, language = "en" }) {
+  const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
+    ...(langInstruction ? [langInstruction] : []),
     `Task:\n${task}`,
     "Implement directly in the repository.",
     "Keep changes minimal and production-ready.",

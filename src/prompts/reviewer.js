@@ -1,5 +1,6 @@
 import { RTK_INSTRUCTIONS } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
+import { getLanguageInstruction } from "../utils/locale.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -23,11 +24,13 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, projectDir = null }) {
+export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, projectDir = null, language = "en" }) {
   const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
 
+  const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
+    ...(langInstruction ? [langInstruction] : []),
     `You are a code reviewer in ${mode} mode.`,
     "CRITICAL SCOPE RULE: Only review changes that are part of the diff below. Do NOT flag issues in unchanged code, missing features planned for future tasks, or improvements outside the scope of this task. If the diff is correct for what the task asks, approve it — even if the broader codebase has other issues.",
     "Only block approval for issues IN THE DIFF that are bugs, security vulnerabilities, or clear violations of the review rules.",

@@ -9,6 +9,7 @@ import { detectAvailableAgents } from "../utils/agent-detect.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
 import { getInstallCommand } from "../utils/os-detect.js";
+import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -87,6 +88,31 @@ async function runWizard(config, logger) {
     config.development.methodology = methodology;
     config.development.require_test_changes = methodology === "tdd";
     logger.info(`  -> Methodology: ${methodology}`);
+
+    const detectedLocale = detectOsLocale();
+    const allLangEntries = Object.entries(SUPPORTED_LANGUAGES).map(([code, name]) => ({
+      label: `${name} (${code})`,
+      value: code,
+      available: true
+    }));
+    // Put detected locale first so it becomes the default selection
+    const languageOptions = [
+      ...allLangEntries.filter((o) => o.value === detectedLocale),
+      ...allLangEntries.filter((o) => o.value !== detectedLocale)
+    ];
+
+    const pipelineLang = await wizard.select("Pipeline language:", languageOptions);
+    config.language = pipelineLang;
+    logger.info(`  -> Pipeline language: ${pipelineLang}`);
+
+    // Reorder for HU language with pipeline language as default
+    const huLangOptions = [
+      ...allLangEntries.filter((o) => o.value === pipelineLang),
+      ...allLangEntries.filter((o) => o.value !== pipelineLang)
+    ];
+    const huLang = await wizard.select("HU language (for user stories):", huLangOptions);
+    config.hu_language = huLang;
+    logger.info(`  -> HU language: ${huLang}`);
 
     logger.info("");
   } finally {
@@ -289,6 +315,13 @@ export async function initCommand({ logger, flags = {} }) {
 
   const { config, exists: configExists } = await loadConfig();
   const interactive = flags.noInteractive !== true && isTTY();
+
+  // Auto-detect language from OS locale for non-interactive mode
+  if (!interactive && !configExists) {
+    const detectedLocale = detectOsLocale();
+    config.language = detectedLocale;
+    config.hu_language = detectedLocale;
+  }
 
   await handleConfigSetup({ config, configExists, interactive, configPath, logger });
   await ensureReviewRules(reviewRulesPath, logger);
