@@ -675,6 +675,8 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.38.2** — Reviewer now sees new files created by coder (git add -A before diff). All 15 credential patterns block the pipeline (secrets never pass). Coder template mandates .env usage for all keys.
 
+**v1.39.0** — CLI update notification: non-blocking npm version check at startup, cached 24h.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

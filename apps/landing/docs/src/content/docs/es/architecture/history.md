@@ -674,6 +674,8 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.38.2** — El reviewer ahora ve ficheros nuevos creados por el coder (git add -A antes del diff). Los 15 patrones de credenciales bloquean el pipeline (los secrets nunca pasan). El template del coder obliga a usar .env para todas las keys.
 
+**v1.39.0** — Notificacion de actualizacion en CLI: comprobacion no-bloqueante de version en npm al arrancar, cache de 24h.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
