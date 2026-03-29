@@ -158,6 +158,15 @@ async function setupSonarQube(config, logger) {
     logger.info("SonarQube disabled — skipping container setup.");
     return;
   }
+
+  // Check Docker first — if not available, disable sonar gracefully
+  const dockerCheck = await runCommand("docker", ["--version"]);
+  if (dockerCheck.exitCode !== 0) {
+    logger.info("Docker not found — disabling SonarQube. Install Docker to enable it later.");
+    config.sonarqube.enabled = false;
+    return;
+  }
+
   const vmCheck = await checkVmMaxMapCount(os.platform());
   if (!vmCheck.ok) {
     logger.warn(`vm.max_map_count check failed: ${vmCheck.reason}`);
