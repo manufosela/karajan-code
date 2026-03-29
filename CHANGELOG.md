@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-03-29
+
+### Added
+- **CLI update notification**: non-blocking check at startup, cached 24h. Shows available update with install command. 8 new tests (2157 total across 171 files)
+
 ## [1.38.2] - 2026-03-28
 
 ### Fixed
@@ -468,7 +473,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.38.2...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.39.0...HEAD
+[1.39.0]: https://github.com/manufosela/karajan-code/compare/v1.38.2...v1.39.0
 [1.38.2]: https://github.com/manufosela/karajan-code/compare/v1.38.1...v1.38.2
 [1.38.1]: https://github.com/manufosela/karajan-code/compare/v1.38.0...v1.38.1
 [1.38.0]: https://github.com/manufosela/karajan-code/compare/v1.37.0...v1.38.0
