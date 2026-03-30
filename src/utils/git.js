@@ -1,5 +1,20 @@
 import { runCommand } from "./process.js";
 
+/** @type {((command: string, args?: string[], options?: object) => Promise<object>)|null} */
+let _runner = null;
+
+/**
+ * Inject an RTK-aware runner so all git operations in this module benefit from token savings.
+ * @param {(command: string, args?: string[], options?: object) => Promise<object>} runner
+ */
+export function setRunner(runner) {
+  _runner = runner;
+}
+
+function run(command, args, ...rest) {
+  return (_runner || runCommand)(command, args, ...rest);
+}
+
 function slugifyTask(task) {
   return String(task)
     .toLowerCase()
@@ -9,7 +24,7 @@ function slugifyTask(task) {
 }
 
 async function runGit(args, options = {}) {
-  const res = await runCommand("git", args, options);
+  const res = await run("git", args, options);
   if (res.exitCode !== 0) {
     throw new Error(`git ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
   }
@@ -17,7 +32,7 @@ async function runGit(args, options = {}) {
 }
 
 export async function ensureGitRepo() {
-  const res = await runCommand("git", ["rev-parse", "--is-inside-work-tree"]);
+  const res = await run("git", ["rev-parse", "--is-inside-work-tree"]);
   return res.exitCode === 0 && res.stdout.trim() === "true";
 }
 

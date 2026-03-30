@@ -41,6 +41,9 @@ import { waitForCooldown, MAX_STANDBY_RETRIES } from "./orchestrator/standby.js"
 import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
 import { detectRtk } from "./utils/rtk-detect.js";
+import { createRtkRunner, RtkSavingsTracker } from "./utils/rtk-wrapper.js";
+import { setRunner as setDiffRunner } from "./review/diff-generator.js";
+import { setRunner as setGitRunner } from "./utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
 
@@ -1232,9 +1235,14 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   const rtkResult = await detectRtk();
   if (rtkResult.available) {
     config = { ...config, rtk: { available: true, version: rtkResult.version } };
-    logger.info(`RTK detected (${rtkResult.version}) — instructing agents to prefix Bash commands with rtk`);
+    const rtkTracker = new RtkSavingsTracker();
+    const rtkRunner = createRtkRunner(true, rtkTracker);
+    setDiffRunner(rtkRunner);
+    setGitRunner(rtkRunner);
+    ctx.rtkTracker = rtkTracker;
+    logger.info(`RTK detected (${rtkResult.version}) — wrapping internal git/diff commands with rtk`);
     emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
-      message: "RTK detected — agent commands will use token optimization",
+      message: "RTK detected — internal commands wrapped for token optimization",
       detail: { version: rtkResult.version, executorType: "local" }
     }));
   }
