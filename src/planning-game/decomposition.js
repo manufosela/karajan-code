@@ -76,10 +76,14 @@ export function buildDecompositionQuestion(subtasks, parentCardId) {
   }
   lines.push(
     "",
-    `Create these as linked cards in Planning Game (parent: ${parentCardId})?`,
-    "Each subtask will block the next one (sequential chain).",
+    `Parent card: ${parentCardId}. Each subtask will block the next one (sequential chain).`,
     "",
-    "Reply: yes / no"
+    "What should we do?",
+    "1 = Accept and create the subtasks",
+    "2 = Reject and continue without decomposing",
+    "3 = Modify (write your proposal)",
+    "",
+    "Type 1, 2, or 3:"
   );
   return lines.join("\n");
 }

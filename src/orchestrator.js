@@ -403,7 +403,7 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
   );
 
   const answer = await askQuestion(
-    `${checkpointMsg}\n\nOptions:\n1. Continue 5 more minutes\n2. Continue until done (no more checkpoints)\n3. Continue for N minutes (reply with the number)\n4. Stop now`
+    `${checkpointMsg}\n\n1 = Continue 5 more minutes\n2 = Continue until done (no more checkpoints)\n3 = Continue for N minutes (type the number of minutes)\n4 = Stop now\n\nType 1, 2, 3, or 4:`
   );
 
   await addCheckpoint(session, { stage: "interactive-checkpoint", elapsed_minutes: Number(elapsedStr), answer });
@@ -429,7 +429,7 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
   return parsed;
 }
 
-function parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config }) {
+export function parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config }) {
   if (!trimmedAnswer) {
     return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now() };
   }
@@ -632,11 +632,23 @@ async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i
     .filter(a => a.severity === "critical")
     .map(a => a.message)
     .join("\n");
-  const answer = await askQuestion(
-    `Solomon detected critical issues:\n${alertSummary}\n\nShould I continue, pause, or revert?`,
-    { iteration: i, stage: "solomon" }
-  );
-  if (!answer || answer.toLowerCase().includes("pause") || answer.toLowerCase().includes("stop")) {
+  const question = [
+    "Solomon detected critical issues:",
+    alertSummary,
+    "",
+    "What should we do?",
+    "1 = Continue anyway",
+    "2 = Pause the session",
+    "3 = Stop the session",
+    "",
+    "Type 1, 2, or 3:"
+  ].join("\n");
+  const answer = await askQuestion(question, { iteration: i, stage: "solomon" });
+  const trimmed = (answer || "").trim().toLowerCase();
+  const shouldPause = !answer
+    || trimmed === "2" || trimmed === "3"
+    || trimmed.startsWith("pause") || trimmed.startsWith("stop");
+  if (shouldPause) {
     await pauseSession(session, {
       question: `Solomon supervisor paused: ${alertSummary}`,
       context: { iteration: i, stage: "solomon", alerts: rulesResult.alerts }

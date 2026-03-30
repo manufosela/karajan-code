@@ -161,12 +161,37 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
   return { action: "continue", conditions: [], ruling };
 }
 
+export function parseEscalationAnswer(answer) {
+  if (!answer) return null;
+  const trimmed = answer.trim().toLowerCase();
+  // Option 1: Accept coder's work as-is
+  if (trimmed === "1" || trimmed === "accept" || trimmed === "yes" || trimmed === "sí" || trimmed === "si") {
+    return { action: "continue", humanGuidance: "Accept coder's work as-is" };
+  }
+  // Option 2: Retry with reviewer's feedback
+  if (trimmed === "2" || trimmed === "retry") {
+    return { action: "continue", humanGuidance: "Retry with reviewer feedback" };
+  }
+  // Option 3: Stop the session
+  if (trimmed === "3" || trimmed.startsWith("stop") || trimmed.startsWith("pause")) {
+    return { action: "stop" };
+  }
+  // Free-text: treat as human guidance (backward compat)
+  return { action: "continue", humanGuidance: answer.trim() };
+}
+
 export async function escalateToHuman({ askQuestion, session, emitter, eventBase, stage, conflict, iteration }) {
   const question = formatEscalationMessage({ ...conflict, stage }, session);
 
   if (askQuestion) {
     const answer = await askQuestion(question, { iteration, stage });
-    if (answer) {
+    const parsed = parseEscalationAnswer(answer);
+    if (parsed && parsed.action === "continue") {
+      return { action: "continue", humanGuidance: parsed.humanGuidance };
+    }
+    if (parsed && parsed.action === "stop") {
+      // Fall through to pause session
+    } else if (answer) {
       return { action: "continue", humanGuidance: answer };
     }
   }

@@ -57,7 +57,9 @@ export async function handlePgDecomposition({ triageResult, pgTaskId, pgProject,
     const question = buildDecompositionQuestion(triageResult.stageResult.subtasks, pgTaskId);
     const answer = await askQuestion(question);
 
-    if (answer && (answer.trim().toLowerCase() === "yes" || answer.trim().toLowerCase() === "sí" || answer.trim().toLowerCase() === "si")) {
+    const normalizedAnswer = (answer || "").trim().toLowerCase();
+    const isAccept = normalizedAnswer === "1" || normalizedAnswer === "yes" || normalizedAnswer === "sí" || normalizedAnswer === "si";
+    if (isAccept) {
       const parentCard = await fetchCard({ projectId: pgProject, cardId: pgTaskId }).catch(() => null);
       const createdSubtasks = await createDecompositionSubtasks({
         client: { createCard, relateCards },
