@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "karajan-code"
+version = "1.45.0"
+description = "Python wrapper for Karajan Code - local multi-agent coding orchestrator"
+readme = "README.md"
+license = {text = "AGPL-3.0"}
+requires-python = ">=3.9"
+authors = [{name = "manufosela", email = "manufosela@gmail.com"}]
+
+[project.scripts]
+kj = "karajan.__main__:main"
