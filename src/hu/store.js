@@ -210,6 +210,26 @@ export async function createHistoryRecord(sessionId, { task, result, approved, s
   return batch;
 }
 
+/* ── Splitting metadata ──────────────────────────────────────────── */
+
+/**
+ * Add splitting metadata to a story within a batch.
+ * Used to track the relationship between an original HU and its sub-HUs
+ * after a split operation.
+ *
+ * @param {object} batch - The batch object.
+ * @param {string} huId - Story ID to annotate.
+ * @param {{ original_hu_id?: string, split_children?: string[], indicators_detected?: string[], heuristic_applied?: string, split_confirmed_by_fde?: boolean, validation?: object }} metadata - Splitting metadata.
+ * @returns {object} The updated story.
+ */
+export function addSplittingMetadata(batch, huId, metadata) {
+  const story = batch.stories.find(s => s.id === huId);
+  if (!story) throw new Error(`Story ${huId} not found`);
+  story.splitting = { ...(story.splitting || {}), ...metadata };
+  story.updated_at = new Date().toISOString();
+  return story;
+}
+
 /* ── Manual HU management ─────────────────────────────────────────── */
 
 /**
