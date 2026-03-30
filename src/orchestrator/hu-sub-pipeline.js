@@ -6,6 +6,7 @@ import { topologicalSort } from "../hu/graph.js";
 import { updateStoryStatus, loadHuBatch, saveHuBatch, HU_STATUS } from "../hu/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { refineHuWithContext } from "../hu/lazy-planner.js";
+import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
 
 /**
  * Determine whether the HU reviewer result requires a sub-pipeline
@@ -61,6 +62,92 @@ function buildHuTask(story) {
 }
 
 /**
+ * Execute a single HU through the coder→sonar→reviewer sub-pipeline.
+ * Extracted to support both sequential and parallel execution paths.
+ *
+ * @param {object} params
+ * @returns {Promise<{huId: string, approved: boolean, result?: object, error?: string, blockedDependents?: string[]}>}
+ */
+async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath }) {
+  const story = batch.stories.find(s => s.id === storyId);
+
+  // --- Lazy refinement ---
+  if (story.needsRefinement && config) {
+    const completedHus = results
+      .filter(r => r.approved)
+      .map(r => {
+        const completedStory = batch.stories.find(s => s.id === r.huId);
+        return {
+          ...completedStory,
+          resultSummary: r.result?.summary || r.result?.reason || null
+        };
+      });
+
+    emitProgress(emitter, makeEvent("hu:refine-start", { ...eventBase, stage: "hu-sub-pipeline" }, {
+      message: `Refining HU ${story.id} with context from ${completedHus.length} completed HU(s)`,
+      detail: { huId: story.id, completedCount: completedHus.length }
+    }));
+
+    try {
+      const refined = await refineHuWithContext(story, completedHus, config, logger);
+      Object.assign(story, refined);
+      story.needsRefinement = false;
+      await saveHuBatch(batchSessionId, batch);
+
+      emitProgress(emitter, makeEvent("hu:refine-end", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        message: `HU ${story.id} refined successfully`,
+        detail: { huId: story.id }
+      }));
+    } catch (err) {
+      logger.warn(`Lazy refinement failed for HU ${story.id}: ${err.message} — proceeding with original`);
+      story.needsRefinement = false;
+    }
+  }
+
+  const huTask = buildHuTask(story);
+
+  // --- hu:start ---
+  emitProgress(emitter, makeEvent("hu:start", { ...eventBase, stage: "hu-sub-pipeline" }, {
+    message: `Starting HU ${story.id}`,
+    detail: { huId: story.id, title: story.certified?.title || story.id, worktreePath: worktreePath || null }
+  }));
+
+  updateStoryStatus(batch, story.id, HU_STATUS.CODING);
+  await saveHuBatch(batchSessionId, batch);
+
+  try {
+    const iterResult = await runIterationFn(huTask);
+    const approved = Boolean(iterResult?.approved);
+
+    if (approved) {
+      updateStoryStatus(batch, story.id, HU_STATUS.DONE);
+      emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        status: "ok",
+        message: `HU ${story.id} completed successfully`,
+        detail: { huId: story.id, approved: true }
+      }));
+      return { huId: story.id, approved: true, result: iterResult };
+    } else {
+      updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
+      emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        status: "fail",
+        message: `HU ${story.id} failed`,
+        detail: { huId: story.id, approved: false, reason: iterResult?.reason }
+      }));
+      return { huId: story.id, approved: false, result: iterResult };
+    }
+  } catch (err) {
+    updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
+    emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
+      status: "fail",
+      message: `HU ${story.id} threw: ${err.message}`,
+      detail: { huId: story.id, approved: false, error: err.message }
+    }));
+    return { huId: story.id, approved: false, error: err.message };
+  }
+}
+
+/**
  * Run all certified HUs as sub-pipelines in topological order.
  *
  * @param {object} params
@@ -99,102 +186,85 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
   const blockedIds = [];
   let allApproved = true;
 
-  for (const storyId of orderedIds) {
-    const story = batch.stories.find(s => s.id === storyId);
-    if (!story) continue;
+  // --- Group HUs into parallel batches ---
+  const parallelBatches = findParallelGroups(certifiedStories, orderedIds);
 
-    // Skip if already blocked by a failed dependency
-    if (story.status === HU_STATUS.BLOCKED) {
-      blockedIds.push(story.id);
-      continue;
-    }
+  for (const group of parallelBatches) {
+    // Filter out HUs that were blocked by a failed dependency in a previous batch
+    const runnableIds = group.filter(id => {
+      const story = batch.stories.find(s => s.id === id);
+      return story && story.status !== HU_STATUS.BLOCKED;
+    });
 
-    // --- Lazy refinement: refine HU if it needs it, using completed HU context ---
-    if (story.needsRefinement && config) {
-      const completedHus = results
-        .filter(r => r.approved)
-        .map(r => {
-          const completedStory = batch.stories.find(s => s.id === r.huId);
-          return {
-            ...completedStory,
-            resultSummary: r.result?.summary || r.result?.reason || null
-          };
-        });
+    if (runnableIds.length === 0) continue;
 
-      emitProgress(emitter, makeEvent("hu:refine-start", { ...eventBase, stage: "hu-sub-pipeline" }, {
-        message: `Refining HU ${story.id} with context from ${completedHus.length} completed HU(s)`,
-        detail: { huId: story.id, completedCount: completedHus.length }
-      }));
-
-      try {
-        const refined = await refineHuWithContext(story, completedHus, config, logger);
-        // Apply refinement to the batch story in-place
-        Object.assign(story, refined);
-        story.needsRefinement = false;
-        await saveHuBatch(batchSessionId, batch);
-
-        emitProgress(emitter, makeEvent("hu:refine-end", { ...eventBase, stage: "hu-sub-pipeline" }, {
-          message: `HU ${story.id} refined successfully`,
-          detail: { huId: story.id }
-        }));
-      } catch (err) {
-        logger.warn(`Lazy refinement failed for HU ${story.id}: ${err.message} — proceeding with original`);
-        story.needsRefinement = false;
-      }
-    }
-
-    const huTask = buildHuTask(story);
-
-    // --- hu:start ---
-    emitProgress(emitter, makeEvent("hu:start", { ...eventBase, stage: "hu-sub-pipeline" }, {
-      message: `Starting HU ${story.id}`,
-      detail: { huId: story.id, title: story.certified?.title || story.id }
+    // Emit parallel batch start event
+    emitProgress(emitter, makeEvent("hu:parallel-start", { ...eventBase, stage: "hu-sub-pipeline" }, {
+      message: `Starting parallel batch of ${runnableIds.length} HU(s): ${runnableIds.join(", ")}`,
+      detail: { batchIds: runnableIds, parallel: runnableIds.length > 1 }
     }));
 
-    // Update status to coding
-    updateStoryStatus(batch, story.id, HU_STATUS.CODING);
-    await saveHuBatch(batchSessionId, batch);
-
-    try {
-      const iterResult = await runIterationFn(huTask);
-      const approved = Boolean(iterResult?.approved);
-
-      if (approved) {
-        updateStoryStatus(batch, story.id, HU_STATUS.DONE);
-        emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
-          status: "ok",
-          message: `HU ${story.id} completed successfully`,
-          detail: { huId: story.id, approved: true }
-        }));
-        results.push({ huId: story.id, approved: true, result: iterResult });
-      } else {
-        updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
-        const newlyBlocked = blockDependents(batch, story.id);
-        blockedIds.push(...newlyBlocked);
+    if (runnableIds.length === 1) {
+      // Single HU: run as before, no worktree needed
+      const singleResult = await runSingleHu({
+        storyId: runnableIds[0], batch, batchSessionId, runIterationFn,
+        emitter, eventBase, logger, config, results
+      });
+      results.push(singleResult);
+      if (!singleResult.approved) {
         allApproved = false;
-
-        emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
-          status: "fail",
-          message: `HU ${story.id} failed — ${newlyBlocked.length} dependent(s) blocked`,
-          detail: { huId: story.id, approved: false, blockedDependents: newlyBlocked, reason: iterResult?.reason }
-        }));
-        results.push({ huId: story.id, approved: false, result: iterResult, blockedDependents: newlyBlocked });
+        const newlyBlocked = blockDependents(batch, singleResult.huId);
+        blockedIds.push(...newlyBlocked);
       }
-    } catch (err) {
-      updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
-      const newlyBlocked = blockDependents(batch, story.id);
-      blockedIds.push(...newlyBlocked);
-      allApproved = false;
+      await saveHuBatch(batchSessionId, batch);
+    } else {
+      // Multiple HUs: create worktrees, run in parallel
+      const projectDir = config?.projectDir || process.cwd();
+      const worktrees = new Map();
 
-      emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
-        status: "fail",
-        message: `HU ${story.id} threw: ${err.message}`,
-        detail: { huId: story.id, approved: false, error: err.message, blockedDependents: newlyBlocked }
-      }));
-      results.push({ huId: story.id, approved: false, error: err.message, blockedDependents: newlyBlocked });
+      // Create worktrees for each HU in the batch
+      for (const id of runnableIds) {
+        try {
+          const wtPath = await createWorktree(projectDir, id);
+          worktrees.set(id, wtPath);
+        } catch (err) {
+          logger.warn(`Failed to create worktree for HU ${id}: ${err.message} — will run sequentially`);
+        }
+      }
+
+      // Run all HUs in the batch concurrently
+      const batchPromises = runnableIds.map(async (storyId) => {
+        return runSingleHu({
+          storyId, batch, batchSessionId, runIterationFn,
+          emitter, eventBase, logger, config, results,
+          worktreePath: worktrees.get(storyId)
+        });
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+
+      // Process results: merge successful worktrees sequentially, clean up failed ones
+      for (const res of batchResults) {
+        results.push(res);
+        if (res.approved && worktrees.has(res.huId)) {
+          try {
+            await mergeWorktree(projectDir, res.huId);
+          } catch (err) {
+            logger.warn(`Failed to merge worktree for HU ${res.huId}: ${err.message}`);
+          }
+        } else if (!res.approved) {
+          allApproved = false;
+          const newlyBlocked = blockDependents(batch, res.huId);
+          blockedIds.push(...newlyBlocked);
+          // Clean up failed worktree
+          if (worktrees.has(res.huId)) {
+            try { await removeWorktree(projectDir, res.huId); } catch { /* ignore */ }
+          }
+        }
+      }
+
+      await saveHuBatch(batchSessionId, batch);
     }
-
-    await saveHuBatch(batchSessionId, batch);
   }
 
   return { approved: allApproved, results, blockedIds };

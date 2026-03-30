@@ -131,7 +131,7 @@ describe("lazy-hu-planning", () => {
           id: "HU-002", status: "certified",
           certified: { text: "Build feature" },
           original: { text: "Build feature" },
-          blocked_by: [],
+          blocked_by: ["HU-001"],
           needsRefinement: true
         }
       ];
@@ -284,7 +284,7 @@ describe("lazy-hu-planning", () => {
           id: "HU-002", status: "certified",
           certified: { text: "Skeleton description" },
           original: { text: "Build feature" },
-          blocked_by: [],
+          blocked_by: ["HU-001"],
           needsRefinement: true
         }
       ];
