@@ -717,6 +717,8 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.50.0** — 71 new unit tests covering 3 critical modules. Split 3 god-modules into 12 focused sub-modules for better maintainability and testability. 2473 tests across ~190 files.
 
+**v1.50.1** — Pipeline messages respect configured language (EN/ES message catalog). Checkpoint UI restructured with numbered options instead of ambiguous Accept/Decline buttons.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

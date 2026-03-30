@@ -716,6 +716,8 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.50.0** — 71 tests unitarios nuevos cubriendo 3 modulos criticos. Division de 3 god-modules en 12 sub-modulos enfocados para mejor mantenibilidad y testabilidad. 2473 tests en ~190 ficheros.
 
+**v1.50.1** — Los mensajes del pipeline respetan el idioma configurado (catalogo de mensajes EN/ES). UI de checkpoints reestructurada con opciones numeradas en vez de botones ambiguos Accept/Decline.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
