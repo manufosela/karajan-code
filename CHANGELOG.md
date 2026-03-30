@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.45.0] - 2026-03-30
+
+### Added
+- **WebPerf Quality Gate** (epic KJC-PCS-0015): Core Web Vitals as pipeline quality gate
+- **Chrome DevTools MCP detection**: auto-installs WebPerf Snippets skills (Joan Leon) when DevTools MCP configured (#242)
+- **CWV evaluation**: LCP/CLS/INP measured against Google thresholds (good/needs-improvement/poor). Configurable via `webperf.thresholds` in kj.config.yml (#243)
+- 30 new tests (2305 total across 181 files)
+
 ## [1.44.0] - 2026-03-30
 
 ### Added
@@ -508,7 +516,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.44.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.45.0...HEAD
+[1.45.0]: https://github.com/manufosela/karajan-code/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/manufosela/karajan-code/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/manufosela/karajan-code/compare/v1.42.0...v1.43.0
 [1.42.0]: https://github.com/manufosela/karajan-code/compare/v1.41.0...v1.42.0
