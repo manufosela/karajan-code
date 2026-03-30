@@ -278,6 +278,9 @@ function resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBa
   if (!resolvedPolicies.reviewer) {
     pipelineFlags.reviewerEnabled = false;
   }
+  if (resolvedPolicies.coderRequired === false) {
+    pipelineFlags.coderRequired = false;
+  }
 
   emitProgress(
     emitter,
@@ -1444,6 +1447,53 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   const ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
 
   try {
+    // --- Analysis-only flow: skip coder/reviewer when coderRequired === false ---
+    if (ctx.pipelineFlags.coderRequired === false) {
+      logger.info("Analysis-only task — skipping coder/reviewer iteration loop");
+      emitProgress(emitter, makeEvent("pipeline:analysis-only", { ...ctx.eventBase, stage: "analysis" }, {
+        message: "Analysis-only task — running security and audit stages only",
+        detail: { taskType: ctx.session.resolved_policies?.taskType, coderRequired: false }
+      }));
+
+      const analysisStageResults = ctx.stageResults;
+      const postLoopDiff = await generateDiff({ baseRef: ctx.session.session_start_sha });
+
+      if (ctx.pipelineFlags.securityEnabled) {
+        const securityResult = await runSecurityStage({
+          config: ctx.config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session,
+          coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
+          iteration: 1, task: ctx.plannedTask, diff: postLoopDiff, askQuestion
+        });
+        if (securityResult.stageResult) analysisStageResults.security = securityResult.stageResult;
+      }
+
+      const auditResult = await runFinalAuditStage({
+        config: ctx.config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session,
+        coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
+        iteration: 1, task: ctx.plannedTask, diff: postLoopDiff
+      });
+      if (auditResult.stageResult) analysisStageResults.audit = auditResult.stageResult;
+
+      ctx.session.budget = ctx.budgetSummary();
+      await markSessionStatus(ctx.session, "approved");
+
+      const analysisResult = {
+        approved: true,
+        sessionId: ctx.session.id,
+        analysisOnly: true,
+        stages: analysisStageResults,
+        budget: ctx.budgetSummary()
+      };
+      await writeHistoryRecord({ sessionId: ctx.session.id, task, result: analysisResult, logger });
+
+      emitProgress(emitter, makeEvent("session:end", { ...ctx.eventBase, stage: "done" }, {
+        message: "Analysis-only session completed",
+        detail: analysisResult
+      }));
+
+      return analysisResult;
+    }
+
     // --- HU Sub-Pipeline: run each certified HU as an independent iteration loop ---
     if (needsSubPipeline(ctx.stageResults.huReviewer)) {
       logger.info(`HU sub-pipeline: ${ctx.stageResults.huReviewer.certified} certified stories — running each as a sub-pipeline`);

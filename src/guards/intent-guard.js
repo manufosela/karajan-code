@@ -6,6 +6,15 @@ import { VALID_TASK_TYPES } from "./policy-resolver.js";
  * Evaluated top-down; first match with confidence >= threshold wins.
  */
 const INTENT_PATTERNS = [
+  // Audit / analysis tasks (no code changes, read-only analysis)
+  {
+    id: "audit",
+    keywords: ["audit", "review", "analyze", "check", "verify", "inspect", "scan", "auditar", "revisar", "analizar", "comprobar", "verificar", "inspeccionar"],
+    taskType: "audit",
+    level: "simple",
+    confidence: 0.9,
+    message: "Audit/analysis task detected — skipping coder and reviewer",
+  },
   // Documentation-only tasks
   {
     id: "doc-readme",

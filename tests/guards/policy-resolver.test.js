@@ -3,8 +3,8 @@ import { resolvePolicies, applyPolicies, VALID_TASK_TYPES, DEFAULT_POLICIES } fr
 
 describe("policy-resolver", () => {
   describe("VALID_TASK_TYPES", () => {
-    it("contains exactly the five expected task types", () => {
-      expect(VALID_TASK_TYPES).toEqual(new Set(["sw", "infra", "doc", "add-tests", "refactor"]));
+    it("contains exactly the seven expected task types", () => {
+      expect(VALID_TASK_TYPES).toEqual(new Set(["sw", "infra", "doc", "add-tests", "refactor", "audit", "analysis"]));
     });
   });
 

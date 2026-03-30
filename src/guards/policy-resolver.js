@@ -1,4 +1,4 @@
-export const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor"]);
+export const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor", "audit", "analysis"]);
 
 export const DEFAULT_POLICIES = {
   sw:        { tdd: true,  sonar: true,  reviewer: true, testsRequired: true  },
@@ -6,6 +6,8 @@ export const DEFAULT_POLICIES = {
   doc:       { tdd: false, sonar: false, reviewer: true, testsRequired: false },
   "add-tests": { tdd: false, sonar: true,  reviewer: true, testsRequired: true  },
   refactor:  { tdd: true,  sonar: true,  reviewer: true, testsRequired: false },
+  audit:     { tdd: false, sonar: false, reviewer: false, testsRequired: false, coderRequired: false },
+  analysis:  { tdd: false, sonar: false, reviewer: false, testsRequired: false, coderRequired: false },
 };
 
 const FALLBACK_TYPE = "sw";
