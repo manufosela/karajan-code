@@ -38,7 +38,7 @@ async function checkGitRepo() {
   let ok = false;
   try {
     ok = await ensureGitRepo();
-  } catch {
+  } catch { /* git may not be installed */
     ok = false;
   }
   return {
@@ -156,7 +156,7 @@ async function readBootstrapFile(projectDir) {
   try {
     const raw = await fs.readFile(bootstrapPath(projectDir), "utf8");
     return JSON.parse(raw);
-  } catch {
+  } catch { /* bootstrap file may not exist or contain invalid JSON */
     return null;
   }
 }

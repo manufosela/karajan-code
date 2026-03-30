@@ -9,7 +9,7 @@ export async function exists(filePath) {
   try {
     await fs.access(filePath);
     return true;
-  } catch {
+  } catch { /* file does not exist */
     return false;
   }
 }

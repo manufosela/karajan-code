@@ -54,7 +54,7 @@ export function extractFirstJson(raw) {
     if (depth === 0) {
       try {
         return JSON.parse(str.substring(start, i + 1));
-      } catch {
+      } catch { /* matched braces but not valid JSON */
         return null;
       }
     }

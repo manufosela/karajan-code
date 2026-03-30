@@ -47,7 +47,7 @@ export function parseJsonOutput(raw) {
   try {
     const parsed = JSON.parse(cleaned);
     return normalizeReviewPayload(parsed);
-  } catch {
+  } catch { /* not a single JSON blob */
     const lines = cleaned
       .split("\n")
       .map((x) => x.trim())
@@ -57,7 +57,7 @@ export function parseJsonOutput(raw) {
     for (const line of lines) {
       try {
         parsedLines.push(JSON.parse(line));
-      } catch {
+      } catch { /* line is not JSON */
         continue;
       }
     }
@@ -71,7 +71,7 @@ export function parseJsonOutput(raw) {
       try {
         const parsed = JSON.parse(lines[i]);
         return normalizeReviewPayload(parsed);
-      } catch {
+      } catch { /* line is not JSON */
         continue;
       }
     }

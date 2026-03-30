@@ -22,7 +22,7 @@ export async function isOpenSkillsAvailable() {
       timeout: 15_000
     });
     return result.exitCode === 0;
-  } catch {
+  } catch { /* openskills CLI not available */
     return false;
   }
 }

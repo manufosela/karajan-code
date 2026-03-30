@@ -149,7 +149,7 @@ export async function autoInstallSkills(neededSkills, projectDir) {
       } else {
         result.failed.push(skillName);
       }
-    } catch {
+    } catch { /* skill install threw */
       result.failed.push(skillName);
     }
   }
@@ -178,7 +178,7 @@ export async function cleanupAutoInstalledSkills(skillNames, projectDir) {
       } else {
         result.failed.push(name);
       }
-    } catch {
+    } catch { /* skill removal threw */
       result.failed.push(name);
     }
   }

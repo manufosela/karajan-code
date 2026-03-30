@@ -116,7 +116,7 @@ export class ResearcherRole extends BaseRole {
         },
         summary: buildSummary(parsed)
       };
-    } catch {
+    } catch { /* agent output is not structured JSON */
       return {
         ok: true,
         result: {

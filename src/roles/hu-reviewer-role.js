@@ -95,7 +95,7 @@ export class HuReviewerRole extends BaseRole {
         summary: buildSummary(parsed),
         usage: result.usage
       };
-    } catch {
+    } catch { /* agent output is not structured JSON */
       return {
         ok: true,
         result: {

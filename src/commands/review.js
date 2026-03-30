@@ -53,7 +53,7 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
       let review;
       try {
         review = JSON.parse(result.output);
-      } catch {
+      } catch { /* output is not JSON */
         review = { approved: true, summary: result.output };
       }
 

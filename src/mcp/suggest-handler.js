@@ -16,7 +16,7 @@ async function findActiveSession(projectDir) {
   let entries;
   try {
     entries = await fs.readdir(sessionRoot, { withFileTypes: true });
-  } catch {
+  } catch { /* session root dir may not exist */
     return null;
   }
 
@@ -29,7 +29,7 @@ async function findActiveSession(projectDir) {
       if (session.status !== "running") continue;
       if (projectDir && session.projectDir && session.projectDir !== projectDir) continue;
       return session;
-    } catch {
+    } catch { /* session.json missing or malformed */
       continue;
     }
   }

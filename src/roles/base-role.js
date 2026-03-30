@@ -35,7 +35,7 @@ async function loadFirstExisting(paths) {
   for (const p of paths) {
     try {
       return await fs.readFile(p, "utf8");
-    } catch {
+    } catch { /* file not found */
       continue;
     }
   }

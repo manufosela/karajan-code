@@ -677,7 +677,7 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
   let batch;
   try {
     batch = await loadHuBatch(batchSessionId);
-  } catch {
+  } catch { /* no existing batch */
     batch = await createHuBatch(batchSessionId, stories);
   }
 
@@ -881,7 +881,7 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
   let orderedIds;
   try {
     orderedIds = topologicalSort(certifiedStories);
-  } catch {
+  } catch { /* cyclic dependency */
     orderedIds = certifiedStories.map(s => s.id);
   }
 

@@ -205,7 +205,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
   let orderedIds;
   try {
     orderedIds = topologicalSort(certifiedStories);
-  } catch {
+  } catch { /* cyclic dependency */
     orderedIds = certifiedStories.map(s => s.id);
   }
 

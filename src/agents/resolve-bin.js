@@ -26,7 +26,7 @@ function getNvmDirs() {
   const versionsDir = path.join(nvmDir, "versions", "node");
   try {
     return readdirSync(versionsDir).map(v => path.join(versionsDir, v, "bin"));
-  } catch {
+  } catch { /* nvm versions dir may not exist */
     return [];
   }
 }

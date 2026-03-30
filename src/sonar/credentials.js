@@ -25,7 +25,7 @@ export async function loadSonarCredentials() {
       user: data.user || null,
       password: data.password || null
     };
-  } catch {
+  } catch { /* credentials file may not exist */
     return { user: null, password: null };
   }
 }

@@ -60,7 +60,7 @@ export async function showRole(roleName, config) {
     try {
       await fs.readFile(candidates[1], "utf8");
       source = "user";
-    } catch {
+    } catch { /* user role file not found */
       source = "built-in";
     }
   }

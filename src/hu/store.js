@@ -280,7 +280,7 @@ async function loadProjectBatch(projectDir) {
   try {
     const raw = await fs.readFile(filePath, "utf8");
     return JSON.parse(raw);
-  } catch {
+  } catch { /* no saved batch for this project */
     return {
       project: projectSlug(projectDir),
       created_at: new Date().toISOString(),

@@ -30,7 +30,7 @@ function parseUrlLikeRemote(remoteUrl) {
   try {
     const parsed = new URL(String(remoteUrl || "").trim());
     return { host: parsed.hostname, path: parsed.pathname.replace(/^\/+/, "") };
-  } catch {
+  } catch { /* not a valid URL */
     return null;
   }
 }

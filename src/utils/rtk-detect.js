@@ -12,7 +12,7 @@ export async function detectRtk() {
       return { available: true, version };
     }
     return { available: false, version: null };
-  } catch {
+  } catch { /* rtk binary not found */
     return { available: false, version: null };
   }
 }

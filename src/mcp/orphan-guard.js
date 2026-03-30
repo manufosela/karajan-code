@@ -8,7 +8,7 @@ export function setupOrphanGuard({ intervalMs = DEFAULT_INTERVAL_MS, exitFn = ()
   const timer = setInterval(() => {
     try {
       process.kill(parentPid, 0);
-    } catch {
+    } catch { /* parent process is gone */
       clearInterval(timer);
       exitFn();
     }

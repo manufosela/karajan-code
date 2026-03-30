@@ -312,7 +312,7 @@ async function findSessionsByPgTask(dir, pgTask) {
       if (session.pg_task_id === pgTask) {
         matches.push(entry);
       }
-    } catch {
+    } catch { /* skip malformed session files */
       // skip malformed sessions
     }
   }

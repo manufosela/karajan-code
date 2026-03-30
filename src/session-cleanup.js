@@ -71,7 +71,7 @@ export async function cleanupExpiredSessions({ logger } = {}) {
   let entries;
   try {
     entries = await fs.readdir(sessionRoot, { withFileTypes: true });
-  } catch {
+  } catch { /* session root does not exist */
     return { removed: 0, errors: [] };
   }
 

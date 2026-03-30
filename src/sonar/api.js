@@ -74,7 +74,7 @@ export async function getQualityGateStatus(config, projectKey = null) {
   try {
     const parsed = JSON.parse(body);
     return { ok: true, status: parsed.projectStatus?.status || "ERROR", conditions: parsed.projectStatus?.conditions || [], raw: parsed };
-  } catch {
+  } catch { /* SonarQube response is not valid JSON */
     return { ok: false, status: "ERROR", conditions: [], raw: body };
   }
 }
@@ -86,7 +86,7 @@ export async function getOpenIssues(config, projectKey = null) {
   try {
     const parsed = JSON.parse(body);
     return { total: parsed.total || 0, issues: parsed.issues || [], raw: parsed };
-  } catch {
+  } catch { /* SonarQube response is not valid JSON */
     return { total: 0, issues: [], raw: body };
   }
 }

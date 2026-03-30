@@ -163,7 +163,7 @@ async function ensureCoderRules(coderRulesPath, logger) {
   let content;
   try {
     content = await fs.readFile(templatePath, "utf8");
-  } catch {
+  } catch { /* template not found, use inline default */
     content = [
       "# Coder Rules",
       "",
@@ -333,7 +333,7 @@ export async function initCommand({ logger, flags = {} }) {
   try {
     const rtkRes = await runCommand("rtk", ["--version"]);
     hasRtk = rtkRes.exitCode === 0;
-  } catch {
+  } catch { /* rtk not installed */
     hasRtk = false;
   }
   if (!hasRtk) {

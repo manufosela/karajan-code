@@ -51,7 +51,7 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
     const { setSessionOverride } = await import("../mcp/preflight.js");
     setSessionOverride(role, provider);
     return { role, provider, scope: "session" };
-  } catch {
+  } catch { /* preflight module not available in CLI mode */
     // preflight module not available (CLI mode) — write to project config
     const projectConfigPath = getProjectConfigPath();
     const projectConfig = (await loadProjectConfig()) || {};

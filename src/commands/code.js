@@ -13,7 +13,7 @@ export async function codeCommand({ task, config, logger }) {
   if (config.coder_rules) {
     try {
       coderRules = await fs.readFile(config.coder_rules, "utf8");
-    } catch {
+    } catch { /* configured coder_rules path not found — try fallback */
       try { coderRules = await fs.readFile("coder-rules.md", "utf8"); } catch { /* no coder rules file */ }
     }
   }

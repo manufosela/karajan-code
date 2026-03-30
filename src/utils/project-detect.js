@@ -120,7 +120,7 @@ export async function detectSonarConfig(cwd = process.cwd()) {
   try {
     await fs.access(path.join(cwd, "sonar-project.properties"));
     return { configured: true };
-  } catch {
+  } catch { /* sonar-project.properties does not exist */
     return { configured: false };
   }
 }

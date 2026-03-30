@@ -112,7 +112,7 @@ export class TriageRole extends BaseRole {
         summary: `Triage: ${level} (${roles.length} role${roles.length === 1 ? "" : "s"})${decomposeNote}`,
         usage: result.usage
       };
-    } catch {
+    } catch { /* agent output is not structured JSON */
       return {
         ok: true,
         result: {

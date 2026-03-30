@@ -111,7 +111,7 @@ export class AuditRole extends BaseRole {
         summary: buildSummary(parsed),
         usage: result.usage
       };
-    } catch {
+    } catch { /* agent output is not structured JSON */
       return {
         ok: true,
         result: { raw: result.output, provider },

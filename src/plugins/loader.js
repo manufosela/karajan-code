@@ -21,7 +21,7 @@ async function listPluginFiles(dir) {
     return entries
       .filter((e) => e.isFile() && e.name.endsWith(".js"))
       .map((e) => path.join(dir, e.name));
-  } catch {
+  } catch { /* plugin dir does not exist */
     return [];
   }
 }

@@ -44,7 +44,7 @@ async function checkGitRepo() {
   let gitOk = false;
   try {
     gitOk = await ensureGitRepo();
-  } catch {
+  } catch { /* git check failed */
     gitOk = false;
   }
   return {
@@ -79,7 +79,7 @@ async function checkSonarQube(config) {
   if (config.sonarqube?.enabled !== false) {
     try {
       sonarOk = await isSonarReachable(sonarHost);
-    } catch {
+    } catch { /* sonar check failed */
       sonarOk = false;
     }
   }
@@ -130,7 +130,7 @@ async function checkSerena() {
   try {
     const serenaCheck = await runCommand("serena", ["--version"]);
     serenaOk = serenaCheck.exitCode === 0;
-  } catch {
+  } catch { /* serena not installed */
     serenaOk = false;
   }
   return {
@@ -181,7 +181,7 @@ async function checkBecariaSecrets() {
       detail: secretsOk ? "BECARIA_APP_ID + BECARIA_APP_PRIVATE_KEY found" : `Missing: ${missing}`,
       fix: secretsOk ? null : "Add BECARIA_APP_ID and BECARIA_APP_PRIVATE_KEY as GitHub repository secrets"
     };
-  } catch {
+  } catch { /* GitHub API error */
     return null;
   }
 }

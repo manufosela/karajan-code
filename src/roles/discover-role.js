@@ -115,7 +115,7 @@ export class DiscoverRole extends BaseRole {
         summary: buildSummary(parsed, mode),
         usage: result.usage
       };
-    } catch {
+    } catch { /* agent output is not structured JSON */
       return buildUnstructuredResult(result.output, mode, provider, result.usage);
     }
   }

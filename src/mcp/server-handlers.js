@@ -201,7 +201,7 @@ export function buildAskQuestion(server) {
         }
       });
       return result.action === "accept" ? result.content?.answer || null : null;
-    } catch {
+    } catch { /* elicitInput not supported by client */
       return null;
     }
   };
@@ -221,7 +221,7 @@ async function attemptAutoResume({ err, config, logger, emitter, askQuestion, ru
   let session;
   try {
     session = await loadMostRecentSession();
-  } catch {
+  } catch { /* no session store or read error */
     return null;
   }
   if (!session || !["failed", "stopped"].includes(session.status)) return null;
@@ -484,7 +484,7 @@ export async function handleCodeDirect(a, server, extra) {
   if (config.coder_rules) {
     try {
       coderRules = await fs.readFile(config.coder_rules, "utf8");
-    } catch {
+    } catch { /* configured coder_rules path not found */
       try { coderRules = await fs.readFile("coder-rules.md", "utf8"); } catch { /* no coder rules file */ }
     }
   }

@@ -10,7 +10,7 @@ function readPid() {
   try {
     const pid = Number.parseInt(fs.readFileSync(PID_FILE, "utf8").trim(), 10);
     return Number.isFinite(pid) ? pid : null;
-  } catch {
+  } catch { /* PID file does not exist */
     return null;
   }
 }
@@ -19,7 +19,7 @@ function isProcessAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch { /* process does not exist */
     return false;
   }
 }
@@ -55,7 +55,7 @@ export async function stopBoard() {
 
   try {
     process.kill(pid, "SIGTERM");
-  } catch {
+  } catch { /* process already dead */
     // already dead
   }
   try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }

@@ -69,7 +69,7 @@ export function parseArchitectOutput(raw) {
   let parsed;
   try {
     parsed = JSON.parse(jsonMatch[0]);
-  } catch {
+  } catch { /* architect output is not valid JSON */
     return null;
   }
 

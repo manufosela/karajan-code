@@ -22,7 +22,7 @@ import {
 function parseJsonSafe(text) {
   try {
     return JSON.parse(text);
-  } catch {
+  } catch { /* invalid JSON */
     return null;
   }
 }
