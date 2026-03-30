@@ -720,7 +720,7 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 ## Fase 42: Integracion Real de RTK (v1.51.0)
 
-**v1.51.0** — Integracion real de RTK: auto-instalacion en kj init, wrapping forzado en comandos Bash internos, medicion y reporte de ahorro de tokens por sesion. Tareas de auditoria/analisis saltan coder/reviewer y van directamente a roles de seguridad+auditoria.
+**v1.51.0** — Integracion real de RTK: auto-instalacion en kj init, wrapping forzado en comandos Bash internos, medicion y reporte de ahorro de tokens por sesion. Tareas de auditoria/analisis saltan coder/reviewer y van directamente a roles de seguridad+auditoria. Homebrew tap (`brew tap manufosela/tap && brew install karajan-code`) anadido como metodo de instalacion alternativo para usuarios de macOS.
 
 ## Decisiones Arquitectónicas Clave
 

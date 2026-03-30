@@ -147,6 +147,13 @@ Esto instala el comando `kj` mediante un wrapper Python que delega al CLI de Nod
 
 Descarga binarios standalone desde [GitHub Releases](https://github.com/manufosela/karajan-code/releases) — sin necesidad de Node.js. Disponible para Linux, macOS y Windows.
 
+## Alternativa: Homebrew (macOS)
+
+```bash
+brew tap manufosela/tap
+brew install karajan-code
+```
+
 ## Opcional: Instalar RTK para Ahorro de Tokens
 
 [RTK](https://github.com/rtk-ai/rtk) (Rust Token Killer) reduce el consumo de tokens en un 60-90% en las salidas de comandos Bash. Instálalo globalmente y KJ se beneficia automáticamente:
