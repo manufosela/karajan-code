@@ -248,3 +248,8 @@ Issues y pull requests bienvenidos. Si algo no funciona como esta documentado, [
 ---
 
 Construido por [@manufosela](https://github.com/manufosela). Head of Engineering en Geniova Technologies, co-organizador de NodeJS Madrid, autor de [Liderazgo Afectivo](https://www.liderazgoafectivo.com). 90+ paquetes npm publicados.
+
+### Contributors
+
+- [@aitormf](https://github.com/aitormf) — Agente OpenCode (5o agente built-in)
+- [@reiaguilera](https://github.com/reiaguilera) — Beta testing, propuestas de mejora y feedback de calidad
