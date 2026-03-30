@@ -697,6 +697,10 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.44.0** — i18n: kj init detects OS locale, asks for pipeline and HU language. Agents respond in the configured language. Supports English and Spanish.
 
+## Phase 37: WebPerf Quality Gate (v1.45.0)
+
+**v1.45.0** — WebPerf Quality Gate: Core Web Vitals (LCP, CLS, INP) as pipeline gate via Chrome DevTools MCP + Joan Leon's WebPerf Snippets skills. Configurable thresholds.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

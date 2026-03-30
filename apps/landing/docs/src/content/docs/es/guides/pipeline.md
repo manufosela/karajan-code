@@ -24,7 +24,7 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | **coder** | Escribe código y tests siguiendo metodología TDD | **Siempre activo** |
 | **refactorer** | Mejora la claridad del código sin cambiar comportamiento | Off |
 | **sonar** | Ejecuta análisis estático SonarQube y quality gates | On (si configurado) |
-| **impeccable** | Auditoría automatizada de diseño UI/UX — accesibilidad, rendimiento, theming, responsive, anti-patrones | Off |
+| **impeccable** | Auditoría automatizada de diseño UI/UX — accesibilidad, rendimiento, theming, responsive, anti-patrones. Incluye WebPerf Quality Gate (v1.45.0): Core Web Vitals (LCP, CLS, INP) via Chrome DevTools MCP + WebPerf Snippets, con umbrales configurables | Off |
 | **reviewer** | Revisión de código con perfiles de exigencia configurables | **Siempre activo** |
 | **tester** | Quality gate de tests y verificación de cobertura | **On** |
 | **security** | Auditoría de seguridad OWASP | **On** |
