@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.48.0] - 2026-03-30
+
+### Added
+- **PG card lifecycle tracking** (epic KJC-PCS-0026): kj_run auto-marks PG cards In Progress at start, accumulates commits during pipeline, marks To Validate on approval with all commits and PR info. Best-effort, never blocks pipeline. 13 new tests (#254)
+- **HU Board real-time status sync**: HU status transitions at each stage (coding → reviewing → done/failed), batch saved after each change for chokidar sync, hu:status-change events with timestamps. 9 new tests (#253)
+- 2388 tests across 186 files
+
 ## [1.47.0] - 2026-03-30
 
 ### Added
@@ -535,7 +542,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.47.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.48.0...HEAD
+[1.48.0]: https://github.com/manufosela/karajan-code/compare/v1.47.0...v1.48.0
 [1.47.0]: https://github.com/manufosela/karajan-code/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/manufosela/karajan-code/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/manufosela/karajan-code/compare/v1.44.0...v1.45.0
