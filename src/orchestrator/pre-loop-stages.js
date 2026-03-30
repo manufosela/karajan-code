@@ -14,6 +14,8 @@ import { selectModelsForRoles } from "../utils/model-selector.js";
 import { createStallDetector } from "../utils/stall-detector.js";
 import { createHuBatch, loadHuBatch, saveHuBatch, updateStoryStatus, updateStoryQuality, updateStoryCertified, addContextRequest, answerContextRequest } from "../hu/store.js";
 import { topologicalSort } from "../hu/graph.js";
+import { detectIndicators, selectHeuristic } from "../hu/splitting-detector.js";
+import { generateSplitProposal, formatSplitProposalForFDE, buildSplitDependencies } from "../hu/splitting-generator.js";
 
 const ROLE_NAMES = ["planner", "researcher", "architect", "refactorer", "reviewer", "tester", "security", "impeccable"];
 
@@ -677,6 +679,84 @@ export async function runHuReviewerStage({ config, logger, emitter, eventBase, s
     batch = await loadHuBatch(batchSessionId);
   } catch {
     batch = await createHuBatch(batchSessionId, stories);
+  }
+
+  // --- Splitting detection: check each pending HU for split indicators before 6D evaluation ---
+  const storiesToSplit = [...batch.stories].filter(s => s.status === "pending");
+  for (const story of storiesToSplit) {
+    const indicators = detectIndicators(story.original.text);
+    if (indicators.length === 0) continue;
+
+    let heuristic = selectHeuristic(indicators);
+    if (!heuristic) continue;
+
+    const triedHeuristics = [];
+    let splitAccepted = false;
+
+    while (heuristic && !splitAccepted) {
+      const proposal = await generateSplitProposal(
+        { id: story.id, text: story.original.text },
+        heuristic, config, logger
+      );
+
+      if (!proposal) {
+        triedHeuristics.push(heuristic);
+        heuristic = selectHeuristic(indicators, triedHeuristics);
+        continue;
+      }
+
+      if (!askQuestion) {
+        // Autonomous mode: auto-accept the split
+        const updatedSubHUs = buildSplitDependencies(proposal.subHUs, story);
+        const storyIndex = batch.stories.findIndex(s => s.id === story.id);
+        const newStories = updatedSubHUs.map(sub => ({
+          id: sub.id, status: "pending",
+          original: { text: `${sub.title}\n\n${sub.text}\n\nAcceptance Criteria:\n${(sub.acceptanceCriteria || []).map(ac => `- ${ac}`).join("\n")}` },
+          blocked_by: sub.blocked_by || [], certified: null, quality: null,
+          context_requests: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        }));
+        batch.stories.splice(storyIndex, 1, ...newStories);
+        splitAccepted = true;
+        emitProgress(emitter, makeEvent("hu-reviewer:split-accepted", { ...eventBase, stage: "hu-reviewer" }, {
+          message: `Auto-accepted split of ${story.id} into ${updatedSubHUs.length} sub-HUs`,
+          detail: { originalId: story.id, subHUs: updatedSubHUs.map(s => s.id), heuristic }
+        }));
+      } else {
+        // Interactive mode: ask FDE for confirmation
+        const formatted = formatSplitProposalForFDE(proposal);
+        const question = `Split proposed for ${story.id}:\n${formatted}\nAccept? (yes/no/try another)`;
+        emitProgress(emitter, makeEvent("hu-reviewer:split-proposal", { ...eventBase, stage: "hu-reviewer" }, {
+          message: `Split proposal for ${story.id} using heuristic: ${heuristic}`,
+          detail: { originalId: story.id, heuristic, subHUCount: proposal.subHUs.length }
+        }));
+        const answer = await askQuestion(question, { iteration: 0, stage: "hu-reviewer" });
+        if (!answer || answer.toLowerCase().startsWith("yes")) {
+          const updatedSubHUs = buildSplitDependencies(proposal.subHUs, story);
+          const storyIndex = batch.stories.findIndex(s => s.id === story.id);
+          const newStories = updatedSubHUs.map(sub => ({
+            id: sub.id, status: "pending",
+            original: { text: `${sub.title}\n\n${sub.text}\n\nAcceptance Criteria:\n${(sub.acceptanceCriteria || []).map(ac => `- ${ac}`).join("\n")}` },
+            blocked_by: sub.blocked_by || [], certified: null, quality: null,
+            context_requests: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+          }));
+          batch.stories.splice(storyIndex, 1, ...newStories);
+          splitAccepted = true;
+          emitProgress(emitter, makeEvent("hu-reviewer:split-accepted", { ...eventBase, stage: "hu-reviewer" }, {
+            message: `FDE accepted split of ${story.id} into ${updatedSubHUs.length} sub-HUs`,
+            detail: { originalId: story.id, subHUs: updatedSubHUs.map(s => s.id), heuristic }
+          }));
+        } else if (answer.toLowerCase().includes("try") || answer.toLowerCase().startsWith("no")) {
+          triedHeuristics.push(heuristic);
+          heuristic = selectHeuristic(indicators, triedHeuristics);
+          if (!heuristic) {
+            updateStoryStatus(batch, story.id, "needs_context");
+          }
+          continue;
+        }
+      }
+      break;
+    }
+    await saveHuBatch(batchSessionId, batch);
   }
 
   // --- Evaluate loop (re-evaluate entire batch until all certified or needs_context with no askQuestion) ---

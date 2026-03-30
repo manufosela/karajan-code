@@ -1,133 +1,158 @@
 /**
- * Linguistic indicator detection for HU splitting.
- *
- * Scans HU description text for patterns across 6 categories that suggest
- * the story should be split into smaller, more focused user stories.
- * Runs BEFORE the existing 6D evaluation.
+ * Heuristic-based HU splitting detection.
+ * Analyzes user story text for indicators that suggest the HU should be split.
  */
 
 /**
- * Human-readable descriptions for each splitting heuristic.
- * @type {Record<string, string>}
+ * @typedef {object} SplitIndicator
+ * @property {string} type - Indicator type (e.g. "multiple_and", "multiple_roles")
+ * @property {string} detail - Human-readable description of what was detected
+ * @property {number} weight - How strongly this indicator suggests splitting (1-3)
  */
+
+/** @type {Record<string, string>} */
 export const HEURISTIC_DESCRIPTIONS = Object.freeze({
-  outputs_first: "CRUD in order: read → create → edit → delete",
-  divide_by_example: "One complete flow per HU",
-  extract_basic_utility: "Minimum valuable subset first, rest separate",
-  simplify_outputs: "Simplest format first, complex formats later",
-  base_case_first: "Happy path first, exceptions as separate HUs",
-  narrow_segment: "Smallest user group first, expand later",
-  dummy_to_dynamic: "Hardcoded data first, real data connection later",
-  spike_separate: "Investigation HU (max 3 days) then implementation",
-  crutches: "Manual step first, automation later"
+  workflow_steps: "Split by workflow steps: each step of the user journey becomes its own HU.",
+  data_entity: "Split by data entity: each distinct entity (model, resource) gets its own HU.",
+  user_role: "Split by user role: each actor/persona gets their own HU.",
+  crud_operations: "Split by CRUD operations: separate create, read, update, delete into individual HUs.",
+  happy_sad_path: "Split by happy/sad path: main flow in one HU, error/edge cases in another.",
+  interface_boundary: "Split by interface boundary: frontend, backend, integration each get their own HU."
 });
 
-/**
- * 6 indicator categories with their regex patterns (Spanish + English)
- * and the recommended splitting heuristic for each.
- */
-export const INDICATOR_CATEGORIES = Object.freeze({
-  CONJUNCIONES: {
-    patterns: [/\by\b/i, /\bademás\b/i, /\btambién\b/i, /\be\b(?=\s+[aeiou])/i, /\band\b/i, /\balso\b/i],
-    heuristic: "divide_by_example"
-  },
-  VERBOS_COMODIN: {
-    patterns: [/\bgestionar\b/i, /\badministrar\b/i, /\bprocesar\b/i, /\bmanejar\b/i, /\bmanage\b/i, /\bhandle\b/i, /\bprocess\b/i],
-    heuristic: "outputs_first"
-  },
-  SECUENCIA: {
-    patterns: [/\bantes de\b/i, /\bdespués\b/i, /\bluego\b/i, /\bentonces\b/i, /\bprimero\b/i, /\bbefore\b/i, /\bafter\b/i, /\bthen\b/i, /\bfirst\b/i],
-    heuristic: "divide_by_example"
-  },
-  ALCANCE_EXPANDIDO: {
-    patterns: [/\bincluyendo\b/i, /\bentre otros\b/i, /\bcon soporte para\b/i, /\basí como\b/i, /\bincluding\b/i, /\bamong others\b/i, /\bwith support for\b/i],
-    heuristic: "extract_basic_utility"
-  },
-  OPCIONALIDAD: {
-    patterns: [/\bo bien\b/i, /\bopcionalmente\b/i, /\balternativamente\b/i, /\ben caso de querer\b/i, /\boptionally\b/i, /\balternatively\b/i],
-    heuristic: "simplify_outputs"
-  },
-  EXCEPCIONES: {
-    patterns: [/\bexcepto\b/i, /\ba menos que\b/i, /\bsin embargo\b/i, /\bsalvo\b/i, /\bexcept\b/i, /\bunless\b/i, /\bhowever\b/i],
-    heuristic: "base_case_first"
-  }
-});
+const HEURISTIC_KEYS = Object.keys(HEURISTIC_DESCRIPTIONS);
 
 /**
- * Priority order for heuristic selection (highest priority first).
- * @type {string[]}
+ * Detect indicators in HU text that suggest the story should be split.
+ * @param {string} text - The HU text to analyze.
+ * @returns {SplitIndicator[]} Array of detected indicators (empty if no splitting needed).
  */
-const CATEGORY_PRIORITY = [
-  "VERBOS_COMODIN",
-  "EXCEPCIONES",
-  "SECUENCIA",
-  "ALCANCE_EXPANDIDO",
-  "OPCIONALIDAD",
-  "CONJUNCIONES"
-];
-
-/**
- * Scan HU description text against all 6 indicator categories.
- *
- * @param {string} huText - The HU description text to scan.
- * @returns {{ detected: boolean, indicators: Array<{ category: string, matchedPattern: string, heuristic: string }> }}
- */
-export function detectIndicators(huText) {
-  if (!huText || typeof huText !== "string") {
-    return { detected: false, indicators: [] };
-  }
+export function detectIndicators(text) {
+  if (!text || typeof text !== "string") return [];
 
   const indicators = [];
+  const lower = text.toLowerCase();
 
-  for (const [category, { patterns, heuristic }] of Object.entries(INDICATOR_CATEGORIES)) {
-    for (const pattern of patterns) {
-      const match = pattern.exec(huText);
-      if (match) {
-        indicators.push({
-          category,
-          matchedPattern: match[0],
-          heuristic
-        });
-        break; // one match per category is enough
-      }
-    }
+  // Multiple "and" connectors suggest compound story
+  const andMatches = lower.match(/\band\b/g);
+  if (andMatches && andMatches.length >= 2) {
+    indicators.push({
+      type: "multiple_and",
+      detail: `Found ${andMatches.length} "and" connectors suggesting compound story`,
+      weight: 2
+    });
   }
 
-  return {
-    detected: indicators.length > 0,
-    indicators
-  };
+  // Multiple roles mentioned
+  const rolePatterns = /\bas (?:a |an )?(\w+)/gi;
+  const roles = [...text.matchAll(rolePatterns)].map(m => m[1].toLowerCase());
+  const uniqueRoles = new Set(roles);
+  if (uniqueRoles.size > 1) {
+    indicators.push({
+      type: "multiple_roles",
+      detail: `Multiple roles detected: ${[...uniqueRoles].join(", ")}`,
+      weight: 3
+    });
+  }
+
+  // Multiple acceptance criteria groups or numbered lists
+  const acCount = (text.match(/^[-*\d+.]\s/gm) || []).length;
+  if (acCount > 5) {
+    indicators.push({
+      type: "many_acceptance_criteria",
+      detail: `${acCount} acceptance criteria items detected`,
+      weight: 2
+    });
+  }
+
+  // CRUD keywords
+  const crudKeywords = ["create", "read", "update", "delete", "edit", "remove", "list", "view"];
+  const foundCrud = crudKeywords.filter(kw => lower.includes(kw));
+  if (foundCrud.length >= 3) {
+    indicators.push({
+      type: "crud_operations",
+      detail: `Multiple CRUD operations: ${foundCrud.join(", ")}`,
+      weight: 2
+    });
+  }
+
+  // Multiple "so that" / "in order to" benefits
+  const benefitMatches = lower.match(/\b(so that|in order to)\b/g);
+  if (benefitMatches && benefitMatches.length > 1) {
+    indicators.push({
+      type: "multiple_benefits",
+      detail: `${benefitMatches.length} benefit clauses detected`,
+      weight: 2
+    });
+  }
+
+  // Workflow/step keywords
+  const stepKeywords = ["first", "then", "after that", "finally", "next", "step"];
+  const foundSteps = stepKeywords.filter(kw => lower.includes(kw));
+  if (foundSteps.length >= 2) {
+    indicators.push({
+      type: "workflow_steps",
+      detail: `Sequential workflow indicators: ${foundSteps.join(", ")}`,
+      weight: 2
+    });
+  }
+
+  return indicators;
 }
 
 /**
- * Given detected indicators, select the primary heuristic to apply.
- * Priority: VERBOS_COMODIN > EXCEPCIONES > SECUENCIA > ALCANCE_EXPANDIDO > OPCIONALIDAD > CONJUNCIONES.
- *
- * @param {Array<{ category: string, matchedPattern: string, heuristic: string }>} indicators
- * @returns {{ heuristic: string, reason: string }}
+ * Select the best splitting heuristic based on detected indicators.
+ * @param {SplitIndicator[]} indicators - Detected split indicators.
+ * @param {string[]} [excludeHeuristics=[]] - Heuristics to skip (already tried).
+ * @returns {string|null} The selected heuristic key, or null if none applicable.
  */
-export function selectHeuristic(indicators) {
-  if (!Array.isArray(indicators) || indicators.length === 0) {
-    return { heuristic: "divide_by_example", reason: "No indicators detected, using default heuristic" };
-  }
+export function selectHeuristic(indicators, excludeHeuristics = []) {
+  if (!indicators || indicators.length === 0) return null;
 
-  const categorySet = new Set(indicators.map(ind => ind.category));
+  const excluded = new Set(excludeHeuristics);
 
-  for (const category of CATEGORY_PRIORITY) {
-    if (categorySet.has(category)) {
-      const indicator = indicators.find(ind => ind.category === category);
-      const { heuristic } = INDICATOR_CATEGORIES[category];
-      return {
-        heuristic,
-        reason: `Category ${category} detected (pattern: "${indicator.matchedPattern}") — ${HEURISTIC_DESCRIPTIONS[heuristic]}`
-      };
+  // Map indicator types to preferred heuristics
+  const heuristicScores = {};
+  for (const key of HEURISTIC_KEYS) {
+    if (!excluded.has(key)) {
+      heuristicScores[key] = 0;
     }
   }
 
-  // Fallback (should not happen if CATEGORY_PRIORITY covers all categories)
-  const first = indicators[0];
-  return {
-    heuristic: first.heuristic,
-    reason: `Fallback to first detected category ${first.category}`
-  };
+  for (const ind of indicators) {
+    switch (ind.type) {
+      case "multiple_roles":
+        if (!excluded.has("user_role")) heuristicScores.user_role = (heuristicScores.user_role || 0) + ind.weight;
+        break;
+      case "crud_operations":
+        if (!excluded.has("crud_operations")) heuristicScores.crud_operations = (heuristicScores.crud_operations || 0) + ind.weight;
+        break;
+      case "workflow_steps":
+        if (!excluded.has("workflow_steps")) heuristicScores.workflow_steps = (heuristicScores.workflow_steps || 0) + ind.weight;
+        break;
+      case "multiple_and":
+      case "many_acceptance_criteria":
+        if (!excluded.has("workflow_steps")) heuristicScores.workflow_steps = (heuristicScores.workflow_steps || 0) + ind.weight;
+        if (!excluded.has("data_entity")) heuristicScores.data_entity = (heuristicScores.data_entity || 0) + ind.weight;
+        break;
+      case "multiple_benefits":
+        if (!excluded.has("happy_sad_path")) heuristicScores.happy_sad_path = (heuristicScores.happy_sad_path || 0) + ind.weight;
+        if (!excluded.has("interface_boundary")) heuristicScores.interface_boundary = (heuristicScores.interface_boundary || 0) + ind.weight;
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Pick highest scoring non-excluded heuristic
+  let best = null;
+  let bestScore = 0;
+  for (const [key, score] of Object.entries(heuristicScores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      best = key;
+    }
+  }
+
+  return best;
 }
