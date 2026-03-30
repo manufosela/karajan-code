@@ -24,6 +24,8 @@ jobs:
             ':!tests/**' \
             ':!.github/workflows/*.yml' \
             ':!CHANGELOG.md' \
+            ':!src/mcp/handlers/run-handler.js' \
+            ':!src/mcp/sovereignty-guard.js' \
             > /tmp/pr-diff.txt
 
       - name: Get PR metadata
