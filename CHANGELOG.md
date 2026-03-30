@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.1] - 2026-03-30
+
+### Fixed
+- **Pipeline messages respect configured language**: new message catalog (`src/utils/messages.js`) with EN/ES translations for triage, Solomon, checkpoints, preflight. All user-facing messages use `msg(key, lang)` instead of hardcoded English (#267)
+- **Checkpoint UI restructured**: numbered options (1/2/3) instead of ambiguous answer field + Accept/Decline buttons. Each option explains what it does. Backward compatible with "yes"/"sí"/"no" (#266)
+- 34 new tests
+
 ## [1.50.0] - 2026-03-30
 
 ### Added
@@ -557,7 +564,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.50.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.50.1...HEAD
+[1.50.1]: https://github.com/manufosela/karajan-code/compare/v1.50.0...v1.50.1
 [1.50.0]: https://github.com/manufosela/karajan-code/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/manufosela/karajan-code/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/manufosela/karajan-code/compare/v1.47.0...v1.48.0
