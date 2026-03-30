@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-03-30
+
+### Changed
+- **Async I/O**: all sync file operations in basal-cost.js and store.js replaced with async equivalents. Prevents event loop blocking during long pipelines (#256)
+- **Centralized SonarQube config**: new `sonar/config-resolver.js` replaces duplicated host/token/credentials resolution in scanner, preflight, and API modules. 14 new tests (#257)
+- **Documented 61 empty catch blocks**: every silent catch now has an inline comment explaining intent. Zero logic changes, 39 files touched (#258)
+
 ## [1.48.0] - 2026-03-30
 
 ### Added
@@ -542,7 +549,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.48.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.49.0...HEAD
+[1.49.0]: https://github.com/manufosela/karajan-code/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/manufosela/karajan-code/compare/v1.47.0...v1.48.0
 [1.47.0]: https://github.com/manufosela/karajan-code/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/manufosela/karajan-code/compare/v1.45.0...v1.46.0
