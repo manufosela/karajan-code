@@ -23,6 +23,11 @@ Karajan Code is built by its community. Thanks to everyone who has contributed c
     <br/><strong>Aitor Martinez</strong>
     <br/><small>OpenCode agent (#75)</small>
   </a>
+  <a href="https://github.com/reiaguilera" style="text-align: center; text-decoration: none; color: inherit;">
+    <img src="https://avatars.githubusercontent.com/u/186906?v=4" width="80" height="80" style="border-radius: 50%;" alt="reiaguilera" />
+    <br/><strong>Rei Aguilera</strong>
+    <br/><small>Beta testing & feature proposals</small>
+  </a>
 </div>
 
 ## Inspirations & Collaborations
