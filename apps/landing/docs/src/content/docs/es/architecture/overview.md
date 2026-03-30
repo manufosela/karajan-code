@@ -85,6 +85,15 @@ src/
 │   ├── pre-loop-stages.js    #   HU-reviewer, triage, discover, researcher, architect, planner
 │   ├── iteration-stages.js   #   Coder, refactorer, guards, TDD, sonar, injection guard, reviewer
 │   ├── post-loop-stages.js   #   Tester, security, impeccable, audit
+│   ├── stages/               #   Stage sub-modules (split from monolithic stage files)
+│   │   ├── triage.js         #     Triage stage logic
+│   │   ├── research.js       #     Research stage logic
+│   │   ├── architect.js      #     Architect stage logic
+│   │   ├── planner.js        #     Planner stage logic
+│   │   ├── hu-reviewer.js    #     HU reviewer stage logic
+│   │   ├── coder.js          #     Coder stage logic
+│   │   ├── sonar.js          #     SonarQube stage logic
+│   │   └── reviewer.js       #     Reviewer stage logic
 │   ├── preflight-checks.js   #   Pre-run environment validation
 │   ├── solomon-escalation.js #   Conflict resolution and escalation
 │   ├── solomon-rules.js      #   Solomon's 5 evaluation rules
@@ -150,6 +159,11 @@ src/
 │   ├── server.js             #   Stdio transport entry point
 │   ├── tools.js              #   Tool schemas (23 tools)
 │   ├── server-handlers.js    #   Tool handlers
+│   ├── handlers/             #   Handler sub-modules (split from server-handlers)
+│   │   ├── run.js            #     kj_run handler
+│   │   ├── direct.js         #     Direct role handlers (code, review, plan, etc.)
+│   │   ├── management.js     #     Management handlers (agents, config, status, etc.)
+│   │   └── hu.js             #     HU Board handlers
 │   ├── direct-role-runner.js #   Shared boilerplate for standalone role MCP tools
 │   ├── run-kj.js             #   Subprocess spawner
 │   ├── progress.js           #   Real-time notifications

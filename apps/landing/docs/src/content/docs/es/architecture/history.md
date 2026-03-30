@@ -704,6 +704,18 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.46.0** — Ejecucion paralela de HUs via git worktrees (HUs independientes corren concurrentemente). Scripts de build SEA + workflow de GitHub Actions para binarios (sin Node.js). Wrapper Python para pip install. Imagen Docker + instalador shell.
 
+## Fase 39: Ciclo de Vida de Cards PG y Sincronizacion HU Board (v1.48.0)
+
+**v1.48.0** — Tracking del ciclo de vida de cards PG: los eventos del pipeline ahora actualizan el estado de las cards de Planning Game en tiempo real a lo largo de todo el ciclo de vida (created, in-progress, blocked, to-validate, done). Sincronizacion en tiempo real del HU Board: la UI del board refleja los cambios de estado de las cards conforme ocurren, eliminando la necesidad de refresco manual.
+
+## Fase 40: Async I/O y SonarQube Centralizado (v1.49.0)
+
+**v1.49.0** — Async I/O: todas las operaciones de fichero y red convertidas a patrones async no-bloqueantes. Configuracion centralizada de SonarQube: fuente unica de verdad para los ajustes de Sonar en CLI, MCP y pipeline. 61 bloques catch documentados y auditados para manejo correcto de errores.
+
+## Fase 41: Division de God-Modules y Tests Unitarios Criticos (v1.50.0)
+
+**v1.50.0** — 71 tests unitarios nuevos cubriendo 3 modulos criticos. Division de 3 god-modules en 12 sub-modulos enfocados para mejor mantenibilidad y testabilidad. 2473 tests en ~190 ficheros.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
