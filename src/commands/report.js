@@ -152,6 +152,7 @@ async function buildReport(dir, sessionId) {
   };
   if (session.pg_task_id) report.pg_task_id = session.pg_task_id;
   if (session.pg_project_id) report.pg_project_id = session.pg_project_id;
+  if (session.rtk_savings) report.rtk_savings = session.rtk_savings;
   return report;
 }
 
@@ -326,6 +327,16 @@ async function resolveTraceOptions(currency) {
   return { cur, rate };
 }
 
+function printRtkSavings(rtkSavings) {
+  if (!rtkSavings || !rtkSavings.callCount) return;
+  const tokens = rtkSavings.estimatedTokensSaved ?? 0;
+  const ratio = rtkSavings.savedPct ?? 0;
+  const commands = rtkSavings.callCount ?? 0;
+  console.log("");
+  console.log(`RTK Savings: ~${tokens} tokens saved (${ratio}% compression, ${commands} commands)`);
+  console.log(`  Original: ${rtkSavings.originalBytes} bytes, Compressed: ${rtkSavings.rtkBytes} bytes, Saved: ${rtkSavings.savedBytes} bytes`);
+}
+
 function printTraceReport(report, currency, exchangeRate) {
   console.log(`Session: ${report.session_id}`);
   printPgCardLine(report);
@@ -333,6 +344,7 @@ function printTraceReport(report, currency, exchangeRate) {
   console.log(`Task: ${report.task_description || "N/A"}`);
   console.log("");
   printTraceTable(report.budget_trace, { currency, exchangeRate });
+  printRtkSavings(report.rtk_savings);
 }
 
 async function handlePgTaskReport({ dir, pgTask, list, sessionId, format, trace, currency }) {

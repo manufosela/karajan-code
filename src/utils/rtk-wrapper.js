@@ -45,13 +45,20 @@ export class RtkSavingsTracker {
     const savedPct = this.originalBytes > 0
       ? Number(((savedBytes / this.originalBytes) * 100).toFixed(1))
       : 0;
+    const estimatedTokensSaved = Math.floor(savedBytes / 4);
     return {
       originalBytes: this.originalBytes,
       rtkBytes: this.rtkBytes,
       savedBytes,
       savedPct,
+      estimatedTokensSaved,
       callCount: this.callCount
     };
+  }
+
+  /** Returns true if any commands were recorded. */
+  hasData() {
+    return this.callCount > 0;
   }
 }
 

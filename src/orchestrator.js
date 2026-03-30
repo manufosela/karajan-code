@@ -766,7 +766,7 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
   return { action: "proceed" };
 }
 
-async function finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i }) {
+async function finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i, rtkTracker }) {
   const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults });
 
   // Accumulate final commits for PG card lifecycle tracking
@@ -785,16 +785,24 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   await markPgCardToValidate({ pgCard, pgProject, config, session, gitResult, logger });
 
   const deferredIssues = session.deferred_issues || [];
+  const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
+  if (rtkSavings) session.rtk_savings = rtkSavings;
+  await saveSession(session);
+
+  const endDetail = { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues };
+  if (rtkSavings) endDetail.rtk_savings = rtkSavings;
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
       message: deferredIssues.length > 0
         ? `Session approved (${deferredIssues.length} deferred issue(s) tracked as tech debt)`
         : "Session approved",
-      detail: { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues }
+      detail: endDetail
     })
   );
-  return { approved: true, sessionId: session.id, review, git: gitResult, deferredIssues };
+  const result = { approved: true, sessionId: session.id, review, git: gitResult, deferredIssues };
+  if (rtkSavings) result.rtk_savings = rtkSavings;
+  return result;
 }
 
 // PG card "To Validate" logic moved to src/planning-game/pipeline-adapter.js → markPgCardToValidate()
@@ -1138,7 +1146,7 @@ async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logge
   return { action: "ok", review: reviewerResult.review };
 }
 
-async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review }) {
+async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review, rtkTracker }) {
   session.reviewer_retry_count = 0;
   const postLoopResult = await handlePostLoopStages({
     config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults,
@@ -1147,11 +1155,11 @@ async function handleApprovedReview({ config, session, emitter, eventBase, coder
   if (postLoopResult.action === "return") return { action: "return", result: postLoopResult.result };
   if (postLoopResult.action === "continue") return { action: "continue" };
 
-  const result = await finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i });
+  const result = await finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i, rtkTracker });
   return { action: "return", result };
 }
 
-async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task }) {
+async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task, rtkTracker }) {
   // Escalate to Solomon / human before giving up
   const solomonResult = await invokeSolomon({
     config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
@@ -1184,13 +1192,17 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
 
   // Solomon also couldn't resolve — fail
   session.budget = budgetSummary();
+  const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
+  if (rtkSavings) session.rtk_savings = rtkSavings;
   await markSessionStatus(session, "failed");
+  const failDetail = { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() };
+  if (rtkSavings) failDetail.rtk_savings = rtkSavings;
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
       status: "fail",
       message: "Max iterations reached (Solomon could not resolve)",
-      detail: { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() }
+      detail: failDetail
     })
   );
   return { approved: false, sessionId: session.id, reason: "max_iterations" };
@@ -1362,7 +1374,8 @@ async function runSingleIteration(ctx) {
     const approvedResult = await handleApprovedReview({
       config, session, emitter, eventBase, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, i, task,
       stageResults: ctx.stageResults, pipelineFlags: ctx.pipelineFlags, askQuestion: ctx.askQuestion, logger,
-      gitCtx: ctx.gitCtx, budgetSummary: ctx.budgetSummary, pgCard: ctx.pgCard, pgProject: ctx.pgProject, review
+      gitCtx: ctx.gitCtx, budgetSummary: ctx.budgetSummary, pgCard: ctx.pgCard, pgProject: ctx.pgProject, review,
+      rtkTracker: ctx.rtkTracker
     });
     if (approvedResult.action === "return" || approvedResult.action === "continue") return approvedResult;
   }
@@ -1441,7 +1454,7 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
     if (iterResult.action === "retry") { i -= 1; }
   }
 
-  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask });
+  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker });
   return maxIterResult;
 }
 

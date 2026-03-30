@@ -97,6 +97,7 @@ describe("RtkSavingsTracker", () => {
       rtkBytes: 0,
       savedBytes: 0,
       savedPct: 0,
+      estimatedTokensSaved: 0,
       callCount: 0
     });
   });

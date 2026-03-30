@@ -252,6 +252,14 @@ function isBudgetUnavailable(budget) {
     (budget.total_tokens === 0 && budget.total_cost_usd === 0 && Object.keys(budget.breakdown_by_role || {}).length > 0);
 }
 
+function printSessionRtkSavings(rtkSavings) {
+  if (!rtkSavings || !rtkSavings.callCount) return;
+  const tokens = rtkSavings.estimatedTokensSaved ?? 0;
+  const ratio = rtkSavings.savedPct ?? 0;
+  const commands = rtkSavings.callCount ?? 0;
+  console.log(`  ${ANSI.dim}\u26a1 RTK: saved ~${tokens} tokens (${ratio}% compression, ${commands} commands)${ANSI.reset}`);
+}
+
 function printSessionBudget(budget) {
   if (!budget) return;
   if (isBudgetUnavailable(budget)) {
@@ -447,6 +455,7 @@ const EVENT_HANDLERS = {
     printSessionStages(event.detail?.stages);
     printSessionGit(event.detail?.git);
     printSessionBudget(event.detail?.budget);
+    printSessionRtkSavings(event.detail?.rtk_savings);
     console.log(`${ANSI.dim}Session: ${event.sessionId}${ANSI.reset}`);
   },
 
