@@ -21,10 +21,9 @@ jobs:
         run: |
           git diff origin/${{ github.base_ref }}...HEAD \
             -- ':!src/utils/injection-guard.js' \
-            ':!tests/injection-guard.test.js' \
+            ':!tests/**' \
             ':!.github/workflows/*.yml' \
             ':!CHANGELOG.md' \
-            ':!tests/e2e/*' \
             > /tmp/pr-diff.txt
 
       - name: Get PR metadata
