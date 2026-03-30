@@ -126,7 +126,7 @@ describe("kj_hu tool", () => {
 
   it("project detection from directory name works", async () => {
     const { detectProject } = await import("../src/hu/store.js");
-    const result = detectProject(projectDir);
+    const result = await detectProject(projectDir);
     expect(result.name).toBe("my-test-project");
     // No git repo in temp dir, so remoteUrl should be null
     expect(result.remoteUrl).toBeNull();

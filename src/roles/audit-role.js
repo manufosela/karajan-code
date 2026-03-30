@@ -63,7 +63,7 @@ export class AuditRole extends BaseRole {
     let growthDelta = null;
     try {
       basalCost = await measureBasalCost(projectDir);
-      const previous = loadPreviousAudit(projectDir);
+      const previous = await loadPreviousAudit(projectDir);
       growthDelta = computeGrowthDelta(basalCost, previous);
     } catch {
       // basal cost is best-effort, don't fail the audit
@@ -95,7 +95,7 @@ export class AuditRole extends BaseRole {
       }
 
       if (basalCost) {
-        try { saveAuditSnapshot(projectDir, basalCost); } catch { /* best-effort */ }
+        try { await saveAuditSnapshot(projectDir, basalCost); } catch { /* best-effort */ }
       }
 
       return {

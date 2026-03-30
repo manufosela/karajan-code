@@ -73,11 +73,11 @@ describe("measureBasalCost", () => {
 });
 
 describe("loadPreviousAudit", () => {
-  it("returns null when no previous audit", () => {
+  it("returns null when no previous audit", async () => {
     const originalEnv = process.env.KJ_HOME;
     process.env.KJ_HOME = path.join(tmpDir, ".karajan");
     try {
-      const result = loadPreviousAudit("/fake/project");
+      const result = await loadPreviousAudit("/fake/project");
       expect(result).toBeNull();
     } finally {
       if (originalEnv === undefined) delete process.env.KJ_HOME;
@@ -87,7 +87,7 @@ describe("loadPreviousAudit", () => {
 });
 
 describe("saveAuditSnapshot + loadPreviousAudit roundtrip", () => {
-  it("saves and loads audit snapshot", () => {
+  it("saves and loads audit snapshot", async () => {
     const originalEnv = process.env.KJ_HOME;
     process.env.KJ_HOME = path.join(tmpDir, ".karajan");
     try {
@@ -100,11 +100,11 @@ describe("saveAuditSnapshot + loadPreviousAudit roundtrip", () => {
         deadExports: []
       };
 
-      const saved = saveAuditSnapshot(projectDir, metrics);
+      const saved = await saveAuditSnapshot(projectDir, metrics);
       expect(saved.timestamp).toBeDefined();
       expect(saved.totalLines).toBe(500);
 
-      const loaded = loadPreviousAudit(projectDir);
+      const loaded = await loadPreviousAudit(projectDir);
       expect(loaded).not.toBeNull();
       expect(loaded.totalLines).toBe(500);
       expect(loaded.totalFiles).toBe(20);

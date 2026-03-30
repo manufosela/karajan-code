@@ -1,6 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 import { getKarajanHome } from "../utils/paths.js";
 
 // FUTURE: hu-storage adapter for PG/Trello/etc — currently local files only
@@ -237,13 +240,14 @@ export function addSplittingMetadata(batch, huId, metadata) {
 /**
  * Detect project info from the given directory.
  * @param {string} cwd - Directory to detect project from.
- * @returns {{ name: string, remoteUrl: string|null }}
+ * @returns {Promise<{ name: string, remoteUrl: string|null }>}
  */
-export function detectProject(cwd) {
+export async function detectProject(cwd) {
   const name = path.basename(cwd);
   let remoteUrl = null;
   try {
-    remoteUrl = execSync("git remote get-url origin", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const { stdout } = await execFileAsync("git", ["remote", "get-url", "origin"], { cwd, encoding: "utf8" });
+    remoteUrl = stdout.trim();
   } catch { /* not a git repo or no remote */ }
   return { name, remoteUrl };
 }

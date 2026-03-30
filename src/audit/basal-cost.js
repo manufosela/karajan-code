@@ -1,7 +1,10 @@
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile, execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { getKarajanHome } from "../utils/paths.js";
+
+const execFileAsync = promisify(execFile);
 
 const SOURCE_EXTENSIONS = new Set([
   ".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".tsx", ".jsx",
@@ -18,11 +21,11 @@ function slugify(projectDir) {
   return path.basename(projectDir).replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function walkSourceFiles(dir) {
+async function walkSourceFiles(dir) {
   // Use git ls-files for speed (instant vs recursive walk)
   try {
-    const output = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: dir, encoding: "utf8", timeout: 5000 });
-    return output.trim().split("\n")
+    const { stdout } = await execFileAsync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: dir, encoding: "utf8", timeout: 5000 });
+    return stdout.trim().split("\n")
       .filter(f => f && SOURCE_EXTENSIONS.has(path.extname(f)) && !EXCLUDE_DIRS.has(f.split("/")[0]))
       .map(f => path.join(dir, f));
   } catch {
@@ -30,15 +33,15 @@ function walkSourceFiles(dir) {
     const files = [];
     let entries;
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch { /* directory not readable */
       return files;
     }
     for (const entry of entries) {
       if (EXCLUDE_DIRS.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        files.push(...walkSourceFiles(full));
+        files.push(...await walkSourceFiles(full));
       } else if (SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
         files.push(full);
       }
@@ -47,19 +50,19 @@ function walkSourceFiles(dir) {
   }
 }
 
-function countLines(filePath) {
+async function countLines(filePath) {
   try {
-    const content = fs.readFileSync(filePath, "utf8");
+    const content = await fs.readFile(filePath, "utf8");
     return content.split("\n").length;
   } catch {
     return 0;
   }
 }
 
-function countDependencies(projectDir) {
+async function countDependencies(projectDir) {
   const pkgPath = path.join(projectDir, "package.json");
   try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
     const deps = Object.keys(pkg.dependencies || {});
     const devDeps = Object.keys(pkg.devDependencies || {});
     return { dependencies: deps.length, devDependencies: devDeps.length, total: deps.length + devDeps.length };
@@ -89,7 +92,7 @@ function runDepcheck(projectDir) {
   });
 }
 
-function findDeadExports(sourceFiles) {
+async function findDeadExports(sourceFiles) {
   const exportMap = new Map(); // file -> [exportName]
   const importedNames = new Set();
 
@@ -101,7 +104,7 @@ function findDeadExports(sourceFiles) {
   for (const file of sourceFiles) {
     let content;
     try {
-      content = fs.readFileSync(file, "utf8");
+      content = await fs.readFile(file, "utf8");
     } catch {
       continue;
     }
@@ -139,15 +142,15 @@ function findDeadExports(sourceFiles) {
 }
 
 export async function measureBasalCost(projectDir) {
-  const sourceFiles = walkSourceFiles(projectDir);
+  const sourceFiles = await walkSourceFiles(projectDir);
   let totalLines = 0;
   for (const f of sourceFiles) {
-    totalLines += countLines(f);
+    totalLines += await countLines(f);
   }
 
-  const depInfo = countDependencies(projectDir);
+  const depInfo = await countDependencies(projectDir);
   const depcheck = await runDepcheck(projectDir);
-  const deadExports = findDeadExports(sourceFiles);
+  const deadExports = await findDeadExports(sourceFiles);
 
   return {
     totalLines,
@@ -162,20 +165,20 @@ function auditDir() {
   return path.join(getKarajanHome(), "audits");
 }
 
-export function loadPreviousAudit(projectDir) {
+export async function loadPreviousAudit(projectDir) {
   const file = path.join(auditDir(), slugify(projectDir), "latest.json");
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
+    return JSON.parse(await fs.readFile(file, "utf8"));
   } catch {
     return null;
   }
 }
 
-export function saveAuditSnapshot(projectDir, metrics) {
+export async function saveAuditSnapshot(projectDir, metrics) {
   const dir = path.join(auditDir(), slugify(projectDir));
-  fs.mkdirSync(dir, { recursive: true });
+  await fs.mkdir(dir, { recursive: true });
   const snapshot = { ...metrics, timestamp: new Date().toISOString() };
-  fs.writeFileSync(path.join(dir, "latest.json"), JSON.stringify(snapshot, null, 2));
+  await fs.writeFile(path.join(dir, "latest.json"), JSON.stringify(snapshot, null, 2));
   return snapshot;
 }
 
