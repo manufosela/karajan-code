@@ -1,0 +1,67 @@
+name: Release SEA Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # needed to upload release assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: macos-latest
+            target: macos-arm64
+          - os: windows-latest
+            target: win-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      # esbuild and postject are NOT in package.json devDependencies
+      # (to keep the core clean). Install them globally for the build.
+      - name: Install build tools (esbuild + postject)
+        run: npm install -g esbuild postject
+
+      - name: Build SEA binary
+        run: node scripts/build-sea.mjs
+
+      # Rename binary to include target platform
+      - name: Rename binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: mv dist/kj dist/kj-${{ matrix.target }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: mv dist/kj.exe dist/kj-${{ matrix.target }}.exe
+
+      - name: Upload release asset (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/kj-${{ matrix.target }}
+
+      - name: Upload release asset (Windows)
+        if: runner.os == 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/kj-${{ matrix.target }}.exe
