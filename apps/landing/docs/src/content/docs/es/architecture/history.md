@@ -718,6 +718,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.50.1** — Los mensajes del pipeline respetan el idioma configurado (catalogo de mensajes EN/ES). UI de checkpoints reestructurada con opciones numeradas en vez de botones ambiguos Accept/Decline.
 
+## Fase 42: Integracion Real de RTK (v1.51.0)
+
+**v1.51.0** — Integracion real de RTK: auto-instalacion en kj init, wrapping forzado en comandos Bash internos, medicion y reporte de ahorro de tokens por sesion. Tareas de auditoria/analisis saltan coder/reviewer y van directamente a roles de seguridad+auditoria.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
