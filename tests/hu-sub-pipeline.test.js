@@ -376,7 +376,7 @@ describe("hu-sub-pipeline", () => {
   });
 
   describe("runHuSubPipeline — HU status transitions are saved to store", () => {
-    it("transitions certified → coding → done and saves batch after each HU", async () => {
+    it("transitions certified → coding → reviewing → done and saves batch after each status change", async () => {
       const stories = [
         { id: "HU-001", status: "certified", certified: { text: "Task" }, original: { text: "Task" }, blocked_by: [] }
       ];
@@ -396,17 +396,18 @@ describe("hu-sub-pipeline", () => {
         logger
       });
 
-      // updateStoryStatus called twice: coding then done
+      // updateStoryStatus called three times: coding → reviewing → done
       const statusCalls = updateStoryStatusMock.mock.calls.filter(c => c[1] === "HU-001");
-      expect(statusCalls).toHaveLength(2);
+      expect(statusCalls).toHaveLength(3);
       expect(statusCalls[0][2]).toBe("coding");
-      expect(statusCalls[1][2]).toBe("done");
+      expect(statusCalls[1][2]).toBe("reviewing");
+      expect(statusCalls[2][2]).toBe("done");
 
-      // saveHuBatch called after each status change (coding + done)
-      expect(saveHuBatchMock).toHaveBeenCalledTimes(2);
+      // saveHuBatch called after each status change (coding + reviewing + done) + once after group completes
+      expect(saveHuBatchMock).toHaveBeenCalledTimes(4);
     });
 
-    it("transitions certified → coding → failed when iteration fails", async () => {
+    it("transitions certified → coding → reviewing → failed when iteration fails", async () => {
       const stories = [
         { id: "HU-001", status: "certified", certified: { text: "Fail" }, original: { text: "Fail" }, blocked_by: [] }
       ];
@@ -427,9 +428,10 @@ describe("hu-sub-pipeline", () => {
       });
 
       const statusCalls = updateStoryStatusMock.mock.calls.filter(c => c[1] === "HU-001");
-      expect(statusCalls).toHaveLength(2);
+      expect(statusCalls).toHaveLength(3);
       expect(statusCalls[0][2]).toBe("coding");
-      expect(statusCalls[1][2]).toBe("failed");
+      expect(statusCalls[1][2]).toBe("reviewing");
+      expect(statusCalls[2][2]).toBe("failed");
     });
   });
 });

@@ -90,7 +90,9 @@ export function updateStoryStatus(batch, storyId, status, extra = {}) {
   const story = batch.stories.find(s => s.id === storyId);
   if (!story) throw new Error(`Story ${storyId} not found`);
   story.status = status;
-  story.updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
+  story.statusChangedAt = now;
+  story.updated_at = now;
   Object.assign(story, extra);
   return story;
 }

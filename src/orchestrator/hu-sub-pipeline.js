@@ -114,13 +114,30 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
 
   updateStoryStatus(batch, story.id, HU_STATUS.CODING);
   await saveHuBatch(batchSessionId, batch);
+  emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
+    message: `HU ${story.id} status → coding`,
+    detail: { huId: story.id, status: HU_STATUS.CODING, timestamp: new Date().toISOString() }
+  }));
 
   try {
     const iterResult = await runIterationFn(huTask);
     const approved = Boolean(iterResult?.approved);
 
+    // --- Transition to reviewing (post-coder, pre-reviewer evaluation) ---
+    updateStoryStatus(batch, story.id, HU_STATUS.REVIEWING);
+    await saveHuBatch(batchSessionId, batch);
+    emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
+      message: `HU ${story.id} status → reviewing`,
+      detail: { huId: story.id, status: HU_STATUS.REVIEWING, timestamp: new Date().toISOString() }
+    }));
+
     if (approved) {
       updateStoryStatus(batch, story.id, HU_STATUS.DONE);
+      await saveHuBatch(batchSessionId, batch);
+      emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        message: `HU ${story.id} status → done`,
+        detail: { huId: story.id, status: HU_STATUS.DONE, timestamp: new Date().toISOString() }
+      }));
       emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
         status: "ok",
         message: `HU ${story.id} completed successfully`,
@@ -129,6 +146,11 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       return { huId: story.id, approved: true, result: iterResult };
     } else {
       updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
+      await saveHuBatch(batchSessionId, batch);
+      emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
+        message: `HU ${story.id} status → failed`,
+        detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
+      }));
       emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
         status: "fail",
         message: `HU ${story.id} failed`,
@@ -138,6 +160,11 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     }
   } catch (err) {
     updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
+    await saveHuBatch(batchSessionId, batch);
+    emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
+      message: `HU ${story.id} status → failed`,
+      detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
+    }));
     emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
       status: "fail",
       message: `HU ${story.id} threw: ${err.message}`,
