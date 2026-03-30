@@ -84,7 +84,7 @@ describe("doctor RTK check", () => {
     expect(rtkCheck.fix).toBeNull();
   });
 
-  it("reports recommendation when rtk is not found", async () => {
+  it("reports MISS with install command when rtk is not found", async () => {
     const { runCommand } = await import("../src/utils/process.js");
     runCommand.mockImplementation((cmd) => {
       if (cmd.includes("rtk")) {
@@ -97,13 +97,13 @@ describe("doctor RTK check", () => {
     const rtkCheck = checks.find((c) => c.name === "rtk");
 
     expect(rtkCheck).toBeDefined();
-    expect(rtkCheck.ok).toBe(true);
+    expect(rtkCheck.ok).toBe(false);
     expect(rtkCheck.detail).toContain("Not found");
     expect(rtkCheck.detail).toContain("token savings");
-    expect(rtkCheck.fix).toBeNull();
+    expect(rtkCheck.fix).toContain("Install:");
   });
 
-  it("reports recommendation when rtk command throws", async () => {
+  it("reports MISS with install command when rtk command throws", async () => {
     const { runCommand } = await import("../src/utils/process.js");
     runCommand.mockImplementation((cmd) => {
       if (cmd.includes("rtk")) {
@@ -116,8 +116,8 @@ describe("doctor RTK check", () => {
     const rtkCheck = checks.find((c) => c.name === "rtk");
 
     expect(rtkCheck).toBeDefined();
-    expect(rtkCheck.ok).toBe(true);
+    expect(rtkCheck.ok).toBe(false);
     expect(rtkCheck.detail).toContain("Not found");
-    expect(rtkCheck.fix).toBeNull();
+    expect(rtkCheck.fix).toContain("Install:");
   });
 });

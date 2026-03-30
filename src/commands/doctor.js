@@ -208,15 +208,20 @@ async function checkBecariaInfra(config) {
 }
 
 async function checkRtk() {
-  const NOT_FOUND_DETAIL = `Not found — install for 60-90% token savings: ${getInstallCommand("rtk")}`;
-  let detail = NOT_FOUND_DETAIL;
+  const installCmd = getInstallCommand("rtk");
   try {
     const res = await runCommand("rtk", ["--version"]);
     if (res.exitCode === 0) {
-      detail = `${res.stdout.trim()} — token savings active`;
+      return { name: "rtk", label: "RTK (Rust Token Killer)", ok: true, detail: `${res.stdout.trim()} — token savings active`, fix: null };
     }
   } catch { /* not installed */ }
-  return { name: "rtk", label: "RTK (Rust Token Killer)", ok: true, detail, fix: null };
+  return {
+    name: "rtk",
+    label: "RTK (Rust Token Killer)",
+    ok: false,
+    detail: "Not found — 60-90% token savings available",
+    fix: `Install: ${installCmd}`
+  };
 }
 
 async function checkRuleFiles(config) {

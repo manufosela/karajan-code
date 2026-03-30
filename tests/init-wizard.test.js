@@ -42,6 +42,14 @@ vi.mock("../src/utils/wizard.js", () => ({
   isTTY: vi.fn()
 }));
 
+vi.mock("../src/utils/rtk-detect.js", () => ({
+  detectRtk: vi.fn().mockResolvedValue({ available: true, version: "rtk 0.31.0" })
+}));
+
+vi.mock("../src/utils/rtk-install.js", () => ({
+  installRtk: vi.fn().mockResolvedValue({ ok: true, version: "rtk 0.31.0", error: null })
+}));
+
 describe("initCommand", () => {
   let initCommand;
   let loadConfig, writeConfig;
@@ -58,6 +66,12 @@ describe("initCommand", () => {
     ({ detectAvailableAgents } = await import("../src/utils/agent-detect.js"));
     ({ createWizard, isTTY } = await import("../src/utils/wizard.js"));
     ({ initCommand } = await import("../src/commands/init.js"));
+
+    // Re-set RTK mocks after resetAllMocks clears them
+    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    detectRtk.mockResolvedValue({ available: true, version: "rtk 0.31.0" });
+    const { installRtk } = await import("../src/utils/rtk-install.js");
+    installRtk.mockResolvedValue({ ok: true, version: "rtk 0.31.0", error: null });
   });
 
   it("runs non-interactive mode when --no-interactive is set", async () => {

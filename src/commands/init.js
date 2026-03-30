@@ -10,6 +10,8 @@ import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
+import { detectRtk } from "../utils/rtk-detect.js";
+import { installRtk } from "../utils/rtk-install.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -328,18 +330,16 @@ export async function initCommand({ logger, flags = {} }) {
   await ensureCoderRules(coderRulesPath, logger);
   await installSkills(logger, interactive);
 
-  // Check RTK availability and inform user
-  let hasRtk = false;
-  try {
-    const rtkRes = await runCommand("rtk", ["--version"]);
-    hasRtk = rtkRes.exitCode === 0;
-  } catch { /* rtk not installed */
-    hasRtk = false;
-  }
-  if (!hasRtk) {
-    logger.info("");
-    logger.info("RTK (Rust Token Killer) can reduce token usage by 60-90%.");
-    logger.info(`  Install: ${getInstallCommand("rtk")}`);
+  // Check RTK availability — auto-install if missing
+  const rtk = await detectRtk();
+  if (rtk.available) {
+    logger.info(`RTK ${rtk.version || ""} detected.`);
+  } else {
+    const installResult = await installRtk(logger);
+    if (!installResult.ok) {
+      logger.warn("RTK is optional but recommended for 60-90% token savings.");
+      logger.warn(`  Manual install: ${getInstallCommand("rtk")}`);
+    }
   }
 
   await setupSonarQube(config, logger);
