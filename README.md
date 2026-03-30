@@ -90,7 +90,7 @@ This is the primary use case. Karajan runs as an MCP server inside Claude Code, 
 You → Claude Code → kj_run (via MCP) → triage → coder → sonar → reviewer → tester → security
 ```
 
-The MCP server auto-registers during `npm install`. Your AI agent sees 21 tools (`kj_run`, `kj_code`, `kj_review`, etc.) and uses them as needed.
+The MCP server auto-registers during `npm install`. Your AI agent sees 23 tools (`kj_run`, `kj_code`, `kj_review`, etc.) and uses them as needed.
 
 **The problem**: when Karajan runs inside an AI agent, you lose visibility. The agent shows you the final result, but not the pipeline stages, iterations, or Solomon decisions happening in real time.
 
@@ -177,7 +177,7 @@ hu-reviewer? → triage → discover? → architect? → planner? → coder → 
 
 Mix and match. Use Claude as coder and Codex as reviewer. Karajan auto-detects installed agents during `kj init`.
 
-## MCP server (21 tools)
+## MCP server (23 tools)
 
 After `npm install -g karajan-code`, the MCP server auto-registers in Claude and Codex. Manual config if needed:
 
@@ -189,7 +189,7 @@ After `npm install -g karajan-code`, the MCP server auto-registers in Claude and
 # command = "karajan-mcp"
 ```
 
-**21 tools** available: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_impeccable`, `kj_hu`.
+**23 tools** available: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_impeccable`, `kj_hu`, `kj_skills`, `kj_suggest`.
 
 Use `kj-tail` in a separate terminal to see what the pipeline is doing in real time (see [Three ways to use Karajan](#three-ways-to-use-karajan)).
 
@@ -243,7 +243,7 @@ Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Bre
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Run 2142 tests with Vitest
+npm test              # Run 2318 tests with Vitest
 npm run validate      # Lint + test
 ```
 

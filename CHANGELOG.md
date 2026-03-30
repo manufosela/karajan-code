@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.46.0] - 2026-03-30
+
+### Added
+- **Parallel HU execution**: independent HUs run concurrently using git worktrees. `findParallelGroups` detects parallel batches, each HU gets its own worktree, results merge back sequentially. Failed HUs block dependents but not siblings. 13 new tests (#247)
+- **SEA binary build**: `scripts/build-sea.mjs` bundles via esbuild and generates standalone binaries via Node 22 SEA. `.github/workflows/release-binaries.yml` produces kj-linux-x64, kj-macos-arm64, kj-win-x64.exe on every tag push (#246)
+- **Python wrapper**: `wrappers/python/` with pip-installable package. `pip install .` provides `kj` command that delegates to npm global or npx (#245)
+- **Docker image**: `Dockerfile` (Alpine + Node 20), `docker-compose.yml`, `docs/DOCKER.md` bilingual (#237)
+- **Shell installer**: `scripts/install-kj.sh` for `curl | sh` installation with OS/arch detection (#238)
+- 2318 tests across 182 files
+
 ## [1.45.0] - 2026-03-30
 
 ### Added
@@ -516,7 +526,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.45.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.46.0...HEAD
+[1.46.0]: https://github.com/manufosela/karajan-code/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/manufosela/karajan-code/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/manufosela/karajan-code/compare/v1.43.0...v1.44.0
 [1.43.0]: https://github.com/manufosela/karajan-code/compare/v1.42.0...v1.43.0
