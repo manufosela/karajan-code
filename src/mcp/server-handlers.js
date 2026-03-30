@@ -918,7 +918,32 @@ async function handleArchitect(a, server, extra) {
 
 async function handleAudit(a, server, extra) {
   await runBootstrapGate(server, a);
-  return handleAuditDirect(a, server, extra);
+  const result = await handleAuditDirect(a, server, extra);
+
+  // Return compact summary for MCP (full details in session log)
+  if (result?.ok && result?.summary) {
+    const compact = {
+      ok: true,
+      overallHealth: result.summary?.overallHealth || result.summary,
+      totalFindings: result.summary?.totalFindings,
+      critical: result.summary?.critical,
+      high: result.summary?.high,
+      topRecommendations: (result.topRecommendations || []).slice(0, 5).map(r => ({
+        priority: r.priority,
+        dimension: r.dimension,
+        action: r.action,
+        impact: r.impact
+      })),
+      textSummary: result.textSummary || result.summary,
+      basalCost: result.basalCost ? {
+        totalLines: result.basalCost.totalLines,
+        totalFiles: result.basalCost.totalFiles,
+        dependencies: result.basalCost.dependencies
+      } : undefined
+    };
+    return { content: [{ type: "text", text: JSON.stringify(compact, null, 2) }] };
+  }
+  return result;
 }
 
 async function handleHu(a, server) {

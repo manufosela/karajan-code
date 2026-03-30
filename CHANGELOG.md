@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.0] - 2026-03-30
+
+### Added
+- **HU Story Splitting**: linguistic indicator detection (6 categories: conjunctions, wildcard verbs, sequence, scope expansion, optionality, exceptions), heuristic-based sub-HU generation with FDE confirmation, 4-criteria validation (independently valuable, deployable alone, completable in 3 days, vertical). Horizontal splits rejected. Splitting metadata stored for traceability (#249, #250, #251)
+- 64 new tests (2366 total across 184 files)
+
+### Fixed
+- **kj_audit MCP returns compact summary**: full audit details stay in session log, MCP response is compact JSON with health score, top 5 recommendations, and basal cost summary. Prevents host AI from receiving oversized payloads
+
 ## [1.46.0] - 2026-03-30
 
 ### Added
@@ -526,7 +535,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.46.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.47.0...HEAD
+[1.47.0]: https://github.com/manufosela/karajan-code/compare/v1.46.0...v1.47.0
 [1.46.0]: https://github.com/manufosela/karajan-code/compare/v1.45.0...v1.46.0
 [1.45.0]: https://github.com/manufosela/karajan-code/compare/v1.44.0...v1.45.0
 [1.44.0]: https://github.com/manufosela/karajan-code/compare/v1.43.0...v1.44.0
