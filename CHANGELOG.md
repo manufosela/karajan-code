@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-03-30
+
+### Added
+- **RTK real integration** (epic KJC-PCS-0028): auto-install during kj init, enforce RTK wrapping in all internal Bash commands (git, diff, ls), measure and report token savings per session (#270, #271, #272)
+- **RTK savings in reports**: session end shows estimated tokens saved, compression ratio, command count. `kj report --trace` includes RTK stats
+
+### Fixed
+- **Audit/analysis tasks skip coder**: `kj run "audit security..."` now routes to security+audit roles without running coder/reviewer. Intent guard detects audit keywords in EN/ES (#269)
+
+### Changed
+- `kj doctor` shows RTK as MISS with install instructions when not found
+
 ## [1.50.1] - 2026-03-30
 
 ### Fixed
@@ -564,7 +576,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.50.1...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.51.0...HEAD
+[1.51.0]: https://github.com/manufosela/karajan-code/compare/v1.50.1...v1.51.0
 [1.50.1]: https://github.com/manufosela/karajan-code/compare/v1.50.0...v1.50.1
 [1.50.0]: https://github.com/manufosela/karajan-code/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/manufosela/karajan-code/compare/v1.48.0...v1.49.0
