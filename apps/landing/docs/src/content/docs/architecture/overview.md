@@ -134,7 +134,11 @@ src/
 │
 ├── hu/                       # HU (User Story) system
 │   ├── store.js              #   Local HU file storage
-│   └── graph.js              #   Dependency graph with topological sort
+│   ├── graph.js              #   Dependency graph with topological sort
+│   └── parallel-executor.js  #   Parallel HU execution via git worktrees
+│
+├── webperf/                  # WebPerf Quality Gate
+│   └── runner.js             #   Core Web Vitals measurement via Chrome DevTools
 │
 ├── commands/                 # CLI command handlers
 │   ├── run.js, code.js, review.js, plan.js, resume.js
@@ -142,9 +146,9 @@ src/
 │   ├── init.js, doctor.js, config.js, report.js, board.js
 │   ├── roles.js, agents.js, scan.js, sonar.js
 │
-├── mcp/                      # MCP server (21 tools)
+├── mcp/                      # MCP server (23 tools)
 │   ├── server.js             #   Stdio transport entry point
-│   ├── tools.js              #   Tool schemas (21 tools)
+│   ├── tools.js              #   Tool schemas (23 tools)
 │   ├── server-handlers.js    #   Tool handlers
 │   ├── direct-role-runner.js #   Shared boilerplate for standalone role MCP tools
 │   ├── run-kj.js             #   Subprocess spawner

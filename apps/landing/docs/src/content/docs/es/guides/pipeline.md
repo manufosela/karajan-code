@@ -320,6 +320,10 @@ Cuando el triage clasifica una tarea como media o compleja, el rol **hu-reviewer
 5. **Adaptador PG**: cuando hay una card de Planning Game vinculada, los datos de la card se envían a hu-reviewer para enriquecer el contexto
 6. **Registros de historial**: se generan registros de historial del pipeline para todas las ejecuciones, proporcionando trazabilidad completa
 
+### Ejecucion paralela de HUs (v1.46.0+)
+
+Las HUs independientes (aquellas sin dependencias no resueltas) se ejecutan concurrentemente via git worktrees. Cada HU obtiene su propio worktree para que los coders puedan trabajar en paralelo sin conflictos en el mismo directorio de trabajo. Las HUs dependientes esperan a que sus bloqueadores completen antes de iniciar.
+
 ### Tracking de estado
 
 Cada HU progresa a través de estados de forma independiente:

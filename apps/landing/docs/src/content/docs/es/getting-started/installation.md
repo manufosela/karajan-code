@@ -133,6 +133,20 @@ curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/script
 
 Esto descarga la ultima version, la instala globalmente y ejecuta `kj init`.
 
+## Alternativa: Wrapper Python (pip install)
+
+Si prefieres instalar via pip:
+
+```bash
+cd wrappers/python && pip install .
+```
+
+Esto instala el comando `kj` mediante un wrapper Python que delega al CLI de Node.js.
+
+## Alternativa: Binarios standalone (SEA)
+
+Descarga binarios standalone desde [GitHub Releases](https://github.com/manufosela/karajan-code/releases) — sin necesidad de Node.js. Disponible para Linux, macOS y Windows.
+
 ## Opcional: Instalar RTK para Ahorro de Tokens
 
 [RTK](https://github.com/rtk-ai/rtk) (Rust Token Killer) reduce el consumo de tokens en un 60-90% en las salidas de comandos Bash. Instálalo globalmente y KJ se beneficia automáticamente:

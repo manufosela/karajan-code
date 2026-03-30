@@ -316,6 +316,10 @@ When triage classifies a task as medium or complex, the **hu-reviewer** role aut
 5. **PG adapter**: when a Planning Game card is linked, card data is fed to hu-reviewer for richer context
 6. **History records**: pipeline history records are generated for all task runs, providing full traceability
 
+### Parallel HU execution (v1.46.0+)
+
+Independent HUs (those without unresolved dependencies) run concurrently via git worktrees. Each HU gets its own worktree so coders can work in parallel without conflicting on the same working directory. Dependent HUs wait until their blockers complete before starting.
+
 ### State tracking
 
 Each HU progresses through states independently:

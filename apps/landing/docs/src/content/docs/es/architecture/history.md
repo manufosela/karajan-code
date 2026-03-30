@@ -700,6 +700,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.45.0** — WebPerf Quality Gate: Core Web Vitals (LCP, CLS, INP) como gate del pipeline via Chrome DevTools MCP + skills de WebPerf Snippets de Joan León. Umbrales configurables.
 
+## Fase 38: Ejecucion Paralela de HUs y Binarios Standalone (v1.46.0)
+
+**v1.46.0** — Ejecucion paralela de HUs via git worktrees (HUs independientes corren concurrentemente). Scripts de build SEA + workflow de GitHub Actions para binarios (sin Node.js). Wrapper Python para pip install. Imagen Docker + instalador shell.
+
 ## Decisiones Arquitectónicas Clave
 
 ### CLI wrapping vs llamadas directas a API
