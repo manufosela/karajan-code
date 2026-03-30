@@ -4,7 +4,11 @@ import path from "node:path";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
 import { resolveSonarProjectKey } from "./project-key.js";
-import { loadSonarCredentials } from "./credentials.js";
+import {
+  resolveSonarHost,
+  resolveSonarToken as resolveToken,
+  resolveSonarCredentials,
+} from "./config-resolver.js";
 
 export function buildScannerOpts(projectKey, scanner = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
@@ -48,10 +52,6 @@ function parseJsonSafe(text) {
   } catch {
     return null;
   }
-}
-
-function normalizeApiHost(rawHost) {
-  return String(rawHost || "http://localhost:9000").replaceAll("host.docker.internal", "localhost");
 }
 
 async function validateAdminCredentials(host, user, password) {
@@ -133,22 +133,14 @@ async function maybeRunCoverage(config) {
   return checkLcovExists(lcovPath, blockOnFailure, run.stdout || "");
 }
 
-async function resolveSonarToken(config, apiHost) {
-  const explicitToken = process.env.KJ_SONAR_TOKEN || process.env.SONAR_TOKEN || config.sonarqube.token;
+async function resolveSonarTokenWithFallback(config, apiHost) {
+  const explicitToken = resolveToken(config);
   if (explicitToken) return explicitToken;
 
-  // Resolve admin credentials from: env vars → config → ~/.karajan/sonar-credentials.json
-  const fileCreds = await loadSonarCredentials() || {};
-  const adminUser = process.env.KJ_SONAR_ADMIN_USER || config.sonarqube.admin_user || fileCreds.user;
-  const candidates = [
-    process.env.KJ_SONAR_ADMIN_PASSWORD,
-    config.sonarqube.admin_password,
-    fileCreds.password
-  ].filter(Boolean);
+  const { user: adminUser, passwords } = await resolveSonarCredentials(config);
+  if (!adminUser || passwords.length === 0) return null;
 
-  if (!adminUser || candidates.length === 0) return null;
-
-  for (const password of new Set(candidates)) {
+  for (const password of passwords) {
     const valid = await validateAdminCredentials(apiHost, adminUser, password);
     if (!valid) continue;
     const token = await generateUserToken(apiHost, adminUser, password);
@@ -205,7 +197,7 @@ export async function runSonarScan(config, projectKey = null) {
     ? Number(sonarConfig.timeouts.scanner_ms)
     : 15 * 60 * 1000;
   const sonarNetwork = sonarConfig.network || "karajan_sonar_net";
-  const apiHost = normalizeApiHost(rawHost);
+  const apiHost = resolveSonarHost(rawHost);
   const isLocalHost = /localhost|127\.0\.0\.1/.test(rawHost);
   const host = isLocalHost ? rawHost.replaceAll(/localhost|127\.0\.0\.1/g, "host.docker.internal") : rawHost;
 
@@ -219,7 +211,7 @@ export async function runSonarScan(config, projectKey = null) {
     };
   }
   await ensureSonarProjectProperties();
-  const token = await resolveSonarToken(config, apiHost);
+  const token = await resolveSonarTokenWithFallback(config, apiHost);
   if (!token) {
     return {
       ok: false,

@@ -13,11 +13,11 @@ import { checkBinary } from "../utils/agent-detect.js";
 import { isSonarReachable, sonarUp } from "../sonar/manager.js";
 import { runCommand } from "../utils/process.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
-import { loadSonarCredentials } from "../sonar/credentials.js";
-
-function normalizeApiHost(rawHost) {
-  return String(rawHost || "http://localhost:9000").replace(/host\.docker\.internal/g, "localhost");
-}
+import {
+  resolveSonarHost,
+  resolveSonarToken,
+  resolveSonarCredentials,
+} from "../sonar/config-resolver.js";
 
 function parseJsonSafe(text) {
   try {
@@ -60,10 +60,10 @@ async function checkSonarReachable(host) {
 }
 
 async function checkSonarAuth(config) {
-  const host = normalizeApiHost(config.sonarqube?.host);
+  const host = resolveSonarHost(config.sonarqube?.host);
 
   // Check explicit token first
-  const explicitToken = process.env.KJ_SONAR_TOKEN || process.env.SONAR_TOKEN || config.sonarqube?.token;
+  const explicitToken = resolveSonarToken(config);
   if (explicitToken) {
     // Validate the token works
     const res = await runCommand("curl", [
@@ -77,20 +77,14 @@ async function checkSonarAuth(config) {
     }
   }
 
-  // Try admin credentials: env vars → config → ~/.karajan/sonar-credentials.json (NO default admin/admin)
-  const fileCreds = await loadSonarCredentials() || {};
-  const adminUser = process.env.KJ_SONAR_ADMIN_USER || config.sonarqube?.admin_user || fileCreds.user;
-  const candidates = [
-    process.env.KJ_SONAR_ADMIN_PASSWORD,
-    config.sonarqube?.admin_password,
-    fileCreds.password
-  ].filter(Boolean);
+  // Try admin credentials via centralized resolver
+  const { user: adminUser, passwords } = await resolveSonarCredentials(config);
 
-  if (!adminUser || candidates.length === 0) {
+  if (!adminUser || passwords.length === 0) {
     return { name: "sonar-auth", ok: false, detail: "No Sonar token or admin credentials configured. Set KJ_SONAR_TOKEN, configure sonarqube.token in kj.config.yml, or save credentials in ~/.karajan/sonar-credentials.json." };
   }
 
-  for (const password of [...new Set(candidates)]) {
+  for (const password of passwords) {
     const validateRes = await runCommand("curl", [
       "-sS", "-u", `${adminUser}:${password}`,
       `${host}/api/authentication/validate`
@@ -151,7 +145,7 @@ async function checkSecurityAgent(config) {
 export async function runPreflightChecks({ config, logger, emitter, eventBase, resolvedPolicies, securityEnabled }) {
   const sonarEnabled = Boolean(config.sonarqube?.enabled) && resolvedPolicies.sonar !== false;
   const isExternalSonar = Boolean(config.sonarqube?.external);
-  const sonarHost = normalizeApiHost(config.sonarqube?.host);
+  const sonarHost = resolveSonarHost(config.sonarqube?.host);
 
   const result = {
     ok: true,

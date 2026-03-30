@@ -1,6 +1,7 @@
 import { runCommand } from "../utils/process.js";
 import { withRetry } from "../utils/retry.js";
 import { resolveSonarProjectKey } from "./project-key.js";
+import { resolveSonarToken } from "./config-resolver.js";
 
 export class SonarApiError extends Error {
   constructor(message, { url, httpStatus, hint } = {}) {
@@ -13,7 +14,7 @@ export class SonarApiError extends Error {
 }
 
 function tokenFromConfig(config) {
-  return process.env.KJ_SONAR_TOKEN || config.sonarqube.token || "";
+  return resolveSonarToken(config) || "";
 }
 
 function parseHttpResponse(stdout) {
