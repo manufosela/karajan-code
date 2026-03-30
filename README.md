@@ -14,6 +14,7 @@
   <a href="https://github.com/manufosela/karajan-code/actions"><img src="https://github.com/manufosela/karajan-code/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js"></a>
+  <a href="https://github.com/manufosela/homebrew-tap"><img src="https://img.shields.io/badge/homebrew-tap-orange.svg" alt="Homebrew"></a>
 </p>
 
 <p align="center">
@@ -52,19 +53,33 @@ If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-
 
 ## Install
 
-**One-liner** (detects your OS, installs via npm):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
-```
-
-**Or directly with npm:**
-
+**npm** (recommended):
 ```bash
 npm install -g karajan-code
 ```
 
-That's it. No Docker required (SonarQube uses Docker, but Karajan auto-manages it). No config files to copy. `kj init` auto-detects your installed agents.
+**Homebrew** (macOS):
+```bash
+brew tap manufosela/tap
+brew install karajan-code
+```
+
+**One-liner** (detects OS, installs via npm):
+```bash
+curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
+```
+
+**Docker** (no Node.js needed):
+```bash
+docker run --rm -v $(pwd):/workspace karajan-code kj --version
+```
+
+**Python**:
+```bash
+cd wrappers/python && pip install .
+```
+
+That's it. `kj init` auto-detects your installed agents and installs RTK for token optimization.
 
 ## Three ways to use Karajan
 
