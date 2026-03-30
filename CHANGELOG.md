@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.0] - 2026-03-30
+
+### Added
+- **71 unit tests** for server-handlers, pre-loop-stages, and iteration-stages. The 3 most critical modules now have dedicated test coverage (#260)
+
+### Changed
+- **Split 3 god-modules** into 12 focused sub-modules: server-handlers → 4 handler files, pre-loop-stages → 5 stage files, iteration-stages → 3 stage files. Original files become thin re-exporters. Zero API changes (#261)
+
 ## [1.49.0] - 2026-03-30
 
 ### Changed
@@ -549,7 +557,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.49.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.50.0...HEAD
+[1.50.0]: https://github.com/manufosela/karajan-code/compare/v1.49.0...v1.50.0
 [1.49.0]: https://github.com/manufosela/karajan-code/compare/v1.48.0...v1.49.0
 [1.48.0]: https://github.com/manufosela/karajan-code/compare/v1.47.0...v1.48.0
 [1.47.0]: https://github.com/manufosela/karajan-code/compare/v1.46.0...v1.47.0
