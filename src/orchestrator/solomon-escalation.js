@@ -1,6 +1,7 @@
 import { SolomonRole } from "../roles/solomon-role.js";
 import { addCheckpoint, pauseSession, saveSession } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { msg, getLang } from "../utils/messages.js";
 
 /**
  * Build a human-readable escalation message from raw Solomon conflict data.
@@ -14,15 +15,16 @@ export function formatEscalationMessage(solomonResult, session) {
   const stage = solomonResult?.stage || "unknown";
   const solomonReason = solomonResult?.solomonReason || null;
   const history = solomonResult?.history || [];
+  const lang = getLang(session?.config_snapshot);
 
   const lines = [];
-  lines.push(`--- Conflict: ${stage} ---`);
+  lines.push(msg("solomon_conflict", lang, { stage }));
   lines.push("");
 
   // Extract reviewer/agent feedback from history
   const feedbackEntries = history.filter(entry => entry && typeof entry === "object");
   if (feedbackEntries.length > 0) {
-    lines.push("Reviewer feedback:");
+    lines.push(msg("solomon_feedback", lang));
     for (const entry of feedbackEntries) {
       const agent = entry.agent || "unknown";
       const feedback = entry.feedback || "No feedback provided";
@@ -42,7 +44,7 @@ export function formatEscalationMessage(solomonResult, session) {
 
   // Solomon's reason (if it tried and failed)
   if (solomonReason) {
-    lines.push(`Solomon could not resolve the conflict: ${solomonReason}`);
+    lines.push(`${msg("solomon_reason", lang)} ${solomonReason}`);
     lines.push("");
   }
 
@@ -50,16 +52,13 @@ export function formatEscalationMessage(solomonResult, session) {
   const iterationCount = solomonResult?.iterationCount;
   const maxIterations = solomonResult?.maxIterations;
   if (iterationCount !== undefined && maxIterations !== undefined) {
-    lines.push(`Iterations: ${iterationCount}/${maxIterations}`);
+    lines.push(msg("pipeline_iteration", lang, { current: iterationCount, max: maxIterations }));
     lines.push("");
   }
 
-  lines.push("Options:");
-  lines.push("  1. Accept coder's work as-is");
-  lines.push("  2. Retry with reviewer's feedback");
-  lines.push("  3. Stop the session");
+  lines.push(msg("solomon_options", lang));
   lines.push("");
-  lines.push("How should we proceed?");
+  lines.push(msg("solomon_proceed", lang));
 
   return lines.join("\n");
 }

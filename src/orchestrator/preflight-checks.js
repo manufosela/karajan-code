@@ -13,6 +13,7 @@ import { checkBinary } from "../utils/agent-detect.js";
 import { isSonarReachable, sonarUp } from "../sonar/manager.js";
 import { runCommand } from "../utils/process.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { msg, getLang } from "../utils/messages.js";
 import {
   resolveSonarHost,
   resolveSonarToken,
@@ -273,13 +274,14 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
 
   const hasErrors = result.errors.length > 0;
   const hasWarnings = result.warnings.length > 0;
+  const preflightLang = getLang(config);
   emitProgress(emitter, makeEvent("preflight:end", { ...eventBase, stage: "preflight" }, {
     status: hasErrors ? "fail" : hasWarnings ? "warn" : "ok",
     message: hasErrors
       ? `Preflight FAILED — ${result.errors.length} blocking issue(s)`
       : hasWarnings
         ? `Preflight completed with ${result.warnings.length} warning(s)`
-        : "Preflight passed — all checks OK",
+        : msg("preflight_passed", preflightLang),
     detail: { ...result, executorType: "local" }
   }));
 

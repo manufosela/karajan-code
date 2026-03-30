@@ -13,6 +13,7 @@
 
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { addCheckpoint, saveSession } from "../session-store.js";
+import { getLang } from "../utils/messages.js";
 
 /**
  * Attach the PG adapter to a pipeline emitter.
@@ -54,7 +55,8 @@ export async function handlePgDecomposition({ triageResult, pgTaskId, pgProject,
     const { buildDecompositionQuestion, createDecompositionSubtasks } = await import("./decomposition.js");
     const { createCard, relateCards, fetchCard } = await import("./client.js");
 
-    const question = buildDecompositionQuestion(triageResult.stageResult.subtasks, pgTaskId);
+    const lang = getLang(config);
+    const question = buildDecompositionQuestion(triageResult.stageResult.subtasks, pgTaskId, lang);
     const answer = await askQuestion(question);
 
     const normalizedAnswer = (answer || "").trim().toLowerCase();

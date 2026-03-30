@@ -4,6 +4,8 @@
  * recommends decomposition and user accepts.
  */
 
+import { msg } from "../utils/messages.js";
+
 export async function createDecompositionSubtasks({
   client,
   projectId,
@@ -66,9 +68,9 @@ export async function createDecompositionSubtasks({
   return created;
 }
 
-export function buildDecompositionQuestion(subtasks, parentCardId) {
+export function buildDecompositionQuestion(subtasks, parentCardId, lang = "en") {
   const lines = [
-    `Triage recommends decomposing this task into ${subtasks.length} subtasks:`,
+    msg("triage_decompose", lang, { count: subtasks.length }),
     ""
   ];
   for (let i = 0; i < subtasks.length; i++) {
@@ -76,14 +78,10 @@ export function buildDecompositionQuestion(subtasks, parentCardId) {
   }
   lines.push(
     "",
-    `Parent card: ${parentCardId}. Each subtask will block the next one (sequential chain).`,
+    msg("triage_create_cards", lang, { cardId: parentCardId }),
+    msg("triage_sequential", lang),
     "",
-    "What should we do?",
-    "1 = Accept and create the subtasks",
-    "2 = Reject and continue without decomposing",
-    "3 = Modify (write your proposal)",
-    "",
-    "Type 1, 2, or 3:"
+    msg("triage_reply", lang)
   );
   return lines.join("\n");
 }

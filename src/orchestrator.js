@@ -31,6 +31,7 @@ import { classifyIntent } from "./guards/intent-guard.js";
 import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
+import { msg, getLang } from "./utils/messages.js";
 import { PipelineContext } from "./orchestrator/pipeline-context.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
@@ -402,8 +403,9 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
     })
   );
 
+  const lang = getLang(config);
   const answer = await askQuestion(
-    `${checkpointMsg}\n\n1 = Continue 5 more minutes\n2 = Continue until done (no more checkpoints)\n3 = Continue for N minutes (type the number of minutes)\n4 = Stop now\n\nType 1, 2, 3, or 4:`
+    `${checkpointMsg}\n\n${msg("checkpoint_options", lang)}`
   );
 
   await addCheckpoint(session, { stage: "interactive-checkpoint", elapsed_minutes: Number(elapsedStr), answer });
@@ -1292,11 +1294,13 @@ async function runSingleIteration(ctx) {
 
   const reviewerRetryCount = session.reviewer_retry_count || 0;
   const maxReviewerRetries = config.session.max_reviewer_retries ?? config.session.fail_fast_repeats;
+  const iterLang = getLang(config);
+  const iterMsg = msg("pipeline_iteration", iterLang, { current: i, max: config.max_iterations });
   emitProgress(emitter, makeEvent("iteration:start", { ...eventBase, stage: "iteration" }, {
-    message: `Iteration ${i}/${config.max_iterations}`,
+    message: iterMsg,
     detail: { iteration: i, maxIterations: config.max_iterations, reviewerRetryCount, maxReviewerRetries }
   }));
-  logger.info(`Iteration ${i}/${config.max_iterations}`);
+  logger.info(iterMsg);
 
   const crResult = await runCoderAndRefactorerStages({
     coderRoleInstance: ctx.coderRoleInstance, coderRole: ctx.coderRole, refactorerRole: ctx.refactorerRole,

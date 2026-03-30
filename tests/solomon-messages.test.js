@@ -19,7 +19,7 @@ describe("formatEscalationMessage", () => {
     expect(result).toContain("Reviewer feedback:");
     expect(result).toContain("[reviewer] R-1: The change only deletes code without replacing it");
     expect(result).toContain("Solomon could not resolve the conflict: Solomon error: timeout");
-    expect(result).toContain("Iterations: 3/3");
+    expect(result).toContain("Iteration 3/3");
     expect(result).toContain("1. Accept coder's work as-is");
     expect(result).toContain("2. Retry with reviewer's feedback");
     expect(result).toContain("3. Stop the session");
@@ -138,7 +138,7 @@ describe("formatEscalationMessage", () => {
 
     const result = formatEscalationMessage(conflict);
 
-    expect(result).toContain("Iterations: 5/10");
+    expect(result).toContain("Iteration 5/10");
   });
 
   it("omits iteration context when not provided", () => {
@@ -149,6 +149,6 @@ describe("formatEscalationMessage", () => {
 
     const result = formatEscalationMessage(conflict);
 
-    expect(result).not.toContain("Iterations:");
+    expect(result).not.toContain("Iteration ");
   });
 });
