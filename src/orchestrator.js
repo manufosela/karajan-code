@@ -523,6 +523,10 @@ async function becariaIncrementalPush({ config, session, gitCtx, task, logger, r
   const pushResult = await incrementalPush({ gitCtx, task, logger, session });
   if (!pushResult) return;
 
+  // Accumulate commits for PG card lifecycle tracking
+  const { accumulateCommit } = await import("./planning-game/pipeline-adapter.js");
+  for (const c of pushResult.commits) accumulateCommit(session, c);
+
   session.becaria_commits = [...(session.becaria_commits ?? []), ...pushResult.commits];
   await saveSession(session);
 
@@ -538,6 +542,10 @@ async function becariaIncrementalPush({ config, session, gitCtx, task, logger, r
 async function becariaCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i, repo, dispatchComment }) {
   const earlyPr = await earlyPrCreation({ gitCtx, task, logger, session, stageResults });
   if (!earlyPr) return;
+
+  // Accumulate commits for PG card lifecycle tracking
+  const { accumulateCommit } = await import("./planning-game/pipeline-adapter.js");
+  for (const c of earlyPr.commits) accumulateCommit(session, c);
 
   session.becaria_pr_number = earlyPr.prNumber;
   session.becaria_pr_url = earlyPr.prUrl;
@@ -740,6 +748,13 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
 
 async function finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i }) {
   const gitResult = await finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults });
+
+  // Accumulate final commits for PG card lifecycle tracking
+  if (gitResult?.commits?.length) {
+    const { accumulateCommit } = await import("./planning-game/pipeline-adapter.js");
+    for (const c of gitResult.commits) accumulateCommit(session, c);
+  }
+
   if (stageResults.planner?.ok) {
     stageResults.planner.completedSteps = [...(stageResults.planner.steps ?? [])];
   }

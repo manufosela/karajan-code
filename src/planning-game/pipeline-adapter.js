@@ -94,6 +94,7 @@ export async function handlePgDecomposition({ triageResult, pgTaskId, pgProject,
 
 /**
  * Mark PG card as "To Validate" on approved session completion.
+ * Merges commits from gitResult and session.pg_commits (accumulated during pipeline).
  */
 export async function markPgCardToValidate({ pgCard, pgProject, config, session, gitResult, logger }) {
   if (!pgCard || !pgProject) return;
@@ -101,9 +102,21 @@ export async function markPgCardToValidate({ pgCard, pgProject, config, session,
   try {
     const { updateCard } = await import("./client.js");
     const { buildCompletionUpdates } = await import("./adapter.js");
+
+    // Merge commits: session.pg_commits (accumulated) + gitResult.commits (final)
+    const accumulatedCommits = session.pg_commits || [];
+    const finalCommits = gitResult?.commits || [];
+    const seenHashes = new Set(accumulatedCommits.map(c => c.hash));
+    const mergedCommits = [...accumulatedCommits];
+    for (const c of finalCommits) {
+      if (!seenHashes.has(c.hash)) {
+        mergedCommits.push(c);
+      }
+    }
+
     const pgUpdates = buildCompletionUpdates({
       approved: true,
-      commits: gitResult?.commits || [],
+      commits: mergedCommits,
       startDate: session.pg_card?.startDate || session.created_at,
       codeveloper: config.planning_game?.codeveloper || null
     });
@@ -154,6 +167,25 @@ export function buildHuStoriesFromPgCard(pgCard) {
   const storyText = parts.join("\n");
 
   return [{ id: storyId, text: storyText }];
+}
+
+/**
+ * Accumulate a commit into the session's pg_commits array.
+ * Called after each successful commitAll during the iteration loop.
+ * Best-effort: never throws.
+ *
+ * @param {object} session - Pipeline session (mutated)
+ * @param {{ hash: string, message: string, date?: string, author?: string }} commitInfo
+ */
+export function accumulateCommit(session, commitInfo) {
+  if (!session || !commitInfo?.hash) return;
+  if (!session.pg_commits) session.pg_commits = [];
+  session.pg_commits.push({
+    hash: commitInfo.hash,
+    message: commitInfo.message || "",
+    date: commitInfo.date || new Date().toISOString(),
+    author: commitInfo.author || "BecarIA"
+  });
 }
 
 // --- Internal helpers ---
