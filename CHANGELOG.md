@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] - 2026-03-31
+
+### Added
+- **`kj status` dashboard**: terminal view showing HU states (pending/coding/reviewing/done/failed), current stage, timing, and progress. MCP returns structured JSON (#292)
+- **`kj init` auto-detect stack**: scans package.json/go.mod/Cargo.toml/etc., detects frameworks (React, Express, Astro, Go, Rust...), auto-enables impeccable for frontend, suggests skills (#290)
+- **HU Board authentication**: optional Bearer token auth via `HU_BOARD_TOKEN` env var. API endpoints protected, static assets public. Backward compatible (#291)
+- 39 new tests
+
 ## [1.55.0] - 2026-03-31
 
 ### Added
@@ -612,7 +620,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.55.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.56.0...HEAD
+[1.56.0]: https://github.com/manufosela/karajan-code/compare/v1.55.0...v1.56.0
 [1.55.0]: https://github.com/manufosela/karajan-code/compare/v1.54.0...v1.55.0
 [1.54.0]: https://github.com/manufosela/karajan-code/compare/v1.53.1...v1.54.0
 [1.53.1]: https://github.com/manufosela/karajan-code/compare/v1.53.0...v1.53.1
