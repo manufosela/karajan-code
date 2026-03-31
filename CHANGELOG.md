@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.0] - 2026-03-31
+
+### Added
+- **`kj undo`**: revert last pipeline run with `kj undo` (soft reset) or `kj undo --hard`. 24th MCP tool (#288)
+- **Documentation links in errors**: all error messages include a "See:" link to the relevant doc page (#287)
+
+### Fixed
+- **0 test failures**: fixed 2 pre-existing stale assertions in pg-decomposition and checkpoint-ui tests (#286)
+
 ## [1.54.0] - 2026-03-31
 
 ### Added
@@ -603,7 +612,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.54.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.55.0...HEAD
+[1.55.0]: https://github.com/manufosela/karajan-code/compare/v1.54.0...v1.55.0
 [1.54.0]: https://github.com/manufosela/karajan-code/compare/v1.53.1...v1.54.0
 [1.53.1]: https://github.com/manufosela/karajan-code/compare/v1.53.0...v1.53.1
 [1.53.0]: https://github.com/manufosela/karajan-code/compare/v1.52.0...v1.53.0
