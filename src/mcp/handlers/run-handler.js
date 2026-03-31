@@ -154,8 +154,10 @@ export async function handleRunDirect(a, server, extra) {
 }
 
 export async function handleResumeDirect(a, server, extra) {
-  const config = await buildConfig(a);
-  const logger = createLogger(config.output.log_level, "mcp");
+  // Use a minimal config only for the logger; let resumeFlow use the session's
+  // config_snapshot so that flags like --no-sonar from the original run are preserved.
+  const freshConfig = await buildConfig(a);
+  const logger = createLogger(freshConfig.output.log_level, "mcp");
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);
@@ -172,7 +174,7 @@ export async function handleResumeDirect(a, server, extra) {
     const result = await resumeFlow({
       sessionId: a.sessionId,
       answer: a.answer || null,
-      config,
+      config: null,  // Use session.config_snapshot (preserves --no-sonar, etc.)
       logger,
       flags: a,
       emitter,
