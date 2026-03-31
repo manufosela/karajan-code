@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.0] - 2026-03-31
+
+### Added
+- **`--design` flag**: activates impeccable role in refactoring mode. Coder applies design changes (hierarchy, spacing, responsive, a11y, animations, theming) instead of just auditing. New `impeccable-design.md` template. Works from CLI and MCP (#284)
+- 11 new tests
+
 ## [1.53.1] - 2026-03-31
 
 ### Changed
@@ -597,7 +603,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.53.1...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.54.0...HEAD
+[1.54.0]: https://github.com/manufosela/karajan-code/compare/v1.53.1...v1.54.0
 [1.53.1]: https://github.com/manufosela/karajan-code/compare/v1.53.0...v1.53.1
 [1.53.0]: https://github.com/manufosela/karajan-code/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/manufosela/karajan-code/compare/v1.51.0...v1.52.0
