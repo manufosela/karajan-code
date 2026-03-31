@@ -984,6 +984,44 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
     pipelineFlags.securityEnabled = false;
   }
 
+  // --- Plan injection: skip researcher/architect/planner if a persisted plan is loaded ---
+  if (flags.plan) {
+    try {
+      const { loadPlan } = await import("./plan/plan-store.js");
+      const projectDir = updatedConfig.projectDir || process.cwd();
+      const loadedPlan = await loadPlan(projectDir, flags.plan);
+      if (loadedPlan) {
+        logger.info(`Loaded persisted plan: ${flags.plan}`);
+        emitProgress(emitter, makeEvent("plan:loaded", { ...eventBase, stage: "plan" }, {
+          message: `Plan loaded from kj_plan: ${flags.plan}`,
+          detail: { planId: flags.plan, task: loadedPlan.task, createdAt: loadedPlan.createdAt }
+        }));
+        stageResults.researcher = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
+        stageResults.architect = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
+        stageResults.planner = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
+        // Inject contexts into session for downstream stages
+        session.research_context = loadedPlan.researchContext || null;
+        session.architect_context = loadedPlan.architectContext || null;
+        session.loaded_plan = loadedPlan.plan || null;
+        await saveSession(session);
+
+        // Build the planned task from the plan steps
+        const plan = loadedPlan.plan;
+        let plannedTask = task;
+        if (plan && typeof plan === "object" && plan.steps) {
+          const stepList = plan.steps.map((s, idx) => `${idx + 1}. ${s.description || s}`).join("\n");
+          plannedTask = `${task}\n\n## Implementation Plan\n${plan.approach || ""}\n\n## Steps\n${stepList}`;
+        } else if (typeof plan === "string") {
+          plannedTask = `${task}\n\n## Implementation Plan\n${plan}`;
+        }
+        return { plannedTask, updatedConfig };
+      }
+      logger.warn(`Plan ${flags.plan} not found — falling back to normal pipeline`);
+    } catch (err) {
+      logger.warn(`Plan loading failed: ${err.message} — falling back to normal pipeline`);
+    }
+  }
+
   // --- Researcher → Planner ---
   const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion });
 

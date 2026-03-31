@@ -70,6 +70,76 @@ export async function handlePlanDirect(a, server, extra) {
   );
   const emitter = buildDirectEmitter(server, runLog, extra);
   const eventBase = { sessionId: null, iteration: 0, startedAt: Date.now() };
+
+  // --- Phase 1: Researcher (codebase context) ---
+  let researchContext = null;
+  try {
+    const { ResearcherRole } = await import("../../roles/researcher-role.js");
+    const researcherRole = resolveRole(config, "researcher");
+    const researcherOnOutput = ({ stream, line }) => {
+      emitter.emit("progress", { type: "agent:output", stage: "researcher", message: line, detail: { stream, agent: researcherRole.provider } });
+    };
+    const researcherStall = createStallDetector({
+      onOutput: researcherOnOutput, emitter, eventBase, stage: "researcher", provider: researcherRole.provider
+    });
+
+    sendTrackerLog(server, "researcher", "running", researcherRole.provider);
+    runLog.logText(`[researcher] agent launched for plan context...`);
+    const researcher = new ResearcherRole({ config, logger, emitter });
+    await researcher.init({ task: a.task });
+    let researchOutput;
+    try {
+      researchOutput = await researcher.run({ task: a.task, onOutput: researcherStall.onOutput });
+    } finally {
+      researcherStall.stop();
+    }
+    if (researchOutput.ok) {
+      researchContext = researchOutput.result;
+      sendTrackerLog(server, "researcher", "done");
+      runLog.logText(`[researcher] completed — context available`);
+    } else {
+      sendTrackerLog(server, "researcher", "failed");
+      runLog.logText(`[researcher] failed: ${researchOutput.summary || "unknown"}`);
+    }
+  } catch (err) {
+    logger.warn(`Researcher phase skipped: ${err.message}`);
+  }
+
+  // --- Phase 2: Architect (solution design) ---
+  let architectContext = null;
+  try {
+    const { ArchitectRole } = await import("../../roles/architect-role.js");
+    const architectRole = resolveRole(config, "architect");
+    const architectOnOutput = ({ stream, line }) => {
+      emitter.emit("progress", { type: "agent:output", stage: "architect", message: line, detail: { stream, agent: architectRole.provider } });
+    };
+    const architectStall = createStallDetector({
+      onOutput: architectOnOutput, emitter, eventBase, stage: "architect", provider: architectRole.provider
+    });
+
+    sendTrackerLog(server, "architect", "running", architectRole.provider);
+    runLog.logText(`[architect] agent launched for plan context...`);
+    const architect = new ArchitectRole({ config, logger, emitter });
+    await architect.init({ task: a.task });
+    let architectOutput;
+    try {
+      architectOutput = await architect.run({ task: a.task, researchContext, onOutput: architectStall.onOutput });
+    } finally {
+      architectStall.stop();
+    }
+    if (architectOutput.ok) {
+      architectContext = architectOutput.result;
+      sendTrackerLog(server, "architect", "done");
+      runLog.logText(`[architect] completed — context available`);
+    } else {
+      sendTrackerLog(server, "architect", "failed");
+      runLog.logText(`[architect] failed: ${architectOutput.summary || "unknown"}`);
+    }
+  } catch (err) {
+    logger.warn(`Architect phase skipped: ${err.message}`);
+  }
+
+  // --- Phase 3: Planner (with research + architecture context) ---
   const onOutput = ({ stream, line }) => {
     emitter.emit("progress", { type: "agent:output", stage: "planner", message: line, detail: { stream, agent: plannerRole.provider } });
   };
@@ -78,7 +148,7 @@ export async function handlePlanDirect(a, server, extra) {
   });
 
   const planner = createAgent(plannerRole.provider, config, logger);
-  const prompt = buildPlannerPrompt({ task: a.task, context: a.context });
+  const prompt = buildPlannerPrompt({ task: a.task, context: a.context, architectContext });
   sendTrackerLog(server, "planner", "running", plannerRole.provider);
   runLog.logText(`[planner] agent launched, waiting for response...`);
   let result;
@@ -111,7 +181,24 @@ export async function handlePlanDirect(a, server, extra) {
 
   sendTrackerLog(server, "planner", "done");
   const parsed = parseMaybeJsonString(result.output);
-  return { ok: true, plan: parsed || result.output, raw: result.output };
+
+  // --- Persist plan ---
+  let planId = null;
+  try {
+    const { savePlan } = await import("../../plan/plan-store.js");
+    planId = await savePlan(projectDir, {
+      task: a.task,
+      researchContext,
+      architectContext,
+      plan: parsed || result.output,
+      raw: result.output
+    });
+    runLog.logText(`[kj_plan] plan persisted — planId=${planId}`);
+  } catch (err) {
+    logger.warn(`Plan persistence failed (non-blocking): ${err.message}`);
+  }
+
+  return { ok: true, plan: parsed || result.output, raw: result.output, planId, researchContext, architectContext };
 }
 
 export async function handleCodeDirect(a, server, extra) {

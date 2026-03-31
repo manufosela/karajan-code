@@ -60,8 +60,26 @@ export async function planCommand({ task, config, logger, json, context }) {
 
   const parsed = parseMaybeJsonString(result.output);
 
+  // Persist plan
+  let planId = null;
+  try {
+    const { savePlan } = await import("../plan/plan-store.js");
+    const projectDir = config.projectDir || process.cwd();
+    planId = await savePlan(projectDir, {
+      task,
+      researchContext: null,
+      architectContext: null,
+      plan: parsed || result.output,
+      raw: result.output
+    });
+  } catch (err) {
+    logger.warn(`Plan persistence failed: ${err.message}`);
+  }
+
   if (json) {
-    console.log(JSON.stringify(parsed || result.output, null, 2));
+    const jsonOutput = parsed || result.output;
+    const outputObj = typeof jsonOutput === "object" ? { ...jsonOutput, planId } : { plan: jsonOutput, planId };
+    console.log(JSON.stringify(outputObj, null, 2));
     return;
   }
 
@@ -69,5 +87,10 @@ export async function planCommand({ task, config, logger, json, context }) {
     console.log(formatPlan(parsed));
   } else {
     console.log(result.output);
+  }
+
+  if (planId) {
+    console.log(`\nPlan saved: ${planId}`);
+    console.log(`Use it with: kj run --plan ${planId} "<task>"`);
   }
 }

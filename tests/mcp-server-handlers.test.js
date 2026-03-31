@@ -110,6 +110,24 @@ vi.mock("../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock("../src/roles/researcher-role.js", () => ({
+  ResearcherRole: vi.fn().mockImplementation(() => ({
+    init: vi.fn().mockResolvedValue(),
+    run: vi.fn().mockResolvedValue({ ok: true, result: { files: ["a.js"] }, summary: "research done" })
+  }))
+}));
+
+vi.mock("../src/roles/architect-role.js", () => ({
+  ArchitectRole: vi.fn().mockImplementation(() => ({
+    init: vi.fn().mockResolvedValue(),
+    run: vi.fn().mockResolvedValue({ ok: true, result: { layers: ["service"] }, summary: "architecture done" })
+  }))
+}));
+
+vi.mock("../src/plan/plan-store.js", () => ({
+  savePlan: vi.fn().mockResolvedValue("plan-20260331-test")
+}));
+
 vi.mock("../src/mcp/sovereignty-guard.js", () => ({
   validateSovereignty: vi.fn((params) => ({ params: { ...params }, warnings: [] }))
 }));

@@ -53,6 +53,7 @@ export const tools = [
       required: ["task"],
       properties: {
         task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042)" },
+        plan: { type: "string", description: "Plan ID from kj_plan. Loads persisted plan context and skips researcher/architect/planner stages." },
         projectDir: { type: "string", description: "Absolute path to the project directory. Required when KJ MCP server runs from a different directory than the target project." },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as task context and updates card status on completion." },
         pgProject: { type: "string", description: "Planning Game project ID (e.g., 'Karajan Code'). Required when pgTask is used." },

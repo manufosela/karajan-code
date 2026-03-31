@@ -86,6 +86,7 @@ program
   .option("--enable-triage")
   .option("--enable-discover")
   .option("--enable-architect")
+  .option("--plan <planId>", "Plan ID from kj plan. Loads persisted plan context and skips researcher/architect/planner.")
   .option("--enable-hu-reviewer")
   .option("--hu-file <path>", "YAML file with HU stories to certify before coding")
   .option("--enable-serena")
