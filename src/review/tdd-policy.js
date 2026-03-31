@@ -19,7 +19,7 @@ function isSourceFile(file, extensions = []) {
   return extensions.some((ext) => file.endsWith(ext));
 }
 
-const SKIP_TDD_TASK_TYPES = new Set(["doc", "infra"]);
+const SKIP_TDD_TASK_TYPES = new Set(["doc", "infra", "no-code"]);
 
 const DEFAULT_TEST_PATTERNS = ["/tests/", "/__tests__/", ".test.", ".spec.", "/src/test/", "/test/", "Test.java", "Test.kt", "test_", "_test.py", "_test.go", "Test.cs", "_spec.rb", "Test.php", "_test.dart", "Tests.swift"];
 const DEFAULT_SOURCE_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".kt", ".rb", ".php", ".cs", ".rs", ".swift", ".dart"];

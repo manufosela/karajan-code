@@ -1085,7 +1085,7 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
 
-  const skipSonarForTaskType = new Set(["infra", "doc"]);
+  const skipSonarForTaskType = new Set(["infra", "doc", "no-code"]);
   const effectiveTaskType = session.resolved_policies?.taskType || null;
   if (config.sonarqube.enabled && !skipSonarForTaskType.has(effectiveTaskType)) {
     const sonarResult = await runSonarStage({

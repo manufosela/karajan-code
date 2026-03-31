@@ -6,6 +6,23 @@ import { VALID_TASK_TYPES } from "./policy-resolver.js";
  * Evaluated top-down; first match with confidence >= threshold wins.
  */
 const INTENT_PATTERNS = [
+  // No-code tasks (data analysis, document generation, SQL queries, CSV transforms)
+  // Placed before audit so specific multi-word patterns win over single-word "analizar"/"analyze"
+  {
+    id: "no-code",
+    keywords: [
+      "generate report", "create document", "analyze data", "transform csv",
+      "sql query", "sql queries", "generate queries", "data analysis", "process data",
+      "export to", "import from", "convert data", "parse file",
+      "generar informe", "crear documento", "analizar datos", "transformar csv",
+      "consulta sql", "generar consultas", "analisis de datos", "procesar datos",
+      "exportar a", "importar de", "convertir datos", "parsear fichero",
+    ],
+    taskType: "no-code",
+    level: "simple",
+    confidence: 0.9,
+    message: "No-code task detected — TDD and SonarQube disabled, coder generates non-code output",
+  },
   // Audit / analysis tasks (no code changes, read-only analysis)
   {
     id: "audit",

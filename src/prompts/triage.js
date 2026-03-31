@@ -40,13 +40,14 @@ export function buildTriagePrompt({ task, instructions, availableRoles }) {
       "- **architect**: Enable when creating new modules/apps, changing data models or APIs, medium/complex tasks, or when design approach is ambiguous. Disable for simple fixes, doc-only, or CSS-only changes.",
       "- **hu-reviewer**: Enable for medium/complex tasks that benefit from story decomposition and certification. Disable for trivial/simple tasks, doc-only, or CSS-only changes.",
       "- **audit/analysis taskType**: Set taskType to \"audit\" or \"analysis\" for tasks that only require reading/inspecting code without making changes (e.g., audit, review, analyze, check, verify, inspect, scan, auditar, revisar, analizar, comprobar, verificar, inspeccionar). The coder and reviewer will be skipped entirely for these tasks.",
+      "- **no-code taskType**: Use no-code when the task is about data analysis, document generation, SQL queries, CSV transformation, report generation, or any non-programming task. The coder will generate output (not source code), and TDD/SonarQube will be disabled. The reviewer still runs to validate logic/correctness.",
       "",
       "Note: coder is ALWAYS active for coding tasks — you don't need to decide on it. However, for audit/analysis taskTypes the coder is skipped."
     ].join("\n"),
     "Classify the task complexity, determine its taskType, recommend only the necessary pipeline roles, and assess whether the task should be decomposed into smaller subtasks.",
     "Keep the reasoning short and practical.",
     "Return a single valid JSON object and nothing else.",
-    'JSON schema: {"level":"trivial|simple|medium|complex","roles":["planner|researcher|refactorer|reviewer|tester|security|architect|hu-reviewer"],"taskType":"sw|infra|doc|add-tests|refactor|audit|analysis","reasoning":string,"shouldDecompose":boolean,"subtasks":string[]}',
+    'JSON schema: {"level":"trivial|simple|medium|complex","roles":["planner|researcher|refactorer|reviewer|tester|security|architect|hu-reviewer"],"taskType":"sw|infra|doc|add-tests|refactor|audit|analysis|no-code","reasoning":string,"shouldDecompose":boolean,"subtasks":string[]}',
     `## Task\n${task}`
   );
 
