@@ -9,6 +9,7 @@ import fs from "node:fs/promises";
 import { loadConfig, applyRunOverrides, validateConfig } from "../config.js";
 import { currentBranch } from "../utils/git.js";
 import { buildProgressNotifier } from "./progress.js";
+import { compressResponse, compactStringify } from "./response-compressor.js";
 
 // ── Sub-module re-exports ────────────────────────────────────────────
 export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
@@ -58,8 +59,9 @@ export function asObject(value) {
 }
 
 export function responseText(payload) {
+  const compressed = compressResponse(payload);
   return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
+    content: [{ type: "text", text: compactStringify(compressed) }]
   };
 }
 
