@@ -7,4 +7,5 @@ services:
       - ${KJ_HOME:-~/.karajan}:/data
     environment:
       - KJ_HOME=/data
+      - HU_BOARD_TOKEN=${HU_BOARD_TOKEN:-}
     restart: unless-stopped

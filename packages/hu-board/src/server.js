@@ -5,6 +5,7 @@ import { createServer } from 'node:net';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';
+import { authMiddleware } from './auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '..', 'public');
@@ -70,7 +71,7 @@ async function main() {
   const app = express();
   app.use(express.json());
   app.use(express.static(PUBLIC_DIR));
-  app.use('/api', apiRoutes);
+  app.use('/api', authMiddleware(), apiRoutes);
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
