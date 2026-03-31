@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.0] - 2026-03-31
+
+### Added
+- **Telemetry (opt-out)**: anonymous usage statistics (version, OS, command, pipeline duration, success rate). No code or personal data. Opt out with `telemetry: false` in config (#295)
+- **MCP graceful restart**: after `npm update`, the MCP server writes a restart marker file and exits with a 2-second grace period. The new instance detects the marker and logs reconnection context (#294)
+- 25 new tests (telemetry, MCP reconnect, resume config snapshot)
+
+### Fixed
+- **Resume respects session flags**: `kj_resume` now uses the session's saved config snapshot instead of loading a fresh config. Flags like `--no-sonar` from the original run are preserved (#297)
+- **Circular ESM imports (TDZ)**: extracted shared helpers from server-handlers.js into separate modules, breaking the circular dependency chain that caused 30 test failures (#296)
+
 ## [1.56.0] - 2026-03-31
 
 ### Added
