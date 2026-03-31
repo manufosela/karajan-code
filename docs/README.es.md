@@ -60,8 +60,7 @@ npm install -g karajan-code
 
 **Homebrew** (macOS):
 ```bash
-brew tap manufosela/tap
-brew install karajan-code
+brew install manufosela/tap/karajan-code
 ```
 
 **One-liner** (detecta SO, instala via npm):
