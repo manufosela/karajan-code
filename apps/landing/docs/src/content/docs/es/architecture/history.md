@@ -722,7 +722,17 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.51.0** — Integracion real de RTK: auto-instalacion en kj init, wrapping forzado en comandos Bash internos, medicion y reporte de ahorro de tokens por sesion. Tareas de auditoria/analisis saltan coder/reviewer y van directamente a roles de seguridad+auditoria. Homebrew tap (`brew tap manufosela/tap && brew install karajan-code`) anadido como metodo de instalacion alternativo para usuarios de macOS.
 
-## Decisiones Arquitectónicas Clave
+## Fase 43: Modo Pipeline No-Code (v1.52.0)
+
+**v1.52.0** — Modo pipeline no-code: el triage detecta tareas que no son de codigo (analisis SQL, transformaciones CSV, reportes de datos) y desactiva TDD/SonarQube/reviewer automaticamente. Tres skills no-code integrados: `sql-analysis`, `csv-transform`, `data-report`. Las tareas que no producen cambios de codigo saltan todo el loop de quality gates.
+
+## Fase 44: Conexion Plan-Run y Compresor de Respuestas MCP (v1.53.0 - v1.53.1)
+
+**v1.53.0** — Conexion Plan a Run: `kj_plan` ahora ejecuta researcher + architect antes del planner, persistiendo el resultado completo. `kj_run --plan` carga el contexto del plan persistido y salta las etapas pre-loop (researcher, architect, planner), yendo directamente al loop del coder con el contexto arquitectonico ya resuelto.
+
+**v1.53.1** — Compresor de respuestas MCP: elimina campos verbosos de las respuestas de herramientas MCP, trunca arrays grandes y genera JSON compacto. Reduce el consumo de tokens cuando los hosts MCP retransmiten resultados del pipeline al contexto de la conversacion.
+
+## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
 
