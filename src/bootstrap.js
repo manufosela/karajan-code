@@ -22,6 +22,7 @@ import { checkBinary } from "./utils/agent-detect.js";
 import { exists } from "./utils/fs.js";
 import { getConfigPath, resolveRole } from "./config.js";
 import { isSonarReachable, sonarUp } from "./sonar/manager.js";
+import { withDocLink } from "./utils/doc-links.js";
 
 const BOOTSTRAP_VERSION = 1;
 const BOOTSTRAP_TTL_HOURS = 24;
@@ -185,14 +186,14 @@ function formatBootstrapFailure(failures) {
   const lines = failures.map(f =>
     `  FAIL  ${f.name}: ${f.detail}\n        Fix: ${f.fix}`
   );
-  return [
+  return withDocLink([
     "BOOTSTRAP FAILED — Environment not ready for Karajan Code.\n",
     "The following prerequisite(s) are not met:\n",
     ...lines,
     "",
     "Run 'kj_doctor' for a complete environment diagnostic.",
     "Do NOT work around these issues — fix them properly."
-  ].join("\n");
+  ].join("\n"), "bootstrap_failed");
 }
 
 // ── Public API ───────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { ensureGitRepo } from "../utils/git.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 import { getInstallCommand } from "../utils/os-detect.js";
+import { withDocLink } from "../utils/doc-links.js";
 
 function getPackageVersion() {
   const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../package.json");
@@ -36,7 +37,7 @@ async function checkConfigFile() {
     label: "Config file",
     ok: configExists,
     detail: configExists ? configPath : "Not found",
-    fix: configExists ? null : "Run 'kj init' to create the config file."
+    fix: configExists ? null : withDocLink("Run 'kj init' to create the config file.", "config_missing")
   };
 }
 
@@ -63,7 +64,7 @@ async function checkDocker() {
     label: "Docker",
     ok: docker.ok,
     detail: docker.ok ? docker.version : "Not found",
-    fix: docker.ok ? null : "Install Docker: https://docs.docker.com/get-docker/"
+    fix: docker.ok ? null : withDocLink("Install Docker: https://docs.docker.com/get-docker/", "sonar_docker")
   };
 }
 
@@ -91,7 +92,7 @@ async function checkSonarQube(config) {
     detail: sonarDetail(config, sonarOk, sonarHost),
     fix: isOkOrDisabled
       ? null
-      : "Run 'kj sonar start' or 'docker start karajan-sonarqube'. Use --no-sonar to skip."
+      : withDocLink("Run 'kj sonar start' or 'docker start karajan-sonarqube'. Use --no-sonar to skip.", "sonar_docker")
   };
 }
 
@@ -104,7 +105,7 @@ async function checkAgentCLIs() {
       label: `Agent: ${agent.name}`,
       ok: result.ok,
       detail: result.ok ? `${result.version} (${result.path})` : "Not found",
-      fix: result.ok ? null : `Install: ${agent.install}`
+      fix: result.ok ? null : withDocLink(`Install: ${agent.install}`, "agent_not_found")
     });
   }
   return checks;
@@ -220,7 +221,7 @@ async function checkRtk() {
     label: "RTK (Rust Token Killer)",
     ok: false,
     detail: "Not found — 60-90% token savings available",
-    fix: `Install: ${installCmd}`
+    fix: withDocLink(`Install: ${installCmd}`, "rtk_install")
   };
 }
 

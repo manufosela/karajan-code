@@ -10,11 +10,12 @@ import { loadConfig, applyRunOverrides, validateConfig } from "../config.js";
 import { currentBranch } from "../utils/git.js";
 import { buildProgressNotifier } from "./progress.js";
 import { compressResponse, compactStringify } from "./response-compressor.js";
+import { withDocLink } from "../utils/doc-links.js";
 
 // ── Sub-module re-exports ────────────────────────────────────────────
 export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
 export { handlePlanDirect, handleCodeDirect, handleReviewDirect, handleDiscoverDirect, handleTriageDirect, handleResearcherDirect, handleAuditDirect, handleArchitectDirect, handleCode, handleReview, handlePlan, handleDiscover, handleTriage, handleResearcher, handleArchitect, handleAudit } from "./handlers/direct-handlers.js";
-export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
+export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
 export { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
 
 // ── Shared helpers (used by sub-modules and external consumers) ──────
@@ -82,22 +83,22 @@ const ERROR_CLASSIFIERS = [
   {
     test: (lower) => lower.includes("sonar") && (lower.includes("connect") || lower.includes("econnrefused") || lower.includes("not available") || lower.includes("not running")),
     category: "sonar_unavailable",
-    suggestion: "SonarQube is not reachable. Try: kj_init to set up SonarQube, or run 'docker start sonarqube' if already installed. Use --no-sonar to skip SonarQube."
+    suggestion: withDocLink("SonarQube is not reachable. Try: kj_init to set up SonarQube, or run 'docker start sonarqube' if already installed. Use --no-sonar to skip SonarQube.", "sonar_docker")
   },
   {
     test: (lower) => lower.includes("401") || lower.includes("unauthorized") || lower.includes("invalid token"),
     category: "auth_error",
-    suggestion: "Authentication failed. Regenerate the SonarQube token and update it via kj_init or in ~/.karajan/kj.config.yml under sonarqube.token."
+    suggestion: withDocLink("Authentication failed. Regenerate the SonarQube token and update it via kj_init or in ~/.karajan/kj.config.yml under sonarqube.token.", "sonar_token")
   },
   {
     test: (lower) => lower.includes("config") && (lower.includes("missing") || lower.includes("not found") || lower.includes("invalid")),
     category: "config_error",
-    suggestion: "Configuration issue detected. Run kj_doctor to diagnose, or kj_init to create a fresh config."
+    suggestion: withDocLink("Configuration issue detected. Run kj_doctor to diagnose, or kj_init to create a fresh config.", "config_missing")
   },
   {
     test: (lower) => lower.includes("missing provider") || lower.includes("not found") && (lower.includes("claude") || lower.includes("codex") || lower.includes("gemini") || lower.includes("aider")),
     category: "agent_missing",
-    suggestion: "Required agent CLI not found. Run kj_doctor to check which agents are installed and get installation instructions."
+    suggestion: withDocLink("Required agent CLI not found. Run kj_doctor to check which agents are installed and get installation instructions.", "agent_not_found")
   },
   {
     test: (lower) => lower.includes("timed out") || lower.includes("timeout"),
@@ -107,7 +108,7 @@ const ERROR_CLASSIFIERS = [
   {
     test: (lower) => lower.includes("you are on the base branch"),
     category: "branch_error",
-    suggestion: "Create a feature branch before running Karajan. Use 'git checkout -b feat/<task-description>' and then retry. Do NOT run kj_code directly on the base branch."
+    suggestion: withDocLink("Create a feature branch before running Karajan. Use 'git checkout -b feat/<task-description>' and then retry. Do NOT run kj_code directly on the base branch.", "branch_error")
   },
   {
     test: (lower) => lower.includes("not a git repository"),
@@ -117,7 +118,7 @@ const ERROR_CLASSIFIERS = [
   {
     test: (lower) => lower.includes("bootstrap failed"),
     category: "bootstrap_error",
-    suggestion: "Environment prerequisites not met. Run kj_doctor for diagnostics, then fix the issues listed. Do NOT work around these — fix them properly."
+    suggestion: withDocLink("Environment prerequisites not met. Run kj_doctor for diagnostics, then fix the issues listed. Do NOT work around these — fix them properly.", "bootstrap_failed")
   }
 ];
 
@@ -218,7 +219,7 @@ import {
 import {
   handleStatus, handleAgents, handlePreflight, handleRoles,
   handleReport, handleInit, handleDoctor, handleConfig,
-  handleScan, handleBoard
+  handleScan, handleBoard, handleUndo
 } from "./handlers/management-handlers.js";
 import { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
 
@@ -245,7 +246,8 @@ const toolHandlers = {
   kj_board:       (a) => handleBoard(a),
   kj_hu:          (a, server) => handleHu(a, server),
   kj_suggest:     (a) => handleSuggest(a),
-  kj_skills:      (a) => handleSkills(a)
+  kj_skills:      (a) => handleSkills(a),
+  kj_undo:        (a, server) => handleUndo(a, server)
 };
 
 export async function handleToolCall(name, args, server, extra) {

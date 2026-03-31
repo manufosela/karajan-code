@@ -19,6 +19,7 @@ import {
   resolveSonarToken,
   resolveSonarCredentials,
 } from "../sonar/config-resolver.js";
+import { withDocLink } from "../utils/doc-links.js";
 
 function parseJsonSafe(text) {
   try {
@@ -188,7 +189,7 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       result.errors.push({
         check: "docker",
         message: "Docker not available but SonarQube is enabled.",
-        fix: "Start Docker, or disable SonarQube: set sonarqube.enabled: false in kj.config.yml, or pass --no-sonar."
+        fix: withDocLink("Start Docker, or disable SonarQube: set sonarqube.enabled: false in kj.config.yml, or pass --no-sonar.", "sonar_docker")
       });
       logger.error("Preflight: Docker not found — SonarQube requires Docker");
 
@@ -222,7 +223,7 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       result.errors.push({
         check: "sonar-reachable",
         message: `SonarQube not reachable at ${sonarHost}.`,
-        fix: "Start SonarQube: 'docker start karajan-sonarqube', or disable it: set sonarqube.enabled: false in kj.config.yml, or pass --no-sonar."
+        fix: withDocLink("Start SonarQube: 'docker start karajan-sonarqube', or disable it: set sonarqube.enabled: false in kj.config.yml, or pass --no-sonar.", "sonar_docker")
       });
       logger.error("Preflight: SonarQube not reachable after remediation attempt");
     }
@@ -248,7 +249,7 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
       result.errors.push({
         check: "sonar-auth",
         message: "SonarQube is running but no authentication token is configured.",
-        fix: "Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml."
+        fix: withDocLink("Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml.", "sonar_token")
       });
       logger.error("Preflight: Sonar auth failed");
     }
