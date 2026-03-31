@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.1] - 2026-03-31
+
+### Changed
+- **MCP response compressor**: all tool responses are now compressed before sending to host AI. Strips verbose fields from lists, truncates arrays (20 items), commits (last 5), findings (first 10). Compact JSON without indentation. Vital fields preserved (#281)
+
 ## [1.53.0] - 2026-03-31
 
 ### Added
@@ -592,7 +597,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.53.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.53.1...HEAD
+[1.53.1]: https://github.com/manufosela/karajan-code/compare/v1.53.0...v1.53.1
 [1.53.0]: https://github.com/manufosela/karajan-code/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/manufosela/karajan-code/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/manufosela/karajan-code/compare/v1.50.1...v1.51.0
