@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.2] - 2026-04-01
+
+### Fixed
+- **Model/provider resolution**: when model is `gemini/pro`, infer provider=gemini and strip prefix. Drop incompatible explicit models (#305)
+- **SonarQube auto-start**: wait up to 60s after `docker compose up` instead of checking once immediately. Fixes false "auto-start failed" on cold boot (#306)
+- **Subprocess stdin hangs**: all subprocesses now run with `stdin: "ignore"`. Prevents indefinite hangs when sonar, agents, or npm prompt for input (#307)
+- **CI**: removed deprecated macOS Intel runner (macos-13) from release workflow (#304)
+- **.gitignore**: added `.claude/`, `.scannerwork/`, `dist/`, `.kj/` (#308)
+
 ## [1.57.1] - 2026-03-31
 
 ### Added
