@@ -732,6 +732,10 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.53.1** — Compresor de respuestas MCP: elimina campos verbosos de las respuestas de herramientas MCP, trunca arrays grandes y genera JSON compacto. Reduce el consumo de tokens cuando los hosts MCP retransmiten resultados del pipeline al contexto de la conversacion.
 
+## Fase 45: Modo Refactoring de Diseno (v1.54.0)
+
+**v1.54.0** — Flag `--design`: el rol impeccable pasa de solo-auditoria a modo refactoring. El coder aplica cambios de diseno (jerarquia, spacing, responsive, a11y, animaciones, theming).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
