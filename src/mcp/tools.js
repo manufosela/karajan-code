@@ -364,5 +364,16 @@ export const tools = [
       },
       required: ["action"]
     }
+  },
+  {
+    name: "kj_undo",
+    description: "Revert the last pipeline run by resetting to the pre-pipeline commit. Default: soft reset (keeps changes staged). Use hard=true to discard all changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        hard: { type: "boolean", description: "If true, discard all changes (git reset --hard). Default: false (soft reset, keeps changes staged)." },
+        projectDir: { type: "string", description: "Absolute path to the project directory" }
+      }
+    }
   }
 ];

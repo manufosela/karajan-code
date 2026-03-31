@@ -24,6 +24,7 @@ import { researcherCommand } from "./commands/researcher.js";
 import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
+import { undoCommand } from "./commands/undo.js";
 
 import { printUpdateNotice } from "./utils/update-check.js";
 
@@ -321,6 +322,17 @@ program
     await withConfig("board", opts, async ({ config, logger }) => {
       const port = Number(opts.port) || config.hu_board?.port || 4000;
       await boardCommand({ action, port, logger });
+    });
+  });
+
+program
+  .command("undo")
+  .description("Revert last pipeline run")
+  .option("--hard", "Discard all changes (default: soft reset, keeps changes staged)")
+  .action(async (flags) => {
+    await withConfig("undo", flags, async ({ logger }) => {
+      const result = await undoCommand({ hard: !!flags.hard, logger });
+      if (!result.ok) process.exit(1);
     });
   });
 

@@ -163,6 +163,18 @@ export async function handleBoard(a) {
   }
 }
 
+export async function handleUndo(a, server) {
+  const projectDir = await resolveProjectDir(server, a.projectDir);
+  const origCwd = process.cwd();
+  try {
+    process.chdir(projectDir);
+    const { undoCommand } = await import("../../commands/undo.js");
+    return undoCommand({ hard: !!a.hard });
+  } finally {
+    process.chdir(origCwd);
+  }
+}
+
 export async function buildPreflightRequiredResponse(toolName) {
   const { config } = await loadConfig();
   const { listAgents } = await import("../../commands/agents.js");
