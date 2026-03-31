@@ -26,19 +26,25 @@ describe("setupVersionWatcher", () => {
     expect(result).toBeNull();
   });
 
-  it("checkVersion calls exitFn when version changes", () => {
+  it("checkVersion calls exitFn when version changes (after grace period)", () => {
+    vi.useFakeTimers();
     const exitFn = vi.fn();
     readFileSync.mockReturnValue(JSON.stringify({ version: "2.0.0" }));
 
-    const { checkVersion } = setupVersionWatcher({
+    const watcher = setupVersionWatcher({
       pkgPath: "/fake/package.json",
       currentVersion: "1.0.0",
+      gracePeriodMs: 2000,
       exitFn
     });
 
-    const changed = checkVersion();
+    const changed = watcher.checkVersion();
     expect(changed).toBe(true);
+    expect(exitFn).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(2000);
     expect(exitFn).toHaveBeenCalledOnce();
+    vi.useRealTimers();
   });
 
   it("checkVersion does NOT call exitFn when version is the same", () => {

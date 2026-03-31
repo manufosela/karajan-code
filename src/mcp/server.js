@@ -50,7 +50,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 });
 
 // --- Orphan process protection + version watcher ---
-import { setupOrphanGuard, setupVersionWatcher, setupMemoryWatchdog } from "./orphan-guard.js";
+import { setupOrphanGuard, setupVersionWatcher, setupMemoryWatchdog, readAndDeleteRestartMarker } from "./orphan-guard.js";
+
+// Check if this is a restart after update
+const restartedVersion = readAndDeleteRestartMarker();
+if (restartedVersion) {
+  process.stderr.write(`[karajan-mcp] MCP server restarted after update to v${restartedVersion}\n`);
+}
+
 setupOrphanGuard();
 setupVersionWatcher({ pkgPath: PKG_PATH, currentVersion: LOADED_VERSION });
 setupMemoryWatchdog();

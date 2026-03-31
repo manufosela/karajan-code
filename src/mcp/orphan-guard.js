@@ -1,4 +1,9 @@
-import { readFileSync, watch } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync, watch, mkdirSync, existsSync } from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
+const RESTART_MARKER_DIR = path.join(os.homedir(), ".kj");
+const RESTART_MARKER_PATH = path.join(RESTART_MARKER_DIR, ".mcp-restart");
 
 const DEFAULT_INTERVAL_MS = 5000;
 
@@ -69,14 +74,46 @@ export function setupMemoryWatchdog({
   return { timer };
 }
 
-export function setupVersionWatcher({ pkgPath, currentVersion, exitFn = () => process.exit(0) } = {}) {
+const DEFAULT_GRACE_MS = 2000;
+
+export function writeRestartMarker(version, markerPath = RESTART_MARKER_PATH) {
+  try {
+    mkdirSync(path.dirname(markerPath), { recursive: true });
+    writeFileSync(markerPath, version, "utf8");
+  } catch { /* best-effort */ }
+}
+
+export function readAndDeleteRestartMarker(markerPath = RESTART_MARKER_PATH) {
+  try {
+    if (!existsSync(markerPath)) return null;
+    const version = readFileSync(markerPath, "utf8").trim();
+    unlinkSync(markerPath);
+    return version || null;
+  } catch { /* ignore */ }
+  return null;
+}
+
+export function setupVersionWatcher({
+  pkgPath,
+  currentVersion,
+  gracePeriodMs = DEFAULT_GRACE_MS,
+  exitFn = () => process.exit(0),
+  markerPath = RESTART_MARKER_PATH
+} = {}) {
   if (!pkgPath) return null;
+
+  let _gracePeriodMs = gracePeriodMs;
 
   function checkVersion() {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
       if (pkg.version !== currentVersion) {
-        exitFn();
+        const newVersion = pkg.version;
+        process.stderr.write(
+          `[karajan-mcp] Karajan MCP updated (v${currentVersion} → v${newVersion}). Restarting...\n`
+        );
+        writeRestartMarker(newVersion, markerPath);
+        setTimeout(() => exitFn(), _gracePeriodMs);
         return true;
       }
     } catch { /* ignore read errors */ }
@@ -90,5 +127,5 @@ export function setupVersionWatcher({ pkgPath, currentVersion, exitFn = () => pr
     });
   } catch { /* ignore watch errors */ }
 
-  return { watcher, checkVersion };
+  return { watcher, checkVersion, get gracePeriodMs() { return _gracePeriodMs; }, set gracePeriodMs(v) { _gracePeriodMs = v; } };
 }
