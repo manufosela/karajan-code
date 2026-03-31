@@ -117,6 +117,7 @@ program
   .option("--no-auto-simplify", "Force full pipeline regardless of triage level")
   .option("--smart-models", "Enable smart model selection based on triage complexity")
   .option("--no-smart-models", "Disable smart model selection")
+  .option("--design", "Activate design refactoring mode (impeccable role applies design changes)")
   .option("--dry-run", "Show what would be executed without running anything")
   .option("--json", "Output JSON only (no styled display)")
   .option("-q, --quiet", "Show only stage status lines, suppress raw agent output (default)")

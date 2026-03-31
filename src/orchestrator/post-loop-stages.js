@@ -247,17 +247,21 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
   return { action: "ok", stageResult: { ok: true, summary: securityOutput.summary || "No vulnerabilities found" } };
 }
 
-export async function runImpeccableStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff }) {
+export async function runImpeccableStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, mode = "audit" }) {
   logger.setContext({ iteration, stage: "impeccable" });
+  const isRefactoring = mode === "refactoring";
+  const startMessage = isRefactoring
+    ? "Impeccable applying design refactoring"
+    : "Impeccable auditing frontend design quality";
   emitProgress(
     emitter,
     makeEvent("impeccable:start", { ...eventBase, stage: "impeccable" }, {
-      message: "Impeccable auditing frontend design quality",
-      detail: { provider: config?.roles?.impeccable?.provider || coderRole.provider, executorType: "agent" }
+      message: startMessage,
+      detail: { provider: config?.roles?.impeccable?.provider || coderRole.provider, executorType: "agent", mode }
     })
   );
 
-  const impeccable = new ImpeccableRole({ config, logger, emitter });
+  const impeccable = new ImpeccableRole({ config, logger, emitter, mode });
   await impeccable.init({ task, iteration });
   const impeccableStart = Date.now();
   let impeccableOutput;

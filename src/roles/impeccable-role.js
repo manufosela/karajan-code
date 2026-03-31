@@ -59,9 +59,11 @@ function buildSummary(parsed) {
 }
 
 export class ImpeccableRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
-    super({ name: "impeccable", config, logger, emitter });
+  constructor({ config, logger, emitter = null, createAgentFn = null, mode = "audit" }) {
+    const roleName = mode === "refactoring" ? "impeccable-design" : "impeccable";
+    super({ name: roleName, config, logger, emitter });
     this._createAgent = createAgentFn || defaultCreateAgent;
+    this.mode = mode;
   }
 
   async execute(input) {

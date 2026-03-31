@@ -262,6 +262,12 @@ function applyFlagOverrides(pipelineFlags, flags) {
   if (flags.enableTester !== undefined) pipelineFlags.testerEnabled = Boolean(flags.enableTester);
   if (flags.enableSecurity !== undefined) pipelineFlags.securityEnabled = Boolean(flags.enableSecurity);
   if (flags.enableImpeccable !== undefined) pipelineFlags.impeccableEnabled = Boolean(flags.enableImpeccable);
+
+  // --design flag: force-enable impeccable in refactoring mode
+  if (flags.design) {
+    pipelineFlags.impeccableEnabled = true;
+    pipelineFlags.impeccableMode = "refactoring";
+  }
 }
 
 function resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags }) {
@@ -1149,9 +1155,10 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
 
   if (pipelineFlags?.impeccableEnabled) {
     const diff = await generateDiff({ baseRef: session.session_start_sha });
+    const impeccableMode = pipelineFlags?.impeccableMode || "audit";
     const impeccableResult = await runImpeccableStage({
       config, logger, emitter, eventBase, session, coderRole, trackBudget,
-      iteration: i, task, diff
+      iteration: i, task, diff, mode: impeccableMode
     });
     if (impeccableResult.stageResult) {
       stageResults.impeccable = impeccableResult.stageResult;
