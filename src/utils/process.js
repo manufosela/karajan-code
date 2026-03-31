@@ -76,6 +76,10 @@ async function awaitWithTimeout(subprocess, timeout, getStdout) {
 
 export async function runCommand(command, args = [], options = {}) {
   const { timeout, onOutput, silenceTimeoutMs, partialOutputFlushMs, ...rest } = options;
+  // Always detach stdin: KJ subprocesses never need interactive input.
+  // Without this, a subprocess prompting for input (sonar credentials,
+  // agent approval, npm prompts) hangs forever since there is no TTY.
+  if (!rest.stdin) rest.stdin = "ignore";
   const subprocess = execa(command, args, { reject: false, ...rest });
 
   let stdoutAccum = "";
