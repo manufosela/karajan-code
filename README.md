@@ -264,6 +264,14 @@ npm run validate      # Lint + test
 
 Issues and pull requests welcome. If something doesn't work as documented, [open an issue](https://github.com/manufosela/karajan-code/issues). That's the most useful contribution at this stage.
 
+## Telemetry
+
+Karajan collects anonymous usage statistics to improve the tool:
+version, OS, command used, pipeline duration and success rate.
+No code, task descriptions, or personal data is ever sent.
+
+Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
+
 ## Links
 
 - [Website](https://karajancode.com) (also [kj-code.com](https://kj-code.com))

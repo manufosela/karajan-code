@@ -171,6 +171,7 @@ const DEFAULTS = {
     devtools_mcp: false,
     thresholds: { lcp: 2500, cls: 0.1, inp: 200 }
   },
+  telemetry: true,
   guards: {
     output: {
       enabled: true,

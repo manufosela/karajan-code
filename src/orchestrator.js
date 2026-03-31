@@ -1613,6 +1613,20 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         logger.warn(`Skill cleanup failed (non-blocking): ${err.message}`);
       }
     }
+
+    // --- Telemetry: anonymous pipeline_complete event (non-blocking) ---
+    try {
+      const { sendTelemetryEvent } = await import("./utils/telemetry.js");
+      const durationS = Math.round((Date.now() - ctx.startedAt) / 1000);
+      const sessionStatus = ctx.session?.status || "unknown";
+      sendTelemetryEvent("pipeline_complete", {
+        mode: config.review_mode,
+        agent: ctx.coderRole?.provider || config.coder,
+        duration_s: durationS,
+        success: sessionStatus === "approved",
+        taskType: ctx.session?.resolved_policies?.taskType || null
+      }, config).catch(() => {});
+    } catch { /* non-blocking */ }
   }
 }
 

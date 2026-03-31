@@ -40,6 +40,12 @@ async function withConfig(commandName, flags, fn) {
   const merged = applyRunOverrides(config, flags || {});
   validateConfig(merged, commandName);
   const logger = createLogger(merged.output.log_level);
+
+  // Telemetry: anonymous cli_command event (non-blocking)
+  import("./utils/telemetry.js")
+    .then(({ sendTelemetryEvent }) => sendTelemetryEvent("cli_command", { command: commandName, version: PKG_VERSION }, merged))
+    .catch(() => {});
+
   await fn({ config: merged, logger, flags });
 }
 
