@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-03-31
+
+### Added
+- **Plan → Run connection**: `kj_plan` now runs researcher + architect before planner and persists the result. `kj_run --plan <planId>` loads the persisted plan context and skips pre-loop stages. Plans stored in `~/.kj/plans/` (#279)
+- Plan store: savePlan, loadPlan, listPlans, getLatestPlan
+- CLI: `kj run --plan <planId>`
+- 10 new tests
+
 ## [1.52.0] - 2026-03-31
 
 ### Added
@@ -584,7 +592,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.52.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.53.0...HEAD
+[1.53.0]: https://github.com/manufosela/karajan-code/compare/v1.52.0...v1.53.0
 [1.52.0]: https://github.com/manufosela/karajan-code/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/manufosela/karajan-code/compare/v1.50.1...v1.51.0
 [1.50.1]: https://github.com/manufosela/karajan-code/compare/v1.50.0...v1.50.1
