@@ -258,7 +258,7 @@ Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Bre
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Run ~2473 tests with Vitest
+npm test              # Run ~2599 tests with Vitest
 npm run validate      # Lint + test
 ```
 
