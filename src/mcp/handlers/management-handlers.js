@@ -14,6 +14,8 @@ import {
   responseText,
   buildConfig,
 } from "../server-handlers.js";
+import { buildDashboardJson } from "../../utils/status-dashboard.js";
+import { loadMostRecentSession } from "../../session-store.js";
 
 const AGENT_ROLES = new Set(["coder", "reviewer", "tester", "security", "solomon"]);
 
@@ -29,7 +31,26 @@ async function runBootstrapGate(server, a) {
 export async function handleStatus(a, server) {
   const maxLines = a.lines || 50;
   const projectDir = await resolveProjectDir(server, a.projectDir);
-  return readRunLog(projectDir, maxLines);
+  const logResult = readRunLog(projectDir, maxLines);
+
+  // Enrich with dashboard data when possible
+  try {
+    const session = await loadMostRecentSession();
+    const stories = [];
+    if (session) {
+      try {
+        const { loadHuBatch } = await import("../../hu/store.js");
+        const batch = await loadHuBatch(session.id);
+        if (batch?.stories) stories.push(...batch.stories);
+      } catch { /* no HU batch for this session */ }
+    }
+
+    const dashboard = buildDashboardJson(session, logResult.lines || [], { stories });
+    return { ...logResult, dashboard };
+  } catch {
+    // Fallback: return raw log without dashboard
+    return logResult;
+  }
 }
 
 export async function handleAgents(a) {

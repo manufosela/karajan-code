@@ -25,6 +25,7 @@ import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
 import { undoCommand } from "./commands/undo.js";
+import { statusCommand } from "./commands/status.js";
 
 import { printUpdateNotice } from "./utils/update-check.js";
 
@@ -166,6 +167,14 @@ program
   .description("Check environment requirements")
   .action(async () => {
     await withConfig("doctor", {}, doctorCommand);
+  });
+
+program
+  .command("status")
+  .description("Show pipeline dashboard with HU progress")
+  .option("-n, --lines <n>", "Max log lines to read", "50")
+  .action(async (flags) => {
+    await statusCommand({ lines: Number(flags.lines) });
   });
 
 program
