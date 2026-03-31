@@ -12,6 +12,7 @@ import { getInstallCommand } from "../utils/os-detect.js";
 import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
+import { detectProjectStack } from "../utils/stack-detect.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -329,6 +330,35 @@ export async function initCommand({ logger, flags = {} }) {
   await ensureReviewRules(reviewRulesPath, logger);
   await ensureCoderRules(coderRulesPath, logger);
   await installSkills(logger, interactive);
+
+  // Auto-detect project stack and preconfigure
+  const stack = await detectProjectStack(process.cwd());
+  if (stack.frameworks.length > 0 || stack.language) {
+    const parts = [];
+    if (stack.frameworks.length > 0) parts.push(stack.frameworks.join(" + "));
+    if (stack.language) parts.push(stack.language);
+    const stackType = stack.isFullstack ? "fullstack" : stack.isFrontend ? "frontend" : stack.isBackend ? "backend" : "unknown";
+    logger.info(`Detected stack: ${parts.join(" / ")} (${stackType})`);
+
+    if (stack.suggestions.impeccable) {
+      config.impeccable = config.impeccable || {};
+      config.impeccable.enabled = true;
+      logger.info("  -> Impeccable design audit enabled (frontend detected)");
+    }
+
+    if (stack.suggestions.skills.length > 0) {
+      logger.info(`  -> Suggested skills: ${stack.suggestions.skills.join(", ")}`);
+    }
+
+    if (stack.language && !configExists) {
+      config.development = config.development || {};
+      config.development.methodology = config.development.methodology || "tdd";
+    }
+
+    await writeConfig(configPath, config);
+  } else {
+    logger.info("No project stack detected — using default configuration.");
+  }
 
   // Check RTK availability — auto-install if missing
   const rtk = await detectRtk();
