@@ -1,0 +1,77 @@
+# AI Attribution Guard — GitHub Action
+#
+# Copy this file to .github/workflows/ai-attribution-guard.yml in any repo.
+# Blocks PRs that contain AI attribution comments or Co-Authored-By lines.
+# No dependencies, no Node.js required. Pure bash + grep.
+
+name: AI Attribution Guard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  scan:
+    name: Scan for AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR diff for AI attribution
+        run: |
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD \
+            -- ':!*.png' ':!*.jpg' ':!*.svg' ':!*.ico' \
+               ':!*.lock' ':!package-lock.json' ':!yarn.lock' \
+               ':!*.min.js' ':!*.min.css' \
+               ':!.githooks/*' \
+            | grep '^+' \
+            | grep -v '^+++' \
+            || true)
+
+          [ -z "$DIFF" ] && echo "No diff to scan" && exit 0
+
+          # Attribution patterns (not functional references like provider: "claude")
+          ATTR='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|Cursor|Windsurf|Codeium)'
+          COAUTH='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)\b'
+          COMMENT='(//|#|/\*|\*|<!--|--)\s*.*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini).*(generated|assisted|helped|created|wrote|built|made)'
+
+          FOUND=""
+          for PAT in "$ATTR" "$COAUTH" "$COMMENT"; do
+            MATCH=$(echo "$DIFF" | grep -i -E "$PAT" || true)
+            [ -n "$MATCH" ] && FOUND="${FOUND}${MATCH}\n"
+          done
+
+          if [ -n "$FOUND" ]; then
+            echo "::error::AI attribution detected in PR diff"
+            echo -e "$FOUND"
+            echo ""
+            echo "Remove AI attribution comments/lines and push again."
+            exit 1
+          fi
+
+          echo "AI attribution guard: clean"
+
+      - name: Check commit messages
+        run: |
+          COMMITS=$(git log --format='%s%n%b' origin/${{ github.base_ref }}...HEAD)
+
+          COAUTH='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)\b'
+          ATTR='(Generated|Created|Written|Built|Authored) (by|with|using) .*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)'
+
+          FOUND=""
+          for PAT in "$COAUTH" "$ATTR"; do
+            MATCH=$(echo "$COMMITS" | grep -i -E "$PAT" || true)
+            [ -n "$MATCH" ] && FOUND="${FOUND}${MATCH}\n"
+          done
+
+          if [ -n "$FOUND" ]; then
+            echo "::error::AI attribution detected in commit messages"
+            echo -e "$FOUND"
+            echo ""
+            echo "Amend commits to remove AI attribution and force-push."
+            exit 1
+          fi
+
+          echo "Commit messages: clean"
