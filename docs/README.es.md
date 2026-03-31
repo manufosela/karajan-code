@@ -63,12 +63,24 @@ npm install -g karajan-code
 brew install manufosela/tap/karajan-code
 ```
 
+**Binario standalone** (sin Node.js):
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-darwin-arm64 -o kj && chmod +x kj
+
+# Linux x64
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-linux-x64 -o kj && chmod +x kj
+
+# Windows
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-win-x64.exe -o kj.exe
+```
+
 **One-liner** (detecta SO, instala via npm):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
 ```
 
-**Docker** (sin Node.js):
+**Docker**:
 ```bash
 docker run --rm -v $(pwd):/workspace karajan-code kj --version
 ```
@@ -201,7 +213,7 @@ Karajan auto-detecta y auto-configura todo lo que puede:
 - **TDD**: Detecta framework de tests para 12 lenguajes (vitest, jest, JUnit, pytest, go test, cargo test, y mas). Auto-activa TDD para tareas de codigo, lo salta para doc/infra
 - **Bootstrap gate**: Valida todos los prerequisitos (repo git, remote, config, agentes, SonarQube) antes de ejecutar. Falla con instrucciones claras, nunca degrada silenciosamente
 - **Injection guard**: Escanea diffs en busca de prompt injection antes del review de IA. Detecta directivas de override, Unicode invisible, payloads en comentarios sobredimensionados. Tambien como GitHub Action en cada PR
-- **SonarQube**: Auto-arranca contenedor Docker, genera config si falta
+- **SonarQube**: Auto-arranca contenedor Docker, espera hasta 60s al arranque, genera config si falta
 - **Complejidad del pipeline**: Triage clasifica la tarea, las triviales saltan el loop del reviewer
 - **Caidas de proveedor**: Reintentos en 500/502/503/504 con backoff (igual que rate limits)
 - **Cobertura**: Fallos de quality gate solo por cobertura se tratan como advisory
