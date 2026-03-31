@@ -124,6 +124,11 @@ vi.mock("../src/mcp/suggest-handler.js", () => ({
 }));
 
 vi.mock("../src/hu/store.js", () => ({
+  HU_STATUS: Object.freeze({
+    PENDING: "pending", CODING: "coding", REVIEWING: "reviewing",
+    DONE: "done", FAILED: "failed", BLOCKED: "blocked",
+    CERTIFIED: "certified", NEEDS_CONTEXT: "needs_context"
+  }),
   createManualHu: vi.fn(async (dir, data) => ({ id: "HU-001", ...data })),
   listHus: vi.fn(async () => []),
   getHu: vi.fn(async (dir, id) => ({ id })),

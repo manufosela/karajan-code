@@ -28,7 +28,7 @@ import {
   assertNotOnBaseBranch,
   buildConfig,
   buildDirectEmitter,
-} from "../server-handlers.js";
+} from "../shared-helpers.js";
 
 /**
  * Run bootstrap gate: validate all environment prerequisites before execution.

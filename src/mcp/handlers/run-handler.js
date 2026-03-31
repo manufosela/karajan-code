@@ -21,7 +21,7 @@ import {
   buildConfig,
   buildAskQuestion,
   enrichedFailPayload,
-} from "../server-handlers.js";
+} from "../shared-helpers.js";
 
 const MAX_AUTO_RESUMES = 2;
 const NON_RECOVERABLE_CATEGORIES = new Set([

@@ -7,7 +7,7 @@ import { handleSuggestion } from "../suggest-handler.js";
 import {
   resolveProjectDir,
   failPayload,
-} from "../server-handlers.js";
+} from "../shared-helpers.js";
 
 export async function handleHu(a, server) {
   const action = a.action;

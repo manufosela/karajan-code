@@ -13,7 +13,7 @@ import {
   failPayload,
   responseText,
   buildConfig,
-} from "../server-handlers.js";
+} from "../shared-helpers.js";
 import { buildDashboardJson } from "../../utils/status-dashboard.js";
 import { loadMostRecentSession } from "../../session-store.js";
 
