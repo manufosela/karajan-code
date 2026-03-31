@@ -16,10 +16,8 @@ describe("Triage decomposition question UI", () => {
     const subtasks = ["Implement MySQL parser", "Implement CSV parser", "Add integration tests"];
     const question = buildDecompositionQuestion(subtasks, "KJC-TSK-0042");
 
-    expect(question).toContain("1 = Accept and create the subtasks");
-    expect(question).toContain("2 = Reject and continue without decomposing");
-    expect(question).toContain("3 = Modify");
-    expect(question).toContain("Type 1, 2, or 3:");
+    expect(question).toContain("Reply: yes / no");
+    expect(question).toContain("sequential chain");
   });
 
   it("lists all subtasks with numbers", () => {

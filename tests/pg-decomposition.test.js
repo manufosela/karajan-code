@@ -14,7 +14,7 @@ describe("buildDecompositionQuestion", () => {
     expect(question).toContain("3. Add E2E tests");
     expect(question).toContain("KJC-TSK-0042");
     expect(question).toContain("sequential chain");
-    expect(question).toContain("1 = Accept and create the subtasks");
+    expect(question).toContain("Reply: yes / no");
   });
 });
 
