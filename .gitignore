@@ -1,11 +1,23 @@
 node_modules/
-.karajan/
-.reviews/
+coverage/
+dist/
 *.log
 .DS_Store
-coverage/
+
+# Karajan local files
+.karajan/
+.reviews/
+.kj/
 kj.config.yml
 review-rules.md
 .sonar-env
 .kj-ready.json
+
+# Claude Code local files (CLAUDE.md in root IS committed)
+.claude/
+
+# SonarQube
+.scannerwork/
+
+# Test artifacts
 tests/e2e/karajan-code.tgz
