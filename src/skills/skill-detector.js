@@ -67,6 +67,15 @@ const TASK_TEXT_PATTERNS = [
   { pattern: /\bflutter\b/i, skill: "flutter" },
   { pattern: /\bswift\b/i, skill: "swift" },
   { pattern: /\bphp\b/i, skill: "php" },
+  { pattern: /\bSQL\b/i, skill: "sql-analysis" },
+  { pattern: /\bquer(?:y|ies)\b/i, skill: "sql-analysis" },
+  { pattern: /\bdatabase\b/i, skill: "sql-analysis" },
+  { pattern: /\bCSV\b/i, skill: "csv-transform" },
+  { pattern: /\btransform\b/i, skill: "csv-transform" },
+  { pattern: /\bparse\b/i, skill: "csv-transform" },
+  { pattern: /\breport\b/i, skill: "data-report" },
+  { pattern: /\banalysis\b/i, skill: "data-report" },
+  { pattern: /\bfindings\b/i, skill: "data-report" },
 ];
 
 /**
