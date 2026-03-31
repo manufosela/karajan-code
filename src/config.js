@@ -469,6 +469,13 @@ const CODER_INHERITED_ROLES = new Set([
 
 function resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer) {
   if (roleConfig.provider) return roleConfig.provider;
+
+  // If model has "provider/model" format (e.g. "gemini/pro"), extract the provider
+  if (roleConfig.model && roleConfig.model.includes("/")) {
+    const inferredProvider = roleConfig.model.split("/")[0].toLowerCase();
+    if (AGENT_MODEL_SIGNATURES[inferredProvider]) return inferredProvider;
+  }
+
   if (role === "coder") return legacyCoder;
   if (role === "reviewer") return legacyReviewer;
   if (CODER_INHERITED_ROLES.has(role)) return roles.coder?.provider || legacyCoder;
@@ -476,7 +483,13 @@ function resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer) {
 }
 
 function resolveModel(roleConfig, role, config) {
-  if (roleConfig.model) return { model: roleConfig.model, inherited: false };
+  if (roleConfig.model) {
+    // Strip "provider/" prefix from models like "gemini/pro" → "pro"
+    const model = roleConfig.model.includes("/")
+      ? roleConfig.model.split("/").slice(1).join("/")
+      : roleConfig.model;
+    return { model, inherited: false };
+  }
   if (role === "coder") return { model: config?.coder_options?.model ?? null, inherited: false };
   if (role === "reviewer") return { model: config?.reviewer_options?.model ?? null, inherited: false };
   if (CODER_INHERITED_ROLES.has(role)) {
@@ -495,8 +508,8 @@ export function resolveRole(config, role) {
   const provider = resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer);
   let { model, inherited: modelIsInherited } = resolveModel(roleConfig, role, config);
 
-  // Drop inherited model if incompatible with the resolved provider
-  if (modelIsInherited && provider && model && !isModelCompatible(provider, model)) {
+  // Drop model if incompatible with the resolved provider (inherited or explicit)
+  if (provider && model && !isModelCompatible(provider, model)) {
     model = null;
   }
 

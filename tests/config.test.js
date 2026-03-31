@@ -131,6 +131,32 @@ describe("applyRunOverrides", () => {
     expect(resolveRole(out, "reviewer").provider).toBe("aider");
   });
 
+  it("infers provider from provider/model format in model field", () => {
+    const config = {
+      roles: {
+        reviewer: { model: "gemini/pro" },
+        coder: { provider: "claude" }
+      }
+    };
+    const out = applyRunOverrides(config, {});
+    // provider inferred from "gemini/pro" → "gemini"
+    expect(resolveRole(out, "reviewer").provider).toBe("gemini");
+    // model stripped to just "pro"
+    expect(resolveRole(out, "reviewer").model).toBe("pro");
+  });
+
+  it("drops incompatible explicit model (e.g. gemini model on claude provider)", () => {
+    const config = {
+      roles: {
+        reviewer: { provider: "claude", model: "gemini-2.5-pro" }
+      }
+    };
+    const out = applyRunOverrides(config, {});
+    expect(resolveRole(out, "reviewer").provider).toBe("claude");
+    // model dropped because gemini model is incompatible with claude provider
+    expect(resolveRole(out, "reviewer").model).toBeNull();
+  });
+
   it("keeps default budget warning threshold when not overridden", () => {
     const out = applyRunOverrides({}, {});
     expect(out.budget.warn_threshold_pct).toBe(80);
