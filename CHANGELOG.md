@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-03-31
+
+### Added
+- **No-code pipeline mode**: triage detects non-coding tasks (data analysis, SQL queries, CSV transforms, reports) and disables TDD + SonarQube automatically. Coder generates output, reviewer validates logic (#277)
+- **3 no-code skills**: `kj-sql-analysis` (query generation + injection checks), `kj-csv-transform` (delimiter detection, encoding, validation), `kj-data-report` (structured reports with methodology) (#276)
+- Skill detector patterns for SQL, CSV, and report tasks
+- 26 new tests
+
 ## [1.51.0] - 2026-03-30
 
 ### Added
@@ -576,7 +584,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: GitHub Actions workflow with validation and PR annotations
 - **716+ unit tests** with Vitest
 
-[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.51.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-code/compare/v1.52.0...HEAD
+[1.52.0]: https://github.com/manufosela/karajan-code/compare/v1.51.0...v1.52.0
 [1.51.0]: https://github.com/manufosela/karajan-code/compare/v1.50.1...v1.51.0
 [1.50.1]: https://github.com/manufosela/karajan-code/compare/v1.50.0...v1.50.1
 [1.50.0]: https://github.com/manufosela/karajan-code/compare/v1.49.0...v1.50.0
