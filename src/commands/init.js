@@ -305,6 +305,35 @@ async function installSkills(logger, interactive) {
   }
 }
 
+const GITIGNORE_ENTRIES = [
+  { pattern: ".kj/", comment: "Karajan runtime (logs, worktrees)" },
+  { pattern: ".agent/", comment: "Agent skills (OpenSkills)" },
+  { pattern: ".scannerwork/", comment: "SonarQube scanner temp" },
+];
+
+async function ensureGitignoreEntries(projectDir, logger) {
+  const gitignorePath = path.join(projectDir, ".gitignore");
+  let content;
+  try {
+    content = await fs.readFile(gitignorePath, "utf8");
+  } catch {
+    // No .gitignore yet — will create one
+  }
+  if (!content) content = "";
+
+  const missing = GITIGNORE_ENTRIES.filter(e => !content.includes(e.pattern));
+  if (missing.length === 0) return;
+
+  const block = [
+    "",
+    "# Karajan Code",
+    ...missing.map(e => e.pattern)
+  ].join("\n") + "\n";
+
+  await fs.appendFile(gitignorePath, block, "utf8");
+  logger.info(`Added to .gitignore: ${missing.map(e => e.pattern).join(", ")}`);
+}
+
 export async function initCommand({ logger, flags = {} }) {
   const karajanHome = getKarajanHome();
   await ensureDir(karajanHome);
@@ -329,6 +358,7 @@ export async function initCommand({ logger, flags = {} }) {
   await handleConfigSetup({ config, configExists, interactive, configPath, logger });
   await ensureReviewRules(reviewRulesPath, logger);
   await ensureCoderRules(coderRulesPath, logger);
+  await ensureGitignoreEntries(process.cwd(), logger);
   await installSkills(logger, interactive);
 
   // Auto-detect project stack and preconfigure

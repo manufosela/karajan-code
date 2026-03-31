@@ -13,6 +13,10 @@ vi.mock("node:fs/promises", () => ({
     readFile: vi.fn(async (p) => {
       if (writtenFiles.has(p)) return writtenFiles.get(p);
       throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    }),
+    appendFile: vi.fn(async (p, content) => {
+      const existing = writtenFiles.get(p) || "";
+      writtenFiles.set(p, existing + content);
     })
   }
 }));

@@ -16,6 +16,9 @@ review-rules.md
 # Claude Code local files (CLAUDE.md in root IS committed)
 .claude/
 
+# Agent skills (installed by kj_skills / OpenSkills)
+.agent/
+
 # SonarQube
 .scannerwork/
 

@@ -24,7 +24,8 @@ vi.mock("../src/sonar/manager.js", () => ({
 vi.mock("node:fs/promises", () => ({
   default: {
     writeFile: vi.fn().mockResolvedValue(undefined),
-    readFile: vi.fn().mockRejectedValue(new Error("not found"))
+    readFile: vi.fn().mockRejectedValue(new Error("not found")),
+    appendFile: vi.fn().mockResolvedValue(undefined)
   }
 }));
 
