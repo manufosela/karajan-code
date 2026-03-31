@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.57.1] - 2026-03-31
+
+### Added
+- **SEA binary build**: standalone binary via `node scripts/build-sea.mjs`. No Node.js required to run
+- **Release workflow**: GitHub Actions builds binaries for linux-x64, darwin-arm64, darwin-x64, win-x64 with SHA256 checksums on every tag
+
+### Fixed
+- **YAML duplicate keys**: config loader now tolerates duplicated keys in user config files (#300)
+
 ## [1.57.0] - 2026-03-31
 
 ### Added
