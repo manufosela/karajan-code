@@ -221,7 +221,7 @@ export async function loadProjectConfig(projectDir = process.cwd()) {
     return null;
   }
   const raw = await fs.readFile(projectConfigPath, "utf8");
-  return yaml.load(raw) || {};
+  return yaml.load(raw, { json: true }) || {};
 }
 
 async function loadProjectPricingOverrides(projectDir = process.cwd()) {
@@ -231,7 +231,7 @@ async function loadProjectPricingOverrides(projectDir = process.cwd()) {
   }
 
   const raw = await fs.readFile(projectConfigPath, "utf8");
-  const parsed = yaml.load(raw) || {};
+  const parsed = yaml.load(raw, { json: true }) || {};
   const pricing = parsed?.budget?.pricing;
   if (!pricing || typeof pricing !== "object") {
     return null;
@@ -249,7 +249,7 @@ export async function loadConfig(projectDir) {
   const globalExists = await exists(configPath);
   if (globalExists) {
     const raw = await fs.readFile(configPath, "utf8");
-    globalConfig = yaml.load(raw) || {};
+    globalConfig = yaml.load(raw, { json: true }) || {};
   }
 
   // Load project config (.karajan/kj.config.yml)
