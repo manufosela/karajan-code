@@ -38,19 +38,30 @@ async function checkDocker() {
   };
 }
 
+const SONAR_STARTUP_POLL_MS = 5000;
+const SONAR_STARTUP_MAX_WAIT_MS = 60000;
+
+async function waitForSonar(host, maxWaitMs = SONAR_STARTUP_MAX_WAIT_MS) {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (await isSonarReachable(host)) return true;
+    await new Promise(r => setTimeout(r, SONAR_STARTUP_POLL_MS));
+  }
+  return false;
+}
+
 async function checkSonarReachable(host) {
   const reachable = await isSonarReachable(host);
   if (reachable) {
     return { name: "sonar-reachable", ok: true, detail: `SonarQube reachable at ${host}`, remediated: false };
   }
 
-  // Auto-remediation: try to start SonarQube
+  // Auto-remediation: start SonarQube and wait for it to be ready
   try {
     const upResult = await sonarUp(host);
     if (upResult.exitCode === 0) {
-      // Verify it's actually reachable now
-      const reachableAfter = await isSonarReachable(host);
-      if (reachableAfter) {
+      // SonarQube needs 20-40s to start. Poll until ready.
+      if (await waitForSonar(host)) {
         return { name: "sonar-reachable", ok: true, detail: `SonarQube started and reachable at ${host}`, remediated: true };
       }
     }
@@ -58,7 +69,7 @@ async function checkSonarReachable(host) {
     // sonarUp failed, fall through
   }
 
-  return { name: "sonar-reachable", ok: false, detail: `SonarQube not reachable at ${host} (auto-start failed)` };
+  return { name: "sonar-reachable", ok: false, detail: `SonarQube not reachable at ${host} (auto-start failed after ${SONAR_STARTUP_MAX_WAIT_MS / 1000}s)` };
 }
 
 async function checkSonarAuth(config) {

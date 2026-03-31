@@ -130,12 +130,16 @@ async function checkSonarQubeReady(config) {
     return { name: "sonarqube", ok: true, detail: `Reachable at ${host}`, fix: null };
   }
 
-  // Auto-remediation: try to start
+  // Auto-remediation: start and wait up to 60s for SonarQube to be ready
   try {
     await sonarUp(host);
-    reachable = await isSonarReachable(host);
-    if (reachable) {
-      return { name: "sonarqube", ok: true, detail: `Started and reachable at ${host}`, fix: null };
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      reachable = await isSonarReachable(host);
+      if (reachable) {
+        return { name: "sonarqube", ok: true, detail: `Started and reachable at ${host}`, fix: null };
+      }
+      await new Promise(r => setTimeout(r, 5000));
     }
   } catch { /* fall through */ }
 
