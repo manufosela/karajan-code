@@ -19,8 +19,6 @@ jobs:
             target: linux-x64
           - os: macos-latest
             target: darwin-arm64
-          - os: macos-13
-            target: darwin-x64
           - os: windows-latest
             target: win-x64
 
