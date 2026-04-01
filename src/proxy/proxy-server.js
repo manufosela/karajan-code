@@ -1,5 +1,6 @@
 import http from "node:http";
 import https from "node:https";
+import { isRequestTooLarge } from "./security.js";
 
 /**
  * Create a lightweight HTTP forward proxy with middleware pipeline.
@@ -129,12 +130,28 @@ export function createProxyServer({ port = 0, targetHosts = {}, _testTarget } = 
       return;
     }
 
+    // Reject oversized requests early (50 MB default)
+    const MAX_BODY_BYTES = 50 * 1024 * 1024;
+    if (isRequestTooLarge(req.headers["content-length"], MAX_BODY_BYTES)) {
+      res.writeHead(413, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Payload Too Large", maxBytes: MAX_BODY_BYTES }));
+      return;
+    }
+
     activeConnections++;
     stats.requests++;
 
-    // Collect body
+    // Collect body — enforce streaming size limit even without Content-Length
+    let bodySize = 0;
     const chunks = [];
     req.on("data", (c) => {
+      bodySize += c.length;
+      if (bodySize > MAX_BODY_BYTES) {
+        res.writeHead(413, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "Payload Too Large", maxBytes: MAX_BODY_BYTES }));
+        req.destroy();
+        return;
+      }
       chunks.push(c);
       stats.bytes_in += c.length;
     });
