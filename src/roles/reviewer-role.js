@@ -1,6 +1,6 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
-import { RTK_INSTRUCTIONS } from "../prompts/rtk-snippet.js";
+import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 
 const MAX_DIFF_LENGTH = 12000;
 
@@ -25,7 +25,7 @@ function truncateDiff(diff) {
     : diff;
 }
 
-function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false, productContext = null, domainContext = null }) {
+function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false, proxyEnabled = false, productContext = null, domainContext = null }) {
   const sections = [];
 
   sections.push(SUBAGENT_PREAMBLE);
@@ -50,8 +50,9 @@ function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAva
     sections.push(`## Domain Context\n${domainContext}`);
   }
 
-  if (rtkAvailable) {
-    sections.push(RTK_INSTRUCTIONS);
+  const rtkSnippet = buildRtkInstructions({ rtkAvailable, proxyEnabled });
+  if (rtkSnippet) {
+    sections.push(rtkSnippet);
   }
 
   if (reviewRules) {
@@ -93,6 +94,7 @@ export class ReviewerRole extends BaseRole {
       reviewMode: this.config?.review_mode || "standard",
       instructions: this.instructions,
       rtkAvailable: Boolean(this.config?.rtk?.available),
+      proxyEnabled: Boolean(this.config?.proxy?.enabled),
       productContext: this.config?.productContext || null,
       domainContext: this.config?.domainContext || null
     });

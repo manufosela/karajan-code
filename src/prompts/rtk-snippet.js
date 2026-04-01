@@ -13,3 +13,15 @@ export const RTK_INSTRUCTIONS = [
   "- Use `rtk cat` instead of `cat`",
   "This does NOT apply to non-Bash tools (Read, Write, Edit, Glob, Grep)."
 ].join("\n");
+
+/**
+ * Build RTK instructions, returning empty string when proxy compression
+ * handles token optimization at the HTTP layer.
+ * @param {{ rtkAvailable?: boolean, proxyEnabled?: boolean }} options
+ * @returns {string}
+ */
+export function buildRtkInstructions({ rtkAvailable = false, proxyEnabled = false } = {}) {
+  if (proxyEnabled) return "";
+  if (!rtkAvailable) return "";
+  return RTK_INSTRUCTIONS;
+}
