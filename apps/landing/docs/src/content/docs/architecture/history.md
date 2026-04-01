@@ -737,6 +737,32 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.54.0** — `--design` flag: impeccable role switches from audit-only to refactoring mode. Coder applies design changes (hierarchy, spacing, responsive, a11y, animations, theming).
 
+## Phase 46: Domain Knowledge System (v1.58.0)
+
+**v1.58.0** — New `domain-curator` role (16th role). Discovers, proposes and synthesizes business-domain knowledge so all downstream roles work with real-world context — not just technical frameworks.
+
+**Key additions:**
+- Domain storage: `~/.karajan/domains/` (user/company bank, reusable across projects) + `.karajan/domains/` (project-specific overrides). DOMAIN.md files with YAML frontmatter and markdown sections
+- Domain registry: local JSON index at `~/.karajan/domain-registry.json` with search by tags/hints
+- Domain synthesizer: filters relevant sections by keyword overlap, compacts to token budget
+- Domain Curator role: deterministic (no LLM cost) — loads domains, proposes selection to user (if interactive), synthesizes context
+- Enhanced `buildAskQuestion`: detects `server.getClientCapabilities()?.elicitation` to adapt to host MCP capabilities. Supports structured question types (multi-select, select, confirm) with free-text response parser
+- Triage `domainHints`: triage detects business-domain keywords and passes them to the Curator
+- Skill-loader type discrimination: `SKILL.md` files with `type: domain` frontmatter are loaded by the Curator (injected into all roles) vs `type: technical` (coder-only)
+- `domainContext` injected into all downstream role prompts (Researcher, Architect, Planner, Coder, Reviewer, HU-Reviewer)
+- 102 new tests
+
+**v1.58.1** — CLI welcome screen on bare `kj` invocation: shows version, configured agents, and quick start commands.
+
+**Architecture addition:**
+```
+triage → domainHints: ["dental", "clinical"]
+       → domain-curator → loadDomains + registry.search → askQuestion (if interactive) → synthesizeDomainContext
+       → domainContext injected into researcher, architect, planner, coder, reviewer, hu-reviewer prompts
+```
+
+**Why:** AI agents writing code for a specific industry (dental, logistics, finance) make better decisions when they understand the business domain — correct naming, real edge cases, proper validation rules. The Domain Curator adds this context at zero LLM cost (deterministic loader + synthesizer), reusable across projects.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
