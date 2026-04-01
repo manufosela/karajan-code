@@ -1,4 +1,4 @@
-import { RTK_INSTRUCTIONS } from "./rtk-snippet.js";
+import { buildRtkInstructions } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 import { getLanguageInstruction } from "../utils/locale.js";
 
@@ -33,7 +33,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en" }) {
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, proxyEnabled = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en" }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
@@ -48,8 +48,9 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     sections.push(SERENA_INSTRUCTIONS);
   }
 
-  if (rtkAvailable) {
-    sections.push(RTK_INSTRUCTIONS);
+  const rtkSnippet = buildRtkInstructions({ rtkAvailable, proxyEnabled });
+  if (rtkSnippet) {
+    sections.push(rtkSnippet);
   }
 
   if (productContext) {
