@@ -736,6 +736,32 @@ Pipeline auto-simplify: triage nivel 1-2 (trivial/simple) ejecuta un flujo liger
 
 **v1.54.0** — Flag `--design`: el rol impeccable pasa de solo-auditoria a modo refactoring. El coder aplica cambios de diseno (jerarquia, spacing, responsive, a11y, animaciones, theming).
 
+## Fase 46: Domain Knowledge System (v1.58.0)
+
+**v1.58.0** — Nuevo rol `domain-curator` (rol 16). Descubre, propone y sintetiza conocimiento de dominio de negocio para que todos los roles downstream trabajen con contexto del mundo real — no solo frameworks tecnicos.
+
+**Adiciones clave:**
+- Almacenamiento de dominios: `~/.karajan/domains/` (banco usuario/empresa, reutilizable entre proyectos) + `.karajan/domains/` (overrides por proyecto). Ficheros DOMAIN.md con frontmatter YAML y secciones markdown
+- Registry de dominios: indice JSON local en `~/.karajan/domain-registry.json` con busqueda por tags/hints
+- Sintetizador de dominios: filtra secciones relevantes por keyword overlap, compacta al presupuesto de tokens
+- Rol Domain Curator: deterministico (sin coste LLM) — carga dominios, propone seleccion al usuario (si interactivo), sintetiza contexto
+- `buildAskQuestion` mejorado: detecta `server.getClientCapabilities()?.elicitation` para adaptarse a las capabilities del host MCP. Soporta preguntas estructuradas (multi-select, select, confirm) con parser de texto libre
+- Triage `domainHints`: el triage detecta keywords de dominio de negocio y los pasa al Curator
+- Discriminacion de tipo en skill-loader: ficheros `SKILL.md` con `type: domain` en frontmatter se cargan via el Curator (inyectados en todos los roles) vs `type: technical` (solo coder)
+- `domainContext` inyectado en todos los prompts de roles downstream (Researcher, Architect, Planner, Coder, Reviewer, HU-Reviewer)
+- 102 tests nuevos
+
+**v1.58.1** — Pantalla de bienvenida CLI al invocar `kj` sin argumentos: muestra version, agentes configurados y comandos rapidos.
+
+**Adicion arquitectonica:**
+```
+triage → domainHints: ["dental", "clinical"]
+       → domain-curator → loadDomains + registry.search → askQuestion (si interactivo) → synthesizeDomainContext
+       → domainContext inyectado en prompts de researcher, architect, planner, coder, reviewer, hu-reviewer
+```
+
+**Por que:** Los agentes IA que escriben codigo para una industria especifica (dental, logistica, finanzas) toman mejores decisiones cuando entienden el dominio de negocio — nombres correctos, edge cases reales, reglas de validacion adecuadas. El Domain Curator anade este contexto a coste cero de LLM (loader + sintetizador deterministicos), reutilizable entre proyectos.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

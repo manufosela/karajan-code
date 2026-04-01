@@ -5,11 +5,11 @@ description: How the Karajan Code multi-agent pipeline works.
 
 ## Pipeline Overview
 
-Karajan orchestrates **15 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider, OpenCode) does it.
+Karajan orchestrates **16 specialized roles** through a three-phase pipeline. Each role defines *what* to do; you choose *which AI agent* (Claude, Codex, Gemini, Aider, OpenCode) does it.
 
 ```
-intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
-                                                                                   └─── iteration loop (1..N) ──────────────────────────────────────┘
+intent? → discover? → hu-reviewer? → triage → domain-curator? → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
+                                                                                                     └─── iteration loop (1..N) ──────────────────────────────────────┘
 ```
 
 ### Roles
@@ -17,7 +17,8 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | Role | Description | Default |
 |------|-------------|---------|
 | **discover** | Pre-execution gap detection — analyzes tasks for missing info, ambiguities, and assumptions | Off |
-| **triage** | Pipeline director — analyzes task complexity, classifies taskType, and activates roles dynamically | **On** |
+| **triage** | Pipeline director — analyzes task complexity, classifies taskType, detects domain hints, and activates roles dynamically | **On** |
+| **domain-curator** | Discovers, proposes and synthesizes business-domain knowledge (from `~/.karajan/domains/` and `.karajan/domains/`) so all downstream roles work with real-world context — not just technical frameworks | Auto (when domains exist) |
 | **researcher** | Investigates codebase context before planning | Off |
 | **architect** | Designs solution architecture — layers, patterns, data model, API contracts, tradeoffs | Off |
 | **planner** | Generates structured implementation plans informed by architecture | Off |

@@ -7,7 +7,7 @@ description: Qué es Karajan Code y por qué usarlo.
 
 Karajan Code (`kj`) orquesta agentes de IA como un director de orquesta dirige una sinfonía. Tú defines **qué** tiene que pasar — codificar, revisar, testear, securizar — y Karajan asigna **quién** hace cada parte.
 
-**15 roles especializados.** Triage, researcher, architect, planner, coder, reviewer, tester, security, y más.
+**16 roles especializados.** Triage, domain-curator, researcher, architect, planner, coder, reviewer, tester, security, y más.
 
 **5 agentes IA.** Claude, Codex, Gemini, Aider, OpenCode. Combínalos libremente.
 
@@ -84,7 +84,7 @@ Karajan Code resuelve ambos problemas encadenando **roles** con **quality gates*
   <div class="carousel-track">
     <div class="carousel-slide">
       <h3>Pipeline basado en Roles</h3>
-      <p>15 roles especializados — cada uno asignable a cualquier agente. Triage, discover, researcher, architect, planner, coder, refactorer, sonar, reviewer, hu-reviewer, tester, security, audit, solomon, commiter.</p>
+      <p>16 roles especializados — cada uno asignable a cualquier agente. Triage, domain-curator, discover, researcher, architect, planner, coder, refactorer, sonar, reviewer, hu-reviewer, tester, security, audit, solomon, commiter.</p>
     </div>
     <div class="carousel-slide">
       <h3>5 Agentes IA</h3>
