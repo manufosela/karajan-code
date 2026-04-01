@@ -151,6 +151,15 @@ export function getProxyEnv() {
 }
 
 /**
+ * Return proxy stats if running, or null otherwise.
+ * @returns {{ port: number, requests: number, bytes_in: number, bytes_out: number } | null}
+ */
+export function getProxyStats() {
+  if (!proxyInstance || !proxyPort) return null;
+  return { port: proxyPort, ...proxyInstance.stats };
+}
+
+/**
  * Check if the proxy is running by hitting the health endpoint.
  * @returns {Promise<boolean>}
  */
