@@ -47,6 +47,7 @@ import { setRunner as setDiffRunner } from "./review/diff-generator.js";
 import { setRunner as setGitRunner } from "./utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
+import { startProxy, stopProxy } from "./proxy/proxy-lifecycle.js";
 
 
 // --- Product Context loader ---
@@ -104,8 +105,8 @@ async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
   const projectDir = config.projectDir || process.cwd();
   const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
   const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-  const coderPrompt = await buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
-  const reviewerPrompt = await buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), productContext: config.productContext || null });
+  const coderPrompt = await buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), proxyEnabled: Boolean(config.proxy?.enabled), productContext: config.productContext || null });
+  const reviewerPrompt = await buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), proxyEnabled: Boolean(config.proxy?.enabled), productContext: config.productContext || null });
 
   const summary = {
     dry_run: true,
@@ -1310,19 +1311,23 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.trackBudget = trackBudget;
 
   // --- RTK detection ---
-  const rtkResult = await detectRtk();
-  if (rtkResult.available) {
-    config = { ...config, rtk: { available: true, version: rtkResult.version } };
-    const rtkTracker = new RtkSavingsTracker();
-    const rtkRunner = createRtkRunner(true, rtkTracker);
-    setDiffRunner(rtkRunner);
-    setGitRunner(rtkRunner);
-    ctx.rtkTracker = rtkTracker;
-    logger.info(`RTK detected (${rtkResult.version}) — wrapping internal git/diff commands with rtk`);
-    emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
-      message: "RTK detected — internal commands wrapped for token optimization",
-      detail: { version: rtkResult.version, executorType: "local" }
-    }));
+  if (config.proxy?.enabled) {
+    logger.info("Proxy compression active, RTK not needed");
+  } else {
+    const rtkResult = await detectRtk();
+    if (rtkResult.available) {
+      config = { ...config, rtk: { available: true, version: rtkResult.version } };
+      const rtkTracker = new RtkSavingsTracker();
+      const rtkRunner = createRtkRunner(true, rtkTracker);
+      setDiffRunner(rtkRunner);
+      setGitRunner(rtkRunner);
+      ctx.rtkTracker = rtkTracker;
+      logger.info(`RTK detected (${rtkResult.version}) — wrapping internal git/diff commands with rtk`);
+      emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
+        message: "RTK detected — internal commands wrapped for token optimization",
+        detail: { version: rtkResult.version, executorType: "local" }
+      }));
+    }
   }
 
   // --- HU Board auto-start ---
@@ -1347,6 +1352,21 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   const pgAdapterResult = await initPgAdapter({ session: ctx.session, config, logger, pgTaskId, pgProject });
   ctx.pgCard = pgAdapterResult.pgCard;
   ctx.session.pg_card = ctx.pgCard || null;
+
+  // --- Proxy startup ---
+  if (config.proxy?.enabled !== false) {
+    try {
+      const proxyResult = await startProxy({ config: config.proxy || {}, sessionId: ctx.session.id });
+      ctx.proxyPort = proxyResult.port;
+      logger.info(`Proxy started on 127.0.0.1:${proxyResult.port}`);
+      emitProgress(emitter, makeEvent("proxy:started", ctx.eventBase, {
+        message: `Proxy started on port ${proxyResult.port}`,
+        detail: { port: proxyResult.port, baseUrls: proxyResult.baseUrls }
+      }));
+    } catch (err) {
+      logger.warn(`Proxy startup failed (non-blocking): ${err.message}`);
+    }
+  }
 
   emitProgress(
     emitter,
@@ -1618,6 +1638,14 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     await writeHistoryRecord({ sessionId: ctx.session.id, task, result, logger });
     return result;
   } finally {
+    // --- Proxy shutdown ---
+    try {
+      await stopProxy();
+      if (ctx.proxyPort) {
+        logger.info("Proxy stopped");
+      }
+    } catch { /* non-blocking */ }
+
     // --- Cleanup auto-installed skills ---
     const autoSkills = ctx.session?.autoInstalledSkills;
     if (autoSkills && autoSkills.length > 0) {
