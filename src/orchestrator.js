@@ -1354,7 +1354,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.session.pg_card = ctx.pgCard || null;
 
   // --- Proxy startup ---
-  if (config.proxy?.enabled !== false) {
+  if (config.proxy?.enabled === true) {
     try {
       const proxyResult = await startProxy({ config: config.proxy || {}, sessionId: ctx.session.id });
       ctx.proxyPort = proxyResult.port;
