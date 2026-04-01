@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.58.2] - 2026-04-01
+
+### Fixed
+- **Test fix**: buildAskQuestion test updated for capabilities detection (#316)
+- **Branch protection**: enforce PRs for all pushes to main (including admins)
+
 ## [1.58.1] - 2026-04-01
 
 ### Added
