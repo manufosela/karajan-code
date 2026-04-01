@@ -172,6 +172,37 @@ const DEFAULTS = {
     thresholds: { lcp: 2500, cls: 0.1, inp: 200 }
   },
   telemetry: true,
+  proxy: {
+    enabled: true,
+    port: "auto",
+    compression: {
+      enabled: true,
+      ai_compression: false,
+      ai_model: "haiku",
+      ai_provider: "anthropic",
+      layers: {
+        git: true,
+        tests: true,
+        build: true,
+        infra: true,
+        packages: true,
+        read_dedup: true,
+        glob_truncate: true,
+        grep_collapse: true,
+      },
+      pressure_thresholds: {
+        low: 0.5,
+        medium: 0.8,
+        high: 0.9,
+      },
+    },
+    cache: {
+      persist_to_disk: true,
+      flush_interval_ms: 5000,
+    },
+    inject_prompts: true,
+    monitor: true,
+  },
   guards: {
     output: {
       enabled: true,
@@ -400,6 +431,10 @@ function applyMiscOverrides(out, flags) {
   out.planning_game = out.planning_game || {};
   if (flags.pgTask) out.planning_game.enabled = true;
   if (flags.pgProject) out.planning_game.project_id = flags.pgProject;
+
+  out.proxy = out.proxy || {};
+  if (flags.noProxy) out.proxy.enabled = false;
+  if (flags.proxyPort) out.proxy.port = flags.proxyPort;
 
   out.model_selection = out.model_selection || { enabled: true, tiers: {}, role_overrides: {} };
   if (flags.smartModels === true) out.model_selection.enabled = true;
