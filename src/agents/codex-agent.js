@@ -1,6 +1,7 @@
 import { BaseAgent } from "./base-agent.js";
 import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
+import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
 
 /**
  * Extract token usage from Codex CLI stdout.
@@ -45,7 +46,10 @@ export class CodexAgent extends BaseAgent {
     if (model) args.push("--model", model);
     if (role !== "reviewer" && this.isAutoApproveEnabled(role)) args.push("--full-auto");
     args.push("-");
+    const proxyEnv = getProxyEnv();
+    const env = proxyEnv ? { ...process.env, ...proxyEnv } : undefined;
     const res = await runCommand(resolveBin("codex"), args, {
+      ...(env && { env }),
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs,

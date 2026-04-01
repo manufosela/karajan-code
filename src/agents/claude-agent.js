@@ -1,6 +1,7 @@
 import { BaseAgent } from "./base-agent.js";
 import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
+import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
 
 /**
  * Safely parse a JSON line, returning null on failure.
@@ -134,6 +135,8 @@ function createStreamJsonFilter(onOutput) {
  */
 function cleanExecaOpts(extra = {}) {
   const { CLAUDECODE, ...env } = process.env;
+  const proxyEnv = getProxyEnv();
+  if (proxyEnv) Object.assign(env, proxyEnv);
   return { env, stdin: "ignore", ...extra };
 }
 
