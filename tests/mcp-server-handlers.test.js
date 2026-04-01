@@ -156,7 +156,8 @@ const { ackPreflight, resetPreflight } = await import("../src/mcp/preflight.js")
 
 const mockServer = {
   sendLoggingMessage: vi.fn(),
-  elicitInput: vi.fn()
+  elicitInput: vi.fn(),
+  getClientCapabilities: vi.fn(() => ({ elicitation: true }))
 };
 
 describe("mcp/server-handlers", () => {
