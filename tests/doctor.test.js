@@ -25,6 +25,10 @@ vi.mock("../src/sonar/manager.js", () => ({
   isSonarReachable: vi.fn()
 }));
 
+vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
+  isProxyRunning: vi.fn().mockResolvedValue(false)
+}));
+
 vi.mock("../src/roles/base-role.js", () => ({
   resolveRoleMdPath: vi.fn().mockReturnValue(["/fake/reviewer.md"]),
   loadFirstExisting: vi.fn()
@@ -67,6 +71,9 @@ describe("doctor", () => {
 
     const { loadFirstExisting } = await import("../src/roles/base-role.js");
     loadFirstExisting.mockResolvedValue("rules content");
+
+    const { isProxyRunning } = await import("../src/proxy/proxy-lifecycle.js");
+    isProxyRunning.mockResolvedValue(true);
 
     // Agent config files: simulate ENOENT (not found) so checks are skipped
     const fsPromises = await import("node:fs/promises");
