@@ -553,16 +553,34 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
   });
 
   if (solomonResult.action === "approve") {
-    logger.info(`Solomon: skip ${stage} (agent "${agent}" rate-limited)`);
+    // Solomon says skip is safe — only allowed after exhausting alternatives
+    logger.info(`Solomon: skip ${stage} after evaluating risk (agent "${agent}" rate-limited)`);
     emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
       status: "ok",
-      message: `Solomon: skip ${stage} (rate-limited agent "${agent}")`,
+      message: `Solomon: skip ${stage} (low risk, agent "${agent}" unavailable)`,
       detail: { agent, solomonAction: "approve" }
     }));
     return { handled: true, action: "skip" };
   }
 
   if (solomonResult.action === "continue") {
+    // Solomon says: wait for cooldown, or retry with alternative agent
+    const altAgent = solomonResult.alternativeAgent;
+    const waitTarget = solomonResult.waitUntil;
+
+    if (waitTarget) {
+      const waitMs = Math.max(0, new Date(waitTarget).getTime() - Date.now());
+      if (waitMs > 0 && waitMs < 10 * 60 * 1000) {
+        logger.info(`Solomon: wait ${Math.round(waitMs / 1000)}s for cooldown, then retry ${stage}`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
+
+    if (altAgent) {
+      logger.info(`Solomon: retry ${stage} with alternative agent "${altAgent}"`);
+      session._alternative_agent = { stage, provider: altAgent };
+    }
+
     if (solomonResult.humanGuidance) {
       session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
     }
@@ -1278,8 +1296,16 @@ async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logge
       return { action: "ok", review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Review skipped (agent rate-limited, Solomon approved)", confidence: 0.7 } };
     }
     if (revStandby.action === "retry_reviewer_only") {
-      // Retry just the reviewer, not the whole iteration
-      return runReviewerGateStage({ pipelineFlags: { reviewerEnabled: true }, reviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion });
+      // Retry just the reviewer — use alternative agent if Solomon recommended one
+      let retryReviewerRole = reviewerRole;
+      const alt = session._alternative_agent;
+      if (alt?.stage === "reviewer" && alt?.provider) {
+        const { createAgent } = await import("./agents/index.js");
+        retryReviewerRole = { provider: alt.provider, model: null };
+        logger.info(`Retrying reviewer with alternative agent: ${alt.provider}`);
+        delete session._alternative_agent;
+      }
+      return runReviewerGateStage({ pipelineFlags: { reviewerEnabled: true }, reviewerRole: retryReviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion });
     }
     return { action: "retry" };
   }
