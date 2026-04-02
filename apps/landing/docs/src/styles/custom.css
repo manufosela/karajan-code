@@ -27,3 +27,8 @@
 	--sl-color-gray-6: #f4f7f9;
 	--sl-color-black: #ffffff;
 }
+
+.site-title img {
+	width: 3rem;
+	height: 3rem;
+}
