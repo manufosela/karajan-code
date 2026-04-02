@@ -278,7 +278,8 @@ describe("kj_run smoke", () => {
     expect(validateCallIndex).toBeGreaterThanOrEqual(0);
     expect(tokenCallIndex).toBeGreaterThanOrEqual(0);
     expect(dockerCallIndex).toBeGreaterThanOrEqual(0);
-    expect(runCommand.mock.calls[dockerCallIndex][1]).toContain("SONAR_TOKEN=from-admin");
+    // Token passed via process env, not CLI args (invisible in ps aux)
+    expect(runCommand.mock.calls[dockerCallIndex][2].env.SONAR_TOKEN).toBe("from-admin");
 
     expect(sonarUp.mock.invocationCallOrder[0]).toBeLessThan(runCommand.mock.invocationCallOrder[dockerCallIndex]);
     expect(validateCallIndex).toBeLessThan(tokenCallIndex);
