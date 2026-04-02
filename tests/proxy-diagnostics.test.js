@@ -100,8 +100,8 @@ describe("proxy-diagnostics", () => {
       const proxy = checks.find((c) => c.name === "proxy");
 
       expect(proxy).toBeDefined();
-      expect(proxy.ok).toBe(false);
-      expect(proxy.detail).toBe("Not running");
+      expect(proxy.ok).toBe(true);
+      expect(proxy.detail).toBe("Available (starts on kj run)");
     });
 
     it("shows proxy OK when running", async () => {

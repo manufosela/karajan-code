@@ -354,9 +354,9 @@ async function checkProxy(config) {
   return {
     name: "proxy",
     label: "Proxy",
-    ok: running,
-    detail: running ? "Running" : "Not running",
-    fix: running ? null : "Proxy starts automatically during pipeline runs."
+    ok: true,
+    detail: running ? "Running" : "Available (starts on kj run)",
+    fix: null
   };
 }
 

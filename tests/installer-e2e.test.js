@@ -21,6 +21,14 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
+vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
+  isProxyRunning: vi.fn(async () => false),
+  getProxyStats: vi.fn(() => null),
+  getProxyEnv: vi.fn(() => null),
+  startProxy: vi.fn(async () => ({ port: 0 })),
+  stopProxy: vi.fn(async () => {}),
+}));
+
 vi.mock("../src/utils/fs.js", () => ({
   exists: vi.fn(async (p) => writtenFiles.has(p)),
   ensureDir: vi.fn()
