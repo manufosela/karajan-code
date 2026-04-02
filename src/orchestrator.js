@@ -529,72 +529,65 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
     return { handled: false };
   }
 
-  const standbyRetries = session.standby_retry_count || 0;
   const isOutage = stageResult.standbyInfo.isProviderOutage;
   const agent = stageResult.standbyInfo.agent;
+  const cooldownUntil = stageResult.standbyInfo.cooldownUntil;
+  const cooldownMs = stageResult.standbyInfo.cooldownMs;
 
-  if (standbyRetries >= MAX_STANDBY_RETRIES) {
-    // Standby exhausted — let Solomon decide: switch agent, skip stage, or escalate
-    const solomonResult = await invokeSolomon({
-      config, logger, emitter, eventBase, stage: `${stage}_rate_limit`, askQuestion, session,
-      iteration: i,
-      conflict: {
-        stage: `${stage}_rate_limit`,
-        task: session.task,
-        iterationCount: i,
-        maxIterations: config?.max_iterations || 5,
-        history: [{
-          agent: stage,
-          feedback: `Agent "${agent}" rate-limited after ${standbyRetries} retries. ${isOutage ? "Provider outage (5xx)." : "API rate limit (429)."}`
-        }]
-      }
-    });
+  // Rate limit = out of normal flow → Solomon decides immediately
+  const solomonResult = await invokeSolomon({
+    config, logger, emitter, eventBase, stage: `${stage}_rate_limit`, askQuestion, session,
+    iteration: i,
+    conflict: {
+      stage: `${stage}_rate_limit`,
+      task: session.task,
+      iterationCount: i,
+      maxIterations: config?.max_iterations || 5,
+      cooldownUntil,
+      cooldownMs,
+      history: [{
+        agent: stage,
+        feedback: `Agent "${agent}" rate-limited. ${isOutage ? "Provider outage (5xx)." : "API rate limit (429)."} ${cooldownUntil ? `Cooldown until ${cooldownUntil}.` : ""}`
+      }]
+    }
+  });
 
-    session.standby_retry_count = 0;
+  if (solomonResult.action === "approve") {
+    logger.info(`Solomon: skip ${stage} (agent "${agent}" rate-limited)`);
+    emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
+      status: "ok",
+      message: `Solomon: skip ${stage} (rate-limited agent "${agent}")`,
+      detail: { agent, solomonAction: "approve" }
+    }));
+    return { handled: true, action: "skip" };
+  }
+
+  if (solomonResult.action === "continue") {
+    if (solomonResult.humanGuidance) {
+      session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+    }
     await saveSession(session);
+    return { handled: true, action: "retry_reviewer_only" };
+  }
 
-    if (solomonResult.action === "approve") {
-      // Solomon says: skip this stage, work is good enough
-      logger.info(`Solomon approved skipping ${stage} after rate limit exhaustion`);
-      emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
-        status: "ok",
-        message: `Solomon: skip ${stage} (rate-limited agent "${agent}")`,
-        detail: { agent, solomonAction: "approve" }
-      }));
-      return { handled: true, action: "skip" };
-    }
-
-    if (solomonResult.action === "continue") {
-      // Solomon says: retry with guidance (possibly different approach)
-      if (solomonResult.humanGuidance) {
-        session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
-      }
-      return { handled: true, action: "retry_reviewer_only" };
-    }
-
-    if (solomonResult.action === "pause") {
-      return {
-        handled: true,
-        action: "return",
-        result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "standby_exhausted" }
-      };
-    }
-
-    // Solomon couldn't resolve — pause
-    await pauseSession(session, {
-      question: `Rate limit standby exhausted for ${agent}. Solomon could not resolve.`,
-      context: { iteration: i, stage, reason: "standby_exhausted" }
-    });
+  if (solomonResult.action === "pause") {
     return {
       handled: true,
       action: "return",
-      result: { paused: true, sessionId: session.id, question: `Standby exhausted for ${agent}`, context: "standby_exhausted" }
+      result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "rate_limit" }
     };
   }
-  session.standby_retry_count = standbyRetries + 1;
-  await saveSession(session);
-  await waitForCooldown({ ...stageResult.standbyInfo, retryCount: standbyRetries, emitter, eventBase, logger, session });
-  return { handled: true, action: "retry" };
+
+  // Solomon couldn't resolve — pause
+  await pauseSession(session, {
+    question: `Agent "${agent}" rate-limited. Solomon could not resolve.`,
+    context: { iteration: i, stage, reason: "rate_limit" }
+  });
+  return {
+    handled: true,
+    action: "return",
+    result: { paused: true, sessionId: session.id, question: `Agent "${agent}" rate-limited`, context: "rate_limit" }
+  };
 }
 
 function formatCommitList(commits) {
