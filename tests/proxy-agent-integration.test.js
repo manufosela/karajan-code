@@ -40,30 +40,18 @@ describe("Proxy-agent integration", () => {
   });
 
   describe("ClaudeAgent", () => {
-    it("injects proxy env vars into cleanExecaOpts when proxy is running", async () => {
+    it("does NOT inject proxy env (Claude CLI does not respect ANTHROPIC_BASE_URL)", async () => {
       getProxyEnv.mockReturnValue(PROXY_ENV);
       const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       await agent.runTask({ prompt: "fix bug", role: "coder" });
 
       const opts = runCommand.mock.calls[0][2];
-      expect(opts.env.ANTHROPIC_BASE_URL).toBe("http://127.0.0.1:9999");
-      expect(opts.env.OPENAI_BASE_URL).toBe("http://127.0.0.1:9999");
-      expect(opts.env.GEMINI_API_BASE).toBe("http://127.0.0.1:9999");
-      // CLAUDECODE should still be stripped
-      expect(opts.env).not.toHaveProperty("CLAUDECODE");
-    });
-
-    it("works normally without proxy env vars when proxy is not running", async () => {
-      getProxyEnv.mockReturnValue(null);
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
-      const agent = new ClaudeAgent("claude", baseConfig, logger);
-      await agent.runTask({ prompt: "fix bug", role: "coder" });
-
-      const opts = runCommand.mock.calls[0][2];
+      // Proxy env vars should NOT be injected for Claude
       expect(opts.env).not.toHaveProperty("ANTHROPIC_BASE_URL");
       expect(opts.env).not.toHaveProperty("OPENAI_BASE_URL");
-      expect(opts.env).not.toHaveProperty("GEMINI_API_BASE");
+      // CLAUDECODE should still be stripped
+      expect(opts.env).not.toHaveProperty("CLAUDECODE");
       expect(opts.stdin).toBe("ignore");
     });
   });
