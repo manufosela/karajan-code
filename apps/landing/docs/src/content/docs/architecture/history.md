@@ -737,6 +737,24 @@ Auto-simplify pipeline: triage level 1-2 (trivial/simple) runs a lightweight cod
 
 **v1.54.0** — `--design` flag: impeccable role switches from audit-only to refactoring mode. Coder applies design changes (hierarchy, spacing, responsive, a11y, animations, theming).
 
+## Phase 46: kj undo & Doc Links (v1.55.0)
+
+**v1.55.0** — New `kj undo` command (24th MCP tool) reverts the last pipeline run with a soft git reset, or `--hard` to discard all changes. All error messages now include a direct URL to the relevant documentation page, making troubleshooting faster without manual doc searches.
+
+## Phase 47: Status Dashboard & Auto-Detect Stack (v1.56.0)
+
+**v1.56.0** — `kj status` terminal dashboard showing HU states, current pipeline stage, timing, and progress. MCP returns structured JSON for programmatic access. `kj init` now auto-detects the project stack by scanning package.json, go.mod, Cargo.toml, requirements.txt, and similar files. Detected frameworks auto-configure the pipeline (impeccable enabled for frontend projects, test framework pre-selected, SonarQube language settings applied). HU Board now supports optional Bearer token authentication via `HU_BOARD_TOKEN` environment variable.
+
+## Phase 48: Telemetry & MCP Graceful Restart (v1.57.0)
+
+**v1.57.0** — Opt-out telemetry: anonymous usage statistics (version, OS, command, pipeline duration, success rate) to help improve Karajan. No task descriptions, code, or personal data collected. Opt out with `telemetry: false` in config or `KJ_TELEMETRY=false` env var. MCP graceful restart: after npm update, the MCP server writes a restart marker and exits cleanly. The new instance detects the marker and starts with fresh code, replacing the abrupt `Transport closed` behavior. `kj_resume` now respects the session's saved config snapshot, preserving flags like `--no-sonar` that were set during the original run.
+
+## Phase 49: SEA Binaries, Model Resolution, SonarQube Robustness (v1.57.1 - v1.57.2)
+
+**v1.57.1** — SEA (Single Executable Application) binary build: standalone binary via `node scripts/build-sea.mjs` that requires no Node.js installation. GitHub Actions release workflow builds binaries for linux-x64, darwin-arm64, and win-x64 with SHA256 checksums on every tag. YAML config loader now tolerates duplicated keys in user config files.
+
+**v1.57.2** — Model/provider resolution: when the model field uses a prefixed format like `gemini/pro`, KJ infers the provider from the prefix and strips it (model becomes `pro`). Incompatible explicit models (e.g., a gemini model on a claude provider) are dropped gracefully. SonarQube auto-start wait: after `docker compose up`, waits up to 60 seconds (polling every 5s) for SonarQube to become ready, fixing false "auto-start failed" errors on cold boot. Subprocess stdin prevention: all subprocesses run with `stdin: "ignore"`, preventing indefinite hangs when SonarQube, agents, or npm prompt for input. `kj init` gitignore entries: auto-appends `.kj/`, `.agent/`, `.scannerwork/` to the project `.gitignore` if missing. Global repo protection scripts: `protect-all-repos.sh` (branch protection), `install-guard-all-repos.sh` (AI attribution guard), `ai-attribution-guard.yml` (standalone workflow).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

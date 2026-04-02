@@ -20,9 +20,9 @@ El registro es idempotente — se puede ejecutar múltiples veces sin problemas.
 
 ### Tras actualizar: `Transport closed`
 
-Si actualizas Karajan Code mientras la sesión de tu host MCP sigue abierta, el proceso actual de `karajan-mcp` puede cerrarse y el host mostrar `Transport closed`.
+Si actualizas Karajan Code mientras la sesion de tu host MCP sigue abierta, el proceso actual de `karajan-mcp` puede cerrarse y el host mostrar `Transport closed`.
 
-Esto es esperado: Karajan MCP cierra procesos obsoletos tras cambios de versión para que el host reinicie con código fresco.
+Esto es esperado: desde v1.57.0, Karajan MCP realiza un reinicio graceful tras actualizaciones npm. El servidor escribe un marcador de reinicio y sale limpiamente. La nueva instancia detecta el marcador y arranca con codigo fresco.
 
 Recuperación rápida:
 
@@ -80,7 +80,7 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Herramientas disponibles
 
-Karajan Code expone **23 herramientas MCP**:
+Karajan Code expone **24 herramientas MCP**:
 
 | Herramienta | Params requeridos | Descripción |
 |-------------|------------------|-------------|
@@ -92,7 +92,7 @@ Karajan Code expone **23 herramientas MCP**:
 | `kj_resume` | `sessionId` | Reanudar una sesión pausada, detenida o fallida |
 | `kj_preflight` | `humanResponse` | El humano confirma la config de agentes antes de kj_run/kj_code |
 | `kj_agents` | — | Listar o cambiar agente IA por rol (scope sesión/proyecto/global) |
-| `kj_status` | — | Estado parseado en vivo de la ejecución actual (stage, agente, iteración, errores) |
+| `kj_status` | — | Dashboard con estados de HUs, stage actual, tiempos, progreso. Devuelve JSON estructurado |
 | `kj_report` | — | Leer informes de sesión con desglose de costes |
 | `kj_scan` | — | Ejecutar escaneo SonarQube en el proyecto actual |
 | `kj_init` | — | Inicializar config, reglas de revisión, SonarQube y scaffolding de BecarIA (`--scaffold-becaria`) |
@@ -105,7 +105,8 @@ Karajan Code expone **23 herramientas MCP**:
 | `kj_board` | `action` | Start/stop/status del dashboard HU Board |
 | `kj_hu` | `action` | Gestionar historias de usuario (crear, actualizar, listar, obtener) en el HU Board local |
 | `kj_suggest` | `observation` | Enviar una observación a Solomon sin interrumpir el pipeline |
-| `kj_skills` | — | Listar, instalar o eliminar skills específicos de dominio para los roles del pipeline |
+| `kj_skills` | — | Listar, instalar o eliminar skills especificos de dominio para los roles del pipeline |
+| `kj_undo` | — | Revertir la ultima ejecucion del pipeline (soft reset o hard) |
 
 Ver la [Referencia de Herramientas MCP](/docs/es/reference/mcp-tools/) para la documentación completa de parámetros.
 

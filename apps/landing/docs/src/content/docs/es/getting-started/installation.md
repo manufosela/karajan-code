@@ -143,15 +143,27 @@ cd wrappers/python && pip install .
 
 Esto instala el comando `kj` mediante un wrapper Python que delega al CLI de Node.js.
 
-## Alternativa: Binarios standalone (SEA)
+## Alternativa: Binarios standalone (sin Node.js)
 
-Descarga binarios standalone desde [GitHub Releases](https://github.com/manufosela/karajan-code/releases) — sin necesidad de Node.js. Disponible para Linux, macOS y Windows.
+Descarga un binario desde [GitHub Releases](https://github.com/manufosela/karajan-code/releases). Sin necesidad de Node.js.
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-darwin-arm64 -o kj && chmod +x kj
+
+# Linux x64
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-linux-x64 -o kj && chmod +x kj
+
+# Windows (PowerShell)
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-win-x64.exe -o kj.exe
+```
+
+Mueve el binario a un directorio en tu PATH (ej. `/usr/local/bin/kj`). Los checksums SHA256 estan disponibles junto a cada binario.
 
 ## Alternativa: Homebrew (macOS)
 
 ```bash
-brew tap manufosela/tap
-brew install karajan-code
+brew install manufosela/tap/karajan-code
 ```
 
 ## Opcional: Instalar RTK para Ahorro de Tokens

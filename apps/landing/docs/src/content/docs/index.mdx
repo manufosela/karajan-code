@@ -3,9 +3,9 @@ title: Karajan Code
 description: Role-based AI orchestrator with 15 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.34.2 — Role-based AI orchestrator: 15 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v1.57.2 — Role-based AI orchestrator: 15 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
   image:
-    file: ../../assets/logo.svg
+    file: ../../assets/logo.png
   actions:
     - text: Get Started
       link: /docs/getting-started/introduction/
@@ -30,7 +30,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
     Claude, Codex, Gemini, Aider, and OpenCode. Mix and match — use Claude as coder and Codex as reviewer, or any combination. Extensible via plugins.
   </Card>
   <Card title="MCP Server" icon="puzzle">
-    21 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, `kj_board` for HU Board management, and `kj_status` for live parsed status. Real-time progress notifications for all tools.
+    24 tools exposed via MCP — including `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` for standalone role execution, `kj_preflight` for human-confirmed agent config, `kj_board` for HU Board management, `kj_status` for live parsed status, and `kj_undo` for reverting pipeline runs. Real-time progress notifications for all tools. Graceful restart after npm updates.
   </Card>
   <Card title="TDD Enforcement" icon="approve-check">
     Test changes required when source files change. The pipeline rejects iterations without matching tests.
@@ -97,6 +97,21 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="HU Board Dashboard" icon="list-format">
     Web dashboard for visualizing HU stories and sessions across all projects. Kanban board, session timeline, quality scores. Docker-ready, auto-syncs from local files.
+  </Card>
+  <Card title="kj undo" icon="random">
+    Revert the last pipeline run with a soft reset or `--hard`. Safely undo changes when a run produces unexpected results.
+  </Card>
+  <Card title="kj status Dashboard" icon="list-format">
+    Terminal dashboard showing HU states, current stage, timing, and progress. MCP returns structured JSON for programmatic access.
+  </Card>
+  <Card title="Auto-Detect Stack" icon="setting">
+    `kj init` scans package.json, go.mod, Cargo.toml and more to detect your framework and language. Auto-enables impeccable for frontend projects.
+  </Card>
+  <Card title="Telemetry (Opt-Out)" icon="seti:log">
+    Anonymous usage statistics (version, OS, command, pipeline duration, success rate) to help improve Karajan. Fully opt-out with `telemetry: false` in config.
+  </Card>
+  <Card title="Documentation Links in Errors" icon="open-book">
+    All error messages include a direct URL to the relevant documentation page, making troubleshooting faster.
   </Card>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required. Pair with [RTK](https://github.com/rtk-ai/rtk) for additional 60-90% token savings.

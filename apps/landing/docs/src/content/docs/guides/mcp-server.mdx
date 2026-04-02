@@ -22,7 +22,7 @@ Registration is idempotent — safe to run multiple times.
 
 If you upgrade Karajan Code while your MCP host session is still open, the current `karajan-mcp` process may exit and the host can show `Transport closed`.
 
-This is expected: Karajan MCP exits stale processes after version changes so the host can restart with fresh code.
+This is expected: since v1.57.0, Karajan MCP performs a graceful restart after npm updates. The server writes a restart marker and exits cleanly. The new instance detects the marker and starts with fresh code.
 
 Quick recovery:
 
@@ -80,7 +80,7 @@ node /path/to/karajan-code/src/mcp/server.js
 
 ## Available tools
 
-Karajan Code exposes **23 MCP tools**:
+Karajan Code exposes **24 MCP tools**:
 
 | Tool | Required params | Description |
 |------|----------------|-------------|
@@ -92,7 +92,7 @@ Karajan Code exposes **23 MCP tools**:
 | `kj_resume` | `sessionId` | Resume a paused, stopped, or failed session |
 | `kj_preflight` | `humanResponse` | Human confirms agent config before kj_run/kj_code executes |
 | `kj_agents` | — | List or set AI agent per pipeline role (session/project/global scope) |
-| `kj_status` | — | Live parsed status of current run (stage, agent, iteration, errors) |
+| `kj_status` | — | Dashboard with HU states, current stage, timing, progress. Returns structured JSON |
 | `kj_report` | — | Read session reports with cost breakdown |
 | `kj_scan` | — | Run SonarQube scan on the current project |
 | `kj_init` | — | Initialize config, review rules, SonarQube, and BecarIA scaffolding (`--scaffold-becaria`) |
@@ -106,6 +106,7 @@ Karajan Code exposes **23 MCP tools**:
 | `kj_hu` | `action` | Manage user stories (create, update, list, get) in the local HU Board |
 | `kj_suggest` | `observation` | Send an observation to Solomon without interrupting the pipeline |
 | `kj_skills` | — | List, install, or remove domain-specific skills for pipeline roles |
+| `kj_undo` | — | Revert last pipeline run (soft reset or hard) |
 
 See the [MCP Tools Reference](/docs/reference/mcp-tools/) for complete parameter documentation.
 

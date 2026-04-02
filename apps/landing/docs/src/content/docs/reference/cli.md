@@ -20,6 +20,8 @@ description: Complete reference of all kj CLI commands and flags.
 | `kj roles` | Inspect pipeline roles and templates |
 | `kj agents` | List or set AI agent per pipeline role |
 | `kj audit [task]` | Read-only codebase health audit (5 dimensions, A-F scores) |
+| `kj status` | Terminal dashboard with HU states, stage, timing, progress |
+| `kj undo` | Revert last pipeline run (soft reset or --hard) |
 | `kj board <subcommand>` | Manage HU Board dashboard |
 | `kj sonar <subcommand>` | Manage SonarQube Docker container |
 
@@ -44,6 +46,7 @@ kj init [options]
 - Creates `review-rules.md` and `coder-rules.md` in the project
 - Detects available AI agents and guides selection
 - Starts SonarQube Docker container if enabled
+- Auto-appends `.kj/`, `.agent/`, `.scannerwork/` to the project `.gitignore` if missing (v1.57.2+)
 
 **Examples:**
 
@@ -442,6 +445,53 @@ kj agents set reviewer claude # Switch the reviewer role to Claude
 
 ---
 
+## kj status
+
+Display a terminal dashboard showing HU states, current pipeline stage, timing, and overall progress.
+
+```bash
+kj status
+```
+
+When called via MCP (`kj_status`), returns structured JSON with the same information for programmatic access.
+
+**Output includes:**
+- Current pipeline stage and agent
+- HU states (pending, coding, reviewing, done, failed, blocked)
+- Iteration count and timing
+- Progress percentage
+- Error summary (if any)
+
+---
+
+## kj undo
+
+Revert the last pipeline run. Performs a soft git reset by default, preserving changes in the working directory.
+
+```bash
+kj undo [options]
+```
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--hard` | boolean | `false` | Hard reset: discard all changes from the last run |
+| `--session-id <id>` | string | latest | Revert a specific session instead of the last one |
+
+**Examples:**
+
+```bash
+# Soft reset (keep changes in working directory)
+kj undo
+
+# Hard reset (discard all changes)
+kj undo --hard
+
+# Revert a specific session
+kj undo --session-id s_2026-03-28T14-30-00
+```
+
+---
+
 ## kj board
 
 Manage the HU Board dashboard for visual task tracking.
@@ -506,6 +556,7 @@ kj sonar stop       # Stop when done
 | `KJ_SONAR_ADMIN_USER` | SonarQube admin username | `admin` |
 | `KJ_SONAR_ADMIN_PASSWORD` | SonarQube admin password | from config |
 | `SONAR_TOKEN` | Alternative SonarQube token | fallback |
+| `HU_BOARD_TOKEN` | Bearer token for HU Board authentication | — |
 | `PG_API_URL` | Planning Game API URL | `https://planning-game.geniova.com/api` |
 | `VISUAL` | Text editor for `kj config --edit` | fallback to `EDITOR` |
 | `EDITOR` | Text editor fallback | `vi` |

@@ -20,6 +20,8 @@ description: Referencia completa de todos los comandos y flags de kj.
 | `kj roles` | Inspeccionar roles y templates del pipeline |
 | `kj agents` | Listar o cambiar el agente IA por rol del pipeline |
 | `kj audit [task]` | Auditoría de salud del codebase de solo lectura (5 dimensiones, puntuaciones A-F) |
+| `kj status` | Dashboard de terminal con estados de HUs, stage, tiempos, progreso |
+| `kj undo` | Revertir ultima ejecucion del pipeline (soft reset o --hard) |
 | `kj board <subcommand>` | Gestionar dashboard HU Board |
 | `kj sonar <subcommand>` | Gestionar contenedor Docker de SonarQube |
 
@@ -39,11 +41,12 @@ kj init [options]
 |------|------|---------|-------------|
 | `--no-interactive` | boolean | `false` | Saltar wizard, usar defaults (para CI/scripts) |
 
-**Qué hace:**
+**Que hace:**
 - Crea `~/.karajan/kj.config.yml` con defaults sensatos
 - Crea `review-rules.md` y `coder-rules.md` en el proyecto
-- Detecta agentes IA disponibles y guía la selección
-- Arranca contenedor Docker de SonarQube si está habilitado
+- Detecta agentes IA disponibles y guia la seleccion
+- Arranca contenedor Docker de SonarQube si esta habilitado
+- Auto-añade `.kj/`, `.agent/`, `.scannerwork/` al `.gitignore` del proyecto si faltan (v1.57.2+)
 
 **Ejemplos:**
 
@@ -442,6 +445,53 @@ kj agents set reviewer claude # Cambiar el rol reviewer a Claude
 
 ---
 
+## kj status
+
+Muestra un dashboard de terminal con los estados de las HUs, la stage actual del pipeline, tiempos y progreso general.
+
+```bash
+kj status
+```
+
+Cuando se llama via MCP (`kj_status`), devuelve JSON estructurado con la misma informacion para acceso programatico.
+
+**El output incluye:**
+- Stage actual del pipeline y agente
+- Estados de las HUs (pending, coding, reviewing, done, failed, blocked)
+- Cuenta de iteraciones y tiempos
+- Porcentaje de progreso
+- Resumen de errores (si los hay)
+
+---
+
+## kj undo
+
+Revierte la ultima ejecucion del pipeline. Realiza un soft reset de git por defecto, preservando los cambios en el directorio de trabajo.
+
+```bash
+kj undo [options]
+```
+
+| Flag | Tipo | Default | Descripcion |
+|------|------|---------|-------------|
+| `--hard` | boolean | `false` | Hard reset: descarta todos los cambios de la ultima ejecucion |
+| `--session-id <id>` | string | ultima | Revertir una sesion especifica en vez de la ultima |
+
+**Ejemplos:**
+
+```bash
+# Soft reset (mantiene cambios en directorio de trabajo)
+kj undo
+
+# Hard reset (descarta todos los cambios)
+kj undo --hard
+
+# Revertir una sesion especifica
+kj undo --session-id s_2026-03-28T14-30-00
+```
+
+---
+
 ## kj board
 
 Gestionar el dashboard HU Board para seguimiento visual de tareas.
@@ -506,6 +556,7 @@ kj sonar stop       # Parar cuando termines
 | `KJ_SONAR_ADMIN_USER` | Usuario admin SonarQube | `admin` |
 | `KJ_SONAR_ADMIN_PASSWORD` | Contraseña admin SonarQube | de config |
 | `SONAR_TOKEN` | Token SonarQube alternativo | fallback |
+| `HU_BOARD_TOKEN` | Token Bearer para autenticacion del HU Board | — |
 | `PG_API_URL` | URL del API del Planning Game | `https://planning-game.geniova.com/api` |
 | `VISUAL` | Editor de texto para `kj config --edit` | fallback a `EDITOR` |
 | `EDITOR` | Editor de texto fallback | `vi` |
