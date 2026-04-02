@@ -42,7 +42,7 @@ export class CodexAgent extends BaseAgent {
   }
 
   async _exec(task, model, role) {
-    const args = ["exec"];
+    const args = ["exec", "--skip-git-repo-check"];
     if (model) args.push("--model", model);
     if (role !== "reviewer" && this.isAutoApproveEnabled(role)) args.push("--full-auto");
     args.push("-");
