@@ -102,7 +102,7 @@ src/
 │   ├── standby.js            #   Rate-limit standby with backoff
 │   └── pipeline-context.js   #   Shared pipeline state object
 │
-├── roles/                    # Role implementations (15 roles)
+├── roles/                    # Role implementations (16 roles)
 │   ├── base-role.js          #   Abstract base (init, execute, report)
 │   ├── triage-role.js        #   Task complexity classifier
 │   ├── discover-role.js      #   Gap detection (Mom Test, Wendel, JTBD)

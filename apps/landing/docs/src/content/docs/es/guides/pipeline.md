@@ -5,11 +5,11 @@ description: Cómo funciona el pipeline multi-agente de Karajan Code.
 
 ## Visión General del Pipeline
 
-Karajan orquesta **15 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider, OpenCode) lo ejecuta.
+Karajan orquesta **16 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider, OpenCode) lo ejecuta.
 
 ```
-intent? → discover? → hu-reviewer? → triage → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
-                                                                                   └─── bucle de iteración (1..N) ─────────────────────────────────────┘
+intent? → discover? → hu-reviewer? → triage → domain-curator? → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
+                                                                                                     └─── bucle de iteración (1..N) ─────────────────────────────────────┘
 ```
 
 ### Roles
@@ -17,7 +17,8 @@ intent? → discover? → hu-reviewer? → triage → researcher? → architect?
 | Rol | Descripción | Por defecto |
 |-----|-------------|-------------|
 | **discover** | Detección de gaps pre-ejecución — analiza tareas buscando información faltante, ambigüedades y asunciones | Off |
-| **triage** | Director de pipeline — analiza complejidad de la tarea, clasifica taskType y activa roles dinámicamente | **On** |
+| **triage** | Director de pipeline — analiza complejidad de la tarea, clasifica taskType, detecta domain hints y activa roles dinámicamente | **On** |
+| **domain-curator** | Descubre, propone y sintetiza conocimiento de dominio de negocio (desde `~/.karajan/domains/` y `.karajan/domains/`) para que todos los roles downstream trabajen con contexto del mundo real — no solo frameworks técnicos | Auto (cuando existen dominios) |
 | **researcher** | Investiga el contexto del codebase antes de planificar | Off |
 | **architect** | Diseña la arquitectura de la solución — capas, patrones, modelo de datos, contratos API, tradeoffs | Off |
 | **planner** | Genera planes de implementación estructurados informados por la arquitectura | Off |
