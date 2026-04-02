@@ -162,7 +162,6 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
       ? "SonarQube is running but no authentication token is configured. Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml."
       : `Sonar scan failed: ${sonarResult.error}`;
 
-    await markSessionStatus(session, "failed");
     emitProgress(
       emitter,
       makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
@@ -170,6 +169,30 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
         message: errorMessage
       })
     );
+
+    // Let Solomon decide: continue without sonar or stop
+    const solomonResult = await invokeSolomon({
+      config, logger, emitter, eventBase, stage: "sonar_error", askQuestion, session, iteration,
+      conflict: {
+        stage: "sonar_error",
+        task: session.task,
+        iterationCount: iteration,
+        maxIterations: config.max_iterations,
+        history: [{ agent: "sonar", feedback: errorMessage }]
+      }
+    });
+
+    if (solomonResult.action === "approve" || solomonResult.action === "continue") {
+      logger.info(`Solomon decided to continue without SonarQube: ${solomonResult.ruling?.result?.conditions?.join(", ") || "no conditions"}`);
+      return { action: "continue" };
+    }
+
+    if (solomonResult.action === "pause") {
+      return { action: "return", result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "sonar_error" } };
+    }
+
+    // Solomon couldn't resolve — fail
+    await markSessionStatus(session, "failed");
     throw new Error(errorMessage);
   }
 
