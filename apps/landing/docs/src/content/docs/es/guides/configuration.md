@@ -23,9 +23,11 @@ Esto crea `~/.karajan/kj.config.yml` con valores por defecto razonables. Ya pued
 
 Prioridad de override: **Flags CLI > config proyecto > config global > defaults**.
 
+Desde v1.57.1, el cargador de config YAML tolera claves duplicadas en ficheros de configuracion del usuario. Si una clave aparece mas de una vez, el ultimo valor gana sin producir error.
+
 ---
 
-## Configuración Esencial
+## Configuracion Esencial
 
 La configuración mínima para empezar:
 
@@ -176,9 +178,13 @@ O vía CLI:
 kj run "implementar KJC-TSK-0042" --pg-task KJC-TSK-0042 --pg-project "Mi Proyecto"
 ```
 
-### Selección Inteligente de Modelos
+### Resolucion de Modelo/Provider (v1.57.2+)
 
-Deja que Karajan elija automáticamente el mejor tier de modelo según la complejidad de la tarea:
+Cuando el campo `model` usa un formato con prefijo como `gemini/pro`, Karajan infiere automaticamente el provider del prefijo y lo elimina del nombre del modelo. Por ejemplo, `model: "gemini/pro"` se resuelve como `provider: gemini, model: pro`. Si se establece un provider explicitamente y el prefijo del modelo entra en conflicto (ej. `provider: claude` con `model: gemini/pro`), el modelo incompatible se descarta y se usa el modelo por defecto del provider. Esto hace la configuracion mas tolerante y reduce errores de misconfiguracion.
+
+### Seleccion Inteligente de Modelos
+
+Deja que Karajan elija automaticamente el mejor tier de modelo segun la complejidad de la tarea:
 
 ```yaml
 model_selection:
@@ -204,6 +210,29 @@ hu_language: en          # Idioma de las historias de usuario / HUs (en | es). I
 
 Los agentes responden en el idioma configurado en `language`. El campo `hu_language` controla el idioma usado para generar historias de usuario (HUs) y criterios de aceptacion. Ambos valores por defecto son ingles y se pueden configurar de forma independiente.
 
+### Telemetria
+
+Karajan recopila estadisticas de uso anonimas (version, SO, comando, duracion del pipeline, tasa de exito) para mejorar la herramienta. No se recopilan descripciones de tareas, codigo ni informacion personal. La telemetria esta activada por defecto.
+
+Para desactivarla:
+
+```yaml
+telemetry: false
+```
+
+O mediante variable de entorno: `KJ_TELEMETRY=false`.
+
+### Autenticacion del HU Board
+
+Protege tu dashboard HU Board con un token Bearer:
+
+```yaml
+hu_board:
+  token: "tu-token-secreto"
+```
+
+O mediante variable de entorno: `HU_BOARD_TOKEN=tu-token-secreto`. Cuando se configura, todas las peticiones al API del HU Board requieren una cabecera `Authorization: Bearer <token>`.
+
 ### Fail-Fast ante Errores Repetidos
 
 Detiene el pipeline cuando el mismo error se repite:
@@ -224,6 +253,8 @@ failFast:
 | `KJ_SONAR_ADMIN_USER` | Usuario admin de SonarQube |
 | `KJ_SONAR_ADMIN_PASSWORD` | Contraseña admin de SonarQube |
 | `KJ_SONAR_PROJECT_KEY` | Override del project key de SonarQube |
+| `HU_BOARD_TOKEN` | Token Bearer para autenticacion del HU Board |
+| `KJ_TELEMETRY` | Establecer a `false` para desactivar telemetria |
 | `VISUAL` / `EDITOR` | Editor para `kj config --edit` |
 
 Las variables de entorno tienen precedencia sobre los valores del fichero de configuración.

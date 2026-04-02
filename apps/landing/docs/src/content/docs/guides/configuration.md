@@ -23,6 +23,8 @@ This creates `~/.karajan/kj.config.yml` with sensible defaults. You're ready to 
 
 Override priority: **CLI flags > project config > global config > defaults**.
 
+Since v1.57.1, the YAML config loader tolerates duplicated keys in user config files. If a key appears more than once, the last value wins without raising an error.
+
 ---
 
 ## Essential Configuration
@@ -176,6 +178,10 @@ Or via CLI:
 kj run "implement KJC-TSK-0042" --pg-task KJC-TSK-0042 --pg-project "My Project"
 ```
 
+### Model/Provider Resolution (v1.57.2+)
+
+When the `model` field uses a prefixed format like `gemini/pro`, Karajan automatically infers the provider from the prefix and strips it from the model name. For example, `model: "gemini/pro"` resolves to `provider: gemini, model: pro`. If a provider is set explicitly and the model prefix conflicts (e.g., `provider: claude` with `model: gemini/pro`), the incompatible model is dropped and the provider's default model is used instead. This makes configuration more forgiving and reduces misconfiguration errors.
+
 ### Smart Model Selection
 
 Let Karajan automatically pick the best model tier based on task complexity:
@@ -204,6 +210,29 @@ hu_language: en          # Language for user stories / HUs (en | es). Independen
 
 Agents respond in the configured `language`. The `hu_language` controls the language used for generated user stories (HUs) and acceptance criteria. Both default to English and can be set independently.
 
+### Telemetry
+
+Karajan collects anonymous usage statistics (version, OS, command, pipeline duration, success rate) to help improve the tool. No task descriptions, code, or personal information is collected. Telemetry is enabled by default.
+
+To opt out:
+
+```yaml
+telemetry: false
+```
+
+Or via environment variable: `KJ_TELEMETRY=false`.
+
+### HU Board Authentication
+
+Protect your HU Board dashboard with a Bearer token:
+
+```yaml
+hu_board:
+  token: "your-secret-token"
+```
+
+Or via environment variable: `HU_BOARD_TOKEN=your-secret-token`. When set, all HU Board API requests require an `Authorization: Bearer <token>` header.
+
 ### Fail-Fast on Repeated Errors
 
 Stop the pipeline early when the same error keeps repeating:
@@ -224,6 +253,8 @@ failFast:
 | `KJ_SONAR_ADMIN_USER` | SonarQube admin username |
 | `KJ_SONAR_ADMIN_PASSWORD` | SonarQube admin password |
 | `KJ_SONAR_PROJECT_KEY` | Override SonarQube project key |
+| `HU_BOARD_TOKEN` | Bearer token for HU Board authentication |
+| `KJ_TELEMETRY` | Set to `false` to disable telemetry |
 | `VISUAL` / `EDITOR` | Editor for `kj config --edit` |
 
 Environment variables take precedence over config file values.

@@ -233,9 +233,13 @@ Cuando el triage clasifica una tarea como nivel 1-2 (trivial o simple), el pipel
 
 Desactivar con `--no-auto-simplify` (CLI) o `autoSimplify: false` (MCP).
 
-### Auto-Detección de TDD (v1.25.0+)
+### Auto-Deteccion de Stack (v1.56.0+)
 
-La metodología TDD ahora se auto-detecta según el framework de tests del proyecto. Si el proyecto tiene un test runner configurado (Vitest, Jest, Mocha, etc.), el pipeline activa TDD automáticamente sin necesitar `--methodology tdd`. Puedes forzar con `--methodology standard` si lo necesitas.
+`kj init` ahora escanea los ficheros de tu proyecto (package.json, go.mod, Cargo.toml, requirements.txt, etc.) para detectar tu lenguaje, framework y herramientas. Segun el stack detectado, auto-configura el pipeline: los proyectos frontend obtienen la auditoria de diseno impeccable activada por defecto, los frameworks de tests se pre-seleccionan y los ajustes de lenguaje de SonarQube se aplican. Esto reduce la friccion de setup a casi cero para la mayoria de proyectos.
+
+### Auto-Deteccion de TDD (v1.25.0+)
+
+La metodologia TDD ahora se auto-detecta segun el framework de tests del proyecto. Si el proyecto tiene un test runner configurado (Vitest, Jest, Mocha, etc.), el pipeline activa TDD automáticamente sin necesitar `--methodology tdd`. Puedes forzar con `--methodology standard` si lo necesitas.
 
 Desde v1.38.1, TDD soporta **12 lenguajes** además de JavaScript/TypeScript: Java (JUnit/Maven/Gradle), Python (pytest/unittest), Go (go test), Rust (cargo test), C# (dotnet test/NUnit/xUnit), Ruby (RSpec/Minitest), PHP (PHPUnit), Swift (XCTest), Dart (dart test/Flutter) y Kotlin (JUnit/Gradle). El enforcer TDD auto-detecta el lenguaje y framework de tests del proyecto.
 
@@ -345,8 +349,32 @@ Puedes activar hu-reviewer explícitamente para tareas simples:
 kj run --enable-hu-reviewer --task "Añadir validación de inputs"
 ```
 
-O desactivar la auto-activación:
+O desactivar la auto-activacion:
 
 ```bash
-kj run --no-hu-reviewer --task "Tarea compleja sin descomposición en HUs"
+kj run --no-hu-reviewer --task "Tarea compleja sin descomposicion en HUs"
+```
+
+## Robustez del Auto-Arranque de SonarQube (v1.57.2+)
+
+Cuando el auto-manage de SonarQube arranca el contenedor Docker via `docker compose up`, Karajan ahora espera hasta 60 segundos a que SonarQube este listo, consultando cada 5 segundos. Esto corrige errores falsos de "auto-start failed" que ocurrian en arranques en frio cuando SonarQube tardaba mas de lo esperado en inicializarse.
+
+## Prevencion de Stdin en Subprocesos (v1.57.2+)
+
+Todos los subprocesos (agentes, scanner de SonarQube, comandos npm) ahora se ejecutan con `stdin: "ignore"`. Esto previene cuelgues indefinidos cuando un subproceso solicita input que nunca llegara, como SonarQube pidiendo credenciales o npm pidiendo confirmacion.
+
+## Telemetria (v1.57.0+)
+
+Karajan recopila estadisticas de uso anonimas para mejorar la herramienta: version, SO, nombre de comando, duracion del pipeline y tasa de exito. No se recopilan descripciones de tareas, codigo ni informacion personal.
+
+La telemetria esta activada por defecto y se puede desactivar en tu config:
+
+```yaml
+telemetry: false
+```
+
+O mediante variable de entorno:
+
+```bash
+export KJ_TELEMETRY=false
 ```

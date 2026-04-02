@@ -5,7 +5,7 @@ template: splash
 hero:
   tagline: "v1.58.0 — Orquestador de IA basado en roles: 16 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
   image:
-    file: ../../../assets/logo.svg
+    file: ../../../assets/logo.png
   actions:
     - text: Empezar
       link: /docs/es/getting-started/introduction/
@@ -30,7 +30,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
     Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
   </Card>
   <Card title="Servidor MCP" icon="puzzle">
-    21 herramientas via MCP — incluyendo `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` para ejecución standalone de roles, `kj_preflight` para configuración confirmada por humano, `kj_board` para gestión del HU Board, y `kj_status` para estado parseado en vivo. Notificaciones de progreso en tiempo real para todas las herramientas.
+    24 herramientas via MCP — incluyendo `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` para ejecucion standalone de roles, `kj_preflight` para configuracion confirmada por humano, `kj_board` para gestion del HU Board, `kj_status` para estado parseado en vivo, y `kj_undo` para revertir ejecuciones del pipeline. Notificaciones de progreso en tiempo real para todas las herramientas. Reinicio graceful tras actualizaciones npm.
   </Card>
   <Card title="TDD Obligatorio" icon="approve-check">
     Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
@@ -97,6 +97,21 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   </Card>
   <Card title="Dashboard HU Board" icon="list-format">
     Dashboard web para visualizar historias de usuario y sesiones de todos los proyectos. Tablero kanban, timeline de sesiones, puntuaciones de calidad. Listo para Docker, sincroniza automáticamente desde ficheros locales.
+  </Card>
+  <Card title="kj undo" icon="random">
+    Revierte la ultima ejecucion del pipeline con soft reset o `--hard`. Deshaz cambios de forma segura cuando un run produce resultados inesperados.
+  </Card>
+  <Card title="Dashboard kj status" icon="list-format">
+    Dashboard de terminal mostrando estados de HUs, stage actual, tiempos y progreso. El MCP devuelve JSON estructurado para acceso programatico.
+  </Card>
+  <Card title="Auto-Deteccion de Stack" icon="setting">
+    `kj init` escanea package.json, go.mod, Cargo.toml y mas para detectar tu framework y lenguaje. Auto-activa impeccable para proyectos frontend.
+  </Card>
+  <Card title="Telemetria (Opt-Out)" icon="seti:log">
+    Estadisticas de uso anonimas (version, SO, comando, duracion del pipeline, tasa de exito) para mejorar Karajan. Totalmente desactivable con `telemetry: false` en el config.
+  </Card>
+  <Card title="Links a Documentacion en Errores" icon="open-book">
+    Todos los mensajes de error incluyen una URL directa a la pagina de documentacion relevante, acelerando la resolucion de problemas.
   </Card>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con [RTK](https://github.com/rtk-ai/rtk) para un ahorro adicional del 60-90% en tokens.

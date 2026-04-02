@@ -229,6 +229,10 @@ When triage classifies a task as level 1-2 (trivial or simple), the pipeline aut
 
 Disable with `--no-auto-simplify` (CLI) or `autoSimplify: false` (MCP).
 
+### Auto-Detect Stack (v1.56.0+)
+
+`kj init` now scans your project files (package.json, go.mod, Cargo.toml, requirements.txt, etc.) to detect your language, framework, and tooling. Based on the detected stack, it auto-configures the pipeline: frontend projects get the impeccable design audit enabled by default, test frameworks are pre-selected, and SonarQube language settings are applied. This reduces setup friction to near-zero for most projects.
+
 ### Auto-Detect TDD (v1.25.0+)
 
 TDD methodology is now auto-detected based on the project's test framework. If the project has a test runner configured (Vitest, Jest, Mocha, etc.), the pipeline automatically enables TDD without requiring `--methodology tdd`. You can still override with `--methodology standard` if needed.
@@ -345,4 +349,28 @@ Or disable the auto-activation:
 
 ```bash
 kj run --no-hu-reviewer --task "Complex task without HU decomposition"
+```
+
+## SonarQube Auto-Start Robustness (v1.57.2+)
+
+When SonarQube auto-manage starts the Docker container via `docker compose up`, Karajan now waits up to 60 seconds for SonarQube to become ready, polling every 5 seconds. This fixes false "auto-start failed" errors that occurred on cold boot when SonarQube took longer than expected to initialize.
+
+## Subprocess Stdin Prevention (v1.57.2+)
+
+All subprocesses (agents, SonarQube scanner, npm commands) now run with `stdin: "ignore"`. This prevents indefinite hangs when a subprocess prompts for input that will never arrive, such as SonarQube asking for credentials or npm asking for confirmation.
+
+## Telemetry (v1.57.0+)
+
+Karajan collects anonymous usage statistics to help improve the tool: version, OS, command name, pipeline duration, and success rate. No task descriptions, code, or personal information is collected.
+
+Telemetry is enabled by default and can be disabled in your config:
+
+```yaml
+telemetry: false
+```
+
+Or via environment variable:
+
+```bash
+export KJ_TELEMETRY=false
 ```
