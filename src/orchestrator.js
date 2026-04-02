@@ -381,6 +381,24 @@ function takeCheckpointSnapshot(session) {
   };
 }
 
+/**
+ * Determine if checkpoint should auto-continue without asking the user.
+ * Exported for testing.
+ */
+export function shouldAutoContinueCheckpoint(session, hasProgress) {
+  if (hasProgress) {
+    session._checkpoint_stall_count = 0;
+    return { autoContinue: true, reason: "progress_detected" };
+  }
+  const wasRateLimited = (session.standby_retry_count || 0) > 0;
+  const consecutiveStalls = (session._checkpoint_stall_count || 0) + 1;
+  session._checkpoint_stall_count = consecutiveStalls;
+  if (wasRateLimited && consecutiveStalls < 3) {
+    return { autoContinue: true, reason: "recoverable_stall" };
+  }
+  return { autoContinue: false, reason: consecutiveStalls >= 3 ? "max_stalls_reached" : "no_progress" };
+}
+
 async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes, i, config, budgetTracker, stageResults, emitter, eventBase, session, budgetSummary, lastCheckpointSnapshot }) {
   if (checkpointDisabled || !askQuestion || (Date.now() - lastCheckpointAt) < checkpointIntervalMs) {
     return { action: "continue_loop", checkpointDisabled, lastCheckpointAt, lastCheckpointSnapshot };
@@ -389,22 +407,23 @@ async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpoin
   const elapsedStr = elapsedMinutes.toFixed(1);
   const stagesCompleted = Object.keys(stageResults).join(", ") || "none";
 
-  // Auto-continue if progress detected since last checkpoint
+  // Decide whether to auto-continue or ask the user
   const hasProgress = detectCheckpointProgress(session, lastCheckpointSnapshot);
   const newSnapshot = takeCheckpointSnapshot(session);
+  const decision = shouldAutoContinueCheckpoint(session, hasProgress);
 
-  if (hasProgress) {
+  if (decision.autoContinue) {
     emitProgress(
       emitter,
       makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
-        message: `Checkpoint: progress detected, continuing (${elapsedStr} min elapsed)`,
-        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true, executorType: "system" }
+        message: `Checkpoint: ${decision.reason === "progress_detected" ? "progress detected" : "stall caused by rate limit/cooldown"}, auto-continuing (${elapsedStr} min elapsed)`,
+        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true, reason: decision.reason }
       })
     );
     return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now(), lastCheckpointSnapshot: newSnapshot };
   }
 
-  // No progress — ask human
+  // No progress and not recoverable — ask human
   const iterInfo = `${i - 1}/${config.max_iterations} iterations completed`;
   const budgetInfo = budgetTracker.total().cost_usd > 0 ? ` | Budget: $${budgetTracker.total().cost_usd.toFixed(2)}` : "";
   const checkpointMsg = `Checkpoint — ${elapsedStr} min elapsed | ${iterInfo}${budgetInfo} | Stages completed: ${stagesCompleted}. No progress since last checkpoint. What would you like to do?`;
