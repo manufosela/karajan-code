@@ -1618,7 +1618,43 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
     ctx.eventBase.iteration = i;
     ctx.iteration = i;
 
-    const iterResult = await runSingleIteration(ctx);
+    let iterResult;
+    try {
+      iterResult = await runSingleIteration(ctx);
+    } catch (stageError) {
+      // ANY unhandled error in a stage = out of normal flow → Solomon decides
+      logger.warn(`Stage error caught — escalating to Solomon: ${stageError.message}`);
+      const solomonResult = await invokeSolomon({
+        config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+        stage: "stage_error", askQuestion, session: ctx.session, iteration: i,
+        conflict: {
+          stage: "stage_error",
+          task: loopTask,
+          iterationCount: i,
+          maxIterations: ctx.config.max_iterations,
+          budget_usd: ctx.budgetSummary()?.total_cost_usd || 0,
+          history: [{ agent: "pipeline", feedback: `Stage threw: ${stageError.message}` }]
+        }
+      });
+
+      if (solomonResult.action === "approve") {
+        logger.info("Solomon approved despite stage error");
+        return { approved: true, sessionId: ctx.session.id, reason: "solomon_approved_after_error" };
+      }
+      if (solomonResult.action === "continue") {
+        if (solomonResult.humanGuidance) {
+          ctx.session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+        }
+        continue; // next iteration
+      }
+      if (solomonResult.action === "pause") {
+        return { paused: true, sessionId: ctx.session.id, question: solomonResult.question, context: "stage_error" };
+      }
+      // Solomon couldn't resolve — fail
+      await markSessionStatus(ctx.session, "failed");
+      return { approved: false, sessionId: ctx.session.id, reason: "stage_error", error: stageError.message };
+    }
+
     if (iterResult.action === "return") {
       return iterResult.result;
     }
@@ -1678,7 +1714,29 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
     return handleDryRun({ task, config, flags, emitter, pipelineFlags });
   }
 
-  const ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
+  let ctx;
+  try {
+    ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
+  } catch (initError) {
+    // Pre-loop stage failure → Solomon decides
+    logger.warn(`Init/pre-loop error — escalating to Solomon: ${initError.message}`);
+    const tempSession = { id: "init-error", task, status: "failed" };
+    const solomonResult = await invokeSolomon({
+      config, logger, emitter, eventBase: { sessionId: "init-error", iteration: 0, stage: "init", startedAt: Date.now() },
+      stage: "init_error", askQuestion, session: tempSession, iteration: 0,
+      conflict: {
+        stage: "init_error",
+        task,
+        iterationCount: 0,
+        maxIterations: config.max_iterations || 5,
+        history: [{ agent: "pipeline", feedback: `Initialization failed: ${initError.message}` }]
+      }
+    });
+    if (solomonResult.action === "pause") {
+      return { paused: true, sessionId: "init-error", question: solomonResult.question, context: "init_error" };
+    }
+    throw initError; // Solomon couldn't resolve — propagate
+  }
 
   try {
     // --- Analysis-only flow: skip coder/reviewer when coderRequired === false ---
