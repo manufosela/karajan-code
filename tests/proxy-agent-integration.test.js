@@ -9,7 +9,8 @@ vi.mock("../src/agents/resolve-bin.js", () => ({
 }));
 
 vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
-  getProxyEnv: vi.fn()
+  getProxyEnv: vi.fn(),
+  getProxyStats: vi.fn(() => null)
 }));
 
 const PROXY_ENV = {

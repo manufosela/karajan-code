@@ -117,6 +117,7 @@ vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
   stopProxy: vi.fn(async () => {}),
   isProxyRunning: vi.fn(async () => false),
   getProxyEnv: vi.fn(() => null),
+  getProxyStats: vi.fn(() => null),
 }));
 
 vi.mock("../src/utils/agent-detect.js", () => ({

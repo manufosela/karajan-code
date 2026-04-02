@@ -26,7 +26,8 @@ vi.mock("../src/sonar/manager.js", () => ({
 }));
 
 vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
-  isProxyRunning: vi.fn().mockResolvedValue(false)
+  isProxyRunning: vi.fn().mockResolvedValue(false),
+  getProxyStats: vi.fn(() => null)
 }));
 
 vi.mock("../src/roles/base-role.js", () => ({
