@@ -48,7 +48,7 @@ import { setRunner as setDiffRunner } from "./review/diff-generator.js";
 import { setRunner as setGitRunner } from "./utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
-import { startProxy, stopProxy } from "./proxy/proxy-lifecycle.js";
+import { startProxy, stopProxy, getProxyStats } from "./proxy/proxy-lifecycle.js";
 
 
 // --- Product Context loader ---
@@ -826,8 +826,10 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   if (rtkSavings) session.rtk_savings = rtkSavings;
   await saveSession(session);
 
+  const proxyStats = getProxyStats();
   const endDetail = { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues };
   if (rtkSavings) endDetail.rtk_savings = rtkSavings;
+  if (proxyStats) endDetail.proxy_stats = proxyStats;
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, stage: "done" }, {
@@ -1306,8 +1308,10 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
   if (rtkSavings) session.rtk_savings = rtkSavings;
   await markSessionStatus(session, "failed");
+  const proxyStats = getProxyStats();
   const failDetail = { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() };
   if (rtkSavings) failDetail.rtk_savings = rtkSavings;
+  if (proxyStats) failDetail.proxy_stats = proxyStats;
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, stage: "done" }, {

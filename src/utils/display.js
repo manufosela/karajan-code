@@ -259,6 +259,16 @@ function printSessionRtkSavings(rtkSavings) {
   console.log(`  ${ANSI.dim}\u26a1 RTK: saved ~${tokens} tokens (${ratio}% compression, ${commands} commands)${ANSI.reset}`);
 }
 
+function printSessionProxyStats(proxyStats) {
+  if (!proxyStats || !proxyStats.requests) return;
+  const reqs = proxyStats.requests;
+  const bytesIn = proxyStats.bytes_in ?? 0;
+  const bytesOut = proxyStats.bytes_out ?? 0;
+  const totalBytes = bytesIn + bytesOut;
+  const estTokens = Math.round(totalBytes / 4); // ~4 bytes per token
+  console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${reqs} requests, ~${estTokens} tokens proxied (${(totalBytes / 1024).toFixed(0)}KB transferred)${ANSI.reset}`);
+}
+
 function printSessionBudget(budget) {
   if (!budget) return;
   if (isBudgetUnavailable(budget)) {
@@ -455,6 +465,7 @@ const EVENT_HANDLERS = {
     printSessionGit(event.detail?.git);
     printSessionBudget(event.detail?.budget);
     printSessionRtkSavings(event.detail?.rtk_savings);
+    printSessionProxyStats(event.detail?.proxy_stats);
     console.log(`${ANSI.dim}Session: ${event.sessionId}${ANSI.reset}`);
   },
 
