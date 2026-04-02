@@ -63,6 +63,24 @@ export function formatEscalationMessage(solomonResult, session) {
   return lines.join("\n");
 }
 
+/**
+ * Extract Solomon's previous rulings from session checkpoints.
+ * Gives Solomon memory of its own decisions to avoid repeating failed strategies.
+ */
+function extractSolomonHistory(session) {
+  const checkpoints = session?.checkpoints || [];
+  return checkpoints
+    .filter(cp => cp.stage === "solomon")
+    .map(cp => ({
+      conflictStage: cp.conflictStage,
+      ruling: cp.ruling,
+      alternativeAgent: cp.alternativeAgent,
+      waitUntil: cp.waitUntil,
+      conditions: cp.conditions,
+      error: cp.error || null
+    }));
+}
+
 export async function invokeSolomon({ config, logger, emitter, eventBase, stage, conflict, askQuestion, session, iteration }) {
   const solomonEnabled = Boolean(config.pipeline?.solomon?.enabled);
 
@@ -88,10 +106,14 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
   await solomon.init({ task: conflict.task || session.task, iteration });
   let ruling;
   try {
-    const conflictWithSuggestions = pendingSuggestions
-      ? { ...conflict, hostSuggestions: pendingSuggestions }
-      : conflict;
-    ruling = await solomon.run({ conflict: conflictWithSuggestions });
+    // Inject Solomon's own history so it doesn't repeat failed strategies
+    const solomonHistory = extractSolomonHistory(session);
+    const enrichedConflict = {
+      ...conflict,
+      ...(pendingSuggestions && { hostSuggestions: pendingSuggestions }),
+      ...(solomonHistory.length > 0 && { previousSolomonRulings: solomonHistory })
+    };
+    ruling = await solomon.run({ conflict: enrichedConflict });
   } catch (err) {
     logger.warn(`Solomon threw: ${err.message}`);
     return escalateToHuman({
@@ -124,7 +146,11 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
   await addCheckpoint(session, {
     stage: "solomon",
     iteration,
+    conflictStage: conflict?.stage || stage,
     ruling: ruling.result?.ruling,
+    alternativeAgent: ruling.result?.alternativeAgent || null,
+    waitUntil: ruling.result?.waitUntil || null,
+    conditions: ruling.result?.conditions || [],
     escalate: ruling.result?.escalate,
     error: solomonError ? solomonError.slice(0, 500) : undefined,
     subtask: ruling.result?.subtask?.title || null
