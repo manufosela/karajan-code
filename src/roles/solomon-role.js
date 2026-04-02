@@ -100,6 +100,17 @@ function buildPrompt({ conflict, task, instructions }) {
     "prefer continuing with conditions. Never waste budget on style-only iterations."
   );
 
+  if (conflict?.previousSolomonRulings?.length > 0) {
+    const rulingLines = conflict.previousSolomonRulings.map((r, idx) =>
+      `${idx + 1}. Stage: ${r.conflictStage}, Ruling: ${r.ruling}${r.alternativeAgent ? `, agent: ${r.alternativeAgent}` : ""}${r.error ? ` (FAILED: ${r.error})` : ""}`
+    ).join("\n");
+    sections.push(
+      "## Your previous rulings in this session (DO NOT repeat failed strategies)",
+      rulingLines,
+      "If a previous ruling failed (e.g., alternative agent also rate-limited), do NOT suggest the same strategy again. Escalate or try a different approach."
+    );
+  }
+
   if (conflict?.issueCategories) {
     sections.push(`## Issue categories\n${JSON.stringify(conflict.issueCategories, null, 2)}`);
   }
