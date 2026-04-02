@@ -334,8 +334,12 @@
   <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
   <script>
     (function() {
-      var saved = localStorage.getItem('theme');
-      if (saved) document.documentElement.setAttribute('data-theme', saved);
+      var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
+      if (saved && saved !== 'auto') {
+        document.documentElement.setAttribute('data-theme', saved);
+        localStorage.setItem('theme', saved);
+        localStorage.setItem('starlight-theme', saved);
+      }
     })();
   </script>
 </head>
@@ -456,6 +460,7 @@
       var next = isDark ? 'light' : 'dark';
       html.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
+      localStorage.setItem('starlight-theme', next);
     }
 
     function copyInstall(el) {
