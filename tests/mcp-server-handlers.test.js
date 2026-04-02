@@ -563,11 +563,12 @@ describe("mcp/server-handlers", () => {
 
     // --- Branch validation ---
 
-    it("kj_run rejects when on base branch", async () => {
+    it("kj_run allows base branch (creates feature branch automatically)", async () => {
       ackPreflight();
       currentBranch.mockResolvedValueOnce("main");
-      await expect(handleToolCall("kj_run", { task: "Do stuff" }, mockServer, {}))
-        .rejects.toThrow(/You are on the base branch/);
+      runFlow.mockResolvedValueOnce({ approved: true, sessionId: "s_ok" });
+      const result = await handleToolCall("kj_run", { task: "Do stuff" }, mockServer, {});
+      expect(result.ok).toBe(true);
     });
 
     it("kj_code rejects when on base branch", async () => {
