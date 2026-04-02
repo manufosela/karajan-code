@@ -1,6 +1,7 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
+import { extractFirstJson } from "../utils/json-extract.js";
 
 const MAX_DIFF_LENGTH = 12000;
 
@@ -65,12 +66,11 @@ function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAva
 }
 
 function parseReviewOutput(raw) {
-  const text = raw?.trim() || "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(text);
-  if (!jsonMatch) {
+  const parsed = extractFirstJson(raw);
+  if (!parsed) {
     throw new Error(`Failed to parse reviewer output: no JSON found`);
   }
-  return JSON.parse(jsonMatch[0]);
+  return parsed;
 }
 
 export class ReviewerRole extends BaseRole {

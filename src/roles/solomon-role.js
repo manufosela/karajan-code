@@ -1,5 +1,6 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { extractFirstJson } from "../utils/json-extract.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -98,10 +99,7 @@ function buildPrompt({ conflict, task, instructions }) {
 }
 
 function parseSolomonOutput(raw) {
-  const text = raw?.trim() || "";
-  const jsonMatch = /\{[\s\S]*\}/.exec(text);
-  if (!jsonMatch) return null;
-  return JSON.parse(jsonMatch[0]);
+  return extractFirstJson(raw);
 }
 
 function buildSummary(parsed) {
