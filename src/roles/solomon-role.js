@@ -66,7 +66,7 @@ function buildPrompt({ conflict, task, instructions }) {
     "3. **style** (naming, formatting, preferences, false positives) — action: dismiss",
     "",
     "## Ruling options",
-    '1. **approve** — ONLY when all pending issues are style/false positives AND no stages were skipped, OR when risk evaluation is LOW after exhausting alternatives.',
+    '1. **approve** — FORBIDDEN when a quality stage (review, tests, sonar, security) was skipped or failed. You MUST try alternatives first (wait for cooldown, use different agent). Only allowed when all stages completed successfully and remaining issues are style/false positives.',
     '2. **approve_with_conditions** — Fixable issues or recovery actions needed. Include exact conditions (wait, retry with alternative agent, specific fix instructions). Set extraIterations and/or alternativeAgent.',
     '3. **escalate_human** — Cannot resolve safely. Critical issues, ambiguous requirements, architecture decisions, high-risk skip.',
     '4. **create_subtask** — A prerequisite task must be completed first.',
@@ -108,6 +108,20 @@ function buildPrompt({ conflict, task, instructions }) {
       "## Your previous rulings in this session (DO NOT repeat failed strategies)",
       rulingLines,
       "If a previous ruling failed (e.g., alternative agent also rate-limited), do NOT suggest the same strategy again. Escalate or try a different approach."
+    );
+  }
+
+  // Rate limit specific instruction
+  if (stage?.includes("rate_limit")) {
+    const rateLimitedAgent = conflict?.history?.[0]?.feedback?.match(/Agent "(\w+)"/)?.[1] || "unknown";
+    sections.push(
+      "## CRITICAL: Agent rate-limited",
+      `Agent "${rateLimitedAgent}" is rate-limited. You MUST NOT approve skipping this stage.`,
+      "Your ONLY valid options are:",
+      `1. approve_with_conditions + alternativeAgent: pick a different agent (available: claude, codex, gemini — NOT "${rateLimitedAgent}")`,
+      "2. approve_with_conditions + waitUntil: if cooldown is known and <10min",
+      "3. escalate_human: if no alternatives work",
+      `DO NOT set ruling to "approve". The stage MUST be completed by some agent.`
     );
   }
 
