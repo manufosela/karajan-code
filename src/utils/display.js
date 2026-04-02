@@ -261,12 +261,17 @@ function printSessionRtkSavings(rtkSavings) {
 
 function printSessionProxyStats(proxyStats) {
   if (!proxyStats || !proxyStats.requests) return;
-  const reqs = proxyStats.requests;
-  const bytesIn = proxyStats.bytes_in ?? 0;
-  const bytesOut = proxyStats.bytes_out ?? 0;
-  const totalBytes = bytesIn + bytesOut;
-  const estTokens = Math.round(totalBytes / 4); // ~4 bytes per token
-  console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${reqs} requests, ~${estTokens} tokens proxied (${(totalBytes / 1024).toFixed(0)}KB transferred)${ANSI.reset}`);
+  const orig = proxyStats.originalTokens ?? 0;
+  const comp = proxyStats.compressedTokens ?? 0;
+  const saved = proxyStats.savedTokens ?? 0;
+  const pct = proxyStats.savedPct ?? "0.0";
+  const hits = proxyStats.cacheHits ?? 0;
+  if (orig > 0) {
+    console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${orig.toLocaleString()} \u2192 ${comp.toLocaleString()} tokens (${pct}% saved, ${hits} cache hits)${ANSI.reset}`);
+  } else {
+    const reqs = proxyStats.requests;
+    console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${reqs} requests proxied${ANSI.reset}`);
+  }
 }
 
 function printSessionBudget(budget) {
@@ -453,13 +458,13 @@ const EVENT_HANDLERS = {
       console.log(`  \u251c\u2500 ${icon} Budget: ${ANSI.dim}N/A (provider does not report usage)${ANSI.reset}`);
       return;
     }
-    const tokenStr = totalTokens > 0 ? `${totalTokens.toLocaleString()} tokens` : "";
+    const tokenStr = totalTokens > 0 ? ` / ${totalTokens.toLocaleString()} tokens` : "";
     const costStr = `$${total.toFixed(2)}`;
     const color = budgetColor(max, pct, warn);
     if (Number.isFinite(max) && max > 0) {
-      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}${tokenStr ? `  ${ANSI.dim}${tokenStr}${ANSI.reset}` : ""}`);
+      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${tokenStr} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}`);
     } else if (total > 0 || totalTokens > 0) {
-      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${ANSI.reset}${tokenStr ? `  ${ANSI.dim}${tokenStr}${ANSI.reset}` : ""}`);
+      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${tokenStr}${ANSI.reset}`);
     }
   },
 
