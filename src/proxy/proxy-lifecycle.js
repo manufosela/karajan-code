@@ -144,6 +144,9 @@ export function getProxyEnv() {
 
   const base = `http://127.0.0.1:${proxyPort}`;
   return {
+    // SDK-specific base URL vars — used by SDKs that respect them.
+    // Claude Code CLI does NOT respect ANTHROPIC_BASE_URL, so claude-agent
+    // must skip proxy injection until upstream support is confirmed.
     ANTHROPIC_BASE_URL: base,
     OPENAI_BASE_URL: base,
     GEMINI_API_BASE: base,

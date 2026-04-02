@@ -439,4 +439,44 @@ describe("ClaudeAgent", () => {
       expect(result.model).toBeNull();
     });
   });
+
+  describe("sanitizeClaudeError", () => {
+    let sanitizeClaudeError;
+
+    beforeEach(async () => {
+      const mod = await import("../../src/agents/claude-agent.js");
+      sanitizeClaudeError = mod.sanitizeClaudeError;
+    });
+
+    it("extracts error from result line", () => {
+      const raw = [
+        '{"type":"system","subtype":"init","session_id":"abc"}',
+        '{"type":"system","subtype":"api_retry","attempt":1,"error_status":502}',
+        '{"type":"result","subtype":"success","is_error":true,"result":"API Error: 502 connect ECONNREFUSED 127.0.0.1:443"}'
+      ].join("\n");
+      expect(sanitizeClaudeError(raw)).toBe("API Error: 502 connect ECONNREFUSED 127.0.0.1:443");
+    });
+
+    it("extracts text from assistant message", () => {
+      const raw = [
+        '{"type":"system","subtype":"init"}',
+        '{"type":"assistant","message":{"content":[{"type":"text","text":"Something went wrong"}]}}'
+      ].join("\n");
+      expect(sanitizeClaudeError(raw)).toBe("Something went wrong");
+    });
+
+    it("returns first non-JSON line for plain text errors", () => {
+      expect(sanitizeClaudeError("Error: command not found\n")).toBe("Error: command not found");
+    });
+
+    it("returns truncated raw for unrecognized format", () => {
+      const raw = '{"type":"unknown","data":"x"}'.repeat(20);
+      expect(sanitizeClaudeError(raw).length).toBeLessThanOrEqual(200);
+    });
+
+    it("handles null/empty input", () => {
+      expect(sanitizeClaudeError(null)).toBe("Unknown error");
+      expect(sanitizeClaudeError("")).toBe("Unknown error");
+    });
+  });
 });

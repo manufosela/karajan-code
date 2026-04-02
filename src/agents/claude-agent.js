@@ -1,7 +1,6 @@
 import { BaseAgent } from "./base-agent.js";
 import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
-import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
 
 /**
  * Safely parse a JSON line, returning null on failure.
@@ -10,6 +9,37 @@ function tryParseJson(line) {
   try {
     return JSON.parse(line);
   } catch { return null; }
+}
+
+/**
+ * Extract a human-readable error message from Claude's raw NDJSON stderr output.
+ * Claude emits system init, api_retry, assistant error, and result lines.
+ * We extract just the meaningful error text, discarding the JSON noise.
+ */
+export function sanitizeClaudeError(raw) {
+  if (!raw) return "Unknown error";
+  const lines = raw.split("\n").filter(Boolean);
+
+  // Look for a result line with the actual error
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const obj = tryParseJson(lines[i]);
+    if (!obj) continue;
+    if (obj.type === "result" && obj.result) return String(obj.result);
+    if (obj.type === "assistant" && obj.message?.content) {
+      const text = obj.message.content
+        .filter(b => b.type === "text" && b.text)
+        .map(b => b.text)
+        .join(" ");
+      if (text) return text;
+    }
+  }
+
+  // If no JSON parsed, return first non-JSON line or truncated raw
+  for (const line of lines) {
+    if (!line.startsWith("{")) return line.slice(0, 200);
+  }
+
+  return raw.slice(0, 200);
 }
 
 /**
@@ -135,8 +165,9 @@ function createStreamJsonFilter(onOutput) {
  */
 function cleanExecaOpts(extra = {}) {
   const { CLAUDECODE, ...env } = process.env;
-  const proxyEnv = getProxyEnv();
-  if (proxyEnv) Object.assign(env, proxyEnv);
+  // NOTE: Claude Code CLI does not respect ANTHROPIC_BASE_URL — proxy env
+  // injection is skipped for claude to avoid ECONNREFUSED errors.
+  // Other agents (codex, gemini, aider) use SDKs that do respect base URL vars.
   return { env, stdin: "ignore", ...extra };
 }
 
@@ -197,7 +228,7 @@ export class ClaudeAgent extends BaseAgent {
       const raw = pickOutput(res);
       const output = extractTextFromStreamJson(raw);
       const usage = extractUsageFromStreamJson(raw);
-      return { ok: res.exitCode === 0, output, error: res.exitCode === 0 ? "" : raw, exitCode: res.exitCode, ...usage };
+      return { ok: res.exitCode === 0, output, error: res.exitCode === 0 ? "" : sanitizeClaudeError(raw), exitCode: res.exitCode, ...usage };
     }
 
     // Without streaming, use json output to get structured response via stderr
@@ -206,7 +237,7 @@ export class ClaudeAgent extends BaseAgent {
     const raw = pickOutput(res);
     const output = extractTextFromStreamJson(raw);
     const usage = extractUsageFromStreamJson(raw);
-    return { ok: res.exitCode === 0, output, error: res.exitCode === 0 ? "" : raw, exitCode: res.exitCode, ...usage };
+    return { ok: res.exitCode === 0, output, error: res.exitCode === 0 ? "" : sanitizeClaudeError(raw), exitCode: res.exitCode, ...usage };
   }
 
   async _reviewTaskExec(task, model) {
