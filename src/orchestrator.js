@@ -199,6 +199,15 @@ function createBudgetManager({ config, emitter, eventBase }) {
 
 async function initializeSession({ task, config, flags, pgTaskId, pgProject }) {
   const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
+
+  // Take filesystem snapshot for git-free diff fallback
+  if (baseRef === "__snapshot__") {
+    const { takeSnapshot } = await import("./review/snapshot-diff.js");
+    const { setSnapshot } = await import("./review/diff-generator.js");
+    const snapshot = await takeSnapshot(config.projectDir || process.cwd());
+    setSnapshot(snapshot);
+  }
+
   const sessionInit = {
     task,
     config_snapshot: config,

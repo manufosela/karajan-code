@@ -1,7 +1,20 @@
 import { runCommand } from "../utils/process.js";
+import { generateSnapshotDiff } from "./snapshot-diff.js";
 
 /** @type {((command: string, args?: string[], options?: object) => Promise<object>)|null} */
 let _runner = null;
+
+/** @type {Map<string, string>|null} — pre-coder filesystem snapshot for git-free diff */
+let _snapshot = null;
+
+/**
+ * Store a filesystem snapshot for git-free diff fallback.
+ * Call before the coder runs. If git is available, this is unused.
+ * @param {Map<string, string>} snapshot
+ */
+export function setSnapshot(snapshot) {
+  _snapshot = snapshot;
+}
 
 /**
  * Inject an RTK-aware runner so all git operations in this module benefit from token savings.
@@ -18,29 +31,46 @@ function run(command, args, ...rest) {
 
 export async function computeBaseRef({ baseBranch = "main", baseRef = null }) {
   if (baseRef) return baseRef;
-  const mergeBase = await run("git", ["merge-base", "HEAD", `origin/${baseBranch}`]);
-  if (mergeBase.exitCode === 0) return mergeBase.stdout.trim();
 
-  const fallback = await run("git", ["rev-parse", "HEAD~1"]);
-  if (fallback.exitCode === 0) return fallback.stdout.trim();
+  try {
+    const mergeBase = await run("git", ["merge-base", "HEAD", `origin/${baseBranch}`]);
+    if (mergeBase.exitCode === 0) return mergeBase.stdout.trim();
 
-  // Empty repo (zero commits): diff against the empty tree
-  const emptyTree = await run("git", ["hash-object", "-t", "tree", "/dev/null"]);
-  if (emptyTree.exitCode === 0) return emptyTree.stdout.trim();
+    const fallback = await run("git", ["rev-parse", "HEAD~1"]);
+    if (fallback.exitCode === 0) return fallback.stdout.trim();
 
-  throw new Error("Could not compute diff base reference");
+    // Empty repo (zero commits): diff against the empty tree
+    const emptyTree = await run("git", ["hash-object", "-t", "tree", "/dev/null"]);
+    if (emptyTree.exitCode === 0) return emptyTree.stdout.trim();
+  } catch { /* git not available */ }
+
+  // No git or all strategies failed — return sentinel for snapshot-based diff
+  return "__snapshot__";
 }
 
-export async function generateDiff({ baseRef, stageNewFiles = false }) {
-  // Stage untracked files so they appear in the diff (coder creates files but doesn't git add)
-  if (stageNewFiles) {
-    await run("git", ["add", "-A"]);
+export async function generateDiff({ baseRef, stageNewFiles = false, projectDir = null }) {
+  // Try git diff first
+  try {
+    if (stageNewFiles) {
+      await run("git", ["add", "-A"]);
+    }
+    const result = await run("git", ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean));
+    if (result.exitCode === 0) {
+      return result.stdout;
+    }
+  } catch { /* git not available or failed */ }
+
+  // Fallback: snapshot-based diff (no git needed)
+  if (_snapshot) {
+    const dir = projectDir || process.cwd();
+    return generateSnapshotDiff(_snapshot, null, dir);
   }
-  const result = await run("git", ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean));
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff failed: ${result.stderr || result.stdout}`);
-  }
-  return result.stdout;
+
+  // No git and no snapshot — generate diff of all files as new
+  const dir = projectDir || process.cwd();
+  const { takeSnapshot } = await import("./snapshot-diff.js");
+  const emptySnapshot = new Map();
+  return generateSnapshotDiff(emptySnapshot, null, dir);
 }
 
 export async function getUntrackedFiles() {

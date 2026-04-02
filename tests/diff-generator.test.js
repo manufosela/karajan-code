@@ -44,12 +44,13 @@ describe("computeBaseRef", () => {
     expect(runCommand).toHaveBeenCalledWith("git", ["hash-object", "-t", "tree", "/dev/null"]);
   });
 
-  it("throws when all strategies fail", async () => {
+  it("returns __snapshot__ sentinel when all git strategies fail", async () => {
     runCommand
       .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "merge-base fail" })
       .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "HEAD~1 fail" })
       .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "hash-object fail" });
-    await expect(computeBaseRef({ baseBranch: "main" })).rejects.toThrow("Could not compute diff base reference");
+    const ref = await computeBaseRef({ baseBranch: "main" });
+    expect(ref).toBe("__snapshot__");
   });
 });
 
