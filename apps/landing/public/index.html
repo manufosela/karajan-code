@@ -3,15 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karajan Code — AI Orchestration for Code</title>
-  <meta name="description" content="Local multi-agent coding orchestrator with TDD, SonarQube, and automated code review. Supports Claude, Codex, Gemini and Aider.">
-  <meta name="theme-color" content="#0a0e1a">
-  <link rel="icon" type="image/png" href="/logo.png">
+  <title>Karajan Code — Multiagent Coding Orchestrator</title>
+  <meta name="description" content="Multiagent coding orchestrator with TDD, SonarQube, and automated code review. Supports Claude, Codex, Gemini and Aider.">
+  <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
   <script defer src="https://analytics.manulitics.com/script.js" data-website-id="8871eadf-4414-4baf-b83a-9f3da27b97fe"></script>
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Karajan Code — AI Orchestration for Code">
-  <meta property="og:description" content="Orchestrate multiple AI coding agents through an automated pipeline. TDD, SonarQube, code review — all in one command.">
+  <meta property="og:title" content="Karajan Code — Multiagent Coding Orchestrator">
+  <meta property="og:description" content="Multiagent coding orchestrator. Orchestrate multiple AI coding agents through an automated pipeline. TDD, SonarQube, code review — all in one command.">
   <meta property="og:image" content="https://karajancode.com/og.png">
   <meta property="og:url" content="https://karajancode.com">
   <meta property="og:type" content="website">
@@ -24,23 +27,68 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
-  <link rel="preload" as="image" type="image/svg+xml" href="/logo.svg">
+  <link rel="preload" as="image" type="image/webp" href="/img/logo-240.webp">
 
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #0a0e1a;
-      --bg-card: #0f1425;
-      --border: #1e2740;
-      --text: #e2e8f0;
-      --text-muted: #64748b;
-      --text-dim: #475569;
-      --accent-teal: #2dd4bf;
-      --accent-purple: #7c3aed;
-      --accent-indigo: #6366f1;
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+      /* Brand colors */
+      --brand-green: #34d399;
+      --brand-green-dim: #059669;
+      --brand-steel: #6b8fa3;
+      --brand-steel-light: #8cb4c9;
+    }
+
+    /* Dark mode (default) */
+    :root, [data-theme="dark"] {
+      --bg: #0f1520;
+      --bg-card: #1a2332;
+      --border: #2a3a4e;
+      --text: #e2e8f0;
+      --text-muted: #a4aeb6;
+      --text-dim: #94a4ac;
+      --accent-teal: var(--brand-green);
+      --accent-purple: var(--brand-steel-light);
+      --accent-indigo: var(--brand-steel);
+      --terminal-bg: #0c1218;
+      --terminal-bar: rgba(26,35,50,0.6);
+      color-scheme: dark;
+    }
+
+    /* Light mode */
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f4f7f9;
+        --bg-card: #ffffff;
+        --border: #d0dbe3;
+        --text: #1a2a35;
+        --text-muted: #424c52;
+        --text-dim: #4b555b;
+        --accent-teal: var(--brand-green-dim);
+        --accent-purple: var(--brand-steel);
+        --accent-indigo: var(--brand-steel);
+        --terminal-bg: #1a2332;
+        --terminal-bar: rgba(26,35,50,0.8);
+        color-scheme: light;
+      }
+    }
+
+    [data-theme="light"] {
+      --bg: #f4f7f9;
+      --bg-card: #ffffff;
+      --border: #d0dbe3;
+      --text: #1a2a35;
+      --text-muted: #424c52;
+      --text-dim: #4b555b;
+      --accent-teal: var(--brand-green-dim);
+      --accent-purple: var(--brand-steel);
+      --accent-indigo: var(--brand-steel);
+      --terminal-bg: #1a2332;
+      --terminal-bar: rgba(26,35,50,0.8);
+      color-scheme: light;
     }
 
     html { scroll-behavior: smooth; }
@@ -67,21 +115,71 @@
     .hero::before {
       content: ''; position: absolute; inset: 0; pointer-events: none;
       background:
-        radial-gradient(ellipse 600px 400px at 50% 40%, rgba(99,102,241,0.08), transparent),
-        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(45,212,191,0.05), transparent);
+        radial-gradient(ellipse 600px 400px at 50% 40%, rgba(107,143,163,0.08), transparent),
+        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(52,211,153,0.05), transparent);
     }
 
-    .hero-logo { width: 140px; height: auto; margin-bottom: 1.5rem; filter: drop-shadow(0 0 40px rgba(99,102,241,0.15)); }
+    .hero-logo { width: clamp(120px, 20vw, 200px); height: auto; filter: drop-shadow(0 0 30px rgba(52,211,153,0.12)); }
+
+    /* --- AGENT ORBIT --- */
+    .logo-orbit {
+      position: relative;
+      margin-bottom: 1.5rem;
+      width: 280px; height: 280px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .orbit-ring {
+      position: absolute; inset: 0;
+      animation: orbit-spin 50s linear infinite;
+    }
+    .orbit-agent {
+      position: absolute;
+      width: 24px; height: 24px;
+      margin: -12px 0 0 -12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .orbit-agent svg {
+      width: 18px; height: 18px;
+      fill: var(--text-dim); opacity: 0.55;
+      transition: opacity 0.3s, fill 0.3s;
+      animation: orbit-counter 50s linear infinite;
+    }
+    .orbit-agent:hover svg { opacity: 1; fill: var(--text-muted); }
+    /* 5 agents on r=130 circle, center=(140,140) */
+    .orbit-agent:nth-child(1) { top: 10px;  left: 140px; }
+    .orbit-agent:nth-child(2) { top: 100px; left: 264px; }
+    .orbit-agent:nth-child(3) { top: 233px; left: 204px; }
+    .orbit-agent:nth-child(4) { top: 233px; left: 52px; }
+    .orbit-agent:nth-child(5) { top: 100px; left: 16px; }
+
+    @keyframes orbit-spin { to { transform: rotate(360deg); } }
+    @keyframes orbit-counter { to { transform: rotate(-360deg); } }
+
+    @media (max-width: 640px) {
+      .orbit-ring { display: none; }
+      .logo-orbit { width: auto; height: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .orbit-ring { animation: none; }
+      .orbit-agent svg { animation: none; }
+    }
     .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
     .hero-tagline { font-size: clamp(1rem, 2vw, 1.15rem); color: var(--text-muted); max-width: 480px; margin-bottom: 0.25rem; font-weight: 300; }
-    .hero-sub { font-family: var(--mono); font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.02em; }
+    .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; }
 
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
       padding: 0.9rem 1.8rem; font-family: var(--mono); font-size: 0.95rem;
       color: var(--accent-teal); display: flex; align-items: center; gap: 1rem;
-      cursor: pointer; transition: border-color 0.2s; position: relative;
+      cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; position: relative;
       margin-bottom: 2.5rem;
+    }
+    [data-theme="light"] .hero-install,
+    :root:not([data-theme="dark"]) .hero-install {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .hero-install { box-shadow: none; }
     }
     .hero-install:hover, .hero-install:focus-visible { border-color: var(--accent-teal); }
     .hero-install:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
@@ -104,17 +202,24 @@
     /* --- TERMINAL --- */
     .terminal-section { padding: 4rem 2rem 5rem; max-width: 720px; margin: 0 auto; }
     .terminal {
-      background: #0c0f1a; border: 1px solid var(--border); border-radius: 12px;
+      background: var(--terminal-bg); border: 1px solid var(--border); border-radius: 12px;
       overflow: hidden; text-align: left;
+    }
+    [data-theme="light"] .terminal,
+    :root:not([data-theme="dark"]) .terminal {
+      box-shadow: 0 4px 24px rgba(15,21,32,0.12);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .terminal { box-shadow: none; }
     }
     .terminal-bar {
       display: flex; gap: 6px; padding: 12px 16px;
-      background: rgba(30,39,64,0.5); border-bottom: 1px solid var(--border);
+      background: var(--terminal-bar); border-bottom: 1px solid var(--border);
     }
     .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
     .terminal-dot.r { background: #f87171; }
     .terminal-dot.y { background: #fbbf24; }
-    .terminal-dot.g { background: #34d399; }
+    .terminal-dot.g { background: var(--brand-green); }
     .terminal-body {
       padding: 1rem 1.5rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.7;
       height: 480px; overflow-y: auto; scroll-behavior: smooth;
@@ -123,7 +228,7 @@
     }
     .speed-controls {
       display: flex; justify-content: flex-end; gap: 0.25rem;
-      padding: 0.4rem 1rem; background: rgba(30,39,64,0.5);
+      padding: 0.4rem 1rem; background: var(--terminal-bar);
       border-top: 1px solid var(--border);
     }
     .speed-btn {
@@ -131,7 +236,7 @@
       background: transparent; color: var(--text-dim); font-family: var(--mono);
       font-size: 0.65rem; cursor: pointer; transition: all 0.2s;
     }
-    .speed-btn.active { background: rgba(99,102,241,0.2); border-color: var(--accent-indigo); color: var(--accent-indigo); }
+    .speed-btn.active { background: rgba(140,180,201,0.15); border-color: #a0cade; color: #a0cade; }
     .speed-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
     .speed-btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 1px; }
     .terminal-body .role { color: var(--accent-purple); }
@@ -175,8 +280,8 @@
     .more-list li { padding: 0.6rem 0; color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; }
     .more-list li + li { border-top: 1px solid var(--border); }
     .more-list strong { color: var(--text); font-weight: 600; }
-    .more-list a { color: var(--accent-indigo); text-decoration: none; transition: color 0.2s; }
-    .more-list a:hover { color: var(--accent-teal); }
+    .more-list a { color: var(--accent-teal); text-decoration: none; transition: color 0.2s; }
+    .more-list a:hover { color: var(--text); }
     .more-list a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
     /* --- FOOTER --- */
@@ -193,6 +298,25 @@
     .footer-author { margin-top: 0.4rem; }
     .footer-counter { margin-top: 1rem; }
 
+    /* --- THEME TOGGLE --- */
+    .theme-toggle {
+      position: fixed; top: 1rem; right: 1rem; z-index: 50;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem; cursor: pointer; color: var(--text-muted);
+      font-size: 1.2rem; line-height: 1; transition: border-color 0.2s, color 0.2s;
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    }
+    .theme-toggle:hover { border-color: var(--accent-teal); color: var(--text); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) .theme-toggle .icon-sun { display: block; }
+      :root:not([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
+    }
+
     /* --- RESPONSIVE --- */
     @media (max-width: 640px) {
       .hero-install { padding: 0.8rem 1.2rem; font-size: 0.82rem; }
@@ -208,24 +332,57 @@
     }
   </style>
   <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
+    <span class="icon-sun" aria-hidden="true">&#9728;</span>
+    <span class="icon-moon" aria-hidden="true">&#9790;</span>
+  </button>
 
   <main id="main-content">
 
   <!-- HERO -->
   <section class="hero">
-    <img src="/logo.svg" alt="Karajan Code" class="hero-logo" width="140" height="158" fetchpriority="high">
+    <div class="logo-orbit">
+      <picture>
+        <source type="image/webp"
+          srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 160px, 200px">
+        <source type="image/png"
+          srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 160px, 200px">
+        <img src="/img/logo-240.png" alt="Karajan Code — robot mascot" class="hero-logo" width="200" height="200" fetchpriority="high">
+      </picture>
+      <div class="orbit-ring" aria-hidden="true">
+        <!-- Claude -->
+        <span class="orbit-agent" title="Claude"><svg viewBox="0 0 16 16"><path d="m3.127 10.604 3.135-1.76.053-.153-.053-.085H6.11l-.525-.032-1.791-.048-1.554-.065-1.505-.08-.38-.081L0 7.832l.036-.234.32-.214.455.04 1.009.069 1.513.105 1.097.064 1.626.17h.259l.036-.105-.089-.065-.068-.064-1.566-1.062-1.695-1.121-.887-.646-.48-.327-.243-.306-.104-.67.435-.48.585.04.15.04.593.456 1.267.981 1.654 1.218.242.202.097-.068.012-.049-.109-.181-.9-1.626-.96-1.655-.428-.686-.113-.411a2 2 0 0 1-.068-.484l.496-.674L4.446 0l.662.089.279.242.411.94.666 1.48 1.033 2.014.302.597.162.553.06.17h.105v-.097l.085-1.134.157-1.392.154-1.792.052-.504.25-.605.497-.327.387.186.319.456-.045.294-.19 1.23-.37 1.93-.243 1.29h.142l.161-.16.654-.868 1.097-1.372.484-.545.565-.601.363-.287h.686l.505.751-.226.775-.707.895-.585.759-.839 1.13-.524.904.048.072.125-.012 1.897-.403 1.024-.186 1.223-.21.553.258.06.263-.218.536-1.307.323-1.533.307-2.284.54-.028.02.032.04 1.029.098.44.024h1.077l2.005.15.525.346.315.424-.053.323-.807.411-3.631-.863-.872-.218h-.12v.073l.726.71 1.331 1.202 1.667 1.55.084.383-.214.302-.226-.032-1.464-1.101-.565-.497-1.28-1.077h-.084v.113l.295.432 1.557 2.34.08.718-.112.234-.404.141-.444-.08-.911-1.28-.94-1.44-.759-1.291-.093.053-.448 4.821-.21.246-.484.186-.403-.307-.214-.496.214-.98.258-1.28.21-1.016.19-1.263.112-.42-.008-.028-.092.012-.953 1.307-1.448 1.957-1.146 1.227-.274.109-.477-.247.045-.44.266-.39 1.586-2.018.956-1.25.617-.723-.004-.105h-.036l-4.212 2.736-.75.096-.324-.302.04-.496.154-.162 1.267-.871z"/></svg></span>
+        <!-- OpenAI -->
+        <span class="orbit-agent" title="OpenAI"><svg viewBox="0 0 16 16"><path d="M14.949 6.547a3.94 3.94 0 0 0-.348-3.273 4.11 4.11 0 0 0-4.4-1.934 4.1 4.1 0 0 0-1.778-.514 4.15 4.15 0 0 0-2.118.114 4.1 4.1 0 0 0-1.891.948 4.04 4.04 0 0 0-1.158 1.753 4.1 4.1 0 0 0-1.563.679 4 4 0 0 0-1.14 1.253 3.99 3.99 0 0 0 .502 4.731 3.94 3.94 0 0 0 .346 3.274 4.11 4.11 0 0 0 4.402 1.933c.382.425.852.764 1.377.995.526.231 1.095.35 1.67.346 1.78.002 3.358-1.132 3.901-2.804a4.1 4.1 0 0 0 1.563-.68 4 4 0 0 0 1.14-1.253 3.99 3.99 0 0 0-.506-4.716m-6.097 8.406a3.05 3.05 0 0 1-1.945-.694l.096-.054 3.23-1.838a.53.53 0 0 0 .265-.455v-4.49l1.366.778q.02.011.025.035v3.722c-.003 1.653-1.361 2.992-3.037 2.996m-6.53-2.75a2.95 2.95 0 0 1-.36-2.01l.095.057L5.29 12.09a.53.53 0 0 0 .527 0l3.949-2.246v1.555a.05.05 0 0 1-.022.041L6.473 13.3c-1.454.826-3.311.335-4.15-1.098m-.85-6.94A3.02 3.02 0 0 1 3.07 3.949v3.785a.51.51 0 0 0 .262.451l3.93 2.237-1.366.779a.05.05 0 0 1-.048 0L2.585 9.342a2.98 2.98 0 0 1-1.113-4.094zm11.216 2.571L8.747 5.576l1.362-.776a.05.05 0 0 1 .048 0l3.265 1.86a3 3 0 0 1 1.173 1.207 2.96 2.96 0 0 1-.27 3.2 3.05 3.05 0 0 1-1.36.997V8.279a.52.52 0 0 0-.276-.445m1.36-2.015-.097-.057-3.226-1.855a.53.53 0 0 0-.53 0L6.249 6.153V4.598a.04.04 0 0 1 .019-.04L9.533 2.7a3.07 3.07 0 0 1 3.257.139c.474.325.843.778 1.066 1.303.223.526.289 1.103.191 1.664zM5.503 8.575 4.139 7.8a.05.05 0 0 1-.026-.037V4.049c0-.57.166-1.127.476-1.607s.752-.864 1.275-1.105a3.08 3.08 0 0 1 3.234.41l-.096.054-3.23 1.838a.53.53 0 0 0-.265.455zm.742-1.577 1.758-1 1.762 1v2l-1.755 1-1.762-1z"/></svg></span>
+        <!-- Gemini -->
+        <span class="orbit-agent" title="Gemini"><svg viewBox="0 0 65 65"><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.9 38.9 0 0 0 1.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 0 0 5.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.9 38.9 0 0 0-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.97 38.97 0 0 0-2 5.906 1.485 1.485 0 0 1-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.91 38.91 0 0 0-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.97 38.97 0 0 0-5.905-2A1.485 1.485 0 0 1 0 32.448c0-.68.465-1.272 1.125-1.438a38.9 38.9 0 0 0 5.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.97 38.97 0 0 0 1.999-5.905A1.485 1.485 0 0 1 32.447 0z"/></svg></span>
+        <!-- Aider -->
+        <span class="orbit-agent" title="Aider"><svg viewBox="0 0 16 16"><path d="M5.5 2h5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H9v1.5h2.5a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5H9V11h2.5a.5.5 0 0 1 .354.854l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5A.5.5 0 0 1 5.5 11H7V9.5H5.5a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5H7V5H5.5a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5zM6 3v1h4V3zm0 4v1h4V7z"/></svg></span>
+        <!-- OpenCode -->
+        <span class="orbit-agent" title="OpenCode"><svg viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8zm4.292-0.708a.5.5 0 0 0 0 .708L13.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0"/></svg></span>
+      </div>
+    </div>
     <h1>Karajan Code</h1>
-    <p class="hero-tagline">Local multi-agent coding orchestrator.</p>
+    <p class="hero-tagline">Multiagent coding orchestrator.</p>
     <p class="hero-sub">TDD-first. MCP-based. Vanilla JavaScript.</p>
     <p class="hero-badge">
       <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
-        <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6366f1&label=latest" alt="npm version" height="22">
+        <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6b8fa3&label=latest" alt="npm version" height="22">
       </a>
     </p>
-    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Copy install command: npm install -g karajan-code">
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="npm install -g karajan-code — click to copy">
       <span class="prompt" aria-hidden="true">$</span>
       <span>npm install -g karajan-code</span>
       <span class="copy-hint" aria-live="polite">click to copy</span>
@@ -291,6 +448,16 @@
   </footer>
 
   <script>
+    /* --- THEME TOGGLE --- */
+    function toggleTheme() {
+      var html = document.documentElement;
+      var current = html.getAttribute('data-theme');
+      var isDark = current === 'dark' || (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var next = isDark ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
     function copyInstall(el) {
       var text = 'npm install -g karajan-code';
       var hint = el.querySelector('.copy-hint');
