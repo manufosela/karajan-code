@@ -117,6 +117,7 @@ program
   .option("--methodology <name>")
   .option("--no-auto-rebase")
   .option("--no-sonar")
+  .option("--no-proxy")
   .option("--enable-sonarcloud", "Enable SonarCloud scan (complementary to SonarQube)")
   .option("--no-sonarcloud")
   .option("--checkpoint-interval <n>", "Minutes between interactive checkpoints (default: 5)")
