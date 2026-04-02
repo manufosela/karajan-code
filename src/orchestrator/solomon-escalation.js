@@ -143,7 +143,7 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     return { action: "approve", conditions: [], ruling };
   }
   if (r === "approve_with_conditions") {
-    return { action: "continue", conditions: ruling.result?.conditions || [], ruling };
+    return { action: "continue", conditions: ruling.result?.conditions || [], extraIterations: ruling.result?.extraIterations || null, ruling };
   }
 
   if (r === "escalate_human") {

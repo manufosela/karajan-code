@@ -56,7 +56,8 @@ function buildPrompt({ conflict, task, instructions }) {
     '3. **escalate_human** — Critical issues that cannot be resolved, ambiguous requirements, architecture decisions, or business logic decisions.',
     '4. **create_subtask** — A prerequisite task must be completed first to resolve the conflict. The current task will pause, the subtask runs, then the current task resumes.',
     "Return a single valid JSON object with your ruling and nothing else.",
-    'JSON schema: {"ruling":"approve"|"approve_with_conditions"|"escalate_human"|"create_subtask","classification":[{"issue":string,"category":"critical"|"important"|"style","action":"must_fix"|"should_fix"|"dismiss"}],"conditions":[string],"dismissed":[string],"escalate":boolean,"escalate_reason":string|null,"subtask":{"title":string,"description":string,"reason":string}|null}'
+    'JSON schema: {"ruling":"approve"|"approve_with_conditions"|"escalate_human"|"create_subtask","classification":[{"issue":string,"category":"critical"|"important"|"style","action":"must_fix"|"should_fix"|"dismiss"}],"conditions":[string],"dismissed":[string],"escalate":boolean,"escalate_reason":string|null,"extraIterations":number|null,"subtask":{"title":string,"description":string,"reason":string}|null}',
+    "When ruling is approve_with_conditions, set extraIterations to how many more iterations you think are needed (1-5)."
   );
 
   const stage = conflict?.stage || "unknown";
@@ -66,12 +67,21 @@ function buildPrompt({ conflict, task, instructions }) {
   const isFirstRejection = conflict?.isFirstRejection ?? false;
   const isRepeat = conflict?.isRepeat ?? false;
 
+  const budgetUsd = conflict?.budget_usd;
+  const budgetLine = typeof budgetUsd === "number" ? `Budget spent so far: $${budgetUsd.toFixed(2)}` : "";
+
   sections.push(
     `## Conflict context`,
     `Stage: ${stage}`,
     `Iterations exhausted: ${iterationCount}/${maxIterations}`,
     `isFirstRejection: ${isFirstRejection}`,
-    `isRepeat: ${isRepeat}`
+    `isRepeat: ${isRepeat}`,
+    budgetLine,
+    "",
+    "## Budget awareness",
+    "Consider the cost-benefit ratio when deciding. If significant budget has been spent with little progress,",
+    "prefer approving the current work or escalating to human. If progress is good and budget is low,",
+    "prefer continuing with conditions. Never waste budget on style-only iterations."
   );
 
   if (conflict?.issueCategories) {
