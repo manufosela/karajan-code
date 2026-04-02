@@ -560,6 +560,24 @@ const EVENT_HANDLERS = {
     console.log(`  ${ANSI.dim}\u2514${ANSI.reset}`);
   },
 
+  "session:checkpoint": (event) => {
+    const d = event.detail || {};
+    if (d.auto_continued) {
+      console.log(`  \u251c\u2500 ${ANSI.dim}\u2714 Checkpoint: auto-continuing (${d.reason || "progress"})${ANSI.reset}`);
+    } else {
+      console.log(`  \u251c\u2500 ${ANSI.yellow}\u23f8\ufe0f Interactive checkpoint at ${d.elapsed_minutes?.toFixed(1) || "?"}min${ANSI.reset}`);
+    }
+  },
+
+  "becaria:pr-created": (event) => {
+    const url = event.detail?.prUrl || "";
+    console.log(`  \u251c\u2500 ${ANSI.green}\ud83d\ude80 BecarIA PR created: ${url}${ANSI.reset}`);
+  },
+
+  "solomon:alert": (event) => {
+    console.log(`  \u251c\u2500 ${ANSI.yellow}\u2696\ufe0f Solomon alert: ${event.message || "conflict detected"}${ANSI.reset}`);
+  },
+
   "agent:output": (event) => {
     console.log(`  \u2502 ${ANSI.dim}${event.message}${ANSI.reset}`);
   }
@@ -567,9 +585,30 @@ const EVENT_HANDLERS = {
 
 /* ── Quiet-mode filter ──────────────────────────────────────── */
 
-/** Event types suppressed in quiet mode (raw agent output noise). */
+/** Event types suppressed in quiet mode (internal/noise events). */
 const QUIET_SUPPRESSED = new Set([
-  "agent:output"
+  "agent:output",
+  "agent:stall",
+  "agent:heartbeat",
+  "pipeline:simplify",
+  "pipeline:analysis-only",
+  "policies:resolved",
+  "intent:classified",
+  "skills:auto-install",
+  "context:loaded",
+  "rtk:detected",
+  "proxy:started",
+  "board:started",
+  "plan:loaded",
+  "tdd:auto-detect",
+  "dry-run:summary",
+  "pg:decompose",
+  "tester:auto-continue",
+  "security:auto-continue",
+  "hu:sub-pipeline:start",
+  "hu:sub-pipeline:end",
+  "resilient:auto_resume",
+  "guard:blocked",
 ]);
 
 /* ── Main entry point ───────────────────────────────────────── */
@@ -591,7 +630,8 @@ export function printEvent(event, opts = {}) {
   const handler = EVENT_HANDLERS[event.type];
   if (handler) {
     handler(event, icon, elapsed, status);
-  } else {
-    console.log(`  \u251c\u2500 ${icon} ${event.message || event.type}  ${elapsed}`);
+  } else if (event.message) {
+    console.log(`  \u251c\u2500 ${icon} ${event.message}  ${elapsed}`);
   }
+  // Events without handler AND without message are silently dropped
 }
