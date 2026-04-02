@@ -19,14 +19,16 @@ function run(command, args, ...rest) {
 export async function computeBaseRef({ baseBranch = "main", baseRef = null }) {
   if (baseRef) return baseRef;
   const mergeBase = await run("git", ["merge-base", "HEAD", `origin/${baseBranch}`]);
-  if (mergeBase.exitCode !== 0) {
-    const fallback = await run("git", ["rev-parse", "HEAD~1"]);
-    if (fallback.exitCode !== 0) {
-      throw new Error("Could not compute diff base reference");
-    }
-    return fallback.stdout.trim();
-  }
-  return mergeBase.stdout.trim();
+  if (mergeBase.exitCode === 0) return mergeBase.stdout.trim();
+
+  const fallback = await run("git", ["rev-parse", "HEAD~1"]);
+  if (fallback.exitCode === 0) return fallback.stdout.trim();
+
+  // Empty repo (zero commits): diff against the empty tree
+  const emptyTree = await run("git", ["hash-object", "-t", "tree", "/dev/null"]);
+  if (emptyTree.exitCode === 0) return emptyTree.stdout.trim();
+
+  throw new Error("Could not compute diff base reference");
 }
 
 export async function generateDiff({ baseRef, stageNewFiles = false }) {
