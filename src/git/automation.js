@@ -7,6 +7,7 @@ import { addCheckpoint } from "../session-store.js";
 import {
   ensureGitRepo,
   currentBranch,
+  hasCommits,
   fetchBase,
   syncBaseBranch,
   ensureBranchUpToDateWithBase,
@@ -34,18 +35,45 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
 
   const baseBranch = config.base_branch;
   const autoRebase = config.git.auto_rebase !== false;
-  await fetchBase(baseBranch);
+  const repoHasCommits = await hasCommits();
 
-  let branch = await currentBranch();
+  // New repo without commits: create branch directly (no fetch/sync possible)
+  if (!repoHasCommits) {
+    const created = buildBranchName(config.git.branch_prefix || "feat/", task);
+    // git checkout -b works even without commits (creates orphan-like branch on first commit)
+    await createBranch(created);
+    logger.info(`New repo — created working branch: ${created}`);
+    await addCheckpoint(session, { stage: "git-prep", branch: created, created: true, newRepo: true });
+    return { enabled: true, branch: created, baseBranch, autoRebase };
+  }
+
+  await fetchBase(baseBranch).catch(() => {
+    // No remote — skip fetch (new project without push)
+    logger.info("No remote configured — skipping fetch");
+  });
+
+  let branch;
+  try {
+    branch = await currentBranch();
+  } catch {
+    // HEAD exists but branch detection failed — unusual, treat as main
+    branch = baseBranch;
+  }
+
   if (branch === baseBranch) {
-    await syncBaseBranch({ baseBranch, autoRebase });
+    await syncBaseBranch({ baseBranch, autoRebase }).catch(() => {
+      // No remote tracking — skip sync for new projects
+    });
     const created = buildBranchName(config.git.branch_prefix || "feat/", task);
     await createBranch(created);
     branch = created;
     logger.info(`Created working branch: ${branch}`);
     await addCheckpoint(session, { stage: "git-prep", branch, created: true });
   } else {
-    await ensureBranchUpToDateWithBase({ branch, baseBranch, autoRebase });
+    await ensureBranchUpToDateWithBase({ branch, baseBranch, autoRebase }).catch(() => {
+      // No remote tracking — skip rebase for new projects
+      logger.info("No remote tracking — skipping rebase check");
+    });
     await addCheckpoint(session, { stage: "git-prep", branch, created: false });
   }
 

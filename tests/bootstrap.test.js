@@ -168,15 +168,37 @@ describe("bootstrap", () => {
       expect(ensureGitRepo).toHaveBeenCalled();
     });
 
-    it("hard fails when git repo check fails", async () => {
+    it("auto-inits git repo when not a git repository", async () => {
       const { ensureGitRepo } = await import("../src/utils/git.js");
       ensureGitRepo.mockResolvedValue(false);
 
-      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).rejects.toThrow("BOOTSTRAP FAILED");
-      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).rejects.toThrow("git init");
+      const { runCommand } = await import("../src/utils/process.js");
+      runCommand.mockImplementation((cmd, args) => {
+        if (cmd === "git" && args?.[0] === "init") {
+          return Promise.resolve({ exitCode: 0, stdout: "Initialized empty Git repository", stderr: "" });
+        }
+        return Promise.resolve({ exitCode: 0, stdout: "v1.0.0\n", stderr: "" });
+      });
+
+      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).resolves.toBeUndefined();
     });
 
-    it("hard fails when git remote check fails", async () => {
+    it("hard fails when git init also fails", async () => {
+      const { ensureGitRepo } = await import("../src/utils/git.js");
+      ensureGitRepo.mockResolvedValue(false);
+
+      const { runCommand } = await import("../src/utils/process.js");
+      runCommand.mockImplementation((cmd, args) => {
+        if (cmd === "git" && args?.[0] === "init") {
+          return Promise.resolve({ exitCode: 128, stdout: "", stderr: "permission denied" });
+        }
+        return Promise.resolve({ exitCode: 0, stdout: "v1.0.0\n", stderr: "" });
+      });
+
+      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).rejects.toThrow("BOOTSTRAP FAILED");
+    });
+
+    it("passes when no git remote (new project)", async () => {
       const { runCommand } = await import("../src/utils/process.js");
       runCommand.mockImplementation((cmd, args) => {
         if (args?.includes("get-url")) {
@@ -185,8 +207,7 @@ describe("bootstrap", () => {
         return Promise.resolve({ exitCode: 0, stdout: "v1.0.0\n", stderr: "" });
       });
 
-      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).rejects.toThrow("BOOTSTRAP FAILED");
-      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).rejects.toThrow("git remote add origin");
+      await expect(ensureBootstrap(PROJECT_DIR, baseConfig)).resolves.toBeUndefined();
     });
 
     it("hard fails when config file missing", async () => {
@@ -287,11 +308,16 @@ describe("bootstrap", () => {
 
       const { runCommand } = await import("../src/utils/process.js");
       runCommand.mockImplementation((cmd, args) => {
-        if (args?.includes("get-url")) {
-          return Promise.resolve({ exitCode: 1, stdout: "", stderr: "" });
+        // git init also fails
+        if (cmd === "git" && args?.[0] === "init") {
+          return Promise.resolve({ exitCode: 128, stdout: "", stderr: "permission denied" });
         }
+        // config file check: exists returns false (mocked below)
         return Promise.resolve({ exitCode: 0, stdout: "v1.0.0\n", stderr: "" });
       });
+
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false);
 
       try {
         await ensureBootstrap(PROJECT_DIR, baseConfig);
@@ -299,7 +325,6 @@ describe("bootstrap", () => {
       } catch (err) {
         expect(err.message).toContain("BOOTSTRAP FAILED");
         expect(err.message).toContain("gitRepo");
-        expect(err.message).toContain("gitRemote");
         expect(err.message).toContain("Fix:");
         expect(err.message).toContain("kj_doctor");
       }
@@ -308,6 +333,14 @@ describe("bootstrap", () => {
     it("does not write bootstrap file when checks fail", async () => {
       const { ensureGitRepo } = await import("../src/utils/git.js");
       ensureGitRepo.mockResolvedValue(false);
+
+      const { runCommand } = await import("../src/utils/process.js");
+      runCommand.mockImplementation((cmd, args) => {
+        if (cmd === "git" && args?.[0] === "init") {
+          return Promise.resolve({ exitCode: 128, stdout: "", stderr: "permission denied" });
+        }
+        return Promise.resolve({ exitCode: 0, stdout: "v1.0.0\n", stderr: "" });
+      });
 
       const fsPromises = await import("node:fs/promises");
 

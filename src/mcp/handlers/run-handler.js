@@ -114,7 +114,7 @@ function collectRequiredProviders(config) {
 
 export async function handleRunDirect(a, server, extra) {
   const config = await buildConfig(a);
-  await assertNotOnBaseBranch(config);
+  await assertNotOnBaseBranch(config, { allowForRun: true });
   const logger = createLogger(config.output.log_level, "mcp");
 
   // Best-effort session cleanup before starting

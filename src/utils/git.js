@@ -40,6 +40,11 @@ export async function currentBranch() {
   return runGit(["rev-parse", "--abbrev-ref", "HEAD"]);
 }
 
+export async function hasCommits() {
+  const res = await run("git", ["rev-parse", "HEAD"]);
+  return res.exitCode === 0;
+}
+
 export async function fetchBase(baseBranch) {
   await runGit(["fetch", "origin", baseBranch]);
 }

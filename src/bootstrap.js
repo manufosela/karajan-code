@@ -42,12 +42,22 @@ async function checkGitRepo() {
   } catch { /* git may not be installed */
     ok = false;
   }
-  return {
-    name: "gitRepo",
-    ok,
-    detail: ok ? "Inside a git repository" : "Not a git repository",
-    fix: "Run 'git init' in your project directory."
-  };
+
+  if (!ok) {
+    // Auto-init: initialize git repo for new projects
+    const initResult = await runCommand("git", ["init"]);
+    if (initResult.exitCode !== 0) {
+      return {
+        name: "gitRepo",
+        ok: false,
+        detail: "Not a git repository and git init failed",
+        fix: "Ensure git is installed and you have write permissions to this directory."
+      };
+    }
+    return { name: "gitRepo", ok: true, detail: "Initialized new git repository", fix: null };
+  }
+
+  return { name: "gitRepo", ok: true, detail: "Inside a git repository", fix: null };
 }
 
 async function checkGitRemote() {
@@ -57,11 +67,12 @@ async function checkGitRemote() {
       return { name: "gitRemote", ok: true, detail: res.stdout.trim(), fix: null };
     }
   } catch { /* fall through */ }
+  // No remote is acceptable for new projects — non-blocking
   return {
     name: "gitRemote",
-    ok: false,
-    detail: "origin remote not configured",
-    fix: "Run 'git remote add origin <your-repo-url>'."
+    ok: true,
+    detail: "No remote configured (new project)",
+    fix: null
   };
 }
 

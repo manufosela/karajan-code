@@ -67,15 +67,17 @@ export function failPayload(message, details = {}) {
   };
 }
 
-export async function assertNotOnBaseBranch(config) {
+export async function assertNotOnBaseBranch(config, { allowForRun = false } = {}) {
   const baseBranch = config?.base_branch || "main";
   let branch;
   try {
     branch = await currentBranch();
   } catch {
-    return;
+    return; // No git repo or no commits — bootstrap/orchestrator will handle it
   }
   if (branch === baseBranch) {
+    // kj_run creates its own branch via prepareGitAutomation — allow it
+    if (allowForRun) return;
     throw new Error(
       `You are on the base branch '${baseBranch}'. Karajan needs a feature branch to compute the diff for review. ` +
       `Create a new branch first (e.g. 'git checkout -b feat/<task-description>') and then run this command again. ` +
