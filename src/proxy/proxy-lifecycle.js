@@ -1,11 +1,14 @@
 import net from "node:net";
 import http from "node:http";
 import { createProxyServer } from "./proxy-server.js";
+import { compressRequest } from "./compression/pipeline.js";
+import { getAdapter } from "./adapters/index.js";
 
 /** @type {import('./proxy-server.js').ProxyServer | null} */
 let proxyInstance = null;
 let proxyPort = 0;
 let orphanCheckInterval = null;
+let compressionStats = { originalTokens: 0, compressedTokens: 0, cacheHits: 0, requests: 0 };
 
 const DEFAULT_TARGET_HOSTS = {
   "api.anthropic.com": "anthropic",
@@ -100,6 +103,31 @@ export async function startProxy({ config = {}, sessionId } = {}) {
   const targetHosts = config.targetHosts || DEFAULT_TARGET_HOSTS;
 
   proxyInstance = createProxyServer({ port, targetHosts });
+  compressionStats = { originalTokens: 0, compressedTokens: 0, cacheHits: 0, requests: 0 };
+
+  // Wire compression middleware
+  const compressionConfig = config.compression || {};
+  if (compressionConfig.enabled !== false) {
+    proxyInstance.use(async (ctx, next) => {
+      if (ctx.body && ctx.provider !== "unknown") {
+        try {
+          const adapter = getAdapter(ctx.provider);
+          if (adapter) {
+            const { body: compressed, stats } = await compressRequest(
+              JSON.parse(ctx.body), adapter, { ...compressionConfig }
+            );
+            ctx.modifiedBody = JSON.stringify(compressed);
+            compressionStats.originalTokens += stats.originalTokens || 0;
+            compressionStats.compressedTokens += stats.compressedTokens || 0;
+            compressionStats.cacheHits += stats.cacheHits || 0;
+            compressionStats.requests += 1;
+          }
+        } catch { /* compression failed — pass through unmodified */ }
+      }
+      await next();
+    });
+  }
+
   await proxyInstance.listen();
   proxyPort = proxyInstance.port;
 
@@ -159,7 +187,15 @@ export function getProxyEnv() {
  */
 export function getProxyStats() {
   if (!proxyInstance || !proxyPort) return null;
-  return { port: proxyPort, ...proxyInstance.stats };
+  return {
+    port: proxyPort,
+    ...proxyInstance.stats,
+    ...compressionStats,
+    savedTokens: Math.max(0, compressionStats.originalTokens - compressionStats.compressedTokens),
+    savedPct: compressionStats.originalTokens > 0
+      ? ((1 - compressionStats.compressedTokens / compressionStats.originalTokens) * 100).toFixed(1)
+      : "0.0"
+  };
 }
 
 /**
