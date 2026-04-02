@@ -243,16 +243,21 @@ export async function runSonarScan(config, projectKey = null) {
     `${process.cwd()}:/usr/src`,
     ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
     ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
-    "-e",
-    `SONAR_HOST_URL=${host}`,
-    "-e",
-    `SONAR_TOKEN=${token || ""}`,
-    "-e",
-    `SONAR_SCANNER_OPTS=${buildScannerOpts(effectiveProjectKey, scannerConfig)}`,
+    "-e", "SONAR_HOST_URL",
+    "-e", "SONAR_TOKEN",
+    "-e", "SONAR_SCANNER_OPTS",
     "sonarsource/sonar-scanner-cli"
   ];
 
-  const result = await runCommand("docker", args, { timeout: scannerTimeout });
+  // Pass secrets via process env, not CLI args — invisible in `ps aux`
+  const env = {
+    ...process.env,
+    SONAR_HOST_URL: host,
+    SONAR_TOKEN: token || "",
+    SONAR_SCANNER_OPTS: buildScannerOpts(effectiveProjectKey, scannerConfig)
+  };
+
+  const result = await runCommand("docker", args, { timeout: scannerTimeout, env });
   return {
     ok: result.exitCode === 0,
     projectKey: effectiveProjectKey,

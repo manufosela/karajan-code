@@ -13,7 +13,7 @@ function buildCloudScannerArgs(projectKey, config) {
     `-Dsonar.projectKey=${projectKey}`
   ];
 
-  if (token) args.push(`-Dsonar.token=${token}`);
+  // Token passed via SONAR_TOKEN env var, not CLI args (invisible in `ps aux`)
   if (organization) args.push(`-Dsonar.organization=${organization}`);
   if (scanner.sources) args.push(`-Dsonar.sources=${scanner.sources}`);
   if (scanner.exclusions) args.push(`-Dsonar.exclusions=${scanner.exclusions}`);
@@ -63,8 +63,11 @@ export async function runSonarCloudScan(config, projectKey = null) {
   const scannerTimeout = 15 * 60 * 1000;
   const args = buildCloudScannerArgs(effectiveProjectKey, config);
 
-  // Use npx @sonar/scan (no Docker needed)
-  const result = await runCommand("npx", ["@sonar/scan", ...args], { timeout: scannerTimeout });
+  // Pass token via process env, not CLI args — invisible in `ps aux`
+  const env = { ...process.env };
+  if (token) env.SONAR_TOKEN = token;
+
+  const result = await runCommand("npx", ["@sonar/scan", ...args], { timeout: scannerTimeout, env });
 
   return {
     ok: result.exitCode === 0,

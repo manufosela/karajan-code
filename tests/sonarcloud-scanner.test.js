@@ -64,11 +64,14 @@ describe("runSonarCloudScan", () => {
         "@sonar/scan",
         "-Dsonar.host.url=https://sonarcloud.io",
         "-Dsonar.projectKey=my-project",
-        "-Dsonar.token=sqc_test",
         "-Dsonar.organization=myorg"
       ]),
       expect.any(Object)
     );
+    // Token passed via process env, not CLI args (invisible in ps aux)
+    const opts = runCommand.mock.calls[0][2];
+    expect(opts.env.SONAR_TOKEN).toBe("sqc_test");
+    expect(runCommand.mock.calls[0][1].join(" ")).not.toContain("sqc_test");
   });
 
   it("uses env vars for token and org", async () => {
@@ -82,9 +85,11 @@ describe("runSonarCloudScan", () => {
     expect(result.ok).toBe(true);
     expect(runCommand).toHaveBeenCalledWith(
       "npx",
-      expect.arrayContaining(["-Dsonar.token=env_token", "-Dsonar.organization=env_org"]),
+      expect.arrayContaining(["-Dsonar.organization=env_org"]),
       expect.any(Object)
     );
+    // Token via env, not args
+    expect(runCommand.mock.calls[0][2].env.SONAR_TOKEN).toBe("env_token");
   });
 
   it("returns failure when scan exits non-zero", async () => {

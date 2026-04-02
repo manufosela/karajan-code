@@ -43,8 +43,12 @@ describe("runSonarScan", () => {
     expect(sonarUp).toHaveBeenCalledWith("http://localhost:9000");
     expect(runCommand).toHaveBeenCalledTimes(1);
     expect(runCommand.mock.calls[0][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[0][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
-    expect(scannerEnv).toContain("-Dsonar.projectKey=my-key");
+    // Token passed via process env, not CLI args
+    const opts = runCommand.mock.calls[0][2];
+    expect(opts.env.SONAR_TOKEN).toBe("token-123");
+    expect(opts.env.SONAR_SCANNER_OPTS).toContain("-Dsonar.projectKey=my-key");
+    // Verify token is NOT in docker args (not visible in ps aux)
+    expect(runCommand.mock.calls[0][1].join(" ")).not.toContain("token-123");
     expect(result.projectKey).toBe("my-key");
     expect(result.ok).toBe(true);
   });
@@ -63,8 +67,8 @@ describe("runSonarScan", () => {
 
     expect(runCommand.mock.calls[0]).toEqual(["git", ["config", "--get", "remote.origin.url"]]);
     expect(runCommand.mock.calls[1][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[1][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
-    expect(scannerEnv).toMatch(/-Dsonar\.projectKey=kj-myrepo-[a-f0-9]{12}/);
+    const opts = runCommand.mock.calls[1][2];
+    expect(opts.env.SONAR_SCANNER_OPTS).toMatch(/-Dsonar\.projectKey=kj-myrepo-[a-f0-9]{12}/);
     expect(result.projectKey).toMatch(/^kj-myrepo-[a-f0-9]{12}$/);
     expect(result.ok).toBe(true);
   });
@@ -126,7 +130,8 @@ describe("runSonarScan", () => {
 
     expect(result.ok).toBe(true);
     expect(runCommand.mock.calls[0][1]).toContain("admin:secret123");
-    expect(runCommand.mock.calls[2][1]).toContain("SONAR_TOKEN=from-creds-file");
+    const opts = runCommand.mock.calls[2][2];
+    expect(opts.env.SONAR_TOKEN).toBe("from-creds-file");
     expect(process.env.KJ_SONAR_TOKEN).toBe("from-creds-file");
   });
 
@@ -176,7 +181,8 @@ describe("runSonarScan", () => {
     expect(result.ok).toBe(true);
     expect(runCommand.mock.calls[0][1]).toContain("admin:configpass");
     expect(runCommand.mock.calls[1][1]).toContain("admin:filepass");
-    expect(runCommand.mock.calls[3][1]).toContain("SONAR_TOKEN=from-file");
+    const scanOpts = runCommand.mock.calls[3][2];
+    expect(scanOpts.env.SONAR_TOKEN).toBe("from-file");
   });
 
   it("filters non-existing scanner source folders to avoid Sonar scan failure", async () => {
@@ -193,8 +199,7 @@ describe("runSonarScan", () => {
     const result = await runSonarScan(config, "my-key");
 
     expect(result.ok).toBe(true);
-    const dockerArgs = runCommand.mock.calls[0][1];
-    const scannerEnv = dockerArgs.find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
     expect(scannerEnv).toContain("-Dsonar.sources=src");
     expect(scannerEnv).not.toContain("public");
     expect(scannerEnv).not.toContain("lib");
@@ -228,7 +233,7 @@ describe("runSonarScan", () => {
     expect(runCommand.mock.calls[0][1]).toEqual(["-lc", "echo coverage"]);
     expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 12345 });
     expect(runCommand.mock.calls[1][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[1][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    const scannerEnv = runCommand.mock.calls[1][2].env.SONAR_SCANNER_OPTS;
     expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
   });
 
@@ -304,7 +309,7 @@ describe("runSonarScan", () => {
     expect(result.ok).toBe(true);
     expect(runCommand).toHaveBeenCalledTimes(1);
     expect(runCommand.mock.calls[0][0]).toBe("docker");
-    const scannerEnv = runCommand.mock.calls[0][1].find((x) => x.startsWith("SONAR_SCANNER_OPTS="));
+    const scannerEnv = runCommand.mock.calls[0][2].env.SONAR_SCANNER_OPTS;
     expect(scannerEnv).toContain("-Dsonar.javascript.lcov.reportPaths=package.json");
   });
 
@@ -328,7 +333,7 @@ describe("runSonarScan", () => {
     expect(result.ok).toBe(true);
     expect(runCommand.mock.calls[0][1]).toContain("--network");
     expect(runCommand.mock.calls[0][1]).toContain("custom_sonar_net");
-    expect(runCommand.mock.calls[0][2]).toEqual({ timeout: 123456 });
+    expect(runCommand.mock.calls[0][2].timeout).toBe(123456);
   });
 
   it("does not force custom docker network when sonarqube.external=true", async () => {
