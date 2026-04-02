@@ -524,34 +524,71 @@ async function checkBudgetExceeded({ budgetTracker, config, session, emitter, ev
   throw new Error(message);
 }
 
-async function handleStandbyResult({ stageResult, session, emitter, eventBase, i, stage, logger }) {
+async function handleStandbyResult({ stageResult, session, emitter, eventBase, i, stage, logger, config, askQuestion }) {
   if (stageResult?.action !== "standby") {
     return { handled: false };
   }
 
   const standbyRetries = session.standby_retry_count || 0;
   const isOutage = stageResult.standbyInfo.isProviderOutage;
-  const pauseReason = isOutage
-    ? `Provider outage (${stageResult.standbyInfo.message || "5xx/connection error"}) — retried ${standbyRetries} times. This is NOT a KJ or code problem.`
-    : `Rate limit standby exhausted after ${standbyRetries} retries. Agent: ${stageResult.standbyInfo.agent}`;
+  const agent = stageResult.standbyInfo.agent;
 
   if (standbyRetries >= MAX_STANDBY_RETRIES) {
-    session.last_reviewer_feedback = isOutage
-      ? "IMPORTANT: The previous interruption was caused by a provider outage (API 500 error), NOT by a problem in your code or in Karajan. Continue from where you left off."
-      : session.last_reviewer_feedback;
-    await pauseSession(session, {
-      question: pauseReason,
-      context: { iteration: i, stage, reason: isOutage ? "provider_outage" : "standby_exhausted" }
+    // Standby exhausted — let Solomon decide: switch agent, skip stage, or escalate
+    const solomonResult = await invokeSolomon({
+      config, logger, emitter, eventBase, stage: `${stage}_rate_limit`, askQuestion, session,
+      iteration: i,
+      conflict: {
+        stage: `${stage}_rate_limit`,
+        task: session.task,
+        iterationCount: i,
+        maxIterations: config?.max_iterations || 5,
+        history: [{
+          agent: stage,
+          feedback: `Agent "${agent}" rate-limited after ${standbyRetries} retries. ${isOutage ? "Provider outage (5xx)." : "API rate limit (429)."}`
+        }]
+      }
     });
-    emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
-      status: "paused",
-      message: `Standby exhausted after ${standbyRetries} retries`,
-      detail: { agent: stageResult.standbyInfo.agent, sessionId: session.id }
-    }));
+
+    session.standby_retry_count = 0;
+    await saveSession(session);
+
+    if (solomonResult.action === "approve") {
+      // Solomon says: skip this stage, work is good enough
+      logger.info(`Solomon approved skipping ${stage} after rate limit exhaustion`);
+      emitProgress(emitter, makeEvent(`${stage}:rate_limit`, { ...eventBase, stage }, {
+        status: "ok",
+        message: `Solomon: skip ${stage} (rate-limited agent "${agent}")`,
+        detail: { agent, solomonAction: "approve" }
+      }));
+      return { handled: true, action: "skip" };
+    }
+
+    if (solomonResult.action === "continue") {
+      // Solomon says: retry with guidance (possibly different approach)
+      if (solomonResult.humanGuidance) {
+        session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+      }
+      return { handled: true, action: "retry_reviewer_only" };
+    }
+
+    if (solomonResult.action === "pause") {
+      return {
+        handled: true,
+        action: "return",
+        result: { paused: true, sessionId: session.id, question: solomonResult.question, context: "standby_exhausted" }
+      };
+    }
+
+    // Solomon couldn't resolve — pause
+    await pauseSession(session, {
+      question: `Rate limit standby exhausted for ${agent}. Solomon could not resolve.`,
+      context: { iteration: i, stage, reason: "standby_exhausted" }
+    });
     return {
       handled: true,
       action: "return",
-      result: { paused: true, sessionId: session.id, question: `Rate limit standby exhausted after ${standbyRetries} retries`, context: "standby_exhausted" }
+      result: { paused: true, sessionId: session.id, question: `Standby exhausted for ${agent}`, context: "standby_exhausted" }
     };
   }
   session.standby_retry_count = standbyRetries + 1;
@@ -1096,7 +1133,7 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
 async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i }) {
   const coderResult = await runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i });
   if (coderResult?.action === "pause") return { action: "return", result: coderResult.result };
-  const coderStandby = await handleStandbyResult({ stageResult: coderResult, session, emitter, eventBase, i, stage: "coder", logger });
+  const coderStandby = await handleStandbyResult({ stageResult: coderResult, session, emitter, eventBase, i, stage: "coder", logger, config });
   if (coderStandby.handled) {
     return coderStandby.action === "return"
       ? { action: "return", result: coderStandby.result }
@@ -1106,7 +1143,7 @@ async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refac
   if (pipelineFlags.refactorerEnabled) {
     const refResult = await runRefactorerStage({ refactorerRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i });
     if (refResult?.action === "pause") return { action: "return", result: refResult.result };
-    const refStandby = await handleStandbyResult({ stageResult: refResult, session, emitter, eventBase, i, stage: "refactorer", logger });
+    const refStandby = await handleStandbyResult({ stageResult: refResult, session, emitter, eventBase, i, stage: "refactorer", logger, config });
     if (refStandby.handled) {
       return refStandby.action === "return"
         ? { action: "return", result: refStandby.result }
@@ -1240,11 +1277,18 @@ async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logge
     iteration: i, reviewRules, task, repeatDetector, budgetSummary, askQuestion
   });
   if (reviewerResult.action === "pause") return { action: "return", result: reviewerResult.result };
-  const revStandby = await handleStandbyResult({ stageResult: reviewerResult, session, emitter, eventBase, i, stage: "reviewer", logger });
+  const revStandby = await handleStandbyResult({ stageResult: reviewerResult, session, emitter, eventBase, i, stage: "reviewer", logger, config, askQuestion });
   if (revStandby.handled) {
-    return revStandby.action === "return"
-      ? { action: "return", result: revStandby.result }
-      : { action: "retry" };
+    if (revStandby.action === "return") return { action: "return", result: revStandby.result };
+    if (revStandby.action === "skip") {
+      // Solomon said skip review — treat as approved
+      return { action: "ok", review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Review skipped (agent rate-limited, Solomon approved)", confidence: 0.7 } };
+    }
+    if (revStandby.action === "retry_reviewer_only") {
+      // Retry just the reviewer, not the whole iteration
+      return runReviewerGateStage({ pipelineFlags: { reviewerEnabled: true }, reviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion });
+    }
+    return { action: "retry" };
   }
   if (reviewerResult.stalled) return { action: "return", result: reviewerResult.stalledResult };
   return { action: "ok", review: reviewerResult.review };
