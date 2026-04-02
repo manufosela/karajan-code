@@ -30,7 +30,7 @@ export default defineConfig({
 				},
 			],
 			logo: {
-				src: './src/assets/logo.png',
+				src: './src/assets/karajan-orbit.svg',
 			},
 			defaultLocale: 'root',
 			locales: {
