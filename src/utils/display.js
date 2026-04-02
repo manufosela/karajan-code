@@ -337,6 +337,10 @@ const EVENT_HANDLERS = {
 
   "tdd:result": (event, icon) => {
     const tdd = event.detail || {};
+    if (tdd.reason === "no_diff_available") {
+      console.log(`  \u251c\u2500 ${icon} TDD policy: ${ANSI.yellow}SKIP${ANSI.reset} ${ANSI.dim}(no diff available)${ANSI.reset}`);
+      return;
+    }
     const label = tdd.ok ? `${ANSI.green}PASS${ANSI.reset}` : `${ANSI.red}FAIL${ANSI.reset}`;
     const files = tdd.sourceFiles === undefined ? "" : ` (${tdd.sourceFiles} src, ${tdd.testFiles} test)`;
     const executor = formatExecutor(event.detail);
@@ -449,9 +453,13 @@ const EVENT_HANDLERS = {
       console.log(`  \u251c\u2500 ${icon} Budget: ${ANSI.dim}N/A (provider does not report usage)${ANSI.reset}`);
       return;
     }
+    const tokenStr = totalTokens > 0 ? `${totalTokens.toLocaleString()} tokens` : "";
+    const costStr = `$${total.toFixed(2)}`;
     const color = budgetColor(max, pct, warn);
-    if (Number.isFinite(max) && max >= 0) {
-      console.log(`  \u251c\u2500 ${icon} Budget: ${color}$${total.toFixed(2)} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}`);
+    if (Number.isFinite(max) && max > 0) {
+      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}${tokenStr ? `  ${ANSI.dim}${tokenStr}${ANSI.reset}` : ""}`);
+    } else if (total > 0 || totalTokens > 0) {
+      console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${ANSI.reset}${tokenStr ? `  ${ANSI.dim}${tokenStr}${ANSI.reset}` : ""}`);
     }
   },
 

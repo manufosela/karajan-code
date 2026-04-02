@@ -2,7 +2,8 @@ function extractChangedFiles(diff) {
   const files = new Set();
   const lines = String(diff || "").split("\n");
   for (const line of lines) {
-    if (!line.startsWith("diff --git ")) continue;
+    // Support both git diff and snapshot diff formats
+    if (!line.startsWith("diff --git ") && !line.startsWith("diff --snapshot ")) continue;
     const parts = line.split(" ");
     const b = parts[3] || "";
     if (b.startsWith("b/")) files.add(b.slice(2));
@@ -49,7 +50,8 @@ export function evaluateTddPolicy(diff, developmentConfig = {}, untrackedFiles =
   }
 
   if (sourceFiles.length === 0) {
-    return { ok: true, reason: "no_source_changes", sourceFiles, testFiles };
+    const reason = files.length === 0 ? "no_diff_available" : "no_source_changes";
+    return { ok: true, reason, sourceFiles, testFiles };
   }
 
   if (testFiles.length === 0) {
