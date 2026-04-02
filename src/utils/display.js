@@ -99,7 +99,10 @@ export function printHeader({ task, config }) {
   if (pipeline.researcher?.enabled) activeRoles.push(`Researcher (${config.roles?.researcher?.provider || "?"})`);
   if (pipeline.tester?.enabled) activeRoles.push("Tester");
   if (pipeline.security?.enabled) activeRoles.push("Security");
-  if (pipeline.solomon?.enabled) activeRoles.push(`Solomon (${config.roles?.solomon?.provider || config.coder || "gemini"})`);
+  if (pipeline.solomon?.enabled) {
+    const solomonProvider = config.roles?.solomon?.provider;
+    activeRoles.push(solomonProvider ? `Solomon (${solomonProvider})` : "Solomon");
+  }
   if (activeRoles.length > 0) {
     const separator = ` ${ANSI.dim}|${ANSI.reset} `;
     console.log(`${ANSI.bold}Pipeline:${ANSI.reset} ${activeRoles.join(separator)}`);
@@ -282,11 +285,15 @@ function printSessionBudget(budget) {
   }
   const estPrefix = budget.includes_estimates ? "~" : "";
   const estNote = budget.includes_estimates ? " (includes estimates)" : "";
-  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${estPrefix}${budget.total_tokens ?? 0}${estNote}${ANSI.reset}`);
+  const fmtTokens = (n) => Number(n || 0).toLocaleString("en-US");
+  console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${estPrefix}${fmtTokens(budget.total_tokens)}${estNote}${ANSI.reset}`);
   console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: ${estPrefix}$${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
   for (const [role, metrics] of Object.entries(budget.breakdown_by_role || {})) {
+    const tokens = Number(metrics.total_tokens || 0);
+    const cost = Number(metrics.total_cost_usd || 0);
+    if (tokens === 0 && cost === 0) continue; // skip roles with no usage
     console.log(
-      `  ${ANSI.dim}   - ${role}: ${estPrefix}${metrics.total_tokens ?? 0} tokens, ${estPrefix}$${Number(metrics.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`
+      `  ${ANSI.dim}   - ${role}: ${estPrefix}${fmtTokens(tokens)} tokens, ${estPrefix}$${cost.toFixed(2)}${ANSI.reset}`
     );
   }
 }
