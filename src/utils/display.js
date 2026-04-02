@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { printBanner } from "./banner.js";
 
 // TODO: i18n display messages
 const DISPLAY_PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../package.json");
@@ -83,9 +84,7 @@ const BAR = `${ANSI.dim}\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u
 
 export function printHeader({ task, config }) {
   const version = DISPLAY_VERSION;
-  console.log(BAR);
-  console.log(`${ANSI.bold}${ANSI.cyan}\u25b6 Karajan Code v${version}${ANSI.reset}`);
-  console.log(BAR);
+  printBanner(version);
   console.log(`${ANSI.bold}Task:${ANSI.reset} ${task}`);
   console.log(
     `${ANSI.bold}Coder:${ANSI.reset} ${config.roles?.coder?.provider || config.coder} ${ANSI.dim}|${ANSI.reset} ${ANSI.bold}Reviewer:${ANSI.reset} ${config.roles?.reviewer?.provider || config.reviewer}`

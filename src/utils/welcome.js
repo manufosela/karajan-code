@@ -1,3 +1,5 @@
+import { printBanner } from "./banner.js";
+
 const A = {
   reset:   "\x1b[0m",
   bold:    "\x1b[1m",
@@ -6,8 +8,6 @@ const A = {
   green:   "\x1b[32m",
   yellow:  "\x1b[33m",
 };
-
-const BAR = `${A.dim}${"─".repeat(44)}${A.reset}`;
 
 const QUICK_START = [
   ["kj run <task>",  "Run the full coder+reviewer pipeline"],
@@ -24,12 +24,7 @@ const QUICK_START = [
  * @param {object} [opts.config]  - Loaded KJ config (optional, shows configured agents)
  */
 export function printWelcomeScreen({ version, config = null }) {
-  console.log();
-  console.log(BAR);
-  console.log(`  ${A.bold}${A.cyan}▶ Karajan Code${A.reset}  ${A.dim}v${version}${A.reset}`);
-  console.log(`  ${A.dim}AI-powered coding pipeline${A.reset}`);
-  console.log(BAR);
-  console.log();
+  printBanner(version, { force: true });
 
   if (config) {
     const coder    = config.roles?.coder?.provider    || config.coder    || "claude";
