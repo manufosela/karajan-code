@@ -238,22 +238,23 @@ describe("iteration-stages", () => {
       expect(result.action).toBe("continue");
     });
 
-    it("throws when sonar scan has hard error", async () => {
+    it("delegates to Solomon when sonar scan has hard error", async () => {
       sonarRunMock.mockResolvedValueOnce({
         ok: false,
         summary: "error",
         result: { gateStatus: null, error: "Connection refused" }
       });
-      const session = { id: "s1", checkpoints: [], sonar_retry_count: 0 };
+      const session = { id: "s1", checkpoints: [], sonar_retry_count: 0, task: "t" };
       const sonarState = { issuesInitial: null, issuesFinal: null };
       const repeatDetector = { addIteration: vi.fn() };
 
-      await expect(
-        runSonarStage({
-          config: { session: {} }, logger, emitter, eventBase, session, trackBudget,
-          iteration: 1, repeatDetector, budgetSummary, sonarState, task: "t"
-        })
-      ).rejects.toThrow("Sonar scan failed");
+      // Solomon mock returns pause → sonar returns action: "return" with paused state
+      const result = await runSonarStage({
+        config: { session: {}, max_iterations: 5, pipeline: { solomon: { enabled: true } } }, logger, emitter, eventBase, session, trackBudget,
+        iteration: 1, repeatDetector, budgetSummary, sonarState, task: "t"
+      });
+      expect(result.action).toBe("return");
+      expect(result.result.paused).toBe(true);
     });
   });
 

@@ -268,7 +268,7 @@ describe("iteration-stages: runSonarStage", () => {
     expect(result.stageResult.gateStatus).toBe("SKIPPED");
   });
 
-  it("throws on sonar scan error without gate status", async () => {
+  it("delegates to Solomon on sonar scan error without gate status", async () => {
     sonarRunFn = vi.fn(async () => ({
       ok: false,
       summary: "Sonar error",
@@ -276,13 +276,13 @@ describe("iteration-stages: runSonarStage", () => {
     }));
 
     const sonarState = { issuesInitial: null, issuesFinal: null };
-    await expect(
-      runSonarStage({
-        config: makeConfig(), logger, emitter, eventBase,
-        session: makeSession(), trackBudget, iteration: 1,
-        repeatDetector, budgetSummary, sonarState, askQuestion: null, task: "do X"
-      })
-    ).rejects.toThrow(/sonar scan failed/i);
+    const result = await runSonarStage({
+      config: makeConfig(), logger, emitter, eventBase,
+      session: makeSession(), trackBudget, iteration: 1,
+      repeatDetector, budgetSummary, sonarState, askQuestion: null, task: "do X"
+    });
+    // Solomon mock returns { action: "continue" }, so sonar stage continues
+    expect(result.action).toBe("continue");
   });
 });
 

@@ -29,6 +29,10 @@ vi.mock("../src/session-store.js", () => ({
   saveSession: vi.fn()
 }));
 
+vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+  invokeSolomon: vi.fn(async () => ({ action: "continue" }))
+}));
+
 describe("sonar token resolution — preflight", () => {
   let runPreflightChecks;
   let checkBinary, isSonarReachable, sonarUp, runCommand, loadSonarCredentials;
@@ -133,7 +137,7 @@ describe("sonar token resolution — runSonarStage", () => {
     eventBase = { sessionId: "test", iteration: 0, stage: null, startedAt: Date.now() };
   });
 
-  it("throws actionable error (not silent skip) when sonar is reachable but token is missing", async () => {
+  it("delegates to Solomon when sonar is reachable but token is missing", async () => {
     const { isSonarReachable } = await import("../src/sonar/manager.js");
     isSonarReachable.mockResolvedValue(true);
 
@@ -176,28 +180,26 @@ describe("sonar token resolution — runSonarStage", () => {
       session: { fail_fast_repeats: 3 }
     };
 
-    await expect(
-      runSonarStage({
-        config,
-        logger,
-        emitter,
-        eventBase,
-        session,
-        trackBudget: vi.fn(),
-        iteration: 1,
-        repeatDetector: {
-          addIteration: vi.fn(),
-          isStalled: vi.fn().mockReturnValue({ stalled: false }),
-          getRepeatCounts: vi.fn().mockReturnValue({ sonar: 0 })
-        },
-        budgetSummary: vi.fn(),
-        sonarState: { issuesInitial: null, issuesFinal: null },
-        askQuestion: vi.fn(),
-        task: "test task",
-      })
-    ).rejects.toThrow(/no authentication token is configured/);
-
-    expect(markSessionStatus).toHaveBeenCalledWith(session, "failed");
+    // Solomon mock returns "continue" → sonar stage continues without token
+    const result = await runSonarStage({
+      config: { ...config, max_iterations: 5, pipeline: { solomon: { enabled: true } } },
+      logger,
+      emitter,
+      eventBase,
+      session: { ...session, task: "test task" },
+      trackBudget: vi.fn(),
+      iteration: 1,
+      repeatDetector: {
+        addIteration: vi.fn(),
+        isStalled: vi.fn().mockReturnValue({ stalled: false }),
+        getRepeatCounts: vi.fn().mockReturnValue({ sonar: 0 })
+      },
+      budgetSummary: vi.fn(),
+      sonarState: { issuesInitial: null, issuesFinal: null },
+      askQuestion: vi.fn(),
+      task: "test task",
+    });
+    expect(result.action).toBe("continue");
 
     // Verify the emitted event contains the actionable message
     const sonarEndCall = emitter.emit.mock.calls.find(
