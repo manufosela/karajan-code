@@ -35,6 +35,7 @@ import { msg, getLang } from "./utils/messages.js";
 import { PipelineContext } from "./orchestrator/pipeline-context.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runDomainCuratorStage } from "./orchestrator/stages/domain-curator-stage.js";
+import { persistInlineDomain } from "./domains/domain-loader.js";
 import { runCoderStage, runRefactorerStage, runTddCheckStage, runSonarStage, runSonarCloudStage, runReviewerStage } from "./orchestrator/iteration-stages.js";
 import { runTesterStage, runSecurityStage, runImpeccableStage, runFinalAuditStage } from "./orchestrator/post-loop-stages.js";
 import { needsSubPipeline, runHuSubPipeline } from "./orchestrator/hu-sub-pipeline.js";
@@ -938,6 +939,15 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
     }
   } catch (err) {
     logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);
+  }
+
+  // --- Persist inline domain if provided via --domain flag ---
+  if (flags?.domain) {
+    try {
+      await persistInlineDomain(flags.domain, config.projectDir || process.cwd());
+    } catch (err) {
+      logger.warn(`Failed to persist inline domain: ${err.message}`);
+    }
   }
 
   // --- Domain Curator (after triage + skill auto-install, before planning phases) ---

@@ -104,7 +104,8 @@ export const tools = [
         enableSonarcloud: { type: "boolean", description: "Enable SonarCloud scan (complementary to SonarQube)" },
         kjHome: { type: "string" },
         sonarToken: { type: "string" },
-        timeoutMs: { type: "number" }
+        timeoutMs: { type: "number" },
+        domain: { type: "string", description: "Domain knowledge: inline text describing the project domain, or absolute path to a .md file. Auto-saved to .karajan/domains/ for the curator." }
       }
     }
   },

@@ -5,8 +5,8 @@
  * Project-local domains override user-global domains by directory name.
  */
 
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile, mkdir, writeFile, stat } from "node:fs/promises";
+import { join, isAbsolute } from "node:path";
 import yaml from "js-yaml";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -104,7 +104,51 @@ function parseSections(content) {
 }
 
 /**
+ * Auto-detect project context files (README.md, CLAUDE.md) as lightweight domains.
+ * Used as fallback when no explicit .karajan/domains/ are configured.
+ *
+ * @param {string} projectDir — absolute path to project root
+ * @returns {Promise<DomainFile[]>}
+ */
+export async function autoDetectDomains(projectDir) {
+  if (!projectDir) return [];
+
+  const candidates = ["README.md", "CLAUDE.md", "docs/README.md"];
+  const detected = [];
+
+  for (const rel of candidates) {
+    const filePath = join(projectDir, rel);
+    let content;
+    try {
+      content = await readFile(filePath, "utf-8");
+    } catch { continue; }
+
+    if (!content || content.trim().length < 20) continue;
+
+    // Truncate to first 4000 chars to avoid bloating context
+    const trimmed = content.length > 4000 ? content.slice(0, 4000) + "\n\n[...truncated]" : content;
+
+    detected.push({
+      name: `auto:${rel}`,
+      description: `Auto-detected from ${rel}`,
+      tags: [],
+      version: "0.0.0",
+      author: "",
+      visibility: "private",
+      sources: [{ type: "auto-detect", note: rel }],
+      content: trimmed,
+      sections: parseSections(trimmed),
+      filePath,
+      origin: "auto-detect"
+    });
+  }
+
+  return detected;
+}
+
+/**
  * Load all domains from project-local and user-global directories.
+ * Falls back to auto-detecting README.md/CLAUDE.md when no explicit domains found.
  * Project-local domains override user-global domains when directory names match.
  *
  * @param {string|null} projectDir — absolute path to project root (null = user-global only)
@@ -119,7 +163,6 @@ export async function loadDomains(projectDir) {
   const projectDomains = projectDomainDir ? await scanDomainDir(projectDomainDir, "project") : [];
 
   // Build a map keyed by directory name for merge.
-  // We track by directory name (not domain name) because the override is by directory.
   const merged = new Map();
 
   for (const { dirName, domain } of userDomains) {
@@ -129,7 +172,14 @@ export async function loadDomains(projectDir) {
     merged.set(dirName, domain); // project overrides user
   }
 
-  return Array.from(merged.values());
+  const explicit = Array.from(merged.values());
+
+  // Fallback: auto-detect README.md, CLAUDE.md when no explicit domains found
+  if (explicit.length === 0 && projectDir) {
+    return autoDetectDomains(projectDir);
+  }
+
+  return explicit;
 }
 
 /**
@@ -161,4 +211,35 @@ async function scanDomainDir(dir, origin) {
   }
 
   return results;
+}
+
+/**
+ * Persist an inline domain (text or file path) to .karajan/domains/inline/DOMAIN.md.
+ * If domainInput is a path to an existing .md file, reads its content.
+ * Otherwise treats it as inline text.
+ *
+ * @param {string} domainInput — inline text or absolute path to a .md file
+ * @param {string} projectDir — project root
+ */
+export async function persistInlineDomain(domainInput, projectDir) {
+  if (!domainInput || !projectDir) return;
+
+  let content = domainInput;
+
+  // If it looks like a file path, try to read it
+  if (isAbsolute(domainInput) && domainInput.endsWith(".md")) {
+    try {
+      const s = await stat(domainInput);
+      if (s.isFile()) {
+        content = await readFile(domainInput, "utf-8");
+      }
+    } catch { /* treat as inline text */ }
+  }
+
+  const domainDir = join(projectDir, ".karajan", "domains", "inline");
+  await mkdir(domainDir, { recursive: true });
+
+  const domainFile = join(domainDir, DOMAIN_FILE);
+  const wrapped = `---\nname: inline-domain\ndescription: Domain knowledge provided via --domain parameter\ntags: []\nversion: "0.0.0"\n---\n\n${content}\n`;
+  await writeFile(domainFile, wrapped, "utf-8");
 }

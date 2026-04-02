@@ -187,8 +187,9 @@ describe("loadDomains", () => {
     vi.clearAllMocks();
   });
 
-  it("returns empty array when no domain directories exist", async () => {
+  it("returns empty array when no domain directories and no auto-detect files exist", async () => {
     readdir.mockRejectedValue(new Error("ENOENT"));
+    readFile.mockRejectedValue(new Error("ENOENT"));
 
     const result = await loadDomains("/project");
 

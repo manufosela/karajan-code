@@ -24,7 +24,7 @@ const ALLOWED_PARAMS = new Set([
   "autoCommit", "autoPush", "autoPr", "autoRebase", "branchPrefix",
   "autoSimplify", "smartModels", "checkpointInterval",
   "taskType", "quiet", "noSonar", "enableSonarcloud",
-  "kjHome", "sonarToken", "timeoutMs",
+  "kjHome", "sonarToken", "timeoutMs", "domain",
   // Sovereign flags — validated below but still "known"
   "enableTriage", "enableHuReviewer",
 ]);
