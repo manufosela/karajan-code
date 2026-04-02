@@ -173,7 +173,7 @@ const DEFAULTS = {
   },
   telemetry: true,
   proxy: {
-    enabled: true,
+    enabled: false,
     port: "auto",
     compression: {
       enabled: true,
