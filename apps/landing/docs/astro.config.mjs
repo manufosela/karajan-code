@@ -30,7 +30,7 @@ export default defineConfig({
 				},
 			],
 			logo: {
-				src: './src/assets/logo.svg',
+				src: './src/assets/logo.png',
 			},
 			defaultLocale: 'root',
 			locales: {
