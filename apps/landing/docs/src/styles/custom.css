@@ -1,21 +1,21 @@
 :root {
 	--sl-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 	--sl-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-	--sl-color-accent-low: #1a1040;
-	--sl-color-accent: #7c3aed;
-	--sl-color-accent-high: #c4b5fd;
+	--sl-color-accent-low: #0f2a1a;
+	--sl-color-accent: #34d399;
+	--sl-color-accent-high: #6ee7b7;
 	--sl-color-white: #e2e8f0;
-	--sl-color-gray-1: #cbd5e1;
-	--sl-color-gray-2: #94a3b8;
-	--sl-color-gray-3: #64748b;
-	--sl-color-gray-4: #334155;
-	--sl-color-gray-5: #1e293b;
-	--sl-color-gray-6: #0f172a;
-	--sl-color-black: #0a0e1a;
+	--sl-color-gray-1: #a4aeb6;
+	--sl-color-gray-2: #94a4ac;
+	--sl-color-gray-3: #6b8fa3;
+	--sl-color-gray-4: #2a3a4e;
+	--sl-color-gray-5: #1a2332;
+	--sl-color-gray-6: #0f1520;
+	--sl-color-black: #0a0f18;
 }
 
 :root[data-theme='light'] {
-	--sl-color-accent-low: #ede9fe;
-	--sl-color-accent: #7c3aed;
-	--sl-color-accent-high: #4c1d95;
+	--sl-color-accent-low: #e6f7f0;
+	--sl-color-accent: #059669;
+	--sl-color-accent-high: #064e3b;
 }
