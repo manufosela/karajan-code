@@ -8,6 +8,7 @@ import { runFlow, resumeFlow } from "../../orchestrator.js";
 import { loadConfig, applyRunOverrides, validateConfig, resolveRole } from "../../config.js";
 import { createLogger } from "../../utils/logger.js";
 import { assertAgentsAvailable } from "../../agents/availability.js";
+import { validatePolicyCompliance } from "../../guards/policy-guard.js";
 import { createRunLog } from "../../utils/run-log.js";
 import { buildProgressHandler, buildProgressNotifier, buildPipelineTracker } from "../progress.js";
 import { isPreflightAcked, ackPreflight, getSessionOverrides } from "../preflight.js";
@@ -203,7 +204,7 @@ const RESUME_INJECTION_PATTERNS = [
   /force\s+(approve|merge|push|commit)\b/i,
 ];
 
-export function validateResumeAnswer(answer) {
+export function validateResumeAnswer(answer, pauseContext) {
   if (answer == null || answer === "") return { valid: true, sanitized: answer ?? null };
   if (typeof answer !== "string") return { valid: true, sanitized: String(answer) };
   if (answer.length > RESUME_MAX_ANSWER_LENGTH) {
@@ -213,6 +214,14 @@ export function validateResumeAnswer(answer) {
     if (pattern.test(answer)) {
       return { valid: false, reason: "Answer rejected: matches guardrail bypass pattern" };
     }
+  }
+  // Policy compliance: reject attempts to bypass TDD, reviewer, security, etc.
+  const policy = validatePolicyCompliance(answer, pauseContext);
+  if (!policy.valid) {
+    const suggestionsText = policy.suggestions.length > 0
+      ? `\nValid alternatives:\n${policy.suggestions.map(s => `  - ${s}`).join("\n")}`
+      : "";
+    return { valid: false, reason: `${policy.reason}${suggestionsText}` };
   }
   return { valid: true, sanitized: answer.trim() };
 }
@@ -240,7 +249,15 @@ export async function handleResume(a, server, extra) {
   }
   await runBootstrapGate(server, a);
   if (a.answer) {
-    const validation = validateResumeAnswer(a.answer);
+    // Load session to get pause context for policy-aware validation
+    let pauseContext;
+    try {
+      const { loadSession } = await import("../../session-store.js");
+      const session = await loadSession(a.sessionId);
+      const ctx = session?.paused_state?.context;
+      pauseContext = typeof ctx === "string" ? ctx : ctx?.reason;
+    } catch { /* session read error — validate without context */ }
+    const validation = validateResumeAnswer(a.answer, pauseContext);
     if (!validation.valid) {
       return failPayload(`Resume answer rejected: ${validation.reason}`);
     }
