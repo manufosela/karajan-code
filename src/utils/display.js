@@ -99,7 +99,7 @@ export function printHeader({ task, config }) {
   if (pipeline.researcher?.enabled) activeRoles.push(`Researcher (${config.roles?.researcher?.provider || "?"})`);
   if (pipeline.tester?.enabled) activeRoles.push("Tester");
   if (pipeline.security?.enabled) activeRoles.push("Security");
-  if (pipeline.solomon?.enabled) activeRoles.push(`Solomon (${config.roles?.solomon?.provider || "?"})`);
+  if (pipeline.solomon?.enabled) activeRoles.push(`Solomon (${config.roles?.solomon?.provider || config.coder || "gemini"})`);
   if (activeRoles.length > 0) {
     const separator = ` ${ANSI.dim}|${ANSI.reset} `;
     console.log(`${ANSI.bold}Pipeline:${ANSI.reset} ${activeRoles.join(separator)}`);
@@ -453,17 +453,15 @@ const EVENT_HANDLERS = {
     const max = Number(d.max_budget_usd);
     const pct = Number(d.pct_used ?? 0);
     const warn = Number(d.warn_threshold_pct ?? 80);
-    const hasEntries = (d.entries?.length ?? 0) > 0 || Object.keys(d.breakdown_by_role || {}).length > 0;
-    if (hasEntries && totalTokens === 0 && total === 0) {
-      console.log(`  \u251c\u2500 ${icon} Budget: ${ANSI.dim}N/A (provider does not report usage)${ANSI.reset}`);
-      return;
-    }
-    const tokenStr = totalTokens > 0 ? ` / ${totalTokens.toLocaleString()} tokens` : "";
+    // Don't show N/A — just skip budget display when there's nothing to report
+    if (total === 0 && totalTokens === 0) return;
+    const fmtTokens = (n) => n.toLocaleString("en-US");
+    const tokenStr = totalTokens > 0 ? ` / ${fmtTokens(totalTokens)} tokens` : "";
     const costStr = `$${total.toFixed(2)}`;
     const color = budgetColor(max, pct, warn);
     if (Number.isFinite(max) && max > 0) {
       console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${tokenStr} / $${max.toFixed(2)} (${pct.toFixed(1)}%)${ANSI.reset}`);
-    } else if (total > 0 || totalTokens > 0) {
+    } else {
       console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${tokenStr}${ANSI.reset}`);
     }
   },

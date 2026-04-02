@@ -20,7 +20,11 @@ export async function checkForUpdate(currentVersion) {
       const cache = JSON.parse(raw);
       if (cache.checkedAt && Date.now() - cache.checkedAt < CACHE_TTL_MS) {
         if (!cache.latest || cache.latest === currentVersion) return null;
-        return { updateAvailable: true, latest: cache.latest, current: currentVersion };
+        // Only show update if latest is actually NEWER than current
+        if (compareVersions(cache.latest, currentVersion) > 0) {
+          return { updateAvailable: true, latest: cache.latest, current: currentVersion };
+        }
+        return null;
       }
     } catch { /* no cache or expired */ }
 
