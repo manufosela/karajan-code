@@ -112,6 +112,13 @@ vi.mock("../src/utils/rtk-detect.js", () => ({
   detectRtk: vi.fn().mockResolvedValue({ available: false })
 }));
 
+vi.mock("../src/proxy/proxy-lifecycle.js", () => ({
+  startProxy: vi.fn(async () => ({ port: 0 })),
+  stopProxy: vi.fn(async () => {}),
+  isProxyRunning: vi.fn(async () => false),
+  getProxyEnv: vi.fn(() => null),
+}));
+
 vi.mock("../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0" }),
   isHostAgent: vi.fn().mockReturnValue(false)
@@ -238,7 +245,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -293,7 +301,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -349,7 +358,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -416,7 +426,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -465,7 +476,8 @@ describe("orchestrator events", () => {
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
       pipeline: { solomon: { enabled: true } },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -505,7 +517,8 @@ describe("orchestrator events", () => {
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
       pipeline: { solomon: { enabled: true } },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -535,7 +548,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -573,6 +587,7 @@ describe("orchestrator events", () => {
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
       output: { log_level: "info" },
+      proxy: { enabled: false },
       roles: {
         planner: { provider: "gemini", model: "plan-model" },
         coder: { provider: "codex", model: "code-model" },
@@ -684,6 +699,7 @@ describe("orchestrator events", () => {
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
       output: { log_level: "info" },
+      proxy: { enabled: false },
       roles: {
         planner: { provider: "gemini", model: "plan-model" },
         coder: { provider: "codex", model: "code-model" },
@@ -732,7 +748,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
@@ -766,7 +783,8 @@ describe("orchestrator events", () => {
       git: { auto_commit: false, auto_push: false, auto_pr: false },
       session: { max_total_minutes: 120, fail_fast_repeats: 2 },
       reviewer_options: { retries: 0, fallback_reviewer: null },
-      output: { log_level: "info" }
+      output: { log_level: "info" },
+      proxy: { enabled: false }
     };
 
     const logger = {
