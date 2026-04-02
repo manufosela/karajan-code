@@ -1253,7 +1253,7 @@ async function handleApprovedReview({ config, session, emitter, eventBase, coder
 }
 
 async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task, rtkTracker }) {
-  // Escalate to Solomon / human before giving up
+  const budget = budgetSummary();
   const solomonResult = await invokeSolomon({
     config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
     iteration: config.max_iterations,
@@ -1262,17 +1262,26 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
       task,
       iterationCount: config.max_iterations,
       maxIterations: config.max_iterations,
+      budget_usd: budget?.total_cost_usd || 0,
       history: [{ agent: "pipeline", feedback: session.last_reviewer_feedback || "Max iterations reached without reviewer approval" }]
     }
   });
 
+  // Solomon approved the work — treat as successful completion
+  if (solomonResult.action === "approve") {
+    logger.info("Solomon approved coder's work at max_iterations checkpoint");
+    return { approved: true, sessionId: session.id, reason: "solomon_approved" };
+  }
+
+  // Solomon says continue — extend iterations
   if (solomonResult.action === "continue") {
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback = `User guidance: ${solomonResult.humanGuidance}`;
+      session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
     }
     session.reviewer_retry_count = 0;
     await saveSession(session);
-    return { approved: false, sessionId: session.id, reason: "max_iterations_extended", humanGuidance: solomonResult.humanGuidance };
+    const extraIterations = solomonResult.extraIterations || config.max_iterations;
+    return { approved: false, sessionId: session.id, reason: "max_iterations_extended", humanGuidance: solomonResult.humanGuidance, extraIterations };
   }
 
   if (solomonResult.action === "pause") {
@@ -1283,7 +1292,7 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
     return { paused: true, sessionId: session.id, subtask: solomonResult.subtask, context: "max_iterations_subtask" };
   }
 
-  // Solomon also couldn't resolve — fail
+  // Solomon couldn't resolve — fail
   session.budget = budgetSummary();
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
   if (rtkSavings) session.rtk_savings = rtkSavings;
@@ -1566,7 +1575,49 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
     if (iterResult.action === "retry") { i -= 1; }
   }
 
+  // Solomon decides whether to extend iterations or stop
   const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker });
+
+  // Solomon said "continue" — extend iterations and keep going
+  if (maxIterResult.reason === "max_iterations_extended") {
+    const extra = maxIterResult.extraIterations || ctx.config.max_iterations;
+    ctx.config.max_iterations += extra;
+    logger.info(`Solomon extended pipeline by ${extra} iterations (new max: ${ctx.config.max_iterations})`);
+
+    if (maxIterResult.humanGuidance) {
+      ctx.session.last_reviewer_feedback = `Solomon guidance: ${maxIterResult.humanGuidance}`;
+    }
+
+    // Continue the loop
+    while (i < ctx.config.max_iterations) {
+      i += 1;
+      const elapsedMinutes = (Date.now() - ctx.startedAt) / 60000;
+
+      const cpResult = await handleCheckpoint({
+        checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes,
+        i, config: ctx.config, budgetTracker: ctx.budgetTracker, stageResults: ctx.stageResults, emitter, eventBase: ctx.eventBase, session: ctx.session, budgetSummary: ctx.budgetSummary, lastCheckpointSnapshot
+      });
+      if (cpResult.action === "stop") return cpResult.result;
+      checkpointDisabled = cpResult.checkpointDisabled;
+      lastCheckpointAt = cpResult.lastCheckpointAt;
+      if (cpResult.lastCheckpointSnapshot !== undefined) lastCheckpointSnapshot = cpResult.lastCheckpointSnapshot;
+
+      await checkSessionTimeout({ askQuestion, elapsedMinutes, config: ctx.config, session: ctx.session, emitter, eventBase: ctx.eventBase, i, budgetSummary: ctx.budgetSummary });
+      await checkBudgetExceeded({ budgetTracker: ctx.budgetTracker, config: ctx.config, session: ctx.session, emitter, eventBase: ctx.eventBase, i, budgetLimit: ctx.budgetLimit, budgetSummary: ctx.budgetSummary });
+
+      ctx.eventBase.iteration = i;
+      ctx.iteration = i;
+
+      const iterResult = await runSingleIteration(ctx);
+      if (iterResult.action === "return") return iterResult.result;
+      if (iterResult.action === "retry") { i -= 1; }
+    }
+
+    // Extended iterations also exhausted — final Solomon call
+    const finalResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker });
+    return finalResult;
+  }
+
   return maxIterResult;
 }
 
