@@ -1,5 +1,4 @@
-import { BaseRole } from "./base-role.js";
-import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { AgentRole } from "./agent-role.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 
 const SUBAGENT_PREAMBLE = [
@@ -8,118 +7,55 @@ const SUBAGENT_PREAMBLE = [
   "Do NOT use any MCP tools. Focus only on auditing code for security vulnerabilities."
 ].join(" ");
 
-function resolveProvider(config) {
-  return (
-    config?.roles?.security?.provider ||
-    config?.roles?.coder?.provider ||
-    "claude"
-  );
-}
-
-function buildPrompt({ task, diff, instructions }) {
-  const sections = [SUBAGENT_PREAMBLE];
-
-  if (instructions) {
-    sections.push(instructions);
+export class SecurityRole extends AgentRole {
+  constructor(opts) {
+    super({ ...opts, name: "security" });
   }
 
-  sections.push(
-    "You are a security auditor. Analyze the code changes for vulnerabilities.",
-    "Check for: OWASP top 10, exposed secrets/API keys, hardcoded credentials, command injection, XSS, SQL injection, path traversal, prototype pollution, insecure dependencies.",
-    "Return a single valid JSON object with your findings and nothing else.",
-    'JSON schema: {"vulnerabilities":[{"severity":"critical|high|medium|low","category":string,"file":string,"line":number,"description":string,"fix_suggestion":string}],"verdict":"pass"|"fail"}',
-    `## Task\n${task}`
-  );
-
-  if (diff) {
-    sections.push(`## Git diff to audit\n${diff}`);
+  async buildPrompt({ task, diff }) {
+    const sections = [SUBAGENT_PREAMBLE];
+    if (this.instructions) sections.push(this.instructions);
+    sections.push(
+      "You are a security auditor. Analyze the code changes for vulnerabilities.",
+      "Check for: OWASP top 10, exposed secrets/API keys, hardcoded credentials, command injection, XSS, SQL injection, path traversal, prototype pollution, insecure dependencies.",
+      "Return a single valid JSON object with your findings and nothing else.",
+      '{"vulnerabilities":[{"severity":"critical|high|medium|low","category":string,"file":string,"line":number,"description":string,"fix_suggestion":string}],"verdict":"pass"|"fail"}',
+      `## Task\n${task}`
+    );
+    if (diff) sections.push(`## Git diff to audit\n${diff}`);
+    return { prompt: sections.join("\n\n") };
   }
 
-  return sections.join("\n\n");
-}
-
-function parseSecurityOutput(raw) {
-  return extractFirstJson(raw);
-}
-
-function buildSummary(parsed) {
-  const vulns = parsed.vulnerabilities || [];
-  if (vulns.length === 0) {
-    return `Verdict: ${parsed.verdict || "pass"}; No vulnerabilities found`;
+  extractInput(input) {
+    if (typeof input === "string") return { task: input, diff: null };
+    return { task: input?.task || this.context?.task || "", diff: input?.diff || null, onOutput: input?.onOutput || null };
   }
 
-  const bySeverity = {};
-  for (const v of vulns) {
-    const sev = v.severity || "unknown";
-    bySeverity[sev] = (bySeverity[sev] || 0) + 1;
+  parseOutput(raw) { return extractFirstJson(raw); }
+
+  isSuccessful(parsed) {
+    const verdict = parsed.verdict || (parsed.vulnerabilities?.length ? "fail" : "pass");
+    return verdict === "pass";
   }
 
-  const parts = Object.entries(bySeverity)
-    .sort(([a], [b]) => {
-      const order = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (order[a] ?? 4) - (order[b] ?? 4);
-    })
-    .map(([sev, count]) => `${count} ${sev}`);
-
-  return `Verdict: ${parsed.verdict || "fail"}; ${parts.join(", ")}`;
-}
-
-export class SecurityRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
-    super({ name: "security", config, logger, emitter });
-    this._createAgent = createAgentFn || defaultCreateAgent;
+  buildSuccessResult(parsed, provider) {
+    const verdict = parsed.verdict || (parsed.vulnerabilities?.length ? "fail" : "pass");
+    return { vulnerabilities: parsed.vulnerabilities || [], verdict, provider };
   }
 
-  async execute(input) {
-    const { task, diff } = typeof input === "string"
-      ? { task: input, diff: null }
-      : { task: input?.task || this.context?.task || "", diff: input?.diff || null };
+  buildSummary(parsed) {
+    const verdict = parsed.verdict || (parsed.vulnerabilities?.length ? "fail" : "pass");
+    const vulns = parsed.vulnerabilities || [];
+    if (!vulns.length) return `Verdict: ${verdict}; No vulnerabilities found`;
 
-    const provider = resolveProvider(this.config);
-    const agent = this._createAgent(provider, this.config, this.logger);
+    const bySeverity = {};
+    for (const v of vulns) bySeverity[v.severity || "unknown"] = (bySeverity[v.severity || "unknown"] || 0) + 1;
 
-    const prompt = buildPrompt({ task, diff, instructions: this.instructions });
-    const result = await agent.runTask({ prompt, role: "security" });
+    const order = { critical: 0, high: 1, medium: 2, low: 3 };
+    const parts = Object.entries(bySeverity)
+      .sort(([a], [b]) => (order[a] ?? 4) - (order[b] ?? 4))
+      .map(([sev, count]) => `${count} ${sev}`);
 
-    if (!result.ok) {
-      return {
-        ok: false,
-        result: {
-          error: result.error || result.output || "Security audit failed",
-          provider
-        },
-        summary: `Security audit failed: ${result.error || "unknown error"}`
-      };
-    }
-
-    try {
-      const parsed = parseSecurityOutput(result.output);
-      if (!parsed) {
-        return {
-          ok: false,
-          result: { error: "Failed to parse security output: no JSON found", provider },
-          summary: "Security output parse error: no JSON found"
-        };
-      }
-
-      const verdict = parsed.verdict || (parsed.vulnerabilities?.length ? "fail" : "pass");
-      const ok = verdict === "pass";
-
-      return {
-        ok,
-        result: {
-          vulnerabilities: parsed.vulnerabilities || [],
-          verdict,
-          provider
-        },
-        summary: buildSummary({ ...parsed, verdict })
-      };
-    } catch (err) {
-      return {
-        ok: false,
-        result: { error: `Failed to parse security output: ${err.message}`, provider },
-        summary: `Security output parse error: ${err.message}`
-      };
-    }
+    return `Verdict: ${verdict}; ${parts.join(", ")}`;
   }
 }

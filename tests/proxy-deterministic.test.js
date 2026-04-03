@@ -1,15 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { stripAnsi, collapseWhitespace, truncateLines, countTokens } from "../src/proxy/compression/deterministic/utils.js";
-import * as bashGit from "../src/proxy/compression/deterministic/bash-git.js";
-import * as bashTest from "../src/proxy/compression/deterministic/bash-test.js";
-import * as bashBuild from "../src/proxy/compression/deterministic/bash-build.js";
-import * as bashInfra from "../src/proxy/compression/deterministic/bash-infra.js";
-import * as bashPkg from "../src/proxy/compression/deterministic/bash-pkg.js";
-import * as bashMisc from "../src/proxy/compression/deterministic/bash-misc.js";
-import * as grepMod from "../src/proxy/compression/deterministic/grep.js";
-import * as readMod from "../src/proxy/compression/deterministic/read.js";
-import * as globMod from "../src/proxy/compression/deterministic/glob.js";
+import { BASH_COMPRESSORS } from "../src/proxy/compression/deterministic/bash-compressors.js";
+import { TOOL_COMPRESSORS } from "../src/proxy/compression/deterministic/tool-compressors.js";
 import { compressDeterministic } from "../src/proxy/compression/deterministic/index.js";
+
+// Extract individual compressors from registries for targeted testing
+const bashGit = BASH_COMPRESSORS.find((c) => c.name === "git");
+const bashTest = BASH_COMPRESSORS.find((c) => c.name === "test");
+const bashBuild = BASH_COMPRESSORS.find((c) => c.name === "build");
+const bashInfra = BASH_COMPRESSORS.find((c) => c.name === "infra");
+const bashPkg = BASH_COMPRESSORS.find((c) => c.name === "pkg");
+const bashMisc = BASH_COMPRESSORS.find((c) => c.name === "misc");
+const grepMod = TOOL_COMPRESSORS.Grep;
+const readMod = TOOL_COMPRESSORS.Read;
+const globMod = TOOL_COMPRESSORS.Glob;
 
 // ---------------------------------------------------------------------------
 // utils.js

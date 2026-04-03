@@ -2,32 +2,8 @@
  * Deterministic compression dispatcher.
  * Tries known patterns in order of specificity; returns original text if nothing matches.
  */
-import * as bashGit from "./bash-git.js";
-import * as bashTest from "./bash-test.js";
-import * as bashBuild from "./bash-build.js";
-import * as bashInfra from "./bash-infra.js";
-import * as bashPkg from "./bash-pkg.js";
-import * as bashMisc from "./bash-misc.js";
-import * as grepMod from "./grep.js";
-import * as readMod from "./read.js";
-import * as globMod from "./glob.js";
-
-/** Compressors keyed by tool name hint. */
-const TOOL_COMPRESSORS = {
-  Grep: grepMod,
-  Read: readMod,
-  Glob: globMod
-};
-
-/** Bash compressors tried in order of specificity. */
-const BASH_COMPRESSORS = [
-  bashGit,
-  bashTest,
-  bashBuild,
-  bashInfra,
-  bashPkg,
-  bashMisc
-];
+import { BASH_COMPRESSORS } from "./bash-compressors.js";
+import { TOOL_COMPRESSORS } from "./tool-compressors.js";
 
 /**
  * Compress tool output deterministically.
@@ -53,6 +29,5 @@ export function compressDeterministic(text, toolName = "") {
     }
   }
 
-  // No pattern matched
   return { text, compressed: false };
 }

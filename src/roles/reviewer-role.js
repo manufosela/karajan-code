@@ -1,5 +1,4 @@
-import { BaseRole } from "./base-role.js";
-import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { AgentRole } from "./agent-role.js";
 import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 
@@ -11,146 +10,91 @@ const SUBAGENT_PREAMBLE = [
   "Do NOT use any MCP tools. Focus only on reviewing the code."
 ].join(" ");
 
-function resolveProvider(config) {
-  return (
-    config?.roles?.reviewer?.provider ||
-    config?.roles?.coder?.provider ||
-    "claude"
-  );
-}
-
 function truncateDiff(diff) {
   if (!diff) return "";
-  return diff.length > MAX_DIFF_LENGTH
-    ? `${diff.slice(0, MAX_DIFF_LENGTH)}\n\n[TRUNCATED]`
-    : diff;
+  return diff.length > MAX_DIFF_LENGTH ? `${diff.slice(0, MAX_DIFF_LENGTH)}\n\n[TRUNCATED]` : diff;
 }
 
-function buildPrompt({ task, diff, reviewRules, reviewMode, instructions, rtkAvailable = false, proxyEnabled = false, productContext = null, domainContext = null }) {
-  const sections = [];
-
-  sections.push(SUBAGENT_PREAMBLE);
-
-  if (instructions) {
-    sections.push(instructions);
+export class ReviewerRole extends AgentRole {
+  constructor(opts) {
+    super({ ...opts, name: "reviewer" });
   }
 
-  sections.push(
-    `You are a code reviewer in ${reviewMode || "standard"} mode.`,
-    "Return only one valid JSON object and nothing else.",
-    'JSON schema:',
-    '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}',
-    `Task context:\n${task}`
-  );
+  get agentMethod() { return "reviewTask"; }
 
-  if (productContext) {
-    sections.push(`## Product Context\n${productContext}`);
+  extractInput(input) {
+    if (typeof input === "string") return { task: input, diff: "", reviewRules: null, onOutput: null };
+    return {
+      task: input?.task || this.context?.task || "",
+      diff: input?.diff || "",
+      reviewRules: input?.reviewRules || null,
+      onOutput: input?.onOutput || null
+    };
   }
 
-  if (domainContext) {
-    sections.push(`## Domain Context\n${domainContext}`);
-  }
+  async buildPrompt({ task, diff, reviewRules }) {
+    const sections = [SUBAGENT_PREAMBLE];
+    if (this.instructions) sections.push(this.instructions);
+    sections.push(
+      `You are a code reviewer in ${this.config?.review_mode || "standard"} mode.`,
+      "Return only one valid JSON object and nothing else.",
+      "JSON schema:",
+      '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}',
+      `Task context:\n${task}`
+    );
 
-  const rtkSnippet = buildRtkInstructions({ rtkAvailable, proxyEnabled });
-  if (rtkSnippet) {
-    sections.push(rtkSnippet);
-  }
+    const pc = this.config?.productContext;
+    if (pc) sections.push(`## Product Context\n${pc}`);
+    const dc = this.config?.domainContext;
+    if (dc) sections.push(`## Domain Context\n${dc}`);
 
-  if (reviewRules) {
-    sections.push(`Review rules:\n${reviewRules}`);
-  }
-
-  sections.push(`Git diff:\n${truncateDiff(diff)}`);
-
-  return sections.join("\n\n");
-}
-
-function parseReviewOutput(raw) {
-  const parsed = extractFirstJson(raw);
-  if (!parsed) {
-    throw new Error(`Failed to parse reviewer output: no JSON found`);
-  }
-  return parsed;
-}
-
-export class ReviewerRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
-    super({ name: "reviewer", config, logger, emitter });
-    this._createAgent = createAgentFn || defaultCreateAgent;
-  }
-
-  async execute(input) {
-    const { task, diff, reviewRules, onOutput } = typeof input === "string"
-      ? { task: input, diff: "", reviewRules: null, onOutput: null }
-      : input;
-
-    const provider = resolveProvider(this.config);
-    const agent = this._createAgent(provider, this.config, this.logger);
-
-    const prompt = buildPrompt({
-      task: task || this.context?.task || "",
-      diff: diff || "",
-      reviewRules: reviewRules || null,
-      reviewMode: this.config?.review_mode || "standard",
-      instructions: this.instructions,
+    const rtkSnippet = buildRtkInstructions({
       rtkAvailable: Boolean(this.config?.rtk?.available),
-      proxyEnabled: Boolean(this.config?.proxy?.enabled),
-      productContext: this.config?.productContext || null,
-      domainContext: this.config?.domainContext || null
+      proxyEnabled: Boolean(this.config?.proxy?.enabled)
     });
+    if (rtkSnippet) sections.push(rtkSnippet);
+    if (reviewRules) sections.push(`Review rules:\n${reviewRules}`);
+    sections.push(`Git diff:\n${truncateDiff(diff)}`);
 
-    const reviewArgs = { prompt, role: "reviewer" };
-    if (onOutput) reviewArgs.onOutput = onOutput;
+    return { prompt: sections.join("\n\n") };
+  }
 
-    const result = await agent.reviewTask(reviewArgs);
+  parseOutput(raw) {
+    const parsed = extractFirstJson(raw);
+    if (!parsed) throw new Error("Failed to parse reviewer output: no JSON found");
+    return parsed;
+  }
 
-    if (!result.ok) {
-      return {
-        ok: false,
-        result: {
-          error: result.error || result.output || "Reviewer agent failed",
-          approved: false,
-          blocking_issues: []
-        },
-        summary: `Reviewer failed: ${result.error || "unknown error"}`
-      };
-    }
+  buildSuccessResult(parsed, provider, agentResult) {
+    return {
+      ...agentResult,
+      approved: parsed.approved,
+      blocking_issues: parsed.blocking_issues || [],
+      non_blocking_suggestions: parsed.non_blocking_suggestions || [],
+      confidence: parsed.confidence ?? null,
+      raw_summary: parsed.summary || ""
+    };
+  }
 
-    try {
-      const parsed = parseReviewOutput(result.output);
-      const blockingIssues = parsed.blocking_issues || [];
+  buildSummary(parsed) {
+    const blockingIssues = parsed.blocking_issues || [];
+    return parsed.approved
+      ? `Approved: ${parsed.summary || "no issues found"}`
+      : `Rejected: ${blockingIssues.length} blocking issue(s) — ${parsed.summary || ""}`;
+  }
 
-      return {
-        ok: true,
-        result: {
-          ...result,
-          approved: parsed.approved,
-          blocking_issues: blockingIssues,
-          non_blocking_suggestions: parsed.non_blocking_suggestions || [],
-          confidence: parsed.confidence ?? null,
-          raw_summary: parsed.summary || ""
-        },
-        summary: parsed.approved
-          ? `Approved: ${parsed.summary || "no issues found"}`
-          : `Rejected: ${blockingIssues.length} blocking issue(s) — ${parsed.summary || ""}`
-      };
-    } catch (err) {
-      return {
-        ok: true,
-        result: {
-          ...result,
-          approved: false,
-          blocking_issues: [{
-            id: "PARSE_ERROR",
-            severity: "high",
-            description: `Reviewer output could not be parsed: ${err.message}`
-          }],
-          non_blocking_suggestions: [],
-          confidence: 0,
-          raw_summary: `Parse error: ${err.message}`
-        },
-        summary: `Reviewer output parse error: ${err.message}`
-      };
-    }
+  handleParseError(err, agentResult, _provider) {
+    return {
+      ok: true,
+      result: {
+        ...agentResult,
+        approved: false,
+        blocking_issues: [{ id: "PARSE_ERROR", severity: "high", description: `Reviewer output could not be parsed: ${err.message}` }],
+        non_blocking_suggestions: [],
+        confidence: 0,
+        raw_summary: `Parse error: ${err.message}`
+      },
+      summary: `Reviewer output parse error: ${err.message}`
+    };
   }
 }

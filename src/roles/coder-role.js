@@ -1,44 +1,40 @@
-import { BaseRole } from "./base-role.js";
-import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { AgentRole } from "./agent-role.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { isHostAgent } from "../utils/agent-detect.js";
 import { HostAgent } from "../agents/host-agent.js";
 
-function resolveProvider(config) {
-  return (
-    config?.roles?.coder?.provider ||
-    config?.coder ||
-    "claude"
-  );
-}
-
-export class CoderRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null, askHost = null }) {
-    super({ name: "coder", config, logger, emitter });
-    this._createAgent = createAgentFn || defaultCreateAgent;
-    this._askHost = askHost;
+export class CoderRole extends AgentRole {
+  constructor(opts) {
+    super({ ...opts, name: "coder" });
+    this._askHost = opts.askHost || null;
   }
 
-  async execute(input) {
-    const { task, reviewerFeedback, sonarSummary, deferredContext, onOutput } = typeof input === "string"
-      ? { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, onOutput: null }
-      : input || {};
+  resolveProvider() {
+    return this.config?.roles?.coder?.provider || this.config?.coder || "claude";
+  }
 
-    const provider = resolveProvider(this.config);
-    const useHost = this._askHost && isHostAgent(provider);
-    const agent = useHost
-      ? new HostAgent(this.config, this.logger, { askHost: this._askHost })
-      : this._createAgent(provider, this.config, this.logger);
-
-    if (useHost) {
+  createAgentInstance(provider) {
+    if (this._askHost && isHostAgent(provider)) {
       this.logger.info(`Host-as-coder: delegating to host AI (skipping ${provider} subprocess)`);
+      return new HostAgent(this.config, this.logger, { askHost: this._askHost });
     }
+    return this._createAgent(provider, this.config, this.logger);
+  }
 
+  extractInput(input) {
+    if (typeof input === "string") return { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, onOutput: null };
+    return {
+      task: input?.task || this.context?.task || "",
+      reviewerFeedback: input?.reviewerFeedback || null,
+      sonarSummary: input?.sonarSummary || null,
+      deferredContext: input?.deferredContext || null,
+      onOutput: input?.onOutput || null
+    };
+  }
+
+  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext }) {
     const prompt = await buildCoderPrompt({
-      task: task || this.context?.task || "",
-      reviewerFeedback: reviewerFeedback || null,
-      sonarSummary: sonarSummary || null,
-      deferredContext: deferredContext || null,
+      task, reviewerFeedback, sonarSummary, deferredContext,
       coderRules: this.instructions,
       methodology: this.config?.development?.methodology || "tdd",
       serenaEnabled: Boolean(this.config?.serena?.enabled),
@@ -47,32 +43,12 @@ export class CoderRole extends BaseRole {
       productContext: this.config?.productContext || null,
       domainContext: this.config?.domainContext || null
     });
-
-    const coderArgs = { prompt, role: "coder" };
-    if (onOutput) coderArgs.onOutput = onOutput;
-
-    const result = await agent.runTask(coderArgs);
-
-    if (!result.ok) {
-      return {
-        ok: false,
-        result: {
-          ...result,
-          error: result.error || result.output || "Coder failed",
-          provider
-        },
-        summary: `Coder failed: ${result.error || result.output || "unknown error"}`
-      };
-    }
-
-    return {
-      ok: true,
-      result: {
-        ...result,
-        output: result.output || "",
-        provider
-      },
-      summary: "Coder completed"
-    };
+    return { prompt };
   }
+
+  buildSuccessResult(parsed, provider, agentResult) {
+    return { ...agentResult, output: agentResult.output || "", provider };
+  }
+
+  buildSummary() { return "Coder completed"; }
 }

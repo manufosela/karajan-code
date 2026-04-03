@@ -1,34 +1,4 @@
-import { BaseRole } from "./base-role.js";
-import { createAgent as defaultCreateAgent } from "../agents/index.js";
-
-function resolveProvider(config) {
-  return (
-    config?.roles?.planner?.provider ||
-    config?.roles?.coder?.provider ||
-    "claude"
-  );
-}
-
-function resolvePlannerSilenceTimeoutMs(config) {
-  const minutes = Number(config?.session?.max_agent_silence_minutes);
-  if (!Number.isFinite(minutes) || minutes <= 0) return null;
-  return Math.round(minutes * 60 * 1000);
-}
-
-function resolvePlannerRuntimeTimeoutMs(config) {
-  const minutes = Number(config?.session?.max_planner_minutes);
-  if (!Number.isFinite(minutes) || minutes <= 0) return null;
-  return Math.round(minutes * 60 * 1000);
-}
-
-function appendDecompositionSection(sections, triageDecomposition) {
-  if (!triageDecomposition?.length) return;
-  sections.push("## Triage decomposition recommendation", "The triage stage determined this task should be decomposed. Suggested subtasks:");
-  for (let i = 0; i < triageDecomposition.length; i++) {
-    sections.push(`${i + 1}. ${triageDecomposition[i]}`);
-  }
-  sections.push("", "Focus your plan on the FIRST subtask only. List the remaining subtasks as 'pending_subtasks' in your output for documentation.", "");
-}
+import { AgentRole } from "./agent-role.js";
 
 const RESEARCH_FIELDS = [
   { key: "affected_files", label: "Affected files" },
@@ -38,13 +8,18 @@ const RESEARCH_FIELDS = [
   { key: "prior_decisions", label: "Prior decisions" }
 ];
 
+function appendDecompositionSection(sections, triageDecomposition) {
+  if (!triageDecomposition?.length) return;
+  sections.push("## Triage decomposition recommendation", "The triage stage determined this task should be decomposed. Suggested subtasks:");
+  for (let i = 0; i < triageDecomposition.length; i++) sections.push(`${i + 1}. ${triageDecomposition[i]}`);
+  sections.push("", "Focus your plan on the FIRST subtask only. List the remaining subtasks as 'pending_subtasks' in your output for documentation.", "");
+}
+
 function appendResearchSection(sections, research) {
   if (!research) return;
   sections.push("## Research findings");
   for (const { key, label } of RESEARCH_FIELDS) {
-    if (research[key]?.length) {
-      sections.push(`${label}: ${research[key].join(", ")}`);
-    }
+    if (research[key]?.length) sections.push(`${label}: ${research[key].join(", ")}`);
   }
   sections.push("");
 }
@@ -63,61 +38,51 @@ function appendArchitectSection(sections, architectContext) {
   sections.push("");
 }
 
-function buildPrompt({ task, instructions, research, triageDecomposition, architectContext, productContext = null, domainContext = null }) {
-  const sections = [];
-
-  if (instructions) {
-    sections.push(instructions, "");
-  }
-
-  sections.push(
-    "Create an implementation plan for this task.",
-    "Return concise numbered steps focused on execution order and risk.",
-    ""
-  );
-
-  if (productContext) {
-    sections.push("## Product Context", productContext, "");
-  }
-
-  if (domainContext) {
-    sections.push("## Domain Context", domainContext, "");
-  }
-
-  appendDecompositionSection(sections, triageDecomposition);
-  appendArchitectSection(sections, architectContext);
-  appendResearchSection(sections, research);
-
-  sections.push("## Task", task);
-
-  return sections.join("\n");
+function resolveSilenceTimeoutMs(config) {
+  const minutes = Number(config?.session?.max_agent_silence_minutes);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60 * 1000) : null;
 }
 
-export class PlannerRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
-    super({ name: "planner", config, logger, emitter });
-    this._createAgent = createAgentFn || defaultCreateAgent;
+function resolveRuntimeTimeoutMs(config) {
+  const minutes = Number(config?.session?.max_planner_minutes);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60 * 1000) : null;
+}
+
+export class PlannerRole extends AgentRole {
+  constructor(opts) {
+    super({ ...opts, name: "planner" });
   }
 
   async execute(input) {
-    const { task, onOutput } = typeof input === "string"
+    const { task: rawTask, onOutput } = typeof input === "string"
       ? { task: input, onOutput: null }
       : { task: input?.task || input || "", onOutput: input?.onOutput || null };
-    const taskStr = task || this.context?.task || "";
+
+    const task = rawTask || this.context?.task || "";
     const research = this.context?.research || null;
     const triageDecomposition = this.context?.triageDecomposition || null;
     const architectContext = this.context?.architecture || null;
-    const provider = resolveProvider(this.config);
 
-    const agent = this._createAgent(provider, this.config, this.logger);
-    const prompt = buildPrompt({ task: taskStr, instructions: this.instructions, research, triageDecomposition, architectContext, productContext: this.config?.productContext || null, domainContext: this.config?.domainContext || null });
+    const sections = [];
+    if (this.instructions) sections.push(this.instructions, "");
+    sections.push("Create an implementation plan for this task.", "Return concise numbered steps focused on execution order and risk.", "");
+    if (this.config?.productContext) sections.push("## Product Context", this.config.productContext, "");
+    if (this.config?.domainContext) sections.push("## Domain Context", this.config.domainContext, "");
+    appendDecompositionSection(sections, triageDecomposition);
+    appendArchitectSection(sections, architectContext);
+    appendResearchSection(sections, research);
+    sections.push("## Task", task);
 
-    const runArgs = { prompt, role: "planner" };
+    const provider = this.resolveProvider();
+    const agent = this.createAgentInstance(provider);
+    const runArgs = { prompt: sections.join("\n"), role: "planner" };
     if (onOutput) runArgs.onOutput = onOutput;
-    const silenceTimeoutMs = resolvePlannerSilenceTimeoutMs(this.config);
-    if (silenceTimeoutMs) runArgs.silenceTimeoutMs = silenceTimeoutMs;
-    const timeoutMs = resolvePlannerRuntimeTimeoutMs(this.config);
+
+    const silenceMs = resolveSilenceTimeoutMs(this.config);
+    if (silenceMs) runArgs.silenceTimeoutMs = silenceMs;
+    const timeoutMs = resolveRuntimeTimeoutMs(this.config);
     if (timeoutMs) runArgs.timeoutMs = timeoutMs;
+
     const result = await agent.runTask(runArgs);
 
     if (!result.ok) {

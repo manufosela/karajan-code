@@ -159,13 +159,6 @@ const DEFAULTS = {
   failFast: {
     repeatThreshold: 2
   },
-  retry: {
-    max_attempts: 3,
-    initial_backoff_ms: 1000,
-    max_backoff_ms: 30000,
-    backoff_multiplier: 2,
-    jitter_factor: 0.1
-  },
   webperf: {
     enabled: true,
     devtools_mcp: false,
@@ -174,34 +167,9 @@ const DEFAULTS = {
   telemetry: true,
   proxy: {
     enabled: false,
-    port: "auto",
     compression: {
-      enabled: true,
-      ai_compression: false,
-      ai_model: "haiku",
-      ai_provider: "anthropic",
-      layers: {
-        git: true,
-        tests: true,
-        build: true,
-        infra: true,
-        packages: true,
-        read_dedup: true,
-        glob_truncate: true,
-        grep_collapse: true,
-      },
-      pressure_thresholds: {
-        low: 0.5,
-        medium: 0.8,
-        high: 0.9,
-      },
-    },
-    cache: {
-      persist_to_disk: true,
-      flush_interval_ms: 5000,
-    },
-    inject_prompts: true,
-    monitor: true,
+      enabled: true
+    }
   },
   guards: {
     output: {

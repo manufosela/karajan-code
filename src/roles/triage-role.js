@@ -1,5 +1,4 @@
-import { BaseRole } from "./base-role.js";
-import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { AgentRole } from "./agent-role.js";
 import { buildTriagePrompt } from "../prompts/triage.js";
 import { VALID_TASK_TYPES } from "../guards/policy-resolver.js";
 import { extractFirstJson } from "../utils/json-extract.js";
@@ -7,18 +6,7 @@ import { extractFirstJson } from "../utils/json-extract.js";
 const VALID_LEVELS = new Set(["trivial", "simple", "medium", "complex"]);
 const VALID_ROLES = new Set(["planner", "researcher", "refactorer", "reviewer", "tester", "security", "impeccable"]);
 const FALLBACK_TASK_TYPE = "sw";
-
-function resolveProvider(config) {
-  return (
-    config?.roles?.triage?.provider ||
-    config?.roles?.coder?.provider ||
-    "claude"
-  );
-}
-
-function parseTriageOutput(raw) {
-  return extractFirstJson(raw);
-}
+const FALLBACK_RESULT = { level: "medium", roles: ["reviewer"], taskType: FALLBACK_TASK_TYPE, shouldDecompose: false };
 
 function normalizeRoles(roles) {
   if (!Array.isArray(roles)) return [];
@@ -27,115 +15,66 @@ function normalizeRoles(roles) {
 
 function normalizeSubtasks(subtasks) {
   if (!Array.isArray(subtasks)) return [];
-  return subtasks
-    .map((s) => (typeof s === "string" ? s.trim() : ""))
-    .filter(Boolean)
-    .slice(0, 5);
+  return subtasks.map((s) => (typeof s === "string" ? s.trim() : "")).filter(Boolean).slice(0, 5);
 }
 
 function normalizeDomainHints(hints) {
   if (!Array.isArray(hints)) return [];
-  return hints
-    .map((h) => (typeof h === "string" ? h.trim().toLowerCase() : ""))
-    .filter(Boolean);
+  return hints.map((h) => (typeof h === "string" ? h.trim().toLowerCase() : "")).filter(Boolean);
 }
 
-export class TriageRole extends BaseRole {
-  constructor({ config, logger, emitter = null, createAgentFn = null }) {
-    super({ name: "triage", config, logger, emitter });
-    this._createAgent = createAgentFn || defaultCreateAgent;
+export class TriageRole extends AgentRole {
+  constructor(opts) {
+    super({ ...opts, name: "triage" });
   }
 
-  async execute(input) {
-    const task = typeof input === "string"
-      ? input
-      : input?.task || this.context?.task || "";
-    const onOutput = typeof input === "string" ? null : input?.onOutput || null;
+  async buildPrompt({ task }) {
+    return { prompt: buildTriagePrompt({ task, instructions: this.instructions }) };
+  }
 
-    const provider = resolveProvider(this.config);
-    const agent = this._createAgent(provider, this.config, this.logger);
+  parseOutput(raw) { return extractFirstJson(raw); }
 
-    const prompt = buildTriagePrompt({ task, instructions: this.instructions });
-    const runArgs = { prompt, role: "triage" };
-    if (onOutput) runArgs.onOutput = onOutput;
-    const result = await agent.runTask(runArgs);
+  buildSuccessResult(parsed, provider) {
+    const level = VALID_LEVELS.has(parsed.level) ? parsed.level : "medium";
+    const roles = normalizeRoles(parsed.roles);
+    const reasoning = String(parsed.reasoning || "").trim() || "No reasoning provided.";
+    const shouldDecompose = Boolean(parsed.shouldDecompose);
+    const subtasks = normalizeSubtasks(parsed.subtasks);
+    const taskType = VALID_TASK_TYPES.has(parsed.taskType) ? parsed.taskType : FALLBACK_TASK_TYPE;
+    const domainHints = normalizeDomainHints(parsed.domainHints);
 
-    if (!result.ok) {
-      return {
-        ok: false,
-        result: {
-          error: result.error || result.output || "Triage failed",
-          provider
-        },
-        summary: `Triage failed: ${result.error || "unknown error"}`,
-        usage: result.usage
-      };
+    const result = { level, roles, reasoning, taskType, domainHints, provider };
+    if (shouldDecompose && subtasks.length > 0) {
+      result.shouldDecompose = true;
+      result.subtasks = subtasks;
+    } else {
+      result.shouldDecompose = false;
     }
+    return result;
+  }
 
-    try {
-      const parsed = parseTriageOutput(result.output);
-      if (!parsed) {
-        return {
-          ok: true,
-          result: {
-            level: "medium",
-            roles: ["reviewer"],
-            reasoning: "Unstructured output, using safe defaults.",
-            taskType: FALLBACK_TASK_TYPE,
-            provider,
-            raw: result.output
-          },
-          summary: "Triage complete (fallback defaults)",
-          usage: result.usage
-        };
-      }
+  buildSummary(parsed) {
+    const level = VALID_LEVELS.has(parsed.level) ? parsed.level : "medium";
+    const roles = normalizeRoles(parsed.roles);
+    const decomposeNote = parsed.shouldDecompose ? " — decomposition recommended" : "";
+    return `Triage: ${level} (${roles.length} role${roles.length === 1 ? "" : "s"})${decomposeNote}`;
+  }
 
-      const level = VALID_LEVELS.has(parsed.level) ? parsed.level : "medium";
-      const roles = normalizeRoles(parsed.roles);
-      const reasoning = String(parsed.reasoning || "").trim() || "No reasoning provided.";
-      const shouldDecompose = Boolean(parsed.shouldDecompose);
-      const subtasks = normalizeSubtasks(parsed.subtasks);
-      const taskType = VALID_TASK_TYPES.has(parsed.taskType) ? parsed.taskType : FALLBACK_TASK_TYPE;
+  handleParseNull(agentResult, provider) {
+    return {
+      ok: true,
+      result: { ...FALLBACK_RESULT, reasoning: "Unstructured output, using safe defaults.", provider, raw: agentResult.output },
+      summary: "Triage complete (fallback defaults)",
+      usage: agentResult.usage
+    };
+  }
 
-      const domainHints = normalizeDomainHints(parsed.domainHints);
-
-      const triageResult = {
-        level,
-        roles,
-        reasoning,
-        taskType,
-        domainHints,
-        provider
-      };
-
-      if (shouldDecompose && subtasks.length > 0) {
-        triageResult.shouldDecompose = true;
-        triageResult.subtasks = subtasks;
-      } else {
-        triageResult.shouldDecompose = false;
-      }
-
-      const decomposeNote = shouldDecompose ? " — decomposition recommended" : "";
-      return {
-        ok: true,
-        result: triageResult,
-        summary: `Triage: ${level} (${roles.length} role${roles.length === 1 ? "" : "s"})${decomposeNote}`,
-        usage: result.usage
-      };
-    } catch { /* agent output is not structured JSON */
-      return {
-        ok: true,
-        result: {
-          level: "medium",
-          roles: ["reviewer"],
-          reasoning: "Failed to parse triage output, using safe defaults.",
-          taskType: FALLBACK_TASK_TYPE,
-          provider,
-          raw: result.output
-        },
-        summary: "Triage complete (fallback defaults)",
-        usage: result.usage
-      };
-    }
+  handleParseError(_err, agentResult, provider) {
+    return {
+      ok: true,
+      result: { ...FALLBACK_RESULT, reasoning: "Failed to parse triage output, using safe defaults.", provider, raw: agentResult.output },
+      summary: "Triage complete (fallback defaults)",
+      usage: agentResult.usage
+    };
   }
 }
