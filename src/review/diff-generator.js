@@ -52,9 +52,13 @@ export async function generateDiff({ baseRef, stageNewFiles = false, projectDir 
   // Try git diff first
   try {
     if (stageNewFiles) {
-      await run("git", ["add", "-A"]);
+      const addArgs = projectDir ? ["-A", projectDir] : ["-A"];
+      await run("git", ["add", ...addArgs]);
     }
-    const result = await run("git", ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean));
+    const diffArgs = ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean);
+    // Scope diff to projectDir when it's a subdirectory (prevents leaking unrelated changes)
+    if (projectDir) diffArgs.push("--", projectDir);
+    const result = await run("git", diffArgs);
     if (result.exitCode === 0) {
       return result.stdout;
     }
