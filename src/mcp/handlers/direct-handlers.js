@@ -258,7 +258,7 @@ export async function handleReviewDirect(a, server, extra) {
   const logger = createLogger(config.output.log_level, "mcp");
 
   const reviewerRole = resolveRole(config, "reviewer");
-  await assertAgentsAvailable([reviewerRole.provider, config.reviewer_options?.fallback_reviewer]);
+  await assertAgentsAvailable([reviewerRole.provider]);
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
   const runLog = createRunLog(projectDir);

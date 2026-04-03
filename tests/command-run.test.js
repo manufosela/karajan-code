@@ -65,12 +65,29 @@ describe("commands/run", () => {
 
   it("calls assertAgentsAvailable with required providers", async () => {
     const { runCommandHandler } = await import("../src/commands/run.js");
-    const config = makeConfig();
+    const config = makeConfig({ reviewer_options: { fallback_reviewer: "codex" } });
     await runCommandHandler({ task: "test task", config, logger: noopLogger, flags: {} });
 
+    // Should only require primary providers (codex for coder, claude for reviewer)
     expect(assertAgentsAvailable).toHaveBeenCalledWith(
       expect.arrayContaining(["codex", "claude"])
     );
+  });
+
+  it("does not require codex fallback if coder is something else", async () => {
+    const { runCommandHandler } = await import("../src/commands/run.js");
+    const config = makeConfig({
+      roles: {
+        coder: { provider: "gemini" },
+        reviewer: { provider: "gemini" }
+      },
+      reviewer_options: { fallback_reviewer: "codex" }
+    });
+    await runCommandHandler({ task: "test task", config, logger: noopLogger, flags: {} });
+
+    const call = vi.mocked(assertAgentsAvailable).mock.calls[0][0];
+    expect(call).toContain("gemini");
+    expect(call).not.toContain("codex");
   });
 
   it("includes planner provider when planner is enabled", async () => {

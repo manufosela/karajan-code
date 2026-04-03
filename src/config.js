@@ -49,7 +49,7 @@ const DEFAULTS = {
     model: null,
     deterministic: true,
     retries: 1,
-    fallback_reviewer: "codex"
+    fallback_reviewer: null
   },
   development: {
     methodology: "tdd",

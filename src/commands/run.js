@@ -35,8 +35,7 @@ export async function runCommandHandler({ task, config, logger, flags }) {
   } catch { /* non-blocking */ }
 
   const requiredProviders = [
-    resolveRole(config, "coder").provider,
-    config.reviewer_options?.fallback_reviewer
+    resolveRole(config, "coder").provider
   ];
   if (config.pipeline?.reviewer?.enabled !== false) {
     requiredProviders.push(resolveRole(config, "reviewer").provider);

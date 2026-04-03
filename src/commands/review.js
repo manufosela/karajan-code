@@ -7,7 +7,7 @@ import { resolveReviewProfile } from "../review/profiles.js";
 
 export async function reviewCommand({ task, config, logger, baseRef }) {
   const reviewerRole = resolveRole(config, "reviewer");
-  await assertAgentsAvailable([reviewerRole.provider, config.reviewer_options?.fallback_reviewer]);
+  await assertAgentsAvailable([reviewerRole.provider]);
   logger.info(`Reviewer (${reviewerRole.provider}) starting...`);
   const reviewer = createAgent(reviewerRole.provider, config, logger);
 

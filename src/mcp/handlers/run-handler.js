@@ -98,8 +98,7 @@ const PIPELINE_PROVIDER_ROLES = [
 
 function collectRequiredProviders(config) {
   const providers = [
-    resolveRole(config, "coder").provider,
-    config.reviewer_options?.fallback_reviewer
+    resolveRole(config, "coder").provider
   ];
   if (config.pipeline?.reviewer?.enabled !== false) {
     providers.push(resolveRole(config, "reviewer").provider);

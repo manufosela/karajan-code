@@ -73,11 +73,21 @@ describe("commands/review", () => {
     });
   });
 
-  it("asserts reviewer and fallback providers are available", async () => {
+  it("asserts only reviewer provider is available upfront", async () => {
     const { reviewCommand } = await import("../src/commands/review.js");
-    await reviewCommand({ task: "review task", config: makeConfig(), logger: noopLogger });
+    const config = makeConfig({ reviewer_options: { fallback_reviewer: "codex" } });
+    await reviewCommand({ task: "review task", config, logger: noopLogger });
 
-    expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude", "codex"]);
+    // Should only require primary reviewer "claude", even if fallback is "codex"
+    expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
+  });
+
+  it("does not require fallback if set to null", async () => {
+    const { reviewCommand } = await import("../src/commands/review.js");
+    const config = makeConfig({ reviewer_options: { fallback_reviewer: null } });
+    await reviewCommand({ task: "review task", config, logger: noopLogger });
+
+    expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
   });
 
   it("creates agent with reviewer provider", async () => {

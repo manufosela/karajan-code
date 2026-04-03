@@ -641,7 +641,7 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
     sonarToken: "",
     coder: instanceContext.existing?.coder || "codex",
     reviewer: instanceContext.existing?.reviewer || "claude",
-    reviewerFallback: instanceContext.existing?.reviewerFallback || "codex",
+    reviewerFallback: instanceContext.existing?.reviewerFallback || null,
     setupMcpClaude: true,
     setupMcpCodex: true,
     runDoctor: true,
@@ -649,7 +649,7 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
   };
 
   if (nonInteractive) {
-    return {
+    const settings = {
       linkGlobal: parseBool(pickSetting({ cli: parsedArgs, cliKey: "linkGlobal", envKey: "KJ_INSTALL_LINK_GLOBAL", fallback: defaults.linkGlobal }), defaults.linkGlobal),
       kjHome: pickSetting({ cli: parsedArgs, cliKey: "kjHome", envKey: "KJ_INSTALL_KJ_HOME", fallback: defaults.kjHome }),
       sonarHost: pickSetting({ cli: parsedArgs, cliKey: "sonarHost", envKey: "KJ_INSTALL_SONAR_HOST", fallback: defaults.sonarHost }),
@@ -660,13 +660,14 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
       sonarToken: pickSetting({ cli: parsedArgs, cliKey: "sonarToken", envKey: "KJ_SONAR_TOKEN", fallback: defaults.sonarToken }),
       coder: pickSetting({ cli: parsedArgs, cliKey: "coder", envKey: "KJ_INSTALL_CODER", fallback: defaults.coder }),
       reviewer: pickSetting({ cli: parsedArgs, cliKey: "reviewer", envKey: "KJ_INSTALL_REVIEWER", fallback: defaults.reviewer }),
-      reviewerFallback: pickSetting({ cli: parsedArgs, cliKey: "reviewerFallback", envKey: "KJ_INSTALL_REVIEWER_FALLBACK", fallback: defaults.reviewerFallback }),
-      setupMcpClaude: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpClaude", envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE", fallback: defaults.setupMcpClaude }), defaults.setupMcpClaude),
-      setupMcpCodex: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpCodex", envKey: "KJ_INSTALL_SETUP_MCP_CODEX", fallback: defaults.setupMcpCodex }), defaults.setupMcpCodex),
-      setupChromeDevtools: parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupChromeDevtools", envKey: "KJ_INSTALL_SETUP_CHROME_DEVTOOLS", fallback: true }), true),
-      runDoctor: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor),
-      runTests: parseBool(pickSetting({ cli: parsedArgs, cliKey: "runTests", envKey: "KJ_INSTALL_RUN_TESTS", fallback: defaults.runTests }), defaults.runTests)
     };
+    settings.reviewerFallback = pickSetting({ cli: parsedArgs, cliKey: "reviewerFallback", envKey: "KJ_INSTALL_REVIEWER_FALLBACK", fallback: settings.reviewer });
+    settings.setupMcpClaude = parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpClaude", envKey: "KJ_INSTALL_SETUP_MCP_CLAUDE", fallback: defaults.setupMcpClaude }), defaults.setupMcpClaude);
+    settings.setupMcpCodex = parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupMcpCodex", envKey: "KJ_INSTALL_SETUP_MCP_CODEX", fallback: defaults.setupMcpCodex }), defaults.setupMcpCodex);
+    settings.setupChromeDevtools = parseBool(pickSetting({ cli: parsedArgs, cliKey: "setupChromeDevtools", envKey: "KJ_INSTALL_SETUP_CHROME_DEVTOOLS", fallback: true }), true);
+    settings.runDoctor = parseBool(pickSetting({ cli: parsedArgs, cliKey: "runDoctor", envKey: "KJ_INSTALL_RUN_DOCTOR", fallback: defaults.runDoctor }), defaults.runDoctor);
+    settings.runTests = parseBool(pickSetting({ cli: parsedArgs, cliKey: "runTests", envKey: "KJ_INSTALL_RUN_TESTS", fallback: defaults.runTests }), defaults.runTests);
+    return settings;
   }
 
   const linkGlobal = await askBool("Link karajan binaries globally with npm link", defaults.linkGlobal);
@@ -706,7 +707,7 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
     }
   }
 
-  return {
+  const settings = {
     linkGlobal,
     kjHome,
     sonarHost,
@@ -717,13 +718,15 @@ async function collectSettings(rootDir, parsedArgs, instanceContext, nonInteract
     sonarToken,
     coder: await ask("Default coder", defaults.coder),
     reviewer: await ask("Default reviewer", defaults.reviewer),
-    reviewerFallback: await ask("Reviewer fallback", defaults.reviewerFallback),
-    setupMcpClaude: await askBool("Configure Claude MCP automatically", defaults.setupMcpClaude),
-    setupMcpCodex: await askBool("Configure Codex MCP automatically", defaults.setupMcpCodex),
-    setupChromeDevtools: await askBool("Configure Chrome DevTools MCP", true),
-    runDoctor: await askBool("Run kj doctor now", defaults.runDoctor),
-    runTests: await askBool("Run tests now", defaults.runTests)
   };
+  settings.reviewerFallback = await ask("Reviewer fallback", settings.reviewer);
+  settings.setupMcpClaude = await askBool("Configure Claude MCP automatically", defaults.setupMcpClaude);
+  settings.setupMcpCodex = await askBool("Configure Codex MCP automatically", defaults.setupMcpCodex);
+  settings.setupChromeDevtools = await askBool("Configure Chrome DevTools MCP", true);
+  settings.runDoctor = await askBool("Run kj doctor now", defaults.runDoctor);
+  settings.runTests = await askBool("Run tests now", defaults.runTests);
+
+  return settings;
 }
 
 async function main() {

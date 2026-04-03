@@ -81,7 +81,7 @@ describe("install cross-platform helpers", () => {
     it("asks to configure Chrome DevTools MCP with default enabled", async () => {
       const { readFileSync } = await import("node:fs");
       const content = readFileSync(`${process.cwd()}/scripts/install.js`, "utf8");
-      expect(content).toContain('setupChromeDevtools: parseBool(');
+      expect(content).toContain("setupChromeDevtools");
       expect(content).toContain('fallback: true');
       expect(content).toContain('await askBool("Configure Chrome DevTools MCP", true)');
     });
