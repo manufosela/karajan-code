@@ -150,7 +150,7 @@ async function resolveSonarTokenWithFallback(config, apiHost) {
   return null;
 }
 
-export async function ensureSonarProjectProperties(cwd = process.cwd()) {
+async function ensureSonarProjectProperties(cwd = process.cwd()) {
   const propsPath = path.join(cwd, "sonar-project.properties");
   try {
     await fsPromises.access(propsPath);

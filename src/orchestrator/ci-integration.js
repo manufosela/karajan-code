@@ -21,7 +21,7 @@ export async function tryCiComment({ config, session, logger, agent, body }) {
   } catch { /* non-blocking */ }
 }
 
-export function formatCommitList(commits) {
+function formatCommitList(commits) {
   return commits.map((c) => `- \`${c.hash.slice(0, 7)}\` ${c.message}`).join("\n");
 }
 
@@ -90,14 +90,14 @@ export function formatBlockingIssues(issues) {
   return issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
 }
 
-export function formatSuggestions(suggestions) {
+function formatSuggestions(suggestions) {
   return suggestions?.map((s) => {
     const detail = typeof s === "string" ? s : `${s.id || ""} ${s.description || s}`;
     return `- ${detail}`;
   }).join("\n") || "";
 }
 
-export function buildReviewCommentBody(review, i) {
+function buildReviewCommentBody(review, i) {
   const status = review.approved ? "APPROVED" : "REQUEST_CHANGES";
   const blocking = formatBlockingIssues(review.blocking_issues);
   const suggestions = formatSuggestions(review.non_blocking_suggestions);

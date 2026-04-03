@@ -10,7 +10,7 @@ import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
  * Since Codex doesn't split input/output, we assign the total to tokens_out
  * as a conservative estimate for cost calculation.
  */
-export function extractCodexTokens(stdout) {
+function extractCodexTokens(stdout) {
   const match = (stdout || "").match(/tokens?\s+used\s*\n\s*([\d,]+)/i);
   if (!match) return null;
   const total = Number(match[1].replace(/,/g, ""));

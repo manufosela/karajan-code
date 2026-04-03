@@ -72,7 +72,7 @@ function collectAssistantText(obj) {
  * usage.input_tokens/output_tokens, and modelUsage.
  * Returns an object with tokens_in, tokens_out, cost_usd, model or null if not found.
  */
-export function extractUsageFromStreamJson(raw) {
+function extractUsageFromStreamJson(raw) {
   const lines = (raw || "").split("\n").filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i--) {
     const obj = tryParseJson(lines[i]);

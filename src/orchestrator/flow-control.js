@@ -6,7 +6,7 @@ import { markSessionStatus, addCheckpoint } from "../session-store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 
-export function detectCheckpointProgress(session, lastCheckpointSnapshot) {
+function detectCheckpointProgress(session, lastCheckpointSnapshot) {
   if (!lastCheckpointSnapshot) return true; // First checkpoint — assume progress
   const currentIteration = session.reviewer_retry_count ?? 0;
   const currentStages = Object.keys(session.resolved_policies || {}).length;

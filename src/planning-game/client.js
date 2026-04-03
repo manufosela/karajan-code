@@ -65,11 +65,11 @@ export async function fetchCard({ projectId, cardId, timeoutMs = DEFAULT_TIMEOUT
   return data?.card || data;
 }
 
-export async function getCard({ projectId, cardId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+async function getCard({ projectId, cardId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   return fetchCard({ projectId, cardId, timeoutMs });
 }
 
-export async function listCards({ projectId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+async function listCards({ projectId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const url = `${getApiUrl()}/projects/${encodeURIComponent(projectId)}/cards`;
   const response = await fetchWithRetry(url, {}, timeoutMs);
   const data = await parseJsonResponse(response);

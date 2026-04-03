@@ -447,7 +447,7 @@ const AGENT_MODEL_SIGNATURES = {
   gemini: ["gemini", "flash-"]
 };
 
-export function isModelCompatible(agent, model) {
+function isModelCompatible(agent, model) {
   if (!model || !agent) return true;
   const lower = model.toLowerCase();
 

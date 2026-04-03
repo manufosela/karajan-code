@@ -5,7 +5,7 @@ import { getSessionRoot } from "./utils/paths.js";
 
 const SESSION_ROOT = getSessionRoot();
 
-export function newSessionId() {
+function newSessionId() {
   const now = new Date();
   const stamp = now.toISOString().replaceAll(/[:.]/g, "-");
   return `s_${stamp}`;

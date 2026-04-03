@@ -148,21 +148,4 @@ export function scanDiff(diff, config = {}) {
   return { pass: !hasCritical, violations };
 }
 
-/**
- * Run output guard on the current git diff.
- * This is the main entry point for the pipeline integration.
- */
-export async function runOutputGuard(config = {}, baseBranch = "main") {
-  const diffResult = await runCommand("git", ["diff", `origin/${baseBranch}...HEAD`]);
-  if (diffResult.exitCode !== 0) {
-    // Fallback: diff against HEAD~1
-    const fallback = await runCommand("git", ["diff", "HEAD~1"]);
-    if (fallback.exitCode !== 0) {
-      return { pass: true, violations: [], error: "Could not generate diff" };
-    }
-    return scanDiff(fallback.stdout, config);
-  }
-  return scanDiff(diffResult.stdout, config);
-}
-
 export { DESTRUCTIVE_PATTERNS, CREDENTIAL_PATTERNS, DEFAULT_PROTECTED_FILES };

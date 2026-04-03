@@ -89,4 +89,3 @@ export async function agentsCommand({ config, subcommand, role, provider, global
   return agents;
 }
 
-export { ASSIGNABLE_ROLES, VALID_PROVIDERS };

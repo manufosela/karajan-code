@@ -9,7 +9,7 @@ function slug(value) {
     .replaceAll(/(^-+)|(-+$)/g, "");
 }
 
-export function normalizeProjectKey(value) {
+function normalizeProjectKey(value) {
   const out = slug(value);
   if (!out) return "kj-default";
   return /[a-z]/.test(out) ? out : `kj-${out}`;
