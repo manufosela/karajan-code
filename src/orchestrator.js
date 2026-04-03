@@ -1,8 +1,5 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { createAgent } from "./agents/index.js";
 import {
-  createSession,
   loadSession,
   markSessionStatus,
   pauseSession,
@@ -10,28 +7,21 @@ import {
   saveSession,
   addCheckpoint
 } from "./session-store.js";
-import { computeBaseRef, generateDiff } from "./review/diff-generator.js";
-import { buildCoderPrompt } from "./prompts/coder.js";
-import { buildReviewerPrompt } from "./prompts/reviewer.js";
+import { generateDiff } from "./review/diff-generator.js";
 import { resolveRole } from "./config.js";
+import { resolveReviewProfile } from "./review/profiles.js";
+import { msg, getLang } from "./utils/messages.js";
 import { RepeatDetector, getRepeatThreshold } from "./repeat-detector.js";
 import { emitProgress, makeEvent } from "./utils/events.js";
-import { BudgetTracker, extractUsageMetrics } from "./utils/budget.js";
 import {
   prepareGitAutomation,
-  finalizeGitAutomation,
-  earlyPrCreation,
-  incrementalPush
+  finalizeGitAutomation
 } from "./git/automation.js";
-import { resolveRoleMdPath, loadFirstExisting } from "./roles/base-role.js";
-import { applyPolicies } from "./guards/policy-resolver.js";
 import { scanDiff } from "./guards/output-guard.js";
 import { scanPerfDiff } from "./guards/perf-guard.js";
 import { classifyIntent } from "./guards/intent-guard.js";
-import { resolveReviewProfile } from "./review/profiles.js";
 import { CoderRole } from "./roles/coder-role.js";
 import { invokeSolomon } from "./orchestrator/solomon-escalation.js";
-import { msg, getLang } from "./utils/messages.js";
 import { PipelineContext } from "./orchestrator/pipeline-context.js";
 import { runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage, runDiscoverStage, runHuReviewerStage } from "./orchestrator/pre-loop-stages.js";
 import { runDomainCuratorStage } from "./orchestrator/stages/domain-curator-stage.js";
@@ -50,269 +40,31 @@ import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } fro
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
 import { startProxy, stopProxy, getProxyStats } from "./proxy/proxy-lifecycle.js";
 
+// Extracted modules
+import {
+  loadProductContext as _loadProductContext,
+  resolvePipelineFlags, handleDryRun, createBudgetManager,
+  initializeSession, applyTriageOverrides, applyAutoSimplify,
+  applyFlagOverrides, resolvePipelinePolicies
+} from "./orchestrator/config-init.js";
+import {
+  tryBecariaComment, handleBecariaEarlyPrOrPush, handleBecariaReviewDispatch,
+  formatBlockingIssues
+} from "./orchestrator/becaria-integration.js";
+import {
+  shouldAutoContinueCheckpoint as _shouldAutoContinueCheckpoint,
+  parseCheckpointAnswer as _parseCheckpointAnswer,
+  handleCheckpoint, checkSessionTimeout, checkBudgetExceeded,
+  takeCheckpointSnapshot
+} from "./orchestrator/flow-control.js";
 
-// --- Product Context loader ---
+// Re-export for external consumers
+export const loadProductContext = _loadProductContext;
+export const shouldAutoContinueCheckpoint = _shouldAutoContinueCheckpoint;
+export const parseCheckpointAnswer = _parseCheckpointAnswer;
 
-/**
- * Load product context from well-known file locations.
- * Returns the file content or null if no file is found.
- * @param {string|null} projectDir
- * @returns {Promise<{content: string|null, source: string|null}>}
- */
-export async function loadProductContext(projectDir) {
-  const base = projectDir || process.cwd();
-  const candidates = [
-    path.join(base, ".karajan", "context.md"),
-    path.join(base, "product-vision.md")
-  ];
-  for (const file of candidates) {
-    try {
-      const content = await fs.readFile(file, "utf8");
-      return { content, source: file };
-    } catch { /* not found, try next */ }
-  }
-  return { content: null, source: null };
-}
-
-// --- Extracted helper functions (pure refactoring, zero behavior change) ---
-
-function resolvePipelineFlags(config) {
-  return {
-    plannerEnabled: Boolean(config.pipeline?.planner?.enabled),
-    refactorerEnabled: Boolean(config.pipeline?.refactorer?.enabled),
-    researcherEnabled: Boolean(config.pipeline?.researcher?.enabled),
-    testerEnabled: Boolean(config.pipeline?.tester?.enabled),
-    securityEnabled: Boolean(config.pipeline?.security?.enabled),
-    impeccableEnabled: Boolean(config.pipeline?.impeccable?.enabled),
-    reviewerEnabled: config.pipeline?.reviewer?.enabled !== false,
-    discoverEnabled: Boolean(config.pipeline?.discover?.enabled),
-    architectEnabled: Boolean(config.pipeline?.architect?.enabled),
-    huReviewerEnabled: Boolean(config.pipeline?.hu_reviewer?.enabled),
-  };
-}
-
-async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
-  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, reviewerEnabled, discoverEnabled, architectEnabled, huReviewerEnabled } = pipelineFlags;
-  const plannerRole = resolveRole(config, "planner");
-  const coderRole = resolveRole(config, "coder");
-  const reviewerRole = resolveRole(config, "reviewer");
-  const refactorerRole = resolveRole(config, "refactorer");
-  const triageEnabled = true;
-
-  const dryRunPolicies = applyPolicies({
-    taskType: flags.taskType || config.taskType || null,
-    policies: config.policies,
-  });
-  const projectDir = config.projectDir || process.cwd();
-  const { rules: reviewRules } = await resolveReviewProfile({ mode: config.review_mode, projectDir });
-  const coderRules = await loadFirstExisting(resolveRoleMdPath("coder", projectDir));
-  const coderPrompt = await buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), proxyEnabled: Boolean(config.proxy?.enabled), productContext: config.productContext || null });
-  const reviewerPrompt = await buildReviewerPrompt({ task, diff: "(dry-run: no diff)", reviewRules, mode: config.review_mode, serenaEnabled: Boolean(config.serena?.enabled), rtkAvailable: Boolean(config.rtk?.available), proxyEnabled: Boolean(config.proxy?.enabled), productContext: config.productContext || null });
-
-  const summary = {
-    dry_run: true,
-    task,
-    policies: dryRunPolicies,
-    roles: { planner: plannerRole, coder: coderRole, reviewer: reviewerRole, refactorer: refactorerRole },
-    pipeline: {
-      discover_enabled: discoverEnabled,
-      architect_enabled: architectEnabled,
-      triage_enabled: triageEnabled,
-      planner_enabled: plannerEnabled,
-      refactorer_enabled: refactorerEnabled,
-      sonar_enabled: Boolean(config.sonarqube?.enabled),
-      reviewer_enabled: reviewerEnabled,
-      researcher_enabled: researcherEnabled,
-      tester_enabled: testerEnabled,
-      security_enabled: securityEnabled,
-      impeccable_enabled: impeccableEnabled,
-      solomon_enabled: Boolean(config.pipeline?.solomon?.enabled),
-      hu_reviewer_enabled: huReviewerEnabled
-    },
-    limits: {
-      max_iterations: config.max_iterations,
-      max_iteration_minutes: config.session?.max_iteration_minutes,
-      max_total_minutes: config.session?.max_total_minutes,
-      max_sonar_retries: config.session?.max_sonar_retries,
-      max_reviewer_retries: config.session?.max_reviewer_retries,
-      max_tester_retries: config.session?.max_tester_retries,
-      max_security_retries: config.session?.max_security_retries
-    },
-    prompts: { coder: coderPrompt, reviewer: reviewerPrompt },
-    git: config.git
-  };
-
-  emitProgress(
-    emitter,
-    makeEvent("dry-run:summary", { sessionId: null, iteration: 0, stage: "dry-run", startedAt: Date.now() }, {
-      message: "Dry-run complete — no changes made",
-      detail: summary
-    })
-  );
-
-  return summary;
-}
-
-function createBudgetManager({ config, emitter, eventBase }) {
-  const budgetTracker = new BudgetTracker({ pricing: config?.budget?.pricing });
-  const budgetLimit = Number(config?.max_budget_usd);
-  const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit >= 0;
-  const warnThresholdPct = Number(config?.budget?.warn_threshold_pct ?? 80);
-  let stageCounter = 0;
-
-  function budgetSummary() {
-    const s = budgetTracker.summary();
-    s.trace = budgetTracker.trace();
-    return s;
-  }
-
-  function trackBudget({ role, provider, model, result, duration_ms, promptSize }) {
-    // Attach promptSize to result if provided, so extractUsageMetrics can estimate tokens
-    const enrichedResult = promptSize && result ? { ...result, promptSize } : result;
-    const metrics = extractUsageMetrics(enrichedResult, model);
-    budgetTracker.record({ role, provider, ...metrics, duration_ms, stage_index: stageCounter++ });
-
-    if (!hasBudgetLimit) return;
-    const totalCost = budgetTracker.total().cost_usd;
-    const pctUsed = budgetLimit === 0 ? 100 : (totalCost / budgetLimit) * 100;
-    const warnOrOk = pctUsed >= warnThresholdPct ? "paused" : "ok";
-    const status = totalCost > budgetLimit ? "fail" : warnOrOk;
-    emitProgress(
-      emitter,
-      makeEvent("budget:update", { ...eventBase, stage: role }, {
-        status,
-        message: `Budget: $${totalCost.toFixed(2)} / $${budgetLimit.toFixed(2)}`,
-        detail: {
-          ...budgetSummary(),
-          max_budget_usd: budgetLimit,
-          warn_threshold_pct: warnThresholdPct,
-          pct_used: Number(pctUsed.toFixed(2)),
-          remaining_usd: budgetTracker.remaining(budgetLimit),
-          executorType: "system"
-        }
-      })
-    );
-  }
-
-  return { budgetTracker, budgetLimit, budgetSummary, trackBudget };
-}
-
-async function initializeSession({ task, config, flags, pgTaskId, pgProject }) {
-  const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
-
-  // Take filesystem snapshot for git-free diff fallback
-  if (baseRef === "__snapshot__") {
-    const { takeSnapshot } = await import("./review/snapshot-diff.js");
-    const { setSnapshot } = await import("./review/diff-generator.js");
-    const snapshot = await takeSnapshot(config.projectDir || process.cwd());
-    setSnapshot(snapshot);
-  }
-
-  const sessionInit = {
-    task,
-    config_snapshot: config,
-    base_ref: baseRef,
-    session_start_sha: baseRef,
-    last_reviewer_feedback: null,
-    repeated_issue_count: 0,
-    sonar_retry_count: 0,
-    reviewer_retry_count: 0,
-    standby_retry_count: 0,
-    last_sonar_issue_signature: null,
-    sonar_repeat_count: 0,
-    last_reviewer_issue_signature: null,
-    reviewer_repeat_count: 0,
-    deferred_issues: []
-  };
-  if (pgTaskId) sessionInit.pg_task_id = pgTaskId;
-  if (pgProject) sessionInit.pg_project_id = pgProject;
-  return createSession(sessionInit);
-}
 
 // PG card "In Progress" logic moved to src/planning-game/pipeline-adapter.js → initPgAdapter()
-
-function applyTriageOverrides(pipelineFlags, roleOverrides) {
-  const keys = ["plannerEnabled", "researcherEnabled", "architectEnabled", "refactorerEnabled", "reviewerEnabled", "testerEnabled", "securityEnabled", "impeccableEnabled"];
-  for (const key of keys) {
-    if (roleOverrides[key] !== undefined) {
-      pipelineFlags[key] = roleOverrides[key];
-    }
-  }
-}
-
-const SIMPLE_LEVELS = new Set(["trivial", "simple"]);
-
-function applyAutoSimplify({ pipelineFlags, triageLevel, config, flags, logger, emitter, eventBase }) {
-  if (!config.pipeline?.auto_simplify) return false;
-  if (!triageLevel || !SIMPLE_LEVELS.has(triageLevel)) return false;
-  if (flags.mode) return false;
-  if (flags.enableReviewer !== undefined || flags.enableTester !== undefined) return false;
-
-  pipelineFlags.reviewerEnabled = false;
-  pipelineFlags.testerEnabled = false;
-
-  const disabledRoles = ["reviewer", "tester"];
-  logger.info(`Simple task (${triageLevel}) — lightweight pipeline (disabled: ${disabledRoles.join(", ")})`);
-  emitProgress(
-    emitter,
-    makeEvent("pipeline:simplify", { ...eventBase, stage: "triage" }, {
-      message: `Simple task (${triageLevel}) — lightweight pipeline`,
-      detail: { level: triageLevel, disabledRoles }
-    })
-  );
-  return true;
-}
-
-// PG decomposition logic moved to src/planning-game/pipeline-adapter.js → handlePgDecomposition()
-
-function applyFlagOverrides(pipelineFlags, flags) {
-  if (flags.enablePlanner !== undefined) pipelineFlags.plannerEnabled = Boolean(flags.enablePlanner);
-  if (flags.enableResearcher !== undefined) pipelineFlags.researcherEnabled = Boolean(flags.enableResearcher);
-  if (flags.enableArchitect !== undefined) pipelineFlags.architectEnabled = Boolean(flags.enableArchitect);
-  if (flags.enableRefactorer !== undefined) pipelineFlags.refactorerEnabled = Boolean(flags.enableRefactorer);
-  if (flags.enableReviewer !== undefined) pipelineFlags.reviewerEnabled = Boolean(flags.enableReviewer);
-  if (flags.enableTester !== undefined) pipelineFlags.testerEnabled = Boolean(flags.enableTester);
-  if (flags.enableSecurity !== undefined) pipelineFlags.securityEnabled = Boolean(flags.enableSecurity);
-  if (flags.enableImpeccable !== undefined) pipelineFlags.impeccableEnabled = Boolean(flags.enableImpeccable);
-
-  // --design flag: force-enable impeccable in refactoring mode
-  if (flags.design) {
-    pipelineFlags.impeccableEnabled = true;
-    pipelineFlags.impeccableMode = "refactoring";
-  }
-}
-
-function resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags }) {
-  const resolvedPolicies = applyPolicies({
-    taskType: flags.taskType || config.taskType || stageResults.triage?.taskType || stageResults.intent?.taskType || null,
-    policies: config.policies,
-  });
-  session.resolved_policies = resolvedPolicies;
-
-  let updatedConfig = config;
-  if (!resolvedPolicies.tdd) {
-    updatedConfig = { ...updatedConfig, development: { ...updatedConfig.development, methodology: "standard", require_test_changes: false } };
-  }
-  if (!resolvedPolicies.sonar) {
-    updatedConfig = { ...updatedConfig, sonarqube: { ...updatedConfig.sonarqube, enabled: false } };
-  }
-  if (!resolvedPolicies.reviewer) {
-    pipelineFlags.reviewerEnabled = false;
-  }
-  if (resolvedPolicies.coderRequired === false) {
-    pipelineFlags.coderRequired = false;
-  }
-
-  emitProgress(
-    emitter,
-    makeEvent("policies:resolved", eventBase, {
-      message: `Policies resolved for taskType="${resolvedPolicies.taskType}"`,
-      detail: resolvedPolicies
-    })
-  );
-
-  return updatedConfig;
-}
 
 async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion }) {
   let researchContext = null;
@@ -355,174 +107,7 @@ async function runPlanningPhases({ config, logger, emitter, eventBase, session, 
   return { plannedTask };
 }
 
-async function tryBecariaComment({ config, session, logger, agent, body }) {
-  if (!config.becaria?.enabled || !session.becaria_pr_number) return;
-  try {
-    const { dispatchComment } = await import("./becaria/dispatch.js");
-    const { detectRepo } = await import("./becaria/repo.js");
-    const repo = await detectRepo();
-    if (repo) {
-      await dispatchComment({
-        repo, prNumber: session.becaria_pr_number, agent,
-        body, becariaConfig: config.becaria
-      });
-    }
-  } catch { /* non-blocking */ }
-}
 
-function detectCheckpointProgress(session, lastCheckpointSnapshot) {
-  if (!lastCheckpointSnapshot) return true; // First checkpoint — assume progress
-  const currentIteration = session.reviewer_retry_count ?? 0;
-  const currentStages = Object.keys(session.resolved_policies || {}).length;
-  const currentCheckpoints = (session.checkpoints || []).length;
-
-  const iterationAdvanced = currentIteration !== lastCheckpointSnapshot.iteration;
-  const stagesChanged = currentStages !== lastCheckpointSnapshot.stagesCount;
-  const checkpointsChanged = currentCheckpoints !== lastCheckpointSnapshot.checkpointsCount;
-
-  return iterationAdvanced || stagesChanged || checkpointsChanged;
-}
-
-function takeCheckpointSnapshot(session) {
-  return {
-    iteration: session.reviewer_retry_count ?? 0,
-    stagesCount: Object.keys(session.resolved_policies || {}).length,
-    checkpointsCount: (session.checkpoints || []).length
-  };
-}
-
-/**
- * Determine if checkpoint should auto-continue without asking the user.
- * Exported for testing.
- */
-export function shouldAutoContinueCheckpoint(session, hasProgress) {
-  if (hasProgress) {
-    session._checkpoint_stall_count = 0;
-    return { autoContinue: true, reason: "progress_detected" };
-  }
-  const wasRateLimited = (session.standby_retry_count || 0) > 0;
-  const consecutiveStalls = (session._checkpoint_stall_count || 0) + 1;
-  session._checkpoint_stall_count = consecutiveStalls;
-  if (wasRateLimited && consecutiveStalls < 3) {
-    return { autoContinue: true, reason: "recoverable_stall" };
-  }
-  return { autoContinue: false, reason: consecutiveStalls >= 3 ? "max_stalls_reached" : "no_progress" };
-}
-
-async function handleCheckpoint({ checkpointDisabled, askQuestion, lastCheckpointAt, checkpointIntervalMs, elapsedMinutes, i, config, budgetTracker, stageResults, emitter, eventBase, session, budgetSummary, lastCheckpointSnapshot }) {
-  if (checkpointDisabled || !askQuestion || (Date.now() - lastCheckpointAt) < checkpointIntervalMs) {
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt, lastCheckpointSnapshot };
-  }
-
-  const elapsedStr = elapsedMinutes.toFixed(1);
-  const stagesCompleted = Object.keys(stageResults).join(", ") || "none";
-
-  // Decide whether to auto-continue or ask the user
-  const hasProgress = detectCheckpointProgress(session, lastCheckpointSnapshot);
-  const newSnapshot = takeCheckpointSnapshot(session);
-  const decision = shouldAutoContinueCheckpoint(session, hasProgress);
-
-  if (decision.autoContinue) {
-    emitProgress(
-      emitter,
-      makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
-        message: `Checkpoint: ${decision.reason === "progress_detected" ? "progress detected" : "stall caused by rate limit/cooldown"}, auto-continuing (${elapsedStr} min elapsed)`,
-        detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: true, reason: decision.reason }
-      })
-    );
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now(), lastCheckpointSnapshot: newSnapshot };
-  }
-
-  // No progress and not recoverable — ask human
-  const iterInfo = `${i - 1}/${config.max_iterations} iterations completed`;
-  const budgetInfo = budgetTracker.total().cost_usd > 0 ? ` | Budget: $${budgetTracker.total().cost_usd.toFixed(2)}` : "";
-  const checkpointMsg = `Checkpoint — ${elapsedStr} min elapsed | ${iterInfo}${budgetInfo} | Stages completed: ${stagesCompleted}. No progress since last checkpoint. What would you like to do?`;
-
-  emitProgress(
-    emitter,
-    makeEvent("session:checkpoint", { ...eventBase, iteration: i, stage: "checkpoint" }, {
-      message: `Interactive checkpoint at ${elapsedStr} min (stalled)`,
-      detail: { elapsed_minutes: Number(elapsedStr), iterations_done: i - 1, stages: stagesCompleted, auto_continued: false }
-    })
-  );
-
-  const lang = getLang(config);
-  const answer = await askQuestion(
-    `${checkpointMsg}\n\n${msg("checkpoint_options", lang)}`
-  );
-
-  await addCheckpoint(session, { stage: "interactive-checkpoint", elapsed_minutes: Number(elapsedStr), answer });
-
-  const trimmedAnswer = (answer || "").trim();
-  const isExplicitStop = trimmedAnswer === "4" || trimmedAnswer.toLowerCase().startsWith("stop");
-
-  if (isExplicitStop) {
-    await markSessionStatus(session, "stopped");
-    emitProgress(
-      emitter,
-      makeEvent("session:end", { ...eventBase, iteration: i, stage: "user-stop" }, {
-        status: "stopped",
-        message: "Session stopped by user at checkpoint",
-        detail: { approved: false, reason: "user_stopped", elapsed_minutes: Number(elapsedStr), budget: budgetSummary() }
-      })
-    );
-    return { action: "stop", result: { approved: false, sessionId: session.id, reason: "user_stopped", elapsed_minutes: Number(elapsedStr) } };
-  }
-
-  const parsed = parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config });
-  parsed.lastCheckpointSnapshot = newSnapshot;
-  return parsed;
-}
-
-export function parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, config }) {
-  if (!trimmedAnswer) {
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now() };
-  }
-  if (trimmedAnswer === "2" || trimmedAnswer.toLowerCase().startsWith("continue until")) {
-    return { action: "continue_loop", checkpointDisabled: true, lastCheckpointAt: Date.now() };
-  }
-  if (trimmedAnswer === "1" || trimmedAnswer.toLowerCase().includes("5 m")) {
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now() };
-  }
-  const customMinutes = Number.parseInt(trimmedAnswer.replaceAll(/\D/g, ""), 10);
-  if (customMinutes > 0) {
-    config.session.checkpoint_interval_minutes = customMinutes;
-    return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now() };
-  }
-  return { action: "continue_loop", checkpointDisabled, lastCheckpointAt: Date.now() };
-}
-
-async function checkSessionTimeout({ askQuestion, elapsedMinutes, config, session, emitter, eventBase, i, budgetSummary }) {
-  if (askQuestion || elapsedMinutes <= config.session.max_total_minutes) return;
-
-  await markSessionStatus(session, "failed");
-  emitProgress(
-    emitter,
-    makeEvent("session:end", { ...eventBase, iteration: i, stage: "timeout" }, {
-      status: "fail",
-      message: "Session timed out",
-      detail: { approved: false, reason: "timeout", budget: budgetSummary() }
-    })
-  );
-  throw new Error("Session timed out");
-}
-
-async function checkBudgetExceeded({ budgetTracker, config, session, emitter, eventBase, i, budgetLimit, budgetSummary }) {
-  if (!budgetTracker.isOverBudget(config?.max_budget_usd)) return;
-
-  await markSessionStatus(session, "failed");
-  const totalCost = budgetTracker.total().cost_usd;
-  const message = `Budget exceeded: $${totalCost.toFixed(2)} > $${budgetLimit.toFixed(2)}`;
-  emitProgress(
-    emitter,
-    makeEvent("session:end", { ...eventBase, iteration: i, stage: "budget" }, {
-      status: "fail",
-      message,
-      detail: { approved: false, reason: "budget_exceeded", budget: budgetSummary(), max_budget_usd: budgetLimit }
-    })
-  );
-  throw new Error(message);
-}
 
 async function handleStandbyResult({ stageResult, session, emitter, eventBase, i, stage, logger, config, askQuestion }) {
   if (stageResult?.action !== "standby") {
@@ -608,72 +193,6 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
   };
 }
 
-function formatCommitList(commits) {
-  return commits.map((c) => `- \`${c.hash.slice(0, 7)}\` ${c.message}`).join("\n");
-}
-
-async function becariaIncrementalPush({ config, session, gitCtx, task, logger, repo, dispatchComment }) {
-  const pushResult = await incrementalPush({ gitCtx, task, logger, session });
-  if (!pushResult) return;
-
-  // Accumulate commits for PG card lifecycle tracking
-  const { accumulateCommit } = await import("./planning-game/pipeline-adapter.js");
-  for (const c of pushResult.commits) accumulateCommit(session, c);
-
-  session.becaria_commits = [...(session.becaria_commits ?? []), ...pushResult.commits];
-  await saveSession(session);
-
-  if (!repo) return;
-  const feedback = session.last_reviewer_feedback || "N/A";
-  await dispatchComment({
-    repo, prNumber: session.becaria_pr_number, agent: "Coder",
-    body: `Issues corregidos:\n${feedback}\n\nCommits:\n${formatCommitList(pushResult.commits)}`,
-    becariaConfig: config.becaria
-  });
-}
-
-async function becariaCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i, repo, dispatchComment }) {
-  const earlyPr = await earlyPrCreation({ gitCtx, task, logger, session, stageResults });
-  if (!earlyPr) return;
-
-  // Accumulate commits for PG card lifecycle tracking
-  const { accumulateCommit } = await import("./planning-game/pipeline-adapter.js");
-  for (const c of earlyPr.commits) accumulateCommit(session, c);
-
-  session.becaria_pr_number = earlyPr.prNumber;
-  session.becaria_pr_url = earlyPr.prUrl;
-  session.becaria_commits = earlyPr.commits;
-  await saveSession(session);
-  emitProgress(emitter, makeEvent("becaria:pr-created", { ...eventBase, stage: "becaria" }, {
-    message: `Early PR created: #${earlyPr.prNumber}`,
-    detail: { prNumber: earlyPr.prNumber, prUrl: earlyPr.prUrl }
-  }));
-
-  if (!repo) return;
-  await dispatchComment({
-    repo, prNumber: earlyPr.prNumber, agent: "Coder",
-    body: `Iteración ${i} completada.\n\nCommits:\n${formatCommitList(earlyPr.commits)}`,
-    becariaConfig: config.becaria
-  });
-}
-
-async function handleBecariaEarlyPrOrPush({ becariaEnabled, config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i }) {
-  if (!becariaEnabled) return;
-
-  try {
-    const { dispatchComment } = await import("./becaria/dispatch.js");
-    const { detectRepo } = await import("./becaria/repo.js");
-    const repo = await detectRepo();
-
-    if (session.becaria_pr_number) {
-      await becariaIncrementalPush({ config, session, gitCtx, task, logger, repo, dispatchComment });
-    } else {
-      await becariaCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, task, logger, stageResults, i, repo, dispatchComment });
-    }
-  } catch (err) {
-    logger.warn(`BecarIA early PR/push failed (non-blocking): ${err.message}`);
-  }
-}
 
 function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
   for (const alert of alerts) {
@@ -751,57 +270,6 @@ async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i
   return null;
 }
 
-function formatBlockingIssues(issues) {
-  return issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
-}
-
-function formatSuggestions(suggestions) {
-  return suggestions?.map((s) => {
-    const detail = typeof s === "string" ? s : `${s.id || ""} ${s.description || s}`;
-    return `- ${detail}`;
-  }).join("\n") || "";
-}
-
-function buildReviewCommentBody(review, i) {
-  const status = review.approved ? "APPROVED" : "REQUEST_CHANGES";
-  const blocking = formatBlockingIssues(review.blocking_issues);
-  const suggestions = formatSuggestions(review.non_blocking_suggestions);
-  let body = `Review iteración ${i}: ${status}`;
-  if (blocking) body += `\n\n**Blocking:**\n${blocking}`;
-  if (suggestions) body += `\n\n**Suggestions:**\n${suggestions}`;
-  return body;
-}
-
-async function handleBecariaReviewDispatch({ becariaEnabled, config, session, review, i, logger }) {
-  if (!becariaEnabled || !session.becaria_pr_number) return;
-
-  try {
-    const { dispatchReview, dispatchComment } = await import("./becaria/dispatch.js");
-    const { detectRepo } = await import("./becaria/repo.js");
-    const repo = await detectRepo();
-    if (!repo) return;
-
-    const bc = config.becaria;
-    const reviewEvent = review.approved ? "APPROVE" : "REQUEST_CHANGES";
-    const reviewBody = review.approved
-      ? (review.summary || "Approved")
-      : (formatBlockingIssues(review.blocking_issues) || review.summary || "Changes requested");
-
-    await dispatchReview({
-      repo, prNumber: session.becaria_pr_number,
-      event: reviewEvent, body: reviewBody, agent: "Reviewer", becariaConfig: bc
-    });
-
-    await dispatchComment({
-      repo, prNumber: session.becaria_pr_number, agent: "Reviewer",
-      body: buildReviewCommentBody(review, i), becariaConfig: bc
-    });
-
-    logger.info(`BecarIA: dispatched review for PR #${session.becaria_pr_number}`);
-  } catch (err) {
-    logger.warn(`BecarIA dispatch failed (non-blocking): ${err.message}`);
-  }
-}
 
 async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, becariaEnabled, testerEnabled, securityEnabled, askQuestion, logger }) {
   const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
