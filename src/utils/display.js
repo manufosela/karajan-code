@@ -259,7 +259,14 @@ function printSessionRtkSavings(rtkSavings) {
   const tokens = rtkSavings.estimatedTokensSaved ?? 0;
   const ratio = rtkSavings.savedPct ?? 0;
   const commands = rtkSavings.callCount ?? 0;
-  console.log(`  ${ANSI.dim}\u26a1 RTK: saved ~${tokens} tokens (${ratio}% compression, ${commands} commands)${ANSI.reset}`);
+  const original = rtkSavings.originalBytes ?? 0;
+  const compressed = rtkSavings.rtkBytes ?? 0;
+
+  if (tokens === 0 || ratio === 0) {
+    console.log(`  ${ANSI.dim}⚡ RTK: ${commands} commands wrapped, 0% savings — output was already minimal (${original} bytes in, ${compressed} bytes out)${ANSI.reset}`);
+  } else {
+    console.log(`  ${ANSI.dim}⚡ RTK: saved ~${tokens.toLocaleString()} tokens (${ratio}% compression, ${commands} commands, ${original.toLocaleString()} → ${compressed.toLocaleString()} bytes)${ANSI.reset}`);
+  }
 }
 
 function printSessionBudget(budget) {
