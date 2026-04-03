@@ -44,7 +44,7 @@ import {
   loadProductContext as _loadProductContext,
   resolvePipelineFlags, handleDryRun, createBudgetManager,
   initializeSession, applyTriageOverrides, applyAutoSimplify,
-  applyFlagOverrides, resolvePipelinePolicies
+  applyFlagOverrides, resolvePipelinePolicies, autoInit
 } from "./orchestrator/config-init.js";
 import {
   tryCiComment, handleCiEarlyPrOrPush, handleCiReviewDispatch,
@@ -284,7 +284,13 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
       iteration: i, task, diff: postLoopDiff, askQuestion
     });
     if (testerResult.action === "pause") return { action: "return", result: testerResult.result };
-    if (testerResult.action === "continue") return { action: "continue" };
+    if (testerResult.action === "continue") {
+      const summary = testerResult.stageResult?.summary || "Tester found issues";
+      session.last_reviewer_feedback = `Tester FAILED — fix these issues:\n${summary}`;
+      await saveSession(session);
+      if (testerResult.stageResult) stageResults.tester = testerResult.stageResult;
+      return { action: "continue" };
+    }
     if (testerResult.stageResult) {
       stageResults.tester = testerResult.stageResult;
       await tryCiComment({ config, session, logger, agent: "Tester", body: `Tests: ${testerResult.stageResult.summary || "completed"}` });
@@ -297,7 +303,13 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
       iteration: i, task, diff: postLoopDiff, askQuestion
     });
     if (securityResult.action === "pause") return { action: "return", result: securityResult.result };
-    if (securityResult.action === "continue") return { action: "continue" };
+    if (securityResult.action === "continue") {
+      const summary = securityResult.stageResult?.summary || "Security found issues";
+      session.last_reviewer_feedback = `Security FAILED — fix these issues:\n${summary}`;
+      await saveSession(session);
+      if (securityResult.stageResult) stageResults.security = securityResult.stageResult;
+      return { action: "continue" };
+    }
     if (securityResult.stageResult) {
       stageResults.security = securityResult.stageResult;
       await tryCiComment({ config, session, logger, agent: "Security", body: `Security scan: ${securityResult.stageResult.summary || "completed"}` });
@@ -391,8 +403,13 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
 
 async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBase, logger, review, task, i, askQuestion }) {
   session.last_reviewer_feedback = review.blocking_issues
-    .map((x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`)
-    .join("\n");
+    .map((x) => {
+      const parts = [`[${x.severity || "high"}] ${x.id || "ISSUE"}: ${x.description || "Missing description"}`];
+      if (x.file) parts.push(`  File: ${x.file}${x.line ? `:${x.line}` : ""}`);
+      if (x.suggested_fix) parts.push(`  Fix: ${x.suggested_fix}`);
+      return parts.join("\n");
+    })
+    .join("\n\n");
   session.reviewer_retry_count = (session.reviewer_retry_count || 0) + 1;
   await saveSession(session);
 
@@ -471,29 +488,6 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   const triageResult = await runTriageStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
-
-  // --- Auto-install skills based on task + project detection ---
-  const projectDir = config.projectDir || process.cwd();
-  try {
-    const osAvailable = await isOpenSkillsAvailable();
-    if (osAvailable) {
-      const neededSkills = await detectNeededSkills(task, projectDir);
-      if (neededSkills.length > 0) {
-        const skillResult = await autoInstallSkills(neededSkills, projectDir);
-        if (skillResult.installed.length > 0) {
-          session.autoInstalledSkills = skillResult.installed;
-        }
-        emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "triage" }, {
-          message: skillResult.installed.length > 0
-            ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
-            : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
-          detail: skillResult
-        }));
-      }
-    }
-  } catch (err) {
-    logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);
-  }
 
   // --- Persist inline domain if provided via --domain flag ---
   if (flags?.domain) {
@@ -632,6 +626,32 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
 
   // --- Researcher → Planner ---
   const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion });
+
+  // --- Auto-install skills based on task + planner output + project detection ---
+  // Runs AFTER triage and planner so that the planned task text (which includes
+  // planner output like implementation steps) is available for keyword detection.
+  // This ensures greenfield projects with no package.json still get correct skills.
+  const skillProjectDir = updatedConfig.projectDir || process.cwd();
+  try {
+    const osAvailable = await isOpenSkillsAvailable();
+    if (osAvailable) {
+      const neededSkills = await detectNeededSkills(plannedTask, skillProjectDir);
+      if (neededSkills.length > 0) {
+        const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
+        if (skillResult.installed.length > 0) {
+          session.autoInstalledSkills = skillResult.installed;
+        }
+        emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "skills" }, {
+          message: skillResult.installed.length > 0
+            ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
+            : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
+          detail: skillResult
+        }));
+      }
+    }
+  } catch (err) {
+    logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);
+  }
 
   return { plannedTask, updatedConfig };
 }
@@ -898,6 +918,9 @@ async function tryAutoStartBoard(config, logger, emitter, eventBase) {
 }
 
 async function initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags }) {
+  // Auto-init .karajan/ if missing (copies coder-rules, review-rules, role templates)
+  await autoInit(config.projectDir || process.cwd(), logger);
+
   const ctx = new PipelineContext({ config, session: null, logger, emitter, task, flags });
   ctx.askQuestion = askQuestion;
   ctx.pgTaskId = pgTaskId;
@@ -1104,8 +1127,13 @@ async function runSingleIteration(ctx) {
   } else {
     // Solomon is enabled — feed back the blocking issues for the next coder iteration
     session.last_reviewer_feedback = review.blocking_issues
-      .map((x) => `${x.id || "ISSUE"}: ${x.description || "Missing description"}`)
-      .join("\n");
+      .map((x) => {
+        const parts = [`[${x.severity || "high"}] ${x.id || "ISSUE"}: ${x.description || "Missing description"}`];
+        if (x.file) parts.push(`  File: ${x.file}${x.line ? `:${x.line}` : ""}`);
+        if (x.suggested_fix) parts.push(`  Fix: ${x.suggested_fix}`);
+        return parts.join("\n");
+      })
+      .join("\n\n");
     await saveSession(session);
   }
 

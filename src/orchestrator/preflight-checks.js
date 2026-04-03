@@ -17,8 +17,10 @@ import { msg, getLang } from "../utils/messages.js";
 import {
   resolveSonarHost,
   resolveSonarToken,
+  resolveSonarTokenAsync,
   resolveSonarCredentials,
 } from "../sonar/config-resolver.js";
+import { saveSonarToken } from "../sonar/credentials.js";
 import { withDocLink } from "../utils/doc-links.js";
 
 function parseJsonSafe(text) {
@@ -75,8 +77,8 @@ async function checkSonarReachable(host) {
 async function checkSonarAuth(config) {
   const host = resolveSonarHost(config.sonarqube?.host);
 
-  // Check explicit token first
-  const explicitToken = resolveSonarToken(config);
+  // Check explicit token first (including persisted tokens from credentials file)
+  const explicitToken = await resolveSonarTokenAsync(config);
   if (explicitToken) {
     // Validate the token works
     const res = await runCommand("curl", [
@@ -117,7 +119,9 @@ async function checkSonarAuth(config) {
     if (tokenRes.exitCode !== 0) continue;
     const tokenParsed = parseJsonSafe(tokenRes.stdout);
     if (tokenParsed?.token) {
-      return { name: "sonar-auth", ok: true, detail: "Sonar token generated", token: tokenParsed.token };
+      // Persist the generated token for future sessions
+      try { await saveSonarToken(tokenParsed.token); } catch { /* non-blocking */ }
+      return { name: "sonar-auth", ok: true, detail: "Sonar token generated and saved", token: tokenParsed.token };
     }
   }
 

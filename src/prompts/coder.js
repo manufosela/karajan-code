@@ -41,6 +41,10 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     `Task:\n${task}`,
     "Implement directly in the repository.",
     "Keep changes minimal and production-ready.",
+    "Follow SOLID principles. Write small, focused functions (< 30 lines).",
+    "Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.",
+    "Security: use httpOnly cookies for auth tokens, validate all input, parameterize queries, never expose secrets.",
+    "No console.log — use a structured logger. No 'any' types — use JSDoc annotations.",
     SUBPROCESS_CONSTRAINTS
   ];
 

@@ -63,6 +63,8 @@ const TASK_TEXT_PATTERNS = [
   { pattern: /\bgo(?:lang)?\b/i, skill: "go" },
   { pattern: /\brust\b/i, skill: "rust" },
   { pattern: /\bpython\b/i, skill: "python" },
+  { pattern: /\bdjango\b/i, skill: "python" },
+  { pattern: /\bflask\b/i, skill: "python" },
   { pattern: /\bruby\b/i, skill: "ruby" },
   { pattern: /\bflutter\b/i, skill: "flutter" },
   { pattern: /\bswift\b/i, skill: "swift" },
@@ -76,6 +78,15 @@ const TASK_TEXT_PATTERNS = [
   { pattern: /\breport\b/i, skill: "data-report" },
   { pattern: /\banalysis\b/i, skill: "data-report" },
   { pattern: /\bfindings\b/i, skill: "data-report" },
+  // Frontend/backend broad categories
+  { pattern: /\bfrontend\b/i, skill: "frontend-design" },
+  { pattern: /\bCSS\b/i, skill: "frontend-design" },
+  { pattern: /\bHTML\b/i, skill: "frontend-design" },
+  { pattern: /\bbackend\b/i, skill: "express" },
+  { pattern: /\bnode\.?js\b/i, skill: "express" },
+  { pattern: /\bAPI\b/, skill: "express" },
+  { pattern: /\bwebsocket\b/i, skill: "express" },
+  { pattern: /\breal[- ]time\b/i, skill: "express" },
 ];
 
 /**

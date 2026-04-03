@@ -64,8 +64,8 @@ describe("post-loop-stages", () => {
       expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "tester" }));
     });
 
-    it("returns continue when tester fails (under retry limit)", async () => {
-      testerRunMock.mockResolvedValueOnce({ ok: false, summary: "Tests failing" });
+    it("returns continue (blocking) when tester fails", async () => {
+      testerRunMock.mockResolvedValueOnce({ ok: false, summary: "Tests failing", result: { verdict: "fail" } });
       const session = { id: "s1", task: "t", checkpoints: [], tester_retry_count: 0 };
 
       const result = await runTesterStage({
@@ -73,12 +73,12 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("ok");
-      expect(result.stageResult.auto_continued).toBe(true);
+      expect(result.action).toBe("continue");
+      expect(result.stageResult.summary).toBe("Tests failing");
     });
 
-    it("auto-continues with advisory when tester retries exhausted (Solomon autonomous)", async () => {
-      testerRunMock.mockResolvedValueOnce({ ok: false, summary: "Tests failing" });
+    it("returns continue (blocking) when tester fails regardless of retry count", async () => {
+      testerRunMock.mockResolvedValueOnce({ ok: false, summary: "Tests failing", result: { verdict: "fail" } });
 
       const session = { id: "s1", task: "t", checkpoints: [], tester_retry_count: 0 };
 
@@ -87,8 +87,8 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("ok");
-      expect(result.stageResult.auto_continued).toBe(true);
+      expect(result.action).toBe("continue");
+      expect(result.stageResult.summary).toBe("Tests failing");
     });
   });
 
@@ -105,8 +105,8 @@ describe("post-loop-stages", () => {
       expect(trackBudget).toHaveBeenCalledWith(expect.objectContaining({ role: "security" }));
     });
 
-    it("auto-continues with advisory when security fails non-critical (Solomon autonomous)", async () => {
-      securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found" });
+    it("returns continue (blocking) when security fails non-critical", async () => {
+      securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found", result: { verdict: "fail" } });
       const session = { id: "s1", task: "t", checkpoints: [], security_retry_count: 0 };
 
       const result = await runSecurityStage({
@@ -114,12 +114,12 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("ok");
-      expect(result.stageResult.auto_continued).toBe(true);
+      expect(result.action).toBe("continue");
+      expect(result.stageResult.summary).toBe("XSS found");
     });
 
-    it("auto-continues with advisory when security retries exhausted (Solomon autonomous)", async () => {
-      securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found" });
+    it("returns continue (blocking) when security fails regardless of retry count", async () => {
+      securityRunMock.mockResolvedValueOnce({ ok: false, summary: "XSS found", result: { verdict: "fail" } });
 
       const session = { id: "s1", task: "t", checkpoints: [], security_retry_count: 0 };
 
@@ -128,8 +128,8 @@ describe("post-loop-stages", () => {
         session, coderRole, trackBudget, iteration: 1, task: "t", diff: "diff"
       });
 
-      expect(result.action).toBe("ok");
-      expect(result.stageResult.auto_continued).toBe(true);
+      expect(result.action).toBe("continue");
+      expect(result.stageResult.summary).toBe("XSS found");
     });
   });
 });

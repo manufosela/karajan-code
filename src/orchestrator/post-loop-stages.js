@@ -138,18 +138,20 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   );
 
   if (!testerOutput.ok) {
-    // Tester findings are advisory when reviewer already approved.
-    // Auto-continue with a warning — no human escalation needed.
-    logger.warn(`Tester failed (advisory): ${testerOutput.summary}`);
+    // Tester failed — blocking, return to coder for correction
+    logger.warn(`Tester failed (blocking): ${testerOutput.summary}`);
     emitProgress(
       emitter,
-      makeEvent("tester:auto-continue", { ...eventBase, stage: "tester" }, {
-        status: "warn",
-        message: `Tester issues are advisory (reviewer approved), continuing: ${testerOutput.summary}`,
-        detail: { summary: testerOutput.summary, auto_continued: true, provider: testerProvider, executorType: "agent" }
+      makeEvent("tester:blocking", { ...eventBase, stage: "tester" }, {
+        status: "fail",
+        message: `Tester failed — sending back to coder for correction: ${testerOutput.summary}`,
+        detail: { summary: testerOutput.summary, blocking: true, provider: testerProvider, executorType: "agent" }
       })
     );
-    return { action: "ok", stageResult: { ok: false, summary: testerOutput.summary || "Tester issues (advisory)", auto_continued: true } };
+    return {
+      action: "continue",
+      stageResult: { ...testerOutput.result, summary: testerOutput.summary, provider: testerProvider }
+    };
   }
 
   session.tester_retry_count = 0;
@@ -230,17 +232,20 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
       return { action: "ok" };
     }
 
-    // Non-critical security findings are advisory when reviewer already approved.
-    logger.warn(`Security failed (advisory): ${securityOutput.summary}`);
+    // Non-critical security findings — blocking, return to coder for correction
+    logger.warn(`Security failed (blocking): ${securityOutput.summary}`);
     emitProgress(
       emitter,
-      makeEvent("security:auto-continue", { ...eventBase, stage: "security" }, {
-        status: "warn",
-        message: `Security issues are advisory (reviewer approved), continuing: ${securityOutput.summary}`,
-        detail: { summary: securityOutput.summary, auto_continued: true }
+      makeEvent("security:blocking", { ...eventBase, stage: "security" }, {
+        status: "fail",
+        message: `Security failed — sending back to coder for correction: ${securityOutput.summary}`,
+        detail: { summary: securityOutput.summary, blocking: true, provider: securityProvider, executorType: "agent" }
       })
     );
-    return { action: "ok", stageResult: { ok: false, summary: securityOutput.summary || "Security issues (advisory)", auto_continued: true } };
+    return {
+      action: "continue",
+      stageResult: { ...securityOutput.result, summary: securityOutput.summary, provider: securityProvider }
+    };
   }
 
   session.security_retry_count = 0;

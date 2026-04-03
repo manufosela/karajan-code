@@ -27,6 +27,8 @@ export function resolveSonarHost(rawHost) {
  *   2. config.sonarqube.token
  *   3. SONAR_TOKEN env var
  *
+ * For async resolution (including credentials file), use resolveSonarTokenAsync.
+ *
  * @param {object} [config={}] - Karajan config object
  * @returns {string|null} Token string or null if none found
  */
@@ -37,6 +39,22 @@ export function resolveSonarToken(config = {}) {
     process.env.SONAR_TOKEN ||
     null;
   return token || null;
+}
+
+/**
+ * Async version of resolveSonarToken that also checks the credentials file
+ * for previously generated tokens.
+ *
+ * @param {object} [config={}] - Karajan config object
+ * @returns {Promise<string|null>} Token string or null if none found
+ */
+export async function resolveSonarTokenAsync(config = {}) {
+  const syncToken = resolveSonarToken(config);
+  if (syncToken) return syncToken;
+
+  // Check credentials file for persisted token
+  const fileCreds = (await loadSonarCredentials()) || {};
+  return fileCreds.token || null;
 }
 
 /**
@@ -57,12 +75,13 @@ export async function resolveSonarCredentials(config = {}) {
     process.env.KJ_SONAR_ADMIN_USER ||
     config.sonarqube?.admin_user ||
     fileCreds.user ||
-    null;
+    "admin"; // Default for fresh SonarQube installs
 
   const candidates = [
     process.env.KJ_SONAR_ADMIN_PASSWORD,
     config.sonarqube?.admin_password,
     fileCreds.password,
+    "admin", // Default password for fresh SonarQube installs (zero-config)
   ].filter(Boolean);
 
   return { user, passwords: [...new Set(candidates)] };

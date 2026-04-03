@@ -14,6 +14,61 @@ import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { applyPolicies } from "../guards/policy-resolver.js";
 import { resolveReviewProfile } from "../review/profiles.js";
 import { createSession } from "../session-store.js";
+import { exists, ensureDir } from "../utils/fs.js";
+
+/**
+ * Auto-initialize .karajan/ in projectDir if missing.
+ * Copies essential templates (coder-rules, review-rules) without running the full wizard.
+ * Called by the orchestrator before the pipeline starts.
+ */
+export async function autoInit(projectDir, logger) {
+  const karajanDir = path.join(projectDir, ".karajan");
+  if (await exists(karajanDir)) return;
+
+  logger.info("No .karajan/ found — auto-initializing project scaffolding");
+  await ensureDir(karajanDir);
+
+  const templatesDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "templates");
+
+  const filesToCopy = [
+    { src: "coder-rules.md", dest: "coder-rules.md" },
+    { src: "review-rules.md", dest: "review-rules.md" }
+  ];
+
+  for (const { src, dest } of filesToCopy) {
+    const srcPath = path.join(templatesDir, src);
+    const destPath = path.join(karajanDir, dest);
+    try {
+      if (!(await exists(destPath))) {
+        const content = await fs.readFile(srcPath, "utf8");
+        await fs.writeFile(destPath, content, "utf8");
+        logger.info(`  Created .karajan/${dest}`);
+      }
+    } catch (err) {
+      logger.warn(`  Failed to copy ${src}: ${err.message}`);
+    }
+  }
+
+  // Copy role templates directory
+  const rolesTemplateDir = path.join(templatesDir, "roles");
+  const rolesDestDir = path.join(karajanDir, "roles");
+  try {
+    if (await exists(rolesTemplateDir)) {
+      await ensureDir(rolesDestDir);
+      const roleFiles = await fs.readdir(rolesTemplateDir);
+      for (const rf of roleFiles) {
+        if (!rf.endsWith(".md")) continue;
+        const destFile = path.join(rolesDestDir, rf);
+        if (!(await exists(destFile))) {
+          await fs.copyFile(path.join(rolesTemplateDir, rf), destFile);
+        }
+      }
+      logger.info(`  Copied ${roleFiles.filter(f => f.endsWith(".md")).length} role templates to .karajan/roles/`);
+    }
+  } catch (err) {
+    logger.warn(`  Failed to copy role templates: ${err.message}`);
+  }
+}
 
 /**
  * Load product context from well-known file locations.

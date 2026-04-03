@@ -4,7 +4,6 @@
  */
 
 const DEFAULT_RULES = {
-  max_files_per_iteration: 10,
   max_stale_iterations: 3,
   no_new_dependencies_without_task: true,
   scope_guard: true,
@@ -16,17 +15,7 @@ export function evaluateRules(context, rulesConfig = {}) {
   const rules = { ...DEFAULT_RULES, ...rulesConfig };
   const alerts = [];
 
-  // Rule 1: Too many files modified
-  if (rules.max_files_per_iteration && context.filesChanged > rules.max_files_per_iteration) {
-    alerts.push({
-      rule: "max_files_per_iteration",
-      severity: "critical",
-      message: `Coder modified ${context.filesChanged} files (limit: ${rules.max_files_per_iteration}). Possible scope drift.`,
-      detail: { filesChanged: context.filesChanged, limit: rules.max_files_per_iteration }
-    });
-  }
-
-  // Rule 2: Stale iterations (no progress)
+  // Rule 1: Stale iterations (no progress)
   if (rules.max_stale_iterations && context.staleIterations >= rules.max_stale_iterations) {
     alerts.push({
       rule: "max_stale_iterations",

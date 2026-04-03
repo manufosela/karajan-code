@@ -18,13 +18,10 @@ describe("evaluateRules", () => {
     expect(result.hasWarnings).toBe(false);
   });
 
-  it("returns critical alert when filesChanged exceeds limit", () => {
+  it("does not alert when many files are changed (max_files_per_iteration removed)", () => {
     const result = evaluateRules({ ...baseContext, filesChanged: 15 });
-    expect(result.alerts).toHaveLength(1);
-    expect(result.alerts[0].rule).toBe("max_files_per_iteration");
-    expect(result.alerts[0].severity).toBe("critical");
-    expect(result.hasCritical).toBe(true);
-    expect(result.hasWarnings).toBe(false);
+    expect(result.alerts).toHaveLength(0);
+    expect(result.hasCritical).toBe(false);
   });
 
   it("returns critical alert when staleIterations exceeds limit", () => {
@@ -76,26 +73,26 @@ describe("evaluateRules", () => {
       newDependencies: ["moment"],
       outOfScopeFiles: [".env.production"]
     });
-    expect(result.alerts).toHaveLength(4);
+    expect(result.alerts).toHaveLength(3);
     expect(result.hasCritical).toBe(true);
     expect(result.hasWarnings).toBe(true);
   });
 
   it("custom rules config overrides defaults", () => {
-    // Raise limit so 15 files is fine
+    // Disable stale iterations rule
     const result = evaluateRules(
-      { ...baseContext, filesChanged: 15 },
-      { max_files_per_iteration: 20 }
+      { ...baseContext, staleIterations: 10 },
+      { max_stale_iterations: 0 }
     );
     expect(result.alerts).toHaveLength(0);
 
-    // Lower limit so 3 files triggers
+    // Lower stale iterations limit so it triggers
     const result2 = evaluateRules(
-      { ...baseContext, filesChanged: 3 },
-      { max_files_per_iteration: 2 }
+      { ...baseContext, staleIterations: 2 },
+      { max_stale_iterations: 1 }
     );
     expect(result2.alerts).toHaveLength(1);
-    expect(result2.alerts[0].rule).toBe("max_files_per_iteration");
+    expect(result2.alerts[0].rule).toBe("max_stale_iterations");
   });
 
   it("hasCritical and hasWarnings flags are correct", () => {
@@ -110,7 +107,7 @@ describe("evaluateRules", () => {
     // Only critical
     const criticalOnly = evaluateRules({
       ...baseContext,
-      filesChanged: 50
+      staleIterations: 5
     });
     expect(criticalOnly.hasCritical).toBe(true);
     expect(criticalOnly.hasWarnings).toBe(false);
@@ -118,7 +115,7 @@ describe("evaluateRules", () => {
     // Both
     const both = evaluateRules({
       ...baseContext,
-      filesChanged: 50,
+      staleIterations: 5,
       outOfScopeFiles: ["firebase.json"]
     });
     expect(both.hasCritical).toBe(true);
@@ -133,7 +130,7 @@ describe("evaluateRules", () => {
   it("disables rules when set to false or 0", () => {
     const result = evaluateRules(
       { ...baseContext, filesChanged: 50, staleIterations: 10, newDependencies: ["x"], outOfScopeFiles: ["y"] },
-      { max_files_per_iteration: 0, max_stale_iterations: 0, no_new_dependencies_without_task: false, scope_guard: false }
+      { max_stale_iterations: 0, no_new_dependencies_without_task: false, scope_guard: false }
     );
     expect(result.alerts).toHaveLength(0);
   });
@@ -207,7 +204,7 @@ describe("buildRulesContext", () => {
 
 describe("DEFAULT_RULES", () => {
   it("exports expected default values", () => {
-    expect(DEFAULT_RULES.max_files_per_iteration).toBe(10);
+    expect(DEFAULT_RULES.max_files_per_iteration).toBeUndefined();
     expect(DEFAULT_RULES.max_stale_iterations).toBe(3);
     expect(DEFAULT_RULES.no_new_dependencies_without_task).toBe(true);
     expect(DEFAULT_RULES.scope_guard).toBe(true);

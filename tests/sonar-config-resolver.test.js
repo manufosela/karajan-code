@@ -97,43 +97,49 @@ describe("resolveSonarCredentials", () => {
     process.env.KJ_SONAR_ADMIN_PASSWORD = "env-pass";
     const result = await resolveSonarCredentials({});
     expect(result.user).toBe("env-user");
-    expect(result.passwords).toEqual(["env-pass"]);
+    expect(result.passwords).toEqual(["env-pass", "admin"]);
   });
 
   it("resolves from config as second priority", async () => {
     const config = { sonarqube: { admin_user: "cfg-user", admin_password: "cfg-pass" } };
     const result = await resolveSonarCredentials(config);
     expect(result.user).toBe("cfg-user");
-    expect(result.passwords).toEqual(["cfg-pass"]);
+    expect(result.passwords).toEqual(["cfg-pass", "admin"]);
   });
 
   it("resolves from credentials file as last priority", async () => {
     loadSonarCredentials.mockResolvedValue({ user: "file-user", password: "file-pass" });
     const result = await resolveSonarCredentials({});
     expect(result.user).toBe("file-user");
-    expect(result.passwords).toEqual(["file-pass"]);
+    expect(result.passwords).toEqual(["file-pass", "admin"]);
   });
 
-  it("deduplicates passwords across sources", async () => {
+  it("deduplicates passwords across sources including default admin", async () => {
     process.env.KJ_SONAR_ADMIN_PASSWORD = "same-pass";
     const config = { sonarqube: { admin_password: "same-pass" } };
     loadSonarCredentials.mockResolvedValue({ user: null, password: "same-pass" });
     const result = await resolveSonarCredentials(config);
-    expect(result.passwords).toEqual(["same-pass"]);
+    expect(result.passwords).toEqual(["same-pass", "admin"]);
   });
 
-  it("collects multiple unique passwords in order", async () => {
+  it("collects multiple unique passwords in order with admin fallback", async () => {
     process.env.KJ_SONAR_ADMIN_USER = "user";
     process.env.KJ_SONAR_ADMIN_PASSWORD = "env-pass";
     const config = { sonarqube: { admin_password: "cfg-pass" } };
     loadSonarCredentials.mockResolvedValue({ user: null, password: "file-pass" });
     const result = await resolveSonarCredentials(config);
-    expect(result.passwords).toEqual(["env-pass", "cfg-pass", "file-pass"]);
+    expect(result.passwords).toEqual(["env-pass", "cfg-pass", "file-pass", "admin"]);
   });
 
-  it("returns null user and empty passwords when nothing configured", async () => {
+  it("defaults to admin user and admin password when nothing configured", async () => {
     const result = await resolveSonarCredentials({});
-    expect(result.user).toBeNull();
-    expect(result.passwords).toEqual([]);
+    expect(result.user).toBe("admin");
+    expect(result.passwords).toEqual(["admin"]);
+  });
+
+  it("deduplicates when explicit password is also admin", async () => {
+    process.env.KJ_SONAR_ADMIN_PASSWORD = "admin";
+    const result = await resolveSonarCredentials({});
+    expect(result.passwords).toEqual(["admin"]);
   });
 });
