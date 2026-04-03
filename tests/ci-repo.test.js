@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockRunCommand = vi.fn();
 vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
-const { detectRepo, detectPrNumber } = await import("../src/becaria/repo.js");
+const { detectRepo, detectPrNumber } = await import("../src/ci/repo.js");
 
-describe("becaria/repo", () => {
+describe("ci/repo", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

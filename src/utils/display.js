@@ -597,9 +597,9 @@ const EVENT_HANDLERS = {
     }
   },
 
-  "becaria:pr-created": (event) => {
+  "ci:pr-created": (event) => {
     const url = event.detail?.prUrl || "";
-    console.log(`  \u251c\u2500 ${ANSI.green}\ud83d\ude80 BecarIA PR created: ${url}${ANSI.reset}`);
+    console.log(`  \u251c\u2500 ${ANSI.green}\ud83d\ude80 CI PR created: ${url}${ANSI.reset}`);
   },
 
   "solomon:alert": (event) => {

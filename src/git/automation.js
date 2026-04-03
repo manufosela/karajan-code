@@ -110,7 +110,7 @@ export function buildPrBody({ task, stageResults }) {
 }
 
 /**
- * Create an early PR after the first coder iteration (BecarIA Gateway flow).
+ * Create an early PR after the first coder iteration (Karajan CI flow).
  * Commits, pushes, and creates a PR before the reviewer runs.
  * Returns { prNumber, prUrl, commits } or null if nothing to commit.
  */
@@ -125,10 +125,10 @@ export async function earlyPrCreation({ gitCtx, task, logger, session, stageResu
   }
 
   const commits = commitResult.commit ? [commitResult.commit] : [];
-  await addCheckpoint(session, { stage: "becaria-commit", committed: true });
+  await addCheckpoint(session, { stage: "ci-commit", committed: true });
 
   await pushBranch(gitCtx.branch);
-  await addCheckpoint(session, { stage: "becaria-push", branch: gitCtx.branch });
+  await addCheckpoint(session, { stage: "ci-push", branch: gitCtx.branch });
   logger.info(`Pushed branch for early PR: ${gitCtx.branch}`);
 
   const body = buildPrBody({ task, stageResults });
@@ -138,7 +138,7 @@ export async function earlyPrCreation({ gitCtx, task, logger, session, stageResu
     title: commitMessageFromTask(task),
     body
   });
-  await addCheckpoint(session, { stage: "becaria-pr", branch: gitCtx.branch, pr: prUrl });
+  await addCheckpoint(session, { stage: "ci-pr", branch: gitCtx.branch, pr: prUrl });
   logger.info(`Early PR created: ${prUrl}`);
 
   // Extract PR number from URL (e.g. https://github.com/owner/repo/pull/42)
@@ -147,7 +147,7 @@ export async function earlyPrCreation({ gitCtx, task, logger, session, stageResu
 }
 
 /**
- * Incremental push after each coder iteration (BecarIA Gateway flow).
+ * Incremental push after each coder iteration (Karajan CI flow).
  * Commits and pushes without creating a new PR.
  */
 export async function incrementalPush({ gitCtx, task, logger, session }) {
@@ -161,10 +161,10 @@ export async function incrementalPush({ gitCtx, task, logger, session }) {
   }
 
   const commits = commitResult.commit ? [commitResult.commit] : [];
-  await addCheckpoint(session, { stage: "becaria-incremental-commit", committed: true });
+  await addCheckpoint(session, { stage: "ci-incremental-commit", committed: true });
 
   await pushBranch(gitCtx.branch);
-  await addCheckpoint(session, { stage: "becaria-incremental-push", branch: gitCtx.branch });
+  await addCheckpoint(session, { stage: "ci-incremental-push", branch: gitCtx.branch });
   logger.info(`Incremental push: ${gitCtx.branch}`);
 
   return { commits };
@@ -202,7 +202,7 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     logger.info(`Pushed branch: ${gitCtx.branch}`);
   }
 
-  let prUrl = session.becaria_pr_url || null;
+  let prUrl = session.ci_pr_url || null;
   if (config.git.auto_pr && !prUrl) {
     const body = buildPrBody({ task, stageResults });
     prUrl = await createPullRequest({
@@ -214,7 +214,7 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     await addCheckpoint(session, { stage: "git-pr", branch: gitCtx.branch, pr: prUrl });
     logger.info("Pull request created");
   } else if (prUrl) {
-    logger.info(`PR already exists (BecarIA flow): ${prUrl}`);
+    logger.info(`PR already exists (CI flow): ${prUrl}`);
   }
 
   return { committed, branch: gitCtx.branch, prUrl, pr: prUrl, commits };

@@ -9,9 +9,9 @@ COMMIT_MSG_FILE="$1"
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
 # Patterns to detect in commit messages
-CO_AUTHOR_PATTERN='Co-[Aa]uthored-[Bb]y:.*\b(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium|noreply@anthropic|noreply@openai)\b'
-ATTRIBUTION_PATTERN='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)'
-SIGNED_OFF_PATTERN='Signed-off-by:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)\b'
+CO_AUTHOR_PATTERN='Co-[Aa]uthored-[Bb]y:.*\b(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|Cursor|Windsurf|Codeium|noreply@anthropic|noreply@openai)\b'
+ATTRIBUTION_PATTERN='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)'
+SIGNED_OFF_PATTERN='Signed-off-by:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)\b'
 
 BLOCKED=0
 MATCHES=""

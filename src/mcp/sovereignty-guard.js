@@ -17,7 +17,7 @@ const ALLOWED_PARAMS = new Set([
   "enableTester", "enableSecurity", "enableImpeccable",
   "enableDiscover", "enableArchitect",
   "architectModel", "huFile",
-  "enableSerena", "enableBecaria",
+  "enableSerena", "enableCi",
   "reviewerFallback", "reviewerRetries",
   "mode", "maxIterations", "maxIterationMinutes", "maxTotalMinutes",
   "baseBranch", "baseRef", "methodology",

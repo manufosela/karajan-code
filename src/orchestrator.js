@@ -48,9 +48,9 @@ import {
   applyFlagOverrides, resolvePipelinePolicies
 } from "./orchestrator/config-init.js";
 import {
-  tryBecariaComment, handleBecariaEarlyPrOrPush, handleBecariaReviewDispatch,
+  tryCiComment, handleCiEarlyPrOrPush, handleCiReviewDispatch,
   formatBlockingIssues
-} from "./orchestrator/becaria-integration.js";
+} from "./orchestrator/ci-integration.js";
 import {
   shouldAutoContinueCheckpoint as _shouldAutoContinueCheckpoint,
   parseCheckpointAnswer as _parseCheckpointAnswer,
@@ -97,7 +97,7 @@ async function runPlanningPhases({ config, logger, emitter, eventBase, session, 
     plannedTask = plannerResult.plannedTask;
     stageResults.planner = plannerResult.stageResult;
 
-    await tryBecariaComment({
+    await tryCiComment({
       config, session, logger,
       agent: "Planner",
       body: `Plan: ${plannerResult.stageResult?.summary || plannedTask}`
@@ -205,7 +205,7 @@ function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
   }
 }
 
-async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, becariaEnabled, blockingIssues }) {
+async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, ciEnabled, blockingIssues }) {
   if (config.pipeline?.solomon?.enabled === false) return { action: "continue" };
 
   try {
@@ -219,12 +219,12 @@ async function handleSolomonCheck({ config, session, emitter, eventBase, logger,
       if (pauseResult) return pauseResult;
     }
 
-    if (becariaEnabled && session.becaria_pr_number) {
+    if (ciEnabled && session.ci_pr_number) {
       const alerts = rulesResult.alerts || [];
       const alertMsg = alerts.length > 0
         ? alerts.map(a => `- [${a.severity}] ${a.message}`).join("\n")
         : "No anomalies detected";
-      await tryBecariaComment({
+      await tryCiComment({
         config, session, logger,
         agent: "Solomon",
         body: `Supervisor check iteración ${i}: ${alertMsg}`
@@ -271,7 +271,7 @@ async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i
 }
 
 
-async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, becariaEnabled, testerEnabled, securityEnabled, askQuestion, logger }) {
+async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled, testerEnabled, securityEnabled, askQuestion, logger }) {
   const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
 
   if (testerEnabled) {
@@ -283,7 +283,7 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
     if (testerResult.action === "continue") return { action: "continue" };
     if (testerResult.stageResult) {
       stageResults.tester = testerResult.stageResult;
-      await tryBecariaComment({ config, session, logger, agent: "Tester", body: `Tests: ${testerResult.stageResult.summary || "completed"}` });
+      await tryCiComment({ config, session, logger, agent: "Tester", body: `Tests: ${testerResult.stageResult.summary || "completed"}` });
     }
   }
 
@@ -296,7 +296,7 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
     if (securityResult.action === "continue") return { action: "continue" };
     if (securityResult.stageResult) {
       stageResults.security = securityResult.stageResult;
-      await tryBecariaComment({ config, session, logger, agent: "Security", body: `Security scan: ${securityResult.stageResult.summary || "completed"}` });
+      await tryCiComment({ config, session, logger, agent: "Security", body: `Security scan: ${securityResult.stageResult.summary || "completed"}` });
     }
   }
 
@@ -307,7 +307,7 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
   });
   if (auditResult.stageResult) {
     stageResults.audit = auditResult.stageResult;
-    await tryBecariaComment({ config, session, logger, agent: "Audit", body: `Final audit: ${auditResult.stageResult.summary || "completed"}` });
+    await tryCiComment({ config, session, logger, agent: "Audit", body: `Final audit: ${auditResult.stageResult.summary || "completed"}` });
   }
   if (auditResult.action === "retry") {
     // Audit found actionable issues — loop back to coder
@@ -715,7 +715,7 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
     if (sonarResult.action === "continue") return { action: "continue" };
     if (sonarResult.stageResult) {
       stageResults.sonar = sonarResult.stageResult;
-      await tryBecariaComment({ config, session, logger, agent: "Sonar", body: `SonarQube scan: ${sonarResult.stageResult.summary || "completed"}` });
+      await tryCiComment({ config, session, logger, agent: "Sonar", body: `SonarQube scan: ${sonarResult.stageResult.summary || "completed"}` });
     }
   }
 
@@ -785,7 +785,7 @@ async function handleApprovedReview({ config, session, emitter, eventBase, coder
   session.reviewer_retry_count = 0;
   const postLoopResult = await handlePostLoopStages({
     config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults,
-    becariaEnabled: Boolean(config.becaria?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger
+    ciEnabled: Boolean(config.ci?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger
   });
   if (postLoopResult.action === "return") return { action: "return", result: postLoopResult.result };
   if (postLoopResult.action === "continue") return { action: "continue" };
@@ -977,7 +977,7 @@ async function runSingleIteration(ctx) {
   const { config, logger, emitter, eventBase, session, task, iteration: i } = ctx;
 
   const iterStart = Date.now();
-  const becariaEnabled = Boolean(config.becaria?.enabled) && ctx.gitCtx?.enabled;
+  const ciEnabled = Boolean(config.ci?.enabled) && ctx.gitCtx?.enabled;
   logger.setContext({ iteration: i, stage: "iteration" });
 
   const reviewerRetryCount = session.reviewer_retry_count || 0;
@@ -1008,8 +1008,8 @@ async function runSingleIteration(ctx) {
   });
   if (qgResult.action === "return" || qgResult.action === "continue") return qgResult;
 
-  await handleBecariaEarlyPrOrPush({
-    becariaEnabled, config, session, emitter, eventBase, gitCtx: ctx.gitCtx, task, logger,
+  await handleCiEarlyPrOrPush({
+    ciEnabled, config, session, emitter, eventBase, gitCtx: ctx.gitCtx, task, logger,
     stageResults: ctx.stageResults, i
   });
 
@@ -1029,11 +1029,11 @@ async function runSingleIteration(ctx) {
 
   const solomonResult = await handleSolomonCheck({
     config, session, emitter, eventBase, logger, task, i, askQuestion: ctx.askQuestion,
-    becariaEnabled, blockingIssues: review?.blocking_issues
+    ciEnabled, blockingIssues: review?.blocking_issues
   });
   if (solomonResult.action === "pause") return { action: "return", result: solomonResult.result };
 
-  await handleBecariaReviewDispatch({ becariaEnabled, config, session, review, i, logger });
+  await handleCiReviewDispatch({ ciEnabled, config, session, review, i, logger });
 
   if (review.approved) {
     const approvedResult = await handleApprovedReview({

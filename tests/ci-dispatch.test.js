@@ -4,10 +4,10 @@ const mockRunCommand = vi.fn();
 vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
 const { dispatchComment, dispatchReview, VALID_AGENTS } = await import(
-  "../src/becaria/dispatch.js"
+  "../src/ci/dispatch.js"
 );
 
-describe("becaria/dispatch", () => {
+describe("ci/dispatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRunCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
@@ -28,7 +28,7 @@ describe("becaria/dispatch", () => {
   });
 
   describe("dispatchComment", () => {
-    it("sends becaria-comment via gh api", async () => {
+    it("sends kj-comment via gh api", async () => {
       await dispatchComment({
         repo: "owner/repo",
         prNumber: 42,
@@ -52,16 +52,16 @@ describe("becaria/dispatch", () => {
       // Check stdin contains correct payload
       const opts = mockRunCommand.mock.calls[0][2];
       const payload = JSON.parse(opts.input);
-      expect(payload.event_type).toBe("becaria-comment");
+      expect(payload.event_type).toBe("kj-comment");
       expect(payload.client_payload.pr_number).toBe(42);
       expect(payload.client_payload.agent).toBe("Coder");
       expect(payload.client_payload.body).toBe("[Coder] Fixed the bug");
     });
 
-    it("uses custom event type from becariaConfig", async () => {
+    it("uses custom event type from ciConfig", async () => {
       await dispatchComment({
         repo: "o/r", prNumber: 1, agent: "Coder", body: "test",
-        becariaConfig: { comment_event: "custom-comment" }
+        ciConfig: { comment_event: "custom-comment" }
       });
       const opts = mockRunCommand.mock.calls[0][2];
       const payload = JSON.parse(opts.input);
@@ -71,7 +71,7 @@ describe("becaria/dispatch", () => {
     it("omits prefix when comment_prefix is false", async () => {
       await dispatchComment({
         repo: "o/r", prNumber: 1, agent: "Coder", body: "no prefix",
-        becariaConfig: { comment_prefix: false }
+        ciConfig: { comment_prefix: false }
       });
       const opts = mockRunCommand.mock.calls[0][2];
       const payload = JSON.parse(opts.input);
@@ -129,7 +129,7 @@ describe("becaria/dispatch", () => {
   });
 
   describe("dispatchReview", () => {
-    it("sends becaria-review with APPROVE event", async () => {
+    it("sends kj-review with APPROVE event", async () => {
       await dispatchReview({
         repo: "owner/repo",
         prNumber: 7,
@@ -141,14 +141,14 @@ describe("becaria/dispatch", () => {
       expect(mockRunCommand).toHaveBeenCalledOnce();
       const opts = mockRunCommand.mock.calls[0][2];
       const payload = JSON.parse(opts.input);
-      expect(payload.event_type).toBe("becaria-review");
+      expect(payload.event_type).toBe("kj-review");
       expect(payload.client_payload.pr_number).toBe(7);
       expect(payload.client_payload.event).toBe("APPROVE");
       expect(payload.client_payload.body).toBe("LGTM");
       expect(payload.client_payload.agent).toBe("Reviewer");
     });
 
-    it("sends becaria-review with REQUEST_CHANGES event", async () => {
+    it("sends kj-review with REQUEST_CHANGES event", async () => {
       await dispatchReview({
         repo: "owner/repo",
         prNumber: 3,
@@ -162,10 +162,10 @@ describe("becaria/dispatch", () => {
       expect(payload.client_payload.event).toBe("REQUEST_CHANGES");
     });
 
-    it("uses custom event type from becariaConfig", async () => {
+    it("uses custom event type from ciConfig", async () => {
       await dispatchReview({
         repo: "o/r", prNumber: 1, event: "APPROVE", body: "ok", agent: "Reviewer",
-        becariaConfig: { review_event: "custom-review" }
+        ciConfig: { review_event: "custom-review" }
       });
       const opts = mockRunCommand.mock.calls[0][2];
       const payload = JSON.parse(opts.input);

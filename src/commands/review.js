@@ -12,19 +12,19 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
   const reviewer = createAgent(reviewerRole.provider, config, logger);
 
   let diff;
-  if (config.becaria?.enabled) {
-    // BecarIA mode: read diff from open PR
-    const { detectRepo, detectPrNumber } = await import("../becaria/repo.js");
-    const { getPrDiff } = await import("../becaria/pr-diff.js");
+  if (config.ci?.enabled) {
+    // CI mode: read diff from open PR
+    const { detectRepo, detectPrNumber } = await import("../ci/repo.js");
+    const { getPrDiff } = await import("../ci/pr-diff.js");
     const repo = await detectRepo();
     const prNumber = await detectPrNumber();
     if (!prNumber) {
-      throw new Error("BecarIA enabled but no open PR found for current branch. Create a PR first or disable BecarIA.");
+      throw new Error("CI enabled but no open PR found for current branch. Create a PR first or disable CI.");
     }
-    logger.info(`BecarIA: reading PR diff #${prNumber}`);
+    logger.info(`CI: reading PR diff #${prNumber}`);
     diff = await getPrDiff(prNumber);
     // Store for dispatch later
-    config._becaria_pr = { repo, prNumber };
+    config._ci_pr = { repo, prNumber };
   } else {
     const resolvedBase = await computeBaseRef({ baseBranch: config.base_branch, baseRef });
     diff = await generateDiff({ baseRef: resolvedBase });
@@ -42,12 +42,12 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
   console.log(result.output);
   logger.info(`Reviewer completed (exit ${result.exitCode})`);
 
-  // BecarIA: dispatch review result
-  if (config.becaria?.enabled && config._becaria_pr) {
+  // CI: dispatch review result
+  if (config.ci?.enabled && config._ci_pr) {
     try {
-      const { dispatchReview, dispatchComment } = await import("../becaria/dispatch.js");
-      const { repo, prNumber } = config._becaria_pr;
-      const bc = config.becaria;
+      const { dispatchReview, dispatchComment } = await import("../ci/dispatch.js");
+      const { repo, prNumber } = config._ci_pr;
+      const bc = config.ci;
 
       // Try to parse structured review from output
       let review;
@@ -61,18 +61,18 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
       await dispatchReview({
         repo, prNumber, event,
         body: review.summary || result.output.slice(0, 500),
-        agent: "Reviewer", becariaConfig: bc
+        agent: "Reviewer", ciConfig: bc
       });
 
       await dispatchComment({
         repo, prNumber, agent: "Reviewer",
         body: `Standalone review: ${event}\n\n${review.summary || result.output.slice(0, 1000)}`,
-        becariaConfig: bc
+        ciConfig: bc
       });
 
-      logger.info(`BecarIA: dispatched review for PR #${prNumber}`);
+      logger.info(`CI: dispatched review for PR #${prNumber}`);
     } catch (err) {
-      logger.warn(`BecarIA dispatch failed (non-blocking): ${err.message}`);
+      logger.warn(`CI dispatch failed (non-blocking): ${err.message}`);
     }
   }
 }

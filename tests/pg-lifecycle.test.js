@@ -155,7 +155,7 @@ describe("PG card lifecycle auto-tracking", () => {
         pg_task_id: "KJC-TSK-0210",
         pg_card: { startDate: "2026-03-30T10:00:00Z" },
         pg_commits: [
-          { hash: "aaa", message: "feat: step 1", date: "2026-03-30T10:30:00Z", author: "BecarIA" }
+          { hash: "aaa", message: "feat: step 1", date: "2026-03-30T10:30:00Z", author: "Karajan" }
         ],
         created_at: "2026-03-30T10:00:00Z"
       };
@@ -188,7 +188,7 @@ describe("PG card lifecycle auto-tracking", () => {
         pg_task_id: "KJC-TSK-0210",
         pg_card: {},
         pg_commits: [
-          { hash: "aaa", message: "feat: same", date: "2026-03-30T10:30:00Z", author: "BecarIA" }
+          { hash: "aaa", message: "feat: same", date: "2026-03-30T10:30:00Z", author: "Karajan" }
         ],
         created_at: "2026-03-30T10:00:00Z"
       };

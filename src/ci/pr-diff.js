@@ -1,5 +1,5 @@
 /**
- * Read PR diff via gh CLI for BecarIA Gateway flow.
+ * Read PR diff via gh CLI for Karajan CI flow.
  * The reviewer reads the PR diff instead of local git diff.
  */
 

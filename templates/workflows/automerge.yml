@@ -1,7 +1,7 @@
-# Auto-merge PRs approved by BecarIA reviewer.
-# Merges when becaria-reviewer[bot] approves and all checks pass.
+# Auto-merge PRs approved by Karajan CI reviewer.
+# Merges when kj-reviewer[bot] approves and all checks pass.
 
-name: Auto-merge (BecarIA)
+name: Auto-merge (Karajan CI)
 
 on:
   pull_request_review:
@@ -15,7 +15,7 @@ jobs:
   automerge:
     if: >
       github.event.review.state == 'approved' &&
-      contains(github.event.review.user.login, 'becaria-reviewer')
+      contains(github.event.review.user.login, 'kj-reviewer')
     runs-on: ubuntu-latest
     steps:
       - name: Enable auto-merge

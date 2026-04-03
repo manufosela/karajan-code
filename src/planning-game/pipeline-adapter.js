@@ -188,7 +188,7 @@ export function accumulateCommit(session, commitInfo) {
     hash: commitInfo.hash,
     message: commitInfo.message || "",
     date: commitInfo.date || new Date().toISOString(),
-    author: commitInfo.author || "BecarIA"
+    author: commitInfo.author || "Karajan"
   });
 }
 

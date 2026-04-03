@@ -128,7 +128,7 @@ const DEFAULTS = {
   policies: {},
   serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },
-  becaria: { enabled: false, review_event: "becaria-review", comment_event: "becaria-comment", comment_prefix: true },
+  ci: { enabled: false, review_event: "kj-review", comment_event: "kj-comment", comment_prefix: true },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info", quiet: true },
   budget: {
@@ -366,12 +366,12 @@ function applyMethodologyOverride(out, flags) {
   out.development.require_test_changes = methodology === "tdd";
 }
 
-function applyBecariaOverride(out, flags) {
-  out.becaria = out.becaria || { enabled: false };
-  if (flags.enableBecaria === undefined) return;
-  out.becaria.enabled = Boolean(flags.enableBecaria);
-  // BecarIA requires git automation (commit + push + PR)
-  if (out.becaria.enabled) {
+function applyCiOverride(out, flags) {
+  out.ci = out.ci || { enabled: false };
+  if (flags.enableCi === undefined) return;
+  out.ci.enabled = Boolean(flags.enableCi);
+  // CI requires git automation (commit + push + PR)
+  if (out.ci.enabled) {
     out.git.auto_commit = true;
     out.git.auto_push = true;
     out.git.auto_pr = true;
@@ -429,7 +429,7 @@ export function applyRunOverrides(config, flags) {
   applyPipelineOverrides(out, flags);
   applyScalarAndBooleanOverrides(out, flags);
   applyMethodologyOverride(out, flags);
-  applyBecariaOverride(out, flags);
+  applyCiOverride(out, flags);
   applyMiscOverrides(out, flags);
   applyOutputModeOverrides(out, flags);
 

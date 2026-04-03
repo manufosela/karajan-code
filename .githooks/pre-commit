@@ -13,9 +13,9 @@ else
 fi
 
 # Detect attribution phrases (not functional provider references)
-AI_ATTRIBUTION_PATTERN='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced|Suggested|Proposed|Drafted|Crafted|Designed) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)'
-CO_AUTHOR_PATTERN='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA|Cursor|Windsurf|Codeium)\b'
-COMMENT_CREDIT_PATTERN='(//|#|/\*|\*|<!--|--)\s*.*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|BecarIA).*(generated|assisted|helped|created|wrote|built|made)'
+AI_ATTRIBUTION_PATTERN='(Generated|Created|Written|Made|Built|Authored|Assisted|Powered|Produced|Suggested|Proposed|Drafted|Crafted|Designed) (by|with|using|via) .*(Claude|Anthropic|OpenAI|ChatGPT|GPT-[0-9]|Copilot|Gemini|Cursor|Windsurf|Codeium)'
+CO_AUTHOR_PATTERN='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)\b'
+COMMENT_CREDIT_PATTERN='(//|#|/\*|\*|<!--|--)\s*.*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini).*(generated|assisted|helped|created|wrote|built|made)'
 
 # Get added lines from staged changes, skip binaries and non-relevant files
 DIFF_ADDED=$(git diff --cached --diff-filter=ACM -U0 "$against" -- \

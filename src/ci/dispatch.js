@@ -1,12 +1,12 @@
 /**
- * BecarIA dispatch client — sends repository_dispatch events via gh CLI
- * so the BecarIA Gateway can publish comments and reviews on PRs.
+ * Karajan CI dispatch client — sends repository_dispatch events via gh CLI
+ * so the Karajan CI Gateway can publish comments and reviews on PRs.
  *
- * Event types are configurable via becaria config:
- *   - comment_event (default: "becaria-comment")
- *   - review_event  (default: "becaria-review")
+ * Event types are configurable via ci config:
+ *   - comment_event (default: "kj-comment")
+ *   - review_event  (default: "kj-review")
  *
- * Only active when becaria.enabled: true.
+ * Only active when ci.enabled: true.
  */
 
 import { runCommand } from "../utils/process.js";
@@ -59,15 +59,15 @@ async function sendDispatch(repo, payload) {
 /**
  * Send a comment event so the gateway posts a PR comment.
  * @param {object} opts
- * @param {object} [opts.becariaConfig] - becaria config section (optional)
+ * @param {object} [opts.ciConfig] - ci config section (optional)
  */
-export async function dispatchComment({ repo, prNumber, agent, body, becariaConfig }) {
+export async function dispatchComment({ repo, prNumber, agent, body, ciConfig }) {
   validateCommon({ repo, prNumber });
   validateAgent(agent);
   if (!body) throw new Error("body is required (comment text)");
 
-  const prefix = becariaConfig?.comment_prefix === false ? "" : `[${agent}] `;
-  const eventType = becariaConfig?.comment_event || "becaria-comment";
+  const prefix = ciConfig?.comment_prefix === false ? "" : `[${agent}] `;
+  const eventType = ciConfig?.comment_event || "kj-comment";
 
   await sendDispatch(repo, {
     event_type: eventType,
@@ -78,9 +78,9 @@ export async function dispatchComment({ repo, prNumber, agent, body, becariaConf
 /**
  * Send a review event so the gateway submits a formal PR review.
  * @param {object} opts
- * @param {object} [opts.becariaConfig] - becaria config section (optional)
+ * @param {object} [opts.ciConfig] - ci config section (optional)
  */
-export async function dispatchReview({ repo, prNumber, event, body, agent, becariaConfig }) {
+export async function dispatchReview({ repo, prNumber, event, body, agent, ciConfig }) {
   validateCommon({ repo, prNumber });
   validateAgent(agent);
   if (!VALID_REVIEW_EVENTS.includes(event)) {
@@ -90,7 +90,7 @@ export async function dispatchReview({ repo, prNumber, event, body, agent, becar
   }
   if (!body) throw new Error("body is required (review text)");
 
-  const eventType = becariaConfig?.review_event || "becaria-review";
+  const eventType = ciConfig?.review_event || "kj-review";
 
   await sendDispatch(repo, {
     event_type: eventType,

@@ -139,10 +139,10 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
 }
 
 export async function fetchReviewDiff(session, logger) {
-  if (session.becaria_pr_number) {
-    const { getPrDiff } = await import("../../becaria/pr-diff.js");
-    const diff = await getPrDiff(session.becaria_pr_number);
-    logger.info(`Reviewer reading PR diff #${session.becaria_pr_number}`);
+  if (session.ci_pr_number) {
+    const { getPrDiff } = await import("../../ci/pr-diff.js");
+    const diff = await getPrDiff(session.ci_pr_number);
+    logger.info(`Reviewer reading PR diff #${session.ci_pr_number}`);
     return diff;
   }
   return generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });

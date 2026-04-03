@@ -144,27 +144,27 @@ async function checkSerena() {
   };
 }
 
-async function checkBecariaWorkflows(projectDir) {
+async function checkCiWorkflows(projectDir) {
   const checks = [];
   const workflowDir = path.join(projectDir, ".github", "workflows");
-  const requiredWorkflows = ["becaria-gateway.yml", "automerge.yml", "houston-override.yml"];
+  const requiredWorkflows = ["kj-ci-gateway.yml", "automerge.yml", "houston-override.yml"];
   for (const wf of requiredWorkflows) {
     const wfPath = path.join(workflowDir, wf);
     const wfExists = await exists(wfPath);
     checks.push({
-      name: `becaria:workflow:${wf}`,
-      label: `BecarIA workflow: ${wf}`,
+      name: `ci:workflow:${wf}`,
+      label: `CI workflow: ${wf}`,
       ok: wfExists,
       detail: wfExists ? "Found" : "Not found",
-      fix: wfExists ? null : `Run 'kj init --scaffold-becaria' or copy from karajan-code/templates/workflows/${wf}`
+      fix: wfExists ? null : `Run 'kj init --scaffold-ci' or copy from karajan-code/templates/workflows/${wf}`
     });
   }
   return checks;
 }
 
-async function checkBecariaSecrets() {
+async function checkCiSecrets() {
   try {
-    const { detectRepo } = await import("../becaria/repo.js");
+    const { detectRepo } = await import("../ci/repo.js");
     const repo = await detectRepo();
     if (!repo) return null;
 
@@ -172,38 +172,38 @@ async function checkBecariaSecrets() {
     if (secretsRes.exitCode !== 0) return null;
 
     const names = new Set(secretsRes.stdout.split("\n").map((s) => s.trim()));
-    const hasAppId = names.has("BECARIA_APP_ID");
-    const hasKey = names.has("BECARIA_APP_PRIVATE_KEY");
+    const hasAppId = names.has("KJ_CI_APP_ID");
+    const hasKey = names.has("KJ_CI_PRIVATE_KEY");
     const secretsOk = hasAppId && hasKey;
-    const missing = [!hasAppId && "BECARIA_APP_ID", !hasKey && "BECARIA_APP_PRIVATE_KEY"].filter(Boolean).join(" ");
+    const missing = [!hasAppId && "KJ_CI_APP_ID", !hasKey && "KJ_CI_PRIVATE_KEY"].filter(Boolean).join(" ");
     return {
-      name: "becaria:secrets",
-      label: "BecarIA: GitHub secrets",
+      name: "ci:secrets",
+      label: "CI: GitHub secrets",
       ok: secretsOk,
-      detail: secretsOk ? "BECARIA_APP_ID + BECARIA_APP_PRIVATE_KEY found" : `Missing: ${missing}`,
-      fix: secretsOk ? null : "Add BECARIA_APP_ID and BECARIA_APP_PRIVATE_KEY as GitHub repository secrets"
+      detail: secretsOk ? "KJ_CI_APP_ID + KJ_CI_PRIVATE_KEY found" : `Missing: ${missing}`,
+      fix: secretsOk ? null : "Add KJ_CI_APP_ID and KJ_CI_PRIVATE_KEY as GitHub repository secrets"
     };
   } catch { /* GitHub API error */
     return null;
   }
 }
 
-async function checkBecariaInfra(config) {
+async function checkCiInfra(config) {
   const checks = [];
   const projectDir = config.projectDir || process.cwd();
 
-  checks.push(...await checkBecariaWorkflows(projectDir));
+  checks.push(...await checkCiWorkflows(projectDir));
 
   const ghCheck = await checkBinary("gh");
   checks.push({
-    name: "becaria:gh",
-    label: "BecarIA: gh CLI",
+    name: "ci:gh",
+    label: "CI: gh CLI",
     ok: ghCheck.ok,
     detail: ghCheck.ok ? ghCheck.version : "Not found",
     fix: ghCheck.ok ? null : "Install GitHub CLI: https://cli.github.com/"
   });
 
-  const secretsCheck = await checkBecariaSecrets();
+  const secretsCheck = await checkCiSecrets();
   if (secretsCheck) checks.push(secretsCheck);
 
   return checks;
@@ -377,8 +377,8 @@ export async function runChecks({ config }) {
     checks.push(await checkSerena());
   }
 
-  if (config.becaria?.enabled) {
-    checks.push(...await checkBecariaInfra(config));
+  if (config.ci?.enabled) {
+    checks.push(...await checkCiInfra(config));
   }
 
   checks.push(...await checkAgentConfigs());

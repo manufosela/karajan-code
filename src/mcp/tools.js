@@ -79,7 +79,7 @@ export const tools = [
         architectModel: { type: "string" },
         huFile: { type: "string", description: "Path to YAML file with HU stories to certify before coding" },
         enableSerena: { type: "boolean" },
-        enableBecaria: { type: "boolean", description: "Enable BecarIA Gateway (early PR + dispatch comments/reviews)" },
+        enableCi: { type: "boolean", description: "Enable Karajan CI (early PR + dispatch comments/reviews)" },
         reviewerFallback: { type: "string" },
         reviewerRetries: { type: "number" },
         mode: { type: "string" },

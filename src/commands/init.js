@@ -222,14 +222,14 @@ async function setupSonarQube(config, logger) {
   logger.info('     or export KJ_SONAR_TOKEN="<your-token>"');
 }
 
-async function scaffoldBecariaGateway(config, flags, logger) {
-  if (!config.becaria?.enabled && !flags.scaffoldBecaria) return;
+async function scaffoldCiGateway(config, flags, logger) {
+  if (!config.ci?.enabled && !flags.scaffoldCi) return;
   const projectDir = process.cwd();
   const workflowDir = path.join(projectDir, ".github", "workflows");
   await ensureDir(workflowDir);
 
   const templatesDir = path.resolve(import.meta.dirname, "../../templates/workflows");
-  const workflows = ["becaria-gateway.yml", "automerge.yml", "houston-override.yml"];
+  const workflows = ["kj-ci-gateway.yml", "automerge.yml", "houston-override.yml"];
 
   for (const wf of workflows) {
     const destPath = path.join(workflowDir, wf);
@@ -248,11 +248,11 @@ async function scaffoldBecariaGateway(config, flags, logger) {
   }
 
   logger.info("");
-  logger.info("BecarIA Gateway scaffolded. Next steps:");
-  logger.info("  1. Create a GitHub App named 'becaria-reviewer' with pull_request write permissions");
+  logger.info("Karajan CI Gateway scaffolded. Next steps:");
+  logger.info("  1. Create a GitHub App named 'kj-reviewer' with pull_request write permissions");
   logger.info("  2. Install the App on your repository");
-  logger.info("  3. Add secrets: BECARIA_APP_ID and BECARIA_APP_PRIVATE_KEY");
-  logger.info("  4. Push the workflow files and enable 'kj run --enable-becaria'");
+  logger.info("  3. Add secrets: KJ_CI_APP_ID and KJ_CI_PRIVATE_KEY");
+  logger.info("  4. Push the workflow files and enable 'kj run --enable-ci'");
 }
 
 async function installSkills(logger, interactive) {
@@ -403,7 +403,7 @@ export async function initCommand({ logger, flags = {} }) {
   }
 
   await setupSonarQube(config, logger);
-  await scaffoldBecariaGateway(config, flags, logger);
+  await scaffoldCiGateway(config, flags, logger);
 
   // Telemetry: anonymous install event (non-blocking)
   const { sendTelemetryEvent } = await import("../utils/telemetry.js");
