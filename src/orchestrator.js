@@ -56,6 +56,11 @@ import {
   handleCheckpoint, checkSessionTimeout, checkBudgetExceeded,
   takeCheckpointSnapshot
 } from "./orchestrator/flow-control.js";
+import {
+  createJournalDir, writePreLoopJournal, writeIterationsJournal,
+  writeDecisionsJournal, writeTreeJournal, writeSummaryJournal,
+  formatIteration, formatDecision, buildPlanSummary
+} from "./orchestrator/session-journal.js";
 
 // Re-export for external consumers
 export const loadProductContext = _loadProductContext;
@@ -340,6 +345,31 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
   if (rtkSavings) session.rtk_savings = rtkSavings;
   await saveSession(session);
+
+  // --- Journal: write final files ---
+  const journalDir = session._journalDir;
+  if (journalDir) {
+    try {
+      await writeIterationsJournal(journalDir, session._journalIterations || []);
+      await writeDecisionsJournal(journalDir, session._journalDecisions || []);
+      const hasTree = await writeTreeJournal(journalDir, session.session_start_sha);
+
+      const journalFiles = [...(session._journalFiles || [])];
+      if (session._journalIterations?.length) journalFiles.push("iterations.md");
+      if (session._journalDecisions?.length) journalFiles.push("decisions.md");
+      if (hasTree) journalFiles.push("tree.txt");
+
+      await writeSummaryJournal(journalDir, {
+        task: session.task, result: "APPROVED", sessionId: session.id,
+        iterations: i, durationMs: Date.now() - (session._startedAt || Date.now()),
+        budget: budgetSummary(), stages: stageResults,
+        commits: gitResult?.commits || [], files: journalFiles
+      });
+      logger.info(`Session journal written to ${journalDir}`);
+    } catch (err) {
+      logger.warn(`Journal write failed (non-blocking): ${err.message}`);
+    }
+  }
 
   const endDetail = { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues };
   if (rtkSavings) endDetail.rtk_savings = rtkSavings;
@@ -941,6 +971,38 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.plannedTask = preLoopResult.plannedTask;
   ctx.config = preLoopResult.updatedConfig;
 
+  // --- Session Journal: persist pre-loop outputs + display plan summary ---
+  const reportDir = ctx.config.output?.report_dir || ".reviews";
+  try {
+    ctx.journalDir = await createJournalDir(reportDir, ctx.session.id);
+    const journalFiles = await writePreLoopJournal(ctx.journalDir, ctx.stageResults);
+    ctx.journalFiles = journalFiles;
+    ctx.journalIterations = [];
+    ctx.journalDecisions = [];
+
+    // Attach journal state to session so finalizeApprovedSession can access it
+    ctx.session._journalDir = ctx.journalDir;
+    ctx.session._journalFiles = journalFiles;
+    ctx.session._journalIterations = ctx.journalIterations;
+    ctx.session._journalDecisions = ctx.journalDecisions;
+    ctx.session._startedAt = ctx.startedAt;
+
+    // Display plan summary in console before iteration loop
+    const planSummary = buildPlanSummary({
+      pipelineFlags: ctx.pipelineFlags,
+      config: ctx.config,
+      stageResults: ctx.stageResults,
+      task
+    });
+    console.log(planSummary);
+  } catch (err) {
+    logger.warn(`Journal init failed (non-blocking): ${err.message}`);
+    ctx.journalDir = null;
+    ctx.journalFiles = [];
+    ctx.journalIterations = [];
+    ctx.journalDecisions = [];
+  }
+
   ctx.gitCtx = await prepareGitAutomation({ config: ctx.config, task, logger, session: ctx.session });
   const projectDir = ctx.config.projectDir || process.cwd();
   ctx.reviewRules = (await resolveReviewProfile({ mode: ctx.config.review_mode, projectDir })).rules;
@@ -1002,6 +1064,19 @@ async function runSingleIteration(ctx) {
     message: `Iteration ${i} completed`, detail: { duration: iterDuration }
   }));
   session.standby_retry_count = 0;
+
+  // --- Journal: record iteration ---
+  if (ctx.journalIterations) {
+    ctx.journalIterations.push(formatIteration({
+      iteration: i,
+      coderSummary: ctx.stageResults.coder?.summary || null,
+      reviewerSummary: review?.approved ? `Approved: ${review.raw_summary || ""}` : `Rejected: ${(review?.blocking_issues || []).length} blocking issue(s)`,
+      sonarSummary: ctx.stageResults.sonar?.summary || null,
+      testerSummary: ctx.stageResults.tester?.summary || null,
+      securitySummary: ctx.stageResults.security?.summary || null,
+      durationMs: iterDuration
+    }));
+  }
 
   const solomonResult = await handleSolomonCheck({
     config, session, emitter, eventBase, logger, task, i, askQuestion: ctx.askQuestion,
