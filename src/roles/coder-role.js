@@ -39,7 +39,6 @@ export class CoderRole extends AgentRole {
       methodology: this.config?.development?.methodology || "tdd",
       serenaEnabled: Boolean(this.config?.serena?.enabled),
       rtkAvailable: Boolean(this.config?.rtk?.available),
-      proxyEnabled: Boolean(this.config?.proxy?.enabled),
       productContext: this.config?.productContext || null,
       domainContext: this.config?.domainContext || null
     });

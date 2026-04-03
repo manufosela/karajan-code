@@ -49,8 +49,7 @@ export class ReviewerRole extends AgentRole {
     if (dc) sections.push(`## Domain Context\n${dc}`);
 
     const rtkSnippet = buildRtkInstructions({
-      rtkAvailable: Boolean(this.config?.rtk?.available),
-      proxyEnabled: Boolean(this.config?.proxy?.enabled)
+      rtkAvailable: Boolean(this.config?.rtk?.available)
     });
     if (rtkSnippet) sections.push(rtkSnippet);
     if (reviewRules) sections.push(`Review rules:\n${reviewRules}`);

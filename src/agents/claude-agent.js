@@ -165,9 +165,6 @@ function createStreamJsonFilter(onOutput) {
  */
 function cleanExecaOpts(extra = {}) {
   const { CLAUDECODE, ...env } = process.env;
-  // NOTE: Claude Code CLI does not respect ANTHROPIC_BASE_URL — proxy env
-  // injection is skipped for claude to avoid ECONNREFUSED errors.
-  // Other agents (codex, gemini, aider) use SDKs that do respect base URL vars.
   return { env, stdin: "ignore", ...extra };
 }
 

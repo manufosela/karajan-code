@@ -5,7 +5,7 @@
 import { readRunLog } from "../utils/run-log.js";
 import { loadMostRecentSession } from "../session-store.js";
 import { buildDashboard } from "../utils/status-dashboard.js";
-import { getProxyStats } from "../proxy/proxy-lifecycle.js";
+
 
 /**
  * Run the `kj status` command: print a human-readable dashboard to stdout.
@@ -33,10 +33,4 @@ export async function statusCommand({ lines = 50, projectDir } = {}) {
 
   const dashboard = buildDashboard(session, logResult.lines || [], { stories });
   console.log(dashboard);
-
-  const proxyStats = getProxyStats();
-  if (proxyStats) {
-    console.log("");
-    console.log(`Proxy: port ${proxyStats.port}, ${proxyStats.requests} requests, ${proxyStats.bytes_in} bytes in, ${proxyStats.bytes_out} bytes out`);
-  }
 }

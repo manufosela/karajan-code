@@ -24,7 +24,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, proxyEnabled = false, productContext = null, domainContext = null, projectDir = null, language = "en" }) {
+export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en" }) {
   const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
 
   const langInstruction = getLanguageInstruction(language);
@@ -43,7 +43,7 @@ export async function buildReviewerPrompt({ task, diff, reviewRules, mode, seren
     sections.push(SERENA_INSTRUCTIONS);
   }
 
-  const rtkSnippet = buildRtkInstructions({ rtkAvailable, proxyEnabled });
+  const rtkSnippet = buildRtkInstructions({ rtkAvailable });
   if (rtkSnippet) {
     sections.push(rtkSnippet);
   }

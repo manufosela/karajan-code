@@ -165,12 +165,6 @@ const DEFAULTS = {
     thresholds: { lcp: 2500, cls: 0.1, inp: 200 }
   },
   telemetry: true,
-  proxy: {
-    enabled: false,
-    compression: {
-      enabled: true
-    }
-  },
   guards: {
     output: {
       enabled: true,
@@ -399,10 +393,6 @@ function applyMiscOverrides(out, flags) {
   out.planning_game = out.planning_game || {};
   if (flags.pgTask) out.planning_game.enabled = true;
   if (flags.pgProject) out.planning_game.project_id = flags.pgProject;
-
-  out.proxy = out.proxy || {};
-  if (flags.noProxy) out.proxy.enabled = false;
-  if (flags.proxyPort) out.proxy.port = flags.proxyPort;
 
   out.model_selection = out.model_selection || { enabled: true, tiers: {}, role_overrides: {} };
   if (flags.smartModels === true) out.model_selection.enabled = true;

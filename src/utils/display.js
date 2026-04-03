@@ -262,21 +262,6 @@ function printSessionRtkSavings(rtkSavings) {
   console.log(`  ${ANSI.dim}\u26a1 RTK: saved ~${tokens} tokens (${ratio}% compression, ${commands} commands)${ANSI.reset}`);
 }
 
-function printSessionProxyStats(proxyStats) {
-  if (!proxyStats || !proxyStats.requests) return;
-  const orig = proxyStats.originalTokens ?? 0;
-  const comp = proxyStats.compressedTokens ?? 0;
-  const saved = proxyStats.savedTokens ?? 0;
-  const pct = proxyStats.savedPct ?? "0.0";
-  const hits = proxyStats.cacheHits ?? 0;
-  if (orig > 0) {
-    console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${orig.toLocaleString()} \u2192 ${comp.toLocaleString()} tokens (${pct}% saved, ${hits} cache hits)${ANSI.reset}`);
-  } else {
-    const reqs = proxyStats.requests;
-    console.log(`  ${ANSI.dim}\ud83d\udee1\ufe0f Proxy: ${reqs} requests proxied${ANSI.reset}`);
-  }
-}
-
 function printSessionBudget(budget) {
   if (!budget) return;
   if (isBudgetUnavailable(budget)) {
@@ -483,7 +468,6 @@ const EVENT_HANDLERS = {
     printSessionGit(event.detail?.git);
     printSessionBudget(event.detail?.budget);
     printSessionRtkSavings(event.detail?.rtk_savings);
-    printSessionProxyStats(event.detail?.proxy_stats);
     console.log(`${ANSI.dim}Session: ${event.sessionId}${ANSI.reset}`);
   },
 
@@ -625,7 +609,6 @@ const QUIET_SUPPRESSED = new Set([
   "skills:auto-install",
   "context:loaded",
   "rtk:detected",
-  "proxy:started",
   "board:started",
   "plan:loaded",
   "tdd:auto-detect",

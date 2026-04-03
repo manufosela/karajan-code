@@ -153,7 +153,6 @@ async function buildReport(dir, sessionId) {
   if (session.pg_task_id) report.pg_task_id = session.pg_task_id;
   if (session.pg_project_id) report.pg_project_id = session.pg_project_id;
   if (session.rtk_savings) report.rtk_savings = session.rtk_savings;
-  if (session.proxy_stats) report.proxy_stats = session.proxy_stats;
   return report;
 }
 
@@ -200,7 +199,6 @@ function printTextReport(report) {
   console.log(formatBudgetText(report.budget_consumed));
   console.log("Commits Generated:");
   console.log(formatCommitsText(report.commits_generated));
-  printProxyStats(report.proxy_stats);
 }
 
 function formatDuration(ms) {
@@ -329,16 +327,6 @@ async function resolveTraceOptions(currency) {
   return { cur, rate };
 }
 
-function printProxyStats(proxyStats) {
-  if (!proxyStats) return;
-  const orig = proxyStats.originalTokens ?? 0;
-  const comp = proxyStats.compressedTokens ?? 0;
-  const pct = orig > 0 ? ((1 - comp / orig) * 100).toFixed(1) : "0.0";
-  const hits = proxyStats.cacheHits ?? 0;
-  console.log("");
-  console.log(`Proxy: ${orig} original tokens, ${comp} compressed tokens, ${pct}% savings, ${hits} cache hits`);
-}
-
 function printRtkSavings(rtkSavings) {
   if (!rtkSavings || !rtkSavings.callCount) return;
   const tokens = rtkSavings.estimatedTokensSaved ?? 0;
@@ -357,7 +345,6 @@ function printTraceReport(report, currency, exchangeRate) {
   console.log("");
   printTraceTable(report.budget_trace, { currency, exchangeRate });
   printRtkSavings(report.rtk_savings);
-  printProxyStats(report.proxy_stats);
 }
 
 async function handlePgTaskReport({ dir, pgTask, list, sessionId, format, trace, currency }) {

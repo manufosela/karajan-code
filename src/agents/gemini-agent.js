@@ -1,7 +1,6 @@
 import { BaseAgent } from "./base-agent.js";
 import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
-import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
 
 export class GeminiAgent extends BaseAgent {
   async runTask(task) {
@@ -30,10 +29,7 @@ export class GeminiAgent extends BaseAgent {
     const args = ["-p", task.prompt];
     if (mode === "review") args.push("--output-format", "json");
     if (model) args.push("--model", model);
-    const proxyEnv = getProxyEnv();
-    const env = proxyEnv ? { ...process.env, ...proxyEnv } : undefined;
     const res = await runCommand(resolveBin("gemini"), args, {
-      ...(env && { env }),
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs

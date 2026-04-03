@@ -12,7 +12,7 @@ import { ensureGitRepo } from "../utils/git.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { withDocLink } from "../utils/doc-links.js";
-import { isProxyRunning } from "../proxy/proxy-lifecycle.js";
+
 
 function getPackageVersion() {
   const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../package.json");
@@ -343,23 +343,6 @@ async function checkAgentConfigs() {
   return checks;
 }
 
-async function checkProxy(config) {
-  if (config.proxy?.enabled === false) {
-    return { name: "proxy", label: "Proxy", ok: true, detail: "Disabled in config", fix: null };
-  }
-  let running = false;
-  try {
-    running = await isProxyRunning();
-  } catch { /* proxy check failed */ }
-  return {
-    name: "proxy",
-    label: "Proxy",
-    ok: true,
-    detail: running ? "Running" : "Available (starts on kj run)",
-    fix: null
-  };
-}
-
 export async function runChecks({ config }) {
   const checks = [];
 
@@ -384,7 +367,6 @@ export async function runChecks({ config }) {
   checks.push(...await checkAgentConfigs());
   checks.push(...await checkRuleFiles(config));
   checks.push(await checkRtk());
-  checks.push(await checkProxy(config));
 
   return checks;
 }

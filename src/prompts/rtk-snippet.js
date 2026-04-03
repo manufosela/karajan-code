@@ -15,13 +15,11 @@ export const RTK_INSTRUCTIONS = [
 ].join("\n");
 
 /**
- * Build RTK instructions, returning empty string when proxy compression
- * handles token optimization at the HTTP layer.
- * @param {{ rtkAvailable?: boolean, proxyEnabled?: boolean }} options
+ * Build RTK instructions when RTK is detected.
+ * @param {{ rtkAvailable?: boolean }} options
  * @returns {string}
  */
-export function buildRtkInstructions({ rtkAvailable = false, proxyEnabled = false } = {}) {
-  if (proxyEnabled) return "";
+export function buildRtkInstructions({ rtkAvailable = false } = {}) {
   if (!rtkAvailable) return "";
   return RTK_INSTRUCTIONS;
 }

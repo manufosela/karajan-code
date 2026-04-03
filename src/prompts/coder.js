@@ -33,7 +33,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, proxyEnabled = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en" }) {
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en" }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
@@ -48,7 +48,7 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     sections.push(SERENA_INSTRUCTIONS);
   }
 
-  const rtkSnippet = buildRtkInstructions({ rtkAvailable, proxyEnabled });
+  const rtkSnippet = buildRtkInstructions({ rtkAvailable });
   if (rtkSnippet) {
     sections.push(rtkSnippet);
   }

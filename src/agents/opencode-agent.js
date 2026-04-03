@@ -1,7 +1,6 @@
 import { BaseAgent } from "./base-agent.js";
 import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
-import { getProxyEnv } from "../proxy/proxy-lifecycle.js";
 
 export class OpenCodeAgent extends BaseAgent {
   async runTask(task) {
@@ -31,10 +30,7 @@ export class OpenCodeAgent extends BaseAgent {
     if (jsonFormat) args.push("--format", "json");
     if (model) args.push("--model", model);
     args.push(task.prompt);
-    const proxyEnv = getProxyEnv();
-    const env = proxyEnv ? { ...process.env, ...proxyEnv } : undefined;
     const res = await runCommand(resolveBin("opencode"), args, {
-      ...(env && { env }),
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs
