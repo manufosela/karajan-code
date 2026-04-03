@@ -89,7 +89,8 @@ vi.mock("../src/review/parser.js", () => ({
 vi.mock("../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
-  generateDiff: vi.fn().mockResolvedValue("diff content")
+  generateDiff: vi.fn().mockResolvedValue("diff content"),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/review/profiles.js", () => ({

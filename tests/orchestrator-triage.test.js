@@ -121,7 +121,8 @@ vi.mock("../src/session-store.js", () => {
 vi.mock("../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
-  generateDiff: vi.fn().mockResolvedValue("diff")
+  generateDiff: vi.fn().mockResolvedValue("diff"),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/review/schema.js", () => ({ validateReviewResult: vi.fn((r) => r) }));

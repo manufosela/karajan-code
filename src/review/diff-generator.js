@@ -7,6 +7,18 @@ let _runner = null;
 /** @type {Map<string, string>|null} — pre-coder filesystem snapshot for git-free diff */
 let _snapshot = null;
 
+/** @type {string|null} — project directory scope for git diff (prevents leaking unrelated changes) */
+let _projectDir = null;
+
+/**
+ * Set the project directory scope. When set, all diffs are scoped to this directory.
+ * Call once at pipeline start when projectDir differs from repo root.
+ * @param {string|null} dir
+ */
+export function setProjectDir(dir) {
+  _projectDir = dir;
+}
+
 /**
  * Store a filesystem snapshot for git-free diff fallback.
  * Call before the coder runs. If git is available, this is unused.
@@ -49,15 +61,18 @@ export async function computeBaseRef({ baseBranch = "main", baseRef = null }) {
 }
 
 export async function generateDiff({ baseRef, stageNewFiles = false, projectDir = null }) {
+  // Auto-resolve projectDir from config if not passed explicitly
+  const scopeDir = projectDir || _projectDir || null;
+
   // Try git diff first
   try {
     if (stageNewFiles) {
-      const addArgs = projectDir ? ["-A", projectDir] : ["-A"];
+      const addArgs = scopeDir ? ["-A", scopeDir] : ["-A"];
       await run("git", ["add", ...addArgs]);
     }
     const diffArgs = ["diff", stageNewFiles ? "--cached" : "", `${baseRef}`].filter(Boolean);
     // Scope diff to projectDir when it's a subdirectory (prevents leaking unrelated changes)
-    if (projectDir) diffArgs.push("--", projectDir);
+    if (scopeDir) diffArgs.push("--", scopeDir);
     const result = await run("git", diffArgs);
     if (result.exitCode === 0) {
       return result.stdout;

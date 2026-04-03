@@ -17,7 +17,8 @@ vi.mock("../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn(async () => "abc123"),
   getUntrackedFiles: vi.fn(async () => []),
   generateDiff: vi.fn(async () => "diff content"),
-  setRunner: vi.fn()
+  setRunner: vi.fn(),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/roles/base-role.js", () => ({

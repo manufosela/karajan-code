@@ -37,6 +37,17 @@ function buildReviewHistory(session) {
 }
 
 async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector }) {
+  // DETERMINISTIC GUARD: security issues NEVER go to Solomon — always return to coder
+  const categories = categorizeIssues(review.blocking_issues);
+  if (categories.security > 0) {
+    logger.info(`Reviewer found ${categories.security} security issue(s) — returning to coder (Solomon bypassed)`);
+    emitProgress(emitter, makeEvent("reviewer:security-block", { ...eventBase, stage: "reviewer" }, {
+      message: `${categories.security} security issue(s) detected — must be fixed before approval`,
+      detail: { securityCount: categories.security, blockingIssues: review.blocking_issues }
+    }));
+    return { review, solomonApproved: false };
+  }
+
   const logPrefix = repeatState.stalled
     ? `Reviewer stalled (${repeatCounts.reviewer} repeats)`
     : `Reviewer rejected (first rejection)`;

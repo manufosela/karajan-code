@@ -34,7 +34,7 @@ import { detectTestFramework } from "./utils/project-detect.js";
 import { runPreflightChecks } from "./orchestrator/preflight-checks.js";
 import { detectRtk } from "./utils/rtk-detect.js";
 import { createRtkRunner, RtkSavingsTracker } from "./utils/rtk-wrapper.js";
-import { setRunner as setDiffRunner } from "./review/diff-generator.js";
+import { setRunner as setDiffRunner, setProjectDir as setDiffProjectDir } from "./review/diff-generator.js";
 import { setRunner as setGitRunner } from "./utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
@@ -919,7 +919,11 @@ async function tryAutoStartBoard(config, logger, emitter, eventBase) {
 
 async function initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags }) {
   // Auto-init .karajan/ if missing (copies coder-rules, review-rules, role templates)
-  await autoInit(config.projectDir || process.cwd(), logger);
+  const initProjectDir = config.projectDir || process.cwd();
+  await autoInit(initProjectDir, logger);
+
+  // Scope all git diffs to projectDir (prevents leaking unrelated branch changes)
+  setDiffProjectDir(config.projectDir || null);
 
   const ctx = new PipelineContext({ config, session: null, logger, emitter, task, flags });
   ctx.askQuestion = askQuestion;

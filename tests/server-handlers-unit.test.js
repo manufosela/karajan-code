@@ -85,7 +85,8 @@ vi.mock("../src/review/parser.js", () => ({
 
 vi.mock("../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn(async () => "abc123"),
-  generateDiff: vi.fn(async () => "mock diff")
+  generateDiff: vi.fn(async () => "mock diff"),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/review/profiles.js", () => ({

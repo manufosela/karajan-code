@@ -36,7 +36,8 @@ vi.mock("../src/session-store.js", () => ({
 
 vi.mock("../src/review/diff-generator.js", () => ({
   generateDiff: vi.fn(async () => "diff --git a/src/foo.js b/src/foo.js\n+new line\n"),
-  getUntrackedFiles: vi.fn(async () => [])
+  getUntrackedFiles: vi.fn(async () => []),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/review/tdd-policy.js", () => ({

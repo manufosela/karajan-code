@@ -93,7 +93,8 @@ vi.mock("../src/prompts/planner.js", () => ({
 
 vi.mock("../src/review/diff-generator.js", () => ({
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
-  generateDiff: vi.fn().mockResolvedValue("diff content")
+  generateDiff: vi.fn().mockResolvedValue("diff content"),
+  setProjectDir: vi.fn()
 }));
 
 vi.mock("../src/review/tdd-policy.js", () => ({
