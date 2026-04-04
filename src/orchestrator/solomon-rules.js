@@ -124,10 +124,16 @@ export async function buildRulesContext({ session, task, iteration, blockingIssu
       context.filesChanged = files.length;
 
       // Detect scope: config files, CI/CD, etc. that are often out of scope
-      const scopePatterns = [".github/", ".gitlab-ci", "docker-compose", ".env", "firebase.json", "firestore.rules"];
-      context.outOfScopeFiles = files.filter(f =>
-        scopePatterns.some(pattern => f.includes(pattern))
-      );
+      // Exclude .env.example (legitimate for new projects) and files within projectDir
+      const scopePatterns = [".github/", ".gitlab-ci", "docker-compose", "firebase.json", "firestore.rules"];
+      const projectDir = session?.config_snapshot?.projectDir || null;
+      context.outOfScopeFiles = files.filter(f => {
+        // Files inside projectDir are always in scope
+        if (projectDir && f.startsWith(projectDir.replace(/^\.\//, ""))) return false;
+        // .env (but not .env.example) is out of scope
+        if (f.endsWith(".env") && !f.endsWith(".env.example")) return true;
+        return scopePatterns.some(pattern => f.includes(pattern));
+      });
 
       // Detect new dependencies
       if (files.includes("package.json")) {

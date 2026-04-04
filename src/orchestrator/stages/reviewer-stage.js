@@ -15,7 +15,7 @@ import { createStallDetector } from "../../utils/stall-detector.js";
 
 function categorizeIssues(issues) {
   const categories = { security: 0, correctness: 0, tests: 0, style: 0, other: 0 };
-  const securityKw = /inject|xss|csrf|secret|credential|auth|vulnerab|exploit/i;
+  const securityKw = /inject(?:ion)?|xss|csrf|secret.?leak|credential.?expos|auth(?:entication|orization).?(?:bypass|fail|miss|broken|weak)|vulnerab|exploit|httponly|token.?expos/i;
   const styleKw = /naming|name|rename|style|format|indent|spacing|convention|cosmetic|readability|comment|jsdoc|whitespace/i;
   const testKw = /test|coverage|assert|spec|mock/i;
 

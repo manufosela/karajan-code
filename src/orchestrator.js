@@ -925,6 +925,13 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   // Scope all git diffs to projectDir (prevents leaking unrelated branch changes)
   setDiffProjectDir(config.projectDir || null);
 
+  // Auto-detect Chrome DevTools MCP
+  const { detectDevToolsMcp } = await import("./webperf/devtools-detect.js");
+  const devToolsAvailable = await detectDevToolsMcp(logger);
+  if (devToolsAvailable) {
+    config = { ...config, webperf: { ...config.webperf, devtools_mcp: true } };
+  }
+
   const ctx = new PipelineContext({ config, session: null, logger, emitter, task, flags });
   ctx.askQuestion = askQuestion;
   ctx.pgTaskId = pgTaskId;

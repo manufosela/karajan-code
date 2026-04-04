@@ -46,7 +46,7 @@ export class ImpeccableRole extends AgentRole {
         this.logger?.warn?.(`WebPerf skill installation failed: ${err.message}`);
       }
     } else {
-      this.logger?.info?.("Chrome DevTools MCP not configured — skipping WebPerf skills");
+      this.logger?.debug?.("Chrome DevTools MCP not configured — WebPerf skills skipped");
     }
 
     const provider = this.resolveProvider();

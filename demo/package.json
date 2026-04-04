@@ -1,0 +1,22 @@
+{
+  "name": "taskboard",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w packages/server",
+    "start": "npm run start -w packages/server",
+    "build": "npm run build -w packages/client",
+    "test": "vitest run --workspace vitest.workspace.js",
+    "test:coverage": "vitest run --workspace vitest.workspace.js --coverage",
+    "migrate": "npm run migrate -w packages/server"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.1",
+    "@vitest/coverage-v8": "^3.1.1"
+  }
+}
