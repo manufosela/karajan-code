@@ -23,6 +23,8 @@
 
 ---
 
+> **v2.0 released** — Karajan Brain architecture, smart init, session journal, and more. See [MIGRATION-v2.md](./MIGRATION-v2.md) for breaking changes (proxy removed, becaria→ci rename).
+
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
 ## What is Karajan?
