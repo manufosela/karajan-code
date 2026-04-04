@@ -83,11 +83,12 @@ export async function ensureWebPerfSkills(projectDir, logger) {
 
   const available = await isOpenSkillsAvailable();
   if (!available) {
-    logger?.warn?.("OpenSkills CLI not available - skipping WebPerf skill installation");
+    logger?.debug?.("OpenSkills CLI not available - WebPerf skills unavailable");
     result.skipped = [...WEBPERF_SKILLS];
     return result;
   }
 
+  // List skills (includes global installs)
   const listResult = await listSkills({ projectDir });
   const installedNames = new Set(
     (listResult.ok ? listResult.skills : []).map(s => s.name)
@@ -96,17 +97,15 @@ export async function ensureWebPerfSkills(projectDir, logger) {
   for (const skill of WEBPERF_SKILLS) {
     if (installedNames.has(skill)) {
       result.alreadyInstalled.push(skill);
-      continue;
-    }
-
-    const installResult = await installSkill(skill, { projectDir });
-    if (installResult.ok) {
-      result.installed.push(skill);
-      logger?.info?.(`Installed WebPerf skill: ${skill}`);
     } else {
+      // Skills should be installed globally via `openskills install owner/repo`
+      // Don't attempt auto-install with bare names — just note they're missing
       result.skipped.push(skill);
-      logger?.warn?.(`Failed to install WebPerf skill "${skill}": ${installResult.error}`);
     }
+  }
+
+  if (result.alreadyInstalled.length > 0) {
+    logger?.info?.(`WebPerf skills available: ${result.alreadyInstalled.join(", ")}`);
   }
 
   return result;
