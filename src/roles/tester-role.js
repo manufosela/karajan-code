@@ -73,6 +73,7 @@ export class TesterRole extends AgentRole {
       const testCmd = TEST_COMMANDS[detection.framework];
       sections.push(
         `## Detected test framework: ${detection.framework} (${detection.language})`,
+        "**Step 0**: If node_modules/ does not exist, run `npm install` (or `pnpm install`) first.",
         `**Step 1**: Run the test suite with coverage:`,
         "```bash",
         coverageCmd || testCmd,
@@ -87,6 +88,7 @@ export class TesterRole extends AgentRole {
     } else {
       sections.push(
         "## No test framework detected",
+        "**Step 0**: If package.json exists but node_modules/ does not, run `npm install` first.",
         "**Step 1**: Look at package.json or project files to find test scripts.",
         "**Step 2**: Try running `npm test` or detect the framework from config files.",
         "**Step 3**: If tests exist, run them. If no tests exist, report tests_pass: false with verdict: 'fail'.",

@@ -96,15 +96,15 @@ describe("webperf/devtools-detect", () => {
       isOpenSkillsAvailable.mockResolvedValue(true);
       listSkills.mockResolvedValue({
         ok: true,
-        skills: [{ name: "webperf" }]
+        skills: [{ name: WEBPERF_SKILLS[0] }]
       });
       installSkill.mockResolvedValue({ ok: true, name: "mock" });
 
       const result = await ensureWebPerfSkills("/tmp/project", logger);
 
-      expect(result.alreadyInstalled).toEqual(["webperf"]);
-      expect(result.installed).toEqual(["webperf-core-web-vitals", "webperf-loading"]);
-      expect(installSkill).toHaveBeenCalledTimes(2);
+      expect(result.alreadyInstalled).toEqual([WEBPERF_SKILLS[0]]);
+      expect(result.installed).toEqual(WEBPERF_SKILLS.slice(1));
+      expect(installSkill).toHaveBeenCalledTimes(WEBPERF_SKILLS.length - 1);
     });
 
     it("reports skipped skills when install fails", async () => {
