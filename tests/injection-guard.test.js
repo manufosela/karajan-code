@@ -206,5 +206,19 @@ describe("injection-guard", () => {
       expect(r.clean).toBe(false);
       expect(r.findings[0].type).toBe("unicode");
     });
+
+    it("does not cross-concatenate added lines across files", () => {
+      // Two files each with /* comment start ... */ that fit alone but
+      // would cross-concatenate into an oversized block if naively joined
+      const smallA = "/* " + "a".repeat(500) + " */";
+      const smallB = "/* " + "b".repeat(500) + " */";
+      const diff = [
+        `diff --git a/file1.js b/file1.js`,
+        `+${smallA}`,
+        `diff --git a/file2.js b/file2.js`,
+        `+${smallB}`
+      ].join("\n");
+      expect(scanDiff(diff).clean).toBe(true);
+    });
   });
 });

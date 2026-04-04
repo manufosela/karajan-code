@@ -148,14 +148,29 @@ export function scanForInjection(text, opts = {}) {
 export function scanDiff(diff, opts = {}) {
   if (!diff) return { clean: true, findings: [], summary: "Empty diff" };
 
-  // Extract only added lines (skip diff headers like +++ b/file)
-  const addedLines = diff
-    .split("\n")
-    .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
-    .map((l) => l.slice(1))
-    .join("\n");
+  // Split diff into per-file chunks to avoid false positives from
+  // concatenated added-lines across unrelated files.
+  const files = diff.split(/^diff --git /m).filter(Boolean);
 
-  return scanForInjection(addedLines, opts);
+  const allFindings = [];
+  for (const fileChunk of files) {
+    const addedLines = fileChunk
+      .split("\n")
+      .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+      .map((l) => l.slice(1))
+      .join("\n");
+
+    if (!addedLines) continue;
+    const result = scanForInjection(addedLines, opts);
+    if (!result.clean) allFindings.push(...result.findings);
+  }
+
+  const clean = allFindings.length === 0;
+  return {
+    clean,
+    findings: allFindings,
+    summary: clean ? "No injection patterns detected" : `${allFindings.length} injection pattern(s) detected across diff`
+  };
 }
 
 // --- Helpers ---
