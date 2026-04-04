@@ -68,6 +68,24 @@ export async function autoInit(projectDir, logger) {
   } catch (err) {
     logger.warn(`  Failed to copy role templates: ${err.message}`);
   }
+
+  // Ensure .gitignore exists with essential entries
+  const gitignorePath = path.join(projectDir, ".gitignore");
+  const essentialIgnores = ["node_modules/", "dist/", "build/", "coverage/", ".env", "*.log", ".DS_Store"];
+  try {
+    let content = "";
+    if (await exists(gitignorePath)) {
+      content = await fs.readFile(gitignorePath, "utf8");
+    }
+    const missing = essentialIgnores.filter(entry => !content.includes(entry));
+    if (missing.length > 0) {
+      const append = (content && !content.endsWith("\n") ? "\n" : "") + missing.join("\n") + "\n";
+      await fs.appendFile(gitignorePath, append, "utf8");
+      logger.info(`  Updated .gitignore with: ${missing.join(", ")}`);
+    }
+  } catch (err) {
+    logger.warn(`  Failed to update .gitignore: ${err.message}`);
+  }
 }
 
 /**

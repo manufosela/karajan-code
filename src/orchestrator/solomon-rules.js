@@ -25,11 +25,15 @@ export function evaluateRules(context, rulesConfig = {}) {
     });
   }
 
-  // Rule 3: New dependencies not in task
+  // Rule 3: New dependencies not in task (only flag suspicious runtime deps, not dev/test tooling)
   if (rules.no_new_dependencies_without_task && context.newDependencies?.length > 0) {
-    const depsNotInTask = context.newDependencies.filter(
-      dep => !context.task?.toLowerCase().includes(dep.toLowerCase())
-    );
+    const testTooling = /vitest|jest|mocha|coverage|eslint|prettier|typescript|@types\//i;
+    const buildTooling = /webpack|vite|rollup|esbuild|tsup|unbuild/i;
+    const depsNotInTask = context.newDependencies.filter(dep => {
+      if (testTooling.test(dep) || buildTooling.test(dep)) return false;
+      if (dep.startsWith("dev:") || dep.startsWith("@vitest/") || dep.startsWith("@types/")) return false;
+      return !context.task?.toLowerCase().includes(dep.toLowerCase());
+    });
     if (depsNotInTask.length > 0) {
       alerts.push({
         rule: "no_new_dependencies_without_task",
@@ -154,21 +158,21 @@ export async function buildRulesContext({ session, task, iteration, blockingIssu
   } catch { /* git not available */ }
 
   // Count stale iterations from session checkpoints
+  // "Stale" means TRULY no progress: same exact feedback AND zero files changed
   const checkpoints = session.checkpoints || [];
-  const recentCoderCheckpoints = checkpoints
-    .filter(cp => cp.stage === "coder" || cp.stage === "reviewer")
-    .slice(-6); // Last 3 iterations (coder+reviewer each)
+  const reviewerCps = checkpoints.filter(cp => cp.stage === "reviewer").slice(-3);
+  const coderCps = checkpoints.filter(cp => cp.stage === "coder").slice(-3);
 
-  // Simple heuristic: if last N reviewer checkpoints all have the same note/feedback, it's stale
-  if (recentCoderCheckpoints.length >= 4) {
-    const lastFeedbacks = checkpoints
-      .filter(cp => cp.stage === "reviewer")
-      .slice(-3)
-      .map(cp => cp.note || "");
-    const uniqueFeedbacks = new Set(lastFeedbacks);
-    if (uniqueFeedbacks.size === 1 && lastFeedbacks.length >= 2) {
-      context.staleIterations = lastFeedbacks.length;
+  if (reviewerCps.length >= 3) {
+    const feedbacks = reviewerCps.map(cp => cp.note || "");
+    const uniqueFeedbacks = new Set(feedbacks);
+    const filesChanged = coderCps.some(cp => (cp.filesChanged || 0) > 0);
+
+    // Only stale if feedback is identical AND no files changed
+    if (uniqueFeedbacks.size === 1 && !filesChanged) {
+      context.staleIterations = reviewerCps.length;
     }
+    // If issues are changing between iterations, there IS progress
   }
 
   return context;
