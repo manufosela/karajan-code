@@ -13,6 +13,7 @@ import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
+import { hasRulesync, syncRules } from "../utils/rulesync.js";
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -404,6 +405,11 @@ export async function initCommand({ logger, flags = {} }) {
 
   await setupSonarQube(config, logger);
   await scaffoldBecariaGateway(config, flags, logger);
+
+  // Sync AI agent rules if rulesync is present
+  if (await hasRulesync()) {
+    await syncRules(logger);
+  }
 
   // Telemetry: anonymous install event (non-blocking)
   const { sendTelemetryEvent } = await import("../utils/telemetry.js");

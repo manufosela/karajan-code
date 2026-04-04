@@ -58,6 +58,8 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
+    "jose": "^5.10.0",
+    "rulesync": "^7.27.0",
     "vitest": "^4.0.0"
   }
 }

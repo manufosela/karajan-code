@@ -1,5 +1,7 @@
 import { loadConfig, writeConfig, getConfigPath, getProjectConfigPath, loadProjectConfig, resolveRole } from "../config.js";
 import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
+import { hasRulesync, syncRules } from "../utils/rulesync.js";
+import { createLogger } from "../utils/logger.js";
 
 const ASSIGNABLE_ROLES = [
   "coder", "reviewer", "planner", "refactorer", "triage",
@@ -73,6 +75,13 @@ export async function agentsCommand({ config, subcommand, role, provider, global
     }
     const result = await setAgent(role, provider, { global: isGlobal ?? true });
     console.log(`Set ${result.role} -> ${result.provider} (scope: ${result.scope})`);
+
+    // Sync AI agent rules if rulesync is present
+    if (await hasRulesync()) {
+      const logger = createLogger(config.output.log_level);
+      await syncRules(logger);
+    }
+
     return result;
   }
 

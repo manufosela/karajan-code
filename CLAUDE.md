@@ -1,42 +1,57 @@
-# KJ Default Workflow (Claude Code)
+# Karajan Code
+
+Local multi-agent coding orchestrator. TDD-first, MCP-based, vanilla JavaScript.
+
+## Core Mandates
+
+- **Orchestrator First**: Always prefer using the `kj_run` tool via MCP for implementing changes.
+- **TDD Compliance**: Ensure tests are written or updated alongside implementation.
+- **Architectural Integrity**: Maintain the vanilla JS and MCP-centric architecture.
+- **Subprocess Safety**: Remember that agents run as subprocesses without stdin.
+
+## Code Style
+
+- **Vanilla JavaScript**: Use modern ES modules (ESM). No TypeScript, no build step for the core.
+- **Documentation**: Use JSDoc for complex functions. Keep `README.md` and `AGENTS.md` updated.
+- **Consistency**: Follow the existing pattern of delegating to specialized roles (coder, reviewer, triage, etc.).
+
+## Contribution Rules
+
+- All changes must be verified with `npm test`.
+- New features should include unit tests in the `tests/` directory.
+- Follow the Clean Architecture principles established in the project.
+
+# KJ Default Workflow
 
 ## Objective
-Use Karajan Code (KJ) as the default orchestrator for implementing tasks and fixing bugs in this project.
+Use Karajan Code (KJ) as the default orchestrator for implementing tasks, refactoring code, and fixing bugs in this project. KJ provides a repeatable pipeline with TDD, SonarQube integration, and multi-agent review.
 
-## Default rule
-When asked to implement, fix, or refactor code, use `kj_run` via MCP instead of editing manually:
-1. If a Planning Game MCP is available and a task ID is provided, fetch the task context first.
-2. Run `kj_run` with the task description and defaults below.
-3. If neither KJ MCP nor PG MCP are available, implement directly.
+## Default Rule
+When asked to implement, fix, or refactor code, use `kj_run` via MCP instead of editing files manually:
 
-## Default execution parameters
-For `kj_run`, use:
+1. **Task Context**: If a Planning Game (PG) MCP is available and a task ID is provided, fetch the task context first using the appropriate tool.
+2. **Orchestration**: Execute `kj_run` with the task description and the default parameters listed below.
+3. **Manual Fallback**: Only implement changes directly if KJ MCP is unavailable, if the task is strictly outside KJ's scope (e.g., pure documentation without code), or if KJ explicitly fails and manual intervention is requested.
+
+## Default Execution Parameters
+For `kj_run`, use these defaults unless the user specifies otherwise:
 - `mode: "standard"`
 - `methodology: "tdd"`
-- `coder: "claude"`
-- `reviewer: "codex"`
-- `reviewerFallback: "claude"`
 - `maxIterations: 5`
 - `maxIterationMinutes: 5`
 
-## When to change behavior
-- Maximum rigor requested: use `mode: "paranoid"`.
-- User explicitly requests no TDD: use `methodology: "standard"`.
-- If `kj_run` fails, diagnose with `kj_doctor` / `kj_config` and retry.
-- Edit manually only if the user asks or KJ cannot complete the task.
+## Agent Selection Strategy
+KJ supports multiple providers. By default, use the agent that matches your current identity for the `coder` role:
+- If you are **Claude Code**: `coder: "claude"`, `reviewer: "gemini"`.
+- If you are **Gemini CLI**: `coder: "gemini"`, `reviewer: "claude"`.
+- If you are **Codex**: `coder: "codex"`, `reviewer: "claude"`.
 
-## Troubleshooting and subprocess architecture
+## When to Change Behavior
+- **Maximum Rigor**: If the user asks for high quality or critical safety, use `mode: "paranoid"`.
+- **No TDD**: If the user explicitly asks to skip tests, use `methodology: "standard"`.
+- **Diagnosis**: If `kj_run` fails, use `kj_doctor` or `kj_config` to diagnose the environment before retrying.
 
-See `docs/troubleshooting.md` for common issues. Key points:
-
-- **Claude as subprocess**: Claude Code 2.x requires 3 workarounds when launching `claude -p` from Node.js: strip `CLAUDECODE` env var, `stdin: "ignore"`, read from stderr (not stdout). See `src/agents/claude-agent.js` -> `cleanExecaOpts()` / `pickOutput()`.
-- **Interactive wizards**: The coder runs without stdin. Tasks requiring `pnpm create astro`, `npm init`, etc. must use `--yes`/`--no-input` flags or report that they cannot complete.
-- **Checkpoint**: If `elicitInput` returns null, the session continues (does not stop). Only explicit "stop" or "4" stops it.
-- **Resume**: `kj_resume` accepts stopped, failed, and paused sessions.
-
-## Example
-User input: "implement the next priority task"
-Expected action:
-1. If PG MCP is available, fetch the priority task.
-2. Run `kj_run` with that task and defaults above.
-3. If no PG MCP, ask the user what to implement.
+## Subprocess and Interaction Notes
+- **Non-interactive**: KJ runs the coder as a subprocess without stdin. Tools requiring interactive input (e.g., `npm init`) must be run with silent/yes flags or reported as unfinishable.
+- **Resuming**: Use `kj_resume` to continue sessions that are stopped, failed, or paused.
+- **Monitoring**: The user can monitor real-time progress by running `kj-tail` in a separate terminal.

@@ -1,3 +1,10 @@
+---
+root: true
+targets: ["*"]
+description: "Karajan Code unified rules and workflow"
+globs: ["**/*"]
+---
+
 # Karajan Code
 
 Local multi-agent coding orchestrator. TDD-first, MCP-based, vanilla JavaScript.
