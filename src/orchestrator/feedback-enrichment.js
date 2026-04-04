@@ -96,7 +96,10 @@ export function generateActionPlan(entry) {
  */
 export function enrichEntry(entry) {
   const description = entry.description || "";
-  const category = entry.category || detectCategory(description);
+  // Re-detect category when missing or set to default "other"
+  const category = (!entry.category || entry.category === "other")
+    ? detectCategory(description)
+    : entry.category;
   const severity = detectSeverity(description, entry.severity);
   const fileHints = entry.file ? [entry.file] : extractFileHints(description);
 
