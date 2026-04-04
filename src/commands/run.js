@@ -3,7 +3,8 @@ import readline from "node:readline";
 import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
-import { printHeader, printEvent } from "../utils/display.js";
+import { printHeader } from "../utils/display/header.js";
+import { printEvent } from "../utils/display/event-handlers.js";
 import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
 

@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import readline from "node:readline";
 import { resumeFlow } from "../orchestrator.js";
 import { createActivityLog } from "../activity-log.js";
-import { printEvent } from "../utils/display.js";
+import { printEvent } from "../utils/display/event-handlers.js";
 
 function createCliAskQuestion() {
   return async (question, context) => {

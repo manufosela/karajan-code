@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { formatElapsed, printHeader, printEvent } from "../src/utils/display.js";
+import { formatElapsed } from "../src/utils/display/formatters.js";
+import { printHeader } from "../src/utils/display/header.js";
+import { printEvent } from "../src/utils/display/event-handlers.js";
 
 describe("utils/display", () => {
   describe("formatElapsed", () => {

@@ -21,8 +21,11 @@ vi.mock("../src/activity-log.js", () => ({
   }))
 }));
 
-vi.mock("../src/utils/display.js", () => ({
-  printHeader: vi.fn(),
+vi.mock("../src/utils/display/header.js", () => ({
+  printHeader: vi.fn()
+}));
+
+vi.mock("../src/utils/display/event-handlers.js", () => ({
   printEvent: vi.fn()
 }));
 
@@ -56,9 +59,11 @@ describe("commands/run", () => {
     const avail = await import("../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
 
-    const display = await import("../src/utils/display.js");
-    printHeader = display.printHeader;
-    printEvent = display.printEvent;
+    const header = await import("../src/utils/display/header.js");
+    printHeader = header.printHeader;
+
+    const eventHandlers = await import("../src/utils/display/event-handlers.js");
+    printEvent = eventHandlers.printEvent;
 
     runFlow.mockResolvedValue({ approved: true, sessionId: "s1" });
   });
