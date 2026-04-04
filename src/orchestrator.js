@@ -232,7 +232,7 @@ async function handleSolomonCheck({ config, session, emitter, eventBase, logger,
       await tryCiComment({
         config, session, logger,
         agent: "Solomon",
-        body: `Supervisor check iteración ${i}: ${alertMsg}`
+        body: `Supervisor check iteration ${i}: ${alertMsg}`
       });
     }
   } catch (err) {

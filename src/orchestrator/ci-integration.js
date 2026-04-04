@@ -39,7 +39,7 @@ async function ciIncrementalPush({ config, session, gitCtx, task, logger, repo, 
   const feedback = session.last_reviewer_feedback || "N/A";
   await dispatchComment({
     repo, prNumber: session.ci_pr_number, agent: "Coder",
-    body: `Issues corregidos:\n${feedback}\n\nCommits:\n${formatCommitList(pushResult.commits)}`,
+    body: `Issues fixed:\n${feedback}\n\nCommits:\n${formatCommitList(pushResult.commits)}`,
     ciConfig: config.ci
   });
 }
@@ -63,7 +63,7 @@ async function ciCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, ta
   if (!repo) return;
   await dispatchComment({
     repo, prNumber: earlyPr.prNumber, agent: "Coder",
-    body: `Iteración ${i} completada.\n\nCommits:\n${formatCommitList(earlyPr.commits)}`,
+    body: `Iteration ${i} completed.\n\nCommits:\n${formatCommitList(earlyPr.commits)}`,
     ciConfig: config.ci
   });
 }
@@ -101,7 +101,7 @@ function buildReviewCommentBody(review, i) {
   const status = review.approved ? "APPROVED" : "REQUEST_CHANGES";
   const blocking = formatBlockingIssues(review.blocking_issues);
   const suggestions = formatSuggestions(review.non_blocking_suggestions);
-  let body = `Review iteración ${i}: ${status}`;
+  let body = `Review iteration ${i}: ${status}`;
   if (blocking) body += `\n\n**Blocking:**\n${blocking}`;
   if (suggestions) body += `\n\n**Suggestions:**\n${suggestions}`;
   return body;
