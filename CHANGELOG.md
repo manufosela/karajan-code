@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-04
+
+Major release. See [MIGRATION-v2.md](./MIGRATION-v2.md) for upgrade guide.
+
+### Breaking Changes
+
+- **Proxy subsystem removed** — the HTTP proxy did not work with SSE streaming (Claude) or WebSockets (Codex). Use RTK (auto-detected) for token savings. Removed: `src/proxy/`, `config.proxy.*` keys, `--proxy` / `--no-proxy` / `--proxy-port` flags, `enableProxy` MCP arg.
+- **`becaria` → `ci` rename** — the CI/CD integration renamed from "BecarIA" to "ci" (BecarIA is a Planning Game developer ID, not a Karajan concept). Breaking: `config.becaria` → `config.ci`, `--enable-becaria` → `--enable-ci`, `session.becaria_pr_number` → `session.ci_pr_number`, default events `becaria-review`/`becaria-comment` → `kj-review`/`kj-comment`, GitHub secrets `BECARIA_APP_ID`/`BECARIA_APP_PRIVATE_KEY` → `KJ_CI_APP_ID`/`KJ_CI_PRIVATE_KEY`, workflow `becaria-gateway.yml` → `kj-ci-gateway.yml`.
+- **Tester and Security are blocking gates** — previously advisory (auto-continued if reviewer approved). Now their failures send feedback back to coder for fixing, like reviewer rejections.
+- **Solomon no longer overrides security issues** — deterministic guard: when reviewer reports security-category issues, they always go back to coder. Solomon is bypassed for security.
+- **Scope guard `max_files_per_iteration` removed** — the 10-file limit was wrong for greenfield projects. Coder prompt now enforces atomic commits instead.
+- **Dead config keys removed** — `retry.*`, multiple dead `proxy.*` sub-keys eliminated from DEFAULTS.
+
+### Added — Karajan Brain Architecture (Epic KJC-PCS-0034)
+
+New AI-powered orchestration layer (opt-in via `brain.enabled: true`). Separates concerns between Karajan Brain (CEO/orchestrator) and Solomon (advisor/judge).
+
+- **Karajan Brain Role** (`src/roles/karajan-brain-role.js`) — central orchestrator that decides routing, enriches prompts, suggests direct actions
+- **Brain Skills** (`templates/roles/karajan-brain.md`) — 7 skills: route-decision, prompt-enrichment, output-verification, direct-action, rtk-compression, stack-detection, dependency-management
+- **Solomon refined as AI Judge** — consulted only on genuine dilemmas (security-vs-deadline, conflicting gates, stalled loops, risk evaluation)
+- **Structured feedback queue** (`src/orchestrator/feedback-queue.js`) — typed message queue replaces flat `last_reviewer_feedback` string
+- **Feedback enrichment** (`src/orchestrator/feedback-enrichment.js`) — transforms vague feedback into actionable file paths + numbered action plans
+- **Verification gate** (`src/orchestrator/verification-gate.js`) — detects 0-change coder iterations, tracks stuck loops
+- **Direct actions** (`src/orchestrator/direct-actions.js`) — allow-listed commands (npm install, create_file, update_gitignore, git_add) with path traversal guards
+- **Role output compressor** (`src/orchestrator/role-output-compressor.js`) — per-role strategies for 40-70% token savings between roles
+- **Brain coordinator** (`src/orchestrator/brain-coordinator.js`) — ties all modules together
+
+### Added — Reliability Improvements
+
+- **Smart init** — `kj run` auto-detects installed AI CLIs and assigns them to roles by capability (claude=5, codex=4, gemini=3). Diversifies reviewer from coder, Solomon from Brain.
+- **Auto-init** — creates git repo, `.gitignore`, `.karajan/` scaffolding automatically when missing
+- **Stack-aware .gitignore** — after planner detects language, adds stack-specific entries (node_modules/, __pycache__/, target/, etc.)
+- **Diff scoping to projectDir** — prevents reviewer from seeing unrelated branch changes when running from a subdirectory
+- **Session journal** — persists pipeline state to `.reviews/session_*/` with stage outputs, iterations log, decisions, tree, summary
+- **Chrome DevTools MCP auto-detection** from `~/.claude.json`
+- **AgentRole base class** — eliminates boilerplate across 13 LLM-backed roles
+
+### Removed
+
+- Proxy subsystem (see Breaking Changes)
+- 15 dead exports across src/
+- 9 deterministic compressor files (consolidated into 2 registries)
+
+### Fixed
+
+- Tester now executes real test commands with coverage (vitest/jest/pytest/etc.) instead of LLM-guessing
+- RTK display explains 0% savings (previously looked broken)
+- Logger uses local time instead of UTC
+- Scope guard respects projectDir (files inside projectDir always in scope)
+- `categorizeIssues` precision: "auth route test" no longer classified as security
+
+### Internal
+
+- AgentRole base class extracts common LLM-role boilerplate (~1200 LOC reduction)
+- Orchestrator extracted into config-init, becaria-integration, flow-control modules
+- Deterministic compressors consolidated (11 files → 4)
+- Session journal integrated into pipeline
+
 ## [1.58.2] - 2026-04-01
 
 ### Fixed
