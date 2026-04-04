@@ -50,7 +50,8 @@ describe("buildCoderPrompt", () => {
       reviewerFeedback: "Missing input validation on POST /users"
     });
 
-    expect(result).toContain("Reviewer blocking feedback:\nMissing input validation on POST /users");
+    expect(result).toContain("Missing input validation on POST /users");
+    expect(result).toContain("YOU MUST FIX THESE");
   });
 
   it("includes all optional sections together", async () => {
@@ -66,7 +67,8 @@ describe("buildCoderPrompt", () => {
     expect(result).toContain("Coder rules (MUST follow):\nFollow SOLID");
     expect(result).toContain("Default development policy: TDD");
     expect(result).toContain("Sonar summary:\n2 critical issues");
-    expect(result).toContain("Reviewer blocking feedback:\nTests missing for edge case");
+    expect(result).toContain("Tests missing for edge case");
+    expect(result).toContain("YOU MUST FIX THESE");
   });
 
   it("sections are separated by double newlines", async () => {

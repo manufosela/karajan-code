@@ -89,7 +89,17 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
   }
 
   if (reviewerFeedback) {
-    sections.push(`Reviewer blocking feedback:\n${reviewerFeedback}`);
+    sections.push(
+      `## Reviewer blocking feedback — YOU MUST FIX THESE BEFORE PROCEEDING`,
+      reviewerFeedback,
+      "",
+      "For each issue above:",
+      "1. Find the relevant file(s) in the project",
+      "2. Make the specific code change needed to resolve the issue",
+      "3. If tests are missing, write them",
+      "4. If dependencies are needed, install them (npm install)",
+      "5. Do NOT skip any issue — all must be resolved"
+    );
   }
 
   if (deferredContext) {
