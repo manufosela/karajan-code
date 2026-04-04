@@ -5,7 +5,8 @@ export default defineConfig({
     exclude: [
       "node_modules/**",
       "packages/**",
-      ".claude/**"
+      ".claude/**",
+      "demo/**"
     ],
     testTimeout: 30000
   }
