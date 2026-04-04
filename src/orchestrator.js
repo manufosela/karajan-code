@@ -927,6 +927,17 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   const initProjectDir = config.projectDir || process.cwd();
   await autoInit(initProjectDir, logger);
 
+  // Smart role assignment: detect installed AIs and assign to roles
+  // Only runs if: (a) no roles configured AND (b) not in test environment
+  const needsAssignment = !config.roles?.coder?.provider && !config.coder && process.env.NODE_ENV !== "test" && !process.env.VITEST;
+  if (needsAssignment) {
+    try {
+      const { autoAssignRoles, applyRoleAssignments } = await import("./utils/role-assigner.js");
+      const { assignments } = await autoAssignRoles(logger);
+      if (assignments) config = applyRoleAssignments({ ...config }, assignments);
+    } catch { /* non-blocking — defaults will be used */ }
+  }
+
   // Scope all git diffs to projectDir (prevents leaking unrelated branch changes)
   // When running from a subdirectory of a git repo, use relative path as scope
   let diffScope = config.projectDir || null;
