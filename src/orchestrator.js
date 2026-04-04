@@ -923,7 +923,20 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   await autoInit(initProjectDir, logger);
 
   // Scope all git diffs to projectDir (prevents leaking unrelated branch changes)
-  setDiffProjectDir(config.projectDir || null);
+  // When running from a subdirectory of a git repo, use relative path as scope
+  let diffScope = config.projectDir || null;
+  if (!diffScope) {
+    try {
+      const { execSync } = await import("node:child_process");
+      const repoRoot = execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+      const cwd = process.cwd();
+      if (cwd !== repoRoot && cwd.startsWith(repoRoot)) {
+        diffScope = cwd.slice(repoRoot.length + 1);
+        logger.info(`Running from subdirectory — diff scoped to ${diffScope}/`);
+      }
+    } catch { /* git not available */ }
+  }
+  setDiffProjectDir(diffScope);
 
   // Auto-detect Chrome DevTools MCP
   const { detectDevToolsMcp } = await import("./webperf/devtools-detect.js");
