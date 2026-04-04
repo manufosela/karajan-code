@@ -44,7 +44,8 @@ import {
   loadProductContext as _loadProductContext,
   resolvePipelineFlags, handleDryRun, createBudgetManager,
   initializeSession, applyTriageOverrides, applyAutoSimplify,
-  applyFlagOverrides, resolvePipelinePolicies, autoInit
+  applyFlagOverrides, resolvePipelinePolicies, autoInit,
+  updateGitignoreForStack
 } from "./orchestrator/config-init.js";
 import {
   tryCiComment, handleCiEarlyPrOrPush, handleCiReviewDispatch,
@@ -626,6 +627,10 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
 
   // --- Researcher → Planner ---
   const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion });
+
+  // --- Update .gitignore with stack-specific entries based on planner/architect output ---
+  const projectDir = updatedConfig.projectDir || process.cwd();
+  await updateGitignoreForStack(projectDir, { stageResults, task, logger });
 
   // --- Auto-install skills based on task + planner output + project detection ---
   // Runs AFTER triage and planner so that the planned task text (which includes

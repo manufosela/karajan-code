@@ -35,22 +35,22 @@ export async function autoInit(projectDir, logger) {
     }
   }
 
-  // Ensure .gitignore exists with essential entries (BEFORE any npm install)
+  // Ensure .gitignore exists with universal entries only (stack-specific added after planner)
   const gitignorePath = path.join(projectDir, ".gitignore");
-  const essentialIgnores = ["node_modules/", "dist/", "build/", "coverage/", ".env", "*.log", ".DS_Store"];
+  const universalIgnores = [".env", "*.log", ".DS_Store", ".karajan/", ".reviews/"];
   try {
     let content = "";
     if (await exists(gitignorePath)) {
       content = await fs.readFile(gitignorePath, "utf8");
     }
-    const missing = essentialIgnores.filter(entry => !content.includes(entry));
+    const missing = universalIgnores.filter(entry => !content.includes(entry));
     if (missing.length > 0) {
       const append = (content && !content.endsWith("\n") ? "\n" : "") + missing.join("\n") + "\n";
       await fs.appendFile(gitignorePath, append, "utf8");
-      logger.info(`Updated .gitignore with: ${missing.join(", ")}`);
+      logger.info(`Created .gitignore with universal entries`);
     }
   } catch (err) {
-    logger.warn(`Failed to update .gitignore: ${err.message}`);
+    logger.warn(`Failed to create .gitignore: ${err.message}`);
   }
 
   const karajanDir = path.join(projectDir, ".karajan");
@@ -99,7 +99,90 @@ export async function autoInit(projectDir, logger) {
   } catch (err) {
     logger.warn(`  Failed to copy role templates: ${err.message}`);
   }
+}
 
+// Stack-specific .gitignore patterns keyed by language/framework
+const STACK_GITIGNORE = {
+  javascript: ["node_modules/", "dist/", "build/", "coverage/", ".cache/", "*.tsbuildinfo"],
+  typescript: ["node_modules/", "dist/", "build/", "coverage/", ".cache/", "*.tsbuildinfo"],
+  python: ["__pycache__/", "*.pyc", ".venv/", "venv/", "*.egg-info/", ".pytest_cache/", "htmlcov/", ".mypy_cache/"],
+  java: ["target/", "*.class", "*.jar", "*.war", ".gradle/", "build/", ".settings/", ".classpath", ".project"],
+  kotlin: ["target/", "*.class", "build/", ".gradle/", ".kotlin/"],
+  go: ["bin/", "*.exe", "vendor/"],
+  rust: ["target/", "Cargo.lock"],
+  ruby: ["vendor/bundle/", ".bundle/", "coverage/", "tmp/"],
+  php: ["vendor/", ".phpunit.result.cache", "storage/logs/"],
+  csharp: ["bin/", "obj/", "*.suo", "*.user", "packages/", ".vs/"],
+  swift: [".build/", "Packages/", "*.xcodeproj/", "DerivedData/"],
+  dart: [".dart_tool/", "build/", ".packages"],
+};
+
+/**
+ * Update .gitignore with stack-specific entries after planner/architect decides the stack.
+ * Detects stack from: triage taskType, architect output, planner output, or task keywords.
+ */
+export async function updateGitignoreForStack(projectDir, { stageResults, task, logger }) {
+  const gitignorePath = path.join(projectDir, ".gitignore");
+  const detected = new Set();
+
+  // From architect — if it chose layers/patterns, it may hint at the language
+  const arch = stageResults?.architect?.architecture;
+  if (arch) {
+    const archText = JSON.stringify(arch).toLowerCase();
+    for (const lang of Object.keys(STACK_GITIGNORE)) {
+      if (archText.includes(lang)) detected.add(lang);
+    }
+  }
+
+  // From planner — scan plan text for language keywords
+  const planText = (stageResults?.planner?.plan || "").toLowerCase();
+  // From task description
+  const taskText = (task || "").toLowerCase();
+  const combined = `${planText} ${taskText}`;
+
+  const langKeywords = {
+    javascript: ["node", "npm", "express", "react", "vue", "next", "vite", "vitest", "jest", "pnpm", "yarn", "javascript", "js"],
+    typescript: ["typescript", "tsx", "tsc"],
+    python: ["python", "django", "flask", "fastapi", "pip", "pytest", "poetry"],
+    java: ["java", "spring", "maven", "gradle", "junit"],
+    kotlin: ["kotlin", "ktor"],
+    go: ["golang", "go mod", "gin", "fiber"],
+    rust: ["rust", "cargo", "tokio"],
+    ruby: ["ruby", "rails", "gem", "bundler", "rspec"],
+    php: ["php", "laravel", "composer", "symfony"],
+    csharp: ["c#", "csharp", "dotnet", ".net", "aspnet"],
+    swift: ["swift", "swiftui", "vapor"],
+    dart: ["dart", "flutter"],
+  };
+
+  for (const [lang, keywords] of Object.entries(langKeywords)) {
+    if (keywords.some(kw => combined.includes(kw))) detected.add(lang);
+  }
+
+  if (detected.size === 0) return;
+
+  // Collect all entries for detected stacks
+  const entries = [];
+  for (const lang of detected) {
+    entries.push(...(STACK_GITIGNORE[lang] || []));
+  }
+  const unique = [...new Set(entries)];
+
+  try {
+    let content = "";
+    if (await exists(gitignorePath)) {
+      content = await fs.readFile(gitignorePath, "utf8");
+    }
+    const missing = unique.filter(entry => !content.includes(entry));
+    if (missing.length > 0) {
+      const header = `\n# ${[...detected].join(" + ")} project\n`;
+      const append = header + missing.join("\n") + "\n";
+      await fs.appendFile(gitignorePath, append, "utf8");
+      logger.info(`Updated .gitignore for ${[...detected].join(" + ")}: ${missing.join(", ")}`);
+    }
+  } catch (err) {
+    logger.warn(`Failed to update .gitignore for stack: ${err.message}`);
+  }
 }
 
 /**
