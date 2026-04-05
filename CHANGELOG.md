@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-05
+
+### Added
+
+- **Auto-HU Decomposition** (KJC-PCS-0035): when a task is complex and triage recommends decomposition, Karajan now automatically generates a certified HU batch and runs each HU as an independent sub-pipeline with its own atomic git branch/PR. No more 50-file blob tasks.
+  - **HU auto-generator** (`src/hu/auto-generator.js`): converts triage subtasks into an HU batch with automatic setup HU when the project is new or has stack hints. Classifies each HU into a `task_type` (infra/sw/add-tests/doc/refactor/nocode) so downstream policy gates apply correctly per HU.
+  - **Wiring**: after triage + researcher + architect + planner, if triage recommended decomposition and no manual `--hu-file` was passed, the batch is persisted to `.karajan/hu/auto-<sid>/batch.json` and injected as `stageResults.huReviewer`. The existing `needsSubPipeline` / `runHuSubPipeline` infrastructure picks it up.
+  - **Per-HU max_iterations**: each HU gets a focused iteration budget (default 3, configurable via `config.hu_max_iterations`) and a fresh Brain state (feedback queue, verification tracker, extension count reset to 0) so issues from one HU never bleed into the next.
+  - **Per-HU git automation** (`src/git/hu-automation.js`): each HU gets its own branch (`feat/HU-<id>-<slug>`) chained from its parent HU's branch (or `base_branch` for root HUs). On approval: commits atomically with `feat(HU-<id>): <title>`, optionally pushes and opens a PR (gated by existing `git.auto_commit`/`auto_push`/`auto_pr` flags).
+
+### Fixed
+
+- `emitAgentOutput` helper unified across all stages (coder, reviewer, refactorer, architect, planner, researcher, triage).
+
 ## [2.0.2] - 2026-04-05
 
 ### Added
