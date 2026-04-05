@@ -688,6 +688,7 @@ function handleRoute() {
   });
 
   document.getElementById('project-select').value = selectedProject;
+  document.getElementById('delete-project-btn').hidden = !selectedProject;
   render();
 }
 
@@ -702,7 +703,26 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
 document.getElementById('project-select').addEventListener('change', (e) => {
   selectedProject = e.target.value;
   window.location.hash = selectedProject ? `${currentView}/${selectedProject}` : currentView;
+  document.getElementById('delete-project-btn').hidden = !selectedProject;
   render();
+});
+
+// Delete project (cascade)
+document.getElementById('delete-project-btn').addEventListener('click', async () => {
+  if (!selectedProject) return;
+  const projectName = document.querySelector(`#project-select option[value="${selectedProject}"]`)?.textContent || selectedProject;
+  if (!confirm(`Delete project "${projectName}" and all its stories + sessions?\n\nThis also removes ~/.karajan/hu-stories/${selectedProject}/ from disk.`)) return;
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(selectedProject)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    selectedProject = '';
+    window.location.hash = currentView;
+    document.getElementById('delete-project-btn').hidden = true;
+    await populateProjectSelect();
+    render();
+  } catch (err) {
+    alert(`Failed to delete project: ${err.message}`);
+  }
 });
 
 // Modal close on backdrop click

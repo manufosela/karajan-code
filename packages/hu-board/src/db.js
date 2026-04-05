@@ -355,6 +355,40 @@ export function insertContextRequest(req) {
 }
 
 /**
+ * Delete a project and all its stories + sessions (cascade).
+ * Returns true if the project existed.
+ */
+export function deleteProject(projectId) {
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+  if (!existing) return false;
+  db.transaction(() => {
+    db.prepare('DELETE FROM stories WHERE project_id = ?').run(projectId);
+    db.prepare('DELETE FROM sessions WHERE project_id = ?').run(projectId);
+    db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+  })();
+  return true;
+}
+
+/**
+ * Delete a single story.
+ */
+export function deleteStory(storyId) {
+  const db = getDb();
+  const res = db.prepare('DELETE FROM stories WHERE id = ?').run(storyId);
+  return res.changes > 0;
+}
+
+/**
+ * Delete a single session.
+ */
+export function deleteSession(sessionId) {
+  const db = getDb();
+  const res = db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  return res.changes > 0;
+}
+
+/**
  * Closes the database connection.
  */
 export function closeDb() {

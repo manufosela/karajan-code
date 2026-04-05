@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   getDashboardStats,
   getProjects,
@@ -6,9 +8,33 @@ import {
   getStoryDetail,
   getSessionsByProject,
   getSessionDetail,
+  deleteProject,
+  deleteStory,
+  deleteSession,
+  getKjHome,
 } from '../db.js';
 
 const router = Router();
+
+/**
+ * Resolve the hu-stories dir where batch.json files live.
+ */
+function huStoriesDir() {
+  return path.join(getKjHome(), 'hu-stories');
+}
+
+/**
+ * Best-effort removal of the hu-stories/<id>/ directory.
+ */
+function removeBatchDir(batchId) {
+  try {
+    const dir = path.join(huStoriesDir(), batchId);
+    fs.rmSync(dir, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * GET /api/dashboard - Global dashboard statistics.
@@ -126,6 +152,50 @@ router.get('/sessions', (_req, res) => {
     });
     unique.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     res.json(unique);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/projects/:id - Cascade delete project + its stories + sessions.
+ * Also removes the hu-stories/<id>/ directory from disk so the next sync
+ * does not re-import it.
+ */
+router.delete('/projects/:id', (req, res) => {
+  try {
+    const existed = deleteProject(req.params.id);
+    if (!existed) return res.status(404).json({ error: 'Project not found' });
+    const dirRemoved = removeBatchDir(req.params.id);
+    res.json({ deleted: true, dirRemoved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/stories/:id - Delete a single story from DB.
+ * The underlying batch.json is not mutated (story survives on disk and will
+ * be re-imported on next sync). This endpoint is a DB-only soft hide.
+ */
+router.delete('/stories/:id', (req, res) => {
+  try {
+    const ok = deleteStory(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Story not found' });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/sessions/:id - Delete a single session from DB.
+ */
+router.delete('/sessions/:id', (req, res) => {
+  try {
+    const ok = deleteSession(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Session not found' });
+    res.json({ deleted: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
