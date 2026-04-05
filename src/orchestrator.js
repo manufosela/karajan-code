@@ -71,14 +71,20 @@ export const parseCheckpointAnswer = _parseCheckpointAnswer;
 
 // PG card "In Progress" logic moved to src/planning-game/pipeline-adapter.js → initPgAdapter()
 
-async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion }) {
+async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx }) {
   let researchContext = null;
   let plannedTask = task;
+
+  // Brain: track compression across pre-loop roles
+  const brainCompress = brainCtx?.enabled
+    ? (await import("./orchestrator/brain-coordinator.js")).processRoleOutput
+    : null;
 
   if (pipelineFlags.researcherEnabled) {
     const researcherResult = await runResearcherStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
     researchContext = researcherResult.researchContext;
     stageResults.researcher = researcherResult.stageResult;
+    if (brainCompress) brainCompress(brainCtx, { roleName: "researcher", output: researcherResult.stageResult, iteration: 0 });
   }
 
   // --- Architect (between researcher and planner) ---
@@ -93,6 +99,7 @@ async function runPlanningPhases({ config, logger, emitter, eventBase, session, 
     });
     architectContext = architectResult.architectContext;
     stageResults.architect = architectResult.stageResult;
+    if (brainCompress) brainCompress(brainCtx, { roleName: "architect", output: architectResult.stageResult, iteration: 0 });
   }
 
   const triageDecomposition = stageResults.triage?.shouldDecompose ? stageResults.triage.subtasks : null;
@@ -101,6 +108,7 @@ async function runPlanningPhases({ config, logger, emitter, eventBase, session, 
     const plannerResult = await runPlannerStage({ config, logger, emitter, eventBase, session, plannerRole, researchContext, architectContext, triageDecomposition, trackBudget });
     plannedTask = plannerResult.plannedTask;
     stageResults.planner = plannerResult.stageResult;
+    if (brainCompress) brainCompress(brainCtx, { roleName: "planner", output: plannerResult.stageResult, iteration: 0 });
 
     await tryCiComment({
       config, session, logger,
@@ -313,7 +321,7 @@ async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i
 }
 
 
-async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled, testerEnabled, securityEnabled, askQuestion, logger }) {
+async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled, testerEnabled, securityEnabled, askQuestion, logger, brainCtx }) {
   const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
 
   if (testerEnabled) {
@@ -327,6 +335,11 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
       session.last_reviewer_feedback = `Tester FAILED — fix these issues:\n${summary}`;
       await saveSession(session);
       if (testerResult.stageResult) stageResults.tester = testerResult.stageResult;
+      // Brain: push tester failure into feedback queue + compress for next coder iteration
+      if (brainCtx?.enabled) {
+        const { processRoleOutput } = await import("./orchestrator/brain-coordinator.js");
+        processRoleOutput(brainCtx, { roleName: "tester", output: testerResult.stageResult, iteration: i });
+      }
       return { action: "continue" };
     }
     if (testerResult.stageResult) {
@@ -346,6 +359,11 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
       session.last_reviewer_feedback = `Security FAILED — fix these issues:\n${summary}`;
       await saveSession(session);
       if (securityResult.stageResult) stageResults.security = securityResult.stageResult;
+      // Brain: push security findings into feedback queue + compress for next coder iteration
+      if (brainCtx?.enabled) {
+        const { processRoleOutput } = await import("./orchestrator/brain-coordinator.js");
+        processRoleOutput(brainCtx, { roleName: "security", output: securityResult.stageResult, iteration: i });
+      }
       return { action: "continue" };
     }
     if (securityResult.stageResult) {
@@ -494,7 +512,7 @@ async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBa
 }
 
 
-async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults }) {
+async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults, brainCtx }) {
   // --- HU Reviewer (first stage, before everything else, opt-in) ---
   const huFile = flags.huFile || null;
   if (flags.enableHuReviewer !== undefined) pipelineFlags.huReviewerEnabled = Boolean(flags.enableHuReviewer);
@@ -663,7 +681,7 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   }
 
   // --- Researcher → Planner ---
-  const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion });
+  const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx });
 
   // --- Update .gitignore with stack-specific entries based on planner/architect output ---
   const projectDir = updatedConfig.projectDir || process.cwd();
@@ -870,11 +888,11 @@ async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logge
   return { action: "ok", review: reviewerResult.review };
 }
 
-async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review, rtkTracker }) {
+async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review, rtkTracker, brainCtx }) {
   session.reviewer_retry_count = 0;
   const postLoopResult = await handlePostLoopStages({
     config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults,
-    ciEnabled: Boolean(config.ci?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger
+    ciEnabled: Boolean(config.ci?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger, brainCtx
   });
   if (postLoopResult.action === "return") return { action: "return", result: postLoopResult.result };
   if (postLoopResult.action === "continue") return { action: "continue" };
@@ -1074,7 +1092,7 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.stageResults = {};
   ctx.sonarState = { issuesInitial: null, issuesFinal: null };
 
-  const preLoopResult = await runPreLoopStages({ config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session, flags, pipelineFlags: ctx.pipelineFlags, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults: ctx.stageResults });
+  const preLoopResult = await runPreLoopStages({ config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session, flags, pipelineFlags: ctx.pipelineFlags, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults: ctx.stageResults, brainCtx: ctx.brainCtx });
   ctx.plannedTask = preLoopResult.plannedTask;
   ctx.config = preLoopResult.updatedConfig;
 
@@ -1199,7 +1217,7 @@ async function runSingleIteration(ctx) {
       config, session, emitter, eventBase, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, i, task,
       stageResults: ctx.stageResults, pipelineFlags: ctx.pipelineFlags, askQuestion: ctx.askQuestion, logger,
       gitCtx: ctx.gitCtx, budgetSummary: ctx.budgetSummary, pgCard: ctx.pgCard, pgProject: ctx.pgProject, review,
-      rtkTracker: ctx.rtkTracker
+      rtkTracker: ctx.rtkTracker, brainCtx: ctx.brainCtx
     });
     if (approvedResult.action === "return" || approvedResult.action === "continue") return approvedResult;
   }
