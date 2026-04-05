@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-04-05
+
+### Fixed
+
+- **Auto-HU batch persistence path**: auto-generator wrote `batch.json` to `~/.karajan/hu/<sid>/` but the HU store reads from `~/.karajan/hu-stories/<sid>/`. Caused ENOENT crash when `runHuSubPipeline` tried to load the auto-generated batch. Fixed by using the correct `hu-stories/` directory.
+
 ## [2.1.0] - 2026-04-05
 
 ### Added
