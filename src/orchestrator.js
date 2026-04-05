@@ -209,12 +209,12 @@ async function handleStandbyResult({ stageResult, session, emitter, eventBase, i
 
 function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
   for (const alert of alerts) {
-    emitProgress(emitter, makeEvent("solomon:alert", { ...eventBase, stage: "solomon" }, {
+    emitProgress(emitter, makeEvent("brain:rules-alert", { ...eventBase, stage: "brain" }, {
       status: alert.severity === "critical" ? "fail" : "warn",
       message: alert.message,
       detail: alert.detail
     }));
-    logger.warn(`Solomon alert [${alert.rule}]: ${alert.message}`);
+    logger.warn(`Rules alert [${alert.rule}]: ${alert.message}`);
   }
 }
 

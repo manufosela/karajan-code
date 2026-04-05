@@ -593,8 +593,8 @@ const EVENT_HANDLERS = {
     console.log(`  \u251c\u2500 ${ANSI.green}\ud83d\ude80 CI PR created: ${url}${ANSI.reset}`);
   },
 
-  "solomon:alert": (event) => {
-    console.log(`  \u251c\u2500 ${ANSI.yellow}\u2696\ufe0f Solomon alert: ${event.message || "conflict detected"}${ANSI.reset}`);
+  "brain:rules-alert": (event) => {
+    console.log(`  \u251c\u2500 ${ANSI.yellow}\u26a0\ufe0f  Rules alert: ${event.message || "anomaly detected"}${ANSI.reset}`);
   },
 
   "agent:output": (event) => {
