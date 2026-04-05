@@ -84,7 +84,8 @@ const BAR = `${ANSI.dim}\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u
 
 export function printHeader({ task, config }) {
   const version = DISPLAY_VERSION;
-  printBanner(version);
+  // Force banner: caller already gates on !jsonMode, so if we're here it's a human-readable run
+  printBanner(version, { force: true });
   console.log(`${ANSI.bold}Task:${ANSI.reset} ${task}`);
   console.log(
     `${ANSI.bold}Coder:${ANSI.reset} ${config.roles?.coder?.provider || config.coder} ${ANSI.dim}|${ANSI.reset} ${ANSI.bold}Reviewer:${ANSI.reset} ${config.roles?.reviewer?.provider || config.reviewer}`
