@@ -34,11 +34,11 @@ const DEFAULTS = {
     discover: { enabled: false },
     architect: { enabled: false },
     hu_reviewer: { enabled: false },
-    brain: { enabled: false },
+    brain: { enabled: true },
     auto_simplify: true
   },
   brain: {
-    enabled: false,
+    enabled: true,
     provider: "claude",
     bypass_solomon_on_correctness: true,
     max_consecutive_verification_failures: 2
