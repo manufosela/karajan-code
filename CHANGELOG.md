@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-04-05
+
+### Added
+
+- **Brain compression + feedback queue across all stages** (not just reviewer). Researcher, architect, planner outputs are compressed; tester and security failures enter the typed feedback queue with enrichment for the next coder iteration.
+- **Brain owns max_iterations decision.** Brain inspects its feedback queue state at max_iterations: security entries → pause for human, correctness/tests → extend iterations, empty queue → finalize, style-only → consult Solomon as advisor. Solomon is never invoked directly from max_iterations anymore.
+- **Agent action lines in quiet mode.** `kj run` now interprets Claude's stream-json tool_use blocks into concise action lines (`Read packages/server/index.js`, `Bash $ npm install express`, etc.), so users can see what the coder is doing without enabling verbose mode.
+- **Heartbeat visible in quiet mode.** `agent:heartbeat` events (every 30s) are no longer suppressed, so `kj run` shows a status line (`⏳ claude working — 45s elapsed`) instead of looking hung during long agent calls.
+- **ASCII banner printed on `kj run`** regardless of TTY detection (was silently skipped in many environments).
+
+### Fixed
+
+- **`kj run` no longer looks hung.** Combined with heartbeat + action lines, long-running agents show clear progress.
+
+### Changed
+
+- **`solomon:alert` event renamed to `brain:rules-alert`** (display: "⚠️ Rules alert" instead of "⚖️ Solomon alert"). The rules engine emits telemetry; it is not an invocation of Solomon.
+- All stage `onOutput` handlers now go through the unified `emitAgentOutput` helper, routing `kind=tool` to `agent:action` (visible in quiet mode) and everything else to `agent:output` (verbose only).
+
 ## [2.0.1] - 2026-04-05
 
 ### Fixed
