@@ -45,6 +45,7 @@ const DEFAULTS = {
   },
   review_mode: "standard",
   max_iterations: 5,
+  hu_max_iterations: 3,
   max_budget_usd: null,
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",

@@ -1532,9 +1532,30 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         detail: { total: ctx.stageResults.huReviewer.total, certified: ctx.stageResults.huReviewer.certified }
       }));
 
+      // Per-HU pipeline: each HU gets a focused max_iterations (default 3) and a fresh
+      // Brain state (extensionCount, feedbackQueue, verification) so issues from one HU
+      // don't bleed into the next one.
+      const originalMaxIterations = ctx.config.max_iterations;
+      const huMaxIterations = ctx.config.hu_max_iterations ?? 3;
       const subPipelineResult = await runHuSubPipeline({
         huReviewerResult: ctx.stageResults.huReviewer,
-        runIterationFn: async (huTask) => runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger }),
+        runIterationFn: async (huTask) => {
+          // Save + override global max for this HU
+          ctx.config.max_iterations = huMaxIterations;
+          // Reset Brain state per HU
+          if (ctx.brainCtx?.enabled) {
+            ctx.brainCtx.extensionCount = 0;
+            const { createBrainContext } = await import("./orchestrator/brain-coordinator.js");
+            const fresh = createBrainContext({ enabled: true });
+            ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
+            ctx.brainCtx.verificationTracker = fresh.verificationTracker;
+          }
+          try {
+            return await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
+          } finally {
+            ctx.config.max_iterations = originalMaxIterations;
+          }
+        },
         emitter,
         eventBase: ctx.eventBase,
         logger,
