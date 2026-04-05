@@ -220,17 +220,44 @@ async function handleSolomonCheck({ config, session, emitter, eventBase, logger,
 
     if (rulesResult.alerts.length > 0) {
       emitSolomonAlerts(rulesResult.alerts, emitter, eventBase, logger);
-      // Brain gateway: when Brain is the orchestrator, rule alerts are telemetry only.
-      // Brain decides when to stop (via verification-gate consecutiveFailures) and
-      // Brain owns human escalation. Solomon-rules must NOT prompt the user directly.
+      // Brain gateway: when Brain is the orchestrator, rule alerts are telemetry.
+      // On critical alerts Brain consults Solomon (AI judge). Only if Solomon can't
+      // resolve does Brain escalate to human. Solomon-rules never prompts directly.
       if (!brainCtx?.enabled) {
         const pauseResult = await checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i });
         if (pauseResult) return pauseResult;
       } else if (rulesResult.hasCritical) {
-        // Surface alerts to Brain's context for future decision-making
+        const criticalAlerts = rulesResult.alerts.filter(a => a.severity === "critical");
         brainCtx.ruleAlerts = brainCtx.ruleAlerts || [];
-        brainCtx.ruleAlerts.push(...rulesResult.alerts.filter(a => a.severity === "critical"));
-        logger.info(`Brain: ${rulesResult.alerts.filter(a => a.severity === "critical").length} critical rule alert(s) recorded — Brain manages escalation, not solomon-rules`);
+        brainCtx.ruleAlerts.push(...criticalAlerts);
+        logger.info(`Brain: ${criticalAlerts.length} critical rule alert(s) — consulting Solomon`);
+
+        const { invokeSolomon } = await import("./orchestrator/solomon-escalation.js");
+        const alertSummary = criticalAlerts.map(a => a.message).join("; ");
+        const solomonOpinion = await invokeSolomon({
+          config, logger, emitter, eventBase, stage: "brain-dilemma", askQuestion, session, iteration: i,
+          conflict: {
+            stage: "brain-dilemma",
+            task,
+            iterationCount: i,
+            maxIterations: config.max_iterations,
+            dilemma: `Brain detected critical rule alerts: ${alertSummary}. Should we continue iterating, pause for human, or stop?`,
+            ruleAlerts: criticalAlerts,
+            blockingIssues: blockingIssues || [],
+            history: (session.checkpoints || []).filter(cp => cp.stage === "reviewer").slice(-5).map(cp => ({ iteration: cp.iteration, feedback: cp.note || "" }))
+          }
+        });
+
+        if (solomonOpinion.action === "pause") {
+          logger.info("Brain: Solomon advised pause — escalating to human");
+          return { action: "return", result: { paused: true, sessionId: session.id, question: solomonOpinion.question || `Brain+Solomon paused: ${alertSummary}`, context: "brain_solomon_dilemma" } };
+        }
+        if (solomonOpinion.action === "approve") {
+          logger.info("Brain: Solomon advised proceeding — treating as approved");
+          return { action: "continue", approved: true };
+        }
+        // action === "continue" | "subtask" | fallback → Brain continues the loop
+        logger.info(`Brain: Solomon said '${solomonOpinion.action}' — continuing loop`);
       }
     }
 
