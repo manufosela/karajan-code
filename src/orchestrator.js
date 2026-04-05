@@ -921,8 +921,14 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
     }
 
     if (hasCorrectness) {
-      // Brain: correctness/test issues pending → extend iterations (Brain's decision, not a rule)
-      logger.info(`Brain: max_iterations reached with ${entries.filter(e => ["correctness", "tests"].includes(e.category)).length} correctness issue(s) pending — extending iterations`);
+      // Brain: correctness/test issues pending. Cap at MAX_EXTENSIONS to avoid infinite extensions.
+      const MAX_EXTENSIONS = 2;
+      if (brainCtx.extensionCount >= MAX_EXTENSIONS) {
+        logger.warn(`Brain: ${brainCtx.extensionCount} extensions exhausted with correctness issues still pending — escalating to human`);
+        return { paused: true, sessionId: session.id, question: `Brain exhausted ${MAX_EXTENSIONS} extensions with correctness/tests still pending. Manual intervention needed.`, context: "brain_extension_cap", pending };
+      }
+      brainCtx.extensionCount += 1;
+      logger.info(`Brain: max_iterations reached with ${entries.filter(e => ["correctness", "tests"].includes(e.category)).length} correctness issue(s) pending — extending iterations (extension ${brainCtx.extensionCount}/${MAX_EXTENSIONS})`);
       session.reviewer_retry_count = 0;
       await saveSession(session);
       return { approved: false, sessionId: session.id, reason: "max_iterations_extended", extraIterations: Math.ceil(config.max_iterations / 2) };
