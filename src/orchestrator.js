@@ -901,8 +901,72 @@ async function handleApprovedReview({ config, session, emitter, eventBase, coder
   return { action: "return", result };
 }
 
-async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task, rtkTracker }) {
+async function handleMaxIterationsReached({ session, budgetSummary, emitter, eventBase, config, stageResults, logger, askQuestion, task, rtkTracker, brainCtx }) {
   const budget = budgetSummary();
+
+  // Brain-owned decision: max_iterations is guidance, not a hard rule.
+  // Brain evaluates the feedback queue state to decide extend / finalize / escalate.
+  // Solomon is only consulted if Brain cannot decide on its own.
+  if (brainCtx?.enabled) {
+    const entries = brainCtx.feedbackQueue?.entries || [];
+    const pending = entries.map(e => ({ source: e.source, category: e.category, severity: e.severity, description: e.description }));
+    const hasSecurity = entries.some(e => e.category === "security" || e.source === "security");
+    const hasCorrectness = entries.some(e => ["correctness", "tests"].includes(e.category));
+    const hasStyleOnly = entries.length > 0 && !hasSecurity && !hasCorrectness;
+
+    if (hasSecurity) {
+      // Brain: security issues unresolved → cannot finalize, escalate
+      logger.warn(`Brain: max_iterations reached with ${entries.filter(e => e.category === "security" || e.source === "security").length} unresolved security issue(s) — cannot finalize`);
+      return { paused: true, sessionId: session.id, question: "Brain: unresolved security issues at max_iterations. Review manually or extend pipeline.", context: "brain_security_block", pending };
+    }
+
+    if (hasCorrectness) {
+      // Brain: correctness/test issues pending → extend iterations (Brain's decision, not a rule)
+      logger.info(`Brain: max_iterations reached with ${entries.filter(e => ["correctness", "tests"].includes(e.category)).length} correctness issue(s) pending — extending iterations`);
+      session.reviewer_retry_count = 0;
+      await saveSession(session);
+      return { approved: false, sessionId: session.id, reason: "max_iterations_extended", extraIterations: Math.ceil(config.max_iterations / 2) };
+    }
+
+    if (entries.length === 0) {
+      // Brain: no pending feedback → last reviewer approved, finalize
+      logger.info("Brain: max_iterations reached with clean feedback queue — finalizing as approved");
+      return { approved: true, sessionId: session.id, reason: "brain_approved" };
+    }
+
+    // hasStyleOnly: genuine dilemma → Brain consults Solomon
+    logger.info(`Brain: max_iterations with ${entries.length} style-only issue(s) — consulting Solomon on dilemma`);
+    const { invokeSolomon: invokeSolomonAI } = await import("./orchestrator/solomon-escalation.js");
+    const solomonResult = await invokeSolomonAI({
+      config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
+      iteration: config.max_iterations,
+      conflict: {
+        stage: "brain-max-iterations",
+        task,
+        iterationCount: config.max_iterations,
+        maxIterations: config.max_iterations,
+        budget_usd: budget?.total_cost_usd || 0,
+        dilemma: `Max iterations reached with ${entries.length} style-only issue(s) pending. Accept as-is or request more work?`,
+        pendingIssues: pending,
+        history: [{ agent: "pipeline", feedback: session.last_reviewer_feedback || "Max iterations reached" }]
+      }
+    });
+    // Brain applies Solomon's decision
+    if (solomonResult.action === "approve") {
+      logger.info("Brain: Solomon advised approve for style-only pending — finalizing");
+      return { approved: true, sessionId: session.id, reason: "brain_solomon_approved" };
+    }
+    if (solomonResult.action === "continue") {
+      return { approved: false, sessionId: session.id, reason: "max_iterations_extended", extraIterations: solomonResult.extraIterations || Math.ceil(config.max_iterations / 2) };
+    }
+    if (solomonResult.action === "pause") {
+      return { paused: true, sessionId: session.id, question: solomonResult.question, context: "brain_solomon_dilemma" };
+    }
+    // Fallback: escalate to human
+    return { paused: true, sessionId: session.id, question: `Brain+Solomon cannot resolve: ${entries.length} pending issue(s) at max_iterations`, context: "max_iterations" };
+  }
+
+  // Legacy path (Brain disabled): original Solomon-driven flow
   const solomonResult = await invokeSolomon({
     config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
     iteration: config.max_iterations,
@@ -916,13 +980,11 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
     }
   });
 
-  // Solomon approved the work — treat as successful completion
   if (solomonResult.action === "approve") {
     logger.info("Solomon approved coder's work at max_iterations checkpoint");
     return { approved: true, sessionId: session.id, reason: "solomon_approved" };
   }
 
-  // Solomon says continue — extend iterations
   if (solomonResult.action === "continue") {
     if (solomonResult.humanGuidance) {
       session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
@@ -1338,7 +1400,7 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
   }
 
   // Solomon decides whether to extend iterations or stop
-  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker });
+  const maxIterResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker, brainCtx: ctx.brainCtx });
 
   // Solomon said "continue" — extend iterations and keep going
   if (maxIterResult.reason === "max_iterations_extended") {
@@ -1376,7 +1438,7 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
     }
 
     // Extended iterations also exhausted — final Solomon call
-    const finalResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker });
+    const finalResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker, brainCtx: ctx.brainCtx });
     return finalResult;
   }
 
