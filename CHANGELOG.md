@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-06
+
+### Added
+
+- **HU Board UX overhaul** (KJC-PCS-0037):
+  - **Human-readable `project_name`** — auto-generated HU batches derive a readable name from the task prompt (strips action verbs + stopwords, title-cases first 6 meaningful words). The Board selector now shows "Real-time Collaborative Task Board" instead of cryptic `auto-s_2026-04-05T...` IDs. `project_id` remains unique per run (includes timestamp) so repeated runs of the same prompt are distinguishable.
+  - **DELETE endpoints + UI button** — `DELETE /api/projects/:id` (cascade: project + stories + sessions + removes `~/.karajan/hu-stories/<id>/` from disk), `DELETE /api/stories/:id`, `DELETE /api/sessions/:id`. Frontend shows a 🗑️ button next to the project selector when a specific project is chosen, with confirmation dialog.
+  - **Port fallback** — when port 4000 is busy, `startBoard()` now tests availability via transient TCP bind and falls back to 4001, 4002... up to 4009. No more silent crashes on port collision.
+  - **Auto-start on auto-HU** — when auto-generator produces a batch, the board starts automatically independent of `hu_board.auto_start`.
+  - **Highlighted URL banner** — after auto-start, a cyan boxed banner with URL + project name is printed so users cannot miss it.
+
+### Fixed
+
+- `.kj/` worktrees excluded from vitest runs (stale worktree tests were polluting results).
+
 ## [2.1.1] - 2026-04-05
 
 ### Fixed
