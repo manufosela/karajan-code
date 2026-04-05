@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-05
+
+### Fixed
+
+- **Brain actually wired to pipeline**. v2.0.0 shipped Brain modules but nothing imported them — the pipeline still ran v1 Solomon-as-boss logic. This release wires Brain into the actual execution path.
+  - `brainCtx` created at session init, threaded through coder and reviewer stages
+  - Coder stage uses enriched feedback prompts from Brain's typed queue
+  - Coder stage calls `verifyCoderRan` after each run; stalls after N consecutive 0-change iterations
+  - Reviewer stage: on correctness/tests/security rejections, Brain bypasses Solomon and pushes issues to feedback queue (Solomon only consulted on style-only dilemmas)
+- **Brain owns human escalation** — `solomon-rules` no longer prompts user directly. When Brain is enabled, rule alerts route through Brain → Solomon AI judge → human (only if neither resolves).
+- **Brain actively consults Solomon** on critical dilemmas (stale iterations, new deps) and applies Solomon's decision (approve/continue/pause).
+- **Stale detection data** — reviewer checkpoints now record a feedback signature, coder checkpoints record `filesChanged`. Previously both were empty/zero, making solomon-rules falsely detect "stale" after 3 iterations with different bugs.
+- **HU Board auto-start crash on nvm/macOS** (reported by Jorge del Casar). `spawn("node", ...)` failed with ENOENT because detached subprocess didn't inherit node's PATH. Fixed by using `process.execPath`. Added error handler to prevent unhandled `error` event from crashing parent process.
+
+### Changed
+
+- **Brain enabled by default** (`brain.enabled: true`). v2 is Brain architecture; users who explicitly don't want Brain can set `brain.enabled: false`, but the canonical v2 experience is Brain-on.
+
 ## [2.0.0] - 2026-04-04
 
 Major release. See [MIGRATION-v2.md](./MIGRATION-v2.md) for upgrade guide.
