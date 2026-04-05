@@ -34,14 +34,21 @@ export async function startBoard(port = 4000) {
   const karajanHome = getKarajanHome();
   fs.mkdirSync(karajanHome, { recursive: true });
 
-  const child = spawn("node", [serverPath], {
+  // Use process.execPath (absolute path to current node binary) instead of "node".
+  // Fixes ENOENT on nvm setups where `node` is not in the spawned process's PATH.
+  const child = spawn(process.execPath, [serverPath], {
     env: { ...process.env, PORT: String(port) },
     detached: true,
     stdio: "ignore",
     cwd: BOARD_DIR
   });
+  // Swallow spawn errors so an HU Board failure never crashes the pipeline.
+  child.on("error", () => { /* non-blocking — caller logs via tryAutoStartBoard catch */ });
   child.unref();
 
+  if (!child.pid) {
+    throw new Error("Failed to spawn HU Board server");
+  }
   fs.writeFileSync(PID_FILE, String(child.pid));
   return { ok: true, alreadyRunning: false, pid: child.pid, url: `http://localhost:${port}` };
 }
