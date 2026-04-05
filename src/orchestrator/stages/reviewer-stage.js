@@ -352,13 +352,19 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     });
   }
 
+  // Feedback signature for stale detection: concatenated issue descriptions
+  const feedbackSignature = review.blocking_issues
+    .map(x => (x.description || "").slice(0, 120))
+    .join("|") || "approved";
+
   await addCheckpoint(session, {
     stage: "reviewer",
     iteration,
     approved: review.approved,
     blocking_issues: review.blocking_issues.length,
     provider: reviewerRole.provider,
-    model: reviewerRole.model || null
+    model: reviewerRole.model || null,
+    note: feedbackSignature
   });
 
   emitProgress(

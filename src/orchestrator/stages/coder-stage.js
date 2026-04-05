@@ -134,12 +134,23 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
     throw new Error(`Coder failed: ${details}`);
   }
 
-  await addCheckpoint(session, { stage: "coder", iteration, note: "Coder applied changes", provider: coderRole.provider, model: coderRole.model || null });
+  // Measure files changed so stale detection (solomon-rules) has accurate data
+  let filesChanged = 0;
+  try {
+    const { verifyCoderOutput } = await import("../verification-gate.js");
+    const verif = verifyCoderOutput({
+      baseRef: session.session_start_sha,
+      projectDir: config.projectDir || process.cwd()
+    });
+    filesChanged = verif.filesChanged || 0;
+  } catch { /* ignore verification errors */ }
+
+  await addCheckpoint(session, { stage: "coder", iteration, note: "Coder applied changes", provider: coderRole.provider, model: coderRole.model || null, filesChanged });
   emitProgress(
     emitter,
     makeEvent("coder:end", { ...eventBase, stage: "coder" }, {
       message: "Coder completed",
-      detail: { provider: coderRole.provider, executorType: "agent" }
+      detail: { provider: coderRole.provider, executorType: "agent", filesChanged }
     })
   );
 
