@@ -172,23 +172,26 @@ async function renderDashboard() {
       ${projects.length === 0 ? renderEmptyState() : `
         <div class="projects-grid">
           ${projects.map((p) => `
-            <div class="project-card" onclick="selectProject('${esc(p.id)}')">
-              <div class="project-card__name">${esc(p.name || p.id)}</div>
-              <div class="project-card__stats">
-                <div class="project-card__stat">
-                  <div class="project-card__stat-value">${p.story_count || 0}</div>
-                  <div class="project-card__stat-label">Stories</div>
+            <div class="project-card">
+              <button class="project-card__delete" title="Delete project (cascade)" data-project-id="${esc(p.id)}" data-project-name="${esc(p.name || p.id)}">🗑️</button>
+              <div class="project-card__body" onclick="selectProject('${esc(p.id)}')">
+                <div class="project-card__name">${esc(p.name || p.id)}</div>
+                <div class="project-card__stats">
+                  <div class="project-card__stat">
+                    <div class="project-card__stat-value">${p.story_count || 0}</div>
+                    <div class="project-card__stat-label">Stories</div>
+                  </div>
+                  <div class="project-card__stat">
+                    <div class="project-card__stat-value">${p.certified_count || 0}</div>
+                    <div class="project-card__stat-label">Certified</div>
+                  </div>
+                  <div class="project-card__stat">
+                    <div class="project-card__stat-value">${p.session_count || 0}</div>
+                    <div class="project-card__stat-label">Sessions</div>
+                  </div>
                 </div>
-                <div class="project-card__stat">
-                  <div class="project-card__stat-value">${p.certified_count || 0}</div>
-                  <div class="project-card__stat-label">Certified</div>
-                </div>
-                <div class="project-card__stat">
-                  <div class="project-card__stat-value">${p.session_count || 0}</div>
-                  <div class="project-card__stat-label">Sessions</div>
-                </div>
+                <div class="project-card__activity">Last activity: ${timeAgo(p.last_activity)}</div>
               </div>
-              <div class="project-card__activity">Last activity: ${timeAgo(p.last_activity)}</div>
             </div>
           `).join('')}
         </div>
@@ -688,7 +691,6 @@ function handleRoute() {
   });
 
   document.getElementById('project-select').value = selectedProject;
-  document.getElementById('delete-project-btn').hidden = !selectedProject;
   render();
 }
 
@@ -703,21 +705,21 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
 document.getElementById('project-select').addEventListener('change', (e) => {
   selectedProject = e.target.value;
   window.location.hash = selectedProject ? `${currentView}/${selectedProject}` : currentView;
-  document.getElementById('delete-project-btn').hidden = !selectedProject;
   render();
 });
 
-// Delete project (cascade)
-document.getElementById('delete-project-btn').addEventListener('click', async () => {
-  if (!selectedProject) return;
-  const projectName = document.querySelector(`#project-select option[value="${selectedProject}"]`)?.textContent || selectedProject;
-  if (!confirm(`Delete project "${projectName}" and all its stories + sessions?\n\nThis also removes ~/.karajan/hu-stories/${selectedProject}/ from disk.`)) return;
+// Delete project (cascade) — delegated handler on the dashboard grid
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.project-card__delete');
+  if (!btn) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const projectId = btn.dataset.projectId;
+  const projectName = btn.dataset.projectName || projectId;
+  if (!confirm(`Delete project "${projectName}" and all its stories + sessions?\n\nAlso removes ~/.karajan/hu-stories/${projectId}/ from disk.`)) return;
   try {
-    const res = await fetch(`/api/projects/${encodeURIComponent(selectedProject)}`, { method: 'DELETE' });
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    selectedProject = '';
-    window.location.hash = currentView;
-    document.getElementById('delete-project-btn').hidden = true;
     await populateProjectSelect();
     render();
   } catch (err) {

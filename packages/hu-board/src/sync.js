@@ -11,6 +11,49 @@ import {
 } from './db.js';
 
 /**
+ * Derive a human-readable project name from batch data.
+ * Priority: explicit data.project_name → extracted from story text → sessionId.
+ */
+function deriveProjectName(data, fallbackId) {
+  if (data.project_name) return data.project_name;
+  // Try to find "Part of: <originalTask>" in any story's certified text
+  const stories = data.stories || [];
+  for (const story of stories) {
+    const text = story.certified?.text || '';
+    const match = text.match(/Part of:\s*([^\n]+)/);
+    if (match) {
+      return slugToTitle(match[1].trim());
+    }
+  }
+  // Try first story's original text as a fallback
+  if (stories[0]?.original?.text) {
+    return slugToTitle(stories[0].original.text);
+  }
+  return fallbackId;
+}
+
+/**
+ * Turn a free-text goal into a short title-cased name (max 60 chars).
+ */
+function slugToTitle(text) {
+  const STOPWORDS = new Set([
+    'a', 'an', 'the', 'and', 'or', 'with', 'for', 'to', 'of', 'in', 'on',
+    'build', 'create', 'implement', 'make', 'develop', 'add', 'set', 'up',
+    'setup', 'write', 'code', 'new', 'complete', 'that', 'from', 'scratch',
+    'application', 'app', 'tool', 'system', 'project', 'using', 'use',
+  ]);
+  const words = String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w && !STOPWORDS.has(w));
+  const meaningful = words.slice(0, 6);
+  if (meaningful.length === 0) return String(text).slice(0, 60).trim();
+  const titled = meaningful.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return titled.length > 60 ? titled.slice(0, 57) + '...' : titled;
+}
+
+/**
  * Parses a batch.json HU stories file and syncs to SQLite.
  * @param {string} filePath - Absolute path to the batch.json file
  */
@@ -23,7 +66,7 @@ function syncStoryFile(filePath) {
 
     upsertProject({
       id: projectId,
-      name: data.project_name || projectId,
+      name: deriveProjectName(data, projectId),
       last_activity: data.created_at || new Date().toISOString(),
       total_stories: (data.stories || []).length,
     });

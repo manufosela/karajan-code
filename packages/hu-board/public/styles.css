@@ -618,17 +618,46 @@ a:hover {
 }
 
 .project-card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .project-card:hover {
   border-color: var(--accent-purple);
   background: var(--bg-card-hover);
+}
+
+.project-card__body {
+  padding: 20px;
+  cursor: pointer;
+}
+
+.project-card__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+  z-index: 2;
+}
+
+.project-card:hover .project-card__delete {
+  opacity: 0.6;
+}
+
+.project-card__delete:hover {
+  opacity: 1 !important;
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.4);
 }
 
 .project-card__name {
