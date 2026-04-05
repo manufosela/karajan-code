@@ -687,6 +687,11 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   const projectDir = updatedConfig.projectDir || process.cwd();
   await updateGitignoreForStack(projectDir, { stageResults, task, logger });
 
+  // --- Auto-HU: when triage recommended decomposition and no manual huFile, generate HU batch ---
+  await maybeGenerateAutoHuBatch({
+    flags, stageResults, task, plannedTask, logger, emitter, eventBase, projectDir, session
+  });
+
   // --- Auto-install skills based on task + planner output + project detection ---
   // Runs AFTER triage and planner so that the planned task text (which includes
   // planner output like implementation steps) is available for keyword detection.
@@ -714,6 +719,87 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   }
 
   return { plannedTask, updatedConfig };
+}
+
+/**
+ * Auto-generate HU batch from triage decomposition when no manual huFile is present.
+ * Runs after researcher/architect/planner so that context is available for better HUs.
+ * Sets stageResults.huReviewer so needsSubPipeline picks it up later.
+ */
+async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask, logger, emitter, eventBase, projectDir, session }) {
+  // Skip if user passed a manual hu-file
+  if (flags?.huFile) return;
+  // Skip if hu-reviewer already produced a batch (manual enable + PG stories)
+  if (stageResults.huReviewer) return;
+  // Need triage decomposition recommendation
+  const shouldDecompose = stageResults.triage?.shouldDecompose;
+  const subtasks = stageResults.triage?.subtasks;
+  if (!shouldDecompose || !Array.isArray(subtasks) || subtasks.length < 2) return;
+
+  const { generateHuBatch } = await import("./hu/auto-generator.js");
+
+  // Detect if project is new: empty dir or only .git/.karajan/.gitignore
+  let isNewProject = false;
+  try {
+    const fs = await import("node:fs/promises");
+    const entries = await fs.readdir(projectDir);
+    const relevant = entries.filter(e => !e.startsWith(".git") && e !== ".karajan" && e !== ".gitignore");
+    isNewProject = relevant.length === 0;
+  } catch { /* ignore */ }
+
+  // Extract stack hints from planner + architect output
+  const stackHints = [];
+  const combined = `${stageResults.planner?.plan || ""} ${stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : ""} ${task}`.toLowerCase();
+  const stackKeywords = ["express", "vite", "vitest", "jest", "next", "astro", "react", "vue", "svelte", "fastapi", "django", "spring", "gin", "nestjs", "monorepo", "workspaces"];
+  for (const kw of stackKeywords) {
+    if (combined.includes(kw)) stackHints.push(kw);
+  }
+
+  const batch = generateHuBatch({
+    originalTask: task,
+    subtasks,
+    stackHints,
+    isNewProject,
+    researcherContext: stageResults.researcher?.summary || null,
+    architectContext: stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : null
+  });
+
+  // Persist batch to HU store so hu-sub-pipeline can update story status via saveHuBatch.
+  // Use session.id as batchSessionId.
+  const batchSessionId = `auto-${session.id}`;
+  try {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const { getKarajanHome } = await import("./utils/paths.js");
+    const huDir = path.join(getKarajanHome(), "hu", batchSessionId);
+    await fs.mkdir(huDir, { recursive: true });
+    const persistBatch = {
+      session_id: batchSessionId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      stories: batch.stories
+    };
+    await fs.writeFile(path.join(huDir, "batch.json"), JSON.stringify(persistBatch, null, 2));
+  } catch (err) {
+    logger.warn(`Auto-HU: failed to persist batch (${err.message}) — sub-pipeline will use in-memory fallback`);
+  }
+
+  // Wrap in format compatible with needsSubPipeline + runHuSubPipeline
+  stageResults.huReviewer = {
+    ok: true,
+    stories: batch.stories,
+    total: batch.total,
+    certified: batch.certified,
+    batchSessionId,
+    auto_generated: true,
+    source: batch.source
+  };
+
+  logger.info(`Auto-HU: generated ${batch.total} stories (${batch.source.triage_subtasks} subtasks${isNewProject ? ", new project" : ""}${stackHints.length ? `, stack: ${stackHints.join(",")}` : ""})`);
+  emitProgress(emitter, makeEvent("hu:auto-generated", { ...eventBase, stage: "hu-auto-gen" }, {
+    message: `Auto-generated ${batch.total} HU(s) from triage decomposition`,
+    detail: { total: batch.total, subtasks: batch.source.triage_subtasks, isNewProject, stackHints }
+  }));
 }
 
 async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i, brainCtx }) {
