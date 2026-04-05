@@ -775,6 +775,8 @@ async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask
     await fs.mkdir(huDir, { recursive: true });
     const persistBatch = {
       session_id: batchSessionId,
+      project_id: batchSessionId,
+      project_name: batch.projectName,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       stories: batch.stories

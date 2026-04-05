@@ -1,5 +1,36 @@
 import { describe, it, expect } from "vitest";
-import { generateHuBatch, classifyTaskType, needsSetupHu } from "../src/hu/auto-generator.js";
+import { generateHuBatch, classifyTaskType, needsSetupHu, deriveProjectName } from "../src/hu/auto-generator.js";
+
+describe("deriveProjectName", () => {
+  it("strips action verbs and stopwords", () => {
+    expect(deriveProjectName("Build a REST API with auth")).toBe("Rest Api Auth");
+  });
+
+  it("title-cases meaningful words", () => {
+    expect(deriveProjectName("Create a real-time collaborative task board application"))
+      .toBe("Real-time Collaborative Task Board");
+  });
+
+  it("strips special chars", () => {
+    expect(deriveProjectName("Build @fancy/monorepo (v2)!")).toBe("Fancy Monorepo V2");
+  });
+
+  it("caps at 60 chars", () => {
+    const long = "Implement " + "word ".repeat(30) + "feature";
+    const name = deriveProjectName(long);
+    expect(name.length).toBeLessThanOrEqual(60);
+  });
+
+  it("handles empty/invalid input", () => {
+    expect(deriveProjectName("")).toBe("Untitled Project");
+    expect(deriveProjectName(null)).toBe("Untitled Project");
+    expect(deriveProjectName("   ")).toBe("Untitled Project");
+  });
+
+  it("returns original when all words are stopwords", () => {
+    expect(deriveProjectName("Build a new app")).toBe("Build a new app");
+  });
+});
 
 describe("classifyTaskType", () => {
   it("maps setup/install → infra", () => {

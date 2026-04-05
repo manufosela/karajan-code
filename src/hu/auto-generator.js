@@ -8,6 +8,34 @@
  */
 
 /**
+ * Derive a human-readable project name from a task prompt.
+ * Strips common action verbs + stopwords, takes up to 6 meaningful words,
+ * and title-cases the result. Max 60 chars.
+ */
+export function deriveProjectName(originalTask) {
+  if (!originalTask || typeof originalTask !== "string") return "Untitled Project";
+  const STOPWORDS = new Set([
+    "a", "an", "the", "and", "or", "with", "for", "to", "of", "in", "on",
+    "build", "create", "implement", "make", "develop", "add", "set", "up",
+    "setup", "write", "code", "new", "complete", "that", "from", "scratch",
+    "application", "app", "tool", "system", "project", "using", "use"
+  ]);
+  const words = originalTask
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter(w => w && !STOPWORDS.has(w));
+  const meaningful = words.slice(0, 6);
+  if (meaningful.length === 0) {
+    return originalTask.slice(0, 60).trim() || "Untitled Project";
+  }
+  const titled = meaningful
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+  return titled.length > 60 ? titled.slice(0, 57) + "..." : titled;
+}
+
+/**
  * Classify a subtask into a Karajan task_type.
  * Maps free-text subtask descriptions to {infra|sw|add-tests|doc|refactor|nocode}.
  */
@@ -157,6 +185,7 @@ export function generateHuBatch({
     stories,
     total: stories.length,
     certified: stories.length,
+    projectName: deriveProjectName(originalTask),
     generated: true,
     source: { triage_subtasks: subtasks.length, researcher: Boolean(researcherContext), architect: Boolean(architectContext) }
   };
