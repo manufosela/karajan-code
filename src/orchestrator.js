@@ -210,7 +210,7 @@ function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
   }
 }
 
-async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, ciEnabled, blockingIssues }) {
+async function handleSolomonCheck({ config, session, emitter, eventBase, logger, task, i, askQuestion, ciEnabled, blockingIssues, brainCtx }) {
   if (config.pipeline?.solomon?.enabled === false) return { action: "continue" };
 
   try {
@@ -220,8 +220,18 @@ async function handleSolomonCheck({ config, session, emitter, eventBase, logger,
 
     if (rulesResult.alerts.length > 0) {
       emitSolomonAlerts(rulesResult.alerts, emitter, eventBase, logger);
-      const pauseResult = await checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i });
-      if (pauseResult) return pauseResult;
+      // Brain gateway: when Brain is the orchestrator, rule alerts are telemetry only.
+      // Brain decides when to stop (via verification-gate consecutiveFailures) and
+      // Brain owns human escalation. Solomon-rules must NOT prompt the user directly.
+      if (!brainCtx?.enabled) {
+        const pauseResult = await checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i });
+        if (pauseResult) return pauseResult;
+      } else if (rulesResult.hasCritical) {
+        // Surface alerts to Brain's context for future decision-making
+        brainCtx.ruleAlerts = brainCtx.ruleAlerts || [];
+        brainCtx.ruleAlerts.push(...rulesResult.alerts.filter(a => a.severity === "critical"));
+        logger.info(`Brain: ${rulesResult.alerts.filter(a => a.severity === "critical").length} critical rule alert(s) recorded — Brain manages escalation, not solomon-rules`);
+      }
     }
 
     if (ciEnabled && session.ci_pr_number) {
@@ -1151,7 +1161,7 @@ async function runSingleIteration(ctx) {
 
   const solomonResult = await handleSolomonCheck({
     config, session, emitter, eventBase, logger, task, i, askQuestion: ctx.askQuestion,
-    ciEnabled, blockingIssues: review?.blocking_issues
+    ciEnabled, blockingIssues: review?.blocking_issues, brainCtx: ctx.brainCtx
   });
   if (solomonResult.action === "pause") return { action: "return", result: solomonResult.result };
 
