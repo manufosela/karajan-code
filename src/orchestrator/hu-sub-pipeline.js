@@ -120,7 +120,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
   }));
 
   try {
-    const iterResult = await runIterationFn(huTask);
+    const iterResult = await runIterationFn(huTask, story);
     const approved = Boolean(iterResult?.approved);
 
     // --- Transition to reviewing (post-coder, pre-reviewer evaluation) ---

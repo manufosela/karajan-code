@@ -1618,17 +1618,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         detail: { total: ctx.stageResults.huReviewer.total, certified: ctx.stageResults.huReviewer.certified }
       }));
 
-      // Per-HU pipeline: each HU gets a focused max_iterations (default 3) and a fresh
-      // Brain state (extensionCount, feedbackQueue, verification) so issues from one HU
-      // don't bleed into the next one.
+      // Per-HU pipeline: focused max_iterations, fresh Brain state, own git branch.
       const originalMaxIterations = ctx.config.max_iterations;
       const huMaxIterations = ctx.config.hu_max_iterations ?? 3;
+      const huBranches = new Map();
+      const { prepareHuBranch, finalizeHuCommit } = await import("./git/hu-automation.js");
       const subPipelineResult = await runHuSubPipeline({
         huReviewerResult: ctx.stageResults.huReviewer,
-        runIterationFn: async (huTask) => {
-          // Save + override global max for this HU
+        runIterationFn: async (huTask, story) => {
           ctx.config.max_iterations = huMaxIterations;
-          // Reset Brain state per HU
           if (ctx.brainCtx?.enabled) {
             ctx.brainCtx.extensionCount = 0;
             const { createBrainContext } = await import("./orchestrator/brain-coordinator.js");
@@ -1636,8 +1634,13 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
             ctx.brainCtx.verificationTracker = fresh.verificationTracker;
           }
+          const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
           try {
-            return await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
+            const result = await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
+            if (result?.approved) {
+              await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+            }
+            return result;
           } finally {
             ctx.config.max_iterations = originalMaxIterations;
           }
