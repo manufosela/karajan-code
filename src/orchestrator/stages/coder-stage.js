@@ -10,7 +10,7 @@ import { addCheckpoint, markSessionStatus, saveSession } from "../../session-sto
 import { generateDiff, getUntrackedFiles } from "../../review/diff-generator.js";
 import { evaluateTddPolicy } from "../../review/tdd-policy.js";
 import { buildDeferredContext } from "../../review/scope-filter.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
@@ -37,12 +37,7 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
     }
   }
 
-  const coderOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "coder" }, {
-      message: line,
-      detail: { stream, agent: coderRole.provider }
-    }));
-  };
+  const coderOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "coder", coderRole.provider, payload);
   const coderStall = createStallDetector({
     onOutput: coderOnOutput, emitter, eventBase, stage: "coder", provider: coderRole.provider
   });

@@ -116,18 +116,45 @@ function extractTextFromStreamJson(raw) {
  * Create a wrapping onOutput that parses stream-json lines and forwards
  * meaningful content (assistant text, tool usage) to the original callback.
  */
+function summarizeToolCall(name, input = {}) {
+  // Produce concise human-readable action line from tool_use block
+  const rel = (p) => String(p || "").replace(process.cwd() + "/", "");
+  switch (name) {
+    case "Read": return `Read ${rel(input.file_path)}`;
+    case "Write": return `Write ${rel(input.file_path)}`;
+    case "Edit": return `Edit ${rel(input.file_path)}`;
+    case "MultiEdit": return `MultiEdit ${rel(input.file_path)} (${(input.edits || []).length} edits)`;
+    case "NotebookEdit": return `NotebookEdit ${rel(input.notebook_path)}`;
+    case "Glob": return `Glob ${input.pattern || ""}`.trim();
+    case "Grep": return `Grep "${(input.pattern || "").slice(0, 60)}"${input.path ? ` in ${rel(input.path)}` : ""}`;
+    case "Bash": {
+      const cmd = String(input.command || "").replace(/\s+/g, " ").slice(0, 100);
+      return `Bash $ ${cmd}`;
+    }
+    case "TodoWrite": return `Todo ${(input.todos || []).length} items`;
+    case "WebFetch": return `WebFetch ${input.url || ""}`;
+    case "WebSearch": return `WebSearch "${(input.query || "").slice(0, 60)}"`;
+    case "Task": return `Agent: ${input.subagent_type || "?"} — ${(input.description || "").slice(0, 60)}`;
+    default: return `${name}${Object.keys(input).length > 0 ? " (…)" : ""}`;
+  }
+}
+
 function createStreamJsonFilter(onOutput) {
   if (!onOutput) return null;
   return ({ stream, line }) => {
     try {
       const obj = JSON.parse(line);
-      // Forward assistant text messages
+      // Forward assistant content
       if (obj.type === "assistant" && obj.message?.content) {
         for (const block of obj.message.content) {
           if (block.type === "text" && block.text) {
-            onOutput({ stream, line: block.text.slice(0, 200) });
+            // Only emit first line of text for brevity
+            const firstLine = block.text.split("\n")[0].trim().slice(0, 120);
+            if (firstLine) onOutput({ stream, line: firstLine, kind: "text" });
           } else if (block.type === "tool_use") {
-            onOutput({ stream, line: `[tool: ${block.name}]` });
+            onOutput({ stream, line: summarizeToolCall(block.name, block.input), kind: "tool" });
+          } else if (block.type === "thinking" && block.thinking) {
+            onOutput({ stream, line: `thinking: ${block.thinking.slice(0, 80).replace(/\s+/g, " ")}…`, kind: "thinking" });
           }
         }
         return;
@@ -135,9 +162,9 @@ function createStreamJsonFilter(onOutput) {
       // Forward result
       if (obj.type === "result") {
         const summary = typeof obj.result === "string"
-          ? obj.result.slice(0, 200)
+          ? obj.result.split("\n")[0].slice(0, 120)
           : "result received";
-        onOutput({ stream, line: `[result] ${summary}` });
+        onOutput({ stream, line: `done: ${summary}` });
         return;
       }
     } catch { /* not JSON, forward raw */ }

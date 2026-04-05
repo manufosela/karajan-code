@@ -609,6 +609,10 @@ const EVENT_HANDLERS = {
 
   "agent:output": (event) => {
     console.log(`  \u2502 ${ANSI.dim}${event.message}${ANSI.reset}`);
+  },
+
+  "agent:action": (event) => {
+    console.log(`  \u2502 ${ANSI.dim}\u2937 ${event.message}${ANSI.reset}`);
   }
 };
 
