@@ -46,6 +46,9 @@ export class PipelineContext {
     // Planned task (may differ from original task after planner)
     this.plannedTask = null;
 
+    // Karajan Brain runtime context (feedback queue, verification tracker, compression stats)
+    this.brainCtx = null;
+
     // Timing
     this.startedAt = null;
   }

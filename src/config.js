@@ -34,7 +34,14 @@ const DEFAULTS = {
     discover: { enabled: false },
     architect: { enabled: false },
     hu_reviewer: { enabled: false },
+    brain: { enabled: false },
     auto_simplify: true
+  },
+  brain: {
+    enabled: false,
+    provider: "claude",
+    bypass_solomon_on_correctness: true,
+    max_consecutive_verification_failures: 2
   },
   review_mode: "standard",
   max_iterations: 5,

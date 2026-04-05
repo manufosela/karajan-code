@@ -117,11 +117,37 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
   return { review, stalled: true, stalledResult: { approved: false, sessionId: session.id, reason: "stalled" } };
 }
 
-async function handleReviewerRejection({ review, repeatDetector, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary }) {
+async function handleReviewerRejection({ review, repeatDetector, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, brainCtx }) {
   repeatDetector.addIteration([], review.blocking_issues);
   const repeatState = repeatDetector.isStalled();
 
   const solomonEnabled = Boolean(config.pipeline?.solomon?.enabled);
+
+  // Brain: if enabled and bypass_solomon_on_correctness, push issues to queue and skip Solomon
+  // for non-style rejections. Solomon is still consulted on genuine dilemmas (style-only, deadlock).
+  if (brainCtx?.enabled && config.brain?.bypass_solomon_on_correctness !== false) {
+    const cats = categorizeIssues(review.blocking_issues);
+    const nonStyleIssues = cats.security + cats.correctness + cats.tests;
+    const styleIssues = cats.style;
+    // Only bypass if there ARE non-style issues (correctness, tests, security, or "other" is correctness)
+    // If it's style-only, let Solomon evaluate whether to override
+    if (nonStyleIssues > 0 || cats.other > 0) {
+      const { processRoleOutput } = await import("../brain-coordinator.js");
+      processRoleOutput(brainCtx, { roleName: "reviewer", output: review, iteration });
+      logger.info(`Brain: reviewer rejected with ${nonStyleIssues} non-style issue(s) — bypassing Solomon, returning to coder`);
+      emitProgress(emitter, makeEvent("brain:bypass-solomon", { ...eventBase, stage: "reviewer" }, {
+        message: `Brain: ${nonStyleIssues} non-style issue(s) — sending to coder without Solomon`,
+        detail: { categories: cats, queueSize: brainCtx.feedbackQueue.entries.length }
+      }));
+      // Persist flat feedback for compat with non-Brain flow
+      session.last_reviewer_feedback = review.blocking_issues
+        .map((x, idx) => `R-${idx + 1} [${x.severity || "medium"}]: ${x.description}`)
+        .join("\n");
+      await saveSession(session);
+      return null; // null = continue to next iteration (coder fixes)
+    }
+    logger.info("Brain: reviewer rejected with style-only issues — consulting Solomon for dilemma");
+  }
 
   // When Solomon is disabled, only act on stalls (legacy behavior)
   if (!solomonEnabled) {
@@ -159,7 +185,7 @@ export async function fetchReviewDiff(session, logger) {
   return generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });
 }
 
-export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary, askQuestion }) {
+export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary, askQuestion, brainCtx }) {
   logger.setContext({ iteration, stage: "reviewer" });
   emitProgress(
     emitter,
@@ -353,7 +379,7 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
   );
 
   if (!review.approved) {
-    const rejectionResult = await handleReviewerRejection({ review, repeatDetector, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary });
+    const rejectionResult = await handleReviewerRejection({ review, repeatDetector, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, brainCtx });
     if (rejectionResult) return rejectionResult;
   }
 
