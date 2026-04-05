@@ -7,7 +7,7 @@ import { addCheckpoint, markSessionStatus, saveSession } from "../../session-sto
 import { generateDiff } from "../../review/diff-generator.js";
 import { validateReviewResult } from "../../review/schema.js";
 import { filterReviewScope, buildDeferredContext } from "../../review/scope-filter.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { runReviewerWithFallback } from "../reviewer-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
@@ -226,12 +226,7 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     };
   }
 
-  const reviewerOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "reviewer" }, {
-      message: line,
-      detail: { stream, agent: reviewerRole.provider }
-    }));
-  };
+  const reviewerOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "reviewer", reviewerRole.provider, payload);
   const reviewerStall = createStallDetector({
     onOutput: reviewerOnOutput, emitter, eventBase, stage: "reviewer", provider: reviewerRole.provider
   });

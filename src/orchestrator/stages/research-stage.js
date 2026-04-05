@@ -5,7 +5,7 @@
 
 import { ResearcherRole } from "../../roles/researcher-role.js";
 import { addCheckpoint } from "../../session-store.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
 export async function runResearcherStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget }) {
@@ -20,12 +20,7 @@ export async function runResearcherStage({ config, logger, emitter, eventBase, s
     })
   );
 
-  const researcherOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "researcher" }, {
-      message: line,
-      detail: { stream, agent: researcherProvider }
-    }));
-  };
+  const researcherOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "researcher", researcherProvider, payload);
   const researcherStall = createStallDetector({
     onOutput: researcherOnOutput, emitter, eventBase, stage: "researcher", provider: researcherProvider
   });

@@ -182,12 +182,7 @@ export async function runRefactorerStage({ refactorerRole, config, logger, emitt
       detail: { refactorer: refactorerRole.provider, provider: refactorerRole.provider, executorType: "agent" }
     })
   );
-  const refactorerOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "refactorer" }, {
-      message: line,
-      detail: { stream, agent: refactorerRole.provider }
-    }));
-  };
+  const refactorerOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "refactorer", refactorerRole.provider, payload);
   const refactorerStall = createStallDetector({
     onOutput: refactorerOnOutput, emitter, eventBase, stage: "refactorer", provider: refactorerRole.provider
   });

@@ -6,7 +6,7 @@
 import { PlannerRole } from "../../roles/planner-role.js";
 import { createAgent } from "../../agents/index.js";
 import { addCheckpoint, markSessionStatus } from "../../session-store.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { parsePlannerOutput } from "../../prompts/planner.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
@@ -21,12 +21,7 @@ export async function runPlannerStage({ config, logger, emitter, eventBase, sess
     })
   );
 
-  const plannerOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "planner" }, {
-      message: line,
-      detail: { stream, agent: plannerRole.provider }
-    }));
-  };
+  const plannerOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "planner", plannerRole.provider, payload);
   const plannerStall = createStallDetector({
     onOutput: plannerOnOutput, emitter, eventBase, stage: "planner", provider: plannerRole.provider
   });

@@ -7,7 +7,7 @@ import { ArchitectRole } from "../../roles/architect-role.js";
 import { createAgent } from "../../agents/index.js";
 import { createArchitectADRs } from "../../planning-game/architect-adrs.js";
 import { addCheckpoint } from "../../session-store.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
 async function handleArchitectClarification({ architectOutput, askQuestion, config, logger, emitter, eventBase, session, architectOnOutput, architectProvider, coderRole, researchContext, discoverResult, triageLevel, trackBudget }) {
@@ -77,12 +77,7 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
       detail: { architect: architectProvider, provider: architectProvider, executorType: "agent" }
     })
   );
-  const architectOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "architect" }, {
-      message: line,
-      detail: { stream, agent: architectProvider }
-    }));
-  };
+  const architectOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "architect", architectProvider, payload);
   const architectStall = createStallDetector({
     onOutput: architectOnOutput, emitter, eventBase, stage: "architect", provider: architectProvider
   });

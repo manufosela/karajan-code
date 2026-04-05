@@ -5,7 +5,7 @@
 
 import { TriageRole } from "../../roles/triage-role.js";
 import { addCheckpoint } from "../../session-store.js";
-import { emitProgress, makeEvent } from "../../utils/events.js";
+import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { selectModelsForRoles } from "../../utils/model-selector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
@@ -53,12 +53,7 @@ export async function runTriageStage({ config, logger, emitter, eventBase, sessi
     })
   );
 
-  const triageOnOutput = ({ stream, line }) => {
-    emitProgress(emitter, makeEvent("agent:output", { ...eventBase, stage: "triage" }, {
-      message: line,
-      detail: { stream, agent: triageProvider }
-    }));
-  };
+  const triageOnOutput = (payload) => emitAgentOutput(emitter, eventBase, "triage", triageProvider, payload);
   const triageStall = createStallDetector({
     onOutput: triageOnOutput, emitter, eventBase, stage: "triage", provider: triageProvider
   });
