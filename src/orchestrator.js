@@ -798,8 +798,32 @@ async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask
   logger.info(`Auto-HU: generated ${batch.total} stories (${batch.source.triage_subtasks} subtasks${isNewProject ? ", new project" : ""}${stackHints.length ? `, stack: ${stackHints.join(",")}` : ""})`);
   emitProgress(emitter, makeEvent("hu:auto-generated", { ...eventBase, stage: "hu-auto-gen" }, {
     message: `Auto-generated ${batch.total} HU(s) from triage decomposition`,
-    detail: { total: batch.total, subtasks: batch.source.triage_subtasks, isNewProject, stackHints }
+    detail: { total: batch.total, subtasks: batch.source.triage_subtasks, isNewProject, stackHints, projectName: batch.projectName }
   }));
+
+  // Auto-start the board so the user can see the generated HUs.
+  // Always fires when auto-HU runs, independent of hu_board.auto_start flag.
+  try {
+    const { startBoard } = await import("./commands/board.js");
+    const desiredPort = session.config_snapshot?.hu_board?.port ?? 4000;
+    const boardResult = await startBoard(desiredPort);
+    const url = boardResult.url;
+    const status = boardResult.alreadyRunning ? "already running" : "started";
+    // Highlighted URL box — visible regardless of log level
+    const title = batch.projectName || "Auto-generated HUs";
+    const box = [
+      "",
+      "\u001b[36m\u256d\u2500 HU Board \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e",
+      `\u001b[36m\u2502\u001b[0m  \u001b[1m${status}\u001b[0m  \u001b[4m${url}\u001b[0m`,
+      `\u001b[36m\u2502\u001b[0m  Project: \u001b[1m${title}\u001b[0m`,
+      "\u001b[36m\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\u001b[0m",
+      ""
+    ].join("\n");
+    console.log(box);
+    logger.info(`HU Board ${status} at ${url} (project: ${title})`);
+  } catch (err) {
+    logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
+  }
 }
 
 async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i, brainCtx }) {

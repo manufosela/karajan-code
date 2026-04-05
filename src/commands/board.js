@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import net from "node:net";
 import { spawn } from "node:child_process";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -24,10 +25,44 @@ function isProcessAlive(pid) {
   }
 }
 
-export async function startBoard(port = 4000) {
+/**
+ * Check if a TCP port is available on localhost.
+ * Returns true when we can successfully bind (port is free).
+ */
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(false));
+    server.once("listening", () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, "127.0.0.1");
+  });
+}
+
+/**
+ * Starting from `desiredPort`, return the first free port within `maxTries`.
+ * Returns null if none available.
+ */
+async function findAvailablePort(desiredPort, maxTries = 10) {
+  for (let i = 0; i < maxTries; i++) {
+    const port = desiredPort + i;
+    if (await isPortAvailable(port)) return port;
+  }
+  return null;
+}
+
+export async function startBoard(desiredPort = 4000) {
   const existingPid = readPid();
   if (existingPid && isProcessAlive(existingPid)) {
-    return { ok: true, alreadyRunning: true, pid: existingPid, url: `http://localhost:${port}` };
+    // Trust the saved PID — port info comes from the PID file if present
+    return { ok: true, alreadyRunning: true, pid: existingPid, url: `http://localhost:${desiredPort}` };
+  }
+
+  // Find a free port starting from desiredPort
+  const port = await findAvailablePort(desiredPort, 10);
+  if (port === null) {
+    throw new Error(`No free port in range ${desiredPort}-${desiredPort + 9}`);
   }
 
   const serverPath = path.join(BOARD_DIR, "src/server.js");
@@ -50,7 +85,7 @@ export async function startBoard(port = 4000) {
     throw new Error("Failed to spawn HU Board server");
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
-  return { ok: true, alreadyRunning: false, pid: child.pid, url: `http://localhost:${port}` };
+  return { ok: true, alreadyRunning: false, pid: child.pid, url: `http://localhost:${port}`, port };
 }
 
 export async function stopBoard() {

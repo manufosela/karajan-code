@@ -6,6 +6,7 @@ export default defineConfig({
       "node_modules/**",
       "packages/**",
       ".claude/**",
+      ".kj/**",
       "demo/**"
     ],
     testTimeout: 30000
