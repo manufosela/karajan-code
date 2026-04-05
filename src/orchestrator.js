@@ -771,7 +771,7 @@ async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const { getKarajanHome } = await import("./utils/paths.js");
-    const huDir = path.join(getKarajanHome(), "hu", batchSessionId);
+    const huDir = path.join(getKarajanHome(), "hu-stories", batchSessionId);
     await fs.mkdir(huDir, { recursive: true });
     const persistBatch = {
       session_id: batchSessionId,
