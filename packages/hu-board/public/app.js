@@ -25,6 +25,16 @@ async function api(path) {
   return res.json();
 }
 
+/**
+ * Trigger a full re-scan of disk data (hu-stories + sessions).
+ * Called on page load and via the sync button.
+ */
+async function triggerSync() {
+  try {
+    await fetch('/api/sync', { method: 'POST' });
+  } catch { /* ignore — board may not support sync yet */ }
+}
+
 // ---- Utility Functions ----
 
 /**
@@ -746,13 +756,17 @@ window.showSessionDetail = showSessionDetail;
 window.closeModal = closeModal;
 window.selectProject = selectProject;
 
-// Initial load
-populateProjectSelect();
-handleRoute();
+// Initial load — sync disk data first so new batches are visible
+triggerSync().then(() => {
+  populateProjectSelect();
+  handleRoute();
+});
 
-// Auto-refresh every 10 seconds
-refreshInterval = setInterval(() => {
+// Auto-refresh every 10 seconds (with sync to catch new batches)
+refreshInterval = setInterval(async () => {
   if (document.getElementById('modal-backdrop').classList.contains('hidden')) {
+    await triggerSync();
+    await populateProjectSelect();
     render();
   }
 }, 10000);

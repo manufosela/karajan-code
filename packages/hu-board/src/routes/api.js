@@ -13,6 +13,7 @@ import {
   deleteSession,
   getKjHome,
 } from '../db.js';
+import { fullScan } from '../sync.js';
 
 const router = Router();
 
@@ -196,6 +197,21 @@ router.delete('/sessions/:id', (req, res) => {
     const ok = deleteSession(req.params.id);
     if (!ok) return res.status(404).json({ error: 'Session not found' });
     res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/sync - Force a full re-scan of hu-stories/ and sessions/ on disk.
+ * Useful when chokidar's file watcher misses new subdirectories created after
+ * the board started (known limitation with glob patterns).
+ */
+router.post('/sync', (_req, res) => {
+  try {
+    fullScan();
+    const projects = getProjects();
+    res.json({ synced: true, projects: projects.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
