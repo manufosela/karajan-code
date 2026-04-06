@@ -26,7 +26,19 @@ async function handleSonarStalled({ repeatDetector, logger, emitter, eventBase, 
   return { action: "stalled", result: { approved: false, sessionId: session.id, reason: "stalled" } };
 }
 
-async function handleSonarRetryLimit({ config, logger, emitter, eventBase, session, iteration, askQuestion, task, maxSonarRetries, sonarResult }) {
+async function handleSonarRetryLimit({ config, logger, emitter, eventBase, session, iteration, askQuestion, task, maxSonarRetries, sonarResult, brainCtx }) {
+  // Brain: when enabled, skip Solomon — Brain handles via max_iterations
+  if (brainCtx?.enabled) {
+    logger.info("Brain: sonar retry limit reached — Brain will handle via max_iterations (Solomon bypassed)");
+    emitProgress(emitter, makeEvent("brain:sonar-retry-limit", { ...eventBase, stage: "sonar" }, {
+      message: `Sonar sub-loop limit reached (${session.sonar_retry_count}/${maxSonarRetries}) — Brain handling`,
+      detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus: sonarResult.gateStatus }
+    }));
+    session.sonar_retry_count = 0;
+    await saveSession(session);
+    return { action: "continue" };
+  }
+
   emitProgress(
     emitter,
     makeEvent("solomon:escalate", { ...eventBase, stage: "sonar" }, {
@@ -64,7 +76,7 @@ async function handleSonarRetryLimit({ config, logger, emitter, eventBase, sessi
   return null;
 }
 
-async function handleSonarBlocking({ sonarResult, config, logger, emitter, eventBase, session, iteration, repeatDetector, budgetSummary, askQuestion, task }) {
+async function handleSonarBlocking({ sonarResult, config, logger, emitter, eventBase, session, iteration, repeatDetector, budgetSummary, askQuestion, task, brainCtx }) {
   // If the ONLY quality gate failure is coverage, treat as non-blocking warning
   if (sonarResult.conditions) {
     const failedConditions = sonarResult.conditions.filter(c => c.status === "ERROR");
@@ -88,20 +100,26 @@ async function handleSonarBlocking({ sonarResult, config, logger, emitter, event
     return handleSonarStalled({ repeatDetector, logger, emitter, eventBase, session, budgetSummary });
   }
 
-  session.last_reviewer_feedback = `Sonar gate blocking (${sonarResult.gateStatus}). Resolve critical findings first.`;
+  const summary = `Sonar gate blocking (${sonarResult.gateStatus}). Resolve critical findings first.`;
+  session.last_reviewer_feedback = summary;
+  // Brain: push sonar feedback into queue when enabled
+  if (brainCtx?.enabled) {
+    const { processRoleOutput } = await import("../brain-coordinator.js");
+    processRoleOutput(brainCtx, { roleName: "sonar", output: { verdict: "fail", summary }, iteration });
+  }
   session.sonar_retry_count = (session.sonar_retry_count || 0) + 1;
   await saveSession(session);
   const maxSonarRetries = config.session.max_sonar_retries ?? config.session.fail_fast_repeats;
 
   if (session.sonar_retry_count >= maxSonarRetries) {
-    const result = await handleSonarRetryLimit({ config, logger, emitter, eventBase, session, iteration, askQuestion, task, maxSonarRetries, sonarResult });
+    const result = await handleSonarRetryLimit({ config, logger, emitter, eventBase, session, iteration, askQuestion, task, maxSonarRetries, sonarResult, brainCtx });
     if (result) return result;
   }
 
   return { action: "continue" };
 }
 
-export async function runSonarStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, repeatDetector, budgetSummary, sonarState, askQuestion, task }) {
+export async function runSonarStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx }) {
   logger.setContext({ iteration, stage: "sonar" });
   emitProgress(
     emitter,
@@ -170,12 +188,22 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
       })
     );
 
+    // Brain: when enabled, skip Solomon for sonar errors — Brain handles via max_iterations
+    if (brainCtx?.enabled) {
+      logger.info("Brain: sonar error — Brain will handle (Solomon bypassed)");
+      emitProgress(emitter, makeEvent("brain:sonar-error", { ...eventBase, stage: "sonar" }, {
+        message: `Sonar error — Brain handling: ${errorMessage.slice(0, 200)}`,
+        detail: { error: errorMessage }
+      }));
+      return { action: "continue" };
+    }
+
     // Let Solomon decide: continue without sonar or stop
     const solomonResult = await invokeSolomon({
       config, logger, emitter, eventBase, stage: "sonar_error", askQuestion, session, iteration,
       conflict: {
         stage: "sonar_error",
-        task: session.task,
+        task,
         iterationCount: iteration,
         maxIterations: config.max_iterations,
         history: [{ agent: "sonar", feedback: errorMessage }]
@@ -223,7 +251,7 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   );
 
   if (sonarResult.blocking) {
-    return handleSonarBlocking({ sonarResult, config, logger, emitter, eventBase, session, iteration, repeatDetector, budgetSummary, askQuestion, task });
+    return handleSonarBlocking({ sonarResult, config, logger, emitter, eventBase, session, iteration, repeatDetector, budgetSummary, askQuestion, task, brainCtx });
   }
 
   // Sonar passed — reset retry counter

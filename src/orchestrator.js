@@ -351,7 +351,7 @@ async function handlePostLoopStages({ config, session, emitter, eventBase, coder
   if (securityEnabled) {
     const securityResult = await runSecurityStage({
       config, logger, emitter, eventBase, session, coderRole, trackBudget,
-      iteration: i, task, diff: postLoopDiff, askQuestion
+      iteration: i, task, diff: postLoopDiff, askQuestion, brainCtx
     });
     if (securityResult.action === "pause") return { action: "return", result: securityResult.result };
     if (securityResult.action === "continue") {
@@ -918,8 +918,8 @@ async function runGuardStages({ config, logger, emitter, eventBase, session, ite
   return { action: "ok" };
 }
 
-async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags }) {
-  const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion });
+async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
+  const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion, task, brainCtx });
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
 
@@ -928,7 +928,7 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
   if (config.sonarqube.enabled && !skipSonarForTaskType.has(effectiveTaskType)) {
     const sonarResult = await runSonarStage({
       config, logger, emitter, eventBase, session, trackBudget, iteration: i,
-      repeatDetector, budgetSummary, sonarState, askQuestion, task
+      repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx
     });
     if (sonarResult.action === "stalled" || sonarResult.action === "pause") return { action: "return", result: sonarResult.result };
     if (sonarResult.action === "continue") return { action: "continue" };
@@ -1347,7 +1347,7 @@ async function runSingleIteration(ctx) {
     config, logger, emitter, eventBase, session, trackBudget: ctx.trackBudget, i,
     askQuestion: ctx.askQuestion, repeatDetector: ctx.repeatDetector, budgetSummary: ctx.budgetSummary,
     sonarState: ctx.sonarState, task, stageResults: ctx.stageResults, coderRole: ctx.coderRole,
-    pipelineFlags: ctx.pipelineFlags
+    pipelineFlags: ctx.pipelineFlags, brainCtx: ctx.brainCtx
   });
   if (qgResult.action === "return" || qgResult.action === "continue") return qgResult;
 
@@ -1610,7 +1610,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         const securityResult = await runSecurityStage({
           config: ctx.config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session,
           coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
-          iteration: 1, task: ctx.plannedTask, diff: postLoopDiff, askQuestion
+          iteration: 1, task: ctx.plannedTask, diff: postLoopDiff, askQuestion, brainCtx: ctx.brainCtx
         });
         if (securityResult.stageResult) analysisStageResults.security = securityResult.stageResult;
       }

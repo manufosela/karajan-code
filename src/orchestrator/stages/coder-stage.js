@@ -249,22 +249,44 @@ function handleSolomonAction(solomonResult, session, contextPrefix) {
   return null;
 }
 
-async function handleSolomonContinue(solomonResult, session, counterField) {
+async function handleSolomonContinue(solomonResult, session, counterField, brainCtx) {
   if (solomonResult.action !== "continue") return false;
   if (solomonResult.humanGuidance) {
     session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+    // Brain: also push user guidance into feedback queue when enabled
+    if (brainCtx?.enabled) {
+      const { processRoleOutput } = await import("../brain-coordinator.js");
+      processRoleOutput(brainCtx, { roleName: "solomon", output: { verdict: "continue", summary: solomonResult.humanGuidance }, iteration: 0 });
+    }
   }
   session[counterField] = 0;
   await saveSession(session);
   return true;
 }
 
-async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion }) {
+async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion, task, brainCtx }) {
   session.last_reviewer_feedback = tddEval.message;
+  // Brain: push TDD failure into feedback queue when enabled
+  if (brainCtx?.enabled) {
+    const { processRoleOutput } = await import("../brain-coordinator.js");
+    processRoleOutput(brainCtx, { roleName: "tdd", output: { verdict: "fail", summary: tddEval.message }, iteration });
+  }
   session.repeated_issue_count += 1;
   await saveSession(session);
 
   if (session.repeated_issue_count < config.session.fail_fast_repeats) {
+    return { action: "continue" };
+  }
+
+  // Brain: when enabled, skip Solomon — Brain handles via max_iterations
+  if (brainCtx?.enabled) {
+    logger.info("Brain: TDD sub-loop limit reached — Brain will handle via max_iterations (Solomon bypassed)");
+    emitProgress(emitter, makeEvent("brain:tdd-retry-limit", { ...eventBase, stage: "tdd" }, {
+      message: `TDD sub-loop limit reached (${session.repeated_issue_count}/${config.session.fail_fast_repeats}) — Brain handling`,
+      detail: { subloop: "tdd", retryCount: session.repeated_issue_count, reason: tddEval.reason }
+    }));
+    session.repeated_issue_count = 0;
+    await saveSession(session);
     return { action: "continue" };
   }
 
@@ -280,7 +302,7 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
     config, logger, emitter, eventBase, stage: "tdd", askQuestion, session, iteration,
     conflict: {
       stage: "tdd",
-      task: session.task,
+      task: task || session.task,
       iterationCount: session.repeated_issue_count,
       maxIterations: config.session.fail_fast_repeats,
       reason: tddEval.reason,
@@ -292,13 +314,13 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
 
   const actionResult = handleSolomonAction(solomonResult, session, "tdd");
   if (actionResult) return actionResult;
-  const continued = await handleSolomonContinue(solomonResult, session, "repeated_issue_count");
+  const continued = await handleSolomonContinue(solomonResult, session, "repeated_issue_count", brainCtx);
   if (continued) return { action: "continue" };
 
   return { action: "continue" };
 }
 
-export async function runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, askQuestion }) {
+export async function runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, askQuestion, task, brainCtx }) {
   logger.setContext({ iteration, stage: "tdd" });
   let tddDiff, untrackedFiles;
   try {
@@ -335,7 +357,7 @@ export async function runTddCheckStage({ config, logger, emitter, eventBase, ses
   );
 
   if (!tddEval.ok) {
-    return handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion });
+    return handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion, task, brainCtx });
   }
 
   return { action: "ok" };
