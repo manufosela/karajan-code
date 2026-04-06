@@ -16,9 +16,11 @@ export function deriveProjectName(originalTask) {
   if (!originalTask || typeof originalTask !== "string") return "Untitled Project";
   const STOPWORDS = new Set([
     "a", "an", "the", "and", "or", "with", "for", "to", "of", "in", "on",
+    "is", "it", "its", "this", "that", "these", "those", "be", "been", "being",
     "build", "create", "implement", "make", "develop", "add", "set", "up",
-    "setup", "write", "code", "new", "complete", "that", "from", "scratch",
-    "application", "app", "tool", "system", "project", "using", "use"
+    "setup", "write", "code", "new", "complete", "from", "scratch",
+    "application", "app", "tool", "system", "project", "using", "use",
+    "full", "full-stack", "fullstack", "stack", "based", "simple", "basic"
   ]);
   const words = originalTask
     .toLowerCase()
@@ -65,54 +67,63 @@ export function needsSetupHu({ isNewProject = false, stackHints = [], subtasks =
 }
 
 /**
- * Build the setup HU story from stack hints + subtasks.
+ * Build a MINIMAL setup HU — project structure + deps only.
+ * NEVER includes the full original task. The coder must only do setup.
  */
-function buildSetupHu({ stackHints, subtasks, originalTask }) {
-  const hintList = stackHints.length > 0
+function buildSetupHu({ stackHints }) {
+  const deps = stackHints.length > 0
     ? stackHints.map(h => `- ${h}`).join("\n")
-    : "- Detect required dependencies from task and install them";
+    : "- (auto-detect from subsequent HUs)";
   const certifiedText = [
-    `**Setup project infrastructure and dependencies.**`,
-    ``,
-    `Original goal: ${originalTask}`,
-    ``,
-    `**Scope:**`,
-    `- Initialize project structure (package.json, workspaces if monorepo)`,
-    `- Install all dependencies required by the task`,
-    `- Configure tooling (test framework, linter, build tool)`,
-    `- Create .env.example with all required env vars`,
-    `- Verify install works (npm install, npm run test --run)`,
-    ``,
-    `**Stack hints:**`,
-    hintList
+    "**Setup: initialize project structure and install dependencies.**",
+    "",
+    "SCOPE (do ONLY this, nothing else):",
+    "- Create package.json (with workspaces if monorepo detected from stack hints)",
+    "- Install all runtime + dev dependencies listed in stack hints",
+    "- Configure test framework so `npm test` runs (even with 0 tests)",
+    "- Create .env.example with placeholder variables",
+    "- Verify: `npm install` succeeds, `npm test` runs without error",
+    "",
+    "DO NOT implement any business logic, API routes, components, or features.",
+    "DO NOT add security middleware, auth, or any application code.",
+    "This HU is ONLY project scaffolding.",
+    "",
+    "Stack hints:",
+    deps
   ].join("\n");
   return {
     id: "HU-01",
-    title: "Setup project infrastructure",
+    title: "Setup: project structure + dependencies",
     task_type: "infra",
     status: "certified",
     blocked_by: [],
     certified: { text: certifiedText },
     acceptance_criteria: [
-      "Project builds without errors (npm install succeeds)",
-      "Test framework is installed and 'npm test' runs (even with 0 tests)",
-      "All declared dependencies match what the task requires",
-      ".env.example exists with documented variables"
+      "npm install succeeds without errors",
+      "npm test runs (even with 0 tests)",
+      ".env.example exists",
+      "No business logic or application code added"
     ]
   };
 }
 
 /**
- * Build a task HU story from a subtask description.
+ * Build a MINIMAL task HU — one specific, focused piece of work.
+ * Includes a short goal reference (max 80 chars) NOT the full task.
  */
-function buildTaskHu({ id, subtask, originalTask, blockedBy }) {
+function buildTaskHu({ id, subtask, projectName, blockedBy }) {
   const taskType = classifyTaskType(subtask);
   const certifiedText = [
     `**${subtask}**`,
-    ``,
-    `Part of: ${originalTask}`,
-    ``,
-    `**Scope:** implement this subtask only. Do not touch unrelated subtasks.`
+    "",
+    `Project: ${projectName}`,
+    "",
+    "SCOPE (do ONLY this, nothing else):",
+    `- Implement: ${subtask}`,
+    "- Add unit tests for the new code",
+    "- Do NOT touch code outside this subtask's scope",
+    "- Do NOT refactor or 'improve' unrelated files",
+    "- Target: <200 lines changed (like an atomic PR)"
   ].join("\n");
   return {
     id,
@@ -122,9 +133,9 @@ function buildTaskHu({ id, subtask, originalTask, blockedBy }) {
     blocked_by: blockedBy,
     certified: { text: certifiedText },
     acceptance_criteria: [
-      `Subtask '${subtask}' is implemented`,
-      `Unit tests cover the new code (where applicable)`,
-      `No regressions in existing functionality`
+      `${subtask} is implemented and working`,
+      "Unit tests cover the new code",
+      "No changes to files outside this subtask's scope"
     ]
   };
 }
@@ -160,23 +171,22 @@ export function generateHuBatch({
   const needsSetup = needsSetupHu({ isNewProject, stackHints, subtasks });
   let nextId = 1;
 
+  const projectName = deriveProjectName(originalTask);
+
   if (needsSetup) {
-    stories.push(buildSetupHu({ stackHints, subtasks, originalTask }));
+    stories.push(buildSetupHu({ stackHints }));
     nextId = 2;
   }
 
   // Task HUs: linear dependency chain after setup (conservative default).
-  // Architect context could later inform parallel-safe groupings.
   const setupId = needsSetup ? "HU-01" : null;
   let previousId = setupId;
   for (const subtask of subtasks) {
     const id = `HU-${String(nextId).padStart(2, "0")}`;
     const blockedBy = [];
     if (setupId) blockedBy.push(setupId);
-    // Conservative: also depend on previous task HU to enforce linear execution.
-    // Later phases can relax this with architect-informed graph.
     if (previousId && previousId !== setupId) blockedBy.push(previousId);
-    stories.push(buildTaskHu({ id, subtask, originalTask, blockedBy }));
+    stories.push(buildTaskHu({ id, subtask, projectName, blockedBy }));
     previousId = id;
     nextId += 1;
   }
