@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-04-06
+
+### Fixed
+
+- **"default" project removed from HU Board** — sessions without `project_id` now use `sessionId` and derive a readable name from `session.task` via `slugToTitle`. No more phantom "default" project with 0 stories.
+- **Sync button (🔄) in HU Board header** — triggers `POST /api/sync` to re-scan disk for new batches without restarting the board. Shows ⏳ while scanning.
+
 ## [2.3.0] - 2026-04-06
 
 ### Fixed
