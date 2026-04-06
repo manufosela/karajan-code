@@ -1317,7 +1317,10 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
 }
 
 async function runSingleIteration(ctx) {
-  const { config, logger, emitter, eventBase, session, task, iteration: i } = ctx;
+  // Use plannedTask (HU-scoped or planner-enriched) over the raw original task.
+  // When running per-HU sub-pipelines, plannedTask is the HU's text, not the full spec.
+  const { config, logger, emitter, eventBase, session, iteration: i } = ctx;
+  const task = ctx.plannedTask || ctx.task;
 
   const iterStart = Date.now();
   const ciEnabled = Boolean(config.ci?.enabled) && ctx.gitCtx?.enabled;
