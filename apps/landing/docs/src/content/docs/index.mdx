@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v1.58.0 — Role-based AI orchestrator: 16 roles, 5 agents, deterministic guards. Code, review, test, secure — in a single command."
+  tagline: "v2.3.0 — Auto-HU Decomposition: big tasks auto-split into atomic HUs, each running as an independent sub-pipeline with its own branch and PR. Brain + Solomon Judge included."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -23,6 +23,12 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
+  <Card title="Karajan Brain (v2.0)" icon="rocket">
+    AI-powered central orchestrator that routes all role-to-role communication, enriches feedback with file hints, verifies outputs via git diff, executes direct actions (npm install, gitignore), and compresses role outputs for 40-70% token savings. Consults Solomon only on genuine dilemmas.
+  </Card>
+  <Card title="Solomon — AI Judge (v2.0)" icon="seti:config">
+    Refined from pipeline boss to AI judge. Consulted only on genuine dilemmas: security-vs-deadline, conflicting quality gates, stalled loops, risk evaluation. Security issues bypass Solomon deterministically and go straight back to the coder.
+  </Card>
   <Card title="Multi-Agent Pipeline" icon="rocket">
     16 configurable roles: discover, triage, domain-curator, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer. Mandatory audit post-approval ensures generated code is certified clean before completing.
   </Card>

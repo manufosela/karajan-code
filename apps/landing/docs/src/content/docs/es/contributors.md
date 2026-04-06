@@ -18,6 +18,11 @@ Karajan Code lo construye su comunidad. Gracias a todos los que han contribuido 
 ## Contributors
 
 <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem;">
+  <a href="https://github.com/jorgecasar" style="text-align: center; text-decoration: none; color: inherit;">
+    <img src="https://avatars.githubusercontent.com/u/948953?v=4" width="80" height="80" style="border-radius: 50%;" alt="jorgecasar" />
+    <br/><strong>Jorge del Casar</strong>
+    <br/><small>Arquitectura y contribuciones</small>
+  </a>
   <a href="https://github.com/aitormf" style="text-align: center; text-decoration: none; color: inherit;">
     <img src="https://avatars.githubusercontent.com/u/16046048?v=4" width="80" height="80" style="border-radius: 50%;" alt="aitormf" />
     <br/><strong>Aitor Martinez</strong>
@@ -26,7 +31,7 @@ Karajan Code lo construye su comunidad. Gracias a todos los que han contribuido 
   <a href="https://github.com/reiaguilera" style="text-align: center; text-decoration: none; color: inherit;">
     <img src="https://avatars.githubusercontent.com/u/186906?v=4" width="80" height="80" style="border-radius: 50%;" alt="reiaguilera" />
     <br/><strong>Rei Aguilera</strong>
-    <br/><small>Beta testing y propuestas de mejora</small>
+    <br/><small>Diseño y mejoras</small>
   </a>
 </div>
 

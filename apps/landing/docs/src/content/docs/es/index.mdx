@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v1.58.0 — Orquestador de IA basado en roles: 16 roles, 5 agentes, guards deterministas. Código, revisión, tests, seguridad — en un solo comando."
+  tagline: "v2.3.0 — Auto-descomposición en HUs: tareas grandes se dividen automáticamente en HUs atómicas, cada una como sub-pipeline con su rama y PR. Brain + Solomon Judge incluidos."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -23,6 +23,12 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
+  <Card title="Karajan Brain (v2.0)" icon="rocket">
+    Orquestador central con IA que enruta toda la comunicación entre roles, enriquece feedback con pistas de ficheros, verifica outputs vía git diff, ejecuta acciones directas (npm install, gitignore) y comprime outputs de roles para 40-70% de ahorro de tokens. Consulta a Solomon solo en dilemas genuinos.
+  </Card>
+  <Card title="Solomon — Juez IA (v2.0)" icon="seti:config">
+    Refinado de jefe del pipeline a juez IA. Consultado solo en dilemas genuinos: seguridad-vs-deadline, gates de calidad en conflicto, loops estancados, evaluación de riesgos. Los issues de seguridad bypasean Solomon deterministicamente y vuelven directo al coder.
+  </Card>
   <Card title="Pipeline Multi-Agente" icon="rocket">
     16 roles configurables: discover, triage, domain-curator, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer. Auditoría obligatoria post-aprobación que certifica el código generado como limpio antes de completar.
   </Card>
