@@ -103,7 +103,7 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     : null;
 
   const solomon = new SolomonRole({ config, logger, emitter });
-  await solomon.init({ task: conflict.task || session.task, iteration });
+  await solomon.init({ task: conflict.task, iteration });
   let ruling;
   try {
     // Inject Solomon's own history so it doesn't repeat failed strategies

@@ -158,7 +158,7 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   return { action: "ok", stageResult: { ok: true, summary: testerOutput.summary || "All tests passed" } };
 }
 
-export async function runSecurityStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion }) {
+export async function runSecurityStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion, brainCtx }) {
   logger.setContext({ iteration, stage: "security" });
   emitProgress(
     emitter,
@@ -209,6 +209,21 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
     const isCritical = criticalPatterns.some((p) => summary.includes(p));
 
     if (isCritical) {
+      // Brain: when enabled, skip Solomon — Brain handles via feedback queue
+      if (brainCtx?.enabled) {
+        logger.warn(`Brain: critical security finding — Brain will handle (Solomon bypassed): ${securityOutput.summary}`);
+        const { processRoleOutput } = await import("./brain-coordinator.js");
+        processRoleOutput(brainCtx, { roleName: "security", output: { verdict: "fail", summary: securityOutput.summary, critical: true }, iteration });
+        emitProgress(emitter, makeEvent("brain:security-critical", { ...eventBase, stage: "security" }, {
+          message: `Critical security finding — Brain handling: ${securityOutput.summary.slice(0, 200)}`,
+          detail: { summary: securityOutput.summary }
+        }));
+        return {
+          action: "continue",
+          stageResult: { ...securityOutput.result, summary: securityOutput.summary, provider: securityProvider }
+        };
+      }
+
       // Critical security issue — escalate to Solomon/human
       logger.warn(`Critical security finding — escalating: ${securityOutput.summary}`);
       const solomonResult = await invokeSolomon({

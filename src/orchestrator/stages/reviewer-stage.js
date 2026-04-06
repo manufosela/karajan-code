@@ -36,7 +36,7 @@ function buildReviewHistory(session) {
     .map(cp => ({ iteration: cp.iteration, note: cp.note || "" }));
 }
 
-async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector }) {
+async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState, config, logger, emitter, eventBase, session, iteration, task, askQuestion, budgetSummary, repeatDetector, brainCtx }) {
   // DETERMINISTIC GUARD: security issues NEVER go to Solomon — always return to coder
   const categories = categorizeIssues(review.blocking_issues);
   if (categories.security > 0) {
@@ -45,6 +45,22 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
       message: `${categories.security} security issue(s) detected — must be fixed before approval`,
       detail: { securityCount: categories.security, blockingIssues: review.blocking_issues }
     }));
+    return { review, solomonApproved: false };
+  }
+
+  // Brain: when enabled, ALL paths go through Brain, not Solomon
+  if (brainCtx?.enabled) {
+    const logPrefix = repeatState.stalled
+      ? `Reviewer stalled (${repeatCounts.reviewer} repeats)`
+      : `Reviewer rejected (first rejection)`;
+    logger.info(`Brain: ${logPrefix} — Brain will handle (Solomon bypassed)`);
+    emitProgress(emitter, makeEvent("brain:escalate", { ...eventBase, stage: "reviewer" }, {
+      message: `${logPrefix} — Brain handling`,
+      detail: { repeats: repeatCounts.reviewer || 1, reason: repeatState.reason || "first_rejection" }
+    }));
+    // Push reviewer feedback into Brain queue
+    const { processRoleOutput } = await import("../brain-coordinator.js");
+    processRoleOutput(brainCtx, { roleName: "reviewer", output: review, iteration });
     return { review, solomonApproved: false };
   }
 
@@ -156,22 +172,23 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
     return handleReviewerStalledSolomon({
       review, repeatCounts, repeatState, config, logger, emitter,
       eventBase, session, iteration, task, askQuestion,
-      budgetSummary, repeatDetector
+      budgetSummary, repeatDetector, brainCtx
     });
   }
 
   // Solomon evaluates EVERY rejection
   const repeatCounts = repeatDetector.getRepeatCounts();
-  logger.info(`Reviewer rejected — Solomon evaluating ${review.blocking_issues.length} blocking issue(s)`);
-  emitProgress(emitter, makeEvent("solomon:evaluate", { ...eventBase, stage: "solomon" }, {
-    message: `Solomon evaluating reviewer rejection`,
+  const evaluateEventName = brainCtx?.enabled ? "brain:evaluate" : "solomon:evaluate";
+  logger.info(`Reviewer rejected — ${brainCtx?.enabled ? "Brain" : "Solomon"} evaluating ${review.blocking_issues.length} blocking issue(s)`);
+  emitProgress(emitter, makeEvent(evaluateEventName, { ...eventBase, stage: brainCtx?.enabled ? "brain" : "solomon" }, {
+    message: `${brainCtx?.enabled ? "Brain" : "Solomon"} evaluating reviewer rejection`,
     detail: { blockingCount: review.blocking_issues.length, isRepeat: repeatState.stalled }
   }));
 
   return handleReviewerStalledSolomon({
     review, repeatCounts, repeatState, config, logger, emitter,
     eventBase, session, iteration, task, askQuestion,
-    budgetSummary, repeatDetector
+    budgetSummary, repeatDetector, brainCtx
   });
 }
 
