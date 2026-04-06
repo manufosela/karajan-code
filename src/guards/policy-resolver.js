@@ -2,7 +2,7 @@ export const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "ref
 
 export const DEFAULT_POLICIES = {
   sw:        { tdd: true,  sonar: true,  reviewer: true, testsRequired: true  },
-  infra:     { tdd: false, sonar: false, reviewer: true, testsRequired: false },
+  infra:     { tdd: false, sonar: false, reviewer: false, testsRequired: false },
   doc:       { tdd: false, sonar: false, reviewer: true, testsRequired: false },
   "add-tests": { tdd: false, sonar: true,  reviewer: true, testsRequired: true  },
   refactor:  { tdd: true,  sonar: true,  reviewer: true, testsRequired: false },

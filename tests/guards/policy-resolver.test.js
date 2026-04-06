@@ -21,8 +21,8 @@ describe("policy-resolver", () => {
       expect(resolvePolicies("sw")).toEqual({ tdd: true, sonar: true, reviewer: true, testsRequired: true });
     });
 
-    it("infra → only reviewer true", () => {
-      expect(resolvePolicies("infra")).toEqual({ tdd: false, sonar: false, reviewer: true, testsRequired: false });
+    it("infra → all false (scaffolding only)", () => {
+      expect(resolvePolicies("infra")).toEqual({ tdd: false, sonar: false, reviewer: false, testsRequired: false });
     });
 
     it("doc → only reviewer true", () => {
@@ -64,7 +64,7 @@ describe("policy-resolver", () => {
 
     it("overrides multiple fields", () => {
       const result = resolvePolicies("infra", { infra: { sonar: true, testsRequired: true } });
-      expect(result).toEqual({ tdd: false, sonar: true, reviewer: true, testsRequired: true });
+      expect(result).toEqual({ tdd: false, sonar: true, reviewer: false, testsRequired: true });
     });
 
     it("ignores overrides for other task types", () => {
@@ -123,11 +123,11 @@ describe("policy-resolver", () => {
       expect(result.sonar).toBe(true);
     });
 
-    it("infra disables tdd, sonar, testsRequired", () => {
+    it("infra disables tdd, sonar, reviewer, testsRequired", () => {
       const result = applyPolicies({ taskType: "infra" });
       expect(result.tdd).toBe(false);
       expect(result.sonar).toBe(false);
-      expect(result.reviewer).toBe(true);
+      expect(result.reviewer).toBe(false);
       expect(result.testsRequired).toBe(false);
     });
 

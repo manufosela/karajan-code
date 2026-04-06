@@ -67,6 +67,20 @@ export function needsSetupHu({ isNewProject = false, stackHints = [], subtasks =
 }
 
 /**
+ * Filter conflicting stack hints. When Node.js ecosystem keywords are present,
+ * remove Go/Rust/Python keywords that were detected from gitignore patterns
+ * but aren't actually part of the task.
+ */
+function filterConflictingHints(hints) {
+  if (!hints || hints.length === 0) return hints;
+  const nodeEcosystem = new Set(["express", "vite", "vitest", "jest", "next", "astro", "react", "vue", "svelte", "nestjs", "monorepo", "workspaces"]);
+  const goKeywords = new Set(["gin", "fiber", "go"]);
+  const hasNode = hints.some(h => nodeEcosystem.has(h));
+  if (!hasNode) return hints;
+  return hints.filter(h => !goKeywords.has(h));
+}
+
+/**
  * Build a MINIMAL setup HU — project structure + deps only.
  * NEVER includes the full original task. The coder must only do setup.
  */
@@ -168,13 +182,14 @@ export function generateHuBatch({
   }
 
   const stories = [];
-  const needsSetup = needsSetupHu({ isNewProject, stackHints, subtasks });
+  const filteredHints = filterConflictingHints(stackHints);
+  const needsSetup = needsSetupHu({ isNewProject, stackHints: filteredHints, subtasks });
   let nextId = 1;
 
   const projectName = deriveProjectName(originalTask);
 
   if (needsSetup) {
-    stories.push(buildSetupHu({ stackHints }));
+    stories.push(buildSetupHu({ stackHints: filteredHints }));
     nextId = 2;
   }
 

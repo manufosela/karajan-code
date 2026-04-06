@@ -66,6 +66,17 @@ function syncStoryFile(filePath) {
     const sessionId = data.session_id || basename(join(filePath, '..'));
     const projectId = data.project_id || sessionId;
 
+    // Skip if this is a non-auto batch and an auto- version already exists.
+    // Prevents duplicate projects when both auto-s_xxx/ and s_xxx/ exist.
+    if (!projectId.startsWith('auto-')) {
+      const db = getDb();
+      const autoExists = db.prepare('SELECT id FROM projects WHERE id = ?').get(`auto-${projectId}`);
+      if (autoExists) {
+        console.log(`[sync] Skipping ${projectId} — auto-${projectId} already covers this session`);
+        return;
+      }
+    }
+
     upsertProject({
       id: projectId,
       name: deriveProjectName(data, projectId),
@@ -146,7 +157,14 @@ function syncSessionFile(filePath) {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
-    const projectId = data.project_id || sessionId;
+
+    // Sessions NEVER create projects. Only batches (hu-stories/) create projects.
+    // The session attaches to the batch's project if one exists, otherwise it's
+    // invisible in the board (correct for runs without HU decomposition).
+    const autoProjectId = `auto-${sessionId}`;
+    const db = getDb();
+    const existingBatch = db.prepare('SELECT id FROM projects WHERE id = ?').get(autoProjectId);
+    const projectId = existingBatch ? autoProjectId : (data.project_id || null);
 
     // Calculate iterations from checkpoints
     const checkpoints = data.checkpoints || [];
@@ -166,14 +184,9 @@ function syncSessionFile(filePath) {
       }
     }
 
-    // Derive readable project name from session task (same heuristic as stories)
-    const projectName = data.task ? slugToTitle(data.task) : projectId;
+    // No upsertProject — sessions don't create projects.
 
-    upsertProject({
-      id: projectId,
-      name: projectName,
-      last_activity: data.updated_at || data.created_at || new Date().toISOString(),
-    });
+    if (!projectId) return; // No batch project to attach to → skip session
 
     upsertSession({
       id: sessionId,
