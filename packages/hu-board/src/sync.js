@@ -158,12 +158,13 @@ function syncSessionFile(filePath) {
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
 
-    // If an auto-HU batch project already exists for this session, attach the
-    // session to that project instead of creating a duplicate 0-story project.
+    // Sessions NEVER create projects. Only batches (hu-stories/) create projects.
+    // The session attaches to the batch's project if one exists, otherwise it's
+    // invisible in the board (correct for runs without HU decomposition).
     const autoProjectId = `auto-${sessionId}`;
     const db = getDb();
     const existingBatch = db.prepare('SELECT id FROM projects WHERE id = ?').get(autoProjectId);
-    const projectId = existingBatch ? autoProjectId : (data.project_id || sessionId);
+    const projectId = existingBatch ? autoProjectId : (data.project_id || null);
 
     // Calculate iterations from checkpoints
     const checkpoints = data.checkpoints || [];
@@ -183,16 +184,9 @@ function syncSessionFile(filePath) {
       }
     }
 
-    // Only create a project from the session if no batch project already covers it.
-    // When a batch project exists, its name and stories are authoritative.
-    if (!existingBatch) {
-      const projectName = data.task ? slugToTitle(data.task) : projectId;
-      upsertProject({
-        id: projectId,
-        name: projectName,
-        last_activity: data.updated_at || data.created_at || new Date().toISOString(),
-      });
-    }
+    // No upsertProject — sessions don't create projects.
+
+    if (!projectId) return; // No batch project to attach to → skip session
 
     upsertSession({
       id: sessionId,
