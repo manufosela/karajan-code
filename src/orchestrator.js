@@ -1669,6 +1669,16 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
             ctx.brainCtx.verificationTracker = fresh.verificationTracker;
           }
+          // Apply per-HU policies based on task_type (infra skips reviewer/sonar/tdd)
+          const { applyPolicies } = await import("./guards/policy-resolver.js");
+          const huPolicies = applyPolicies({ taskType: story.task_type, policies: ctx.config.policies });
+          const savedFlags = { ...ctx.pipelineFlags };
+          if (!huPolicies.reviewer) ctx.pipelineFlags.reviewerEnabled = false;
+          if (!huPolicies.tdd) ctx.config.development = { ...ctx.config.development, methodology: "standard", require_test_changes: false };
+          if (!huPolicies.sonar) ctx.config.sonarqube = { ...ctx.config.sonarqube, enabled: false };
+          if (!huPolicies.testsRequired) ctx.pipelineFlags.testerEnabled = false;
+          logger.info(`HU ${story.id} (${story.task_type}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
+
           const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
           try {
             const result = await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
@@ -1678,6 +1688,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
             return result;
           } finally {
             ctx.config.max_iterations = originalMaxIterations;
+            Object.assign(ctx.pipelineFlags, savedFlags);
           }
         },
         emitter,
