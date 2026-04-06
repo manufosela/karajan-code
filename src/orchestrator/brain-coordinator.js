@@ -23,6 +23,7 @@ export function createBrainContext({ enabled = false } = {}) {
     feedbackQueue: queue.createQueue(),
     verificationTracker: new VerificationTracker(),
     compressionStats: { totalSaved: 0, perRole: {} },
+    extensionCount: 0,
     enabled
   };
 }
@@ -99,6 +100,16 @@ function extractFeedbackEntries(roleName, output, iteration) {
         iteration
       });
     }
+    // Catch-all: tester failed but no structured detail → still record the failure
+    if (entries.length === 0) {
+      entries.push({
+        source: "tester",
+        severity: "high",
+        category: "tests",
+        description: output.summary || "Tester failed (no structured detail available)",
+        iteration
+      });
+    }
   } else if (roleName === "security" && output.verdict === "fail") {
     for (const vuln of output.vulnerabilities || []) {
       entries.push({
@@ -109,6 +120,16 @@ function extractFeedbackEntries(roleName, output, iteration) {
         file: vuln.file || null,
         line: vuln.line || null,
         suggestedFix: vuln.fix_suggestion || null,
+        iteration
+      });
+    }
+    // Catch-all: security failed but no structured vulnerabilities → still record
+    if (entries.length === 0) {
+      entries.push({
+        source: "security",
+        severity: "high",
+        category: "security",
+        description: output.summary || "Security gate failed (no structured detail available)",
         iteration
       });
     }
