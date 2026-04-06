@@ -66,6 +66,17 @@ function syncStoryFile(filePath) {
     const sessionId = data.session_id || basename(join(filePath, '..'));
     const projectId = data.project_id || sessionId;
 
+    // Skip if this is a non-auto batch and an auto- version already exists.
+    // Prevents duplicate projects when both auto-s_xxx/ and s_xxx/ exist.
+    if (!projectId.startsWith('auto-')) {
+      const db = getDb();
+      const autoExists = db.prepare('SELECT id FROM projects WHERE id = ?').get(`auto-${projectId}`);
+      if (autoExists) {
+        console.log(`[sync] Skipping ${projectId} — auto-${projectId} already covers this session`);
+        return;
+      }
+    }
+
     upsertProject({
       id: projectId,
       name: deriveProjectName(data, projectId),
