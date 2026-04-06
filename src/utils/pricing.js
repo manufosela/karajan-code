@@ -2,9 +2,20 @@ import { buildDefaultPricingTable } from "../agents/model-registry.js";
 
 export const DEFAULT_MODEL_PRICING = buildDefaultPricingTable();
 
-export function calculateUsageCostUsd({ model, tokens_in, tokens_out, pricing }) {
+export function calculateUsageCostUsd({ provider, model, tokens_in, tokens_out, pricing }) {
   const table = pricing || DEFAULT_MODEL_PRICING;
-  const entry = table[model] || null;
+  
+  let entry = table[model];
+
+  if (!entry && provider && model) {
+    entry = table[`${provider}/${model}`];
+  }
+
+  if (!entry && model && model.includes("/")) {
+    const [, actualModel] = model.split("/");
+    entry = table[actualModel];
+  }
+
   if (!entry) return 0;
 
   const inputCost = (tokens_in * entry.input_per_million) / 1_000_000;

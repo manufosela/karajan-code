@@ -100,6 +100,7 @@ export class BudgetTracker {
     const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
     const modelName = model || provider || null;
     const computedCost = calculateUsageCostUsd({
+      provider: provider,
       model: modelName,
       tokens_in: safeTokensIn,
       tokens_out: safeTokensOut,

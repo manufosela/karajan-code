@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   registerModel,
+  registerModelAlias,
   getModelPricing,
   isModelDeprecated,
   getModelInfo,
@@ -10,7 +11,7 @@ import {
 
 describe("model-registry", () => {
   describe("built-in models", () => {
-    it("registers all 12 built-in models", () => {
+    it("registers the core CLI models", () => {
       const models = getRegisteredModels();
       expect(models.length).toBeGreaterThanOrEqual(12);
     });
@@ -63,6 +64,23 @@ describe("model-registry", () => {
       });
       const info = getModelInfo("newprovider/v1");
       expect(info.provider).toBe("newprovider");
+    });
+  });
+
+  describe("registerModelAlias", () => {
+    it("registers an alias to an existing model", () => {
+      registerModel("target-model", {
+        provider: "test",
+        pricing: { input_per_million: 1, output_per_million: 1 }
+      });
+      registerModelAlias("alias-model", "target-model");
+      expect(getModelPricing("alias-model")).toEqual({ input_per_million: 1, output_per_million: 1 });
+      expect(getModelInfo("alias-model").provider).toBe("test");
+    });
+
+    it("throws when target model is not found", () => {
+      expect(() => registerModelAlias("alias-fail", "non-existent"))
+        .toThrow('Target model "non-existent" for alias "alias-fail" not found');
     });
   });
 
