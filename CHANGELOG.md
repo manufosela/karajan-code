@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-04-06
+
+### Fixed
+
+- **Complete Brain audit — 21 v1 legacy violations fixed.** Exhaustive audit of all orchestrator stages found 21 places where Solomon was invoked directly (bypassing Brain), `session.task` leaked into per-HU context (causing reviewer to evaluate setup HUs against the full task spec), or feedback mutations skipped Brain's queue. All fixed:
+  - `sonar-stage.js`: `brainCtx` parameter added, Solomon calls gated, sonar feedback pushed to Brain queue, `session.task` → task parameter
+  - `coder-stage.js`: TDD handler Solomon gated, TDD failure pushed to Brain queue, user guidance pushed to queue
+  - `reviewer-stage.js`: ALL reviewer rejections (including style-only) routed through Brain, `solomon:evaluate` → `brain:evaluate` when Brain active
+  - `post-loop-stages.js`: security stage Solomon gated, security failure pushed to Brain queue
+  - `solomon-escalation.js`: removed `|| session.task` fallback — `conflict.task` is now required
+  - `orchestrator.js`: `brainCtx` threaded to `runQualityGateStages`, `runTddCheckStage`, `runSonarStage`, `runSecurityStage`; `runSingleIteration` uses `ctx.plannedTask || ctx.task` so per-HU reviewer evaluates the HU scope, not the full spec
+- **HU Board `/api/sync` endpoint** — `POST /api/sync` triggers `fullScan()` to re-read all batch.json and session.json from disk. Frontend auto-syncs on page load and every 10s refresh. Fixes chokidar watcher not detecting new batches created after board start.
+- **Model registry update** (Jorge del Casar #412) — Claude 4.6, GPT-5.4, Gemini 3.1, DeepSeek V4/R1, MiniMax M2.x. `registerModelAlias()` for CLI prefixes. Smart pricing fallback (exact → provider/model → prefix-strip).
+
 ## [2.2.1] - 2026-04-06
 
 ### Fixed
