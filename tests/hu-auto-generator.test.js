@@ -189,6 +189,24 @@ describe("generateHuBatch", () => {
     expect(batch.stories[0].title).toContain("...");
   });
 
+  it("setup HU has minimal scope — no original task text, no business logic", () => {
+    const batch = generateHuBatch({ originalTask, subtasks, isNewProject: true });
+    const setup = batch.stories[0];
+    expect(setup.certified.text).not.toContain(originalTask);
+    expect(setup.certified.text).toContain("DO NOT implement any business logic");
+    expect(setup.certified.text).toContain("ONLY project scaffolding");
+    expect(setup.acceptance_criteria).toContain("No business logic or application code added");
+  });
+
+  it("task HUs reference project name, not full task", () => {
+    const batch = generateHuBatch({ originalTask, subtasks, isNewProject: true });
+    const taskHu = batch.stories[1];
+    expect(taskHu.certified.text).not.toContain(originalTask);
+    expect(taskHu.certified.text).toContain("Project:");
+    expect(taskHu.certified.text).toContain("<200 lines");
+    expect(taskHu.certified.text).toContain("Do NOT touch code outside");
+  });
+
   it("includes stack hints in setup HU text", () => {
     const batch = generateHuBatch({
       originalTask,

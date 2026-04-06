@@ -38,9 +38,11 @@ function deriveProjectName(data, fallbackId) {
 function slugToTitle(text) {
   const STOPWORDS = new Set([
     'a', 'an', 'the', 'and', 'or', 'with', 'for', 'to', 'of', 'in', 'on',
+    'is', 'it', 'its', 'this', 'that', 'these', 'those', 'be', 'been', 'being',
     'build', 'create', 'implement', 'make', 'develop', 'add', 'set', 'up',
-    'setup', 'write', 'code', 'new', 'complete', 'that', 'from', 'scratch',
+    'setup', 'write', 'code', 'new', 'complete', 'from', 'scratch',
     'application', 'app', 'tool', 'system', 'project', 'using', 'use',
+    'full', 'full-stack', 'fullstack', 'stack', 'based', 'simple', 'basic',
   ]);
   const words = String(text || '')
     .toLowerCase()
