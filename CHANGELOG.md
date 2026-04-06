@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-04-06
+
+### Fixed
+
+- **Setup HU no longer includes the full task description** — the HU-01 certified text was embedding the entire original prompt (2000+ chars), causing the coder to attempt implementing everything and the reviewer to reject because security middleware was "missing". Now the setup HU says explicitly: "DO NOT implement any business logic. This HU is ONLY project scaffolding."
+- **Task HUs are truly minimal** — each HU references only the short project name (not the full prompt), includes "target <200 lines changed (like an atomic PR)", and directs the coder to not touch files outside the subtask's scope.
+- **Legacy batch names in HU Board** — `sync.js` now derives project_name from "Part of: <originalTask>" embedded in story text for batches created before v2.2.0. Cryptic `s_2026-04-05T...` names become readable in the Board selector.
+- **Extended stopwords** for project name derivation — added "this", "is", "it", "full", "full-stack", "stack", "based", etc. Fixes names like "Real-time Collaborative Task Board This Is".
+- **Delete button moved to per-card** — 🗑️ appears top-right of each project card on hover (replaces less practical header button).
+
 ## [2.2.0] - 2026-04-06
 
 ### Added
