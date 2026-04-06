@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-04-06
+
+### Fixed
+
+- **Per-HU policy application** — each HU's `task_type` now drives which pipeline stages run. `infra` HUs skip reviewer, sonar, TDD, and tester (only coder + impeccable). `sw` HUs get the full pipeline. Policies saved/restored per HU.
+- **infra policy: reviewer disabled** — setup/scaffolding HUs don't need code review. They just need `npm install` + `npm test` to not crash.
+- **Stack hint filtering** — when Node.js keywords are present (express, vite, vitest), Go keywords (gin, fiber) are removed. Prevents coder from creating a Go module in a Node.js project.
+- **HU Board duplicate projects eliminated** — sessions never create projects. Only batches in `hu-stories/` are authoritative. Non-auto batches skipped if an auto- version already covers the session.
+
 ## [2.3.1] - 2026-04-06
 
 ### Fixed
