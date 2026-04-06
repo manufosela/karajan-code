@@ -718,6 +718,20 @@ document.getElementById('project-select').addEventListener('change', (e) => {
   render();
 });
 
+// Sync button — re-scan disk for new batches
+document.getElementById('sync-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    await fetch('/api/sync', { method: 'POST' });
+    await populateProjectSelect();
+    render();
+  } catch { /* ignore */ }
+  btn.textContent = '🔄';
+  btn.disabled = false;
+});
+
 // Delete project (cascade) — delegated handler on the dashboard grid
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.project-card__delete');

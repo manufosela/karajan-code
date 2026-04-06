@@ -146,7 +146,7 @@ function syncSessionFile(filePath) {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
-    const projectId = data.project_id || 'default';
+    const projectId = data.project_id || sessionId;
 
     // Calculate iterations from checkpoints
     const checkpoints = data.checkpoints || [];
@@ -166,9 +166,12 @@ function syncSessionFile(filePath) {
       }
     }
 
+    // Derive readable project name from session task (same heuristic as stories)
+    const projectName = data.task ? slugToTitle(data.task) : projectId;
+
     upsertProject({
       id: projectId,
-      name: projectId,
+      name: projectName,
       last_activity: data.updated_at || data.created_at || new Date().toISOString(),
     });
 

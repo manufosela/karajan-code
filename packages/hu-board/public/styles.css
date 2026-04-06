@@ -134,6 +134,33 @@ a:hover {
   border-color: var(--accent-purple);
 }
 
+.header__controls {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.control-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-secondary);
+}
+
+.control-btn:hover {
+  border-color: var(--accent-purple);
+  background: var(--bg-card-hover);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* ---- Main Content ---- */
 .main {
   max-width: 1400px;
