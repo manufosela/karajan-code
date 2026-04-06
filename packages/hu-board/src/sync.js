@@ -146,7 +146,13 @@ function syncSessionFile(filePath) {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
-    const projectId = data.project_id || sessionId;
+
+    // If an auto-HU batch project already exists for this session, attach the
+    // session to that project instead of creating a duplicate 0-story project.
+    const autoProjectId = `auto-${sessionId}`;
+    const db = getDb();
+    const existingBatch = db.prepare('SELECT id FROM projects WHERE id = ?').get(autoProjectId);
+    const projectId = existingBatch ? autoProjectId : (data.project_id || sessionId);
 
     // Calculate iterations from checkpoints
     const checkpoints = data.checkpoints || [];
@@ -166,14 +172,16 @@ function syncSessionFile(filePath) {
       }
     }
 
-    // Derive readable project name from session task (same heuristic as stories)
-    const projectName = data.task ? slugToTitle(data.task) : projectId;
-
-    upsertProject({
-      id: projectId,
-      name: projectName,
-      last_activity: data.updated_at || data.created_at || new Date().toISOString(),
-    });
+    // Only create a project from the session if no batch project already covers it.
+    // When a batch project exists, its name and stories are authoritative.
+    if (!existingBatch) {
+      const projectName = data.task ? slugToTitle(data.task) : projectId;
+      upsertProject({
+        id: projectId,
+        name: projectName,
+        last_activity: data.updated_at || data.created_at || new Date().toISOString(),
+      });
+    }
 
     upsertSession({
       id: sessionId,
