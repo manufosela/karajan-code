@@ -16,7 +16,7 @@ npm install -g karajan-code
 
 Verifica:
 ```bash
-kj --version    # 2.0.0
+kj --version    # 2.5.0
 kj doctor       # Comprobar entorno
 ```
 
@@ -60,13 +60,52 @@ Escribe `~/.karajan/kj.config.yml`. Sobrescríbelo por proyecto con `.karajan/kj
 kj run "tarea"                # Pipeline completo
 kj run "tarea" --enable-brain # Con Karajan Brain (v2)
 kj code "tarea"               # Solo coder, sin review
-kj plan "tarea"               # Solo planificación, sin implementar
+kj plan "tarea"               # Generar plan + HUs (v2.5)
 kj review                     # Review de cambios no commiteados
 kj audit                      # Auditar toda la base de código
 kj status                     # Estado de la sesión actual
 kj resume <session-id>        # Reanudar sesión pausada
 kj doctor                     # Comprobar entorno
+
+# Gestión de planes (v2.5.0)
+kj plan list                  # Listar planes del proyecto actual
+kj plan show <planId>         # Ver detalles del plan + tabla de HUs
+kj plan validate <planId>     # Verificar estructura, deps, IDs
+kj plan ready <planId>        # Certificar todas las HUs, marcar listo para ejecutar
+kj plan add-hu <planId>       # Añadir HU (--title, --type, --deps, --scope)
+kj plan remove-hu <planId> <huId>  # Eliminar HU del plan
+kj plan delete <planId>       # Borrar plan del disco
+kj run --plan <planId> "tarea"     # Ejecutar un plan aprobado
+
+# Dashboard HU Board
+kj board start                # Iniciar dashboard web (puerto 4000, fallback 4001-4009)
+kj board open                 # Iniciar + abrir en el navegador
+kj board status               # Comprobar si está corriendo
+kj board stop                 # Detener el board
 ```
+
+## Flujo de planificación (v2.5.0)
+
+`kj plan` introduce un flujo en dos fases: **planificar → revisar → ejecutar**. En lugar de codificar inmediatamente, primero se genera un plan estructurado con HUs, se inspecciona y ajusta, y se ejecuta cuando está listo.
+
+```bash
+# Fase 1: generar un plan con HUs y tests de aceptación
+kj plan "Refactorizar la capa de autenticación para usar JWT"
+# → escribe el plan en disco, imprime planId (p.ej. plan_1234)
+
+# Inspeccionar y ajustar
+kj plan show plan_1234        # Revisar tabla de HUs, deps, criterios de aceptación
+kj plan validate plan_1234    # Verificar estructura, sin deps rotas
+kj plan add-hu plan_1234 --title "Añadir endpoint de refresh token" --type feat
+kj plan remove-hu plan_1234 hu_03
+
+# Fase 2: certificar y ejecutar
+kj plan ready plan_1234       # Certifica todas las HUs, marca el plan como listo
+kj run --plan plan_1234 "Refactorizar la capa de autenticación para usar JWT"
+# → omite las etapas researcher/architect/planner, carga el plan directamente
+```
+
+El plan se guarda en `.karajan/plans/` y persiste entre sesiones. Usa `kj plan list` para ver todos los planes del proyecto actual.
 
 ## Configuración
 
