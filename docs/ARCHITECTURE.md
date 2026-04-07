@@ -72,6 +72,8 @@ The main pipeline lives in `src/orchestrator.js` (~1400 LOC) and calls functions
 | `post-loop-stages.js` | Tester, Security, Impeccable, Audit orchestration with fallback chain |
 | `iteration-stages.js` | Coder, Refactorer, TDD check, Sonar, Reviewer orchestration (per iteration) |
 | `hu-sub-pipeline.js` | HU batch processing with dependency graph |
+| `acceptance-runner.js` | **v2.4**: Executes HU `acceptance_tests` shell commands after each coder iteration; captures exact pass/fail output for Brain diagnostics |
+| `auto-generator.js` | **v2.1**: Converts triage subtasks into a certified HU batch with setup HU and per-HU `task_type` classification |
 | `solomon-escalation.js` | Solomon invocation with conflict context and previous rulings |
 | `solomon-rules.js` | Deterministic rules engine (stale detection, scope guard, deps alerts) |
 | `preflight-checks.js` | Environment validation before pipeline starts |
