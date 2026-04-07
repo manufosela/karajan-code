@@ -23,7 +23,7 @@
 
 ---
 
-> **v2.0 released** — Karajan Brain architecture, smart init, session journal, and more. See [MIGRATION-v2.md](./MIGRATION-v2.md) for breaking changes (proxy removed, becaria→ci rename).
+> **v2.4.0 released** — Executable acceptance tests for HUs: each HU runs shell commands after every coder iteration. All pass → approved. Any fail → Brain diagnoses with exact error output. First version where the full demo completes end-to-end: 6 HUs, 280 tests, 97% coverage, 0 vulnerabilities. Also includes security audit fixes and auto-HU decomposition (v2.1+). See [CHANGELOG.md](./CHANGELOG.md) for full history and [MIGRATION-v2.md](./MIGRATION-v2.md) for v1→v2 breaking changes.
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
