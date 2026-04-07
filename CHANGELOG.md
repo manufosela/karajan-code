@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Executable acceptance tests for HUs** — each HU now has `acceptance_tests`: an array of shell commands that Brain executes after each coder iteration. All pass → HU approved. Any fail → Brain reads the exact error output and sends a concrete diagnostic to the coder ("install @vitest/coverage-v8", not "Coverage: not measured"). No reviewer. No generic tester. Concrete pass/fail.
 
+### Fixed
+
+- **Security audit fixes** — command injection in `git add` (HIGH: `execSync` → `execFileSync`), allowlist bypass in `isCommandAllowed` (MEDIUM: `startsWith` → exact token match), credentials file permissions (MEDIUM: `0o644` → `0o600`), token masking in MCP responses (LOW).
+
 ### Changed
 
 - Setup HU now explicitly includes coverage reporter installation in its scope and acceptance_tests.
