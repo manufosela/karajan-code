@@ -48,5 +48,5 @@ export async function saveSonarToken(token) {
   existing.token = token;
   const dir = getKarajanHome();
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(existing, null, 2), "utf8");
+  await fs.writeFile(filePath, JSON.stringify(existing, null, 2), { encoding: "utf8", mode: 0o600 });
 }

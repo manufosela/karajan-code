@@ -4,10 +4,11 @@ import path from "node:path";
 import fs from "node:fs/promises";
 
 vi.mock("node:child_process", () => ({
-  execSync: vi.fn()
+  execSync: vi.fn(),
+  execFileSync: vi.fn()
 }));
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 const {
   executeAction, executeActions, getAllowedActionTypes, isCommandAllowed
 } = await import("../src/orchestrator/direct-actions.js");
@@ -154,7 +155,7 @@ describe("direct-actions", () => {
 
   describe("git_add", () => {
     it("stages files", async () => {
-      execSync.mockReturnValue("");
+      execFileSync.mockReturnValue("");
       const result = await executeAction({
         type: "git_add",
         params: { files: ["src/a.js", "tests/a.test.js"], cwd: tmpDir }

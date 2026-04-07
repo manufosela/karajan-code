@@ -1,7 +1,7 @@
 // Direct actions: commands Karajan Brain can execute without invoking a full role.
 // Keeps the action catalog small, auditable, and safe.
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -32,7 +32,11 @@ const ALLOWED_COMMANDS = [
  */
 function isCommandAllowed(cmd) {
   if (!cmd || typeof cmd !== "string") return false;
-  return ALLOWED_COMMANDS.some(allowed => cmd.trim().startsWith(allowed));
+  const tokens = cmd.trim().split(/\s+/);
+  return ALLOWED_COMMANDS.some(allowed => {
+    const allowedTokens = allowed.split(/\s+/);
+    return allowedTokens.every((t, i) => tokens[i] === t) && tokens.length === allowedTokens.length;
+  });
 }
 
 /**
@@ -128,8 +132,7 @@ async function gitAdd({ files, cwd }) {
         return { ok: false, error: `Invalid file path: ${f}`, action: "git_add" };
       }
     }
-    const args = files.map(f => `"${f}"`).join(" ");
-    execSync(`git add ${args}`, {
+    execFileSync("git", ["add", ...files], {
       cwd: cwd || process.cwd(),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"]

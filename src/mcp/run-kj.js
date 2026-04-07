@@ -5,6 +5,13 @@ import { execa } from "execa";
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = path.resolve(MODULE_DIR, "..", "cli.js");
 
+/** Mask a secret token for safe logging: show first 4 and last 4 chars only. */
+function maskToken(token) {
+  if (!token || typeof token !== "string") return "***";
+  if (token.length <= 8) return "***";
+  return `${token.slice(0, 4)}${"*".repeat(Math.min(token.length - 8, 16))}${token.slice(-4)}`;
+}
+
 function normalizeBoolFlag(value, flagName, args) {
   if (value === true) args.push(flagName);
 }
@@ -111,6 +118,16 @@ export async function runKjCommand({ command, commandArgs = [], options = {}, en
 
   if (!ok && result.stderr && !payload.timedOut) {
     payload.errorSummary = result.stderr.split("\n").filter(Boolean).slice(-3).join(" | ");
+  }
+
+  // Sanitize output: strip sonar token from any log/error output
+  if (options.sonarToken) {
+    const masked = maskToken(options.sonarToken);
+    for (const key of ["stdout", "stderr", "errorSummary"]) {
+      if (payload[key] && typeof payload[key] === "string") {
+        payload[key] = payload[key].replaceAll(options.sonarToken, masked);
+      }
+    }
   }
 
   return payload;
