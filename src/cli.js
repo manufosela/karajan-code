@@ -217,9 +217,11 @@ program
     });
   });
 
-program
-  .command("plan")
-  .description("Generate implementation plan")
+const plan = program.command("plan").description("Plan management (generate, review, approve, execute)");
+
+plan
+  .command("generate", { isDefault: true })
+  .description("Generate implementation plan with HUs")
   .argument("<task>")
   .option("--planner <name>")
   .option("--planner-model <name>")
@@ -227,9 +229,64 @@ program
   .option("--json", "Output raw JSON plan")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
-      await planCommand({ task, config, logger, json: flags.json, context: flags.context });
+      const { planGenerateCommand } = await import("./commands/plan.js");
+      await planGenerateCommand({ task, config, logger, json: flags.json, context: flags.context });
     });
   });
+
+plan.command("list").description("List all plans").action(async (flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planListCommand } = await import("./commands/plan.js");
+    await planListCommand({ config });
+  });
+});
+
+plan.command("show").description("Show plan details + HUs").argument("<planId>").action(async (planId, flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planShowCommand } = await import("./commands/plan.js");
+    await planShowCommand({ config, planId });
+  });
+});
+
+plan.command("ready").description("Approve plan — certify all HUs").argument("<planId>").action(async (planId, flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planReadyCommand } = await import("./commands/plan.js");
+    await planReadyCommand({ config, planId });
+  });
+});
+
+plan.command("validate").description("Validate plan structure").argument("<planId>").action(async (planId, flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planValidateCommand } = await import("./commands/plan.js");
+    await planValidateCommand({ config, planId });
+  });
+});
+
+plan.command("delete").description("Delete a plan").argument("<planId>").action(async (planId, flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planDeleteCommand } = await import("./commands/plan.js");
+    await planDeleteCommand({ config, planId });
+  });
+});
+
+plan.command("add-hu").description("Add HU to plan").argument("<planId>")
+  .option("--title <text>", "HU title")
+  .option("--type <type>", "Task type: sw|infra|doc|add-tests|refactor|nocode", "sw")
+  .option("--deps <ids>", "Comma-separated HU IDs this depends on")
+  .option("--scope <text>", "Scope description")
+  .action(async (planId, flags) => {
+    await withConfig("plan", flags, async ({ config }) => {
+      const { planAddHuCommand } = await import("./commands/plan.js");
+      await planAddHuCommand({ config, planId, title: flags.title, type: flags.type, deps: flags.deps, scope: flags.scope });
+    });
+  });
+
+plan.command("remove-hu").description("Remove HU from plan").argument("<planId>").argument("<huId>").action(async (planId, huId, flags) => {
+  await withConfig("plan", flags, async ({ config }) => {
+    const { planRemoveHuCommand } = await import("./commands/plan.js");
+    await planRemoveHuCommand({ config, planId, huId });
+  });
+});
 
 program
   .command("discover")

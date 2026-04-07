@@ -1,6 +1,7 @@
 import { watch } from 'chokidar';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { homedir } from 'node:os';
 import {
   getKjHome,
   upsertProject,
@@ -223,6 +224,59 @@ function syncSessionFile(filePath) {
 /**
  * Performs a full scan of all existing JSON files.
  */
+/**
+ * Sync a v2 plan file (with embedded HUs) to SQLite.
+ * Plans are the authoritative source — replaces hu-stories for plan-based runs.
+ */
+function syncPlanFile(filePath) {
+  try {
+    const raw = readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(raw);
+    if (data.version !== 2 || !Array.isArray(data.hus) || data.hus.length === 0) return;
+
+    const projectId = data.planId;
+    const projectName = data.name || slugToTitle(data.task || '') || projectId;
+
+    upsertProject({
+      id: projectId,
+      name: projectName,
+      last_activity: data.updatedAt || data.createdAt || new Date().toISOString(),
+      total_stories: data.hus.length,
+    });
+
+    for (const hu of data.hus) {
+      const acText = Array.isArray(hu.acceptance_criteria)
+        ? JSON.stringify(hu.acceptance_criteria)
+        : null;
+
+      upsertStory({
+        id: `${projectId}::${hu.id}`,
+        project_id: projectId,
+        session_id: projectId,
+        status: hu.status || 'pending',
+        title: hu.title || hu.id,
+        original_text: hu.scope || null,
+        certified_as: null,
+        certified_want: hu.scope || null,
+        certified_so_that: null,
+        quality_total: null,
+        quality_d1: null, quality_d2: null, quality_d3: null,
+        quality_d4: null, quality_d5: null, quality_d6: null,
+        antipatterns: null,
+        ac_format: acText ? 'list' : null,
+        acceptance_criteria: acText,
+        created_at: hu.createdAt,
+        updated_at: hu.updatedAt,
+        certified_at: null,
+      });
+    }
+
+    console.log(`[sync] Plan ${projectId}: ${data.hus.length} HUs (${projectName})`);
+  } catch (err) {
+    console.error(`[sync] Failed to sync plan ${filePath}: ${err.message}`);
+  }
+}
+
 export function fullScan() {
   const kjHome = getKjHome();
   const storiesDir = join(kjHome, 'hu-stories');
@@ -254,6 +308,23 @@ export function fullScan() {
       if (existsSync(sessionPath)) {
         syncSessionFile(sessionPath);
       }
+    }
+  }
+
+  // Scan v2 plans (from kj plan → ~/.kj/plans/)
+  const kjDir = join(homedir(), '.kj', 'plans');
+  if (existsSync(kjDir)) {
+    const projectDirs = readdirSync(kjDir);
+    for (const projDir of projectDirs) {
+      const projPath = join(kjDir, projDir);
+      try {
+        const files = readdirSync(projPath);
+        for (const file of files) {
+          if (file.startsWith('plan-') && file.endsWith('.json')) {
+            syncPlanFile(join(projPath, file));
+          }
+        }
+      } catch { /* skip */ }
     }
   }
 
