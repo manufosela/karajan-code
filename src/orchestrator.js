@@ -1680,6 +1680,66 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
           logger.info(`HU ${story.id} (${story.task_type}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
 
           const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
+          const projectDir = ctx.config.projectDir || process.cwd();
+
+          // If HU has acceptance_tests, Brain runs them as the gate instead of
+          // the standard reviewer/tester pipeline. This is the radical fix:
+          // concrete executable tests replace subjective reviewer opinions.
+          if (story.acceptance_tests?.length > 0) {
+            const { runAcceptanceTests, buildDiagnosticPrompt } = await import("./hu/acceptance-runner.js");
+
+            for (let attempt = 1; attempt <= ctx.config.max_iterations; attempt++) {
+              logger.info(`HU ${story.id}: coder iteration ${attempt}/${ctx.config.max_iterations}`);
+              emitProgress(emitter, makeEvent("iteration:start", { ...ctx.eventBase, stage: "iteration" }, {
+                message: `Iteration ${attempt}/${ctx.config.max_iterations}`,
+                detail: { iteration: attempt, maxIterations: ctx.config.max_iterations }
+              }));
+
+              // Coder runs with the HU task + any diagnostic feedback from previous attempt
+              const coderResult = await runCoderStage({
+                coderRoleInstance: ctx.coderRoleInstance, coderRole: ctx.coderRole,
+                config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+                session: ctx.session, plannedTask: ctx.plannedTask,
+                trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx
+              });
+              if (coderResult?.action === "standby" || coderResult?.action === "pause") {
+                return coderResult?.result || { approved: false, reason: "coder_failed" };
+              }
+
+              // Brain runs acceptance tests
+              logger.info(`HU ${story.id}: running ${story.acceptance_tests.length} acceptance tests`);
+              emitProgress(emitter, makeEvent("hu:acceptance-start", { ...ctx.eventBase, stage: "acceptance" }, {
+                message: `Running ${story.acceptance_tests.length} acceptance tests`,
+                detail: { huId: story.id, testCount: story.acceptance_tests.length }
+              }));
+
+              const testResult = await runAcceptanceTests(story.acceptance_tests, projectDir);
+              emitProgress(emitter, makeEvent("hu:acceptance-end", { ...ctx.eventBase, stage: "acceptance" }, {
+                status: testResult.allPassed ? "ok" : "fail",
+                message: testResult.summary,
+                detail: { allPassed: testResult.allPassed, results: testResult.results.map(r => ({ cmd: r.cmd, passed: r.passed })) }
+              }));
+
+              if (testResult.allPassed) {
+                logger.info(`HU ${story.id}: all acceptance tests PASSED — approved`);
+                await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+                return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+              }
+
+              // Brain diagnoses failures and sends concrete fix to coder
+              const failed = testResult.results.filter(r => !r.passed);
+              const diagnostic = buildDiagnosticPrompt(failed);
+              logger.warn(`HU ${story.id}: ${failed.length} acceptance test(s) FAILED — sending diagnostic to coder`);
+              ctx.session.last_reviewer_feedback = diagnostic;
+              ctx.plannedTask = `${huTask}\n\n--- ACCEPTANCE TEST FAILURES ---\n${diagnostic}`;
+            }
+
+            // All iterations exhausted
+            logger.warn(`HU ${story.id}: max iterations reached with acceptance tests still failing`);
+            return { approved: false, sessionId: ctx.session.id, reason: "acceptance_tests_failed" };
+          }
+
+          // Fallback: no acceptance_tests → standard pipeline (reviewer/tester)
           try {
             const result = await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
             if (result?.approved) {
