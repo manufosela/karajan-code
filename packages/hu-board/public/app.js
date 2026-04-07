@@ -429,12 +429,12 @@ async function showStoryDetail(storyId) {
         <div class="modal__field-value">${esc(story.original_text || 'N/A')}</div>
       </div>
 
-      ${story.certified_as || story.certified_want || story.certified_so_that ? `
+      ${story.certified_as ? `
         <div class="modal__section">
           <div class="modal__section-title">Certified Story</div>
           <div class="modal__field">
             <div class="modal__field-label">As a...</div>
-            <div class="modal__field-value">${esc(story.certified_as || '--')}</div>
+            <div class="modal__field-value">${esc(story.certified_as)}</div>
           </div>
           <div class="modal__field">
             <div class="modal__field-label">I want to...</div>
@@ -444,6 +444,11 @@ async function showStoryDetail(storyId) {
             <div class="modal__field-label">So that...</div>
             <div class="modal__field-value">${esc(story.certified_so_that || '--')}</div>
           </div>
+        </div>
+      ` : story.certified_want ? `
+        <div class="modal__section">
+          <div class="modal__section-title">Scope</div>
+          <div class="modal__field-value" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${esc(story.certified_want)}</div>
         </div>
       ` : ''}
 
