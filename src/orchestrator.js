@@ -1706,6 +1706,24 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
                 return coderResult?.result || { approved: false, reason: "coder_failed" };
               }
 
+              // Sonar quality gate (sw task_type only, when policies say sonar=true)
+              if (huPolicies.sonar && ctx.config.sonarqube?.enabled) {
+                try {
+                  const sonarResult = await runSonarStage({
+                    config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+                    session: ctx.session, trackBudget: ctx.trackBudget, iteration: attempt,
+                    askQuestion, brainCtx: ctx.brainCtx
+                  });
+                  if (sonarResult?.action === "continue") {
+                    // Sonar failed — add to feedback for next coder attempt
+                    ctx.plannedTask = `${huTask}\n\n--- SONAR FAILURE ---\n${ctx.session.last_reviewer_feedback}`;
+                    continue;
+                  }
+                } catch (err) {
+                  logger.warn(`HU ${story.id}: sonar stage failed (non-blocking): ${err.message}`);
+                }
+              }
+
               // Brain runs acceptance tests
               logger.info(`HU ${story.id}: running ${story.acceptance_tests.length} acceptance tests`);
               emitProgress(emitter, makeEvent("hu:acceptance-start", { ...ctx.eventBase, stage: "acceptance" }, {
