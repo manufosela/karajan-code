@@ -645,32 +645,60 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   // --- Plan injection: skip researcher/architect/planner if a persisted plan is loaded ---
   if (flags.plan) {
     try {
-      const { loadPlan } = await import("./plan/plan-store.js");
+      const { loadPlan, savePlan: savePlanToDisk } = await import("./plan/plan-store.js");
+      const { isPlanV2 } = await import("./plan/plan-schema.js");
+      const { planToHuBatch, syncResultsToPlan } = await import("./plan/plan-executor.js");
       const projectDir = updatedConfig.projectDir || process.cwd();
       const loadedPlan = await loadPlan(projectDir, flags.plan);
       if (loadedPlan) {
-        logger.info(`Loaded persisted plan: ${flags.plan}`);
+        logger.info(`Loaded persisted plan: ${flags.plan} (v${loadedPlan.version || 1})`);
         emitProgress(emitter, makeEvent("plan:loaded", { ...eventBase, stage: "plan" }, {
-          message: `Plan loaded from kj_plan: ${flags.plan}`,
-          detail: { planId: flags.plan, task: loadedPlan.task, createdAt: loadedPlan.createdAt }
+          message: `Plan loaded: ${flags.plan}`,
+          detail: { planId: flags.plan, task: loadedPlan.task, version: loadedPlan.version, huCount: loadedPlan.hus?.length || 0 }
         }));
         stageResults.researcher = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
         stageResults.architect = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
         stageResults.planner = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
-        // Inject contexts into session for downstream stages
-        session.research_context = loadedPlan.researchContext || null;
-        session.architect_context = loadedPlan.architectContext || null;
-        session.loaded_plan = loadedPlan.plan || null;
+
+        // v2 plan with HUs → inject as huReviewer so sub-pipeline picks them up
+        if (isPlanV2(loadedPlan) && loadedPlan.hus?.length > 0) {
+          const huBatch = planToHuBatch(loadedPlan);
+          if (huBatch.ok) {
+            stageResults.huReviewer = huBatch;
+            // Store plan reference so we can sync results back after execution
+            session._planRef = { planId: loadedPlan.planId, projectDir };
+            session._syncResultsToPlan = async (subResult) => {
+              syncResultsToPlan(loadedPlan, subResult);
+              await savePlanToDisk(projectDir, loadedPlan);
+            };
+            logger.info(`Plan ${flags.plan}: ${huBatch.certified} HUs ready for execution`);
+            emitProgress(emitter, makeEvent("plan:hus-loaded", { ...eventBase, stage: "plan" }, {
+              message: `${huBatch.certified} HUs loaded from plan`,
+              detail: { planId: flags.plan, total: huBatch.total, certified: huBatch.certified }
+            }));
+            // Mark plan as running
+            loadedPlan.status = "running";
+            await savePlanToDisk(projectDir, loadedPlan);
+          }
+        }
+
+        // Inject contexts
+        const ctx = loadedPlan.context || {};
+        session.research_context = ctx.researchContext || loadedPlan.researchContext || null;
+        session.architect_context = ctx.architectContext || loadedPlan.architectContext || null;
+        session.loaded_plan = loadedPlan.approach || loadedPlan.plan || null;
         await saveSession(session);
 
-        // Build the planned task from the plan steps
-        const plan = loadedPlan.plan;
+        // Build planned task from plan (for non-HU or fallback path)
         let plannedTask = task;
+        const plan = loadedPlan.plan || (loadedPlan.approach ? { approach: loadedPlan.approach } : null);
         if (plan && typeof plan === "object" && plan.steps) {
           const stepList = plan.steps.map((s, idx) => `${idx + 1}. ${s.description || s}`).join("\n");
           plannedTask = `${task}\n\n## Implementation Plan\n${plan.approach || ""}\n\n## Steps\n${stepList}`;
         } else if (typeof plan === "string") {
           plannedTask = `${task}\n\n## Implementation Plan\n${plan}`;
+        } else if (loadedPlan.approach) {
+          plannedTask = `${task}\n\n## Approach\n${loadedPlan.approach}`;
         }
         return { plannedTask, updatedConfig };
       }
@@ -1783,11 +1811,22 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
         detail: { results: subPipelineResult.results, blockedIds: subPipelineResult.blockedIds }
       }));
 
+      // Sync results back to plan file if this was a plan-based run
+      if (ctx.session._syncResultsToPlan) {
+        try {
+          await ctx.session._syncResultsToPlan(subPipelineResult);
+          logger.info("Plan updated with execution results");
+        } catch (err) {
+          logger.warn(`Failed to sync results to plan: ${err.message}`);
+        }
+      }
+
       const finalResult = {
         approved: subPipelineResult.approved,
         sessionId: ctx.session.id,
         huResults: subPipelineResult.results,
-        blockedIds: subPipelineResult.blockedIds
+        blockedIds: subPipelineResult.blockedIds,
+        planId: ctx.session._planRef?.planId || null
       };
       await writeHistoryRecord({ sessionId: ctx.session.id, task, result: finalResult, logger });
       return finalResult;
