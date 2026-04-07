@@ -131,10 +131,17 @@ Adaptadores CLI para providers de IA.
 | Comando | Propósito |
 |---------|-----------|
 | `kj init` | Wizard interactivo de setup |
-| `kj run <task>` | Pipeline completo |
+| `kj run <task>` | Pipeline completo; `--plan <planId>` ejecuta un plan aprobado |
 | `kj code <task>` | Solo coder |
 | `kj review` | Solo reviewer |
-| `kj plan <task>` | Solo plan |
+| `kj plan <task>` | Generar plan + HUs con tests de aceptación (v2.5) |
+| `kj plan list` | Listar todos los planes del proyecto actual |
+| `kj plan show <id>` | Ver detalles del plan + tabla de HUs |
+| `kj plan validate <id>` | Verificar estructura, deps, IDs |
+| `kj plan ready <id>` | Certificar todas las HUs, marcar plan listo para ejecutar |
+| `kj plan add-hu <id>` | Añadir HU (--title, --type, --deps, --scope) |
+| `kj plan remove-hu <id> <huId>` | Eliminar HU del plan |
+| `kj plan delete <id>` | Borrar plan del disco |
 | `kj discover <task>` | Solo discovery |
 | `kj triage <task>` | Solo clasificación |
 | `kj researcher <task>` | Solo investigación |
@@ -148,7 +155,7 @@ Adaptadores CLI para providers de IA.
 | `kj roles` | Listar roles / ver template |
 | `kj agents` | Listar agentes / asignar providers |
 | `kj sonar` | Gestionar Docker de SonarQube |
-| `kj board` | Dashboard del HU Board |
+| `kj board` | Dashboard del HU Board (start/stop/status/open) |
 | `kj config` | Ver/editar config |
 | `kj undo` | Revertir última ejecución |
 
@@ -179,6 +186,7 @@ Capas de validación determinísticas.
 | `src/domains/` | Síntesis de conocimiento de dominio |
 | `src/git/` | Automatización git (auto-commit, push, PR) |
 | `src/hu/` | Sistema HU (store, graph, splitting-detector) |
+| `src/plan/` | **v2.5**: CRUD de planes (create, list, show, validate, ready, add-hu, remove-hu, delete), schema v2 con tests de aceptación, integración con `kj run --plan` |
 | `src/planning-game/` | Integración con Planning Game |
 | `src/webperf/` | Core Web Vitals + detección de Chrome DevTools MCP |
 | `src/prompts/` | Builders de prompts por rol |

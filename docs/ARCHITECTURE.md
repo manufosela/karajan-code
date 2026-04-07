@@ -134,10 +134,17 @@ CLI adapters for AI providers.
 | Command | File | Purpose |
 |---------|------|---------|
 | `kj init` | init.js | Interactive setup wizard |
-| `kj run <task>` | run.js | Full pipeline |
+| `kj run <task>` | run.js | Full pipeline; `--plan <planId>` executes an approved plan |
 | `kj code <task>` | code.js | Coder only |
 | `kj review` | review.js | Reviewer only |
-| `kj plan <task>` | plan.js | Plan only |
+| `kj plan <task>` | plan.js | Generate plan + HUs with acceptance tests (v2.5) |
+| `kj plan list` | plan.js | List all plans for current project |
+| `kj plan show <id>` | plan.js | Show plan details + HU table |
+| `kj plan validate <id>` | plan.js | Check structure, deps, IDs |
+| `kj plan ready <id>` | plan.js | Certify all HUs, mark plan ready to execute |
+| `kj plan add-hu <id>` | plan.js | Add HU (--title, --type, --deps, --scope) |
+| `kj plan remove-hu <id> <huId>` | plan.js | Remove HU from plan |
+| `kj plan delete <id>` | plan.js | Delete plan from disk |
 | `kj discover <task>` | discover.js | Discovery only |
 | `kj triage <task>` | triage.js | Classification only |
 | `kj researcher <task>` | researcher.js | Research only |
@@ -151,7 +158,7 @@ CLI adapters for AI providers.
 | `kj roles` | roles.js | List roles / show template |
 | `kj agents` | agents.js | List agents / assign providers |
 | `kj sonar` | sonar.js | Manage SonarQube Docker |
-| `kj board` | board.js | HU Board dashboard |
+| `kj board` | board.js | HU Board dashboard (start/stop/status/open) |
 | `kj config` | config.js | Show/edit config |
 | `kj undo` | undo.js | Revert last run |
 
@@ -195,6 +202,7 @@ Deterministic validation layers.
 | `src/domains/` | Domain knowledge synthesis |
 | `src/git/` | Git automation (auto-commit, push, PR) |
 | `src/hu/` | HU system (store, graph, splitting-detector, parallel-executor) |
+| `src/plan/` | **v2.5**: Plan CRUD (create, list, show, validate, ready, add-hu, remove-hu, delete), plan schema v2 with acceptance tests, integration with `kj run --plan` |
 | `src/planning-game/` | Planning Game integration |
 | `src/webperf/` | Core Web Vitals + Chrome DevTools MCP detection |
 | `src/audit/` | Basal cost measurement |

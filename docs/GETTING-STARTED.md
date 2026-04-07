@@ -16,7 +16,7 @@ npm install -g karajan-code
 
 Verify:
 ```bash
-kj --version    # 2.0.0
+kj --version    # 2.5.0
 kj doctor       # Check environment
 ```
 
@@ -60,13 +60,52 @@ Writes `~/.karajan/kj.config.yml`. Override per-project with `.karajan/kj.config
 kj run "task"                # Full pipeline
 kj run "task" --enable-brain # With Karajan Brain (v2)
 kj code "task"               # Just coder, no review
-kj plan "task"               # Just planning, no implementation
+kj plan "task"               # Generate plan + HUs (v2.5)
 kj review                    # Review uncommitted changes
 kj audit                     # Audit whole codebase
 kj status                    # Current session
 kj resume <session-id>       # Resume paused
 kj doctor                    # Environment check
+
+# Plan management (v2.5.0)
+kj plan list                 # List plans for this project
+kj plan show <planId>        # Show plan details + HU table
+kj plan validate <planId>    # Check structure, deps, IDs
+kj plan ready <planId>       # Certify all HUs, mark ready to execute
+kj plan add-hu <planId>      # Add HU (--title, --type, --deps, --scope)
+kj plan remove-hu <planId> <huId>  # Remove HU from plan
+kj plan delete <planId>      # Delete plan from disk
+kj run --plan <planId> "task"      # Execute an approved plan
+
+# HU Board dashboard
+kj board start               # Start web dashboard (port 4000, fallback 4001-4009)
+kj board open                # Start + open in browser
+kj board status              # Check if running
+kj board stop                # Stop the board
 ```
+
+## Planning workflow (v2.5.0)
+
+`kj plan` introduces a two-phase flow: **plan → review → execute**. Instead of running code immediately, you first generate a structured plan with HUs, inspect and adjust it, then execute it when ready.
+
+```bash
+# Phase 1: generate a plan with HUs and acceptance tests
+kj plan "Refactor the authentication layer to use JWT"
+# → writes plan to disk, prints planId (e.g. plan_1234)
+
+# Inspect and adjust
+kj plan show plan_1234       # Review HU table, deps, acceptance criteria
+kj plan validate plan_1234   # Check structure, no broken deps
+kj plan add-hu plan_1234 --title "Add refresh token endpoint" --type feat
+kj plan remove-hu plan_1234 hu_03
+
+# Phase 2: certify and execute
+kj plan ready plan_1234      # Certifies all HUs, marks plan as ready
+kj run --plan plan_1234 "Refactor the authentication layer to use JWT"
+# → skips researcher/architect/planner stages, loads plan directly
+```
+
+The plan is saved to `.karajan/plans/` and persists across sessions. Use `kj plan list` to see all plans for the current project.
 
 ## Configuration
 

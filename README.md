@@ -23,7 +23,7 @@
 
 ---
 
-> **v2.4.0 released** — Executable acceptance tests for HUs: each HU runs shell commands after every coder iteration. All pass → approved. Any fail → Brain diagnoses with exact error output. First version where the full demo completes end-to-end: 6 HUs, 280 tests, 97% coverage, 0 vulnerabilities. Also includes security audit fixes and auto-HU decomposition (v2.1+). See [CHANGELOG.md](./CHANGELOG.md) for full history and [MIGRATION-v2.md](./MIGRATION-v2.md) for v1→v2 breaking changes.
+> **v2.5.0 released** — `kj plan` command: generate structured plans with HUs, review them, add/remove HUs, validate, certify, and execute approved plans via `kj run --plan <planId>`. The full plan→execute workflow is now first-class. Also includes all v2.4 features: executable acceptance tests per HU, auto-HU decomposition, and security audit fixes. See [CHANGELOG.md](./CHANGELOG.md) for full history and [MIGRATION-v2.md](./MIGRATION-v2.md) for v1→v2 breaking changes.
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
@@ -107,7 +107,23 @@ kj run "Create a utility function that validates Spanish DNI numbers, with tests
 kj code "Add input validation to the signup form"     # Coder only
 kj review "Check the authentication changes"           # Review current diff
 kj audit "Full health analysis of this codebase"       # Read-only audit
-kj plan "Refactor the database layer"                  # Plan without coding
+
+# Planning workflow (v2.5.0)
+kj plan "Refactor the database layer"                  # Generate plan + HUs
+kj plan list                                           # List plans for this project
+kj plan show <planId>                                  # Show plan details + HU table
+kj plan validate <planId>                              # Check structure and deps
+kj plan ready <planId>                                 # Certify all HUs, mark ready
+kj plan add-hu <planId> --title "..." --type feat      # Add HU to plan
+kj plan remove-hu <planId> <huId>                      # Remove HU from plan
+kj plan delete <planId>                                # Delete plan from disk
+kj run --plan <planId> "task"                          # Execute an approved plan
+
+# HU Board dashboard (v1.34.0+)
+kj board start                                         # Start web dashboard (port 4000)
+kj board open                                          # Start + open in browser
+kj board status                                        # Check if running
+kj board stop                                          # Stop the board
 ```
 
 ### 2. MCP: inside your AI agent
@@ -218,7 +234,7 @@ After `npm install -g karajan-code`, the MCP server auto-registers in Claude and
 # command = "karajan-mcp"
 ```
 
-**23 tools** available: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_impeccable`, `kj_hu`, `kj_skills`, `kj_suggest`.
+**24 tools** available: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_board`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_impeccable`, `kj_hu`, `kj_skills`, `kj_suggest`.
 
 Use `kj-tail` in a separate terminal to see what the pipeline is doing in real time (see [Three ways to use Karajan](#three-ways-to-use-karajan)).
 
