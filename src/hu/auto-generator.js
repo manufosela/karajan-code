@@ -94,12 +94,12 @@ function buildSetupHu({ stackHints }) {
     "SCOPE (do ONLY this, nothing else):",
     "- Create package.json (with workspaces if monorepo detected from stack hints)",
     "- Install all runtime + dev dependencies listed in stack hints",
-    "- Configure test framework so `npm test` runs (even with 0 tests)",
+    "- Install test framework WITH coverage reporter (e.g. vitest + @vitest/coverage-v8)",
+    "- Configure vitest.config.js with coverage.enabled = true",
     "- Create .env.example with placeholder variables",
-    "- Verify: `npm install` succeeds, `npm test` runs without error",
+    "- Verify by running each acceptance_test command below",
     "",
     "DO NOT implement any business logic, API routes, components, or features.",
-    "DO NOT add security middleware, auth, or any application code.",
     "This HU is ONLY project scaffolding.",
     "",
     "Stack hints:",
@@ -114,9 +114,15 @@ function buildSetupHu({ stackHints }) {
     certified: { text: certifiedText },
     acceptance_criteria: [
       "npm install succeeds without errors",
-      "npm test runs (even with 0 tests)",
-      ".env.example exists",
-      "No business logic or application code added"
+      "npm test runs without error",
+      "npm run test:coverage runs without error",
+      ".env.example exists"
+    ],
+    acceptance_tests: [
+      "npm install --ignore-scripts 2>&1 && echo PASS || echo FAIL",
+      "npx vitest run 2>&1; test $? -eq 0 && echo PASS || echo FAIL",
+      "npx vitest run --coverage 2>&1 | grep -q 'All files\\|% Stmts' && echo PASS || echo FAIL",
+      "test -f .env.example && echo PASS || echo FAIL"
     ]
   };
 }
@@ -135,8 +141,8 @@ function buildTaskHu({ id, subtask, projectName, blockedBy }) {
     "SCOPE (do ONLY this, nothing else):",
     `- Implement: ${subtask}`,
     "- Add unit tests for the new code",
+    "- Run ALL acceptance_tests listed below and ensure they pass",
     "- Do NOT touch code outside this subtask's scope",
-    "- Do NOT refactor or 'improve' unrelated files",
     "- Target: <200 lines changed (like an atomic PR)"
   ].join("\n");
   return {
@@ -149,7 +155,11 @@ function buildTaskHu({ id, subtask, projectName, blockedBy }) {
     acceptance_criteria: [
       `${subtask} is implemented and working`,
       "Unit tests cover the new code",
-      "No changes to files outside this subtask's scope"
+      "All acceptance_tests pass"
+    ],
+    acceptance_tests: [
+      "npx vitest run 2>&1; test $? -eq 0 && echo PASS || echo FAIL",
+      "npx vitest run --coverage 2>&1 | grep -q 'All files\\|% Stmts' && echo PASS || echo FAIL"
     ]
   };
 }

@@ -195,7 +195,9 @@ describe("generateHuBatch", () => {
     expect(setup.certified.text).not.toContain(originalTask);
     expect(setup.certified.text).toContain("DO NOT implement any business logic");
     expect(setup.certified.text).toContain("ONLY project scaffolding");
-    expect(setup.acceptance_criteria).toContain("No business logic or application code added");
+    expect(setup.acceptance_criteria).toContain(".env.example exists");
+    expect(setup.acceptance_tests).toBeDefined();
+    expect(setup.acceptance_tests.length).toBeGreaterThan(0);
   });
 
   it("task HUs reference project name, not full task", () => {
