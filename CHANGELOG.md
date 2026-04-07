@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-04-07
+
+### Added
+
+- **Mini Planning Game module** (KJC-PCS-0038) — independent planning system with two-phase workflow: plan first, then execute.
+  - `kj plan "task"` — generates v2 plan with HUs (globally unique IDs, acceptance tests, task_type classification)
+  - `kj plan list/show/validate/delete` — plan management
+  - `kj plan ready <id>` — certify all HUs, mark plan as ready
+  - `kj plan add-hu/remove-hu` — manual HU CRUD
+  - `kj run --plan <id>` — executes plan's HUs via sub-pipeline with acceptance tests
+  - Plan file updated in real-time as HUs execute (status: running → done/failed)
+  - HU Board syncs from `~/.kj/plans/` — shows plans as projects with HU status
+  - v2 schema with lazy v1→v2 migration, cycle detection in dependency graph
+
 ## [2.4.1] - 2026-04-07
 
 ### Fixed
