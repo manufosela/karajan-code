@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-04-07
+
+### Fixed
+
+- **Sonar quality gate runs for sw HUs** — acceptance_tests bypassed the entire standard pipeline including sonar. Now sonar runs between coder and acceptance_tests when `huPolicies.sonar === true`. If sonar fails, feedback goes to coder for next attempt.
+- **HU Board shows rich data** — sync now extracts title, scope (certified.text), and acceptance_criteria from auto-generated HUs. Story detail modal shows "Scope" section with full text. Cards show real titles instead of "HU-01".
+- **vitest updated** — 0 npm vulnerabilities (vite path traversal patched).
+
 ## [2.4.0] - 2026-04-07
 
 ### Added
