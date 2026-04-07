@@ -5,6 +5,10 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
+## Fase 54: Tests de Aceptación Ejecutables (v2.4.0)
+
+**v2.4.0** — Primera versión en que la demo completa con éxito de extremo a extremo con auto-descomposición en HUs. Cada HU lleva `acceptance_tests`: un array de comandos shell que Brain ejecuta tras cada iteración del coder. Todos pasan → HU aprobada. Alguno falla → Brain lee el error exacto y envía un diagnóstico concreto al coder ("install @vitest/coverage-v8", no "Coverage: not measured"). Sin reviewer. Sin tester genérico. Pasa/falla concreto. Cuando `acceptance_tests` está definido, Brain reemplaza el pipeline estándar de reviewer/tester por un bucle personalizado (coder → acceptance_tests → diagnose → retry). También incluye auditoría de seguridad: `execSync` → `execFileSync` para git add, allowlist con matching exacto de tokens, permisos `0o600` en fichero de credenciales, enmascarado de tokens en respuestas MCP, vitest actualizado a 0 vulnerabilidades npm. Resultado demo: 6 HUs, 280 tests, 97% cobertura, 0 vulnerabilidades.
+
 ## Fase 53: Auditoría completa de Brain (v2.3.0)
 
 **v2.3.0** — Auditoría exhaustiva del orquestador encontró y arregló 21 violaciones legacy v1 donde Solomon se invocaba directamente (sin pasar por Brain), `session.task` se filtraba al contexto per-HU, o las mutaciones de feedback saltaban la cola de Brain. Cada stage ahora gatilla Solomon a través de Brain cuando está habilitado. El reviewer per-HU evalúa el scope del HU, no la spec completa. HU Board gana endpoint `/api/sync` para detección live de batches. Model registry actualizado con familias 2026 (Jorge del Casar #412).

@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v2.3.0 — Auto-descomposición en HUs: tareas grandes se dividen automáticamente en HUs atómicas, cada una como sub-pipeline con su rama y PR. Brain + Solomon Judge incluidos."
+  tagline: "v2.4.0 — Tests de Aceptación Ejecutables: cada HU ejecuta comandos shell tras cada iteración del coder. Todos pasan → aprobado. Alguno falla → Brain diagnostica con el error exacto. Demo: 6 HUs, 280 tests, 97% cobertura, 0 vulnerabilidades."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -23,6 +23,9 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
+  <Card title="Tests de Aceptación Ejecutables (v2.4)" icon="approve-check-circle">
+    Cada HU lleva `acceptance_tests`: un array de comandos shell que Brain ejecuta tras cada iteración del coder. Todos pasan → HU aprobada. Alguno falla → Brain lee el error exacto y envía un diagnóstico concreto al coder. Sin reviewer. Sin tester genérico. Pasa/falla concreto. Resultado demo: 6 HUs, 280 tests, 97% cobertura, 0 vulnerabilidades.
+  </Card>
   <Card title="Karajan Brain (v2.0)" icon="rocket">
     Orquestador central con IA que enruta toda la comunicación entre roles, enriquece feedback con pistas de ficheros, verifica outputs vía git diff, ejecuta acciones directas (npm install, gitignore) y comprime outputs de roles para 40-70% de ahorro de tokens. Consulta a Solomon solo en dilemas genuinos.
   </Card>
