@@ -69,9 +69,11 @@ describe("plan-store", () => {
     expect(loaded).not.toBeNull();
     expect(loaded.planId).toBe(planId);
     expect(loaded.task).toBe("Fix bug #42");
-    expect(loaded.researchContext).toEqual({ patterns: ["singleton"] });
-    expect(loaded.architectContext).toBeNull();
-    expect(loaded.plan.approach).toBe("Patch the singleton");
+    // loadPlan auto-migrates v1 → v2; context moves into .context
+    expect(loaded.version).toBe(2);
+    expect(loaded.context.researchContext).toEqual({ patterns: ["singleton"] });
+    expect(loaded.context.architectContext).toBeNull();
+    expect(loaded.approach).toBe("Patch the singleton");
     expect(loaded.createdAt).toBeTruthy();
   });
 
