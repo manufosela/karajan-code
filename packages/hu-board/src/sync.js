@@ -89,15 +89,23 @@ function syncStoryFile(filePath) {
       const quality = story.quality || {};
       const dimensions = quality.dimensions || {};
 
+      // acceptance_criteria: support both array (auto-generator) and object (hu-reviewer)
+      let acText = null;
+      if (Array.isArray(story.acceptance_criteria)) {
+        acText = JSON.stringify(story.acceptance_criteria);
+      } else if (story.acceptance_criteria?.criteria) {
+        acText = JSON.stringify(story.acceptance_criteria.criteria);
+      }
+
       upsertStory({
         id: story.id,
         project_id: projectId,
         session_id: sessionId,
         status: story.status || 'pending',
         title: extractTitle(story),
-        original_text: story.original?.text || null,
+        original_text: story.original?.text || certified.text || null,
         certified_as: certified.as || null,
-        certified_want: certified.want || null,
+        certified_want: certified.want || (certified.text ? certified.text.slice(0, 500) : null),
         certified_so_that: certified.so_that || null,
         quality_total: quality.total ?? null,
         quality_d1: dimensions.d1 ?? null,
@@ -107,10 +115,8 @@ function syncStoryFile(filePath) {
         quality_d5: dimensions.d5 ?? null,
         quality_d6: dimensions.d6 ?? null,
         antipatterns: quality.antipatterns ? JSON.stringify(quality.antipatterns) : null,
-        ac_format: story.acceptance_criteria?.format || null,
-        acceptance_criteria: story.acceptance_criteria?.criteria
-          ? JSON.stringify(story.acceptance_criteria.criteria)
-          : null,
+        ac_format: story.acceptance_criteria?.format || (Array.isArray(story.acceptance_criteria) ? 'list' : null),
+        acceptance_criteria: acText,
         created_at: story.created_at,
         updated_at: story.updated_at,
         certified_at: story.certified_at || null,
@@ -141,10 +147,12 @@ function syncStoryFile(filePath) {
  * @returns {string}
  */
 function extractTitle(story) {
+  // Auto-generated HUs have story.title directly
+  if (story.title && story.title !== story.id) return story.title.slice(0, 120);
+  // HU-reviewer format: certified.want
+  if (story.certified?.want) return story.certified.want.slice(0, 120);
+  // Fallback: original text or id
   const text = story.original?.text || '';
-  if (story.certified?.want) {
-    return story.certified.want.slice(0, 120);
-  }
   return text.slice(0, 120) || story.id;
 }
 
