@@ -1,45 +1,26 @@
 import express from 'express';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'node:net';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';
 import { authMiddleware } from './auth.js';
+import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '..', 'public');
 
 /**
- * Checks if a port is available.
- * @param {number} port
- * @returns {Promise<boolean>}
- */
-function isPortAvailable(port) {
-  return new Promise((resolve) => {
-    const server = createServer();
-    server.once('error', () => resolve(false));
-    server.once('listening', () => {
-      server.close();
-      resolve(true);
-    });
-    server.listen(port);
-  });
-}
-
-/**
- * Finds an available port starting from the given port.
+ * Finds an available port starting from the given port, logging each busy
+ * hop. Delegates to the shared util in src/utils/port-check.js.
  * @param {number} startPort
  * @param {number} maxAttempts
  * @returns {Promise<number>}
  */
-async function findAvailablePort(startPort, maxAttempts = 11) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const port = startPort + i;
-    if (await isPortAvailable(port)) return port;
+function findAvailablePort(startPort, maxAttempts = 11) {
+  return findAvailablePortBase(startPort, maxAttempts, (port) => {
     console.log(`[server] Port ${port} is busy, trying ${port + 1}...`);
-  }
-  throw new Error(`No available port found between ${startPort} and ${startPort + maxAttempts - 1}`);
+  });
 }
 
 /**
