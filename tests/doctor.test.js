@@ -37,8 +37,43 @@ vi.mock("../src/utils/git.js", () => ({
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
-    access: vi.fn().mockResolvedValue(undefined)
+    access: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
+    mkdir: vi.fn().mockResolvedValue(undefined)
   }
+}));
+
+// Stub spawn so mcp-health check doesn't actually fork `node bin/karajan-mcp.js`
+// during unit runs. A minimal fake emits a JSON-RPC result so the check passes.
+vi.mock("node:child_process", () => {
+  const { EventEmitter } = require("node:events");
+  return {
+    spawn: vi.fn(() => {
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => {
+        child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n'));
+      });
+      return child;
+    })
+  };
+});
+
+vi.mock("../src/utils/port-check.js", () => ({
+  isPortAvailable: vi.fn().mockResolvedValue(true),
+  findAvailablePort: vi.fn().mockResolvedValue(4001)
+}));
+
+vi.mock("../src/utils/port-occupant.js", () => ({
+  getPortOccupant: vi.fn().mockResolvedValue(null)
+}));
+
+vi.mock("../src/skills/openskills-client.js", () => ({
+  isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
 }));
 
 const baseConfig = {
@@ -71,6 +106,26 @@ describe("doctor", () => {
     // Agent config files: simulate ENOENT (not found) so checks are skipped
     const fsPromises = await import("node:fs/promises");
     fsPromises.default.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+    fsPromises.default.stat.mockResolvedValue({ isDirectory: () => true });
+
+    const { isPortAvailable } = await import("../src/utils/port-check.js");
+    isPortAvailable.mockResolvedValue(true);
+
+    const { isOpenSkillsAvailable } = await import("../src/skills/openskills-client.js");
+    isOpenSkillsAvailable.mockResolvedValue(true);
+
+    const cp = await import("node:child_process");
+    cp.spawn.mockImplementation(() => {
+      const { EventEmitter } = require("node:events");
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    });
 
     const mod = await import("../src/commands/doctor.js");
     runChecks = mod.runChecks;

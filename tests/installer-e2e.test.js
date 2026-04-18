@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * E2E integration test: kj init → produces valid config → kj doctor reports all OK.
@@ -17,9 +17,46 @@ vi.mock("node:fs/promises", () => ({
     appendFile: vi.fn(async (p, content) => {
       const existing = writtenFiles.get(p) || "";
       writtenFiles.set(p, existing + content);
-    })
+    }),
+    // dir-setup check stats the home dir tree; treat all as existing dirs.
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
+    mkdir: vi.fn().mockResolvedValue(undefined)
   }
 }));
+
+// dir-setup uses os.homedir() + path.join. Don't need to mock those.
+// But the default vi.resetAllMocks in beforeEach wipes the stat mock;
+// we restore it there below.
+
+// Additional mocks for the new doctor checks (commit 3 of KJC-TSK-0319):
+vi.mock("../src/utils/port-check.js", () => ({
+  isPortAvailable: vi.fn().mockResolvedValue(true),
+  findAvailablePort: vi.fn().mockResolvedValue(4001)
+}));
+
+vi.mock("../src/utils/port-occupant.js", () => ({
+  getPortOccupant: vi.fn().mockResolvedValue(null)
+}));
+
+vi.mock("../src/skills/openskills-client.js", () => ({
+  isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
+}));
+
+vi.mock("node:child_process", () => {
+  const { EventEmitter } = require("node:events");
+  return {
+    spawn: vi.fn(() => {
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    })
+  };
+});
 
 vi.mock("../src/utils/fs.js", () => ({
   exists: vi.fn(async (p) => writtenFiles.has(p)),
@@ -89,9 +126,16 @@ describe("installer E2E: init → doctor", () => {
     debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn()
   };
 
+  const savedEnv = { ...process.env };
+
   beforeEach(async () => {
     vi.resetAllMocks();
     writtenFiles.clear();
+
+    // Token checks require the env vars of active providers to be set.
+    // The test uses providers claude (anthropic) and codex (openai).
+    process.env.ANTHROPIC_API_KEY = "sk-test-installer";
+    process.env.OPENAI_API_KEY = "sk-test-installer";
 
     // Re-setup mocks cleared by resetAllMocks
     const { exists, ensureDir } = await import("../src/utils/fs.js");
@@ -120,10 +164,35 @@ describe("installer E2E: init → doctor", () => {
 
     const fsPromises = (await import("node:fs/promises")).default;
     fsPromises.writeFile.mockImplementation(async (p, content) => { writtenFiles.set(p, content); });
+    fsPromises.stat.mockResolvedValue({ isDirectory: () => true });
+    fsPromises.mkdir.mockResolvedValue(undefined);
+
+    // Re-setup mocks introduced by commit 3 of KJC-TSK-0319
+    const { isPortAvailable } = await import("../src/utils/port-check.js");
+    isPortAvailable.mockResolvedValue(true);
+    const { isOpenSkillsAvailable } = await import("../src/skills/openskills-client.js");
+    isOpenSkillsAvailable.mockResolvedValue(true);
+    const cp = await import("node:child_process");
+    cp.spawn.mockImplementation(() => {
+      const { EventEmitter } = require("node:events");
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    });
     fsPromises.readFile.mockImplementation(async (p) => {
       if (writtenFiles.has(p)) return writtenFiles.get(p);
       throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     });
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(process.env)) delete process.env[k];
+    for (const [k, v] of Object.entries(savedEnv)) process.env[k] = v;
   });
 
   it("init creates config that passes doctor checks", async () => {

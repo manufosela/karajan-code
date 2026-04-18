@@ -13,18 +13,30 @@ import { getBinaryChecks } from "../checks/binaries.js";
 import { getSonarChecks } from "../checks/sonar.js";
 import { getCiChecks } from "../checks/ci.js";
 import { getRtkChecks } from "../checks/rtk.js";
+import { getNodeChecks } from "../checks/node.js";
+import { getPortChecks } from "../checks/ports.js";
+import { getTokenChecks } from "../checks/tokens.js";
+import { getMcpHealthChecks } from "../checks/mcp-health.js";
+import { getSkillsChecks } from "../checks/skills.js";
+import { getDirSetupChecks } from "../checks/dir-setup.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
  * @param {Object} config
  * @returns {import("../checks/types.js").Check[]}
  */
-function buildChecks() {
+function buildChecks(config) {
   return [
     ...getSystemChecks(),
+    ...getNodeChecks(),
+    ...getDirSetupChecks(),
     ...getConfigFileChecks(),
     ...getBinaryChecks(),
     ...getSonarChecks(),
+    ...getPortChecks(),
+    ...getTokenChecks(config),
+    ...getMcpHealthChecks(),
+    ...getSkillsChecks(),
     ...getCiChecks(),
     ...getRtkChecks(),
   ];
@@ -40,7 +52,7 @@ function buildChecks() {
  * @returns {Promise<Array<{ name: string, label: string, ok: boolean, detail: string, fix: string|null }>>}
  */
 export async function runChecks({ config }) {
-  const checks = buildChecks();
+  const checks = buildChecks(config);
   const report = await runCheckPipeline(checks, { config });
   return toLegacyShape(report);
 }
