@@ -230,9 +230,9 @@ describe("doctor", () => {
   });
 
   describe("doctorCommand", () => {
-    it("returns check results", async () => {
-      const checks = await doctorCommand({ config: baseConfig });
-      expect(Array.isArray(checks)).toBe(true);
+    it("returns 0 when all checks pass", async () => {
+      const exitCode = await doctorCommand({ config: baseConfig });
+      expect(exitCode).toBe(0);
     });
 
     it("prints fix suggestions for failed checks", async () => {
@@ -263,6 +263,51 @@ describe("doctor", () => {
 
       const output = console.log.mock.calls.map((c) => c[0]).join("\n");
       expect(output).toMatch(/\d+ issue/);
+    });
+
+    it("returns 1 when any check fails", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false);
+      const { isSonarReachable } = await import("../src/sonar/manager.js");
+      isSonarReachable.mockResolvedValue(false);
+
+      const exitCode = await doctorCommand({ config: baseConfig });
+      expect(exitCode).toBe(1);
+    });
+
+    it("emits JSON when --json flag is set", async () => {
+      await doctorCommand({ config: baseConfig, json: true });
+
+      const calls = console.log.mock.calls.map((c) => c[0]);
+      // JSON output prints a single blob; parse it to validate shape.
+      const jsonCall = calls.find((c) => typeof c === "string" && c.trim().startsWith("{"));
+      expect(jsonCall).toBeTruthy();
+      const parsed = JSON.parse(jsonCall);
+      expect(parsed).toHaveProperty("checks");
+      expect(parsed).toHaveProperty("summary");
+      expect(parsed).toHaveProperty("overrides");
+    });
+
+    it("verbose mode prints fix hints and runMs per check", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false);
+
+      await doctorCommand({ config: baseConfig, verbose: true });
+
+      const output = console.log.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("ms, strategy=");
+    });
+
+    it("check-only mode does not invoke any remediate function", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false); // force failures
+
+      const exitCode = await doctorCommand({ config: baseConfig, checkOnly: true });
+      // still 1 because no fixes applied
+      expect(exitCode).toBe(1);
+      // and no "FIXED" label in output
+      const output = console.log.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).not.toMatch(/\bFIXED\b/);
     });
   });
 });

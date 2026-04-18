@@ -157,8 +157,13 @@ export function handleInit(a) {
   return runKjCommand({ command: "init", options: a });
 }
 
-export function handleDoctor(a) {
-  return runKjCommand({ command: "doctor", options: a });
+export function handleDoctor(a = {}) {
+  const commandArgs = [];
+  if (a.checkOnly) commandArgs.push("--check-only");
+  if (a.yes) commandArgs.push("--yes");
+  if (a.json) commandArgs.push("--json");
+  if (a.verbose) commandArgs.push("--verbose");
+  return runKjCommand({ command: "doctor", commandArgs, options: a });
 }
 
 export function handleConfig(a) {

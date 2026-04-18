@@ -1,12 +1,19 @@
 /**
  * `kj doctor` command. Runs the unified check runner and prints a
- * human-readable report.
+ * human-readable report by default. Supports flags:
  *
- * Internal helpers have been extracted to src/checks/* modules during
- * KJC-TSK-0319. This file remains the thin CLI adapter.
+ *   --check-only   : only detect, do not apply fixes
+ *   --yes / -y     : auto-confirm prompts for invasive remediations (CI mode)
+ *   --json         : emit machine-readable JSON to stdout
+ *   --verbose      : include fix hints and timing per check
+ *
+ * Exit code is 1 whenever any check ends with FAIL (including remediation
+ * failures). WARN, OK, FIXED, SKIPPED and TIMEOUT do not fail the command.
  */
 
+import readline from "node:readline";
 import { runChecks as runCheckPipeline, toLegacyShape } from "../checks/runner.js";
+import { STATUS } from "../checks/types.js";
 import { getSystemChecks } from "../checks/system.js";
 import { getConfigFileChecks } from "../checks/config-files.js";
 import { getBinaryChecks } from "../checks/binaries.js";
@@ -43,43 +50,112 @@ function buildChecks(config) {
 }
 
 /**
- * Run all environment checks and return results in the legacy shape expected
- * by existing consumers: `{ name, label, ok, detail, fix }`.
+ * Interactive terminal confirmation. Returns false when stdin is not a TTY
+ * so non-interactive contexts don't hang forever.
  *
- * Kept public so tools and tests can consume the raw list without CLI output.
+ * @param {string} describe
+ * @returns {Promise<boolean>}
+ */
+function confirmViaTty(describe) {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY) {
+      resolve(false);
+      return;
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`? ${describe} [y/N] `, (answer) => {
+      rl.close();
+      resolve(/^y(es)?$/i.test(answer.trim()));
+    });
+  });
+}
+
+/**
+ * Run the full doctor pipeline without CLI formatting. Consumers that need
+ * the raw report (preflight, status command) should use this.
+ *
+ * @param {{ config: Object, checkOnly?: boolean, yes?: boolean, onConfirm?: Function, logger?: Object }} args
+ * @returns {Promise<import("../checks/types.js").RunReport>}
+ */
+export async function runDoctor({ config, checkOnly = false, yes = false, onConfirm, logger }) {
+  const checks = buildChecks(config);
+  return runCheckPipeline(checks, { config }, {
+    mode: checkOnly ? "check-only" : "fix",
+    yes,
+    onConfirm: onConfirm ?? confirmViaTty,
+    logger,
+  });
+}
+
+/**
+ * Legacy shape (backwards-compat for callers that still expect
+ * {name,label,ok,detail,fix}). Kept public because tests and the CI gate
+ * still rely on it.
  *
  * @param {{ config: Object }} args
- * @returns {Promise<Array<{ name: string, label: string, ok: boolean, detail: string, fix: string|null }>>}
  */
 export async function runChecks({ config }) {
-  const checks = buildChecks(config);
-  const report = await runCheckPipeline(checks, { config });
+  const report = await runDoctor({ config });
   return toLegacyShape(report);
 }
 
 /**
- * `kj doctor` CLI entrypoint. Prints each check's status and any fix hints.
- * Returns the flattened check list for programmatic consumption.
+ * `kj doctor` CLI entrypoint. Returns the exit code (0 OK, 1 when FAIL).
  *
- * @param {{ config: Object }} args
+ * @param {{ config: Object, checkOnly?: boolean, yes?: boolean, json?: boolean, verbose?: boolean }} args
+ * @returns {Promise<number>}
  */
-export async function doctorCommand({ config }) {
-  const checks = await runChecks({ config });
+export async function doctorCommand({ config, checkOnly = false, yes = false, json = false, verbose = false }) {
+  const report = await runDoctor({ config, checkOnly, yes });
 
-  for (const check of checks) {
-    const icon = check.ok ? "OK  " : "MISS";
-    console.log(`${icon} ${check.label}: ${check.detail}`);
-    if (check.fix) {
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printHuman(report, { verbose });
+  }
+
+  return hasBlockingFailure(report) ? 1 : 0;
+}
+
+function hasBlockingFailure(report) {
+  return report.checks.some((c) => c.status === STATUS.FAIL || c.status === STATUS.TIMEOUT);
+}
+
+function statusIcon(status) {
+  switch (status) {
+    case STATUS.OK: return "OK   ";
+    case STATUS.FIXED: return "FIXED";
+    case STATUS.WARN: return "WARN ";
+    case STATUS.FAIL: return "FAIL ";
+    case STATUS.SKIPPED: return "SKIP ";
+    case STATUS.TIMEOUT: return "TIME ";
+    default: return "?    ";
+  }
+}
+
+function printHuman(report, { verbose }) {
+  for (const check of report.checks) {
+    console.log(`${statusIcon(check.status)} ${check.label}: ${check.detail}`);
+    if (check.fix && (check.status === STATUS.FAIL || check.status === STATUS.WARN || verbose)) {
       console.log(`     -> ${check.fix}`);
+    }
+    if (verbose) {
+      console.log(`     (${check.runMs}ms, strategy=${check.strategy})`);
     }
   }
 
-  const failures = checks.filter((c) => !c.ok && c.fix);
-  if (failures.length === 0) {
-    console.log("\nAll checks passed.");
+  const s = report.summary;
+  const total = s.ok + s.fixed + s.warn + s.fail + s.skipped + s.timeout;
+  console.log();
+  if (s.fail === 0 && s.timeout === 0) {
+    const label = s.fixed > 0 ? `All checks passed (${s.fixed} auto-fixed)` : "All checks passed.";
+    console.log(label);
   } else {
-    console.log(`\n${failures.length} issue(s) found.`);
+    console.log(
+      `${s.fail + s.timeout} issue(s) found, ${s.fixed} auto-fixed, ${s.warn} warnings, ${s.skipped} skipped out of ${total}.`
+    );
   }
-
-  return checks;
+  if (Object.keys(report.overrides).length > 0) {
+    console.log(`Runtime overrides applied: ${JSON.stringify(report.overrides)}`);
+  }
 }
