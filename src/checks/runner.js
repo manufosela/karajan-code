@@ -136,12 +136,16 @@ export async function runChecks(checks, ctx, options = {}) {
       }
     }
 
-    // Phase 3: re-verify fixed checks.
+    // Phase 3: re-verify fixed checks using the config merged with any
+    // runtime overrides applied by remediations. Without this merge, a check
+    // that rebinds to a new port (override) would re-verify against the old
+    // config and wrongly report failure.
+    const verifyConfig = mergeConfigAndOverrides(config, overrides);
     await Promise.all(
       entries.filter((e) => e.remediated).map(async (entry) => {
         const start = Date.now();
         try {
-          const result = await withTimeout(entry.check.detect({ config, signal }), timeoutMs, `${entry.check.name}:reverify`);
+          const result = await withTimeout(entry.check.detect({ config: verifyConfig, signal }), timeoutMs, `${entry.check.name}:reverify`);
           entry.runMs += Date.now() - start;
           if (!result.ok) {
             entry.status = STATUS.FAIL;
@@ -220,6 +224,23 @@ function mergeOverrides(target, source) {
       target[key] = value;
     }
   }
+}
+
+/**
+ * Produce a shallow-merged copy of config + overrides used during re-verify.
+ * Does not mutate the original config.
+ */
+function mergeConfigAndOverrides(config, overrides) {
+  if (!overrides || Object.keys(overrides).length === 0) return config;
+  const merged = { ...config };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value && typeof value === "object" && !Array.isArray(value) && typeof config[key] === "object") {
+      merged[key] = { ...config[key], ...value };
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
 }
 
 function defaultOnConfirm() {

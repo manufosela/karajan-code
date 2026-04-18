@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn()
@@ -21,11 +21,55 @@ vi.mock("../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue({ user: "admin", password: "testpass" })
 }));
 
+// Commit 6 of KJC-TSK-0319: preflight now also runs doctor-style extended
+// checks. Stub their IO so the existing tests keep their Sonar/security
+// focus without accidentally failing on unrelated environment issues.
+vi.mock("../src/utils/port-check.js", () => ({
+  isPortAvailable: vi.fn().mockResolvedValue(true),
+  findAvailablePort: vi.fn().mockResolvedValue(4001)
+}));
+
+vi.mock("../src/utils/port-occupant.js", () => ({
+  getPortOccupant: vi.fn().mockResolvedValue(null)
+}));
+
+vi.mock("../src/skills/openskills-client.js", () => ({
+  isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
+}));
+
+vi.mock("node:fs/promises", () => ({
+  default: {
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
+    writeFile: vi.fn().mockResolvedValue(undefined),
+    access: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
+vi.mock("node:child_process", () => {
+  const { EventEmitter } = require("node:events");
+  return {
+    spawn: vi.fn(() => {
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    })
+  };
+});
+
 describe("preflight-checks", () => {
   let runPreflightChecks;
   let checkBinary, isSonarReachable, sonarUp, runCommand;
   let logger, emitter, eventBase;
   const emittedEvents = [];
+
+  const savedEnv = { ...process.env };
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -33,6 +77,9 @@ describe("preflight-checks", () => {
     delete process.env.SONAR_TOKEN;
     delete process.env.KJ_SONAR_ADMIN_USER;
     delete process.env.KJ_SONAR_ADMIN_PASSWORD;
+
+    // Satisfy the token check for active providers used by makeConfig().
+    process.env.ANTHROPIC_API_KEY = "sk-test-preflight";
 
     emittedEvents.length = 0;
 
@@ -53,8 +100,40 @@ describe("preflight-checks", () => {
     emitter = { emit: vi.fn((_event, data) => emittedEvents.push(data)) };
     eventBase = { sessionId: "test-session", iteration: 0, stage: null, startedAt: Date.now() };
 
+    // Restore default happy-path mocks for the extended checks (they were
+    // reset by vi.resetAllMocks).
+    const portCheck = await import("../src/utils/port-check.js");
+    portCheck.isPortAvailable.mockResolvedValue(true);
+    portCheck.findAvailablePort.mockResolvedValue(4001);
+
+    const skillsClient = await import("../src/skills/openskills-client.js");
+    skillsClient.isOpenSkillsAvailable.mockResolvedValue(true);
+
+    const fsPromises = (await import("node:fs/promises")).default;
+    fsPromises.stat.mockResolvedValue({ isDirectory: () => true });
+    fsPromises.mkdir.mockResolvedValue(undefined);
+    fsPromises.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+
+    const cp = await import("node:child_process");
+    cp.spawn.mockImplementation(() => {
+      const { EventEmitter } = require("node:events");
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    });
+
     const mod = await import("../src/orchestrator/preflight-checks.js");
     runPreflightChecks = mod.runPreflightChecks;
+  });
+
+  afterEach(() => {
+    for (const k of Object.keys(process.env)) delete process.env[k];
+    for (const [k, v] of Object.entries(savedEnv)) process.env[k] = v;
   });
 
   function makeConfig(overrides = {}) {
@@ -62,11 +141,15 @@ describe("preflight-checks", () => {
       sonarqube: { enabled: true, host: "http://localhost:9000", ...overrides.sonarqube },
       roles: { security: { provider: "claude" }, coder: { provider: "claude" }, ...overrides.roles },
       coder: "claude",
+      // The test suite globally defaults extended preflight OFF (see
+      // tests/setup.js). The preflight-checks test explicitly wants the
+      // extended checks to run so we can assert their behavior.
+      preflight: { extended: true, ...overrides.preflight },
       ...overrides,
     };
   }
 
-  it("skips all checks when sonar and security are both disabled", async () => {
+  it("runs only extended (doctor-style) checks when sonar and security are both disabled", async () => {
     const config = makeConfig({ sonarqube: { enabled: false } });
     const result = await runPreflightChecks({
       config, logger, emitter, eventBase,
@@ -74,7 +157,13 @@ describe("preflight-checks", () => {
       securityEnabled: false,
     });
     expect(result.ok).toBe(true);
-    expect(result.checks).toHaveLength(0);
+    // No Sonar/docker/security entries, but extended checks are still present.
+    const names = result.checks.map((c) => c.name);
+    expect(names).not.toContain("docker");
+    expect(names).not.toContain("sonar-reachable");
+    expect(names).not.toContain("security-agent");
+    expect(names).toContain("node-version");
+    // Happy-path default mocks should keep things green.
     expect(result.warnings).toHaveLength(0);
   });
 

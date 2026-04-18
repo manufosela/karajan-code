@@ -14,6 +14,8 @@ describe("checks/tokens", () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GOOGLE_API_KEY;
+    delete process.env.OPENCODE_API_KEY;
+    delete process.env.AIDER_API_KEY;
     delete process.env.GH_TOKEN;
     delete process.env.GITHUB_TOKEN;
     mod = await import("../../src/checks/tokens.js");
