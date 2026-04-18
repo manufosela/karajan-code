@@ -137,14 +137,15 @@ describe("prompts/prompt-resolver", () => {
       expect(logger.debug).not.toHaveBeenCalled();
     });
 
-    it("still finds the built-in legacy template (backwards compat) when no overrides exist", async () => {
+    it("still finds a built-in template for coder when no overrides exist (via new per-role subdir or legacy flat)", async () => {
       const dir = await mkTmpProject();
       cleanups.push(dir);
-      // The real built-in templates/roles/coder.md exists in the repo — we
-      // rely on it as last-resort. This asserts that the chain reaches it.
+      // After commit 3, templates/roles/coder/default.md exists and takes
+      // precedence. The legacy templates/roles/coder.md is preserved as the
+      // absolute last-resort fallback for back-compat.
       const result = await loadRoleInstructions({ role: "coder", provider: null, projectDir: dir });
       expect(result.instructions).toBeTruthy();
-      expect(result.path).toMatch(/templates\/roles\/coder\.md$/);
+      expect(result.path).toMatch(/templates\/roles\/coder\/default\.md$|templates\/roles\/coder\.md$/);
     });
   });
 });
