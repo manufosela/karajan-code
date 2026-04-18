@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { printEvent, formatElapsed } from "../src/utils/display.js";
+import { printEvent } from "../src/utils/display/event-handlers.js";
+import { formatElapsed } from "../src/utils/display/formatters.js";
 import { applyRunOverrides } from "../src/config.js";
 
 // Capture console.log output
