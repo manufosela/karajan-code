@@ -9,6 +9,7 @@ export default defineConfig({
       ".kj/**",
       "demo/**"
     ],
+    setupFiles: ["./tests/setup.js"],
     testTimeout: 30000
   }
 });

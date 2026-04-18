@@ -37,8 +37,43 @@ vi.mock("../src/utils/git.js", () => ({
 vi.mock("node:fs/promises", () => ({
   default: {
     readFile: vi.fn().mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" })),
-    access: vi.fn().mockResolvedValue(undefined)
+    access: vi.fn().mockResolvedValue(undefined),
+    stat: vi.fn().mockResolvedValue({ isDirectory: () => true }),
+    mkdir: vi.fn().mockResolvedValue(undefined)
   }
+}));
+
+// Stub spawn so mcp-health check doesn't actually fork `node bin/karajan-mcp.js`
+// during unit runs. A minimal fake emits a JSON-RPC result so the check passes.
+vi.mock("node:child_process", () => {
+  const { EventEmitter } = require("node:events");
+  return {
+    spawn: vi.fn(() => {
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => {
+        child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n'));
+      });
+      return child;
+    })
+  };
+});
+
+vi.mock("../src/utils/port-check.js", () => ({
+  isPortAvailable: vi.fn().mockResolvedValue(true),
+  findAvailablePort: vi.fn().mockResolvedValue(4001)
+}));
+
+vi.mock("../src/utils/port-occupant.js", () => ({
+  getPortOccupant: vi.fn().mockResolvedValue(null)
+}));
+
+vi.mock("../src/skills/openskills-client.js", () => ({
+  isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
 }));
 
 const baseConfig = {
@@ -71,6 +106,26 @@ describe("doctor", () => {
     // Agent config files: simulate ENOENT (not found) so checks are skipped
     const fsPromises = await import("node:fs/promises");
     fsPromises.default.readFile.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+    fsPromises.default.stat.mockResolvedValue({ isDirectory: () => true });
+
+    const { isPortAvailable } = await import("../src/utils/port-check.js");
+    isPortAvailable.mockResolvedValue(true);
+
+    const { isOpenSkillsAvailable } = await import("../src/skills/openskills-client.js");
+    isOpenSkillsAvailable.mockResolvedValue(true);
+
+    const cp = await import("node:child_process");
+    cp.spawn.mockImplementation(() => {
+      const { EventEmitter } = require("node:events");
+      const child = new EventEmitter();
+      child.stdin = { write: vi.fn() };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn();
+      child.unref = vi.fn();
+      setImmediate(() => child.stdout.emit("data", Buffer.from('{"jsonrpc":"2.0","id":1,"result":{}}\n')));
+      return child;
+    });
 
     const mod = await import("../src/commands/doctor.js");
     runChecks = mod.runChecks;
@@ -175,9 +230,9 @@ describe("doctor", () => {
   });
 
   describe("doctorCommand", () => {
-    it("returns check results", async () => {
-      const checks = await doctorCommand({ config: baseConfig });
-      expect(Array.isArray(checks)).toBe(true);
+    it("returns 0 when all checks pass", async () => {
+      const exitCode = await doctorCommand({ config: baseConfig });
+      expect(exitCode).toBe(0);
     });
 
     it("prints fix suggestions for failed checks", async () => {
@@ -208,6 +263,51 @@ describe("doctor", () => {
 
       const output = console.log.mock.calls.map((c) => c[0]).join("\n");
       expect(output).toMatch(/\d+ issue/);
+    });
+
+    it("returns 1 when any check fails", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false);
+      const { isSonarReachable } = await import("../src/sonar/manager.js");
+      isSonarReachable.mockResolvedValue(false);
+
+      const exitCode = await doctorCommand({ config: baseConfig });
+      expect(exitCode).toBe(1);
+    });
+
+    it("emits JSON when --json flag is set", async () => {
+      await doctorCommand({ config: baseConfig, json: true });
+
+      const calls = console.log.mock.calls.map((c) => c[0]);
+      // JSON output prints a single blob; parse it to validate shape.
+      const jsonCall = calls.find((c) => typeof c === "string" && c.trim().startsWith("{"));
+      expect(jsonCall).toBeTruthy();
+      const parsed = JSON.parse(jsonCall);
+      expect(parsed).toHaveProperty("checks");
+      expect(parsed).toHaveProperty("summary");
+      expect(parsed).toHaveProperty("overrides");
+    });
+
+    it("verbose mode prints fix hints and runMs per check", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false);
+
+      await doctorCommand({ config: baseConfig, verbose: true });
+
+      const output = console.log.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("ms, strategy=");
+    });
+
+    it("check-only mode does not invoke any remediate function", async () => {
+      const { exists } = await import("../src/utils/fs.js");
+      exists.mockResolvedValue(false); // force failures
+
+      const exitCode = await doctorCommand({ config: baseConfig, checkOnly: true });
+      // still 1 because no fixes applied
+      expect(exitCode).toBe(1);
+      // and no "FIXED" label in output
+      const output = console.log.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).not.toMatch(/\bFIXED\b/);
     });
   });
 });

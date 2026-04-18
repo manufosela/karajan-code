@@ -172,9 +172,22 @@ program
 
 program
   .command("doctor")
-  .description("Check environment requirements")
-  .action(async () => {
-    await withConfig("doctor", {}, doctorCommand);
+  .description("Check environment requirements and auto-remediate when possible")
+  .option("--check-only", "Detect issues without applying fixes")
+  .option("-y, --yes", "Auto-confirm prompts for invasive remediations (CI mode)")
+  .option("--json", "Emit machine-readable JSON instead of human output")
+  .option("--verbose", "Include fix hints and timing for every check")
+  .action(async (flags) => {
+    const exitCode = await withConfig("doctor", {}, (ctx) =>
+      doctorCommand({
+        ...ctx,
+        checkOnly: !!flags.checkOnly,
+        yes: !!flags.yes,
+        json: !!flags.json,
+        verbose: !!flags.verbose,
+      })
+    );
+    if (Number.isInteger(exitCode)) process.exit(exitCode);
   });
 
 program

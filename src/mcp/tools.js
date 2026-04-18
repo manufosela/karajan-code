@@ -12,12 +12,16 @@ export const tools = [
   },
   {
     name: "kj_doctor",
-    description: "Check system dependencies and agent CLIs",
+    description: "Check system dependencies, agent CLIs, ports, tokens and MCP health — auto-remediates when possible",
     inputSchema: {
       type: "object",
       properties: {
         kjHome: { type: "string" },
-        timeoutMs: { type: "number" }
+        timeoutMs: { type: "number" },
+        checkOnly: { type: "boolean", description: "Detect only, do not apply fixes" },
+        yes: { type: "boolean", description: "Auto-confirm prompts for invasive remediations" },
+        json: { type: "boolean", description: "Emit machine-readable JSON output" },
+        verbose: { type: "boolean", description: "Include fix hints and timing per check" }
       }
     }
   },

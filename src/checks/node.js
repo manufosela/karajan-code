@@ -1,0 +1,61 @@
+/**
+ * Node.js runtime version check. Requires Node >= 20 (minimum version that
+ * ships structuredClone, Array.prototype.findLast, AbortSignal.timeout, and
+ * stable fetch). Strategy: manual — we cannot auto-upgrade the runtime.
+ */
+
+import { STRATEGY } from "./types.js";
+
+export const MIN_NODE_MAJOR = 20;
+
+/**
+ * Accepts a version string in the form "v20.12.1" or "20.12.1" and returns
+ * an object { major, minor, patch } or null when the shape is invalid.
+ */
+export function parseNodeVersion(versionString) {
+  const str = String(versionString || "").trim();
+  const m = str.match(/^v?(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) };
+}
+
+/**
+ * Create the Node version check. Accepts an optional override of the
+ * reported version (useful in tests).
+ *
+ * @param {{ version?: string }} [opts]
+ * @returns {import("./types.js").Check}
+ */
+export function createNodeVersionCheck(opts = {}) {
+  return {
+    name: "node-version",
+    label: "Node.js runtime",
+    strategy: STRATEGY.MANUAL,
+    async detect() {
+      const raw = opts.version ?? process.env.KJ_FORCE_NODE_VERSION ?? process.version;
+      const parsed = parseNodeVersion(raw);
+      if (!parsed) {
+        return {
+          ok: false,
+          severity: "fail",
+          detail: `Unrecognized Node version: ${raw}`,
+          fix: `Install Node ${MIN_NODE_MAJOR}+ from https://nodejs.org/ (current: ${raw}).`,
+        };
+      }
+      if (parsed.major < MIN_NODE_MAJOR) {
+        return {
+          ok: false,
+          severity: "fail",
+          detail: `Node ${raw} detected, requires >=${MIN_NODE_MAJOR}`,
+          fix: `Upgrade Node to ${MIN_NODE_MAJOR}+ (nvm install ${MIN_NODE_MAJOR} && nvm use ${MIN_NODE_MAJOR}, or brew upgrade node).`,
+          extra: { detected: parsed, required: MIN_NODE_MAJOR },
+        };
+      }
+      return { ok: true, severity: "info", detail: `${raw} (>= ${MIN_NODE_MAJOR} required)` };
+    },
+  };
+}
+
+export function getNodeChecks() {
+  return [createNodeVersionCheck()];
+}

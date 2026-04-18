@@ -386,7 +386,16 @@ describe("mcp/server-handlers", () => {
 
     it("routes kj_doctor to runKjCommand", async () => {
       await handleToolCall("kj_doctor", {}, mockServer, {});
-      expect(runKjCommand).toHaveBeenCalledWith({ command: "doctor", options: {} });
+      expect(runKjCommand).toHaveBeenCalledWith({ command: "doctor", commandArgs: [], options: {} });
+    });
+
+    it("forwards kj_doctor flags as CLI args", async () => {
+      await handleToolCall("kj_doctor", { checkOnly: true, yes: true, json: true, verbose: true }, mockServer, {});
+      expect(runKjCommand).toHaveBeenCalledWith({
+        command: "doctor",
+        commandArgs: ["--check-only", "--yes", "--json", "--verbose"],
+        options: { checkOnly: true, yes: true, json: true, verbose: true },
+      });
     });
 
     it("routes kj_config with json flag", async () => {
@@ -594,7 +603,7 @@ describe("mcp/server-handlers", () => {
 
     it("handles undefined args", async () => {
       await handleToolCall("kj_doctor", undefined, mockServer, {});
-      expect(runKjCommand).toHaveBeenCalledWith({ command: "doctor", options: {} });
+      expect(runKjCommand).toHaveBeenCalledWith({ command: "doctor", commandArgs: [], options: {} });
     });
   });
 

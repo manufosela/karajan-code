@@ -22,6 +22,14 @@ import {
 } from "../sonar/config-resolver.js";
 import { saveSonarToken } from "../sonar/credentials.js";
 import { withDocLink } from "../utils/doc-links.js";
+import { runChecks as runCheckPipeline } from "../checks/runner.js";
+import { STATUS } from "../checks/types.js";
+import { getNodeChecks } from "../checks/node.js";
+import { getDirSetupChecks } from "../checks/dir-setup.js";
+import { getPortChecks } from "../checks/ports.js";
+import { getTokenChecks } from "../checks/tokens.js";
+import { getMcpHealthChecks } from "../checks/mcp-health.js";
+import { getSkillsChecks } from "../checks/skills.js";
 
 function parseJsonSafe(text) {
   try {
@@ -173,9 +181,14 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
     errors: [],
   };
 
-  // Short-circuit: nothing to check
-  if (!sonarEnabled && !securityEnabled) {
-    logger.info("Preflight: skipped (no sonar, no security)");
+  // Resolve extended preflight opt-in early so the short-circuit below can see it.
+  const extendedDefault = globalThis.__KJ_DEFAULT_PREFLIGHT_EXTENDED ?? true;
+  const extendedEnabled = config?.preflight?.extended ?? extendedDefault;
+
+  // Preserve legacy short-circuit: if nothing at all needs checking, skip
+  // emitting the whole preflight bracket.
+  if (!sonarEnabled && !securityEnabled && !extendedEnabled) {
+    logger.info("Preflight: skipped (no sonar, no security, extended disabled)");
     emitProgress(emitter, makeEvent("preflight:end", { ...eventBase, stage: "preflight" }, {
       message: "Preflight skipped (no checks needed)",
       detail: { ...result, executorType: "local" }
@@ -185,7 +198,7 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
 
   emitProgress(emitter, makeEvent("preflight:start", { ...eventBase, stage: "preflight" }, {
     message: "Running preflight environment checks",
-    detail: { sonarEnabled, securityEnabled, executorType: "local" }
+    detail: { sonarEnabled, securityEnabled, extendedEnabled, executorType: "local" }
   }));
 
   // --- 1. Docker (only if sonar enabled and not external) ---
@@ -288,6 +301,15 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
     }
   }
 
+  // --- 5. Complementary doctor-style checks (Node version, ports, tokens, MCP
+  //         health, ~/.karajan dirs, openskills). These are auto-remediated
+  //         with yes:true because preflight runs non-interactively inside kj run.
+  //         Opt-out via `config.preflight.extended: false`. Defaults to true
+  //         in production; the test harness (tests/setup.js) defaults it off.
+  if (extendedEnabled) {
+    await runExtendedPreflight({ config, result, emitter, eventBase, logger });
+  }
+
   const hasErrors = result.errors.length > 0;
   const hasWarnings = result.warnings.length > 0;
   const preflightLang = getLang(config);
@@ -302,4 +324,56 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
   }));
 
   return result;
+}
+
+/**
+ * Run the doctor-style complementary checks and merge their outcomes into
+ * the existing preflight result shape. Runs with yes:true (non-interactive)
+ * and auto-remediation enabled. FAIL/TIMEOUT are appended to errors (blocking),
+ * WARN are appended to warnings (non-blocking), FIXED status is recorded as a
+ * remediation, and runtime overrides from auto-fixes are merged into
+ * configOverrides.
+ */
+async function runExtendedPreflight({ config, result, emitter, eventBase, logger }) {
+  const checks = [
+    ...getNodeChecks(),
+    ...getDirSetupChecks(),
+    ...getPortChecks(),
+    ...getTokenChecks(config),
+    ...getMcpHealthChecks(),
+    ...getSkillsChecks(),
+  ];
+  let report;
+  try {
+    report = await runCheckPipeline(checks, { config }, { mode: "fix", yes: true, timeoutMs: 3000, logger });
+  } catch (err) {
+    logger.warn(`Preflight: extended checks failed to run (${err.message})`);
+    return;
+  }
+
+  for (const c of report.checks) {
+    result.checks.push({ name: c.name, ok: c.status === STATUS.OK || c.status === STATUS.FIXED || c.status === STATUS.SKIPPED, detail: c.detail });
+    const eventStatus = c.status === STATUS.FAIL || c.status === STATUS.TIMEOUT
+      ? "fail"
+      : c.status === STATUS.WARN
+        ? "warn"
+        : "ok";
+    emitProgress(emitter, makeEvent("preflight:check", { ...eventBase, stage: "preflight" }, {
+      status: eventStatus,
+      message: `${c.label}: ${c.detail}`,
+      detail: { name: c.name, status: c.status, detail: c.detail, fix: c.fix }
+    }));
+    if (c.status === STATUS.FIXED) {
+      result.remediations.push(`${c.label}: ${c.detail}`);
+    } else if (c.status === STATUS.FAIL || c.status === STATUS.TIMEOUT) {
+      result.ok = false;
+      result.errors.push({ check: c.name, message: `${c.label}: ${c.detail}`, fix: c.fix });
+    } else if (c.status === STATUS.WARN) {
+      result.warnings.push(`${c.label}: ${c.detail}`);
+    }
+  }
+
+  if (report.overrides && Object.keys(report.overrides).length > 0) {
+    Object.assign(result.configOverrides, report.overrides);
+  }
 }
