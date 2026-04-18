@@ -33,7 +33,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en" }) {
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
@@ -108,7 +108,7 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
 
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills);
+    const skillSection = buildSkillSection(skills, { provider });
     if (skillSection) {
       sections.push(skillSection);
     }

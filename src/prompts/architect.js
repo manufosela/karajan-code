@@ -9,7 +9,7 @@ const SUBAGENT_PREAMBLE = [
 
 export const VALID_VERDICTS = new Set(["ready", "needs_clarification"]);
 
-export async function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null, domainContext = null, projectDir = null, language = "en" }) {
+export async function buildArchitectPrompt({ task, instructions, researchContext = null, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [SUBAGENT_PREAMBLE, ...(langInstruction ? [langInstruction] : [])];
 
@@ -51,7 +51,7 @@ export async function buildArchitectPrompt({ task, instructions, researchContext
 
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills);
+    const skillSection = buildSkillSection(skills, { provider });
     if (skillSection) {
       sections.push(skillSection);
     }
