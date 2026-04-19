@@ -3,6 +3,11 @@ import path from "node:path";
 import yaml from "js-yaml";
 import { ensureDir, exists } from "./utils/fs.js";
 import { getKarajanHome } from "./utils/paths.js";
+import { safeParseConfig, formatConfigIssues } from "./config/schema.js";
+
+/**
+ * @typedef {import("./config/schema.js").KarajanConfig} KarajanConfig
+ */
 
 const DEFAULTS = {
   coder: "claude",
@@ -266,6 +271,16 @@ export async function loadConfig(projectDir) {
     merged.budget = mergeDeep(merged.budget || {}, { pricing: projectPricing });
   }
 
+  // KJC-TSK-0318 — schema-validate the merged config so invalid values
+  // (review_mode typos, max_iterations=0, out-of-range ports) surface at
+  // load time with a clear error instead of crashing deep inside the
+  // orchestrator. safeParse + explicit error prefix keeps the message
+  // actionable.
+  const validation = safeParseConfig(merged);
+  if (!validation.success) {
+    throw new Error(`Invalid Karajan config:\n${formatConfigIssues(validation.issues)}`);
+  }
+
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
 }
 
@@ -303,10 +318,13 @@ const PIPELINE_ENABLE_FLAGS = [
 
 const AUTO_SIMPLIFY_FLAG = "autoSimplify";
 
-// Scalar flags: [flagName, setter] — truthy check
+// Scalar flags: [flagName, setter] — truthy check.
+// Note: max_iterations was previously here but `0` was silently ignored
+// (truthy check skipped it). It now lives in UNDEF_CHECK_FLAGS so
+// `--max-iterations 0` reaches the schema validator and errors cleanly
+// instead of falling through to the default (KJC-TSK-0318).
 const SCALAR_FLAGS = [
   ["mode", (out, v) => { out.review_mode = v; }],
-  ["maxIterations", (out, v) => { out.max_iterations = Number(v); }],
   ["maxIterationMinutes", (out, v) => { out.session.max_iteration_minutes = Number(v); }],
   ["maxTotalMinutes", (out, v) => { out.session.max_total_minutes = Number(v); }],
   ["checkpointInterval", (out, v) => { out.session.checkpoint_interval_minutes = Number(v); }],
@@ -317,8 +335,11 @@ const SCALAR_FLAGS = [
   ["branchPrefix", (out, v) => { out.git.branch_prefix = String(v); }]
 ];
 
-// Boolean/undefined-check flags: [flagName, setter] — !== undefined check
+// Boolean/undefined-check flags: [flagName, setter] — !== undefined check.
+// These preserve falsy values (false, 0) so --no-rebase correctly sets
+// auto_rebase=false and --reviewer-retries 0 correctly disables retries.
 const UNDEF_CHECK_FLAGS = [
+  ["maxIterations", (out, v) => { out.max_iterations = Number(v); }],
   ["reviewerRetries", (out, v) => { out.reviewer_options.retries = Number(v); }],
   ["autoCommit", (out, v) => { out.git.auto_commit = Boolean(v); }],
   ["autoPush", (out, v) => { out.git.auto_push = Boolean(v); }],
@@ -430,6 +451,14 @@ export function applyRunOverrides(config, flags) {
   applyCiOverride(out, flags);
   applyMiscOverrides(out, flags);
   applyOutputModeOverrides(out, flags);
+
+  // KJC-TSK-0318 — re-run schema validation after overrides so CLI flags
+  // that would produce an invalid config (e.g. --max-iterations 0) fail
+  // fast with the same clear message loadConfig would have produced.
+  const validation = safeParseConfig(out);
+  if (!validation.success) {
+    throw new Error(`Invalid Karajan config after CLI overrides:\n${formatConfigIssues(validation.issues)}`);
+  }
 
   return out;
 }
