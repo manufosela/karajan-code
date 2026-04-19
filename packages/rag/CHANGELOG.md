@@ -9,6 +9,11 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **ROADMAP.md** con visión pública de versiones 0.2.0 → 1.0 (observabilidad,
+  Solomon real, evaluación avanzada, reindex, SDK embebible, estabilidad de API).
+  Enlazado desde README reemplazando el "Roadmap (Sprint 1)" obsoleto.
+- **.nvmrc** con Node 22 para unificar la versión activa por defecto con la
+  recomendada de CI.
 - **Repo polish**: badges en README (CI, release, license, Node, status), `.github/CODEOWNERS`
   con owners por defecto y áreas sensibles (policy, redaction, adapters),
   `.editorconfig` y `.gitattributes` fijando indentación 2sp, LF y UTF-8.
