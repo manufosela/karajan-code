@@ -11,6 +11,7 @@
  */
 
 import { runPipeline, createPipelineContext } from '../src/pipeline/pipeline.js';
+import { collectPipelineEvents } from '../src/pipeline/collect-events.js';
 
 /**
  * Logger de consola coloreado "lite" (sin dependencias).
@@ -33,9 +34,6 @@ function emptyTools() {
 }
 
 async function main() {
-  /** @type {Array<{kind: string, stage: string, durationMs?: number, inputSize?: number, outputSize?: number, error?: string}>} */
-  const telemetry = [];
-
   const stages = [
     { name: 'uppercase', run: (text) => String(text).toUpperCase() },
     { name: 'split',     run: (text) => text.split(/\s+/).filter(Boolean) },
@@ -44,13 +42,17 @@ async function main() {
 
   const ctx = createPipelineContext({ logger: consoleLogger(), tools: emptyTools() });
 
-  const result = await runPipeline(stages, 'Karajan RAG orquesta pipelines con roles conmutables.', ctx, {
-    events: {
-      onStageStart: (e) => telemetry.push({ kind: 'start', stage: e.stageName, inputSize: e.inputSize }),
-      onStageEnd:   (e) => telemetry.push({ kind: 'end',   stage: e.stageName, durationMs: round(e.durationMs), inputSize: e.inputSize, outputSize: e.outputSize }),
-      onStageError: (e) => telemetry.push({ kind: 'error', stage: e.stageName, durationMs: round(e.durationMs), inputSize: e.inputSize, error: e.error.message }),
-    },
-  });
+  // collectPipelineEvents() devuelve { events, hooks }:
+  // - hooks se pasa a runPipeline.
+  // - events se rellena vivo con cada start/end/error.
+  const { events, hooks } = collectPipelineEvents();
+
+  const result = await runPipeline(
+    stages,
+    'Karajan RAG orquesta pipelines con roles conmutables.',
+    ctx,
+    { events: hooks },
+  );
 
   console.log('\n=== Resultado pipeline ===');
   console.log('ok:', result.ok);
@@ -58,7 +60,14 @@ async function main() {
   console.log('executedStages:', result.executedStages.join(' → '));
 
   console.log('\n=== Telemetría por stage ===');
-  console.table(telemetry);
+  console.table(events.map((e) => ({
+    kind: e.kind,
+    stage: e.stageName,
+    inputSize: e.inputSize,
+    outputSize: 'outputSize' in e ? e.outputSize : undefined,
+    durationMs: 'durationMs' in e ? round(e.durationMs) : undefined,
+    error: 'error' in e ? e.error.message : undefined,
+  })));
 }
 
 /**
