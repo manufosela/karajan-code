@@ -7,6 +7,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **API pública** estructurada en `index.js` como barrel de re-exports sin
+  side effects. `import * as kr from 'karajan-rag'` expone 62 símbolos
+  (runPipeline, Role, SolomonRole, GeneratorRole, parallelRetrieve,
+  createOllamaStreamAdapter, chunkers, embedders, vector stores, policy,
+  redactPII, config-driven runs, etc.). El demo previo de CLIs múltiples
+  se ha movido a `examples/multi-cli-demo.js`; `npm start` apunta ahí.
+  Tests de contrato en `tests/public-api.test.js` detectan regresiones.
+
 ### Added
 
 - **Ollama streamAdapter**: `createOllamaStreamAdapter({baseUrl, model, fetchImpl?, options?})`

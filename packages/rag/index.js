@@ -1,23 +1,111 @@
 // @ts-check
-import { runMultiCli } from './src/ai/multi-cli-orchestrator.js';
-
 /**
- * Minimal demo entrypoint: ejecuta un prompt contra los 3 CLIs configurados
- * y vuelca el resultado normalizado por consola.
+ * Karajan RAG — API pública.
  *
- * @returns {Promise<void>}
+ * Este módulo es un *barrel* de re-exports. No tiene side effects: importar
+ * desde `karajan-rag` no lanza demos ni conecta a ningún servicio.
+ *
+ * Organización por capa:
+ *   - Pipeline: runPipeline, Role, RoleRegistry, utilidades.
+ *   - Adapters: Claude/Codex/Gemini/Ollama CLI, Azure OpenAI/Bedrock/Vertex HTTP/SDK,
+ *     Ollama stream.
+ *   - Ingestion: loaders + chunkers.
+ *   - Embedding: Hash/OpenAI-compat/Ollama/Transformers + cache.
+ *   - Vector stores: InMemory/Pg/LanceDB.
+ *   - Retrieval: BM25, Retriever, Reranker, Solomon, parallelRetrieve, dedupe.
+ *   - Generation / Evaluation: Generator, multi-judge.
+ *   - Sensitivity policy + redacción PII.
+ *   - Config-driven runs.
+ *
+ * Los ejemplos ejecutables viven en `examples/`; no se exportan desde aquí.
  */
-async function main() {
-  const prompt = 'Resume en una frase qué es chunking en RAG';
-  console.log(`[karajan-rag] Lanzando prompt a los proveedores...\nPrompt: ${prompt}\n`);
 
-  const results = await runMultiCli(prompt);
+// --- Pipeline -------------------------------------------------------------
+export {
+  runPipeline,
+  createPipelineContext,
+  estimateSize,
+} from './src/pipeline/pipeline.js';
+export { Role, ROLE_EVENTS } from './src/pipeline/role.js';
+export { RoleRegistry } from './src/pipeline/role-registry.js';
 
-  console.log('[karajan-rag] Resultados agregados:\n');
-  console.dir(results, { depth: null });
-}
+// --- Adapters -------------------------------------------------------------
+export { AdapterRegistry, createDefaultAdapterRegistry } from './src/ai/adapter-registry.js';
+export { runMultiCli } from './src/ai/multi-cli-orchestrator.js';
+export { runCli } from './src/ai/cli-runner.js';
+export { parseCliOutput } from './src/ai/output-parser.js';
 
-main().catch((err) => {
-  console.error('[karajan-rag] Error fatal en la demo:', err);
-  process.exitCode = 1;
-});
+export { runClaudeCli } from './src/ai/adapters/claude-cli-adapter.js';
+export { runCodexCli } from './src/ai/adapters/codex-cli-adapter.js';
+export { runGeminiCli } from './src/ai/adapters/gemini-cli-adapter.js';
+export { runOllamaCli } from './src/ai/adapters/ollama-cli-adapter.js';
+export { runAzureOpenAi } from './src/ai/adapters/azure-openai-adapter.js';
+export { runBedrock } from './src/ai/adapters/bedrock-adapter.js';
+export { runVertexAi } from './src/ai/adapters/vertex-ai-adapter.js';
+export {
+  createOllamaStreamAdapter,
+  readNdjsonLines,
+} from './src/ai/adapters/ollama-stream-adapter.js';
+
+// --- Ingestion ------------------------------------------------------------
+export { loadTextFile, loadTextDirectory } from './src/ingestion/loaders.js';
+export {
+  chunkByFixedSize,
+  chunkBySeparators,
+  chunkByTokens,
+  chunkByHeadings,
+  estimateTokens,
+} from './src/ingestion/chunkers.js';
+
+// --- Embedding ------------------------------------------------------------
+export { createHashEmbedder } from './src/embedding/embedder.js';
+export { createCachedEmbedder } from './src/embedding/embedding-cache.js';
+export {
+  createOpenAICompatibleEmbedder,
+  createOllamaEmbedder,
+} from './src/embedding/openai-compatible-embedder.js';
+export { createTransformersEmbedder } from './src/embedding/transformers-embedder.js';
+
+// --- Vector stores --------------------------------------------------------
+export { InMemoryVectorStore } from './src/vector-store/in-memory-vector-store.js';
+export { PgVectorStore } from './src/vector-store/pgvector-store.js';
+export { LanceDBStore } from './src/vector-store/lancedb-store.js';
+
+// --- Retrieval ------------------------------------------------------------
+export { tokenize, BM25Index, createBM25Index } from './src/retrieval/bm25.js';
+export { dedupeChunksByOverlap } from './src/retrieval/chunk-dedupe.js';
+export { parallelRetrieve } from './src/retrieval/parallel-retrieve.js';
+export { RetrieverRole } from './src/retrieval/retriever-role.js';
+export { RerankerRole } from './src/retrieval/reranker-role.js';
+export { SolomonRole } from './src/retrieval/solomon-role.js';
+
+// --- Generation / Evaluation ---------------------------------------------
+export { GeneratorRole, extractCitations } from './src/generation/generator-role.js';
+export { EvaluatorRole } from './src/evaluation/evaluator-role.js';
+export { evaluateMultiJudge, buildJudgePrompt } from './src/evaluation/multi-judge-evaluator.js';
+
+// --- Policy / Redaction --------------------------------------------------
+export {
+  createDefaultSensitivityPolicy,
+  validateSensitivityPolicy,
+  resolveAdapterFor,
+  isProviderAllowed,
+} from './src/policy/sensitivity-policy.js';
+export { redactPII } from './src/redaction/pii-redactor.js';
+export { RedactionRole } from './src/redaction/redaction-role.js';
+
+// --- Domain ---------------------------------------------------------------
+export {
+  SENSITIVITY_LEVELS,
+  DEFAULT_SENSITIVITY,
+  classifySensitivity,
+  isSensitivityAllowed,
+} from './src/domain/document.js';
+
+// --- Registry / Config-driven --------------------------------------------
+export { createDefaultRoleRegistry } from './src/registry/default-role-registry.js';
+export { buildPipelineFromConfig } from './src/config/pipeline-builder.js';
+export {
+  validatePipelineConfig,
+  loadPipelineConfig,
+} from './src/config/pipeline-config.js';
