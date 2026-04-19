@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "start": "node index.js",
+    "start": "node examples/multi-cli-demo.js",
     "lint": "eslint .",
     "test": "node --test tests/*.test.js",
     "coverage": "c8 node --test tests/*.test.js",
