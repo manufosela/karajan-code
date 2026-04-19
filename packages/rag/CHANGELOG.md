@@ -7,6 +7,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **EmbeddingCache metrics**: `stats` ahora expone `{hits, misses, evictions, size}`
+  con `size` calculado dinámicamente desde el store si implementa `.size` (como
+  `Map`). Stores custom con política de eviction pueden incrementar
+  `stats.evictions` llamando al helper `onEviction()` expuesto por el embedder
+  cacheado. Compatibilidad retro total (hits/misses siguen accesibles igual).
+
 ### Changed
 
 - **Tarball npm**: añadido campo `files` en `package.json` para restringir el

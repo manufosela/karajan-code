@@ -9,10 +9,18 @@ import { createHash } from 'node:crypto';
  * Contrato mínimo de un store de cache. Compatible con Map y con stores
  * custom (disco, Redis…). Implementaciones async por defecto.
  *
+ * Propiedades opcionales:
+ * - `size` (prop o getter): número de entradas actualmente cacheadas. Si no
+ *   está definida, `stats.size` devuelve `undefined`.
+ * - Si el store implementa políticas de eviction (LRU, TTL…), debe invocar
+ *   `options.onEviction` cada vez que desaloja una entrada para que el
+ *   contador `stats.evictions` refleje el comportamiento real.
+ *
  * @typedef {Object} CacheStore
  * @property {(key: string) => Promise<number[] | undefined> | number[] | undefined} get
  * @property {(key: string, value: number[]) => Promise<void> | void} set
  * @property {(key: string) => Promise<boolean> | boolean} [has]
+ * @property {number} [size]
  */
 
 /**
@@ -31,19 +39,33 @@ function buildKey(text, model, dimensions) {
 }
 
 /**
+ * @typedef {Object} CachedEmbedderStats
+ * @property {number} hits
+ * @property {number} misses
+ * @property {number} evictions
+ * @property {number|undefined} size - entradas cacheadas ahora mismo (si el store lo expone).
+ */
+
+/**
  * Envuelve un Embedder con cache idempotente por (model, dimensions, sha256(text)).
  *
  * Uso:
  *   const base = createOllamaEmbedder();
  *   const cached = createCachedEmbedder(base, { store: new Map() });
+ *   console.log(cached.stats); // { hits, misses, evictions, size }
+ *
+ * `stats.size` se calcula dinámicamente desde el store si éste expone `.size`
+ * (como hace `Map`). Stores personalizados pueden incrementar
+ * `stats.evictions` invocando `options.onEviction?.()` cuando descarten
+ * entradas por política (LRU/TTL).
  *
  * @param {Embedder & { model?: string }} baseEmbedder
  * @param {{
  *   store?: CacheStore,
  *   model?: string,
- *   stats?: { hits: number, misses: number },
+ *   stats?: { hits: number, misses: number, evictions?: number },
  * }} [options]
- * @returns {Embedder & { stats: { hits: number, misses: number } }}
+ * @returns {Embedder & { stats: CachedEmbedderStats, onEviction: () => void }}
  */
 export function createCachedEmbedder(baseEmbedder, options = {}) {
   if (!baseEmbedder || typeof baseEmbedder.embed !== 'function') {
@@ -53,7 +75,21 @@ export function createCachedEmbedder(baseEmbedder, options = {}) {
   const model =
     options.model ?? /** @type {any} */ (baseEmbedder).model ?? 'unknown-model';
   const dimensions = baseEmbedder.dimensions;
-  const stats = options.stats ?? { hits: 0, misses: 0 };
+  const baseStats = options.stats ?? { hits: 0, misses: 0 };
+  const counters = {
+    hits: baseStats.hits ?? 0,
+    misses: baseStats.misses ?? 0,
+    evictions: baseStats.evictions ?? 0,
+  };
+  const stats = Object.defineProperties(counters, {
+    size: {
+      enumerable: true,
+      get() {
+        const raw = /** @type {any} */ (store).size;
+        return typeof raw === 'number' ? raw : undefined;
+      },
+    },
+  });
 
   /**
    * @param {string} text
@@ -112,10 +148,15 @@ export function createCachedEmbedder(baseEmbedder, options = {}) {
     return /** @type {number[][]} */ (results);
   }
 
+  function onEviction() {
+    counters.evictions += 1;
+  }
+
   return {
     dimensions,
     embed,
     embedBatch,
     stats,
+    onEviction,
   };
 }
