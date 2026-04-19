@@ -26,6 +26,9 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Pre-publish gate**: `scripts.prepublishOnly` en `package.json` ejecuta
+  `pnpm lint && pnpm test` antes de cualquier `npm publish`. Red de seguridad
+  para evitar liberar un tarball con lint rojo o tests rotos.
 - **Tarball npm**: añadido campo `files` en `package.json` para restringir el
   paquete publicado a `bin/`, `src/`, `migrations/`, `index.js` y la
   documentación canónica (README, CHANGELOG, ROADMAP, SECURITY, LICENSE).

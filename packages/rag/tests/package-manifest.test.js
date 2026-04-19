@@ -76,3 +76,13 @@ test('package.json: metadata básica está presente', async () => {
   assert.ok(pkg.engines?.node);
   assert.ok(pkg.bin?.['karajan-rag']);
 });
+
+test('package.json: prepublishOnly ejecuta lint + tests', async () => {
+  const pkg = await loadPackageJson();
+  assert.ok(
+    typeof pkg.scripts?.prepublishOnly === 'string',
+    'scripts.prepublishOnly debe existir como red de seguridad pre-publish',
+  );
+  assert.match(pkg.scripts.prepublishOnly, /lint/);
+  assert.match(pkg.scripts.prepublishOnly, /test/);
+});

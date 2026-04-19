@@ -27,7 +27,8 @@
     "smoke:codex": "RUN_SMOKE=1 node scripts/smoke.js codex",
     "smoke:claude": "RUN_SMOKE=1 node scripts/smoke.js claude",
     "smoke:gemini": "RUN_SMOKE=1 node scripts/smoke.js gemini",
-    "smoke:ollama": "RUN_SMOKE=1 node scripts/smoke.js ollama"
+    "smoke:ollama": "RUN_SMOKE=1 node scripts/smoke.js ollama",
+    "prepublishOnly": "pnpm lint && pnpm test"
   },
   "engines": {
     "node": ">=18"
