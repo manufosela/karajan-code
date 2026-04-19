@@ -420,12 +420,16 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
   if (journalDir) {
     try {
       await writeIterationsJournal(journalDir, session._journalIterations || []);
-      await writeDecisionsJournal(journalDir, session._journalDecisions || []);
+      // decisions.md: writes only when Solomon was invoked (AC of KJC-TSK-0287).
+      // Pulls structured data from session.solomonRulings + session.brainDecisions.
+      const { writeDecisionsJournal: writeDecisionsJournalV2 } =
+        await import("./session/journal/decisions-writer.js");
+      const decisionsResult = await writeDecisionsJournalV2(session, { journalDir, logger });
       const hasTree = await writeTreeJournal(journalDir, session.session_start_sha);
 
       const journalFiles = [...(session._journalFiles || [])];
       if (session._journalIterations?.length) journalFiles.push("iterations.md");
-      if (session._journalDecisions?.length) journalFiles.push("decisions.md");
+      if (decisionsResult.written) journalFiles.push("decisions.md");
       if (hasTree) journalFiles.push("tree.txt");
 
       await writeSummaryJournal(journalDir, {
