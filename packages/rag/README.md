@@ -109,6 +109,7 @@ index.js
 
 - [ADR-001 — Karajan-style patterns en Karajan RAG (copy + attribution)](docs/adrs/ADR-001-kjc-reuse-strategy.md)
 - [ADR-002 — Reindex policy ante cambios de embedder o dimensión](docs/adrs/ADR-002-reindex-policy.md)
+- [ADR-003 — Solomon: slot arquitectónico multi-source](docs/adrs/ADR-003-solomon-slot.md)
 
 ## Planificación
 
