@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-04-20
+
+### Fixed
+
+- **hu-board: session.json without a matching auto-batch is no longer dropped** (KJC-BUG-0028). Previously `syncSessionFile` bailed with `if (!projectId) return;` when a session had no batch and no `project_id`, and it never called `upsertProject` even when `project_id` was present. Result: running `kj run "task"` without HU decomposition produced a session that was invisible on the board. Now `syncSessionFile` upserts the project row in that order: `auto-<sessionId>` → `data.project_id` → `default` (bucket `"Orphan sessions"`). Restores the two regressed tests in `packages/hu-board/tests/sync.test.js`.
+- **hu-board: `fullScan` plans directory is now isolated for tests**. The scan of v2 plans previously hardcoded `~/.kj/plans/` via `homedir()`, so running the test suite flooded the output with entries from the developer's real machine. `KJ_PLANS_DIR` now overrides that path; the hu-board vitest config sets it to a non-existent placeholder so tests never read real plans.
+
+### Infrastructure
+
+- `packages/hu-board/vitest.config.js` sets `env.KJ_PLANS_DIR` for all test runs.
+
 ## [2.6.0] - 2026-04-19
 
 ### Added
