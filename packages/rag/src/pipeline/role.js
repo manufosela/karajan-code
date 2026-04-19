@@ -76,7 +76,7 @@ export class Role {
    * @param {ToolBox} _tools
    * @returns {Promise<unknown>}
    */
-  // eslint-disable-next-line no-unused-vars
+   
   async run(_input, _tools) {
     throw new Error(`Role "${this.name}": run(input, tools) debe implementarse en la subclase.`);
   }

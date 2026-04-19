@@ -120,7 +120,7 @@ export async function runPipeline(stages, initialInput, ctx, options = {}) {
       break;
     }
 
-    // eslint-disable-next-line no-await-in-loop
+     
     const canRun = await shouldRun(stage, currentInput, ctx);
     if (!canRun) {
       ctx.logger.info(`Stage "${stage.name}" saltado (canRun=false).`);
@@ -129,7 +129,7 @@ export async function runPipeline(stages, initialInput, ctx, options = {}) {
 
     ctx.logger.info(`Stage "${stage.name}" · start`);
     try {
-      // eslint-disable-next-line no-await-in-loop
+       
       const output = await stage.run(currentInput, ctx);
       executedStages.push(stage.name);
       currentInput = output;

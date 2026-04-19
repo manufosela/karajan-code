@@ -50,7 +50,7 @@ export class SolomonRole extends Role {
    * @param {ToolBox} _tools
    * @returns {Promise<SolomonVerdict>}
    */
-  // eslint-disable-next-line no-unused-vars
+   
   async run(_input, _tools) {
     throw new Error('Solomon: not implemented, see ADR-003');
   }

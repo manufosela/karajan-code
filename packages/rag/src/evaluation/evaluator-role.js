@@ -42,7 +42,7 @@ export class EvaluatorRole extends Role {
    * @param {ToolBox} _tools
    * @returns {Promise<EvaluationReport>}
    */
-  // eslint-disable-next-line no-unused-vars
+   
   async run(input, _tools) {
     if (!input || typeof input.query !== 'string' || typeof input.answer !== 'string') {
       throw new Error('EvaluatorRole.run: se requieren input.query e input.answer.');

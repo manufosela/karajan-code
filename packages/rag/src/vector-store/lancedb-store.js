@@ -128,7 +128,7 @@ export class LanceDBStore {
    */
   async upsert(records) {
     for (const r of records) {
-      // eslint-disable-next-line no-await-in-loop
+       
       await this.upsertOne(r);
     }
   }
