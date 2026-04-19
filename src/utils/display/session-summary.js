@@ -86,6 +86,17 @@ export function printSessionBudget(budget) {
   const fmtTokens = (n) => Number(n || 0).toLocaleString("en-US");
   console.log(`  ${ANSI.dim}\ud83d\udcb0 Total tokens: ${estPrefix}${fmtTokens(budget.total_tokens)}${estNote}${ANSI.reset}`);
   console.log(`  ${ANSI.dim}\ud83d\udcb0 Total cost: ${estPrefix}$${Number(budget.total_cost_usd || 0).toFixed(2)}${ANSI.reset}`);
+  // KJC-TSK-0274: KJ-vs-non-KJ comparison line when compression data exists.
+  const cmp = budget.kj_comparison;
+  if (cmp?.hasCompression) {
+    const wkCost = `$${Number(cmp.withKj?.cost || 0).toFixed(2)}`;
+    const wkTok = fmtTokens(Number(cmp.withKj?.tokens || 0));
+    const wnCost = `$${Number(cmp.withoutKj?.cost || 0).toFixed(2)}`;
+    const wnTok = fmtTokens(Number(cmp.withoutKj?.tokens || 0));
+    const pct = Math.round(Number(cmp.savedPct || 0));
+    console.log(`  ${ANSI.dim}   \u2937 With KJ: ${wkCost} / ${wkTok} tokens${ANSI.reset}`);
+    console.log(`  ${ANSI.dim}   \u2937 Without KJ: ~${wnCost} / ~${wnTok} tokens (-${pct}%)${ANSI.reset}`);
+  }
   for (const [role, metrics] of Object.entries(budget.breakdown_by_role || {})) {
     const tokens = Number(metrics.total_tokens || 0);
     const cost = Number(metrics.total_cost_usd || 0);

@@ -190,6 +190,14 @@ export const EVENT_HANDLERS = {
     } else {
       console.log(`  \u251c\u2500 ${icon} Budget: ${color}${costStr}${tokenStr}${ANSI.reset}`);
     }
+    // KJC-TSK-0274: show "With KJ vs Without KJ" comparison when the
+    // pipeline has compression data. Silently skipped when absent (AC).
+    const cmp = d.kj_comparison;
+    if (cmp?.hasCompression) {
+      const withoutCost = `$${Number(cmp.withoutKj?.cost || 0).toFixed(2)}`;
+      const withoutTok = fmtTokens(Number(cmp.withoutKj?.tokens || 0));
+      console.log(`  \u2502    ${ANSI.dim}\u2937 Without KJ: ~${withoutCost} / ~${withoutTok} tokens (-${Math.round(cmp.savedPct)}%)${ANSI.reset}`);
+    }
   },
 
   "session:end": (event, icon, elapsed) => {
