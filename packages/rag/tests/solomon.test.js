@@ -7,15 +7,14 @@ function silentLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };
 }
 
-test('SolomonRole: run lanza con referencia a ADR-003 (stub)', async () => {
+test('SolomonRole: run con 0 sources devuelve verdict vacío (no stub)', async () => {
   const role = new SolomonRole({ name: 'solomon', logger: silentLogger() });
-  await assert.rejects(
-    () => role.run(
-      { query: 'x', sourceResults: [] },
-      { get: () => null, has: () => false },
-    ),
-    /Solomon: not implemented, see ADR-003/,
+  const verdict = await role.run(
+    { query: 'x', sourceResults: [] },
+    { get: () => null, has: () => false, metadata: {}, logger: silentLogger() },
   );
+  assert.equal(verdict.strategy, 'majority');
+  assert.deepEqual(verdict.chunks, []);
 });
 
 test('SolomonRole: se puede registrar en un RoleRegistry sin explotar', async () => {

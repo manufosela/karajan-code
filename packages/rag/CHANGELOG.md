@@ -9,6 +9,13 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **SolomonRole real**: sustituye el stub de ADR-003 por una implementación
+  con tres estrategias configurables: `majority` (chunks que aparecen en
+  más sources suben, bonus por co-ocurrencia), `weighted` (combinación
+  lineal con `sourceWeights` por fuente) y `llm-arbiter` (delega a un
+  callback externo auditable). La decisión se registra en
+  `ctx.metadata.solomonDecision` con `strategy`, `rationale`, `sourceWeights`,
+  `sourcesCount` y `selectedIds`.
 - **Demo de observabilidad**: `examples/observability-demo.js` muestra cómo
   conectar los nuevos hooks de pipeline, capturar los eventos e imprimir
   una tabla con `console.table`. Ejecutable con `node examples/observability-demo.js`.
