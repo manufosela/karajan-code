@@ -30,11 +30,12 @@ jobs:
         with:
           version: 9
 
+      # El cache de pnpm se activará cuando el repo tenga pnpm-lock.yaml;
+      # mientras no haya dependencias externas, se omite para no fallar setup-node.
       - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: pnpm
 
       # --no-frozen-lockfile se usa mientras el repo aún no tenga pnpm-lock.yaml;
       # cuando se añadan dependencias y su lockfile, cambiar a --frozen-lockfile.
