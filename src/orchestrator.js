@@ -425,12 +425,15 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
       const { writeDecisionsJournal: writeDecisionsJournalV2 } =
         await import("./session/journal/decisions-writer.js");
       const decisionsResult = await writeDecisionsJournalV2(session, { journalDir, logger });
-      const hasTree = await writeTreeJournal(journalDir, session.session_start_sha);
+      // KJC-TSK-0288: use the new tree-writer with directory grouping
+      const { writeTreeJournal: writeTreeJournalV2 } =
+        await import("./session/journal/tree-writer.js");
+      const treeResult = await writeTreeJournalV2(journalDir, session.session_start_sha, { logger });
 
       const journalFiles = [...(session._journalFiles || [])];
       if (session._journalIterations?.length) journalFiles.push("iterations.md");
       if (decisionsResult.written) journalFiles.push("decisions.md");
-      if (hasTree) journalFiles.push("tree.txt");
+      if (treeResult.written) journalFiles.push("tree.txt");
 
       // KJC-TSK-0289: use the richer summary writer (stages table, budget
       // breakdown, brain/solomon counts, typed links to other journal files).
