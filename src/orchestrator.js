@@ -570,7 +570,7 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
       const tracker = createTracker(session, { max: config?.brain?.decisor?.maxDecisions });
       const limitStatus = checkLimits(tracker);
       if (limitStatus.status === "ok") {
-        const decision = buildDecision({
+        let decision = buildDecision({
           triage: triageResult.stageResult,
           task,
           config,
@@ -581,6 +581,20 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
             skipRoles: flags?.skipRole || flags?.skipRoles || [],
           },
         });
+        // If the decision is low-confidence or ambiguous, consult Solomon
+        // for a refined routing suggestion. Solomon's ruling is advisory —
+        // if it fails or returns nothing useful, the baseline decision stands.
+        if (decision.consultSolomon) {
+          try {
+            const { consultSolomonForRouting } = await import("./brain/solomon-consult.js");
+            decision = await consultSolomonForRouting({
+              decision, triage: triageResult.stageResult, task, config, logger,
+              emitter, eventBase, session,
+            });
+          } catch (err) {
+            logger.warn(`Brain → Solomon consult failed (non-blocking): ${err.message}`);
+          }
+        }
         const newFlags = applyDecisionToFlags(decision, pipelineFlags);
         Object.assign(pipelineFlags, newFlags);
         recordDecision(tracker, decision, {
