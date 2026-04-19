@@ -212,6 +212,15 @@ program
   });
 
 program
+  .command("skills [action]")
+  .description("Manage the local OpenSkills cache (actions: list | clear-cache)")
+  .action(async (action) => {
+    const { skillsCommand } = await import("./commands/skills.js");
+    const exitCode = await skillsCommand({ action: action || "list" });
+    if (Number.isInteger(exitCode)) process.exit(exitCode);
+  });
+
+program
   .command("roles [subcommand] [role]")
   .description("List pipeline roles or show role template instructions")
   .action(async (subcommand, role) => {

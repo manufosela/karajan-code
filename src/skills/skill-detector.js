@@ -7,6 +7,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { loadAvailableSkills } from "./skill-loader.js";
 import { isOpenSkillsAvailable, installSkill, removeSkill } from "./openskills-client.js";
+import { isFresh as isCacheFresh, recordInstall as recordSkillInstall } from "./skills-cache.js";
 
 /**
  * Known frameworks detectable from package.json dependencies.
@@ -328,10 +329,21 @@ export async function autoInstallSkills(neededSkills, projectDir) {
       continue;
     }
 
+    // Cache short-circuit: if we installed this skill in the last 7 days,
+    // assume it's still good and skip the `npx openskills install` call
+    // (which can take 10-30s). Running sessions can opt out by clearing
+    // the cache with `kj skills clear-cache`.
+    if (await isCacheFresh(skillName)) {
+      result.alreadyInstalled.push(skillName);
+      continue;
+    }
+
     try {
       const installResult = await installSkill(skillName, { projectDir });
       if (installResult.ok) {
-        result.installed.push(installResult.name || skillName);
+        const installedName = installResult.name || skillName;
+        result.installed.push(installedName);
+        await recordSkillInstall(installedName, { source: skillName }).catch(() => {});
       } else {
         result.failed.push(skillName);
       }
