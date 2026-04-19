@@ -156,6 +156,27 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     subtask: ruling.result?.subtask?.title || null
   });
 
+  // Record the ruling for the session journal (decisions.md). Lazy-import so
+  // this module stays free of journal-specific deps for callers that don't
+  // need them.
+  try {
+    const { recordSolomonRuling } = await import("../session/journal/decisions-writer.js");
+    recordSolomonRuling(session, {
+      stage: conflict?.stage || stage,
+      trigger: conflict?.reason || conflict?.summary || "solomon invoked",
+      conflict: {
+        task: conflict?.task,
+        reason: conflict?.reason,
+        summary: conflict?.summary,
+        iterationCount: conflict?.iterationCount,
+      },
+      ruling: ruling.result?.ruling || (ruling.ok ? "continue" : "escalate_human"),
+      reasoning: ruling.result?.reasoning || ruling.summary || "",
+      conditions: ruling.result?.conditions || [],
+      alternativeAgent: ruling.result?.alternativeAgent || null,
+    });
+  } catch { /* best-effort, don't break the pipeline on a journal hiccup */ }
+
   if (!ruling.ok) {
     const reason = ruling.result?.escalate_reason || solomonError || ruling.summary;
     return escalateToHuman({
