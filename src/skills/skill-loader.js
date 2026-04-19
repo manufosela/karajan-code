@@ -69,12 +69,33 @@ export async function loadAvailableSkills(projectDir, options = {}) {
 
 /**
  * Builds a prompt section from loaded skills.
+ *
+ * For Anthropic (Claude Sonnet 4.5+), skills are delivered as Agent Skills
+ * natively (loaded by the runtime from SKILL.md) — duplicating their full
+ * content in the prompt wastes tokens and risks drifting from the canonical
+ * source. When `provider === "anthropic"`, this function emits a lightweight
+ * reference list; Claude will load the SKILL.md files on demand.
+ *
+ * For every other provider, the full SKILL.md body is inlined (previous
+ * behaviour preserved).
+ *
  * @param {Array<{name: string, content: string}>} skills
+ * @param {{ provider?: string }} [options]
  * @returns {string} prompt section or empty string
  */
-export function buildSkillSection(skills) {
+export function buildSkillSection(skills, options = {}) {
   if (!skills || skills.length === 0) return "";
 
+  const providerSlug = normalize(options.provider);
+
+  if (providerSlug === "anthropic") {
+    return buildReferenceSection(skills);
+  }
+
+  return buildInlineSection(skills);
+}
+
+function buildInlineSection(skills) {
   const header = [
     "## Domain Skills",
     "",
@@ -86,4 +107,24 @@ export function buildSkillSection(skills) {
   );
 
   return [header, ...blocks].join("\n\n");
+}
+
+function buildReferenceSection(skills) {
+  const names = skills.map((s) => s.name).join(", ");
+  return [
+    "## Domain Skills",
+    "",
+    `Skills available natively via your Agent Skills capability: ${names}.`,
+    "Each skill's SKILL.md is already loaded in your runtime; invoke its guidance as needed without re-reading the full content."
+  ].join("\n");
+}
+
+function normalize(value) {
+  if (!value) return null;
+  const lc = String(value).toLowerCase();
+  if (lc === "claude" || lc === "anthropic") return "anthropic";
+  if (lc === "codex" || lc === "openai") return "openai";
+  if (lc === "gemini" || lc === "google") return "google";
+  if (lc === "opencode") return "opencode";
+  return lc;
 }

@@ -24,7 +24,7 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en" }) {
+export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
   const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
 
   const langInstruction = getLanguageInstruction(language);
@@ -64,7 +64,7 @@ export async function buildReviewerPrompt({ task, diff, reviewRules, mode, seren
 
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills);
+    const skillSection = buildSkillSection(skills, { provider });
     if (skillSection) {
       sections.push(skillSection);
     }

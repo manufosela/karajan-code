@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getKarajanHome } from "../utils/paths.js";
+import { loadRoleInstructions } from "../prompts/prompt-resolver.js";
 
 const ROLE_EVENTS = {
   START: "role:start",
@@ -8,6 +9,12 @@ const ROLE_EVENTS = {
   ERROR: "role:error"
 };
 
+/**
+ * Legacy flat resolver. Kept for back-compat with external callers and
+ * existing tests that assert the 3-entry candidate list. New code should use
+ * `loadRoleInstructions()` from src/prompts/prompt-resolver.js, which
+ * additionally tries per-provider and per-role subdirectories.
+ */
 function resolveRoleMdPath(roleName, projectDir) {
   const fileName = `${roleName}.md`;
   const candidates = [];
@@ -58,8 +65,22 @@ export class BaseRole {
   async init(context = {}) {
     this.context = context;
     const projectDir = this.config.projectDir || process.cwd();
-    const paths = resolveRoleMdPath(this.name, projectDir);
-    this.instructions = await loadFirstExisting(paths);
+    // Subclasses (AgentRole) can override resolveProvider to expose the
+    // provider slug for the active role, which lets the prompt resolver
+    // pick a per-provider template variant when available.
+    const provider = typeof this.resolveProvider === "function"
+      ? this.resolveProvider()
+      : null;
+    const { instructions, path: templatePath, resolvedProvider, fellBack } = await loadRoleInstructions({
+      role: this.name,
+      provider,
+      projectDir,
+      logger: this.logger,
+    });
+    this.instructions = instructions;
+    this._templatePath = templatePath;
+    this._resolvedProvider = resolvedProvider;
+    this._promptFellBack = fellBack;
     this._initialized = true;
   }
 

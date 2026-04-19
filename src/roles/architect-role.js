@@ -24,7 +24,9 @@ export class ArchitectRole extends AgentRole {
     const prompt = await buildArchitectPrompt({
       task, instructions: this.instructions, researchContext,
       productContext: this.config?.productContext || null,
-      domainContext: this.config?.domainContext || null
+      domainContext: this.config?.domainContext || null,
+      projectDir: this.config?.projectDir || null,
+      provider: this._resolvedProvider || (typeof this.resolveProvider === "function" ? this.resolveProvider() : null)
     });
     return { prompt };
   }
