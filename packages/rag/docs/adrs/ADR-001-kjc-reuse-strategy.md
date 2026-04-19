@@ -1,14 +1,21 @@
-# ADR-001 — Reutilización de Karajan Code vía copy + attribution
+# ADR-001 — Karajan-style patterns en Karajan RAG (copy + attribution)
 
 - **Status**: proposed
 - **Date**: 2026-04-19
+- **Revised**: 2026-04-19 (KJR-TSK-0067 — reformulación: de "herencia KJC" a "Karajan-style patterns")
 - **Deciders**: equipo KJR
-- **Related tasks**: KJR-TSK-0013 (inventario), KJR-TSK-0014 (este ADR), KJR-TSK-0015 / KJR-TSK-0016 (portaciones)
+- **Related tasks**: KJR-TSK-0013 (inventario), KJR-TSK-0014 (este ADR), KJR-TSK-0015 / KJR-TSK-0016 (portaciones), KJR-TSK-0067 (refinamiento)
 - **PG ADR ID**: `-Oq_HrBnHOAIHgx1f0ct`
 
 ## Context
 
-Karajan RAG (KJR) y [Karajan Code](https://github.com/manufosela/karajan-code) (KJC) comparten patrones arquitectónicos: adapters CLI para múltiples proveedores (Claude, Codex, Gemini…), sistema de roles con registry, pipeline por stages, capa de guards deterministas, DI para tests.
+Karajan RAG (KJR) **no hereda runtime** de [Karajan Code](https://github.com/manufosela/karajan-code) (KJC). KJR se inspira en los **Karajan-style orchestration patterns** de KJC — adapters CLI multi-proveedor, role system con registry, pipeline por stages, DI para tests — pero los reimplementa y/o porta *selectivamente* en su propia base de código.
+
+Diferencias deliberadas frente a KJC:
+
+- **`spawn` normal (no PTY)**: KJR ejecuta CLIs vía `child_process.spawn` con stdio pipes. KJC usa PTY para ciertos agentes. KJR no replica esa capa.
+- **Sin dependencia npm a KJC**: KJR no importa `karajan-code` ni usa su orquestador como runtime. Los módulos que se reutilizan se copian con atribución explícita (ver abajo).
+- **Dominio distinto**: KJR no porta roles de coding (architect, coder, reviewer…) porque su dominio es RAG, no desarrollo de software.
 
 KJC está maduro (v2.5.0, 80 releases, 2 599 tests, 23 MCP tools). KJR acaba de arrancar. Existen tres caminos para aprovechar lo ya probado:
 
@@ -22,7 +29,7 @@ El inventario en [`docs/mining-kjc.md`](../mining-kjc.md) identifica los módulo
 
 ## Decision
 
-**Reutilizar Karajan Code mediante copia selectiva de ficheros a Karajan RAG, con atribución obligatoria en cada fichero portado.**
+**Karajan RAG adopta los Karajan-style patterns mediante copia selectiva de ficheros desde KJC, con atribución obligatoria en cada fichero portado. NO hay dependencia runtime (npm) entre KJR y KJC.**
 
 Condiciones:
 
@@ -34,8 +41,9 @@ Condiciones:
 2. **Adaptación al dominio RAG**: tipos, paths y nombres se ajustan a la semántica RAG. No se conservan referencias literales a conceptos de coding (`coder`, `reviewer`, `hu`, etc.).
 3. **Inventario vivo**: [`docs/mining-kjc.md`](../mining-kjc.md) se actualiza marcando qué se ha portado y en qué tarea KJR, para trazabilidad.
 4. **Licencia**: KJR mantiene **AGPL-3.0-or-later** para garantizar compatibilidad con el código portado (KJC también es AGPL-3.0).
-5. **Sin dependencia npm entre KJR y KJC**. No se crea monorepo.
-6. **Reevaluación**: cuando el overlap entre KJR y KJC supere ~60% del código base de KJR (medición cualitativa anual o cuando se perciba duplicación costosa), se abrirá un nuevo ADR valorando extraer `karajan-core`.
+5. **Sin dependencia npm entre KJR y KJC**. No se crea monorepo. KJR se construye como *satélite autónomo* que comparte patrones, no runtime.
+6. **`spawn`, no PTY**: la capa de ejecución de CLIs en KJR usa `child_process.spawn` con stdio pipes. PTY es capacidad de KJC que KJR no replica; si un futuro caso lo exigiera se abriría un ADR específico.
+7. **Reevaluación**: cuando el overlap entre KJR y KJC supere ~60% del código base de KJR (medición cualitativa anual o cuando se perciba duplicación costosa), se abrirá un nuevo ADR valorando extraer `karajan-core`.
 
 ## Consequences
 
