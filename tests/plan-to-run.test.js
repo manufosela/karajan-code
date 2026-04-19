@@ -150,13 +150,15 @@ describe("kj_run with plan parameter", () => {
   });
 
   it("kj_run without plan runs normally (no plan loading)", async () => {
-    const orchestratorSource = await fs.readFile(
-      path.join(process.cwd(), "src/orchestrator.js"),
+    // TSK-0315: runFlow implementation moved to src/orchestrator/flow-runner.js;
+    // src/orchestrator.js is now a thin barrel that re-exports runFlow.
+    const flowRunnerSource = await fs.readFile(
+      path.join(process.cwd(), "src/orchestrator/flow-runner.js"),
       "utf8"
     );
     // The plan loading is behind a `if (flags.plan)` guard
-    expect(orchestratorSource).toContain("if (flags.plan)");
-    expect(orchestratorSource).toContain("loadPlan");
-    expect(orchestratorSource).toContain("plan:loaded");
+    expect(flowRunnerSource).toContain("if (flags.plan)");
+    expect(flowRunnerSource).toContain("loadPlan");
+    expect(flowRunnerSource).toContain("plan:loaded");
   });
 });
