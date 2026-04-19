@@ -147,7 +147,8 @@ El backlog táctico (`KJR-TSK-XXXX`) vive en Planning Game privado.
 
 - [ADR-001 — Karajan-style patterns en Karajan RAG (copy + attribution)](docs/adrs/ADR-001-kjc-reuse-strategy.md)
 - [ADR-002 — Reindex policy ante cambios de embedder o dimensión](docs/adrs/ADR-002-reindex-policy.md)
-- [ADR-003 — Solomon: slot arquitectónico multi-source](docs/adrs/ADR-003-solomon-slot.md)
+- [ADR-003 — Solomon: slot arquitectónico multi-source](docs/adrs/ADR-003-solomon-slot.md) _(superseded by ADR-004)_
+- [ADR-004 — Solomon: implementación real de estrategias de arbitraje](docs/adrs/ADR-004-solomon-implementation.md)
 
 ## Planificación
 

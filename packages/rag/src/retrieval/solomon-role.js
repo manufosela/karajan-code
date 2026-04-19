@@ -50,8 +50,8 @@ import { Role } from '../pipeline/role.js';
  * - **llm-arbiter**: delega a un callback externo (LLM, reranker, lógica
  *   de negocio). El callback recibe candidatos deduplicados y decide.
  *
- * Se deja registro de la decisión en `ctx.solomonDecision` para auditoría.
- * Ver ADR-003 para la motivación arquitectónica original; cierre en ADR-004.
+ * Se deja registro de la decisión en `ctx.metadata.solomonDecision` para auditoría.
+ * Ver ADR-003 (slot original, superseded) y ADR-004 (implementación actual).
  */
 export class SolomonRole extends Role {
   /**

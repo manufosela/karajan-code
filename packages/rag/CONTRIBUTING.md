@@ -46,8 +46,9 @@ Decisiones arquitectónicas relevantes se documentan como ADR en
 `docs/adrs/` y se registran en el Planning Game. Ver los ADRs existentes
 ([ADR-001](./docs/adrs/ADR-001-kjc-reuse-strategy.md),
 [ADR-002](./docs/adrs/ADR-002-reindex-policy.md),
-[ADR-003](./docs/adrs/ADR-003-solomon-slot.md)) antes de cambiar conceptos
-transversales.
+[ADR-003](./docs/adrs/ADR-003-solomon-slot.md) _(superseded)_,
+[ADR-004](./docs/adrs/ADR-004-solomon-implementation.md)) antes de cambiar
+conceptos transversales.
 
 ## Planning Game
 

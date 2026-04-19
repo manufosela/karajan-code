@@ -1,10 +1,13 @@
 # ADR-003 — Solomon: slot arquitectónico multi-source
 
-- **Status**: proposed
+- **Status**: superseded by [ADR-004](./ADR-004-solomon-implementation.md)
 - **Date**: 2026-04-19
+- **Superseded**: 2026-04-20
 - **Deciders**: equipo KJR
 - **Related tasks**: KJR-TSK-0066 (stub + tipos), épica KJR-PCS-0014
 - **PG ADR ID**: `-OqbSr2vHIT-80VzxVF4`
+
+> **Nota histórica**: Este ADR reservó el slot Solomon con stub. La implementación real y las decisiones firmes (estrategias, quién paraleliza, registro de decisión) viven en [ADR-004](./ADR-004-solomon-implementation.md). Se mantiene este documento como referencia del razonamiento original.
 
 ## Context
 

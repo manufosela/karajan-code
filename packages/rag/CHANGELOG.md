@@ -9,6 +9,10 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **ADR-004** — Solomon: implementación real de estrategias de arbitraje.
+  Documenta las tres estrategias (`majority`, `weighted`, `llm-arbiter`), la
+  decisión explícita de no paralelizar retrievers dentro de Solomon y el
+  formato de `ctx.metadata.solomonDecision`. ADR-003 pasa a `superseded`.
 - **SolomonRole real**: sustituye el stub de ADR-003 por una implementación
   con tres estrategias configurables: `majority` (chunks que aparecen en
   más sources suben, bonus por co-ocurrencia), `weighted` (combinación
