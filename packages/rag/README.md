@@ -108,6 +108,95 @@ Para pasar a real:
 - Reemplaza `InMemoryVectorStore` por un backend persistente (LanceDB, pgvector).
 - Reemplaza `fakeClaudeAdapter` por `runClaudeCli` del `createDefaultAdapterRegistry()`.
 
+## API pública
+
+Todos los símbolos soportados se re-exportan desde el `package main`:
+
+```js
+import {
+  // Pipeline
+  runPipeline, createPipelineContext, Role, RoleRegistry, estimateSize,
+  // Adapters
+  AdapterRegistry, createDefaultAdapterRegistry,
+  runClaudeCli, runCodexCli, runGeminiCli, runOllamaCli,
+  runAzureOpenAi, runBedrock, runVertexAi,
+  createOllamaStreamAdapter,
+  // Ingestion
+  loadTextFile, loadTextDirectory,
+  chunkByFixedSize, chunkBySeparators, chunkByTokens, chunkByHeadings,
+  // Embedding
+  createHashEmbedder, createCachedEmbedder,
+  createOllamaEmbedder, createOpenAICompatibleEmbedder,
+  createTransformersEmbedder,
+  // Vector stores
+  InMemoryVectorStore, PgVectorStore, LanceDBStore,
+  // Retrieval
+  BM25Index, createBM25Index, dedupeChunksByOverlap, parallelRetrieve,
+  RetrieverRole, RerankerRole, SolomonRole,
+  // Generation / Evaluation
+  GeneratorRole, extractCitations, EvaluatorRole, evaluateMultiJudge,
+  // Policy / Redaction
+  createDefaultSensitivityPolicy, isProviderAllowed,
+  redactPII, RedactionRole,
+  // Config-driven
+  createDefaultRoleRegistry, buildPipelineFromConfig, loadPipelineConfig,
+} from 'karajan-rag';
+```
+
+Ejemplo mínimo — pipeline de 2 stages (retriever + generator) con un adapter fake:
+
+```js
+import {
+  runPipeline, createPipelineContext,
+  RetrieverRole, GeneratorRole,
+  InMemoryVectorStore, createHashEmbedder,
+} from 'karajan-rag';
+
+const embedder = createHashEmbedder({ dimensions: 64 });
+const store = new InMemoryVectorStore({ dimensions: 64 });
+
+// (Supón que `store` ya tiene documentos indexados…)
+
+const retriever = new RetrieverRole({
+  name: 'retriever', logger: console,
+  embedder, store, topK: 3,
+});
+const generator = new GeneratorRole({
+  name: 'generator', logger: console,
+  adapter: async () => ({
+    provider: 'fake',
+    parsedOutput: { format: 'text', text: 'respuesta' },
+    process: { exitCode: 0, stderr: '' },
+    providerMeta: {},
+  }),
+});
+
+const ctx = createPipelineContext({
+  logger: console,
+  tools: { get: () => { throw new Error('n/a'); }, has: () => false },
+});
+
+const result = await runPipeline(
+  [
+    { name: 'retrieve', run: (q, c) => retriever.run({ query: q }, c.tools) },
+    { name: 'generate', run: (hits, c) => generator.run({ query: 'q', contextChunks: hits.hits }, c.tools) },
+  ],
+  'mi pregunta',
+  ctx,
+);
+
+console.log(result.output.answer);
+```
+
+Ejemplos ejecutables end-to-end en [`examples/`](./examples/):
+
+| Ejemplo | Demuestra |
+|---------|-----------|
+| `run-demo.js` | Pipeline RAG básico con corpus local + stubs. |
+| `multi-cli-demo.js` | Orquestación multi-CLI (Claude + Codex + Gemini). Requiere CLIs instalados. |
+| `observability-demo.js` | Hooks `onStageStart/End/Error` con `console.table`. |
+| `solomon-multi-source.js` | `parallelRetrieve` + `SolomonRole weighted` + `streamGenerate` end-to-end sin credenciales. |
+
 ## Estructura
 
 ```

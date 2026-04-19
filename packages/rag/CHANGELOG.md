@@ -7,6 +7,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **README — sección "API pública"**: lista los símbolos re-exportados por
+  capa (pipeline, adapters, ingestion, embedding, vector stores, retrieval,
+  generation/evaluation, policy/redaction, config-driven) y un ejemplo
+  mínimo ejecutable de pipeline (retriever + generator) con imports desde
+  `'karajan-rag'`. Tabla con los 4 ejemplos de `examples/`.
+
 ### Changed
 
 - **API pública** estructurada en `index.js` como barrel de re-exports sin
