@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateCwv, mergeThresholds, CWV_THRESHOLDS } from "../src/webperf/cwv-gate.js";
 import { buildWebPerfSection, formatCwvForEvent } from "../src/webperf/webperf-role-integration.js";
 
-describe("evaluateCwv", () => {
+describe("[opt-in: webperf] evaluateCwv", () => {
   describe("LCP", () => {
     it("LCP 2000ms → pass (good)", () => {
       const result = evaluateCwv({ lcp: 2000 });

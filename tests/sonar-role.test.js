@@ -28,7 +28,7 @@ const sampleIssues = [
   { severity: "MAJOR", type: "CODE_SMELL", component: "src/bar.js", line: 25, rule: "js:S5678", message: "Unused var" }
 ];
 
-describe("SonarRole", () => {
+describe("[opt-in: sonar] SonarRole", () => {
   let emitter;
   const config = {
     sonarqube: {

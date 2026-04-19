@@ -7,7 +7,7 @@ vi.mock("../src/utils/process.js", () => ({
 const { runCommand } = await import("../src/utils/process.js");
 const { resolveSonarProjectKey } = await import("../src/sonar/project-key.js");
 
-describe("resolveSonarProjectKey", () => {
+describe("[opt-in: sonar] resolveSonarProjectKey", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.KJ_SONAR_PROJECT_KEY;

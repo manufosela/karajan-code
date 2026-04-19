@@ -9,7 +9,7 @@ const {
   buildCoderFeedbackPrompt, verifyCoderRan, clearFeedback, summarize
 } = await import("../src/orchestrator/brain-coordinator.js");
 
-describe("brain-coordinator", () => {
+describe("[opt-in: brain] brain-coordinator", () => {
   beforeEach(() => vi.clearAllMocks());
 
   describe("createBrainContext", () => {

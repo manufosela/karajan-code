@@ -24,7 +24,7 @@ const makeLogger = () => ({ info: vi.fn(), warn: vi.fn() });
 const makeSession = () => ({ id: "s_test", checkpoints: [] });
 const makeGitCtx = () => ({ enabled: true, branch: "feat/test", baseBranch: "main", autoRebase: true });
 
-describe("earlyPrCreation", () => {
+describe("[opt-in: ci] earlyPrCreation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

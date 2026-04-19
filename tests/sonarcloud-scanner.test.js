@@ -8,7 +8,7 @@ vi.mock("../src/sonar/project-key.js", () => ({
   resolveSonarProjectKey: vi.fn().mockResolvedValue("test-project")
 }));
 
-describe("runSonarCloudScan", () => {
+describe("[opt-in: sonar] runSonarCloudScan", () => {
   let runCommand;
   const savedEnv = {};
 

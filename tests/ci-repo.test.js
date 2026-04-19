@@ -5,7 +5,7 @@ vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
 const { detectRepo, detectPrNumber } = await import("../src/ci/repo.js");
 
-describe("ci/repo", () => {
+describe("[opt-in: ci] ci/repo", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

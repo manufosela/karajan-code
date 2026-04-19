@@ -12,7 +12,7 @@ import {
 } from "../src/sonar/config-resolver.js";
 import { loadSonarCredentials } from "../src/sonar/credentials.js";
 
-describe("resolveSonarHost", () => {
+describe("[opt-in: sonar] resolveSonarHost", () => {
   it("returns default host when no input", () => {
     expect(resolveSonarHost()).toBe("http://localhost:9000");
     expect(resolveSonarHost(undefined)).toBe("http://localhost:9000");

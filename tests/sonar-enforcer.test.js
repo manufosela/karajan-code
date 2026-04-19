@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { shouldBlockByProfile, summarizeIssues } from "../src/sonar/enforcer.js";
 
-describe("shouldBlockByProfile", () => {
+describe("[opt-in: sonar] shouldBlockByProfile", () => {
   it("pragmatic blocks only on ERROR", () => {
     expect(shouldBlockByProfile({ gateStatus: "ERROR", profile: "pragmatic" })).toBe(true);
     expect(shouldBlockByProfile({ gateStatus: "WARN", profile: "pragmatic" })).toBe(false);

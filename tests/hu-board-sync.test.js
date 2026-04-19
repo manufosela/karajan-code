@@ -46,7 +46,7 @@ vi.mock("../src/hu/lazy-planner.js", () => ({
 
 const { runHuSubPipeline } = await import("../src/orchestrator/hu-sub-pipeline.js");
 
-describe("hu-board-sync — HU status changes for real-time board sync", () => {
+describe("[opt-in: hu-board] hu-board-sync — HU status changes for real-time board sync", () => {
   const logger = {
     info: vi.fn(), warn: vi.fn(), error: vi.fn(),
     setContext: vi.fn(), resetContext: vi.fn()

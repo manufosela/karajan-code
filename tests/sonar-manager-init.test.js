@@ -21,7 +21,7 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
-describe("sonar/manager cross-platform", () => {
+describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   let runCommand, ensureDir;
 
   beforeEach(async () => {
