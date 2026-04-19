@@ -126,3 +126,49 @@ test('createCachedEmbedder: rechaza base sin embed', () => {
   // @ts-expect-error invalid
   assert.throws(() => createCachedEmbedder({}), /baseEmbedder/);
 });
+
+test('createCachedEmbedder: stats expone size si el store es Map', async () => {
+  const base = countingEmbedder(8);
+  const cached = createCachedEmbedder(base, { model: 'm' });
+  assert.equal(cached.stats.size, 0);
+  await cached.embed('alpha');
+  assert.equal(cached.stats.size, 1);
+  await cached.embed('beta');
+  assert.equal(cached.stats.size, 2);
+  await cached.embed('alpha');
+  assert.equal(cached.stats.size, 2, 'hit no incrementa size');
+});
+
+test('createCachedEmbedder: stats.size es undefined si el store no expone size', async () => {
+  const base = countingEmbedder(8);
+  const store = {
+    async get(k) { return this._m.get(k); },
+    async set(k, v) { this._m.set(k, v); },
+    _m: new Map(),
+  };
+  const cached = createCachedEmbedder(base, { model: 'm', store });
+  await cached.embed('x');
+  assert.equal(cached.stats.size, undefined);
+});
+
+test('createCachedEmbedder: stats.evictions refleja onEviction() externo', async () => {
+  const base = countingEmbedder(8);
+  const cached = createCachedEmbedder(base, { model: 'm' });
+  assert.equal(cached.stats.evictions, 0);
+  cached.onEviction();
+  cached.onEviction();
+  cached.onEviction();
+  assert.equal(cached.stats.evictions, 3);
+  // evictions es independiente de hits/misses
+  assert.equal(cached.stats.hits, 0);
+  assert.equal(cached.stats.misses, 0);
+});
+
+test('createCachedEmbedder: stats inicial tiene hits/misses/evictions=0 y size=0', async () => {
+  const base = countingEmbedder(8);
+  const cached = createCachedEmbedder(base, { model: 'm' });
+  assert.equal(cached.stats.hits, 0);
+  assert.equal(cached.stats.misses, 0);
+  assert.equal(cached.stats.evictions, 0);
+  assert.equal(cached.stats.size, 0);
+});
