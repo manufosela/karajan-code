@@ -7,7 +7,7 @@ const { dispatchComment, dispatchReview, VALID_AGENTS } = await import(
   "../src/ci/dispatch.js"
 );
 
-describe("ci/dispatch", () => {
+describe("[opt-in: ci] ci/dispatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRunCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });

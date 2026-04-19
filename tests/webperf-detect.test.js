@@ -16,7 +16,7 @@ import {
   listSkills
 } from "../src/skills/openskills-client.js";
 
-describe("webperf/devtools-detect", () => {
+describe("[opt-in: webperf] webperf/devtools-detect", () => {
   let logger;
 
   beforeEach(() => {

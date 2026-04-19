@@ -5,7 +5,7 @@ vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
 const { getPrDiff } = await import("../src/ci/pr-diff.js");
 
-describe("ci/pr-diff", () => {
+describe("[opt-in: ci] ci/pr-diff", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

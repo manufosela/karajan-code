@@ -49,7 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("sonarUp", () => {
+describe("[opt-in: sonar] sonarUp", () => {
   it("skips docker when SonarQube is already reachable", async () => {
     mockConfig();
     mockCurlReachable();

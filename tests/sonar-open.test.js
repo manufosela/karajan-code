@@ -16,7 +16,7 @@ vi.mock("../src/utils/process.js", () => ({
   runCommand: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" })
 }));
 
-describe("sonarOpenCommand", () => {
+describe("[opt-in: sonar] sonarOpenCommand", () => {
   let sonarOpenCommand;
   let isSonarReachable;
   let resolveSonarProjectKey;

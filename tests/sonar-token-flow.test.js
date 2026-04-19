@@ -33,7 +33,7 @@ vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
   invokeSolomon: vi.fn(async () => ({ action: "continue" }))
 }));
 
-describe("sonar token resolution — preflight", () => {
+describe("[opt-in: sonar] sonar token resolution — preflight", () => {
   let runPreflightChecks;
   let checkBinary, isSonarReachable, sonarUp, runCommand, loadSonarCredentials;
   let logger, emitter, eventBase;

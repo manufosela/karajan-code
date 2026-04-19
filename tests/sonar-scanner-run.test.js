@@ -28,7 +28,7 @@ const baseConfig = {
   }
 };
 
-describe("runSonarScan", () => {
+describe("[opt-in: sonar] runSonarScan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.KJ_SONAR_TOKEN;

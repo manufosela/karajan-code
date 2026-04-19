@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createBrainContext, isBrainEnabled, processRoleOutput, buildCoderFeedbackPrompt } from "../src/orchestrator/brain-coordinator.js";
 
-describe("brain wiring integration", () => {
+describe("[opt-in: brain] brain wiring integration", () => {
   it("reviewer output flows into feedback queue and becomes enriched coder prompt", () => {
     const brainCtx = createBrainContext({ enabled: true });
 

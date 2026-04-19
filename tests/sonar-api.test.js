@@ -8,7 +8,7 @@ vi.mock("../src/sonar/project-key.js", () => ({
   resolveSonarProjectKey: vi.fn().mockResolvedValue("my-project")
 }));
 
-describe("sonar/api", () => {
+describe("[opt-in: sonar] sonar/api", () => {
   let getQualityGateStatus, getOpenIssues, runCommand;
 
   const baseConfig = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildScannerOpts } from "../src/sonar/scanner.js";
 
-describe("buildScannerOpts", () => {
+describe("[opt-in: sonar] buildScannerOpts", () => {
   it("generates projectKey arg", () => {
     const result = buildScannerOpts("my-project");
     expect(result).toBe("-Dsonar.projectKey=my-project");
