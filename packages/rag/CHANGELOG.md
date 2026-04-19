@@ -9,6 +9,11 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Demo multi-source**: `examples/solomon-multi-source.js` encadena
+  `parallelRetrieve` (3 sources con timeout), `SolomonRole` en modo
+  `weighted` con pesos por fuente y `GeneratorRole.streamGenerate` con un
+  streamAdapter simulado. Imprime retrievals por source, verdict Solomon
+  con rationale y la respuesta token a token. Ejecutable sin credenciales.
 - **Helper `parallelRetrieve`**: en `src/retrieval/parallel-retrieve.js`.
   Paraleliza retrievers por source con `Promise.allSettled`, tolera fallos
   y timeouts individuales (`timeoutMs` opcional), y devuelve el formato
