@@ -3,8 +3,7 @@ import { runCli } from '../cli-runner.js';
 import { parseCliOutput } from '../output-parser.js';
 
 /**
- * @typedef {import('../cli-runner.js').CliRunResult} CliRunResult
- * @typedef {import('../output-parser.js').ParsedOutput} ParsedOutput
+ * @typedef {import('../types.js').AdapterResult} AdapterResult
  */
 
 /**
@@ -16,13 +15,6 @@ import { parseCliOutput } from '../output-parser.js';
  * @property {number} [timeoutMs]
  * @property {typeof runCli} [runner] Inyección de dependencia para facilitar tests.
  * @property {typeof parseCliOutput} [parser]
- */
-
-/**
- * @typedef {Object} AdapterResult
- * @property {"claude"} provider
- * @property {CliRunResult} process
- * @property {ParsedOutput} parsedOutput
  */
 
 // NOTA: Flags de Claude CLI varían entre versiones. Aquí se asume modo no interactivo

@@ -3,8 +3,7 @@ import { runCli } from '../cli-runner.js';
 import { parseCliOutput } from '../output-parser.js';
 
 /**
- * @typedef {import('../cli-runner.js').CliRunResult} CliRunResult
- * @typedef {import('../output-parser.js').ParsedOutput} ParsedOutput
+ * @typedef {import('../types.js').AdapterResult} AdapterResult
  */
 
 /**
@@ -23,14 +22,6 @@ import { parseCliOutput } from '../output-parser.js';
  * @property {number} [timeoutMs]
  * @property {typeof runCli} [runner] Inyección de dependencia para facilitar tests.
  * @property {typeof parseCliOutput} [parser]
- */
-
-/**
- * @typedef {Object} AdapterResult
- * @property {"codex"} provider
- * @property {CliRunResult} process
- * @property {ParsedOutput} parsedOutput
- * @property {CodexMeta} [providerMeta] Codex-specific metadata (streaming events, usage, thread).
  */
 
 // NOTA: Los flags exactos dependen de la versión instalada del CLI de Codex.
