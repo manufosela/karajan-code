@@ -13,17 +13,20 @@ import { SENSITIVITY_LEVELS } from '../domain/document.js';
  */
 
 /**
- * Policy razonable por defecto para un proyecto RAG personal con Ollama local:
- * - confidential → solo on-premise
- * - internal     → proveedores con no-training (por ahora vacío, pendiente de adapters en nube privada)
- * - public       → cualquiera de los 3 CLIs públicos
+ * Policy razonable por defecto para un proyecto RAG personal:
+ * - confidential → solo on-premise (ollama).
+ * - internal     → on-premise + nubes privadas con garantías de no-training
+ *                  (azure-openai, bedrock, vertex-ai). Orden de preferencia:
+ *                  primero ollama (si disponible) para ahorrar coste; luego
+ *                  las tres nubes privadas.
+ * - public       → cualquiera de los 3 CLIs públicos.
  *
  * @returns {SensitivityPolicy}
  */
 export function createDefaultSensitivityPolicy() {
   return {
     confidential: ['ollama'],
-    internal: ['ollama'],
+    internal: ['ollama', 'azure-openai', 'bedrock', 'vertex-ai'],
     public: ['claude', 'codex', 'gemini'],
   };
 }
