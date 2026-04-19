@@ -1,5 +1,4 @@
 import { BaseAgent } from "./base-agent.js";
-import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
 
 /**
@@ -45,7 +44,7 @@ export class CodexAgent extends BaseAgent {
     if (model) args.push("--model", model);
     if (role !== "reviewer" && this.isAutoApproveEnabled(role)) args.push("--full-auto");
     args.push("-");
-    const res = await runCommand(resolveBin("codex"), args, {
+    const res = await this.runCommand(resolveBin("codex"), args, {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs,

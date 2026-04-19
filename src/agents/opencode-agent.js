@@ -1,5 +1,4 @@
 import { BaseAgent } from "./base-agent.js";
-import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
 
 export class OpenCodeAgent extends BaseAgent {
@@ -30,7 +29,7 @@ export class OpenCodeAgent extends BaseAgent {
     if (jsonFormat) args.push("--format", "json");
     if (model) args.push("--model", model);
     args.push(task.prompt);
-    const res = await runCommand(resolveBin("opencode"), args, {
+    const res = await this.runCommand(resolveBin("opencode"), args, {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs

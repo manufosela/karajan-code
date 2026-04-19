@@ -1,5 +1,4 @@
 import { BaseAgent } from "./base-agent.js";
-import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
 
 export class AiderAgent extends BaseAgent {
@@ -28,7 +27,7 @@ export class AiderAgent extends BaseAgent {
   async _exec(task, model) {
     const args = ["--yes", "--message", task.prompt];
     if (model) args.push("--model", model);
-    const res = await runCommand(resolveBin("aider"), args, {
+    const res = await this.runCommand(resolveBin("aider"), args, {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs

@@ -1,5 +1,4 @@
 import { BaseAgent } from "./base-agent.js";
-import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
 
 export class GeminiAgent extends BaseAgent {
@@ -29,7 +28,7 @@ export class GeminiAgent extends BaseAgent {
     const args = ["-p", task.prompt];
     if (mode === "review") args.push("--output-format", "json");
     if (model) args.push("--model", model);
-    const res = await runCommand(resolveBin("gemini"), args, {
+    const res = await this.runCommand(resolveBin("gemini"), args, {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs

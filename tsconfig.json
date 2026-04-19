@@ -19,6 +19,7 @@
   },
   "include": [
     "src/types/**/*.js",
+    "src/infrastructure/**/*.js",
     "src/orchestrator/pipeline-context.js",
     "src/agents/base-agent.js",
     "src/hu/store.js",
