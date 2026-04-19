@@ -1,0 +1,64 @@
+name: Feature request
+description: Propón una mejora o nueva funcionalidad
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir, revisa el backlog en Planning Game (privado). Si la propuesta
+        implica un cambio arquitectónico transversal, considera escribir un ADR
+        (ver `docs/adrs/`) en el PR.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema que resuelve
+      description: ¿Qué limitación actual o caso de uso no cubierto motiva la petición?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución propuesta
+      description: Descripción técnica. Si toca API pública, incluye ejemplos de uso.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Opcional. Por qué otras opciones no funcionan.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Área afectada
+      options:
+        - Pipeline engine
+        - Role system
+        - CLI adapters
+        - Ingestion / chunking
+        - Embedding
+        - Vector store
+        - Retrieval / reranking
+        - Generation
+        - Evaluation
+        - Sensitivity policy / redaction
+        - Private cloud providers
+        - Config-driven runs / CLI
+        - Examples / docs
+        - Quality / CI
+        - Otro
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: ¿Implica cambio breaking?
+      options:
+        - label: Sí, rompe API pública
+        - label: No, compatible con v0.1.x
