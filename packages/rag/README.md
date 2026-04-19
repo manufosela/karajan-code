@@ -101,6 +101,10 @@ index.js
 
 [AGPL-3.0-or-later](LICENSE). Coherencia con Karajan Code; si tu caso de uso requiere una licencia más permisiva, abre un issue para discutirlo.
 
+## Architecture Decision Records
+
+- [ADR-001 — Reutilización de Karajan Code vía copy + attribution](docs/adrs/ADR-001-kjc-reuse-strategy.md)
+
 ## Planificación
 
 La gestión de tareas, épicas y ADRs de este proyecto se lleva en una instancia privada de **Planning Game** (XP). Si colaboras, pide acceso.
