@@ -3,6 +3,15 @@
  * Handles the common execute() flow: resolve provider → create agent → call LLM → parse output.
  * Subclasses override hooks (buildPrompt, parseOutput, buildSuccessResult, buildSummary)
  * instead of reimplementing the full execute() boilerplate.
+ *
+ * Conceptual mapping: `AgentRole` is a Karajan Role that delegates to an AI CLI
+ * subprocess (not to a provider HTTP API). From the outside it plays the same
+ * role as a Genkit Flow — named unit of work with a prompt and a parsed output —
+ * but every invocation spawns a fresh `execa` subprocess (claude, codex, gemini,
+ * aider, opencode) and the state lives in Karajan's session store, not in a
+ * provider-side conversation. See `docs/COMPARISON.md`.
+ *
+ * @alias Flow — similar to Genkit Flow but executed over subprocess CLIs, not API calls.
  */
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
