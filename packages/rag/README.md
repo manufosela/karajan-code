@@ -107,7 +107,8 @@ index.js
 
 ## Architecture Decision Records
 
-- [ADR-001 — Reutilización de Karajan Code vía copy + attribution](docs/adrs/ADR-001-kjc-reuse-strategy.md)
+- [ADR-001 — Karajan-style patterns en Karajan RAG (copy + attribution)](docs/adrs/ADR-001-kjc-reuse-strategy.md)
+- [ADR-002 — Reindex policy ante cambios de embedder o dimensión](docs/adrs/ADR-002-reindex-policy.md)
 
 ## Planificación
 
