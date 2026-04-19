@@ -53,6 +53,25 @@ Use Karajan when you want:
 
 If Claude Code is a smart pair programmer, Karajan is the CI/CD pipeline for AI-assisted development. They work great together: Karajan is designed to be used as an MCP server inside Claude Code.
 
+## How Karajan differs from AI frameworks
+
+While Genkit, Mastra, LangChain and Vercel AI SDK call `/v1/messages`, Karajan orchestrates the AI CLIs your developers already use in their terminals.
+
+| Axis | Karajan | Genkit / Mastra / LangChain / Vercel AI SDK |
+|------|---------|---------------------------------------------|
+| Calls provider HTTP API (`/v1/messages`, etc.) | ❌ Delegates to CLIs | ✅ |
+| Orchestrates existing AI CLIs (claude, codex, gemini, aider, opencode) as subprocesses | ✅ | ❌ |
+| Depends on cloud infrastructure | ❌ Fully local | ⚠️ Varies |
+| Vanilla JS (no TypeScript required) | ✅ | ⚠️ TS-first |
+| Token billing | **Uses your existing CLI subscriptions** | Pay per API call |
+
+Two technical facts worth keeping straight:
+
+1. **Subprocess, not PTY.** Karajan spawns each CLI via `execa` / `child_process` with plain `stdin` / `stdout` / `stderr` — see `src/infrastructure/command-runner.js` and `src/agents/*.js`. There is no PTY emulation.
+2. **Fresh subprocess per invocation + state on disk.** Every coder run is a new process; the state lives in `~/.karajan/sessions/` (see `src/session-store.js`) and the per-session journal under `.reviews/<session-id>/`. This is what makes pipelines **reproducible** and **resumable** with `kj resume`.
+
+Full write-up with mental mapping for Genkit / Mastra / LangChain / Vercel AI SDK developers: **[docs/COMPARISON.md](./docs/COMPARISON.md)**.
+
 ## Install
 
 **npm** (recommended):
