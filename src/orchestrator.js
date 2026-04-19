@@ -1520,16 +1520,30 @@ async function runSingleIteration(ctx) {
   session.standby_retry_count = 0;
 
   // --- Journal: record iteration ---
+  // Uses the richer iteration-logger from TSK-0286: captures blocking-issue
+  // details, sonar counts and Solomon rulings in addition to summaries.
   if (ctx.journalIterations) {
-    ctx.journalIterations.push(formatIteration({
-      iteration: i,
-      coderSummary: ctx.stageResults.coder?.summary || null,
-      reviewerSummary: review?.approved ? `Approved: ${review.raw_summary || ""}` : `Rejected: ${(review?.blocking_issues || []).length} blocking issue(s)`,
-      sonarSummary: ctx.stageResults.sonar?.summary || null,
-      testerSummary: ctx.stageResults.tester?.summary || null,
-      securitySummary: ctx.stageResults.security?.summary || null,
-      durationMs: iterDuration
-    }));
+    try {
+      const { recordIteration, extractIterationData } = await import("./session/journal/iteration-logger.js");
+      const iterationData = extractIterationData({
+        iteration: i,
+        durationMs: iterDuration,
+        stageResults: ctx.stageResults,
+        session: ctx.session,
+      });
+      // Derive a richer reviewer summary if none was produced.
+      if (!iterationData.reviewerSummary && review) {
+        iterationData.reviewerSummary = review.approved
+          ? `Approved: ${review.raw_summary || ""}`
+          : `Rejected: ${(review?.blocking_issues || []).length} blocking issue(s)`;
+      }
+      if (!iterationData.blockingIssues || iterationData.blockingIssues.length === 0) {
+        iterationData.blockingIssues = review?.blocking_issues || [];
+      }
+      recordIteration(ctx.session, iterationData);
+    } catch (err) {
+      logger.warn(`Iteration journal record failed (non-blocking): ${err.message}`);
+    }
   }
 
   const solomonResult = await handleSolomonCheck({
