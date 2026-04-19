@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Karajan — Pipeline Observability</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/pipeline.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">← HU Board</a>
+      <h1>Pipeline Observability</h1>
+      <div class="session-picker">
+        <label for="sessionSelect">Session:</label>
+        <select id="sessionSelect" aria-label="Active session"></select>
+        <button id="refreshBtn" type="button" title="Refresh now">⟳</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="roleGrid" class="role-grid" aria-label="Pipeline roles"></section>
+
+      <section class="panel">
+        <h2>Solomon arbitrations</h2>
+        <ol id="solomonList" class="event-list"></ol>
+      </section>
+
+      <section class="panel">
+        <h2>Iterations</h2>
+        <ol id="iterationList" class="event-list"></ol>
+      </section>
+
+      <section class="panel">
+        <h2>Summary</h2>
+        <pre id="summaryBlock" class="summary"></pre>
+      </section>
+    </main>
+
+    <footer>
+      <span id="lastRefresh">—</span>
+      <span class="sep">·</span>
+      <span>Auto-refresh every 2 s (click ⟳ to force)</span>
+    </footer>
+
+    <script src="/pipeline.js" type="module"></script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';
+import pipelineRoutes from './routes/pipeline.js';
 import { authMiddleware } from './auth.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
@@ -53,6 +54,7 @@ async function main() {
   app.use(express.json());
   app.use(express.static(PUBLIC_DIR));
   app.use('/api', authMiddleware(), apiRoutes);
+  app.use('/api/pipeline', authMiddleware(), pipelineRoutes);
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
