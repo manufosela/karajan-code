@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v2.4.0 — Executable Acceptance Tests: each HU runs shell commands after every coder iteration. All pass → approved. Any fail → Brain diagnoses with exact error. Demo: 6 HUs, 280 tests, 97% coverage, 0 vulnerabilities."
+  tagline: "v2.6.0 — Modular orchestrator: 2 000-line monolith split into a 22-line barrel + flow-runner + StageExecutor contract. Infrastructure DI for unit-testable agents. Valibot config validation catches typos at load time. HU Board auto-start with a prominent URL banner. 3 638 tests, 283 files."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -23,8 +23,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
-  <Card title="Executable Acceptance Tests (v2.4)" icon="approve-check-circle">
-    Each HU carries `acceptance_tests`: an array of shell commands Brain runs after every coder iteration. All pass → HU approved. Any fail → Brain reads the exact error output and sends a concrete diagnostic to the coder. No reviewer. No generic tester. Concrete pass/fail. Demo result: 6 HUs, 280 tests, 97% coverage, 0 vulnerabilities.
+  <Card title="Modular Orchestrator (v2.6)" icon="puzzle">
+    `src/orchestrator.js` shrunk from a 2 084-line monolith to a 22-line public barrel over `src/orchestrator/flow-runner.js`. New `StageExecutor` contract (`canRun` / `execute` / `onFailure`) plus a `StageRegistry` lets future stages register themselves without touching the core. Adding a new stage is now a drop-in: put a `StageExecutor` subclass under `src/orchestrator/stages/`, register it, done.
+  </Card>
+  <Card title="Infrastructure Dependency Injection (v2.6)" icon="random">
+    `FileSystemService` and `CommandRunner` adapters live under `src/infrastructure/`. `BaseAgent` takes an optional `Environment`; `createAgent(…, env)` threads it through. Tests swap in `MockFileSystem` + `MockCommandRunner` via `buildMockEnvironment()` so every agent path (Claude, Codex, Gemini, Aider, OpenCode) is unit-testable without spawning real subprocesses.
+  </Card>
+  <Card title="Valibot Config Validation (v2.6)" icon="approve-check-circle">
+    Config is now schema-validated at load time with Valibot. `review_mode` typos, `max_iterations: 0`, out-of-range `hu_board.port`, negative `max_budget_usd`, or `budget.warn_threshold_pct` outside 0-100 fail fast with a readable message. CLI falsy overrides (`--no-rebase`, `--reviewer-retries 0`) finally work. Co-authored with Jorge del Casar.
+  </Card>
+  <Card title="Rich Session Journal (v2.6)" icon="open-book">
+    Every run writes `.reviews/<session>/decisions.md`, `iterations.md`, `summary.md`, and `tree.txt`. You get a per-iteration log of coder/reviewer/sonar/Solomon steps, an executive summary with a stages table and budget breakdown, and a directory-grouped view of every file touched during the pipeline.
+  </Card>
+  <Card title="Budget: With KJ vs Without KJ (v2.6)" icon="star">
+    At session end, the budget display projects the cost you would have paid without Karajan's compression and token savings (RTK + Brain). Clear `-88%` delta lines keep expectations grounded in real numbers.
+  </Card>
+  <Card title="Executable Acceptance Tests (v2.4)" icon="approve-check">
+    Each HU carries `acceptance_tests`: an array of shell commands Brain runs after every coder iteration. All pass → HU approved. Any fail → Brain reads the exact error output and sends a concrete diagnostic to the coder. No reviewer. No generic tester. Concrete pass/fail.
   </Card>
   <Card title="Karajan Brain (v2.0)" icon="rocket">
     AI-powered central orchestrator that routes all role-to-role communication, enriches feedback with file hints, verifies outputs via git diff, executes direct actions (npm install, gitignore), and compresses role outputs for 40-70% token savings. Consults Solomon only on genuine dilemmas.
@@ -95,8 +110,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
   </Card>
-  <Card title="1925+ Automated Tests" icon="approve-check">
-    130 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in under 14 seconds with Vitest.
+  <Card title="3 638+ Automated Tests" icon="approve-check">
+    283 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in around 45 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A-F scores and prioritized recommendations without modifying any files.
