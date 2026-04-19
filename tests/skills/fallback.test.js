@@ -10,6 +10,11 @@ vi.mock("../../src/skills/skill-loader.js", () => ({
   loadAvailableSkills: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("../../src/skills/skills-cache.js", () => ({
+  isFresh: vi.fn().mockResolvedValue(false),
+  recordInstall: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("skills/fallback — graceful degradation when openskills CLI is missing", () => {
   let autoInstallSkills, client;
 
@@ -19,6 +24,9 @@ describe("skills/fallback — graceful degradation when openskills CLI is missin
     client = await import("../../src/skills/openskills-client.js");
     const loader = await import("../../src/skills/skill-loader.js");
     loader.loadAvailableSkills.mockResolvedValue([]);
+    const cache = await import("../../src/skills/skills-cache.js");
+    cache.isFresh.mockResolvedValue(false);
+    cache.recordInstall.mockResolvedValue(undefined);
   });
 
   it("returns osAvailable:false and wouldHaveUsed when CLI is missing", async () => {

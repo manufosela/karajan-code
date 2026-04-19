@@ -24,3 +24,9 @@ process.env.GOOGLE_API_KEY ??= "sk-test-google";
 process.env.OPENCODE_API_KEY ??= "sk-test-opencode";
 
 globalThis.__KJ_DEFAULT_PREFLIGHT_EXTENDED = false;
+
+// Default skills mode to "regex" under Vitest so orchestrator tests that do
+// not mock the semantic detector don't spawn classifier agents and skew
+// agent-invocation assertions. Tests that exercise the semantic path set
+// `flags.skillsMode = "auto"` or `config.skills.mode = "semantic"` explicitly.
+globalThis.__KJ_DEFAULT_SKILLS_MODE = "regex";
