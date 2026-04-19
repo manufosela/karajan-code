@@ -29,6 +29,10 @@
  *
  * @typedef {import("./policy.js").ResolvedPolicies} ResolvedPolicies
  * @typedef {import("./policy.js").QualityGateResult} QualityGateResult
+ *
+ * @typedef {import("./solomon.js").Conflict} SolomonConflict
+ * @typedef {import("./solomon.js").ConflictHistoryEntry} SolomonConflictHistoryEntry
+ * @typedef {import("./solomon.js").SolomonResult} SolomonResult
  */
 
 export {};
