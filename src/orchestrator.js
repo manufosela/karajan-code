@@ -546,6 +546,62 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
 
+  // --- Brain decisor (opt-in, intent-driven routing) ---
+  //
+  // When enabled, translates triage output + task text + CLI overrides into a
+  // structured Decision and applies it as pipelineFlags overrides. The rest
+  // of the orchestrator continues to branch on pipelineFlags as before — the
+  // Brain is a router that adjusts WHICH roles run, not HOW they run.
+  //
+  // Opt-out via config.brain.decisor.enabled=false (default OFF in tests).
+  const brainDefault = globalThis.__KJ_DEFAULT_BRAIN_DECISOR ?? true;
+  const brainDecisorEnabled = config?.brain?.decisor?.enabled ?? brainDefault;
+  if (brainDecisorEnabled) {
+    try {
+      const { buildDecision, applyDecisionToFlags } = await import("./brain/decisor.js");
+      const { createTracker, recordDecision, checkLimits } = await import("./brain/decision-tracker.js");
+      const tracker = createTracker(session, { max: config?.brain?.decisor?.maxDecisions });
+      const limitStatus = checkLimits(tracker);
+      if (limitStatus.status === "ok") {
+        const decision = buildDecision({
+          triage: triageResult.stageResult,
+          task,
+          config,
+          overrides: {
+            forceRoles: flags?.forceRoles || [],
+            skipRoles: flags?.skipRoles || [],
+          },
+        });
+        const newFlags = applyDecisionToFlags(decision, pipelineFlags);
+        Object.assign(pipelineFlags, newFlags);
+        recordDecision(tracker, decision, {
+          taskType: triageResult.stageResult?.taskType,
+          level: triageResult.stageResult?.level,
+        });
+        emitProgress(emitter, makeEvent("brain:decision", { ...eventBase, stage: "brain" }, {
+          status: "ok",
+          message: `Brain routing: ${decision.rolesOn.length} role(s) active — ${decision.rationale}`,
+          detail: {
+            rolesOn: decision.rolesOn,
+            rolesOff: decision.rolesOff,
+            confidence: decision.confidence,
+            consultSolomon: decision.consultSolomon,
+            appliedOverrides: decision.appliedOverrides,
+          },
+        }));
+      } else {
+        logger.warn(`Brain decisor skipped: ${limitStatus.detail}`);
+        emitProgress(emitter, makeEvent("brain:decision", { ...eventBase, stage: "brain" }, {
+          status: "warn",
+          message: `Brain decisor skipped: ${limitStatus.status}`,
+          detail: limitStatus,
+        }));
+      }
+    } catch (err) {
+      logger.warn(`Brain decisor failed (non-blocking): ${err.message}`);
+    }
+  }
+
   // --- Persist inline domain if provided via --domain flag ---
   if (flags?.domain) {
     try {
