@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela ejecuciones previas de la misma rama para ahorrar minutos.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests · Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # El cache de pnpm se activará cuando el repo tenga pnpm-lock.yaml;
+      # mientras no haya dependencias externas, se omite para no fallar setup-node.
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # --no-frozen-lockfile se usa mientras el repo aún no tenga pnpm-lock.yaml;
+      # cuando se añadan dependencias y su lockfile, cambiar a --frozen-lockfile.
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
