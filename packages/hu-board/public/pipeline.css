@@ -1,0 +1,132 @@
+/* Pipeline observability view (TSK-0325). */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #2a3a4e;
+  background: #0f1420;
+}
+.topbar h1 { font-size: 1.125rem; margin: 0; color: #e1e8f2; }
+.topbar .brand {
+  color: #7d9ebc;
+  text-decoration: none;
+  font-weight: 500;
+}
+.topbar .brand:hover { color: #e1e8f2; }
+
+.session-picker {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #94a4ac;
+}
+.session-picker select {
+  background: #1a2332;
+  color: #e1e8f2;
+  border: 1px solid #2a3a4e;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  min-width: 220px;
+}
+.session-picker button {
+  background: #1a2332;
+  color: #e1e8f2;
+  border: 1px solid #2a3a4e;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.session-picker button:hover { background: #2a3a4e; }
+
+main {
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.role-card {
+  border: 1px solid #2a3a4e;
+  border-radius: 6px;
+  padding: 0.75rem;
+  background: #0f1420;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.role-card .name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #e1e8f2;
+}
+.role-card .meta {
+  font-size: 0.75rem;
+  color: #7d9ebc;
+}
+.role-card[data-status="done"] { border-color: #4caf50; }
+.role-card[data-status="running"] { border-color: #f4b63f; }
+.role-card[data-status="error"] { border-color: #e74c3c; }
+.role-card[data-status="idle"] { opacity: 0.65; }
+
+.panel {
+  border: 1px solid #2a3a4e;
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  background: #0f1420;
+}
+.panel h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #e1e8f2;
+}
+.event-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.5rem;
+}
+.event-list li {
+  border-left: 2px solid #2a3a4e;
+  padding: 0.5rem 0.75rem;
+  background: #0a0e18;
+  border-radius: 3px;
+}
+.event-list li strong { color: #e1e8f2; display: block; margin-bottom: 0.25rem; }
+.event-list li pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.8125rem;
+  color: #94a4ac;
+}
+
+.summary {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.8125rem;
+  color: #94a4ac;
+  margin: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #7d9ebc;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid #2a3a4e;
+}
+footer .sep { margin: 0 0.5rem; opacity: 0.5; }
