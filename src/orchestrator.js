@@ -724,23 +724,35 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   // Runs AFTER triage and planner so that the planned task text (which includes
   // planner output like implementation steps) is available for keyword detection.
   // This ensures greenfield projects with no package.json still get correct skills.
+  //
+  // Detection runs UNCONDITIONALLY — even when the openskills CLI is missing —
+  // so the session report can recommend which skills would have been used. The
+  // actual install is skipped inside autoInstallSkills when unavailable.
   const skillProjectDir = updatedConfig.projectDir || process.cwd();
   try {
-    const osAvailable = await isOpenSkillsAvailable();
-    if (osAvailable) {
-      const neededSkills = await detectNeededSkills(plannedTask, skillProjectDir);
-      if (neededSkills.length > 0) {
-        const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
-        if (skillResult.installed.length > 0) {
-          session.autoInstalledSkills = skillResult.installed;
-        }
-        emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "skills" }, {
-          message: skillResult.installed.length > 0
-            ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
-            : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
-          detail: skillResult
+    const neededSkills = await detectNeededSkills(plannedTask, skillProjectDir);
+    if (neededSkills.length > 0) {
+      const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
+      if (skillResult.installed.length > 0) {
+        session.autoInstalledSkills = skillResult.installed;
+      }
+      if (skillResult.osAvailable === false && skillResult.wouldHaveUsed.length > 0) {
+        session.skillsRecommended = skillResult.wouldHaveUsed;
+        logger.warn(`OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}. Install openskills globally to auto-inject them next time.`);
+        emitProgress(emitter, makeEvent("skills:unavailable", { ...eventBase, stage: "skills" }, {
+          message: `OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}`,
+          detail: {
+            wouldHaveUsed: skillResult.wouldHaveUsed,
+            hint: "Install openskills globally: npm install -g openskills",
+          },
         }));
       }
+      emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "skills" }, {
+        message: skillResult.installed.length > 0
+          ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
+          : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
+        detail: skillResult,
+      }));
     }
   } catch (err) {
     logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);

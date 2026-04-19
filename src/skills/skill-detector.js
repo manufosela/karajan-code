@@ -284,12 +284,25 @@ async function collectExtensionMarkers(projectDir, maxDepth, needed) {
 
 /**
  * Auto-install needed skills that are not yet installed.
+ *
+ * When the `openskills` CLI is not available, this function degrades
+ * gracefully: it returns `osAvailable: false` and `wouldHaveUsed` with the
+ * list of skills that would have been installed if the CLI had been present.
+ * Callers (e.g. the orchestrator) can surface this info in the session
+ * report without blocking execution.
+ *
  * @param {string[]} neededSkills - Skill names to ensure are installed.
  * @param {string} projectDir - Absolute path to project root.
- * @returns {Promise<{installed: string[], failed: string[], alreadyInstalled: string[]}>}
+ * @returns {Promise<{
+ *   installed: string[],
+ *   failed: string[],
+ *   alreadyInstalled: string[],
+ *   wouldHaveUsed: string[],
+ *   osAvailable: boolean
+ * }>}
  */
 export async function autoInstallSkills(neededSkills, projectDir) {
-  const result = { installed: [], failed: [], alreadyInstalled: [] };
+  const result = { installed: [], failed: [], alreadyInstalled: [], wouldHaveUsed: [], osAvailable: true };
 
   if (!neededSkills || neededSkills.length === 0) {
     return result;
@@ -302,7 +315,10 @@ export async function autoInstallSkills(neededSkills, projectDir) {
   // Check if OpenSkills is available
   const osAvailable = await isOpenSkillsAvailable();
   if (!osAvailable) {
-    // All skills count as "failed" silently — caller should check osAvailable separately
+    result.osAvailable = false;
+    // Report what we would have installed so the session report can surface
+    // the recommendation — "install openskills globally to enable: X, Y, Z".
+    result.wouldHaveUsed = neededSkills.filter((s) => !existingNames.has(s.toLowerCase()));
     return result;
   }
 
