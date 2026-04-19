@@ -87,7 +87,7 @@ export function createCachedEmbedder(baseEmbedder, options = {}) {
     for (let i = 0; i < texts.length; i += 1) {
       const safe = String(texts[i] ?? '');
       const key = buildKey(safe, model, dimensions);
-      // eslint-disable-next-line no-await-in-loop
+       
       const cached = await store.get(key);
       if (cached) {
         stats.hits += 1;
@@ -104,7 +104,7 @@ export function createCachedEmbedder(baseEmbedder, options = {}) {
         : await Promise.all(missing.map((m) => baseEmbedder.embed(m.text)));
       for (let i = 0; i < missing.length; i += 1) {
         results[missing[i].index] = fresh[i];
-        // eslint-disable-next-line no-await-in-loop
+         
         await store.set(missing[i].key, fresh[i]);
       }
     }

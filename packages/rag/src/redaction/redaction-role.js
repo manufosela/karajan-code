@@ -47,7 +47,7 @@ export class RedactionRole extends Role {
    * @param {ToolBox} _tools
    * @returns {Promise<{ query: string, contextChunks: SearchHit[], report: { redacted: number, counts: Record<string, number>, blockedBy: string[] } }>}
    */
-  // eslint-disable-next-line no-unused-vars
+   
   async run(input, _tools) {
     if (!input || typeof input.query !== 'string') {
       throw new Error('RedactionRole.run: input.query requerido.');
