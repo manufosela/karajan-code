@@ -7,6 +7,17 @@
   "bin": {
     "karajan-rag": "bin/karajan-rag.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "migrations/",
+    "index.js",
+    "README.md",
+    "CHANGELOG.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node index.js",
     "lint": "eslint .",

@@ -7,6 +7,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Tarball npm**: añadido campo `files` en `package.json` para restringir el
+  paquete publicado a `bin/`, `src/`, `migrations/`, `index.js` y la
+  documentación canónica (README, CHANGELOG, ROADMAP, SECURITY, LICENSE).
+  Reduce de 99 → 49 ficheros (de 105 kB → 63 kB), excluyendo tests, ejemplos,
+  CI config, docker-compose, eslint config y scripts de dev.
+
 ### Added
 
 - **ROADMAP.md** con visión pública de versiones 0.2.0 → 1.0 (observabilidad,
