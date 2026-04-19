@@ -25,6 +25,7 @@ const REQUIRED_EXPORTS = [
   'runVertexAi',
   'createOllamaStreamAdapter',
   'readNdjsonLines',
+  'wrapAdapterAsStream',
 
   // Ingestion
   'loadTextFile',

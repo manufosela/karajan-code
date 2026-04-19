@@ -7,6 +7,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Helper `wrapAdapterAsStream`**: en `src/ai/adapters/wrap-adapter-as-stream.js`.
+  Convierte cualquier `AdapterFunction` (Claude CLI, Azure HTTP, etc.) en
+  un `StreamAdapterFunction` troceando el answer en chunks de `chunkSize`
+  caracteres con `delayMs` opcional. Homogeneiza el código cliente entre
+  proveedores con y sin streaming nativo y sirve para simular UX
+  progresiva en demos. No es streaming real (el adapter sigue siendo
+  blocking); úsalo como fallback o conveniencia. Re-exportado en barrel.
+
 ### Documentation
 
 - **README — sección "API pública"**: lista los símbolos re-exportados por
