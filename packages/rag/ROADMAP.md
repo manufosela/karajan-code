@@ -27,20 +27,30 @@
 
 ## 0.2.0 — Observabilidad y Solomon real
 
+**Estado**: núcleo entregado. Pendiente OpenTelemetry adapter y el bump del tag.
+
 **Objetivo**: instrumentar el pipeline y sustituir el stub de Solomon por una implementación de referencia.
 
 - **Observabilidad**
-  - Emisión estructurada de eventos por stage (`onStageStart`, `onStageEnd`, `onStageError`) con duración y tamaño de entrada/salida.
-  - Adapter opcional a OpenTelemetry (peer-dep) sin acoplar el core.
-  - Métricas de cache de embeddings (hits/misses) expuestas por `EmbeddingCache`.
+  - ✅ Emisión estructurada de eventos por stage (`onStageStart`, `onStageEnd`, `onStageError`) con duración y tamaño de entrada/salida (PR #50).
+  - ✅ Helper `collectPipelineEvents` para captura sin boilerplate (PR #62).
+  - ✅ Demo `examples/observability-demo.js` (PR #51).
+  - ✅ Métricas de cache de embeddings (`hits, misses, size, evictions`) en `EmbeddingCache.stats` (PR #49).
+  - ⏳ Adapter opcional a OpenTelemetry (peer-dep) — no iniciado.
 - **Solomon real**
-  - Ejecución multi-source paralela con `Promise.allSettled`.
-  - Estrategias de arbitraje: `majority`, `weighted`, `llm-arbiter` (usa `evaluateMultiJudge`).
-  - Registro de decisiones en el resultado para auditoría.
-  - ADR-004 cerrando la fase de "stub".
+  - ✅ Tres estrategias: `majority`, `weighted`, `llm-arbiter` (PR #53).
+  - ✅ `ctx.metadata.solomonDecision` como log de auditoría.
+  - ✅ Helper `parallelRetrieve(sources, query, {timeoutMs})` en el caller (PR #56).
+  - ✅ Demo `examples/solomon-multi-source.js` end-to-end (PR #57).
+  - ✅ [ADR-004](./docs/adrs/ADR-004-solomon-implementation.md) cerrando la fase de "stub" (PR #54).
 - **Generator streaming**
-  - Interfaz `streamGenerate()` para CLIs que emiten tokens (Claude, Codex, Gemini).
-  - Compatible con consumidores síncronos (buffer interno).
+  - ✅ `GeneratorRole.streamGenerate()` como async iterable con fallback a adapter no-streaming (PR #55).
+  - ✅ `createOllamaStreamAdapter` (HTTP NDJSON) como primer streamAdapter real (PR #58).
+  - ✅ Helper `wrapAdapterAsStream` para adapters blocking (PR #61).
+  - ⏳ Stream adapters nativos para Claude/Azure/Vertex — pendientes.
+- **API pública**
+  - ✅ `index.js` barrel con 63 símbolos re-exportados (PR #59) + documentación en README (PR #60).
+  - ✅ Tests de contrato (`tests/public-api.test.js`).
 
 ## 0.3.0 — Evaluación avanzada y golden set
 
