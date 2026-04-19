@@ -47,6 +47,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
+    "typecheck": "npx -p typescript@5 tsc --noEmit -p tsconfig.json",
     "validate": "npm run lint && npm test",
     "mcp": "node src/mcp/server.js"
   },
