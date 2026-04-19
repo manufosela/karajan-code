@@ -4,6 +4,9 @@
   "description": "Orquestador multi-CLI para proveedores de IA (Codex, Claude, Gemini) basado en spawn",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "karajan-rag": "bin/karajan-rag.js"
+  },
   "scripts": {
     "start": "node index.js",
     "lint": "eslint .",
