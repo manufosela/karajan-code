@@ -23,6 +23,39 @@ const PKG_JSON_FRAMEWORKS = {
   express: "express",
   fastify: "fastify",
   "@nestjs/core": "nestjs",
+  // DB / ORM
+  prisma: "prisma",
+  "@prisma/client": "prisma",
+  knex: "sql-analysis",
+  sequelize: "sql-analysis",
+  typeorm: "sql-analysis",
+  mongoose: "mongodb",
+  "better-sqlite3": "sql-analysis",
+  // Testing
+  vitest: "vitest-patterns",
+  jest: "jest-patterns",
+  "@playwright/test": "playwright-patterns",
+  cypress: "cypress-patterns",
+};
+
+/**
+ * Python dependency names (from requirements.txt or pyproject.toml) mapping
+ * to their canonical skill.
+ */
+const PYTHON_DEPS = {
+  pandas: "python-data",
+  numpy: "python-data",
+  scipy: "python-data",
+  "scikit-learn": "python-ml",
+  sklearn: "python-ml",
+  tensorflow: "python-ml",
+  torch: "python-ml",
+  pytorch: "python-ml",
+  pytest: "pytest-patterns",
+  django: "python-django",
+  flask: "python-flask",
+  fastapi: "python-fastapi",
+  sqlalchemy: "sql-analysis",
 };
 
 /**
@@ -36,13 +69,43 @@ const LANGUAGE_FILE_MARKERS = [
   { file: "go.mod", skill: "go" },
   { file: "Cargo.toml", skill: "rust" },
   { file: "pyproject.toml", skill: "python" },
+  { file: "requirements.txt", skill: "python" },
   { file: "setup.py", skill: "python" },
   { file: "Gemfile", skill: "ruby" },
   { file: "pubspec.yaml", skill: "flutter" },
   { file: "Package.swift", skill: "swift" },
   { file: "phpunit.xml", skill: "php" },
   { file: "composer.json", skill: "php" },
+  { file: "mix.exs", skill: "elixir" },
+  { file: "rebar.config", skill: "erlang" },
 ];
+
+/**
+ * File EXTENSIONS whose presence anywhere under projectDir adds a skill.
+ * Uses a shallow-recursive glob with a cutoff to avoid walking node_modules.
+ */
+const EXTENSION_MARKERS = [
+  { ext: ".csproj", skill: "dotnet" },
+  { ext: ".sln", skill: "dotnet" },
+  { ext: ".ipynb", skill: "python-data" },
+  { ext: ".prisma", skill: "prisma" },
+];
+
+/**
+ * Files detected as "SQL / database schema" when they exist at repo root.
+ * Used in addition to EXTENSION_MARKERS for *.sql anywhere in the repo.
+ */
+const SQL_MARKER_FILES = [
+  "schema.sql",
+  "schema.prisma",
+  "migrations",
+  "db/migrate",
+];
+
+const DIRECTORIES_TO_SKIP = new Set([
+  "node_modules", ".git", ".kj", ".karajan", "dist", "build", ".next", "out",
+  "target", ".venv", "venv", "__pycache__", ".vitest-cache", "coverage",
+]);
 
 /**
  * Patterns to detect framework/skill mentions in the task text.
@@ -91,14 +154,21 @@ const TASK_TEXT_PATTERNS = [
 
 /**
  * Analyze the task and project to determine what skills might be needed.
+ *
  * @param {string} task - The task description text.
  * @param {string} projectDir - Absolute path to project root.
+ * @param {{ includeExtensions?: boolean, maxDepth?: number }} [options]
+ *   - includeExtensions: scan for file extensions (.csproj, .ipynb, .sql...)
+ *     that signal a stack. Default true. Disable to avoid the shallow walk
+ *     in very large repos or in tests.
+ *   - maxDepth: bound the walk (default 3 directories deep).
  * @returns {Promise<string[]>} Array of unique skill names to search for.
  */
-export async function detectNeededSkills(task, projectDir) {
+export async function detectNeededSkills(task, projectDir, options = {}) {
+  const { includeExtensions = true, maxDepth = 3 } = options;
   const needed = new Set();
 
-  // 1. Scan package.json for known frameworks
+  // 1. Scan package.json for known frameworks and JS-ecosystem deps
   if (projectDir) {
     try {
       const pkgRaw = await fs.readFile(path.join(projectDir, "package.json"), "utf8");
@@ -111,16 +181,32 @@ export async function detectNeededSkills(task, projectDir) {
       }
     } catch { /* no package.json or parse error — skip */ }
 
-    // 2. Check for language markers
+    // 2. Language marker files at repo root
     for (const marker of LANGUAGE_FILE_MARKERS) {
       try {
         await fs.access(path.join(projectDir, marker.file));
         needed.add(marker.skill);
       } catch { /* file not found — skip */ }
     }
+
+    // 3. Python deps from requirements.txt / pyproject.toml
+    await collectPythonDeps(projectDir, needed);
+
+    // 4. File extension markers (.csproj, .ipynb, .prisma, *.sql)
+    if (includeExtensions) {
+      await collectExtensionMarkers(projectDir, maxDepth, needed);
+    }
+
+    // 5. SQL / DB schema markers at well-known paths
+    for (const candidate of SQL_MARKER_FILES) {
+      try {
+        await fs.access(path.join(projectDir, candidate));
+        needed.add("sql-analysis");
+      } catch { /* skip */ }
+    }
   }
 
-  // 3. Check task text for framework mentions
+  // 6. Task text patterns
   if (task) {
     for (const { pattern, skill } of TASK_TEXT_PATTERNS) {
       if (pattern.test(task)) {
@@ -130,6 +216,70 @@ export async function detectNeededSkills(task, projectDir) {
   }
 
   return Array.from(needed);
+}
+
+async function collectPythonDeps(projectDir, needed) {
+  // requirements.txt — each non-comment line is "name==ver" or "name>=ver"
+  try {
+    const raw = await fs.readFile(path.join(projectDir, "requirements.txt"), "utf8");
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim().split("#")[0].trim();
+      if (!trimmed) continue;
+      const name = trimmed.split(/[<>=!~\[\s]/)[0].toLowerCase();
+      const skill = PYTHON_DEPS[name];
+      if (skill) needed.add(skill);
+    }
+  } catch { /* no requirements.txt */ }
+
+  // pyproject.toml — simple heuristic scan for dependency names. A full TOML
+  // parse would need a dep; we just look for quoted names, which is fine.
+  try {
+    const raw = await fs.readFile(path.join(projectDir, "pyproject.toml"), "utf8");
+    const lower = raw.toLowerCase();
+    for (const [name, skill] of Object.entries(PYTHON_DEPS)) {
+      if (lower.includes(`"${name}"`) || lower.includes(`'${name}'`)) {
+        needed.add(skill);
+      }
+    }
+  } catch { /* no pyproject.toml */ }
+}
+
+async function collectExtensionMarkers(projectDir, maxDepth, needed) {
+  // Build a lookup by extension for fast decisions.
+  const byExt = new Map(EXTENSION_MARKERS.map((m) => [m.ext, m.skill]));
+  const extensions = new Set(byExt.keys());
+  extensions.add(".sql");
+  let sqlFound = false;
+
+  async function walk(dir, depth) {
+    if (depth > maxDepth) return;
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (DIRECTORIES_TO_SKIP.has(entry.name)) continue;
+        if (entry.name.startsWith(".")) continue;
+        await walk(path.join(dir, entry.name), depth + 1);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!extensions.has(ext)) continue;
+      if (ext === ".sql") {
+        sqlFound = true;
+        continue;
+      }
+      const skill = byExt.get(ext);
+      if (skill) needed.add(skill);
+    }
+  }
+
+  await walk(projectDir, 0);
+  if (sqlFound) needed.add("sql-analysis");
 }
 
 /**
