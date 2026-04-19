@@ -167,13 +167,36 @@ function syncSessionFile(filePath) {
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
 
-    // Sessions NEVER create projects. Only batches (hu-stories/) create projects.
-    // The session attaches to the batch's project if one exists, otherwise it's
-    // invisible in the board (correct for runs without HU decomposition).
+    // Resolve which project this session belongs to:
+    //   1. If a plan / HU batch already created `auto-<sessionId>`, reuse it
+    //      so plan-based runs group with their HU batch.
+    //   2. Otherwise fall back to the session's declared `project_id`.
+    //   3. Otherwise bucket the session under "default" so orphan runs
+    //      (e.g. `kj run "task"` without HU decomposition) still show up on
+    //      the board instead of disappearing silently. Fix for KJC-BUG-0028.
     const autoProjectId = `auto-${sessionId}`;
     const db = getDb();
     const existingBatch = db.prepare('SELECT id FROM projects WHERE id = ?').get(autoProjectId);
-    const projectId = existingBatch ? autoProjectId : (data.project_id || null);
+    let projectId;
+    if (existingBatch) {
+      projectId = autoProjectId;
+    } else if (data.project_id) {
+      projectId = data.project_id;
+    } else {
+      projectId = 'default';
+    }
+
+    // Ensure the project row exists. Skip when an auto-batch owns it already
+    // (that row was written by syncStoryFile with richer metadata and we do
+    // not want to overwrite name/total_stories).
+    if (!existingBatch) {
+      upsertProject({
+        id: projectId,
+        name: projectId === 'default' ? 'Orphan sessions' : projectId,
+        last_activity: data.updated_at || data.created_at || new Date().toISOString(),
+        total_stories: 0,
+      });
+    }
 
     // Calculate iterations from checkpoints
     const checkpoints = data.checkpoints || [];
@@ -193,9 +216,8 @@ function syncSessionFile(filePath) {
       }
     }
 
-    // No upsertProject — sessions don't create projects.
-
-    if (!projectId) return; // No batch project to attach to → skip session
+    // Project row was created above (unless an auto-batch owns it); the
+    // session always has a project to attach to now.
 
     upsertSession({
       id: sessionId,
@@ -311,8 +333,9 @@ export function fullScan() {
     }
   }
 
-  // Scan v2 plans (from kj plan → ~/.kj/plans/)
-  const kjDir = join(homedir(), '.kj', 'plans');
+  // Scan v2 plans (from kj plan → ~/.kj/plans/). Honours KJ_PLANS_DIR for
+  // test isolation; falls back to the default location in production.
+  const kjDir = process.env.KJ_PLANS_DIR || join(homedir(), '.kj', 'plans');
   if (existsSync(kjDir)) {
     const projectDirs = readdirSync(kjDir);
     for (const projDir of projectDirs) {
