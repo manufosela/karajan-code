@@ -9,6 +9,12 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Helper `parallelRetrieve`**: en `src/retrieval/parallel-retrieve.js`.
+  Paraleliza retrievers por source con `Promise.allSettled`, tolera fallos
+  y timeouts individuales (`timeoutMs` opcional), y devuelve el formato
+  `SolomonSourceResult[]` listo para alimentar `SolomonRole`. Cierra el
+  loop multi-source que dejaba abierto ADR-004 (la paralelización está en
+  el caller, no en Solomon).
 - **Generator streaming**: `GeneratorRole.streamGenerate(input, tools)` como
   async generator. Si el constructor (o `tools`) provee un `streamAdapter`
   (`(prompt) => AsyncIterable<string>`), se reenvía chunk por chunk; si no,
