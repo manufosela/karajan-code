@@ -115,6 +115,29 @@ export async function boardStatus(port = 4000) {
   };
 }
 
+/**
+ * Render a highlighted cyan box with the HU Board URL + optional project name.
+ * Centralizes the banner used by both the init-time auto-start (flow-runner.js)
+ * and the post-planner auto-HU generation safety net so they stay in sync.
+ *
+ * @param {Object} params
+ * @param {string} params.url           - "http://localhost:4000"
+ * @param {string} params.status        - "started" | "already running"
+ * @param {string} [params.projectName] - optional project label
+ * @returns {string} ANSI-escaped box ready for console.log
+ */
+export function renderBoardBanner({ url, status, projectName }) {
+  const title = projectName ? `  Project: \u001b[1m${projectName}\u001b[0m` : null;
+  const lines = [
+    "",
+    "\u001b[36m\u256d\u2500 HU Board \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e",
+    `\u001b[36m\u2502\u001b[0m  \u001b[1m${status}\u001b[0m  \u001b[4m${url}\u001b[0m`,
+  ];
+  if (title) lines.push(`\u001b[36m\u2502\u001b[0m${title}`);
+  lines.push("\u001b[36m\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\u001b[0m", "");
+  return lines.join("\n");
+}
+
 export async function boardCommand({ action = "start", port = 4000, logger }) {
   switch (action) {
     case "start": {

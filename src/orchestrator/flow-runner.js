@@ -963,24 +963,18 @@ async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask
 
   // Auto-start the board so the user can see the generated HUs.
   // Always fires when auto-HU runs, independent of hu_board.auto_start flag.
+  // Never during vitest — would race the PID file and leave a detached
+  // node process around after the suite (TSK-0273).
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return;
   try {
-    const { startBoard } = await import("../commands/board.js");
+    const { startBoard, renderBoardBanner } = await import("../commands/board.js");
     const desiredPort = session.config_snapshot?.hu_board?.port ?? 4000;
     const boardResult = await startBoard(desiredPort);
     const url = boardResult.url;
     const status = boardResult.alreadyRunning ? "already running" : "started";
-    // Highlighted URL box — visible regardless of log level
-    const title = batch.projectName || "Auto-generated HUs";
-    const box = [
-      "",
-      "\u001b[36m\u256d\u2500 HU Board \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e",
-      `\u001b[36m\u2502\u001b[0m  \u001b[1m${status}\u001b[0m  \u001b[4m${url}\u001b[0m`,
-      `\u001b[36m\u2502\u001b[0m  Project: \u001b[1m${title}\u001b[0m`,
-      "\u001b[36m\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\u001b[0m",
-      ""
-    ].join("\n");
-    console.log(box);
-    logger.info(`HU Board ${status} at ${url} (project: ${title})`);
+    const projectName = batch.projectName || "Auto-generated HUs";
+    console.log(renderBoardBanner({ url, status, projectName }));
+    logger.info(`HU Board ${status} at ${url} (project: ${projectName})`);
   } catch (err) {
     logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
   }
@@ -1298,17 +1292,28 @@ async function handleMaxIterationsReached({ session, budgetSummary, emitter, eve
 }
 
 async function tryAutoStartBoard(config, logger, emitter, eventBase) {
-  if (!config.hu_board?.enabled || !config.hu_board?.auto_start) return;
+  // TSK-0273: gate on hu_board.auto_start alone. The previous double-gate
+  // (enabled && auto_start) was confusing because `enabled` was never the
+  // user-facing switch — only auto_start was. This matches the AC: "kj run
+  // auto-inicia el board server si hu_board.auto_start es true".
+  if (!config.hu_board?.auto_start) return;
+  // Never auto-start during vitest: races the PID file and starts a detached
+  // process that outlives the test run.
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return;
 
   try {
-    const { startBoard } = await import("../commands/board.js");
+    const { startBoard, renderBoardBanner } = await import("../commands/board.js");
     const boardPort = config.hu_board.port || 4000;
     const boardResult = await startBoard(boardPort);
     const status = boardResult.alreadyRunning ? "already running" : "started";
+    // Highlighted URL box — visible regardless of log level (matches the
+    // post-planner auto-HU banner so the user gets the same signal either
+    // way the board got started).
+    console.log(renderBoardBanner({ url: boardResult.url, status }));
     logger.info(`HU Board ${status} at ${boardResult.url}`);
     emitProgress(emitter, makeEvent("board:started", eventBase, {
       message: `HU Board running at ${boardResult.url}`,
-      detail: { pid: boardResult.pid, port: boardPort }
+      detail: { pid: boardResult.pid, port: boardPort, url: boardResult.url }
     }));
   } catch (err) {
     logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
