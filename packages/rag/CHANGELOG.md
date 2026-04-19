@@ -9,6 +9,11 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Generator streaming**: `GeneratorRole.streamGenerate(input, tools)` como
+  async generator. Si el constructor (o `tools`) provee un `streamAdapter`
+  (`(prompt) => AsyncIterable<string>`), se reenvía chunk por chunk; si no,
+  fallback al adapter no-streaming con un único yield del answer completo.
+  Compatible con `for await` directo; la API `run()` tradicional no cambia.
 - **ADR-004** — Solomon: implementación real de estrategias de arbitraje.
   Documenta las tres estrategias (`majority`, `weighted`, `llm-arbiter`), la
   decisión explícita de no paralelizar retrievers dentro de Solomon y el
