@@ -432,12 +432,26 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
       if (decisionsResult.written) journalFiles.push("decisions.md");
       if (hasTree) journalFiles.push("tree.txt");
 
-      await writeSummaryJournal(journalDir, {
-        task: session.task, result: "APPROVED", sessionId: session.id,
-        iterations: i, durationMs: Date.now() - (session._startedAt || Date.now()),
-        budget: budgetSummary(), stages: stageResults,
-        commits: gitResult?.commits || [], files: journalFiles
-      });
+      // KJC-TSK-0289: use the richer summary writer (stages table, budget
+      // breakdown, brain/solomon counts, typed links to other journal files).
+      const { writeSummaryJournal: writeSummaryJournalV2 } =
+        await import("./session/journal/summary-writer.js");
+      const startedAt = session._startedAt ? new Date(session._startedAt).toISOString() : undefined;
+      await writeSummaryJournalV2(journalDir, {
+        task: session.task,
+        result: "APPROVED",
+        sessionId: session.id,
+        iterations: i,
+        durationMs: Date.now() - (session._startedAt || Date.now()),
+        budget: budgetSummary(),
+        stages: stageResults,
+        commits: gitResult?.commits || [],
+        files: journalFiles,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        brainDecisions: Array.isArray(session.brainDecisions) ? session.brainDecisions.length : 0,
+        solomonInvocations: Array.isArray(session.solomonRulings) ? session.solomonRulings.length : 0,
+      }, { logger });
       logger.info(`Session journal written to ${journalDir}`);
     } catch (err) {
       logger.warn(`Journal write failed (non-blocking): ${err.message}`);
