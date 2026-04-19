@@ -8,6 +8,7 @@
     "start": "node index.js",
     "lint": "eslint .",
     "test": "node --test tests/*.test.js",
+    "coverage": "c8 node --test tests/*.test.js",
     "smoke": "node scripts/smoke.js",
     "smoke:codex": "node scripts/smoke.js codex",
     "smoke:claude": "node scripts/smoke.js claude",
@@ -30,6 +31,7 @@
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "c8": "^11.0.0",
     "eslint": "^10.2.1",
     "globals": "^17.5.0"
   }
