@@ -74,7 +74,7 @@ The main pipeline lives in `src/orchestrator.js` (~1400 LOC) and calls functions
 | `hu-sub-pipeline.js` | HU batch processing with dependency graph |
 | `acceptance-runner.js` | **v2.4**: Executes HU `acceptance_tests` shell commands after each coder iteration; captures exact pass/fail output for Brain diagnostics |
 | `auto-generator.js` | **v2.1**: Converts triage subtasks into a certified HU batch with setup HU and per-HU `task_type` classification |
-| `solomon-escalation.js` | Solomon invocation with conflict context and previous rulings |
+| `solomon-escalation.js` | Solomon invocation with `Conflict` payload (see `src/types/solomon.js`) and previous rulings. **Invariant: called only by Brain or by the orchestrator on Brain's behalf — never from stages or rules. The v2.3.0 audit fixed 21 violations of this rule.** |
 | `solomon-rules.js` | Deterministic rules engine (stale detection, scope guard, deps alerts) |
 | `preflight-checks.js` | Environment validation before pipeline starts |
 | `agent-fallback.js` | Fallback routing when primary coder fails |

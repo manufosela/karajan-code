@@ -74,7 +74,7 @@ El pipeline principal vive en `src/orchestrator.js` (~1400 LOC) y llama a funcio
 | `hu-sub-pipeline.js` | Procesamiento de batches de HU con grafo de dependencias |
 | `acceptance-runner.js` | **v2.4**: Ejecuta los comandos shell `acceptance_tests` de cada HU tras cada iteración del coder; captura la salida exacta pasa/falla para diagnósticos de Brain |
 | `auto-generator.js` | **v2.1**: Convierte los subtasks de triage en un batch certificado de HUs con HU de setup y clasificación `task_type` por HU |
-| `solomon-escalation.js` | Invocación de Solomon con contexto de conflicto y rulings previos |
+| `solomon-escalation.js` | Invocación de Solomon con payload `Conflict` (ver `src/types/solomon.js`) y rulings previos. **Invariante: solo lo llama Brain o el orquestador por cuenta de Brain — NUNCA desde stages ni rules. La auditoría v2.3.0 corrigió 21 violaciones de esta regla.** |
 | `solomon-rules.js` | Motor de reglas determinísticas (detección de stale, scope guard, alertas de deps) |
 | `preflight-checks.js` | Validación del entorno antes de arrancar el pipeline |
 | `agent-fallback.js` | Enrutamiento de fallback cuando el coder principal falla |

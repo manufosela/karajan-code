@@ -4,6 +4,23 @@ import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 
 /**
+ * @typedef {import("../types/solomon.js").Conflict} Conflict
+ * @typedef {import("../types/solomon.js").SolomonResult} SolomonResult
+ */
+
+/**
+ * Architectural invariant (DO NOT BREAK):
+ * `invokeSolomon` MUST NOT be called directly from stages, rules or agent
+ * code. The only callers should be:
+ *   - Karajan Brain (via `src/brain/solomon-consult.js`)
+ *   - The orchestrator's escalation path (`src/orchestrator/flow-runner.js`)
+ *     on behalf of Brain.
+ * The v2.3.0 audit fixed 21 violations of this rule. Keeping Solomon behind
+ * Brain is what the "Brain-as-gateway, Solomon-as-judge" architecture
+ * depends on — see docs/ARCHITECTURE.md §Brain/Solomon.
+ */
+
+/**
  * Build a human-readable escalation message from raw Solomon conflict data.
  * Replaces the raw JSON dump with structured, plain-text output.
  *
@@ -81,6 +98,23 @@ function extractSolomonHistory(session) {
     }));
 }
 
+/**
+ * Consult Solomon (or fall back to human escalation) for a given conflict.
+ * See the Conflict typedef for the shape of the `conflict` argument and
+ * the invariant above for who is allowed to call this.
+ *
+ * @param {Object}    params
+ * @param {Object}    params.config
+ * @param {Object}    params.logger
+ * @param {Object}    [params.emitter]
+ * @param {Object}    [params.eventBase]
+ * @param {string}    params.stage
+ * @param {Conflict}  params.conflict
+ * @param {Function}  [params.askQuestion]
+ * @param {Object}    [params.session]
+ * @param {number}    [params.iteration]
+ * @returns {Promise<SolomonResult>}
+ */
 export async function invokeSolomon({ config, logger, emitter, eventBase, stage, conflict, askQuestion, session, iteration }) {
   const solomonEnabled = Boolean(config.pipeline?.solomon?.enabled);
 

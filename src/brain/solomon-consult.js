@@ -8,6 +8,14 @@
  *
  * This is intentionally conservative. A future iteration can make Solomon a
  * binding arbiter for routing (like it is for pipeline-control decisions).
+ *
+ * Architectural invariant: this module is the ONLY sanctioned path from
+ * Brain to Solomon for routing concerns. Stages / rules / agents must not
+ * bypass Brain to reach Solomon directly — see the note on `invokeSolomon`
+ * in `src/orchestrator/solomon-escalation.js` and docs/ARCHITECTURE.md.
+ *
+ * @typedef {import("../types/solomon.js").Conflict} Conflict
+ * @typedef {import("../types/solomon.js").SolomonResult} SolomonResult
  */
 
 /**
@@ -17,7 +25,7 @@
  * @param {import("./decisor.js").Decision} args.decision
  * @param {Object} args.triage
  * @param {string} args.task
- * @returns {Object} conflict
+ * @returns {Conflict} conflict
  */
 export function buildRoutingConflict({ decision, triage, task }) {
   return {
