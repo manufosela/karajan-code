@@ -9,6 +9,11 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Helper `collectPipelineEvents`**: en `src/pipeline/collect-events.js`.
+  Devuelve `{events, hooks}` listo para pasar como `options.events` a
+  `runPipeline`. Elimina el boilerplate de escribir tres callbacks y da
+  un array vivo con entradas `{kind, stageName, stageIndex, durationMs?,
+  inputSize?, outputSize?, error?}`. Re-exportado en el barrel.
 - **Helper `wrapAdapterAsStream`**: en `src/ai/adapters/wrap-adapter-as-stream.js`.
   Convierte cualquier `AdapterFunction` (Claude CLI, Azure HTTP, etc.) en
   un `StreamAdapterFunction` troceando el answer en chunks de `chunkSize`
