@@ -9,6 +9,13 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Ollama streamAdapter**: `createOllamaStreamAdapter({baseUrl, model, fetchImpl?, options?})`
+  en `src/ai/adapters/ollama-stream-adapter.js`. Devuelve una función
+  `(prompt) => AsyncIterable<string>` compatible con
+  `GeneratorRole.streamGenerate`. Consume `POST /api/generate` con
+  `stream: true`, parsea NDJSON (trozos partidos reensamblados), emite
+  `response` token a token y corta cuando `done === true`. Líneas
+  malformadas se ignoran silenciosamente sin romper el stream.
 - **Demo multi-source**: `examples/solomon-multi-source.js` encadena
   `parallelRetrieve` (3 sources con timeout), `SolomonRole` en modo
   `weighted` con pesos por fuente y `GeneratorRole.streamGenerate` con un
