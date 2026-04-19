@@ -1,0 +1,17 @@
+# Code owners para Karajan RAG
+# Documentación: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Owner por defecto: cualquier fichero sin regla específica cae aquí.
+*                                       @manufosela
+
+# Áreas sensibles que requieren revisión explícita.
+/src/policy/                            @manufosela
+/src/redaction/                         @manufosela
+/src/ai/adapters/                       @manufosela
+
+# Infraestructura / automatización del repo.
+/.github/                               @manufosela
+/migrations/                            @manufosela
+
+# Decisiones arquitectónicas.
+/docs/adrs/                             @manufosela

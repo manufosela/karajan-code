@@ -9,6 +9,9 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Repo polish**: badges en README (CI, release, license, Node, status), `.github/CODEOWNERS`
+  con owners por defecto y áreas sensibles (policy, redaction, adapters),
+  `.editorconfig` y `.gitattributes` fijando indentación 2sp, LF y UTF-8.
 - **Repo automation**: `.github/dependabot.yml` vigila npm y github-actions
   semanalmente (lunes 06:00 Europe/Madrid) con PRs etiquetadas.
 - **Templates**: `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.yml`

@@ -1,5 +1,11 @@
 # Karajan RAG
 
+[![CI](https://github.com/manufosela/karajan-rag/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/manufosela/karajan-rag/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/manufosela/karajan-rag?include_prereleases&sort=semver)](https://github.com/manufosela/karajan-rag/releases)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](./LICENSE)
+[![Node](https://img.shields.io/node/v/karajan-rag.svg)](./package.json)
+[![Status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#)
+
 > ⚠️ **Proyecto en fase de desarrollo temprano.** La API, la estructura de carpetas y el set de proveedores soportados pueden cambiar sin previo aviso. No apto para uso productivo todavía.
 
 Orquestador multi-agente de CLIs de IA para construir pipelines **RAG** (Retrieval-Augmented Generation). Cada fase del pipeline (chunking, reranking, generación, evaluación…) puede delegarse al CLI/agente más idóneo o a código determinista, con adaptadores desacoplados por proveedor.
