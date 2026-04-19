@@ -7,6 +7,17 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Repo automation**: `.github/dependabot.yml` vigila npm y github-actions
+  semanalmente (lunes 06:00 Europe/Madrid) con PRs etiquetadas.
+- **Templates**: `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.yml`
+  y `.github/pull_request_template.md` con checklist de tests/lint/card ID.
+- **Release workflow**: `.github/workflows/release.yml` publica GitHub Release
+  automáticamente al push de tags `v*.*.*`, validando que `package.json`
+  coincide con el tag y extrayendo notas desde `CHANGELOG.md` mediante
+  `scripts/extract-changelog.js` (con tests).
+
 ## [0.1.0] — 2026-04-19
 
 Primer release etiquetado tras el Sprint 1. Incluye el esqueleto completo del

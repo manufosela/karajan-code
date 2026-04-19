@@ -1,0 +1,86 @@
+name: Bug report
+description: Reporta un problema reproducible en Karajan RAG
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por el reporte. Antes de abrir, revisa que **no sea un problema de seguridad** —
+        esos se envían a **mjfosela@gmail.com** (ver [SECURITY.md](../SECURITY.md)).
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de karajan-rag
+      description: Salida de `karajan-rag --version` o campo `version` en package.json
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Versión de Node.js
+      description: Salida de `node --version`
+      placeholder: "v22.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operativo
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - WSL
+        - Docker
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Pasos para reproducir
+      description: Comandos exactos o código mínimo que reproduce el bug
+      placeholder: |
+        1. Clono el repo
+        2. `pnpm install`
+        3. `node examples/run-demo.js`
+        4. ...
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento esperado
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamiento observado
+      description: Stack traces, logs, salida completa. Usa bloques de código.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Provider usado (ollama/claude/codex/gemini/azure/bedrock/vertex), config relevante, etc.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmaciones
+      options:
+        - label: He buscado en issues abiertos y cerrados que no existe un duplicado
+          required: true
+        - label: No se trata de una vulnerabilidad (de serlo, usaría SECURITY.md)
+          required: true
