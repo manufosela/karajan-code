@@ -553,9 +553,16 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   // of the orchestrator continues to branch on pipelineFlags as before — the
   // Brain is a router that adjusts WHICH roles run, not HOW they run.
   //
-  // Opt-out via config.brain.decisor.enabled=false (default OFF in tests).
+  // Flag precedence:
+  //   1. flags.brain === "off"    → forced off
+  //   2. flags.brain === "on"     → forced on
+  //   3. config.brain.decisor.enabled (if set)
+  //   4. globalThis.__KJ_DEFAULT_BRAIN_DECISOR (test harness default = false)
+  //   5. true in production
   const brainDefault = globalThis.__KJ_DEFAULT_BRAIN_DECISOR ?? true;
-  const brainDecisorEnabled = config?.brain?.decisor?.enabled ?? brainDefault;
+  let brainDecisorEnabled = config?.brain?.decisor?.enabled ?? brainDefault;
+  if (flags?.brain === "off") brainDecisorEnabled = false;
+  if (flags?.brain === "on") brainDecisorEnabled = true;
   if (brainDecisorEnabled) {
     try {
       const { buildDecision, applyDecisionToFlags } = await import("./brain/decisor.js");
@@ -568,8 +575,10 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
           task,
           config,
           overrides: {
-            forceRoles: flags?.forceRoles || [],
-            skipRoles: flags?.skipRoles || [],
+            // Commander variadic --force-role a b → flags.forceRole = ["a","b"].
+            // Back-compat: accept both singular (commander) and plural (legacy / API).
+            forceRoles: flags?.forceRole || flags?.forceRoles || [],
+            skipRoles: flags?.skipRole || flags?.skipRoles || [],
           },
         });
         const newFlags = applyDecisionToFlags(decision, pipelineFlags);
