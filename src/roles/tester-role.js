@@ -1,6 +1,7 @@
 import { AgentRole } from "./agent-role.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { detectTestFramework } from "../utils/project-detect.js";
+import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -108,6 +109,16 @@ export class TesterRole extends AgentRole {
     );
     if (diff) sections.push(`## Git diff\n${diff}`);
     if (sonarIssues) sections.push(`## Sonar test issues\n${sonarIssues}`);
+
+    // Inject test-relevant skills (filtered by role=tester to only include
+    // testing patterns like pytest-patterns, vitest-patterns, etc.)
+    const skills = await loadAvailableSkills(projectDir);
+    const skillSection = buildSkillSection(skills, {
+      provider: this._resolvedProvider || (typeof this.resolveProvider === "function" ? this.resolveProvider() : null),
+      role: "tester",
+    });
+    if (skillSection) sections.push(skillSection);
+
     return { prompt: sections.join("\n\n") };
   }
 

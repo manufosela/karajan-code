@@ -64,7 +64,7 @@ export async function buildReviewerPrompt({ task, diff, reviewRules, mode, seren
 
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills, { provider });
+    const skillSection = buildSkillSection(skills, { provider, role: "reviewer" });
     if (skillSection) {
       sections.push(skillSection);
     }

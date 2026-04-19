@@ -51,7 +51,7 @@ export async function buildArchitectPrompt({ task, instructions, researchContext
 
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills, { provider });
+    const skillSection = buildSkillSection(skills, { provider, role: "architect" });
     if (skillSection) {
       sections.push(skillSection);
     }

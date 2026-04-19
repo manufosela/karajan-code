@@ -1,5 +1,6 @@
 import { AgentRole } from "./agent-role.js";
 import { extractFirstJson } from "../utils/json-extract.js";
+import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -23,6 +24,17 @@ export class SecurityRole extends AgentRole {
       `## Task\n${task}`
     );
     if (diff) sections.push(`## Git diff to audit\n${diff}`);
+
+    // Inject security-relevant skills (owasp-*, security-*, sast-*) filtered
+    // by role=security.
+    const projectDir = this.config?.projectDir || process.cwd();
+    const skills = await loadAvailableSkills(projectDir);
+    const skillSection = buildSkillSection(skills, {
+      provider: this._resolvedProvider || (typeof this.resolveProvider === "function" ? this.resolveProvider() : null),
+      role: "security",
+    });
+    if (skillSection) sections.push(skillSection);
+
     return { prompt: sections.join("\n\n") };
   }
 
