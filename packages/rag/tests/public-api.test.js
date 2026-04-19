@@ -11,6 +11,7 @@ const REQUIRED_EXPORTS = [
   'Role',
   'RoleRegistry',
   'ROLE_EVENTS',
+  'collectPipelineEvents',
 
   // Adapters
   'AdapterRegistry',

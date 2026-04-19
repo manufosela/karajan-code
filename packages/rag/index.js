@@ -28,6 +28,7 @@ export {
 } from './src/pipeline/pipeline.js';
 export { Role, ROLE_EVENTS } from './src/pipeline/role.js';
 export { RoleRegistry } from './src/pipeline/role-registry.js';
+export { collectPipelineEvents } from './src/pipeline/collect-events.js';
 
 // --- Adapters -------------------------------------------------------------
 export { AdapterRegistry, createDefaultAdapterRegistry } from './src/ai/adapter-registry.js';
