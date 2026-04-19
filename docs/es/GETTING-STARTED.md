@@ -16,7 +16,7 @@ npm install -g karajan-code
 
 Verifica:
 ```bash
-kj --version    # 2.5.0
+kj --version    # 2.6.0
 kj doctor       # Comprobar entorno
 ```
 
@@ -67,7 +67,7 @@ kj status                     # Estado de la sesión actual
 kj resume <session-id>        # Reanudar sesión pausada
 kj doctor                     # Comprobar entorno
 
-# Gestión de planes (v2.5.0)
+# Gestión de planes (v2.5+)
 kj plan list                  # Listar planes del proyecto actual
 kj plan show <planId>         # Ver detalles del plan + tabla de HUs
 kj plan validate <planId>     # Verificar estructura, deps, IDs
@@ -84,7 +84,7 @@ kj board status               # Comprobar si está corriendo
 kj board stop                 # Detener el board
 ```
 
-## Flujo de planificación (v2.5.0)
+## Flujo de planificación (v2.5+)
 
 `kj plan` introduce un flujo en dos fases: **planificar → revisar → ejecutar**. En lugar de codificar inmediatamente, primero se genera un plan estructurado con HUs, se inspecciona y ajusta, y se ejecuta cuando está listo.
 

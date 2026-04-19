@@ -16,7 +16,7 @@ npm install -g karajan-code
 
 Verify:
 ```bash
-kj --version    # 2.5.0
+kj --version    # 2.6.0
 kj doctor       # Check environment
 ```
 
@@ -67,7 +67,7 @@ kj status                    # Current session
 kj resume <session-id>       # Resume paused
 kj doctor                    # Environment check
 
-# Plan management (v2.5.0)
+# Plan management (v2.5+)
 kj plan list                 # List plans for this project
 kj plan show <planId>        # Show plan details + HU table
 kj plan validate <planId>    # Check structure, deps, IDs
@@ -84,7 +84,7 @@ kj board status              # Check if running
 kj board stop                # Stop the board
 ```
 
-## Planning workflow (v2.5.0)
+## Planning workflow (v2.5+)
 
 `kj plan` introduces a two-phase flow: **plan → review → execute**. Instead of running code immediately, you first generate a structured plan with HUs, inspect and adjust it, then execute it when ready.
 
