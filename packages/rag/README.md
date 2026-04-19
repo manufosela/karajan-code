@@ -60,12 +60,16 @@ Ver la documentación de cada épica en el Planning Game interno para el detalle
 pnpm install
 
 pnpm test               # unit tests (node:test)
+pnpm coverage           # tests + reporte de coverage (c8)
+pnpm lint               # ESLint flat config
 pnpm start              # demo multi-CLI contra los 3 proveedores
 
-# Smoke tests por proveedor (requieren CLI instalado)
+# Smoke tests por proveedor — opt-in, requieren CLI instalado.
+# No se ejecutan con `pnpm test` ni en CI. Vía pnpm ya se exporta RUN_SMOKE=1.
 pnpm smoke:claude
 pnpm smoke:codex
 pnpm smoke:gemini
+pnpm smoke:ollama
 ```
 
 ## Estructura
