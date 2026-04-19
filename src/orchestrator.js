@@ -1371,7 +1371,17 @@ async function initFlowContext({ task, config, logger, emitter, askQuestion, pgT
   ctx.coderRoleInstance = new CoderRole({ config, logger, emitter, createAgentFn: createAgent, askHost: askQuestion });
   ctx.startedAt = Date.now();
   ctx.eventBase = { sessionId: null, iteration: 0, stage: null, startedAt: ctx.startedAt };
-  const { budgetTracker, budgetLimit, budgetSummary, trackBudget } = createBudgetManager({ config, emitter, eventBase: ctx.eventBase });
+  const { budgetTracker, budgetLimit, budgetSummary, trackBudget } = createBudgetManager({
+    config,
+    emitter,
+    eventBase: ctx.eventBase,
+    // Provides fresh compression data for "With KJ vs Without KJ" comparison
+    // (KJC-TSK-0274). Invoked on every budgetSummary() call.
+    getCompressionStats: () => ({
+      rtkSavings: ctx.rtkTracker?.hasData() ? ctx.rtkTracker.summary() : (ctx.session?.rtk_savings || null),
+      brainCtx: ctx.brainCtx || null,
+    }),
+  });
   ctx.budgetTracker = budgetTracker;
   ctx.budgetLimit = budgetLimit;
   ctx.budgetSummary = budgetSummary;
