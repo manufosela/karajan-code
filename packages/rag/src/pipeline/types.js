@@ -83,3 +83,47 @@
  * @property {PipelineError[]} errors Errores acumulados durante la ejecución.
  * @property {string[]} executedStages Nombres de los stages que llegaron a ejecutarse.
  */
+
+/**
+ * Evento emitido al iniciar un stage.
+ *
+ * @typedef {Object} StageStartEvent
+ * @property {string} stageName
+ * @property {number} stageIndex Posición 0-based dentro del array de stages.
+ * @property {number|undefined} inputSize Estimación del tamaño del input (ver `estimateSize`).
+ */
+
+/**
+ * Evento emitido cuando un stage finaliza correctamente.
+ *
+ * @typedef {Object} StageEndEvent
+ * @property {string} stageName
+ * @property {number} stageIndex
+ * @property {number} durationMs Duración del stage en milisegundos (performance.now diff).
+ * @property {number|undefined} inputSize
+ * @property {number|undefined} outputSize
+ */
+
+/**
+ * Evento emitido cuando un stage lanza error.
+ *
+ * @typedef {Object} StageErrorEvent
+ * @property {string} stageName
+ * @property {number} stageIndex
+ * @property {number} durationMs
+ * @property {number|undefined} inputSize
+ * @property {PipelineError} error Error ya normalizado por el pipeline.
+ */
+
+/**
+ * Hooks opcionales de observabilidad del pipeline.
+ * Todos los callbacks son invocados de forma síncrona *tras* el trabajo del
+ * stage (salvo `onStageStart`, que se invoca antes). Si un hook lanza, el
+ * error se captura silenciosamente y se registra en `ctx.logger.warn`: nunca
+ * debe propagarse y romper el pipeline que observa.
+ *
+ * @typedef {Object} StageEventHooks
+ * @property {(event: StageStartEvent) => void} [onStageStart]
+ * @property {(event: StageEndEvent) => void} [onStageEnd]
+ * @property {(event: StageErrorEvent) => void} [onStageError]
+ */

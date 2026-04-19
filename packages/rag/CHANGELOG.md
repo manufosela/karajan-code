@@ -9,6 +9,12 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Pipeline events**: `runPipeline(stages, input, ctx, { events })` acepta
+  hooks `onStageStart`, `onStageEnd` y `onStageError`. Cada evento incluye
+  `stageName`, `stageIndex`, `durationMs` (medido con `performance.now()`) e
+  `inputSize`/`outputSize` estimados heurísticamente. Los hooks que lancen
+  no propagan errores al pipeline (se logean en `ctx.logger.warn`). Primera
+  pieza de observabilidad en 0.2.0.
 - **EmbeddingCache metrics**: `stats` ahora expone `{hits, misses, evictions, size}`
   con `size` calculado dinámicamente desde el store si implementa `.size` (como
   `Map`). Stores custom con política de eviction pueden incrementar

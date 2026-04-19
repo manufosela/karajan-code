@@ -15,7 +15,49 @@
  * @typedef {import('./types.js').PipelineError} PipelineError
  * @typedef {import('./types.js').ErrorPolicy} ErrorPolicy
  * @typedef {import('./types.js').PipelineResult<any>} PipelineResult
+ * @typedef {import('./types.js').StageEventHooks} StageEventHooks
  */
+
+/**
+ * Estimación defensiva del tamaño de un valor para telemetría.
+ * No pretende ser exacta: es una señal aproximada (número de elementos,
+ * caracteres, bytes según tipo). Si el tipo es desconocido, devuelve undefined
+ * en vez de lanzar.
+ *
+ * @param {unknown} value
+ * @returns {number|undefined}
+ */
+export function estimateSize(value) {
+  if (value == null) return 0;
+  if (Array.isArray(value)) return value.length;
+  if (typeof value === 'string') return value.length;
+  if (typeof value === 'number' || typeof value === 'boolean') return 1;
+  if (value instanceof ArrayBuffer) return value.byteLength;
+  if (ArrayBuffer.isView(value)) {
+    return /** @type {ArrayBufferView} */ (value).byteLength;
+  }
+  if (typeof value === 'object') return Object.keys(value).length;
+  return undefined;
+}
+
+/**
+ * Invoca un hook de observabilidad capturando cualquier excepción, para que
+ * los observadores no puedan romper el pipeline.
+ *
+ * @template T
+ * @param {((event: T) => void) | undefined} hook
+ * @param {T} event
+ * @param {PipelineContext} ctx
+ * @param {string} label
+ */
+function safeInvoke(hook, event, ctx, label) {
+  if (typeof hook !== 'function') return;
+  try {
+    hook(event);
+  } catch (err) {
+    ctx.logger.warn(`Hook "${label}" lanzó error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 
 /**
  * Convierte cualquier valor lanzado en un `PipelineError` normalizado.
@@ -93,7 +135,7 @@ function assertStage(stage, index) {
  * @param {Stage[]} stages
  * @param {TInput} initialInput
  * @param {PipelineContext} ctx
- * @param {{ errorPolicy?: ErrorPolicy }} [options]
+ * @param {{ errorPolicy?: ErrorPolicy, events?: StageEventHooks }} [options]
  * @returns {Promise<PipelineResult>}
  */
 export async function runPipeline(stages, initialInput, ctx, options = {}) {
@@ -104,6 +146,7 @@ export async function runPipeline(stages, initialInput, ctx, options = {}) {
     throw new Error('runPipeline: "ctx" inválido (faltan logger/tools/errors).');
   }
   const errorPolicy = options.errorPolicy ?? 'abort';
+  const events = options.events ?? {};
 
   stages.forEach(assertStage);
 
@@ -113,32 +156,51 @@ export async function runPipeline(stages, initialInput, ctx, options = {}) {
   let finalOutput = null;
   let ok = true;
 
-  for (const stage of stages) {
+  for (let stageIndex = 0; stageIndex < stages.length; stageIndex += 1) {
+    const stage = stages[stageIndex];
     if (ctx.signal && ctx.signal.aborted) {
       ctx.logger.warn(`Pipeline abortado por signal antes de stage "${stage.name}".`);
       ok = false;
       break;
     }
 
-     
+
     const canRun = await shouldRun(stage, currentInput, ctx);
     if (!canRun) {
       ctx.logger.info(`Stage "${stage.name}" saltado (canRun=false).`);
       continue;
     }
 
+    const inputSize = estimateSize(currentInput);
+    safeInvoke(events.onStageStart, { stageName: stage.name, stageIndex, inputSize }, ctx, 'onStageStart');
     ctx.logger.info(`Stage "${stage.name}" · start`);
+    const startedAt = performance.now();
     try {
-       
+
       const output = await stage.run(currentInput, ctx);
+      const durationMs = performance.now() - startedAt;
       executedStages.push(stage.name);
       currentInput = output;
       finalOutput = output;
+      const outputSize = estimateSize(output);
       ctx.logger.info(`Stage "${stage.name}" · done`);
+      safeInvoke(
+        events.onStageEnd,
+        { stageName: stage.name, stageIndex, durationMs, inputSize, outputSize },
+        ctx,
+        'onStageEnd',
+      );
     } catch (err) {
+      const durationMs = performance.now() - startedAt;
       const pErr = toPipelineError(stage.name, err);
       ctx.errors.push(pErr);
       ctx.logger.error(`Stage "${stage.name}" · error: ${pErr.message}`);
+      safeInvoke(
+        events.onStageError,
+        { stageName: stage.name, stageIndex, durationMs, inputSize, error: pErr },
+        ctx,
+        'onStageError',
+      );
       ok = false;
       if (errorPolicy === 'abort') break;
       // 'continue': mantenemos currentInput para el próximo stage.
