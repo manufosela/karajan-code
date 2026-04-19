@@ -26,12 +26,21 @@ export function getAgentMeta(name) {
   return entry ? { ...entry.meta } : null;
 }
 
-export function createAgent(agentName, config, logger) {
+/**
+ * @param {string} agentName
+ * @param {import("../types/config.js").KarajanConfig} config
+ * @param {import("../types/stage.js").Logger} logger
+ * @param {import("../infrastructure/environment.js").Environment} [environment]
+ *   Optional DI environment. Defaults to native fs + execa. Tests pass a mock
+ *   environment built via `buildMockEnvironment()` to exercise agent paths
+ *   without spawning real processes.
+ */
+export function createAgent(agentName, config, logger, environment) {
   const entry = agentRegistry.get(agentName);
   if (!entry) {
     throw new Error(`Unsupported agent: ${agentName}`);
   }
-  return new entry.AgentClass(agentName, config, logger);
+  return new entry.AgentClass(agentName, config, logger, environment);
 }
 
 // Auto-register built-in agents with CLI metadata

@@ -5,7 +5,12 @@
  * @typedef {import("../types/config.js").KarajanConfig} KarajanConfig
  * @typedef {import("../types/stage.js").Logger} Logger
  * @typedef {import("../types/agent.js").AgentResult} AgentResult
+ * @typedef {import("../infrastructure/environment.js").Environment} Environment
+ * @typedef {import("../infrastructure/command-runner.js").CommandRunResult} CommandRunResult
+ * @typedef {import("../infrastructure/command-runner.js").CommandRunOptions} CommandRunOptions
  */
+
+import { defaultEnvironment } from "../infrastructure/environment.js";
 
 const MODEL_NOT_SUPPORTED_PATTERNS = [
   /model.{0,30}is not supported/i,
@@ -21,11 +26,30 @@ export class BaseAgent {
    * @param {string} name                    - agent slug (claude|codex|gemini|aider|opencode)
    * @param {KarajanConfig} config
    * @param {Logger} logger
+   * @param {Environment} [environment]      - DI-friendly fs + runner bundle. Defaults
+   *                                           to the native filesystem and execa-based
+   *                                           command runner. Tests pass a mock env to
+   *                                           unit-test agent paths without spawning
+   *                                           real processes.
    */
-  constructor(name, config, logger) {
+  constructor(name, config, logger, environment = defaultEnvironment) {
     this.name = name;
     this.config = config;
     this.logger = logger;
+    this.environment = environment;
+  }
+
+  /**
+   * Run a shell command through the injected CommandRunner. Subclasses should
+   * call this instead of importing runCommand directly so tests can swap in
+   * MockCommandRunner.
+   * @param {string} command
+   * @param {string[]} [args]
+   * @param {CommandRunOptions} [options]
+   * @returns {Promise<CommandRunResult>}
+   */
+  async runCommand(command, args = [], options = {}) {
+    return this.environment.runner.run(command, args, options);
   }
 
   /**

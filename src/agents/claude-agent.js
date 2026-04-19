@@ -1,5 +1,4 @@
 import { BaseAgent } from "./base-agent.js";
-import { runCommand } from "../utils/process.js";
 import { resolveBin } from "./resolve-bin.js";
 
 /**
@@ -244,7 +243,7 @@ export class ClaudeAgent extends BaseAgent {
     if (task.onOutput) {
       args.push("--output-format", "stream-json", "--verbose");
       const streamFilter = createStreamJsonFilter(task.onOutput);
-      const res = await runCommand(resolveBin("claude"), args, cleanExecaOpts({
+      const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({
         onOutput: streamFilter,
         silenceTimeoutMs: task.silenceTimeoutMs,
         timeout: task.timeoutMs
@@ -257,7 +256,7 @@ export class ClaudeAgent extends BaseAgent {
 
     // Without streaming, use json output to get structured response via stderr
     args.push("--output-format", "json");
-    const res = await runCommand(resolveBin("claude"), args, cleanExecaOpts());
+    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts());
     const raw = pickOutput(res);
     const output = extractTextFromStreamJson(raw);
     const usage = extractUsageFromStreamJson(raw);
@@ -267,7 +266,7 @@ export class ClaudeAgent extends BaseAgent {
   async _reviewTaskExec(task, model) {
     const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS, "--output-format", "stream-json", "--verbose"];
     if (model) args.push("--model", model);
-    const res = await runCommand(resolveBin("claude"), args, cleanExecaOpts({
+    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs
