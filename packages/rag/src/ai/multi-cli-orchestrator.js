@@ -1,28 +1,29 @@
 // @ts-check
-import { runCodexCli } from './adapters/codex-cli-adapter.js';
-import { runClaudeCli } from './adapters/claude-cli-adapter.js';
-import { runGeminiCli } from './adapters/gemini-cli-adapter.js';
+import { createDefaultAdapterRegistry } from './adapter-registry.js';
 
 /**
- * @typedef {"codex" | "claude" | "gemini"} ProviderName
+ * @typedef {import('./adapter-registry.js').AdapterRegistry} AdapterRegistry
+ * @typedef {import('./types.js').AdapterResult} AdapterResult
  */
 
 /**
  * @typedef {Object} ProviderErrorResult
- * @property {ProviderName} provider
- * @property {string} error Human-readable error message in Spanish.
+ * @property {string} provider Identificador del proveedor que falló.
+ * @property {string} error Mensaje humano.
  */
 
 /**
  * @typedef {Object} OrchestratorOptions
- * @property {(prompt: string) => Promise<unknown>} [codexAdapter]
- * @property {(prompt: string) => Promise<unknown>} [claudeAdapter]
- * @property {(prompt: string) => Promise<unknown>} [geminiAdapter]
+ * @property {AdapterRegistry} [registry] Registry de adapters inyectable. Si no se pasa,
+ *   se crea uno por defecto con los 3 built-in (claude/codex/gemini).
+ * @property {string[]} [providers] Subconjunto de providers a ejecutar. Por defecto todos los
+ *   registrados en el registry.
  */
 
 /**
- * Convert a rejected promise into a normalized provider error object.
- * @param {ProviderName} provider
+ * Convierte una rejection en un objeto de error normalizado.
+ *
+ * @param {string} provider
  * @param {unknown} reason
  * @returns {ProviderErrorResult}
  */
@@ -37,32 +38,31 @@ function buildErrorResult(provider, reason) {
 }
 
 /**
- * Execute the same prompt against all configured CLI providers in parallel.
- * Uses Promise.allSettled so that a single provider failure does not break the batch.
+ * Ejecuta el mismo prompt contra todos los adapters del registry en paralelo
+ * usando Promise.allSettled. Si un proveedor falla, el resto sigue; el error
+ * se devuelve normalizado y el array de resultados mantiene el orden de los
+ * providers solicitados.
  *
  * @param {string} prompt
- * @param {OrchestratorOptions} [options] Inyección de dependencias (útil para tests).
- * @returns {Promise<Array<unknown | ProviderErrorResult>>}
+ * @param {OrchestratorOptions} [options]
+ * @returns {Promise<Array<AdapterResult | ProviderErrorResult>>}
  */
 export async function runMultiCli(prompt, options = {}) {
-  const {
-    codexAdapter = runCodexCli,
-    claudeAdapter = runClaudeCli,
-    geminiAdapter = runGeminiCli,
-  } = options;
+  const registry = options.registry ?? (await createDefaultAdapterRegistry());
+  const providers = options.providers ?? registry.list();
 
-  /** @type {Array<{ name: ProviderName, call: () => Promise<unknown> }>} */
-  const jobs = [
-    { name: 'codex', call: () => codexAdapter(prompt) },
-    { name: 'claude', call: () => claudeAdapter(prompt) },
-    { name: 'gemini', call: () => geminiAdapter(prompt) },
-  ];
+  if (providers.length === 0) {
+    return [];
+  }
 
-  const settled = await Promise.allSettled(jobs.map((job) => job.call()));
+  const settled = await Promise.allSettled(
+    providers.map((name) => registry.get(name)(prompt)),
+  );
 
   return settled.map((outcome, index) => {
-    const providerName = jobs[index].name;
-    if (outcome.status === 'fulfilled') return outcome.value;
-    return buildErrorResult(providerName, outcome.reason);
+    if (outcome.status === 'fulfilled') {
+      return /** @type {AdapterResult} */ (outcome.value);
+    }
+    return buildErrorResult(providers[index], outcome.reason);
   });
 }
