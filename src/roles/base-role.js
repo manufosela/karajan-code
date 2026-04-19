@@ -49,6 +49,23 @@ async function loadFirstExisting(paths) {
   return null;
 }
 
+/**
+ * Base class for every pipeline role (coder, reviewer, planner, refactorer,
+ * researcher, architect, triage, discover, tester, security, impeccable,
+ * hu-reviewer, audit, solomon, commiter, karajan-brain, domain-curator).
+ *
+ * Conceptual mapping for developers coming from other ecosystems:
+ * `BaseRole` (and every subclass) is Karajan's equivalent of a **Flow** in the
+ * Genkit sense — a named, composable unit of work with a prompt, an invocation
+ * and a parsed output. The important difference: a Karajan Role executes over
+ * a **subprocess CLI** (`claude`, `codex`, `gemini`, `aider`, `opencode`), not
+ * by calling an HTTP provider API. No PTY, no long-lived session — each run
+ * is a fresh subprocess with state on disk under `~/.karajan/sessions/`.
+ *
+ * See `docs/COMPARISON.md` for the full positioning.
+ *
+ * @alias Flow — similar to Genkit Flow but executed over subprocess CLIs, not API calls.
+ */
 export class BaseRole {
   constructor({ name, config, logger, emitter = null }) {
     if (!name) throw new Error("Role name is required");
