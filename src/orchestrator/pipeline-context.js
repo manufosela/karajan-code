@@ -1,8 +1,25 @@
 /**
  * Shared context object for pipeline execution.
  * Replaces destructured parameter objects across orchestrator functions.
+ *
+ * @typedef {import("../types/config.js").KarajanConfig} KarajanConfig
+ * @typedef {import("../types/session.js").Session} Session
+ * @typedef {import("../types/stage.js").Logger} Logger
+ * @typedef {import("../types/stage.js").Emitter} Emitter
+ * @typedef {import("../types/stage.js").EventBase} EventBase
+ * @typedef {import("../types/config.js").PipelineFlags} PipelineFlags
+ * @typedef {import("../types/stage.js").StageContext} StageContext
  */
 export class PipelineContext {
+  /**
+   * @param {Object} args
+   * @param {KarajanConfig} args.config
+   * @param {Session} args.session
+   * @param {Logger} args.logger
+   * @param {Emitter|null} args.emitter
+   * @param {string} args.task
+   * @param {Object} [args.flags]
+   */
   constructor({ config, session, logger, emitter, task, flags = {} }) {
     this.config = config;
     this.session = session;

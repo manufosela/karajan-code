@@ -1,3 +1,12 @@
+/**
+ * HU (Historia de Usuario / User Story) storage. Persists HU batches and
+ * their stories to the session directory.
+ *
+ * @typedef {import("../types/hu.js").HUStory} HUStory
+ * @typedef {import("../types/hu.js").HUBatch} HUBatch
+ * @typedef {import("../types/hu.js").HUStatus} HUStatus
+ */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";

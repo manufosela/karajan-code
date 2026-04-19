@@ -1,3 +1,11 @@
+/**
+ * Policy resolution: map task type + config toggles to concrete pipeline
+ * flags (TDD, Sonar, reviewer retries, tests required, coder required, ...).
+ *
+ * @typedef {import("../types/policy.js").ResolvedPolicies} ResolvedPolicies
+ * @typedef {import("../types/config.js").KarajanConfig} KarajanConfig
+ */
+
 export const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor", "audit", "analysis", "no-code"]);
 
 export const DEFAULT_POLICIES = {
