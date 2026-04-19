@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "lint": "eslint .",
     "test": "node --test tests/*.test.js",
     "smoke": "node scripts/smoke.js",
     "smoke:codex": "node scripts/smoke.js codex",
@@ -25,5 +26,10 @@
     "gemini"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
+  }
 }
