@@ -11,7 +11,8 @@
     "smoke": "node scripts/smoke.js",
     "smoke:codex": "node scripts/smoke.js codex",
     "smoke:claude": "node scripts/smoke.js claude",
-    "smoke:gemini": "node scripts/smoke.js gemini"
+    "smoke:gemini": "node scripts/smoke.js gemini",
+    "smoke:ollama": "node scripts/smoke.js ollama"
   },
   "engines": {
     "node": ">=18"

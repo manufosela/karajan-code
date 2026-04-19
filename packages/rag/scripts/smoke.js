@@ -6,22 +6,26 @@
  *   node scripts/smoke.js codex
  *   node scripts/smoke.js claude
  *   node scripts/smoke.js gemini
+ *   node scripts/smoke.js ollama
  *
  * O vía pnpm:
  *   pnpm smoke:codex
  *   pnpm smoke:claude
  *   pnpm smoke:gemini
+ *   pnpm smoke:ollama
  */
 
 import { runCodexCli } from '../src/ai/adapters/codex-cli-adapter.js';
 import { runClaudeCli } from '../src/ai/adapters/claude-cli-adapter.js';
 import { runGeminiCli } from '../src/ai/adapters/gemini-cli-adapter.js';
+import { runOllamaCli } from '../src/ai/adapters/ollama-cli-adapter.js';
 
 /** @type {Record<string, (prompt: string, opts?: any) => Promise<unknown>>} */
 const adapters = {
   codex: runCodexCli,
   claude: runClaudeCli,
   gemini: runGeminiCli,
+  ollama: runOllamaCli,
 };
 
 const DEFAULT_PROMPT = 'Responde con un JSON que contenga la clave "answer" y el valor "pong".';
