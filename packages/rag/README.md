@@ -127,15 +127,17 @@ tests/
 index.js
 ```
 
-## Roadmap (Sprint 1)
+## Roadmap
 
-- Pipeline Engine & Role System.
-- AdapterRegistry inyectable.
-- CI GitHub Actions (matriz Node 20 / 22).
-- Mining selectivo de Karajan Code con ADR de reuso.
-- Adapter Ollama + metadata `sensitivity` en Document/Chunk.
+El plan completo de versiones 0.2.0 → 1.0 vive en [ROADMAP.md](./ROADMAP.md). Resumen:
 
-Épicas futuras: loaders + chunking, embeddings + vector store, retrieval + reranking, generation + evaluation, config-driven runs, policy engine por sensibilidad.
+- **0.2.0** — Observabilidad por stage + Solomon real (multi-source arbitrage).
+- **0.3.0** — Evaluación avanzada, golden set y `karajan-rag eval`.
+- **0.4.0** — Política de reindex completa y migración entre stores.
+- **0.5.0+** — SDK embebible, adapters OpenAI/Anthropic HTTP, `karajan-rag doctor`.
+- **1.0** — Estabilidad de API, auditoría de sensibilidad, runbook de evaluación.
+
+El backlog táctico (`KJR-TSK-XXXX`) vive en Planning Game privado.
 
 ## Licencia
 
