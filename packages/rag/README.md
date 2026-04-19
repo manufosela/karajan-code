@@ -72,6 +72,36 @@ pnpm smoke:gemini
 pnpm smoke:ollama
 ```
 
+## Quickstart end-to-end
+
+Ejemplo mínimo que encadena todo el stack RAG con stubs locales — sin Ollama,
+sin pgvector, sin CLIs reales:
+
+```bash
+pnpm install
+node examples/run-demo.js
+```
+
+El script:
+1. Carga el corpus de `examples/sample-corpus/` (3 .md).
+2. Los trocea con `chunkBySeparators`.
+3. Los embebe con `HashEmbedder` (determinista, stub).
+4. Los indexa en `InMemoryVectorStore`.
+5. Ejecuta `RetrieverRole` → `GeneratorRole` con un adapter fake.
+6. Imprime la respuesta + las citas extraídas.
+
+Para usar un pipeline declarativo:
+
+```bash
+# Los roles built-in se registran vía createDefaultRoleRegistry.
+# Ver examples/pipeline.json para el formato JSON.
+```
+
+Para pasar a real:
+- Reemplaza `createHashEmbedder` por `createOllamaEmbedder()` (requiere Ollama local).
+- Reemplaza `InMemoryVectorStore` por un backend persistente (LanceDB, pgvector).
+- Reemplaza `fakeClaudeAdapter` por `runClaudeCli` del `createDefaultAdapterRegistry()`.
+
 ## Estructura
 
 ```

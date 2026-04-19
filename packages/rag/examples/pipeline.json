@@ -1,0 +1,21 @@
+{
+  "name": "karajan-rag-demo",
+  "description": "Pipeline RAG demo end-to-end con stubs locales.",
+  "errorPolicy": "abort",
+  "stages": [
+    {
+      "role": "retriever",
+      "name": "retrieve",
+      "options": {
+        "topK": 3
+      }
+    },
+    {
+      "role": "generator",
+      "name": "generate",
+      "options": {
+        "forceCitation": true
+      }
+    }
+  ]
+}
