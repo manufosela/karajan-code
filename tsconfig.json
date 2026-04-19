@@ -1,0 +1,39 @@
+{
+  "_comment": "Opt-in type-check for Karajan's JSDoc typedefs. Not enforced in CI; developers run `npm run typecheck` locally. Strict mode is OFF on purpose — we're detecting new drift against the typedefs in src/types/, not retrofitting the whole codebase.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "alwaysStrict": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "types": []
+  },
+  "include": [
+    "src/types/**/*.js",
+    "src/orchestrator/pipeline-context.js",
+    "src/agents/base-agent.js",
+    "src/hu/store.js",
+    "src/guards/policy-resolver.js",
+    "src/budget/comparison.js",
+    "src/brain/decisor.js",
+    "src/brain/decision-tracker.js",
+    "src/brain/solomon-consult.js",
+    "src/session/journal/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "packages",
+    "dist",
+    "coverage",
+    "tests"
+  ]
+}
