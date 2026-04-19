@@ -33,6 +33,14 @@ export function extractCitations(answer) {
  */
 
 /**
+ * Adapter "streaming": devuelve un AsyncIterable de strings (tokens, chunks
+ * o líneas según el proveedor). Compatible con consumidores que hagan
+ * `for await (const chunk of streamAdapter(prompt))`.
+ *
+ * @typedef {(prompt: string) => AsyncIterable<string>} StreamAdapterFunction
+ */
+
+/**
  * Role que compone un prompt con contexto recuperado y delega en un CLI
  * para generar la respuesta final del pipeline RAG.
  *
@@ -51,6 +59,8 @@ export class GeneratorRole extends Role {
    *   logger: import('../pipeline/types.js').Logger,
    *   adapter?: AdapterFunction,
    *   adapterName?: string,
+   *   streamAdapter?: StreamAdapterFunction,
+   *   streamAdapterName?: string,
    *   instructions?: string,
    *   forceCitation?: boolean,
    * }} opts
@@ -63,6 +73,8 @@ export class GeneratorRole extends Role {
     });
     this.adapter = opts.adapter ?? null;
     this.adapterName = opts.adapterName ?? null;
+    this.streamAdapter = opts.streamAdapter ?? null;
+    this.streamAdapterName = opts.streamAdapterName ?? null;
     this.forceCitation = opts.forceCitation ?? true;
   }
 
@@ -118,6 +130,53 @@ export class GeneratorRole extends Role {
       );
     }
     return parts.join('\n');
+  }
+
+  /**
+   * Generación streaming: devuelve un async iterable de chunks. Si hay
+   * `streamAdapter` configurado (directo o por nombre en `tools`) se usa;
+   * en otro caso, fallback al adapter no-streaming: se invoca una vez y
+   * se emite el answer completo en un único yield.
+   *
+   * Uso:
+   *   for await (const chunk of generator.streamGenerate(input, tools)) {
+   *     process.stdout.write(chunk);
+   *   }
+   *
+   * @param {{ query: string, contextChunks?: SearchHit[], forceCitation?: boolean }} input
+   * @param {ToolBox} tools
+   * @returns {AsyncGenerator<string, void, void>}
+   */
+  async *streamGenerate(input, tools) {
+    if (!input || typeof input.query !== 'string' || input.query.length === 0) {
+      throw new Error('GeneratorRole.streamGenerate: input.query requerido.');
+    }
+    const force = input.forceCitation ?? this.forceCitation;
+    const prompt = this.buildPrompt(input.query, input.contextChunks ?? [], force);
+    const stream = this.#resolveStreamAdapter(tools);
+    if (stream) {
+      for await (const chunk of stream(prompt)) {
+        yield String(chunk);
+      }
+      return;
+    }
+    // Fallback: un solo yield con la respuesta completa del adapter no-streaming.
+    const adapter = this.#resolveAdapter(tools);
+    const raw = await adapter(prompt);
+    yield this.#extractAnswer(raw);
+  }
+
+  /**
+   * @param {ToolBox} tools
+   * @returns {StreamAdapterFunction | null}
+   */
+  #resolveStreamAdapter(tools) {
+    if (this.streamAdapter) return this.streamAdapter;
+    if (this.streamAdapterName && tools?.has?.(this.streamAdapterName)) {
+      const fn = tools.get(this.streamAdapterName);
+      if (typeof fn === 'function') return /** @type {StreamAdapterFunction} */ (fn);
+    }
+    return null;
   }
 
   /**
