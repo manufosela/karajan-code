@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-04-19
+
+### Added
+
+- **Infrastructure Dependency Injection** (KJC-TSK-0316, PR #444) — `src/infrastructure/` introduces `FileSystemService`, `CommandRunner`, and an `Environment` bundle so tests can inject `MockFileSystem` / `MockCommandRunner` instead of spawning real subprocesses. `BaseAgent` now accepts an optional `Environment`; all 5 concrete agents (Claude, Codex, Gemini, Aider, OpenCode) route execution through the injected runner. Closes #364.
+- **StageExecutor contract** (KJC-TSK-0315, PR #445) — `src/orchestrator/stages/stage-executor.js` defines the `StageExecutor` base class (`canRun` / `execute` / `onFailure`) + `StageRegistry` + `runStage()`. The orchestrator can iterate a stage registry instead of branching on `pipelineFlags` for every new feature. Closes #361.
+- **Valibot config validation** (KJC-TSK-0318, PR #446) — `src/config/schema.js` validates merged YAML on load, catching `review_mode` typos, `max_iterations: 0`, non-integer iterations, invalid methodology, out-of-range `hu_board.port`, `budget.warn_threshold_pct` outside 0-100, and negative `max_budget_usd`. `KarajanConfig` @typedef exported via `v.InferOutput`. Builds on Jorge del Casar's closed PR #379 (co-authored). Closes #363, #367.
+- **JSDoc typedef registry** (KJC-TSK-0317, PR #443) — central JSDoc typedefs for core entities (`KarajanConfig`, `Session`, `Stage`, `Agent`, `Hu`, `Policy`) under `src/types/`. Opt-in `tsc --noEmit` typecheck via `npm run typecheck` scoped to consumers using the new typedefs.
+- **Budget comparison** (KJC-TSK-0274, PR #442) — session budget now shows "With KJ: $X / N tokens · Without KJ: ~$Y / ~M tokens (-Z%)" so you can see token savings from RTK + Brain compression at a glance.
+- **Rich session journal** (PRs #439–#441) — `.reviews/<session>/decisions.md`, `iterations.md`, `summary.md`, `tree.txt` give an executive view of each run: stages table, budget breakdown, directory-grouped file status, per-iteration coder/reviewer/sonar/Solomon detail.
+
+### Changed
+
+- **`src/orchestrator.js` is now a 22-line barrel** (KJC-TSK-0315). The full 2 084-line monolith moved to `src/orchestrator/flow-runner.js`. Public API (`runFlow`, `resumeFlow`, `loadProductContext`, `shouldAutoContinueCheckpoint`, `parseCheckpointAnswer`) is re-exported so existing imports keep working.
+- **HU Board auto-start gate simplified** (KJC-TSK-0273, PR #448) — `tryAutoStartBoard` now gates on `hu_board.auto_start` alone (no more double-gate on `enabled` + `auto_start`). Both call sites (init + post-planner auto-HU) share the new `renderBoardBanner()` helper and emit the same prominent cyan URL box. Skipped cleanly under `VITEST` / `NODE_ENV=test` to prevent detached server leaks.
+- **Test audit + opt-in helper** (KJC-TSK-0307, PR #447) — 21 opt-in feature test files (brain, ci, sonar, hu-board, webperf) labelled `[opt-in: <feature>]`. New `tests/support/opt-in.js` helper + `KJ_SKIP_OPTIN_<FEATURE>=1` / `KJ_SKIP_ALL_OPTIN=1` escape hatches for fast feedback loops.
+
+### Fixed
+
+- **Falsy CLI overrides honored** (KJC-TSK-0318) — `--no-rebase` correctly sets `git.auto_rebase = false`, `--reviewer-retries 0` correctly sets `reviewer_options.retries = 0`, `--max-iterations 0` errors clearly instead of falling through to the default.
+
+### Infrastructure
+
+- Logo updated: README now uses the orbit logo shared with the landing page.
+- Full suite: **3 638 tests / 283 files** (+48 new in this release).
+
 ## [2.5.0] - 2026-04-07
 
 ### Added

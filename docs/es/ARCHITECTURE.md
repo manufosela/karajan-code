@@ -187,6 +187,11 @@ Capas de validación determinísticas.
 | `src/git/` | Automatización git (auto-commit, push, PR) |
 | `src/hu/` | Sistema HU (store, graph, splitting-detector) |
 | `src/plan/` | **v2.5**: CRUD de planes (create, list, show, validate, ready, add-hu, remove-hu, delete), schema v2 con tests de aceptación, integración con `kj run --plan` |
+| `src/infrastructure/` | **v2.6**: adaptadores para inyección de dependencias — `FileSystemService`, `CommandRunner`, `Environment`, + `MockFileSystem` / `MockCommandRunner` para tests unitarios de agents sin lanzar subprocesos reales |
+| `src/config/schema.js` | **v2.6**: schema Valibot para validación de config — detecta `review_mode` mal escrito, `max_iterations: 0`, `hu_board.port` fuera de rango, `budget.warn_threshold_pct` inválido al cargar. Exporta `KarajanConfig` @typedef |
+| `src/orchestrator/flow-runner.js` | **v2.6**: cuerpo extraído de runFlow/resumeFlow (lo que antes era el `src/orchestrator.js` de 2 084 líneas). Ahora `src/orchestrator.js` es un barrel público de 22 líneas |
+| `src/orchestrator/stages/stage-executor.js` | **v2.6**: contrato `StageExecutor` (`canRun` / `execute` / `onFailure`) + `StageRegistry` + `runStage()` — permite registrar stages nuevos sin tocar el runFlow |
+| `src/types/` | **v2.6**: typedefs JSDoc centralizados (`KarajanConfig`, `Session`, `Stage`, `Agent`, `Hu`, `Policy`) consumidos vía `import()` en JSDoc. Opt-in `npm run typecheck` |
 | `src/planning-game/` | Integración con Planning Game |
 | `src/webperf/` | Core Web Vitals + detección de Chrome DevTools MCP |
 | `src/prompts/` | Builders de prompts por rol |

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/karajan-code-logo.svg" alt="Karajan Code" width="180">
+  <img src="docs/karajan-orbit.svg" alt="Karajan Code" width="220">
 </p>
 
 <h1 align="center">Karajan Code</h1>
@@ -23,7 +23,7 @@
 
 ---
 
-> **v2.5.0 released** — `kj plan` command: generate structured plans with HUs, review them, add/remove HUs, validate, certify, and execute approved plans via `kj run --plan <planId>`. The full plan→execute workflow is now first-class. Also includes all v2.4 features: executable acceptance tests per HU, auto-HU decomposition, and security audit fixes. See [CHANGELOG.md](./CHANGELOG.md) for full history and [MIGRATION-v2.md](./MIGRATION-v2.md) for v1→v2 breaking changes.
+> **v2.6.0 released** — Modular orchestrator + infrastructure DI + Valibot config validation. `src/orchestrator.js` split into a thin barrel + `flow-runner.js` + new `StageExecutor` contract under `src/orchestrator/stages/`. `FileSystemService` and `CommandRunner` adapters let tests swap in mocks instead of spawning real subprocesses. Config now validated with Valibot (catches `review_mode` typos, `max_iterations: 0`, bad ports at load time). HU Board auto-start gate simplified to `hu_board.auto_start` alone with a prominent cyan URL banner at pipeline init. Plus: budget comparison (With-KJ vs Without-KJ), rich session journal (decisions / iterations / summary / tree), Brain decisor with intent-driven routing, and Karajan-wide JSDoc typedefs. See [CHANGELOG.md](./CHANGELOG.md) for full history and [MIGRATION-v2.md](./MIGRATION-v2.md) for v1→v2 breaking changes.
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
@@ -108,7 +108,7 @@ kj code "Add input validation to the signup form"     # Coder only
 kj review "Check the authentication changes"           # Review current diff
 kj audit "Full health analysis of this codebase"       # Read-only audit
 
-# Planning workflow (v2.5.0)
+# Planning workflow (v2.5+)
 kj plan "Refactor the database layer"                  # Generate plan + HUs
 kj plan list                                           # List plans for this project
 kj plan show <planId>                                  # Show plan details + HU table
