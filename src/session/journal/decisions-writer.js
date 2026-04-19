@@ -146,19 +146,24 @@ export function buildDecisionsMarkdown(session) {
 }
 
 /**
- * Persist decisions.md to the session directory. No-op when there are no
- * Solomon rulings.
+ * Persist decisions.md to the session's journal directory. No-op when there
+ * are no Solomon rulings (per acceptance criteria).
+ *
+ * Path resolution (first match wins):
+ *   1. options.journalDir       — direct path to the session journal directory
+ *   2. options.sessionRoot + id — combines with session.id
+ *   3. getSessionRoot() + id    — default Karajan session root
  *
  * @param {Object} session
- * @param {{ sessionRoot?: string, logger?: Object }} [options]
+ * @param {{ journalDir?: string, sessionRoot?: string, logger?: Object }} [options]
  * @returns {Promise<{ written: boolean, path: string|null }>}
  */
 export async function writeDecisionsJournal(session, options = {}) {
   const content = buildDecisionsMarkdown(session);
   if (content === null) return { written: false, path: null };
 
-  const sessionRoot = options.sessionRoot || getSessionRoot();
-  const sessionDir = path.join(sessionRoot, session.id);
+  const sessionDir = options.journalDir
+    || path.join(options.sessionRoot || getSessionRoot(), session.id);
   const filePath = path.join(sessionDir, "decisions.md");
   try {
     await fs.mkdir(sessionDir, { recursive: true });
