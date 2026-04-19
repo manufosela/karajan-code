@@ -46,6 +46,7 @@ export {
   createOllamaStreamAdapter,
   readNdjsonLines,
 } from './src/ai/adapters/ollama-stream-adapter.js';
+export { wrapAdapterAsStream } from './src/ai/adapters/wrap-adapter-as-stream.js';
 
 // --- Ingestion ------------------------------------------------------------
 export { loadTextFile, loadTextDirectory } from './src/ingestion/loaders.js';
