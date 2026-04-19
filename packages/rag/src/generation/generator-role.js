@@ -2,6 +2,30 @@
 import { Role } from '../pipeline/role.js';
 
 /**
+ * Extrae citas de una respuesta en formato `[id=<source>, chunk=<n>]`.
+ * Tolera espacios y comillas básicas.
+ *
+ * @param {string} answer
+ * @returns {string[]}
+ */
+export function extractCitations(answer) {
+  if (typeof answer !== 'string' || answer.length === 0) return [];
+  const re = /\[id=([^,\]]+?),\s*chunk=([^\]]+?)\]/g;
+  /** @type {string[]} */
+  const out = [];
+  const seen = new Set();
+  let m;
+  while ((m = re.exec(answer)) !== null) {
+    const key = `${m[1].trim()}|${m[2].trim()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(`[id=${m[1].trim()}, chunk=${m[2].trim()}]`);
+    }
+  }
+  return out;
+}
+
+/**
  * @typedef {import('../vector-store/in-memory-vector-store.js').SearchHit} SearchHit
  * @typedef {import('../pipeline/types.js').ToolBox} ToolBox
  * @typedef {import('../ai/types.js').AdapterResult} AdapterResult
@@ -28,6 +52,7 @@ export class GeneratorRole extends Role {
    *   adapter?: AdapterFunction,
    *   adapterName?: string,
    *   instructions?: string,
+   *   forceCitation?: boolean,
    * }} opts
    */
   constructor(opts) {
@@ -38,21 +63,25 @@ export class GeneratorRole extends Role {
     });
     this.adapter = opts.adapter ?? null;
     this.adapterName = opts.adapterName ?? null;
+    this.forceCitation = opts.forceCitation ?? true;
   }
 
   /**
-   * @param {{ query: string, contextChunks?: SearchHit[] }} input
+   * @param {{ query: string, contextChunks?: SearchHit[], forceCitation?: boolean }} input
    * @param {ToolBox} tools
-   * @returns {Promise<{ answer: string, raw: AdapterResult, prompt: string }>}
+   * @returns {Promise<{ answer: string, raw: AdapterResult, prompt: string, citations: string[] }>}
    */
   async run(input, tools) {
     if (!input || typeof input.query !== 'string' || input.query.length === 0) {
       throw new Error('GeneratorRole.run: input.query requerido.');
     }
+    const force = input.forceCitation ?? this.forceCitation;
     const adapter = this.#resolveAdapter(tools);
-    const prompt = this.buildPrompt(input.query, input.contextChunks ?? []);
+    const prompt = this.buildPrompt(input.query, input.contextChunks ?? [], force);
     const raw = await adapter(prompt);
-    return { answer: this.#extractAnswer(raw), raw, prompt };
+    const answer = this.#extractAnswer(raw);
+    const citations = extractCitations(answer);
+    return { answer, raw, prompt, citations };
   }
 
   /**
@@ -60,9 +89,11 @@ export class GeneratorRole extends Role {
    *
    * @param {string} query
    * @param {SearchHit[]} hits
+   * @param {boolean} [forceCitation]
    * @returns {string}
    */
-  buildPrompt(query, hits) {
+  buildPrompt(query, hits, forceCitation) {
+    const cite = forceCitation ?? this.forceCitation;
     /** @type {string[]} */
     const parts = [];
     if (this.instructions) parts.push(this.instructions);
@@ -70,7 +101,8 @@ export class GeneratorRole extends Role {
       parts.push('Contexto:');
       hits.forEach((h, i) => {
         const text = String(h.metadata?.content ?? '').slice(0, 1500);
-        parts.push(`[${i + 1}] id=${h.id}\n${text}`);
+        const chunkIdx = h.metadata?.index ?? i;
+        parts.push(`[${i + 1}] id=${h.id} chunk=${chunkIdx}\n${text}`);
       });
     } else {
       parts.push('(Sin contexto recuperado.)');
@@ -80,6 +112,11 @@ export class GeneratorRole extends Role {
     parts.push(
       'Responde basándote SOLO en el contexto proporcionado. Si el contexto es insuficiente, dilo explícitamente.',
     );
+    if (cite && hits.length > 0) {
+      parts.push(
+        'Cita OBLIGATORIAMENTE cada afirmación con el formato [id=<source>, chunk=<index>] tomado del contexto. Si una afirmación no se puede citar, márcala con [uncited].',
+      );
+    }
     return parts.join('\n');
   }
 
