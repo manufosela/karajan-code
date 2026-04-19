@@ -1,0 +1,22 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: karajan_rag_pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: karajan
+      POSTGRES_PASSWORD: karajan
+      POSTGRES_DB: karajan_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - karajan_rag_pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karajan -d karajan_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  karajan_rag_pgdata:
