@@ -9,6 +9,9 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Demo de observabilidad**: `examples/observability-demo.js` muestra cómo
+  conectar los nuevos hooks de pipeline, capturar los eventos e imprimir
+  una tabla con `console.table`. Ejecutable con `node examples/observability-demo.js`.
 - **Pipeline events**: `runPipeline(stages, input, ctx, { events })` acepta
   hooks `onStageStart`, `onStageEnd` y `onStageError`. Cada evento incluye
   `stageName`, `stageIndex`, `durationMs` (medido con `performance.now()`) e
