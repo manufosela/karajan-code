@@ -1,0 +1,29 @@
+{
+  "name": "karajan-rag",
+  "version": "0.1.0",
+  "description": "Orquestador multi-CLI para proveedores de IA (Codex, Claude, Gemini) basado en spawn",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "smoke": "node scripts/smoke.js",
+    "smoke:codex": "node scripts/smoke.js codex",
+    "smoke:claude": "node scripts/smoke.js claude",
+    "smoke:gemini": "node scripts/smoke.js gemini"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "rag",
+    "cli",
+    "ai",
+    "orchestrator",
+    "codex",
+    "claude",
+    "gemini"
+  ],
+  "author": "",
+  "license": "MIT"
+}
