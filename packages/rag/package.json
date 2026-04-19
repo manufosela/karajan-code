@@ -1,7 +1,7 @@
 {
   "name": "karajan-rag",
   "version": "0.1.0",
-  "description": "Orquestador multi-CLI para proveedores de IA (Codex, Claude, Gemini) basado en spawn",
+  "description": "Orquestador multi-agente de CLIs de IA para pipelines RAG con routing por sensibilidad, policy de proveedores y CLIs intercambiables (Claude, Codex, Gemini, Ollama, Azure, Bedrock, Vertex).",
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -28,9 +28,21 @@
     "orchestrator",
     "codex",
     "claude",
-    "gemini"
+    "gemini",
+    "ollama",
+    "pgvector",
+    "embeddings",
+    "retrieval-augmented-generation"
   ],
-  "author": "",
+  "author": "Manu Fosela <mjfosela@gmail.com>",
+  "homepage": "https://github.com/manufosela/karajan-rag",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-rag.git"
+  },
+  "bugs": {
+    "url": "https://github.com/manufosela/karajan-rag/issues"
+  },
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
