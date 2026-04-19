@@ -1,0 +1,170 @@
+import { describe, expect, it, afterEach } from "vitest";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import {
+  buildSummaryMarkdown,
+  writeSummaryJournal,
+} from "../../src/session/journal/summary-writer.js";
+
+function sample(overrides = {}) {
+  return {
+    sessionId: "s-test",
+    task: "implement auth",
+    result: "APPROVED",
+    iterations: 3,
+    durationMs: 125_000,
+    budget: {
+      total_cost_usd: 0.42,
+      total_tokens: 54321,
+      breakdown_by_role: {
+        coder: { total_tokens: 30000, total_cost_usd: 0.25 },
+        reviewer: { total_tokens: 24321, total_cost_usd: 0.17 },
+      },
+    },
+    stages: {
+      triage: { ok: true, summary: "medium / sw" },
+      coder: { ok: true, summary: "3 files modified" },
+      reviewer: { ok: true, summary: "approved" },
+    },
+    commits: [
+      { hash: "abc1234567", message: "feat: add login" },
+      { hash: "def4567", message: "test: login e2e" },
+    ],
+    files: ["iterations.md", "decisions.md", "tree.txt"],
+    startedAt: "2026-04-19T12:00:00.000Z",
+    finishedAt: "2026-04-19T12:02:05.000Z",
+    brainDecisions: 2,
+    solomonInvocations: 1,
+    ...overrides,
+  };
+}
+
+describe("session/journal/summary-writer — buildSummaryMarkdown", () => {
+  it("includes the required AC fields: task, result, iterations, duration, budget, stages, files, commits", () => {
+    const md = buildSummaryMarkdown(sample());
+    expect(md).toContain("# Session summary — s-test");
+    expect(md).toContain("**Task**: implement auth");
+    expect(md).toContain("**Result**: ✅ APPROVED");
+    expect(md).toContain("**Iterations**: 3");
+    expect(md).toContain("**Duration**: 2m 5s");
+    expect(md).toContain("**Budget**: $0.42 · 54,321 tokens");
+    expect(md).toContain("## Stages");
+    expect(md).toContain("`coder`");
+    expect(md).toContain("3 files modified");
+    expect(md).toContain("## Commits");
+    expect(md).toContain("`abc1234`");
+    expect(md).toContain("## Journal files");
+    expect(md).toContain("[iterations.md](./iterations.md)");
+    expect(md).toContain("[decisions.md](./decisions.md)");
+    expect(md).toContain("[tree.txt](./tree.txt)");
+  });
+
+  it("renders stages as a Markdown table with pass/fail badges", () => {
+    const md = buildSummaryMarkdown(sample({
+      stages: {
+        coder: { ok: true, summary: "ok" },
+        reviewer: { ok: false, summary: "found blockers" },
+      },
+    }));
+    expect(md).toContain("| Stage | Status | Summary |");
+    expect(md).toContain("| `coder` | ✅ pass | ok |");
+    expect(md).toContain("| `reviewer` | ❌ fail | found blockers |");
+  });
+
+  it("renders budget breakdown table when per-role data present", () => {
+    const md = buildSummaryMarkdown(sample());
+    expect(md).toContain("## Budget breakdown (by role)");
+    expect(md).toContain("| Role | Tokens | Cost |");
+    expect(md).toContain("`coder`");
+    expect(md).toContain("$0.2500");
+  });
+
+  it("omits budget breakdown section when all roles have 0 usage", () => {
+    const md = buildSummaryMarkdown(sample({
+      budget: { total_cost_usd: 0, total_tokens: 0, breakdown_by_role: { coder: { total_tokens: 0, total_cost_usd: 0 } } },
+    }));
+    expect(md).not.toContain("## Budget breakdown");
+  });
+
+  it("shows placeholder text when no stages, commits, or files", () => {
+    const md = buildSummaryMarkdown(sample({ stages: {}, commits: [], files: [] }));
+    expect(md).toContain("_No stages recorded._");
+    expect(md).toContain("_No commits in this session._");
+    expect(md).toContain("_No additional journal files._");
+  });
+
+  it("formats REJECTED and PAUSED results with appropriate badges", () => {
+    const md1 = buildSummaryMarkdown(sample({ result: "REJECTED" }));
+    expect(md1).toContain("❌ REJECTED");
+    const md2 = buildSummaryMarkdown(sample({ result: "PAUSED" }));
+    expect(md2).toContain("⏸ PAUSED");
+  });
+
+  it("formats durations > 1h as h+m+s", () => {
+    const md = buildSummaryMarkdown(sample({ durationMs: 3_725_000 })); // 1h 2m 5s
+    expect(md).toContain("1h 2m 5s");
+  });
+
+  it("formats durations < 1s as ms", () => {
+    const md = buildSummaryMarkdown(sample({ durationMs: 450 }));
+    expect(md).toContain("450ms");
+  });
+
+  it("includes Brain/Solomon counts only when > 0", () => {
+    const with0 = buildSummaryMarkdown(sample({ brainDecisions: 0, solomonInvocations: 0 }));
+    expect(with0).not.toContain("Brain decisions");
+    expect(with0).not.toContain("Solomon invocations");
+    const with2 = buildSummaryMarkdown(sample({ brainDecisions: 4, solomonInvocations: 2 }));
+    expect(with2).toContain("**Brain decisions**: 4");
+    expect(with2).toContain("**Solomon invocations**: 2");
+  });
+
+  it("truncates very long stage summaries to 120 chars in the table", () => {
+    const longSummary = "x".repeat(300);
+    const md = buildSummaryMarkdown(sample({
+      stages: { coder: { ok: true, summary: longSummary } },
+    }));
+    // Row exists, but the summary isn't 300 chars long verbatim.
+    expect(md).toContain("`coder`");
+    expect(md).not.toContain(longSummary);
+  });
+
+  it("escapes pipe chars in commit messages + task text (table safety)", () => {
+    const md = buildSummaryMarkdown(sample({
+      task: "a|b|c",
+      commits: [{ hash: "xxx", message: "fix | something" }],
+    }));
+    expect(md).toContain("a\\|b\\|c");
+    expect(md).toContain("fix \\| something");
+  });
+});
+
+describe("session/journal/summary-writer — writeSummaryJournal", () => {
+  const cleanups = [];
+
+  afterEach(async () => {
+    for (const p of cleanups) await fs.rm(p, { recursive: true, force: true }).catch(() => {});
+    cleanups.length = 0;
+  });
+
+  it("writes summary.md to the given journal directory", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "kj-summary-"));
+    cleanups.push(tmp);
+    const result = await writeSummaryJournal(tmp, sample());
+    expect(result.written).toBe(true);
+    expect(result.path).toBe(path.join(tmp, "summary.md"));
+    const content = await fs.readFile(result.path, "utf8");
+    expect(content).toContain("# Session summary — s-test");
+  });
+
+  it("returns written:false when the directory cannot be written to", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "kj-summary-ro-"));
+    cleanups.push(tmp);
+    await fs.writeFile(path.join(tmp, "blocker"), "file");
+    const badDir = path.join(tmp, "blocker", "under-a-file");
+    const result = await writeSummaryJournal(badDir, sample());
+    expect(result.written).toBe(false);
+    expect(result.path).toBeNull();
+  });
+});
