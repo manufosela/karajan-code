@@ -10,6 +10,7 @@ import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { BudgetTracker, extractUsageMetrics } from "../utils/budget.js";
+import { computeKjComparison } from "../budget/comparison.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { applyPolicies } from "../guards/policy-resolver.js";
 import { resolveReviewProfile } from "../review/profiles.js";
@@ -280,7 +281,7 @@ export async function handleDryRun({ task, config, flags, emitter, pipelineFlags
   return summary;
 }
 
-export function createBudgetManager({ config, emitter, eventBase }) {
+export function createBudgetManager({ config, emitter, eventBase, getCompressionStats = null }) {
   const budgetTracker = new BudgetTracker({ pricing: config?.budget?.pricing });
   const budgetLimit = Number(config?.max_budget_usd);
   const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit >= 0;
@@ -290,6 +291,20 @@ export function createBudgetManager({ config, emitter, eventBase }) {
   function budgetSummary() {
     const s = budgetTracker.summary();
     s.trace = budgetTracker.trace();
+    // Attach the "With KJ vs Without KJ" comparison when compression data
+    // is available (TSK-0274). hasCompression: false means no savings to
+    // report; the display falls back to the plain cost line.
+    if (typeof getCompressionStats === "function") {
+      try {
+        const stats = getCompressionStats() || {};
+        s.kj_comparison = computeKjComparison({
+          realTokens: s.total_tokens,
+          realCost: s.total_cost_usd,
+          rtkSavings: stats.rtkSavings,
+          brainCtx: stats.brainCtx,
+        });
+      } catch { /* best-effort — omit comparison on failure */ }
+    }
     return s;
   }
 
