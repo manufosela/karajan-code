@@ -9,11 +9,11 @@
     "lint": "eslint .",
     "test": "node --test tests/*.test.js",
     "coverage": "c8 node --test tests/*.test.js",
-    "smoke": "node scripts/smoke.js",
-    "smoke:codex": "node scripts/smoke.js codex",
-    "smoke:claude": "node scripts/smoke.js claude",
-    "smoke:gemini": "node scripts/smoke.js gemini",
-    "smoke:ollama": "node scripts/smoke.js ollama"
+    "smoke": "RUN_SMOKE=1 node scripts/smoke.js",
+    "smoke:codex": "RUN_SMOKE=1 node scripts/smoke.js codex",
+    "smoke:claude": "RUN_SMOKE=1 node scripts/smoke.js claude",
+    "smoke:gemini": "RUN_SMOKE=1 node scripts/smoke.js gemini",
+    "smoke:ollama": "RUN_SMOKE=1 node scripts/smoke.js ollama"
   },
   "engines": {
     "node": ">=18"
