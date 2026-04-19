@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml.bak
+
+# Coverage & reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Build / dist
+dist/
+build/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vector store data
+*.lance
+*.qdrant/
+data/embeddings/
+data/index/
+
+# Credentials (NUNCA commitear)
+serviceAccountKey.json
+**/credentials.json
