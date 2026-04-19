@@ -79,20 +79,109 @@ export async function loadAvailableSkills(projectDir, options = {}) {
  * For every other provider, the full SKILL.md body is inlined (previous
  * behaviour preserved).
  *
+ * When `role` is supplied, skills are filtered to those relevant to the role
+ * (e.g. a reviewer only sees `*-code-review`, `*-security-*`, and general
+ * patterns; see ROLE_SKILL_PATTERNS). Setting role to null/undefined keeps
+ * the legacy behavior of injecting every skill (useful for the coder role,
+ * which benefits from broad context).
+ *
  * @param {Array<{name: string, content: string}>} skills
- * @param {{ provider?: string }} [options]
+ * @param {{ provider?: string, role?: string }} [options]
  * @returns {string} prompt section or empty string
  */
 export function buildSkillSection(skills, options = {}) {
   if (!skills || skills.length === 0) return "";
 
+  const filtered = options.role ? filterSkillsForRole(skills, options.role) : skills;
+  if (filtered.length === 0) return "";
+
   const providerSlug = normalize(options.provider);
 
   if (providerSlug === "anthropic") {
-    return buildReferenceSection(skills);
+    return buildReferenceSection(filtered);
   }
 
-  return buildInlineSection(skills);
+  return buildInlineSection(filtered);
+}
+
+/**
+ * Role → substring patterns that skills must match to be included. A skill
+ * matches the role if its name contains ANY of the role's patterns OR if it
+ * appears in the role's explicit allowlist. Coder is omitted on purpose: it
+ * receives everything.
+ *
+ * The patterns target the skill NAMING convention shipped by openskills.cc
+ * where skills are typically named like `react-patterns`, `java-code-review`,
+ * `pytest-patterns`, `owasp-top-10`, etc.
+ */
+/**
+ * Role → filter config.
+ *
+ * Two modes:
+ *   - `includes` present: skill name must contain ANY include AND NOT contain
+ *     any exclude. `allow` bypasses both checks (explicit allowlist by name).
+ *   - `includes` absent (or empty) + `excludes` present: skill passes unless
+ *     its name contains an exclude pattern. This is the "accept broad, trim
+ *     obvious mismatches" mode used by architect.
+ */
+const ROLE_SKILL_PATTERNS = {
+  reviewer: {
+    includes: ["code-review", "security", "lint", "style", "antipatterns", "owasp"],
+    excludes: [],
+    allow: ["sql-analysis"],
+  },
+  architect: {
+    // Architect sees everything except test-framework patterns. Architecture
+    // decisions touch every domain, so keep the filter permissive.
+    includes: null,
+    excludes: ["pytest", "vitest", "jest", "playwright", "cypress"],
+    allow: [],
+  },
+  tester: {
+    includes: ["test", "pytest", "vitest", "jest", "playwright", "cypress"],
+    excludes: [],
+    allow: [],
+  },
+  security: {
+    includes: ["security", "owasp", "sast"],
+    excludes: [],
+    allow: [],
+  },
+  planner: {
+    // Planner gets broad stack context except test frameworks.
+    includes: null,
+    excludes: ["pytest", "vitest", "jest", "playwright", "cypress"],
+    allow: [],
+  },
+  solomon: {
+    includes: ["security", "code-review"],
+    excludes: [],
+    allow: [],
+  },
+};
+
+/**
+ * Filter skills for a given role using the ROLE_SKILL_PATTERNS map. Unknown
+ * roles get ALL skills (conservative default for the coder role and any
+ * future addition). Matching is case-insensitive substring.
+ *
+ * @param {Array<{name: string}>} skills
+ * @param {string} role
+ * @returns {Array} filtered array
+ */
+export function filterSkillsForRole(skills, role) {
+  const cfg = ROLE_SKILL_PATTERNS[role];
+  if (!cfg) return skills; // unknown role (e.g. coder) → no filter
+  const includes = Array.isArray(cfg.includes) ? cfg.includes.map((s) => s.toLowerCase()) : null;
+  const excludes = (cfg.excludes || []).map((s) => s.toLowerCase());
+  const allow = new Set((cfg.allow || []).map((s) => s.toLowerCase()));
+  return skills.filter((s) => {
+    const name = (s.name || "").toLowerCase();
+    if (allow.has(name)) return true;
+    if (excludes.some((pat) => name.includes(pat))) return false;
+    if (!includes || includes.length === 0) return true; // exclude-only mode
+    return includes.some((pat) => name.includes(pat));
+  });
 }
 
 function buildInlineSection(skills) {

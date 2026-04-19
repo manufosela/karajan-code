@@ -38,6 +38,7 @@ import { setRunner as setDiffRunner, setProjectDir as setDiffProjectDir } from "
 import { setRunner as setGitRunner } from "./utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "./skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "./skills/openskills-client.js";
+import { refineSkillsSemantically, resolveSkillsMode } from "./skills/semantic-detector.js";
 
 // Extracted modules
 import {
@@ -724,23 +725,56 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   // Runs AFTER triage and planner so that the planned task text (which includes
   // planner output like implementation steps) is available for keyword detection.
   // This ensures greenfield projects with no package.json still get correct skills.
+  //
+  // Detection runs UNCONDITIONALLY — even when the openskills CLI is missing —
+  // so the session report can recommend which skills would have been used. The
+  // actual install is skipped inside autoInstallSkills when unavailable.
   const skillProjectDir = updatedConfig.projectDir || process.cwd();
   try {
-    const osAvailable = await isOpenSkillsAvailable();
-    if (osAvailable) {
-      const neededSkills = await detectNeededSkills(plannedTask, skillProjectDir);
-      if (neededSkills.length > 0) {
-        const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
-        if (skillResult.installed.length > 0) {
-          session.autoInstalledSkills = skillResult.installed;
-        }
-        emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "skills" }, {
-          message: skillResult.installed.length > 0
-            ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
-            : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
-          detail: skillResult
+    const skillsMode = resolveSkillsMode(updatedConfig, flags);
+    if (skillsMode === "none") {
+      // User explicitly opted out. Skip detection entirely.
+      return { plannedTask, updatedConfig };
+    }
+    let neededSkills = skillsMode === "semantic"
+      ? []
+      : await detectNeededSkills(plannedTask, skillProjectDir);
+    // Semantic mode augments regex detection with a classifier call.
+    // "auto" = regex always + semantic when budget allows (v1: always when mode=auto and classifier reachable).
+    if (skillsMode === "auto" || skillsMode === "semantic") {
+      const extra = await refineSkillsSemantically({
+        task: plannedTask,
+        alreadyDetected: neededSkills,
+        config: updatedConfig,
+        logger,
+      });
+      if (extra.length > 0) {
+        logger.info(`Semantic skill detection added: ${extra.join(", ")}`);
+        neededSkills = Array.from(new Set([...neededSkills, ...extra]));
+      }
+    }
+    if (neededSkills.length > 0) {
+      const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
+      if (skillResult.installed.length > 0) {
+        session.autoInstalledSkills = skillResult.installed;
+      }
+      if (skillResult.osAvailable === false && skillResult.wouldHaveUsed.length > 0) {
+        session.skillsRecommended = skillResult.wouldHaveUsed;
+        logger.warn(`OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}. Install openskills globally to auto-inject them next time.`);
+        emitProgress(emitter, makeEvent("skills:unavailable", { ...eventBase, stage: "skills" }, {
+          message: `OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}`,
+          detail: {
+            wouldHaveUsed: skillResult.wouldHaveUsed,
+            hint: "Install openskills globally: npm install -g openskills",
+          },
         }));
       }
+      emitProgress(emitter, makeEvent("skills:auto-install", { ...eventBase, stage: "skills" }, {
+        message: skillResult.installed.length > 0
+          ? `Auto-installed ${skillResult.installed.length} skill(s): ${skillResult.installed.join(", ")}`
+          : `Skills detected (${neededSkills.join(", ")}) — all already installed or unavailable`,
+        detail: skillResult,
+      }));
     }
   } catch (err) {
     logger.warn(`Skill auto-install failed (non-blocking): ${err.message}`);

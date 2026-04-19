@@ -128,6 +128,7 @@ program
   .option("--no-smart-models", "Disable smart model selection")
   .option("--design", "Activate design refactoring mode (impeccable role applies design changes)")
   .option("--domain <text-or-path>", "Domain knowledge: inline text or path to .md file")
+  .option("--skills-mode <mode>", "Skill detection mode: auto|regex|semantic|none (default: auto)")
   .option("--dry-run", "Show what would be executed without running anything")
   .option("--json", "Output JSON only (no styled display)")
   .option("-q, --quiet", "Show only stage status lines, suppress raw agent output (default)")
@@ -209,6 +210,15 @@ program
   .option("--pg-task <cardId>", "Filter reports by Planning Game card ID")
   .action(async (flags) => {
     await reportCommand(flags);
+  });
+
+program
+  .command("skills [action]")
+  .description("Manage the local OpenSkills cache (actions: list | clear-cache)")
+  .action(async (action) => {
+    const { skillsCommand } = await import("./commands/skills.js");
+    const exitCode = await skillsCommand({ action: action || "list" });
+    if (Number.isInteger(exitCode)) process.exit(exitCode);
   });
 
 program
