@@ -546,6 +546,85 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
 
+  // --- Brain decisor (opt-in, intent-driven routing) ---
+  //
+  // When enabled, translates triage output + task text + CLI overrides into a
+  // structured Decision and applies it as pipelineFlags overrides. The rest
+  // of the orchestrator continues to branch on pipelineFlags as before — the
+  // Brain is a router that adjusts WHICH roles run, not HOW they run.
+  //
+  // Flag precedence:
+  //   1. flags.brain === "off"    → forced off
+  //   2. flags.brain === "on"     → forced on
+  //   3. config.brain.decisor.enabled (if set)
+  //   4. globalThis.__KJ_DEFAULT_BRAIN_DECISOR (test harness default = false)
+  //   5. true in production
+  const brainDefault = globalThis.__KJ_DEFAULT_BRAIN_DECISOR ?? true;
+  let brainDecisorEnabled = config?.brain?.decisor?.enabled ?? brainDefault;
+  if (flags?.brain === "off") brainDecisorEnabled = false;
+  if (flags?.brain === "on") brainDecisorEnabled = true;
+  if (brainDecisorEnabled) {
+    try {
+      const { buildDecision, applyDecisionToFlags } = await import("./brain/decisor.js");
+      const { createTracker, recordDecision, checkLimits } = await import("./brain/decision-tracker.js");
+      const tracker = createTracker(session, { max: config?.brain?.decisor?.maxDecisions });
+      const limitStatus = checkLimits(tracker);
+      if (limitStatus.status === "ok") {
+        let decision = buildDecision({
+          triage: triageResult.stageResult,
+          task,
+          config,
+          overrides: {
+            // Commander variadic --force-role a b → flags.forceRole = ["a","b"].
+            // Back-compat: accept both singular (commander) and plural (legacy / API).
+            forceRoles: flags?.forceRole || flags?.forceRoles || [],
+            skipRoles: flags?.skipRole || flags?.skipRoles || [],
+          },
+        });
+        // If the decision is low-confidence or ambiguous, consult Solomon
+        // for a refined routing suggestion. Solomon's ruling is advisory —
+        // if it fails or returns nothing useful, the baseline decision stands.
+        if (decision.consultSolomon) {
+          try {
+            const { consultSolomonForRouting } = await import("./brain/solomon-consult.js");
+            decision = await consultSolomonForRouting({
+              decision, triage: triageResult.stageResult, task, config, logger,
+              emitter, eventBase, session,
+            });
+          } catch (err) {
+            logger.warn(`Brain → Solomon consult failed (non-blocking): ${err.message}`);
+          }
+        }
+        const newFlags = applyDecisionToFlags(decision, pipelineFlags);
+        Object.assign(pipelineFlags, newFlags);
+        recordDecision(tracker, decision, {
+          taskType: triageResult.stageResult?.taskType,
+          level: triageResult.stageResult?.level,
+        });
+        emitProgress(emitter, makeEvent("brain:decision", { ...eventBase, stage: "brain" }, {
+          status: "ok",
+          message: `Brain routing: ${decision.rolesOn.length} role(s) active — ${decision.rationale}`,
+          detail: {
+            rolesOn: decision.rolesOn,
+            rolesOff: decision.rolesOff,
+            confidence: decision.confidence,
+            consultSolomon: decision.consultSolomon,
+            appliedOverrides: decision.appliedOverrides,
+          },
+        }));
+      } else {
+        logger.warn(`Brain decisor skipped: ${limitStatus.detail}`);
+        emitProgress(emitter, makeEvent("brain:decision", { ...eventBase, stage: "brain" }, {
+          status: "warn",
+          message: `Brain decisor skipped: ${limitStatus.status}`,
+          detail: limitStatus,
+        }));
+      }
+    } catch (err) {
+      logger.warn(`Brain decisor failed (non-blocking): ${err.message}`);
+    }
+  }
+
   // --- Persist inline domain if provided via --domain flag ---
   if (flags?.domain) {
     try {

@@ -30,3 +30,9 @@ globalThis.__KJ_DEFAULT_PREFLIGHT_EXTENDED = false;
 // agent-invocation assertions. Tests that exercise the semantic path set
 // `flags.skillsMode = "auto"` or `config.skills.mode = "semantic"` explicitly.
 globalThis.__KJ_DEFAULT_SKILLS_MODE = "regex";
+
+// Default the Brain decisor OFF under Vitest. Many orchestrator tests assert
+// exact pipeline flag state after triage; the Brain routing may legitimately
+// override those flags per its decision logic. Tests that exercise Brain
+// routing opt in via `config.brain.decisor.enabled = true` explicitly.
+globalThis.__KJ_DEFAULT_BRAIN_DECISOR = false;

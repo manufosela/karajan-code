@@ -109,7 +109,10 @@ export const tools = [
         kjHome: { type: "string" },
         sonarToken: { type: "string" },
         timeoutMs: { type: "number" },
-        domain: { type: "string", description: "Domain knowledge: inline text describing the project domain, or absolute path to a .md file. Auto-saved to .karajan/domains/ for the curator." }
+        domain: { type: "string", description: "Domain knowledge: inline text describing the project domain, or absolute path to a .md file. Auto-saved to .karajan/domains/ for the curator." },
+        brain: { type: "string", enum: ["on", "off"], description: "Brain decisor: on|off. Controls whether intent-driven routing overrides pipeline flags." },
+        forceRole: { type: "array", items: { type: "string" }, description: "Force roles ON regardless of triage (e.g. [\"security\"])" },
+        skipRole: { type: "array", items: { type: "string" }, description: "Force roles OFF regardless of triage (e.g. [\"tester\"])" }
       }
     }
   },
