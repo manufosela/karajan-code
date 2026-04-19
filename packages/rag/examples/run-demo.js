@@ -32,8 +32,9 @@ const logger = {
 
 /**
  * Adapter fake que simula una respuesta sin spawn real.
+ * `_prompt` se ignora: es un demo determinista.
  */
-async function fakeClaudeAdapter(prompt) {
+async function fakeClaudeAdapter(_prompt) {
   return {
     provider: 'claude',
     process: { stdout: '', stderr: '', exitCode: 0, signal: null, timedOut: false },
