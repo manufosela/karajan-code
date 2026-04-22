@@ -141,6 +141,15 @@ const DEFAULTS = {
   policies: {},
   serena: { enabled: false },
   planning_game: { enabled: false, project_id: null, codeveloper: null },
+  skills: {
+    mode: "auto",
+    sources: ["addyosmani", "openskills", "local"],
+    addyosmani: {
+      enabled: true,
+      refreshDays: 7,
+      repoUrl: "https://github.com/addyosmani/agent-skills.git"
+    }
+  },
   ci: { enabled: false, review_event: "kj-review", comment_event: "kj-comment", comment_prefix: true },
   git: { auto_commit: false, auto_push: false, auto_pr: false, auto_rebase: true, branch_prefix: "feat/" },
   output: { report_dir: "./.reviews", log_level: "info", quiet: true },

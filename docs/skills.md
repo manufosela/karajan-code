@@ -138,6 +138,70 @@ kj skills clear-cache   # force re-install on next session
 The TTL is currently 7 days and is not user-configurable in v1. The cache
 stores metadata only — it never holds skill content itself.
 
+## addyosmani/agent-skills (process skills — **first source**)
+
+Since v2.7, Karajan also consults the [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills)
+catalog **before** OpenSkills. The two providers are orthogonal:
+
+| Provider | What it covers | Example slugs |
+|----------|----------------|---------------|
+| `addyosmani` (first) | Lifecycle / process skills, per role | `test-driven-development`, `code-review-and-quality`, `security-and-hardening`, `performance-optimization`, `git-workflow-and-versioning` |
+| `openskills` | Stack / framework skills | `astro`, `react`, `prisma`, `vitest-patterns`, `owasp-top-10` |
+| `local` | Project-specific skills under `.claude/skills/` | any slug you define |
+
+### Bootstrap
+
+On the first run with `skills.addyosmani.enabled: true` (default), Karajan
+shallow-clones the upstream repo into `~/.karajan/agent-skills/`. Subsequent
+runs re-use the local copy and refresh it with `git pull` after
+`skills.addyosmani.refreshDays` (default: **7 days**). When `git` is missing or
+the network is unreachable, the step degrades silently and the pipeline keeps
+running with OpenSkills only.
+
+### Role → slug mapping
+
+The role map in `src/skills/addyosmani-role-map.js` wires each Karajan role to
+its canonical workflows:
+
+| Role | addyosmani slugs |
+|------|------------------|
+| `coder` | `incremental-implementation`, `source-driven-development`, `context-engineering`, `debugging-and-error-recovery` |
+| `reviewer` | `code-review-and-quality`, `code-simplification` |
+| `tester` | `test-driven-development`, `browser-testing-with-devtools` |
+| `security` | `security-and-hardening` |
+| `architect` | `spec-driven-development`, `api-and-interface-design`, `planning-and-task-breakdown` |
+| `planner` | `planning-and-task-breakdown`, `spec-driven-development` |
+| `impeccable` | `frontend-ui-engineering` |
+| `refactorer` | `code-simplification`, `debugging-and-error-recovery` |
+
+Task-text triggers add slugs on top. For example, any task mentioning
+"performance" or "Core Web Vitals" pulls `performance-optimization`; "git" or
+"semver" pulls `git-workflow-and-versioning`; "CI/CD" pulls
+`ci-cd-and-automation`.
+
+### Configuration
+
+```yaml
+# ~/.karajan/kj.config.yml
+skills:
+  mode: auto
+  sources: [addyosmani, openskills, local]   # first match wins per source
+  addyosmani:
+    enabled: true
+    refreshDays: 7
+    repoUrl: https://github.com/addyosmani/agent-skills.git
+```
+
+To disable the addyosmani source, remove it from `sources` **or** set
+`skills.addyosmani.enabled: false`.
+
+### CLI
+
+```bash
+kj skills sync-addyosmani    # force git pull + report slug count
+kj skills list-addyosmani    # enumerate slugs with their descriptions
+```
+
 ## Testing behavior locally
 
 ```bash

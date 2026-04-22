@@ -152,6 +152,30 @@ const Budget = v.optional(v.looseObject({
 }));
 
 /**
+ * skills.addyosmani subtree (KJC-TSK-0327). Governs the addyosmani/agent-skills
+ * catalog provider: enabled flag, refresh TTL and repo URL.
+ */
+const SkillsAddyosmani = v.looseObject({
+  enabled: v.optional(v.boolean()),
+  refreshDays: v.optional(v.pipe(
+    v.number(),
+    v.minValue(0, "skills.addyosmani.refreshDays must be >= 0")
+  )),
+  repoUrl: v.optional(v.string()),
+});
+
+/**
+ * skills.* subtree. `sources` controls which providers Karajan consults and in
+ * what order (addyosmani → openskills → local by default). `mode` is the
+ * existing regex/semantic/auto/none knob from semantic-detector.js.
+ */
+const Skills = v.optional(v.looseObject({
+  mode: v.optional(v.picklist(["auto", "regex", "semantic", "none"], "skills.mode must be one of: auto | regex | semantic | none")),
+  sources: v.optional(v.array(v.string())),
+  addyosmani: v.optional(SkillsAddyosmani),
+}));
+
+/**
  * Main config schema. `looseObject` lets every consumer that reads an
  * undeclared key keep working while the schema catches the bugs we care
  * about.
@@ -181,6 +205,7 @@ export const ConfigSchema = v.looseObject({
   hu_language: v.optional(v.string()),
   policies: v.optional(v.record(v.string(), v.unknown())),
   telemetry: v.optional(v.boolean()),
+  skills: Skills,
 });
 
 /**

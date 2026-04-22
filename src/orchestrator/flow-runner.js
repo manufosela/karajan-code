@@ -39,6 +39,8 @@ import { setRunner as setGitRunner } from "../utils/git.js";
 import { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } from "../skills/skill-detector.js";
 import { isOpenSkillsAvailable } from "../skills/openskills-client.js";
 import { refineSkillsSemantically, resolveSkillsMode } from "../skills/semantic-detector.js";
+import { refreshIfStale as refreshAddyosmaniCatalog, listAvailableSlugs as listAddyosmaniSlugs } from "../skills/addyosmani-catalog.js";
+import { resolveAddyosmaniSlugs } from "../skills/addyosmani-role-map.js";
 
 // Extracted modules
 import {
@@ -832,6 +834,20 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
       // User explicitly opted out. Skip detection entirely.
       return { plannedTask, updatedConfig };
     }
+
+    // FIRST source: addyosmani/agent-skills (process skills per role).
+    // This runs BEFORE OpenSkills detection because process skills are the
+    // canonical workflows (TDD, code-review, security, performance...) that
+    // should shape every role's prompt; stack skills come second.
+    await ensureAddyosmaniSkills({
+      task: plannedTask,
+      config: updatedConfig,
+      logger,
+      session,
+      emitter,
+      eventBase,
+    });
+
     let neededSkills = skillsMode === "semantic"
       ? []
       : await detectNeededSkills(plannedTask, skillProjectDir);
@@ -877,6 +893,80 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   }
 
   return { plannedTask, updatedConfig };
+}
+
+/**
+ * Ensure the addyosmani/agent-skills catalog is present and fresh, then
+ * resolve which upstream slugs are relevant for the current task. The
+ * resolved slugs are stored on `session.addyosmaniSkills` so downstream
+ * prompt builders can inject them ahead of OpenSkills-detected stack skills.
+ *
+ * Config surface (all optional, sensible defaults):
+ *   skills:
+ *     sources: ["addyosmani", "openskills", "local"]  # default
+ *     addyosmani:
+ *       enabled: true
+ *       refreshDays: 7
+ *       repoUrl: "https://github.com/addyosmani/agent-skills.git"
+ *
+ * Setting skills.addyosmani.enabled = false, or removing "addyosmani" from
+ * skills.sources, disables this step entirely (reverts to OpenSkills-only).
+ */
+async function ensureAddyosmaniSkills({ task, config, logger, session, emitter, eventBase }) {
+  const skillsConfig = config?.skills || {};
+  const sources = Array.isArray(skillsConfig.sources) ? skillsConfig.sources : ["addyosmani", "openskills", "local"];
+  const addyConfig = skillsConfig.addyosmani || {};
+  // Test harness override: tests/setup.js sets __KJ_DEFAULT_ADDYOSMANI_ENABLED
+  // to false so orchestrator tests don't spawn git. Tests that need the real
+  // catalog opt in by setting config.skills.addyosmani.enabled = true.
+  const globalDefault = globalThis.__KJ_DEFAULT_ADDYOSMANI_ENABLED;
+  const enabledFromConfig = addyConfig.enabled === true
+    || (addyConfig.enabled !== false && globalDefault !== false);
+  const enabled = enabledFromConfig && sources.includes("addyosmani");
+  if (!enabled) return;
+
+  const refreshDays = Number.isFinite(addyConfig.refreshDays) ? addyConfig.refreshDays : 7;
+  const refreshMs = Math.max(0, refreshDays) * 24 * 60 * 60 * 1000;
+
+  try {
+    const refreshResult = await refreshAddyosmaniCatalog({
+      refreshMs,
+      repoUrl: addyConfig.repoUrl,
+      logger,
+    });
+
+    if (!refreshResult.ok) {
+      session.addyosmaniSkills = { available: false, reason: refreshResult.error || "refresh failed" };
+      emitProgress(emitter, makeEvent("skills:addyosmani-unavailable", { ...eventBase, stage: "skills" }, {
+        message: `addyosmani/agent-skills catalog unavailable: ${refreshResult.error || refreshResult.action}`,
+        detail: { action: refreshResult.action, hint: "Install git to enable process skills from addyosmani/agent-skills" },
+      }));
+      return;
+    }
+
+    const available = new Set(await listAddyosmaniSlugs());
+    const resolved = resolveAddyosmaniSlugs({ role: null, task }); // role resolution happens per-stage later
+    const valid = resolved.filter((slug) => available.has(slug));
+
+    session.addyosmaniSkills = {
+      available: true,
+      action: refreshResult.action,
+      resolvedSlugs: valid,
+      allAvailable: Array.from(available),
+    };
+
+    emitProgress(emitter, makeEvent("skills:addyosmani-ready", { ...eventBase, stage: "skills" }, {
+      message: `addyosmani/agent-skills ${refreshResult.action} — ${available.size} slug(s) available, ${valid.length} relevant to task`,
+      detail: {
+        action: refreshResult.action,
+        relevantSlugs: valid,
+        availableCount: available.size,
+      },
+    }));
+  } catch (err) {
+    logger.warn(`addyosmani catalog step failed (non-blocking): ${err.message}`);
+    session.addyosmaniSkills = { available: false, reason: err.message };
+  }
 }
 
 /**
