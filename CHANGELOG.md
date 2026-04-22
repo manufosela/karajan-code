@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-04-22
+
+### Added
+
+- **addyosmani/agent-skills as first-source process catalog** (KJC-TSK-0327, PR #456). Karajan now consults the [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills) repository **before** OpenSkills when resolving which skills to inject into role prompts. The two providers cover orthogonal axes: addyosmani brings lifecycle/process workflows (TDD, code-review, security, performance, git-workflow, CI/CD, debugging, docs, spec-driven, planning...) mapped per Karajan role, while OpenSkills keeps providing stack-specific skills (astro, react, prisma, vitest-patterns...). On first use, the catalog is shallow-cloned into `~/.karajan/agent-skills/`; subsequent runs refresh via `git pull` after `skills.addyosmani.refreshDays` (default 7 days). When git is absent or the network is unreachable, the step degrades silently and the pipeline continues unblocked.
+- **Role → addyosmani-slug mapping** — `src/skills/addyosmani-role-map.js` wires each Karajan role to its canonical workflows: `tester → test-driven-development + browser-testing-with-devtools`, `reviewer → code-review-and-quality + code-simplification`, `security → security-and-hardening`, `architect → spec-driven-development + api-and-interface-design + planning-and-task-breakdown`, `coder → incremental-implementation + source-driven-development + context-engineering + debugging-and-error-recovery`, and more. Task-text triggers add slugs on top (e.g. tasks mentioning "performance" or "Core Web Vitals" pull `performance-optimization`).
+- **New config subtree** `skills.sources` (default `["addyosmani", "openskills", "local"]`) and `skills.addyosmani.{enabled,refreshDays,repoUrl}` validated by the Valibot schema.
+- **New CLI subcommands**: `kj skills sync-addyosmani` forces a `git pull` of the catalog, `kj skills list-addyosmani` enumerates cached slugs with their descriptions.
+
+### Infrastructure
+
+- `tests/setup.js` defaults `__KJ_DEFAULT_ADDYOSMANI_ENABLED = false` under Vitest so orchestrator event-sequence tests don't spawn git probes. Tests that exercise the real catalog opt in per-case.
+- 35 new test cases across `tests/skills/addyosmani-catalog.test.js` (25) and `tests/skills/addyosmani-role-map.test.js` (10) covering frontmatter parsing, clone/pull lifecycle, TTL, path-traversal guards and graceful degradation.
+
 ## [2.6.1] - 2026-04-20
 
 ### Fixed
