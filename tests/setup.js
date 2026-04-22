@@ -36,3 +36,11 @@ globalThis.__KJ_DEFAULT_SKILLS_MODE = "regex";
 // override those flags per its decision logic. Tests that exercise Brain
 // routing opt in via `config.brain.decisor.enabled = true` explicitly.
 globalThis.__KJ_DEFAULT_BRAIN_DECISOR = false;
+
+// Default the addyosmani/agent-skills catalog OFF under Vitest. Many
+// orchestrator tests assert exact event/command sequences; the catalog step
+// would add a git probe + skills:addyosmani-ready event that they don't
+// expect. Tests that exercise the catalog opt in via
+// `config.skills.addyosmani.enabled = true` explicitly (or rely on the direct
+// unit tests in tests/skills/addyosmani-*.test.js which mock git themselves).
+globalThis.__KJ_DEFAULT_ADDYOSMANI_ENABLED = false;

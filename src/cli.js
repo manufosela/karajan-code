@@ -217,7 +217,7 @@ program
 
 program
   .command("skills [action]")
-  .description("Manage the local OpenSkills cache (actions: list | clear-cache)")
+  .description("Manage the skill cache (actions: list | clear-cache | sync-addyosmani | list-addyosmani)")
   .action(async (action) => {
     const { skillsCommand } = await import("./commands/skills.js");
     const exitCode = await skillsCommand({ action: action || "list" });
