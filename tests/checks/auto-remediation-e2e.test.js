@@ -129,13 +129,21 @@ describe("auto-remediation end-to-end", () => {
   });
 
   describe("Node version manual-only", () => {
-    it("Node 18 → FAIL with upgrade hint, remediation not attempted", async () => {
+    it("Node 16 → FAIL with upgrade hint, remediation not attempted", async () => {
       const { createNodeVersionCheck } = await import("../../src/checks/node.js");
-      const check = createNodeVersionCheck({ version: "v18.17.0" });
+      const check = createNodeVersionCheck({ version: "v16.20.0" });
       const report = await runChecks([check], { config: {} });
 
       expect(report.checks[0].status).toBe(STATUS.FAIL);
       expect(report.checks[0].fix).toContain("nvm install");
+    });
+
+    it("Node 18 → OK (minimum supported baseline)", async () => {
+      const { createNodeVersionCheck } = await import("../../src/checks/node.js");
+      const check = createNodeVersionCheck({ version: "v18.20.4" });
+      const report = await runChecks([check], { config: {} });
+
+      expect(report.checks[0].status).toBe(STATUS.OK);
     });
 
     it("Node 22 → OK", async () => {

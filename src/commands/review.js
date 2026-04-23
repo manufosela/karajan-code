@@ -4,12 +4,15 @@ import { computeBaseRef, generateDiff } from "../review/diff-generator.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
 import { resolveReviewProfile } from "../review/profiles.js";
+import { withCliRunLog } from "../utils/cli-run-log.js";
 
 export async function reviewCommand({ task, config, logger, baseRef }) {
-  const reviewerRole = resolveRole(config, "reviewer");
-  await assertAgentsAvailable([reviewerRole.provider]);
-  logger.info(`Reviewer (${reviewerRole.provider}) starting...`);
-  const reviewer = createAgent(reviewerRole.provider, config, logger);
+  return withCliRunLog("review", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const reviewerRole = resolveRole(config, "reviewer");
+    await assertAgentsAvailable([reviewerRole.provider]);
+    logger.info(`Reviewer (${reviewerRole.provider}) starting...`);
+    runLog.logText(`[reviewer] provider=${reviewerRole.provider} baseRef=${baseRef || "(auto)"}`);
+    const reviewer = createAgent(reviewerRole.provider, config, logger);
 
   let diff;
   if (config.ci?.enabled) {
@@ -75,4 +78,7 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
       logger.warn(`CI dispatch failed (non-blocking): ${err.message}`);
     }
   }
+  runLog.logText(`[reviewer] finished (exit=${result.exitCode})`);
+  return { ok: true };
+  });
 }

@@ -20,21 +20,26 @@ function buildResearchPrompt(task) {
 }
 
 export async function researcherCommand({ task, config, logger }) {
-  const researcherRole = resolveRole(config, "researcher");
-  await assertAgentsAvailable([researcherRole.provider]);
-  logger.info(`Researcher (${researcherRole.provider}) starting...`);
+  const { withCliRunLog } = await import("../utils/cli-run-log.js");
+  return withCliRunLog("researcher", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const researcherRole = resolveRole(config, "researcher");
+    await assertAgentsAvailable([researcherRole.provider]);
+    logger.info(`Researcher (${researcherRole.provider}) starting...`);
+    runLog.logText(`[researcher] provider=${researcherRole.provider}`);
 
-  const agent = createAgent(researcherRole.provider, config, logger);
-  const prompt = buildResearchPrompt(task);
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await agent.runTask({ prompt, onOutput, role: "researcher" });
+    const agent = createAgent(researcherRole.provider, config, logger);
+    const prompt = buildResearchPrompt(task);
+    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+    const result = await agent.runTask({ prompt, onOutput, role: "researcher" });
 
-  if (!result.ok) {
-    throw new Error(result.error || result.output || "Researcher failed");
-  }
+    if (!result.ok) {
+      throw new Error(result.error || result.output || "Researcher failed");
+    }
 
-  if (result.output) {
-    console.log(result.output);
-  }
-  logger.info("Researcher completed.");
+    if (result.output) {
+      console.log(result.output);
+    }
+    logger.info("Researcher completed.");
+    return { ok: true };
+  });
 }

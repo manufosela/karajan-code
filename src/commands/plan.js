@@ -51,8 +51,16 @@ function formatHuTable(hus) {
  * kj plan "task" — generate plan + HUs
  */
 export async function planGenerateCommand({ task, config, logger, json, context }) {
+  const { withCliRunLog } = await import("../utils/cli-run-log.js");
+  return withCliRunLog("plan", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    return planGenerateImpl({ task, config, logger, json, context, runLog });
+  });
+}
+
+async function planGenerateImpl({ task, config, logger, json, context, runLog }) {
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);
+  runLog.logText(`[planner] provider=${plannerRole.provider}`);
 
   const planner = createAgent(plannerRole.provider, config, logger);
   const prompt = buildPlannerPrompt({ task, context });
@@ -100,9 +108,11 @@ export async function planGenerateCommand({ task, config, logger, json, context 
 
   const planId = await savePlan(projectDir, plan);
 
+  runLog.logText(`[planner] finished — hus=${plan.hus.length} plan=${planId}`);
+
   if (json) {
     console.log(JSON.stringify(plan, null, 2));
-    return;
+    return { ok: true };
   }
 
   if (parsed?.approach) {
@@ -116,6 +126,7 @@ export async function planGenerateCommand({ task, config, logger, json, context 
   console.log(`Review:  kj plan show ${planId}`);
   console.log(`Approve: kj plan ready ${planId}`);
   console.log(`Execute: kj run --plan ${planId} "${task.slice(0, 40)}..."`);
+  return { ok: true };
 }
 
 /**

@@ -34,30 +34,36 @@ function formatTriage(result) {
 }
 
 export async function triageCommand({ task, config, logger, json }) {
-  const triageRole = resolveRole(config, "triage");
-  await assertAgentsAvailable([triageRole.provider]);
-  logger.info(`Triage (${triageRole.provider}) starting...`);
+  const { withCliRunLog } = await import("../utils/cli-run-log.js");
+  return withCliRunLog("triage", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const triageRole = resolveRole(config, "triage");
+    await assertAgentsAvailable([triageRole.provider]);
+    logger.info(`Triage (${triageRole.provider}) starting...`);
+    runLog.logText(`[triage] provider=${triageRole.provider}`);
 
-  const agent = createAgent(triageRole.provider, config, logger);
-  const prompt = buildTriagePrompt({ task });
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await agent.runTask({ prompt, onOutput, role: "triage" });
+    const agent = createAgent(triageRole.provider, config, logger);
+    const prompt = buildTriagePrompt({ task });
+    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+    const result = await agent.runTask({ prompt, onOutput, role: "triage" });
 
-  if (!result.ok) {
-    throw new Error(result.error || result.output || "Triage failed");
-  }
+    if (!result.ok) {
+      throw new Error(result.error || result.output || "Triage failed");
+    }
 
-  const parsed = parseMaybeJsonString(result.output);
+    const parsed = parseMaybeJsonString(result.output);
+    if (parsed?.level) runLog.logText(`[triage] level=${parsed.level} roles=${(parsed.roles || []).join(",")}`);
 
-  if (json) {
-    console.log(JSON.stringify(parsed || result.output, null, 2));
-    return;
-  }
+    if (json) {
+      console.log(JSON.stringify(parsed || result.output, null, 2));
+      return { ok: true };
+    }
 
-  if (parsed?.level) {
-    console.log(formatTriage(parsed));
-  } else {
-    console.log(result.output);
-  }
-  logger.info("Triage completed.");
+    if (parsed?.level) {
+      console.log(formatTriage(parsed));
+    } else {
+      console.log(result.output);
+    }
+    logger.info("Triage completed.");
+    return { ok: true };
+  });
 }

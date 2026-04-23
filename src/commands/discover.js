@@ -62,30 +62,35 @@ function formatDiscover(result, mode) {
 }
 
 export async function discoverCommand({ task, config, logger, mode, json }) {
-  const discoverRole = resolveRole(config, "discover");
-  await assertAgentsAvailable([discoverRole.provider]);
-  logger.info(`Discover (${discoverRole.provider}) starting — mode: ${mode || "gaps"}...`);
+  const { withCliRunLog } = await import("../utils/cli-run-log.js");
+  return withCliRunLog("discover", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const discoverRole = resolveRole(config, "discover");
+    await assertAgentsAvailable([discoverRole.provider]);
+    logger.info(`Discover (${discoverRole.provider}) starting — mode: ${mode || "gaps"}...`);
+    runLog.logText(`[discover] provider=${discoverRole.provider} mode=${mode || "gaps"}`);
 
-  const agent = createAgent(discoverRole.provider, config, logger);
-  const prompt = buildDiscoverPrompt({ task, mode: mode || "gaps" });
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await agent.runTask({ prompt, onOutput, role: "discover" });
+    const agent = createAgent(discoverRole.provider, config, logger);
+    const prompt = buildDiscoverPrompt({ task, mode: mode || "gaps" });
+    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+    const result = await agent.runTask({ prompt, onOutput, role: "discover" });
 
-  if (!result.ok) {
-    throw new Error(result.error || result.output || "Discover failed");
-  }
+    if (!result.ok) {
+      throw new Error(result.error || result.output || "Discover failed");
+    }
 
-  const parsed = parseDiscoverOutput(result.output);
+    const parsed = parseDiscoverOutput(result.output);
 
-  if (json) {
-    console.log(JSON.stringify(parsed || result.output, null, 2));
-    return;
-  }
+    if (json) {
+      console.log(JSON.stringify(parsed || result.output, null, 2));
+      return { ok: true };
+    }
 
-  if (parsed?.verdict) {
-    console.log(formatDiscover(parsed, mode || "gaps"));
-  } else {
-    console.log(result.output);
-  }
-  logger.info("Discover completed.");
+    if (parsed?.verdict) {
+      console.log(formatDiscover(parsed, mode || "gaps"));
+    } else {
+      console.log(result.output);
+    }
+    logger.info("Discover completed.");
+    return { ok: true };
+  });
 }

@@ -15,13 +15,19 @@ describe("checks/node-version", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("passes for Node 18 (the current minimum baseline)", async () => {
+    const check = createNodeVersionCheck({ version: "v18.20.4" });
+    const result = await check.detect({ config: {} });
+    expect(result.ok).toBe(true);
+  });
+
   it("fails for Node older than the required major", async () => {
-    const check = createNodeVersionCheck({ version: "v18.17.0" });
+    const check = createNodeVersionCheck({ version: "v16.20.0" });
     const result = await check.detect({ config: {} });
     expect(result.ok).toBe(false);
     expect(result.severity).toBe("fail");
     expect(result.fix).toContain("nvm install");
-    expect(result.extra.detected.major).toBe(18);
+    expect(result.extra.detected.major).toBe(16);
   });
 
   it("fails cleanly for an unparseable version", async () => {
