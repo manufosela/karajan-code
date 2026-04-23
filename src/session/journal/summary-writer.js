@@ -26,6 +26,10 @@ import path from "node:path";
  * @property {string} [finishedAt]                 - ISO timestamp (optional)
  * @property {number} [solomonInvocations]
  * @property {number} [brainDecisions]
+ * @property {Object} [skills]                        - skill sources used this session (KJC-TSK-0327)
+ * @property {Object} [skills.addyosmani]             - { available, action, resolvedSlugs, reason }
+ * @property {string[]} [skills.installed]            - OpenSkills installed this run (session.autoInstalledSkills)
+ * @property {string[]} [skills.recommended]          - wouldHaveUsed when OpenSkills CLI missing
  */
 
 function esc(text) {
@@ -103,6 +107,48 @@ function renderBreakdownByRole(breakdown) {
   return ["| Role | Tokens | Cost |", "|---|---|---|", ...rows].join("\n");
 }
 
+/**
+ * Render the Skills section: which process skills (addyosmani) were resolved
+ * for the task, which OpenSkills were installed, and which skills would have
+ * helped but couldn't be installed (graceful-degradation path).
+ *
+ * Returns null when no skill activity happened (no addyosmani, no installs,
+ * no recommendations) so the section is elided.
+ */
+function renderSkills(skills) {
+  if (!skills || typeof skills !== "object") return null;
+  const addy = skills.addyosmani;
+  const installed = Array.isArray(skills.installed) ? skills.installed : [];
+  const recommended = Array.isArray(skills.recommended) ? skills.recommended : [];
+
+  const hasAddy = addy && (addy.available === true || addy.available === false);
+  if (!hasAddy && installed.length === 0 && recommended.length === 0) return null;
+
+  const lines = [];
+
+  if (hasAddy) {
+    if (addy.available) {
+      const action = addy.action || "ready";
+      const slugs = Array.isArray(addy.resolvedSlugs) ? addy.resolvedSlugs : [];
+      lines.push(`- **addyosmani/agent-skills** (process, 1st source): ${esc(action)}` +
+        (slugs.length > 0 ? ` — resolved slugs: ${slugs.map((s) => `\`${esc(s)}\``).join(", ")}` : " — no role/task-specific slugs resolved"));
+    } else {
+      const reason = addy.reason ? ` — ${esc(addy.reason)}` : "";
+      lines.push(`- **addyosmani/agent-skills**: unavailable${reason}`);
+    }
+  }
+
+  if (installed.length > 0) {
+    lines.push(`- **OpenSkills installed**: ${installed.map((s) => `\`${esc(s)}\``).join(", ")}`);
+  }
+
+  if (recommended.length > 0) {
+    lines.push(`- **OpenSkills recommended** (CLI missing, would-have-used): ${recommended.map((s) => `\`${esc(s)}\``).join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
 function renderJournalLinks(files) {
   if (!Array.isArray(files) || files.length === 0) return "_No additional journal files._";
   return files.map((f) => `- [${esc(f)}](./${f})`).join("\n");
@@ -144,6 +190,11 @@ export function buildSummaryMarkdown(input) {
   const breakdown = renderBreakdownByRole(input.budget?.breakdown_by_role);
   if (breakdown) {
     sections.push("", "## Budget breakdown (by role)", "", breakdown);
+  }
+
+  const skillsSection = renderSkills(input.skills);
+  if (skillsSection) {
+    sections.push("", "## Skills Used", "", skillsSection);
   }
 
   sections.push("", "## Commits", "", renderCommits(input.commits));

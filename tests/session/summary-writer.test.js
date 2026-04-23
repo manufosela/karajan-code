@@ -130,6 +130,79 @@ describe("session/journal/summary-writer — buildSummaryMarkdown", () => {
     expect(md).not.toContain(longSummary);
   });
 
+  describe("Skills section (KJC-TSK-0327)", () => {
+    it("omits the Skills section entirely when no skills activity happened", () => {
+      const md = buildSummaryMarkdown(sample()); // no `skills` field
+      expect(md).not.toContain("## Skills Used");
+    });
+
+    it("renders addyosmani resolved slugs when catalog is available", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          addyosmani: {
+            available: true,
+            action: "pulled",
+            resolvedSlugs: ["test-driven-development", "code-review-and-quality"],
+          },
+        },
+      }));
+      expect(md).toContain("## Skills Used");
+      expect(md).toContain("**addyosmani/agent-skills** (process, 1st source): pulled");
+      expect(md).toContain("`test-driven-development`");
+      expect(md).toContain("`code-review-and-quality`");
+    });
+
+    it("reports addyosmani as unavailable with the reason when git/network failed", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          addyosmani: { available: false, reason: "git not available" },
+        },
+      }));
+      expect(md).toContain("**addyosmani/agent-skills**: unavailable — git not available");
+    });
+
+    it("lists OpenSkills that were actually installed this run", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          installed: ["vitest-patterns", "owasp-top-10"],
+        },
+      }));
+      expect(md).toContain("## Skills Used");
+      expect(md).toContain("**OpenSkills installed**: `vitest-patterns`, `owasp-top-10`");
+    });
+
+    it("lists recommended OpenSkills when the CLI was missing (would-have-used)", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          recommended: ["astro", "react"],
+        },
+      }));
+      expect(md).toContain("**OpenSkills recommended** (CLI missing, would-have-used): `astro`, `react`");
+    });
+
+    it("combines all three sources when present together", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          addyosmani: { available: true, action: "fresh", resolvedSlugs: ["security-and-hardening"] },
+          installed: ["prisma"],
+          recommended: ["nextjs"],
+        },
+      }));
+      expect(md).toContain("addyosmani/agent-skills");
+      expect(md).toContain("OpenSkills installed");
+      expect(md).toContain("OpenSkills recommended");
+    });
+
+    it("handles addyosmani with empty resolvedSlugs (no role/task-specific match)", () => {
+      const md = buildSummaryMarkdown(sample({
+        skills: {
+          addyosmani: { available: true, action: "fresh", resolvedSlugs: [] },
+        },
+      }));
+      expect(md).toContain("no role/task-specific slugs resolved");
+    });
+  });
+
   it("escapes pipe chars in commit messages + task text (table safety)", () => {
     const md = buildSummaryMarkdown(sample({
       task: "a|b|c",
