@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const REVIEW_BLOCKING = JSON.stringify({
   approved: false,
@@ -145,8 +145,13 @@ vi.mock("node:fs/promises", () => ({
 
 describe("orchestrator repeat detection", () => {
   let runFlow;
+  // This file exercises the Sonar stage (sonar-issue repeat scenarios).
+  // Opt out of the global test override.
+  const prevSonarDisabled = globalThis.__KJ_DISABLE_SONAR_STAGE;
+  afterAll(() => { globalThis.__KJ_DISABLE_SONAR_STAGE = prevSonarDisabled; });
 
   beforeEach(async () => {
+    globalThis.__KJ_DISABLE_SONAR_STAGE = false;
     vi.resetAllMocks();
 
     const { createAgent } = await import("../src/agents/index.js");

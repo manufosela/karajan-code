@@ -44,3 +44,12 @@ globalThis.__KJ_DEFAULT_BRAIN_DECISOR = false;
 // `config.skills.addyosmani.enabled = true` explicitly (or rely on the direct
 // unit tests in tests/skills/addyosmani-*.test.js which mock git themselves).
 globalThis.__KJ_DEFAULT_ADDYOSMANI_ENABLED = false;
+
+// Disable the Sonar stage under Vitest. Sonar is intrinsic to Karajan in
+// production for code tasks (sw/refactor/add-tests) and the production
+// preflight auto-starts the Docker container. Forcing every test that touches
+// the flow runner to bring up SonarQube would be both slow (20-40 s warmup)
+// and brittle (requires Docker on the runner). Tests that specifically
+// exercise the sonar stage opt in by setting __KJ_DISABLE_SONAR_STAGE = false
+// in their own setup, or mock runSonarStage directly.
+globalThis.__KJ_DISABLE_SONAR_STAGE = true;

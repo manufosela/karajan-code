@@ -726,6 +726,12 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
 
   let updatedConfig = resolvePipelinePolicies({ flags, config, stageResults, emitter, eventBase, session, pipelineFlags });
 
+  // Deprecation warnings recorded at config load time. Done here, after
+  // policies are resolved, so the message lands in context: if the user's
+  // legacy `sonarqube.enabled: false` is being ignored, this is the right
+  // moment for them to see it.
+  emitConfigDeprecations(updatedConfig, logger, emitter, eventBase);
+
   // --- Preflight environment checks ---
   const preflightResult = await runPreflightChecks({
     config: updatedConfig, logger, emitter, eventBase,
@@ -920,6 +926,46 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
  * Setting skills.addyosmani.enabled = false, or removing "addyosmani" from
  * skills.sources, disables this step entirely (reverts to OpenSkills-only).
  */
+/**
+ * Print one-time deprecation warnings for config keys / CLI flags that
+ * Karajan no longer honours. Called once per run, after policy resolution
+ * so the message lands in context (the user sees what's being ignored
+ * RIGHT before the preflight that would have been affected).
+ *
+ * Currently surfaces:
+ *   - `sonarqube.enabled` set in user config → ignored since v2.7.4
+ *   - `--no-sonar` CLI flag → ignored since v2.7.4
+ */
+function emitConfigDeprecations(config, logger, emitter, eventBase) {
+  const dep = config?._deprecated;
+  if (!dep) return;
+
+  if (dep.sonarqubeEnabledKey) {
+    const m =
+      "DEPRECATED: `sonarqube.enabled` in kj.config.yml is ignored since v2.7.4. " +
+      "Sonar is intrinsic to Karajan for code tasks (sw/refactor/add-tests) and " +
+      "skipped for non-code tasks (audit/doc/infra/analysis/no-code) by policy. " +
+      "Remove the key from your config to silence this warning.";
+    logger.warn(m);
+    emitProgress(emitter, makeEvent("config:deprecated", { ...eventBase, stage: "config" }, {
+      message: m,
+      detail: { key: "sonarqube.enabled", since: "v2.7.4" },
+    }));
+  }
+
+  if (dep.noSonarFlag) {
+    const m =
+      "DEPRECATED: `--no-sonar` flag is ignored since v2.7.4. Sonar runs for code " +
+      "tasks by policy. To skip Sonar on a one-off run, use a non-code task type " +
+      "(e.g. `--task-type doc`) or rely on Solomon's runtime override.";
+    logger.warn(m);
+    emitProgress(emitter, makeEvent("config:deprecated", { ...eventBase, stage: "config" }, {
+      message: m,
+      detail: { flag: "--no-sonar", since: "v2.7.4" },
+    }));
+  }
+}
+
 async function ensureAddyosmaniSkills({ task, config, logger, session, emitter, eventBase }) {
   const skillsConfig = config?.skills || {};
   const sources = Array.isArray(skillsConfig.sources) ? skillsConfig.sources : ["addyosmani", "openskills", "local"];
@@ -1173,9 +1219,17 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
 
-  const skipSonarForTaskType = new Set(["infra", "doc", "no-code"]);
-  const effectiveTaskType = session.resolved_policies?.taskType || null;
-  if (config.sonarqube.enabled && !skipSonarForTaskType.has(effectiveTaskType)) {
+  // Sonar runs for code tasks per policy. Since v2.7.4 it is NOT
+  // toggleable via config — that's intrinsic to Karajan. The taskType
+  // policy (resolved_policies.sonar) is the single source of truth.
+  // Solomon may skip a single iteration via rule alerts; that's a
+  // runtime decision, not a config option.
+  //
+  // Test-only escape hatch: globalThis.__KJ_DISABLE_SONAR_STAGE forces
+  // the sonar stage off so tests don't have to spin up Docker. Set in
+  // tests/setup.js by default; production code never sees it.
+  const sonarStageDisabledForTest = globalThis.__KJ_DISABLE_SONAR_STAGE === true;
+  if (!sonarStageDisabledForTest && session.resolved_policies?.sonar !== false) {
     const sonarResult = await runSonarStage({
       config, logger, emitter, eventBase, session, trackBudget, iteration: i,
       repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx

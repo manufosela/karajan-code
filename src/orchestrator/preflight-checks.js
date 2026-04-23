@@ -168,7 +168,21 @@ async function checkSecurityAgent(config) {
  * @returns {{ ok: boolean, checks: object[], remediations: string[], configOverrides: object, warnings: string[], errors: object[] }}
  */
 export async function runPreflightChecks({ config, logger, emitter, eventBase, resolvedPolicies, securityEnabled }) {
-  const sonarEnabled = Boolean(config.sonarqube?.enabled) && resolvedPolicies.sonar !== false;
+  // Sonar is intrinsic to Karajan for code tasks (sw/refactor/add-tests).
+  // Since v2.7.4 it is NOT toggleable via `config.sonarqube.enabled` —
+  // that field is ignored (deprecation warning emitted at config load).
+  // The taskType policy (resolved_policies.sonar from DEFAULT_POLICIES in
+  // src/guards/policy-resolver.js) is the single source of truth: sw /
+  // refactor / add-tests run Sonar, audit / doc / infra / analysis /
+  // no-code skip it. Solomon may decide to skip a single iteration via
+  // rule alerts — that's a runtime decision, not a config option.
+  //
+  // Test-only escape hatch: globalThis.__KJ_DISABLE_SONAR_STAGE === true
+  // forces sonar OFF in preflight too, so tests that don't want sonar
+  // events in their expected sequence don't have to set up Docker mocks.
+  // Set in tests/setup.js by default; production code never sees it.
+  const sonarStageDisabledForTest = globalThis.__KJ_DISABLE_SONAR_STAGE === true;
+  const sonarEnabled = !sonarStageDisabledForTest && resolvedPolicies.sonar !== false;
   const isExternalSonar = Boolean(config.sonarqube?.external);
   const sonarHost = resolveSonarHost(config.sonarqube?.host);
 

@@ -50,19 +50,18 @@ describe("checks/ports", () => {
       expect(result.extra.port).toBe(9000);
     });
 
-    it("applies only when Sonar is enabled, and explains WHY when not", () => {
+    it("applies for any non-external config (Sonar is intrinsic since v2.7.4)", () => {
       const check = mod.createSonarPortCheck();
-      // Post-fix: applies() returns { applies, reason } when skipped so the
-      // user sees the cause instead of the opaque "Not applicable for current
-      // configuration" that confused users with `enabled: false` in their
-      // global ~/.karajan/kj.config.yml.
-      const disabled = check.applies({ sonarqube: { enabled: false } });
-      expect(disabled).toEqual({ applies: false, reason: expect.stringMatching(/sonarqube\.enabled is false/i) });
-
-      const external = check.applies({ sonarqube: { enabled: true, external: true } });
-      expect(external).toEqual({ applies: false, reason: expect.stringMatching(/external/i) });
-
+      // Post-v2.7.4: `sonarqube.enabled` is ignored — Sonar is intrinsic
+      // to Karajan for code tasks. The only legitimate skip is when the
+      // user runs their own external Sonar instance.
+      expect(check.applies({})).toBe(true);
+      expect(check.applies({ sonarqube: {} })).toBe(true);
+      expect(check.applies({ sonarqube: { enabled: false } })).toBe(true); // ignored!
       expect(check.applies({ sonarqube: { enabled: true } })).toBe(true);
+
+      const external = check.applies({ sonarqube: { external: true } });
+      expect(external).toEqual({ applies: false, reason: expect.stringMatching(/external/i) });
     });
   });
 
