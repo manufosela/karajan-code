@@ -44,6 +44,12 @@ export async function loadSession(sessionId) {
 }
 
 export async function addCheckpoint(session, checkpoint) {
+  // Defensive: any caller that builds a stub session (e.g. the init-error
+  // path in flow-runner.js, where `tempSession = { id, task, status }` has
+  // no checkpoints array) would otherwise crash with
+  // "Cannot read properties of undefined (reading 'push')". Guard once here
+  // so the bug class is gone instead of fixing every call site.
+  if (!Array.isArray(session.checkpoints)) session.checkpoints = [];
   session.checkpoints.push({ at: new Date().toISOString(), ...checkpoint });
   await saveSession(session);
 }

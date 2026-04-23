@@ -163,11 +163,18 @@ describe("auto-remediation end-to-end", () => {
       for (const [k, v] of Object.entries(savedEnv)) process.env[k] = v;
     });
 
-    it("ANTHROPIC_API_KEY missing with active anthropic role → FAIL", async () => {
-      delete process.env.ANTHROPIC_API_KEY;
+    it("anthropic CLI (`claude`) missing with active anthropic role → FAIL", async () => {
+      // Post-v2.7.4: Karajan checks CLI binary on PATH, not env vars. The
+      // env var ANTHROPIC_API_KEY was never read by Karajan in the first
+      // place — agents spawn `claude` as a subprocess and the CLI handles
+      // OAuth on its own. Test rewritten to mock the CLI as missing.
+      vi.doMock("../../src/utils/agent-detect.js", () => ({
+        checkBinary: vi.fn().mockResolvedValue({ ok: false }),
+      }));
+      vi.resetModules();
       const { getTokenChecks } = await import("../../src/checks/tokens.js");
       const checks = getTokenChecks({ roles: { coder: { provider: "claude" } } });
-      const anth = checks.find((c) => c.name === "token:anthropic");
+      const anth = checks.find((c) => c.name === "cli:anthropic");
       const report = await runChecks([anth], { config: {} });
 
       expect(report.checks[0].status).toBe(STATUS.FAIL);
