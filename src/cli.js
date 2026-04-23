@@ -76,7 +76,8 @@ program
 program
   .command("run")
   .description("Run coder+sonar+reviewer loop")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file to read from a .md file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md). Alternative to the positional task argument.")
   .option("--planner <name>")
   .option("--coder <name>")
   .option("--reviewer <name>")
@@ -138,32 +139,40 @@ program
   .option("-v, --verbose", "Show full agent output (stream-json, raw lines)")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {
-      await runCommandHandler({ task, config, logger, flags });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await runCommandHandler({ task: resolvedTask, config, logger, flags });
     });
   });
 
 program
   .command("code")
   .description("Run only coder")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--coder <name>")
   .option("--coder-model <name>")
   .action(async (task, flags) => {
     await withConfig("code", flags, async ({ config, logger }) => {
-      await codeCommand({ task, config, logger });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await codeCommand({ task: resolvedTask, config, logger });
     });
   });
 
 program
   .command("review")
   .description("Run only reviewer")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--reviewer <name>")
   .option("--reviewer-model <name>")
   .option("--base-ref <ref>")
   .action(async (task, flags) => {
     await withConfig("review", flags, async ({ config, logger }) => {
-      await reviewCommand({ task, config, logger, baseRef: flags.baseRef });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await reviewCommand({ task: resolvedTask, config, logger, baseRef: flags.baseRef });
     });
   });
 
@@ -248,15 +257,18 @@ const plan = program.command("plan").description("Plan management (generate, rev
 plan
   .command("generate", { isDefault: true })
   .description("Generate implementation plan with HUs")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--planner <name>")
   .option("--planner-model <name>")
   .option("--context <text>", "Additional context for the planner")
   .option("--json", "Output raw JSON plan")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
       const { planGenerateCommand } = await import("./commands/plan.js");
-      await planGenerateCommand({ task, config, logger, json: flags.json, context: flags.context });
+      await planGenerateCommand({ task: resolvedTask, config, logger, json: flags.json, context: flags.context });
     });
   });
 
@@ -317,65 +329,83 @@ plan.command("remove-hu").description("Remove HU from plan").argument("<planId>"
 program
   .command("discover")
   .description("Analyze task for gaps, ambiguities and missing info")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--mode <name>", "Discovery mode: gaps|momtest|wendel|classify|jtbd", "gaps")
   .option("--discover <name>", "Override discover agent")
   .option("--discover-model <name>", "Override discover model")
   .option("--json", "Output raw JSON")
   .action(async (task, flags) => {
     await withConfig("discover", flags, async ({ config, logger }) => {
-      await discoverCommand({ task, config, logger, mode: flags.mode, json: flags.json });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await discoverCommand({ task: resolvedTask, config, logger, mode: flags.mode, json: flags.json });
     });
   });
 
 program
   .command("triage")
   .description("Classify task complexity and recommend pipeline roles")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--triage <name>", "Override triage agent")
   .option("--triage-model <name>", "Override triage model")
   .option("--json", "Output raw JSON")
   .action(async (task, flags) => {
     await withConfig("triage", flags, async ({ config, logger }) => {
-      await triageCommand({ task, config, logger, json: flags.json });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await triageCommand({ task: resolvedTask, config, logger, json: flags.json });
     });
   });
 
 program
   .command("researcher")
   .description("Research codebase for a task (files, patterns, constraints)")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--researcher <name>", "Override researcher agent")
   .option("--researcher-model <name>", "Override researcher model")
   .action(async (task, flags) => {
     await withConfig("researcher", flags, async ({ config, logger }) => {
-      await researcherCommand({ task, config, logger });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await researcherCommand({ task: resolvedTask, config, logger });
     });
   });
 
 program
   .command("architect")
   .description("Design solution architecture (layers, patterns, contracts)")
-  .argument("<task>")
+  .argument("[task]", "Task description (or use --task-file)")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--architect <name>", "Override architect agent")
   .option("--architect-model <name>", "Override architect model")
   .option("--context <text>", "Additional context (e.g. researcher output)")
   .option("--json", "Output raw JSON")
   .action(async (task, flags) => {
     await withConfig("architect", flags, async ({ config, logger }) => {
-      await architectCommand({ task, config, logger, context: flags.context, json: flags.json });
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      await architectCommand({ task: resolvedTask, config, logger, context: flags.context, json: flags.json });
     });
   });
 
 program
   .command("audit")
   .description("Analyze codebase health (read-only)")
-  .argument("[task]")
+  .argument("[task]", "Task description. If absent, defaults to a full-codebase analysis. Use --task-file to point at a .md.")
+  .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--dimensions <list>", "Comma-separated: security,quality,performance,architecture,testing", "all")
   .option("--json", "Output raw JSON")
   .action(async (task, flags) => {
     await withConfig("audit", flags, async ({ config, logger }) => {
-      await auditCommand({ task: task || "Analyze the full codebase", config, logger, dimensions: flags.dimensions, json: flags.json });
+      let resolvedTask = task;
+      if (flags.taskFile) {
+        const { readTaskFile } = await import("./utils/task-file.js");
+        resolvedTask = await readTaskFile(flags.taskFile, { projectDir: config.projectDir });
+      }
+      await auditCommand({ task: resolvedTask || "Analyze the full codebase", config, logger, dimensions: flags.dimensions, json: flags.json });
     });
   });
 

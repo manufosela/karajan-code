@@ -21,6 +21,29 @@ export { classifyError } from "./error-classifiers.js";
  * Resolve the user's project directory.
  * Priority: 1) explicit projectDir param, 2) MCP roots, 3) error with instructions.
  */
+/**
+ * Resolve the `task` argument for MCP handlers. If the caller passed
+ * `a.taskFile` (instead of or in addition to `a.task`), read the file and
+ * set `a.task` to its trimmed content. When both are given, the explicit
+ * `a.task` wins (symmetric with CLI `resolveTaskInput`).
+ *
+ * Mutates `a` in place so downstream handlers keep reading `a.task`
+ * without any change. Returns `a` for convenience.
+ *
+ * @param {Object} a
+ * @param {string} [projectDir]  - used to resolve relative file paths
+ * @returns {Promise<Object>}    - the same `a`, with `a.task` filled in
+ */
+export async function ensureTaskFromFile(a, projectDir) {
+  if (!a) return a;
+  const hasTask = typeof a.task === "string" && a.task.trim().length > 0;
+  const hasFile = typeof a.taskFile === "string" && a.taskFile.trim().length > 0;
+  if (hasTask || !hasFile) return a;
+  const { readTaskFile } = await import("../utils/task-file.js");
+  a.task = await readTaskFile(a.taskFile, { projectDir });
+  return a;
+}
+
 export async function resolveProjectDir(server, explicitProjectDir) {
   if (explicitProjectDir) return explicitProjectDir;
 

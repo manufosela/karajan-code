@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.37.0"
+VERSION="1.38.0"
 
 # ── Colors ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -94,15 +94,42 @@ PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 LOG_FILE="${PROJECT_DIR}/.kj/run.log"
 
 # ── Locate log ──────────────────────────────────────────
+# When the log does not exist yet, kj-tail stays open and polls until any
+# `kj` / `kj_*` invocation creates it. Exit with Ctrl-C. This used to be a
+# hard exit, which forced the user to time `kj-tail` start vs. the command;
+# too easy to miss early lines. Follow-mode and snapshot mode both get this.
 if [[ ! -f "$LOG_FILE" ]]; then
-  echo -e "${RED}No run log found at ${LOG_FILE}${RESET}"
+  if [[ "$FOLLOW" == "false" ]]; then
+    # Snapshot mode (-s): nothing to print, say so and exit cleanly.
+    echo -e "${YELLOW}No run log at ${LOG_FILE} yet.${RESET}"
+    echo ""
+    echo "The log is created when Karajan starts a pipeline — run any of:"
+    echo "  kj run \"...\"    kj audit    kj code    kj review    kj plan"
+    echo "  mcp__karajan-mcp__kj_run / kj_audit / kj_code / kj_review / kj_plan ..."
+    echo ""
+    exit 0
+  fi
+
+  echo -e "${YELLOW}Waiting for run log to appear at ${LOG_FILE}${RESET}"
+  echo -e "${DIM}(It is created the moment you run any kj command that invokes the orchestrator or a role.${RESET}"
+  echo -e "${DIM} Ctrl-C to stop waiting. Triggers: kj run/audit/code/review/plan/discover/triage/researcher/architect, or the same via MCP.)${RESET}"
   echo ""
-  echo "The run log is created when Karajan starts a pipeline."
-  echo "Make sure you're in the project directory, or pass it as argument:"
+  # Ensure parent dir exists so we can poll even on a fresh project
+  mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+  # Poll every 500ms until the file shows up (low CPU, visible responsiveness).
+  # Cap at 4h (28800 ticks) to avoid infinite stuck monitors; after the cap we
+  # exit 0 so tmux/screen panes don't linger as errors.
+  tick=0
+  while [[ ! -f "$LOG_FILE" ]]; do
+    sleep 0.5
+    tick=$((tick + 1))
+    if (( tick >= 28800 )); then
+      echo -e "${YELLOW}Still no run log after 4h — exiting. Re-run kj-tail when ready.${RESET}"
+      exit 0
+    fi
+  done
+  echo -e "${GREEN}Log appeared — streaming...${RESET}"
   echo ""
-  echo "  kj-tail /path/to/project"
-  echo ""
-  exit 1
 fi
 
 # ── Filter & colorize ──────────────────────────────────
