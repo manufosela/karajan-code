@@ -34,11 +34,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install project dependencies
+      - name: Install project dependencies (incl. esbuild + postject)
         run: npm ci
-
-      - name: Install build tools (esbuild + postject)
-        run: npm install -g esbuild postject
 
       - name: Build SEA binary
         run: node scripts/build-sea.mjs
