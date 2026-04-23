@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.3] - 2026-04-23
+
+### Added
+
+- **`--task-file` / `taskFile` — read the task from a `.md` file** (PR #464). For anything beyond a one-liner, writing `kj run "very long multi-paragraph prompt..."` was painful. Every task-taking CLI command (`run`, `code`, `review`, `plan`, `discover`, `triage`, `researcher`, `architect`, `audit`) now accepts `--task-file <path>` and every matching MCP tool schema (`kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_audit`) accepts a `taskFile` argument. Precedence rule (same across CLI + MCP): positional `task` wins over `taskFile` when both are given, with a warning. Relative paths resolve against `projectDir` (or `cwd`). 256 KiB size cap. The positional `<task>` arg on every CLI command is now `[task]` (optional). New helper `src/utils/task-file.js` centralises parsing + precedence.
+
+- **CLI `kj <cmd>` now writes `.kj/run.log` like MCP does** (PR #463). Previously only MCP handlers (`kj_run`, `kj_audit`, …) created the run log, so `kj-tail` was silent when Claude Code invoked `kj` via the Bash tool. New helper `src/utils/cli-run-log.js::withCliRunLog()` is wired into `run`, `audit`, `code`, `review`, `plan`, `discover`, `triage`, `researcher`, `architect`. Writes `[kj_<cmd>] started (cli)` / `finished — ok=<bool>` / `failed — <error>` markers plus per-event forwarding when the command has an EventEmitter (e.g. `kj run` mirrors every progress event into run.log alongside its existing activity-log path).
+
+- **`kj-tail` v1.38.0 waits for the log to appear instead of exiting** (PR #464). Before: `kj-tail` hard-exited if `.kj/run.log` didn't exist yet, so users had to race the command and missed early lines. Now: prints a yellow notice listing which commands trigger the log, ensures `.kj/` exists, polls every 500 ms, and streams as soon as the log appears. Snapshot mode (`-s`) stays non-blocking. 4-hour safety cap avoids zombie panes.
+
+### Fixed
+
+- **Node 18 LTS users can now actually run `kj`** (PR #463). `package.json` had claimed `"engines": { "node": ">=18.0.0" }` for ages, but `src/checks/node.js` required Node 20 and failed at preflight with a misleading "needs structuredClone / findLast / AbortSignal.timeout / fetch" message. All four are Node 18 features. `MIN_NODE_MAJOR` lowered from 20 to 18. CI lint matrix gains `18.x` alongside `20.x` / `22.x` to catch any regression that would break Node 18 users. (Test matrix stays on 20+ because vitest 4 / rolldown — devDependencies only, never shipped to users — require `styleText` which is Node 20.12+.)
+
+### Infrastructure
+
+- Removed 8 stale merged local branches + 2 abandoned git worktrees under `.kj/worktrees/`.
+- 22 new vitest cases across `tests/utils/task-file.test.js` and `tests/utils/cli-run-log.test.js`. Total suite: 3 702 tests across 287 files.
+
 ## [2.7.2] - 2026-04-23
 
 ### Added
