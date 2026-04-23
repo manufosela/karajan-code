@@ -5,7 +5,9 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
-## Fase 57: addyosmani/agent-skills como catálogo de proceso de primera fuente (v2.7.0 / v2.7.1)
+## Fase 57: addyosmani/agent-skills como catálogo de proceso de primera fuente (v2.7.0 / v2.7.1 / v2.7.2)
+
+**v2.7.2** (patch, 2026-04-23) — Observabilidad de skills: `summary.md` incluye ahora una sección "Skills Used" listando la acción de addyosmani (`cloned`/`pulled`/`fresh`/`unavailable`) y los slugs resueltos por rol/tarea inyectados en los prompts, los OpenSkills instalados de verdad y las recomendaciones would-have-used cuando el CLI falta. `kj-tail` v1.37.0 añade un filtro 🎯 para los eventos `[skills:*]` — magenta en éxito, amarillo en rutas de degradación grácil. Cierra el bucle iniciado en v2.7.0: las decisiones de skills son ahora visibles en el tail en vivo, en `.kj/run.log` y en el `summary.md` persistente.
 
 **v2.7.1** (patch, 2026-04-23) — Restaura la publicación de binarios SEA (`kj-linux-x64`, `kj-darwin-arm64`, `kj-win-x64.exe` + checksums SHA256) en las GitHub Releases. El workflow `release-binaries.yml` llevaba fallando en silencio en cada push de tag desde **v2.4.1** (5 releases consecutivas con assets vacíos). Causa raíz: `scripts/build-sea.mjs` hace `await import("esbuild")` — un import dinámico ESM que resuelve desde `node_modules` local — mientras el workflow instalaba esbuild con `npm install -g`. Fix: `esbuild` (`^0.28.0`) y `postject` (`^1.0.0-alpha.6`) son ahora `devDependencies`, así un único `npm ci` los pone en `node_modules` donde el import dinámico los encuentra. v2.7.1 es byte-equivalente a v2.7.0 en runtime; la única diferencia son los assets de la release.
 
