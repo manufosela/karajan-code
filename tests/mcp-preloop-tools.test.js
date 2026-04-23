@@ -12,9 +12,11 @@ describe("kj_triage MCP tool schema", () => {
     expect(tool).toBeDefined();
   });
 
-  it("requires task parameter", () => {
+  it("accepts task or taskFile (either is valid)", () => {
     const tool = tools.find((t) => t.name === "kj_triage");
-    expect(tool.inputSchema.required).toContain("task");
+    expect(tool.inputSchema.required).toBeUndefined();
+    expect(tool.inputSchema.properties.task).toBeDefined();
+    expect(tool.inputSchema.properties.taskFile).toBeDefined();
   });
 
   it("has task as string property", () => {
@@ -29,9 +31,11 @@ describe("kj_researcher MCP tool schema", () => {
     expect(tool).toBeDefined();
   });
 
-  it("requires task parameter", () => {
+  it("accepts task or taskFile (either is valid)", () => {
     const tool = tools.find((t) => t.name === "kj_researcher");
-    expect(tool.inputSchema.required).toContain("task");
+    expect(tool.inputSchema.required).toBeUndefined();
+    expect(tool.inputSchema.properties.task).toBeDefined();
+    expect(tool.inputSchema.properties.taskFile).toBeDefined();
   });
 });
 
@@ -41,9 +45,11 @@ describe("kj_architect MCP tool schema", () => {
     expect(tool).toBeDefined();
   });
 
-  it("requires task parameter", () => {
+  it("accepts task or taskFile (either is valid)", () => {
     const tool = tools.find((t) => t.name === "kj_architect");
-    expect(tool.inputSchema.required).toContain("task");
+    expect(tool.inputSchema.required).toBeUndefined();
+    expect(tool.inputSchema.properties.task).toBeDefined();
+    expect(tool.inputSchema.properties.taskFile).toBeDefined();
   });
 
   it("has context as optional string", () => {

@@ -12,9 +12,15 @@ describe("kj_discover MCP tool schema", () => {
     expect(tool).toBeDefined();
   });
 
-  it("requires task parameter", () => {
+  it("accepts task or taskFile (either is valid)", () => {
     const tool = tools.find((t) => t.name === "kj_discover");
-    expect(tool.inputSchema.required).toContain("task");
+    // After KJC-TSK-0327 follow-up: `task` and `taskFile` are both optional
+    // in the schema; server-side validation enforces that at least one is
+    // present. Removing `required: ["task"]` lets clients pass taskFile alone.
+    expect(tool.inputSchema.required).toBeUndefined();
+    expect(tool.inputSchema.properties.task).toBeDefined();
+    expect(tool.inputSchema.properties.taskFile).toBeDefined();
+    expect(tool.inputSchema.properties.taskFile.type).toBe("string");
   });
 
   it("has mode as optional enum parameter", () => {

@@ -267,8 +267,14 @@ export async function handleResume(a, server, extra) {
 }
 
 export async function handleRun(a, server, extra) {
+  const { ensureTaskFromFile, resolveProjectDir: _rpd } = await import("../shared-helpers.js");
+  try {
+    await ensureTaskFromFile(a, a.projectDir || (await _rpd(server, a.projectDir).catch(() => null)));
+  } catch (err) {
+    return failPayload(`taskFile read failed: ${err.message}`);
+  }
   if (!a.task) {
-    return failPayload("Missing required field: task");
+    return failPayload("Missing required field: task (or pass taskFile with a .md path)");
   }
   if (a.taskType) {
     const validTypes = new Set(["sw", "infra", "doc", "add-tests", "refactor"]);

@@ -54,9 +54,9 @@ export const tools = [
       "Run the full Karajan pipeline. IMPORTANT: Pass the user's task description exactly as they wrote it. Do NOT group, split, reorder, or modify tasks yourself. Karajan handles decomposition, role activation, iteration, and quality gates internally. Do NOT override pipeline parameters (enableHuReviewer, mode, methodology) unless the user explicitly requested it. If you have observations about the task, use kj_suggest instead.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042)" },
+        task: { type: "string", description: "Task description for the coder (can include a Planning Game card ID like KJC-TSK-0042). Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md (or any text file) whose contents become the task description. Relative paths resolve against projectDir." },
         plan: { type: "string", description: "Plan ID from kj_plan. Loads persisted plan context and skips researcher/architect/planner stages." },
         projectDir: { type: "string", description: "Absolute path to the project directory. Required when KJ MCP server runs from a different directory than the target project." },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as task context and updates card status on completion." },
@@ -195,9 +195,9 @@ export const tools = [
     description: "Run coder-only mode. Pass the user's task exactly as described. Do NOT split or reinterpret the task.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string" },
+        task: { type: "string", description: "Task description. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         coder: { type: "string" },
         coderModel: { type: "string" },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
@@ -210,9 +210,9 @@ export const tools = [
     description: "Run reviewer-only mode against current diff. Do NOT filter or pre-process the diff before passing it.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string" },
+        task: { type: "string", description: "Task description. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         reviewer: { type: "string" },
         reviewerModel: { type: "string" },
         baseRef: { type: "string" },
@@ -236,9 +236,9 @@ export const tools = [
     description: "Generate implementation plan for a task. Pass the task as the user described it. Karajan's planner decides the approach.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string" },
+        task: { type: "string", description: "Task description. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         planner: { type: "string" },
         plannerModel: { type: "string" },
         coder: { type: "string", description: "Legacy alias for planner" },
@@ -253,9 +253,9 @@ export const tools = [
     description: "Analyze a task for gaps, ambiguities, and missing information before execution. Returns a verdict (ready/needs_validation) with structured gap list. Can read task details from Planning Game if pgTask is provided.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description to analyze for gaps" },
+        task: { type: "string", description: "Task description to analyze for gaps. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         mode: { type: "string", enum: ["gaps", "momtest", "wendel", "classify", "jtbd"], description: "Discovery mode: gaps (default), momtest (Mom Test questions), wendel (behavior change checklist), classify (START/STOP/DIFFERENT), or jtbd (Jobs-to-be-Done)" },
         context: { type: "string", description: "Additional context for the analysis (e.g., research output)" },
         pgTask: { type: "string", description: "Planning Game card ID (e.g., KJC-TSK-0042). If provided, fetches full card details as additional context." },
@@ -270,9 +270,9 @@ export const tools = [
     description: "Classify task complexity and recommend which pipeline roles to activate. Returns level (trivial/simple/medium/complex), taskType, recommended roles, and optional decomposition.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description to classify" },
+        task: { type: "string", description: "Task description to classify. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
@@ -283,9 +283,9 @@ export const tools = [
     description: "Research the codebase for a task. Identifies affected files, patterns, constraints, prior decisions, risks, and test coverage.",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description to research" },
+        task: { type: "string", description: "Task description to research. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
       }
@@ -296,9 +296,9 @@ export const tools = [
     description: "Design solution architecture for a task. Returns layers, patterns, data model, API contracts, tradeoffs, and a verdict (ready/needs_clarification).",
     inputSchema: {
       type: "object",
-      required: ["task"],
       properties: {
-        task: { type: "string", description: "Task description to architect" },
+        task: { type: "string", description: "Task description to architect. Either `task` or `taskFile` is required." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file." },
         context: { type: "string", description: "Additional context (e.g., researcher output)" },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
         kjHome: { type: "string" }
@@ -311,6 +311,8 @@ export const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        task: { type: "string", description: "Optional focus for the audit. If absent (and no taskFile), defaults to a full-codebase analysis." },
+        taskFile: { type: "string", description: "Alternative to `task`: path to a .md/text file with the audit focus." },
         projectDir: { type: "string", description: "Absolute path to the project to audit" },
         dimensions: { type: "string", description: "Comma-separated dimensions to analyze: security,codeQuality,performance,architecture,testing (default: all)" },
         kjHome: { type: "string" }

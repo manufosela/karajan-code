@@ -53,6 +53,18 @@ export async function runDirectRole({
   await assertAgentsAvailable([role.provider]);
 
   const projectDir = await resolveProjectDir(server, args.projectDir);
+
+  // Allow taskFile as alternative to inline task — works for every direct
+  // role (discover/triage/researcher/architect/audit/impeccable/...) without
+  // per-handler wiring. The mutation is in-place on the role's runInput /
+  // initContext since they are already built with `task: a.task`.
+  if ((!runInput?.task || runInput.task === undefined) && args.taskFile) {
+    const { readTaskFile } = await import("../utils/task-file.js");
+    const loaded = await readTaskFile(args.taskFile, { projectDir });
+    if (runInput) runInput.task = loaded;
+    if (initContext) initContext.task = loaded;
+    args.task = loaded;
+  }
   const runLog = createRunLog(projectDir);
   const startMsg = logStartMsg || `[kj_${effectiveStage}] started`;
   runLog.logText(startMsg);
