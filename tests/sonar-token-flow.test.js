@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 
 // --- Mocks for preflight-checks ---
 
@@ -37,8 +37,13 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
   let runPreflightChecks;
   let checkBinary, isSonarReachable, sonarUp, runCommand, loadSonarCredentials;
   let logger, emitter, eventBase;
+  // Sonar preflight tests opt out of the global __KJ_DISABLE_SONAR_STAGE
+  // (set in tests/setup.js so non-sonar tests don't hit Docker).
+  const prevSonarDisabled = globalThis.__KJ_DISABLE_SONAR_STAGE;
+  afterEach(() => { globalThis.__KJ_DISABLE_SONAR_STAGE = prevSonarDisabled; });
 
   beforeEach(async () => {
+    globalThis.__KJ_DISABLE_SONAR_STAGE = false;
     vi.resetAllMocks();
     delete process.env.KJ_SONAR_TOKEN;
     delete process.env.SONAR_TOKEN;

@@ -290,6 +290,20 @@ export async function loadConfig(projectDir) {
     throw new Error(`Invalid Karajan config:\n${formatConfigIssues(validation.issues)}`);
   }
 
+  // Deprecation tracking — `sonarqube.enabled` was a footgun: users would
+  // set it to `false` in their global ~/.karajan/kj.config.yml and then
+  // wonder why Sonar didn't run on a code task. Since v2.7.4 Sonar is
+  // intrinsic to Karajan for code tasks; the field is ignored. We surface
+  // a warning at run start (see emitConfigDeprecations in flow-runner.js)
+  // so users notice and clean up their config. Don't throw — keep
+  // back-compat so existing scripts keep working.
+  const userSetSonarEnabled = (globalConfig?.sonarqube?.enabled !== undefined)
+    || (projectConfig?.sonarqube?.enabled !== undefined);
+  if (userSetSonarEnabled) {
+    merged._deprecated = merged._deprecated || {};
+    merged._deprecated.sonarqubeEnabledKey = true;
+  }
+
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
 }
 
@@ -423,7 +437,16 @@ function applyOutputModeOverrides(out, flags) {
 
 function applyMiscOverrides(out, flags) {
   if (flags[AUTO_SIMPLIFY_FLAG] !== undefined) out.pipeline.auto_simplify = Boolean(flags[AUTO_SIMPLIFY_FLAG]);
-  if (flags.noSonar || flags.sonar === false) out.sonarqube.enabled = false;
+  // `--no-sonar` and `sonarqube.enabled: false` are deprecated since v2.7.4.
+  // Sonar is intrinsic to Karajan for code tasks (sw/refactor/add-tests) and
+  // skipped for non-code tasks (audit/doc/infra/analysis/no-code) by policy.
+  // The flag is still accepted to avoid breaking scripts; it now emits a
+  // warning at run start and is otherwise ignored. See preflight-checks.js
+  // and flow-runner.js for the actual gate (resolvedPolicies.sonar).
+  if (flags.noSonar || flags.sonar === false) {
+    out._deprecated = out._deprecated || {};
+    out._deprecated.noSonarFlag = true;
+  }
   out.sonarcloud = out.sonarcloud || {};
   if (flags.enableSonarcloud === true) out.sonarcloud.enabled = true;
   if (flags.noSonarcloud === true || flags.sonarcloud === false) out.sonarcloud.enabled = false;

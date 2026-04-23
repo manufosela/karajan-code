@@ -148,6 +148,17 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
+// Helper for tests that genuinely exercise the Sonar stage. Toggles the
+// global __KJ_DISABLE_SONAR_STAGE off for the duration of the it() block
+// and restores it on completion. Tests that DON'T need Sonar (most of
+// this file) are unaffected — the global default from tests/setup.js
+// keeps Sonar disabled.
+async function withSonarStageEnabled(fn) {
+  const prev = globalThis.__KJ_DISABLE_SONAR_STAGE;
+  globalThis.__KJ_DISABLE_SONAR_STAGE = false;
+  try { return await fn(); } finally { globalThis.__KJ_DISABLE_SONAR_STAGE = prev; }
+}
+
 describe("orchestrator events", () => {
   let runFlow;
 
@@ -316,7 +327,7 @@ describe("orchestrator events", () => {
     }
   });
 
-  it("runs sonar scan before reviewer when SonarQube is enabled", async () => {
+  it("runs sonar scan before reviewer when SonarQube is enabled", async () => withSonarStageEnabled(async () => {
     const { createAgent } = await import("../src/agents/index.js");
     const coderAgent = {
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "" })
@@ -384,7 +395,7 @@ describe("orchestrator events", () => {
 
     const sonarEnd = events.find((e) => e.type === "sonar:end");
     expect(sonarEnd?.detail?.projectKey).toBe("kj-repo-123");
-  });
+  }));
 
   it("emits agent:output events from coder and reviewer", async () => {
     const { createAgent } = await import("../src/agents/index.js");
@@ -635,7 +646,7 @@ describe("orchestrator events", () => {
     expect(runTask).toHaveBeenCalledWith(expect.objectContaining({ role: "refactorer" }));
   });
 
-  it("emits session:end with planner plan, sonar issue resolution, and commit details", async () => {
+  it("emits session:end with planner plan, sonar issue resolution, and commit details", async () => withSonarStageEnabled(async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));
@@ -722,9 +733,9 @@ describe("orchestrator events", () => {
     expect(sessionEnd?.detail?.stages?.sonar?.issuesResolved).toBe(5);
     expect(sessionEnd?.detail?.git?.commits).toEqual([{ hash: "abc1234", message: "feat: auth hardening" }]);
     expect(sessionEnd?.detail?.git?.prUrl).toBe("https://github.com/org/repo/pull/9");
-  });
+  }));
 
-  it("does not mutate caller config when policy gates disable TDD/Sonar (R-1)", async () => {
+  it("does not mutate caller config when policy gates disable TDD/Sonar (R-1)", async () => withSonarStageEnabled(async () => {
     const emitter = new EventEmitter();
 
     const config = {
@@ -755,9 +766,9 @@ describe("orchestrator events", () => {
     expect(config.development.methodology).toBe("tdd");
     expect(config.development.require_test_changes).toBe(true);
     expect(config.sonarqube.enabled).toBe(true);
-  });
+  }));
 
-  it("honors config.taskType when flags.taskType is absent (R-1)", async () => {
+  it("honors config.taskType when flags.taskType is absent (R-1)", async () => withSonarStageEnabled(async () => {
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e));
@@ -791,5 +802,5 @@ describe("orchestrator events", () => {
     expect(policyEvent.detail.taskType).toBe("doc");
     expect(policyEvent.detail.tdd).toBe(false);
     expect(policyEvent.detail.sonar).toBe(false);
-  });
+  }));
 });

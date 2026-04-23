@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 
 const REVIEW_OK = JSON.stringify({
@@ -140,9 +140,19 @@ vi.mock("../src/orchestrator/preflight-checks.js", () => ({
 }));
 
 describe("kj_run smoke", () => {
+  // This file legitimately exercises the Sonar stage. Opt out of the
+  // global test override (tests/setup.js sets __KJ_DISABLE_SONAR_STAGE=true
+  // by default so non-sonar tests don't hit the Docker stage).
+  const prevSonarDisabled = globalThis.__KJ_DISABLE_SONAR_STAGE;
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.KJ_SONAR_TOKEN;
+    globalThis.__KJ_DISABLE_SONAR_STAGE = false;
+  });
+  // Restore the global default after this describe block finishes so it
+  // doesn't leak to other suites.
+  afterAll(() => {
+    globalThis.__KJ_DISABLE_SONAR_STAGE = prevSonarDisabled;
   });
 
   it("autostarts SonarQube and scans before review when sonar service is unavailable", async () => {

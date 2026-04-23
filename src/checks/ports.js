@@ -38,15 +38,13 @@ export function createSonarPortCheck() {
     name: "port:sonar",
     label: "SonarQube port",
     strategy: STRATEGY.MANUAL,
-    // Returns { applies, reason } so the runner shows WHY when skipped.
-    // Common cause of confusion: a global ~/.karajan/kj.config.yml with
-    // `sonarqube.enabled: false` silently disables every sonar check —
-    // the user thinks Karajan is broken, when it's just respecting their
-    // config.
+    // Since v2.7.4 Sonar is intrinsic to Karajan for code tasks, so the
+    // port check almost always applies. The only legitimate skip is when
+    // the user runs their own external Sonar instance (`external: true`),
+    // in which case the port is managed outside Karajan. The legacy
+    // `sonarqube.enabled` field is ignored (deprecation warning emitted
+    // at config load time — see emitConfigDeprecations in flow-runner.js).
     applies: (config) => {
-      if (config?.sonarqube?.enabled === false) {
-        return { applies: false, reason: "sonarqube.enabled is false in kj.config.yml — set true to enable Sonar (Karajan auto-starts the docker container)" };
-      }
       if (config?.sonarqube?.external === true) {
         return { applies: false, reason: "sonarqube.external is true — port managed outside Karajan" };
       }

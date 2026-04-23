@@ -46,7 +46,11 @@ describe("applyRunOverrides", () => {
 
     expect(out.review_mode).toBe("paranoid");
     expect(out.base_branch).toBe("develop");
-    expect(out.sonarqube.enabled).toBe(false);
+    // Post-v2.7.4: --no-sonar no longer mutates sonarqube.enabled. Sonar is
+    // intrinsic to Karajan for code tasks; the flag is recorded as deprecated
+    // and surfaced as a warning at run start (see emitConfigDeprecations in
+    // flow-runner.js). The actual gate is resolvedPolicies.sonar.
+    expect(out._deprecated?.noSonarFlag).toBe(true);
     expect(out.session.max_iteration_minutes).toBe(1);
     expect(out.session.max_total_minutes).toBe(15);
     expect(out.reviewer_options.fallback_reviewer).toBe("gemini");
