@@ -1,41 +1,83 @@
 /**
- * API token availability checks.
+ * Provider CLI availability checks (preflight).
  *
- * Provider tokens (ANTHROPIC_API_KEY / OPENAI_API_KEY / ...) are LAZY:
- * we only check them for providers that are actually used by at least one
- * active role in the current config.
+ * IMPORTANT — Karajan does NOT call provider APIs directly. There is no
+ * `@anthropic-ai/sdk`, no `openai`, no `@google/generative-ai` in
+ * package.json. Every active role spawns its agent CLI as a subprocess
+ * (`claude`, `codex`, `gemini`, `opencode`, `aider`). The CLI handles its
+ * own auth, typically via OAuth + on-disk token (Claude Code, Codex CLI,
+ * Gemini CLI). The user does NOT need to set ANTHROPIC_API_KEY etc. for
+ * Karajan to work.
  *
- * Strategy:
- *   - Required providers with no key → FAIL, strategy manual (we can't
- *     fetch an API key for the user). Fix hint includes the how-to URL.
- *   - Optional providers (opencode, aider) without key → WARN.
- *   - GH_TOKEN is checked when git.auto_pr=true, strategy prompt (we can
- *     launch `gh auth login` with user approval).
+ * Pre-v2.7.4 this module checked for ANTHROPIC_API_KEY / OPENAI_API_KEY /
+ * GEMINI_API_KEY env vars and FAILed preflight when missing — a false
+ * positive that blocked every user running Karajan as an MCP child of
+ * Claude Code (where `apiKeySource: "none"` is the norm). Replaced with a
+ * CLI-availability check that mirrors what the orchestrator actually does.
+ *
+ * GH_TOKEN is still checked when `git.auto_pr=true`, because that flow uses
+ * `git push` directly with the env var.
  */
 
 import { checkBinary } from "../utils/agent-detect.js";
-import { getRequiredProviderEnvs, hasEnvVar } from "../utils/provider-env.js";
+import { getRequiredProviderEnvs, normalizeProvider } from "../utils/provider-env.js";
 import { STRATEGY } from "./types.js";
 
 /**
- * A single provider env check. One is created per active provider.
+ * Map canonical provider name → the CLI binary Karajan actually spawns.
+ * Keep in sync with src/agents/index.js.
  */
-function createProviderTokenCheck(entry) {
+const PROVIDER_TO_CLI = Object.freeze({
+  anthropic: "claude",
+  openai: "codex",
+  google: "gemini",
+  opencode: "opencode",
+  aider: "aider",
+});
+
+/**
+ * Build a CLI-availability check for one provider.
+ *
+ * The check runs `<cli> --version`. If the binary is on PATH and exits 0,
+ * preflight passes — Karajan can spawn it. If the CLI is missing, preflight
+ * fails with the install URL we already track in PROVIDER_ENV.
+ *
+ * Note: we do NOT verify that the CLI is *authenticated*. Doing so would
+ * require provider-specific introspection (`claude doctor`, `codex login
+ * status`, ...), each with its own quirks and exit codes. If the CLI is
+ * present but not logged in, the agent will fail at the first request with
+ * a clear error — and the orchestrator surfaces that error already.
+ */
+function createProviderCliCheck(entry) {
+  const cli = PROVIDER_TO_CLI[entry.provider];
   return {
-    name: `token:${entry.provider}`,
-    label: `API token: ${entry.provider}`,
+    name: `cli:${entry.provider}`,
+    label: `${entry.provider} CLI (${cli})`,
     strategy: STRATEGY.MANUAL,
     async detect() {
-      const ok = hasEnvVar(entry);
-      if (ok) {
-        return { ok: true, severity: "info", detail: `${entry.envVars[0]} is set` };
+      if (!cli) {
+        return {
+          ok: false,
+          severity: "warn",
+          detail: `Unknown CLI for provider ${entry.provider}`,
+          extra: { provider: entry.provider },
+        };
+      }
+      const result = await checkBinary(cli);
+      if (result.ok) {
+        return {
+          ok: true,
+          severity: "info",
+          detail: `${cli} on PATH (${result.version || "version unknown"})`,
+          extra: { provider: entry.provider, cli, version: result.version, path: result.path },
+        };
       }
       return {
         ok: false,
         severity: entry.optional ? "warn" : "fail",
-        detail: `${entry.envVars.join(" / ")} not set`,
-        fix: `Get an API key at ${entry.howToGetUrl} and export ${entry.envVars[0]}=...`,
-        extra: { provider: entry.provider, envVars: entry.envVars, howToGetUrl: entry.howToGetUrl },
+        detail: `${cli} not found on PATH`,
+        fix: `Install the ${cli} CLI: see ${entry.howToGetUrl}`,
+        extra: { provider: entry.provider, cli, howToGetUrl: entry.howToGetUrl },
       };
     },
   };
@@ -43,6 +85,8 @@ function createProviderTokenCheck(entry) {
 
 /**
  * GH token check + auto-remediation via `gh auth login` when it's installed.
+ * Kept from the previous version: this one IS legitimate because Karajan
+ * uses `gh` (or raw `git push`) directly when auto_pr is on.
  */
 function createGhTokenCheck() {
   return {
@@ -82,15 +126,24 @@ function createGhTokenCheck() {
 }
 
 /**
- * Build the list of token checks for the active config. Each active provider
- * gets one, plus conditional GH token when auto_pr is on.
+ * Build the list of CLI/token checks for the active config.
+ * - One CLI availability check per active provider (claude / codex / gemini / ...).
+ * - One GH token check, conditional on git.auto_pr.
+ *
+ * Function name kept as `getTokenChecks` for backward compat with
+ * preflight-checks.js, even though the bulk of the checks no longer touch
+ * tokens at all. Tracked: rename to `getProviderChecks` in a follow-up
+ * once consumers are updated.
  *
  * @param {Object} config
  * @returns {import("./types.js").Check[]}
  */
 export function getTokenChecks(config) {
   const required = getRequiredProviderEnvs(config);
-  const checks = required.map(createProviderTokenCheck);
+  const checks = required.map(createProviderCliCheck);
   checks.push(createGhTokenCheck());
   return checks;
 }
+
+// Re-export for tests that need to introspect the mapping.
+export { PROVIDER_TO_CLI, normalizeProvider };

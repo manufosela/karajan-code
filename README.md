@@ -297,9 +297,9 @@ Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Bre
 | Tool | Why |
 |------|-----|
 | [**RTK**](https://github.com/rtk-ai/rtk) | Reduces token consumption by 60-90% on Bash command outputs |
-| [**Planning Game MCP**](https://github.com/AgenteIA-Geniova/planning-game-mcp) | Agile project management (tasks, sprints, estimation), XP-native |
-| [**GitHub MCP**](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | Create PRs, manage issues directly from the agent |
-| [**Chrome DevTools MCP**](https://github.com/anthropics/anthropic-quickstarts/tree/main/chrome-devtools-mcp) | Verify UI changes visually after frontend modifications |
+| [**Planning Game MCP**](https://github.com/manufosela/planning-game-xp-mcp) | Agile project management (tasks, sprints, estimation), XP-native |
+| [**GitHub MCP**](https://github.com/github/github-mcp-server) | Create PRs, manage issues directly from the agent |
+| [**Chrome DevTools MCP**](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Verify UI changes visually after frontend modifications |
 
 ## Contributing
 

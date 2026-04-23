@@ -1864,7 +1864,11 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   } catch (initError) {
     // Pre-loop stage failure → Solomon decides
     logger.warn(`Init/pre-loop error — escalating to Solomon: ${initError.message}`);
-    const tempSession = { id: "init-error", task, status: "failed" };
+    // tempSession needs `checkpoints` because invokeSolomon → addCheckpoint
+    // pushes into it. Pre-v2.7.4 this lacked the array and crashed with
+    // "Cannot read properties of undefined (reading 'push')" the moment
+    // Solomon was consulted on a preflight failure.
+    const tempSession = { id: "init-error", task, status: "failed", checkpoints: [] };
     const solomonResult = await invokeSolomon({
       config, logger, emitter, eventBase: { sessionId: "init-error", iteration: 0, stage: "init", startedAt: Date.now() },
       stage: "init_error", askQuestion, session: tempSession, iteration: 0,
