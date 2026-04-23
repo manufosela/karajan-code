@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-04-23
+
+### Fixed
+
+- **SEA binary release workflow has been broken since v2.4.1** (PR #459). Five releases (v2.4.1, v2.5.0, v2.6.0, v2.6.1, v2.7.0) shipped with empty GitHub Release assets because `scripts/build-sea.mjs` calls `await import("esbuild")` — an ESM dynamic import that resolves from local `node_modules`, not from globally-installed packages — while the workflow installed esbuild with `npm install -g`. Every tag push failed silently at "Build SEA binary" with `Cannot find package 'esbuild' imported from scripts/build-sea.mjs`. Fix: `esbuild` (`^0.28.0`) and `postject` (`^1.0.0-alpha.6`) are now declared as `devDependencies`; a single `npm ci` in the workflow pulls them into `node_modules` where the dynamic import can resolve them. Verified locally — `node scripts/build-sea.mjs` produces a working 119 MB `dist/kj` that reports `--version 2.7.1`. v2.7.1 is the first release since v2.4.0 to actually ship the `linux-x64` / `darwin-arm64` / `win-x64` binaries plus their SHA256 checksums.
+
 ## [2.7.0] - 2026-04-22
 
 ### Added
