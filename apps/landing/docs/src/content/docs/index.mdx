@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v2.6.0 — Modular orchestrator: 2 000-line monolith split into a 22-line barrel + flow-runner + StageExecutor contract. Infrastructure DI for unit-testable agents. Valibot config validation catches typos at load time. HU Board auto-start with a prominent URL banner. 3 638 tests, 283 files."
+  tagline: "v2.7.0 — addyosmani/agent-skills as first-source process catalog. Karajan now pulls 20+ lifecycle skills (TDD, code-review, security, performance, git-workflow…) from Addy Osmani's curated repo and injects them per role BEFORE OpenSkills stack skills. Shallow clone + weekly refresh + graceful degradation when git is missing. 3 672 tests, 285 files."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -23,6 +23,9 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
+  <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
+    First-source process skills from [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development, and more. Auto-cloned to `~/.karajan/agent-skills/`, refreshed weekly via `git pull`. Role-aware: each Karajan role (tester, reviewer, security, architect, coder...) receives the workflows that match its job. Fully orthogonal to OpenSkills — process skills and stack skills compose.
+  </Card>
   <Card title="Modular Orchestrator (v2.6)" icon="puzzle">
     `src/orchestrator.js` shrunk from a 2 084-line monolith to a 22-line public barrel over `src/orchestrator/flow-runner.js`. New `StageExecutor` contract (`canRun` / `execute` / `onFailure`) plus a `StageRegistry` lets future stages register themselves without touching the core. Adding a new stage is now a drop-in: put a `StageExecutor` subclass under `src/orchestrator/stages/`, register it, done.
   </Card>

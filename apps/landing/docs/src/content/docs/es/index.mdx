@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v2.6.0 — Orquestador modular: monolito de 2 000 líneas dividido en un barrel de 22 líneas + flow-runner + contrato StageExecutor. DI de infraestructura para tests unitarios reales de los agents. Validación de config con Valibot. HU Board con banner de URL prominente. 3 638 tests, 283 ficheros."
+  tagline: "v2.7.0 — addyosmani/agent-skills como catálogo de skills de proceso de primera fuente. Karajan descarga 20+ skills de ciclo de vida (TDD, code-review, security, performance, git-workflow…) del repo curado de Addy Osmani e inyecta los que tocan a cada rol ANTES de los skills de stack de OpenSkills. Clone superficial + refresco semanal + degradación grácil si falta git. 3 672 tests, 285 ficheros."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -23,6 +23,9 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
+  <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
+    Skills de proceso de primera fuente desde [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development y más. Clonado automático en `~/.karajan/agent-skills/`, refresco semanal con `git pull`. Consciente del rol: cada rol de Karajan (tester, reviewer, security, architect, coder...) recibe los workflows que le corresponden. Totalmente ortogonal a OpenSkills — los skills de proceso y los de stack se componen.
+  </Card>
   <Card title="Orquestador Modular (v2.6)" icon="puzzle">
     `src/orchestrator.js` pasa de monolito de 2 084 líneas a barrel público de 22 líneas sobre `src/orchestrator/flow-runner.js`. Nuevo contrato `StageExecutor` (`canRun` / `execute` / `onFailure`) + `StageRegistry` permite registrar stages sin tocar el core. Añadir un stage nuevo es ahora un drop-in: subclase bajo `src/orchestrator/stages/`, registrar y listo.
   </Card>
