@@ -10,7 +10,7 @@
  *   4. Inject the blob into the binary with postject
  *   5. (macOS only) Re-sign the binary with ad-hoc signature
  *
- * Requirements (installed globally or via npx):
+ * Requirements (installed as devDependencies — run `npm ci` first):
  *   - esbuild
  *   - postject
  *
