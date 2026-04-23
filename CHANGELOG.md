@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.2] - 2026-04-23
+
+### Added
+
+- **Skills observability** (PR #461, follow-up to KJC-TSK-0327). Two improvements so the user can see which skills Karajan actually used per run:
+  - `summary.md` gains a new **"Skills Used"** section listing the addyosmani/agent-skills action (`cloned` / `pulled` / `fresh` / `unavailable`) and the role/task-resolved slugs that were injected into role prompts, the OpenSkills actually installed this run, and OpenSkills recommended (would-have-used) when the CLI is missing. Section is elided when no skill activity happened. Data flows from `flow-runner.js` → `summary-writer.js` via a new `skills: { addyosmani, installed, recommended }` field on `SummaryInput`. Seven new vitest cases cover every combination + elision.
+  - `kj-tail` **v1.37.0** gains a 🎯 filter for `[skills:*]` events — magenta for success (`ready` / `auto-install`), yellow for graceful-degradation paths (`unavailable` / `would have used`). Previously these lines fell through to the default styling without an icon, so skill decisions were hard to spot in the live tail.
+
 ## [2.7.1] - 2026-04-23
 
 ### Fixed
