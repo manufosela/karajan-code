@@ -3,6 +3,7 @@ import readline from "node:readline";
 import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
+import { withCliRunLog } from "../utils/cli-run-log.js";
 import { printHeader } from "../utils/display/header.js";
 import { printEvent } from "../utils/display/event-handlers.js";
 import { resolveRole } from "../config.js";
@@ -57,32 +58,41 @@ export async function runCommandHandler({ task, config, logger, flags }) {
   // Quiet mode is the default; --verbose disables it
   const quietMode = config.output?.quiet !== false;
 
-  const emitter = new EventEmitter();
-  let activityLog = null;
+  return withCliRunLog("run", { projectDir: config?.projectDir, logger }, async ({ runLog, forwardProgress }) => {
+    runLog.logText(`[kj_run] task="${String(task).slice(0, 80)}..."`);
 
-  emitter.on("progress", (event) => {
-    if (!activityLog && event.sessionId) {
-      activityLog = createActivityLog(event.sessionId);
-      logger.onLog((entry) => activityLog.write(entry));
-    }
+    const emitter = new EventEmitter();
+    let activityLog = null;
 
-    if (activityLog) {
-      activityLog.writeEvent(event);
-    }
+    // Mirror every progress event into .kj/run.log so kj-tail works identically
+    // whether the command came from the MCP server or the CLI (KJC-TSK-0327 follow-up).
+    forwardProgress(emitter);
+
+    emitter.on("progress", (event) => {
+      if (!activityLog && event.sessionId) {
+        activityLog = createActivityLog(event.sessionId);
+        logger.onLog((entry) => activityLog.write(entry));
+      }
+
+      if (activityLog) {
+        activityLog.writeEvent(event);
+      }
+
+      if (!jsonMode) {
+        printEvent(event, { quiet: quietMode });
+      }
+    });
 
     if (!jsonMode) {
-      printEvent(event, { quiet: quietMode });
+      printHeader({ task: task, config });
     }
+
+    const askQuestion = createCliAskQuestion();
+    const result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+
+    if (jsonMode) {
+      console.log(JSON.stringify(result, null, 2));
+    }
+    return { ok: !result?.paused && result?.approved !== false };
   });
-
-  if (!jsonMode) {
-    printHeader({ task: task, config });
-  }
-
-  const askQuestion = createCliAskQuestion();
-  const result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
-
-  if (jsonMode) {
-    console.log(JSON.stringify(result, null, 2));
-  }
 }

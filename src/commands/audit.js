@@ -2,6 +2,7 @@ import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
+import { withCliRunLog } from "../utils/cli-run-log.js";
 
 function formatFindings(findings) {
   const lines = [];
@@ -66,34 +67,41 @@ function formatAudit(parsed) {
 }
 
 export async function auditCommand({ task, config, logger, dimensions, json }) {
-  const auditRole = resolveRole(config, "audit");
-  await assertAgentsAvailable([auditRole.provider]);
-  logger.info(`Audit (${auditRole.provider}) starting...`);
+  return withCliRunLog("audit", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const auditRole = resolveRole(config, "audit");
+    await assertAgentsAvailable([auditRole.provider]);
+    logger.info(`Audit (${auditRole.provider}) starting...`);
+    runLog.logText(`[audit] provider=${auditRole.provider} dimensions=${dimensions || "all"}`);
 
-  const agent = createAgent(auditRole.provider, config, logger);
-  const dimList = dimensions && dimensions !== "all"
-    ? dimensions.split(",").map(d => d.trim().toLowerCase()).map(d => d === "quality" ? "codeQuality" : d).filter(d => AUDIT_DIMENSIONS.includes(d))
-    : null;
+    const agent = createAgent(auditRole.provider, config, logger);
+    const dimList = dimensions && dimensions !== "all"
+      ? dimensions.split(",").map(d => d.trim().toLowerCase()).map(d => d === "quality" ? "codeQuality" : d).filter(d => AUDIT_DIMENSIONS.includes(d))
+      : null;
 
-  const prompt = buildAuditPrompt({ task: task || "Analyze the full codebase", dimensions: dimList });
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await agent.runTask({ prompt, onOutput, role: "audit" });
+    const prompt = buildAuditPrompt({ task: task || "Analyze the full codebase", dimensions: dimList });
+    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+    const result = await agent.runTask({ prompt, onOutput, role: "audit" });
 
-  if (!result.ok) {
-    throw new Error(result.error || result.output || "Audit failed");
-  }
+    if (!result.ok) {
+      throw new Error(result.error || result.output || "Audit failed");
+    }
 
-  const parsed = parseAuditOutput(result.output);
+    const parsed = parseAuditOutput(result.output);
+    if (parsed?.summary) {
+      runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
+    }
 
-  if (json) {
-    console.log(JSON.stringify(parsed || result.output, null, 2));
-    return;
-  }
+    if (json) {
+      console.log(JSON.stringify(parsed || result.output, null, 2));
+      return { ok: true };
+    }
 
-  if (parsed?.summary) {
-    console.log(formatAudit(parsed));
-  } else {
-    console.log(result.output);
-  }
-  logger.info("Audit completed.");
+    if (parsed?.summary) {
+      console.log(formatAudit(parsed));
+    } else {
+      console.log(result.output);
+    }
+    logger.info("Audit completed.");
+    return { ok: true };
+  });
 }

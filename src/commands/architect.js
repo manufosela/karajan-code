@@ -58,30 +58,35 @@ function formatArchitect(result) {
 }
 
 export async function architectCommand({ task, config, logger, context, json }) {
-  const architectRole = resolveRole(config, "architect");
-  await assertAgentsAvailable([architectRole.provider]);
-  logger.info(`Architect (${architectRole.provider}) starting...`);
+  const { withCliRunLog } = await import("../utils/cli-run-log.js");
+  return withCliRunLog("architect", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
+    const architectRole = resolveRole(config, "architect");
+    await assertAgentsAvailable([architectRole.provider]);
+    logger.info(`Architect (${architectRole.provider}) starting...`);
+    runLog.logText(`[architect] provider=${architectRole.provider}`);
 
-  const agent = createAgent(architectRole.provider, config, logger);
-  const prompt = await buildArchitectPrompt({ task, researchContext: context });
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await agent.runTask({ prompt, onOutput, role: "architect" });
+    const agent = createAgent(architectRole.provider, config, logger);
+    const prompt = await buildArchitectPrompt({ task, researchContext: context });
+    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
+    const result = await agent.runTask({ prompt, onOutput, role: "architect" });
 
-  if (!result.ok) {
-    throw new Error(result.error || result.output || "Architect failed");
-  }
+    if (!result.ok) {
+      throw new Error(result.error || result.output || "Architect failed");
+    }
 
-  const parsed = parseArchitectOutput(result.output);
+    const parsed = parseArchitectOutput(result.output);
 
-  if (json) {
-    console.log(JSON.stringify(parsed || result.output, null, 2));
-    return;
-  }
+    if (json) {
+      console.log(JSON.stringify(parsed || result.output, null, 2));
+      return { ok: true };
+    }
 
-  if (parsed?.verdict) {
-    console.log(formatArchitect(parsed));
-  } else {
-    console.log(result.output);
-  }
-  logger.info("Architect completed.");
+    if (parsed?.verdict) {
+      console.log(formatArchitect(parsed));
+    } else {
+      console.log(result.output);
+    }
+    logger.info("Architect completed.");
+    return { ok: true };
+  });
 }
