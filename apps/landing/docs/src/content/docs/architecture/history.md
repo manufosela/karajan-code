@@ -5,7 +5,9 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
-## Phase 57: addyosmani/agent-skills as first-source process catalog (v2.7.0 / v2.7.1 / v2.7.2)
+## Phase 57: addyosmani/agent-skills as first-source process catalog (v2.7.0 / v2.7.1 / v2.7.2 / v2.7.3)
+
+**v2.7.3** (patch, 2026-04-23) — Three dogfooding fixes driven by a live test run. (1) Every task-taking command — CLI `kj run/code/review/plan/audit/discover/triage/researcher/architect` and the matching MCP tools — now accepts a task from a `.md` file via `--task-file <path>` (CLI) or `taskFile` (MCP). Positional `task` still wins when both are given. (2) CLI invocations finally write `.kj/run.log` like MCP does via a new `withCliRunLog()` helper, so `kj-tail` is symmetric regardless of whether Claude Code launches `kj` via Bash or via the MCP tool. (3) Node 18 LTS is supported for real now: preflight used to require Node 20 with a misleading message, but the four features it cited (`structuredClone`, `findLast`, `AbortSignal.timeout`, stable `fetch`) are all 18+; `MIN_NODE_MAJOR` lowered to 18, CI lint matrix gains `18.x`. `kj-tail` v1.38.0 additionally waits for the log file to appear instead of exiting when it is missing, so users can no longer miss early lines by racing the command.
 
 **v2.7.2** (patch, 2026-04-23) — Skills observability: `summary.md` now includes a "Skills Used" section listing the addyosmani action (`cloned`/`pulled`/`fresh`/`unavailable`) and the role/task-resolved slugs injected into role prompts, the OpenSkills actually installed, and would-have-used recommendations when the CLI is missing. `kj-tail` v1.37.0 adds a 🎯 filter for `[skills:*]` events — magenta on success, yellow on graceful-degradation paths. Closes the loop started in v2.7.0: skill decisions are now visible in the live tail, in `.kj/run.log`, and in the persistent `summary.md`.
 

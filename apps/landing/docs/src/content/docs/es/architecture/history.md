@@ -5,7 +5,9 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
-## Fase 57: addyosmani/agent-skills como catálogo de proceso de primera fuente (v2.7.0 / v2.7.1 / v2.7.2)
+## Fase 57: addyosmani/agent-skills como catálogo de proceso de primera fuente (v2.7.0 / v2.7.1 / v2.7.2 / v2.7.3)
+
+**v2.7.3** (patch, 2026-04-23) — Tres fixes de dogfooding detectados en pruebas en vivo. (1) Cada comando que recibe una tarea — CLI `kj run/code/review/plan/audit/discover/triage/researcher/architect` y las herramientas MCP equivalentes — acepta ahora la tarea desde un `.md` vía `--task-file <path>` (CLI) o `taskFile` (MCP). El task posicional sigue ganando cuando se dan los dos. (2) Las invocaciones CLI escriben por fin `.kj/run.log` como hace el MCP vía un nuevo helper `withCliRunLog()`, así `kj-tail` es simétrico tanto si Claude Code lanza `kj` por Bash como por la herramienta MCP. (3) Node 18 LTS soportado de verdad: el preflight exigía Node 20 con un mensaje engañoso, pero las cuatro features que citaba (`structuredClone`, `findLast`, `AbortSignal.timeout`, `fetch` estable) son todas 18+; `MIN_NODE_MAJOR` baja a 18 y la matriz de lint de CI gana `18.x`. `kj-tail` v1.38.0 además espera a que aparezca el log en vez de salir cuando no existe, así los usuarios no pierden líneas iniciales por carreras con el comando.
 
 **v2.7.2** (patch, 2026-04-23) — Observabilidad de skills: `summary.md` incluye ahora una sección "Skills Used" listando la acción de addyosmani (`cloned`/`pulled`/`fresh`/`unavailable`) y los slugs resueltos por rol/tarea inyectados en los prompts, los OpenSkills instalados de verdad y las recomendaciones would-have-used cuando el CLI falta. `kj-tail` v1.37.0 añade un filtro 🎯 para los eventos `[skills:*]` — magenta en éxito, amarillo en rutas de degradación grácil. Cierra el bucle iniciado en v2.7.0: las decisiones de skills son ahora visibles en el tail en vivo, en `.kj/run.log` y en el `summary.md` persistente.
 
