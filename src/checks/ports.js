@@ -38,7 +38,20 @@ export function createSonarPortCheck() {
     name: "port:sonar",
     label: "SonarQube port",
     strategy: STRATEGY.MANUAL,
-    applies: (config) => config?.sonarqube?.enabled !== false,
+    // Returns { applies, reason } so the runner shows WHY when skipped.
+    // Common cause of confusion: a global ~/.karajan/kj.config.yml with
+    // `sonarqube.enabled: false` silently disables every sonar check —
+    // the user thinks Karajan is broken, when it's just respecting their
+    // config.
+    applies: (config) => {
+      if (config?.sonarqube?.enabled === false) {
+        return { applies: false, reason: "sonarqube.enabled is false in kj.config.yml — set true to enable Sonar (Karajan auto-starts the docker container)" };
+      }
+      if (config?.sonarqube?.external === true) {
+        return { applies: false, reason: "sonarqube.external is true — port managed outside Karajan" };
+      }
+      return true;
+    },
     async detect({ config }) {
       const port = extractPortFromHost(config?.sonarqube?.host, DEFAULT_SONAR_PORT);
       const free = await isPortAvailable(port);
@@ -73,7 +86,12 @@ export function createHuBoardPortCheck() {
     name: "port:hu-board",
     label: "HU Board port",
     strategy: STRATEGY.AUTO,
-    applies: (config) => config?.hu_board?.enabled !== false,
+    applies: (config) => {
+      if (config?.hu_board?.enabled === false) {
+        return { applies: false, reason: "hu_board.enabled is false in kj.config.yml — HU Board dashboard skipped" };
+      }
+      return true;
+    },
     describe: "Rebind HU Board to the next free port",
     async detect({ config }) {
       const port = config?.hu_board?.port || DEFAULT_HU_BOARD_PORT;

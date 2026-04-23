@@ -28,7 +28,28 @@ describe("checks/runner", () => {
       const c = makeCheck({ applies: () => false });
       const report = await runChecks([c], { config: {} });
       expect(report.checks[0].status).toBe(STATUS.SKIPPED);
+      expect(report.checks[0].detail).toBe("Not applicable for current configuration");
       expect(c.detect).not.toHaveBeenCalled();
+    });
+
+    it("uses the reason from applies() when given { applies: false, reason }", async () => {
+      // Per-check skip reason — lets users see WHY a check was skipped
+      // (e.g. "sonarqube.enabled is false in kj.config.yml") instead of
+      // the opaque default "Not applicable" message.
+      const c = makeCheck({
+        applies: () => ({ applies: false, reason: "sonarqube.enabled is false in kj.config.yml" }),
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.SKIPPED);
+      expect(report.checks[0].detail).toBe("sonarqube.enabled is false in kj.config.yml");
+      expect(c.detect).not.toHaveBeenCalled();
+    });
+
+    it("treats { applies: true } object identically to boolean true", async () => {
+      const c = makeCheck({ applies: () => ({ applies: true }) });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.OK);
+      expect(c.detect).toHaveBeenCalledOnce();
     });
 
     it("catches thrown errors in detect and marks as FAIL", async () => {

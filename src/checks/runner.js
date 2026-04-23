@@ -55,19 +55,35 @@ export async function runChecks(checks, ctx, options = {}) {
   const overrides = {};
 
   // Build applicable entries (skipped checks noted up front).
+  // A check.applies(config) may return:
+  //   - true / false — boolean form (back-compat).
+  //   - an object { applies: boolean, reason?: string } — when false, `reason`
+  //     is shown verbatim so users see WHY (e.g. "sonarqube.enabled is false
+  //     in kj.config.yml") instead of the opaque "Not applicable" message
+  //     that confused users debugging their config.
   for (const check of checks) {
-    if (typeof check.applies === "function" && !check.applies(config)) {
-      entries.push({
-        check,
-        status: STATUS.SKIPPED,
-        detail: "Not applicable for current configuration",
-        runMs: 0,
-        detectResult: null,
-        remediated: false,
-      });
-    } else {
+    if (typeof check.applies !== "function") {
       entries.push({ check, status: null, detail: null, runMs: 0, detectResult: null, remediated: false });
+      continue;
     }
+    const verdict = check.applies(config);
+    const isObj = verdict && typeof verdict === "object" && "applies" in verdict;
+    const applies = isObj ? Boolean(verdict.applies) : Boolean(verdict);
+    if (applies) {
+      entries.push({ check, status: null, detail: null, runMs: 0, detectResult: null, remediated: false });
+      continue;
+    }
+    const reason = (isObj && typeof verdict.reason === "string" && verdict.reason.trim())
+      ? verdict.reason.trim()
+      : "Not applicable for current configuration";
+    entries.push({
+      check,
+      status: STATUS.SKIPPED,
+      detail: reason,
+      runMs: 0,
+      detectResult: null,
+      remediated: false,
+    });
   }
 
   // Phase 1: detect in parallel with timeout.

@@ -50,9 +50,18 @@ describe("checks/ports", () => {
       expect(result.extra.port).toBe(9000);
     });
 
-    it("applies only when Sonar is enabled", () => {
+    it("applies only when Sonar is enabled, and explains WHY when not", () => {
       const check = mod.createSonarPortCheck();
-      expect(check.applies({ sonarqube: { enabled: false } })).toBe(false);
+      // Post-fix: applies() returns { applies, reason } when skipped so the
+      // user sees the cause instead of the opaque "Not applicable for current
+      // configuration" that confused users with `enabled: false` in their
+      // global ~/.karajan/kj.config.yml.
+      const disabled = check.applies({ sonarqube: { enabled: false } });
+      expect(disabled).toEqual({ applies: false, reason: expect.stringMatching(/sonarqube\.enabled is false/i) });
+
+      const external = check.applies({ sonarqube: { enabled: true, external: true } });
+      expect(external).toEqual({ applies: false, reason: expect.stringMatching(/external/i) });
+
       expect(check.applies({ sonarqube: { enabled: true } })).toBe(true);
     });
   });
