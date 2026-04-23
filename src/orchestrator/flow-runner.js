@@ -452,6 +452,14 @@ async function finalizeApprovedSession({ config, gitCtx, task, logger, session, 
         finishedAt: new Date().toISOString(),
         brainDecisions: Array.isArray(session.brainDecisions) ? session.brainDecisions.length : 0,
         solomonInvocations: Array.isArray(session.solomonRulings) ? session.solomonRulings.length : 0,
+        // KJC-TSK-0327: surface skill-source decisions in the summary so the
+        // post-mortem shows which process skills (addyosmani) and stack skills
+        // (OpenSkills) actually shaped the role prompts.
+        skills: {
+          addyosmani: session.addyosmaniSkills,
+          installed: session.autoInstalledSkills,
+          recommended: session.skillsRecommended,
+        },
       }, { logger });
       logger.info(`Session journal written to ${journalDir}`);
     } catch (err) {

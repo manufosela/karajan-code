@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.36.0"
+VERSION="1.37.0"
 
 # ── Colors ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -245,6 +245,17 @@ filter_line() {
   # Preflight
   if [[ "$clean" == *"[preflight"* ]] || [[ "$clean" == *"Preflight"* ]]; then
     echo -e "${prefix}${GRAY}  ├─ ⚙️  ${clean}${RESET}"
+    return
+  fi
+
+  # Skills (addyosmani catalog + OpenSkills marketplace)
+  if [[ "$clean" == *"[skills:"* ]] || [[ "$clean" == *"[skills]"* ]]; then
+    # Highlight failures/unavailability in yellow, successes in magenta
+    if [[ "$clean" == *"unavailable"* ]] || [[ "$clean" == *"would have used"* ]]; then
+      echo -e "${prefix}${YELLOW}  ├─ 🎯 ${clean}${RESET}"
+    else
+      echo -e "${prefix}${MAGENTA}  ├─ 🎯 ${clean}${RESET}"
+    fi
     return
   fi
 
