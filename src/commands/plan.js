@@ -120,21 +120,37 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   plan.risks = parsed?.risks || [];
   plan.outOfScope = parsed?.outOfScope || [];
 
-  // Convert planner steps → HUs
+  // Convert planner steps → HUs, carrying the structured acceptance_tests
+  // the LLM was asked to emit. If the LLM fell back to legacy behaviour
+  // (omitted tests or returned an empty array) we DO NOT inject a fake
+  // suite-wide placeholder — that was the pre-v2.7.5 lie. Instead we
+  // stamp `acceptance_tests: []` and the board / CLI flag the HU as
+  // "missing test contract" so the user can either regenerate or edit
+  // the tests manually before executing.
+  const { normaliseAcceptanceTests } = await import("../plan/plan-schema.js");
   const steps = parsed?.steps || [];
   let prevId = null;
+  let stepsMissingTests = 0;
   for (const step of steps) {
     const desc = typeof step === "string" ? step : step.description || step.title || JSON.stringify(step);
+    const rawTests = typeof step === "object" ? step.acceptance_tests : null;
+    const tests = normaliseAcceptanceTests(rawTests);
+    if (tests.length === 0) stepsMissingTests += 1;
     const hu = addHu(plan, {
       title: desc.slice(0, 80),
       task_type: classifyTaskType(desc),
       scope: desc,
       blocked_by: prevId ? [prevId] : [],
-      acceptance_tests: [
-        "npx vitest run 2>&1; test $? -eq 0 && echo PASS || echo FAIL"
-      ]
+      acceptance_tests: tests,
     });
     prevId = hu.id;
+  }
+  if (stepsMissingTests > 0) {
+    runLog.logText(
+      `[planner] WARN: ${stepsMissingTests}/${steps.length} HUs have no acceptance_tests — `
+      + `the planner LLM did not emit a test contract. Edit them on the board `
+      + `or re-run \`kj plan\` before executing. These HUs are flagged "missing test contract".`
+    );
   }
 
   const planId = await savePlan(projectDir, plan);
@@ -264,6 +280,21 @@ export async function planReadyCommand({ config, planId }) {
 
   if (plan.hus.length === 0) {
     console.error("Cannot approve a plan with 0 HUs.");
+    process.exitCode = 1;
+    return;
+  }
+
+  // Tests-first gate: refuse to certify HUs that have no acceptance_tests.
+  // A "ready" plan must have an executable test contract per HU, otherwise
+  // the coder has nothing to aim for. Flag each offender, then bail so the
+  // user can edit the plan (board ✎ Edit or `kj plan add-hu`) and retry.
+  const missing = plan.hus.filter((h) => !Array.isArray(h.acceptance_tests) || h.acceptance_tests.length === 0);
+  if (missing.length > 0) {
+    console.error(`Cannot mark ready: ${missing.length}/${plan.hus.length} HU(s) have no acceptance_tests:`);
+    for (const h of missing) console.error(`  - ${h.id}  ${(h.title || "").slice(0, 60)}`);
+    console.error("");
+    console.error("Tests-first flow requires a test contract per HU. Edit each HU on the board");
+    console.error("(http://localhost:4000) via the ✎ Edit button, or re-run `kj plan` to regenerate.");
     process.exitCode = 1;
     return;
   }

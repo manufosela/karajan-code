@@ -710,28 +710,34 @@ function renderStoryCard(story) {
     return `${initials}-${m ? m[1] : '?'}`;
   };
 
+  // Tests-first flag: a HU with zero acceptance_tests has no contract
+  // for the coder, so `Run plan` will refuse to execute it. Surface
+  // this on the card so the user edits the HU before trying to run.
+  const missingTestContract = testCount === 0 && ['pending', 'certified'].includes(story.status);
+
   return `
     <div class="story-card" onclick="showStoryDetail('${esc(story.id)}')">
       <div class="story-card__id" title="${esc(story.id)}">${esc(shortId)}</div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">
         ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
-        ${/* The test count chip was misleading: `kj plan` stamps one
-           placeholder test ("npx vitest run …") on every HU, so the
-           card always read "🧪 1 test" regardless of what the HU
-           actually needed. The modal still shows the Acceptance Tests
-           section for anyone who wants to inspect what will run. */ ''}
+        ${testCount > 0 ? `<span title="${testCount} acceptance tests declared">✅ ${testCount} test${testCount === 1 ? '' : 's'}</span>` : ''}
         ${story.quality_total !== null ? `
           <span class="story-card__score ${scoreClass(story.quality_total)}" title="INVEST score">
             ${story.quality_total}/60 ${qualityBar(story.quality_total)}
           </span>
         ` : ''}
       </div>
+      ${missingTestContract ? `
+        <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--color-yellow,#eab308);font-weight:600" title="This HU has no acceptance_tests declared — Run plan will reject it until you add at least one.">
+          ⚠ missing test contract
+        </div>
+      ` : ''}
       ${blockedBy.length > 0 ? `
         <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--text-muted)" title="This HU waits on: ${esc(blockedBy.join(', '))}">
           ⏳ waits for: ${blockedBy.map((d) => esc(shortDep(d))).join(', ')}
         </div>
-      ` : (story.status === 'pending' || story.status === 'certified') ? `
+      ` : (story.status === 'pending' || story.status === 'certified') && !missingTestContract ? `
         <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--color-green)" title="No dependencies — runs first on the next 'Run plan'">
           🟢 ready to run
         </div>
@@ -1111,37 +1117,42 @@ async function showStoryDetail(storyId) {
         </div>
       ` : ''}
 
-      ${tests.length > 0 ? `
+      ${tests.length === 0 ? `
+        <div class="modal__section" style="border:1px solid var(--color-yellow,#eab308);background:rgba(234,179,8,0.08);padding:10px 12px;border-radius:var(--radius-sm)">
+          <div class="modal__section-title" style="color:var(--color-yellow,#eab308)">⚠ Missing test contract</div>
+          <div style="font-size:0.85rem;line-height:1.5;margin-top:4px">
+            This HU has no acceptance_tests declared. The tests-first pipeline (v2.7.5)
+            refuses to run HUs without an executable contract. Click ✎ Edit above and
+            add at least one test — a <code>shell</code> command that exits 0 on pass,
+            or a <code>gherkin</code> Given/When/Then spec.
+          </div>
+        </div>
+      ` : `
         <div class="modal__section">
           <div class="modal__section-title">Acceptance Tests (${tests.length})</div>
           <ul class="modal__ac-list">
             ${tests.map((t) => {
-              if (typeof t === 'string') return `<li class="modal__ac-item">${esc(t)}</li>`;
-              const label = t.name || t.title || t.id || '';
-              const desc = t.description || t.scope || '';
-              const given = t.given || (t.gherkin && t.gherkin.given);
-              if (given) {
-                const when = t.when || (t.gherkin && t.gherkin.when);
-                const then = t.then || (t.gherkin && t.gherkin.then);
-                return `<li class="modal__ac-item">
-                  ${label ? `<strong>${esc(label)}</strong><br>` : ''}
-                  <code>Given</code> ${esc(given)}<br>
-                  <code>When</code> ${esc(when || '')}<br>
-                  <code>Then</code> ${esc(then || '')}
-                </li>`;
+              // Legacy form: plain string — render as shell.
+              if (typeof t === 'string') {
+                return `<li class="modal__ac-item"><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-right:8px">shell</span><code>${esc(t)}</code></li>`;
               }
-              if (label || desc) {
-                return `<li class="modal__ac-item">
-                  ${label ? `<strong>${esc(label)}</strong>` : ''}
-                  ${label && desc ? '<br>' : ''}
-                  ${desc ? esc(desc) : ''}
-                </li>`;
+              // v2.7.5 structured form: { type, content, file? }
+              if (t && typeof t === 'object' && typeof t.content === 'string') {
+                const type = t.type === 'gherkin' ? 'gherkin' : 'shell';
+                const badgeColor = type === 'gherkin' ? 'var(--color-blue,#3b82f6)' : 'var(--text-muted)';
+                const fileBit = t.file ? ` <span style="color:var(--text-muted);font-size:0.75rem;margin-left:8px">→ ${esc(t.file)}</span>` : '';
+                if (type === 'gherkin') {
+                  return `<li class="modal__ac-item"><span style="font-size:0.7rem;color:${badgeColor};text-transform:uppercase;letter-spacing:0.5px;margin-right:8px">gherkin</span>${fileBit}<pre style="white-space:pre-wrap;margin:4px 0 0 0;font-family:inherit;font-size:0.9rem;line-height:1.5">${esc(t.content)}</pre></li>`;
+                }
+                return `<li class="modal__ac-item"><span style="font-size:0.7rem;color:${badgeColor};text-transform:uppercase;letter-spacing:0.5px;margin-right:8px">shell</span>${fileBit}<code>${esc(t.content)}</code></li>`;
               }
+              // Fallback for anything else: show the raw JSON so the user
+              // can diagnose malformed entries.
               return `<li class="modal__ac-item"><code>${esc(JSON.stringify(t))}</code></li>`;
             }).join('')}
           </ul>
         </div>
-      ` : ''}
+      `}
 
       ${ctxRequests.length > 0 ? `
         <div class="modal__section">
@@ -1202,6 +1213,24 @@ function renderStoryEditForm(story) {
     .map((c) => typeof c === 'string' ? c : (c.given ? `Given ${c.given} | When ${c.when} | Then ${c.then}` : JSON.stringify(c)))
     .join('\n');
 
+  // Tests-first editor: one block per test with a type selector
+  // (shell | gherkin), the content textarea, optional file path, and
+  // a remove button. Save collects them into the structured v2.7.5
+  // array shape. Plain strings in the existing data are treated as
+  // legacy shell tests and auto-upgraded to the structured form.
+  const rawTests = story.acceptance_tests ? JSON.parse(story.acceptance_tests) : [];
+  const testsInitial = rawTests.map((t) => {
+    if (typeof t === 'string') return { type: 'shell', content: t, file: '' };
+    if (t && typeof t === 'object') {
+      return {
+        type: t.type === 'gherkin' ? 'gherkin' : 'shell',
+        content: typeof t.content === 'string' ? t.content : JSON.stringify(t),
+        file: typeof t.file === 'string' ? t.file : '',
+      };
+    }
+    return { type: 'shell', content: String(t ?? ''), file: '' };
+  });
+
   const scopeInitial = story.original_text || story.certified_want || '';
   const TASK_TYPES = ['sw', 'infra', 'doc', 'add-tests', 'refactor'];
 
@@ -1245,6 +1274,17 @@ function renderStoryEditForm(story) {
                   style="padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);font-family:var(--font-mono, monospace);font-size:0.85rem;line-height:1.5;resize:vertical">${esc(acInitial)}</textarea>
       </label>
 
+      <fieldset style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin:0">
+        <legend style="color:var(--text-muted);font-size:0.85rem;padding:0 6px">
+          Acceptance tests — the contract the coder must satisfy
+        </legend>
+        <div id="edit-tests-list" style="display:flex;flex-direction:column;gap:8px"></div>
+        <button type="button" id="edit-tests-add"
+                style="margin-top:8px;padding:4px 10px;font-size:0.8rem;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer">
+          + Add test
+        </button>
+      </fieldset>
+
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:12px;border-top:1px solid var(--border)">
         <button type="button" id="edit-cancel" class="control-btn"
                 style="padding:6px 14px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
@@ -1258,8 +1298,62 @@ function renderStoryEditForm(story) {
     </form>
   `;
 
+  // Tests editor state + renderers. Kept on the function scope (not
+  // on window) so reopening the form gives a fresh copy.
+  let testRows = [...testsInitial];
+  const listEl = document.getElementById('edit-tests-list');
+
+  function renderTestsEditor() {
+    listEl.innerHTML = testRows.map((t, i) => `
+      <div class="edit-test-row" data-idx="${i}"
+           style="display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:start;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-primary)">
+        <select data-field="type"
+                style="padding:4px 6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text);border-radius:var(--radius-sm);font-size:0.8rem">
+          <option value="shell"${t.type === 'shell' ? ' selected' : ''}>shell</option>
+          <option value="gherkin"${t.type === 'gherkin' ? ' selected' : ''}>gherkin</option>
+        </select>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <textarea data-field="content" rows="${t.type === 'gherkin' ? 3 : 2}"
+                    placeholder="${t.type === 'gherkin' ? 'Given …\\nWhen …\\nThen …' : 'npx vitest run test/foo.test.js'}"
+                    style="padding:6px 8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text);border-radius:var(--radius-sm);font-family:var(--font-mono, monospace);font-size:0.82rem;line-height:1.4;resize:vertical">${esc(t.content)}</textarea>
+          <input type="text" data-field="file" placeholder="Optional: file path (e.g. tests/login.test.ts)" value="${esc(t.file || '')}"
+                 style="padding:4px 8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text);border-radius:var(--radius-sm);font-family:var(--font-mono, monospace);font-size:0.75rem">
+        </div>
+        <button type="button" data-field="remove" title="Remove this test"
+                style="align-self:start;padding:4px 8px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:var(--radius-sm);cursor:pointer;font-size:0.8rem">✕</button>
+      </div>
+    `).join('');
+
+    // Bind the edit events. We re-bind on every render — cheap, and
+    // keeps the state → DOM mapping simple.
+    listEl.querySelectorAll('.edit-test-row').forEach((row) => {
+      const idx = Number(row.dataset.idx);
+      row.querySelector('[data-field="type"]').addEventListener('change', (e) => {
+        testRows[idx].type = e.target.value;
+        renderTestsEditor();            // re-render so placeholder updates
+      });
+      row.querySelector('[data-field="content"]').addEventListener('input', (e) => {
+        testRows[idx].content = e.target.value;
+      });
+      row.querySelector('[data-field="file"]').addEventListener('input', (e) => {
+        testRows[idx].file = e.target.value;
+      });
+      row.querySelector('[data-field="remove"]').addEventListener('click', () => {
+        testRows.splice(idx, 1);
+        renderTestsEditor();
+      });
+    });
+  }
+
+  renderTestsEditor();
+
+  document.getElementById('edit-tests-add').addEventListener('click', () => {
+    testRows.push({ type: 'shell', content: '', file: '' });
+    renderTestsEditor();
+  });
+
   document.getElementById('edit-cancel').addEventListener('click', () => showStoryDetail(story.id));
-  document.getElementById('edit-save').addEventListener('click', () => saveStoryEdits(story));
+  document.getElementById('edit-save').addEventListener('click', () => saveStoryEdits(story, () => testRows));
 }
 
 /**
@@ -1268,7 +1362,7 @@ function renderStoryEditForm(story) {
  * a no-op (close out of edit mode without an API call).
  * @param {object} story
  */
-async function saveStoryEdits(story) {
+async function saveStoryEdits(story, getTestRows) {
   const title = document.getElementById('edit-title').value.trim();
   const scope = document.getElementById('edit-scope').value;
   const taskType = document.getElementById('edit-task-type').value;
@@ -1291,6 +1385,18 @@ async function saveStoryEdits(story) {
       return line;
     });
 
+  // Collect the structured acceptance_tests from the editor state,
+  // dropping rows the user left empty.
+  const testRows = typeof getTestRows === 'function' ? getTestRows() : [];
+  const acceptance_tests = testRows
+    .map((t) => ({
+      type: t.type === 'gherkin' ? 'gherkin' : 'shell',
+      content: (t.content || '').trim(),
+      file: (t.file || '').trim(),
+    }))
+    .filter((t) => t.content.length > 0)
+    .map((t) => (t.file ? t : { type: t.type, content: t.content }));
+
   // Diff against the original so we don't send untouched fields and
   // let the server's COALESCE keep existing values.
   const patch = {};
@@ -1301,6 +1407,9 @@ async function saveStoryEdits(story) {
   const prevAcStr = story.acceptance_criteria || '[]';
   const nextAcStr = JSON.stringify(acceptance_criteria);
   if (nextAcStr !== prevAcStr) patch.acceptance_criteria = acceptance_criteria;
+  const prevTestsStr = story.acceptance_tests || '[]';
+  const nextTestsStr = JSON.stringify(acceptance_tests);
+  if (nextTestsStr !== prevTestsStr) patch.acceptance_tests = acceptance_tests;
 
   if (Object.keys(patch).length === 0) {
     showStoryDetail(story.id);
