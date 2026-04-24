@@ -41,8 +41,8 @@ From v2.0, Karajan introduces the **Karajan Brain** layer: an AI-powered orchest
 
 ```
 karajan-code/
-├── src/              # Source code (28k LOC, 234 files)
-├── tests/            # Test suite (3057 tests)
+├── src/              # Source code (36k LOC, 261 files)
+├── tests/            # Test suite (291 test files)
 ├── templates/        # Role definitions (MD) + skill docs + workflows
 ├── docs/             # Documentation (you are here)
 ├── scripts/          # Install, release scripts
@@ -54,7 +54,7 @@ karajan-code/
 
 ### Core pipeline (`src/orchestrator/`)
 
-The main pipeline lives in `src/orchestrator.js` (~1400 LOC) and calls functions from `src/orchestrator/`:
+The main pipeline lives in `src/orchestrator.js` (22-line barrel) → delegates to `src/orchestrator/flow-runner.js` (2241 LOC) and calls functions from `src/orchestrator/`:
 
 | File | Purpose |
 |------|---------|
