@@ -46,13 +46,21 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
     return { role, provider, scope: "global", configPath };
   }
 
-  // Session scope — try MCP session override first
+  // Session scope — write to the process-lifetime runtime-overrides store.
+  // Post-v2.7.5 this store lives at the session layer
+  // (src/session/runtime-overrides.js) instead of under src/mcp/, so the
+  // CLI no longer reaches into the MCP layer. The store is in-memory for
+  // the current process: MCP server long-lived invocations see the
+  // override across tool calls, CLI short-lived invocations naturally
+  // lose it at exit (that's fine — CLI users who want persistence pass
+  // --global or let it fall through to the project config below).
+  const { setRuntimeOverride } = await import("../session/runtime-overrides.js");
+  setRuntimeOverride(role, provider);
+
+  // Also mirror to the project config file so future CLI invocations pick
+  // it up. (The in-memory store alone is useless for CLI because the
+  // process exits immediately after.)
   try {
-    const { setSessionOverride } = await import("../mcp/preflight.js");
-    setSessionOverride(role, provider);
-    return { role, provider, scope: "session" };
-  } catch { /* preflight module not available in CLI mode */
-    // preflight module not available (CLI mode) — write to project config
     const projectConfigPath = getProjectConfigPath();
     const projectConfig = (await loadProjectConfig()) || {};
     projectConfig.roles = projectConfig.roles || {};
@@ -60,6 +68,10 @@ export async function setAgent(role, provider, { global: isGlobal = false } = {}
     projectConfig.roles[role].provider = provider;
     await writeConfig(projectConfigPath, projectConfig);
     return { role, provider, scope: "project", configPath: projectConfigPath };
+  } catch {
+    // Project config not writable — still counts as a session-scope set
+    // because the in-memory store got updated above.
+    return { role, provider, scope: "session" };
   }
 }
 

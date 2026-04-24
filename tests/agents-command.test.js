@@ -1,18 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/config.js", () => ({
-  loadConfig: vi.fn(),
-  writeConfig: vi.fn(),
-  getConfigPath: vi.fn(() => "/home/user/.karajan/kj.config.yml"),
-  resolveRole: vi.fn((config, role) => {
-    const roles = config?.roles || {};
-    return {
-      provider: roles[role]?.provider || "claude",
-      model: roles[role]?.model || null
-    };
-  })
-}));
-
 vi.mock("../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn(async () => ({ ok: false })),
   KNOWN_AGENTS: [
@@ -23,17 +10,38 @@ vi.mock("../src/utils/agent-detect.js", () => ({
   ]
 }));
 
-vi.mock("../src/mcp/preflight.js", () => ({
-  setSessionOverride: vi.fn(),
-  getSessionOverrides: vi.fn(() => ({})),
-  isPreflightAcked: vi.fn(() => false),
-  ackPreflight: vi.fn(),
-  resetPreflight: vi.fn()
+// Post-v2.7.5 agents.js imports from src/session/runtime-overrides.js
+// (layer-neutral), not from src/mcp/preflight.js (layer violation).
+vi.mock("../src/session/runtime-overrides.js", () => ({
+  setRuntimeOverride: vi.fn(),
+  getRuntimeOverrides: vi.fn(() => ({})),
+  clearRuntimeOverrides: vi.fn()
 }));
 
+// loadProjectConfig / getProjectConfigPath are now called by the session
+// fallback path — mock them here so the test doesn't hit the real fs.
+vi.mock("../src/config.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    loadConfig: vi.fn(),
+    writeConfig: vi.fn(),
+    getConfigPath: vi.fn(() => "/home/user/.karajan/kj.config.yml"),
+    loadProjectConfig: vi.fn(() => null),
+    getProjectConfigPath: vi.fn(() => "/project/.karajan/kj.config.yml"),
+    resolveRole: vi.fn((config, role) => {
+      const roles = config?.roles || {};
+      return {
+        provider: roles[role]?.provider || "claude",
+        model: roles[role]?.model || null
+      };
+    })
+  };
+});
+
 const { listAgents, setAgent } = await import("../src/commands/agents.js");
-const { loadConfig, writeConfig, getConfigPath } = await import("../src/config.js");
-const { setSessionOverride } = await import("../src/mcp/preflight.js");
+const { loadConfig, writeConfig } = await import("../src/config.js");
+const { setRuntimeOverride } = await import("../src/session/runtime-overrides.js");
 
 describe("agents command", () => {
   beforeEach(() => {
@@ -85,14 +93,35 @@ describe("agents command", () => {
       );
     });
 
-    it("stores in session only with global=false (default)", async () => {
+    it("writes to project config + runtime-override when global=false (default)", async () => {
+      // Post-v2.7.5: the CLI no longer stops at "session only" (an
+      // in-memory state a CLI process loses on exit, useless). It now
+      // both updates the runtime-override store (for any MCP server in
+      // the same process) AND mirrors to .karajan/kj.config.yml so the
+      // next CLI invocation picks it up.
+      writeConfig.mockResolvedValue(undefined);
       const result = await setAgent("coder", "gemini");
 
       expect(result.role).toBe("coder");
       expect(result.provider).toBe("gemini");
+      expect(result.scope).toBe("project");
+      expect(result.configPath).toBe("/project/.karajan/kj.config.yml");
+      expect(setRuntimeOverride).toHaveBeenCalledWith("coder", "gemini");
+      expect(writeConfig).toHaveBeenCalledWith(
+        "/project/.karajan/kj.config.yml",
+        expect.objectContaining({
+          roles: expect.objectContaining({
+            coder: expect.objectContaining({ provider: "gemini" })
+          })
+        })
+      );
+    });
+
+    it("falls back to session scope when project config is not writable", async () => {
+      writeConfig.mockRejectedValueOnce(new Error("EACCES"));
+      const result = await setAgent("coder", "gemini");
       expect(result.scope).toBe("session");
-      expect(writeConfig).not.toHaveBeenCalled();
-      expect(setSessionOverride).toHaveBeenCalledWith("coder", "gemini");
+      expect(setRuntimeOverride).toHaveBeenCalledWith("coder", "gemini");
     });
 
     it("throws for unknown role", async () => {

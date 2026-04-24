@@ -219,6 +219,19 @@ function formatBootstrapFailure(failures) {
  * Throws Error with actionable message if any prerequisite fails.
  */
 export async function ensureBootstrap(projectDir, config) {
+  // Plugin discovery runs unconditionally on every bootstrap, regardless
+  // of whether the bootstrap cache says environment is valid. A user
+  // dropping a new file into `.karajan/plugins/` expects it to be picked
+  // up without running `kj init` again.
+  //
+  // Pre-v2.7.5 this was never called — `loadPlugins()` was exported but
+  // never imported from production code, so any plugin the user added
+  // was silently ignored. Fixed in TSK-0329.
+  try {
+    const { loadPlugins } = await import("./plugins/loader.js");
+    await loadPlugins({ projectDir });
+  } catch { /* plugin system failed — non-blocking, continue bootstrap */ }
+
   const cached = await readBootstrapFile(projectDir);
   if (isBootstrapValid(cached, projectDir)) {
     return; // Environment already validated
