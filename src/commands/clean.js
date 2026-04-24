@@ -18,11 +18,12 @@
  * sweep more or less aggressively without editing config.
  */
 
-import { runManualGC, summarizeGC } from "../utils/garbage-collector.js";
+import { runManualGC, summarizeGC, nukeBoardDb } from "../utils/garbage-collector.js";
 
 /**
  * @param {Object} opts
  * @param {boolean} [opts.yes=false]           - when false, dry-run only
+ * @param {boolean} [opts.nuke=false]          - retention=0 for every bucket + wipe board DB
  * @param {number}  [opts.planDays=30]
  * @param {number}  [opts.draftDays=60]
  * @param {number}  [opts.sessionDays=7]
@@ -31,13 +32,25 @@ import { runManualGC, summarizeGC } from "../utils/garbage-collector.js";
  */
 export async function cleanCommand(opts = {}) {
   const dryRun = !opts.yes;
-  const result = await runManualGC({
-    planRetentionDays: opts.planDays,
-    draftRetentionDays: opts.draftDays,
-    sessionRetentionDays: opts.sessionDays,
-    huRetentionDays: opts.huDays,
-    dryRun,
-  });
+  // --nuke forces retention=0 everywhere so drafts / sessions / plans of
+  // any age are swept. Combined with wipeBoardDb this is the "I want it
+  // all gone right now" button.
+  const retention = opts.nuke
+    ? { planRetentionDays: 0, draftRetentionDays: 0, sessionRetentionDays: 0, huRetentionDays: 0 }
+    : {
+      planRetentionDays: opts.planDays,
+      draftRetentionDays: opts.draftDays,
+      sessionRetentionDays: opts.sessionDays,
+      huRetentionDays: opts.huDays,
+    };
+  const result = await runManualGC({ ...retention, dryRun });
+
+  if (opts.nuke) {
+    const boardResult = await nukeBoardDb({ dryRun });
+    result.removed.push(...boardResult.removed);
+    result.bytesFreed += boardResult.bytesFreed;
+    result.errors.push(...boardResult.errors);
+  }
 
   if (!result.removed.length) {
     console.log("[clean] nothing to clean — ~/.kj/ and ~/.karajan/ are tidy.");

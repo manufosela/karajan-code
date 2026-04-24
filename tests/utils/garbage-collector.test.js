@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {
-  runManualGC, runAutoGC, summarizeGC,
+  runManualGC, runAutoGC, summarizeGC, nukeBoardDb,
 } from "../../src/utils/garbage-collector.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -226,5 +226,33 @@ describe("garbage-collector — summary + autoGC", () => {
 
     expect(result.removed).toEqual([]);
     expect(result.errors).toEqual([]);
+  });
+});
+
+describe("garbage-collector — nukeBoardDb", () => {
+  it("removes hu-board.db / db-wal / db-shm / pid when dryRun=false", async () => {
+    await fs.writeFile(path.join(tmpKarajan, "hu-board.db"), "fakedb");
+    await fs.writeFile(path.join(tmpKarajan, "hu-board.db-wal"), "fakewal");
+    await fs.writeFile(path.join(tmpKarajan, "hu-board.db-shm"), "fakeshm");
+
+    const result = await nukeBoardDb({ dryRun: false });
+
+    expect(result.removed.length).toBe(3);
+    await expect(fs.stat(path.join(tmpKarajan, "hu-board.db"))).rejects.toThrow();
+  });
+
+  it("dry-run reports but doesn't touch files", async () => {
+    await fs.writeFile(path.join(tmpKarajan, "hu-board.db"), "fakedb");
+
+    const result = await nukeBoardDb({ dryRun: true });
+
+    expect(result.removed.length).toBe(1);
+    const stat = await fs.stat(path.join(tmpKarajan, "hu-board.db"));
+    expect(stat.isFile()).toBe(true);
+  });
+
+  it("no-op when the board DB doesn't exist", async () => {
+    const result = await nukeBoardDb({ dryRun: false });
+    expect(result.removed).toEqual([]);
   });
 });

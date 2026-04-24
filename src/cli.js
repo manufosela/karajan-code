@@ -261,6 +261,7 @@ program
   .command("clean")
   .description("Garbage-collect stale plans, sessions and HU batches (dry-run by default)")
   .option("--yes", "Actually delete — without this flag, only prints what would be removed")
+  .option("--nuke", "Retention=0 everywhere + wipe HU board DB. \"I want it all gone\"")
   .option("--plan-days <n>", "Keep finalised plans (approved/rejected/executed) for N days (default: 30)")
   .option("--draft-days <n>", "Keep draft plans for N days (default: 60)")
   .option("--session-days <n>", "Keep finalised sessions for N days (default: 7)")
@@ -268,6 +269,7 @@ program
   .action(async (flags) => {
     await cleanCommand({
       yes: Boolean(flags.yes),
+      nuke: Boolean(flags.nuke),
       planDays: flags.planDays ? Number(flags.planDays) : undefined,
       draftDays: flags.draftDays ? Number(flags.draftDays) : undefined,
       sessionDays: flags.sessionDays ? Number(flags.sessionDays) : undefined,
