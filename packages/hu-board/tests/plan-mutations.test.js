@@ -410,6 +410,68 @@ describe('GET /api/plans/:planId/log', () => {
   });
 });
 
+describe('plan_order topological stamping', () => {
+  it('stamps plan_order = index in plan.hus[] so cards sort roots-first', () => {
+    writePlanToDisk({
+      hus: [
+        { id: `${PLAN_ID}_001`, title: 'root', status: 'pending', acceptance_criteria: [], blocked_by: [], createdAt: 'a', updatedAt: 'a' },
+        { id: `${PLAN_ID}_002`, title: 'mid',  status: 'pending', acceptance_criteria: [], blocked_by: [`${PLAN_ID}_001`], createdAt: 'b', updatedAt: 'b' },
+        { id: `${PLAN_ID}_003`, title: 'leaf', status: 'pending', acceptance_criteria: [], blocked_by: [`${PLAN_ID}_002`], createdAt: 'c', updatedAt: 'c' },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const stories = dbMod.getStoriesByProject(PROJECT_ID);
+    // getStoriesByProject orders by plan_order ASC, so roots first,
+    // then their dependents — matching kj run --plan's topo sort.
+    expect(stories[0].id).toBe(`${PROJECT_ID}::${PLAN_ID}_001`);
+    expect(stories[1].id).toBe(`${PROJECT_ID}::${PLAN_ID}_002`);
+    expect(stories[2].id).toBe(`${PROJECT_ID}::${PLAN_ID}_003`);
+    expect(stories[0].plan_order).toBe(0);
+    expect(stories[2].plan_order).toBe(2);
+  });
+});
+
+describe('empty acceptance_tests entries must not inflate test_count', () => {
+  it('ignores null, empty strings, and structureless objects', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_900`,
+          title: 'noise',
+          status: 'pending',
+          acceptance_criteria: [],
+          acceptance_tests: ['', null, { foo: 'bar' }, '   ', {}],
+          blocked_by: [],
+          createdAt: 'a', updatedAt: 'a',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const row = dbMod.getStoriesByProject(PROJECT_ID).find((s) => s.id.endsWith('_900'));
+    expect(row.test_count).toBe(0);
+    expect(row.acceptance_tests).toBeNull();
+  });
+
+  it('keeps real string tests and Gherkin objects', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_901`,
+          title: 'real',
+          status: 'pending',
+          acceptance_criteria: [],
+          acceptance_tests: ['npx vitest', { given: 'x', when: 'y', then: 'z' }, ''],
+          blocked_by: [],
+          createdAt: 'a', updatedAt: 'a',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const row = dbMod.getStoriesByProject(PROJECT_ID).find((s) => s.id.endsWith('_901'));
+    expect(row.test_count).toBe(2);
+  });
+});
+
 describe('acceptance_tests stamping', () => {
   it('persists acceptance_tests JSON on the story row so the modal can render the list', () => {
     writePlanToDisk({

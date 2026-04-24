@@ -10,6 +10,7 @@ import {
   insertContextRequest,
   getDb,
 } from './db.js';
+import { publish as publishEvent } from './event-bus.js';
 
 /**
  * Derive a human-readable project name from batch data.
@@ -176,6 +177,7 @@ function syncStoryFile(filePath) {
     }
 
     console.log(`[sync] Synced stories from ${basename(join(filePath, '..'))}: ${(data.stories || []).length} stories`);
+    publishEvent({ type: 'batch', projectId, path: filePath });
   } catch (err) {
     console.error(`[sync] Error syncing story file ${filePath}:`, err.message);
   }
@@ -277,6 +279,7 @@ function syncSessionFile(filePath) {
     });
 
     console.log(`[sync] Synced session ${sessionId}: status=${data.status}, iterations=${maxIteration}`);
+    publishEvent({ type: 'session', projectId, sessionId });
   } catch (err) {
     console.error(`[sync] Error syncing session file ${filePath}:`, err.message);
   }
@@ -321,9 +324,21 @@ export function syncPlanFile(filePath) {
       total_stories: data.hus.length,
     });
 
-    for (const hu of data.hus) {
+    for (let i = 0; i < data.hus.length; i += 1) {
+      const hu = data.hus[i];
       const acList = Array.isArray(hu.acceptance_criteria) ? hu.acceptance_criteria : [];
-      const testList = Array.isArray(hu.acceptance_tests) ? hu.acceptance_tests : [];
+      // Only count tests that carry real content. `kj plan` stamps a
+      // placeholder like `["npx vitest run ..."]` on every HU — those
+      // DO count as 1 test each. But empty strings / null entries
+      // (which show up in half-baked plans) must not inflate the
+      // badge to "🧪 1 test" on a HU that effectively has none.
+      const testList = (Array.isArray(hu.acceptance_tests) ? hu.acceptance_tests : [])
+        .filter((t) => {
+          if (!t) return false;
+          if (typeof t === 'string') return t.trim().length > 0;
+          // objects: require some identifying field
+          return Boolean(t.name || t.title || t.description || t.given || t.gherkin || t.scope);
+        });
       const blockedByList = Array.isArray(hu.blocked_by) ? hu.blocked_by : [];
       const acText = acList.length > 0 ? JSON.stringify(acList) : null;
 
@@ -358,10 +373,14 @@ export function syncPlanFile(filePath) {
         // "🧪 2 tests" next to the list. Pre-patch the card showed
         // test_count but the modal had nothing to render.
         acceptance_tests: testList.length > 0 ? JSON.stringify(testList) : null,
+        // Index in plan.hus[] — used by getStoriesByProject to order
+        // cards topologically (roots first, dependents last).
+        plan_order: i,
       });
     }
 
     console.log(`[sync] Plan ${projectId}: ${data.hus.length} HUs (${projectName})`);
+    publishEvent({ type: 'plan', projectId, planId: data.planId });
   } catch (err) {
     console.error(`[sync] Failed to sync plan ${filePath}: ${err.message}`);
   }

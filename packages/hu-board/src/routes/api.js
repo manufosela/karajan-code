@@ -17,6 +17,7 @@ import {
 } from '../db.js';
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutations.js';
+import { subscribe as subscribeEvents } from '../event-bus.js';
 
 const router = Router();
 
@@ -344,6 +345,57 @@ router.post('/projects/:id/ready', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * GET /api/events - Server-Sent Events stream for live board updates.
+ *
+ * Replaces the old "sync → full page re-render" dance. The chokidar
+ * watcher publishes a small event on every sync (plan/session/batch);
+ * this endpoint pipes those events to every connected client. The
+ * client patches the affected card in place, so scroll position and
+ * any open modal survive the update.
+ *
+ * The connection stays open for the life of the tab. Browsers
+ * auto-reconnect on socket drop — we send a keep-alive comment every
+ * 25s so intermediate proxies don't kill the idle socket.
+ */
+router.get('/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // Disable Express compression on this route — SSE must be a raw
+    // stream, gzip buffers and breaks the "push on every event" model.
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+  // Initial hello so the client knows the stream is open. Useful for
+  // the integration test too: the EventSource-equivalent supertest
+  // client can wait on the first line.
+  res.write('retry: 2000\n');
+  res.write('event: hello\ndata: {"ok":true}\n\n');
+
+  const send = (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      // Client gone — the close handler will clean up shortly.
+    }
+  };
+  const unsubscribe = subscribeEvents(send);
+
+  // 25s is well under the default 60-90s idle timeout of every sane
+  // reverse proxy, but high enough that it doesn't spam the log.
+  const keepAlive = setInterval(() => {
+    try { res.write(': keep-alive\n\n'); } catch { /* ignore */ }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    unsubscribe();
+    res.end?.();
+  });
 });
 
 /**
