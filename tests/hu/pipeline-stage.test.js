@@ -41,7 +41,7 @@ vi.mock("../../src/agents/index.js", () => ({
   }))
 }));
 
-vi.mock("../../src/session-store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {})
 }));

@@ -4,7 +4,7 @@
  */
 
 import { ResearcherRole } from "../../roles/researcher-role.js";
-import { addCheckpoint } from "../../session-store.js";
+import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 

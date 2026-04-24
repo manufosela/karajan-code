@@ -2,7 +2,7 @@ import { TesterRole } from "../roles/tester-role.js";
 import { SecurityRole } from "../roles/security-role.js";
 import { ImpeccableRole } from "../roles/impeccable-role.js";
 import { AuditRole } from "../roles/audit-role.js";
-import { addCheckpoint, saveSession } from "../session-store.js";
+import { addCheckpoint, saveSession } from "../session/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 

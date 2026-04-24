@@ -1,5 +1,5 @@
 import { createAgent } from "../agents/index.js";
-import { addCheckpoint } from "../session-store.js";
+import { addCheckpoint } from "../session/store.js";
 import { detectRateLimit } from "../utils/rate-limit-detector.js";
 
 /**

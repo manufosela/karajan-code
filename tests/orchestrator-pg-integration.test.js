@@ -4,7 +4,7 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   createSession: vi.fn(async (init) => ({ id: "sess-1", created_at: "2026-03-07T00:00:00Z", checkpoints: [], ...init })),
   loadSession: vi.fn(),
   markSessionStatus: vi.fn(async () => {}),

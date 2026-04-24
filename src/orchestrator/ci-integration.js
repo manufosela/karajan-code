@@ -2,7 +2,7 @@
  * CI/CD integration — early PR creation, incremental push, review dispatch.
  * Extracted from orchestrator.js — self-contained feature, only active when ci.enabled.
  */
-import { saveSession } from "../session-store.js";
+import { saveSession } from "../session/store.js";
 import { earlyPrCreation, incrementalPush } from "../git/automation.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 

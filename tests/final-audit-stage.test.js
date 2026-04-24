@@ -13,7 +13,7 @@ vi.mock("../src/roles/audit-role.js", () => ({
     async run(input) { return mockAuditRun(input); }
   }
 }));
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {})
 }));

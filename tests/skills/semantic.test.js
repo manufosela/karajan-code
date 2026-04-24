@@ -21,20 +21,18 @@ describe("skills/semantic-detector", () => {
   });
 
   describe("resolveSkillsMode", () => {
-    it("defaults to auto in production (global override absent)", () => {
-      const saved = globalThis.__KJ_DEFAULT_SKILLS_MODE;
-      delete globalThis.__KJ_DEFAULT_SKILLS_MODE;
-      try {
-        expect(resolveSkillsMode({})).toBe("auto");
-        expect(resolveSkillsMode({}, {})).toBe("auto");
-      } finally {
-        if (saved !== undefined) globalThis.__KJ_DEFAULT_SKILLS_MODE = saved;
-      }
+    it("defaults to auto when config.testHarness.defaultSkillsMode is absent", () => {
+      // Production contract: no testHarness means "auto" fallback.
+      expect(resolveSkillsMode({})).toBe("auto");
+      expect(resolveSkillsMode({}, {})).toBe("auto");
     });
 
-    it("respects globalThis.__KJ_DEFAULT_SKILLS_MODE (test harness override)", () => {
-      // Our tests/setup.js sets this to "regex". Assert that it propagates.
-      expect(resolveSkillsMode({})).toBe("regex");
+    it("respects config.testHarness.defaultSkillsMode (test-harness path)", () => {
+      // Post-v2.7.5 the test harness override flows through the config object,
+      // not globalThis. Production code no longer reads globalThis directly —
+      // the config loader resolves tests/setup.js's globalThis.__KJ_DEFAULT_SKILLS_MODE
+      // into config.testHarness.defaultSkillsMode once, at load time.
+      expect(resolveSkillsMode({ testHarness: { defaultSkillsMode: "regex" } })).toBe("regex");
     });
 
     it("reads from flags.skillsMode first", () => {

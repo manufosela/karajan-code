@@ -17,7 +17,7 @@ vi.mock("../src/agents/index.js", () => ({
   }))
 }));
 
-vi.mock("../src/session-store.js", () => {
+vi.mock("../src/session/store.js", () => {
   let session = null;
   return {
     createSession: vi.fn(async (initial) => {
@@ -380,7 +380,7 @@ describe("orchestrator events", () => {
     expect(getOpenIssues).toHaveBeenCalledWith(expect.objectContaining({ coder: "codex" }), "kj-repo-123");
     expect(runSonarScan.mock.invocationCallOrder[0]).toBeLessThan(reviewerAgent.reviewTask.mock.invocationCallOrder[0]);
 
-    const { addCheckpoint } = await import("../src/session-store.js");
+    const { addCheckpoint } = await import("../src/session/store.js");
     expect(addCheckpoint).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
       stage: "sonar",
       project_key: "kj-repo-123"

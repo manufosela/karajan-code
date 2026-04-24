@@ -17,7 +17,7 @@ vi.mock("../src/roles/security-role.js", () => ({
   }
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {})
 }));

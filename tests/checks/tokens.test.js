@@ -144,7 +144,7 @@ describe("checks/tokens — provider CLI availability (post-v2.7.4)", () => {
 
 describe("session-store/addCheckpoint — defensive guard for stub sessions", () => {
   it("initialises checkpoints when missing (no crash on stub session)", async () => {
-    const { addCheckpoint } = await import("../../src/session-store.js");
+    const { addCheckpoint } = await import("../../src/session/store.js");
     // Stub session as built by flow-runner.js init-error path BEFORE the v2.7.4 fix.
     // Pre-v2.7.4 this crashed with "Cannot read properties of undefined (reading 'push')".
     const stub = { id: "init-error", task: "x", status: "failed" };

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ensureDir, exists } from "./utils/fs.js";
-import { getSessionRoot } from "./utils/paths.js";
+import { ensureDir, exists } from "../utils/fs.js";
+import { getSessionRoot } from "../utils/paths.js";
 
 const SESSION_ROOT = getSessionRoot();
 

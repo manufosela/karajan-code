@@ -11,7 +11,7 @@ vi.mock("../src/utils/fs.js", () => ({
 }));
 
 // Dynamic import so mocks are set up first
-const { createSession, saveSession, loadSession, addCheckpoint, markSessionStatus, pauseSession, resumeSessionWithAnswer, loadMostRecentSession } = await import("../src/session-store.js");
+const { createSession, saveSession, loadSession, addCheckpoint, markSessionStatus, pauseSession, resumeSessionWithAnswer, loadMostRecentSession } = await import("../src/session/store.js");
 const { exists } = await import("../src/utils/fs.js");
 
 describe("session-store", () => {

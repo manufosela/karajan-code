@@ -1,0 +1,137 @@
+/**
+ * Config I/O layer — reads and writes Karajan's YAML config files.
+ *
+ * Extracted from `src/config.js` in TSK-0332 (Oleada 2 of the v2.7.4 audit
+ * refactor). The public API (`loadConfig`, `writeConfig`, `getConfigPath`,
+ * `getProjectConfigPath`, `loadProjectConfig`) stayed exactly the same so
+ * the 28+ files that imported from `src/config.js` didn't have to change.
+ *
+ * Responsibilities:
+ *   - Resolve the global config path under `~/.karajan/kj.config.yml`
+ *     (respecting `KJ_HOME`).
+ *   - Resolve the project config path under `<projectDir>/.karajan/kj.config.yml`.
+ *   - Load + merge global over DEFAULTS, then project over merged.
+ *   - Validate the merged config via the Valibot schema.
+ *   - Record deprecation flags (e.g. `sonarqube.enabled` → ignored since v2.7.4)
+ *     for the orchestrator to surface as warnings at run start.
+ *
+ * Intentionally NOT here: flag overrides (src/config/overrides.js),
+ * role resolution (src/config/role-resolver.js), DEFAULTS (src/config/defaults.js).
+ */
+
+import fs from "node:fs/promises";
+import path from "node:path";
+import yaml from "js-yaml";
+import { ensureDir, exists } from "../utils/fs.js";
+import { getKarajanHome } from "../utils/paths.js";
+import { safeParseConfig, formatConfigIssues } from "./schema.js";
+import { DEFAULTS } from "./defaults.js";
+import { resolveTestHarness } from "./test-harness.js";
+
+export function mergeDeep(base, override) {
+  const output = { ...base };
+  for (const [key, value] of Object.entries(override || {})) {
+    if (Array.isArray(value)) {
+      output[key] = value;
+    } else if (value && typeof value === "object") {
+      output[key] = mergeDeep(base[key] || {}, value);
+    } else {
+      output[key] = value;
+    }
+  }
+  return output;
+}
+
+export function getConfigPath() {
+  return path.join(getKarajanHome(), "kj.config.yml");
+}
+
+export function getProjectConfigPath(projectDir = process.cwd()) {
+  return path.join(projectDir, ".karajan", "kj.config.yml");
+}
+
+export async function loadProjectConfig(projectDir = process.cwd()) {
+  const projectConfigPath = getProjectConfigPath(projectDir);
+  if (!(await exists(projectConfigPath))) {
+    return null;
+  }
+  const raw = await fs.readFile(projectConfigPath, "utf8");
+  return yaml.load(raw, { json: true }) || {};
+}
+
+async function loadProjectPricingOverrides(projectDir = process.cwd()) {
+  const projectConfigPath = path.join(projectDir, ".karajan.yml");
+  if (!(await exists(projectConfigPath))) {
+    return null;
+  }
+
+  const raw = await fs.readFile(projectConfigPath, "utf8");
+  const parsed = yaml.load(raw, { json: true }) || {};
+  const pricing = parsed?.budget?.pricing;
+  if (!pricing || typeof pricing !== "object") {
+    return null;
+  }
+
+  return pricing;
+}
+
+export async function loadConfig(projectDir) {
+  const configPath = getConfigPath();
+  const projectPricing = await loadProjectPricingOverrides(projectDir);
+
+  // Load global config
+  let globalConfig = {};
+  const globalExists = await exists(configPath);
+  if (globalExists) {
+    const raw = await fs.readFile(configPath, "utf8");
+    globalConfig = yaml.load(raw, { json: true }) || {};
+  }
+
+  // Load project config (.karajan/kj.config.yml)
+  const projectConfig = await loadProjectConfig(projectDir);
+
+  // Merge: DEFAULTS < global < project
+  let merged = mergeDeep(DEFAULTS, globalConfig);
+  if (projectConfig) {
+    merged = mergeDeep(merged, projectConfig);
+  }
+
+  if (projectPricing) {
+    merged.budget = mergeDeep(merged.budget || {}, { pricing: projectPricing });
+  }
+
+  // KJC-TSK-0318 — schema-validate the merged config so invalid values
+  // (review_mode typos, max_iterations=0, out-of-range ports) surface at
+  // load time with a clear error instead of crashing deep inside the
+  // orchestrator. safeParse + explicit error prefix keeps the message
+  // actionable.
+  const validation = safeParseConfig(merged);
+  if (!validation.success) {
+    throw new Error(`Invalid Karajan config:\n${formatConfigIssues(validation.issues)}`);
+  }
+
+  // Deprecation tracking — `sonarqube.enabled` was a footgun: users would
+  // set it to `false` in their global ~/.karajan/kj.config.yml and then
+  // wonder why Sonar didn't run on a code task. Since v2.7.4 Sonar is
+  // intrinsic to Karajan for code tasks; the field is ignored. We surface
+  // a warning at run start (see emitConfigDeprecations in flow-runner.js)
+  // so users notice and clean up their config. Don't throw — keep
+  // back-compat so existing scripts keep working.
+  const userSetSonarEnabled = (globalConfig?.sonarqube?.enabled !== undefined)
+    || (projectConfig?.sonarqube?.enabled !== undefined);
+  if (userSetSonarEnabled) {
+    merged._deprecated = merged._deprecated || {};
+    merged._deprecated.sonarqubeEnabledKey = true;
+  }
+
+  merged.testHarness = resolveTestHarness(merged.testHarness);
+  return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
+}
+
+export async function writeConfig(configPath, config) {
+  await ensureDir(path.dirname(configPath));
+  await fs.writeFile(configPath, yaml.dump(config, { lineWidth: 120 }), "utf8");
+}
+
+// Declarative mappings for applyRunOverrides to reduce cognitive complexity.
+

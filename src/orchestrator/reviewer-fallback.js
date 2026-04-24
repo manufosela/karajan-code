@@ -1,6 +1,6 @@
 import { ReviewerRole } from "../roles/reviewer-role.js";
 import { createAgent } from "../agents/index.js";
-import { addCheckpoint } from "../session-store.js";
+import { addCheckpoint } from "../session/store.js";
 
 export async function runReviewerWithFallback({ reviewerName, config, logger, emitter, reviewInput, session, iteration, onAttemptResult }) {
   const fallbackReviewer = config.reviewer_options?.fallback_reviewer;

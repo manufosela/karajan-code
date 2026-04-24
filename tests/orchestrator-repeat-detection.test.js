@@ -12,7 +12,7 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session-store.js", () => {
+vi.mock("../src/session/store.js", () => {
   let session = null;
   return {
     createSession: vi.fn(async (initial) => {
@@ -260,7 +260,7 @@ describe("orchestrator repeat detection", () => {
 
     const result = await runFlow({ task: "repeat sonar", config, logger, flags: {} });
 
-    const { markSessionStatus } = await import("../src/session-store.js");
+    const { markSessionStatus } = await import("../src/session/store.js");
     expect(markSessionStatus).toHaveBeenCalledWith(expect.any(Object), "stalled");
     expect(result.approved).toBe(false);
     expect(result.reason).toBe("stalled");
@@ -303,7 +303,7 @@ describe("orchestrator repeat detection", () => {
 
     const result = await runFlow({ task: "repeat reviewer", config, logger, flags: {} });
 
-    const { markSessionStatus } = await import("../src/session-store.js");
+    const { markSessionStatus } = await import("../src/session/store.js");
     expect(markSessionStatus).toHaveBeenCalledWith(expect.any(Object), "stalled");
     expect(result.paused).toBe(true);
     expect(result.context).toBe("reviewer_stalled");

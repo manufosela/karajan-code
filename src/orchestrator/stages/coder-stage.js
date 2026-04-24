@@ -6,7 +6,7 @@
 import { createAgent } from "../../agents/index.js";
 import { CoderRole } from "../../roles/coder-role.js";
 import { RefactorerRole } from "../../roles/refactorer-role.js";
-import { addCheckpoint, markSessionStatus, saveSession } from "../../session-store.js";
+import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import { generateDiff, getUntrackedFiles } from "../../review/diff-generator.js";
 import { evaluateTddPolicy } from "../../review/tdd-policy.js";
 import { buildDeferredContext } from "../../review/scope-filter.js";

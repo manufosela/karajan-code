@@ -3,7 +3,7 @@
  * Extracted from orchestrator.js for testability and reuse.
  */
 
-import { addCheckpoint } from "../session-store.js";
+import { addCheckpoint } from "../session/store.js";
 import {
   ensureGitRepo,
   currentBranch,

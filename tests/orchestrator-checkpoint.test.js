@@ -4,7 +4,7 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   createSession: vi.fn(async (init) => ({ id: "sess-1", ...init })),
   loadSession: vi.fn(),
   markSessionStatus: vi.fn(async () => {}),
@@ -67,7 +67,7 @@ vi.mock("../src/orchestrator/post-loop-stages.js", () => ({
 }));
 
 const { runFlow, resumeFlow } = await import("../src/orchestrator.js");
-const { addCheckpoint, markSessionStatus, loadSession, saveSession } = await import("../src/session-store.js");
+const { addCheckpoint, markSessionStatus, loadSession, saveSession } = await import("../src/session/store.js");
 const { runCoderStage, runTddCheckStage, runReviewerStage } = await import("../src/orchestrator/iteration-stages.js");
 const { emitProgress } = await import("../src/utils/events.js");
 
