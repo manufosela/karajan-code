@@ -9,6 +9,53 @@ import { generatePlanId, generateHuId } from "./plan-id.js";
 const VALID_PLAN_STATUSES = new Set(["draft", "ready", "running", "done", "failed"]);
 const VALID_HU_STATUSES = new Set(["pending", "certified", "coding", "reviewing", "done", "failed", "blocked"]);
 const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor", "nocode"]);
+const VALID_TEST_TYPES = new Set(["shell", "gherkin"]);
+
+/**
+ * Structured acceptance-test shape introduced in v2.7.5 (tests-first):
+ *
+ *   { type: "shell",   content: "<bash command>", file?: "<optional path>" }
+ *   { type: "gherkin", content: "Given …\nWhen …\nThen …", file?: "<optional path>" }
+ *
+ * Legacy entries (plain strings) are accepted by validatePlan and get
+ * normalised to `{ type: "shell", content: <string> }` at read time by
+ * `normaliseAcceptanceTest`. New plans MUST emit the structured form.
+ *
+ * Why two types: shell tests are executable as-is (a bash command that
+ * exits 0 on pass); gherkin tests are human-readable specs that the
+ * tester role translates into real code tests during `kj run` — they
+ * are the contract the coder is expected to satisfy.
+ *
+ * @param {unknown} entry
+ * @returns {{ type: string, content: string, file?: string } | null}
+ */
+export function normaliseAcceptanceTest(entry) {
+  if (entry == null) return null;
+  if (typeof entry === "string") {
+    const trimmed = entry.trim();
+    if (!trimmed) return null;
+    return { type: "shell", content: trimmed };
+  }
+  if (typeof entry === "object" && typeof entry.content === "string") {
+    const content = entry.content.trim();
+    if (!content) return null;
+    const type = VALID_TEST_TYPES.has(entry.type) ? entry.type : "shell";
+    const out = { type, content };
+    if (typeof entry.file === "string" && entry.file.trim()) out.file = entry.file.trim();
+    return out;
+  }
+  return null;
+}
+
+/**
+ * Normalise an array of raw acceptance_tests, dropping empties.
+ * @param {unknown[]} list
+ * @returns {{ type: string, content: string, file?: string }[]}
+ */
+export function normaliseAcceptanceTests(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(normaliseAcceptanceTest).filter(Boolean);
+}
 
 /**
  * Check if a plan uses v2 schema (has version field + hus array).
@@ -98,6 +145,27 @@ export function validatePlan(plan) {
     if (!hu.title) errors.push(`HU ${hu.id}: missing title`);
     if (!VALID_HU_STATUSES.has(hu.status)) errors.push(`HU ${hu.id}: invalid status ${hu.status}`);
     if (hu.task_type && !VALID_TASK_TYPES.has(hu.task_type)) errors.push(`HU ${hu.id}: invalid task_type ${hu.task_type}`);
+    // acceptance_tests: may be absent (legacy) or an array of either
+    // plain strings (legacy shell) or { type, content, file? } objects.
+    if (hu.acceptance_tests !== undefined) {
+      if (!Array.isArray(hu.acceptance_tests)) {
+        errors.push(`HU ${hu.id}: acceptance_tests must be an array`);
+      } else {
+        hu.acceptance_tests.forEach((entry, idx) => {
+          if (typeof entry === "string") return; // legacy form — OK
+          if (!entry || typeof entry !== "object") {
+            errors.push(`HU ${hu.id}: acceptance_tests[${idx}] must be a string or { type, content } object`);
+            return;
+          }
+          if (entry.type && !VALID_TEST_TYPES.has(entry.type)) {
+            errors.push(`HU ${hu.id}: acceptance_tests[${idx}].type must be one of ${[...VALID_TEST_TYPES].join("|")}`);
+          }
+          if (typeof entry.content !== "string" || !entry.content.trim()) {
+            errors.push(`HU ${hu.id}: acceptance_tests[${idx}].content must be a non-empty string`);
+          }
+        });
+      }
+    }
     // Check blocked_by references exist
     for (const dep of hu.blocked_by || []) {
       if (!huIds.has(dep) && !(plan.hus || []).some(h => h.id === dep)) {

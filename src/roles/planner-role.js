@@ -65,7 +65,45 @@ export class PlannerRole extends AgentRole {
 
     const sections = [];
     if (this.instructions) sections.push(this.instructions, "");
-    sections.push("Create an implementation plan for this task.", "Return concise numbered steps focused on execution order and risk.", "");
+    // Tests-first planning (v2.7.5):
+    // The planner MUST emit structured acceptance tests for every step.
+    // These are the contract the coder is handed (phase 2 of the
+    // tests-first flow); the tester role later runs them as the
+    // pass/fail gate. Without them the coder has no executable spec.
+    sections.push(
+      "Create an implementation plan for this task as structured JSON.",
+      "",
+      "Output MUST be a JSON object with this exact shape:",
+      "",
+      "```json",
+      "{",
+      '  "approach": "<2-3 sentence high-level plan>",',
+      '  "risks": ["<risk 1>", "<risk 2>"],',
+      '  "outOfScope": ["<excluded item>"],',
+      '  "steps": [',
+      "    {",
+      '      "description": "<what this step achieves, one sentence>",',
+      '      "acceptance_tests": [',
+      '        { "type": "gherkin", "content": "Given <ctx>\\nWhen <action>\\nThen <outcome>" },',
+      '        { "type": "shell", "content": "<bash command that must exit 0>" }',
+      "      ]",
+      "    }",
+      "  ]",
+      "}",
+      "```",
+      "",
+      "Rules for acceptance_tests (CRITICAL — this is the contract the coder must satisfy):",
+      '- EVERY step MUST have at least one acceptance_test. No empty arrays.',
+      '- "gherkin" tests describe observable behaviour in natural language. Use them for end-to-end or user-facing assertions.',
+      '- "shell" tests are bash commands that exit 0 on success. Use them for concrete verifications (file exists, lint passes, specific exit code, HTTP status).',
+      '- Write tests BEFORE the step is implemented — they should fail until the step is done, pass afterwards.',
+      '- Prefer 2-4 tests per step: one happy-path, at least one edge case / failure path.',
+      '- Do NOT use the generic fallback "npx vitest run" (pre-v2.7.5 placeholder). Each test must assert something specific to the step.',
+      "",
+      "Steps must be ordered so that each depends only on previous steps (the first step has no prerequisites).",
+      "Return ONLY the JSON — no prose, no markdown fences around it.",
+      ""
+    );
     if (this.config?.productContext) sections.push("## Product Context", this.config.productContext, "");
     if (this.config?.domainContext) sections.push("## Domain Context", this.config.domainContext, "");
     appendDecompositionSection(sections, triageDecomposition);
