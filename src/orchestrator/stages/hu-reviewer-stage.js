@@ -6,7 +6,7 @@
 import { DiscoverRole } from "../../roles/discover-role.js";
 import { HuReviewerRole } from "../../roles/hu-reviewer-role.js";
 import { createAgent } from "../../agents/index.js";
-import { addCheckpoint } from "../../session-store.js";
+import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { buildDecompositionPrompt, parseDecompositionOutput } from "../../prompts/hu-reviewer.js";
 import { createStallDetector } from "../../utils/stall-detector.js";

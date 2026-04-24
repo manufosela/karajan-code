@@ -13,7 +13,7 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session-store.js", () => {
+vi.mock("../src/session/store.js", () => {
   let session = null;
   return {
     createSession: vi.fn(async (initial) => {

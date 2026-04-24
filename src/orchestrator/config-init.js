@@ -14,7 +14,7 @@ import { computeKjComparison } from "../budget/comparison.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { applyPolicies } from "../guards/policy-resolver.js";
 import { resolveReviewProfile } from "../review/profiles.js";
-import { createSession } from "../session-store.js";
+import { createSession } from "../session/store.js";
 import { exists, ensureDir } from "../utils/fs.js";
 
 /**

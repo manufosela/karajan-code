@@ -3,7 +3,7 @@
  * Extracted from iteration-stages.js for maintainability.
  */
 
-import { addCheckpoint, markSessionStatus, saveSession } from "../../session-store.js";
+import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import { generateDiff } from "../../review/diff-generator.js";
 import { validateReviewResult } from "../../review/schema.js";
 import { filterReviewScope, buildDeferredContext } from "../../review/scope-filter.js";

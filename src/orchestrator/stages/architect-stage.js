@@ -6,7 +6,7 @@
 import { ArchitectRole } from "../../roles/architect-role.js";
 import { createAgent } from "../../agents/index.js";
 import { createArchitectADRs } from "../../planning-game/architect-adrs.js";
-import { addCheckpoint } from "../../session-store.js";
+import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 

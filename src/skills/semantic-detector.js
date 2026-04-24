@@ -129,18 +129,23 @@ export async function refineSkillsSemantically({ task, alreadyDetected = [], con
 
 /**
  * Resolve the effective skills mode from config + flags.
- * Precedence: flags.skillsMode > config.skills.mode > globalThis default > "auto".
+ * Precedence: flags.skillsMode > config.skills.mode > config.testHarness.defaultSkillsMode > "auto".
  *
- * The global default lets the test harness opt out of semantic detection
+ * The testHarness default lets the test harness opt out of semantic detection
  * without each orchestrator test having to mock this module (tests/setup.js
- * sets globalThis.__KJ_DEFAULT_SKILLS_MODE = "regex").
+ * sets globalThis.__KJ_DEFAULT_SKILLS_MODE = "regex", which the loader resolves
+ * into config.testHarness.defaultSkillsMode — see src/config/test-harness.js).
+ *
+ * Post-v2.7.5 this no longer reads globalThis directly; config is the single
+ * source of truth. Legacy callers without a fully-loaded config still work
+ * because config.testHarness is undefined → falls through to "auto".
  *
  * @param {Object} config
  * @param {Object} [flags]
  * @returns {"auto"|"regex"|"semantic"|"none"}
  */
 export function resolveSkillsMode(config, flags = {}) {
-  const defaultMode = globalThis.__KJ_DEFAULT_SKILLS_MODE || "auto";
+  const defaultMode = config?.testHarness?.defaultSkillsMode || "auto";
   const candidate = flags.skillsMode ?? config?.skills?.mode ?? defaultMode;
   const valid = new Set(["auto", "regex", "semantic", "none"]);
   return valid.has(candidate) ? candidate : "auto";

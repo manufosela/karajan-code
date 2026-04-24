@@ -12,7 +12,7 @@
  */
 
 import { emitProgress, makeEvent } from "../utils/events.js";
-import { addCheckpoint, saveSession } from "../session-store.js";
+import { addCheckpoint, saveSession } from "../session/store.js";
 import { getLang } from "../utils/messages.js";
 
 /**

@@ -1,5 +1,5 @@
 import { SolomonRole } from "../roles/solomon-role.js";
-import { addCheckpoint, pauseSession, saveSession } from "../session-store.js";
+import { addCheckpoint, pauseSession, saveSession } from "../session/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 

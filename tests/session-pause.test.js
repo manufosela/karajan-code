@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import fs from "node:fs/promises";
-import { pauseSession, resumeSessionWithAnswer } from "../src/session-store.js";
+import { pauseSession, resumeSessionWithAnswer } from "../src/session/store.js";
 
 vi.mock("../src/utils/paths.js", () => ({
   getSessionRoot: () => "/tmp/test-sessions"

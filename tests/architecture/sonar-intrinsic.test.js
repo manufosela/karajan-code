@@ -121,7 +121,7 @@ describe("architecture/sonar-intrinsic — Sonar is not a config toggle", () => 
       const path = await import("node:path");
       const url = await import("node:url");
       const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
-      const text = await fs.readFile(path.join(repoRoot, "src/config.js"), "utf8");
+      const text = await fs.readFile(path.join(repoRoot, "src/config/loader.js"), "utf8");
       expect(text).toMatch(/userSetSonarEnabled/);
       expect(text).toMatch(/sonarqubeEnabledKey/);
       expect(text).toMatch(/_deprecated/);

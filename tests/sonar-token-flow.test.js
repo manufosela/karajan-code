@@ -23,7 +23,7 @@ vi.mock("../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue(null)
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(),
   markSessionStatus: vi.fn(),
   saveSession: vi.fn()
@@ -169,7 +169,7 @@ describe("sonar token resolution — runSonarStage", () => {
       }
     }));
 
-    const { markSessionStatus } = await import("../src/session-store.js");
+    const { markSessionStatus } = await import("../src/session/store.js");
     const { runSonarStage } = await import("../src/orchestrator/iteration-stages.js");
 
     const session = {

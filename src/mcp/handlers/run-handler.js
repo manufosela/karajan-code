@@ -34,7 +34,7 @@ async function attemptAutoResume({ err, config, logger, emitter, askQuestion, ru
   if (NON_RECOVERABLE_CATEGORIES.has(category)) return null;
 
   // Find session ID from most recent session file
-  const { loadMostRecentSession } = await import("../../session-store.js");
+  const { loadMostRecentSession } = await import("../../session/store.js");
   let session;
   try {
     session = await loadMostRecentSession();
@@ -60,7 +60,7 @@ async function attemptAutoResume({ err, config, logger, emitter, askQuestion, ru
   });
 
   // Increment counter and save before resuming
-  const { saveSession } = await import("../../session-store.js");
+  const { saveSession } = await import("../../session/store.js");
   session.auto_resume_count = autoResumeCount + 1;
   await saveSession(session);
 
@@ -251,7 +251,7 @@ export async function handleResume(a, server, extra) {
     // Load session to get pause context for policy-aware validation
     let pauseContext;
     try {
-      const { loadSession } = await import("../../session-store.js");
+      const { loadSession } = await import("../../session/store.js");
       const session = await loadSession(a.sessionId);
       const ctx = session?.paused_state?.context;
       pauseContext = typeof ctx === "string" ? ctx : ctx?.reason;

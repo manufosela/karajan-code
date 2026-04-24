@@ -6,7 +6,7 @@ import {
   resumeSessionWithAnswer,
   saveSession,
   addCheckpoint
-} from "../session-store.js";
+} from "../session/store.js";
 import { generateDiff } from "../review/diff-generator.js";
 import { resolveRole } from "../config.js";
 import { resolveReviewProfile } from "../review/profiles.js";
@@ -50,6 +50,7 @@ import {
   applyFlagOverrides, resolvePipelinePolicies, autoInit,
   updateGitignoreForStack
 } from "./config-init.js";
+import { resolveTestHarness } from "../config/test-harness.js";
 import {
   tryCiComment, handleCiEarlyPrOrPush, handleCiReviewDispatch,
   formatBlockingIssues
@@ -584,9 +585,9 @@ async function runPreLoopStages({ config, logger, emitter, eventBase, session, f
   //   1. flags.brain === "off"    → forced off
   //   2. flags.brain === "on"     → forced on
   //   3. config.brain.decisor.enabled (if set)
-  //   4. globalThis.__KJ_DEFAULT_BRAIN_DECISOR (test harness default = false)
+  //   4. config.testHarness.defaultBrainDecisor (test harness = false)
   //   5. true in production
-  const brainDefault = globalThis.__KJ_DEFAULT_BRAIN_DECISOR ?? true;
+  const brainDefault = config?.testHarness?.defaultBrainDecisor ?? true;
   let brainDecisorEnabled = config?.brain?.decisor?.enabled ?? brainDefault;
   if (flags?.brain === "off") brainDecisorEnabled = false;
   if (flags?.brain === "on") brainDecisorEnabled = true;
@@ -970,12 +971,14 @@ async function ensureAddyosmaniSkills({ task, config, logger, session, emitter, 
   const skillsConfig = config?.skills || {};
   const sources = Array.isArray(skillsConfig.sources) ? skillsConfig.sources : ["addyosmani", "openskills", "local"];
   const addyConfig = skillsConfig.addyosmani || {};
-  // Test harness override: tests/setup.js sets __KJ_DEFAULT_ADDYOSMANI_ENABLED
-  // to false so orchestrator tests don't spawn git. Tests that need the real
+  // Test harness override: config.testHarness.defaultAddyosmaniEnabled=false
+  // prevents orchestrator tests from spawning git. Tests that need the real
   // catalog opt in by setting config.skills.addyosmani.enabled = true.
-  const globalDefault = globalThis.__KJ_DEFAULT_ADDYOSMANI_ENABLED;
+  // Post-v2.7.5 no longer reads globalThis directly — config.testHarness is
+  // populated by the loader from the global or the production default.
+  const harnessDefault = config?.testHarness?.defaultAddyosmaniEnabled;
   const enabledFromConfig = addyConfig.enabled === true
-    || (addyConfig.enabled !== false && globalDefault !== false);
+    || (addyConfig.enabled !== false && harnessDefault !== false);
   const enabled = enabledFromConfig && sources.includes("addyosmani");
   if (!enabled) return;
 
@@ -1225,10 +1228,11 @@ async function runQualityGateStages({ config, logger, emitter, eventBase, sessio
   // Solomon may skip a single iteration via rule alerts; that's a
   // runtime decision, not a config option.
   //
-  // Test-only escape hatch: globalThis.__KJ_DISABLE_SONAR_STAGE forces
-  // the sonar stage off so tests don't have to spin up Docker. Set in
-  // tests/setup.js by default; production code never sees it.
-  const sonarStageDisabledForTest = globalThis.__KJ_DISABLE_SONAR_STAGE === true;
+  // Test-harness escape hatch via config.testHarness.disableSonarStage
+  // (populated from globalThis.__KJ_DISABLE_SONAR_STAGE by the loader
+  // for back-compat with tests/setup.js). Production code reads config
+  // only; globalThis is not touched here.
+  const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
   if (!sonarStageDisabledForTest && session.resolved_policies?.sonar !== false) {
     const sonarResult = await runSonarStage({
       config, logger, emitter, eventBase, session, trackBudget, iteration: i,
@@ -1906,6 +1910,15 @@ async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitter, log
 }
 
 export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
+  // Defensive test-harness resolution for callers that bypass loadConfig()
+  // (orchestrator unit tests that build raw config objects). Production
+  // callers go through src/config/loader.js → loadConfig which already
+  // runs resolveTestHarness() once. When config.testHarness is missing we
+  // resolve it here using the same contract: explicit field → globalThis →
+  // prod defaults. Idempotent — no-op when already present.
+  if (config && !config.testHarness) {
+    config.testHarness = resolveTestHarness(config.testHarness);
+  }
   const pipelineFlags = resolvePipelineFlags(config);
 
   if (flags.dryRun) {

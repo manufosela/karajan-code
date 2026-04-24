@@ -75,7 +75,7 @@ vi.mock("../src/agents/index.js", () => ({
 
 const addCheckpointMock = vi.fn(async () => {});
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: addCheckpointMock,
   markSessionStatus: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {}),

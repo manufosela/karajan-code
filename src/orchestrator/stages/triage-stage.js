@@ -4,7 +4,7 @@
  */
 
 import { TriageRole } from "../../roles/triage-role.js";
-import { addCheckpoint } from "../../session-store.js";
+import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { selectModelsForRoles } from "../../utils/model-selector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";

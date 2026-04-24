@@ -5,7 +5,7 @@
 
 import { PlannerRole } from "../../roles/planner-role.js";
 import { createAgent } from "../../agents/index.js";
-import { addCheckpoint, markSessionStatus } from "../../session-store.js";
+import { addCheckpoint, markSessionStatus } from "../../session/store.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { parsePlannerOutput } from "../../prompts/planner.js";
 import { createStallDetector } from "../../utils/stall-detector.js";

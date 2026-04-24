@@ -30,6 +30,7 @@ import { getPortChecks } from "../checks/ports.js";
 import { getTokenChecks } from "../checks/tokens.js";
 import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
+import { resolveTestHarness } from "../config/test-harness.js";
 
 function parseJsonSafe(text) {
   try {
@@ -168,6 +169,14 @@ async function checkSecurityAgent(config) {
  * @returns {{ ok: boolean, checks: object[], remediations: string[], configOverrides: object, warnings: string[], errors: object[] }}
  */
 export async function runPreflightChecks({ config, logger, emitter, eventBase, resolvedPolicies, securityEnabled }) {
+  // Defensive test-harness resolution for direct callers that bypass loadConfig()
+  // (notably tests/preflight-checks.test.js and tests/sonar-token-flow.test.js
+  // which construct raw configs). Production callers go through loadConfig
+  // which already populates config.testHarness once via resolveTestHarness().
+  // Idempotent — no-op when already present.
+  if (config && !config.testHarness) {
+    config.testHarness = resolveTestHarness(config.testHarness);
+  }
   // Sonar is intrinsic to Karajan for code tasks (sw/refactor/add-tests).
   // Since v2.7.4 it is NOT toggleable via `config.sonarqube.enabled` —
   // that field is ignored (deprecation warning emitted at config load).
@@ -177,11 +186,14 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
   // no-code skip it. Solomon may decide to skip a single iteration via
   // rule alerts — that's a runtime decision, not a config option.
   //
-  // Test-only escape hatch: globalThis.__KJ_DISABLE_SONAR_STAGE === true
-  // forces sonar OFF in preflight too, so tests that don't want sonar
-  // events in their expected sequence don't have to set up Docker mocks.
-  // Set in tests/setup.js by default; production code never sees it.
-  const sonarStageDisabledForTest = globalThis.__KJ_DISABLE_SONAR_STAGE === true;
+  // Test-harness escape hatch via config.testHarness.disableSonarStage
+  // (resolved from the same value tests used to set on
+  // globalThis.__KJ_DISABLE_SONAR_STAGE — see src/config/test-harness.js).
+  // Post-v2.7.5 this path no longer reads globalThis directly; config is
+  // the single source of truth. tests/setup.js continues to set the
+  // globalThis flag for back-compat, and the loader pulls it into
+  // config.testHarness at load time.
+  const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
   const sonarEnabled = !sonarStageDisabledForTest && resolvedPolicies.sonar !== false;
   const isExternalSonar = Boolean(config.sonarqube?.external);
   const sonarHost = resolveSonarHost(config.sonarqube?.host);
@@ -196,7 +208,9 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
   };
 
   // Resolve extended preflight opt-in early so the short-circuit below can see it.
-  const extendedDefault = globalThis.__KJ_DEFAULT_PREFLIGHT_EXTENDED ?? true;
+  // Post-v2.7.5 this no longer reads globalThis directly — config.testHarness
+  // is populated by the loader from the global or the default.
+  const extendedDefault = config?.testHarness?.defaultPreflightExtended ?? true;
   const extendedEnabled = config?.preflight?.extended ?? extendedDefault;
 
   // Preserve legacy short-circuit: if nothing at all needs checking, skip

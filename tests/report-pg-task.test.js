@@ -104,7 +104,7 @@ describe("report pg_task_id integration", () => {
 
 describe("orchestrator stores pg fields in session", () => {
   it("session includes pg_task_id and pg_project_id when provided", async () => {
-    const { createSession } = await import("../src/session-store.js");
+    const { createSession } = await import("../src/session/store.js");
 
     // We can't easily test the full orchestrator, but we can verify
     // that createSession properly stores the pg fields
@@ -122,7 +122,7 @@ describe("orchestrator stores pg fields in session", () => {
   });
 
   it("session does not have pg fields when not provided", async () => {
-    const { createSession } = await import("../src/session-store.js");
+    const { createSession } = await import("../src/session/store.js");
 
     const session = await createSession({
       id: "s_no-pg-test",

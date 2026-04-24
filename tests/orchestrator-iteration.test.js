@@ -22,7 +22,7 @@ vi.mock("../src/roles/sonar-role.js", () => ({
   }
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {}),

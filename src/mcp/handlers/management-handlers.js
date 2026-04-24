@@ -15,7 +15,7 @@ import {
   buildConfig,
 } from "../shared-helpers.js";
 import { buildDashboardJson } from "../../utils/status-dashboard.js";
-import { loadMostRecentSession } from "../../session-store.js";
+import { loadMostRecentSession } from "../../session/store.js";
 
 const AGENT_ROLES = new Set(["coder", "reviewer", "tester", "security", "solomon"]);
 

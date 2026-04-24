@@ -16,7 +16,7 @@ vi.mock("../../src/roles/solomon-role.js", () => ({
   },
 }));
 
-vi.mock("../../src/session-store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn().mockResolvedValue(undefined),
   saveSession: vi.fn().mockResolvedValue(undefined),
 }));

@@ -4,7 +4,7 @@
  */
 
 import { SonarRole } from "../../roles/sonar-role.js";
-import { addCheckpoint, markSessionStatus, saveSession } from "../../session-store.js";
+import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { sonarUp, isSonarReachable } from "../../sonar/manager.js";

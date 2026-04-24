@@ -1,4 +1,4 @@
-import { loadMostRecentSession } from "../session-store.js";
+import { loadMostRecentSession } from "../session/store.js";
 import { runCommand } from "../utils/process.js";
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // Mock dependencies before importing
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   loadSession: vi.fn(),
   saveSession: vi.fn(async () => {}),
   resumeSessionWithAnswer: vi.fn()
@@ -17,7 +17,7 @@ describe("resumeFlow uses session config_snapshot", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     ({ resumeFlow } = await import("../src/orchestrator.js"));
-    ({ loadSession } = await import("../src/session-store.js"));
+    ({ loadSession } = await import("../src/session/store.js"));
   });
 
   it("falls back to session.config_snapshot when config is null", async () => {

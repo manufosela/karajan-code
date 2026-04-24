@@ -2,7 +2,7 @@
  * Session flow control — checkpoints, timeouts, budget checks.
  * Extracted from orchestrator.js — session management, not orchestration.
  */
-import { markSessionStatus, addCheckpoint } from "../session-store.js";
+import { markSessionStatus, addCheckpoint } from "../session/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 

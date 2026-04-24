@@ -6,7 +6,7 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   createSession: vi.fn(async (initial) => ({
     id: "s_dry", status: "running", checkpoints: [], ...initial
   })),
@@ -172,7 +172,7 @@ describe("dry-run mode", () => {
   });
 
   it("does not create a session store entry", async () => {
-    const { createSession } = await import("../src/session-store.js");
+    const { createSession } = await import("../src/session/store.js");
 
     const config = makeConfig({ reviewer_options: { retries: 0, fallback_reviewer: "codex" } });
     await runFlow({

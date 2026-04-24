@@ -4,7 +4,7 @@ import { buildFallbackChain, isAgentFailure, runRoleWithFallback } from "../src/
 vi.mock("../src/roles/tester-role.js", () => ({ TesterRole: class {} }));
 vi.mock("../src/roles/security-role.js", () => ({ SecurityRole: class {} }));
 vi.mock("../src/roles/impeccable-role.js", () => ({ ImpeccableRole: class {} }));
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {})
 }));

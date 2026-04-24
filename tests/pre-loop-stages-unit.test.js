@@ -111,7 +111,7 @@ vi.mock("../src/planning-game/architect-adrs.js", () => ({
   createArchitectADRs: vi.fn(async () => ({ created: 0 }))
 }));
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {})
@@ -348,7 +348,7 @@ describe("pre-loop-stages: runPlannerStage", () => {
       ok: false, result: { error: "no plan" }, summary: "Planner error: no plan"
     }));
 
-    const { markSessionStatus } = await import("../src/session-store.js");
+    const { markSessionStatus } = await import("../src/session/store.js");
     const plannerRole = { provider: "claude", model: null };
 
     await expect(

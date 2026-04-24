@@ -6,7 +6,7 @@ vi.mock("../src/bootstrap.js", () => ({
 
 import { classifyError } from "../src/mcp/server-handlers.js";
 
-vi.mock("../src/session-store.js", () => ({
+vi.mock("../src/session/store.js", () => ({
   loadMostRecentSession: vi.fn(),
   saveSession: vi.fn(),
   createSession: vi.fn().mockResolvedValue({ id: "s_test", status: "running", checkpoints: [] }),
@@ -64,7 +64,7 @@ describe("resilient run — loadMostRecentSession", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const mod = await import("../src/session-store.js");
+    const mod = await import("../src/session/store.js");
     loadMostRecentSession = mod.loadMostRecentSession;
   });
 

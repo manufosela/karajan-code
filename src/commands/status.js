@@ -3,7 +3,7 @@
  */
 
 import { readRunLog } from "../utils/run-log.js";
-import { loadMostRecentSession } from "../session-store.js";
+import { loadMostRecentSession } from "../session/store.js";
 import { buildDashboard } from "../utils/status-dashboard.js";
 
 
