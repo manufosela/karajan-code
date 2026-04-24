@@ -19,8 +19,15 @@ if (scopedProjectSlug) {
   document.body.classList.add('scoped-mode');
 }
 
-/** @type {string} Current view */
-let currentView = scopedProjectSlug ? 'board' : 'dashboard';
+/**
+ * Current view — Board is the default everywhere, not just in scoped mode.
+ * Dogfood quote: "Board vista por defecto. Dashboard es algo extra que a
+ * priori no me interesa, pq me interesan los proyectos." The Kanban is
+ * the thing the user wants to see first; Dashboard stays accessible via
+ * its nav button for the (rare) multi-project overview case but is never
+ * the landing view.
+ */
+let currentView = 'board';
 
 /** @type {string} Selected project ID (empty = all) */
 let selectedProject = scopedProjectSlug || '';
@@ -712,11 +719,13 @@ async function populateProjectSelect() {
  * Parses the hash route and renders.
  */
 function handleRoute() {
-  const hash = window.location.hash.slice(1) || 'dashboard';
+  // Board-first: the default landing view is always the Kanban. Dashboard
+  // is only shown when the user explicitly navigates to `#dashboard`.
+  const hash = window.location.hash.slice(1) || 'board';
   const parts = hash.split('/');
   // In scoped mode the project is locked — the hash controls the view
   // only. `board/<slug>` becomes `board` and the slug stays fixed.
-  currentView = parts[0] || (scopedProjectSlug ? 'board' : 'dashboard');
+  currentView = parts[0] || 'board';
   selectedProject = scopedProjectSlug || parts[1] || '';
 
   document.querySelectorAll('.nav-btn').forEach((btn) => {
