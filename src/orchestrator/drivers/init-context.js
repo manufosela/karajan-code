@@ -32,6 +32,8 @@ import {
   createJournalDir, writePreLoopJournal, buildPlanSummary,
 } from "../session-journal.js";
 import { setPgCard, setJournalContext } from "../../session/mutators.js";
+import { getRunContext } from "../run-context.js";
+import { getIntegration } from "../integrations.js";
 import { tryAutoStartBoard } from "./post-loop.js";
 import { runPreLoopStages } from "./pre-loop.js";
 
@@ -65,7 +67,13 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
       }
     } catch { /* git not available */ }
   }
-  setDiffProjectDir(diffScope);
+  // TSK-0338: write into the per-run AsyncLocalStorage context instead of
+  // mutating module-level state. Falls back to setDiffProjectDir() when no
+  // run context is active (legacy CLI callers, tests not going through
+  // runFlow). The write-to-both keeps back-compat without trading isolation.
+  const runCtx = getRunContext();
+  if (runCtx) runCtx.projectDir = diffScope;
+  else setDiffProjectDir(diffScope);
 
   // Auto-detect Chrome DevTools MCP
   const { detectDevToolsMcp } = await import("../../webperf/devtools-detect.js");
@@ -109,8 +117,13 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
     config = { ...config, rtk: { available: true, version: rtkResult.version } };
     const rtkTracker = new RtkSavingsTracker();
     const rtkRunner = createRtkRunner(true, rtkTracker);
-    setDiffRunner(rtkRunner);
-    setGitRunner(rtkRunner);
+    // TSK-0338: install rtkRunner into the per-run context; module-level
+    // setters are the back-compat path for runs outside a withRunContext scope.
+    if (runCtx) runCtx.runner = rtkRunner;
+    else {
+      setDiffRunner(rtkRunner);
+      setGitRunner(rtkRunner);
+    }
     ctx.rtkTracker = rtkTracker;
     logger.info(`RTK detected (${rtkResult.version}) — wrapping internal git/diff commands with rtk`);
     emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
@@ -144,9 +157,10 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
     logger.info("Karajan Brain enabled — feedback queue, verification, compression active");
   }
 
-  const { initPgAdapter } = await import("../../planning-game/pipeline-adapter.js");
-  const pgAdapterResult = await initPgAdapter({ session: ctx.session, config, logger, pgTaskId, pgProject });
-  ctx.pgCard = pgAdapterResult.pgCard;
+  const trackerResult = await getIntegration("tracker")?.onSessionStart?.({
+    session: ctx.session, config, logger, pgTaskId, pgProject,
+  });
+  ctx.pgCard = trackerResult?.pgCard ?? null;
   setPgCard(ctx.session, ctx.pgCard || null);
 
   emitProgress(

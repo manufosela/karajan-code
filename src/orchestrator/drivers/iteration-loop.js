@@ -26,7 +26,7 @@ import { markSessionStatus, addCheckpoint } from "../../session/store.js";
 import {
   setReviewerFeedback, resetRetryCount,
 } from "../../session/mutators.js";
-import { generateDiff } from "../../review/diff-generator.js";
+import { generateDiff, computeBaseRef } from "../../review/diff-generator.js";
 import { scanDiff } from "../../guards/output-guard.js";
 import { scanPerfDiff } from "../../guards/perf-guard.js";
 import { invokeSolomon } from "../solomon-escalation.js";
@@ -94,9 +94,8 @@ export async function runGuardStages({ config, logger, emitter, eventBase, sessi
   const baseBranch = config.base_branch || "main";
   let diff;
   try {
-    const { generateDiff: genDiff, computeBaseRef: compBase } = await import("../../review/diff-generator.js");
-    const baseRef = await compBase({ baseBranch });
-    diff = await genDiff({ baseRef });
+    const baseRef = await computeBaseRef({ baseBranch });
+    diff = await generateDiff({ baseRef });
   } catch {
     logger.warn("Guards: could not generate diff, skipping");
     return { action: "ok" };

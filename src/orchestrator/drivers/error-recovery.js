@@ -152,9 +152,8 @@ export async function handleSolomonCheck({ config, session, emitter, eventBase, 
         brainCtx.ruleAlerts.push(...criticalAlerts);
         logger.info(`Brain: ${criticalAlerts.length} critical rule alert(s) — consulting Solomon`);
 
-        const { invokeSolomon: invokeSolomonFn } = await import("../solomon-escalation.js");
         const alertSummary = criticalAlerts.map(a => a.message).join("; ");
-        const solomonOpinion = await invokeSolomonFn({
+        const solomonOpinion = await invokeSolomon({
           config, logger, emitter, eventBase, stage: "brain-dilemma", askQuestion, session, iteration: i,
           conflict: {
             stage: "brain-dilemma",

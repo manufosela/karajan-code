@@ -58,6 +58,7 @@ import {
   resolvePipelinePolicies, updateGitignoreForStack,
 } from "../config-init.js";
 import { tryCiComment } from "../ci-integration.js";
+import { getIntegration } from "../integrations.js";
 
 export async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults, brainCtx }) {
   // --- HU Reviewer (first stage, before everything else, opt-in) ---
@@ -207,11 +208,10 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   const triageRoles = new Set(triageResult.stageResult?.roles || []);
   if (triageRoles.has("hu-reviewer") && !stageResults.huReviewer) {
     pipelineFlags.huReviewerEnabled = true;
-    // Feed PG card structured data to hu-reviewer when available
+    // Feed tracker card structured data to hu-reviewer when available
     let pgStories = null;
     if (pgTaskId && pgProject && session.pg_card) {
-      const { buildHuStoriesFromPgCard } = await import("../../planning-game/pipeline-adapter.js");
-      pgStories = buildHuStoriesFromPgCard(session.pg_card);
+      pgStories = getIntegration("tracker")?.buildHuStoriesFromCard?.(session.pg_card) ?? null;
     }
     const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile: null, askQuestion, pgStories });
     stageResults.huReviewer = huResult.stageResult;
@@ -225,8 +225,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   });
   if (simplified) stageResults.triage.autoSimplified = true;
 
-  const { handlePgDecomposition } = await import("../../planning-game/pipeline-adapter.js");
-  await handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger });
+  await getIntegration("tracker")?.handleDecomposition?.({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger });
 
   applyFlagOverrides(pipelineFlags, flags);
 

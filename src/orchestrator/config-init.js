@@ -4,7 +4,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { computeBaseRef } from "../review/diff-generator.js";
+import { computeBaseRef, setSnapshot } from "../review/diff-generator.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
@@ -343,8 +343,10 @@ export async function initializeSession({ task, config, flags, pgTaskId, pgProje
   const baseRef = await computeBaseRef({ baseBranch: config.base_branch, baseRef: flags.baseRef || null });
 
   if (baseRef === "__snapshot__") {
+    // TSK-0340: `setSnapshot` now static; `takeSnapshot` kept dynamic because
+    // snapshot-diff is ~600 LOC of dependency-free fs walking that most
+    // runs don't need (only the greenfield/no-git path reaches here).
     const { takeSnapshot } = await import("../review/snapshot-diff.js");
-    const { setSnapshot } = await import("../review/diff-generator.js");
     const snapshot = await takeSnapshot(config.projectDir || process.cwd());
     setSnapshot(snapshot);
   }

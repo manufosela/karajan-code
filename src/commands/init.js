@@ -408,10 +408,10 @@ export async function initCommand({ logger, flags = {} }) {
   // Telemetry: anonymous install event (non-blocking)
   const { sendTelemetryEvent } = await import("../utils/telemetry.js");
   const { readFileSync } = await import("node:fs");
-  const { resolve, dirname } = await import("node:path");
   const { fileURLToPath } = await import("node:url");
   try {
-    const pkgPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../package.json");
+    // TSK-0340: use the already-static `path` default import for resolve/dirname.
+    const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../package.json");
     const version = JSON.parse(readFileSync(pkgPath, "utf8")).version;
     sendTelemetryEvent("install", { version }, config).catch(() => {});
   } catch { /* non-blocking */ }

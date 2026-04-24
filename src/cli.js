@@ -12,7 +12,11 @@ import { reviewCommand } from "./commands/review.js";
 import { scanCommand } from "./commands/scan.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { reportCommand } from "./commands/report.js";
-import { planCommand } from "./commands/plan.js";
+import {
+  planCommand, planGenerateCommand, planListCommand,
+  planShowCommand, planReadyCommand, planValidateCommand,
+  planDeleteCommand, planAddHuCommand, planRemoveHuCommand,
+} from "./commands/plan.js";
 import { runCommandHandler } from "./commands/run.js";
 import { resumeCommand } from "./commands/resume.js";
 import { sonarCommand, sonarOpenCommand } from "./commands/sonar.js";
@@ -267,42 +271,38 @@ plan
     await withConfig("plan", flags, async ({ config, logger }) => {
       const { resolveTaskInput } = await import("./utils/task-file.js");
       const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
-      const { planGenerateCommand } = await import("./commands/plan.js");
+      // TSK-0340: was `await import(...)` — now served by the top-level static import.
       await planGenerateCommand({ task: resolvedTask, config, logger, json: flags.json, context: flags.context });
     });
   });
 
 plan.command("list").description("List all plans").action(async (flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planListCommand } = await import("./commands/plan.js");
+    // TSK-0340: was `await import(...)` — now served by the top-level static import.
     await planListCommand({ config });
   });
 });
 
 plan.command("show").description("Show plan details + HUs").argument("<planId>").action(async (planId, flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planShowCommand } = await import("./commands/plan.js");
     await planShowCommand({ config, planId });
   });
 });
 
 plan.command("ready").description("Approve plan — certify all HUs").argument("<planId>").action(async (planId, flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planReadyCommand } = await import("./commands/plan.js");
     await planReadyCommand({ config, planId });
   });
 });
 
 plan.command("validate").description("Validate plan structure").argument("<planId>").action(async (planId, flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planValidateCommand } = await import("./commands/plan.js");
     await planValidateCommand({ config, planId });
   });
 });
 
 plan.command("delete").description("Delete a plan").argument("<planId>").action(async (planId, flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planDeleteCommand } = await import("./commands/plan.js");
     await planDeleteCommand({ config, planId });
   });
 });
@@ -314,14 +314,12 @@ plan.command("add-hu").description("Add HU to plan").argument("<planId>")
   .option("--scope <text>", "Scope description")
   .action(async (planId, flags) => {
     await withConfig("plan", flags, async ({ config }) => {
-      const { planAddHuCommand } = await import("./commands/plan.js");
       await planAddHuCommand({ config, planId, title: flags.title, type: flags.type, deps: flags.deps, scope: flags.scope });
     });
   });
 
 plan.command("remove-hu").description("Remove HU from plan").argument("<planId>").argument("<huId>").action(async (planId, huId, flags) => {
   await withConfig("plan", flags, async ({ config }) => {
-    const { planRemoveHuCommand } = await import("./commands/plan.js");
     await planRemoveHuCommand({ config, planId, huId });
   });
 });

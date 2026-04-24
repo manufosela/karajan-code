@@ -1,18 +1,30 @@
 import { runCommand } from "./process.js";
+import { getRunContext } from "../orchestrator/run-context.js";
 
-/** @type {((command: string, args?: string[], options?: object) => Promise<object>)|null} */
+/**
+ * Module-scoped runner — legacy back-compat for callers outside a
+ * `withRunContext` scope (CLI bootstrap, checks/system.js). When running
+ * inside a pipeline, `getRunContext()?.runner` takes precedence and
+ * provides per-run isolation (TSK-0338). When neither is set we fall
+ * back to the bare `runCommand`.
+ *
+ * @type {((command: string, args?: string[], options?: object) => Promise<object>)|null}
+ */
 let _runner = null;
 
 /**
- * Inject an RTK-aware runner so all git operations in this module benefit from token savings.
- * @param {(command: string, args?: string[], options?: object) => Promise<object>} runner
+ * Set the module-scope runner. Retained for back-compat: concurrent
+ * `runFlow` invocations should rely on `withRunContext` for isolation,
+ * not on this setter (the setter is process-wide and would cause the
+ * exact cross-run contamination TSK-0338 eliminates).
  */
 export function setRunner(runner) {
   _runner = runner;
 }
 
 function run(command, args, ...rest) {
-  return (_runner || runCommand)(command, args, ...rest);
+  const ctxRunner = getRunContext()?.runner;
+  return (ctxRunner || _runner || runCommand)(command, args, ...rest);
 }
 
 function slugifyTask(task) {

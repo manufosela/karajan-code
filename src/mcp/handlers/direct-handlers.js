@@ -28,6 +28,7 @@ import {
   assertNotOnBaseBranch,
   buildConfig,
   buildDirectEmitter,
+  ensureTaskFromFile,
 } from "../shared-helpers.js";
 
 /**
@@ -56,7 +57,6 @@ export async function handlePlanDirect(a, server, extra) {
   await assertAgentsAvailable([plannerRole.provider]);
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
-  const { ensureTaskFromFile } = await import("../shared-helpers.js");
   await ensureTaskFromFile(a, projectDir);
   const runLog = createRunLog(projectDir);
   const silenceTimeoutMs = Number(config?.session?.max_agent_silence_minutes) > 0
@@ -212,7 +212,6 @@ export async function handleCodeDirect(a, server, extra) {
   await assertAgentsAvailable([coderRole.provider]);
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
-  const { ensureTaskFromFile } = await import("../shared-helpers.js");
   await ensureTaskFromFile(a, projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_code] started — provider=${coderRole.provider}`);
@@ -265,7 +264,6 @@ export async function handleReviewDirect(a, server, extra) {
   await assertAgentsAvailable([reviewerRole.provider]);
 
   const projectDir = await resolveProjectDir(server, a.projectDir);
-  const { ensureTaskFromFile } = await import("../shared-helpers.js");
   await ensureTaskFromFile(a, projectDir);
   const runLog = createRunLog(projectDir);
   runLog.logText(`[kj_review] started — provider=${reviewerRole.provider}`);
