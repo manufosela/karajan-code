@@ -152,13 +152,17 @@ describe("kj_run with plan parameter", () => {
   it("kj_run without plan runs normally (no plan loading)", async () => {
     // TSK-0315: runFlow implementation moved to src/orchestrator/flow-runner.js;
     // src/orchestrator.js is now a thin barrel that re-exports runFlow.
-    const flowRunnerSource = await fs.readFile(
-      path.join(process.cwd(), "src/orchestrator/flow-runner.js"),
+    // TSK-0335 (Oleada 3): the plan-loading branch itself moved from
+    // flow-runner.js into the pre-loop driver — flow-runner now delegates to
+    // initFlowContext → runPreLoopStages. Assert the guard lives at the new
+    // address so regressions in the decomposition get caught.
+    const preLoopSource = await fs.readFile(
+      path.join(process.cwd(), "src/orchestrator/drivers/pre-loop.js"),
       "utf8"
     );
     // The plan loading is behind a `if (flags.plan)` guard
-    expect(flowRunnerSource).toContain("if (flags.plan)");
-    expect(flowRunnerSource).toContain("loadPlan");
-    expect(flowRunnerSource).toContain("plan:loaded");
+    expect(preLoopSource).toContain("if (flags.plan)");
+    expect(preLoopSource).toContain("loadPlan");
+    expect(preLoopSource).toContain("plan:loaded");
   });
 });

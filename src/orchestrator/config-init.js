@@ -15,6 +15,7 @@ import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { applyPolicies } from "../guards/policy-resolver.js";
 import { resolveReviewProfile } from "../review/profiles.js";
 import { createSession } from "../session/store.js";
+import { setResolvedPolicies } from "../session/mutators.js";
 import { exists, ensureDir } from "../utils/fs.js";
 
 /**
@@ -422,7 +423,7 @@ export function resolvePipelinePolicies({ flags, config, stageResults, emitter, 
     taskType: flags.taskType || config.taskType || stageResults.triage?.taskType || stageResults.intent?.taskType || null,
     policies: config.policies,
   });
-  session.resolved_policies = resolvedPolicies;
+  setResolvedPolicies(session, resolvedPolicies);
 
   let updatedConfig = config;
   if (!resolvedPolicies.tdd) {

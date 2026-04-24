@@ -3,6 +3,7 @@ import { SecurityRole } from "../roles/security-role.js";
 import { ImpeccableRole } from "../roles/impeccable-role.js";
 import { AuditRole } from "../roles/audit-role.js";
 import { addCheckpoint, saveSession } from "../session/store.js";
+import { resetRetryCount } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 
@@ -154,7 +155,7 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
     };
   }
 
-  session.tester_retry_count = 0;
+  resetRetryCount(session, "tester");
   return { action: "ok", stageResult: { ok: true, summary: testerOutput.summary || "All tests passed" } };
 }
 
@@ -263,7 +264,7 @@ export async function runSecurityStage({ config, logger, emitter, eventBase, ses
     };
   }
 
-  session.security_retry_count = 0;
+  resetRetryCount(session, "security");
   return { action: "ok", stageResult: { ok: true, summary: securityOutput.summary || "No vulnerabilities found" } };
 }
 

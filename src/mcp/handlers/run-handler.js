@@ -61,7 +61,8 @@ async function attemptAutoResume({ err, config, logger, emitter, askQuestion, ru
 
   // Increment counter and save before resuming
   const { saveSession } = await import("../../session/store.js");
-  session.auto_resume_count = autoResumeCount + 1;
+  const { setRetryCount } = await import("../../session/mutators.js");
+  setRetryCount(session, "auto_resume", autoResumeCount + 1);
   await saveSession(session);
 
   try {

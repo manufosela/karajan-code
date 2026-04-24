@@ -5,6 +5,9 @@
 
 import { SonarRole } from "../../roles/sonar-role.js";
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
+import {
+  setReviewerFeedback, setSonarSummary, resetRetryCount, incrementRetryCount,
+} from "../../session/mutators.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { sonarUp, isSonarReachable } from "../../sonar/manager.js";
@@ -34,7 +37,7 @@ async function handleSonarRetryLimit({ config, logger, emitter, eventBase, sessi
       message: `Sonar sub-loop limit reached (${session.sonar_retry_count}/${maxSonarRetries}) — Brain handling`,
       detail: { subloop: "sonar", retryCount: session.sonar_retry_count, limit: maxSonarRetries, gateStatus: sonarResult.gateStatus }
     }));
-    session.sonar_retry_count = 0;
+    resetRetryCount(session, "sonar");
     await saveSession(session);
     return { action: "continue" };
   }
@@ -66,9 +69,9 @@ async function handleSonarRetryLimit({ config, logger, emitter, eventBase, sessi
   }
   if (solomonResult.action === "continue") {
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+      setReviewerFeedback(session, `${session.last_reviewer_feedback}\nUser guidance: ${solomonResult.humanGuidance}`);
     }
-    session.sonar_retry_count = 0;
+    resetRetryCount(session, "sonar");
     await saveSession(session);
     return { action: "continue" };
   }
@@ -89,7 +92,7 @@ async function handleSonarBlocking({ sonarResult, config, logger, emitter, event
         status: "warn",
         message: "Quality gate: coverage below threshold (advisory — code quality is clean)"
       }));
-      session.last_reviewer_feedback = null;
+      setReviewerFeedback(session, null);
       return { action: "ok", stageResult: { gateStatus: "WARN_COVERAGE", advisory: true } };
     }
   }
@@ -101,13 +104,13 @@ async function handleSonarBlocking({ sonarResult, config, logger, emitter, event
   }
 
   const summary = `Sonar gate blocking (${sonarResult.gateStatus}). Resolve critical findings first.`;
-  session.last_reviewer_feedback = summary;
+  setReviewerFeedback(session, summary);
   // Brain: push sonar feedback into queue when enabled
   if (brainCtx?.enabled) {
     const { processRoleOutput } = await import("../brain-coordinator.js");
     processRoleOutput(brainCtx, { roleName: "sonar", output: { verdict: "fail", summary }, iteration });
   }
-  session.sonar_retry_count = (session.sonar_retry_count || 0) + 1;
+  incrementRetryCount(session, "sonar");
   await saveSession(session);
   const maxSonarRetries = config.session.max_sonar_retries ?? config.session.fail_fast_repeats;
 
@@ -224,7 +227,7 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
     throw new Error(errorMessage);
   }
 
-  session.last_sonar_summary = sonarOutput.summary;
+  setSonarSummary(session, sonarOutput.summary);
   if (typeof sonarResult.openIssuesTotal === "number") {
     if (sonarState.issuesInitial === null) {
       sonarState.issuesInitial = sonarResult.openIssuesTotal;
@@ -255,7 +258,7 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
   }
 
   // Sonar passed — reset retry counter
-  session.sonar_retry_count = 0;
+  resetRetryCount(session, "sonar");
   const issuesInitial = sonarState.issuesInitial ?? sonarResult.openIssuesTotal ?? 0;
   const issuesFinal = sonarState.issuesFinal ?? sonarResult.openIssuesTotal ?? 0;
   const stageResult = {
