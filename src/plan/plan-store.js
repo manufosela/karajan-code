@@ -40,6 +40,11 @@ export async function savePlan(projectDir, planResult) {
   if (isPlanV2(planResult)) {
     const filePath = path.join(dir, `${planResult.planId}.json`);
     planResult.updatedAt = new Date().toISOString();
+    // TSK-0341 / garbage-collector: stamp the absolute projectDir on every
+    // plan so the GC can check `fs.exists(projectDir)` reliably. Reverse-
+    // engineering it from the slug is lossy (underscores in the original
+    // name collide with underscores introduced by slash-substitution).
+    if (!planResult.projectDir && projectDir) planResult.projectDir = projectDir;
     await fs.writeFile(filePath, JSON.stringify(planResult, null, 2), "utf8");
     return planResult.planId;
   }

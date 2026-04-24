@@ -30,6 +30,7 @@ import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
 import { undoCommand } from "./commands/undo.js";
 import { statusCommand } from "./commands/status.js";
+import { cleanCommand } from "./commands/clean.js";
 
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
@@ -253,6 +254,24 @@ program
   .action(async (subcommand, role, provider, flags) => {
     await withConfig("agents", {}, async ({ config }) => {
       await agentsCommand({ config, subcommand: subcommand || "list", role, provider, global: flags.global });
+    });
+  });
+
+program
+  .command("clean")
+  .description("Garbage-collect stale plans, sessions and HU batches (dry-run by default)")
+  .option("--yes", "Actually delete — without this flag, only prints what would be removed")
+  .option("--plan-days <n>", "Keep finalised plans (approved/rejected/executed) for N days (default: 30)")
+  .option("--draft-days <n>", "Keep draft plans for N days (default: 60)")
+  .option("--session-days <n>", "Keep finalised sessions for N days (default: 7)")
+  .option("--hu-days <n>", "Keep HU story batches for N days (default: 14)")
+  .action(async (flags) => {
+    await cleanCommand({
+      yes: Boolean(flags.yes),
+      planDays: flags.planDays ? Number(flags.planDays) : undefined,
+      draftDays: flags.draftDays ? Number(flags.draftDays) : undefined,
+      sessionDays: flags.sessionDays ? Number(flags.sessionDays) : undefined,
+      huDays: flags.huDays ? Number(flags.huDays) : undefined,
     });
   });
 
