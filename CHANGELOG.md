@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.4] - 2026-04-24
+
+### Changed (BREAKING contract, backward-compatible API)
+
+- **Sonar is now intrinsic to Karajan for code tasks** (PR #468). Sonar runs unconditionally for every task classified as `sw`/`refactor`/`add-tests` and is skipped by policy for non-code tasks (`audit`/`doc`/`infra`/`analysis`/`no-code`). The `sonarqube.enabled` field in `kj.config.yml` is now **IGNORED** (with a deprecation warning emitted at run start). `--no-sonar` / `--sonar=false` CLI flags are also ignored with the same warning. Rationale: a code task without a quality gate, static analysis and issue enforcement is not a job Karajan can call complete — Sonar is part of the contract, like TDD. Solomon may still decide to skip a single iteration via runtime rule alerts (legitimate runtime override based on evidence); that path is unchanged. Users CANNOT pre-disable Sonar at config or flag level anymore. A new architectural invariant (`tests/architecture/sonar-intrinsic.test.js`) fails CI if anyone tries to reintroduce the toggle.
+
+### Fixed
+
+- **Preflight no longer falsely demands API keys Karajan doesn't use** (PR #466). Pre-v2.7.4, the preflight failed with "`ANTHROPIC_API_KEY not set`" / "`OPENAI_API_KEY not set`" — blocking every Claude Code MCP run where the parent uses OAuth (`apiKeySource: "none"`) — even though Karajan never calls provider APIs directly. Verified: zero SDK imports in `package.json`, zero `process.env.ANTHROPIC_API_KEY` reads in `src/agents/`. The check was pure dead weight from an earlier design. Now replaced with a **CLI availability** check (`cli:anthropic` → `checkBinary("claude")`, `cli:openai` → `codex`, etc.) that mirrors what Karajan actually does at runtime. The `token:gh` check stays — that one's legitimate (`git push` uses `GH_TOKEN`).
+- **Orchestrator no longer crashes with `Cannot read properties of undefined (reading 'push')`** on the preflight-failure Solomon escalation path (PR #466). `addCheckpoint()` now defensively initialises `session.checkpoints = []` if missing; the init-error catch builds `tempSession` with `checkpoints: []` explicitly. Two-layer fix so the whole class of bug is gone, not just this one call site.
+
+### Added
+
+- **Architectural regression guards** (PR #466 + PR #468). Two new test files under `tests/architecture/` that fail CI on any future change that:
+  - **`no-provider-apis.test.js`** — adds a provider SDK to `dependencies`/`devDependencies`, imports one from `src/`, reads a provider API key env var outside the preflight allowlist, or reintroduces a `token:<provider>` check (must be `cli:<provider>`, except the legitimate `token:gh`).
+  - **`sonar-intrinsic.test.js`** — ANDs the preflight gate with `config.sonarqube?.enabled`, gates `runSonarStage` on the config instead of `resolved_policies.sonar`, makes `--no-sonar` mutate the config, or changes the policy so code task types don't require Sonar.
+
+  Both files document the architectural rule and the "read-this-before-disabling" rationale in their JSDoc.
+
+- **Self-explanatory "Not applicable" preflight messages** (PR #467). Check `applies(config)` can now return `{ applies: false, reason: "..." }` so users see *why* a check was skipped instead of a generic "Not applicable for current configuration". Wired into `createSonarPortCheck` and `createHuBoardPortCheck` for explicit skip reasons (external sonar, hu_board disabled).
+
+- **`docs/TESTS.md`** (PR #467). New ~280-line test-suite guide: how to run / debug, directory map, ASCII pipeline-coverage diagram, per-directory explanation of what is tested and why, list of architectural invariants with "don't disable without a discussion" rationale, known coverage gaps, contribution checklist.
+
+### Infrastructure
+
+- Test harness gets a new `globalThis.__KJ_DISABLE_SONAR_STAGE` flag (default `true` under Vitest, set in `tests/setup.js`). Tests that legitimately exercise the sonar stage opt in per-describe or per-test. Same pattern as the existing `__KJ_DEFAULT_PREFLIGHT_EXTENDED`, `__KJ_DEFAULT_BRAIN_DECISOR`, `__KJ_DEFAULT_ADDYOSMANI_ENABLED`.
+- Test count: 3 720 passing across 289 files. Lint clean on Node 18/20/22.
+
 ## [2.7.3] - 2026-04-23
 
 ### Added

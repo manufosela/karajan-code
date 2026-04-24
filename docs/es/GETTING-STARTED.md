@@ -16,7 +16,7 @@ npm install -g karajan-code
 
 Verifica:
 ```bash
-kj --version    # 2.7.3
+kj --version    # 2.7.4
 kj doctor       # Comprobar entorno
 ```
 
