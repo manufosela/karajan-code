@@ -274,6 +274,48 @@ export async function runAutoGC(opts = {}) {
 }
 
 /**
+ * Wipe the HU board SQLite database (+WAL + SHM + pidfile). Used by
+ * `kj clean --nuke` as the "reset everything" button.
+ *
+ * When the caller also stops the board process (we do so best-effort
+ * here via the pidfile), re-starting the board with `kj board start`
+ * or via the post-`kj plan` autostart recreates the DB empty.
+ *
+ * @param {{ dryRun?: boolean }} [opts]
+ * @returns {Promise<GCResult>}
+ */
+export async function nukeBoardDb(opts = {}) {
+  const result = { removed: [], bytesFreed: 0, errors: [] };
+  const dryRun = Boolean(opts.dryRun);
+  const kHome = getKarajanHome();
+
+  // Stop the board if we find a live pidfile.
+  const pidFile = path.join(kHome, "hu-board.pid");
+  try {
+    const pid = Number.parseInt(await fs.readFile(pidFile, "utf8"), 10);
+    if (!dryRun && Number.isFinite(pid)) {
+      try { process.kill(pid, 0); process.kill(pid, "SIGTERM"); } catch { /* already dead */ }
+    }
+  } catch { /* no pidfile */ }
+
+  // The DB (+ WAL / SHM) can be hundreds of MB on old installs; report
+  // the bytes freed so the user sees the reward.
+  for (const name of ["hu-board.db", "hu-board.db-wal", "hu-board.db-shm", "hu-board.pid"]) {
+    const p = path.join(kHome, name);
+    const stat = await tryStat(p);
+    if (!stat) continue;
+    try {
+      await unlinkOrRm(p, dryRun);
+      result.removed.push({ path: p, reason: "board db wiped (--nuke)", kind: "board", bytes: stat.size });
+      result.bytesFreed += stat.size;
+    } catch (err) {
+      result.errors.push({ path: p, error: err.message });
+    }
+  }
+  return result;
+}
+
+/**
  * Format a GC result as a single human-readable line. Used by the
  * silent auto-GC path so the user only sees one line in the rare case
  * something was actually cleaned.

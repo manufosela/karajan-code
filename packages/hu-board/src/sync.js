@@ -36,6 +36,25 @@ function deriveProjectName(data, fallbackId) {
 /**
  * Turn a free-text goal into a short title-cased name (max 60 chars).
  */
+/**
+ * Derive a stable `project_id` from a plan's absolute `projectDir`.
+ * Used so every plan under the same source tree groups under one project
+ * on the board (instead of 1 project per plan — the 2 101-stories bug).
+ *
+ * @param {string} projectDir
+ * @returns {string}
+ */
+function deriveProjectIdFromDir(projectDir) {
+  if (!projectDir || typeof projectDir !== 'string') return 'unknown';
+  // Same slug rule the plan-store uses, so identifiers match if we ever
+  // cross-reference `~/.kj/plans/<slug>/` with this project_id.
+  return projectDir
+    .replace(/^\//, '')
+    .replace(/[/\\]/g, '_')
+    .replace(/[^a-zA-Z0-9_.-]/g, '')
+    .slice(0, 120);
+}
+
 function slugToTitle(text) {
   const STOPWORDS = new Set([
     'a', 'an', 'the', 'and', 'or', 'with', 'for', 'to', 'of', 'in', 'on',
@@ -256,8 +275,19 @@ function syncPlanFile(filePath) {
     const data = JSON.parse(raw);
     if (data.version !== 2 || !Array.isArray(data.hus) || data.hus.length === 0) return;
 
-    const projectId = data.planId;
-    const projectName = data.name || slugToTitle(data.task || '') || projectId;
+    // Bug fix: pre-patch, `projectId = data.planId` — every plan was a separate
+    // "project" on the board, so 2 464 plans across the same repo produced
+    // 2 464 boxes in the UI instead of one. Now we derive the project from
+    // the stamped `projectDir` so every plan for the same source tree groups
+    // under a single board entry. Legacy plans without `projectDir` still
+    // fall back to `planId` (conservative — they at least continue to show
+    // up, just each on its own card).
+    const projectId = data.projectDir
+      ? deriveProjectIdFromDir(data.projectDir)
+      : data.planId;
+    const projectName = data.projectDir
+      ? basename(data.projectDir)
+      : (data.name || slugToTitle(data.task || '') || projectId);
 
     upsertProject({
       id: projectId,
