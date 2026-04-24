@@ -96,10 +96,19 @@ export function initDb() {
   `);
 
   // --- Migrations ---
-  // plan_id: lets PATCH /api/stories/:id + POST /api/plans/:planId/ready
-  // locate the source-of-truth plan JSON at ~/.kj/plans/<slug>/<planId>.json.
-  // ALTER is idempotent on restart because we swallow the dup-column error.
+  // Each ALTER is idempotent on restart — we swallow the duplicate-column
+  // error so adding one over time doesn't force a board DB nuke.
+  //
+  // plan_id:       lets the mutation endpoints locate the source-of-truth plan
+  //                JSON at ~/.kj/plans/<slug>/<planId>.json without a scan.
+  // ac_count:      number of acceptance criteria, surfaced on the card.
+  // test_count:    number of acceptance_tests, surfaced on the card.
+  // blocked_by:    denormalised JSON array of HU ids this story waits on,
+  //                so the card can render `⏳ waits for: lao-001` inline.
   try { db.exec('ALTER TABLE stories ADD COLUMN plan_id TEXT'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN ac_count INTEGER'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN test_count INTEGER'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN blocked_by TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   return db;
@@ -147,13 +156,15 @@ export function upsertStory(story) {
       certified_as, certified_want, certified_so_that,
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
-      created_at, updated_at, certified_at, plan_id
+      created_at, updated_at, certified_at, plan_id,
+      ac_count, test_count, blocked_by
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
-      @created_at, @updated_at, @certified_at, @plan_id
+      @created_at, @updated_at, @certified_at, @plan_id,
+      @ac_count, @test_count, @blocked_by
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -174,7 +185,10 @@ export function upsertStory(story) {
       acceptance_criteria = COALESCE(@acceptance_criteria, acceptance_criteria),
       updated_at = @updated_at,
       certified_at = COALESCE(@certified_at, certified_at),
-      plan_id = COALESCE(@plan_id, plan_id)
+      plan_id = COALESCE(@plan_id, plan_id),
+      ac_count = COALESCE(@ac_count, ac_count),
+      test_count = COALESCE(@test_count, test_count),
+      blocked_by = COALESCE(@blocked_by, blocked_by)
   `);
   stmt.run({
     id: story.id,
@@ -200,6 +214,9 @@ export function upsertStory(story) {
     updated_at: story.updated_at || new Date().toISOString(),
     certified_at: story.certified_at || null,
     plan_id: story.plan_id || null,
+    ac_count: story.ac_count ?? null,
+    test_count: story.test_count ?? null,
+    blocked_by: story.blocked_by || null,
   });
 }
 

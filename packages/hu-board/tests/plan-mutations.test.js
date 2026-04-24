@@ -61,6 +61,10 @@ beforeEach(async () => {
   tmpPlansDir = mkdtempSync(join(tmpdir(), 'hu-board-plans-'));
   process.env.KJ_HOME = tmpHome;
   process.env.KJ_PLANS_DIR = tmpPlansDir;
+  // Don't actually spawn the orchestrator — "echo" mode short-circuits
+  // runPlan so we can assert the payload shape without booting kj run
+  // inside vitest.
+  process.env.KJ_RUN_SPAWN_MODE = 'echo';
 
   // Modules are imported once across the suite; `initDb()` swaps the
   // underlying SQLite handle to one rooted in the per-test tmpHome, and
@@ -84,6 +88,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  delete process.env.KJ_RUN_SPAWN_MODE;
   dbMod.closeDb();
   rmSync(tmpHome, { recursive: true, force: true });
   rmSync(tmpPlansDir, { recursive: true, force: true });
@@ -207,5 +212,113 @@ describe('plan_id stamping via syncPlanFile', () => {
   it('listPlanIdsForProject returns distinct plan ids', () => {
     const ids = dbMod.listPlanIdsForProject(PROJECT_ID);
     expect(ids).toEqual([PLAN_ID]);
+  });
+});
+
+describe('denormalised ac_count / test_count / blocked_by on story rows', () => {
+  it('stamps ac_count and test_count from the plan JSON', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_010`,
+          title: 'rich hu',
+          status: 'pending',
+          acceptance_criteria: [{ given: 'g', when: 'w', then: 't' }, 'another'],
+          acceptance_tests: ['t1', 't2', 't3'],
+          blocked_by: [],
+          createdAt: '2026-04-24T10:10:10Z',
+          updatedAt: '2026-04-24T10:10:10Z',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const stories = dbMod.getStoriesByProject(PROJECT_ID);
+    const row = stories.find((s) => s.id.endsWith('_010'));
+    expect(row.ac_count).toBe(2);
+    expect(row.test_count).toBe(3);
+  });
+
+  it('stamps blocked_by as a JSON array of HU ids', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_100`,
+          title: 'root',
+          status: 'pending',
+          acceptance_criteria: [],
+          blocked_by: [],
+          createdAt: '2026-04-24T10:10:10Z', updatedAt: '2026-04-24T10:10:10Z',
+        },
+        {
+          id: `${PLAN_ID}_200`,
+          title: 'child',
+          status: 'pending',
+          acceptance_criteria: [],
+          blocked_by: [`${PLAN_ID}_100`],
+          createdAt: '2026-04-24T10:10:10Z', updatedAt: '2026-04-24T10:10:10Z',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const stories = dbMod.getStoriesByProject(PROJECT_ID);
+    const child = stories.find((s) => s.id.endsWith('_200'));
+    expect(JSON.parse(child.blocked_by)).toEqual([`${PLAN_ID}_100`]);
+    const root = stories.find((s) => s.id.endsWith('_100'));
+    expect(root.blocked_by).toBeNull();
+  });
+});
+
+describe('POST /api/plans/:planId/run', () => {
+  it('returns the pid + log path + resolved argv in echo mode', async () => {
+    const res = await request(app)
+      .post(`/api/plans/${PLAN_ID}/run`)
+      .send({ projectId: PROJECT_ID });
+    expect(res.status).toBe(200);
+    expect(res.body.launched).toBe(true);
+    expect(res.body.planId).toBe(PLAN_ID);
+    expect(res.body.logPath).toMatch(/hu-board-runs\/.+\.log$/);
+  });
+
+  it('respects taskOverride when provided', () => {
+    const result = planMutationsMod.runPlan({
+      planId: PLAN_ID,
+      projectId: PROJECT_ID,
+      taskOverride: 'custom goal here',
+    });
+    expect(result.ok).toBe(true);
+    expect(result.argv[result.argv.length - 1]).toBe('custom goal here');
+  });
+
+  it('returns 404 for an unknown plan', async () => {
+    const res = await request(app).post('/api/plans/plan-nope/run').send({});
+    expect(res.status).toBe(404);
+  });
+
+  it('refuses to run plans without projectDir (legacy pre-v2.7.4)', () => {
+    // Strip projectDir from the existing plan and rewrite it.
+    writePlanToDisk({ projectDir: undefined });
+    const result = planMutationsMod.runPlan({ planId: PLAN_ID, projectId: PROJECT_ID });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/projectDir/);
+  });
+});
+
+describe('POST /api/projects/:id/run', () => {
+  it('launches every plan of the project', async () => {
+    const res = await request(app)
+      .post(`/api/projects/${encodeURIComponent(PROJECT_ID)}/run`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.launched).toBe(1);
+    expect(res.body.total).toBe(1);
+  });
+
+  it('returns 404 when the project has no plan-backed stories', async () => {
+    dbMod.upsertProject({ id: 'bare-project', name: 'Bare' });
+    dbMod.upsertStory({ id: 'bare-project::hu-x', project_id: 'bare-project', status: 'pending' });
+    const res = await request(app)
+      .post(`/api/projects/${encodeURIComponent('bare-project')}/run`)
+      .send({});
+    expect(res.status).toBe(404);
   });
 });
