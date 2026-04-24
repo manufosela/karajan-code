@@ -1,6 +1,7 @@
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { buildTriagePrompt } from "../prompts/triage.js";
 import { parseMaybeJsonString } from "../review/parser.js";
 
@@ -43,8 +44,12 @@ export async function triageCommand({ task, config, logger, json }) {
 
     const agent = createAgent(triageRole.provider, config, logger);
     const prompt = buildTriagePrompt({ task });
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await agent.runTask({ prompt, onOutput, role: "triage" });
+    const progress = createCliProgressReporter({ role: "triage" });
+    let result;
+    try {
+      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "triage" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {
       throw new Error(result.error || result.output || "Triage failed");

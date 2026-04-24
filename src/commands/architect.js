@@ -2,6 +2,7 @@ import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { buildArchitectPrompt, parseArchitectOutput } from "../prompts/architect.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 function formatLayers(layers, lines) {
   lines.push("### Layers");
@@ -67,8 +68,12 @@ export async function architectCommand({ task, config, logger, context, json }) 
 
     const agent = createAgent(architectRole.provider, config, logger);
     const prompt = await buildArchitectPrompt({ task, researchContext: context });
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await agent.runTask({ prompt, onOutput, role: "architect" });
+    const progress = createCliProgressReporter({ role: "architect" });
+    let result;
+    try {
+      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "architect" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {
       throw new Error(result.error || result.output || "Architect failed");

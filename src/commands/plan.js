@@ -3,6 +3,7 @@ import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { buildPlannerPrompt } from "../prompts/planner.js";
 import { parseMaybeJsonString } from "../review/parser.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 // ---- Formatting helpers ----
 
@@ -70,7 +71,22 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   const timeoutMs = Number(config?.session?.max_planner_minutes) > 0
     ? Math.round(Number(config.session.max_planner_minutes) * 60 * 1000)
     : undefined;
-  const result = await planner.runTask({ prompt, role: "planner", silenceTimeoutMs, timeoutMs });
+
+  // Live progress to stderr so the user sees what the planner is doing
+  // instead of staring at a silent shell for 30 s – 3 min. `--json` mode
+  // stays quiet so stdout remains a pure JSON document.
+  const progress = createCliProgressReporter({ role: "planner", quiet: Boolean(json) });
+  let result;
+  try {
+    result = await planner.runTask({
+      prompt, role: "planner", silenceTimeoutMs, timeoutMs,
+      onOutput: progress.onOutput,
+    });
+    progress.finish(result.ok ? "done" : "failed");
+  } catch (err) {
+    progress.finish("failed");
+    throw err;
+  }
 
   if (!result.ok) throw new Error(result.error || result.output || "Planner failed");
 
@@ -107,6 +123,9 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   }
 
   const planId = await savePlan(projectDir, plan);
+  const { plansDir } = await import("../plan/plan-store.js");
+  const path = await import("node:path");
+  const planPath = path.join(plansDir(projectDir), `${planId}.json`);
 
   runLog.logText(`[planner] finished — hus=${plan.hus.length} plan=${planId}`);
 
@@ -123,9 +142,29 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   console.log(`\n## HUs (${plan.hus.length})`);
   console.log(formatHuTable(plan.hus));
   console.log(`\nPlan saved: ${planId} (${plan.hus.length} HUs, status: ${plan.status})`);
+  console.log(`         → ${planPath}`);
   console.log(`Review:  kj plan show ${planId}`);
   console.log(`Approve: kj plan ready ${planId}`);
   console.log(`Execute: kj run --plan ${planId} "${task.slice(0, 40)}..."`);
+
+  // UX boost for HU-bearing plans: auto-start the HU Board (same pattern as
+  // `kj run` auto-HU generation) so the user can inspect the 12-HU plan in a
+  // browser instead of squinting at the ASCII table. The board reads
+  // ~/.kj/plans/ directly, so this plan is visible immediately. Never in
+  // vitest / test mode, and never when `--json` is active.
+  if (plan.hus.length > 0 && !process.env.VITEST && process.env.NODE_ENV !== "test") {
+    try {
+      const { startBoard, renderBoardBanner } = await import("./board.js");
+      const boardPort = config?.hu_board?.port ?? 4000;
+      const boardResult = await startBoard(boardPort);
+      const status = boardResult.alreadyRunning ? "already running" : "started";
+      console.log(renderBoardBanner({ url: boardResult.url, status, projectName: plan.name }));
+    } catch (err) {
+      // Non-blocking: plan is saved, only the visualiser failed.
+      logger?.warn?.(`HU Board auto-start failed (non-blocking): ${err.message}`);
+      console.log(`\nVisualize: kj board start (http://localhost:${config?.hu_board?.port ?? 4000})`);
+    }
+  }
   return { ok: true };
 }
 
