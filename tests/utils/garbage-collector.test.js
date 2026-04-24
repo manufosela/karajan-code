@@ -155,18 +155,32 @@ describe("garbage-collector — sessions", () => {
       status: "approved",
       mtime: new Date(Date.now() - 2 * DAY),
     });
-    const runningNotFinal = await writeSession("sess-running", {
-      status: "running",
-      mtime: new Date(Date.now() - 100 * DAY),
-    });
 
     const result = await runManualGC({ sessionRetentionDays: 7, dryRun: false });
 
     const paths = result.removed.map((r) => r.path);
     expect(paths).toContain(oldApproved);
     expect(paths).not.toContain(recentApproved);
-    // Running is never touched, no matter how old.
-    expect(paths).not.toContain(runningNotFinal);
+  });
+
+  it("sweeps zombie running sessions older than staleRunningDays", async () => {
+    // Pipelines SIGKILL'd (power cut, terminal closed, OOM) leave stale
+    // running sessions that the old GC never reclaimed. Fix that.
+    const zombie = await writeSession("sess-zombie", {
+      status: "running",
+      mtime: new Date(Date.now() - 30 * DAY),
+    });
+    const activeRun = await writeSession("sess-active", {
+      status: "running",
+      mtime: new Date(Date.now() - 2 * DAY),
+    });
+
+    const result = await runManualGC({ sessionRetentionDays: 7, dryRun: false });
+
+    const paths = result.removed.map((r) => r.path);
+    expect(paths).toContain(zombie);
+    // Active run (within staleRunningDays) survives.
+    expect(paths).not.toContain(activeRun);
   });
 });
 

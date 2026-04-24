@@ -14,7 +14,14 @@ function getKjHome() {
   return process.env.KJ_HOME || path.join(os.homedir(), ".kj");
 }
 
-function projectSlug(projectDir) {
+/**
+ * Deterministic slug for a project path — stable across plan-store writes,
+ * HU-board syncs and board URL routing. Keep in lockstep with
+ * `packages/hu-board/src/sync.js::deriveProjectIdFromDir`.
+ * @param {string} projectDir - absolute project path
+ * @returns {string}
+ */
+export function projectSlug(projectDir) {
   return projectDir
     .replace(/^\//, "")
     .replace(/[/\\]/g, "_")

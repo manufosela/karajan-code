@@ -32,7 +32,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-const FINAL_PLAN_STATUSES = new Set(["approved", "rejected", "executed", "completed"]);
+const FINAL_PLAN_STATUSES = new Set([
+  // Terminal plan states the user explicitly opted into — retention applies.
+  "approved", "rejected", "executed", "completed", "ready",
+]);
+const KNOWN_PLAN_STATUSES = new Set([...FINAL_PLAN_STATUSES, "draft", "running"]);
 const FINAL_SESSION_STATUSES = new Set(["approved", "failed", "stopped", "rejected", "completed"]);
 
 function getKjHome() {
@@ -138,6 +142,10 @@ async function gcPlans(opts) {
         reason = `${status} plan older than ${opts.planRetentionDays}d (${Math.round(days)}d)`;
       } else if (status === "draft" && days > opts.draftRetentionDays) {
         reason = `stale draft older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
+      } else if (!KNOWN_PLAN_STATUSES.has(status) && days > opts.draftRetentionDays) {
+        // Unknown status (corrupt/legacy/plan from a future version) —
+        // apply the draft window. Doing nothing would leak them forever.
+        reason = `plan with unknown status "${status}" older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
       }
 
       if (reason) {
@@ -168,6 +176,14 @@ async function gcSessions(opts) {
   const sessionsRoot = path.join(getKarajanHome(), "sessions");
   if (!(await exists(sessionsRoot))) return result;
 
+  // Pipelines that get SIGKILL'd (power off, terminal closed, OOM…) leave
+  // their session.json stuck at status="running" forever. The original GC
+  // only reclaimed FINAL statuses and these zombies accumulated on the
+  // board. After `staleRunningDays` with no activity we assume the run is
+  // dead and sweep them. Default mirrors sessionRetentionDays so there is
+  // only one knob to reason about.
+  const staleRunningDays = opts.staleRunningDays ?? opts.sessionRetentionDays;
+
   for (const sessEntry of await listDir(sessionsRoot)) {
     if (!sessEntry.isDirectory()) continue;
     const sessDir = path.join(sessionsRoot, sessEntry.name);
@@ -177,18 +193,20 @@ async function gcSessions(opts) {
 
     const data = await tryReadJson(sessionFile);
     const status = data?.status;
-    if (!status || !FINAL_SESSION_STATUSES.has(status)) continue;
-
     const days = ageInDays(stat, now);
-    if (days <= opts.sessionRetentionDays) continue;
+
+    let reason = null;
+    if (status && FINAL_SESSION_STATUSES.has(status) && days > opts.sessionRetentionDays) {
+      reason = `${status} session older than ${opts.sessionRetentionDays}d (${Math.round(days)}d)`;
+    } else if ((!status || status === "running") && days > staleRunningDays) {
+      reason = `zombie ${status || "unknown-status"} session older than ${staleRunningDays}d (${Math.round(days)}d)`;
+    }
+
+    if (!reason) continue;
 
     try {
       await unlinkOrRm(sessDir, opts.dryRun);
-      result.removed.push({
-        path: sessDir,
-        reason: `${status} session older than ${opts.sessionRetentionDays}d (${Math.round(days)}d)`,
-        kind: "session",
-      });
+      result.removed.push({ path: sessDir, reason, kind: "session" });
     } catch (err) {
       result.errors.push({ path: sessDir, error: err.message });
     }
