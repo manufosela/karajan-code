@@ -385,5 +385,20 @@ export const tools = [
         projectDir: { type: "string", description: "Absolute path to the project directory" }
       }
     }
+  },
+  {
+    name: "kj_clean",
+    description: "Garbage-collect stale Karajan state: orphan plans (project dir no longer exists), finalised plans/sessions past their retention window, and HU story batches. Dry-run by default; pass yes=true to actually delete. Use nuke=true to wipe everything (retention=0 on every bucket + drop the HU board SQLite DB).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        yes: { type: "boolean", description: "If true, actually delete. Default false (dry-run: returns the list of items that would be removed without touching disk)." },
+        nuke: { type: "boolean", description: "If true, retention=0 on every bucket + wipe the HU board DB (stops the board first if running). The \"I want it all gone right now\" button." },
+        planDays: { type: "number", description: "Keep finalised plans (approved/rejected/executed) for this many days. Default: 30." },
+        draftDays: { type: "number", description: "Keep draft plans for this many days. Default: 60." },
+        sessionDays: { type: "number", description: "Keep finalised sessions for this many days. Default: 7." },
+        huDays: { type: "number", description: "Keep HU story batches for this many days. Default: 14." }
+      }
+    }
   }
 ];
