@@ -22,6 +22,7 @@ import {
   buildConfig,
   buildAskQuestion,
   enrichedFailPayload,
+  ensureTaskFromFile,
 } from "../shared-helpers.js";
 
 const MAX_AUTO_RESUMES = 2;
@@ -268,9 +269,9 @@ export async function handleResume(a, server, extra) {
 }
 
 export async function handleRun(a, server, extra) {
-  const { ensureTaskFromFile, resolveProjectDir: _rpd } = await import("../shared-helpers.js");
+  // TSK-0340: was `await import(...)` — both helpers now come from the static import block.
   try {
-    await ensureTaskFromFile(a, a.projectDir || (await _rpd(server, a.projectDir).catch(() => null)));
+    await ensureTaskFromFile(a, a.projectDir || (await resolveProjectDir(server, a.projectDir).catch(() => null)));
   } catch (err) {
     return failPayload(`taskFile read failed: ${err.message}`);
   }

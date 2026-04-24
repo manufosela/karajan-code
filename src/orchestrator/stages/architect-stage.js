@@ -5,10 +5,10 @@
 
 import { ArchitectRole } from "../../roles/architect-role.js";
 import { createAgent } from "../../agents/index.js";
-import { createArchitectADRs } from "../../planning-game/architect-adrs.js";
 import { addCheckpoint } from "../../session/store.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
+import { getIntegration } from "../integrations.js";
 
 async function handleArchitectClarification({ architectOutput, askQuestion, config, logger, emitter, eventBase, session, architectOnOutput, architectProvider, coderRole, researchContext, discoverResult, triageLevel, trackBudget }) {
   if (!architectOutput.ok
@@ -140,9 +140,10 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
 
   const architectContext = architectOutput.ok ? architectOutput.result : null;
 
-  // TODO: Move ADR creation to planning-game/pipeline-adapter.js (PG coupling still here because
-  // stageResult.adrs is consumed synchronously within runArchitectStage's return value).
-  // Generate ADRs from architect tradeoffs when PG is linked
+  // TSK-0339: ADR creation is now a tracker hook. The orchestrator ships the
+  // tradeoffs; the registered adapter decides whether/how to persist them
+  // (PG creates ADR cards, another tracker might create Jira issues, an
+  // unregistered tracker is a no-op).
   const tradeoffs = architectOutput.result?.architecture?.tradeoffs;
   if (architectOutput.ok
     && architectOutput.result?.verdict === "ready"
@@ -150,17 +151,17 @@ export async function runArchitectStage({ config, logger, emitter, eventBase, se
     && session.pg_task_id
     && session.pg_project_id) {
     try {
-      const pgClient = await import("../../planning-game/client.js");
-      const adrResult = await createArchitectADRs({
+      const adrResult = await getIntegration("tracker")?.createAdrsFromTradeoffs?.({
         tradeoffs,
         pgTaskId: session.pg_task_id,
         pgProject: session.pg_project_id,
         taskTitle: session.task,
-        mcpClient: pgClient
       });
-      stageResult.adrs = adrResult;
-      if (adrResult.created > 0) {
-        logger.info(`Architect: created ${adrResult.created} ADR(s) in Planning Game`);
+      if (adrResult) {
+        stageResult.adrs = adrResult;
+        if (adrResult.created > 0) {
+          logger.info(`Architect: created ${adrResult.created} ADR(s) in tracker`);
+        }
       }
     } catch (err) {
       logger.warn(`Architect: failed to create ADRs: ${err.message}`);

@@ -32,6 +32,7 @@ import { runTesterStage, runSecurityStage, runFinalAuditStage } from "../post-lo
 import { invokeSolomon } from "../solomon-escalation.js";
 import { tryCiComment } from "../ci-integration.js";
 import { writeIterationsJournal } from "../session-journal.js";
+import { getIntegration } from "../integrations.js";
 
 export async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled, testerEnabled, securityEnabled, askQuestion, logger, brainCtx }) {
   const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
@@ -108,8 +109,8 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
 
   // Accumulate final commits for PG card lifecycle tracking
   if (gitResult?.commits?.length) {
-    const { accumulateCommit } = await import("../../planning-game/pipeline-adapter.js");
-    for (const c of gitResult.commits) accumulateCommit(session, c);
+    const tracker = getIntegration("tracker");
+    for (const c of gitResult.commits) tracker?.onCommit?.(session, c);
   }
 
   if (stageResults.planner?.ok) {
@@ -118,8 +119,7 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
   setBudget(session, budgetSummary());
   await markSessionStatus(session, "approved");
 
-  const { markPgCardToValidate } = await import("../../planning-game/pipeline-adapter.js");
-  await markPgCardToValidate({ pgCard, pgProject, config, session, gitResult, logger });
+  await getIntegration("tracker")?.onSessionApproved?.({ pgCard, pgProject, config, session, gitResult, logger });
 
   const deferredIssues = session.deferred_issues || [];
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
@@ -237,8 +237,7 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
 
     // hasStyleOnly: genuine dilemma → Brain consults Solomon
     logger.info(`Brain: max_iterations with ${entries.length} style-only issue(s) — consulting Solomon on dilemma`);
-    const { invokeSolomon: invokeSolomonAI } = await import("../solomon-escalation.js");
-    const solomonResult = await invokeSolomonAI({
+    const solomonResult = await invokeSolomon({
       config, logger, emitter, eventBase, stage: "max_iterations", askQuestion, session,
       iteration: config.max_iterations,
       conflict: {

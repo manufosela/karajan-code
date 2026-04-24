@@ -6,6 +6,7 @@ import { saveSession } from "../session/store.js";
 import { setCiEarlyPr, appendCiCommits } from "../session/mutators.js";
 import { earlyPrCreation, incrementalPush } from "../git/automation.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { getIntegration } from "./integrations.js";
 
 export async function tryCiComment({ config, session, logger, agent, body }) {
   if (!config.ci?.enabled || !session.ci_pr_number) return;
@@ -30,8 +31,8 @@ async function ciIncrementalPush({ config, session, gitCtx, task, logger, repo, 
   const pushResult = await incrementalPush({ gitCtx, task, logger, session });
   if (!pushResult) return;
 
-  const { accumulateCommit } = await import("../planning-game/pipeline-adapter.js");
-  for (const c of pushResult.commits) accumulateCommit(session, c);
+  const tracker = getIntegration("tracker");
+  for (const c of pushResult.commits) tracker?.onCommit?.(session, c);
 
   appendCiCommits(session, pushResult.commits);
   await saveSession(session);
@@ -49,8 +50,8 @@ async function ciCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, ta
   const earlyPr = await earlyPrCreation({ gitCtx, task, logger, session, stageResults });
   if (!earlyPr) return;
 
-  const { accumulateCommit } = await import("../planning-game/pipeline-adapter.js");
-  for (const c of earlyPr.commits) accumulateCommit(session, c);
+  const tracker = getIntegration("tracker");
+  for (const c of earlyPr.commits) tracker?.onCommit?.(session, c);
 
   setCiEarlyPr(session, { prNumber: earlyPr.prNumber, prUrl: earlyPr.prUrl, commits: earlyPr.commits });
   await saveSession(session);

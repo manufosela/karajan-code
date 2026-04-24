@@ -218,3 +218,34 @@ async function markPgCardInProgress({ pgTaskId, pgProject, config, logger }) {
     return null;
   }
 }
+
+/**
+ * TSK-0339: integration adapter shape — the orchestrator consumes tracker
+ * hooks via this neutral interface, not via direct imports. `registerPgAdapter`
+ * is called once at bootstrap when `config.planning_game.enabled` is true,
+ * wiring these hooks into `src/orchestrator/integrations.js` under the
+ * "tracker" slot.
+ *
+ * Adding a new tracker (GitHub Projects, Jira, Linear, …) means creating
+ * a sibling `src/adapters/<name>/adapter.js` with the same hook surface,
+ * nothing else in the orchestrator changes.
+ */
+export const planningGameAdapter = {
+  name: "planning-game",
+  async onSessionStart(opts) { return initPgAdapter(opts); },
+  onCommit(session, commit) { accumulateCommit(session, commit); },
+  async onSessionApproved(opts) { return markPgCardToValidate(opts); },
+  buildHuStoriesFromCard(card) { return buildHuStoriesFromPgCard(card); },
+  async handleDecomposition(opts) { return handlePgDecomposition(opts); },
+  async createAdrsFromTradeoffs({ tradeoffs, pgTaskId, pgProject, taskTitle }) {
+    // Lazy-loaded to avoid pulling createArchitectADRs into every import.
+    const { createArchitectADRs } = await import("./architect-adrs.js");
+    const pgClient = await import("./client.js");
+    return createArchitectADRs({ tradeoffs, pgTaskId, pgProject, taskTitle, mcpClient: pgClient });
+  },
+};
+
+export async function registerPgAdapter() {
+  const { registerIntegration } = await import("../orchestrator/integrations.js");
+  registerIntegration("tracker", planningGameAdapter);
+}

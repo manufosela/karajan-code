@@ -232,6 +232,18 @@ export async function ensureBootstrap(projectDir, config) {
     await loadPlugins({ projectDir });
   } catch { /* plugin system failed — non-blocking, continue bootstrap */ }
 
+  // TSK-0339: register the Planning Game adapter in the integrations registry
+  // when enabled. The orchestrator no longer imports `src/planning-game/*`
+  // directly — it calls `getIntegration("tracker")?.hookName(...)` instead.
+  // Other trackers (GitHub Projects, Jira, Linear, …) drop in by writing
+  // a sibling adapter that calls `registerIntegration("tracker", …)`.
+  if (config?.planning_game?.enabled) {
+    try {
+      const { registerPgAdapter } = await import("./planning-game/pipeline-adapter.js");
+      await registerPgAdapter();
+    } catch { /* PG registration failed — non-blocking, continue bootstrap */ }
+  }
+
   const cached = await readBootstrapFile(projectDir);
   if (isBootstrapValid(cached, projectDir)) {
     return; // Environment already validated

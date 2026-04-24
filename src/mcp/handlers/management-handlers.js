@@ -177,8 +177,8 @@ export async function handleScan(a, server) {
 
 export async function handleBoard(a) {
   const action = a.action || "status";
-  const { loadConfig: lc } = await import("../../config.js");
-  const { config } = await lc();
+  // TSK-0340: loadConfig is already statically imported at the top.
+  const { config } = await loadConfig();
   const port = a.port || config.hu_board?.port || 4000;
   const { startBoard, stopBoard, boardStatus } = await import("../../commands/board.js");
   switch (action) {

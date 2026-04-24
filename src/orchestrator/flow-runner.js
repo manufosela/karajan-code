@@ -36,6 +36,8 @@ import {
 } from "./config-init.js";
 import { resolveTestHarness } from "../config/test-harness.js";
 import { cleanupAutoInstalledSkills } from "../skills/skill-detector.js";
+import { withRunContext } from "./run-context.js";
+import { ensureTrackerRegistered } from "../tracker-bootstrap.js";
 
 // Drivers extracted from this god-module in TSK-0335 (Oleada 3 of the v2.7.4
 // audit refactor). Each driver covers one phase of the pipeline; flow-runner
@@ -54,7 +56,15 @@ import { writeHistoryRecord } from "./drivers/post-loop.js";
 // PG card "In Progress" logic moved to src/planning-game/pipeline-adapter.js → initPgAdapter()
 
 
-export async function runFlow({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
+export async function runFlow(opts) {
+  // TSK-0338: isolate per-run state (git/diff runner, projectDir, snapshot)
+  // inside an AsyncLocalStorage scope. Two concurrent `runFlow` invocations
+  // (MCP multi-client) no longer contaminate each other's module state.
+  // initFlowContext writes into this store (see drivers/init-context.js).
+  return withRunContext({}, () => _runFlowInner(opts));
+}
+
+async function _runFlowInner({ task, config, logger, flags = {}, emitter = null, askQuestion = null, pgTaskId = null, pgProject = null }) {
   // Defensive test-harness resolution for callers that bypass loadConfig()
   // (orchestrator unit tests that build raw config objects). Production
   // callers go through src/config/loader.js → loadConfig which already
@@ -64,6 +74,15 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
   if (config && !config.testHarness) {
     config.testHarness = resolveTestHarness(config.testHarness);
   }
+
+  // TSK-0339: delegate tracker registration to the neutral bootstrap
+  // module so `src/orchestrator/` never imports a tracker directly.
+  // Idempotent — no-op if the adapter is already registered (which is the
+  // steady state once the real `src/bootstrap.js::ensureBootstrap` has
+  // run; orchestrator unit tests that skip bootstrap benefit from this
+  // lazy fallback).
+  await ensureTrackerRegistered(config);
+
   const pipelineFlags = resolvePipelineFlags(config);
 
   if (flags.dryRun) {
