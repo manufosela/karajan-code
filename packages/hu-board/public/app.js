@@ -3,11 +3,27 @@
  * Vanilla JS single-page app with hash-based routing.
  */
 
+/**
+ * Scoped-project mode: when the server serves `/p/<slug>`, the UI boots
+ * pre-filtered to that project. Multi-project affordances (project
+ * dropdown, Sessions tab, Pipeline link, Dashboard card grid) are hidden
+ * because they make no sense here. Driven by dogfood feedback: the user
+ * wanted one board per project, not a global view with 2 000 stories.
+ */
+const SCOPED_PREFIX = '/p/';
+const scopedProjectSlug = window.location.pathname.startsWith(SCOPED_PREFIX)
+  ? decodeURIComponent(window.location.pathname.slice(SCOPED_PREFIX.length)).replace(/\/+$/, '')
+  : null;
+
+if (scopedProjectSlug) {
+  document.body.classList.add('scoped-mode');
+}
+
 /** @type {string} Current view */
-let currentView = 'dashboard';
+let currentView = scopedProjectSlug ? 'board' : 'dashboard';
 
 /** @type {string} Selected project ID (empty = all) */
-let selectedProject = '';
+let selectedProject = scopedProjectSlug || '';
 
 /** @type {number | null} Auto-refresh interval ID */
 let refreshInterval = null;
@@ -698,8 +714,10 @@ async function populateProjectSelect() {
 function handleRoute() {
   const hash = window.location.hash.slice(1) || 'dashboard';
   const parts = hash.split('/');
-  currentView = parts[0] || 'dashboard';
-  selectedProject = parts[1] || '';
+  // In scoped mode the project is locked — the hash controls the view
+  // only. `board/<slug>` becomes `board` and the slug stays fixed.
+  currentView = parts[0] || (scopedProjectSlug ? 'board' : 'dashboard');
+  selectedProject = scopedProjectSlug || parts[1] || '';
 
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === currentView);

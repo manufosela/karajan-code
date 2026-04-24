@@ -333,8 +333,12 @@ export async function tryAutoStartBoard(config, logger, emitter, eventBase) {
 
   try {
     const { startBoard, renderBoardBanner } = await import("../../commands/board.js");
+    const { projectSlug: slugFor } = await import("../../plan/plan-store.js");
     const boardPort = config.hu_board.port || 4000;
-    const boardResult = await startBoard(boardPort);
+    // Scope the board URL to the current run's project (`/p/<slug>`) so
+    // the user lands on a filtered view, not the global dashboard.
+    const slug = config.projectDir ? slugFor(config.projectDir) : null;
+    const boardResult = await startBoard(boardPort, { projectSlug: slug });
     const status = boardResult.alreadyRunning ? "already running" : "started";
     // Highlighted URL box — visible regardless of log level (matches the
     // post-planner auto-HU banner so the user gets the same signal either

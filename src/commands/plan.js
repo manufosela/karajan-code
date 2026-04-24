@@ -170,8 +170,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   if (plan.hus.length > 0 && !process.env.VITEST && process.env.NODE_ENV !== "test") {
     try {
       const { startBoard, renderBoardBanner } = await import("./board.js");
+      const { projectSlug: slugFor } = await import("../plan/plan-store.js");
       const boardPort = config?.hu_board?.port ?? 4000;
-      const boardResult = await startBoard(boardPort);
+      // `projectSlug` scopes the board URL to this project's view
+      // (`/p/<slug>`) instead of the global "All projects" dashboard. The
+      // board UI hides multi-project chrome when it sees that prefix.
+      const boardResult = await startBoard(boardPort, { projectSlug: slugFor(projectDir) });
       const status = boardResult.alreadyRunning ? "already running" : "started";
       console.log(renderBoardBanner({ url: boardResult.url, status, projectName: plan.name }));
     } catch (err) {

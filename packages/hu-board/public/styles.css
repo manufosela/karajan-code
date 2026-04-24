@@ -833,3 +833,16 @@ a:hover {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-active);
 }
+
+/* ---- Scoped-project mode (URL: /p/<slug>) ---- */
+/* Hide multi-project affordances when the board is scoped to a single
+ * project — the page only makes sense as "this project's Kanban".
+ * Multi-project UX (the All Projects selector, the Sessions tab, the
+ * Pipeline page link) adds noise and broke the user's mental model
+ * during dogfooding. */
+body.scoped-mode .project-select,
+body.scoped-mode .nav-btn[data-view="sessions"],
+body.scoped-mode .nav-btn[data-view="dashboard"],
+body.scoped-mode .header__nav a[href="/pipeline.html"] {
+  display: none;
+}

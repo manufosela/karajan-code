@@ -52,11 +52,30 @@ async function findAvailablePort(desiredPort, maxTries = 10) {
   return null;
 }
 
-export async function startBoard(desiredPort = 4000) {
+/**
+ * Build the board URL. When `projectSlug` is provided, the URL points at
+ * the per-project view (`/p/<slug>`) so the caller's project shows up
+ * pre-filtered instead of "All projects".
+ * @param {number} port
+ * @param {string|null} [projectSlug]
+ * @returns {string}
+ */
+function buildBoardUrl(port, projectSlug) {
+  const base = `http://localhost:${port}`;
+  return projectSlug ? `${base}/p/${projectSlug}` : base;
+}
+
+export async function startBoard(desiredPort = 4000, opts = {}) {
+  const { projectSlug = null } = opts;
   const existingPid = readPid();
   if (existingPid && isProcessAlive(existingPid)) {
     // Trust the saved PID — port info comes from the PID file if present
-    return { ok: true, alreadyRunning: true, pid: existingPid, url: `http://localhost:${desiredPort}` };
+    return {
+      ok: true,
+      alreadyRunning: true,
+      pid: existingPid,
+      url: buildBoardUrl(desiredPort, projectSlug),
+    };
   }
 
   // Find a free port starting from desiredPort
@@ -85,7 +104,7 @@ export async function startBoard(desiredPort = 4000) {
     throw new Error("Failed to spawn HU Board server");
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
-  return { ok: true, alreadyRunning: false, pid: child.pid, url: `http://localhost:${port}`, port };
+  return { ok: true, alreadyRunning: false, pid: child.pid, url: buildBoardUrl(port, projectSlug), port };
 }
 
 export async function stopBoard() {
