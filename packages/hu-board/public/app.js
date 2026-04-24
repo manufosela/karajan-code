@@ -611,14 +611,38 @@ async function patchStoryStatus(storyId, status) {
       body: JSON.stringify({ status }),
     });
     if (!res.ok) {
+      // 404 from Express itself (no matching route) vs 404 from our
+      // handler (story not found) — if the endpoint simply isn't wired
+      // up, the server is probably still on a pre-v2.7.5 build. The
+      // generic message here was "Could not update status: HTTP 404",
+      // which was technically correct but useless. Be explicit.
+      if (res.status === 404) {
+        await showError(
+          'The board server does not recognise the PATCH endpoint.\n\n'
+          + 'This usually means the board process is still running a pre-v2.7.5 build. '
+          + 'Restart it with:\n\n'
+          + '    kj board stop && kj board start\n\n'
+          + 'Then reload this page.',
+          { title: 'Board out of date' }
+        );
+        return;
+      }
+      if (res.status === 409) {
+        await showError(
+          'This story is not backed by a plan file (legacy row from before '
+          + 'plan_id stamping). Re-run `kj plan` to re-import it.',
+          { title: 'Cannot certify legacy row' }
+        );
+        return;
+      }
       const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      alert(`Could not update status: ${msg}`);
+      await showError(msg, { title: 'Could not update status' });
       return;
     }
     closeModal();
     await renderBoard();
   } catch (err) {
-    alert(`Could not update status: ${err.message}`);
+    await showError(err.message, { title: 'Could not update status' });
   }
 }
 
@@ -636,13 +660,23 @@ async function markProjectReady(projectId) {
       body: JSON.stringify({}),
     });
     if (!res.ok) {
+      if (res.status === 404) {
+        await showError(
+          'The board server does not recognise the "mark ready" endpoint.\n\n'
+          + 'Most likely cause: the board process is running a pre-v2.7.5 build. '
+          + 'Restart it with:\n\n'
+          + '    kj board stop && kj board start',
+          { title: 'Board out of date' }
+        );
+        return;
+      }
       const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      alert(`Could not mark project ready: ${msg}`);
+      await showError(msg, { title: 'Could not mark project ready' });
       return;
     }
     await renderBoard();
   } catch (err) {
-    alert(`Could not mark project ready: ${err.message}`);
+    await showError(err.message, { title: 'Could not mark project ready' });
   }
 }
 
@@ -889,6 +923,129 @@ function closeModal() {
   document.getElementById('modal-backdrop').classList.add('hidden');
 }
 
+// ---- Native dialog helpers ----
+//
+// Project convention (and common sense): no window.alert / confirm / prompt.
+// These use the browser's built-in modal chrome, steal focus, block script
+// execution, and look foreign on every site. We use <dialog> instead —
+// same blocking semantics without any of the downsides, and it composes
+// with our own CSS variables so it matches the rest of the board.
+//
+// `showError` is the replacement for alert(); `showConfirm` for confirm().
+
+/**
+ * Lazily create (or reuse) the shared <dialog> singleton, so we don't
+ * leak a new DOM node on every error.
+ * @returns {HTMLDialogElement}
+ */
+function ensureDialog() {
+  let dlg = document.getElementById('app-dialog');
+  if (dlg) return dlg;
+  dlg = document.createElement('dialog');
+  dlg.id = 'app-dialog';
+  dlg.style.cssText = [
+    'border: 1px solid var(--border)',
+    'border-radius: var(--radius-sm)',
+    'padding: 0',
+    'min-width: 320px',
+    'max-width: 560px',
+    'background: var(--bg-secondary)',
+    'color: var(--text)',
+    'box-shadow: 0 10px 40px rgba(0,0,0,0.45)',
+  ].join(';');
+  document.body.appendChild(dlg);
+  return dlg;
+}
+
+/**
+ * Show a blocking error dialog. Returns a promise that resolves when the
+ * user dismisses the dialog (Esc, backdrop click, or OK button).
+ * @param {string} message
+ * @param {object} [opts]
+ * @param {string} [opts.title] - defaults to "Error"
+ */
+function showError(message, opts = {}) {
+  return new Promise((resolve) => {
+    const dlg = ensureDialog();
+    const title = opts.title || 'Error';
+    dlg.innerHTML = `
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);
+                  font-weight:600;color:var(--color-red,#ef4444)">
+        ${esc(title)}
+      </div>
+      <div style="padding:16px 18px;font-size:0.9rem;line-height:1.5;
+                  white-space:pre-wrap">${esc(message)}</div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);
+                  text-align:right">
+        <button id="app-dialog-ok" class="control-btn"
+                style="padding:6px 16px;border:1px solid var(--border);
+                       background:var(--bg-primary);color:var(--text);
+                       border-radius:var(--radius-sm);cursor:pointer">
+          OK
+        </button>
+      </div>
+    `;
+    const done = () => {
+      if (dlg.open) dlg.close();
+      resolve();
+    };
+    dlg.addEventListener('close', done, { once: true });
+    dlg.querySelector('#app-dialog-ok').addEventListener('click', done, { once: true });
+    dlg.showModal();
+  });
+}
+
+/**
+ * Show a blocking confirm dialog. Resolves to true when the user clicks
+ * the primary action, false otherwise (cancel / Esc / backdrop click).
+ * @param {string} message
+ * @param {object} [opts]
+ * @param {string} [opts.title]
+ * @param {string} [opts.okLabel]
+ * @param {string} [opts.cancelLabel]
+ * @param {boolean} [opts.destructive] - red OK button for deletions
+ * @returns {Promise<boolean>}
+ */
+function showConfirm(message, opts = {}) {
+  return new Promise((resolve) => {
+    const dlg = ensureDialog();
+    const title = opts.title || 'Confirm';
+    const okLabel = opts.okLabel || 'OK';
+    const cancelLabel = opts.cancelLabel || 'Cancel';
+    const okColor = opts.destructive ? 'var(--color-red,#ef4444)' : 'var(--color-green)';
+    dlg.innerHTML = `
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600">
+        ${esc(title)}
+      </div>
+      <div style="padding:16px 18px;font-size:0.9rem;line-height:1.5;
+                  white-space:pre-wrap">${esc(message)}</div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);
+                  display:flex;justify-content:flex-end;gap:8px">
+        <button id="app-dialog-cancel" class="control-btn"
+                style="padding:6px 14px;border:1px solid var(--border);
+                       background:var(--bg-primary);color:var(--text);
+                       border-radius:var(--radius-sm);cursor:pointer">
+          ${esc(cancelLabel)}
+        </button>
+        <button id="app-dialog-ok" class="control-btn"
+                style="padding:6px 14px;border:none;background:${okColor};
+                       color:#fff;border-radius:var(--radius-sm);cursor:pointer">
+          ${esc(okLabel)}
+        </button>
+      </div>
+    `;
+    let answer = false;
+    const finish = () => {
+      if (dlg.open) dlg.close();
+      resolve(answer);
+    };
+    dlg.addEventListener('close', finish, { once: true });
+    dlg.querySelector('#app-dialog-ok').addEventListener('click', () => { answer = true; finish(); }, { once: true });
+    dlg.querySelector('#app-dialog-cancel').addEventListener('click', () => { answer = false; finish(); }, { once: true });
+    dlg.showModal();
+  });
+}
+
 // ---- Navigation ----
 
 /**
@@ -1006,14 +1163,19 @@ document.addEventListener('click', async (e) => {
   e.preventDefault();
   const projectId = btn.dataset.projectId;
   const projectName = btn.dataset.projectName || projectId;
-  if (!confirm(`Delete project "${projectName}" and all its stories + sessions?\n\nAlso removes ~/.karajan/hu-stories/${projectId}/ from disk.`)) return;
+  const ok = await showConfirm(
+    `Delete project "${projectName}" and all its stories + sessions?\n\n`
+    + `Also removes ~/.karajan/hu-stories/${projectId}/ from disk.`,
+    { title: 'Delete project', okLabel: 'Delete', destructive: true }
+  );
+  if (!ok) return;
   try {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await populateProjectSelect();
     render();
   } catch (err) {
-    alert(`Failed to delete project: ${err.message}`);
+    await showError(err.message, { title: 'Failed to delete project' });
   }
 });
 
