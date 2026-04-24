@@ -95,6 +95,13 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_context_story ON context_requests(story_id);
   `);
 
+  // --- Migrations ---
+  // plan_id: lets PATCH /api/stories/:id + POST /api/plans/:planId/ready
+  // locate the source-of-truth plan JSON at ~/.kj/plans/<slug>/<planId>.json.
+  // ALTER is idempotent on restart because we swallow the dup-column error.
+  try { db.exec('ALTER TABLE stories ADD COLUMN plan_id TEXT'); } catch { /* already migrated */ }
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
+
   return db;
 }
 
@@ -140,13 +147,13 @@ export function upsertStory(story) {
       certified_as, certified_want, certified_so_that,
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
-      created_at, updated_at, certified_at
+      created_at, updated_at, certified_at, plan_id
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
-      @created_at, @updated_at, @certified_at
+      @created_at, @updated_at, @certified_at, @plan_id
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -166,7 +173,8 @@ export function upsertStory(story) {
       ac_format = COALESCE(@ac_format, ac_format),
       acceptance_criteria = COALESCE(@acceptance_criteria, acceptance_criteria),
       updated_at = @updated_at,
-      certified_at = COALESCE(@certified_at, certified_at)
+      certified_at = COALESCE(@certified_at, certified_at),
+      plan_id = COALESCE(@plan_id, plan_id)
   `);
   stmt.run({
     id: story.id,
@@ -191,7 +199,51 @@ export function upsertStory(story) {
     created_at: story.created_at || new Date().toISOString(),
     updated_at: story.updated_at || new Date().toISOString(),
     certified_at: story.certified_at || null,
+    plan_id: story.plan_id || null,
   });
+}
+
+/**
+ * Look up a story row (minimal fields used by the mutation endpoints).
+ * @param {string} storyId
+ * @returns {{ id: string, project_id: string, plan_id: string|null, status: string }|null}
+ */
+export function getStoryRow(storyId) {
+  const row = getDb()
+    .prepare('SELECT id, project_id, plan_id, status FROM stories WHERE id = ?')
+    .get(storyId);
+  return row || null;
+}
+
+/**
+ * Update a single story's status (in-memory — the source-of-truth plan
+ * JSON is mutated separately by the caller before or after this write).
+ * @param {string} storyId
+ * @param {string} status
+ * @returns {boolean} true if a row was updated
+ */
+export function updateStoryStatus(storyId, status) {
+  const res = getDb()
+    .prepare('UPDATE stories SET status = ?, updated_at = ? WHERE id = ?')
+    .run(status, new Date().toISOString(), storyId);
+  return res.changes > 0;
+}
+
+/**
+ * List every distinct `plan_id` stamped on the stories of a given project.
+ * Used by "mark plan ready" so the board can act on each plan of a project
+ * without making the user pick one.
+ * @param {string} projectId
+ * @returns {string[]}
+ */
+export function listPlanIdsForProject(projectId) {
+  return getDb()
+    .prepare(`
+      SELECT DISTINCT plan_id FROM stories
+      WHERE project_id = ? AND plan_id IS NOT NULL
+    `)
+    .all(projectId)
+    .map((r) => r.plan_id);
 }
 
 /**

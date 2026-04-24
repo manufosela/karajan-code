@@ -381,10 +381,23 @@ async function renderBoard() {
       return;
     }
 
+    // Show "Mark all certified" bulk action only when a project is in focus
+    // AND at least one HU is still pending. Outside a project the action is
+    // ambiguous (which plan?) and irrelevant when nothing would change.
+    const pendingCount = columns.pending.length;
+    const canMarkReady = Boolean(selectedProject) && pendingCount > 0;
+
     app.innerHTML = `
       <div class="section-header">
         <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">Story Board${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
         <span class="section-header__count">${stories.length} stories</span>
+        ${canMarkReady ? `
+          <button class="control-btn" id="mark-project-ready"
+                  style="margin-left:auto;padding:6px 12px;font-size:0.85rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
+                  title="Certify every pending HU of this project — equivalent to 'kj plan ready'">
+            Mark ${pendingCount} pending HU${pendingCount === 1 ? '' : 's'} as certified
+          </button>
+        ` : ''}
       </div>
       <div class="kanban">
         ${renderKanbanColumn('Pending', 'pending', columns.pending)}
@@ -393,6 +406,12 @@ async function renderBoard() {
         ${renderKanbanColumn('Done', 'done', columns.done)}
       </div>
     `;
+
+    if (canMarkReady) {
+      document.getElementById('mark-project-ready').addEventListener('click', async () => {
+        await markProjectReady(selectedProject);
+      });
+    }
   } catch (err) {
     app.innerHTML = `<div class="empty-state"><div class="empty-state__title">Error loading board</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
   }
@@ -533,6 +552,100 @@ function renderEmptyState(title, text) {
   `;
 }
 
+// ---- Story status mutations ----
+
+/**
+ * Render the status-action toolbar inside the story modal. The CLI speaks
+ * three statuses — pending / certified / done — and so do we. The "Certify"
+ * button is the primary action: it's what the user's here to do after
+ * reviewing the HU. We only show buttons for transitions that actually
+ * make sense from the current status, so the UI never offers a no-op.
+ * @param {object} story
+ * @returns {string}
+ */
+function renderStoryStatusActions(story) {
+  if (!story || !story.id) return '';
+  const status = String(story.status || 'pending');
+  const buttons = [];
+  if (status === 'pending' || status === 'needs_context') {
+    buttons.push(`<button class="control-btn" data-action="certify" style="background:var(--color-green);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Certify</button>`);
+  }
+  if (status === 'certified') {
+    buttons.push(`<button class="control-btn" data-action="uncertify" style="background:var(--bg-secondary);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Back to pending</button>`);
+    buttons.push(`<button class="control-btn" data-action="done" style="background:var(--color-blue,#3b82f6);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Mark done</button>`);
+  }
+  if (buttons.length === 0) return '';
+
+  // Inline-binder: we attach the click handlers from inside the modal
+  // after the innerHTML paint by hooking into the existing onclick flow.
+  // Doing this with setTimeout(0) avoids racing the DOM insertion.
+  setTimeout(() => {
+    document.querySelectorAll('.modal__status-actions [data-action]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.action;
+        const next = action === 'certify' ? 'certified'
+          : action === 'uncertify' ? 'pending'
+          : action === 'done' ? 'done'
+          : null;
+        if (!next) return;
+        await patchStoryStatus(story.id, next);
+      });
+    });
+  }, 0);
+
+  return `<div class="modal__status-actions" style="display:flex;gap:8px;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:12px">${buttons.join('')}</div>`;
+}
+
+/**
+ * Change one HU's status. Re-renders the board on success; closes the
+ * modal so the user can confirm the move visually. On error we leave the
+ * modal open and surface the message inline.
+ * @param {string} storyId
+ * @param {string} status
+ */
+async function patchStoryStatus(storyId, status) {
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      alert(`Could not update status: ${msg}`);
+      return;
+    }
+    closeModal();
+    await renderBoard();
+  } catch (err) {
+    alert(`Could not update status: ${err.message}`);
+  }
+}
+
+/**
+ * Bulk-certify every pending HU of the currently selected project. Hits
+ * the server endpoint that mirrors `kj plan ready`, so the source-of-truth
+ * plan JSON is rewritten before the board re-renders.
+ * @param {string} projectId
+ */
+async function markProjectReady(projectId) {
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      alert(`Could not mark project ready: ${msg}`);
+      return;
+    }
+    await renderBoard();
+  } catch (err) {
+    alert(`Could not mark project ready: ${err.message}`);
+  }
+}
+
 // ---- Detail Modals ----
 
 /**
@@ -565,6 +678,8 @@ async function showStoryDetail(storyId) {
         </div>
         <button class="modal__close" onclick="closeModal()">&times;</button>
       </div>
+
+      ${renderStoryStatusActions(story)}
 
       <div class="modal__section">
         <div class="modal__section-title">Original Text</div>
