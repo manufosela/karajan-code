@@ -289,7 +289,7 @@ function syncSessionFile(filePath) {
  * Sync a v2 plan file (with embedded HUs) to SQLite.
  * Plans are the authoritative source — replaces hu-stories for plan-based runs.
  */
-function syncPlanFile(filePath) {
+export function syncPlanFile(filePath) {
   try {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
@@ -345,6 +345,9 @@ function syncPlanFile(filePath) {
         created_at: hu.createdAt,
         updated_at: hu.updatedAt,
         certified_at: null,
+        // Stamp plan_id so the PATCH / mark-ready endpoints can locate
+        // the source plan JSON without walking the plans dir.
+        plan_id: data.planId,
       });
     }
 

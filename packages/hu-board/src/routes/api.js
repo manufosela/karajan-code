@@ -12,8 +12,11 @@ import {
   deleteStory,
   deleteSession,
   getKjHome,
+  getStoryRow,
+  listPlanIdsForProject,
 } from '../db.js';
 import { fullScan } from '../sync.js';
+import { setHuStatus, markPlanReady } from '../plan-mutations.js';
 
 const router = Router();
 
@@ -197,6 +200,101 @@ router.delete('/sessions/:id', (req, res) => {
     const ok = deleteSession(req.params.id);
     if (!ok) return res.status(404).json({ error: 'Session not found' });
     res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/stories/:id - Change a single HU's status.
+ *
+ * The row id on the board is `${projectId}::${huId}` — we split it here to
+ * feed the underlying plan-mutation helper. The source-of-truth plan JSON
+ * is rewritten first, then re-synced into SQLite, so a reload renders the
+ * committed state and never a stale view.
+ *
+ * Body: { status: "pending" | "certified" | "done" }
+ * Returns 400 on unknown status, 404 when the story / plan can't be found.
+ */
+const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'needs_context']);
+
+router.patch('/stories/:id', (req, res) => {
+  try {
+    const { status } = req.body || {};
+    if (!status || !ALLOWED_STORY_STATUSES.has(status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${[...ALLOWED_STORY_STATUSES].join(', ')}`,
+      });
+    }
+    const row = getStoryRow(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Story not found' });
+    if (!row.plan_id) {
+      // HU came from a pre-migration batch.json or a non-plan source —
+      // refuse to mutate because we have no source-of-truth file to
+      // write to. The client should fall back to "delete + re-sync"
+      // for those rows.
+      return res.status(409).json({
+        error: 'Story is not backed by a plan file (legacy row). Re-run `kj plan` to re-import it.',
+      });
+    }
+    const huId = req.params.id.includes('::')
+      ? req.params.id.split('::').slice(1).join('::')
+      : req.params.id;
+    const result = setHuStatus({
+      planId: row.plan_id,
+      huId,
+      status,
+      projectId: row.project_id,
+    });
+    if (!result.ok) return res.status(404).json({ error: result.error });
+    res.json({ updated: true, id: req.params.id, status: result.status, planStatus: result.planStatus });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/plans/:planId/ready - Bulk-certify every pending HU of a plan.
+ * Equivalent to the CLI `kj plan ready <planId>`. Body is optional — if the
+ * client knows the projectId we use it as a fast path, otherwise we fall
+ * back to scanning the plans dir.
+ */
+router.post('/plans/:planId/ready', (req, res) => {
+  try {
+    const { projectId } = req.body || {};
+    const result = markPlanReady({ planId: req.params.planId, projectId });
+    if (!result.ok) return res.status(404).json({ error: result.error });
+    res.json({ ready: true, planId: req.params.planId, count: result.count, planStatus: result.planStatus });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/projects/:id/ready - Sugar: mark every plan of a project ready
+ * in one call. Lets the board expose a single "Mark all certified" button
+ * per project view without the UI having to enumerate plan ids first.
+ */
+router.post('/projects/:id/ready', (req, res) => {
+  try {
+    const planIds = listPlanIdsForProject(req.params.id);
+    if (planIds.length === 0) {
+      return res.status(404).json({ error: 'No plan-backed stories for this project' });
+    }
+    const results = [];
+    for (const planId of planIds) {
+      const r = markPlanReady({ planId, projectId: req.params.id });
+      results.push({ planId, ...r });
+    }
+    const totalCertified = results
+      .filter((r) => r.ok)
+      .reduce((acc, r) => acc + r.count, 0);
+    res.json({
+      ready: true,
+      projectId: req.params.id,
+      plans: results,
+      totalCertified,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
