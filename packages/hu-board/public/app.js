@@ -58,6 +58,106 @@ async function triggerSync() {
   } catch { /* ignore — board may not support sync yet */ }
 }
 
+// ---- Human-friendly story IDs ----
+//
+// Internal story IDs look like
+//   home_manu_ws_ai_linux-assistant-orchestrator::hu_plan-20260424182640-4icc_003
+// which is fine for disk and logs but terrible for humans. The UI shows a
+// short form like `lao-003` (project initials + HU sequence) so the user
+// can say "take a look at `lao-003`" instead of pasting the 82-char blob.
+// The full ID stays accessible as a tooltip (and in the underlying data-id).
+
+const projectInitialsCache = {};
+const projectNameCache = {};
+
+/**
+ * Humanise a slug-ish project id so the board can show
+ * "Linux Assistant Orchestrator" instead of
+ * "home_manu_ws_ai_linux-assistant-orchestrator" in the header.
+ *
+ * Strategy: take the last slash/underscore-separated segment (that's the
+ * project folder name), split it on dashes, drop short fragments and
+ * title-case the rest.
+ */
+function humaniseProjectName(id) {
+  if (!id || typeof id !== 'string') return id || '';
+  const tail = id.split(/[/_]/).filter(Boolean).pop() || id;
+  const words = tail
+    .split(/[\s\-]+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((w) => w.length > 0);
+  if (words.length === 0) return id;
+  return words.map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+/**
+ * Derive initials from a project name. Splits on non-word characters,
+ * drops single-letter fragments ("a", "x") to avoid gibberish, keeps
+ * short-but-meaningful ones ("ai", "ui"), lowercases, caps to 5 chars.
+ *
+ * Examples:
+ *   "Linux Assistant Orchestrator"    → "lao"
+ *   "AI Linux Assistant Orchestrator" → "alao"
+ *   "karajan-code"                    → "kc"
+ */
+function deriveInitialsFromName(name) {
+  const words = String(name || '')
+    .split(/[\s\-_/]+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((w) => w.length > 1);
+  return words.map((w) => w[0].toLowerCase()).join('').slice(0, 5) || 'kj';
+}
+
+/**
+ * Fetch-and-cache a project's metadata. Populates initialsCache and
+ * nameCache in one trip so neither renderStoryCard nor the section
+ * header has to await again. Falls back to the project id on any
+ * failure so the UI never blocks on a network error.
+ * @param {string} projectId
+ * @returns {Promise<{ initials: string, name: string }>}
+ */
+async function resolveProjectMeta(projectId) {
+  if (!projectId) return { initials: 'kj', name: '' };
+  if (projectInitialsCache[projectId]) {
+    return { initials: projectInitialsCache[projectId], name: projectNameCache[projectId] };
+  }
+  try {
+    const project = await api(`/api/projects/${encodeURIComponent(projectId)}`);
+    const rawName = project.name || humaniseProjectName(projectId);
+    const initials = deriveInitialsFromName(rawName);
+    projectInitialsCache[projectId] = initials;
+    projectNameCache[projectId] = rawName;
+    return { initials, name: rawName };
+  } catch {
+    const fallbackName = humaniseProjectName(projectId);
+    projectInitialsCache[projectId] = deriveInitialsFromName(fallbackName);
+    projectNameCache[projectId] = fallbackName;
+    return { initials: projectInitialsCache[projectId], name: fallbackName };
+  }
+}
+
+/** Back-compat helper kept so existing callers don't break. */
+async function resolveProjectInitials(projectId) {
+  const meta = await resolveProjectMeta(projectId);
+  return meta.initials;
+}
+
+/**
+ * Build the human-facing short ID for a story card.
+ * Example: `lao-003` for `home_…::hu_plan-20260424182640-4icc_003`.
+ * @param {object} story
+ * @param {string} initials
+ * @returns {string}
+ */
+function shortStoryId(story, initials) {
+  const id = story?.id || '';
+  // Match `_<digits>` at the tail of the ID (with or without a trailing
+  // namespace part). This covers `…_003` as well as `…_0012`.
+  const m = /_(\d+)(?!.*\d)/.exec(id);
+  const num = m ? m[1] : '?';
+  return `${initials || 'kj'}-${num}`;
+}
+
 // ---- Utility Functions ----
 
 /**
@@ -255,6 +355,20 @@ async function renderBoard() {
       stories = allStories.flat();
     }
 
+    // Pre-resolve project initials + name for every distinct project_id in
+    // the fetched stories so `renderStoryCard` is synchronous and the header
+    // can show the human-friendly project name (e.g. "Linux Assistant
+    // Orchestrator" instead of the raw slug). Cached globally → at most one
+    // API round-trip per project over the session.
+    const uniqueProjectIds = [...new Set(stories.map((s) => s.project_id))];
+    await Promise.all(uniqueProjectIds.map(resolveProjectMeta));
+    if (selectedProject && !projectNameCache[selectedProject]) {
+      await resolveProjectMeta(selectedProject);
+    }
+    const projectDisplayName = selectedProject
+      ? (projectNameCache[selectedProject] || humaniseProjectName(selectedProject))
+      : '';
+
     const columns = {
       pending: stories.filter((s) => s.status === 'pending'),
       needs_context: stories.filter((s) => s.status === 'needs_context'),
@@ -269,7 +383,7 @@ async function renderBoard() {
 
     app.innerHTML = `
       <div class="section-header">
-        <span class="section-header__title">Story Board${selectedProject ? ` - ${esc(selectedProject)}` : ''}</span>
+        <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">Story Board${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
         <span class="section-header__count">${stories.length} stories</span>
       </div>
       <div class="kanban">
@@ -313,10 +427,12 @@ function renderStoryCard(story) {
   const title = story.title || story.original_text || story.id;
   const antipatterns = story.antipatterns ? JSON.parse(story.antipatterns) : [];
   const acCount = story.acceptance_criteria ? JSON.parse(story.acceptance_criteria).length : 0;
+  const initials = projectInitialsCache[story.project_id] || 'kj';
+  const shortId = shortStoryId(story, initials);
 
   return `
     <div class="story-card" onclick="showStoryDetail('${esc(story.id)}')">
-      <div class="story-card__id">${esc(story.id)}</div>
+      <div class="story-card__id" title="${esc(story.id)}">${esc(shortId)}</div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta">
         ${story.quality_total !== null ? `
@@ -435,13 +551,16 @@ async function showStoryDetail(storyId) {
     const antipatterns = story.antipatterns ? JSON.parse(story.antipatterns) : [];
     const ac = story.acceptance_criteria ? JSON.parse(story.acceptance_criteria) : [];
     const ctxRequests = story.context_requests || [];
+    const initials = await resolveProjectInitials(story.project_id);
+    const shortId = shortStoryId(story, initials);
 
     const dimLabels = ['Independent', 'Negotiable', 'Valuable', 'Estimable', 'Small', 'Testable'];
 
     content.innerHTML = `
       <div class="modal__header">
         <div>
-          <div class="modal__title">${esc(story.id)}</div>
+          <div class="modal__title" title="${esc(story.id)}">${esc(shortId)}</div>
+          <div class="modal__subtitle" style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px">${esc(story.id)}</div>
           <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
         </div>
         <button class="modal__close" onclick="closeModal()">&times;</button>
