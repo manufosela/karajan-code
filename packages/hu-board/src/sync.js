@@ -354,6 +354,10 @@ export function syncPlanFile(filePath) {
         ac_count: acList.length,
         test_count: testList.length,
         blocked_by: blockedByList.length > 0 ? JSON.stringify(blockedByList) : null,
+        // Full test list goes to SQLite too so the modal can show
+        // "🧪 2 tests" next to the list. Pre-patch the card showed
+        // test_count but the modal had nothing to render.
+        acceptance_tests: testList.length > 0 ? JSON.stringify(testList) : null,
       });
     }
 

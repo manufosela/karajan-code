@@ -109,6 +109,11 @@ export function initDb() {
   try { db.exec('ALTER TABLE stories ADD COLUMN ac_count INTEGER'); } catch { /* already migrated */ }
   try { db.exec('ALTER TABLE stories ADD COLUMN test_count INTEGER'); } catch { /* already migrated */ }
   try { db.exec('ALTER TABLE stories ADD COLUMN blocked_by TEXT'); } catch { /* already migrated */ }
+  // acceptance_tests is the raw JSON of `hu.acceptance_tests` — the
+  // plan stores each test as either a plain string or an object with
+  // { name, description, given/when/then, ... }. The modal renders
+  // the list; the card just shows the count (test_count above).
+  try { db.exec('ALTER TABLE stories ADD COLUMN acceptance_tests TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   return db;
@@ -157,14 +162,14 @@ export function upsertStory(story) {
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
-      ac_count, test_count, blocked_by
+      ac_count, test_count, blocked_by, acceptance_tests
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
-      @ac_count, @test_count, @blocked_by
+      @ac_count, @test_count, @blocked_by, @acceptance_tests
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -188,7 +193,8 @@ export function upsertStory(story) {
       plan_id = COALESCE(@plan_id, plan_id),
       ac_count = COALESCE(@ac_count, ac_count),
       test_count = COALESCE(@test_count, test_count),
-      blocked_by = COALESCE(@blocked_by, blocked_by)
+      blocked_by = COALESCE(@blocked_by, blocked_by),
+      acceptance_tests = COALESCE(@acceptance_tests, acceptance_tests)
   `);
   stmt.run({
     id: story.id,
@@ -217,6 +223,7 @@ export function upsertStory(story) {
     ac_count: story.ac_count ?? null,
     test_count: story.test_count ?? null,
     blocked_by: story.blocked_by || null,
+    acceptance_tests: story.acceptance_tests || null,
   });
 }
 

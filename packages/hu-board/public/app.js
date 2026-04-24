@@ -405,12 +405,16 @@ async function renderBoard() {
     const canRun = Boolean(selectedProject) && awaitingCount > 0 && runningCount === 0;
     const isRunning = runningCount > 0;
 
+    // Always show the four canonical lanes so the user has a mental
+    // map of the flow, even when every HU is still in Pending. Empty
+    // columns render their header (with count=0) but suppress the "No
+    // stories" placeholder inside so they don't steal visual space.
     const visibleColumns = [
       { title: 'Pending', cls: 'pending', rows: columns.pending },
       { title: 'Running', cls: 'running', rows: columns.running },
       { title: 'Done', cls: 'done', rows: columns.done },
       { title: 'Failed', cls: 'failed', rows: columns.failed },
-    ].filter((c) => c.rows.length > 0 || c.title === 'Pending');
+    ];
 
     app.innerHTML = `
       <div class="section-header">
@@ -421,6 +425,13 @@ async function renderBoard() {
                 style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;">
             ⚙ ${runningCount} running…
           </span>
+        ` : ''}
+        ${lastLaunchedPlanId ? `
+          <button class="control-btn" id="view-log-btn"
+                  style="${isRunning ? '' : 'margin-left:auto;'}padding:6px 12px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;"
+                  title="Tail the detached kj run log in a dialog">
+            📜 View log
+          </button>
         ` : ''}
         ${canRun ? `
           <button class="control-btn" id="run-plan-btn"
@@ -439,6 +450,10 @@ async function renderBoard() {
       document.getElementById('run-plan-btn').addEventListener('click', async () => {
         await runProject(selectedProject);
       });
+    }
+    const viewLogBtn = document.getElementById('view-log-btn');
+    if (viewLogBtn && lastLaunchedPlanId) {
+      viewLogBtn.addEventListener('click', () => openLogViewer(lastLaunchedPlanId));
     }
   } catch (err) {
     app.innerHTML = `<div class="empty-state"><div class="empty-state__title">Error loading board</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
@@ -656,14 +671,16 @@ async function renderGraph() {
  * @returns {string}
  */
 function renderKanbanColumn(title, cssClass, stories) {
+  // Empty lanes render the header (so the user keeps the 4-column
+  // mental map) but no body placeholder — "No stories" text on four
+  // empty columns was noise on fresh plans.
   return `
-    <div class="kanban__column kanban__column--${cssClass}">
+    <div class="kanban__column kanban__column--${cssClass}"${stories.length === 0 ? ' style="opacity:0.55"' : ''}>
       <div class="kanban__column-header">
         <span class="kanban__column-title">${title}</span>
         <span class="kanban__column-count">${stories.length}</span>
       </div>
       ${stories.map(renderStoryCard).join('')}
-      ${stories.length === 0 ? '<div style="text-align:center;color:var(--text-muted);font-size:0.8rem;padding:20px">No stories</div>' : ''}
     </div>
   `;
 }
@@ -709,6 +726,10 @@ function renderStoryCard(story) {
       ${blockedBy.length > 0 ? `
         <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--text-muted)" title="This HU waits on: ${esc(blockedBy.join(', '))}">
           ⏳ waits for: ${blockedBy.map((d) => esc(shortDep(d))).join(', ')}
+        </div>
+      ` : (story.status === 'pending' || story.status === 'certified') ? `
+        <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--color-green)" title="No dependencies — runs first on the next 'Run plan'">
+          🟢 ready to run
         </div>
       ` : ''}
       ${antipatterns.length > 0 ? `<div class="story-card__antipattern">${antipatterns.map((a) => esc(a)).join(', ')}</div>` : ''}
@@ -822,6 +843,11 @@ function renderEmptyState(title, text) {
  * the board re-renders without us having to poll.
  * @param {string} projectId
  */
+// Track the most recently launched planId so the "View log" button in
+// the section header can re-open the viewer without the user hunting
+// through plan ids.
+let lastLaunchedPlanId = null;
+
 async function runProject(projectId) {
   try {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/run`, {
@@ -850,16 +876,121 @@ async function runProject(projectId) {
     // for the watcher debounce.
     await fetch('/api/sync', { method: 'POST' }).catch(() => {});
     await renderBoard();
-    await showError(
-      `Pipeline launched for ${body.launched}/${body.total} plan(s).\n\n`
-      + 'The HUs will transition through coding → reviewing → done as '
-      + 'kj runs them. Refresh is automatic once the watcher picks up '
-      + 'each status change.',
-      { title: 'Run started' }
-    );
+
+    // Remember the first successful planId so the section header can
+    // offer a "View log" button without the user having to re-launch.
+    const firstOk = (body.results || []).find((r) => r.ok);
+    if (firstOk && firstOk.planId) {
+      lastLaunchedPlanId = firstOk.planId;
+      // Open the log viewer straight away — the user's mental model is
+      // "I clicked Run, I want to see what's happening", not "I clicked
+      // Run, now where do I look".
+      openLogViewer(firstOk.planId);
+    } else {
+      await showError(
+        `Pipeline launched for ${body.launched}/${body.total} plan(s) but `
+        + 'no planId came back, so there\'s no log to show.',
+        { title: 'Run started' }
+      );
+    }
   } catch (err) {
     await showError(err.message, { title: 'Could not launch run' });
   }
+}
+
+// ---- Run log viewer ----
+//
+// `kj run --plan` is spawned as a detached child on the server side;
+// stdout+stderr land in ~/.karajan/hu-board-runs/<planId>.log. The
+// browser polls GET /api/plans/:planId/log?offset=<last-seen-size>
+// every 2s and appends the delta into a <pre>. Polling stops when the
+// dialog closes.
+
+let logPollTimer = null;
+
+function openLogViewer(planId) {
+  if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
+
+  const dlg = ensureDialog();
+  dlg.innerHTML = `
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border);
+                display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="font-weight:600">
+        Run log
+        <span style="font-family:var(--font-mono, monospace);font-size:0.8rem;
+                     color:var(--text-muted);margin-left:8px">${esc(planId)}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="log-status" style="font-size:0.75rem;color:var(--text-muted)">connecting…</span>
+        <button id="log-close" class="control-btn"
+                style="padding:4px 12px;border:1px solid var(--border);
+                       background:var(--bg-primary);color:var(--text);
+                       border-radius:var(--radius-sm);cursor:pointer">
+          Close
+        </button>
+      </div>
+    </div>
+    <pre id="log-body"
+         style="margin:0;padding:14px 18px;max-height:60vh;min-height:240px;
+                min-width:640px;max-width:80vw;overflow:auto;
+                font-family:var(--font-mono, monospace);font-size:0.8rem;
+                line-height:1.45;background:#0b0b0c;color:#e6e6e6;
+                white-space:pre-wrap;word-break:break-word"></pre>
+    <div style="padding:10px 18px;border-top:1px solid var(--border);
+                font-size:0.75rem;color:var(--text-muted)">
+      The run keeps going in the background even if you close this. Re-open anytime.
+    </div>
+  `;
+
+  let offset = 0;
+  const bodyEl = dlg.querySelector('#log-body');
+  const statusEl = dlg.querySelector('#log-status');
+
+  const stopPolling = () => {
+    if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
+  };
+  const cleanup = () => {
+    stopPolling();
+    dlg.removeEventListener('close', cleanup);
+  };
+
+  dlg.querySelector('#log-close').addEventListener('click', () => {
+    cleanup();
+    if (dlg.open) dlg.close();
+  });
+  dlg.addEventListener('close', cleanup);
+
+  async function tick() {
+    try {
+      const res = await fetch(`/api/plans/${encodeURIComponent(planId)}/log?offset=${offset}`);
+      if (!res.ok) {
+        statusEl.textContent = `error: HTTP ${res.status}`;
+        logPollTimer = setTimeout(tick, 4000);
+        return;
+      }
+      const body = await res.json();
+      if (!body.exists) {
+        statusEl.textContent = 'waiting for run to start…';
+      } else {
+        if (body.content) {
+          // Auto-scroll if the user was already at the bottom before
+          // this append; otherwise keep their scroll position so they
+          // can read older lines without fighting the tail.
+          const atBottom = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 8;
+          bodyEl.textContent += body.content;
+          if (atBottom) bodyEl.scrollTop = bodyEl.scrollHeight;
+        }
+        offset = body.size;
+        statusEl.textContent = `${(body.size / 1024).toFixed(1)} KB — live`;
+      }
+    } catch (err) {
+      statusEl.textContent = `error: ${err.message}`;
+    }
+    logPollTimer = setTimeout(tick, 2000);
+  }
+
+  dlg.showModal();
+  tick();
 }
 
 // ---- Detail Modals ----
@@ -879,6 +1010,7 @@ async function showStoryDetail(storyId) {
     const story = await api(`/api/stories/${encodeURIComponent(storyId)}`);
     const antipatterns = story.antipatterns ? JSON.parse(story.antipatterns) : [];
     const ac = story.acceptance_criteria ? JSON.parse(story.acceptance_criteria) : [];
+    const tests = story.acceptance_tests ? JSON.parse(story.acceptance_tests) : [];
     const ctxRequests = story.context_requests || [];
     const initials = await resolveProjectInitials(story.project_id);
     const shortId = shortStoryId(story, initials);
@@ -970,6 +1102,38 @@ async function showStoryDetail(storyId) {
               if (typeof c === 'string') return `<li class="modal__ac-item">${esc(c)}</li>`;
               if (c.given) return `<li class="modal__ac-item"><code>Given</code> ${esc(c.given)}<br><code>When</code> ${esc(c.when)}<br><code>Then</code> ${esc(c.then)}</li>`;
               return `<li class="modal__ac-item">${esc(JSON.stringify(c))}</li>`;
+            }).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${tests.length > 0 ? `
+        <div class="modal__section">
+          <div class="modal__section-title">Acceptance Tests (${tests.length})</div>
+          <ul class="modal__ac-list">
+            ${tests.map((t) => {
+              if (typeof t === 'string') return `<li class="modal__ac-item">${esc(t)}</li>`;
+              const label = t.name || t.title || t.id || '';
+              const desc = t.description || t.scope || '';
+              const given = t.given || (t.gherkin && t.gherkin.given);
+              if (given) {
+                const when = t.when || (t.gherkin && t.gherkin.when);
+                const then = t.then || (t.gherkin && t.gherkin.then);
+                return `<li class="modal__ac-item">
+                  ${label ? `<strong>${esc(label)}</strong><br>` : ''}
+                  <code>Given</code> ${esc(given)}<br>
+                  <code>When</code> ${esc(when || '')}<br>
+                  <code>Then</code> ${esc(then || '')}
+                </li>`;
+              }
+              if (label || desc) {
+                return `<li class="modal__ac-item">
+                  ${label ? `<strong>${esc(label)}</strong>` : ''}
+                  ${label && desc ? '<br>' : ''}
+                  ${desc ? esc(desc) : ''}
+                </li>`;
+              }
+              return `<li class="modal__ac-item"><code>${esc(JSON.stringify(t))}</code></li>`;
             }).join('')}
           </ul>
         </div>
