@@ -33,7 +33,60 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null }) {
+/**
+ * Render structured acceptance_tests (v2.7.5) as a Markdown section the
+ * coder reads as its contract. Legacy plain-string entries and
+ * structured { type, content, file? } objects are both accepted.
+ *
+ * The layout is intentional:
+ *   - Gherkin blocks preserve their newlines so the coder sees the
+ *     Given/When/Then scenarios as-is.
+ *   - Shell blocks are fenced so the coder can copy-paste to verify.
+ *   - The header says "MUST pass" because this is the gate the tester
+ *     role runs (phase 3) and refuses to approve without.
+ *
+ * @param {Array} tests
+ * @returns {string}
+ */
+function renderAcceptanceTestsSection(tests) {
+  if (!Array.isArray(tests) || tests.length === 0) return "";
+  const lines = [
+    "## Acceptance Tests — MUST pass before the HU can be approved",
+    "",
+    "These are the concrete contract for this task. The tester stage will execute them as the pass/fail gate — if any one fails, the HU is rejected. Write your implementation so each test passes.",
+    "",
+  ];
+  tests.forEach((entry, i) => {
+    // Normalise: accept legacy strings and structured objects.
+    let type = "shell";
+    let content = "";
+    let file = null;
+    if (typeof entry === "string") {
+      content = entry;
+    } else if (entry && typeof entry === "object") {
+      type = entry.type === "gherkin" ? "gherkin" : "shell";
+      content = typeof entry.content === "string" ? entry.content : JSON.stringify(entry);
+      file = typeof entry.file === "string" && entry.file.trim() ? entry.file.trim() : null;
+    } else {
+      content = String(entry ?? "");
+    }
+    const heading = file
+      ? `### Test ${i + 1} · \`${type}\` · target: \`${file}\``
+      : `### Test ${i + 1} · \`${type}\``;
+    lines.push(heading);
+    if (type === "gherkin") {
+      lines.push("```gherkin", content, "```", "");
+    } else {
+      lines.push("```bash", content, "```", "");
+    }
+  });
+  lines.push(
+    "If a test is ambiguous, implement what makes it pass AND add the clarifying assertion to the PR description — do NOT silently rewrite the test."
+  );
+  return lines.join("\n");
+}
+
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
@@ -67,6 +120,15 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
 
   if (plan) {
     sections.push(`## Implementation Plan (from planner)\nFollow these steps:\n${plan}`);
+  }
+
+  // Tests-first contract: injected right after the plan so the coder
+  // reads "here are the steps" and immediately "here's the gate they
+  // need to satisfy". Placed BEFORE coder rules / TDD policy so those
+  // frame the tests, not the other way around.
+  const testsSection = renderAcceptanceTestsSection(acceptanceTests);
+  if (testsSection) {
+    sections.push(testsSection);
   }
 
   if (coderRules) {

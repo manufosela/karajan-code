@@ -29,6 +29,53 @@ describe("runAcceptanceTests", () => {
     expect(result.allPassed).toBe(false);
     expect(result.diagnostics).toContain("missing package");
   });
+
+  // Tests-first (v2.7.5): structured entries.
+  it("executes structured shell entries like plain strings", async () => {
+    const result = await runAcceptanceTests(
+      [{ type: "shell", content: "echo ok" }, { type: "shell", content: "true" }],
+      "/tmp"
+    );
+    expect(result.allPassed).toBe(true);
+    expect(result.pending).toBe(0);
+    expect(result.results.every((r) => r.type === "shell")).toBe(true);
+  });
+
+  it("marks gherkin entries as pending (not run, not failed) until the tester translates them", async () => {
+    const result = await runAcceptanceTests(
+      [
+        { type: "shell", content: "echo ok" },
+        { type: "gherkin", content: "Given x\nWhen y\nThen z" },
+      ],
+      "/tmp"
+    );
+    // The shell entry passes, the gherkin is pending — overall gate
+    // passes because all executable tests pass. The summary tells the
+    // user one gherkin is waiting for Phase 3 translation.
+    expect(result.allPassed).toBe(true);
+    expect(result.pending).toBe(1);
+    expect(result.summary).toContain("1 gherkin");
+    const gherkinEntry = result.results.find((r) => r.type === "gherkin");
+    expect(gherkinEntry.pending).toBe(true);
+  });
+
+  it("mixes legacy strings and structured entries seamlessly", async () => {
+    const result = await runAcceptanceTests(
+      ["echo legacy", { type: "shell", content: "echo structured" }],
+      "/tmp"
+    );
+    expect(result.allPassed).toBe(true);
+    expect(result.results.length).toBe(2);
+  });
+
+  it("flags malformed entries without crashing the whole gate", async () => {
+    const result = await runAcceptanceTests([{ foo: "bar" }, "true"], "/tmp");
+    const invalidEntry = result.results.find((r) => r.type === "invalid");
+    expect(invalidEntry).toBeDefined();
+    expect(invalidEntry.passed).toBe(false);
+    // The valid "true" command still ran successfully.
+    expect(result.results.some((r) => r.type === "shell" && r.passed)).toBe(true);
+  });
 });
 
 describe("buildDiagnosticPrompt", () => {

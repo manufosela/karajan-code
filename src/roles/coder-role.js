@@ -22,19 +22,23 @@ export class CoderRole extends AgentRole {
   }
 
   extractInput(input) {
-    if (typeof input === "string") return { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, onOutput: null };
+    if (typeof input === "string") return { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, acceptanceTests: null, onOutput: null };
     return {
       task: input?.task || this.context?.task || "",
       reviewerFeedback: input?.reviewerFeedback || null,
       sonarSummary: input?.sonarSummary || null,
       deferredContext: input?.deferredContext || null,
+      // Tests-first (v2.7.5): the coder reads these as the gate it
+      // must satisfy. Only the plan-backed HU path populates this;
+      // the standard single-task `kj run` flow leaves it null.
+      acceptanceTests: input?.acceptanceTests || null,
       onOutput: input?.onOutput || null
     };
   }
 
-  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext }) {
+  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests }) {
     const prompt = await buildCoderPrompt({
-      task, reviewerFeedback, sonarSummary, deferredContext,
+      task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests,
       coderRules: this.instructions,
       methodology: this.config?.development?.methodology || "tdd",
       serenaEnabled: Boolean(this.config?.serena?.enabled),
