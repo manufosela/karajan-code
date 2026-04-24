@@ -4,6 +4,7 @@ import { resolveRole } from "../config.js";
 import { buildPlannerPrompt } from "../prompts/planner.js";
 import { parseMaybeJsonString } from "../review/parser.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
+import { runAutoGC, summarizeGC } from "../utils/garbage-collector.js";
 
 // ---- Formatting helpers ----
 
@@ -59,6 +60,20 @@ export async function planGenerateCommand({ task, config, logger, json, context 
 }
 
 async function planGenerateImpl({ task, config, logger, json, context, runLog }) {
+  // Auto-GC: prune orphan plans (project dir gone) + old finalised plans/
+  // sessions/HU batches before we start. Silent unless something was
+  // removed; one-liner summary on stderr in that case so --json stays
+  // untouched. Skipped in test env.
+  if (!process.env.VITEST && process.env.NODE_ENV !== "test") {
+    try {
+      const gcResult = await runAutoGC();
+      const line = summarizeGC(gcResult);
+      if (line && !json) process.stderr.write(`${line}\n`);
+    } catch (err) {
+      logger?.warn?.(`Auto-GC failed (non-blocking): ${err.message}`);
+    }
+  }
+
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);
   runLog.logText(`[planner] provider=${plannerRole.provider}`);

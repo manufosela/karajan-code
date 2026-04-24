@@ -83,6 +83,20 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
   // lazy fallback).
   await ensureTrackerRegistered(config);
 
+  // Auto-GC: prune orphan plans and old finalised state so `~/.kj/` and
+  // `~/.karajan/` don't accumulate forever. Silent unless something was
+  // removed; stderr one-liner on cleanup. Skipped in test env.
+  if (!process.env.VITEST && process.env.NODE_ENV !== "test") {
+    try {
+      const { runAutoGC, summarizeGC } = await import("../utils/garbage-collector.js");
+      const gcResult = await runAutoGC();
+      const summary = summarizeGC(gcResult);
+      if (summary) process.stderr.write(`${summary}\n`);
+    } catch (err) {
+      logger?.warn?.(`Auto-GC failed (non-blocking): ${err.message}`);
+    }
+  }
+
   const pipelineFlags = resolvePipelineFlags(config);
 
   if (flags.dryRun) {
