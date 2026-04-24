@@ -38,7 +38,7 @@ function isAgentFailure(output) {
  *
  * @returns {{ output, provider, attempts }}
  */
-async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitter, eventBase, task, iteration, diff }) {
+async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitter, eventBase, task, iteration, diff, pendingGherkinTests = null, shellTestResults = null }) {
   const chain = buildFallbackChain(config, roleName);
   const attempts = [];
 
@@ -54,7 +54,10 @@ async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitte
     const start = Date.now();
     let output;
     try {
-      output = await role.run({ task, diff });
+      // Tests-first Phase 3: the tester role accepts optional extra
+      // inputs. Other roles ignore them harmlessly (they destructure
+      // only what they need from the input object).
+      output = await role.run({ task, diff, pendingGherkinTests, shellTestResults });
     } catch (err) {
       output = {
         ok: false,
@@ -94,7 +97,7 @@ async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitte
   };
 }
 
-export async function runTesterStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion }) {
+export async function runTesterStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion, pendingGherkinTests = null, shellTestResults = null }) {
   logger.setContext({ iteration, stage: "tester" });
   emitProgress(
     emitter,
@@ -107,7 +110,15 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   const testerStart = Date.now();
   const { output: testerOutput, provider, attempts } = await runRoleWithFallback(
     TesterRole,
-    { roleName: "tester", config, logger, emitter, eventBase, task, iteration, diff }
+    {
+      roleName: "tester", config, logger, emitter, eventBase, task, iteration, diff,
+      // Tests-first Phase 3 (v2.7.5): hand the tester the HU's pending
+      // Gherkin scenarios and the upstream shell-test results so it
+      // translates and reports accurately instead of re-running the
+      // gate or ignoring the behavioural spec.
+      pendingGherkinTests,
+      shellTestResults,
+    }
   );
   const totalDuration = Date.now() - testerStart;
 

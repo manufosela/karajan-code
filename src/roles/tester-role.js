@@ -48,16 +48,26 @@ export class TesterRole extends AgentRole {
   }
 
   extractInput(input) {
-    if (typeof input === "string") return { task: input, diff: null, sonarIssues: null };
+    if (typeof input === "string") return { task: input, diff: null, sonarIssues: null, pendingGherkinTests: null, shellTestResults: null };
     return {
       task: input?.task || this.context?.task || "",
       diff: input?.diff || null,
       sonarIssues: input?.sonarIssues || null,
+      // Tests-first Phase 3 (v2.7.5): the tester now has two extra inputs.
+      //   - pendingGherkinTests: HU-declared Gherkin scenarios that need
+      //     translation into executable code tests in the project's
+      //     framework. The tester writes the test files and includes them
+      //     in the suite run before computing verdict.
+      //   - shellTestResults: results of running the HU's shell-type
+      //     acceptance_tests (already run upstream, passed at this point).
+      //     Passed for context so the tester doesn't re-run them redundantly.
+      pendingGherkinTests: input?.pendingGherkinTests || null,
+      shellTestResults: input?.shellTestResults || null,
       onOutput: input?.onOutput || null
     };
   }
 
-  async buildPrompt({ task, diff, sonarIssues }) {
+  async buildPrompt({ task, diff, sonarIssues, pendingGherkinTests, shellTestResults }) {
     const projectDir = this.config?.projectDir || process.cwd();
     const detection = await detectTestFramework(projectDir);
 
@@ -97,14 +107,65 @@ export class TesterRole extends AgentRole {
       );
     }
 
+    // Tests-first Phase 3 (v2.7.5): include the upstream shell-test results
+    // so the tester knows which part of the contract is already green.
+    if (Array.isArray(shellTestResults) && shellTestResults.length > 0) {
+      const passedCount = shellTestResults.filter((r) => r.passed).length;
+      sections.push(
+        "## Acceptance gate — shell tests",
+        `The HU's shell-type acceptance_tests already ran upstream: ${passedCount}/${shellTestResults.length} passed.`,
+        "Do NOT re-run them. Use the coverage/translation steps below to decide your verdict."
+      );
+    }
+
+    // Gherkin translation block — only when the HU carries Gherkin
+    // scenarios. Tester must produce real test files (in the detected
+    // framework's language) that encode Given/When/Then. This is how
+    // behaviour-level specs become enforceable.
+    if (Array.isArray(pendingGherkinTests) && pendingGherkinTests.length > 0) {
+      sections.push(
+        "## Gherkin acceptance tests to translate",
+        "These Gherkin scenarios are the HU's behavioural contract. They are NOT yet",
+        "executable — your job is to turn each one into a concrete test case in the",
+        "project's test framework, WRITE the test files, and INCLUDE them in the suite",
+        "run that determines your verdict.",
+        "",
+        "For each scenario below:",
+        "1. Pick the appropriate test file (use `target` hint if present; otherwise",
+        "   put the test next to the module it exercises).",
+        "2. Write a test that asserts the Given/When/Then as-is. Do NOT soften the",
+        "   assertion — if it's ambiguous, pick the stricter reading.",
+        "3. Make sure the test runs as part of the normal suite (no separate invocation).",
+        "",
+        "If ANY translated test fails on the current code, return verdict: \"fail\" with",
+        "a failing_scenarios array listing the scenarios that didn't pass. The coder",
+        "will iterate.",
+        ""
+      );
+      pendingGherkinTests.forEach((entry, i) => {
+        const content = typeof entry === "string" ? entry : entry?.content || "";
+        const target = entry && entry.file ? ` · target: \`${entry.file}\`` : "";
+        sections.push(
+          `### Scenario ${i + 1}${target}`,
+          "```gherkin",
+          content,
+          "```",
+          ""
+        );
+      });
+    }
+
     sections.push(
       "",
       "Return ONLY a single valid JSON object:",
-      '{"tests_pass":boolean,"coverage":{"overall":number,"services":number,"utilities":number},"missing_scenarios":[string],"quality_issues":[string],"verdict":"pass"|"fail"}',
+      '{"tests_pass":boolean,"coverage":{"overall":number,"services":number,"utilities":number},"missing_scenarios":[string],"quality_issues":[string],"failing_scenarios":[string],"translated_scenarios":[string],"verdict":"pass"|"fail"}',
       "",
       "- coverage.overall MUST be a real number from the test runner output, NOT an estimate",
       "- If coverage tool is not available, set coverage.overall to null (not 0, not a guess)",
       "- tests_pass must reflect whether the actual test run succeeded",
+      "- failing_scenarios: when Gherkin was given, list the scenarios your translated tests CAUGHT as failing",
+      "- translated_scenarios: when Gherkin was given, list the scenarios you successfully turned into passing tests",
+      "- verdict MUST be \"fail\" if any translated scenario still fails (even if coverage is green)",
       `## Task\n${task}`
     );
     if (diff) sections.push(`## Git diff\n${diff}`);
@@ -136,6 +197,9 @@ export class TesterRole extends AgentRole {
       coverage: parsed.coverage || {},
       missing_scenarios: parsed.missing_scenarios || [],
       quality_issues: parsed.quality_issues || [],
+      // Tests-first Phase 3: Gherkin translation outcomes.
+      failing_scenarios: Array.isArray(parsed.failing_scenarios) ? parsed.failing_scenarios : [],
+      translated_scenarios: Array.isArray(parsed.translated_scenarios) ? parsed.translated_scenarios : [],
       verdict,
       provider
     };
@@ -147,6 +211,8 @@ export class TesterRole extends AgentRole {
     const coverageStr = coverage.overall != null ? `${coverage.overall}%` : "not measured";
     const missingPart = parsed.missing_scenarios?.length ? `; ${parsed.missing_scenarios.length} missing scenario(s)` : "";
     const qualityPart = parsed.quality_issues?.length ? `; ${parsed.quality_issues.length} quality issue(s)` : "";
-    return `Verdict: ${verdict}; Coverage: ${coverageStr}${missingPart}${qualityPart}`;
+    const failingPart = parsed.failing_scenarios?.length ? `; ${parsed.failing_scenarios.length} failing scenario(s)` : "";
+    const translatedPart = parsed.translated_scenarios?.length ? `; ${parsed.translated_scenarios.length} scenario(s) translated` : "";
+    return `Verdict: ${verdict}; Coverage: ${coverageStr}${translatedPart}${failingPart}${missingPart}${qualityPart}`;
   }
 }

@@ -277,9 +277,53 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
               }));
 
               if (testResult.allPassed) {
-                logger.info(`HU ${story.id}: all acceptance tests PASSED — approved`);
-                await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
-                return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+                // Phase 3 of tests-first (v2.7.5): the shell gate is green,
+                // but any Gherkin scenarios are still "pending" — they need
+                // the tester to translate them into real test files before
+                // we can call the HU done. If none are pending, approve
+                // immediately like before.
+                const pendingGherkinTests = (story.acceptance_tests || []).filter(
+                  (t) => t && typeof t === "object" && t.type === "gherkin"
+                );
+                if (pendingGherkinTests.length === 0) {
+                  logger.info(`HU ${story.id}: all shell acceptance tests PASSED, no Gherkin to translate — approved`);
+                  await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+                  return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+                }
+
+                // Shell tests passed; Gherkin needs translation. Invoke the
+                // tester with both so it writes code tests for the Gherkin,
+                // runs the suite, and returns verdict.
+                logger.info(`HU ${story.id}: shell gate passed, asking tester to translate ${pendingGherkinTests.length} Gherkin scenario(s)`);
+                const { runTesterStage } = await import("./post-loop-stages.js");
+                const shellResults = testResult.results.filter((r) => r.type !== "gherkin");
+                const testerOutcome = await runTesterStage({
+                  config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+                  session: ctx.session, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
+                  iteration: attempt, task: huTask, diff: null, askQuestion,
+                  pendingGherkinTests, shellTestResults: shellResults,
+                });
+                const testerStage = testerOutcome?.stageResult;
+                if (testerOutcome?.action !== "continue" && testerStage?.verdict === "pass") {
+                  logger.info(`HU ${story.id}: tester translated Gherkin and verdict=pass — approved`);
+                  await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+                  return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+                }
+
+                // Tester rejected (translated tests failed or coverage
+                // inadequate). Feed its diagnostic back to the coder for
+                // another iteration.
+                const failing = testerStage?.failing_scenarios?.join("\n- ") || testerStage?.summary || "tester rejected";
+                const diagnostic = [
+                  "Tester translated the Gherkin acceptance tests and some FAILED:",
+                  failing ? `- ${failing}` : "",
+                  "",
+                  "Fix the implementation so every scenario passes. Do NOT soften the scenarios.",
+                ].filter(Boolean).join("\n");
+                logger.warn(`HU ${story.id}: tester verdict=fail after Gherkin translation — sending back to coder`);
+                setReviewerFeedback(ctx.session, diagnostic);
+                ctx.plannedTask = `${huTask}\n\n--- GHERKIN TRANSLATION FAILURES ---\n${diagnostic}`;
+                continue;
               }
 
               // Brain diagnoses failures and sends concrete fix to coder
