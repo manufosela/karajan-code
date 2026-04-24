@@ -1,4 +1,5 @@
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { setStatus } from "../session/mutators.js";
 
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
@@ -37,7 +38,7 @@ export async function waitForCooldown({ cooldownMs, cooldownUntil, agent, retryC
   }));
 
   // Update session status
-  session.status = "standby";
+  setStatus(session, "standby");
 
   // Wait with periodic heartbeats
   const startTime = Date.now();
@@ -64,7 +65,7 @@ export async function waitForCooldown({ cooldownMs, cooldownUntil, agent, retryC
     detail: { agent, retryCount: retryCount + 1 }
   }));
 
-  session.status = "running";
+  setStatus(session, "running");
 }
 
 export { DEFAULT_COOLDOWN_MS, MAX_COOLDOWN_MS, MAX_STANDBY_RETRIES, HEARTBEAT_INTERVAL_MS };

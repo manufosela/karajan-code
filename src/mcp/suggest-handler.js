@@ -6,6 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getSessionRoot } from "../utils/paths.js";
+import { setSuggestions, touch } from "../session/mutators.js";
 
 /**
  * Find the most recent running session for a given projectDir.
@@ -65,7 +66,7 @@ export async function handleSuggestion({ suggestion, context, projectDir }) {
 
   // Initialize suggestions array if not present
   if (!Array.isArray(session.suggestions)) {
-    session.suggestions = [];
+    setSuggestions(session, []);
   }
 
   const entry = {
@@ -79,7 +80,7 @@ export async function handleSuggestion({ suggestion, context, projectDir }) {
   // Persist the updated session
   const sessionRoot = getSessionRoot();
   const sessionFile = path.join(sessionRoot, session.id, "session.json");
-  session.updated_at = new Date().toISOString();
+  touch(session);
   await fs.writeFile(sessionFile, JSON.stringify(session, null, 2), "utf8");
 
   return {

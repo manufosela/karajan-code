@@ -11,6 +11,8 @@
  * the session for human input.
  */
 
+import { setBrainDecisions } from "../session/mutators.js";
+
 export const DEFAULT_MAX_DECISIONS = 20;
 export const INDECISION_REPEAT_THRESHOLD = 3; // 3 identical classifications in a row
 
@@ -42,7 +44,7 @@ export const INDECISION_REPEAT_THRESHOLD = 3; // 3 identical classifications in 
  */
 export function createTracker(session, { max = DEFAULT_MAX_DECISIONS } = {}) {
   if (!Array.isArray(session.brainDecisions)) {
-    session.brainDecisions = [];
+    setBrainDecisions(session, []);
   }
   return { session, max };
 }

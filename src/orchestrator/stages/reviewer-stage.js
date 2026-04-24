@@ -4,6 +4,7 @@
  */
 
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
+import { setReviewerFeedback, setDeferredIssues } from "../../session/mutators.js";
 import { generateDiff } from "../../review/diff-generator.js";
 import { validateReviewResult } from "../../review/schema.js";
 import { filterReviewScope, buildDeferredContext } from "../../review/scope-filter.js";
@@ -110,7 +111,7 @@ async function handleReviewerStalledSolomon({ review, repeatCounts, repeatState,
   if (solomonResult.action === "continue") {
     repeatDetector.reviewer = { lastHash: null, repeatCount: 0 };
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback = `Solomon/user guidance: ${solomonResult.humanGuidance}`;
+      setReviewerFeedback(session, `Solomon/user guidance: ${solomonResult.humanGuidance}`);
       await saveSession(session);
     }
     return { review };
@@ -156,9 +157,9 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
         detail: { categories: cats, queueSize: brainCtx.feedbackQueue.entries.length }
       }));
       // Persist flat feedback for compat with non-Brain flow
-      session.last_reviewer_feedback = review.blocking_issues
+      setReviewerFeedback(session, review.blocking_issues
         .map((x, idx) => `R-${idx + 1} [${x.severity || "medium"}]: ${x.description}`)
-        .join("\n");
+        .join("\n"));
       await saveSession(session);
       return null; // null = continue to next iteration (coder fixes)
     }
@@ -339,7 +340,7 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     logger.info(`Scope filter: deferred ${demoted.length} out-of-scope issue(s)${allDemoted ? " — auto-approved" : ""}`);
 
     // Accumulate deferred issues in session for tracking
-    if (!session.deferred_issues) session.deferred_issues = [];
+    if (!session.deferred_issues) setDeferredIssues(session, []);
     session.deferred_issues.push(...deferred);
     await saveSession(session);
 

@@ -31,6 +31,7 @@ import {
 import {
   createJournalDir, writePreLoopJournal, buildPlanSummary,
 } from "../session-journal.js";
+import { setPgCard, setJournalContext } from "../../session/mutators.js";
 import { tryAutoStartBoard } from "./post-loop.js";
 import { runPreLoopStages } from "./pre-loop.js";
 
@@ -146,7 +147,7 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
   const { initPgAdapter } = await import("../../planning-game/pipeline-adapter.js");
   const pgAdapterResult = await initPgAdapter({ session: ctx.session, config, logger, pgTaskId, pgProject });
   ctx.pgCard = pgAdapterResult.pgCard;
-  ctx.session.pg_card = ctx.pgCard || null;
+  setPgCard(ctx.session, ctx.pgCard || null);
 
   emitProgress(
     emitter,
@@ -173,11 +174,13 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
     ctx.journalDecisions = [];
 
     // Attach journal state to session so finalizeApprovedSession can access it
-    ctx.session._journalDir = ctx.journalDir;
-    ctx.session._journalFiles = journalFiles;
-    ctx.session._journalIterations = ctx.journalIterations;
-    ctx.session._journalDecisions = ctx.journalDecisions;
-    ctx.session._startedAt = ctx.startedAt;
+    setJournalContext(ctx.session, {
+      dir: ctx.journalDir,
+      files: journalFiles,
+      iterations: ctx.journalIterations,
+      decisions: ctx.journalDecisions,
+      startedAt: ctx.startedAt,
+    });
 
     // Display plan summary in console before iteration loop
     const planSummary = buildPlanSummary({

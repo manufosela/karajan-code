@@ -38,9 +38,19 @@ import {
 import { resolveAddyosmaniSlugs } from "../../skills/addyosmani-role-map.js";
 import { saveSession } from "../../session/store.js";
 import {
-  runTriageStage, runResearcherStage, runArchitectStage, runPlannerStage,
+  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback,
+  setAutoInstalledSkills, setSkillsRecommended, setAddyosmaniSkills,
+} from "../../session/mutators.js";
+import {
+  runResearcherStage, runArchitectStage, runPlannerStage,
   runDiscoverStage, runHuReviewerStage,
 } from "../pre-loop-stages.js";
+// TSK-0336: triage goes through the StageRegistry / StageExecutor contract
+// so canRun / execute / onFailure are actually exercised in production.
+// The registry is a singleton with TriageStage / CoderStage / ReviewerStage
+// pre-registered; `runStage` returns null when `canRun` vetoes execution.
+import { stageRegistry } from "../stages/stage-classes.js";
+import { runStage } from "../stages/stage-executor.js";
 import { runDomainCuratorStage } from "../stages/domain-curator-stage.js";
 import { runPreflightChecks } from "../preflight-checks.js";
 import {
@@ -77,8 +87,14 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
     stageResults.discover = discoverResult.stageResult;
   }
 
-  // --- Triage (always on) ---
-  const triageResult = await runTriageStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
+  // --- Triage (always on) — routed through StageRegistry (TSK-0336) ---
+  // canRun here is `pipelineFlags.triageEnabled !== false`; triageEnabled is
+  // never set to false in production, so behavior matches the previous
+  // unconditional call. If a caller ever flips it off, runStage returns null
+  // and we skip apply+persist with reasonable defaults (no overrides, no
+  // stageResult).
+  const triageCtx = { config, logger, emitter, eventBase, session, coderRole, trackBudget, pipelineFlags };
+  const triageResult = await runStage(stageRegistry.get("triage"), triageCtx) ?? { roleOverrides: null, stageResult: null };
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   stageResults.triage = triageResult.stageResult;
 
@@ -247,7 +263,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
     resolvedPolicies: session.resolved_policies,
     securityEnabled: pipelineFlags.securityEnabled
   });
-  session.preflight = preflightResult;
+  setPreflight(session, preflightResult);
   await saveSession(session);
 
   // Hard fail if blocking checks failed (SonarQube enabled but not available)
@@ -288,11 +304,11 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
           if (huBatch.ok) {
             stageResults.huReviewer = huBatch;
             // Store plan reference so we can sync results back after execution
-            session._planRef = { planId: loadedPlan.planId, projectDir };
-            session._syncResultsToPlan = async (subResult) => {
+            setPlanRef(session, { planId: loadedPlan.planId, projectDir });
+            setPlanSyncCallback(session, async (subResult) => {
               syncResultsToPlan(loadedPlan, subResult);
               await savePlanToDisk(projectDir, loadedPlan);
-            };
+            });
             logger.info(`Plan ${flags.plan}: ${huBatch.certified} HUs ready for execution`);
             emitProgress(emitter, makeEvent("plan:hus-loaded", { ...eventBase, stage: "plan" }, {
               message: `${huBatch.certified} HUs loaded from plan`,
@@ -306,9 +322,11 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
         // Inject contexts
         const ctx = loadedPlan.context || {};
-        session.research_context = ctx.researchContext || loadedPlan.researchContext || null;
-        session.architect_context = ctx.architectContext || loadedPlan.architectContext || null;
-        session.loaded_plan = loadedPlan.approach || loadedPlan.plan || null;
+        setPreLoopContext(session, {
+          research: ctx.researchContext || loadedPlan.researchContext || null,
+          architect: ctx.architectContext || loadedPlan.architectContext || null,
+          plan: loadedPlan.approach || loadedPlan.plan || null,
+        });
         await saveSession(session);
 
         // Build planned task from plan (for non-HU or fallback path)
@@ -391,10 +409,10 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
     if (neededSkills.length > 0) {
       const skillResult = await autoInstallSkills(neededSkills, skillProjectDir);
       if (skillResult.installed.length > 0) {
-        session.autoInstalledSkills = skillResult.installed;
+        setAutoInstalledSkills(session, skillResult.installed);
       }
       if (skillResult.osAvailable === false && skillResult.wouldHaveUsed.length > 0) {
-        session.skillsRecommended = skillResult.wouldHaveUsed;
+        setSkillsRecommended(session, skillResult.wouldHaveUsed);
         logger.warn(`OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}. Install openskills globally to auto-inject them next time.`);
         emitProgress(emitter, makeEvent("skills:unavailable", { ...eventBase, stage: "skills" }, {
           message: `OpenSkills CLI not available — would have used: ${skillResult.wouldHaveUsed.join(", ")}`,
@@ -530,7 +548,7 @@ export async function ensureAddyosmaniSkills({ task, config, logger, session, em
     });
 
     if (!refreshResult.ok) {
-      session.addyosmaniSkills = { available: false, reason: refreshResult.error || "refresh failed" };
+      setAddyosmaniSkills(session, { available: false, reason: refreshResult.error || "refresh failed" });
       emitProgress(emitter, makeEvent("skills:addyosmani-unavailable", { ...eventBase, stage: "skills" }, {
         message: `addyosmani/agent-skills catalog unavailable: ${refreshResult.error || refreshResult.action}`,
         detail: { action: refreshResult.action, hint: "Install git to enable process skills from addyosmani/agent-skills" },
@@ -542,12 +560,12 @@ export async function ensureAddyosmaniSkills({ task, config, logger, session, em
     const resolved = resolveAddyosmaniSlugs({ role: null, task }); // role resolution happens per-stage later
     const valid = resolved.filter((slug) => available.has(slug));
 
-    session.addyosmaniSkills = {
+    setAddyosmaniSkills(session, {
       available: true,
       action: refreshResult.action,
       resolvedSlugs: valid,
       allAvailable: Array.from(available),
-    };
+    });
 
     emitProgress(emitter, makeEvent("skills:addyosmani-ready", { ...eventBase, stage: "skills" }, {
       message: `addyosmani/agent-skills ${refreshResult.action} — ${available.size} slug(s) available, ${valid.length} relevant to task`,
@@ -559,7 +577,7 @@ export async function ensureAddyosmaniSkills({ task, config, logger, session, em
     }));
   } catch (err) {
     logger.warn(`addyosmani catalog step failed (non-blocking): ${err.message}`);
-    session.addyosmaniSkills = { available: false, reason: err.message };
+    setAddyosmaniSkills(session, { available: false, reason: err.message });
   }
 }
 /**

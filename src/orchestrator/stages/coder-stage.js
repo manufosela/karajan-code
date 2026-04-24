@@ -7,6 +7,9 @@ import { createAgent } from "../../agents/index.js";
 import { CoderRole } from "../../roles/coder-role.js";
 import { RefactorerRole } from "../../roles/refactorer-role.js";
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
+import {
+  setReviewerFeedback, incrementRetryCount, resetRetryCount,
+} from "../../session/mutators.js";
 import { generateDiff, getUntrackedFiles } from "../../review/diff-generator.js";
 import { evaluateTddPolicy } from "../../review/tdd-policy.js";
 import { buildDeferredContext } from "../../review/scope-filter.js";
@@ -252,7 +255,7 @@ function handleSolomonAction(solomonResult, session, contextPrefix) {
 async function handleSolomonContinue(solomonResult, session, counterField, brainCtx) {
   if (solomonResult.action !== "continue") return false;
   if (solomonResult.humanGuidance) {
-    session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+    setReviewerFeedback(session, `${session.last_reviewer_feedback ?? ""}\nUser guidance: ${solomonResult.humanGuidance}`);
     // Brain: also push user guidance into feedback queue when enabled
     if (brainCtx?.enabled) {
       const { processRoleOutput } = await import("../brain-coordinator.js");
@@ -265,13 +268,13 @@ async function handleSolomonContinue(solomonResult, session, counterField, brain
 }
 
 async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion, task, brainCtx }) {
-  session.last_reviewer_feedback = tddEval.message;
+  setReviewerFeedback(session, tddEval.message);
   // Brain: push TDD failure into feedback queue when enabled
   if (brainCtx?.enabled) {
     const { processRoleOutput } = await import("../brain-coordinator.js");
     processRoleOutput(brainCtx, { roleName: "tdd", output: { verdict: "fail", summary: tddEval.message }, iteration });
   }
-  session.repeated_issue_count += 1;
+  incrementRetryCount(session, "repeated_issue");
   await saveSession(session);
 
   if (session.repeated_issue_count < config.session.fail_fast_repeats) {
@@ -285,7 +288,7 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
       message: `TDD sub-loop limit reached (${session.repeated_issue_count}/${config.session.fail_fast_repeats}) — Brain handling`,
       detail: { subloop: "tdd", retryCount: session.repeated_issue_count, reason: tddEval.reason }
     }));
-    session.repeated_issue_count = 0;
+    resetRetryCount(session, "repeated_issue");
     await saveSession(session);
     return { action: "continue" };
   }

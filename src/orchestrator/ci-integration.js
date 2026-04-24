@@ -3,6 +3,7 @@
  * Extracted from orchestrator.js — self-contained feature, only active when ci.enabled.
  */
 import { saveSession } from "../session/store.js";
+import { setCiEarlyPr, appendCiCommits } from "../session/mutators.js";
 import { earlyPrCreation, incrementalPush } from "../git/automation.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 
@@ -32,7 +33,7 @@ async function ciIncrementalPush({ config, session, gitCtx, task, logger, repo, 
   const { accumulateCommit } = await import("../planning-game/pipeline-adapter.js");
   for (const c of pushResult.commits) accumulateCommit(session, c);
 
-  session.ci_commits = [...(session.ci_commits ?? []), ...pushResult.commits];
+  appendCiCommits(session, pushResult.commits);
   await saveSession(session);
 
   if (!repo) return;
@@ -51,9 +52,7 @@ async function ciCreateEarlyPr({ config, session, emitter, eventBase, gitCtx, ta
   const { accumulateCommit } = await import("../planning-game/pipeline-adapter.js");
   for (const c of earlyPr.commits) accumulateCommit(session, c);
 
-  session.ci_pr_number = earlyPr.prNumber;
-  session.ci_pr_url = earlyPr.prUrl;
-  session.ci_commits = earlyPr.commits;
+  setCiEarlyPr(session, { prNumber: earlyPr.prNumber, prUrl: earlyPr.prUrl, commits: earlyPr.commits });
   await saveSession(session);
   emitProgress(emitter, makeEvent("ci:pr-created", { ...eventBase, stage: "ci" }, {
     message: `Early PR created: #${earlyPr.prNumber}`,
