@@ -268,6 +268,69 @@ describe('denormalised ac_count / test_count / blocked_by on story rows', () => 
   });
 });
 
+describe('PATCH /api/stories/:id - field edits (title, scope, task_type, acceptance_criteria)', () => {
+  const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+
+  it('edits the title and persists to the plan JSON', async () => {
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ title: 'renamed via board' });
+    expect(res.status).toBe(200);
+    expect(res.body.hu.title).toBe('renamed via board');
+    const plan = readPlanFromDisk();
+    expect(plan.hus.find((h) => h.id === `${PLAN_ID}_001`).title).toBe('renamed via board');
+  });
+
+  it('edits the scope', async () => {
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ scope: 'new scope here' });
+    expect(res.status).toBe(200);
+    expect(readPlanFromDisk().hus[0].scope).toBe('new scope here');
+  });
+
+  it('changes task_type', async () => {
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ task_type: 'refactor' });
+    expect(res.status).toBe(200);
+    expect(readPlanFromDisk().hus[0].task_type).toBe('refactor');
+  });
+
+  it('rewrites acceptance_criteria as a list of strings or Gherkin objects', async () => {
+    const newAc = [
+      'raw string criterion',
+      { given: 'user logs in', when: 'they visit /', then: 'dashboard is shown' },
+    ];
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ acceptance_criteria: newAc });
+    expect(res.status).toBe(200);
+    expect(readPlanFromDisk().hus[0].acceptance_criteria).toEqual(newAc);
+  });
+
+  it('allows combining a status change with field edits in one PATCH', async () => {
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ title: 'combined edit', status: 'certified' });
+    expect(res.status).toBe(200);
+    const plan = readPlanFromDisk();
+    const hu = plan.hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.title).toBe('combined edit');
+    expect(hu.status).toBe('certified');
+  });
+
+  it('ignores unknown fields', async () => {
+    const before = JSON.stringify(readPlanFromDisk());
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ irrelevant: 'x' });
+    // No status + no whitelisted field → 400.
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(readPlanFromDisk())).toBe(before);
+  });
+});
+
 describe('POST /api/plans/:planId/run', () => {
   it('returns the pid + log path + resolved argv in echo mode', async () => {
     const res = await request(app)
