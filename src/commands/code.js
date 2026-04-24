@@ -4,6 +4,7 @@ import { assertAgentsAvailable } from "../agents/availability.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { resolveRole } from "../config.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 export async function codeCommand({ task, config, logger }) {
   return withCliRunLog("code", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
@@ -21,8 +22,12 @@ export async function codeCommand({ task, config, logger }) {
       }
     }
     const prompt = await buildCoderPrompt({ task, coderRules, methodology: config.development?.methodology || "tdd" });
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await coder.runTask({ prompt, onOutput, role: "coder" });
+    const progress = createCliProgressReporter({ role: "coder" });
+    let result;
+    try {
+      result = await coder.runTask({ prompt, onOutput: progress.onOutput, role: "coder" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
     if (!result.ok) {
       if (result.error) logger.error(result.error);
       throw new Error(result.error || result.output || `Coder failed (exit ${result.exitCode})`);

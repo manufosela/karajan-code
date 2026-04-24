@@ -5,6 +5,7 @@ import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
 import { resolveReviewProfile } from "../review/profiles.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 export async function reviewCommand({ task, config, logger, baseRef }) {
   return withCliRunLog("review", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
@@ -36,8 +37,12 @@ export async function reviewCommand({ task, config, logger, baseRef }) {
   const { rules } = await resolveReviewProfile({ mode: config.review_mode, projectDir: process.cwd() });
 
   const prompt = await buildReviewerPrompt({ task, diff, reviewRules: rules, mode: config.review_mode });
-  const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-  const result = await reviewer.reviewTask({ prompt, onOutput, role: "reviewer" });
+  const progress = createCliProgressReporter({ role: "reviewer" });
+  let result;
+  try {
+    result = await reviewer.reviewTask({ prompt, onOutput: progress.onOutput, role: "reviewer" });
+    progress.finish(result.ok ? "done" : "failed");
+  } catch (err) { progress.finish("failed"); throw err; }
   if (!result.ok) {
     if (result.error) logger.error(result.error);
     throw new Error(result.error || result.output || `Reviewer failed (exit ${result.exitCode})`);

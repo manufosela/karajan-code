@@ -1,6 +1,7 @@
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -29,8 +30,12 @@ export async function researcherCommand({ task, config, logger }) {
 
     const agent = createAgent(researcherRole.provider, config, logger);
     const prompt = buildResearchPrompt(task);
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await agent.runTask({ prompt, onOutput, role: "researcher" });
+    const progress = createCliProgressReporter({ role: "researcher" });
+    let result;
+    try {
+      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "researcher" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {
       throw new Error(result.error || result.output || "Researcher failed");

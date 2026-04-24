@@ -1,6 +1,7 @@
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { buildDiscoverPrompt, parseDiscoverOutput } from "../prompts/discover.js";
 
 function formatGaps(gaps, lines) {
@@ -71,8 +72,12 @@ export async function discoverCommand({ task, config, logger, mode, json }) {
 
     const agent = createAgent(discoverRole.provider, config, logger);
     const prompt = buildDiscoverPrompt({ task, mode: mode || "gaps" });
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await agent.runTask({ prompt, onOutput, role: "discover" });
+    const progress = createCliProgressReporter({ role: "discover" });
+    let result;
+    try {
+      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "discover" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {
       throw new Error(result.error || result.output || "Discover failed");

@@ -3,6 +3,7 @@ import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
+import { createCliProgressReporter } from "../utils/cli-progress.js";
 
 function formatFindings(findings) {
   const lines = [];
@@ -79,8 +80,12 @@ export async function auditCommand({ task, config, logger, dimensions, json }) {
       : null;
 
     const prompt = buildAuditPrompt({ task: task || "Analyze the full codebase", dimensions: dimList });
-    const onOutput = ({ line }) => process.stdout.write(`${line}\n`);
-    const result = await agent.runTask({ prompt, onOutput, role: "audit" });
+    const progress = createCliProgressReporter({ role: "auditor" });
+    let result;
+    try {
+      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "audit" });
+      progress.finish(result.ok ? "done" : "failed");
+    } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {
       throw new Error(result.error || result.output || "Audit failed");
