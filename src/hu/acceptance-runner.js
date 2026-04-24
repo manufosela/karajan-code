@@ -37,35 +37,77 @@ async function runSingleTest(cmd, cwd, timeoutMs = 30000) {
 
 /**
  * Run all acceptance tests for an HU.
- * @param {string[]} tests - Array of shell commands
+ *
+ * Accepts two shapes:
+ *   - Legacy: plain string shell command.
+ *   - v2.7.5: { type: "shell" | "gherkin", content, file? }
+ *
+ * Shell entries execute immediately (exit code 0 = pass). Gherkin entries
+ * cannot be executed directly — that's Phase 3 of tests-first where the
+ * tester role translates them into real code tests. Until then, we report
+ * them as "pending" and skip rather than failing the whole gate.
+ *
+ * @param {Array<string|object>} tests - Array of shell commands OR structured entries
  * @param {string} cwd - Working directory
- * @returns {Promise<{allPassed: boolean, results: object[], summary: string, diagnostics: string|null}>}
+ * @returns {Promise<{allPassed: boolean, results: object[], summary: string, diagnostics: string|null, pending: number}>}
  */
 export async function runAcceptanceTests(tests, cwd) {
   if (!tests || tests.length === 0) {
-    return { allPassed: false, results: [], summary: "No acceptance tests defined", diagnostics: null };
+    return { allPassed: false, results: [], summary: "No acceptance tests defined", diagnostics: null, pending: 0 };
   }
 
   const results = [];
-  for (const cmd of tests) {
+  let pending = 0;
+  for (const entry of tests) {
+    let type = "shell";
+    let cmd;
+    if (typeof entry === "string") {
+      cmd = entry;
+    } else if (entry && typeof entry === "object" && typeof entry.content === "string") {
+      type = entry.type === "gherkin" ? "gherkin" : "shell";
+      cmd = entry.content;
+    } else {
+      results.push({ cmd: JSON.stringify(entry), passed: false, output: "Malformed acceptance_test entry", exitCode: -2, type: "invalid" });
+      continue;
+    }
+    if (type === "gherkin") {
+      // Gherkin entries need a translator (Phase 3). Mark them pending
+      // so the coder/tester sees they haven't been validated yet —
+      // better than silently passing (would lie) or hard-failing
+      // (would block the whole pipeline).
+      pending += 1;
+      results.push({
+        cmd,
+        passed: false,
+        output: "Gherkin test not yet executable (awaits tester translation — Phase 3)",
+        exitCode: 0,
+        type: "gherkin",
+        pending: true,
+      });
+      continue;
+    }
     const result = await runSingleTest(cmd, cwd);
-    results.push(result);
+    results.push({ ...result, type: "shell" });
   }
 
-  const passed = results.filter(r => r.passed);
-  const failed = results.filter(r => !r.passed);
+  const executedResults = results.filter((r) => !r.pending);
+  const passed = executedResults.filter((r) => r.passed);
+  const failed = executedResults.filter((r) => !r.passed);
   const allPassed = failed.length === 0;
 
-  const summary = `${passed.length}/${results.length} acceptance tests passed`;
+  const shellSummary = `${passed.length}/${executedResults.length} shell tests passed`;
+  const summary = pending > 0
+    ? `${shellSummary}, ${pending} gherkin test(s) pending translation`
+    : shellSummary;
 
   let diagnostics = null;
   if (!allPassed) {
-    diagnostics = failed.map(f =>
+    diagnostics = failed.map((f) =>
       `FAIL: ${f.cmd}\n  exit=${f.exitCode}\n  output: ${f.output.trim().split("\n").slice(-5).join("\n  ")}`
     ).join("\n\n");
   }
 
-  return { allPassed, results, summary, diagnostics };
+  return { allPassed, results, summary, diagnostics, pending };
 }
 
 /**

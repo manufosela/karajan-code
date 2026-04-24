@@ -229,12 +229,16 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
                 detail: { iteration: attempt, maxIterations: ctx.config.max_iterations }
               }));
 
-              // Coder runs with the HU task + any diagnostic feedback from previous attempt
+              // Coder runs with the HU task + any diagnostic feedback from previous attempt.
+              // Phase 2 of tests-first (v2.7.5): also hand over the declared
+              // acceptance_tests so the coder has the contract from turn 1,
+              // not only after the first failed run.
               const coderResult = await runCoderStage({
                 coderRoleInstance: ctx.coderRoleInstance, coderRole: ctx.coderRole,
                 config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
                 session: ctx.session, plannedTask: ctx.plannedTask,
-                trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx
+                trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx,
+                acceptanceTests: story.acceptance_tests
               });
               if (coderResult?.action === "standby" || coderResult?.action === "pause") {
                 return coderResult?.result || { approved: false, reason: "coder_failed" };

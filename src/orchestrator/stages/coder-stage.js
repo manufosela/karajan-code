@@ -19,7 +19,7 @@ import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
-export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx }) {
+export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null }) {
   logger.setContext({ iteration, stage: "coder" });
   emitProgress(
     emitter,
@@ -52,6 +52,9 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       reviewerFeedback,
       sonarSummary: session.last_sonar_summary,
       deferredContext: buildDeferredContext(session.deferred_issues),
+      // Tests-first contract flows through to buildCoderPrompt which
+      // renders the "Acceptance Tests — MUST pass" section.
+      acceptanceTests,
       onOutput: coderStall.onOutput
     });
   } finally {
