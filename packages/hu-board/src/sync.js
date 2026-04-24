@@ -55,6 +55,26 @@ function deriveProjectIdFromDir(projectDir) {
     .slice(0, 120);
 }
 
+/**
+ * Turn a directory basename into a human-friendly Title Case string,
+ * preserving every meaningful word. Unlike `slugToTitle`, this one does
+ * NOT apply stopword filtering — directory names are concise on purpose
+ * (e.g. "linux-assistant-orchestrator" → "Linux Assistant Orchestrator",
+ * "my-dev-tool" → "My Dev Tool").
+ *
+ * @param {string} name
+ * @returns {string}
+ */
+function titleCaseBasename(name) {
+  const words = String(name || '')
+    .replace(/[_\s]+/g, '-')
+    .split('-')
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter(Boolean);
+  if (words.length === 0) return String(name || '');
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
 function slugToTitle(text) {
   const STOPWORDS = new Set([
     'a', 'an', 'the', 'and', 'or', 'with', 'for', 'to', 'of', 'in', 'on',
@@ -285,8 +305,13 @@ function syncPlanFile(filePath) {
     const projectId = data.projectDir
       ? deriveProjectIdFromDir(data.projectDir)
       : data.planId;
+    // Human-friendly project name: basename("/…/linux-assistant-orchestrator")
+    // becomes "Linux Assistant Orchestrator". Uses `titleCaseBasename` (not
+    // `slugToTitle`) because the stopwords list there is tuned for free-text
+    // goals and would strip meaningful words like "tool" or "system" from a
+    // directory name. Falls back to the plan's declared name or task.
     const projectName = data.projectDir
-      ? basename(data.projectDir)
+      ? titleCaseBasename(basename(data.projectDir))
       : (data.name || slugToTitle(data.task || '') || projectId);
 
     upsertProject({
