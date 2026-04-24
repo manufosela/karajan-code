@@ -22,7 +22,7 @@ export {
 // ── Sub-module re-exports ────────────────────────────────────────────
 export { handleRunDirect, handleResumeDirect, validateResumeAnswer, handleRun, handleResume } from "./handlers/run-handler.js";
 export { handlePlanDirect, handleCodeDirect, handleReviewDirect, handleDiscoverDirect, handleTriageDirect, handleResearcherDirect, handleAuditDirect, handleArchitectDirect, handleCode, handleReview, handlePlan, handleDiscover, handleTriage, handleResearcher, handleArchitect, handleAudit } from "./handlers/direct-handlers.js";
-export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
+export { handleStatus, handleAgents, handlePreflight, handleRoles, handleReport, handleInit, handleDoctor, handleConfig, handleScan, handleBoard, handleUndo, handleClean, buildPreflightRequiredResponse } from "./handlers/management-handlers.js";
 export { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
 
 // ── Handler dispatch ─────────────────────────────────────────────────
@@ -36,7 +36,7 @@ import {
 import {
   handleStatus, handleAgents, handlePreflight, handleRoles,
   handleReport, handleInit, handleDoctor, handleConfig,
-  handleScan, handleBoard, handleUndo
+  handleScan, handleBoard, handleUndo, handleClean
 } from "./handlers/management-handlers.js";
 import { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
 
@@ -66,7 +66,8 @@ export async function handleToolCall(name, args, server, extra) {
     kj_hu:          (a, server) => handleHu(a, server),
     kj_suggest:     (a) => handleSuggest(a),
     kj_skills:      (a) => handleSkills(a),
-    kj_undo:        (a, server) => handleUndo(a, server)
+    kj_undo:        (a, server) => handleUndo(a, server),
+    kj_clean:       (a) => handleClean(a),
   }[name];
   if (handler) {
     return handler(a, server, extra);

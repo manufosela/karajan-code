@@ -201,6 +201,50 @@ export async function handleUndo(a, server) {
   }
 }
 
+/**
+ * Garbage-collect stale Karajan state. Routed here (not through the
+ * generic `runKjCommand`) because the user needs a structured result
+ * payload: MCP clients (Claude Desktop, Cursor, …) render lists, not
+ * ANSI-styled stdout. Shared implementation lives in
+ * `src/utils/garbage-collector.js` so CLI and MCP stay in sync.
+ */
+export async function handleClean(a) {
+  const { runManualGC, nukeBoardDb, summarizeGC } = await import("../../utils/garbage-collector.js");
+
+  const dryRun = !a?.yes;
+  const retention = a?.nuke
+    ? { planRetentionDays: 0, draftRetentionDays: 0, sessionRetentionDays: 0, huRetentionDays: 0 }
+    : {
+      planRetentionDays: a?.planDays,
+      draftRetentionDays: a?.draftDays,
+      sessionRetentionDays: a?.sessionDays,
+      huRetentionDays: a?.huDays,
+    };
+
+  const result = await runManualGC({ ...retention, dryRun });
+  if (a?.nuke) {
+    const boardResult = await nukeBoardDb({ dryRun });
+    result.removed.push(...boardResult.removed);
+    result.bytesFreed += boardResult.bytesFreed;
+    result.errors.push(...boardResult.errors);
+  }
+
+  const byKind = {};
+  for (const r of result.removed) byKind[r.kind] = (byKind[r.kind] || 0) + 1;
+
+  return {
+    ok: true,
+    dryRun,
+    nuke: Boolean(a?.nuke),
+    removed: result.removed.length,
+    bytesFreed: result.bytesFreed,
+    breakdown: byKind,
+    items: result.removed.map((r) => ({ path: r.path, kind: r.kind, reason: r.reason })),
+    errors: result.errors,
+    summary: summarizeGC(result) || "[clean] nothing to clean — ~/.kj/ and ~/.karajan/ are tidy.",
+  };
+}
+
 export async function buildPreflightRequiredResponse(toolName) {
   const { config } = await loadConfig();
   const { listAgents } = await import("../../commands/agents.js");
