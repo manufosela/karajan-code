@@ -347,6 +347,52 @@ router.post('/projects/:id/ready', (req, res) => {
 });
 
 /**
+ * GET /api/plans/:planId/log - Tail the detached run's log file.
+ *
+ * Accepts ?offset=N so a polling UI can request only the new bytes
+ * since last read (the "tail -f" UX without SSE). Returns:
+ *
+ *   { content: string, size: number, exists: boolean }
+ *
+ * - `exists` is false when the run hasn't started yet (the log path is
+ *   deterministic, so we know where to look).
+ * - `size` is the current file length; clients pass `offset=size` next
+ *   time to get only the delta.
+ *
+ * Path is the same one that `runPlan` wrote to:
+ *   ~/.karajan/hu-board-runs/<planId>.log (honours KJ_HOME in tests).
+ */
+router.get('/plans/:planId/log', (req, res) => {
+  try {
+    const runsDir = path.join(getKjHome(), 'hu-board-runs');
+    const logPath = path.join(runsDir, `${req.params.planId}.log`);
+    if (!fs.existsSync(logPath)) {
+      return res.json({ exists: false, size: 0, content: '' });
+    }
+    const stat = fs.statSync(logPath);
+    const offset = Math.max(0, Math.min(stat.size, Number(req.query.offset) || 0));
+    // Cap per-request read to 1 MiB so a huge log can't blow up the
+    // response. The client will keep polling and catch up.
+    const MAX_READ = 1024 * 1024;
+    const length = Math.min(MAX_READ, stat.size - offset);
+    let content = '';
+    if (length > 0) {
+      const fd = fs.openSync(logPath, 'r');
+      try {
+        const buf = Buffer.alloc(length);
+        fs.readSync(fd, buf, 0, length, offset);
+        content = buf.toString('utf-8');
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    res.json({ exists: true, size: stat.size, content });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/plans/:planId/run - Launch `kj run --plan <planId>` as a
  * detached child. This is the "Run plan" button's endpoint — the board
  * no longer requires the user to drop to a terminal to kick off the

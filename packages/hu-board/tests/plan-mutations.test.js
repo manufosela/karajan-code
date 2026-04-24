@@ -366,6 +366,79 @@ describe('POST /api/plans/:planId/run', () => {
   });
 });
 
+describe('GET /api/plans/:planId/log', () => {
+  it('returns exists:false when the log file does not exist yet', async () => {
+    const res = await request(app).get(`/api/plans/${PLAN_ID}/log`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ exists: false, size: 0, content: '' });
+  });
+
+  it('tails the log from a given offset', async () => {
+    // Seed a fake log file at the path `runPlan` would write to.
+    const runsDir = join(tmpHome, 'hu-board-runs');
+    mkdirSync(runsDir, { recursive: true });
+    const logPath = join(runsDir, `${PLAN_ID}.log`);
+    writeFileSync(logPath, 'first chunk\nsecond chunk\n', 'utf-8');
+
+    const firstBytes = Buffer.byteLength('first chunk\nsecond chunk\n');
+    const full = await request(app).get(`/api/plans/${PLAN_ID}/log`);
+    expect(full.status).toBe(200);
+    expect(full.body.exists).toBe(true);
+    expect(full.body.size).toBe(firstBytes);
+    expect(full.body.content).toBe('first chunk\nsecond chunk\n');
+
+    // Append more, read only delta.
+    writeFileSync(logPath, 'first chunk\nsecond chunk\nthird chunk\n', 'utf-8');
+    const totalBytes = Buffer.byteLength('first chunk\nsecond chunk\nthird chunk\n');
+    const delta = await request(app)
+      .get(`/api/plans/${PLAN_ID}/log`)
+      .query({ offset: firstBytes });
+    expect(delta.body.content).toBe('third chunk\n');
+    expect(delta.body.size).toBe(totalBytes);
+  });
+
+  it('clamps a too-large offset to the file size', async () => {
+    const runsDir = join(tmpHome, 'hu-board-runs');
+    mkdirSync(runsDir, { recursive: true });
+    writeFileSync(join(runsDir, `${PLAN_ID}.log`), 'hello\n', 'utf-8');
+
+    const res = await request(app)
+      .get(`/api/plans/${PLAN_ID}/log`)
+      .query({ offset: 9999 });
+    expect(res.status).toBe(200);
+    expect(res.body.content).toBe('');
+  });
+});
+
+describe('acceptance_tests stamping', () => {
+  it('persists acceptance_tests JSON on the story row so the modal can render the list', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_500`,
+          title: 'with tests',
+          status: 'pending',
+          acceptance_criteria: [],
+          acceptance_tests: [
+            'it should do the thing',
+            { given: 'x', when: 'y', then: 'z' },
+          ],
+          blocked_by: [],
+          createdAt: '2026-04-24T10:10:10Z',
+          updatedAt: '2026-04-24T10:10:10Z',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const stories = dbMod.getStoriesByProject(PROJECT_ID);
+    const row = stories.find((s) => s.id.endsWith('_500'));
+    expect(row.test_count).toBe(2);
+    const tests = JSON.parse(row.acceptance_tests);
+    expect(tests[0]).toBe('it should do the thing');
+    expect(tests[1].given).toBe('x');
+  });
+});
+
 describe('POST /api/projects/:id/run', () => {
   it('launches every plan of the project', async () => {
     const res = await request(app)
