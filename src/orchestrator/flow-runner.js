@@ -18,6 +18,16 @@ import {
   saveSession,
   addCheckpoint,
 } from "../session/store.js";
+// TSK-0337: session mutations go through the mutators module. Every
+// `session.x = y` outside src/session/ should route through one of these
+// so grepping the mutator name locates every writer in seconds. See
+// tests/architecture/session-write-boundary.test.js for the invariant.
+import {
+  setStatus, setReviewerFeedback, resetAllRetryCounters,
+  setSonarIssueSignature, setReviewerIssueSignature,
+  setSonarRepeatCount, setReviewerRepeatCount,
+  setBudget,
+} from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 import { needsSubPipeline, runHuSubPipeline } from "./hu-sub-pipeline.js";
@@ -116,7 +126,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
       });
       if (auditResult.stageResult) analysisStageResults.audit = auditResult.stageResult;
 
-      ctx.session.budget = ctx.budgetSummary();
+      setBudget(ctx.session, ctx.budgetSummary());
       await markSessionStatus(ctx.session, "approved");
 
       const analysisResult = {
@@ -239,7 +249,7 @@ export async function runFlow({ task, config, logger, flags = {}, emitter = null
               const failed = testResult.results.filter(r => !r.passed);
               const diagnostic = buildDiagnosticPrompt(failed);
               logger.warn(`HU ${story.id}: ${failed.length} acceptance test(s) FAILED — sending diagnostic to coder`);
-              ctx.session.last_reviewer_feedback = diagnostic;
+              setReviewerFeedback(ctx.session, diagnostic);
               ctx.plannedTask = `${huTask}\n\n--- ACCEPTANCE TEST FAILURES ---\n${diagnostic}`;
             }
 
@@ -350,7 +360,7 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
   // Mark as running again for stopped/failed sessions
   if (session.status !== "running") {
     logger.info(`Resuming ${session.status} session ${sessionId}`);
-    session.status = "running";
+    setStatus(session, "running");
     await saveSession(session);
   }
 
@@ -365,18 +375,13 @@ export async function resumeFlow({ sessionId, answer, config, logger, flags = {}
 
   // Inject the answer as additional feedback for the coder
   if (session.paused_state?.context?.lastFeedback) {
-    session.last_reviewer_feedback = `Previous feedback: ${session.paused_state.context.lastFeedback}\nUser guidance: ${answer}`;
+    setReviewerFeedback(session, `Previous feedback: ${session.paused_state.context.lastFeedback}\nUser guidance: ${answer}`);
   }
-  session.repeated_issue_count = 0;
-  session.sonar_retry_count = 0;
-  session.reviewer_retry_count = 0;
-  session.standby_retry_count = 0;
-  session.tester_retry_count = 0;
-  session.security_retry_count = 0;
-  session.last_sonar_issue_signature = null;
-  session.sonar_repeat_count = 0;
-  session.last_reviewer_issue_signature = null;
-  session.reviewer_repeat_count = 0;
+  resetAllRetryCounters(session);
+  setSonarIssueSignature(session, null);
+  setSonarRepeatCount(session, 0);
+  setReviewerIssueSignature(session, null);
+  setReviewerRepeatCount(session, 0);
   await saveSession(session);
 
   // Re-run the flow with the existing session context

@@ -58,4 +58,29 @@ describe("architecture/stage-registry — StageExecutor contract is load-bearing
     expect(new CoderStage() instanceof StageExecutor).toBe(true);
     expect(new ReviewerStage() instanceof StageExecutor).toBe(true);
   });
+
+  // TSK-0336: the registry isn't just alive, it's consulted by production code.
+  // drivers/pre-loop.js routes triage and drivers/iteration-loop.js routes
+  // coder + reviewer through `runStage(stageRegistry.get("<name>"), ctx)`.
+  // If someone reverts to direct `runTriageStage(...)` / `runCoderStage(...)`
+  // calls, that's the regression the audit was trying to prevent — the
+  // registry exists but nobody looks at it. This test fails CI in that case.
+  it("drivers/pre-loop.js routes triage through stageRegistry.get(\"triage\")", async () => {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const url = await import("node:url");
+    const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
+    const text = await fs.readFile(path.join(repoRoot, "src/orchestrator/drivers/pre-loop.js"), "utf8");
+    expect(text).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']triage["']\s*\)/);
+  });
+
+  it("drivers/iteration-loop.js routes coder + reviewer through stageRegistry.get(...)", async () => {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const url = await import("node:url");
+    const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
+    const text = await fs.readFile(path.join(repoRoot, "src/orchestrator/drivers/iteration-loop.js"), "utf8");
+    expect(text).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']coder["']\s*\)/);
+    expect(text).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']reviewer["']\s*\)/);
+  });
 });

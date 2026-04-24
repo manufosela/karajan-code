@@ -3,6 +3,7 @@
  * Extracted from orchestrator.js — session management, not orchestration.
  */
 import { markSessionStatus, addCheckpoint } from "../session/store.js";
+import { setRetryCount } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 
@@ -33,12 +34,12 @@ export function takeCheckpointSnapshot(session) {
  */
 export function shouldAutoContinueCheckpoint(session, hasProgress) {
   if (hasProgress) {
-    session._checkpoint_stall_count = 0;
+    setRetryCount(session, "checkpoint_stall", 0);
     return { autoContinue: true, reason: "progress_detected" };
   }
   const wasRateLimited = (session.standby_retry_count || 0) > 0;
   const consecutiveStalls = (session._checkpoint_stall_count || 0) + 1;
-  session._checkpoint_stall_count = consecutiveStalls;
+  setRetryCount(session, "checkpoint_stall", consecutiveStalls);
   if (wasRateLimited && consecutiveStalls < 3) {
     return { autoContinue: true, reason: "recoverable_stall" };
   }

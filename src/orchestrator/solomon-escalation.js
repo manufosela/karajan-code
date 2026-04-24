@@ -1,5 +1,6 @@
 import { SolomonRole } from "../roles/solomon-role.js";
 import { addCheckpoint, pauseSession, saveSession } from "../session/store.js";
+import { setSuggestions } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 
@@ -158,7 +159,7 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
 
   // Clear processed suggestions from session
   if (pendingSuggestions) {
-    session.suggestions = [];
+    setSuggestions(session, []);
     try { await saveSession(session); } catch { /* best-effort */ }
   }
 

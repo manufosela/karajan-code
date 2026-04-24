@@ -24,6 +24,9 @@
 import { generateDiff } from "../../review/diff-generator.js";
 import { finalizeGitAutomation } from "../../git/automation.js";
 import { saveSession, markSessionStatus } from "../../session/store.js";
+import {
+  setReviewerFeedback, setBudget, setRtkSavings, resetRetryCount,
+} from "../../session/mutators.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { runTesterStage, runSecurityStage, runFinalAuditStage } from "../post-loop-stages.js";
 import { invokeSolomon } from "../solomon-escalation.js";
@@ -41,7 +44,7 @@ export async function handlePostLoopStages({ config, session, emitter, eventBase
     if (testerResult.action === "pause") return { action: "return", result: testerResult.result };
     if (testerResult.action === "continue") {
       const summary = testerResult.stageResult?.summary || "Tester found issues";
-      session.last_reviewer_feedback = `Tester FAILED — fix these issues:\n${summary}`;
+      setReviewerFeedback(session, `Tester FAILED — fix these issues:\n${summary}`);
       await saveSession(session);
       if (testerResult.stageResult) stageResults.tester = testerResult.stageResult;
       // Brain: push tester failure into feedback queue + compress for next coder iteration
@@ -65,7 +68,7 @@ export async function handlePostLoopStages({ config, session, emitter, eventBase
     if (securityResult.action === "pause") return { action: "return", result: securityResult.result };
     if (securityResult.action === "continue") {
       const summary = securityResult.stageResult?.summary || "Security found issues";
-      session.last_reviewer_feedback = `Security FAILED — fix these issues:\n${summary}`;
+      setReviewerFeedback(session, `Security FAILED — fix these issues:\n${summary}`);
       await saveSession(session);
       if (securityResult.stageResult) stageResults.security = securityResult.stageResult;
       // Brain: push security findings into feedback queue + compress for next coder iteration
@@ -92,7 +95,7 @@ export async function handlePostLoopStages({ config, session, emitter, eventBase
   }
   if (auditResult.action === "retry") {
     // Audit found actionable issues — loop back to coder
-    session.last_reviewer_feedback = auditResult.feedback;
+    setReviewerFeedback(session, auditResult.feedback);
     await saveSession(session);
     return { action: "continue" };
   }
@@ -112,7 +115,7 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
   if (stageResults.planner?.ok) {
     stageResults.planner.completedSteps = [...(stageResults.planner.steps ?? [])];
   }
-  session.budget = budgetSummary();
+  setBudget(session, budgetSummary());
   await markSessionStatus(session, "approved");
 
   const { markPgCardToValidate } = await import("../../planning-game/pipeline-adapter.js");
@@ -120,7 +123,7 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
 
   const deferredIssues = session.deferred_issues || [];
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
-  if (rtkSavings) session.rtk_savings = rtkSavings;
+  if (rtkSavings) setRtkSavings(session, rtkSavings);
   await saveSession(session);
 
   // --- Journal: write final files ---
@@ -221,7 +224,7 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
       }
       brainCtx.extensionCount += 1;
       logger.info(`Brain: max_iterations reached with ${entries.filter(e => ["correctness", "tests"].includes(e.category)).length} correctness issue(s) pending — extending iterations (extension ${brainCtx.extensionCount}/${MAX_EXTENSIONS})`);
-      session.reviewer_retry_count = 0;
+      resetRetryCount(session, "reviewer");
       await saveSession(session);
       return { approved: false, sessionId: session.id, reason: "max_iterations_extended", extraIterations: Math.ceil(config.max_iterations / 2) };
     }
@@ -285,9 +288,9 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
 
   if (solomonResult.action === "continue") {
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+      setReviewerFeedback(session, `Solomon guidance: ${solomonResult.humanGuidance}`);
     }
-    session.reviewer_retry_count = 0;
+    resetRetryCount(session, "reviewer");
     await saveSession(session);
     const extraIterations = solomonResult.extraIterations || config.max_iterations;
     return { approved: false, sessionId: session.id, reason: "max_iterations_extended", humanGuidance: solomonResult.humanGuidance, extraIterations };
@@ -302,9 +305,9 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
   }
 
   // Solomon couldn't resolve — fail
-  session.budget = budgetSummary();
+  setBudget(session, budgetSummary());
   const rtkSavings = rtkTracker?.hasData() ? rtkTracker.summary() : undefined;
-  if (rtkSavings) session.rtk_savings = rtkSavings;
+  if (rtkSavings) setRtkSavings(session, rtkSavings);
   await markSessionStatus(session, "failed");
   const failDetail = { approved: false, reason: "max_iterations", iterations: config.max_iterations, stages: stageResults, budget: budgetSummary() };
   if (rtkSavings) failDetail.rtk_savings = rtkSavings;

@@ -26,10 +26,13 @@
  */
 
 import { StageExecutor, StageRegistry } from "./stage-executor.js";
-import { runTriageStage } from "./triage-stage.js";
-import { runCoderStage } from "./coder-stage.js";
-import { runReviewerStage } from "./reviewer-stage.js";
 
+// TSK-0336: stage subclasses use DYNAMIC imports inside execute() so that
+// loading this module does not pull in the whole roles/ + agents/ graph.
+// Orchestrator tests mock role/agent modules partially — eagerly importing
+// triage-stage / coder-stage / reviewer-stage here would cascade through
+// agent-role.js → BaseRole and crash those partial mocks. Deferring the
+// import keeps canRun/construction cheap and the test surface unchanged.
 export class TriageStage extends StageExecutor {
   constructor() { super("triage"); }
   canRun(ctx) {
@@ -38,6 +41,10 @@ export class TriageStage extends StageExecutor {
     return ctx?.pipelineFlags?.triageEnabled !== false;
   }
   async execute(ctx) {
+    // Import via the pre-loop-stages barrel so test mocks that target
+    // `src/orchestrator/pre-loop-stages.js` (the historical surface) still
+    // apply when a stage is invoked via the registry.
+    const { runTriageStage } = await import("../pre-loop-stages.js");
     return runTriageStage(ctx);
   }
 }
@@ -49,6 +56,9 @@ export class CoderStage extends StageExecutor {
     return ctx?.pipelineFlags?.coderRequired !== false;
   }
   async execute(ctx) {
+    // Import via iteration-stages barrel for the same reason as TriageStage —
+    // preserve the existing mock surface used by orchestrator unit tests.
+    const { runCoderStage } = await import("../iteration-stages.js");
     return runCoderStage(ctx);
   }
 }
@@ -59,6 +69,7 @@ export class ReviewerStage extends StageExecutor {
     return ctx?.pipelineFlags?.reviewerEnabled !== false;
   }
   async execute(ctx) {
+    const { runReviewerStage } = await import("../iteration-stages.js");
     return runReviewerStage(ctx);
   }
 }

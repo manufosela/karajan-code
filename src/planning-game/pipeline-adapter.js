@@ -13,6 +13,7 @@
 
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { addCheckpoint, saveSession } from "../session/store.js";
+import { appendPgCommits } from "../session/mutators.js";
 import { getLang } from "../utils/messages.js";
 
 /**
@@ -183,13 +184,12 @@ export function buildHuStoriesFromPgCard(pgCard) {
  */
 export function accumulateCommit(session, commitInfo) {
   if (!session || !commitInfo?.hash) return;
-  if (!session.pg_commits) session.pg_commits = [];
-  session.pg_commits.push({
+  appendPgCommits(session, [{
     hash: commitInfo.hash,
     message: commitInfo.message || "",
     date: commitInfo.date || new Date().toISOString(),
     author: commitInfo.author || "Karajan"
-  });
+  }]);
 }
 
 // --- Internal helpers ---

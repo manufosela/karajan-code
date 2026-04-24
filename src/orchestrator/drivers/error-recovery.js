@@ -27,6 +27,10 @@
 
 import { invokeSolomon } from "../solomon-escalation.js";
 import { saveSession, pauseSession } from "../../session/store.js";
+import {
+  setReviewerFeedback, setAlternativeAgent, resetRetryCount,
+  incrementRetryCount,
+} from "../../session/mutators.js";
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { tryCiComment } from "../ci-integration.js";
 
@@ -84,11 +88,11 @@ export async function handleStandbyResult({ stageResult, session, emitter, event
 
     if (altAgent) {
       logger.info(`Solomon: retry ${stage} with alternative agent "${altAgent}"`);
-      session._alternative_agent = { stage, provider: altAgent };
+      setAlternativeAgent(session, stage, altAgent);
     }
 
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+      setReviewerFeedback(session, `Solomon guidance: ${solomonResult.humanGuidance}`);
     }
     await saveSession(session);
     return { handled: true, action: "retry_reviewer_only" };
@@ -229,15 +233,15 @@ export async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, ses
 }
 
 export async function handleReviewerRetryAndSolomon({ config, session, emitter, eventBase, logger, review, task, i, askQuestion }) {
-  session.last_reviewer_feedback = review.blocking_issues
+  setReviewerFeedback(session, review.blocking_issues
     .map((x) => {
       const parts = [`[${x.severity || "high"}] ${x.id || "ISSUE"}: ${x.description || "Missing description"}`];
       if (x.file) parts.push(`  File: ${x.file}${x.line ? `:${x.line}` : ""}`);
       if (x.suggested_fix) parts.push(`  Fix: ${x.suggested_fix}`);
       return parts.join("\n");
     })
-    .join("\n\n");
-  session.reviewer_retry_count = (session.reviewer_retry_count || 0) + 1;
+    .join("\n\n"));
+  incrementRetryCount(session, "reviewer");
   await saveSession(session);
 
   const maxReviewerRetries = config.session.max_reviewer_retries ?? config.session.fail_fast_repeats;
@@ -269,9 +273,10 @@ export async function handleReviewerRetryAndSolomon({ config, session, emitter, 
   }
   if (solomonResult.action === "continue") {
     if (solomonResult.humanGuidance) {
-      session.last_reviewer_feedback += `\nUser guidance: ${solomonResult.humanGuidance}`;
+      // Append, not overwrite — keep the reviewer's blocking issues context.
+      setReviewerFeedback(session, `${session.last_reviewer_feedback}\nUser guidance: ${solomonResult.humanGuidance}`);
     }
-    session.reviewer_retry_count = 0;
+    resetRetryCount(session, "reviewer");
     await saveSession(session);
     return { action: "continue" };
   }

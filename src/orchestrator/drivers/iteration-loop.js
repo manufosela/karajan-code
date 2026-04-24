@@ -23,14 +23,24 @@
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { msg, getLang } from "../../utils/messages.js";
 import { markSessionStatus, addCheckpoint } from "../../session/store.js";
+import {
+  setReviewerFeedback, resetRetryCount,
+} from "../../session/mutators.js";
 import { generateDiff } from "../../review/diff-generator.js";
 import { scanDiff } from "../../guards/output-guard.js";
 import { scanPerfDiff } from "../../guards/perf-guard.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import {
-  runCoderStage, runRefactorerStage, runTddCheckStage,
-  runSonarStage, runSonarCloudStage, runReviewerStage,
+  runRefactorerStage, runTddCheckStage,
+  runSonarStage, runSonarCloudStage,
 } from "../iteration-stages.js";
+// TSK-0336: coder and reviewer go through the StageRegistry contract. The
+// registered classes (CoderStage / ReviewerStage) delegate execute() to
+// runCoderStage / runReviewerStage, so behavior is unchanged — the
+// difference is that canRun now gates execution declaratively instead of
+// requiring the callsite to guard the call itself.
+import { stageRegistry } from "../stages/stage-classes.js";
+import { runStage } from "../stages/stage-executor.js";
 import { runImpeccableStage } from "../post-loop-stages.js";
 import {
   handleCiEarlyPrOrPush, handleCiReviewDispatch, tryCiComment,
@@ -47,7 +57,12 @@ import {
 } from "./post-loop.js";
 
 export async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i, brainCtx }) {
-  const coderResult = await runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i, brainCtx });
+  // Coder via StageRegistry (TSK-0336). canRun = coderRequired !== false; in
+  // analysis-only task types coderRequired is set to false by policy, so the
+  // stage is never even entered — matches the previous guard at the top of
+  // runFlow.
+  const coderCtx = { coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i, brainCtx, pipelineFlags };
+  const coderResult = await runStage(stageRegistry.get("coder"), coderCtx);
   if (coderResult?.action === "pause") return { action: "return", result: coderResult.result };
   const coderStandby = await handleStandbyResult({ stageResult: coderResult, session, emitter, eventBase, i, stage: "coder", logger, config });
   if (coderStandby.handled) {
@@ -190,17 +205,22 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
 }
 
 export async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion, brainCtx }) {
-  if (!pipelineFlags.reviewerEnabled) {
+  // Reviewer via StageRegistry (TSK-0336). ReviewerStage.canRun returns
+  // `reviewerEnabled !== false`; when false, runStage returns null and we
+  // synthesize the "disabled-by-pipeline" stub (same shape as the previous
+  // early-return). Otherwise execute() runs runReviewerStage.
+  const reviewerCtx = {
+    reviewerRole, config, logger, emitter, eventBase, session, trackBudget,
+    iteration: i, reviewRules, task, repeatDetector, budgetSummary, askQuestion,
+    brainCtx, pipelineFlags,
+  };
+  const reviewerResult = await runStage(stageRegistry.get("reviewer"), reviewerCtx);
+  if (reviewerResult === null) {
     return {
       action: "ok",
       review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Reviewer disabled by pipeline", confidence: 1 }
     };
   }
-
-  const reviewerResult = await runReviewerStage({
-    reviewerRole, config, logger, emitter, eventBase, session, trackBudget,
-    iteration: i, reviewRules, task, repeatDetector, budgetSummary, askQuestion, brainCtx
-  });
   if (reviewerResult.action === "pause") return { action: "return", result: reviewerResult.result };
   const revStandby = await handleStandbyResult({ stageResult: reviewerResult, session, emitter, eventBase, i, stage: "reviewer", logger, config, askQuestion });
   if (revStandby.handled) {
@@ -228,7 +248,7 @@ export async function runReviewerGateStage({ pipelineFlags, reviewerRole, config
 }
 
 export async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review, rtkTracker, brainCtx }) {
-  session.reviewer_retry_count = 0;
+  resetRetryCount(session, "reviewer");
   const postLoopResult = await handlePostLoopStages({
     config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults,
     ciEnabled: Boolean(config.ci?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger, brainCtx
@@ -298,7 +318,7 @@ export async function runSingleIteration(ctx) {
   emitProgress(emitter, makeEvent("iteration:end", { ...eventBase, stage: "iteration" }, {
     message: `Iteration ${i} completed`, detail: { duration: iterDuration }
   }));
-  session.standby_retry_count = 0;
+  resetRetryCount(session, "standby");
 
   // --- Journal: record iteration ---
   // Uses the richer iteration-logger from TSK-0286: captures blocking-issue
@@ -352,14 +372,14 @@ export async function runSingleIteration(ctx) {
     if (retryResult.action === "return") return retryResult;
   } else {
     // Solomon is enabled — feed back the blocking issues for the next coder iteration
-    session.last_reviewer_feedback = review.blocking_issues
+    setReviewerFeedback(session, review.blocking_issues
       .map((x) => {
         const parts = [`[${x.severity || "high"}] ${x.id || "ISSUE"}: ${x.description || "Missing description"}`];
         if (x.file) parts.push(`  File: ${x.file}${x.line ? `:${x.line}` : ""}`);
         if (x.suggested_fix) parts.push(`  Fix: ${x.suggested_fix}`);
         return parts.join("\n");
       })
-      .join("\n\n");
+      .join("\n\n"));
     await saveSession(session);
   }
 
@@ -427,7 +447,7 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
       }
       if (solomonResult.action === "continue") {
         if (solomonResult.humanGuidance) {
-          ctx.session.last_reviewer_feedback = `Solomon guidance: ${solomonResult.humanGuidance}`;
+          setReviewerFeedback(ctx.session, `Solomon guidance: ${solomonResult.humanGuidance}`);
         }
         continue; // next iteration
       }
@@ -455,7 +475,7 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
     logger.info(`Solomon extended pipeline by ${extra} iterations (new max: ${ctx.config.max_iterations})`);
 
     if (maxIterResult.humanGuidance) {
-      ctx.session.last_reviewer_feedback = `Solomon guidance: ${maxIterResult.humanGuidance}`;
+      setReviewerFeedback(ctx.session, `Solomon guidance: ${maxIterResult.humanGuidance}`);
     }
 
     // Continue the loop
