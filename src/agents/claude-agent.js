@@ -72,10 +72,10 @@ function collectAssistantText(obj) {
  * Returns an object with tokens_in, tokens_out, cost_usd, model or null if not found.
  */
 function extractUsageFromStreamJson(raw) {
-  const lines = (raw || "").split("\n").filter(Boolean);
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const obj = tryParseJson(lines[i]);
-    if (!obj || obj.type !== "result") continue;
+  const events = parseClaudeEvents(raw);
+  for (let i = events.length - 1; i >= 0; i--) {
+    const obj = events[i];
+    if (obj.type !== "result") continue;
 
     const tokens_in = obj.usage?.input_tokens ?? 0;
     const tokens_out = obj.usage?.output_tokens ?? 0;
@@ -89,25 +89,54 @@ function extractUsageFromStreamJson(raw) {
 }
 
 /**
- * Extract the final text result from stream-json NDJSON output.
- * Each line is a JSON object. We collect assistant text content from
- * "result" messages and fall back to accumulating "content_block_delta" text.
+ * Normalize Claude's output payload to a flat array of event objects.
+ *
+ * Claude 2.x supports two on-disk shapes depending on the output-format flag:
+ *
+ *   --output-format stream-json → NDJSON, one event JSON per line
+ *   --output-format json        → a single JSON array with every event
+ *
+ * The legacy path assumed NDJSON and silently dropped the `json` variant
+ * (split("\n") returned one unparseable "line" containing the whole array,
+ * extract returned empty, caller fell back to the raw string — which made
+ * `kj plan` save the whole stream as `approach` with zero HUs). Handle both
+ * shapes here so callers see a uniform list of events regardless of flag.
+ */
+function parseClaudeEvents(raw) {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return [];
+  // `--output-format json` → single JSON array.
+  if (trimmed.startsWith("[")) {
+    try {
+      const arr = JSON.parse(trimmed);
+      if (Array.isArray(arr)) return arr.filter((o) => o && typeof o === "object");
+    } catch { /* fall through to NDJSON */ }
+  }
+  // `--output-format stream-json` → NDJSON, one event per line.
+  const events = [];
+  for (const line of trimmed.split("\n")) {
+    const obj = tryParseJson(line);
+    if (obj && typeof obj === "object") events.push(obj);
+  }
+  return events;
+}
+
+/**
+ * Extract the final text result from Claude's output (either stream-json
+ * NDJSON or single-array json — see parseClaudeEvents). We look for the
+ * `result` message first (holds the final text); if missing, concatenate
+ * every assistant text block encountered.
  */
 function extractTextFromStreamJson(raw) {
-  const lines = (raw || "").split("\n").filter(Boolean);
-  // Try to find a "result" message with the final text
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const obj = tryParseJson(lines[i]);
-    if (!obj) continue;
-    const result = extractResultText(obj);
+  const events = parseClaudeEvents(raw);
+  // Walk from the end — the final `result` event is the last one.
+  for (let i = events.length - 1; i >= 0; i--) {
+    const result = extractResultText(events[i]);
     if (result) return result;
   }
-  // Fallback: accumulate all assistant text deltas
+  // Fallback: accumulate every assistant text block in order.
   const parts = [];
-  for (const line of lines) {
-    const obj = tryParseJson(line);
-    if (obj) parts.push(...collectAssistantText(obj));
-  }
+  for (const obj of events) parts.push(...collectAssistantText(obj));
   return parts.join("") || raw;
 }
 

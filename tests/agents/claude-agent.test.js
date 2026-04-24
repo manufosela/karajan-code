@@ -287,6 +287,38 @@ describe("ClaudeAgent", () => {
 
       expect(result.output).toBe("plain text output");
     });
+
+    it("extracts result text from a JSON array payload (`--output-format json`)", async () => {
+      // Claude 2.x with --output-format json emits one JSON array containing every
+      // event on a single line. The previous `split('\n')` strategy returned nothing
+      // useful from this shape, which made `kj plan` save the whole array as the
+      // plan's `approach` field and skip HU generation entirely. The regression is
+      // captured here.
+      const arrayPayload = JSON.stringify([
+        { type: "system", subtype: "init", session_id: "abc" },
+        { type: "assistant", message: { content: [{ type: "text", text: "thinking…" }] } },
+        { type: "result", result: "final plan text" },
+      ]);
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: arrayPayload });
+
+      const agent = new ClaudeAgent("claude", baseConfig, logger);
+      const result = await agent.runTask({ prompt: "test", role: "coder" });
+
+      expect(result.output).toBe("final plan text");
+    });
+
+    it("accumulates assistant text from a JSON array when no result event is present", async () => {
+      const arrayPayload = JSON.stringify([
+        { type: "assistant", message: { content: [{ type: "text", text: "step1 " }] } },
+        { type: "assistant", message: { content: [{ type: "text", text: "step2" }] } },
+      ]);
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: arrayPayload });
+
+      const agent = new ClaudeAgent("claude", baseConfig, logger);
+      const result = await agent.runTask({ prompt: "test", role: "coder" });
+
+      expect(result.output).toBe("step1 step2");
+    });
   });
 
   describe("onOutput stream-json filter", () => {
