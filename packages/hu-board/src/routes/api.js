@@ -16,7 +16,7 @@ import {
   listPlanIdsForProject,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, markPlanReady } from '../plan-mutations.js';
+import { setHuStatus, markPlanReady, runPlan } from '../plan-mutations.js';
 
 const router = Router();
 
@@ -295,6 +295,59 @@ router.post('/projects/:id/ready', (req, res) => {
       plans: results,
       totalCertified,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/plans/:planId/run - Launch `kj run --plan <planId>` as a
+ * detached child. This is the "Run plan" button's endpoint — the board
+ * no longer requires the user to drop to a terminal to kick off the
+ * pipeline.
+ *
+ * Body: { projectId?: string, task?: string } — both optional. projectId
+ * makes the plan-file lookup O(1); task overrides plan.task as the
+ * pipeline's headline description.
+ *
+ * Returns the child's pid + the log path so a future "tail this run"
+ * viewer can attach.
+ */
+router.post('/plans/:planId/run', (req, res) => {
+  try {
+    const { projectId, task } = req.body || {};
+    const result = runPlan({ planId: req.params.planId, projectId, taskOverride: task });
+    if (!result.ok) return res.status(404).json({ error: result.error });
+    res.json({
+      launched: true,
+      planId: req.params.planId,
+      pid: result.pid,
+      logPath: result.logPath,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/projects/:id/run - Sugar: launch every plan of a project. For
+ * the common case where each project has exactly one active plan this
+ * behaves the same as POST /plans/:planId/run; with multiple plans it
+ * kicks each one in its own detached child.
+ */
+router.post('/projects/:id/run', (req, res) => {
+  try {
+    const planIds = listPlanIdsForProject(req.params.id);
+    if (planIds.length === 0) {
+      return res.status(404).json({ error: 'No plan-backed stories for this project' });
+    }
+    const results = [];
+    for (const planId of planIds) {
+      const r = runPlan({ planId, projectId: req.params.id });
+      results.push({ planId, ...r });
+    }
+    const launched = results.filter((r) => r.ok).length;
+    res.json({ launched, total: planIds.length, results });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -14,11 +14,21 @@
  * Steps 2-4 must share a single on-disk write: we never ack the mutation to
  * the UI without persisting it, otherwise a reload would silently revert.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus } from '../../../src/plan/plan-hu-ops.js';
 import { syncPlanFile } from './sync.js';
+
+// Repo root → so we can spawn `node <repo>/src/cli.js run ...` without
+// depending on `kj` being in $PATH of the board process.
+const REPO_ROOT = (() => {
+  const here = dirname(fileURLToPath(import.meta.url));       // packages/hu-board/src
+  return join(here, '..', '..', '..');                         // → repo root
+})();
+const KJ_CLI = join(REPO_ROOT, 'src', 'cli.js');
 
 /**
  * Root directory where `kj plan` writes `<slug>/<planId>.json`. Honours
@@ -137,4 +147,72 @@ export function markPlanReady({ planId, projectId }) {
   writePlan(filePath, plan);
   syncPlanFile(filePath);
   return { ok: true, count, planStatus: plan.status };
+}
+
+/**
+ * Launch `kj run --plan <planId>` as a detached child. This is the
+ * "Run plan" button's server-side handler: the board no longer asks the
+ * user to drop to the terminal to kick off execution.
+ *
+ * We spawn against the repo's own CLI (`node <repo>/src/cli.js`) instead
+ * of a `kj` binary on $PATH — the board is always shipped with the repo
+ * that hosts it, so that entry point is guaranteed to exist. Tests set
+ * `KJ_RUN_SPAWN_MODE=echo` to replace the spawn with a no-op that just
+ * returns a fake pid, so we can assert payload shape without booting the
+ * whole orchestrator inside vitest.
+ *
+ * Output is redirected to `~/.karajan/hu-board-runs/<planId>.log` so the
+ * board can tail it later if we wire up a live log viewer — for now it's
+ * just a durable trail. stdin is `ignore` (coder subprocess requirement
+ * documented in CLAUDE.md).
+ *
+ * @param {object} args
+ * @param {string} args.planId
+ * @param {string} [args.projectId]
+ * @param {string} [args.taskOverride] - optional custom task string
+ * @returns {{ ok: true, pid: number, logPath: string } | { ok: false, error: string }}
+ */
+export function runPlan({ planId, projectId, taskOverride } = {}) {
+  const filePath = findPlanFilePath(planId, projectId);
+  if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
+
+  const plan = readPlan(filePath);
+  if (!Array.isArray(plan.hus) || plan.hus.length === 0) {
+    return { ok: false, error: 'plan has no hus[]' };
+  }
+  const projectDir = plan.projectDir;
+  if (!projectDir) {
+    return {
+      ok: false,
+      error:
+        'plan has no projectDir stamped — re-run `kj plan` to regenerate it, '
+        + 'then try again (plans pre-v2.7.4 did not persist the dir).',
+    };
+  }
+
+  const runsDir = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-board-runs');
+  mkdirSync(runsDir, { recursive: true });
+  const logPath = join(runsDir, `${planId}.log`);
+
+  const task = taskOverride || plan.task || `run plan ${planId}`;
+  const args = [KJ_CLI, 'run', '--plan', planId, task];
+
+  // Escape hatch for tests — hard-kill the spawn so vitest doesn't boot
+  // the full orchestrator. The shape of the response is what we assert.
+  if (process.env.KJ_RUN_SPAWN_MODE === 'echo') {
+    return { ok: true, pid: 0, logPath, argv: [process.execPath, ...args], projectDir };
+  }
+
+  const out = openSync(logPath, 'a');
+  const err = openSync(logPath, 'a');
+  const child = spawn(process.execPath, args, {
+    cwd: projectDir,
+    detached: true,
+    stdio: ['ignore', out, err],
+    // Strip CLAUDECODE so the Claude agent subprocess trick in
+    // claude-agent.js doesn't misbehave (documented in CLAUDE.md).
+    env: { ...process.env, CLAUDECODE: undefined },
+  });
+  child.unref();
+  return { ok: true, pid: child.pid ?? 0, logPath };
 }

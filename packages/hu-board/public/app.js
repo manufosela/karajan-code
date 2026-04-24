@@ -369,11 +369,25 @@ async function renderBoard() {
       ? (projectNameCache[selectedProject] || humaniseProjectName(selectedProject))
       : '';
 
+    // Kanban status → column mapping. The plan schema recognises seven
+    // statuses (pending/certified/coding/reviewing/done/failed/blocked/
+    // needs_context) but the user only cares about four lanes:
+    //   - Pending: anything generated but not running yet (including the
+    //     legacy intermediate "certified" state, which is a no-op from
+    //     the user's perspective — "I said it's ok to run but kj hasn't
+    //     started yet").
+    //   - Running: actively being processed by the pipeline.
+    //   - Done:    pipeline approved.
+    //   - Failed:  pipeline rejected.
+    // Empty lanes are hidden so the board doesn't fill with sad empty
+    // columns when a run is purely green.
     const columns = {
-      pending: stories.filter((s) => s.status === 'pending'),
-      needs_context: stories.filter((s) => s.status === 'needs_context'),
-      certified: stories.filter((s) => s.status === 'certified'),
+      pending: stories.filter((s) =>
+        ['pending', 'certified', 'needs_context', 'blocked'].includes(s.status)
+      ),
+      running: stories.filter((s) => ['coding', 'reviewing'].includes(s.status)),
       done: stories.filter((s) => s.status === 'done'),
+      failed: stories.filter((s) => s.status === 'failed'),
     };
 
     if (stories.length === 0) {
@@ -381,35 +395,49 @@ async function renderBoard() {
       return;
     }
 
-    // Show "Mark all certified" bulk action only when a project is in focus
-    // AND at least one HU is still pending. Outside a project the action is
-    // ambiguous (which plan?) and irrelevant when nothing would change.
-    const pendingCount = columns.pending.length;
-    const canMarkReady = Boolean(selectedProject) && pendingCount > 0;
+    // "Run plan" bulk action: visible when a project is selected AND at
+    // least one HU is still awaiting execution AND nothing's currently
+    // running (to avoid accidentally launching a second pipeline over a
+    // live one). Replaces the old "Mark as certified" button — the
+    // intermediate "certified" state was noise from the user's POV.
+    const awaitingCount = columns.pending.length;
+    const runningCount = columns.running.length;
+    const canRun = Boolean(selectedProject) && awaitingCount > 0 && runningCount === 0;
+    const isRunning = runningCount > 0;
+
+    const visibleColumns = [
+      { title: 'Pending', cls: 'pending', rows: columns.pending },
+      { title: 'Running', cls: 'running', rows: columns.running },
+      { title: 'Done', cls: 'done', rows: columns.done },
+      { title: 'Failed', cls: 'failed', rows: columns.failed },
+    ].filter((c) => c.rows.length > 0 || c.title === 'Pending');
 
     app.innerHTML = `
       <div class="section-header">
         <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">Story Board${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
         <span class="section-header__count">${stories.length} stories</span>
-        ${canMarkReady ? `
-          <button class="control-btn" id="mark-project-ready"
-                  style="margin-left:auto;padding:6px 12px;font-size:0.85rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
-                  title="Certify every pending HU of this project — equivalent to 'kj plan ready'">
-            Mark ${pendingCount} pending HU${pendingCount === 1 ? '' : 's'} as certified
+        ${isRunning ? `
+          <span class="section-header__badge"
+                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;">
+            ⚙ ${runningCount} running…
+          </span>
+        ` : ''}
+        ${canRun ? `
+          <button class="control-btn" id="run-plan-btn"
+                  style="margin-left:auto;padding:6px 14px;font-size:0.9rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
+                  title="Launch kj run --plan over every plan in this project">
+            ▶ Run plan (${awaitingCount} HU${awaitingCount === 1 ? '' : 's'})
           </button>
         ` : ''}
       </div>
       <div class="kanban">
-        ${renderKanbanColumn('Pending', 'pending', columns.pending)}
-        ${renderKanbanColumn('Needs Context', 'needs-context', columns.needs_context)}
-        ${renderKanbanColumn('Certified', 'certified', columns.certified)}
-        ${renderKanbanColumn('Done', 'done', columns.done)}
+        ${visibleColumns.map((c) => renderKanbanColumn(c.title, c.cls, c.rows)).join('')}
       </div>
     `;
 
-    if (canMarkReady) {
-      document.getElementById('mark-project-ready').addEventListener('click', async () => {
-        await markProjectReady(selectedProject);
+    if (canRun) {
+      document.getElementById('run-plan-btn').addEventListener('click', async () => {
+        await runProject(selectedProject);
       });
     }
   } catch (err) {
@@ -445,22 +473,41 @@ function renderKanbanColumn(title, cssClass, stories) {
 function renderStoryCard(story) {
   const title = story.title || story.original_text || story.id;
   const antipatterns = story.antipatterns ? JSON.parse(story.antipatterns) : [];
-  const acCount = story.acceptance_criteria ? JSON.parse(story.acceptance_criteria).length : 0;
+  // Prefer denormalised counters stamped at sync time; fall back to
+  // parsing the JSON blob for pre-migration rows so the card still shows
+  // the AC count without a board DB nuke.
+  const acCount = typeof story.ac_count === 'number'
+    ? story.ac_count
+    : (story.acceptance_criteria ? JSON.parse(story.acceptance_criteria).length : 0);
+  const testCount = typeof story.test_count === 'number' ? story.test_count : 0;
+  const blockedBy = story.blocked_by ? JSON.parse(story.blocked_by) : [];
   const initials = projectInitialsCache[story.project_id] || 'kj';
   const shortId = shortStoryId(story, initials);
+
+  // Human-readable dep list: `lao-001, lao-003` instead of the raw HU ids.
+  const shortDep = (depId) => {
+    const m = /_(\d+)(?!.*\d)/.exec(depId);
+    return `${initials}-${m ? m[1] : '?'}`;
+  };
 
   return `
     <div class="story-card" onclick="showStoryDetail('${esc(story.id)}')">
       <div class="story-card__id" title="${esc(story.id)}">${esc(shortId)}</div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
-      <div class="story-card__meta">
+      <div class="story-card__meta" style="gap:10px">
+        ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
+        ${testCount > 0 ? `<span title="${testCount} acceptance tests">🧪 ${testCount} test${testCount === 1 ? '' : 's'}</span>` : ''}
         ${story.quality_total !== null ? `
-          <span class="story-card__score ${scoreClass(story.quality_total)}">
-            Score: ${story.quality_total}/60 ${qualityBar(story.quality_total)}
+          <span class="story-card__score ${scoreClass(story.quality_total)}" title="INVEST score">
+            ${story.quality_total}/60 ${qualityBar(story.quality_total)}
           </span>
         ` : ''}
-        ${acCount > 0 ? `<span class="story-card__ac">AC: ${acCount} criteria${story.ac_format ? ` (${esc(story.ac_format)})` : ''}</span>` : ''}
       </div>
+      ${blockedBy.length > 0 ? `
+        <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--text-muted)" title="This HU waits on: ${esc(blockedBy.join(', '))}">
+          ⏳ waits for: ${blockedBy.map((d) => esc(shortDep(d))).join(', ')}
+        </div>
+      ` : ''}
       ${antipatterns.length > 0 ? `<div class="story-card__antipattern">${antipatterns.map((a) => esc(a)).join(', ')}</div>` : ''}
       <div class="story-card__meta" style="margin-top:6px">
         <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
@@ -552,109 +599,29 @@ function renderEmptyState(title, text) {
   `;
 }
 
-// ---- Story status mutations ----
+// ---- Plan execution ----
+//
+// The board delegates execution to the CLI via `POST /api/projects/:id/run`.
+// There's no more intermediate "certify" step: the user reviews HUs
+// (editing inline if needed — see edit-in-place PR), and when happy
+// clicks "Run plan", which spawns `kj run --plan <id>` as a detached
+// child on the server. Status updates flow back through the plan JSON
+// watcher without any manual refresh.
+//
+// We still expose a per-HU status PATCH endpoint for corrective moves
+// (e.g. retry a failed HU manually), but it's no longer the primary
+// action on the card.
 
 /**
- * Render the status-action toolbar inside the story modal. The CLI speaks
- * three statuses — pending / certified / done — and so do we. The "Certify"
- * button is the primary action: it's what the user's here to do after
- * reviewing the HU. We only show buttons for transitions that actually
- * make sense from the current status, so the UI never offers a no-op.
- * @param {object} story
- * @returns {string}
- */
-function renderStoryStatusActions(story) {
-  if (!story || !story.id) return '';
-  const status = String(story.status || 'pending');
-  const buttons = [];
-  if (status === 'pending' || status === 'needs_context') {
-    buttons.push(`<button class="control-btn" data-action="certify" style="background:var(--color-green);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Certify</button>`);
-  }
-  if (status === 'certified') {
-    buttons.push(`<button class="control-btn" data-action="uncertify" style="background:var(--bg-secondary);border:1px solid var(--border);padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Back to pending</button>`);
-    buttons.push(`<button class="control-btn" data-action="done" style="background:var(--color-blue,#3b82f6);color:#fff;border:none;padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem">Mark done</button>`);
-  }
-  if (buttons.length === 0) return '';
-
-  // Inline-binder: we attach the click handlers from inside the modal
-  // after the innerHTML paint by hooking into the existing onclick flow.
-  // Doing this with setTimeout(0) avoids racing the DOM insertion.
-  setTimeout(() => {
-    document.querySelectorAll('.modal__status-actions [data-action]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const action = btn.dataset.action;
-        const next = action === 'certify' ? 'certified'
-          : action === 'uncertify' ? 'pending'
-          : action === 'done' ? 'done'
-          : null;
-        if (!next) return;
-        await patchStoryStatus(story.id, next);
-      });
-    });
-  }, 0);
-
-  return `<div class="modal__status-actions" style="display:flex;gap:8px;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:12px">${buttons.join('')}</div>`;
-}
-
-/**
- * Change one HU's status. Re-renders the board on success; closes the
- * modal so the user can confirm the move visually. On error we leave the
- * modal open and surface the message inline.
- * @param {string} storyId
- * @param {string} status
- */
-async function patchStoryStatus(storyId, status) {
-  try {
-    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      // 404 from Express itself (no matching route) vs 404 from our
-      // handler (story not found) — if the endpoint simply isn't wired
-      // up, the server is probably still on a pre-v2.7.5 build. The
-      // generic message here was "Could not update status: HTTP 404",
-      // which was technically correct but useless. Be explicit.
-      if (res.status === 404) {
-        await showError(
-          'The board server does not recognise the PATCH endpoint.\n\n'
-          + 'This usually means the board process is still running a pre-v2.7.5 build. '
-          + 'Restart it with:\n\n'
-          + '    kj board stop && kj board start\n\n'
-          + 'Then reload this page.',
-          { title: 'Board out of date' }
-        );
-        return;
-      }
-      if (res.status === 409) {
-        await showError(
-          'This story is not backed by a plan file (legacy row from before '
-          + 'plan_id stamping). Re-run `kj plan` to re-import it.',
-          { title: 'Cannot certify legacy row' }
-        );
-        return;
-      }
-      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      await showError(msg, { title: 'Could not update status' });
-      return;
-    }
-    closeModal();
-    await renderBoard();
-  } catch (err) {
-    await showError(err.message, { title: 'Could not update status' });
-  }
-}
-
-/**
- * Bulk-certify every pending HU of the currently selected project. Hits
- * the server endpoint that mirrors `kj plan ready`, so the source-of-truth
- * plan JSON is rewritten before the board re-renders.
+ * Launch the pipeline over every plan of a project. Returns when the
+ * spawn ack is received — not when the run completes. Live progress is
+ * reflected automatically by the plans-dir watcher on the server, so
+ * the board re-renders without us having to poll.
  * @param {string} projectId
  */
-async function markProjectReady(projectId) {
+async function runProject(projectId) {
   try {
-    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/ready`, {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -662,7 +629,7 @@ async function markProjectReady(projectId) {
     if (!res.ok) {
       if (res.status === 404) {
         await showError(
-          'The board server does not recognise the "mark ready" endpoint.\n\n'
+          'The board server does not recognise the "run" endpoint.\n\n'
           + 'Most likely cause: the board process is running a pre-v2.7.5 build. '
           + 'Restart it with:\n\n'
           + '    kj board stop && kj board start',
@@ -671,12 +638,24 @@ async function markProjectReady(projectId) {
         return;
       }
       const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
-      await showError(msg, { title: 'Could not mark project ready' });
+      await showError(msg, { title: 'Could not launch run' });
       return;
     }
+    const body = await res.json();
+    // Best-effort: a chokidar tick may still be in flight, so fetch
+    // once explicitly to surface the "running" state without waiting
+    // for the watcher debounce.
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
     await renderBoard();
+    await showError(
+      `Pipeline launched for ${body.launched}/${body.total} plan(s).\n\n`
+      + 'The HUs will transition through coding → reviewing → done as '
+      + 'kj runs them. Refresh is automatic once the watcher picks up '
+      + 'each status change.',
+      { title: 'Run started' }
+    );
   } catch (err) {
-    await showError(err.message, { title: 'Could not mark project ready' });
+    await showError(err.message, { title: 'Could not launch run' });
   }
 }
 
@@ -713,7 +692,6 @@ async function showStoryDetail(storyId) {
         <button class="modal__close" onclick="closeModal()">&times;</button>
       </div>
 
-      ${renderStoryStatusActions(story)}
 
       <div class="modal__section">
         <div class="modal__section-title">Original Text</div>
@@ -792,14 +770,18 @@ async function showStoryDetail(storyId) {
         </div>
       ` : ''}
 
-      <div class="modal__section">
-        <div class="modal__section-title">Metadata</div>
-        <div class="modal__field"><span class="modal__field-label">Project:</span> ${esc(story.project_id)}</div>
-        <div class="modal__field"><span class="modal__field-label">Session:</span> ${esc(story.session_id || '--')}</div>
-        <div class="modal__field"><span class="modal__field-label">Created:</span> ${esc(story.created_at || '--')}</div>
-        <div class="modal__field"><span class="modal__field-label">Updated:</span> ${esc(story.updated_at || '--')}</div>
-        ${story.certified_at ? `<div class="modal__field"><span class="modal__field-label">Certified at:</span> ${esc(story.certified_at)}</div>` : ''}
-      </div>
+      <details class="modal__section" style="margin-top:8px">
+        <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--text-muted);padding:6px 0">
+          Metadata
+        </summary>
+        <div style="padding-top:6px">
+          <div class="modal__field"><span class="modal__field-label">Project:</span> ${esc(story.project_id)}</div>
+          <div class="modal__field"><span class="modal__field-label">Session:</span> ${esc(story.session_id || '--')}</div>
+          <div class="modal__field"><span class="modal__field-label">Created:</span> ${esc(story.created_at || '--')}</div>
+          <div class="modal__field"><span class="modal__field-label">Updated:</span> ${esc(story.updated_at || '--')}</div>
+          ${story.certified_at ? `<div class="modal__field"><span class="modal__field-label">Certified at:</span> ${esc(story.certified_at)}</div>` : ''}
+        </div>
+      </details>
     `;
   } catch (err) {
     content.innerHTML = `<div class="modal__header"><div class="modal__title">Error</div><button class="modal__close" onclick="closeModal()">&times;</button></div><p>${esc(err.message)}</p>`;
@@ -904,12 +886,16 @@ async function showSessionDetail(sessionId) {
         </div>
       ` : ''}
 
-      <div class="modal__section">
-        <div class="modal__section-title">Metadata</div>
-        <div class="modal__field"><span class="modal__field-label">Project:</span> ${esc(session.project_id)}</div>
-        <div class="modal__field"><span class="modal__field-label">Created:</span> ${esc(session.created_at || '--')}</div>
-        <div class="modal__field"><span class="modal__field-label">Updated:</span> ${esc(session.updated_at || '--')}</div>
-      </div>
+      <details class="modal__section" style="margin-top:8px">
+        <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--text-muted);padding:6px 0">
+          Metadata
+        </summary>
+        <div style="padding-top:6px">
+          <div class="modal__field"><span class="modal__field-label">Project:</span> ${esc(session.project_id)}</div>
+          <div class="modal__field"><span class="modal__field-label">Created:</span> ${esc(session.created_at || '--')}</div>
+          <div class="modal__field"><span class="modal__field-label">Updated:</span> ${esc(session.updated_at || '--')}</div>
+        </div>
+      </details>
     `;
   } catch (err) {
     content.innerHTML = `<div class="modal__header"><div class="modal__title">Error</div><button class="modal__close" onclick="closeModal()">&times;</button></div><p>${esc(err.message)}</p>`;

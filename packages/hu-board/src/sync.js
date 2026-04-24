@@ -322,9 +322,10 @@ export function syncPlanFile(filePath) {
     });
 
     for (const hu of data.hus) {
-      const acText = Array.isArray(hu.acceptance_criteria)
-        ? JSON.stringify(hu.acceptance_criteria)
-        : null;
+      const acList = Array.isArray(hu.acceptance_criteria) ? hu.acceptance_criteria : [];
+      const testList = Array.isArray(hu.acceptance_tests) ? hu.acceptance_tests : [];
+      const blockedByList = Array.isArray(hu.blocked_by) ? hu.blocked_by : [];
+      const acText = acList.length > 0 ? JSON.stringify(acList) : null;
 
       upsertStory({
         id: `${projectId}::${hu.id}`,
@@ -348,6 +349,11 @@ export function syncPlanFile(filePath) {
         // Stamp plan_id so the PATCH / mark-ready endpoints can locate
         // the source plan JSON without walking the plans dir.
         plan_id: data.planId,
+        // Denormalised counters + deps so the card renders "3 ACs ·
+        // 2 tests · waits for lao-001" without every client parsing JSON.
+        ac_count: acList.length,
+        test_count: testList.length,
+        blocked_by: blockedByList.length > 0 ? JSON.stringify(blockedByList) : null,
       });
     }
 
@@ -420,24 +426,38 @@ export function startWatcher() {
   const kjHome = getKjHome();
   const storiesGlob = join(kjHome, 'hu-stories', '*', 'batch.json');
   const sessionsGlob = join(kjHome, 'sessions', '*', 'session.json');
+  // Plans live under KJ_PLANS_DIR or ~/.kj/plans/, NOT under ~/.karajan/ —
+  // the two homes are separate (KJ runs off ~/.kj, the board off
+  // ~/.karajan). Without this glob, HU statuses flipped to coding / done
+  // by `kj run --plan` never reached the board until the user clicked
+  // the manual 🔄 sync — exactly the "silent, feels dead" UX we wanted
+  // to avoid.
+  const plansRoot = process.env.KJ_PLANS_DIR || join(homedir(), '.kj', 'plans');
+  const plansGlob = join(plansRoot, '*', 'plan-*.json');
 
-  const watcher = watch([storiesGlob, sessionsGlob], {
+  const watcher = watch([storiesGlob, sessionsGlob, plansGlob], {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
   });
 
-  watcher.on('add', (path) => {
-    console.log(`[watcher] New file: ${path}`);
-    if (path.includes('hu-stories')) syncStoryFile(path);
-    else if (path.includes('sessions')) syncSessionFile(path);
+  const syncByPath = (p) => {
+    if (p.includes('hu-stories')) syncStoryFile(p);
+    else if (p.includes('sessions')) syncSessionFile(p);
+    else if (p.includes(`${plansRoot}${plansRoot.endsWith('/') ? '' : '/'}`) || p.includes('/plans/')) {
+      syncPlanFile(p);
+    }
+  };
+
+  watcher.on('add', (p) => {
+    console.log(`[watcher] New file: ${p}`);
+    syncByPath(p);
   });
 
-  watcher.on('change', (path) => {
-    console.log(`[watcher] Changed: ${path}`);
-    if (path.includes('hu-stories')) syncStoryFile(path);
-    else if (path.includes('sessions')) syncSessionFile(path);
+  watcher.on('change', (p) => {
+    console.log(`[watcher] Changed: ${p}`);
+    syncByPath(p);
   });
 
-  console.log(`[watcher] Watching ${kjHome} for changes`);
+  console.log(`[watcher] Watching ${kjHome} + ${plansRoot} for changes`);
   return watcher;
 }
