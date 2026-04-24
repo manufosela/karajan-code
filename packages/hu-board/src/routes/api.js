@@ -16,7 +16,7 @@ import {
   listPlanIdsForProject,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, markPlanReady, runPlan } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutations.js';
 
 const router = Router();
 
@@ -206,33 +206,56 @@ router.delete('/sessions/:id', (req, res) => {
 });
 
 /**
- * PATCH /api/stories/:id - Change a single HU's status.
+ * PATCH /api/stories/:id - Edit a single HU.
  *
- * The row id on the board is `${projectId}::${huId}` — we split it here to
- * feed the underlying plan-mutation helper. The source-of-truth plan JSON
- * is rewritten first, then re-synced into SQLite, so a reload renders the
- * committed state and never a stale view.
+ * Accepts two shapes in the same call (both optional, either or both
+ * can be present):
  *
- * Body: { status: "pending" | "certified" | "done" }
- * Returns 400 on unknown status, 404 when the story / plan can't be found.
+ *   { status: "pending" | "certified" | "done" | "needs_context" }
+ *     → changes the lifecycle state (original PATCH semantics).
+ *
+ *   { title?, scope?, task_type?, acceptance_criteria?,
+ *     acceptance_tests?, blocked_by? }
+ *     → edits the user-facing fields in place. Whitelist mirrors
+ *     plan-hu-ops::updateHu so CLI and board stay aligned.
+ *
+ * When both are present we apply status last — the status change
+ * transitions the plan lifecycle and can rewrite plan.status, whereas
+ * field edits are local to the HU and should never fight the status
+ * auto-promotion.
+ *
+ * The row id on the board is `${projectId}::${huId}` — split here to
+ * feed the plan-mutation helpers. The source-of-truth plan JSON is
+ * rewritten before we ack, then re-synced into SQLite, so a reload
+ * renders the committed state.
  */
 const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'needs_context']);
+const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by'];
 
 router.patch('/stories/:id', (req, res) => {
   try {
-    const { status } = req.body || {};
-    if (!status || !ALLOWED_STORY_STATUSES.has(status)) {
+    const body = req.body || {};
+    const hasStatus = Object.prototype.hasOwnProperty.call(body, 'status');
+    const fieldPatch = {};
+    for (const k of EDITABLE_HU_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) fieldPatch[k] = body[k];
+    }
+    const hasFieldEdit = Object.keys(fieldPatch).length > 0;
+
+    if (!hasStatus && !hasFieldEdit) {
+      return res.status(400).json({
+        error: `Body must include status or one of: ${EDITABLE_HU_FIELDS.join(', ')}`,
+      });
+    }
+    if (hasStatus && !ALLOWED_STORY_STATUSES.has(body.status)) {
       return res.status(400).json({
         error: `status must be one of: ${[...ALLOWED_STORY_STATUSES].join(', ')}`,
       });
     }
+
     const row = getStoryRow(req.params.id);
     if (!row) return res.status(404).json({ error: 'Story not found' });
     if (!row.plan_id) {
-      // HU came from a pre-migration batch.json or a non-plan source —
-      // refuse to mutate because we have no source-of-truth file to
-      // write to. The client should fall back to "delete + re-sync"
-      // for those rows.
       return res.status(409).json({
         error: 'Story is not backed by a plan file (legacy row). Re-run `kj plan` to re-import it.',
       });
@@ -240,14 +263,37 @@ router.patch('/stories/:id', (req, res) => {
     const huId = req.params.id.includes('::')
       ? req.params.id.split('::').slice(1).join('::')
       : req.params.id;
-    const result = setHuStatus({
-      planId: row.plan_id,
-      huId,
-      status,
-      projectId: row.project_id,
+
+    let updatedHu;
+    if (hasFieldEdit) {
+      const fieldResult = setHuFields({
+        planId: row.plan_id,
+        huId,
+        patch: fieldPatch,
+        projectId: row.project_id,
+      });
+      if (!fieldResult.ok) return res.status(404).json({ error: fieldResult.error });
+      updatedHu = fieldResult.hu;
+    }
+
+    let statusResult;
+    if (hasStatus) {
+      statusResult = setHuStatus({
+        planId: row.plan_id,
+        huId,
+        status: body.status,
+        projectId: row.project_id,
+      });
+      if (!statusResult.ok) return res.status(404).json({ error: statusResult.error });
+    }
+
+    res.json({
+      updated: true,
+      id: req.params.id,
+      status: statusResult ? statusResult.status : undefined,
+      planStatus: statusResult ? statusResult.planStatus : undefined,
+      hu: updatedHu,
     });
-    if (!result.ok) return res.status(404).json({ error: result.error });
-    res.json({ updated: true, id: req.params.id, status: result.status, planStatus: result.planStatus });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

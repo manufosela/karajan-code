@@ -19,7 +19,7 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { updateHuStatus, certifyAllHus } from '../../../src/plan/plan-hu-ops.js';
+import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
 import { syncPlanFile } from './sync.js';
 
 // Repo root → so we can spawn `node <repo>/src/cli.js run ...` without
@@ -122,6 +122,38 @@ export function setHuStatus({ planId, huId, status, projectId }) {
   writePlan(filePath, plan);
   syncPlanFile(filePath);
   return { ok: true, status, planStatus: plan.status };
+}
+
+/**
+ * Edit one HU's user-facing fields in place. Whitelist mirrors
+ * `updateHu` in plan-hu-ops so the CLI and the board stay in lock-step:
+ * title, task_type, scope, acceptance_criteria, acceptance_tests,
+ * blocked_by. Unknown keys are silently ignored.
+ *
+ * The caller passes a `patch` object with whichever subset of fields
+ * the user actually changed — pushing the whole HU every time would
+ * make optimistic concurrency harder to add later.
+ *
+ * @param {object} args
+ * @param {string} args.planId
+ * @param {string} args.huId
+ * @param {object} args.patch
+ * @param {string} [args.projectId]
+ * @returns {{ ok: true, hu: object } | { ok: false, error: string }}
+ */
+export function setHuFields({ planId, huId, patch, projectId }) {
+  const filePath = findPlanFilePath(planId, projectId);
+  if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
+
+  const plan = readPlan(filePath);
+  if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
+
+  const updated = updateHu(plan, huId, patch || {});
+  if (!updated) return { ok: false, error: `hu not found: ${huId}` };
+
+  writePlan(filePath, plan);
+  syncPlanFile(filePath);
+  return { ok: true, hu: updated };
 }
 
 /**
