@@ -1731,7 +1731,69 @@ window.selectProject = selectProject;
 triggerSync().then(() => {
   populateProjectSelect();
   handleRoute();
+  subscribeToServerEvents();
 });
+
+// ---- Server-push updates ----
+//
+// The board gets a one-way stream of events from the server via
+// Server-Sent Events; each event hints at what changed (plan file,
+// session, batch). On receipt we refresh the current view in a way
+// that preserves scroll position and any open modal. Full-page
+// re-render is no longer on the table — clicking around doesn't
+// reset your scroll anymore.
+//
+// EventSource auto-reconnects on drop, so we don't manage lifecycle
+// ourselves. The status line below the header flashes briefly on
+// each update so the user can see the data is live.
+
+let sseSource = null;
+let sseRefreshTimer = null;
+
+function subscribeToServerEvents() {
+  if (typeof EventSource === 'undefined') return;   // ancient browser
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource('/api/events');
+  sseSource.addEventListener('message', (e) => {
+    // Debounce burst updates — chokidar fires fast on a single
+    // plan JSON rewrite (plan.hus → stories → plan again). We
+    // don't need to patch the DOM ten times in 20ms.
+    if (sseRefreshTimer) clearTimeout(sseRefreshTimer);
+    sseRefreshTimer = setTimeout(() => refreshCurrentView(e.data), 150);
+  });
+  sseSource.addEventListener('error', () => {
+    // EventSource handles reconnection. Nothing to do; browsers retry
+    // the `retry:` value we sent on open.
+  });
+}
+
+/**
+ * Refresh the current SPA view without touching scroll position or
+ * any modal state. The heavy lifting already lives in renderBoard /
+ * renderGraph / renderSessions; this just re-calls them while the
+ * scroll offset is pinned, so the visual effect is "the card
+ * status updated in place".
+ * @param {string} _rawEvent unused for now — we could branch on
+ *   event type later to patch only the touched card, but a full
+ *   re-render with scroll preservation is already invisible to
+ *   the user and a lot simpler to reason about.
+ */
+async function refreshCurrentView(_rawEvent) {
+  const app = document.getElementById('app');
+  const scrollTop = app?.scrollTop ?? 0;
+  const scrollLeft = app?.scrollLeft ?? 0;
+  // Modal is in a separate DOM branch (#modal-backdrop) so render()
+  // never touches it — we don't need to save its state.
+  try {
+    await render();
+  } finally {
+    const fresh = document.getElementById('app');
+    if (fresh) {
+      fresh.scrollTop = scrollTop;
+      fresh.scrollLeft = scrollLeft;
+    }
+  }
+}
 
 // Auto-refresh every 10 seconds (with sync to catch new batches)
 refreshInterval = setInterval(async () => {

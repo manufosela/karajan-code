@@ -114,6 +114,12 @@ export function initDb() {
   // { name, description, given/when/then, ... }. The modal renders
   // the list; the card just shows the count (test_count above).
   try { db.exec('ALTER TABLE stories ADD COLUMN acceptance_tests TEXT'); } catch { /* already migrated */ }
+  // plan_order is the index of the HU in `plan.hus[]` as the planner
+  // emitted it. The planner's output is already topological (it calls
+  // addHu with `blocked_by: [prevId]`), so sorting the board by this
+  // column puts roots first and dependents last — matching what
+  // `kj run --plan` will actually execute.
+  try { db.exec('ALTER TABLE stories ADD COLUMN plan_order INTEGER'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   return db;
@@ -162,14 +168,14 @@ export function upsertStory(story) {
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
-      ac_count, test_count, blocked_by, acceptance_tests
+      ac_count, test_count, blocked_by, acceptance_tests, plan_order
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
-      @ac_count, @test_count, @blocked_by, @acceptance_tests
+      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -194,7 +200,8 @@ export function upsertStory(story) {
       ac_count = COALESCE(@ac_count, ac_count),
       test_count = COALESCE(@test_count, test_count),
       blocked_by = COALESCE(@blocked_by, blocked_by),
-      acceptance_tests = COALESCE(@acceptance_tests, acceptance_tests)
+      acceptance_tests = COALESCE(@acceptance_tests, acceptance_tests),
+      plan_order = COALESCE(@plan_order, plan_order)
   `);
   stmt.run({
     id: story.id,
@@ -224,6 +231,7 @@ export function upsertStory(story) {
     test_count: story.test_count ?? null,
     blocked_by: story.blocked_by || null,
     acceptance_tests: story.acceptance_tests || null,
+    plan_order: story.plan_order ?? null,
   });
 }
 
@@ -339,9 +347,16 @@ export function getProjects() {
  * @param {string} projectId
  * @returns {Array<object>}
  */
+/**
+ * Fetch all stories of a project ordered by plan_order ASC (roots first,
+ * dependents last — matches what `kj run --plan` will actually execute)
+ * and falling back to updated_at DESC for legacy rows that never had
+ * plan_order stamped.
+ */
 export function getStoriesByProject(projectId) {
   return getDb().prepare(`
-    SELECT * FROM stories WHERE project_id = ? ORDER BY updated_at DESC
+    SELECT * FROM stories WHERE project_id = ?
+    ORDER BY plan_order IS NULL, plan_order ASC, updated_at DESC
   `).all(projectId);
 }
 
