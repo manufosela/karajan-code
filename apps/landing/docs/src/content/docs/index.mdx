@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v2.7.3 — Task from a .md file (kj run --task-file spec.md, same on MCP). CLI finally writes .kj/run.log like MCP does, so kj-tail works whether Claude Code launches kj via Bash or MCP. Node 18 LTS really supported now. kj-tail v1.38.0 waits for the log instead of exiting. Plus full v2.7 skills story: addyosmani/agent-skills first-source, summary.md surfaces slugs per role. 3 702 tests, 287 files."
+  tagline: "v2.7.4 — Sonar is intrinsic to Karajan for code tasks (like TDD). `sonarqube.enabled` and `--no-sonar` are ignored with a deprecation warning — a code task without a quality gate is not a job Karajan calls complete. Kills the bogus API-key preflight check that was blocking every Claude Code MCP run. Two new architectural invariants (`no-provider-apis`, `sonar-intrinsic`) enforce these contracts in CI. New `docs/TESTS.md` guide with diagrams. 3 720 tests, 289 files."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
