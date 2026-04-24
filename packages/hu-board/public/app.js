@@ -716,7 +716,11 @@ function renderStoryCard(story) {
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">
         ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
-        ${testCount > 0 ? `<span title="${testCount} acceptance tests">🧪 ${testCount} test${testCount === 1 ? '' : 's'}</span>` : ''}
+        ${/* The test count chip was misleading: `kj plan` stamps one
+           placeholder test ("npx vitest run …") on every HU, so the
+           card always read "🧪 1 test" regardless of what the HU
+           actually needed. The modal still shows the Acceptance Tests
+           section for anyone who wants to inspect what will run. */ ''}
         ${story.quality_total !== null ? `
           <span class="story-card__score ${scoreClass(story.quality_total)}" title="INVEST score">
             ${story.quality_total}/60 ${qualityBar(story.quality_total)}
