@@ -1,16 +1,41 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 /** @type {import('better-sqlite3').Database | null} */
 let db = null;
 
+// Per-process tmp dir for VITEST runs that forget to set KJ_HOME.
+// Without this, a test that touches initDb() / upsertProject() drops
+// rows into the developer's real `~/.karajan/hu-board.db` and the
+// running board UI shows phantom projects (observed: "sess-1",
+// "default", "Karajan Code" with 49 test fixture plans). Memoise so
+// every consumer in the same process agrees on the path. The
+// trailing `.karajan` segment keeps semantic parity with non-VITEST
+// defaults so any caller assuming the path ends in `.karajan` still
+// works.
+let _vitestKjHome = null;
+function vitestTmpKjHome() {
+  if (_vitestKjHome) return _vitestKjHome;
+  _vitestKjHome = join(
+    tmpdir(),
+    `karajan-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    '.karajan'
+  );
+  return _vitestKjHome;
+}
+
 /**
  * Returns the KJ home directory, respecting KJ_HOME env var.
+ * Under VITEST without KJ_HOME, returns a per-process tmp dir to
+ * prevent accidental writes into the developer's real `~/.karajan/`.
  * @returns {string}
  */
 export function getKjHome() {
-  return process.env.KJ_HOME || join(process.env.HOME || '/root', '.karajan');
+  if (process.env.KJ_HOME) return process.env.KJ_HOME;
+  if (process.env.VITEST) return vitestTmpKjHome();
+  return join(process.env.HOME || '/root', '.karajan');
 }
 
 /**
