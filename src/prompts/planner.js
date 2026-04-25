@@ -1,3 +1,5 @@
+import { detectSpecSections } from "../plan/spec-detector.js";
+
 function extractStepText(line) {
   const numberedStep = /^\d+[).:-]\s*(.+)$/.exec(line);
   if (numberedStep) return numberedStep[1].trim();
@@ -64,7 +66,68 @@ function formatArchitectContext(architectContext) {
   return lines.length > 1 ? lines.join("\n") : null;
 }
 
+/**
+ * Render the SPEC-section guidance block for the planner.
+ *
+ * Two modes:
+ *   • the task contains numbered headings (`## 1.`, `### 2.1`, `§5`) →
+ *     spec_section becomes a HARD requirement and the detected
+ *     sections are echoed back as a checklist. LLMs (Sonnet, Codex)
+ *     consistently skipped the soft "preferred" wording, so the only
+ *     reliable lever is to (a) escalate the rule to MUST and (b) hand
+ *     them the literal list of section refs they're allowed to cite.
+ *   • no numbered headings detected → spec_section stays optional
+ *     and the prompt simply explains the field for completeness.
+ */
+function renderSpecSectionRules(specInfo) {
+  if (!specInfo.hasSpec) {
+    return [
+      "### `spec_section` (optional)",
+      "The task does not look like a structured SPEC, so this field may be `null`. If you do cite a section, use a short ref like `\"5.3\"` or `\"§5 Initial Scope\"`.",
+    ].join("\n");
+  }
+  const checklist = specInfo.sectionList
+    .map(({ section, title }) => `  - "${section}" — ${title}`)
+    .join("\n");
+  return [
+    "### `spec_section` (REQUIRED — the task is a structured SPEC)",
+    `Detected ${specInfo.sections.length} numbered SPEC heading(s) in the task. Every \`step\` MUST set \`spec_section\` to one of the refs below — string, exactly as listed. NEVER \`null\`, NEVER omitted, NEVER a free-form paraphrase.`,
+    "",
+    "Allowed values:",
+    checklist,
+    "",
+    "If a step covers multiple sections, pick the most specific one (e.g. prefer `\"2.1\"` over `\"2\"`). If a step does not map to any section, refactor the step so it does — the SPEC is the source of truth for what work belongs in this plan.",
+  ].join("\n");
+}
+
+/**
+ * Render the acceptance_tests guidance block — same contract as
+ * planner-role.js (the orchestrator path) so both entry points
+ * produce comparable plans.
+ */
+function renderAcceptanceTestsRules() {
+  return [
+    "### `acceptance_tests` (REQUIRED — at least one test per step)",
+    "Each step MUST include 2-4 executable tests. Mix `gherkin` (observable behaviour) and `shell` (concrete commands that exit 0).",
+    "",
+    "Shape:",
+    "```json",
+    '"acceptance_tests": [',
+    '  { "type": "gherkin", "content": "Given <ctx>\\nWhen <action>\\nThen <outcome>" },',
+    '  { "type": "shell",   "content": "<bash command that exits 0 on success>" }',
+    "]",
+    "```",
+    "",
+    "Rules:",
+    "- Tests are written BEFORE the step is implemented — they should fail until the step is done, pass afterwards.",
+    "- Cover at least one happy path and one edge case / failure mode.",
+    "- Do NOT use the placeholder `\"npx vitest run\"` — every test must assert something specific to the step.",
+  ].join("\n");
+}
+
 export function buildPlannerPrompt({ task, context, architectContext, productContext = null, domainContext = null }) {
+  const specInfo = detectSpecSections(task);
+
   const parts = [
     "You are an expert software architect. Create an implementation plan for the following task.",
     "",
@@ -93,10 +156,24 @@ export function buildPlannerPrompt({ task, context, architectContext, productCon
   parts.push(
     "## Output format",
     "Respond with a JSON object containing:",
-    "- `approach`: A concise paragraph describing the overall strategy",
-    "- `steps`: An array of objects, each with `description` (what to do) and `commit` (conventional commit message). Each step should correspond to a single commit.",
-    "- `risks`: An array of strings describing potential risks or challenges",
-    "- `outOfScope`: An array of strings listing what is explicitly NOT included",
+    "- `approach`: A concise paragraph describing the overall strategy.",
+    "- `steps`: An array of step objects (see shape below). Each step = one commit.",
+    "- `risks`: An array of strings describing potential risks or challenges.",
+    "- `outOfScope`: An array of strings listing what is explicitly NOT included.",
+    "",
+    "Each step in `steps` has this shape:",
+    "```json",
+    "{",
+    '  "description": "<what this step achieves, one sentence>",',
+    '  "commit": "<conventional commit message>",',
+    '  "spec_section": "<see rules below>",',
+    '  "acceptance_tests": [ /* see rules below */ ]',
+    "}",
+    "```",
+    "",
+    renderSpecSectionRules(specInfo),
+    "",
+    renderAcceptanceTestsRules(),
     "",
     "Respond ONLY with valid JSON, no markdown fences or extra text."
   );
