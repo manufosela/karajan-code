@@ -10,8 +10,33 @@ import os from "node:os";
 import { generatePlanId } from "./plan-id.js";
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
-function getKjHome() {
-  return process.env.KJ_HOME || path.join(os.homedir(), ".kj");
+// Per-process tmp dir for VITEST runs that forget to set KJ_HOME. We
+// memoise across calls so every helper in the same test process sees
+// the same root (mirrors what setting KJ_HOME explicitly would do)
+// without racing. The trailing `.kj` segment keeps semantic parity
+// with non-VITEST defaults so existing path assertions don't break.
+let _vitestKjHome = null;
+function vitestTmpKjHome() {
+  if (_vitestKjHome) return _vitestKjHome;
+  _vitestKjHome = path.join(
+    os.tmpdir(),
+    `kj-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
+    ".kj"
+  );
+  return _vitestKjHome;
+}
+
+export function getKjHome() {
+  if (process.env.KJ_HOME) return process.env.KJ_HOME;
+  // VITEST guard — without this, a test that calls savePlan() drops
+  // fixture files into the developer's real `~/.kj/plans/` and the
+  // running HU Board's chokidar watcher ingests them as "real" plans
+  // (observed: 49 fake "Add auth" plans contaminating the user's
+  // board). Auto-isolate to a per-process tmp dir so accidental
+  // writes can't leak. Tests that NEED to assert against a known
+  // path should still set KJ_HOME explicitly.
+  if (process.env.VITEST) return vitestTmpKjHome();
+  return path.join(os.homedir(), ".kj");
 }
 
 /**
