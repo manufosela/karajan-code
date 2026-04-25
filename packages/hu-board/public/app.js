@@ -1830,16 +1830,39 @@ function ensureDialog() {
   if (dlg) return dlg;
   dlg = document.createElement('dialog');
   dlg.id = 'app-dialog';
+  // Position explicitly: showModal() defaults to centered, but when
+  // inner content (a wide textarea, the command launcher's form,
+  // etc.) pushes past the dialog's natural width Chrome falls back
+  // to top-left. Pinning position+transform here makes centering
+  // robust regardless of inner content size. We also reset the
+  // browser's default 1em margin on <dialog> which would otherwise
+  // offset the transform.
   dlg.style.cssText = [
+    'position: fixed',
+    'top: 50%',
+    'left: 50%',
+    'transform: translate(-50%, -50%)',
+    'margin: 0',
     'border: 1px solid var(--border)',
     'border-radius: var(--radius-sm)',
     'padding: 0',
     'min-width: 320px',
-    'max-width: 560px',
+    'max-width: min(720px, 92vw)',
+    'max-height: 90vh',
+    'overflow: auto',
     'background: var(--bg-secondary)',
     'color: var(--text)',
     'box-shadow: 0 10px 40px rgba(0,0,0,0.45)',
   ].join(';');
+  // Inject a backdrop dim rule once. Inline styles can't target the
+  // ::backdrop pseudo-element, so we use a one-off <style> tag.
+  if (!document.getElementById('app-dialog-style')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'app-dialog-style';
+    styleEl.textContent =
+      '#app-dialog::backdrop { background: rgba(0,0,0,0.55); }';
+    document.head.appendChild(styleEl);
+  }
   document.body.appendChild(dlg);
   return dlg;
 }
@@ -2108,7 +2131,7 @@ async function showCommandLauncher() {
         `).join('')}
       </div>
       <form id="cmd-form" onsubmit="return false"
-            style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;min-width:540px;max-width:80vw">
+            style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;width:min(640px, 88vw);box-sizing:border-box">
         <div style="font-size:0.8rem;color:var(--text-muted)">${esc(SCHEMAS[active].help)}</div>
         ${fields}
         <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border)">
