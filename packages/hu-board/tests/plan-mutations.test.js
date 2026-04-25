@@ -470,6 +470,37 @@ describe('empty acceptance_tests entries must not inflate test_count', () => {
     const row = dbMod.getStoriesByProject(PROJECT_ID).find((s) => s.id.endsWith('_901'));
     expect(row.test_count).toBe(2);
   });
+
+  // Regression for the v2.7.5 dogfooding hit: the synthesizer (PR #502)
+  // emits `{ type: "shell" | "gherkin", content: "..." }`. The original
+  // anti-junk filter only knew the legacy shape (name/title/given/…)
+  // and rejected every structured entry, leaving test_count = 0 on
+  // the board even though the plan JSON had 4 tests apiece.
+  it('keeps v2.7.5 structured form { type, content, file? } from the synthesizer', () => {
+    writePlanToDisk({
+      hus: [
+        {
+          id: `${PLAN_ID}_902`,
+          title: 'structured',
+          status: 'pending',
+          acceptance_criteria: [],
+          acceptance_tests: [
+            { type: 'shell', content: 'npx vitest run path/to/spec.test.ts' },
+            { type: 'gherkin', content: 'Given x\nWhen y\nThen z' },
+            { type: 'shell', content: 'tsc --noEmit', file: 'tsconfig.json' },
+            { type: 'shell', content: '   ' },              // empty content → drop
+            { type: 'shell' },                               // no content    → drop
+          ],
+          blocked_by: [],
+          createdAt: 'a', updatedAt: 'a',
+        },
+      ],
+    });
+    syncMod.syncPlanFile(planPath());
+    const row = dbMod.getStoriesByProject(PROJECT_ID).find((s) => s.id.endsWith('_902'));
+    expect(row.test_count).toBe(3);
+    expect(row.acceptance_tests).not.toBeNull();
+  });
 });
 
 describe('acceptance_tests stamping', () => {
