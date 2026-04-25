@@ -197,6 +197,28 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
       const huMaxIterations = ctx.config.hu_max_iterations ?? 3;
       const huBranches = new Map();
       const { prepareHuBranch, finalizeHuCommit } = await import("../git/hu-automation.js");
+
+      // PR F (v2.7.5): the per-HU loop needs three pieces of plan context:
+      //   • ADRs (loaded once from disk, applies to every HU on this plan)
+      //   • the plan-reviewer findings (rides on the huBatch)
+      //   • each HU's spec_section (rides on the story)
+      // Loading ADRs once outside the loop avoids hitting the filesystem
+      // per-HU. When the plan never went through `kj plan` (legacy
+      // auto-generated batch), planId is null → loadActiveAdrs falls back
+      // to the "_loose" bucket and returns [] silently.
+      const planId = ctx.stageResults.huReviewer.planId || null;
+      const reviewerFindings = ctx.stageResults.huReviewer.review || null;
+      let planAdrs = [];
+      try {
+        const { loadActiveAdrs } = await import("../plan/adr-loader.js");
+        planAdrs = await loadActiveAdrs(ctx.config.projectDir || process.cwd(), planId);
+        if (planAdrs.length > 0) {
+          logger.info(`Plan ${planId || "(loose)"}: loaded ${planAdrs.length} ADR(s) for coder context`);
+        }
+      } catch (err) {
+        logger.warn(`ADR loader failed (non-blocking): ${err.message}`);
+      }
+
       const subPipelineResult = await runHuSubPipeline({
         huReviewerResult: ctx.stageResults.huReviewer,
         runIterationFn: async (huTask, story) => {
@@ -243,7 +265,15 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
                 config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
                 session: ctx.session, plannedTask: ctx.plannedTask,
                 trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx,
-                acceptanceTests: story.acceptance_tests
+                acceptanceTests: story.acceptance_tests,
+                // PR F (v2.7.5): plan-aware coder context. ADRs are
+                // shared across the plan, the rest are scoped to this
+                // HU. buildCoderPrompt skips any section whose data is
+                // null/empty so legacy paths render the same prompt.
+                adrs: planAdrs,
+                specSection: story.spec_section || null,
+                reviewerFindings,
+                huId: story.id
               });
               if (coderResult?.action === "standby" || coderResult?.action === "pause") {
                 return coderResult?.result || { approved: false, reason: "coder_failed" };

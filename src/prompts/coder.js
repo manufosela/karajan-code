@@ -86,7 +86,79 @@ function renderAcceptanceTestsSection(tests) {
   return lines.join("\n");
 }
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null }) {
+/**
+ * Render the active ADRs (PR F) as a "MUST respect" preamble. Each
+ * ADR is shown verbatim — they're already in Nygard format
+ * (Context · Decision · Consequences) and the coder benefits from
+ * the full text, not a summary. Keeps the prompt size sane: caps at
+ * 8 ADRs (the planner shouldn't realistically emit more for one
+ * plan, but bound it just in case).
+ */
+function renderAdrSection(adrs) {
+  if (!Array.isArray(adrs) || adrs.length === 0) return "";
+  const capped = adrs.slice(0, 8);
+  const lines = [
+    "## Architecture Decision Records (active)",
+    "",
+    "These ADRs were committed by the architect role. Your implementation MUST respect them. If the SPEC asks for something incompatible with one of these, surface the conflict in your PR description rather than silently overriding the ADR.",
+    "",
+  ];
+  for (const adr of capped) {
+    lines.push(adr.markdown.trim(), "", "---", "");
+  }
+  if (adrs.length > capped.length) {
+    lines.push(`_(…${adrs.length - capped.length} more ADRs not shown — see ~/.kj/plans/<slug>/<planId>/adrs/.)_`, "");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * SPEC-section pointer (PR F). One short line. Lets the coder put
+ * "implements §X.Y of SPEC.md" in the PR description for traceability.
+ */
+function renderSpecSectionLine(specSection) {
+  if (!specSection) return "";
+  return [
+    "## SPEC reference",
+    "",
+    `This HU implements **§${specSection}** of the source SPEC. Cite this section in your PR description so the reviewer can trace coverage end-to-end.`,
+  ].join("\n");
+}
+
+/**
+ * Plan-reviewer findings relevant to this HU (PR F). The reviewer's
+ * output is plan-wide; we filter to entries that mention the
+ * current HU id so the coder gets only what's actionable for them.
+ */
+function renderReviewerFindingsSection(findings, huId) {
+  if (!findings || !huId) return "";
+  const items = [];
+  for (const md of findings.missing_dependencies || []) {
+    if (md.from === huId) items.push(`- This HU should depend on **${md.on}** — ${md.rationale}`);
+    else if (md.on === huId) items.push(`- HU **${md.from}** should depend on this one — ${md.rationale}`);
+  }
+  for (const ov of findings.scope_overlaps || []) {
+    if (Array.isArray(ov.between) && ov.between.includes(huId)) {
+      const others = ov.between.filter((id) => id !== huId);
+      items.push(`- Scope overlap with **${others.join(", ")}** — ${ov.rationale}`);
+    }
+  }
+  for (const oi of findings.order_issues || []) {
+    if (Array.isArray(oi.hus) && oi.hus.includes(huId)) {
+      items.push(`- Order issue (${oi.issue}): ${oi.rationale}`);
+    }
+  }
+  if (items.length === 0) return "";
+  return [
+    "## Reviewer findings about this HU",
+    "",
+    "The plan reviewer flagged the following — consider them while implementing:",
+    "",
+    ...items,
+  ].join("\n");
+}
+
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   const langInstruction = getLanguageInstruction(language);
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
@@ -122,10 +194,24 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     sections.push(`## Implementation Plan (from planner)\nFollow these steps:\n${plan}`);
   }
 
-  // Tests-first contract: injected right after the plan so the coder
-  // reads "here are the steps" and immediately "here's the gate they
-  // need to satisfy". Placed BEFORE coder rules / TDD policy so those
-  // frame the tests, not the other way around.
+  // PR F context injections — order matters:
+  //   1. ADRs first (they constrain HOW you implement),
+  //   2. SPEC reference (what section we're satisfying),
+  //   3. Reviewer findings about THIS HU (warnings the coder needs
+  //      to consider while writing code),
+  //   4. Acceptance tests (the gate the implementation must pass).
+  // All four sit BEFORE coder rules / TDD policy so the policy
+  // frames them, not the other way around.
+  const adrSection = renderAdrSection(adrs);
+  if (adrSection) sections.push(adrSection);
+
+  const specSectionLine = renderSpecSectionLine(specSection);
+  if (specSectionLine) sections.push(specSectionLine);
+
+  const reviewerSection = renderReviewerFindingsSection(reviewerFindings, huId);
+  if (reviewerSection) sections.push(reviewerSection);
+
+  // Tests-first contract: the gate the implementation must pass.
   const testsSection = renderAcceptanceTestsSection(acceptanceTests);
   if (testsSection) {
     sections.push(testsSection);
