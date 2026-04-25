@@ -200,6 +200,37 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     );
   }
 
+  // Plan reviewer pass (PR D). Asks five closed-ended questions
+  // about the just-generated plan: missing HUs, missing deps, scope
+  // overlap, parallelisable groups, order issues. Output is purely
+  // advisory — we surface the findings to the user and they decide
+  // whether to apply them. Skipped when --no-plan-review or --quick.
+  const skipReview = Boolean(flags?.noPlanReview || flags?.quick);
+  if (plan.hus.length > 0 && !skipReview) {
+    runLog.logText("[planner] running plan reviewer pass");
+    progress.onOutput?.({ line: "Reviewing the plan for gaps / overlaps / order issues", kind: "text" });
+    const { reviewPlan, findingsCount } = await import("../plan/plan-reviewer.js");
+    const review = await reviewPlan({
+      agent: planner,
+      task,
+      hus: plan.hus,
+      onOutput: progress.onOutput,
+      silenceTimeoutMs,
+      timeoutMs,
+    });
+    if (review.ok) {
+      plan.review = review.findings;
+      const count = findingsCount(review.findings);
+      runLog.logText(
+        count > 0
+          ? `[planner] reviewer surfaced ${count} item(s): ${review.findings.summary || "(see plan.review for details)"}`
+          : `[planner] reviewer found nothing actionable: ${review.findings.summary || "OK"}`
+      );
+    } else {
+      runLog.logText(`[planner] reviewer pass failed (non-blocking): ${review.error}`);
+    }
+  }
+
   const planId = await savePlan(projectDir, plan);
   const { plansDir } = await import("../plan/plan-store.js");
   const path = await import("node:path");
@@ -229,6 +260,23 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // Now we just say: inspect, then run. The board is the recommended UI.
   console.log(`\nPlan saved: ${planId} (${plan.hus.length} HUs, status: ${plan.status})`);
   console.log(`         → ${planPath}`);
+  // Reviewer findings: print a short summary so the user knows
+  // at-a-glance whether the plan needs attention. Full details live
+  // in `plan.review` and `kj plan show <id>` renders them.
+  if (plan.review) {
+    const r = plan.review;
+    const counts = [
+      r.missing_hus?.length ? `${r.missing_hus.length} missing HU(s)` : null,
+      r.missing_dependencies?.length ? `${r.missing_dependencies.length} missing dep(s)` : null,
+      r.scope_overlaps?.length ? `${r.scope_overlaps.length} overlap(s)` : null,
+      r.order_issues?.length ? `${r.order_issues.length} order issue(s)` : null,
+    ].filter(Boolean);
+    if (counts.length === 0) {
+      console.log(`Reviewer: ✓ ${r.summary || "no issues"}`);
+    } else {
+      console.log(`Reviewer flagged: ${counts.join(", ")} — see \`kj plan show ${planId}\``);
+    }
+  }
   console.log("");
   console.log(`Inspect: kj plan show ${planId}`);
   console.log(`Run:     kj run --plan ${planId} "${task.slice(0, 40)}..."`);
@@ -311,6 +359,53 @@ export async function planShowCommand({ config, planId }) {
     console.log(formatHuTable(plan.hus));
   } else {
     console.log("\nNo HUs defined. Add with: kj plan add-hu " + planId);
+  }
+
+  // Reviewer findings (PR D). When the planner ran with the plan
+  // reviewer pass enabled, plan.review carries advisory findings —
+  // missing HUs, missing deps, scope overlaps, parallelisable
+  // groups, order issues. Each section only renders when non-empty
+  // so a clean plan stays clean on screen.
+  if (plan.review) {
+    const r = plan.review;
+    const sections = [];
+    if (r.missing_hus?.length) {
+      sections.push(`### Missing HUs (${r.missing_hus.length})`);
+      for (const m of r.missing_hus) {
+        sections.push(`- §${m.spec_section}: ${m.rationale}`);
+      }
+    }
+    if (r.missing_dependencies?.length) {
+      sections.push(`\n### Missing dependencies (${r.missing_dependencies.length})`);
+      for (const d of r.missing_dependencies) {
+        sections.push(`- ${d.from} should depend on ${d.on} — ${d.rationale}`);
+      }
+    }
+    if (r.scope_overlaps?.length) {
+      sections.push(`\n### Scope overlaps (${r.scope_overlaps.length})`);
+      for (const o of r.scope_overlaps) {
+        sections.push(`- ${o.between.join(" ↔ ")}: ${o.rationale}`);
+      }
+    }
+    if (r.parallelisable_groups?.length) {
+      sections.push(`\n### Parallelisable groups (${r.parallelisable_groups.length})`);
+      for (const g of r.parallelisable_groups) {
+        sections.push(`- ${g.hus.join(" + ")}${g.rationale ? ` — ${g.rationale}` : ""}`);
+      }
+    }
+    if (r.order_issues?.length) {
+      sections.push(`\n### Order issues (${r.order_issues.length})`);
+      for (const o of r.order_issues) {
+        sections.push(`- ${o.hus.join(", ")} (${o.issue}): ${o.rationale}`);
+      }
+    }
+    if (sections.length > 0) {
+      console.log("\n## Reviewer findings");
+      if (r.summary) console.log(`_${r.summary}_\n`);
+      console.log(sections.join("\n"));
+    } else if (r.summary) {
+      console.log(`\n## Reviewer findings\n_${r.summary}_`);
+    }
   }
 }
 
