@@ -22,7 +22,15 @@ export class CoderRole extends AgentRole {
   }
 
   extractInput(input) {
-    if (typeof input === "string") return { task: input, reviewerFeedback: null, sonarSummary: null, deferredContext: null, acceptanceTests: null, onOutput: null };
+    if (typeof input === "string") {
+      return {
+        task: input,
+        reviewerFeedback: null, sonarSummary: null, deferredContext: null,
+        acceptanceTests: null,
+        adrs: null, specSection: null, reviewerFindings: null, huId: null,
+        onOutput: null
+      };
+    }
     return {
       task: input?.task || this.context?.task || "",
       reviewerFeedback: input?.reviewerFeedback || null,
@@ -32,13 +40,23 @@ export class CoderRole extends AgentRole {
       // must satisfy. Only the plan-backed HU path populates this;
       // the standard single-task `kj run` flow leaves it null.
       acceptanceTests: input?.acceptanceTests || null,
+      // PR F (v2.7.5): per-HU planning context. ADRs constrain HOW,
+      // specSection ties this HU to a SPEC heading, reviewerFindings
+      // are filtered to entries that mention this HU. All four are
+      // null for non-plan-backed runs, which keeps the legacy flow
+      // byte-for-byte identical.
+      adrs: Array.isArray(input?.adrs) ? input.adrs : null,
+      specSection: input?.specSection || null,
+      reviewerFindings: input?.reviewerFindings || null,
+      huId: input?.huId || null,
       onOutput: input?.onOutput || null
     };
   }
 
-  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests }) {
+  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests, adrs, specSection, reviewerFindings, huId }) {
     const prompt = await buildCoderPrompt({
       task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests,
+      adrs, specSection, reviewerFindings, huId,
       coderRules: this.instructions,
       methodology: this.config?.development?.methodology || "tdd",
       serenaEnabled: Boolean(this.config?.serena?.enabled),

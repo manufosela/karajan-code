@@ -27,6 +27,10 @@ export function planToHuBatch(plan) {
     certified: { text: hu.scope || hu.title },
     acceptance_criteria: hu.acceptance_criteria || [],
     acceptance_tests: hu.acceptance_tests || [],
+    // PR F (v2.7.5): forward the SPEC section pointer into the story
+    // so the per-HU loop in flow-runner can hand it to the coder
+    // prompt without having to re-load the plan from disk.
+    spec_section: hu.spec_section || null,
     original: { text: hu.scope || hu.title }
   }));
 
@@ -39,6 +43,12 @@ export function planToHuBatch(plan) {
     certified,
     batchSessionId: `plan-${plan.planId}`,
     planId: plan.planId,
+    // PR F (v2.7.5): plan-wide reviewer findings ride along the batch
+    // so the coder can be told about issues that touch its HU. The
+    // shape mirrors plan-reviewer.js output (missing_dependencies,
+    // scope_overlaps, order_issues, …) — null when the reviewer
+    // never ran for this plan.
+    review: plan.review || null,
     auto_generated: false,
     source: { plan: true, planId: plan.planId }
   };

@@ -19,7 +19,7 @@ import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 
-export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null }) {
+export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   logger.setContext({ iteration, stage: "coder" });
   emitProgress(
     emitter,
@@ -55,6 +55,10 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       // Tests-first contract flows through to buildCoderPrompt which
       // renders the "Acceptance Tests — MUST pass" section.
       acceptanceTests,
+      // PR F (v2.7.5): plan-aware context. ADRs apply to every HU on
+      // the plan, the rest are scoped to this HU. All four pass through
+      // untouched when the caller omits them (legacy single-task runs).
+      adrs, specSection, reviewerFindings, huId,
       onOutput: coderStall.onOutput
     });
   } finally {
