@@ -647,6 +647,22 @@ router.get('/runs/:commandId/log', (req, res) => {
  * The browser tab's EventSource auto-reconnects, so the user sees a
  * brief blip and the board comes back live.
  */
+/**
+ * POST /api/board/shutdown - Tell the server to exit cleanly. Used
+ * by `kj board stop` as a fallback when the PID file is missing or
+ * stale (typical after the user has been hot-pulling Karajan and
+ * the running server is from a build that didn't write the PID
+ * file). The body of the response is sent before we exit, then a
+ * 250 ms delay to let the response flush, then process.exit(0).
+ */
+router.post('/board/shutdown', (_req, res) => {
+  if (process.env.KJ_BOARD_RESTART_MODE === 'echo') {
+    return res.json({ ok: true, mode: 'echo' });
+  }
+  res.json({ ok: true, shuttingDownInMs: 250 });
+  setTimeout(() => process.exit(0), 250);
+});
+
 router.post('/board/restart', (_req, res) => {
   // Tests / programmatic callers can short-circuit the actual self-
   // exec via env so the suite doesn't have its node process killed
