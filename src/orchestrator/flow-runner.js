@@ -107,28 +107,33 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
   try {
     ctx = await initFlowContext({ task, config, logger, emitter, askQuestion, pgTaskId, pgProject, flags });
   } catch (initError) {
-    // Pre-loop stage failure → Solomon decides
-    logger.warn(`Init/pre-loop error — escalating to Solomon: ${initError.message}`);
-    // tempSession needs `checkpoints` because invokeSolomon → addCheckpoint
-    // pushes into it. Pre-v2.7.4 this lacked the array and crashed with
-    // "Cannot read properties of undefined (reading 'push')" the moment
-    // Solomon was consulted on a preflight failure.
-    const tempSession = { id: "init-error", task, status: "failed", checkpoints: [] };
-    const solomonResult = await invokeSolomon({
-      config, logger, emitter, eventBase: { sessionId: "init-error", iteration: 0, stage: "init", startedAt: Date.now() },
-      stage: "init_error", askQuestion, session: tempSession, iteration: 0,
-      conflict: {
-        stage: "init_error",
-        task,
-        iterationCount: 0,
-        maxIterations: config.max_iterations || 5,
-        history: [{ agent: "pipeline", feedback: `Initialization failed: ${initError.message}` }]
-      }
-    });
-    if (solomonResult.action === "pause") {
-      return { paused: true, sessionId: "init-error", question: solomonResult.question, context: "init_error" };
-    }
-    throw initError; // Solomon couldn't resolve — propagate
+    // Pre-loop / preflight failures are CONFIG problems, not pipeline
+    // disputes. Pre-v2.7.5 we escalated them to Solomon, which:
+    //   1. Spent tokens on something an LLM can't actually fix (e.g.
+    //      "port 9000 occupied", "docker not installed", "node version
+    //      too old"). Solomon's job is to mediate between coder and
+    //      reviewer, not to rewrite the user's environment.
+    //   2. Often failed to parse its own output ("Failed to parse
+    //      Solomon output: no JSON found") and then asked the user a
+    //      garbled multi-line "Conflict: init_error" prompt — useless
+    //      when the run was launched by the board's ▶ Run plan with
+    //      stdio=ignore, since there's nobody to answer it.
+    //
+    // New behaviour: print the error verbatim with the actionable fix
+    // (the preflight check already attached one), emit init_error
+    // through the event channel for tooling, and bail with a non-zero
+    // exit. The user gets one clear message and a fix; nothing tries to
+    // be cleverer than that.
+    logger.error(`Initialization failed: ${initError.message}`);
+    if (initError.fix) logger.error(`  Fix: ${initError.fix}`);
+    emitProgress(emitter, makeEvent("init:failed", {
+      sessionId: "init-error", iteration: 0, stage: "init", startedAt: Date.now()
+    }, {
+      status: "fail",
+      message: `Initialization failed: ${initError.message}`,
+      detail: { error: initError.message, fix: initError.fix || null }
+    }));
+    throw initError;
   }
 
   try {
