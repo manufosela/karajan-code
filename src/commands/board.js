@@ -4,6 +4,7 @@ import path from "node:path";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { getKarajanHome } from "../utils/paths.js";
+import { getPortOccupant } from "../utils/port-occupant.js";
 
 const BOARD_DIR = path.resolve(import.meta.dirname, "../../packages/hu-board");
 const PID_FILE = path.join(getKarajanHome(), "hu-board.pid");
@@ -148,19 +149,66 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   return { ok: true, alreadyRunning: false, pid: child.pid, url: buildBoardUrl(port, projectSlug), port };
 }
 
-export async function stopBoard() {
+export async function stopBoard(opts = {}) {
+  const { port = 4000 } = opts;
+  // Path 1: live PID in the file → straight SIGTERM. Pre-v2.7.5
+  // this was the only path; if the file was missing or stale (e.g.
+  // user ran a board built before the server-writes-own-PID fix in
+  // PR #508) we'd return "wasn't running" while the ghost server
+  // happily kept serving requests. The fallbacks below close that gap.
   const pid = readPid();
-  if (!pid || !isProcessAlive(pid)) {
+  if (pid && isProcessAlive(pid)) {
+    try { process.kill(pid, "SIGTERM"); } catch { /* race with dying process */ }
     fs.rmSync(PID_FILE, { force: true });
-    return { ok: true, wasRunning: false };
-  }
-
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch { /* process already dead */
+    return { ok: true, wasRunning: true, pid, via: "pidfile" };
   }
   fs.rmSync(PID_FILE, { force: true });
-  return { ok: true, wasRunning: true, pid };
+
+  // Path 2: HTTP-ask the server to exit cleanly. Works for any
+  // running server that has the /api/board/shutdown endpoint —
+  // even when there's no PID file, no process tree to walk, etc.
+  const shutdownUrl = `/api/board/shutdown`;
+  const shutdownOk = await postBoardShutdown(port, shutdownUrl);
+  if (shutdownOk) {
+    return { ok: true, wasRunning: true, pid: null, via: "api" };
+  }
+
+  // Path 3: there's something on the port and the API didn't take it
+  // down. Find its PID via lsof / ss / netstat and SIGTERM it.
+  // Works against truly old servers that don't have the shutdown
+  // endpoint, with the cost of one extra subprocess call.
+  try {
+    const occupant = await getPortOccupant(port);
+    if (occupant?.pid) {
+      try { process.kill(occupant.pid, "SIGTERM"); } catch { /* gone */ }
+      return { ok: true, wasRunning: true, pid: occupant.pid, via: "port-occupant" };
+    }
+  } catch { /* lsof not installed etc — fall through */ }
+
+  return { ok: true, wasRunning: false };
+}
+
+/**
+ * Best-effort POST to the board's shutdown endpoint. Returns true
+ * when the server acks (and is presumably exiting); false on any
+ * error so the caller falls through to the next strategy.
+ */
+function postBoardShutdown(port, urlPath, timeoutMs = 750) {
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: urlPath, method: 'POST', timeout: timeoutMs,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': '2' } },
+      (res) => {
+        const ok = res.statusCode >= 200 && res.statusCode < 400;
+        res.resume();
+        resolve(ok);
+      }
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.write('{}');
+    req.end();
+  });
 }
 
 export async function boardStatus(port = 4000) {
@@ -229,9 +277,11 @@ export async function boardCommand({ action = "start", port = 4000, logger }) {
       return result;
     }
     case "stop": {
-      const result = await stopBoard();
+      const result = await stopBoard({ port });
       if (result.wasRunning) {
-        logger.info(`HU Board stopped (PID ${result.pid})`);
+        const pidPart = result.pid ? ` (PID ${result.pid})` : "";
+        const viaPart = result.via && result.via !== "pidfile" ? ` [via ${result.via}]` : "";
+        logger.info(`HU Board stopped${pidPart}${viaPart}`);
       } else {
         logger.info("HU Board was not running");
       }
