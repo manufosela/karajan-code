@@ -98,8 +98,6 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   });
   // Swallow spawn errors so an HU Board failure never crashes the pipeline.
   child.on("error", () => { /* non-blocking — caller logs via tryAutoStartBoard catch */ });
-  child.unref();
-
   if (!child.pid) {
     throw new Error("Failed to spawn HU Board server");
   }
@@ -110,22 +108,22 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
 export async function stopBoard() {
   const pid = readPid();
   if (!pid || !isProcessAlive(pid)) {
-    try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
+    fs.rmSync(PID_FILE, { force: true });
     return { ok: true, wasRunning: false };
   }
 
   try {
     process.kill(pid, "SIGTERM");
   } catch { /* process already dead */
-    // already dead
   }
-  try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
+  fs.rmSync(PID_FILE, { force: true });
   return { ok: true, wasRunning: true, pid };
 }
 
 export async function boardStatus(port = 4000) {
   const pid = readPid();
   const running = pid !== null && isProcessAlive(pid);
+
   return {
     ok: true,
     running,
@@ -134,27 +132,46 @@ export async function boardStatus(port = 4000) {
   };
 }
 
+// Strip ANSI escapes so we can measure the actual on-screen width of a
+// styled string. Used to size the rules around the banner content.
+const ANSI_RE = /\[[0-9;]*m/g;
+const visibleWidth = (s) => s.replace(ANSI_RE, "").length;
+
 /**
- * Render a highlighted cyan box with the HU Board URL + optional project name.
- * Centralizes the banner used by both the init-time auto-start (flow-runner.js)
- * and the post-planner auto-HU generation safety net so they stay in sync.
+ * Render a HU Board announcement framed by two horizontal rules of EQUAL
+ * length. Pre-v2.7.5 we used a fixed 50-char rounded box drawn with
+ * corners + verticals — fine when the URL fit, but a project slug
+ * pushed past the right wall and the box looked broken. The user's
+ * verdict: "looks worse than no box at all when it overflows".
+ *
+ * New rule: just an over-and-under rule sized to the longest visible
+ * content line. No left/right verticals, no fixed width. Always tidy.
  *
  * @param {Object} params
  * @param {string} params.url           - "http://localhost:4000"
  * @param {string} params.status        - "started" | "already running"
  * @param {string} [params.projectName] - optional project label
- * @returns {string} ANSI-escaped box ready for console.log
+ * @returns {string} ANSI-coloured banner ready for console.log
  */
 export function renderBoardBanner({ url, status, projectName }) {
-  const title = projectName ? `  Project: \u001b[1m${projectName}\u001b[0m` : null;
-  const lines = [
-    "",
-    "\u001b[36m\u256d\u2500 HU Board \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e",
-    `\u001b[36m\u2502\u001b[0m  \u001b[1m${status}\u001b[0m  \u001b[4m${url}\u001b[0m`,
-  ];
-  if (title) lines.push(`\u001b[36m\u2502\u001b[0m${title}`);
-  lines.push("\u001b[36m\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f\u001b[0m", "");
-  return lines.join("\n");
+  const cyan = (s) => `[36m${s}[0m`;
+  const bold = (s) => `[1m${s}[0m`;
+  const underline = (s) => `[4m${s}[0m`;
+
+  const heading = `  ${bold("HU Board")} · ${status}  →  ${underline(url)}`;
+  const content = [heading];
+  if (projectName) content.push(`  Project: ${bold(projectName)}`);
+
+  // Width = widest visible content line + 2-cell padding. Cap at the
+  // terminal width so a silly-long URL doesn't draw a 200-char rule.
+  const termWidth = (process.stdout.columns && process.stdout.columns > 20)
+    ? process.stdout.columns
+    : 100;
+  const longest = Math.max(...content.map(visibleWidth));
+  const ruleWidth = Math.min(longest + 2, termWidth);
+  const rule = cyan("─".repeat(ruleWidth));
+
+  return ["", rule, ...content, rule, ""].join("\n");
 }
 
 export async function boardCommand({ action = "start", port = 4000, logger }) {

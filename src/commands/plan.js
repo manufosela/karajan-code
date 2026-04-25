@@ -172,11 +172,20 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
   }
   console.log(`\n## HUs (${plan.hus.length})`);
   console.log(formatHuTable(plan.hus));
+  // Tell the user what just happened and what their two real options are.
+  // Pre-v2.7.5 we printed Review / Approve / Execute as three lines, which
+  // confused everyone:
+  //   - "Review" sounded like an action; `kj plan show` is read-only.
+  //   - "Approve" exposed the internal `kj plan ready` gate that the board
+  //     workflow now bypasses (the board's "Run plan" button calls
+  //     `kj run --plan` directly and the tests-first gate is enforced there).
+  // Now we just say: inspect, then run. The board is the recommended UI.
   console.log(`\nPlan saved: ${planId} (${plan.hus.length} HUs, status: ${plan.status})`);
   console.log(`         → ${planPath}`);
-  console.log(`Review:  kj plan show ${planId}`);
-  console.log(`Approve: kj plan ready ${planId}`);
-  console.log(`Execute: kj run --plan ${planId} "${task.slice(0, 40)}..."`);
+  console.log("");
+  console.log(`Inspect: kj plan show ${planId}`);
+  console.log(`Run:     kj run --plan ${planId} "${task.slice(0, 40)}..."`);
+  console.log(`         (or click ▶ Run plan on the board, if running)`);
 
   // UX boost for HU-bearing plans: auto-start the HU Board (same pattern as
   // `kj run` auto-HU generation) so the user can inspect the 12-HU plan in a
@@ -302,7 +311,7 @@ export async function planReadyCommand({ config, planId }) {
   const count = certifyAllHus(plan);
   await savePlan(projectDir, plan);
   console.log(`✅ ${count} HUs certified. Plan status: ready`);
-  console.log(`Execute: kj run --plan ${planId} "${(plan.task || "").slice(0, 40)}..."`);
+  console.log(`Run: kj run --plan ${planId} "${(plan.task || "").slice(0, 40)}..."`);
 }
 
 /**

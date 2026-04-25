@@ -297,6 +297,34 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
         stageResults.architect = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
         stageResults.planner = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
 
+        // Tests-first gate (v2.7.5): refuse to run a plan when any HU has
+        // no acceptance_tests. Mirrors the gate in `kj plan ready` so the
+        // CLI path and the board's "▶ Run plan" button (which spawns
+        // `kj run --plan` directly, bypassing `kj plan ready`) both
+        // enforce the same contract. Without this, the board could
+        // launch a run on a plan whose HUs the planner-LLM forgot to
+        // declare tests for, and the coder would have nothing to satisfy.
+        if (isPlanV2(loadedPlan) && Array.isArray(loadedPlan.hus)) {
+          const missing = loadedPlan.hus.filter(
+            (h) => !Array.isArray(h.acceptance_tests) || h.acceptance_tests.length === 0
+          );
+          if (missing.length > 0) {
+            const offenders = missing.map((h) => `  - ${h.id}  ${(h.title || "").slice(0, 60)}`).join("\n");
+            const msg =
+              `Refusing to run plan ${flags.plan}: ${missing.length}/${loadedPlan.hus.length} HU(s) have no acceptance_tests.\n`
+              + `${offenders}\n\n`
+              + "Tests-first flow requires a test contract per HU. Edit each HU on the board\n"
+              + "(http://localhost:4000) via the ✎ Edit button, or re-run `kj plan` to regenerate.";
+            logger.error(msg);
+            emitProgress(emitter, makeEvent("plan:tests-missing", { ...eventBase, stage: "plan" }, {
+              status: "fail",
+              message: `Plan ${flags.plan}: ${missing.length} HU(s) missing acceptance_tests`,
+              detail: { planId: flags.plan, missingHuIds: missing.map((h) => h.id) }
+            }));
+            throw new Error(`Plan ${flags.plan} has ${missing.length} HU(s) with no acceptance_tests — see the run log for details.`);
+          }
+        }
+
         // v2 plan with HUs → inject as huReviewer so sub-pipeline picks them up
         if (isPlanV2(loadedPlan) && loadedPlan.hus?.length > 0) {
           const huBatch = planToHuBatch(loadedPlan);
