@@ -79,4 +79,67 @@ describe("prompts/planner buildPlannerPrompt", () => {
     expect(prompt).not.toContain("Layers:");
     expect(prompt).not.toContain("Patterns:");
   });
+
+  // PR F follow-up (v2.7.5): the CLI planner prompt must demand
+  // spec_section + acceptance_tests structured output the same way
+  // planner-role.js does in the orchestrator path. Earlier the CLI
+  // path silently dropped both, leaving plan.js parsing fields the
+  // LLM was never asked to produce.
+
+  describe("acceptance_tests guidance", () => {
+    it("requires acceptance_tests with structured shape on every step", () => {
+      const prompt = buildPlannerPrompt({ task: "Add caching" });
+      expect(prompt).toMatch(/`acceptance_tests`.*REQUIRED/);
+      expect(prompt).toContain('"type": "gherkin"');
+      expect(prompt).toContain('"type": "shell"');
+    });
+
+    it("forbids the placeholder npx vitest run", () => {
+      const prompt = buildPlannerPrompt({ task: "Add caching" });
+      expect(prompt).toMatch(/Do NOT use the placeholder.*npx vitest run/);
+    });
+  });
+
+  describe("spec_section guidance — unstructured task", () => {
+    it("marks spec_section as optional when task has no numbered headings", () => {
+      const prompt = buildPlannerPrompt({ task: "Fix login bug — the cookie is not being cleared." });
+      expect(prompt).toMatch(/`spec_section`.*optional/);
+      expect(prompt).not.toMatch(/`spec_section`.*REQUIRED/);
+    });
+  });
+
+  describe("spec_section guidance — structured SPEC", () => {
+    const SPEC = [
+      "# Tiny Math Library — SPEC",
+      "## 1. Overview",
+      "blah",
+      "## 2. Functions",
+      "### 2.1 add",
+      "blah",
+      "### 2.2 multiply",
+      "blah",
+      "## 3. Test contract",
+      "blah",
+    ].join("\n");
+
+    it("escalates spec_section to REQUIRED when numbered headings are present", () => {
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toMatch(/`spec_section`.*REQUIRED/);
+      expect(prompt).toContain("Detected 5 numbered SPEC heading(s)");
+    });
+
+    it("echoes the detected sections back as a checklist the LLM must pick from", () => {
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toContain('"1" — Overview');
+      expect(prompt).toContain('"2" — Functions');
+      expect(prompt).toContain('"2.1" — add');
+      expect(prompt).toContain('"2.2" — multiply');
+      expect(prompt).toContain('"3" — Test contract');
+    });
+
+    it("forbids null / omitted / paraphrased spec_section values", () => {
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toMatch(/NEVER `null`, NEVER omitted, NEVER a free-form paraphrase/);
+    });
+  });
 });
