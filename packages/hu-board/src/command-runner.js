@@ -122,7 +122,11 @@ export function runKjCommand({ command, input = {} } = {}) {
     cwd: built.projectDir || process.cwd(),
     detached: true,
     stdio: ["ignore", out, err],
-    env: { ...process.env, CLAUDECODE: undefined },
+    // KJ_INSIDE_BOARD: lets `kj clean --nuke` skip SIGTERMing the
+    // board (it'd kill the page the user is looking at). Other
+    // future "is this run hosted by the board" branches can read
+    // the same flag.
+    env: { ...process.env, CLAUDECODE: undefined, KJ_INSIDE_BOARD: "1" },
   });
   child.unref();
   return { ok: true, commandId, pid: child.pid ?? 0, logPath };

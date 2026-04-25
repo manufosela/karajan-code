@@ -1,12 +1,26 @@
 import express from 'express';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';
 import pipelineRoutes from './routes/pipeline.js';
 import { authMiddleware } from './auth.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
+
+/**
+ * Path to the PID file the CLI's `kj board start` / `kj board stop`
+ * also use. Pre-v2.7.5 this was written ONLY by the CLI launcher,
+ * so a self-respawn (the 🔁 button on the board) left a stale PID
+ * pointing at a dead process — and the next `kj plan` saw that, gave
+ * up on the existing board, and spawned a new one on port 4001.
+ *
+ * Now the server writes its own PID on every start so both the CLI
+ * launch and the in-place restart keep the file accurate.
+ */
+const PID_FILE = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-board.pid');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '..', 'public');
@@ -66,8 +80,20 @@ async function main() {
   const port = await findAvailablePort(desiredPort);
 
   const server = app.listen(port, () => {
+    // Write the PID file so the CLI's `kj board status / stop` and
+    // the next `kj plan`'s startBoard() check find this server. The
+    // file used to be written only by `kj board start`'s launcher,
+    // which meant the 🔁 self-respawn left a stale PID and the next
+    // auto-start spawned a duplicate board on the next free port.
+    try {
+      mkdirSync(dirname(PID_FILE), { recursive: true });
+      writeFileSync(PID_FILE, String(process.pid), 'utf8');
+    } catch (err) {
+      console.warn(`[server] could not write PID file: ${err.message}`);
+    }
     console.log(`\n  Karajan HU Board`);
     console.log(`  -----------------`);
+    console.log(`  PID:        ${process.pid}`);
     console.log(`  Running at: http://localhost:${port}`);
     console.log(`  Data dir:   ${process.env.KJ_HOME || '~/.karajan'}\n`);
   });
@@ -77,6 +103,9 @@ async function main() {
     console.log('\n[server] Shutting down...');
     watcher.close();
     closeDb();
+    // Best-effort PID file cleanup on graceful exit. If we crash the
+    // file stays — the CLI's `isProcessAlive` check handles that.
+    try { rmSync(PID_FILE, { force: true }); } catch { /* ignore */ }
     server.close(() => process.exit(0));
   };
 
