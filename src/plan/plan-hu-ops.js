@@ -37,6 +37,12 @@ export function addHu(plan, huData) {
     scope: huData.scope || null,
     acceptance_criteria: huData.acceptance_criteria || [],
     acceptance_tests: huData.acceptance_tests || [],
+    // Spec mapping (v2.7.5 PR C): the SPEC.md section / heading this
+    // HU implements. Lets the coder cite "this implements SPEC §5.3"
+    // in PRs and the reviewer trace coverage gaps when the SPEC is
+    // re-read. Free-form string — typically "5.3", "§5.3 Initial
+    // Scope", or whatever the planner extracted from the source spec.
+    spec_section: huData.spec_section || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -71,7 +77,7 @@ export function removeHu(plan, huId) {
 export function updateHu(plan, huId, patch) {
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return null;
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by"];
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "spec_section"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }

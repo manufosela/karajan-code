@@ -722,6 +722,7 @@ function renderStoryCard(story) {
       <div class="story-card__meta" style="gap:10px">
         ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
         ${testCount > 0 ? `<span title="${testCount} acceptance tests declared">✅ ${testCount} test${testCount === 1 ? '' : 's'}</span>` : ''}
+        ${story.spec_section ? `<span title="Implements SPEC ${esc(story.spec_section)}" style="font-family:var(--font-mono, monospace)">📖 §${esc(story.spec_section)}</span>` : ''}
         ${story.quality_total !== null ? `
           <span class="story-card__score ${scoreClass(story.quality_total)}" title="INVEST score">
             ${story.quality_total}/60 ${qualityBar(story.quality_total)}
@@ -1394,6 +1395,7 @@ async function showStoryDetail(storyId) {
         </summary>
         <div style="padding-top:6px">
           <div class="modal__field"><span class="modal__field-label">Project:</span> ${esc(story.project_id)}</div>
+          ${story.spec_section ? `<div class="modal__field"><span class="modal__field-label">Implements SPEC:</span> §${esc(story.spec_section)}</div>` : ''}
           <div class="modal__field"><span class="modal__field-label">Session:</span> ${esc(story.session_id || '--')}</div>
           <div class="modal__field"><span class="modal__field-label">Created:</span> ${esc(story.created_at || '--')}</div>
           <div class="modal__field"><span class="modal__field-label">Updated:</span> ${esc(story.updated_at || '--')}</div>

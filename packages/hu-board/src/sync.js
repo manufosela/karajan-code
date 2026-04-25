@@ -376,6 +376,8 @@ export function syncPlanFile(filePath) {
         // Index in plan.hus[] — used by getStoriesByProject to order
         // cards topologically (roots first, dependents last).
         plan_order: i,
+        // Spec mapping (PR C): "implements §5.3" trace pointer.
+        spec_section: typeof hu.spec_section === 'string' && hu.spec_section.trim() ? hu.spec_section.trim() : null,
       });
     }
 
