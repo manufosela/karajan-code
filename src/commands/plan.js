@@ -142,6 +142,9 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       scope: desc,
       blocked_by: prevId ? [prevId] : [],
       acceptance_tests: tests,
+      // Spec mapping (PR C): preserve the planner's section citation
+      // so the coder/reviewer / board can show "implements §5.3".
+      spec_section: typeof step === "object" && typeof step.spec_section === "string" ? step.spec_section.trim() || null : null,
     });
     prevId = hu.id;
   }
