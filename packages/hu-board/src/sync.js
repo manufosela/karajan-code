@@ -332,11 +332,21 @@ export function syncPlanFile(filePath) {
       // DO count as 1 test each. But empty strings / null entries
       // (which show up in half-baked plans) must not inflate the
       // badge to "🧪 1 test" on a HU that effectively has none.
+      // Drop empty entries but accept BOTH legacy shapes and the
+      // v2.7.5 structured form. The original anti-junk filter only
+      // knew the legacy shape (`name|title|description|given|gherkin|
+      // scope`) and silently nuked every test produced by the
+      // tests-synthesizer (which emits `{type, content, file?}`),
+      // leaving every HU flagged "missing test contract" on the
+      // board even though the plan JSON had 4 tests apiece.
       const testList = (Array.isArray(hu.acceptance_tests) ? hu.acceptance_tests : [])
         .filter((t) => {
           if (!t) return false;
           if (typeof t === 'string') return t.trim().length > 0;
-          // objects: require some identifying field
+          if (typeof t !== 'object') return false;
+          // v2.7.5 structured form — primary shape going forward.
+          if (typeof t.content === 'string' && t.content.trim().length > 0) return true;
+          // Legacy shapes kept for back-compat with hand-edited plans.
           return Boolean(t.name || t.title || t.description || t.given || t.gherkin || t.scope);
         });
       const blockedByList = Array.isArray(hu.blocked_by) ? hu.blocked_by : [];
