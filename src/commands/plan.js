@@ -52,14 +52,14 @@ function formatHuTable(hus) {
 /**
  * kj plan "task" — generate plan + HUs
  */
-export async function planGenerateCommand({ task, config, logger, json, context }) {
+export async function planGenerateCommand({ task, config, logger, json, context, flags = {} }) {
   const { withCliRunLog } = await import("../utils/cli-run-log.js");
   return withCliRunLog("plan", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
-    return planGenerateImpl({ task, config, logger, json, context, runLog });
+    return planGenerateImpl({ task, config, logger, json, context, runLog, flags });
   });
 }
 
-async function planGenerateImpl({ task, config, logger, json, context, runLog }) {
+async function planGenerateImpl({ task, config, logger, json, context, runLog, flags = {} }) {
   // Auto-GC: prune orphan plans (project dir gone) + old finalised plans/
   // sessions/HU batches before we start. Silent unless something was
   // removed; one-liner summary on stderr in that case so --json stays
@@ -145,11 +145,55 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog })
     });
     prevId = hu.id;
   }
+  // Tests-synthesizer pass (v2.7.5): the first planner call asks for
+  // acceptance_tests inline, but Claude / Codex frequently skip that
+  // sub-instruction on dense specs. If any HU came back without
+  // tests, run a focused second pass that ONLY synthesizes tests for
+  // those HUs. This is ON by default — the user is paying a CLI
+  // subscription, not per-token, so we optimise for plan quality, not
+  // round-trip cost. If `--no-tests-synth` (or `--quick`) is set, we
+  // skip and warn loudly that `kj run --plan` will refuse to execute.
+  const skipSynth = Boolean(flags?.noTestsSynth || flags?.quick);
+  if (stepsMissingTests > 0 && !skipSynth) {
+    runLog.logText(
+      `[planner] ${stepsMissingTests}/${steps.length} HUs missing acceptance_tests — running tests-synthesizer pass`
+    );
+    progress.onOutput?.({ line: `${stepsMissingTests} HU(s) missing tests — running synthesizer pass`, kind: "text" });
+    const { synthesizeMissingTests } = await import("../plan/tests-synthesizer.js");
+    const husNeedingTests = plan.hus
+      .filter((h) => !Array.isArray(h.acceptance_tests) || h.acceptance_tests.length === 0)
+      .map((h) => ({ id: h.id, title: h.title, scope: h.scope }));
+    const synthResult = await synthesizeMissingTests({
+      agent: planner,
+      task,
+      husNeedingTests,
+      onOutput: progress.onOutput,
+      silenceTimeoutMs,
+      timeoutMs,
+    });
+    if (synthResult.ok) {
+      let patched = 0;
+      for (const hu of plan.hus) {
+        const tests = synthResult.tests[hu.id];
+        if (tests && tests.length > 0) {
+          hu.acceptance_tests = tests;
+          hu.updatedAt = new Date().toISOString();
+          patched += 1;
+        }
+      }
+      stepsMissingTests = plan.hus.filter((h) => !h.acceptance_tests?.length).length;
+      runLog.logText(
+        `[planner] tests-synthesizer patched ${patched}/${husNeedingTests.length} HUs (${stepsMissingTests} still missing)`
+      );
+    } else {
+      runLog.logText(`[planner] tests-synthesizer failed: ${synthResult.error}`);
+    }
+  }
+
   if (stepsMissingTests > 0) {
     runLog.logText(
-      `[planner] WARN: ${stepsMissingTests}/${steps.length} HUs have no acceptance_tests — `
-      + `the planner LLM did not emit a test contract. Edit them on the board `
-      + `or re-run \`kj plan\` before executing. These HUs are flagged "missing test contract".`
+      `[planner] WARN: ${stepsMissingTests}/${steps.length} HUs still have no acceptance_tests after the synthesizer pass. `
+      + `Edit them on the board (✎ Edit) or re-run \`kj plan\`. \`kj run --plan\` will refuse to execute these HUs.`
     );
   }
 

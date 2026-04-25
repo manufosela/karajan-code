@@ -288,12 +288,20 @@ plan
   .option("--planner-model <name>")
   .option("--context <text>", "Additional context for the planner")
   .option("--json", "Output raw JSON plan")
+  // Tests-first quality knobs (v2.7.5). Default is "thorough":
+  // when the planner skips acceptance_tests on some HUs, run a
+  // focused synthesizer pass to fill them in. Disable with these
+  // flags only if you explicitly want a fast / sketch plan.
+  .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
+  .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
       const { resolveTaskInput } = await import("./utils/task-file.js");
       const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
-      // TSK-0340: was `await import(...)` — now served by the top-level static import.
-      await planGenerateCommand({ task: resolvedTask, config, logger, json: flags.json, context: flags.context });
+      await planGenerateCommand({
+        task: resolvedTask, config, logger, json: flags.json, context: flags.context,
+        flags: { noTestsSynth: flags.testsSynth === false, quick: Boolean(flags.quick) },
+      });
     });
   });
 
