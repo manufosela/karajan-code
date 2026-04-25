@@ -9,14 +9,27 @@ vi.mock("../../src/utils/port-occupant.js", () => ({
   getPortOccupant: vi.fn(),
 }));
 
+vi.mock("../../src/sonar/discovery.js", () => ({
+  discoverRunningSonar: vi.fn(),
+}));
+
+vi.mock("../../src/sonar/manager.js", () => ({
+  isSonarReachable: vi.fn(),
+}));
+
 describe("checks/ports", () => {
-  let mod, portCheck, portOcc;
+  let mod, portCheck, portOcc, sonarDiscovery, sonarManager;
 
   beforeEach(async () => {
     vi.resetAllMocks();
     mod = await import("../../src/checks/ports.js");
     portCheck = await import("../../src/utils/port-check.js");
     portOcc = await import("../../src/utils/port-occupant.js");
+    sonarDiscovery = await import("../../src/sonar/discovery.js");
+    sonarManager = await import("../../src/sonar/manager.js");
+    // Default: discovery finds nothing — tests that need a hit override.
+    sonarDiscovery.discoverRunningSonar.mockResolvedValue({ found: false });
+    sonarManager.isSonarReachable.mockResolvedValue(false);
   });
 
   describe("sonar port", () => {
@@ -29,25 +42,66 @@ describe("checks/ports", () => {
       expect(result.ok).toBe(true);
     });
 
-    it("OK when held by docker/sonar itself", async () => {
-      portCheck.isPortAvailable.mockResolvedValue(false);
-      portOcc.getPortOccupant.mockResolvedValue({ port: 9000, pid: 123, command: "docker-proxy", raw: "" });
+    it("OK when a Sonar container is already running on the configured port", async () => {
+      sonarDiscovery.discoverRunningSonar.mockResolvedValue({
+        found: true, reachable: true, containerName: "karajan-sonarqube",
+        port: 9000, host: "http://localhost:9000",
+      });
       const check = mod.createSonarPortCheck();
       const result = await check.detect({ config });
       expect(result.ok).toBe(true);
-      expect(result.detail).toContain("Karajan-managed");
+      expect(result.detail).toMatch(/Reusing running SonarQube/);
     });
 
-    it("FAIL with occupant details when held by other process", async () => {
+    it("auto-rebinds to a discovered Sonar running on a different port", async () => {
+      sonarDiscovery.discoverRunningSonar.mockResolvedValue({
+        found: true, reachable: true, containerName: "some-other-sonar",
+        port: 9015, host: "http://localhost:9015",
+      });
+      const check = mod.createSonarPortCheck();
+      const detect = await check.detect({ config });
+      expect(detect.ok).toBe(false);
+      expect(detect.severity).toBe("warn");
+      expect(detect.extra.remap.host).toBe("http://localhost:9015");
+
+      const rem = await check.remediate({ extra: detect.extra });
+      expect(rem.fixed).toBe(true);
+      expect(rem.changes.sonarqube.host).toBe("http://localhost:9015");
+    });
+
+    it("OK when port is occupied by a Sonar that responds to /api/system/status (HTTP fallback)", async () => {
+      portCheck.isPortAvailable.mockResolvedValue(false);
+      sonarManager.isSonarReachable.mockResolvedValue(true);
+      const check = mod.createSonarPortCheck();
+      const result = await check.detect({ config });
+      expect(result.ok).toBe(true);
+      expect(result.detail).toMatch(/HTTP/);
+    });
+
+    it("WARN + auto-rebind when port held by an unrelated process", async () => {
       portCheck.isPortAvailable.mockResolvedValue(false);
       portOcc.getPortOccupant.mockResolvedValue({ port: 9000, pid: 999, command: "java", raw: "" });
+      portCheck.findAvailablePort.mockResolvedValue(9001);
+      const check = mod.createSonarPortCheck();
+      const detect = await check.detect({ config });
+      expect(detect.ok).toBe(false);
+      expect(detect.severity).toBe("warn");
+      expect(detect.detail).toContain("java");
+      expect(detect.extra.remap.port).toBe(9001);
+
+      const rem = await check.remediate({ extra: detect.extra });
+      expect(rem.fixed).toBe(true);
+      expect(rem.changes.sonarqube.host).toBe("http://localhost:9001");
+    });
+
+    it("FAILS only when nothing else is free in the next 20 ports", async () => {
+      portCheck.isPortAvailable.mockResolvedValue(false);
+      portOcc.getPortOccupant.mockResolvedValue({ port: 9000, pid: 999, command: "java", raw: "" });
+      portCheck.findAvailablePort.mockResolvedValue(null);
       const check = mod.createSonarPortCheck();
       const result = await check.detect({ config });
       expect(result.ok).toBe(false);
       expect(result.severity).toBe("fail");
-      expect(result.detail).toContain("java");
-      expect(result.detail).toContain("999");
-      expect(result.extra.port).toBe(9000);
     });
 
     it("applies for any non-external config (Sonar is intrinsic since v2.7.4)", () => {

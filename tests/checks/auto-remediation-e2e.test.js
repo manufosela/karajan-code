@@ -7,6 +7,14 @@ import { STATUS } from "../../src/checks/types.js";
  * catch regressions in the detect → remediate → re-verify pipeline.
  */
 
+vi.mock("../../src/sonar/discovery.js", () => ({
+  discoverRunningSonar: vi.fn().mockResolvedValue({ found: false }),
+}));
+
+vi.mock("../../src/sonar/manager.js", () => ({
+  isSonarReachable: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("../../src/utils/port-check.js", () => ({
   isPortAvailable: vi.fn(),
   findAvailablePort: vi.fn(),
@@ -49,6 +57,13 @@ describe("auto-remediation end-to-end", () => {
     portCheck = await import("../../src/utils/port-check.js");
     portOcc = await import("../../src/utils/port-occupant.js");
     fsPromises = (await import("node:fs/promises")).default;
+    // Re-establish defaults that resetAllMocks just wiped — the
+    // sonar-port check now consults discovery + reachability and we
+    // don't want stray undefined results sneaking into unrelated tests.
+    const sonarDiscovery = await import("../../src/sonar/discovery.js");
+    const sonarManager = await import("../../src/sonar/manager.js");
+    sonarDiscovery.discoverRunningSonar.mockResolvedValue({ found: false });
+    sonarManager.isSonarReachable.mockResolvedValue(false);
   });
 
   describe("HU Board port rebind", () => {
@@ -100,10 +115,12 @@ describe("auto-remediation end-to-end", () => {
     });
   });
 
-  describe("SonarQube port (manual)", () => {
-    it("port 9000 held by Karajan docker → OK without remediation", async () => {
+  describe("SonarQube port (auto-remediated)", () => {
+    it("port 9000 held by a Sonar HTTP service → OK without remediation", async () => {
+      // Simulate: port busy + docker discovery empty + HTTP probe says yes.
       portCheck.isPortAvailable.mockResolvedValue(false);
-      portOcc.getPortOccupant.mockResolvedValue({ port: 9000, pid: 1, command: "docker-proxy", raw: "" });
+      const sonarManager = await import("../../src/sonar/manager.js");
+      sonarManager.isSonarReachable.mockResolvedValue(true);
 
       const { createSonarPortCheck } = await import("../../src/checks/ports.js");
       const report = await runChecks([createSonarPortCheck()], {
@@ -113,18 +130,26 @@ describe("auto-remediation end-to-end", () => {
       expect(report.checks[0].status).toBe(STATUS.OK);
     });
 
-    it("port 9000 held by unrelated process → FAIL with occupant detail", async () => {
+    it("port 9000 held by an unrelated process → remediation produces a config override", async () => {
+      // Simulate: configured port busy + nothing else found. Remediate
+      // should produce a `changes.sonarqube.host` pointing at the next
+      // free port. We assert on the remediation event, not on the final
+      // verify status (re-verify reuses the same mocks, so once port
+      // 9001 is mocked busy the second pass will fail too — but that's
+      // a mock artefact, not the real behaviour we care about).
       portCheck.isPortAvailable.mockResolvedValue(false);
       portOcc.getPortOccupant.mockResolvedValue({ port: 9000, pid: 9876, command: "java", raw: "" });
+      portCheck.findAvailablePort.mockResolvedValue(9001);
 
       const { createSonarPortCheck } = await import("../../src/checks/ports.js");
-      const report = await runChecks([createSonarPortCheck()], {
-        config: { sonarqube: { enabled: true, host: "http://localhost:9000" } },
-      });
+      const check = createSonarPortCheck();
+      const detect = await check.detect({ config: { sonarqube: { host: "http://localhost:9000" } } });
+      expect(detect.severity).toBe("warn");
+      expect(detect.extra.remap.port).toBe(9001);
 
-      expect(report.checks[0].status).toBe(STATUS.FAIL);
-      expect(report.checks[0].detail).toContain("java");
-      expect(report.checks[0].detail).toContain("9876");
+      const rem = await check.remediate({ extra: detect.extra });
+      expect(rem.fixed).toBe(true);
+      expect(rem.changes.sonarqube.host).toBe("http://localhost:9001");
     });
   });
 

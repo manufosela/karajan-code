@@ -62,15 +62,19 @@ describe("[opt-in: sonar] sonarUp", () => {
     expect(dockerCalls).toHaveLength(0);
   });
 
-  it("starts docker when SonarQube is not reachable", async () => {
+  it("starts docker when SonarQube is not reachable AND no other sonar container is discovered", async () => {
     mockConfig();
     mockCurlUnreachable();
 
     await sonarUp();
 
     const dockerCalls = runCommand.mock.calls.filter(([cmd]) => cmd === "docker");
-    expect(dockerCalls).toHaveLength(1);
-    expect(dockerCalls[0][1]).toContain("up");
+    // Two docker calls now: (1) `docker ps` from discoverRunningSonar
+    // looking for an existing sonar container, (2) `docker compose up`
+    // since none was found.
+    expect(dockerCalls.length).toBeGreaterThanOrEqual(2);
+    const composeUp = dockerCalls.find(([, args]) => args.includes("up"));
+    expect(composeUp).toBeDefined();
   });
 
   it("uses host from config", async () => {
