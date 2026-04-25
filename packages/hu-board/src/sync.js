@@ -449,6 +449,7 @@ export function startWatcher() {
   const kjHome = getKjHome();
   const storiesGlob = join(kjHome, 'hu-stories', '*', 'batch.json');
   const sessionsGlob = join(kjHome, 'sessions', '*', 'session.json');
+  const promptsGlob = join(kjHome, 'prompts', '*.json');
   // Plans live under KJ_PLANS_DIR or ~/.kj/plans/, NOT under ~/.karajan/ —
   // the two homes are separate (KJ runs off ~/.kj, the board off
   // ~/.karajan). Without this glob, HU statuses flipped to coding / done
@@ -458,27 +459,49 @@ export function startWatcher() {
   const plansRoot = process.env.KJ_PLANS_DIR || join(homedir(), '.kj', 'plans');
   const plansGlob = join(plansRoot, '*', 'plan-*.json');
 
-  const watcher = watch([storiesGlob, sessionsGlob, plansGlob], {
+  const watcher = watch([storiesGlob, sessionsGlob, plansGlob, promptsGlob], {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
   });
 
-  const syncByPath = (p) => {
+  const syncByPath = (p, eventName) => {
     if (p.includes('hu-stories')) syncStoryFile(p);
     else if (p.includes('sessions')) syncSessionFile(p);
     else if (p.includes(`${plansRoot}${plansRoot.endsWith('/') ? '' : '/'}`) || p.includes('/plans/')) {
       syncPlanFile(p);
+    } else if (p.includes('/prompts/')) {
+      // Prompt files are RPC packets the runner writes when it needs
+      // an answer (Solomon escalation, etc.) — see board-prompt-bridge.js.
+      // The board's API exposes a /api/prompts list; here we just emit
+      // a bus event so connected SSE clients pop the modal immediately
+      // instead of waiting on the next render cycle.
+      if (p.endsWith('.answer.json')) return;     // ignore our own writes
+      try {
+        const raw = readFileSync(p, 'utf-8');
+        const data = JSON.parse(raw);
+        publishEvent({ type: 'prompt', event: eventName, promptId: data.promptId, sessionId: data.sessionId, question: data.question });
+      } catch { /* malformed prompt file — ignore */ }
     }
   };
 
   watcher.on('add', (p) => {
     console.log(`[watcher] New file: ${p}`);
-    syncByPath(p);
+    syncByPath(p, 'add');
   });
 
   watcher.on('change', (p) => {
     console.log(`[watcher] Changed: ${p}`);
-    syncByPath(p);
+    syncByPath(p, 'change');
+  });
+
+  // The runner deletes prompt files once the answer arrives. Surface
+  // those deletions as `prompt:resolved` events so already-open modals
+  // can close themselves without polling.
+  watcher.on('unlink', (p) => {
+    if (p.includes('/prompts/') && p.endsWith('.json') && !p.endsWith('.answer.json')) {
+      const m = /([^/]+)\.json$/.exec(p);
+      if (m) publishEvent({ type: 'prompt-resolved', promptId: m[1] });
+    }
   });
 
   console.log(`[watcher] Watching ${kjHome} + ${plansRoot} for changes`);
