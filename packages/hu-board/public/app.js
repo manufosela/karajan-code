@@ -945,35 +945,101 @@ const ANSI_SGR = {
 };
 
 /**
- * Convert text containing ANSI SGR escapes (\x1b[…m) into HTML with
- * inline-styled <span>s. HTML in the source is escaped first so the
- * log can never inject markup. Unrecognised codes are dropped (their
- * escape sequence removed but no styling applied).
+ * Map an xterm 256-colour index to a CSS rgb(). 0-15 = the 16 standard
+ * + bright colours; 16-231 = the 6x6x6 RGB cube; 232-255 = grayscale.
+ */
+function ansi256ToCss(n) {
+  if (n < 0 || n > 255) return 'inherit';
+  const std = [
+    '#000000', '#800000', '#008000', '#808000', '#000080', '#800080', '#008080', '#c0c0c0',
+    '#808080', '#ff0000', '#00ff00', '#ffff00', '#0000ff', '#ff00ff', '#00ffff', '#ffffff',
+  ];
+  if (n < 16) return std[n];
+  if (n < 232) {
+    const idx = n - 16;
+    const r = Math.floor(idx / 36);
+    const g = Math.floor(idx / 6) % 6;
+    const b = idx % 6;
+    const v = (c) => (c === 0 ? 0 : 55 + c * 40);
+    return `rgb(${v(r)},${v(g)},${v(b)})`;
+  }
+  const v = 8 + (n - 232) * 10;
+  return `rgb(${v},${v},${v})`;
+}
+
+const ESC_CHARS = new Set([0x1B, 0x241B]);    // real ESC + Unicode "Symbol For Escape"
+const HTML_ESC = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Convert text containing ANSI SGR escapes into HTML with inline-styled
+ * spans. The previous implementation had two bugs that turned the log
+ * into unreadable garbage:
+ *
+ *   1. It searched for `[` (just the bracket) instead of `ESC + [`,
+ *      so the ESC byte itself was sliced into the output. The browser
+ *      then rendered it as the literal substitute character (escape).
+ *   2. It only knew the 16-colour codes (30-37, 90-97). Karajan's
+ *      banner uses 24-bit RGB (`38;2;r;g;b`) and codex emits
+ *      256-colour (`38;5;n`); both showed as plain unstyled text with
+ *      the escape sequences leaking through.
+ *
+ * Also accepts U+241B "Symbol For Escape" which some loggers /
+ * clipboards substitute for the raw 0x1B byte.
+ *
+ * @param {string} text
+ * @returns {string} safe HTML
  */
 function ansiToHtml(text) {
-  const escaped = String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const src = String(text);
+  const N = src.length;
   let out = '';
   let openSpans = 0;
   let i = 0;
-  while (i < escaped.length) {
-    const escIdx = escaped.indexOf('[', i);
-    if (escIdx === -1) { out += escaped.slice(i); break; }
-    out += escaped.slice(i, escIdx);
-    const endIdx = escaped.indexOf('m', escIdx + 2);
-    if (endIdx === -1) { out += escaped.slice(escIdx); break; }
-    const codes = escaped.slice(escIdx + 2, endIdx).split(';').map((n) => Number(n) || 0);
-    for (const code of codes) {
-      if (code === 0) {
+
+  while (i < N) {
+    const code = src.charCodeAt(i);
+    // Not an escape: fast-batch the literal run up to the next escape.
+    if (!ESC_CHARS.has(code)) {
+      let j = i + 1;
+      while (j < N && !ESC_CHARS.has(src.charCodeAt(j))) j += 1;
+      out += HTML_ESC(src.slice(i, j));
+      i = j;
+      continue;
+    }
+    // Escape but not followed by `[` -- drop the lone escape byte so
+    // it doesn't render as the substitute character.
+    if (src[i + 1] !== '[') { i += 1; continue; }
+    const endM = src.indexOf('m', i + 2);
+    if (endM === -1) { i += 1; continue; }
+    const params = src.slice(i + 2, endM).split(';').map((n) => Number(n) || 0);
+    let k = 0;
+    while (k < params.length) {
+      const c = params[k];
+      if (c === 0) {
         while (openSpans > 0) { out += '</span>'; openSpans -= 1; }
-      } else if (ANSI_SGR[code]) {
-        out += `<span style="${ANSI_SGR[code]}">`;
+        k += 1;
+      } else if ((c === 38 || c === 48) && params[k + 1] === 2 && params.length >= k + 5) {
+        // 24-bit truecolor: 38;2;r;g;b (foreground) or 48;2;r;g;b (background)
+        const r = params[k + 2], g = params[k + 3], b = params[k + 4];
+        const prop = c === 38 ? 'color' : 'background-color';
+        out += `<span style="${prop}:rgb(${r},${g},${b})">`;
         openSpans += 1;
+        k += 5;
+      } else if ((c === 38 || c === 48) && params[k + 1] === 5 && params.length >= k + 3) {
+        // 256-colour palette: 38;5;n / 48;5;n
+        const prop = c === 38 ? 'color' : 'background-color';
+        out += `<span style="${prop}:${ansi256ToCss(params[k + 2])}">`;
+        openSpans += 1;
+        k += 3;
+      } else if (ANSI_SGR[c]) {
+        out += `<span style="${ANSI_SGR[c]}">`;
+        openSpans += 1;
+        k += 1;
+      } else {
+        k += 1;                             // unknown -- silently drop
       }
     }
-    i = endIdx + 1;
+    i = endM + 1;
   }
   while (openSpans > 0) { out += '</span>'; openSpans -= 1; }
   return out;

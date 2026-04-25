@@ -11,6 +11,30 @@ import { parseCardId } from "../planning-game/adapter.js";
 
 function createCliAskQuestion() {
   return async (question, context) => {
+    // No TTY (e.g. spawned by the board's "\u25b6 Run plan" with stdio=ignore)
+    // means readline.question() would hang forever waiting for input
+    // that can never arrive. Detect and abort cleanly with a message
+    // the user can see in the run log instead of leaving the process
+    // wedged. Once we add prompt-routing through the board UI (planned
+    // follow-up), we'll replace this fallback with that path.
+    const stdinReadable = process.stdin && process.stdin.readable !== false;
+    const isInteractive = Boolean(process.stdin?.isTTY) && stdinReadable;
+    if (!isInteractive) {
+      console.log(`\n\u2753 ${question}`);
+      if (context?.detail) {
+        console.log(`   Context: ${JSON.stringify(context.detail, null, 2)}`);
+      }
+      console.log(
+        "\n[non-interactive] No TTY available \u2014 cannot prompt for an answer.\n"
+        + "  This run was likely launched by the board's \u25b6 Run plan button or another\n"
+        + "  detached process (stdio=ignore). The session is being stopped instead\n"
+        + "  of hanging forever.\n"
+        + "  To answer the prompt, re-run the command in a terminal:\n"
+        + "    kj resume <sessionId>"
+      );
+      return null;
+    }
+
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise((resolve) => {
       console.log(`\n\u2753 ${question}`);
