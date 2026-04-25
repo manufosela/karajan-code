@@ -167,36 +167,105 @@ function summarizeToolCall(name, input = {}) {
   }
 }
 
-function createStreamJsonFilter(onOutput) {
+/**
+ * Translate a Claude stream-json event into a human-readable summary.
+ *
+ * Returns a `{ line, kind }` object for the cli-progress reporter to
+ * display, OR `null` to suppress (the event is structural noise).
+ *
+ * Whitelist semantics on purpose: pre-v2.7.5 the filter ONLY recognised
+ * `assistant` + `result` and forwarded everything else as raw JSON,
+ * which dumped 6 KB of `system/init` + `rate_limit_event` to the user
+ * on every `kj plan`. Now we recognise every event type Claude can
+ * emit and either condense it to one line or drop it. Unknown types
+ * are dropped silently unless DEBUG_KJ_AGENT is set.
+ */
+export function translateStreamJsonEvent(obj) {
+  switch (obj.type) {
+    case "system": {
+      // The init frame announces session id + model. Useful as a single
+      // status line on first connect; the rate_limit subtype on a
+      // healthy session is pure noise — suppress.
+      if (obj.subtype === "init") {
+        const model = typeof obj.model === "string" ? obj.model : "?";
+        return { line: `Claude session ready (model: ${model.replace(/\[.*\]/, "")})`, kind: "text" };
+      }
+      return null;
+    }
+    case "rate_limit_event": {
+      const status = obj.rate_limit_info?.status;
+      // Only surface when actually throttled — "allowed" is the happy
+      // path and surfaces every few seconds during normal runs.
+      if (status && status !== "allowed") {
+        return { line: `Rate limit: ${status}`, kind: "text" };
+      }
+      return null;
+    }
+    case "user": {
+      // Echoes of the previous tool's output coming back into the
+      // conversation. Adding a line per echo would double the noise of
+      // the corresponding tool_use line, which we already render.
+      return null;
+    }
+    case "assistant": {
+      const content = obj.message?.content;
+      if (!Array.isArray(content)) return null;
+      // Each content block becomes a separate line — we return them
+      // through the caller's emit-many path below.
+      return { _multi: true, blocks: content };
+    }
+    case "result": {
+      const summary = typeof obj.result === "string"
+        ? obj.result.split("\n")[0].slice(0, 120)
+        : "result received";
+      return { line: `done: ${summary}` };
+    }
+    default: {
+      if (process.env.DEBUG_KJ_AGENT) {
+        return { line: `[debug] unknown event: ${obj.type}` };
+      }
+      return null;
+    }
+  }
+}
+
+export function createStreamJsonFilter(onOutput) {
   if (!onOutput) return null;
   return ({ stream, line }) => {
+    let obj;
     try {
-      const obj = JSON.parse(line);
-      // Forward assistant content
-      if (obj.type === "assistant" && obj.message?.content) {
-        for (const block of obj.message.content) {
-          if (block.type === "text" && block.text) {
-            // Only emit first line of text for brevity
-            const firstLine = block.text.split("\n")[0].trim().slice(0, 120);
-            if (firstLine) onOutput({ stream, line: firstLine, kind: "text" });
-          } else if (block.type === "tool_use") {
-            onOutput({ stream, line: summarizeToolCall(block.name, block.input), kind: "tool" });
-          } else if (block.type === "thinking" && block.thinking) {
-            onOutput({ stream, line: `thinking: ${block.thinking.slice(0, 80).replace(/\s+/g, " ")}…`, kind: "thinking" });
-          }
+      obj = JSON.parse(line);
+    } catch {
+      // Not JSON — forward verbatim ONLY if it's short and not a partial
+      // JSON chunk (some agents print stderr diagnostics through the
+      // same channel). Anything that smells like JSON-debris gets
+      // dropped to keep the CLI clean.
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith("{") && !trimmed.startsWith("[") && trimmed.length < 200) {
+        onOutput({ stream, line: trimmed });
+      }
+      return;
+    }
+
+    const summary = translateStreamJsonEvent(obj);
+    if (!summary) return;
+
+    // Multi-block assistant payload: one line per content block.
+    if (summary._multi) {
+      for (const block of summary.blocks) {
+        if (block.type === "text" && block.text) {
+          const firstLine = block.text.split("\n")[0].trim().slice(0, 120);
+          if (firstLine) onOutput({ stream, line: firstLine, kind: "text" });
+        } else if (block.type === "tool_use") {
+          onOutput({ stream, line: summarizeToolCall(block.name, block.input), kind: "tool" });
+        } else if (block.type === "thinking" && block.thinking) {
+          onOutput({ stream, line: `thinking: ${block.thinking.slice(0, 80).replace(/\s+/g, " ")}…`, kind: "thinking" });
         }
-        return;
       }
-      // Forward result
-      if (obj.type === "result") {
-        const summary = typeof obj.result === "string"
-          ? obj.result.split("\n")[0].slice(0, 120)
-          : "result received";
-        onOutput({ stream, line: `done: ${summary}` });
-        return;
-      }
-    } catch { /* not JSON, forward raw */ }
-    onOutput({ stream, line });
+      return;
+    }
+
+    onOutput({ stream, line: summary.line, kind: summary.kind });
   };
 }
 

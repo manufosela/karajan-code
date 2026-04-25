@@ -41,7 +41,33 @@ const ICONS = {
   tool: "▸",      // ▸ right-pointing small triangle
   text: "·",      // · middle dot
   thinking: "…",  // …
+  heartbeat: "⠿", // braille dots — distinct from real activity icons
 };
+
+/**
+ * Rotating idle messages so the user knows the process is alive without
+ * the same string repeating every minute. Picked at random each tick;
+ * the previous one is held back so two ticks in a row never duplicate.
+ */
+const HEARTBEAT_LINES = [
+  "still working…",
+  "thinking through it…",
+  "wading through tokens…",
+  "asking the model nicely…",
+  "crunching the spec…",
+  "burning down the prompt…",
+  "kneading the context window…",
+  "still here, give me a sec…",
+  "the LLM is doing LLM things…",
+  "drafting, redrafting…",
+];
+
+/**
+ * Default cadence for the idle heartbeat. ~45s is short enough to feel
+ * responsive on a quiet planner run (Claude can think for 1-2 min on a
+ * complex spec) without spamming every few seconds.
+ */
+const DEFAULT_HEARTBEAT_MS = 45_000;
 
 /**
  * @typedef {Object} CliProgressReporter
@@ -55,10 +81,18 @@ const ICONS = {
  *                                   Default: "agent".
  * @param {NodeJS.WriteStream} [opts.stream]  - output destination. Default: process.stderr.
  * @param {boolean} [opts.quiet]   - when true, nothing is printed (useful for --json mode).
+ * @param {number}  [opts.heartbeatMs] - silent interval before printing an
+ *   "alive" line. Defaults to 45 s. Set to 0 to disable the heartbeat
+ *   (useful in tests).
  * @returns {CliProgressReporter}
  */
 export function createCliProgressReporter(opts = {}) {
-  const { role = "agent", stream = process.stderr, quiet = false } = opts;
+  const {
+    role = "agent",
+    stream = process.stderr,
+    quiet = false,
+    heartbeatMs = DEFAULT_HEARTBEAT_MS,
+  } = opts;
 
   if (quiet) {
     return { onOutput: () => {}, finish: () => {} };
@@ -67,6 +101,37 @@ export function createCliProgressReporter(opts = {}) {
   const startedAt = Date.now();
   stream.write(`[${role}] starting...\n`);
 
+  // Idle heartbeat: a periodic timer that prints a varied "still alive"
+  // line whenever the agent goes quiet for longer than `heartbeatMs`.
+  // Reset on every real onOutput so heavy chatter doesn't trigger the
+  // duplicate. Always elapses to a different message than last time so
+  // two consecutive ticks never read the same.
+  let lastActivityAt = Date.now();
+  let lastHeartbeatIdx = -1;
+  let heartbeatTimer = null;
+
+  function pickHeartbeatLine() {
+    let idx;
+    do {
+      idx = Math.floor(Math.random() * HEARTBEAT_LINES.length);
+    } while (idx === lastHeartbeatIdx && HEARTBEAT_LINES.length > 1);
+    lastHeartbeatIdx = idx;
+    return HEARTBEAT_LINES[idx];
+  }
+
+  function tick() {
+    const idleFor = Date.now() - lastActivityAt;
+    if (idleFor < heartbeatMs) return;        // real activity reset us
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    stream.write(`  ${ICONS.heartbeat} ${pickHeartbeatLine()} (${elapsed}s)\n`);
+    lastActivityAt = Date.now();              // collapse next ticks
+  }
+
+  if (heartbeatMs > 0) {
+    heartbeatTimer = setInterval(tick, heartbeatMs);
+    if (typeof heartbeatTimer.unref === "function") heartbeatTimer.unref();
+  }
+
   const onOutput = (event) => {
     if (!event || typeof event !== "object") return;
     const raw = typeof event.line === "string" ? event.line : "";
@@ -74,6 +139,7 @@ export function createCliProgressReporter(opts = {}) {
     // Strip trailing newline — we re-add our own.
     const line = raw.replace(/\s+$/, "");
     if (!line) return;
+    lastActivityAt = Date.now();
     const icon = ICONS[event.kind] || ICONS.text;
     stream.write(`  ${icon} ${line}\n`);
   };
@@ -82,6 +148,10 @@ export function createCliProgressReporter(opts = {}) {
    * @param {string} [outcome]  default "done". Use "failed", "stopped", "timeout" etc.
    */
   const finish = (outcome = "done") => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
     const ms = Date.now() - startedAt;
     const s = (ms / 1000).toFixed(1);
     stream.write(`[${role}] ${outcome} (${s}s)\n`);
