@@ -1047,13 +1047,35 @@ function ansiToHtml(text) {
 }
 
 /**
- * Open (or refocus) the run-log panel for the given plan. If a panel
- * is already up for the same planId, just bring it to the front; if
- * for a different one, swap content + reset offset.
+ * Open (or refocus) the run-log panel for the given plan. Thin shim
+ * over `openGenericLogPanel` — the original entry point used for
+ * `kj run --plan` runs that the Run-plan button kicks off.
  */
 function openLogViewer(planId) {
+  return openGenericLogPanel({
+    id: planId,
+    label: 'Run log',
+    tailUrl: (offset) => `/api/plans/${encodeURIComponent(planId)}/log?offset=${offset}`,
+  });
+}
+
+/**
+ * Generic floating log panel anchored bottom-right. Used by:
+ *   - openLogViewer(planId)         → /api/plans/:planId/log
+ *   - openCommandLogViewer(cmd, id) → /api/runs/:commandId/log
+ *
+ * The only thing that changes between callers is the tail URL +
+ * the label; the window controls (min/max/close), polling, and ANSI
+ * rendering are identical.
+ *
+ * @param {object} args
+ * @param {string} args.id        - opaque id (planId or commandId), shown in header
+ * @param {string} args.label     - "Run log", "kj plan", …
+ * @param {(offset:number)=>string} args.tailUrl - returns the URL to GET each tick
+ */
+function openGenericLogPanel({ id, label, tailUrl }) {
   // Tearing down the previous panel cleanly avoids two timers running
-  // when the user clicks "Run plan" twice quickly.
+  // when the user opens a second log while the first is still tailing.
   if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
   if (logViewerState.panel && logViewerState.panel.parentNode) {
     logViewerState.panel.remove();
@@ -1084,10 +1106,10 @@ function openLogViewer(planId) {
                    border-bottom:1px solid var(--border);
                    user-select:none;flex-shrink:0">
       <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
-        <strong style="color:var(--text)">Run log</strong>
+        <strong style="color:var(--text)">${esc(label)}</strong>
         <span style="font-family:var(--font-mono, monospace);font-size:0.78rem;
                      color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;
-                     white-space:nowrap">${esc(planId)}</span>
+                     white-space:nowrap">${esc(id)}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span id="log-status" style="font-size:0.75rem;color:var(--text-muted);margin-right:8px">connecting…</span>
@@ -1112,7 +1134,7 @@ function openLogViewer(planId) {
   `;
 
   document.body.appendChild(panel);
-  logViewerState = { planId, panel, offset: 0, isMax: false, isMin: false };
+  logViewerState = { planId: id, panel, offset: 0, isMax: false, isMin: false };
 
   const bodyEl = panel.querySelector('#log-body');
   const statusEl = panel.querySelector('#log-status');
@@ -1175,7 +1197,7 @@ function openLogViewer(planId) {
   async function tick() {
     if (!logViewerState.panel) return;        // user closed
     try {
-      const res = await fetch(`/api/plans/${encodeURIComponent(planId)}/log?offset=${logViewerState.offset}`);
+      const res = await fetch(tailUrl(logViewerState.offset));
       if (!res.ok) {
         statusEl.textContent = `error: HTTP ${res.status}`;
         logPollTimer = setTimeout(tick, 4000);
@@ -1993,6 +2015,191 @@ function handleRoute() {
   render();
 }
 
+// ---- Command launcher modal ----
+//
+// Opens a small form inside the existing <dialog> singleton with a
+// command picker (plan / architect / clean) and the appropriate
+// fields per command. Submit POSTs to /api/commands/:command, the
+// server spawns a detached `kj` child, and we open the existing log
+// viewer (re-uses openLogViewer's tail loop, just pointed at the
+// new generic /api/runs/:commandId/log endpoint).
+
+async function showCommandLauncher() {
+  const dlg = ensureDialog();
+  // Per-command field schemas — kept in the client because each
+  // command has different inputs and the modal renders accordingly.
+  const SCHEMAS = {
+    plan: {
+      label: '📋 kj plan',
+      help: 'Generate an implementation plan with HUs. Paste the task text OR a file path.',
+      fields: [
+        { name: 'taskFile', label: 'SPEC file path (absolute)', type: 'text', placeholder: '/home/me/project/SPEC.md' },
+        { name: 'task', label: 'OR paste task text directly', type: 'textarea', rows: 6 },
+        { name: 'context', label: 'Extra context (optional)', type: 'text' },
+        { name: 'projectDir', label: 'Project directory (optional, defaults to board\'s cwd)', type: 'text' },
+        { name: 'quick', label: '--quick (skip synth + reviewer)', type: 'checkbox' },
+      ],
+    },
+    architect: {
+      label: '🏛 kj architect',
+      help: 'Design an architecture and persist ADRs. Same input as kj plan.',
+      fields: [
+        { name: 'taskFile', label: 'SPEC file path (absolute)', type: 'text', placeholder: '/home/me/project/SPEC.md' },
+        { name: 'task', label: 'OR paste task text directly', type: 'textarea', rows: 6 },
+        { name: 'context', label: 'Extra context (optional)', type: 'text' },
+        { name: 'projectDir', label: 'Project directory (optional)', type: 'text' },
+      ],
+    },
+    clean: {
+      label: '🧹 kj clean',
+      help: 'Garbage-collect plans / sessions / batches. --nuke wipes everything including the board DB.',
+      fields: [
+        { name: 'dryRun', label: '--dry-run (just report)', type: 'checkbox' },
+        { name: 'nuke', label: '⚠ --nuke (delete everything, including this board\'s DB)', type: 'checkbox' },
+      ],
+    },
+  };
+
+  let active = 'plan';
+  const renderForm = () => {
+    const s = SCHEMAS[active];
+    const fields = s.fields.map((f) => {
+      const id = `cmd-field-${f.name}`;
+      if (f.type === 'textarea') {
+        return `
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:0.85rem">
+            <span style="color:var(--text-muted)">${esc(f.label)}</span>
+            <textarea id="${id}" rows="${f.rows || 4}" placeholder="${esc(f.placeholder || '')}"
+                      style="padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;line-height:1.45;resize:vertical"></textarea>
+          </label>`;
+      }
+      if (f.type === 'checkbox') {
+        return `
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem">
+            <input type="checkbox" id="${id}">
+            <span>${esc(f.label)}</span>
+          </label>`;
+      }
+      return `
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.85rem">
+          <span style="color:var(--text-muted)">${esc(f.label)}</span>
+          <input type="text" id="${id}" placeholder="${esc(f.placeholder || '')}"
+                 style="padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);font-size:0.9rem">
+        </label>`;
+    }).join('');
+
+    dlg.innerHTML = `
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span>⚡ Run a Karajan command</span>
+        <button id="cmd-close" type="button" class="control-btn"
+                style="padding:4px 10px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
+          ✕
+        </button>
+      </div>
+      <div style="padding:12px 18px;display:flex;gap:8px;border-bottom:1px solid var(--border)">
+        ${Object.entries(SCHEMAS).map(([key, s]) => `
+          <button type="button" data-cmd="${key}"
+                  style="padding:6px 12px;border:1px solid var(--border);
+                         background:${key === active ? 'var(--color-green)' : 'var(--bg-primary)'};
+                         color:${key === active ? '#fff' : 'var(--text)'};
+                         border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem;font-weight:${key === active ? '600' : '400'}">
+            ${esc(s.label)}
+          </button>
+        `).join('')}
+      </div>
+      <form id="cmd-form" onsubmit="return false"
+            style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;min-width:540px;max-width:80vw">
+        <div style="font-size:0.8rem;color:var(--text-muted)">${esc(SCHEMAS[active].help)}</div>
+        ${fields}
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <button type="button" id="cmd-cancel" class="control-btn"
+                  style="padding:6px 14px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
+            Cancel
+          </button>
+          <button type="button" id="cmd-submit" class="control-btn"
+                  style="padding:6px 14px;border:none;background:var(--color-green);color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600">
+            Run
+          </button>
+        </div>
+      </form>
+    `;
+
+    dlg.querySelectorAll('[data-cmd]').forEach((btn) => {
+      btn.addEventListener('click', () => { active = btn.dataset.cmd; renderForm(); });
+    });
+    dlg.querySelector('#cmd-close').addEventListener('click', () => dlg.close());
+    dlg.querySelector('#cmd-cancel').addEventListener('click', () => dlg.close());
+    dlg.querySelector('#cmd-submit').addEventListener('click', () => submitCommand(active));
+  };
+
+  async function submitCommand(command) {
+    const s = SCHEMAS[command];
+    const body = {};
+    for (const f of s.fields) {
+      const el = document.getElementById(`cmd-field-${f.name}`);
+      if (!el) continue;
+      if (f.type === 'checkbox') body[f.name] = el.checked;
+      else {
+        const v = (el.value || '').trim();
+        if (v) body[f.name] = v;
+      }
+    }
+    // plan / architect: at least one of taskFile or task is required.
+    if ((command === 'plan' || command === 'architect') && !body.taskFile && !body.task) {
+      await showError('Provide either a SPEC file path or paste the task text.', { title: 'Missing input' });
+      return;
+    }
+    if (command === 'clean' && body.nuke) {
+      const ok = await showConfirm(
+        '`kj clean --nuke` will delete EVERY plan / session / batch + wipe the HU Board DB. Cannot be undone.',
+        { title: 'Confirm --nuke', okLabel: 'Wipe everything', destructive: true }
+      );
+      if (!ok) return;
+    }
+
+    let res, payload;
+    try {
+      res = await fetch(`/api/commands/${encodeURIComponent(command)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      payload = await res.json().catch(() => ({}));
+    } catch (err) {
+      await showError(err.message, { title: 'Could not launch command' });
+      return;
+    }
+    if (!res.ok) {
+      await showError(payload.error || `HTTP ${res.status}`, { title: 'Command rejected' });
+      return;
+    }
+
+    dlg.close();
+    if (payload.commandId) openCommandLogViewer(command, payload.commandId);
+  }
+
+  renderForm();
+  dlg.showModal();
+}
+
+/**
+ * Open the run-log panel pointed at a /api/runs/<commandId>/log
+ * tail. Reuses the same panel UI as openLogViewer() for plans —
+ * just swaps the URL it polls.
+ */
+function openCommandLogViewer(commandLabel, commandId) {
+  // We piggyback on openLogViewer by faking a planId-shaped argument.
+  // Simpler than duplicating the whole panel; the only difference is
+  // the polled URL, which we hijack via fetch interception per call.
+  // Cleaner approach: extract a generic openLogViewer({ id, label,
+  // tailUrl }) helper. Done in this PR.
+  openGenericLogPanel({
+    id: commandId,
+    label: `kj ${commandLabel}`,
+    tailUrl: (offset) => `/api/runs/${encodeURIComponent(commandId)}/log?offset=${offset}`,
+  });
+}
+
 // ---- Initialization ----
 
 // Nav button clicks
@@ -2019,6 +2226,29 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
   } catch { /* ignore */ }
   btn.textContent = '🔄';
   btn.disabled = false;
+});
+
+// Commands button — opens the launcher modal so the user can run
+// `kj plan`, `kj architect`, `kj clean` (and more later) without
+// dropping to a terminal. Output streams to the existing log panel.
+document.getElementById('commands-btn').addEventListener('click', () => {
+  showCommandLauncher();
+});
+
+// Restart button — respawn the board server in place. The page's
+// EventSource auto-reconnects so the user sees a brief "connecting…"
+// blip and the board comes back live.
+document.getElementById('restart-btn').addEventListener('click', async () => {
+  const ok = await showConfirm(
+    'Restart the HU Board server now? The page will reconnect automatically.',
+    { title: 'Restart board', okLabel: 'Restart' }
+  );
+  if (!ok) return;
+  try {
+    await fetch('/api/board/restart', { method: 'POST' });
+  } catch { /* the server is going down; the catch is expected */ }
+  // Give the new server a beat to bind, then reload the page.
+  setTimeout(() => window.location.reload(), 1200);
 });
 
 // Delete project (cascade) — delegated handler on the dashboard grid

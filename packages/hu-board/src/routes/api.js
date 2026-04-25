@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn as spawnChild } from 'node:child_process';
 import {
   getDashboardStats,
   getProjects,
@@ -18,6 +19,7 @@ import {
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutations.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
+import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 
 const router = Router();
 
@@ -556,6 +558,115 @@ router.post('/projects/:id/run', (req, res) => {
     }
     const launched = results.filter((r) => r.ok).length;
     res.json({ launched, total: planIds.length, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/commands - List the kj commands the board can launch.
+ * The UI uses this to render the Actions panel without hardcoding
+ * the command list on the client.
+ */
+router.get('/commands', (_req, res) => {
+  res.json({ commands: listSupportedCommands() });
+});
+
+/**
+ * POST /api/commands/:command - Spawn a kj <command> as a detached
+ * child. Body fields depend on the command (see command-runner.js
+ * for the per-command input schema). Returns a commandId the client
+ * can pass to GET /api/runs/:commandId/log to tail the output.
+ *
+ * The board never executes free-form arg arrays — the command name
+ * must be in the whitelist and each command builds its argv from a
+ * typed schema. Anything outside that fails 400.
+ */
+router.post('/commands/:command', (req, res) => {
+  try {
+    const result = runKjCommand({ command: req.params.command, input: req.body || {} });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({
+      ok: true,
+      commandId: result.commandId,
+      pid: result.pid,
+      logPath: result.logPath,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/runs/:commandId/log - Generalisation of the per-plan log
+ * tail. The original `/api/plans/:planId/log` reads
+ * `<runsDir>/<planId>.log`; this one reads `<runsDir>/<commandId>.log`
+ * where `commandId` is what `/api/commands/:command` returned.
+ *
+ * Same offset semantics + 1 MiB cap as the plans endpoint.
+ */
+router.get('/runs/:commandId/log', (req, res) => {
+  try {
+    const runsDir = path.join(getKjHome(), 'hu-board-runs');
+    const logPath = path.join(runsDir, `${req.params.commandId}.log`);
+    if (!fs.existsSync(logPath)) {
+      return res.json({ exists: false, size: 0, content: '' });
+    }
+    const stat = fs.statSync(logPath);
+    const offset = Math.max(0, Math.min(stat.size, Number(req.query.offset) || 0));
+    const MAX_READ = 1024 * 1024;
+    const length = Math.min(MAX_READ, stat.size - offset);
+    let content = '';
+    if (length > 0) {
+      const fd = fs.openSync(logPath, 'r');
+      try {
+        const buf = Buffer.alloc(length);
+        fs.readSync(fd, buf, 0, length, offset);
+        content = buf.toString('utf-8');
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    res.json({ exists: true, size: stat.size, content });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/board/restart - Respawn the board server in place. The
+ * server can't truly restart itself (it'd kill its own process), so
+ * we use the detached-child + parent-exit pattern: spawn a copy with
+ * the same argv + cwd + env, unref it, ack the client, then exit
+ * after a 250 ms delay so the response actually flushes.
+ *
+ * The new server overwrites the PID file and bindes the same port
+ * (or the next free one if the old one hasn't released yet — handled
+ * by the existing find-available-port logic in startBoard).
+ *
+ * The browser tab's EventSource auto-reconnects, so the user sees a
+ * brief blip and the board comes back live.
+ */
+router.post('/board/restart', (_req, res) => {
+  // Tests / programmatic callers can short-circuit the actual self-
+  // exec via env so the suite doesn't have its node process killed
+  // mid-test by a misfire.
+  if (process.env.KJ_BOARD_RESTART_MODE === 'echo') {
+    return res.json({ ok: true, restartingInMs: 0, mode: 'echo' });
+  }
+  try {
+    res.json({ ok: true, restartingInMs: 250 });
+    setTimeout(() => {
+      try {
+        const child = spawnChild(
+          process.execPath,
+          process.argv.slice(1),
+          { cwd: process.cwd(), detached: true, stdio: 'ignore', env: process.env }
+        );
+        child.unref();
+      } catch { /* if respawn fails, the user can `kj board start` manually */ }
+      process.exit(0);
+    }, 250);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
