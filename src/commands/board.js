@@ -102,6 +102,12 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
     throw new Error("Failed to spawn HU Board server");
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
+  // Detach for real: `detached: true` only sets up the new session;
+  // without `unref()` the parent's event loop still holds a reference
+  // to the child handle and `kj board start` hangs at the prompt
+  // instead of returning. Pair this with stdio:"ignore" (already set)
+  // to ensure the parent isn't waiting on any of the child's pipes.
+  child.unref();
   return { ok: true, alreadyRunning: false, pid: child.pid, url: buildBoardUrl(port, projectSlug), port };
 }
 
