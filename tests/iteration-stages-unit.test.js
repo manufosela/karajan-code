@@ -211,6 +211,48 @@ describe("iteration-stages: runCoderStage", () => {
     ).rejects.toThrow(/coder failed/i);
   });
 
+  // PR F (v2.7.5): when flow-runner passes plan-aware context, runCoderStage
+  // must forward all four new fields to the role's execute() unchanged. This
+  // is the wiring contract — the role-side render path is covered by
+  // tests/coder-prompt-tests-first.test.js.
+  it("forwards adrs/specSection/reviewerFindings/huId to coder role.execute", async () => {
+    const executeMock = vi.fn(async () => ({ ok: true, result: { output: "done" }, summary: "ok" }));
+    const coderRoleInstance = { execute: executeMock };
+    const adrs = [{ id: "0001-x", markdown: "# 0001 — X\n\nBody.\n" }];
+    const reviewerFindings = { order_issues: [{ hus: ["hu_p001_002"], issue: "i", rationale: "r" }] };
+
+    await runCoderStage({
+      coderRoleInstance, coderRole, config: makeConfig(), logger, emitter, eventBase,
+      session: makeSession(), plannedTask: "do X", trackBudget, iteration: 1,
+      acceptanceTests: [{ type: "shell", content: "npx vitest run" }],
+      adrs, specSection: "5.3", reviewerFindings, huId: "hu_p001_002"
+    });
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    const call = executeMock.mock.calls[0][0];
+    expect(call.adrs).toBe(adrs);
+    expect(call.specSection).toBe("5.3");
+    expect(call.reviewerFindings).toBe(reviewerFindings);
+    expect(call.huId).toBe("hu_p001_002");
+    expect(call.acceptanceTests).toEqual([{ type: "shell", content: "npx vitest run" }]);
+  });
+
+  it("defaults the four PR F fields to null when caller omits them", async () => {
+    const executeMock = vi.fn(async () => ({ ok: true, result: { output: "done" }, summary: "ok" }));
+    const coderRoleInstance = { execute: executeMock };
+
+    await runCoderStage({
+      coderRoleInstance, coderRole, config: makeConfig(), logger, emitter, eventBase,
+      session: makeSession(), plannedTask: "do X", trackBudget, iteration: 1
+    });
+
+    const call = executeMock.mock.calls[0][0];
+    expect(call.adrs).toBeNull();
+    expect(call.specSection).toBeNull();
+    expect(call.reviewerFindings).toBeNull();
+    expect(call.huId).toBeNull();
+  });
+
   it("returns standby action on rate limit", async () => {
     const { detectRateLimit } = await import("../src/utils/rate-limit-detector.js");
     detectRateLimit.mockReturnValueOnce({ isRateLimit: true, cooldownMs: 60000, message: "rate limited" });
