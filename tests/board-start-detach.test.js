@@ -28,6 +28,24 @@ vi.mock("node:net", () => ({
     }),
   },
 }));
+// startBoard now HTTP-probes the configured port (`isBoardReachable`)
+// before spawning, as a fallback for stale/missing PID files. Stub
+// `node:http` so the probe immediately fails (i.e. "no board there"),
+// letting the spawn path proceed deterministically.
+vi.mock("node:http", () => {
+  return {
+    default: {
+      request: () => {
+        const handlers = {};
+        return {
+          on: (ev, cb) => { handlers[ev] = cb; },
+          end: () => { setImmediate(() => handlers.error?.(new Error("ECONNREFUSED"))); },
+          destroy: () => {},
+        };
+      },
+    },
+  };
+});
 
 let tmpHome;
 

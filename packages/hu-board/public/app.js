@@ -426,10 +426,10 @@ async function renderBoard() {
             ⚙ ${runningCount} running…
           </span>
         ` : ''}
-        ${lastLaunchedPlanId ? `
+        ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
                   style="${isRunning ? '' : 'margin-left:auto;'}padding:6px 12px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;"
-                  title="Tail the detached kj run log in a dialog">
+                  title="Re-open the log of the most recent run/command">
             📜 View log
           </button>
         ` : ''}
@@ -452,8 +452,12 @@ async function renderBoard() {
       });
     }
     const viewLogBtn = document.getElementById('view-log-btn');
-    if (viewLogBtn && lastLaunchedPlanId) {
-      viewLogBtn.addEventListener('click', () => openLogViewer(lastLaunchedPlanId));
+    if (viewLogBtn && lastOpenedLog) {
+      viewLogBtn.addEventListener('click', () => openGenericLogPanel({
+        id: lastOpenedLog.id,
+        label: lastOpenedLog.label,
+        tailUrl: lastOpenedLog.tailUrl,
+      }));
     }
   } catch (err) {
     app.innerHTML = `<div class="empty-state"><div class="empty-state__title">Error loading board</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
@@ -859,6 +863,13 @@ function renderEmptyState(title, text) {
 // through plan ids.
 let lastLaunchedPlanId = null;
 
+// Generalised across plan runs AND ⚡ launcher commands: the ▶ Run
+// plan button populates this with the run's logPath, and the
+// command launcher does the same with its own commandId. The 📜
+// View log button in the section header reads from here so it
+// re-opens whichever was most recently launched.
+let lastOpenedLog = null;     // { id, label, tailUrl(offset) }
+
 async function runProject(projectId) {
   try {
     const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/run`, {
@@ -893,6 +904,11 @@ async function runProject(projectId) {
     const firstOk = (body.results || []).find((r) => r.ok);
     if (firstOk && firstOk.planId) {
       lastLaunchedPlanId = firstOk.planId;
+      lastOpenedLog = {
+        id: firstOk.planId,
+        label: 'Run log',
+        tailUrl: (offset) => `/api/plans/${encodeURIComponent(firstOk.planId)}/log?offset=${offset}`,
+      };
       // Open the log viewer straight away — the user's mental model is
       // "I clicked Run, I want to see what's happening", not "I clicked
       // Run, now where do I look".
@@ -2211,16 +2227,15 @@ async function showCommandLauncher() {
  * just swaps the URL it polls.
  */
 function openCommandLogViewer(commandLabel, commandId) {
-  // We piggyback on openLogViewer by faking a planId-shaped argument.
-  // Simpler than duplicating the whole panel; the only difference is
-  // the polled URL, which we hijack via fetch interception per call.
-  // Cleaner approach: extract a generic openLogViewer({ id, label,
-  // tailUrl }) helper. Done in this PR.
-  openGenericLogPanel({
+  const args = {
     id: commandId,
     label: `kj ${commandLabel}`,
     tailUrl: (offset) => `/api/runs/${encodeURIComponent(commandId)}/log?offset=${offset}`,
-  });
+  };
+  // Remember it so the section header's 📜 View log button can
+  // re-open this same log after the user closes the panel.
+  lastOpenedLog = args;
+  openGenericLogPanel(args);
 }
 
 // ---- Initialization ----

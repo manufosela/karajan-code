@@ -307,11 +307,18 @@ export async function nukeBoardDb(opts = {}) {
   const dryRun = Boolean(opts.dryRun);
   const kHome = getKarajanHome();
 
-  // Stop the board if we find a live pidfile.
+  // Stop the board if we find a live pidfile — UNLESS we're being
+  // invoked from inside the board itself (the user clicked ⚡ →
+  // `kj clean --nuke` in the launcher). In that case killing the
+  // board would kill the page they're looking at, mid-confirm.
+  // command-runner.js sets KJ_INSIDE_BOARD=1 on every spawn so we
+  // can detect this. The nuke still wipes the DB; the board picks
+  // up the empty DB on its next chokidar tick.
+  const insideBoard = process.env.KJ_INSIDE_BOARD === "1";
   const pidFile = path.join(kHome, "hu-board.pid");
   try {
     const pid = Number.parseInt(await fs.readFile(pidFile, "utf8"), 10);
-    if (!dryRun && Number.isFinite(pid)) {
+    if (!dryRun && Number.isFinite(pid) && !insideBoard) {
       try { process.kill(pid, 0); process.kill(pid, "SIGTERM"); } catch { /* already dead */ }
     }
   } catch { /* no pidfile */ }

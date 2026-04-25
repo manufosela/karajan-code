@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import net from "node:net";
 import { spawn } from "node:child_process";
@@ -23,6 +24,27 @@ function isProcessAlive(pid) {
   } catch { /* process does not exist */
     return false;
   }
+}
+
+/**
+ * HTTP-probe the board's /api/dashboard. Returns true when it
+ * responds with 2xx within ~750ms. Used as a fallback when the PID
+ * file is missing/stale to detect "board is up, just untracked".
+ */
+async function isBoardReachable(port, timeoutMs = 750) {
+  return new Promise((resolve) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/api/dashboard', method: 'GET', timeout: timeoutMs },
+      (res) => {
+        const ok = res.statusCode >= 200 && res.statusCode < 500;
+        res.resume();   // drain
+        resolve(ok);
+      }
+    );
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
 }
 
 /**
@@ -74,6 +96,21 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
       ok: true,
       alreadyRunning: true,
       pid: existingPid,
+      url: buildBoardUrl(desiredPort, projectSlug),
+    };
+  }
+
+  // Belt-and-suspenders (v2.7.5 fix): even if the PID file is missing
+  // or stale, HTTP-probe the configured port before spawning. If
+  // /api/dashboard responds, a board is already there — reuse it. The
+  // pre-fix scenario: 🔁 self-restart didn't update the PID file
+  // (now fixed), so a `kj plan` afterwards saw a stale PID, spawned
+  // a duplicate board on port 4001, and confused the user.
+  if (await isBoardReachable(desiredPort)) {
+    return {
+      ok: true,
+      alreadyRunning: true,
+      pid: existingPid || null,
       url: buildBoardUrl(desiredPort, projectSlug),
     };
   }
