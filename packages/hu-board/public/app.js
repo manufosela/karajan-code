@@ -910,69 +910,205 @@ async function runProject(projectId) {
 
 // ---- Run log viewer ----
 //
-// `kj run --plan` is spawned as a detached child on the server side;
-// stdout+stderr land in ~/.karajan/hu-board-runs/<planId>.log. The
-// browser polls GET /api/plans/:planId/log?offset=<last-seen-size>
-// every 2s and appends the delta into a <pre>. Polling stops when the
-// dialog closes.
+// `kj run --plan` is spawned as a detached child; output lands in
+// ~/.karajan/hu-board-runs/<planId>.log. The browser tails it via
+// GET /api/plans/:planId/log?offset=N and appends the delta.
+//
+// The viewer is a NON-modal floating panel anchored to the bottom-
+// right of the viewport — not a <dialog>, because:
+//   - We want the user to keep clicking around the board while the
+//     run is in progress (modal blocks that).
+//   - <dialog>.showModal() centered the panel on top of the kanban;
+//     when content overflowed (long log lines + min-width), the
+//     positioning broke and the panel landed in a corner.
+// Three window-style controls live in the header — minimize (collapses
+// to title bar only), maximize (fills viewport), close. Polling
+// keeps running while minimized so the kB counter stays live.
 
 let logPollTimer = null;
+let logViewerState = { planId: null, panel: null, offset: 0, isMax: false, isMin: false };
 
+// Map common ANSI SGR codes to inline CSS. Anything we don't know is
+// stripped silently (still removes the escape, just doesn't colour).
+// We render into a styled <pre> so newlines + spaces preserve.
+const ANSI_SGR = {
+  1: 'font-weight:bold',
+  2: 'opacity:0.65',
+  3: 'font-style:italic',
+  4: 'text-decoration:underline',
+  30: 'color:#1f2937', 31: 'color:#f87171', 32: 'color:#4ade80',
+  33: 'color:#fbbf24', 34: 'color:#60a5fa', 35: 'color:#c084fc',
+  36: 'color:#22d3ee', 37: 'color:#e5e7eb',
+  90: 'color:#9ca3af', 91: 'color:#fca5a5', 92: 'color:#86efac',
+  93: 'color:#fde68a', 94: 'color:#93c5fd', 95: 'color:#d8b4fe',
+  96: 'color:#67e8f9', 97: 'color:#f3f4f6',
+};
+
+/**
+ * Convert text containing ANSI SGR escapes (\x1b[…m) into HTML with
+ * inline-styled <span>s. HTML in the source is escaped first so the
+ * log can never inject markup. Unrecognised codes are dropped (their
+ * escape sequence removed but no styling applied).
+ */
+function ansiToHtml(text) {
+  const escaped = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  let out = '';
+  let openSpans = 0;
+  let i = 0;
+  while (i < escaped.length) {
+    const escIdx = escaped.indexOf('[', i);
+    if (escIdx === -1) { out += escaped.slice(i); break; }
+    out += escaped.slice(i, escIdx);
+    const endIdx = escaped.indexOf('m', escIdx + 2);
+    if (endIdx === -1) { out += escaped.slice(escIdx); break; }
+    const codes = escaped.slice(escIdx + 2, endIdx).split(';').map((n) => Number(n) || 0);
+    for (const code of codes) {
+      if (code === 0) {
+        while (openSpans > 0) { out += '</span>'; openSpans -= 1; }
+      } else if (ANSI_SGR[code]) {
+        out += `<span style="${ANSI_SGR[code]}">`;
+        openSpans += 1;
+      }
+    }
+    i = endIdx + 1;
+  }
+  while (openSpans > 0) { out += '</span>'; openSpans -= 1; }
+  return out;
+}
+
+/**
+ * Open (or refocus) the run-log panel for the given plan. If a panel
+ * is already up for the same planId, just bring it to the front; if
+ * for a different one, swap content + reset offset.
+ */
 function openLogViewer(planId) {
+  // Tearing down the previous panel cleanly avoids two timers running
+  // when the user clicks "Run plan" twice quickly.
   if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
+  if (logViewerState.panel && logViewerState.panel.parentNode) {
+    logViewerState.panel.remove();
+  }
 
-  const dlg = ensureDialog();
-  dlg.innerHTML = `
-    <div style="padding:12px 18px;border-bottom:1px solid var(--border);
-                display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <div style="font-weight:600">
-        Run log
-        <span style="font-family:var(--font-mono, monospace);font-size:0.8rem;
-                     color:var(--text-muted);margin-left:8px">${esc(planId)}</span>
+  const panel = document.createElement('section');
+  panel.id = 'kj-log-panel';
+  panel.dataset.state = 'normal';
+  panel.style.cssText = [
+    'position:fixed',
+    'right:16px',
+    'bottom:16px',
+    'width:min(720px, calc(100vw - 32px))',
+    'height:min(420px, calc(100vh - 80px))',
+    'display:flex',
+    'flex-direction:column',
+    'border:1px solid var(--border)',
+    'border-radius:var(--radius-sm)',
+    'background:var(--bg-secondary)',
+    'box-shadow:0 12px 40px rgba(0,0,0,0.45)',
+    'z-index:9999',
+    'overflow:hidden',
+  ].join(';');
+
+  panel.innerHTML = `
+    <header style="display:flex;align-items:center;justify-content:space-between;
+                   padding:8px 12px;background:var(--bg-primary);
+                   border-bottom:1px solid var(--border);
+                   user-select:none;flex-shrink:0">
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+        <strong style="color:var(--text)">Run log</strong>
+        <span style="font-family:var(--font-mono, monospace);font-size:0.78rem;
+                     color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;
+                     white-space:nowrap">${esc(planId)}</span>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span id="log-status" style="font-size:0.75rem;color:var(--text-muted)">connecting…</span>
-        <button id="log-close" class="control-btn"
-                style="padding:4px 12px;border:1px solid var(--border);
-                       background:var(--bg-primary);color:var(--text);
-                       border-radius:var(--radius-sm);cursor:pointer">
-          Close
-        </button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span id="log-status" style="font-size:0.75rem;color:var(--text-muted);margin-right:8px">connecting…</span>
+        <button id="log-min" type="button" title="Minimize (run keeps going)"
+                style="${winBtnStyle('#facc15')}">_</button>
+        <button id="log-max" type="button" title="Maximize / Restore"
+                style="${winBtnStyle('#34d399')}">▢</button>
+        <button id="log-close" type="button" title="Close panel — the run keeps going in the background. Re-open anytime via the “📜 View log” button on the board."
+                style="${winBtnStyle('#f87171')}">✕</button>
       </div>
-    </div>
+    </header>
     <pre id="log-body"
-         style="margin:0;padding:14px 18px;max-height:60vh;min-height:240px;
-                min-width:640px;max-width:80vw;overflow:auto;
+         style="margin:0;padding:12px 16px;flex:1 1 auto;overflow:auto;
                 font-family:var(--font-mono, monospace);font-size:0.8rem;
                 line-height:1.45;background:#0b0b0c;color:#e6e6e6;
                 white-space:pre-wrap;word-break:break-word"></pre>
-    <div style="padding:10px 18px;border-top:1px solid var(--border);
-                font-size:0.75rem;color:var(--text-muted)">
-      The run keeps going in the background even if you close this. Re-open anytime.
-    </div>
+    <footer style="padding:6px 12px;border-top:1px solid var(--border);
+                   font-size:0.7rem;color:var(--text-muted);flex-shrink:0">
+      Closing this panel does NOT stop the run. It keeps going in the background;
+      reopen with the 📜 View log button on the board.
+    </footer>
   `;
 
-  let offset = 0;
-  const bodyEl = dlg.querySelector('#log-body');
-  const statusEl = dlg.querySelector('#log-status');
+  document.body.appendChild(panel);
+  logViewerState = { planId, panel, offset: 0, isMax: false, isMin: false };
 
-  const stopPolling = () => {
+  const bodyEl = panel.querySelector('#log-body');
+  const statusEl = panel.querySelector('#log-status');
+  const footerEl = panel.querySelector('footer');
+  const minBtn = panel.querySelector('#log-min');
+  const maxBtn = panel.querySelector('#log-max');
+  const closeBtn = panel.querySelector('#log-close');
+
+  // ---- Window controls ----
+  closeBtn.addEventListener('click', () => {
     if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
-  };
-  const cleanup = () => {
-    stopPolling();
-    dlg.removeEventListener('close', cleanup);
-  };
-
-  dlg.querySelector('#log-close').addEventListener('click', () => {
-    cleanup();
-    if (dlg.open) dlg.close();
+    panel.remove();
+    logViewerState = { planId: null, panel: null, offset: 0, isMax: false, isMin: false };
   });
-  dlg.addEventListener('close', cleanup);
 
+  minBtn.addEventListener('click', () => {
+    logViewerState.isMin = !logViewerState.isMin;
+    if (logViewerState.isMin) {
+      // Collapse to header-only pill anchored at bottom-right. Polling
+      // continues so the kB counter stays live; click min again to expand.
+      panel.style.height = 'auto';
+      panel.style.width = 'auto';
+      bodyEl.style.display = 'none';
+      footerEl.style.display = 'none';
+      panel.dataset.state = 'min';
+    } else {
+      panel.style.height = logViewerState.isMax ? 'calc(100vh - 32px)' : 'min(420px, calc(100vh - 80px))';
+      panel.style.width = logViewerState.isMax ? 'calc(100vw - 32px)' : 'min(720px, calc(100vw - 32px))';
+      bodyEl.style.display = '';
+      footerEl.style.display = '';
+      panel.dataset.state = logViewerState.isMax ? 'max' : 'normal';
+    }
+  });
+
+  maxBtn.addEventListener('click', () => {
+    logViewerState.isMin = false;
+    logViewerState.isMax = !logViewerState.isMax;
+    bodyEl.style.display = '';
+    footerEl.style.display = '';
+    if (logViewerState.isMax) {
+      panel.style.top = '16px';
+      panel.style.left = '16px';
+      panel.style.right = '16px';
+      panel.style.bottom = '16px';
+      panel.style.width = 'auto';
+      panel.style.height = 'auto';
+      panel.dataset.state = 'max';
+    } else {
+      panel.style.top = '';
+      panel.style.left = '';
+      panel.style.right = '16px';
+      panel.style.bottom = '16px';
+      panel.style.width = 'min(720px, calc(100vw - 32px))';
+      panel.style.height = 'min(420px, calc(100vh - 80px))';
+      panel.dataset.state = 'normal';
+    }
+  });
+
+  // ---- Tail loop ----
   async function tick() {
+    if (!logViewerState.panel) return;        // user closed
     try {
-      const res = await fetch(`/api/plans/${encodeURIComponent(planId)}/log?offset=${offset}`);
+      const res = await fetch(`/api/plans/${encodeURIComponent(planId)}/log?offset=${logViewerState.offset}`);
       if (!res.ok) {
         statusEl.textContent = `error: HTTP ${res.status}`;
         logPollTimer = setTimeout(tick, 4000);
@@ -983,14 +1119,15 @@ function openLogViewer(planId) {
         statusEl.textContent = 'waiting for run to start…';
       } else {
         if (body.content) {
-          // Auto-scroll if the user was already at the bottom before
-          // this append; otherwise keep their scroll position so they
-          // can read older lines without fighting the tail.
+          // Append rendered HTML so ANSI escape codes show as colour
+          // instead of literal `[1m…[0m` noise (the user's complaint).
+          // Auto-scroll only when the user was already at the bottom,
+          // so manual scrollback doesn't fight the tail.
           const atBottom = bodyEl.scrollTop + bodyEl.clientHeight >= bodyEl.scrollHeight - 8;
-          bodyEl.textContent += body.content;
+          bodyEl.insertAdjacentHTML('beforeend', ansiToHtml(body.content));
           if (atBottom) bodyEl.scrollTop = bodyEl.scrollHeight;
         }
-        offset = body.size;
+        logViewerState.offset = body.size;
         statusEl.textContent = `${(body.size / 1024).toFixed(1)} KB — live`;
       }
     } catch (err) {
@@ -999,8 +1136,27 @@ function openLogViewer(planId) {
     logPollTimer = setTimeout(tick, 2000);
   }
 
-  dlg.showModal();
   tick();
+}
+
+/** Inline style for the three window-control buttons in the log panel. */
+function winBtnStyle(accentColor) {
+  return [
+    'width:22px',
+    'height:22px',
+    'padding:0',
+    'border:1px solid var(--border)',
+    `background:${accentColor}`,
+    'color:#0b0b0c',
+    'font-weight:700',
+    'font-size:0.78rem',
+    'line-height:20px',
+    'border-radius:50%',
+    'cursor:pointer',
+    'display:inline-flex',
+    'align-items:center',
+    'justify-content:center',
+  ].join(';');
 }
 
 // ---- Detail Modals ----
