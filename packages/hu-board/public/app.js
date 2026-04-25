@@ -2090,9 +2090,28 @@ function subscribeToServerEvents() {
   if (sseSource) sseSource.close();
   sseSource = new EventSource('/api/events');
   sseSource.addEventListener('message', (e) => {
-    // Debounce burst updates — chokidar fires fast on a single
-    // plan JSON rewrite (plan.hus → stories → plan again). We
-    // don't need to patch the DOM ten times in 20ms.
+    // Try to parse the event as a typed payload. Prompt events drive
+    // the prompt modal; everything else just nudges a re-render.
+    let payload;
+    try { payload = JSON.parse(e.data); } catch { payload = null; }
+
+    if (payload?.type === 'prompt' && payload.promptId) {
+      // A non-interactive runner is asking for input — pop the modal
+      // immediately. fetch the full prompt body from the API so we
+      // don't depend on the SSE event carrying every field.
+      fetch(`/api/prompts`).then(r => r.ok ? r.json() : []).then((list) => {
+        const match = list.find((p) => p.promptId === payload.promptId);
+        if (match) showPromptModal(match);
+      }).catch(() => {});
+      return;
+    }
+    if (payload?.type === 'prompt-resolved' && payload.promptId) {
+      // Runner read its answer file — close the modal if it's still open.
+      closePromptModalIfMatches(payload.promptId);
+      return;
+    }
+
+    // Default: data changed somewhere; nudge the current view.
     if (sseRefreshTimer) clearTimeout(sseRefreshTimer);
     sseRefreshTimer = setTimeout(() => refreshCurrentView(e.data), 150);
   });
@@ -2100,6 +2119,109 @@ function subscribeToServerEvents() {
     // EventSource handles reconnection. Nothing to do; browsers retry
     // the `retry:` value we sent on open.
   });
+
+  // On boot, also fetch any prompts that were already pending before
+  // this tab connected (we missed their SSE add-event).
+  fetch('/api/prompts').then((r) => r.ok ? r.json() : []).then((list) => {
+    for (const p of list) showPromptModal(p);
+  }).catch(() => {});
+}
+
+// ---- Prompt modal ----
+//
+// The runner publishes a prompt JSON file when it needs an answer
+// (Solomon escalations, max-iterations decisions, anything wired to
+// askQuestion) and there's no TTY to ask through. The board surfaces
+// the prompt as a modal dialog with a text input. When the user
+// answers, we POST back; the runner sees the answer file and
+// resolves.
+
+let activePromptId = null;
+
+function showPromptModal(prompt) {
+  if (!prompt?.promptId) return;
+  if (activePromptId === prompt.promptId) return;
+  activePromptId = prompt.promptId;
+  const dlg = ensureDialog();
+  const ctxBlock = prompt.context
+    ? `<details style="margin-top:8px">
+         <summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem">Context</summary>
+         <pre style="white-space:pre-wrap;font-size:0.78rem;background:var(--bg-primary);padding:8px;border-radius:var(--radius-sm);overflow:auto;max-height:240px">${esc(JSON.stringify(prompt.context, null, 2))}</pre>
+       </details>`
+    : '';
+  dlg.innerHTML = `
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px">
+      <span>❓ Karajan needs an answer</span>
+      ${prompt.sessionId ? `<span style="font-family:var(--font-mono, monospace);font-size:0.75rem;color:var(--text-muted)">${esc(prompt.sessionId)}</span>` : ''}
+    </div>
+    <div style="padding:14px 18px">
+      <div style="white-space:pre-wrap;font-size:0.95rem;line-height:1.55">${esc(prompt.question)}</div>
+      ${ctxBlock}
+      <textarea id="prompt-answer" rows="3"
+                placeholder="Type your answer (or 'stop' to abort the run)"
+                style="margin-top:12px;width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;line-height:1.5;resize:vertical;box-sizing:border-box"></textarea>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--border);gap:8px">
+      <span style="font-size:0.75rem;color:var(--text-muted)">
+        The runner is blocked waiting for this answer. Closing the dialog without answering aborts the prompt (run stops).
+      </span>
+      <div style="display:flex;gap:8px">
+        <button id="prompt-stop" type="button" class="control-btn"
+                style="padding:6px 14px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer">
+          Stop
+        </button>
+        <button id="prompt-send" type="button" class="control-btn"
+                style="padding:6px 14px;border:none;background:var(--color-green);color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600">
+          Send
+        </button>
+      </div>
+    </div>
+  `;
+
+  const send = async (rawAnswer) => {
+    const answer = String(rawAnswer ?? '');
+    try {
+      await fetch(`/api/prompts/${encodeURIComponent(prompt.promptId)}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer }),
+      });
+    } catch (err) {
+      await showError(`Could not deliver answer: ${err.message}`, { title: 'Prompt delivery failed' });
+      return;
+    }
+    activePromptId = null;
+    if (dlg.open) dlg.close();
+  };
+
+  dlg.querySelector('#prompt-send').addEventListener('click', () => {
+    send(dlg.querySelector('#prompt-answer').value.trim());
+  });
+  dlg.querySelector('#prompt-stop').addEventListener('click', () => send('stop'));
+
+  // Esc / backdrop click also count as Stop so the user can't accidentally
+  // leave the runner blocked.
+  dlg.addEventListener('close', () => {
+    if (activePromptId === prompt.promptId) {
+      activePromptId = null;
+      // Best-effort stop; ignore errors if the runner already moved on.
+      fetch(`/api/prompts/${encodeURIComponent(prompt.promptId)}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: 'stop' }),
+      }).catch(() => {});
+    }
+  }, { once: true });
+
+  dlg.showModal();
+  setTimeout(() => dlg.querySelector('#prompt-answer')?.focus(), 50);
+}
+
+function closePromptModalIfMatches(promptId) {
+  if (activePromptId !== promptId) return;
+  activePromptId = null;
+  const dlg = document.getElementById('app-dialog');
+  if (dlg && dlg.open) dlg.close();
 }
 
 /**

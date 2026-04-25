@@ -348,6 +348,70 @@ router.post('/projects/:id/ready', (req, res) => {
 });
 
 /**
+ * Resolve the prompts directory the runner writes RPC packets to.
+ * Same convention as src/utils/board-prompt-bridge.js on the runner.
+ */
+function promptsDir() {
+  return path.join(getKjHome(), 'prompts');
+}
+
+/**
+ * GET /api/prompts - List currently pending prompts. The runner is
+ * blocked on each one waiting for an answer; the board reads this on
+ * boot to surface modals for prompts that were already pending when
+ * the page loaded (the SSE event fires only on new arrivals).
+ */
+router.get('/prompts', (_req, res) => {
+  try {
+    const dir = promptsDir();
+    if (!fs.existsSync(dir)) return res.json([]);
+    const entries = fs.readdirSync(dir);
+    const result = [];
+    for (const name of entries) {
+      if (!name.endsWith('.json') || name.endsWith('.answer.json')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(dir, name), 'utf-8');
+        result.push(JSON.parse(raw));
+      } catch { /* malformed — skip */ }
+    }
+    result.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/prompts/:promptId/answer - Body { answer }. Writes a
+ * sibling .answer.json the runner is polling for. The runner reads
+ * it, deletes both files, and resolves askQuestion. An answer of
+ * "stop" tells the runner to abort the session.
+ */
+router.post('/prompts/:promptId/answer', (req, res) => {
+  try {
+    const { answer } = req.body || {};
+    if (typeof answer !== 'string') {
+      return res.status(400).json({ error: 'Body must contain an "answer" string' });
+    }
+    const dir = promptsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const promptPath = path.join(dir, `${req.params.promptId}.json`);
+    if (!fs.existsSync(promptPath)) {
+      return res.status(404).json({ error: `Prompt not found: ${req.params.promptId}` });
+    }
+    const answerPath = path.join(dir, `${req.params.promptId}.answer.json`);
+    fs.writeFileSync(
+      answerPath,
+      JSON.stringify({ answer, answeredAt: new Date().toISOString() }, null, 2),
+      'utf-8'
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/events - Server-Sent Events stream for live board updates.
  *
  * Replaces the old "sync → full page re-render" dance. The chokidar
