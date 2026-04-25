@@ -293,6 +293,7 @@ plan
   // focused synthesizer pass to fill them in. Disable with these
   // flags only if you explicitly want a fast / sketch plan.
   .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
+  .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
   .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
@@ -300,7 +301,11 @@ plan
       const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
       await planGenerateCommand({
         task: resolvedTask, config, logger, json: flags.json, context: flags.context,
-        flags: { noTestsSynth: flags.testsSynth === false, quick: Boolean(flags.quick) },
+        flags: {
+          noTestsSynth: flags.testsSynth === false,
+          noPlanReview: flags.planReview === false,
+          quick: Boolean(flags.quick),
+        },
       });
     });
   });
