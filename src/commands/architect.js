@@ -91,6 +91,28 @@ export async function architectCommand({ task, config, logger, context, json }) 
     } else {
       console.log(result.output);
     }
+
+    // Persist ADRs from the architect's tradeoffs[] (v2.7.5). One ADR
+    // per tradeoff in Nygard format under `~/.kj/plans/_loose/adrs/`.
+    // Coder/reviewer in subsequent runs can pull the active ADRs into
+    // their prompt for context — done in a follow-up PR.
+    if (parsed?.architecture && config?.projectDir) {
+      try {
+        const { persistAdrsFromArchitecture } = await import("../plan/adr-generator.js");
+        const { adrs, paths } = await persistAdrsFromArchitecture({
+          projectDir: config.projectDir,
+          planId: null,                  // standalone architect → "_loose" bucket
+          architecture: parsed.architecture,
+        });
+        if (paths.length > 0) {
+          console.log(`\n${adrs.length} ADR${adrs.length === 1 ? "" : "s"} written:`);
+          for (const p of paths) console.log(`  - ${p}`);
+        }
+      } catch (err) {
+        logger.warn(`ADR write skipped: ${err.message}`);
+      }
+    }
+
     logger.info("Architect completed.");
     return { ok: true };
   });
