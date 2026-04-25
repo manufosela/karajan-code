@@ -87,6 +87,24 @@ export async function sonarUp(hostOverride = null) {
     };
   }
 
+  // Discover-before-spawn (v2.7.5): if there's already a SonarQube
+  // container running anywhere — even under a different name on a
+  // different port — reuse it instead of spinning up a second one.
+  // Avoids the user accidentally accumulating Sonar containers across
+  // projects, and matches what the port preflight check already does.
+  const { discoverRunningSonar } = await import("./discovery.js");
+  const discovered = await discoverRunningSonar({
+    healthcheckSeconds: sonarConfig.timeouts.healthcheckSeconds,
+  });
+  if (discovered.found && discovered.reachable) {
+    return {
+      exitCode: 0,
+      stdout: `Reusing existing SonarQube container "${discovered.containerName}" at ${discovered.host} (skipping container start).`,
+      stderr: "",
+      reusedHost: discovered.host,
+    };
+  }
+
   const compose = await ensureComposeFile(config.sonarqube);
   return runCommand("docker", ["compose", "-f", compose, "up", "-d"], { timeout: sonarConfig.timeouts.composeUpMs });
 }

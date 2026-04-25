@@ -12,6 +12,8 @@
 
 import { isPortAvailable, findAvailablePort } from "../utils/port-check.js";
 import { getPortOccupant } from "../utils/port-occupant.js";
+import { discoverRunningSonar } from "../sonar/discovery.js";
+import { isSonarReachable } from "../sonar/manager.js";
 import { STRATEGY } from "./types.js";
 
 const DEFAULT_SONAR_PORT = 9000;
@@ -37,43 +39,106 @@ export function createSonarPortCheck() {
   return {
     name: "port:sonar",
     label: "SonarQube port",
-    strategy: STRATEGY.MANUAL,
-    // Since v2.7.4 Sonar is intrinsic to Karajan for code tasks, so the
-    // port check almost always applies. The only legitimate skip is when
-    // the user runs their own external Sonar instance (`external: true`),
-    // in which case the port is managed outside Karajan. The legacy
-    // `sonarqube.enabled` field is ignored (deprecation warning emitted
-    // at config load time — see emitConfigDeprecations in flow-runner.js).
+    // AUTO since v2.7.5 — Karajan now resolves SonarQube discovery on
+    // its own. If a Sonar container is running anywhere (any name, any
+    // image tag), point Karajan at it. If port 9000 is occupied by
+    // someone non-Sonar, rebind to the next free port. Asking the user
+    // to "stop the unknown process" was busywork.
+    strategy: STRATEGY.AUTO,
     applies: (config) => {
       if (config?.sonarqube?.external === true) {
         return { applies: false, reason: "sonarqube.external is true — port managed outside Karajan" };
       }
       return true;
     },
+    describe: "Discover or rebind SonarQube port (no user action needed)",
     async detect({ config }) {
-      const port = extractPortFromHost(config?.sonarqube?.host, DEFAULT_SONAR_PORT);
-      const free = await isPortAvailable(port);
-      if (free) {
-        return { ok: true, severity: "info", detail: `Port ${port} is free (Sonar container not yet running)` };
+      const configuredPort = extractPortFromHost(config?.sonarqube?.host, DEFAULT_SONAR_PORT);
+
+      // Step 1 — is there ANY running SonarQube container we can reuse?
+      // Container name doesn't matter; we just need a published host port
+      // that responds to /api/system/status. This avoids "port 9000 is
+      // taken by an unknown process" errors when the unknown process is
+      // actually a perfectly good SonarQube from another project.
+      const discovered = await discoverRunningSonar();
+      if (discovered.found && discovered.reachable) {
+        // If the discovered host matches what's already configured,
+        // there's nothing to fix — happy path.
+        if (discovered.port === configuredPort) {
+          return {
+            ok: true,
+            severity: "info",
+            detail: `Reusing running SonarQube container "${discovered.containerName}" on port ${discovered.port}`,
+          };
+        }
+        // Otherwise we want to rewrite the host config at runtime.
+        return {
+          ok: false,
+          severity: "warn",
+          detail: `Found running SonarQube container "${discovered.containerName}" on port ${discovered.port} (config points at ${configuredPort})`,
+          extra: { remap: { host: discovered.host, port: discovered.port, container: discovered.containerName } },
+        };
       }
-      // Busy — is it our container?
-      const occupant = await getPortOccupant(port);
-      if (occupant && isKarajanSonarOccupant(occupant)) {
+
+      // Step 2 — no running container. Is the configured port even free?
+      const free = await isPortAvailable(configuredPort);
+      if (free) {
         return {
           ok: true,
           severity: "info",
-          detail: `Port ${port} held by Karajan-managed Sonar (${occupant.command} PID ${occupant.pid})`,
+          detail: `Port ${configuredPort} is free (Sonar container will be started on demand)`,
         };
       }
-      const who = occupant
-        ? `${occupant.command || "unknown"} (PID ${occupant.pid ?? "?"})`
-        : "unknown process";
+
+      // Step 3 — port is busy. Maybe the occupant IS Sonar but not
+      // discovered by `docker ps` (rare: bare-metal Sonar, host-network
+      // container, etc.). HTTP-probe to find out.
+      const probeHost = `http://localhost:${configuredPort}`;
+      if (await isSonarReachable(probeHost)) {
+        return {
+          ok: true,
+          severity: "info",
+          detail: `Port ${configuredPort} held by a Sonar instance (HTTP /api/system/status responds) — reusing it`,
+        };
+      }
+
+      // Step 4 — really not Sonar. Find an alternate free port and tell
+      // the runtime to use it. The compose template's published port is
+      // hardcoded at 9000 so we can't auto-rebind the container itself,
+      // but we CAN warn loudly with a clear, fixable message.
+      const occupant = await getPortOccupant(configuredPort);
+      const alt = await findAvailablePort(configuredPort + 1, 20);
+      if (alt) {
+        return {
+          ok: false,
+          severity: "warn",
+          detail: `Port ${configuredPort} occupied by ${occupant?.command || "unknown"} (PID ${occupant?.pid ?? "?"}). Will rebind Karajan-managed Sonar to ${alt}.`,
+          extra: { remap: { host: `http://localhost:${alt}`, port: alt, fromPort: configuredPort } },
+        };
+      }
+      // Last-resort failure (no free port in the next 20).
       return {
         ok: false,
         severity: "fail",
-        detail: `Port ${port} occupied by ${who}`,
-        fix: `Stop the process holding port ${port} or change sonarqube.host in kj.config.yml.`,
-        extra: { port, occupant },
+        detail: `Port ${configuredPort} occupied by ${occupant?.command || "unknown"} (PID ${occupant?.pid ?? "?"}) and no free port in ${configuredPort + 1}..${configuredPort + 20}`,
+        fix: "Stop the conflicting process or set sonarqube.host in kj.config.yml.",
+      };
+    },
+    async remediate({ extra }) {
+      if (!extra?.remap) {
+        return { fixed: false, detail: "No remap available" };
+      }
+      const { host, container, fromPort } = extra.remap;
+      const detail = container
+        ? `Pointed Karajan at running SonarQube ${container} (${host})`
+        : `Rebound Karajan-managed Sonar from port ${fromPort} to ${host}`;
+      return {
+        fixed: true,
+        detail,
+        // The runner merges this into the runtime config so every
+        // downstream Sonar caller (scanner, manager, MCP handler) sees
+        // the new host without the user touching kj.config.yml.
+        changes: { sonarqube: { host } },
       };
     },
   };

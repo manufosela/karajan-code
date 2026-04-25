@@ -102,18 +102,40 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
       expect(result.stdout).toContain("already reachable");
     });
 
-    it("starts container when SonarQube is not reachable", async () => {
+    it("starts container when SonarQube is not reachable AND no existing sonar container is discovered", async () => {
       runCommand
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "" })  // isSonarReachable
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "" })  // isSonarReachable curl → not OK
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // discoverRunningSonar `docker ps` → empty
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });  // docker compose up
 
       const { sonarUp } = await import("../src/sonar/manager.js");
       const result = await sonarUp("http://localhost:9000");
 
       expect(result.exitCode).toBe(0);
-      const dockerCall = runCommand.mock.calls[1];
-      expect(dockerCall[0]).toBe("docker");
-      expect(dockerCall[1]).toContain("up");
+      // Find the docker compose up call (last runCommand call now).
+      const composeUpCall = runCommand.mock.calls.find((c) => c[1].includes("up"));
+      expect(composeUpCall).toBeDefined();
+      expect(composeUpCall[0]).toBe("docker");
+    });
+
+    it("reuses an already-running sonar container instead of spinning up a second one", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "" })  // isSonarReachable curl → not OK on configured host
+        .mockResolvedValueOnce({                              // discoverRunningSonar `docker ps`
+          exitCode: 0,
+          stdout: "abc|some-other-sonar|sonarqube:community|0.0.0.0:9015->9000/tcp",
+        })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "200" });  // discovery's HTTP probe → OK
+
+      const { sonarUp } = await import("../src/sonar/manager.js");
+      const result = await sonarUp("http://localhost:9000");
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/Reusing existing SonarQube container/);
+      expect(result.reusedHost).toBe("http://localhost:9015");
+      // Crucially, no `docker compose up` was called.
+      const composeUp = runCommand.mock.calls.find((c) => c[1].includes("compose") && c[1].includes("up"));
+      expect(composeUp).toBeUndefined();
     });
   });
 
