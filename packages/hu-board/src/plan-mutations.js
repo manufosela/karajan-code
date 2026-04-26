@@ -204,7 +204,7 @@ export function markPlanReady({ planId, projectId }) {
  * @param {string} [args.taskOverride] - optional custom task string
  * @returns {{ ok: true, pid: number, logPath: string } | { ok: false, error: string }}
  */
-export function runPlan({ planId, projectId, taskOverride } = {}) {
+export function runPlan({ planId, projectId, taskOverride, huIds = null } = {}) {
   const filePath = findPlanFilePath(planId, projectId);
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
 
@@ -222,17 +222,37 @@ export function runPlan({ planId, projectId, taskOverride } = {}) {
     };
   }
 
+  // PR4: when huIds is set, validate they exist before spawning so
+  // we surface "unknown HU" as an HTTP 400 instead of letting the
+  // CLI fail mid-startup with a less obvious message.
+  let huFlag = null;
+  if (Array.isArray(huIds) && huIds.length > 0) {
+    const validIds = new Set(plan.hus.map((h) => h.id));
+    const unknown = huIds.filter((id) => !validIds.has(id));
+    if (unknown.length > 0) {
+      return { ok: false, error: `unknown HU id(s) in plan ${planId}: ${unknown.join(', ')}` };
+    }
+    huFlag = huIds.join(',');
+  }
+
   const runsDir = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-board-runs');
   mkdirSync(runsDir, { recursive: true });
-  const logPath = join(runsDir, `${planId}.log`);
+  // PR4: when running a single HU, suffix the log with the HU id so
+  // a subsequent full-plan run doesn't overwrite the per-HU log.
+  const logName = huFlag
+    ? `${planId}--hu-${huIds.join('-').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)}.log`
+    : `${planId}.log`;
+  const logPath = join(runsDir, logName);
 
   const task = taskOverride || plan.task || `run plan ${planId}`;
-  const args = [KJ_CLI, 'run', '--plan', planId, task];
+  const args = [KJ_CLI, 'run', '--plan', planId];
+  if (huFlag) args.push('--hu', huFlag);
+  args.push(task);
 
   // Escape hatch for tests — hard-kill the spawn so vitest doesn't boot
   // the full orchestrator. The shape of the response is what we assert.
   if (process.env.KJ_RUN_SPAWN_MODE === 'echo') {
-    return { ok: true, pid: 0, logPath, argv: [process.execPath, ...args], projectDir };
+    return { ok: true, pid: 0, logPath, argv: [process.execPath, ...args], projectDir, huIds: huIds || null };
   }
 
   const out = openSync(logPath, 'a');
