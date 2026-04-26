@@ -842,9 +842,26 @@ function renderStoryCard(story) {
   // this on the card so the user edits the HU before trying to run.
   const missingTestContract = testCount === 0 && ['pending', 'certified'].includes(story.status);
 
+  // PR4: per-HU ▶ Run button. Visible when:
+  //   - the HU is certified or failed (re-run after fixing) AND
+  //   - it has at least one acceptance test (otherwise the run
+  //     would refuse) AND
+  //   - it isn't currently coding/reviewing.
+  const canRunHu = ['certified', 'failed', 'pending'].includes(story.status)
+    && testCount > 0
+    && !['coding', 'reviewing'].includes(story.status);
+
   return `
     <div class="story-card" data-story-id="${esc(story.id)}" data-status="${esc(story.status || 'pending')}" onclick="showStoryDetail('${esc(story.id)}')">
-      <div class="story-card__id" title="${esc(story.id)}">${esc(shortId)}</div>
+      <div class="story-card__id" title="${esc(story.id)}">
+        ${esc(shortId)}
+        ${canRunHu ? `
+          <button class="story-card__run-btn"
+                  style="float:right;padding:1px 6px;font-size:0.7rem;background:var(--color-green);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
+                  title="Lanzar solo esta HU"
+                  onclick="event.stopPropagation(); window.runSingleHuFromCard('${esc(story.id)}', '${esc(title.replace(/'/g, '&#39;'))}');">▶</button>
+        ` : ''}
+      </div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">
         ${acCount > 0 ? `<span title="${acCount} acceptance criteria">📋 ${acCount} AC${acCount === 1 ? '' : 's'}</span>` : ''}
@@ -1155,6 +1172,47 @@ async function confirmRunWithPreflight(projectId) {
     dlg.addEventListener('close', () => resolve(false), { once: true });
   });
 }
+/**
+ * PR4: launch a single HU from the per-card ▶ button. Confirms with
+ * the user (so an accidental click doesn't kick a run) and POSTs to
+ * the new /api/hus/:huId/run endpoint, which resolves the planId
+ * server-side from the SQLite row.
+ *
+ * Exposed on `window` because the inline onclick on the card calls it.
+ */
+window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
+  const friendlyTitle = (title || huId).replace(/&#39;/g, "'");
+  const ok = await showConfirm(
+    `¿Lanzar solo esta HU?\n\n${friendlyTitle}\n\nKarajan ejecutará únicamente esta HU; las demás del plan no se tocarán.`,
+    { title: 'Lanzar HU individual', okLabel: 'Lanzar', cancelLabel: 'Cancelar' }
+  );
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/hus/${encodeURIComponent(huId)}/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudo lanzar la HU' });
+      return;
+    }
+    const body = await res.json();
+    // Surface the log path so the user can tail it from the View log button.
+    if (body.logPath) {
+      lastOpenedLog = {
+        id: `hu-${huId}`,
+        label: `HU ${huId}`,
+        tailUrl: (offset) => `/api/runs/${encodeURIComponent(`hu-${huId}`)}/log?offset=${offset || 0}`,
+      };
+    }
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo al lanzar la HU' });
+  }
+};
 
 async function runProject(projectId) {
   try {

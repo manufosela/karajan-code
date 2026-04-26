@@ -328,6 +328,40 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
         // v2 plan with HUs → inject as huReviewer so sub-pipeline picks them up
         if (isPlanV2(loadedPlan) && loadedPlan.hus?.length > 0) {
           const huBatch = planToHuBatch(loadedPlan);
+          // PR4: --hu <ids> filters the batch to only the requested
+          // stories, marking the rest as already-done so the sub-
+          // pipeline skips them. The board's per-HU ▶ button uses
+          // this to re-run a single failed HU without restarting
+          // the whole plan.
+          if (huBatch.ok && flags.hu) {
+            const requested = String(flags.hu).split(",").map((s) => s.trim()).filter(Boolean);
+            if (requested.length === 0) {
+              logger.warn(`--hu was empty after parsing — falling back to running every certified HU`);
+            } else {
+              const requestedSet = new Set(requested);
+              const found = huBatch.stories.filter((s) => requestedSet.has(s.id));
+              const missing = requested.filter((id) => !huBatch.stories.some((s) => s.id === id));
+              if (missing.length > 0) {
+                logger.warn(`--hu: ignored ${missing.length} unknown HU id(s): ${missing.join(", ")}`);
+              }
+              if (found.length === 0) {
+                throw new Error(`--hu: none of the requested HU id(s) exist in plan ${flags.plan}: ${requested.join(", ")}`);
+              }
+              // Stories not in `requested` get status=done so the sub-
+              // pipeline filter (`status === certified`) skips them.
+              // We don't touch the plan JSON itself — this is a
+              // run-time filter only.
+              for (const story of huBatch.stories) {
+                if (!requestedSet.has(story.id)) story.status = "done";
+              }
+              huBatch.certified = found.length;
+              logger.info(`Plan ${flags.plan}: --hu filter active — ${found.length}/${huBatch.total} HU(s) will run (${found.map((s) => s.id).join(", ")})`);
+              emitProgress(emitter, makeEvent("plan:hu-filter", { ...eventBase, stage: "plan" }, {
+                message: `--hu filter: ${found.length} HU(s) selected, ${huBatch.total - found.length} skipped`,
+                detail: { planId: flags.plan, requested, ignored: missing, willRun: found.map((s) => s.id) }
+              }));
+            }
+          }
           if (huBatch.ok) {
             stageResults.huReviewer = huBatch;
             // Store plan reference so we can sync results back after execution

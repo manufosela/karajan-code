@@ -573,12 +573,63 @@ router.get('/plans/:planId/log', (req, res) => {
  */
 router.post('/plans/:planId/run', (req, res) => {
   try {
-    const { projectId, task } = req.body || {};
-    const result = runPlan({ planId: req.params.planId, projectId, taskOverride: task });
-    if (!result.ok) return res.status(404).json({ error: result.error });
+    const { projectId, task, huIds } = req.body || {};
+    // PR4: callers may pass `huIds: ["hu_x_001"]` to scope the run
+    // to a single HU (or comma-separated subset). When omitted, the
+    // whole plan runs as before.
+    const result = runPlan({
+      planId: req.params.planId,
+      projectId,
+      taskOverride: task,
+      huIds: Array.isArray(huIds) ? huIds : null,
+    });
+    if (!result.ok) {
+      // 404 for "plan not found" (preserves the contract the existing
+      // test asserts on), 400 for validation errors (unknown HU id,
+      // missing projectDir, etc.).
+      const code = /^plan not found/.test(result.error) ? 404 : 400;
+      return res.status(code).json({ error: result.error });
+    }
     res.json({
       launched: true,
       planId: req.params.planId,
+      pid: result.pid,
+      logPath: result.logPath,
+      huIds: Array.isArray(huIds) && huIds.length > 0 ? huIds : null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/hus/:huId/run — PR4: launch a single HU (or, when the
+ * caller passes additional ids in body.extraHuIds, a small bundle).
+ *
+ * The HU's plan is resolved from the SQLite stories table so the
+ * front doesn't have to know the planId — it only needs the story
+ * id from the card.
+ */
+router.post('/hus/:huId/run', (req, res) => {
+  try {
+    const huId = req.params.huId;
+    const row = getStoryRow(huId);
+    if (!row) return res.status(404).json({ error: `unknown HU: ${huId}` });
+    if (!row.plan_id) return res.status(400).json({ error: `HU ${huId} is not backed by a plan (legacy row)` });
+
+    // Story id on disk uses just the HU local id (hu_<plan>_NNN),
+    // not the "<projectId>::<huId>" composite the board persists.
+    // Strip the prefix back off before forwarding to runPlan.
+    const planLocalHuId = huId.includes('::') ? huId.split('::').pop() : huId;
+    const extraIds = Array.isArray(req.body?.extraHuIds) ? req.body.extraHuIds.map((x) => (x.includes('::') ? x.split('::').pop() : x)) : [];
+    const huIds = [planLocalHuId, ...extraIds];
+
+    const result = runPlan({ planId: row.plan_id, projectId: row.project_id, huIds });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({
+      launched: true,
+      planId: row.plan_id,
+      huIds,
       pid: result.pid,
       logPath: result.logPath,
     });

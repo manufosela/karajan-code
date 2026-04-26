@@ -102,6 +102,11 @@ program
   .option("--enable-discover")
   .option("--enable-architect")
   .option("--plan <planId>", "Plan ID from kj plan. Loads persisted plan context and skips researcher/architect/planner.")
+  // PR4: launch a single HU (or comma-separated list) instead of the
+  // entire plan. The board uses this for the per-HU ▶ button so the
+  // user can re-run only a failed HU without restarting the whole
+  // plan. Requires --plan to also be set.
+  .option("--hu <huIds>", "Comma-separated HU IDs to run. When set, the plan's other HUs are skipped. Requires --plan.")
   .option("--enable-hu-reviewer")
   .option("--hu-file <path>", "YAML file with HU stories to certify before coding")
   .option("--enable-serena")
