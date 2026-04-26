@@ -68,7 +68,15 @@ function buildHuTask(story) {
  * @param {object} params
  * @returns {Promise<{huId: string, approved: boolean, result?: object, error?: string, blockedDependents?: string[]}>}
  */
-async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath }) {
+async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null }) {
+  // PR1 (live HU status): every saveHuBatch should also notify the
+  // plan JSON so the board reflects state in real time. Defined as a
+  // local helper so we don't repeat the try/null-check boilerplate.
+  const notifyStatus = async (huId, status) => {
+    if (typeof onStatusChange !== "function") return;
+    try { await onStatusChange(huId, status); }
+    catch (err) { logger?.warn?.(`onStatusChange(${huId}, ${status}) failed: ${err.message}`); }
+  };
   const story = batch.stories.find(s => s.id === storyId);
 
   // --- Lazy refinement ---
@@ -114,6 +122,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
 
   updateStoryStatus(batch, story.id, HU_STATUS.CODING);
   await saveHuBatch(batchSessionId, batch);
+  await notifyStatus(story.id, HU_STATUS.CODING);
   emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
     message: `HU ${story.id} status → coding`,
     detail: { huId: story.id, status: HU_STATUS.CODING, timestamp: new Date().toISOString() }
@@ -126,6 +135,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     // --- Transition to reviewing (post-coder, pre-reviewer evaluation) ---
     updateStoryStatus(batch, story.id, HU_STATUS.REVIEWING);
     await saveHuBatch(batchSessionId, batch);
+    await notifyStatus(story.id, HU_STATUS.REVIEWING);
     emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
       message: `HU ${story.id} status → reviewing`,
       detail: { huId: story.id, status: HU_STATUS.REVIEWING, timestamp: new Date().toISOString() }
@@ -134,6 +144,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     if (approved) {
       updateStoryStatus(batch, story.id, HU_STATUS.DONE);
       await saveHuBatch(batchSessionId, batch);
+      await notifyStatus(story.id, HU_STATUS.DONE);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → done`,
         detail: { huId: story.id, status: HU_STATUS.DONE, timestamp: new Date().toISOString() }
@@ -147,6 +158,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     } else {
       updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
       await saveHuBatch(batchSessionId, batch);
+      await notifyStatus(story.id, HU_STATUS.FAILED);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → failed`,
         detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
@@ -161,6 +173,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
   } catch (err) {
     updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
     await saveHuBatch(batchSessionId, batch);
+    await notifyStatus(story.id, HU_STATUS.FAILED);
     emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
       message: `HU ${story.id} status → failed`,
       detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
@@ -187,7 +200,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
  * @param {object} params.logger - Logger instance
  * @returns {Promise<{approved: boolean, results: object[], blockedIds: string[]}>}
  */
-export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null }) {
+export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null, onStatusChange = null }) {
   const batchSessionId = huReviewerResult.batchSessionId;
   let batch;
   try {
@@ -235,13 +248,22 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
       // Single HU: run as before, no worktree needed
       const singleResult = await runSingleHu({
         storyId: runnableIds[0], batch, batchSessionId, runIterationFn,
-        emitter, eventBase, logger, config, results
+        emitter, eventBase, logger, config, results, onStatusChange
       });
       results.push(singleResult);
       if (!singleResult.approved) {
         allApproved = false;
         const newlyBlocked = blockDependents(batch, singleResult.huId);
         blockedIds.push(...newlyBlocked);
+        // PR1 (live HU status): notify the plan JSON of every newly
+        // BLOCKED HU so the board moves them into the blocked column
+        // without waiting for the run to finish.
+        if (typeof onStatusChange === "function") {
+          for (const blockedHuId of newlyBlocked) {
+            try { await onStatusChange(blockedHuId, HU_STATUS.BLOCKED); }
+            catch (err) { logger?.warn?.(`onStatusChange(${blockedHuId}, blocked) failed: ${err.message}`); }
+          }
+        }
       }
       await saveHuBatch(batchSessionId, batch);
     } else {
@@ -264,7 +286,8 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
         return runSingleHu({
           storyId, batch, batchSessionId, runIterationFn,
           emitter, eventBase, logger, config, results,
-          worktreePath: worktrees.get(storyId)
+          worktreePath: worktrees.get(storyId),
+          onStatusChange
         });
       });
 
@@ -283,6 +306,15 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
           allApproved = false;
           const newlyBlocked = blockDependents(batch, res.huId);
           blockedIds.push(...newlyBlocked);
+          // PR1 (live HU status): same as the single-HU path — push
+          // BLOCKED transitions to the plan JSON immediately so the
+          // board shows them moving to the blocked column live.
+          if (typeof onStatusChange === "function") {
+            for (const blockedHuId of newlyBlocked) {
+              try { await onStatusChange(blockedHuId, HU_STATUS.BLOCKED); }
+              catch (err) { logger?.warn?.(`onStatusChange(${blockedHuId}, blocked) failed: ${err.message}`); }
+            }
+          }
           // Clean up failed worktree
           if (worktrees.has(res.huId)) {
             try { await removeWorktree(projectDir, res.huId); } catch { /* ignore */ }

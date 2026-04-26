@@ -389,7 +389,12 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
         emitter,
         eventBase: ctx.eventBase,
         logger,
-        config: ctx.config
+        config: ctx.config,
+        // PR1 (live HU status): forward the per-HU status updater so
+        // hu-sub-pipeline can patch the plan JSON on every transition,
+        // not only at the end of the run. The board's chokidar then
+        // fires per-HU and the Kanban columns update in real time.
+        onStatusChange: ctx.session?._liveStatusUpdater || null
       });
 
       emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {

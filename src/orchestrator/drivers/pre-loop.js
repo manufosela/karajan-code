@@ -38,7 +38,7 @@ import {
 import { resolveAddyosmaniSlugs } from "../../skills/addyosmani-role-map.js";
 import { saveSession } from "../../session/store.js";
 import {
-  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback,
+  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback, setLiveStatusUpdater,
   setAutoInstalledSkills, setSkillsRecommended, setAddyosmaniSkills,
 } from "../../session/mutators.js";
 import {
@@ -335,6 +335,20 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
             setPlanSyncCallback(session, async (subResult) => {
               syncResultsToPlan(loadedPlan, subResult);
               await savePlanToDisk(projectDir, loadedPlan);
+            });
+            // PR1 (live HU status): write the plan JSON on EVERY status
+            // change so the board's chokidar watcher fires per-HU and the
+            // Kanban columns reflect progress in real time. Without this
+            // the plan only updates at the end of the run and the board
+            // looks frozen during execution.
+            const { updateHuStatus: updateHuStatusFn } = await import("../../plan/plan-hu-ops.js");
+            setLiveStatusUpdater(session, async (huId, status) => {
+              try {
+                if (!updateHuStatusFn(loadedPlan, huId, status)) return;
+                await savePlanToDisk(projectDir, loadedPlan);
+              } catch (err) {
+                logger?.warn?.(`Live status update failed for ${huId}: ${err.message}`);
+              }
             });
             logger.info(`Plan ${flags.plan}: ${huBatch.certified} HUs ready for execution`);
             emitProgress(emitter, makeEvent("plan:hus-loaded", { ...eventBase, stage: "plan" }, {
