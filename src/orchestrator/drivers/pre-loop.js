@@ -38,7 +38,7 @@ import {
 import { resolveAddyosmaniSlugs } from "../../skills/addyosmani-role-map.js";
 import { saveSession } from "../../session/store.js";
 import {
-  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback, setLiveStatusUpdater,
+  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback, setLiveStatusUpdater, setLiveOutcomeUpdater,
   setAutoInstalledSkills, setSkillsRecommended, setAddyosmaniSkills,
 } from "../../session/mutators.js";
 import {
@@ -341,13 +341,25 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
             // Kanban columns reflect progress in real time. Without this
             // the plan only updates at the end of the run and the board
             // looks frozen during execution.
-            const { updateHuStatus: updateHuStatusFn } = await import("../../plan/plan-hu-ops.js");
+            const { updateHuStatus: updateHuStatusFn, setHuOutcome: setHuOutcomeFn } = await import("../../plan/plan-hu-ops.js");
             setLiveStatusUpdater(session, async (huId, status) => {
               try {
                 if (!updateHuStatusFn(loadedPlan, huId, status)) return;
                 await savePlanToDisk(projectDir, loadedPlan);
               } catch (err) {
                 logger?.warn?.(`Live status update failed for ${huId}: ${err.message}`);
+              }
+            });
+            // PR3 (per-HU outcome): same pattern but for the rich
+            // outcome blob (iterations, duration, commits, summary…).
+            // Stamped once per HU at runSingleHu's exit so the board
+            // can show the 📄 indicator as soon as each HU finishes.
+            setLiveOutcomeUpdater(session, async (huId, outcome) => {
+              try {
+                if (!setHuOutcomeFn(loadedPlan, huId, outcome)) return;
+                await savePlanToDisk(projectDir, loadedPlan);
+              } catch (err) {
+                logger?.warn?.(`Live outcome update failed for ${huId}: ${err.message}`);
               }
             });
             logger.info(`Plan ${flags.plan}: ${huBatch.certified} HUs ready for execution`);

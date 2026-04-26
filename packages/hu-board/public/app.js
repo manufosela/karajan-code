@@ -446,6 +446,7 @@ async function renderBoard() {
           Comprobando estado del proyecto…
         </div>
       </div>
+      <div id="plan-rollup-banner"></div>
       <div class="kanban">
         ${visibleColumns.map((c) => renderKanbanColumn(c.title, c.cls, c.rows)).join('')}
       </div>
@@ -467,6 +468,10 @@ async function renderBoard() {
     // it without blocking the initial paint. Replaces a placeholder
     // div in-place (no full re-render).
     renderPreflightPanel(selectedProject).catch(() => {});
+    // PR3: render the plan-level rollup banner if any plan in this
+    // project has a stamped outcome. Non-blocking — if it fails the
+    // user just doesn't see the banner.
+    renderPlanRollup(selectedProject).catch(() => {});
     const viewLogBtn = document.getElementById('view-log-btn');
     if (viewLogBtn && lastOpenedLog) {
       viewLogBtn.addEventListener('click', () => openGenericLogPanel({
@@ -874,8 +879,38 @@ function renderStoryCard(story) {
       <div class="story-card__meta" style="margin-top:6px">
         <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
         <span class="story-card__time">${timeAgo(story.updated_at)}</span>
+        ${renderOutcomeChip(story.outcome)}
       </div>
     </div>
+  `;
+}
+
+/**
+ * PR3: render the per-HU outcome chip (📄 ver resumen) when an
+ * outcome is stamped. Click → opens the outcome modal with the
+ * full breakdown (iterations, duration, commits, blockers, summary).
+ *
+ * The outcome arrives as a JSON-stringified blob from the SQLite
+ * `outcome` column or as a raw object when the API returns the
+ * parsed plan. Tolerate both shapes.
+ *
+ * @param {string|object|null} outcome
+ * @returns {string} HTML
+ */
+function renderOutcomeChip(outcome) {
+  if (!outcome) return '';
+  let parsed;
+  try { parsed = typeof outcome === 'string' ? JSON.parse(outcome) : outcome; }
+  catch { return ''; }
+  if (!parsed || typeof parsed !== 'object') return '';
+  const summary = parsed.summary || `Resultado: ${parsed.status || 'desconocido'}`;
+  return `
+    <span class="story-card__outcome-chip"
+          style="margin-left:auto;padding:2px 8px;font-size:0.7rem;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-muted);"
+          title="${esc(summary)}"
+          onclick="event.stopPropagation(); showOutcomeModal('${esc(JSON.stringify(parsed).replace(/'/g, '&#39;'))}');">
+      📄 resumen
+    </span>
   `;
 }
 
@@ -1154,6 +1189,117 @@ async function confirmRunWithPreflight(projectId) {
     proceed?.addEventListener('click', () => close(true), { once: true });
     dlg.addEventListener('close', () => resolve(false), { once: true });
   });
+}
+
+// ---- PR3: outcome modal + plan rollup banner ----
+//
+// Surfaces the per-HU + plan-level execution outcome the orchestrator
+// stamps on the plan JSON. Plain Spanish, no jargon, designed for a
+// non-technical user reviewing what happened during the run.
+
+/**
+ * Open the outcome detail modal for a single HU. The chip on each
+ * card calls this with the JSON-stringified outcome (escaped for the
+ * inline onclick attribute) — we parse and render the breakdown.
+ *
+ * Exposed on `window` because it's invoked from the inline onclick
+ * attribute renderOutcomeChip writes.
+ */
+window.showOutcomeModal = function showOutcomeModal(escapedJson) {
+  let outcome;
+  try { outcome = JSON.parse(String(escapedJson).replace(/&#39;/g, "'")); }
+  catch { return; }
+  const dlg = document.getElementById('app-dialog') || ensureDialog();
+  const status = outcome.status || 'desconocido';
+  const headerColor = status === 'done' ? 'var(--color-green)'
+    : status === 'failed' ? 'var(--color-red,#ef4444)'
+    : 'var(--color-yellow,#eab308)';
+  const headerLabel = status === 'done' ? 'HU completada'
+    : status === 'failed' ? 'HU fallida'
+    : status === 'blocked' ? 'HU bloqueada'
+    : `HU · ${status}`;
+  const durationText = outcome.duration_ms != null ? formatDuration(outcome.duration_ms) : '—';
+  const blockersHtml = (outcome.blockers || []).length === 0 ? '' : `
+    <div style="margin-top:10px;">
+      <div style="font-weight:600;color:var(--color-red,#ef4444);font-size:0.85rem;">Problemas detectados</div>
+      <ul style="margin:4px 0 0 18px;padding:0;color:var(--text);">
+        ${outcome.blockers.map(b => `<li style="font-size:0.8rem;margin-top:4px;">${esc(b)}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+  const commitsHtml = (outcome.commits || []).length === 0 ? '' : `
+    <div style="margin-top:10px;">
+      <div style="font-weight:600;color:var(--text);font-size:0.85rem;">Commits</div>
+      <ul style="margin:4px 0 0 18px;padding:0;color:var(--text-muted);">
+        ${outcome.commits.map(c => `<li style="font-family:var(--font-mono,monospace);font-size:0.78rem;">${esc(c)}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+  dlg.innerHTML = `
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;background:${headerColor};color:#000;">
+      <span style="font-size:1.2rem;">📄</span>
+      <span>${esc(headerLabel)}</span>
+    </div>
+    <div style="padding:14px 18px;max-height:65vh;overflow:auto;">
+      <p style="margin:0 0 10px;color:var(--text);">${esc(outcome.summary || '(sin resumen disponible)')}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:8px;font-size:0.8rem;">
+        <div><strong>Iteraciones</strong>: ${outcome.iterations ?? '—'}</div>
+        <div><strong>Duración</strong>: ${durationText}</div>
+        <div><strong>Rama</strong>: <span style="font-family:var(--font-mono,monospace)">${esc(outcome.branch || '—')}</span></div>
+        <div><strong>Pull Request</strong>: ${outcome.pr_url ? `<a href="${esc(outcome.pr_url)}" target="_blank" rel="noopener">abrir</a>` : '—'}</div>
+        <div><strong>Terminada</strong>: ${esc(outcome.finishedAt || '—')}</div>
+      </div>
+      ${blockersHtml}
+      ${commitsHtml}
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+      <button id="outcome-close" style="padding:8px 16px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;">Cerrar</button>
+    </div>
+  `;
+  if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+  dlg.querySelector('#outcome-close')?.addEventListener('click', () => { try { dlg.close(); } catch { /* ignore */ } }, { once: true });
+};
+
+/**
+ * Fetch + render the plan-level rollup banner. Shows X done / Y
+ * failed / Z blocked + total duration when at least one plan in the
+ * project has finished. Hidden otherwise.
+ */
+async function renderPlanRollup(projectId) {
+  const slot = document.getElementById('plan-rollup-banner');
+  if (!slot) return;
+  let data;
+  try {
+    const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}/plans-outcome`);
+    if (!r.ok) return;
+    data = await r.json();
+  } catch { return; }
+  const finished = (data.plans || []).filter(p => p.outcome);
+  if (finished.length === 0) { slot.innerHTML = ''; return; }
+  // Aggregate the most recent plan first — non-tech user usually
+  // cares about "what happened just now", not historical sums.
+  finished.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  const recent = finished[0];
+  const o = recent.outcome;
+  const c = o.counts || {};
+  const summaryColor = o.status === 'done' ? 'var(--color-green)'
+    : o.status === 'failed' ? 'var(--color-red,#ef4444)'
+    : 'var(--color-yellow,#eab308)';
+  const headline = o.status === 'done' ? 'Plan finalizado correctamente'
+    : o.status === 'failed' ? 'Plan terminado con errores'
+    : 'Plan terminado parcialmente';
+  const durationText = o.duration_ms != null ? formatDuration(o.duration_ms) : '—';
+  slot.innerHTML = `
+    <div style="margin:8px 0;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-left:4px solid ${summaryColor};border-radius:var(--radius-sm);font-size:0.85rem;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <span style="color:${summaryColor};font-weight:700;">${esc(headline)}</span>
+      <span style="color:var(--text-muted);">${esc(recent.name || recent.planId)}</span>
+      <span style="color:var(--text);">✓ ${c.done || 0} hechas</span>
+      ${c.failed ? `<span style="color:var(--color-red,#ef4444)">✗ ${c.failed} fallidas</span>` : ''}
+      ${c.blocked ? `<span style="color:var(--color-yellow,#eab308)">⏸ ${c.blocked} bloqueadas</span>` : ''}
+      <span style="color:var(--text-muted);">⏱ ${esc(durationText)}</span>
+      ${(o.prs || []).length > 0 ? `<span style="color:var(--text-muted);">${o.prs.length} PR(s):</span> ${o.prs.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--color-green);">abrir</a>`).join(' · ')}` : ''}
+    </div>
+  `;
 }
 
 async function runProject(projectId) {

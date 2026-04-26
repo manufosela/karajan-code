@@ -62,13 +62,66 @@ function buildHuTask(story) {
 }
 
 /**
+ * Build the per-HU outcome blob from whatever metadata the iteration
+ * loop returned. Tolerant by design — most fields are optional and we
+ * default to safe values so the board can render something useful
+ * even on weird failure modes (HU crashed before producing summary,
+ * runIterationFn missing the commits array, etc.).
+ *
+ * Plain-Spanish summary lives at the bottom of the priority order so
+ * we surface what the run actually said before falling back to
+ * generic phrases.
+ *
+ * @param {object} args
+ * @param {object} args.story
+ * @param {object} args.iterResult — whatever runIterationFn returned
+ * @param {string} args.status — HU_STATUS.* terminal value
+ * @param {number} args.startedAt — Date.now() when runSingleHu started
+ * @returns {object}
+ */
+function buildHuOutcome({ story, iterResult, status, startedAt }) {
+  const r = iterResult || {};
+  const git = r.git || {};
+  // Iterations are tracked in the standard pipeline as
+  // `result.iterations`, in the tests-first pipeline as the loop
+  // counter — fall back to whatever we can find.
+  const iterations = r.iterations ?? r.iteration ?? r.attempts ?? null;
+  const commits = Array.isArray(git.commits)
+    ? git.commits.map((c) => (typeof c === "string" ? c : c.hash || c.sha || "")).filter(Boolean)
+    : (Array.isArray(r.commits) ? r.commits : []);
+  const blockers = [];
+  if (r.error) blockers.push(String(r.error));
+  if (r.reason && r.reason !== "approved") blockers.push(String(r.reason));
+  if (Array.isArray(r.deferredIssues)) {
+    for (const d of r.deferredIssues) blockers.push(typeof d === "string" ? d : d.message || JSON.stringify(d));
+  }
+  // Plain-Spanish, one-or-two sentences.
+  let summary;
+  if (r.review?.summary) summary = String(r.review.summary);
+  else if (status === "done") summary = `HU completada${commits.length ? ` con ${commits.length} commit(s)` : ""}.`;
+  else if (status === "failed") summary = `HU falló${blockers.length ? `: ${blockers[0]}` : ""}.`;
+  else summary = `HU ${status}.`;
+  return {
+    status,
+    iterations: typeof iterations === "number" ? iterations : null,
+    duration_ms: typeof startedAt === "number" ? Date.now() - startedAt : null,
+    branch: r.branch || git.branch || null,
+    commits,
+    pr_url: r.pr_url || r.prUrl || git.pr_url || null,
+    blockers,
+    summary,
+    finishedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Execute a single HU through the coder→sonar→reviewer sub-pipeline.
  * Extracted to support both sequential and parallel execution paths.
  *
  * @param {object} params
  * @returns {Promise<{huId: string, approved: boolean, result?: object, error?: string, blockedDependents?: string[]}>}
  */
-async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null }) {
+async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null, onOutcome = null }) {
   // PR1 (live HU status): every saveHuBatch should also notify the
   // plan JSON so the board reflects state in real time. Defined as a
   // local helper so we don't repeat the try/null-check boilerplate.
@@ -77,6 +130,20 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     try { await onStatusChange(huId, status); }
     catch (err) { logger?.warn?.(`onStatusChange(${huId}, ${status}) failed: ${err.message}`); }
   };
+  // PR3 (per-HU outcome): single notification at the end of the HU
+  // with the rich outcome blob. Plan JSON gets it stamped before
+  // we return, so the board's chokidar fires once and the card
+  // shows its summary indicator.
+  const notifyOutcome = async (huId, outcome) => {
+    if (typeof onOutcome !== "function") return;
+    try { await onOutcome(huId, outcome); }
+    catch (err) { logger?.warn?.(`onOutcome(${huId}) failed: ${err.message}`); }
+  };
+
+  // PR3: capture the start time so duration can be reported in the
+  // outcome (wall-clock per HU is what the user needs in the board,
+  // not internal stage timings).
+  const huStartedAt = Date.now();
   const story = batch.stories.find(s => s.id === storyId);
 
   // --- Lazy refinement ---
@@ -145,6 +212,9 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       updateStoryStatus(batch, story.id, HU_STATUS.DONE);
       await saveHuBatch(batchSessionId, batch);
       await notifyStatus(story.id, HU_STATUS.DONE);
+      // PR3: build + persist the per-HU outcome.
+      const okOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.DONE, startedAt: huStartedAt });
+      await notifyOutcome(story.id, okOutcome);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → done`,
         detail: { huId: story.id, status: HU_STATUS.DONE, timestamp: new Date().toISOString() }
@@ -152,13 +222,15 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
         status: "ok",
         message: `HU ${story.id} completed successfully`,
-        detail: { huId: story.id, approved: true }
+        detail: { huId: story.id, approved: true, outcome: okOutcome }
       }));
       return { huId: story.id, approved: true, result: iterResult };
     } else {
       updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
       await saveHuBatch(batchSessionId, batch);
       await notifyStatus(story.id, HU_STATUS.FAILED);
+      const failOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.FAILED, startedAt: huStartedAt });
+      await notifyOutcome(story.id, failOutcome);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → failed`,
         detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
@@ -166,7 +238,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       emitProgress(emitter, makeEvent("hu:end", { ...eventBase, stage: "hu-sub-pipeline" }, {
         status: "fail",
         message: `HU ${story.id} failed`,
-        detail: { huId: story.id, approved: false, reason: iterResult?.reason }
+        detail: { huId: story.id, approved: false, reason: iterResult?.reason, outcome: failOutcome }
       }));
       return { huId: story.id, approved: false, result: iterResult };
     }
@@ -174,6 +246,8 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
     await saveHuBatch(batchSessionId, batch);
     await notifyStatus(story.id, HU_STATUS.FAILED);
+    const errOutcome = buildHuOutcome({ story, iterResult: { error: err.message }, status: HU_STATUS.FAILED, startedAt: huStartedAt });
+    await notifyOutcome(story.id, errOutcome);
     emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
       message: `HU ${story.id} status → failed`,
       detail: { huId: story.id, status: HU_STATUS.FAILED, timestamp: new Date().toISOString() }
@@ -200,7 +274,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
  * @param {object} params.logger - Logger instance
  * @returns {Promise<{approved: boolean, results: object[], blockedIds: string[]}>}
  */
-export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null, onStatusChange = null }) {
+export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null, onStatusChange = null, onOutcome = null }) {
   const batchSessionId = huReviewerResult.batchSessionId;
   let batch;
   try {
@@ -248,7 +322,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
       // Single HU: run as before, no worktree needed
       const singleResult = await runSingleHu({
         storyId: runnableIds[0], batch, batchSessionId, runIterationFn,
-        emitter, eventBase, logger, config, results, onStatusChange
+        emitter, eventBase, logger, config, results, onStatusChange, onOutcome
       });
       results.push(singleResult);
       if (!singleResult.approved) {
@@ -287,7 +361,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
           storyId, batch, batchSessionId, runIterationFn,
           emitter, eventBase, logger, config, results,
           worktreePath: worktrees.get(storyId),
-          onStatusChange
+          onStatusChange, onOutcome
         });
       });
 

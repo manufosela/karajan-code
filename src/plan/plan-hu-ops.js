@@ -100,6 +100,107 @@ export function updateHuStatus(plan, huId, status) {
 }
 
 /**
+ * Stamp the per-HU outcome — what actually happened during execution.
+ * Written ONCE per HU, at the end of runSingleHu in hu-sub-pipeline.
+ * Consumed by the board to render the per-HU summary indicator and
+ * by `kj report` for retrospective inspection.
+ *
+ * Shape (every field optional except status + finishedAt):
+ *   {
+ *     status:       "done" | "failed" | "blocked",
+ *     iterations:   number,        // how many coder→reviewer rounds
+ *     duration_ms:  number,        // wall-clock for this HU
+ *     branch:       string|null,   // git branch the coder used
+ *     commits:      string[],      // SHA list captured during the run
+ *     pr_url:       string|null,
+ *     blockers:     string[],      // why it failed/was blocked, plain
+ *     summary:      string,        // 1-2 sentence human summary
+ *     finishedAt:   ISO timestamp
+ *   }
+ *
+ * @returns {boolean} true if the HU was found and the outcome stored
+ */
+export function setHuOutcome(plan, huId, outcome) {
+  const hu = plan.hus.find(h => h.id === huId);
+  if (!hu) return false;
+  hu.outcome = {
+    status: outcome.status || hu.status || null,
+    iterations: outcome.iterations ?? null,
+    duration_ms: outcome.duration_ms ?? null,
+    branch: outcome.branch ?? null,
+    commits: Array.isArray(outcome.commits) ? outcome.commits : [],
+    pr_url: outcome.pr_url ?? null,
+    blockers: Array.isArray(outcome.blockers) ? outcome.blockers : [],
+    summary: outcome.summary || "",
+    finishedAt: outcome.finishedAt || new Date().toISOString(),
+  };
+  hu.updatedAt = new Date().toISOString();
+  plan.updatedAt = new Date().toISOString();
+  return true;
+}
+
+/**
+ * Stamp the plan-level rollup once every HU has finished. Built from
+ * the per-HU outcomes so the board can show "Plan finished · 8 done
+ * · 2 failed · 1 blocked · 15 min" in one banner.
+ *
+ *   {
+ *     status:       "done" | "partial" | "failed",
+ *     total:        number,
+ *     counts:       { done, failed, blocked, pending },
+ *     duration_ms:  number,
+ *     prs:          string[],            // unique pr_url across HUs
+ *     blockers:     string[],            // dedup'd blockers
+ *     finishedAt:   ISO timestamp,
+ *   }
+ */
+export function setPlanOutcome(plan, outcome) {
+  plan.outcome = {
+    status: outcome.status || "partial",
+    total: outcome.total ?? (plan.hus?.length || 0),
+    counts: outcome.counts || { done: 0, failed: 0, blocked: 0, pending: 0 },
+    duration_ms: outcome.duration_ms ?? null,
+    prs: Array.isArray(outcome.prs) ? [...new Set(outcome.prs.filter(Boolean))] : [],
+    blockers: Array.isArray(outcome.blockers) ? [...new Set(outcome.blockers.filter(Boolean))] : [],
+    finishedAt: outcome.finishedAt || new Date().toISOString(),
+  };
+  plan.updatedAt = new Date().toISOString();
+}
+
+/**
+ * Compute the rollup from the per-HU outcomes already stamped on the
+ * plan. Invoked by syncResultsToPlan in plan-executor when the run
+ * ends so the caller doesn't have to assemble the counts by hand.
+ */
+export function computePlanOutcome(plan, { duration_ms = null } = {}) {
+  const hus = plan.hus || [];
+  const counts = { done: 0, failed: 0, blocked: 0, pending: 0 };
+  const prs = [];
+  const blockers = [];
+  for (const hu of hus) {
+    const status = hu.outcome?.status || hu.status || "pending";
+    if (counts[status] !== undefined) counts[status] += 1;
+    else counts.pending += 1;
+    if (hu.outcome?.pr_url) prs.push(hu.outcome.pr_url);
+    if (Array.isArray(hu.outcome?.blockers)) blockers.push(...hu.outcome.blockers);
+  }
+  let status = "done";
+  if (counts.failed > 0 || counts.blocked > 0) status = counts.done > 0 ? "partial" : "failed";
+  if (counts.done === 0 && counts.failed === 0 && counts.blocked === 0) status = "pending";
+  return {
+    status,
+    total: hus.length,
+    counts,
+    duration_ms,
+    // Dedupe at the rollup boundary — same PR / blocker reported by
+    // multiple HUs is noise in the banner.
+    prs: [...new Set(prs.filter(Boolean))],
+    blockers: [...new Set(blockers.filter(Boolean))],
+    finishedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Mark all pending HUs as certified (ready to execute).
  * Sets plan status to "ready".
  * @returns {number} count of certified HUs

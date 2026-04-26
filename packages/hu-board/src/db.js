@@ -149,6 +149,14 @@ export function initDb() {
   // implements (e.g. "5.3" or "§5 Initial Scope"). Surfaces in the
   // card + modal so the user can trace HU → spec coverage.
   try { db.exec('ALTER TABLE stories ADD COLUMN spec_section TEXT'); } catch { /* already migrated */ }
+  // outcome (PR3): JSON blob with what actually happened during
+  // execution — iterations, duration, commits, branch, blockers,
+  // human summary. Stamped by hu-sub-pipeline at the end of each
+  // HU and ingested by syncPlanFile so the board can show the 📄
+  // indicator and detail modal without parsing the plan JSON
+  // again. Stored as TEXT (JSON.stringify'd) for simplicity —
+  // parsed on read by the UI.
+  try { db.exec('ALTER TABLE stories ADD COLUMN outcome TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   return db;
@@ -197,14 +205,14 @@ export function upsertStory(story) {
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
-      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section
+      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
-      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section
+      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -231,7 +239,8 @@ export function upsertStory(story) {
       blocked_by = COALESCE(@blocked_by, blocked_by),
       acceptance_tests = COALESCE(@acceptance_tests, acceptance_tests),
       plan_order = COALESCE(@plan_order, plan_order),
-      spec_section = COALESCE(@spec_section, spec_section)
+      spec_section = COALESCE(@spec_section, spec_section),
+      outcome = COALESCE(@outcome, outcome)
   `);
   stmt.run({
     id: story.id,
@@ -263,6 +272,7 @@ export function upsertStory(story) {
     acceptance_tests: story.acceptance_tests || null,
     plan_order: story.plan_order ?? null,
     spec_section: story.spec_section || null,
+    outcome: story.outcome || null,
   });
 }
 
