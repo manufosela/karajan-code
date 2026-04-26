@@ -130,6 +130,43 @@ router.get('/projects/:id/preflight', async (req, res) => {
 });
 
 /**
+ * GET /api/projects/:id/plans-outcome — Plan-level rollups (PR3).
+ *
+ * Reads every plan JSON for the project and returns the lightweight
+ * shape the board needs to render the "Plan finalizado · 8 done · 2
+ * failed · 15 min" banner. Plans that haven't finished yet have a
+ * null outcome — the front handles that by hiding the banner.
+ */
+router.get('/projects/:id/plans-outcome', (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const plansBase = process.env.KJ_HOME
+      ? path.join(process.env.KJ_HOME, 'plans')
+      : path.join(process.env.HOME || '', '.kj', 'plans');
+    const plansDir = path.join(plansBase, projectId);
+    if (!fs.existsSync(plansDir)) return res.json({ projectId, plans: [] });
+    const out = [];
+    for (const f of fs.readdirSync(plansDir).filter(n => n.endsWith('.json'))) {
+      try {
+        const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
+        if (plan?.version !== 2) continue;
+        out.push({
+          planId: plan.planId,
+          name: plan.name || (plan.task ? plan.task.slice(0, 80) : plan.planId),
+          status: plan.status || 'draft',
+          updatedAt: plan.updatedAt || null,
+          outcome: plan.outcome || null,
+          huCount: Array.isArray(plan.hus) ? plan.hus.length : 0,
+        });
+      } catch { /* skip unreadable plan */ }
+    }
+    res.json({ projectId, plans: out });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/projects/:id/stories - Stories for a project.
  */
 router.get('/projects/:id/stories', (req, res) => {

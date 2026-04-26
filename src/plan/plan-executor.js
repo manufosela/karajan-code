@@ -5,7 +5,7 @@
  */
 
 import { isPlanV2 } from "./plan-schema.js";
-import { updateHuStatus } from "./plan-hu-ops.js";
+import { updateHuStatus, computePlanOutcome, setPlanOutcome } from "./plan-hu-ops.js";
 
 /**
  * Convert a v2 plan's HUs into the stageResults.huReviewer format
@@ -76,4 +76,12 @@ export function syncResultsToPlan(plan, subPipelineResult) {
   const anyFailed = plan.hus.some(h => h.status === "failed");
   plan.status = allDone ? "done" : anyFailed ? "failed" : "running";
   plan.updatedAt = new Date().toISOString();
+
+  // PR3: stamp the plan-level rollup so the board can show the
+  // "Plan finalizado · X done · Y failed · Z blocked · D min" banner
+  // without recomputing it on every render. Built from the per-HU
+  // outcomes that hu-sub-pipeline already wrote on the way through.
+  const duration_ms = subPipelineResult.duration_ms ?? null;
+  const rollup = computePlanOutcome(plan, { duration_ms });
+  setPlanOutcome(plan, rollup);
 }

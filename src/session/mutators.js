@@ -227,6 +227,22 @@ export function getLiveStatusUpdater(session) {
   return session._liveStatusUpdater || null;
 }
 
+/**
+ * Live outcome updater (PR3): invoked by hu-sub-pipeline after each
+ * HU's runSingleHu finishes. The plan JSON gets the per-HU outcome
+ * stamped immediately so the board can show a "📄 ver resumen"
+ * indicator next to each card without waiting for the run to end.
+ *
+ * Signature: async (huId, outcome) => void
+ */
+export function setLiveOutcomeUpdater(session, fn) {
+  session._liveOutcomeUpdater = fn;
+}
+
+export function getLiveOutcomeUpdater(session) {
+  return session._liveOutcomeUpdater || null;
+}
+
 // --- Skills ---------------------------------------------------------------
 
 export function setAddyosmaniSkills(session, payload) {

@@ -388,6 +388,11 @@ export function syncPlanFile(filePath) {
         plan_order: i,
         // Spec mapping (PR C): "implements §5.3" trace pointer.
         spec_section: typeof hu.spec_section === 'string' && hu.spec_section.trim() ? hu.spec_section.trim() : null,
+        // PR3: per-HU outcome (iterations, duration, commits,
+        // blockers, summary). Stored as a JSON string in SQLite —
+        // the front parses on read. Null until hu-sub-pipeline
+        // stamps it at the end of each HU.
+        outcome: hu.outcome ? JSON.stringify(hu.outcome) : null,
       });
     }
 
