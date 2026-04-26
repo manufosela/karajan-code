@@ -2349,6 +2349,108 @@ function handleRoute() {
 // viewer (re-uses openLogViewer's tail loop, just pointed at the
 // new generic /api/runs/:commandId/log endpoint).
 
+// PR5: kj.config.yml editor modal
+//
+// Goal: a non-technical user opens the modal, picks "Sonnet siempre"
+// from a dropdown, hits "Guardar", and the next `kj run` is cheap.
+// No yml editing, no terminal trip.
+//
+// Each EDITABLE_FIELDS entry the backend exposes becomes one form
+// row. `select` → <select>, `boolean` → <input type=checkbox>,
+// `number` → <input type=number min/max>. Help text under each
+// label as a small grey paragraph.
+async function showConfigEditor() {
+  let cfg;
+  try {
+    const r = await fetch('/api/config');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    cfg = await r.json();
+  } catch (err) {
+    await showError(`No se pudo leer la configuración: ${err.message}`, { title: 'Configuración' });
+    return;
+  }
+  const dlg = document.getElementById('app-dialog') || ensureDialog();
+  const renderField = (f) => {
+    const id = `cfg-field-${f.key}`;
+    let input = '';
+    if (f.type === 'select') {
+      input = `<select id="${id}" data-key="${esc(f.key)}" style="width:100%;padding:6px 8px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">
+        ${f.options.map((o) => `<option value="${esc(o)}"${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}
+      </select>`;
+    } else if (f.type === 'boolean') {
+      input = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="${id}" data-key="${esc(f.key)}"${f.value ? ' checked' : ''} style="cursor:pointer;">
+        <span style="font-size:0.85rem;color:var(--text-muted);">${f.value ? 'activado' : 'desactivado'}</span>
+      </label>`;
+    } else if (f.type === 'number') {
+      input = `<input type="number" id="${id}" data-key="${esc(f.key)}" value="${esc(String(f.value))}"${f.min != null ? ` min="${f.min}"` : ''}${f.max != null ? ` max="${f.max}"` : ''} style="width:120px;padding:6px 8px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">`;
+    }
+    return `
+      <div style="margin-bottom:14px;">
+        <label for="${id}" style="display:block;font-weight:600;color:var(--text);font-size:0.88rem;margin-bottom:4px;">${esc(f.label)}</label>
+        ${input}
+        ${f.help ? `<p style="margin:4px 0 0;font-size:0.75rem;color:var(--text-muted);">${esc(f.help)}</p>` : ''}
+      </div>
+    `;
+  };
+  dlg.innerHTML = `
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:1.2rem;">⚙</span>
+      <span>Configuración de Karajan</span>
+      <span style="margin-left:auto;font-family:var(--font-mono,monospace);font-size:0.75rem;color:var(--text-muted);">${esc(cfg.path || '')}</span>
+    </div>
+    <div style="padding:14px 18px;max-height:65vh;overflow:auto;">
+      ${cfg.fields.map(renderField).join('')}
+      <p style="margin:14px 0 0;font-size:0.75rem;color:var(--text-muted);">
+        Los cambios se guardan en <code>kj.config.yml</code> de forma atómica (con copia de seguridad <code>.bak</code>).
+        El próximo <code>kj run</code> los aplicará — no hace falta reiniciar el board.
+      </p>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button id="config-cancel" style="padding:8px 16px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;">Cancelar</button>
+      <button id="config-save" style="padding:8px 16px;background:var(--color-green);border:none;color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;">Guardar</button>
+    </div>
+  `;
+  if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+  dlg.querySelector('#config-cancel')?.addEventListener('click', () => { try { dlg.close(); } catch { /* ignore */ } }, { once: true });
+  dlg.querySelector('#config-save')?.addEventListener('click', async () => {
+    // Build the patch from the form, comparing against initial values
+    // so we only send what changed.
+    const patch = {};
+    for (const f of cfg.fields) {
+      const el = dlg.querySelector(`[data-key="${f.key}"]`);
+      if (!el) continue;
+      let v;
+      if (f.type === 'boolean') v = el.checked;
+      else if (f.type === 'number') v = Number(el.value);
+      else v = el.value;
+      if (v !== f.value) patch[f.key] = v;
+    }
+    if (Object.keys(patch).length === 0) {
+      try { dlg.close(); } catch { /* ignore */ }
+      return;
+    }
+    try {
+      const r = await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        const msg = body?.details?.errors?.length
+          ? body.details.errors.join('\n')
+          : (body.error || `HTTP ${r.status}`);
+        await showError(msg, { title: 'No se pudo guardar' });
+        return;
+      }
+      try { dlg.close(); } catch { /* ignore */ }
+    } catch (err) {
+      await showError(err.message || String(err), { title: 'Error guardando configuración' });
+    }
+  }, { once: true });
+}
+
 async function showCommandLauncher() {
   const dlg = ensureDialog();
   // Per-command field schemas — kept in the client because each
@@ -2557,6 +2659,14 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
 // dropping to a terminal. Output streams to the existing log panel.
 document.getElementById('commands-btn').addEventListener('click', () => {
   showCommandLauncher();
+});
+
+// PR5: Settings button — opens the kj.config.yml editor modal.
+// User picks coder/reviewer providers, model strategy, iteration
+// caps, etc. in plain Spanish. Save writes the yml atomically;
+// next `kj run` picks up the new config (no restart needed).
+document.getElementById('config-btn').addEventListener('click', () => {
+  showConfigEditor();
 });
 
 // Restart button — respawn the board server in place. The page's

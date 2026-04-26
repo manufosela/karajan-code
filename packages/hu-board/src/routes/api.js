@@ -21,6 +21,7 @@ import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutati
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
+import { readConfig, writeConfigPatch } from '../config-yaml.js';
 
 const router = Router();
 
@@ -606,6 +607,39 @@ router.post('/projects/:id/run', (req, res) => {
     }
     const launched = results.filter((r) => r.ok).length;
     res.json({ launched, total: planIds.length, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/config — read the editable subset of ~/.karajan/kj.config.yml.
+ * Powers the board's settings modal; non-editable keys in the yml are
+ * left untouched on PUT (see writeConfigPatch's whitelist semantics).
+ */
+router.get('/config', (_req, res) => {
+  try {
+    const data = readConfig();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/config — apply a patch to the yml. Body is `{ patch: { key: value } }`
+ * with the keys defined in EDITABLE_FIELDS. Unknown keys are 400'd; type
+ * errors are 400'd; validation errors are 400'd. Writes are atomic
+ * (tmp + rename) and a `.bak` is kept of the previous content.
+ */
+router.put('/config', (req, res) => {
+  try {
+    const patch = req.body?.patch;
+    const result = writeConfigPatch(patch);
+    if (!result.written) {
+      return res.status(400).json({ error: 'No se pudo guardar la configuración', details: result });
+    }
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
