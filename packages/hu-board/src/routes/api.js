@@ -20,6 +20,7 @@ import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutations.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
+import { runPreflight } from '../preflight.js';
 
 const router = Router();
 
@@ -76,6 +77,53 @@ router.get('/projects/:id', (req, res) => {
     const project = projects.find((p) => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     res.json(project);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/projects/:id/preflight — Project readiness checks.
+ *
+ * Returns the same shape regardless of the project's state. Each
+ * check carries a status (ok|warn|fail|info), a plain-Spanish
+ * detail and (when relevant) a `consequence` describing what the
+ * user loses if it stays unfixed. Powers both:
+ *   - the panel at the top of the board (always visible)
+ *   - the safety modal that appears before ▶ Run plan / ▶ Run HU
+ *     when there are blockers or warnings
+ *
+ * The route resolves projectDir by reading the first plan it can
+ * find for this project (plans carry projectDir since v2.7.4). If
+ * the project has no plans on disk we still return the env-only
+ * checks (Node, Karajan, agents, config) so the user gets feedback
+ * even before they generate their first plan.
+ */
+router.get('/projects/:id/preflight', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    let projectDir = null;
+    try {
+      // Plans live at ~/.kj/plans/<slug>/ when KJ_HOME is unset, or
+      // $KJ_HOME/plans/<slug>/ when set. db.js::getKjHome() returns
+      // the .karajan root, NOT the .kj root — they are sister dirs.
+      // Mirror plan-mutations.js::plansRoot() exactly.
+      const plansBase = process.env.KJ_HOME
+        ? path.join(process.env.KJ_HOME, 'plans')
+        : path.join(process.env.HOME || '', '.kj', 'plans');
+      const plansDir = path.join(plansBase, projectId);
+      if (fs.existsSync(plansDir)) {
+        const files = fs.readdirSync(plansDir).filter((f) => f.endsWith('.json'));
+        for (const f of files) {
+          try {
+            const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
+            if (plan?.projectDir) { projectDir = plan.projectDir; break; }
+          } catch { /* try next */ }
+        }
+      }
+    } catch { /* projectDir stays null → preflight will report it */ }
+    const result = await runPreflight({ projectId, projectDir });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
