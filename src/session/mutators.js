@@ -210,6 +210,23 @@ export function setPlanSyncCallback(session, fn) {
   session._syncResultsToPlan = fn;
 }
 
+/**
+ * Live status updater: invoked by hu-sub-pipeline after every status
+ * change so the plan JSON gets the new status immediately, not only at
+ * the end of the run. Without this, the board reads an unchanged plan
+ * file during execution and the columns appear frozen until the run
+ * completes (the bug we're fixing in PR1).
+ *
+ * Signature: async (huId, status) => void
+ */
+export function setLiveStatusUpdater(session, fn) {
+  session._liveStatusUpdater = fn;
+}
+
+export function getLiveStatusUpdater(session) {
+  return session._liveStatusUpdater || null;
+}
+
 // --- Skills ---------------------------------------------------------------
 
 export function setAddyosmaniSkills(session, payload) {

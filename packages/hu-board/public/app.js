@@ -786,10 +786,10 @@ function renderKanbanColumn(title, cssClass, stories) {
   // mental map) but no body placeholder — "No stories" text on four
   // empty columns was noise on fresh plans.
   return `
-    <div class="kanban__column kanban__column--${cssClass}"${stories.length === 0 ? ' style="opacity:0.55"' : ''}>
+    <div class="kanban__column kanban__column--${cssClass}" data-column="${cssClass}"${stories.length === 0 ? ' style="opacity:0.55"' : ''}>
       <div class="kanban__column-header">
         <span class="kanban__column-title">${title}</span>
-        <span class="kanban__column-count">${stories.length}</span>
+        <span class="kanban__column-count" data-column-count>${stories.length}</span>
       </div>
       ${stories.map(renderStoryCard).join('')}
     </div>
@@ -827,7 +827,7 @@ function renderStoryCard(story) {
   const missingTestContract = testCount === 0 && ['pending', 'certified'].includes(story.status);
 
   return `
-    <div class="story-card" onclick="showStoryDetail('${esc(story.id)}')">
+    <div class="story-card" data-story-id="${esc(story.id)}" data-status="${esc(story.status || 'pending')}" onclick="showStoryDetail('${esc(story.id)}')">
       <div class="story-card__id" title="${esc(story.id)}">${esc(shortId)}</div>
       <div class="story-card__title">${esc(truncate(title, 100))}</div>
       <div class="story-card__meta" style="gap:10px">
@@ -2488,9 +2488,13 @@ function subscribeToServerEvents() {
       return;
     }
 
-    // Default: data changed somewhere; nudge the current view.
+    // Default: data changed somewhere. Try the targeted DOM patch
+    // first (no parpadeo, preserves scroll + hover state) and only
+    // fall back to a full re-render when the patch can't apply
+    // (different view, missing markers, etc.). This is the fix for
+    // the "todo el board parpadea cada vez que algo cambia" UX bug.
     if (sseRefreshTimer) clearTimeout(sseRefreshTimer);
-    sseRefreshTimer = setTimeout(() => refreshCurrentView(e.data), 150);
+    sseRefreshTimer = setTimeout(() => smartRefresh(payload), 150);
   });
   sseSource.addEventListener('error', () => {
     // EventSource handles reconnection. Nothing to do; browsers retry
@@ -2629,11 +2633,169 @@ async function refreshCurrentView(_rawEvent) {
   }
 }
 
-// Auto-refresh every 10 seconds (with sync to catch new batches)
+/**
+ * Smart refresh: pick the cheapest possible DOM update for the
+ * incoming SSE event. Today the server sends coarse-grained events
+ * (`{type: 'plan'|'batch'|'session'|'prompt'|...}`), so we route by
+ * type:
+ *
+ *   plan / batch on the board view  → patchBoardIncremental()
+ *   anything else                    → refreshCurrentView() (full re-render)
+ *
+ * The patch path preserves DOM nodes (no innerHTML rewrite, no
+ * scroll reset, no hover/focus loss) — this is what kills the
+ * "parpadeo" the user reported.
+ *
+ * @param {object|null} payload The parsed SSE payload, or null when
+ *   the event wasn't valid JSON. Coarse types still work (we just
+ *   degrade to a full re-render).
+ */
+async function smartRefresh(payload) {
+  const onBoard = currentView === 'board' && Boolean(selectedProject);
+  const isStoryRelated = payload && ['plan', 'batch'].includes(payload.type);
+  if (onBoard && isStoryRelated) {
+    const ok = await patchBoardIncremental();
+    if (ok) return;
+  }
+  await refreshCurrentView();
+}
+
+/**
+ * Targeted DOM patch for the Kanban board. Re-fetches the project's
+ * stories, diffs them against the cards already rendered, and only
+ * touches the affected nodes:
+ *
+ *   - status changed → move the card to the new column with a
+ *     subtle animation (no DOM recreation, listeners survive)
+ *   - new story      → render + insert into the right column
+ *   - story removed  → fade + remove
+ *   - column counts and the running badge are updated in place
+ *
+ * Returns false if the board's DOM markers aren't present (different
+ * view, error state, etc.) so smartRefresh can fall back to a full
+ * re-render.
+ *
+ * @returns {Promise<boolean>}
+ */
+async function patchBoardIncremental() {
+  const kanban = document.querySelector('.kanban');
+  if (!kanban) return false;          // not on the board view
+  const columns = {};
+  for (const col of kanban.querySelectorAll('.kanban__column')) {
+    const cls = col.dataset.column;
+    if (cls) columns[cls] = col;
+  }
+  if (!columns.pending || !columns.running) return false;
+
+  let stories;
+  try {
+    stories = await api(`/api/projects/${encodeURIComponent(selectedProject)}/stories`);
+  } catch { return false; }
+
+  // Re-derive the column → status mapping (kept in lockstep with
+  // renderBoard's `columns` object — change there, change here).
+  const statusToColumn = (status) => {
+    if (['pending', 'certified', 'needs_context', 'blocked'].includes(status)) return 'pending';
+    if (['coding', 'reviewing'].includes(status)) return 'running';
+    if (status === 'done') return 'done';
+    if (status === 'failed') return 'failed';
+    return 'pending';                  // safe default
+  };
+
+  const seen = new Set();
+  for (const story of stories) {
+    seen.add(story.id);
+    const targetCol = columns[statusToColumn(story.status)];
+    if (!targetCol) continue;
+    const existing = kanban.querySelector(`.story-card[data-story-id="${cssEscape(story.id)}"]`);
+    if (!existing) {
+      // New story — append to its column.
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = renderStoryCard(story).trim();
+      const node = wrapper.firstElementChild;
+      if (node) {
+        node.style.opacity = '0';
+        targetCol.appendChild(node);
+        requestAnimationFrame(() => { node.style.transition = 'opacity 200ms'; node.style.opacity = '1'; });
+      }
+      continue;
+    }
+    const previousStatus = existing.dataset.status;
+    if (previousStatus !== story.status) {
+      // Status changed — move the node + replace its inner content
+      // (counters, time-ago, status pill) without recreating the
+      // outer node so click handlers + transitions survive.
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = renderStoryCard(story).trim();
+      const fresh = wrapper.firstElementChild;
+      if (fresh) {
+        existing.innerHTML = fresh.innerHTML;
+        existing.dataset.status = story.status;
+        existing.setAttribute('onclick', fresh.getAttribute('onclick') || '');
+        if (existing.parentElement !== targetCol) {
+          existing.style.transition = 'opacity 150ms';
+          existing.style.opacity = '0.3';
+          setTimeout(() => {
+            targetCol.appendChild(existing);
+            requestAnimationFrame(() => { existing.style.opacity = '1'; });
+          }, 150);
+        }
+      }
+    } else {
+      // Same status — just refresh the inner block (counters / time
+      // ago / antipatterns may have changed) without moving.
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = renderStoryCard(story).trim();
+      const fresh = wrapper.firstElementChild;
+      if (fresh && fresh.innerHTML !== existing.innerHTML) {
+        existing.innerHTML = fresh.innerHTML;
+      }
+    }
+  }
+  // Cards that no longer exist on the server → remove with a fade.
+  for (const node of kanban.querySelectorAll('.story-card')) {
+    if (!seen.has(node.dataset.storyId)) {
+      node.style.transition = 'opacity 150ms';
+      node.style.opacity = '0';
+      setTimeout(() => node.remove(), 160);
+    }
+  }
+  // Recount each column + update the "N running" badge in the header.
+  for (const [cls, col] of Object.entries(columns)) {
+    const counter = col.querySelector('[data-column-count]');
+    if (counter) counter.textContent = String(col.querySelectorAll('.story-card').length);
+    col.style.opacity = col.querySelectorAll('.story-card').length === 0 ? '0.55' : '1';
+  }
+  const runningCount = columns.running.querySelectorAll('.story-card').length;
+  const runningBadge = document.querySelector('.section-header__badge');
+  if (runningBadge) {
+    if (runningCount > 0) {
+      runningBadge.textContent = `⚙ ${runningCount} running…`;
+      runningBadge.style.display = '';
+    } else {
+      runningBadge.style.display = 'none';
+    }
+  }
+  return true;
+}
+
+/**
+ * CSS.escape polyfill wrapper. Story IDs can contain "::" and other
+ * characters that break querySelector when interpolated raw.
+ */
+function cssEscape(str) {
+  return (window.CSS && CSS.escape) ? CSS.escape(str) : String(str).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+// Auto-refresh every 60 seconds as a SAFETY NET only — the board is
+// SSE-driven (push from server) so this should rarely fire. We keep
+// it at low frequency to recover from missed events on hibernation /
+// network blip without flickering the UI every 10s like before.
+// Uses smartRefresh too so it patches the DOM instead of full rerender.
 refreshInterval = setInterval(async () => {
   if (document.getElementById('modal-backdrop').classList.contains('hidden')) {
     await triggerSync();
     await populateProjectSelect();
-    render();
+    await smartRefresh(null);
   }
-}, 10000);
+}, 60_000);
