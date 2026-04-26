@@ -441,6 +441,11 @@ async function renderBoard() {
           </button>
         ` : ''}
       </div>
+      <div id="preflight-panel" class="preflight-panel" style="margin:8px 0;">
+        <div class="preflight-panel__loading" style="font-size:0.8rem;color:var(--text-muted);padding:6px 10px;">
+          Comprobando estado del proyecto…
+        </div>
+      </div>
       <div class="kanban">
         ${visibleColumns.map((c) => renderKanbanColumn(c.title, c.cls, c.rows)).join('')}
       </div>
@@ -448,9 +453,20 @@ async function renderBoard() {
 
     if (canRun) {
       document.getElementById('run-plan-btn').addEventListener('click', async () => {
+        // Pre-run safety: ask preflight if anything risky is missing
+        // (no remote, dirty tree, missing agents, etc.). The modal
+        // shows blockers + warnings in plain Spanish and the user
+        // can cancel or proceed anyway. If everything is green we
+        // skip the modal and run straight away.
+        const ok = await confirmRunWithPreflight(selectedProject);
+        if (!ok) return;
         await runProject(selectedProject);
       });
     }
+    // Preflight panel is rendered AFTER the kanban so we can fetch
+    // it without blocking the initial paint. Replaces a placeholder
+    // div in-place (no full re-render).
+    renderPreflightPanel(selectedProject).catch(() => {});
     const viewLogBtn = document.getElementById('view-log-btn');
     if (viewLogBtn && lastOpenedLog) {
       viewLogBtn.addEventListener('click', () => openGenericLogPanel({
@@ -976,6 +992,169 @@ let lastLaunchedPlanId = null;
 // View log button in the section header reads from here so it
 // re-opens whichever was most recently launched.
 let lastOpenedLog = null;     // { id, label, tailUrl(offset) }
+
+// ---- Preflight panel + safety modal ----
+//
+// Goal: when a non-technical user opens a project, they should see at
+// a glance whether the environment is ready (git initialised, remote
+// configured, agents installed, Node version, etc.). Each missing
+// item is rendered with a plain-Spanish "consequence" so the user
+// understands what's at stake.
+//
+// The panel doubles as the gate for ▶ Run plan / ▶ Run HU: if any
+// blocker (status:fail with blocking:true) is present, we refuse to
+// launch. If only warnings are present, we open a confirm modal
+// listing them and require an explicit "Lanzar de todos modos".
+
+let preflightCache = null;     // memoise per-render so the modal can re-use what the panel already fetched
+
+async function fetchPreflight(projectId) {
+  try {
+    const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}/preflight`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+function preflightStatusIcon(status) {
+  if (status === 'ok') return '✓';
+  if (status === 'warn') return '⚠';
+  if (status === 'fail') return '✗';
+  return 'ℹ';
+}
+function preflightStatusColor(status) {
+  if (status === 'ok') return 'var(--color-green)';
+  if (status === 'warn') return 'var(--color-yellow,#eab308)';
+  if (status === 'fail') return 'var(--color-red,#ef4444)';
+  return 'var(--text-muted)';
+}
+
+async function renderPreflightPanel(projectId) {
+  const panel = document.getElementById('preflight-panel');
+  if (!panel) return;
+  const data = await fetchPreflight(projectId);
+  preflightCache = data;
+  if (!data) {
+    panel.innerHTML = `<div style="font-size:0.8rem;color:var(--text-muted);padding:6px 10px;">Estado del proyecto: no disponible.</div>`;
+    return;
+  }
+  const blockerCount = data.blockers?.length || 0;
+  const warningCount = data.warnings?.length || 0;
+  const okCount = (data.checks || []).filter(c => c.status === 'ok').length;
+  let summaryColor, summaryIcon, summaryText;
+  if (blockerCount > 0) {
+    summaryColor = 'var(--color-red,#ef4444)';
+    summaryIcon = '✗';
+    summaryText = `${blockerCount} problema(s) bloqueante(s) — la ejecución no funcionará correctamente`;
+  } else if (warningCount > 0) {
+    summaryColor = 'var(--color-yellow,#eab308)';
+    summaryIcon = '⚠';
+    summaryText = `${warningCount} aviso(s) — la ejecución funcionará pero con limitaciones`;
+  } else {
+    summaryColor = 'var(--color-green)';
+    summaryIcon = '✓';
+    summaryText = `Todo listo · ${okCount} comprobaciones OK`;
+  }
+
+  // Compact header (always visible) + collapsed details (toggleable).
+  panel.innerHTML = `
+    <div class="preflight-panel__header"
+         style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-left:3px solid ${summaryColor};border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem;"
+         data-toggle>
+      <span style="color:${summaryColor};font-weight:700;font-size:1rem;">${summaryIcon}</span>
+      <span style="color:var(--text);">${esc(summaryText)}</span>
+      <span style="margin-left:auto;color:var(--text-muted);font-size:0.78rem;" data-arrow>▼ ver detalles</span>
+    </div>
+    <div class="preflight-panel__details" style="display:none;margin-top:6px;padding:10px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:8px;">
+        ${(data.checks || []).map((c) => `
+          <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:var(--bg-secondary,var(--bg));border-radius:var(--radius-sm);"
+               title="${esc(c.consequence || '')}">
+            <span style="color:${preflightStatusColor(c.status)};font-weight:700;font-size:0.95rem;flex-shrink:0;">${preflightStatusIcon(c.status)}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.8rem;font-weight:600;color:var(--text);">${esc(c.label)}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);word-break:break-all;">${esc(c.detail || '')}</div>
+              ${c.consequence ? `<div style="font-size:0.7rem;color:${preflightStatusColor(c.status)};margin-top:2px;">${esc(c.consequence)}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  // Toggle expand/collapse without rerender.
+  const header = panel.querySelector('[data-toggle]');
+  const details = panel.querySelector('.preflight-panel__details');
+  const arrow = panel.querySelector('[data-arrow]');
+  if (header && details && arrow) {
+    header.addEventListener('click', () => {
+      const open = details.style.display !== 'none';
+      details.style.display = open ? 'none' : 'block';
+      arrow.textContent = open ? '▼ ver detalles' : '▲ ocultar detalles';
+    });
+  }
+}
+
+/**
+ * Pre-run safety modal. Returns true if the user wants to proceed,
+ * false to cancel. Call BEFORE invoking the run endpoint.
+ *
+ * Behaviour:
+ *   - All green → returns true immediately (no modal).
+ *   - Blockers present → modal explains them in plain Spanish; only
+ *     "Cancelar" button (no proceed-anyway) because blockers are
+ *     known to break the run.
+ *   - Only warnings → modal lists them with their consequences and
+ *     offers "Cancelar" or "Lanzar de todos modos" (red button so
+ *     the user notices they're accepting risk).
+ */
+async function confirmRunWithPreflight(projectId) {
+  const data = preflightCache || await fetchPreflight(projectId);
+  if (!data) return true;             // can't fetch → don't block the user
+  const blockers = data.blockers || [];
+  const warnings = data.warnings || [];
+  if (blockers.length === 0 && warnings.length === 0) return true;
+
+  return await new Promise((resolve) => {
+    const dlg = document.getElementById('app-dialog') || ensureDialog();
+    const isBlocked = blockers.length > 0;
+    const headerColor = isBlocked ? 'var(--color-red,#ef4444)' : 'var(--color-yellow,#eab308)';
+    const allItems = [...blockers, ...warnings];
+    dlg.innerHTML = `
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;background:${headerColor};color:#000;">
+        <span style="font-size:1.2rem;">${isBlocked ? '✗' : '⚠'}</span>
+        <span>${isBlocked ? 'No se puede lanzar — falta algo crítico' : 'Atención antes de lanzar'}</span>
+      </div>
+      <div style="padding:14px 18px;max-height:60vh;overflow:auto;">
+        <p style="margin:0 0 10px;font-size:0.9rem;color:var(--text);">
+          ${isBlocked
+            ? 'Se detectaron problemas bloqueantes que impedirán que Karajan funcione correctamente:'
+            : 'Se detectaron avisos. Karajan puede ejecutarse, pero con limitaciones:'}
+        </p>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+          ${allItems.map((c) => `
+            <li style="padding:8px 10px;background:var(--bg-primary);border-left:3px solid ${preflightStatusColor(c.status)};border-radius:var(--radius-sm);">
+              <div style="font-weight:600;color:var(--text);font-size:0.85rem;">
+                ${preflightStatusIcon(c.status)} ${esc(c.label)} — <span style="color:var(--text-muted);font-weight:400;">${esc(c.detail || '')}</span>
+              </div>
+              ${c.consequence ? `<div style="font-size:0.8rem;color:var(--text);margin-top:4px;">${esc(c.consequence)}</div>` : ''}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+        <button id="preflight-cancel" style="padding:8px 16px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;">Cancelar</button>
+        ${isBlocked ? '' : `<button id="preflight-proceed" style="padding:8px 16px;background:var(--color-red,#ef4444);border:none;color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;">Lanzar de todos modos</button>`}
+      </div>
+    `;
+    if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+    const cancel = dlg.querySelector('#preflight-cancel');
+    const proceed = dlg.querySelector('#preflight-proceed');
+    const close = (val) => { try { dlg.close(); } catch { /* ignore */ } resolve(val); };
+    cancel?.addEventListener('click', () => close(false), { once: true });
+    proceed?.addEventListener('click', () => close(true), { once: true });
+    dlg.addEventListener('close', () => resolve(false), { once: true });
+  });
+}
 
 async function runProject(projectId) {
   try {
