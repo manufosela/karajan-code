@@ -9,8 +9,21 @@ import { refineHuWithContext } from "../hu/lazy-planner.js";
 import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
 
 /**
- * Determine whether the HU reviewer result requires a sub-pipeline
- * (more than one certified story).
+ * Determine whether the HU reviewer result needs the sub-pipeline path.
+ *
+ * Pre-fix this returned true only when there were > 1 certified stories.
+ * That broke single-HU runs (`kj run --plan <id> --hu <huId>`, the path
+ * the board's per-card ▶ button drives): with exactly one HU certified
+ * the flow fell through to the standard single-task pipeline, which
+ * does NOT call updateStoryStatus / saveHuBatch / emit hu:* events.
+ * Result: the HU stayed forever in `coding` even after the run finished
+ * because nobody persisted "done"/"failed" anywhere — board kanban
+ * showed "1 running…" indefinitely, plan JSON kept the stale status.
+ *
+ * The sub-pipeline already handles a 1-HU batch as a degenerate case
+ * (no dependency graph to resolve, no parallel batching) — so the fix
+ * is to take that path for any non-empty batch, not just >1.
+ *
  * @param {object|null} huReviewerResult - stageResults.huReviewer
  * @returns {boolean}
  */
@@ -19,7 +32,7 @@ export function needsSubPipeline(huReviewerResult) {
   const certified = (huReviewerResult.stories || []).filter(
     s => s.status === "certified"
   );
-  return certified.length > 1;
+  return certified.length >= 1;
 }
 
 /**

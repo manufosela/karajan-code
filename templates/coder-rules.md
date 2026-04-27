@@ -22,3 +22,16 @@
 - Keep changes minimal and focused on the task.
 - Do not modify code unrelated to the task.
 - Follow existing code conventions and patterns in the repository.
+
+## Tests location (MANDATORY)
+
+- Tests live in a top-level `tests/` directory mirroring `src/` (e.g. a function in
+  `src/services/foo.js` is tested by `tests/services/foo.test.js`).
+- DO NOT scatter `*.test.js` files inside `src/` unless the project's local
+  `.karajan/coder-rules.md` explicitly overrides this.
+- When generating a project from scratch:
+  - Create `tests/` and point the test runner at it (`include: ['tests/**/*.test.{js,ts}']`).
+  - Exclude `tests/` from the production bundle.
+  - If you write `sonar-project.properties`, set `sonar.tests=tests` AND make sure
+    that directory exists. Never declare a path that doesn't exist — Sonar will
+    refuse to scan and the run will fail every iteration with the same error.

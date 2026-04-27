@@ -96,14 +96,20 @@ describe("hu-sub-pipeline", () => {
       expect(needsSubPipeline({ ok: false, stories: [] })).toBe(false);
     });
 
-    it("returns false for single certified story (no sub-pipeline needed)", () => {
+    it("returns true for a single certified story (was false pre-fix; broke single-HU runs)", () => {
+      // Regression: `kj run --plan <id> --hu <huId>` (the board's per-card
+      // ▶ launcher) lands here with exactly 1 certified story. Pre-fix,
+      // needsSubPipeline returned false → single-task pipeline → no
+      // updateStoryStatus → HU stuck in "coding" forever after the run
+      // finished. The sub-pipeline handles 1 HU as a degenerate case
+      // (no dep graph, no parallel batches) so it's safe to take it.
       const result = {
         ok: true,
         certified: 1,
         total: 1,
         stories: [{ id: "HU-001", status: "certified" }]
       };
-      expect(needsSubPipeline(result)).toBe(false);
+      expect(needsSubPipeline(result)).toBe(true);
     });
 
     it("returns true for multiple certified stories", () => {
@@ -120,7 +126,11 @@ describe("hu-sub-pipeline", () => {
       expect(needsSubPipeline(result)).toBe(true);
     });
 
-    it("returns false when only one story is certified even if total > 1", () => {
+    it("returns true when one story is certified even if total > 1 (others get filtered later)", () => {
+      // Same regression as the single-HU case — needs_context / pending
+      // siblings are skipped by the sub-pipeline's own filter; only
+      // certified ones run. The board's per-HU launcher passes only
+      // one certified, so we need this to be true.
       const result = {
         ok: true,
         certified: 1,
@@ -129,6 +139,19 @@ describe("hu-sub-pipeline", () => {
           { id: "HU-001", status: "certified" },
           { id: "HU-002", status: "needs_context" },
           { id: "HU-003", status: "pending" }
+        ]
+      };
+      expect(needsSubPipeline(result)).toBe(true);
+    });
+
+    it("returns false when zero stories are certified", () => {
+      const result = {
+        ok: true,
+        certified: 0,
+        total: 2,
+        stories: [
+          { id: "HU-001", status: "needs_context" },
+          { id: "HU-002", status: "pending" }
         ]
       };
       expect(needsSubPipeline(result)).toBe(false);
@@ -181,15 +204,19 @@ describe("hu-sub-pipeline", () => {
 
   // --- runHuSubPipeline ---
 
-  describe("runHuSubPipeline — single HU runs pipeline as before", () => {
-    it("single HU detected by needsSubPipeline returns false — no sub-pipeline", () => {
+  describe("runHuSubPipeline — single HU now goes through the sub-pipeline (regression fix)", () => {
+    it("single HU detected by needsSubPipeline returns true so status updates fire", () => {
+      // Pre-fix this returned false and the run skipped the sub-pipeline,
+      // leaving the HU stuck in "coding" forever. The sub-pipeline knows
+      // how to handle a 1-HU batch as a degenerate case (skip parallel
+      // grouping, skip topological resolution beyond identity).
       const result = {
         ok: true,
         certified: 1,
         total: 1,
         stories: [{ id: "HU-001", status: "certified", certified: { text: "do thing" }, original: { text: "do thing" }, blocked_by: [] }]
       };
-      expect(needsSubPipeline(result)).toBe(false);
+      expect(needsSubPipeline(result)).toBe(true);
     });
   });
 

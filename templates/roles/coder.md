@@ -28,6 +28,40 @@ Before reporting done, verify that ALL parts of the task are addressed:
 - If you write tests first (TDD), the implementation MUST make those tests pass.
 - Do NOT commit code that doesn't compile or doesn't pass tests.
 
+## Test file location (MANDATORY convention)
+
+Tests live in a top-level `tests/` directory (or `test/` if the project already
+established that convention). Mirror the source tree under it: a function in
+`src/services/foo.js` is tested by `tests/services/foo.test.js`, NOT by a
+sibling file inside `src/`. This is the default Karajan convention; the only
+exception is when a `.karajan/coder-rules.md` in the project repo explicitly
+overrides it.
+
+Why this matters:
+- Reviewers and humans look in `tests/`, not next to source. Buried tests get
+  treated as "no tests exist" even when they do.
+- Sonar's default `sonar.tests=tests` (and equivalents in other scanners) only
+  finds tests there. Putting tests under `src/` produces empty coverage and
+  scanner errors.
+- Bundlers (Vite, esbuild, Astro, etc.) skip a `tests/` tree by default;
+  in-source tests can leak into production bundles unless every config
+  explicitly excludes them.
+
+When generating a project from scratch:
+- Create the `tests/` directory.
+- Configure the test runner to look there (`include: ['tests/**/*.test.{js,ts}']`
+  in vitest, `testMatch` in jest, etc.).
+- Configure the build tool to ignore it (`vite.config` excludes, etc.).
+- Configure Sonar (if `sonar-project.properties` is generated) with
+  `sonar.sources=src`, `sonar.tests=tests`, and verify both directories exist
+  before writing the file. NEVER write `sonar.tests=tests` without a `tests/`
+  folder — Sonar will refuse to scan and the run will burn iterations.
+
+When modifying an existing project:
+- Match whatever convention is already in place; do NOT introduce a second
+  one. If `tests/` exists, put new tests there. If only `src/**/*.test.js`
+  exists, follow that.
+
 ## Secrets and environment variables
 
 - NEVER hardcode API keys, tokens, passwords, secrets, or credentials in source code. No exceptions, not even for public keys or test keys.
