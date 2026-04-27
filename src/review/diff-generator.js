@@ -1,6 +1,6 @@
 import { runCommand } from "../utils/process.js";
 import { generateSnapshotDiff } from "./snapshot-diff.js";
-import { getRunContext } from "../orchestrator/run-context.js";
+import { getRunContext } from "../utils/run-context.js";
 
 // Module-scope back-compat state for callers outside a `withRunContext`
 // scope. When inside a pipeline, `getRunContext()` provides per-run

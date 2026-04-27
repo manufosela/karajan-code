@@ -18,17 +18,21 @@ export async function checkBinary(name, versionArg = "--version") {
 }
 
 export async function detectAvailableAgents() {
-  const results = [];
-  for (const agent of KNOWN_AGENTS) {
-    const check = await checkBinary(agent.name);
-    results.push({
-      name: agent.name,
-      available: check.ok,
-      version: check.ok ? check.version : null,
-      install: agent.install
-    });
-  }
-  return results;
+  // PR-J (audit quick win): probe the 5 agent binaries in parallel
+  // via Promise.all instead of awaiting in a for-of. checkBinary is
+  // a pure shell-out (no shared state), so serialising them was
+  // wasted latency. With 5 agents at ~80ms each: O(n) → O(1).
+  return Promise.all(
+    KNOWN_AGENTS.map(async (agent) => {
+      const check = await checkBinary(agent.name);
+      return {
+        name: agent.name,
+        available: check.ok,
+        version: check.ok ? check.version : null,
+        install: agent.install
+      };
+    })
+  );
 }
 
 /**

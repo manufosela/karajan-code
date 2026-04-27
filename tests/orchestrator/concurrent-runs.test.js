@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 import {
   withRunContext, getRunContext,
-} from "../../src/orchestrator/run-context.js";
+} from "../../src/utils/run-context.js";
 
 describe("TSK-0338 — per-run context isolation", () => {
   it("two parallel withRunContext scopes see their own runner, not each other's", async () => {

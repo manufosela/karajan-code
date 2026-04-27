@@ -1,5 +1,5 @@
 import { runCommand } from "./process.js";
-import { getRunContext } from "../orchestrator/run-context.js";
+import { getRunContext } from "./run-context.js";
 
 /**
  * Module-scoped runner — legacy back-compat for callers outside a
