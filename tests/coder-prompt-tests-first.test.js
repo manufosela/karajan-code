@@ -201,6 +201,33 @@ describe("buildCoderPrompt — reviewer findings filtered per HU", () => {
   });
 });
 
+describe("buildCoderPrompt — projectDir boundary rule (PR-I, KJC-BUG-0032)", () => {
+  it("renders the CRITICAL boundary section when projectDir is present", async () => {
+    const prompt = await buildCoderPrompt({
+      task: "Initialize project skeleton: create assistant/ directory",
+      projectDir: "/home/user/my-project",
+    });
+    expect(prompt).toMatch(/CRITICAL — Project directory boundary/);
+    expect(prompt).toContain("/home/user/my-project");
+    expect(prompt).toMatch(/EVERY file you create.*MUST stay inside/);
+    expect(prompt).toMatch(/RELATIVE to the project root/);
+    expect(prompt).toMatch(/post-coder guard/);
+  });
+
+  it("omits the section when projectDir is null (legacy callers)", async () => {
+    const prompt = await buildCoderPrompt({ task: "fix typo" });
+    expect(prompt).not.toMatch(/Project directory boundary/);
+  });
+
+  it("forbids absolute paths under $HOME explicitly", async () => {
+    const prompt = await buildCoderPrompt({
+      task: "x", projectDir: "/proj",
+    });
+    expect(prompt).toMatch(/\/home\/USER\/something/);
+    expect(prompt).toMatch(/Forbidden/);
+  });
+});
+
 describe("buildCoderPrompt — section ordering for plan-aware run", () => {
   it("renders ADRs → SPEC ref → reviewer findings → acceptance tests in that order", async () => {
     const huId = "hu_p001_002";

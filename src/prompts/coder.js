@@ -160,6 +160,28 @@ function renderReviewerFindingsSection(findings, huId) {
 
 export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   const langInstruction = getLanguageInstruction(language);
+  // KJC-BUG-0032 (PR-I): hard rule about file paths. Real bug: a HU
+  // titled "Initialize project skeleton: create assistant/ directory…"
+  // had Claude run `cd /home/manu/assistant && pnpm init …` and 36 MB
+  // of code landed in $HOME instead of inside projectDir. Reinforce
+  // the constraint at the prompt level (soft fix) AND enforce it
+  // post-coder via fs-leak-detector.js (hard fix).
+  const projectDirRule = projectDir
+    ? [
+        "## CRITICAL — Project directory boundary",
+        `The project root is **${projectDir}**. EVERY file you create, write, edit, mkdir or cd to MUST stay inside this directory.`,
+        "",
+        "Forbidden, regardless of what the task says:",
+        "- Absolute paths outside the project root (e.g. `/home/USER/something`, `/tmp/x`, `/etc/y`).",
+        "- `cd` to any directory outside the project root inside Bash commands.",
+        "- Creating sibling top-level directories under `$HOME`.",
+        "",
+        "If the task or HU title mentions a directory like `assistant/` or `app/`, treat it as RELATIVE to the project root. NEVER as an absolute path under $HOME.",
+        "",
+        "Karajan runs a deterministic post-coder guard that detects writes outside the project root and ABORTS the HU. If you ignore this rule the run will fail and your work will be discarded."
+      ].join("\n")
+    : null;
+
   const sections = [
     serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
     ...(langInstruction ? [langInstruction] : []),
@@ -172,6 +194,7 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     "No console.log — use a structured logger. No 'any' types — use JSDoc annotations.",
     SUBPROCESS_CONSTRAINTS
   ];
+  if (projectDirRule) sections.push(projectDirRule);
 
   if (serenaEnabled) {
     sections.push(SERENA_INSTRUCTIONS);
