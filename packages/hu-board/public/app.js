@@ -2510,14 +2510,34 @@ async function populateProjectSelect() {
   try {
     const projects = await api('/api/projects');
     const select = document.getElementById('project-select');
-    // Keep the "All Projects" option
-    select.innerHTML = '<option value="">All Projects</option>';
+    // Which project should appear pre-selected? Order:
+    //   1. scopedProjectSlug (URL is /p/<slug>)  — locked, never changes
+    //   2. selectedProject (route state, ej. #board/<slug>)
+    //   3. ""                                    — "All Projects"
+    // PR-D: the previous version cleared innerHTML and never marked
+    // any option as selected, so the dropdown showed "All Projects"
+    // even when scoped to one. handleRoute() set .value separately
+    // BUT the value was lost in the race because the matching option
+    // didn't exist yet when handleRoute ran. Setting .selected on
+    // the option directly avoids the race.
+    const desired = scopedProjectSlug || selectedProject || '';
+    select.innerHTML = '';
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'All Projects';
+    if (desired === '') all.selected = true;
+    select.appendChild(all);
     for (const p of projects) {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.name || p.id;
+      if (p.id === desired) opt.selected = true;
       select.appendChild(opt);
     }
+    // Final guard: if `desired` did not match any rendered option
+    // (project not on the board yet), still set the value so
+    // handleRoute's expectation holds.
+    if (desired) select.value = desired;
   } catch {
     // Silently fail — project list will be empty
   }
