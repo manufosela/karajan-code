@@ -21,6 +21,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
 import { syncPlanFile } from './sync.js';
+import { getDb } from './db.js';
 
 // Repo root → so we can spawn `node <repo>/src/cli.js run ...` without
 // depending on `kj` being in $PATH of the board process.
@@ -166,6 +167,65 @@ export function setHuFields({ planId, huId, patch, projectId }) {
  * @param {string} [args.projectId]
  * @returns {{ ok: true, count: number, planStatus: string } | { ok: false, error: string }}
  */
+/**
+ * PR-G: rename a project from the board.
+ *
+ * "Project" on the board is just a row in the projects table that
+ * groups stories. The source of truth for the human-readable name
+ * is `plan.name` inside each plan JSON for that project (PR-B made
+ * sync.js prefer it over the cwd basename). So a rename has to:
+ *
+ *   1. Update plan.name on every plan JSON belonging to this project,
+ *      so the next sync doesn't clobber the rename back to the
+ *      basename derivation.
+ *   2. Update the projects.name column directly so the UI updates
+ *      without waiting for a full re-scan.
+ *
+ * Validates name length (1–120) and rejects empty/whitespace-only.
+ *
+ * @returns {{ ok: true, name, plansUpdated } | { ok: false, error }}
+ */
+export function renameProject({ projectId, name }) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return { ok: false, error: 'El nombre no puede estar vacío.' };
+  if (trimmed.length > 120) return { ok: false, error: 'El nombre no puede superar los 120 caracteres.' };
+
+  const root = plansRoot();
+  let plansUpdated = 0;
+  if (existsSync(root)) {
+    const projDir = join(root, projectId);
+    if (existsSync(projDir)) {
+      let files;
+      try { files = readdirSync(projDir); } catch { files = []; }
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const filePath = join(projDir, f);
+        try {
+          const plan = readPlan(filePath);
+          plan.name = trimmed;
+          plan.updatedAt = new Date().toISOString();
+          writePlan(filePath, plan);
+          plansUpdated += 1;
+        } catch { /* skip unreadable plan */ }
+      }
+    }
+  }
+
+  // Update the project row directly so the UI reflects the new name
+  // without waiting for the chokidar watcher to fire on the plan
+  // edits above.
+  try {
+    const stmt = getDb().prepare('UPDATE projects SET name = ? WHERE id = ?');
+    const res = stmt.run(trimmed, projectId);
+    if (res.changes === 0 && plansUpdated === 0) {
+      return { ok: false, error: `Proyecto no encontrado: ${projectId}` };
+    }
+  } catch (err) {
+    return { ok: false, error: `Error actualizando la base de datos: ${err.message}` };
+  }
+  return { ok: true, name: trimmed, plansUpdated };
+}
+
 export function markPlanReady({ planId, projectId }) {
   const filePath = findPlanFilePath(planId, projectId);
   if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
