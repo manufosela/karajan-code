@@ -419,6 +419,12 @@ async function renderBoard() {
     app.innerHTML = `
       <div class="section-header">
         <span class="section-header__title" title="${selectedProject ? esc(selectedProject) : ''}">Story Board${selectedProject ? ` - ${esc(projectDisplayName)}` : ''}</span>
+        ${selectedProject ? `
+          <button class="control-btn project-rename-btn"
+                  style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;padding:2px 6px;"
+                  title="Renombrar este proyecto"
+                  onclick="event.stopPropagation(); window.renameProjectModal('${esc(selectedProject)}', '${esc(projectDisplayName.replace(/'/g, '&#39;'))}');">✎</button>
+        ` : ''}
         <span class="section-header__count">${stories.length} stories</span>
         ${isRunning ? `
           <span class="section-header__badge"
@@ -1263,6 +1269,74 @@ window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
  * Exposed on `window` because it's invoked from the inline onclick
  * attribute renderOutcomeChip writes.
  */
+/**
+ * PR-G: rename a project from the header ✎ button. Opens a small
+ * dialog with the current name pre-filled, validates length, PUTs
+ * to /api/projects/:id/name, and re-renders the board so the new
+ * name shows up everywhere (header, dropdown, picker).
+ *
+ * Exposed on `window` because the inline onclick attribute on the
+ * pencil button calls it.
+ */
+window.renameProjectModal = function renameProjectModal(projectId, currentName) {
+  const dlg = document.getElementById('app-dialog') || ensureDialog();
+  const safeCurrent = String(currentName || '').replace(/&#39;/g, "'");
+  dlg.innerHTML = `
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:1.1rem;">✎</span>
+      <span>Renombrar proyecto</span>
+    </div>
+    <div style="padding:14px 18px;">
+      <label for="rename-input" style="display:block;font-size:0.85rem;color:var(--text);margin-bottom:6px;">
+        Nombre del proyecto
+      </label>
+      <input type="text" id="rename-input" value="${esc(safeCurrent)}" maxlength="120"
+             style="width:100%;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);font-size:0.95rem;" />
+      <p style="margin:8px 0 0;font-size:0.75rem;color:var(--text-muted);">
+        Se actualizará el campo <code>name</code> en cada plan JSON de este proyecto y la fila en la base de datos del board.
+      </p>
+      <p id="rename-error" style="margin:8px 0 0;font-size:0.78rem;color:var(--color-red,#ef4444);display:none;"></p>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button id="rename-cancel" style="padding:8px 16px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;">Cancelar</button>
+      <button id="rename-save"   style="padding:8px 16px;background:var(--color-green);border:none;color:#fff;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;">Guardar</button>
+    </div>
+  `;
+  if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+  const input = dlg.querySelector('#rename-input');
+  const errorEl = dlg.querySelector('#rename-error');
+  input?.focus();
+  input?.select();
+  dlg.querySelector('#rename-cancel')?.addEventListener('click', () => { try { dlg.close(); } catch { /* ignore */ } }, { once: true });
+  dlg.querySelector('#rename-save')?.addEventListener('click', async () => {
+    const newName = input?.value?.trim() || '';
+    if (!newName) { errorEl.style.display = 'block'; errorEl.textContent = 'El nombre no puede estar vacío.'; return; }
+    if (newName === safeCurrent) { try { dlg.close(); } catch { /* ignore */ } return; }
+    try {
+      const r = await fetch(`/api/projects/${encodeURIComponent(projectId)}/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        errorEl.style.display = 'block';
+        errorEl.textContent = body?.error || `HTTP ${r.status}`;
+        return;
+      }
+      // Update the cached display name + refresh the board so the
+      // header, dropdown and project picker all show the new value.
+      projectNameCache[projectId] = newName;
+      try { dlg.close(); } catch { /* ignore */ }
+      await populateProjectSelect();
+      await renderBoard();
+    } catch (err) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = err.message || String(err);
+    }
+  }, { once: true });
+};
+
 window.showOutcomeModal = function showOutcomeModal(escapedJson) {
   let outcome;
   try { outcome = JSON.parse(String(escapedJson).replace(/&#39;/g, "'")); }

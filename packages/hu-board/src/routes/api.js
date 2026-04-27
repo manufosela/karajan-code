@@ -17,7 +17,7 @@ import {
   listPlanIdsForProject,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, setHuFields, markPlanReady, runPlan } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject } from '../plan-mutations.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
@@ -78,6 +78,26 @@ router.get('/projects/:id', (req, res) => {
     const project = projects.find((p) => p.id === req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     res.json(project);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/projects/:id/name — PR-G: rename a project.
+ *
+ * Updates plan.name on every plan JSON belonging to the project AND
+ * the projects.name column directly so the UI reflects the new name
+ * on the next render. Body: { name: "Linux Assistant Orchestrator" }.
+ */
+router.put('/projects/:id/name', (req, res) => {
+  try {
+    const result = renameProject({ projectId: req.params.id, name: req.body?.name });
+    if (!result.ok) {
+      const code = /no encontrado/i.test(result.error) ? 404 : 400;
+      return res.status(code).json({ error: result.error });
+    }
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
