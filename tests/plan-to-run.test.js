@@ -156,13 +156,24 @@ describe("kj_run with plan parameter", () => {
     // flow-runner.js into the pre-loop driver — flow-runner now delegates to
     // initFlowContext → runPreLoopStages. Assert the guard lives at the new
     // address so regressions in the decomposition get caught.
+    //
+    // PR-K (audit follow-up): the plan-injection block was further
+    // extracted from pre-loop.js into pre-loop-phases/inject-loaded-plan.js
+    // to keep runPreLoopStages under god-function size. The guard now
+    // lives in the extracted module; pre-loop.js holds the call site.
     const preLoopSource = await fs.readFile(
       path.join(process.cwd(), "src/orchestrator/drivers/pre-loop.js"),
       "utf8"
     );
-    // The plan loading is behind a `if (flags.plan)` guard
-    expect(preLoopSource).toContain("if (flags.plan)");
-    expect(preLoopSource).toContain("loadPlan");
-    expect(preLoopSource).toContain("plan:loaded");
+    const injectSource = await fs.readFile(
+      path.join(process.cwd(), "src/orchestrator/drivers/pre-loop-phases/inject-loaded-plan.js"),
+      "utf8"
+    );
+    // pre-loop.js delegates: must mention the extracted helper
+    expect(preLoopSource).toContain("injectLoadedPlan");
+    // The actual plan-loading logic now lives in the extracted module
+    expect(injectSource).toContain("if (!flags.plan)");
+    expect(injectSource).toContain("loadPlan");
+    expect(injectSource).toContain("plan:loaded");
   });
 });
