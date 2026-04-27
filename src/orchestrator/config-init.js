@@ -12,6 +12,7 @@ import { emitProgress, makeEvent } from "../utils/events.js";
 import { BudgetTracker, extractUsageMetrics } from "../utils/budget.js";
 import { computeKjComparison } from "../budget/comparison.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
+import { projectSlug } from "../plan/plan-store.js";
 import { applyPolicies } from "../guards/policy-resolver.js";
 import { resolveReviewProfile } from "../review/profiles.js";
 import { createSession } from "../session/store.js";
@@ -351,8 +352,19 @@ export async function initializeSession({ task, config, flags, pgTaskId, pgProje
     setSnapshot(snapshot);
   }
 
+  // PR-F: stamp project_id on every session derived from the project
+  // directory (slug = same algorithm the board uses to bucket plans).
+  // Without this, sessions created by `kj run` from a terminal land
+  // on disk with `project_id: null`. The board sync sees an orphan
+  // and (used to) promote it to a phantom "Orphan sessions" project.
+  // Now that PR-B blocks orphans on the board side, we must also fix
+  // the source so the session can attach to a real project.
+  const projectDir = config.projectDir || process.cwd();
+  const project_id = projectSlug(projectDir);
+
   const sessionInit = {
     task,
+    project_id,
     config_snapshot: config,
     base_ref: baseRef,
     session_start_sha: baseRef,

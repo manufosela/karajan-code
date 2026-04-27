@@ -83,6 +83,7 @@ program
   .description("Run coder+sonar+reviewer loop")
   .argument("[task]", "Task description (or use --task-file to read from a .md file)")
   .option("--task-file <path>", "Read the task from a file (e.g. .md). Alternative to the positional task argument.")
+  .option("-y, --yes", "Skip the cwd confirmation prompt (CI / scripted runs).")
   .option("--planner <name>")
   .option("--coder <name>")
   .option("--reviewer <name>")

@@ -8,6 +8,7 @@ import { printHeader } from "../utils/display/header.js";
 import { printEvent } from "../utils/display/event-handlers.js";
 import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
+import { confirmCwd } from "../utils/cwd-confirm.js";
 
 function createCliAskQuestion(opts = {}) {
   const { sessionId = null } = opts;
@@ -59,6 +60,27 @@ function createCliAskQuestion(opts = {}) {
 }
 
 export async function runCommandHandler({ task, config, logger, flags }) {
+  // PR-F (cwd confirmation): when launching from an interactive
+  // terminal, surface the working directory so the user can abort if
+  // they typed `kj run` from the wrong place. The user's words:
+  // "todas las que lo lancé desde terminal te garantizo que estaba
+  // en la carpeta del proyecto … aún así preguntar por si acaso".
+  //
+  // Skip the prompt when:
+  //   - --yes / -y is set (CI / scripted runs),
+  //   - --json mode is on (machine-readable output, no TTY assumed),
+  //   - stdin is not a TTY (piped, board-spawned subprocess, MCP).
+  const projectDir = config?.projectDir || process.cwd();
+  const canPrompt = process.stdin.isTTY && process.stdout.isTTY
+    && !flags?.yes && !flags?.json;
+  if (canPrompt) {
+    const ok = await confirmCwd(projectDir);
+    if (!ok) {
+      console.log("Aborted by user.");
+      return { ok: false, aborted: true };
+    }
+  }
+
   // Best-effort session cleanup before starting
   try {
     const { cleanupExpiredSessions } = await import("../session-cleanup.js");
