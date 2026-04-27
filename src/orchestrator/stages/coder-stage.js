@@ -18,6 +18,7 @@ import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
+import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   logger.setContext({ iteration, stage: "coder" });
@@ -45,6 +46,12 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
     onOutput: coderOnOutput, emitter, eventBase, stage: "coder", provider: coderRole.provider
   });
   const coderStart = Date.now();
+  // KJC-BUG-0032 (PR-I): snapshot $HOME's top-level entries BEFORE
+  // the coder runs so we can detect leaks afterwards. The bug: a HU
+  // titled "Initialize project skeleton: create assistant/…" had
+  // Claude run `cd /home/manu/assistant && pnpm init …` and 36 MB
+  // of code landed outside projectDir, outside any git repo.
+  const homeSnapshotBeforeCoder = snapshotHomeTopLevel();
   let coderExecResult;
   try {
     coderExecResult = await coderRoleInstance.execute({
@@ -137,6 +144,29 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       })
     );
     throw new Error(`Coder failed: ${details}`);
+  }
+
+  // KJC-BUG-0032 (PR-I): scan $HOME for new top-level entries the
+  // coder created OUTSIDE projectDir. Stop the HU loudly with a
+  // plain-Spanish message instead of letting the user discover by
+  // accident hours later that 36 MB of code is in the wrong place.
+  // Runs BEFORE the success-path verification so a leaked HU doesn't
+  // get marked as "Coder applied changes".
+  const projectDirAbs = config.projectDir || process.cwd();
+  const fsLeaks = detectNewHomeEntries(homeSnapshotBeforeCoder, projectDirAbs);
+  if (fsLeaks.length > 0) {
+    const msg = formatLeakMessage(fsLeaks, projectDirAbs);
+    logger.error(msg);
+    emitProgress(
+      emitter,
+      makeEvent("coder:fs-leak", { ...eventBase, stage: "coder" }, {
+        status: "fail",
+        message: `Coder escribió fuera del projectDir: ${fsLeaks.length} ruta(s) detectada(s)`,
+        detail: { provider: coderRole.provider, leaks: fsLeaks, projectDir: projectDirAbs }
+      })
+    );
+    await markSessionStatus(session, "failed");
+    throw new Error(msg);
   }
 
   // Measure files changed so stale detection (solomon-rules) has accurate data

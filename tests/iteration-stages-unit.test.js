@@ -253,6 +253,64 @@ describe("iteration-stages: runCoderStage", () => {
     expect(call.huId).toBeNull();
   });
 
+  // KJC-BUG-0032 (PR-I): runCoderStage must throw and emit a
+  // coder:fs-leak event when the coder created a new top-level
+  // entry under $HOME outside the projectDir. Uses fs + a tmp HOME
+  // to simulate the leak deterministically.
+  it("aborts the HU when the coder writes outside projectDir", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const os = await import("node:os");
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "kj-stage-leak-"));
+    const savedHome = process.env.HOME;
+    process.env.HOME = tmpHome;
+    try {
+      // The "coder" simulates the bug: creates a new top-level dir
+      // under $HOME during execution.
+      const executeMock = vi.fn(async () => {
+        fs.mkdirSync(path.join(tmpHome, "assistant"));
+        fs.writeFileSync(path.join(tmpHome, "assistant", "package.json"), "{}");
+        return { ok: true, result: { output: "done" }, summary: "ok" };
+      });
+      const coderRoleInstance = { execute: executeMock };
+
+      await expect(runCoderStage({
+        coderRoleInstance, coderRole,
+        config: { ...makeConfig(), projectDir: "/some/other/projectDir" },
+        logger, emitter, eventBase,
+        session: makeSession(), plannedTask: "do X", trackBudget, iteration: 1
+      })).rejects.toThrow(/FUERA del proyecto/);
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
+      try { fs.rmSync(tmpHome, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  });
+
+  it("does NOT abort when the coder writes only inside projectDir", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const os = await import("node:os");
+    const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "kj-stage-clean-"));
+    const savedHome = process.env.HOME;
+    process.env.HOME = tmpHome;
+    try {
+      // No new top-level $HOME entries created during coder run.
+      const executeMock = vi.fn(async () => ({ ok: true, result: { output: "done" }, summary: "ok" }));
+      const coderRoleInstance = { execute: executeMock };
+
+      const result = await runCoderStage({
+        coderRoleInstance, coderRole,
+        config: { ...makeConfig(), projectDir: "/some/projectDir" },
+        logger, emitter, eventBase,
+        session: makeSession(), plannedTask: "do X", trackBudget, iteration: 1
+      });
+      expect(result).toBeUndefined();   // success returns void
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
+      try { fs.rmSync(tmpHome, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  });
+
   it("returns standby action on rate limit", async () => {
     const { detectRateLimit } = await import("../src/utils/rate-limit-detector.js");
     detectRateLimit.mockReturnValueOnce({ isRateLimit: true, cooldownMs: 60000, message: "rate limited" });
