@@ -212,9 +212,14 @@ function syncSessionFile(filePath) {
     //   1. If a plan / HU batch already created `auto-<sessionId>`, reuse it
     //      so plan-based runs group with their HU batch.
     //   2. Otherwise fall back to the session's declared `project_id`.
-    //   3. Otherwise bucket the session under "default" so orphan runs
-    //      (e.g. `kj run "task"` without HU decomposition) still show up on
-    //      the board instead of disappearing silently. Fix for KJC-BUG-0028.
+    //   3. Otherwise → REJECT. Orphan sessions (no project_id and no batch)
+    //      USED to be promoted to a fake "Orphan sessions" project, which
+    //      violated the user's invariant: "Si se crea proyecto y se crean
+    //      hus se asocian a proyecto. ES IMPOSIBLE QUE [no exista esa
+    //      asociación]". Now we skip them entirely. The fix for the source
+    //      (kj run always stamps project_id derived from cwd) lives in
+    //      PR-F; this is the safety net so a leftover orphan can never
+    //      again appear as a phantom project on the board.
     const autoProjectId = `auto-${sessionId}`;
     const db = getDb();
     const existingBatch = db.prepare('SELECT id FROM projects WHERE id = ?').get(autoProjectId);
@@ -224,7 +229,9 @@ function syncSessionFile(filePath) {
     } else if (data.project_id) {
       projectId = data.project_id;
     } else {
-      projectId = 'default';
+      // Orphan: log + skip. Never promote to "default".
+      console.warn(`[sync] Session ${sessionId} has no project_id and no matching batch — skipping (orphan). File: ${filePath}`);
+      return;
     }
 
     // Ensure the project row exists. Skip when an auto-batch owns it already
@@ -233,7 +240,7 @@ function syncSessionFile(filePath) {
     if (!existingBatch) {
       upsertProject({
         id: projectId,
-        name: projectId === 'default' ? 'Orphan sessions' : projectId,
+        name: projectId,
         last_activity: data.updated_at || data.created_at || new Date().toISOString(),
         total_stories: 0,
       });
@@ -308,14 +315,20 @@ export function syncPlanFile(filePath) {
     const projectId = data.projectDir
       ? deriveProjectIdFromDir(data.projectDir)
       : data.planId;
-    // Human-friendly project name: basename("/…/linux-assistant-orchestrator")
-    // becomes "Linux Assistant Orchestrator". Uses `titleCaseBasename` (not
-    // `slugToTitle`) because the stopwords list there is tuned for free-text
-    // goals and would strip meaningful words like "tool" or "system" from a
-    // directory name. Falls back to the plan's declared name or task.
-    const projectName = data.projectDir
-      ? titleCaseBasename(basename(data.projectDir))
-      : (data.name || slugToTitle(data.task || '') || projectId);
+    // Human-friendly project name resolution order (most-specific first):
+    //   1. plan.name explicitly set by the user / planner ("Linux Assistant
+    //      Orchestrator" — preserved across renames done from the board).
+    //   2. titleCaseBasename(projectDir) — derived from the cwd of the
+    //      original kj plan invocation. NOTE: this is the SUBCARPETA of the
+    //      projectDir, NOT necessarily where the work happens. If the user
+    //      ran `kj plan` from inside `…/karajan-code/packages/hu-board/`
+    //      with a SPEC about "Linux Assistant", the basename here would
+    //      misleadingly say "Hu Board" — that's why plan.name wins.
+    //   3. slugToTitle of the task / projectId as a last resort.
+    const projectName = data.name
+      || (data.projectDir ? titleCaseBasename(basename(data.projectDir)) : null)
+      || slugToTitle(data.task || '')
+      || projectId;
 
     upsertProject({
       id: projectId,
