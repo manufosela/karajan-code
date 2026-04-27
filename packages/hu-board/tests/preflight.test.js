@@ -101,4 +101,39 @@ describe('runPreflight', () => {
     expect(ids).toContain('agent_gemini');
     expect(ids).toContain('agent_aider');
   });
+
+  // PR-C: agent absence is informational, NOT a warning, unless the
+  // user's kj.config.yml actually declares using that agent.
+  describe('agent CLI status semantics (PR-C)', () => {
+    const { writeFileSync, mkdirSync: mkdir } = require('node:fs');
+
+    it('absent agent that is not declared anywhere → info, not warn', async () => {
+      // Aider is almost certainly not on the test machine's PATH.
+      // With no config declaring it, it must come back as "info".
+      const home = process.env.KJ_HOME;
+      mkdir(`${home}/.karajan`, { recursive: true });
+      // Write a minimal config that declares only claude as coder.
+      writeFileSync(`${home}/.karajan/kj.config.yml`, 'coder: claude\nreviewer: codex\n');
+      const result = await runPreflight({ projectId: 'x', projectDir: null });
+      const aider = result.checks.find(c => c.id === 'agent_aider');
+      expect(['info', 'ok']).toContain(aider.status);
+      if (aider.status === 'info') {
+        expect(aider.detail).toBe('no instalado');
+        expect(aider.consequence).toBeUndefined();
+      }
+    });
+
+    it('absent agent that IS declared → warn with consequence', async () => {
+      const home = process.env.KJ_HOME;
+      mkdir(`${home}/.karajan`, { recursive: true });
+      writeFileSync(`${home}/.karajan/kj.config.yml`, 'coder: aider\n');
+      const result = await runPreflight({ projectId: 'x', projectDir: null });
+      const aider = result.checks.find(c => c.id === 'agent_aider');
+      // Only meaningful if aider really isn't on PATH (true on CI).
+      if (aider.status !== 'ok') {
+        expect(aider.status).toBe('warn');
+        expect(aider.consequence).toMatch(/instálalo o cambia el agente/i);
+      }
+    });
+  });
 });

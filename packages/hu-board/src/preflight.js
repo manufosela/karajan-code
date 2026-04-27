@@ -133,13 +133,69 @@ const AGENT_BINS = [
   { id: 'agent_aider',  bin: 'aider',  label: 'Aider',      versionFlag: '--version' },
 ];
 
-function checkAgent({ id, bin, label, versionFlag }) {
+/**
+ * Returns the set of agent ids the user has explicitly declared in
+ * their kj.config.yml. An agent that is missing from $PATH is only a
+ * problem when it's declared (coder/reviewer/etc.); otherwise it's
+ * just "not installed" — informational, not a warning.
+ *
+ * Reads the same yml the editor modal writes (~/.karajan/kj.config.yml).
+ * Returns a Set of bin names ("claude", "codex", "gemini", "aider").
+ */
+function detectDeclaredAgents() {
+  const declared = new Set();
+  try {
+    const home = process.env.KJ_HOME || process.env.HOME || '';
+    // The yml lives in two possible locations depending on how the
+    // user installed Karajan; check both for forwards-compat.
+    const candidates = [join(home, '.karajan', 'kj.config.yml'), join(home, 'kj.config.yml')];
+    for (const p of candidates) {
+      if (!existsSync(p)) continue;
+      const raw = readFileSync(p, 'utf8');
+      // Don't pull in js-yaml just to read a few top-level keys —
+      // a tolerant regex scan over `coder:` / `reviewer:` / `roles.X.provider:`
+      // is enough and keeps preflight zero-dep.
+      const topLevel = raw.match(/^(?:coder|reviewer|planner|architect|triage|researcher|tester|security|refactorer|impeccable)\s*:\s*([\w-]+)\s*$/gm) || [];
+      for (const line of topLevel) {
+        const m = /:\s*([\w-]+)\s*$/.exec(line);
+        if (m) declared.add(m[1]);
+      }
+      const rolesProviders = raw.match(/^\s+provider\s*:\s*([\w-]+)\s*$/gm) || [];
+      for (const line of rolesProviders) {
+        const m = /:\s*([\w-]+)\s*$/.exec(line);
+        if (m) declared.add(m[1]);
+      }
+      break;
+    }
+  } catch { /* config unreadable → declare nothing, every absence is just info */ }
+  return declared;
+}
+
+/**
+ * Check one agent CLI. Status semantics changed in PR-C:
+ *
+ *   - found on PATH         → "ok"   (✓, with version)
+ *   - not on PATH, not used → "info" (gray, "(no instalado)")
+ *   - not on PATH, declared → "warn" (yellow, with consequence)
+ *
+ * The user explicitly asked for this: missing Aider should NOT be a
+ * warning when they don't use Aider. Only flag absence as a problem
+ * when the kj.config.yml expects it.
+ */
+function checkAgent({ id, bin, label, versionFlag }, declaredAgents) {
   const which = runQuiet(`command -v ${bin}`);
   if (!which.ok) {
+    if (declaredAgents.has(bin)) {
+      return {
+        id, label, status: 'warn',
+        detail: 'declarado en kj.config.yml pero no encontrado en PATH',
+        consequence: `Tu pipeline declara usar ${label.replace(' CLI', '')} pero el binario no está instalado. Las ejecuciones que lo invoquen fallarán. Instálalo o cambia el agente del rol en la configuración.`,
+        blocking: false
+      };
+    }
     return {
-      id, label, status: 'warn',
-      detail: 'no encontrado en PATH',
-      consequence: `Si tu pipeline está configurada para usar ${label.replace(' CLI', '')}, fallará al invocarlo. Si no lo usas, ignóralo.`,
+      id, label, status: 'info',
+      detail: 'no instalado',
       blocking: false
     };
   }
@@ -214,7 +270,11 @@ export async function runPreflight({ projectId, projectDir }) {
   }
   checks.push(checkNodeVersion());
   checks.push(checkKarajanVersion());
-  for (const a of AGENT_BINS) checks.push(checkAgent(a));
+  // PR-C: agents are checked against the declared set in kj.config.yml.
+  // Absent + undeclared → "info" (just informational, no warning sign).
+  // Absent + declared   → "warn" (real problem: the pipeline can't run).
+  const declaredAgents = detectDeclaredAgents();
+  for (const a of AGENT_BINS) checks.push(checkAgent(a, declaredAgents));
   checks.push(checkConfigYml());
   checks.push(checkPlans(projectId));
 
