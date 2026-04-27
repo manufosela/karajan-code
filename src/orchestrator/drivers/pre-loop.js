@@ -53,6 +53,7 @@ import { stageRegistry } from "../stages/stage-classes.js";
 import { runStage } from "../stages/stage-executor.js";
 import { runDomainCuratorStage } from "../stages/domain-curator-stage.js";
 import { runPreflightChecks } from "../preflight-checks.js";
+import { injectLoadedPlan } from "./pre-loop-phases/inject-loaded-plan.js";
 import {
   applyTriageOverrides, applyAutoSimplify, applyFlagOverrides,
   resolvePipelinePolicies, updateGitignoreForStack,
@@ -280,194 +281,16 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   }
 
   // --- Plan injection: skip researcher/architect/planner if a persisted plan is loaded ---
-  if (flags.plan) {
-    try {
-      const { loadPlan, savePlan: savePlanToDisk } = await import("../../plan/plan-store.js");
-      const { isPlanV2 } = await import("../../plan/plan-schema.js");
-      const { planToHuBatch, syncResultsToPlan } = await import("../../plan/plan-executor.js");
-      const projectDir = updatedConfig.projectDir || process.cwd();
-      const loadedPlan = await loadPlan(projectDir, flags.plan);
-      if (loadedPlan) {
-        logger.info(`Loaded persisted plan: ${flags.plan} (v${loadedPlan.version || 1})`);
-        emitProgress(emitter, makeEvent("plan:loaded", { ...eventBase, stage: "plan" }, {
-          message: `Plan loaded: ${flags.plan}`,
-          detail: { planId: flags.plan, task: loadedPlan.task, version: loadedPlan.version, huCount: loadedPlan.hus?.length || 0 }
-        }));
-        stageResults.researcher = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
-        stageResults.architect = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
-        stageResults.planner = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
-
-        // Tests-first gate (v2.7.5): refuse to run a plan when any HU has
-        // no acceptance_tests. Mirrors the gate in `kj plan ready` so the
-        // CLI path and the board's "▶ Run plan" button (which spawns
-        // `kj run --plan` directly, bypassing `kj plan ready`) both
-        // enforce the same contract. Without this, the board could
-        // launch a run on a plan whose HUs the planner-LLM forgot to
-        // declare tests for, and the coder would have nothing to satisfy.
-        if (isPlanV2(loadedPlan) && Array.isArray(loadedPlan.hus)) {
-          const missing = loadedPlan.hus.filter(
-            (h) => !Array.isArray(h.acceptance_tests) || h.acceptance_tests.length === 0
-          );
-          if (missing.length > 0) {
-            const offenders = missing.map((h) => `  - ${h.id}  ${(h.title || "").slice(0, 60)}`).join("\n");
-            const msg =
-              `Refusing to run plan ${flags.plan}: ${missing.length}/${loadedPlan.hus.length} HU(s) have no acceptance_tests.\n`
-              + `${offenders}\n\n`
-              + "Tests-first flow requires a test contract per HU. Edit each HU on the board\n"
-              + "(http://localhost:4000) via the ✎ Edit button, or re-run `kj plan` to regenerate.";
-            logger.error(msg);
-            emitProgress(emitter, makeEvent("plan:tests-missing", { ...eventBase, stage: "plan" }, {
-              status: "fail",
-              message: `Plan ${flags.plan}: ${missing.length} HU(s) missing acceptance_tests`,
-              detail: { planId: flags.plan, missingHuIds: missing.map((h) => h.id) }
-            }));
-            throw new Error(`Plan ${flags.plan} has ${missing.length} HU(s) with no acceptance_tests — see the run log for details.`);
-          }
-
-          // PR-E (auto-certify + anomaly guards): the user expects
-          // pending HUs to be runnable; the "certified" intermediate
-          // state was an invisible wall. Helpers live in
-          // src/plan/plan-hu-ops.js so they can be unit-tested
-          // without spinning up the whole orchestrator. Pulled from
-          // the same dynamic import used a few lines below for
-          // updateHuStatus + setHuOutcome — no extra import budget.
-          const planHuOps = await import("../../plan/plan-hu-ops.js");
-          const { autoCertifyPendingHus, assertPlanRunnable } = planHuOps;
-          const promoted = autoCertifyPendingHus(loadedPlan);
-          if (promoted > 0) {
-            await savePlanToDisk(projectDir, loadedPlan);
-            logger.info(`Plan ${flags.plan}: auto-certified ${promoted} pending HU(s) — ready to run`);
-            emitProgress(emitter, makeEvent("plan:auto-certified", { ...eventBase, stage: "plan" }, {
-              message: `Auto-certificadas ${promoted} HU(s) pendientes`,
-              detail: { planId: flags.plan, count: promoted }
-            }));
-          }
-          // Refuse loudly if after auto-certify there's still nothing
-          // runnable. Without this the orchestrator silently falls
-          // back to legacy single-task mode and burns tokens.
-          try {
-            assertPlanRunnable(loadedPlan, flags.plan);
-          } catch (err) {
-            logger.error(err.message);
-            emitProgress(emitter, makeEvent("plan:no-runnable", { ...eventBase, stage: "plan" }, {
-              status: "fail", message: err.message,
-              detail: { planId: flags.plan }
-            }));
-            throw err;
-          }
-        }
-
-        // v2 plan with HUs → inject as huReviewer so sub-pipeline picks them up
-        if (isPlanV2(loadedPlan) && loadedPlan.hus?.length > 0) {
-          const huBatch = planToHuBatch(loadedPlan);
-          // PR4: --hu <ids> filters the batch to only the requested
-          // stories, marking the rest as already-done so the sub-
-          // pipeline skips them. The board's per-HU ▶ button uses
-          // this to re-run a single failed HU without restarting
-          // the whole plan.
-          if (huBatch.ok && flags.hu) {
-            const requested = String(flags.hu).split(",").map((s) => s.trim()).filter(Boolean);
-            if (requested.length === 0) {
-              logger.warn(`--hu was empty after parsing — falling back to running every certified HU`);
-            } else {
-              const requestedSet = new Set(requested);
-              const found = huBatch.stories.filter((s) => requestedSet.has(s.id));
-              const missing = requested.filter((id) => !huBatch.stories.some((s) => s.id === id));
-              if (missing.length > 0) {
-                logger.warn(`--hu: ignored ${missing.length} unknown HU id(s): ${missing.join(", ")}`);
-              }
-              if (found.length === 0) {
-                throw new Error(`--hu: none of the requested HU id(s) exist in plan ${flags.plan}: ${requested.join(", ")}`);
-              }
-              // Stories not in `requested` get status=done so the sub-
-              // pipeline filter (`status === certified`) skips them.
-              // We don't touch the plan JSON itself — this is a
-              // run-time filter only.
-              for (const story of huBatch.stories) {
-                if (!requestedSet.has(story.id)) story.status = "done";
-              }
-              huBatch.certified = found.length;
-              logger.info(`Plan ${flags.plan}: --hu filter active — ${found.length}/${huBatch.total} HU(s) will run (${found.map((s) => s.id).join(", ")})`);
-              emitProgress(emitter, makeEvent("plan:hu-filter", { ...eventBase, stage: "plan" }, {
-                message: `--hu filter: ${found.length} HU(s) selected, ${huBatch.total - found.length} skipped`,
-                detail: { planId: flags.plan, requested, ignored: missing, willRun: found.map((s) => s.id) }
-              }));
-            }
-          }
-          if (huBatch.ok) {
-            stageResults.huReviewer = huBatch;
-            // Store plan reference so we can sync results back after execution
-            setPlanRef(session, { planId: loadedPlan.planId, projectDir });
-            setPlanSyncCallback(session, async (subResult) => {
-              syncResultsToPlan(loadedPlan, subResult);
-              await savePlanToDisk(projectDir, loadedPlan);
-            });
-            // PR1 (live HU status): write the plan JSON on EVERY status
-            // change so the board's chokidar watcher fires per-HU and the
-            // Kanban columns reflect progress in real time. Without this
-            // the plan only updates at the end of the run and the board
-            // looks frozen during execution.
-            // (`planHuOps` was loaded above for PR-E auto-certify — reuse
-            // the same reference to stay under the dynamic-import budget.)
-            const { updateHuStatus: updateHuStatusFn, setHuOutcome: setHuOutcomeFn } = planHuOps;
-            setLiveStatusUpdater(session, async (huId, status) => {
-              try {
-                if (!updateHuStatusFn(loadedPlan, huId, status)) return;
-                await savePlanToDisk(projectDir, loadedPlan);
-              } catch (err) {
-                logger?.warn?.(`Live status update failed for ${huId}: ${err.message}`);
-              }
-            });
-            // PR3 (per-HU outcome): same pattern but for the rich
-            // outcome blob (iterations, duration, commits, summary…).
-            // Stamped once per HU at runSingleHu's exit so the board
-            // can show the 📄 indicator as soon as each HU finishes.
-            setLiveOutcomeUpdater(session, async (huId, outcome) => {
-              try {
-                if (!setHuOutcomeFn(loadedPlan, huId, outcome)) return;
-                await savePlanToDisk(projectDir, loadedPlan);
-              } catch (err) {
-                logger?.warn?.(`Live outcome update failed for ${huId}: ${err.message}`);
-              }
-            });
-            logger.info(`Plan ${flags.plan}: ${huBatch.certified} HUs ready for execution`);
-            emitProgress(emitter, makeEvent("plan:hus-loaded", { ...eventBase, stage: "plan" }, {
-              message: `${huBatch.certified} HUs loaded from plan`,
-              detail: { planId: flags.plan, total: huBatch.total, certified: huBatch.certified }
-            }));
-            // Mark plan as running
-            loadedPlan.status = "running";
-            await savePlanToDisk(projectDir, loadedPlan);
-          }
-        }
-
-        // Inject contexts
-        const ctx = loadedPlan.context || {};
-        setPreLoopContext(session, {
-          research: ctx.researchContext || loadedPlan.researchContext || null,
-          architect: ctx.architectContext || loadedPlan.architectContext || null,
-          plan: loadedPlan.approach || loadedPlan.plan || null,
-        });
-        await saveSession(session);
-
-        // Build planned task from plan (for non-HU or fallback path)
-        let plannedTask = task;
-        const plan = loadedPlan.plan || (loadedPlan.approach ? { approach: loadedPlan.approach } : null);
-        if (plan && typeof plan === "object" && plan.steps) {
-          const stepList = plan.steps.map((s, idx) => `${idx + 1}. ${s.description || s}`).join("\n");
-          plannedTask = `${task}\n\n## Implementation Plan\n${plan.approach || ""}\n\n## Steps\n${stepList}`;
-        } else if (typeof plan === "string") {
-          plannedTask = `${task}\n\n## Implementation Plan\n${plan}`;
-        } else if (loadedPlan.approach) {
-          plannedTask = `${task}\n\n## Approach\n${loadedPlan.approach}`;
-        }
-        return { plannedTask, updatedConfig };
-      }
-      logger.warn(`Plan ${flags.plan} not found — falling back to normal pipeline`);
-    } catch (err) {
-      logger.warn(`Plan loading failed: ${err.message} — falling back to normal pipeline`);
-    }
+  // Extracted to pre-loop-phases/inject-loaded-plan.js (PR-K).
+  // 189 LOC of plan-load + tests-gate + auto-certify + assertRunnable +
+  // huBatch + --hu filter + callback wiring + plannedTask build.
+  const planInjection = await injectLoadedPlan({
+    flags, updatedConfig, session, stageResults, eventBase, emitter, logger, task,
+  });
+  if (planInjection.handled) {
+    return { plannedTask: planInjection.plannedTask, updatedConfig };
   }
+
 
   // --- Researcher → Planner ---
   const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx });
