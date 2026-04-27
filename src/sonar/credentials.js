@@ -1,13 +1,20 @@
 /**
- * Load SonarQube admin credentials from ~/.karajan/sonar-credentials.json.
+ * Load SonarQube credentials from ~/.karajan/sonar-credentials.json.
  *
- * File format:
+ * File format (any subset):
  * {
  *   "user": "admin",
- *   "password": "your-password"
+ *   "password": "your-password",
+ *   "token": "squ_..."
  * }
  *
- * Returns { user, password } or { user: null, password: null } if file missing.
+ * Returns { user, password, token } with each field null when missing.
+ *
+ * The `token` field is consumed by resolveSonarTokenAsync as the
+ * lowest-priority fallback. Until v2.7.5 it was not extracted here, which
+ * meant a token persisted to the credentials file by `kj init` was never
+ * actually used at scan time — Karajan would silently fall back to the
+ * stale token in kj.config.yml or fail with a 401.
  */
 
 import fs from "node:fs/promises";
@@ -23,10 +30,11 @@ export async function loadSonarCredentials() {
     const data = JSON.parse(raw);
     return {
       user: data.user || null,
-      password: data.password || null
+      password: data.password || null,
+      token: data.token || null
     };
   } catch { /* credentials file may not exist */
-    return { user: null, password: null };
+    return { user: null, password: null, token: null };
   }
 }
 
