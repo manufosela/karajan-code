@@ -194,7 +194,13 @@ describe('syncSessionFile via fullScan', () => {
     expect(() => sync.fullScan()).not.toThrow();
   });
 
-  it('defaults project_id to "default" when missing from session data', async () => {
+  it('rejects (does not ingest) sessions without project_id and no matching batch', async () => {
+    // PR-B (orphan-proof): the previous behaviour was to promote orphan
+    // sessions to a fake "default" / "Orphan sessions" project. The user
+    // declared that invariant unacceptable: "ES IMPOSIBLE QUE OCURRA. Si
+    // se crea proyecto y se crean hus se asocian a proyecto". sync.js now
+    // skips orphan session.json files entirely; the "default" project
+    // never appears.
     const { db, sync } = await setup();
 
     const sessionDir = join(tmpDir, 'sessions', 'sess-noproject');
@@ -211,9 +217,12 @@ describe('syncSessionFile via fullScan', () => {
 
     sync.fullScan();
 
+    // The orphan session must NOT have created a "default" project.
+    const allProjects = db.getProjects();
+    expect(allProjects.find((p) => p.id === 'default')).toBeUndefined();
+
+    // And the session itself must not have been ingested anywhere.
     const sessions = db.getSessionsByProject('default');
-    const found = sessions.find((s) => s.id === 'sess-noproject');
-    expect(found).toBeTruthy();
-    expect(found.project_id).toBe('default');
+    expect(sessions.find((s) => s.id === 'sess-noproject')).toBeUndefined();
   });
 });
