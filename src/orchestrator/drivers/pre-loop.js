@@ -323,6 +323,38 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
             }));
             throw new Error(`Plan ${flags.plan} has ${missing.length} HU(s) with no acceptance_tests — see the run log for details.`);
           }
+
+          // PR-E (auto-certify + anomaly guards): the user expects
+          // pending HUs to be runnable; the "certified" intermediate
+          // state was an invisible wall. Helpers live in
+          // src/plan/plan-hu-ops.js so they can be unit-tested
+          // without spinning up the whole orchestrator. Pulled from
+          // the same dynamic import used a few lines below for
+          // updateHuStatus + setHuOutcome — no extra import budget.
+          const planHuOps = await import("../../plan/plan-hu-ops.js");
+          const { autoCertifyPendingHus, assertPlanRunnable } = planHuOps;
+          const promoted = autoCertifyPendingHus(loadedPlan);
+          if (promoted > 0) {
+            await savePlanToDisk(projectDir, loadedPlan);
+            logger.info(`Plan ${flags.plan}: auto-certified ${promoted} pending HU(s) — ready to run`);
+            emitProgress(emitter, makeEvent("plan:auto-certified", { ...eventBase, stage: "plan" }, {
+              message: `Auto-certificadas ${promoted} HU(s) pendientes`,
+              detail: { planId: flags.plan, count: promoted }
+            }));
+          }
+          // Refuse loudly if after auto-certify there's still nothing
+          // runnable. Without this the orchestrator silently falls
+          // back to legacy single-task mode and burns tokens.
+          try {
+            assertPlanRunnable(loadedPlan, flags.plan);
+          } catch (err) {
+            logger.error(err.message);
+            emitProgress(emitter, makeEvent("plan:no-runnable", { ...eventBase, stage: "plan" }, {
+              status: "fail", message: err.message,
+              detail: { planId: flags.plan }
+            }));
+            throw err;
+          }
         }
 
         // v2 plan with HUs → inject as huReviewer so sub-pipeline picks them up
@@ -375,7 +407,9 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
             // Kanban columns reflect progress in real time. Without this
             // the plan only updates at the end of the run and the board
             // looks frozen during execution.
-            const { updateHuStatus: updateHuStatusFn, setHuOutcome: setHuOutcomeFn } = await import("../../plan/plan-hu-ops.js");
+            // (`planHuOps` was loaded above for PR-E auto-certify — reuse
+            // the same reference to stay under the dynamic-import budget.)
+            const { updateHuStatus: updateHuStatusFn, setHuOutcome: setHuOutcomeFn } = planHuOps;
             setLiveStatusUpdater(session, async (huId, status) => {
               try {
                 if (!updateHuStatusFn(loadedPlan, huId, status)) return;
