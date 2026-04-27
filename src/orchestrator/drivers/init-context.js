@@ -32,7 +32,7 @@ import {
   createJournalDir, writePreLoopJournal, buildPlanSummary,
 } from "../session-journal.js";
 import { setPgCard, setJournalContext } from "../../session/mutators.js";
-import { getRunContext } from "../run-context.js";
+import { getRunContext } from "../../utils/run-context.js";
 import { getIntegration } from "../integrations.js";
 import { tryAutoStartBoard } from "./post-loop.js";
 import { runPreLoopStages } from "./pre-loop.js";

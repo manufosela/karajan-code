@@ -36,7 +36,7 @@ import {
 } from "./config-init.js";
 import { resolveTestHarness } from "../config/test-harness.js";
 import { cleanupAutoInstalledSkills } from "../skills/skill-detector.js";
-import { withRunContext } from "./run-context.js";
+import { withRunContext } from "../utils/run-context.js";
 import { ensureTrackerRegistered } from "../tracker-bootstrap.js";
 
 // Drivers extracted from this god-module in TSK-0335 (Oleada 3 of the v2.7.4
