@@ -23,7 +23,12 @@ vi.mock("../src/review/diff-generator.js", () => ({
 
 vi.mock("../src/roles/base-role.js", () => ({
   resolveRoleMdPath: vi.fn(() => []),
-  loadFirstExisting: vi.fn(async () => null)
+  loadFirstExisting: vi.fn(async () => null),
+  // PR-L: flow-runner now statically imports drivers/run-hu-batch.js,
+  // which transitively pulls in coder-stage → CoderRole → AgentRole →
+  // BaseRole. The mock has to expose the BaseRole class so the import
+  // resolves at test load time.
+  BaseRole: class { constructor() {} async init() {} }
 }));
 
 vi.mock("../src/review/profiles.js", () => ({

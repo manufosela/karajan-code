@@ -38,7 +38,15 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // Budget set to the post-TSK-0340 count + 0 slack: downsize ratchet.
 // If this grows, either find a redundant import to convert to static or
 // bump the budget in the same PR with a one-line justification below.
-const DYNAMIC_IMPORT_BUDGET = 150;
+//
+// 2026-04-27 (PR-L): bumped 150 → 156. The 6 over-budget imports are
+// the per-HU machinery inside the HU sub-pipeline path (prepareHuBranch,
+// loadActiveAdrs, createBrainContext, applyPolicies, runAcceptanceTests,
+// runTesterStage) — extracted from flow-runner.js to drivers/run-hu-batch.js
+// in this same PR. Net dynamic-import count is unchanged from before
+// PR-L; the 150 budget was already breached by an earlier PR that
+// landed without updating this constant.
+const DYNAMIC_IMPORT_BUDGET = 156;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
