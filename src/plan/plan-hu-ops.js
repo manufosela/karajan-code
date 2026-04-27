@@ -168,6 +168,68 @@ export function setPlanOutcome(plan, outcome) {
 }
 
 /**
+ * PR-E: auto-promote every pending HU with at least one acceptance
+ * test to "certified". The intermediate "certified" state was an
+ * invisible wall — there's no UI button for it and the user had no
+ * way to discover `kj plan ready`. Treating pending-with-tests as
+ * runnable removes the wall while keeping the test contract gate.
+ *
+ * Mutates plan in place. HUs in done / failed / blocked are left
+ * alone so re-runs stay explicit (use --hu <id>).
+ *
+ * @returns {number} how many HUs were promoted (0 if nothing changed).
+ */
+export function autoCertifyPendingHus(plan) {
+  if (!plan?.hus?.length) return 0;
+  let promoted = 0;
+  const now = new Date().toISOString();
+  for (const hu of plan.hus) {
+    if (hu.status === "pending" && Array.isArray(hu.acceptance_tests) && hu.acceptance_tests.length > 0) {
+      hu.status = "certified";
+      hu.updatedAt = now;
+      promoted += 1;
+    }
+  }
+  if (promoted > 0) plan.updatedAt = now;
+  return promoted;
+}
+
+/**
+ * PR-E: assert that the plan has at least one HU that's actually
+ * going to run. Throws with a plain-Spanish message otherwise so
+ * `kj run --plan` can never silently fall back to single-task mode
+ * and burn tokens for nothing.
+ *
+ * The set of "runnable" statuses matches the sub-pipeline filter
+ * (today: certified). The caller should run autoCertifyPendingHus()
+ * BEFORE this so pending-with-tests get a chance.
+ *
+ * @throws {Error} when no HU is runnable.
+ */
+export function assertPlanRunnable(plan, planId) {
+  if (!plan?.hus?.length) {
+    throw new Error(
+      `El plan ${planId} no contiene ninguna HU. `
+      + `Edita el plan o vuelve a generarlo con \`kj plan\`. `
+      + `Aborto para no malgastar tokens en un fallback de "single task".`
+    );
+  }
+  const certified = plan.hus.filter((h) => h.status === "certified").length;
+  if (certified > 0) return;
+  const counts = plan.hus.reduce((acc, h) => {
+    const k = h.status || "pending";
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ");
+  throw new Error(
+    `Plan ${planId}: 0 HU(s) listas para ejecutar (estados: ${summary}). `
+    + `Si las HU(s) están en done/failed/blocked y quieres relanzarlas, usa --hu <id>. `
+    + `Aborto para no malgastar tokens en un fallback de "single task".`
+  );
+}
+
+/**
  * Compute the rollup from the per-HU outcomes already stamped on the
  * plan. Invoked by syncResultsToPlan in plan-executor when the run
  * ends so the caller doesn't have to assemble the counts by hand.
