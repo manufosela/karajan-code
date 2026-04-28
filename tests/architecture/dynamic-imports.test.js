@@ -46,7 +46,14 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // in this same PR. Net dynamic-import count is unchanged from before
 // PR-L; the 150 budget was already breached by an earlier PR that
 // landed without updating this constant.
-const DYNAMIC_IMPORT_BUDGET = 156;
+//
+// 2026-04-28: bumped 156 → 159 after fixing a regex order bug in
+// stripCommentsAndStrings (block-then-line eats huge spans when a line
+// comment contains the literal `/*` — e.g. `// drivers/*`). Three
+// `await import(...)` callsites were hiding behind that swallow and
+// never counted; they've always existed in the source. Real headcount
+// is 159.
+const DYNAMIC_IMPORT_BUDGET = 159;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -59,8 +66,12 @@ function listJsFiles(dir, out = []) {
 }
 
 function stripCommentsAndStrings(source) {
-  let out = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  out = out.replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  // Order matters — see tests/architecture/session-store-imports.test.js for
+  // the false-positive that arises if you strip block comments first: a line
+  // comment like `// drivers/*` becomes a (lazy) block-comment opener and
+  // eats every line until the next `*\/`.
+  let out = source.replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  out = out.replace(/\/\*[\s\S]*?\*\//g, "");
   return out;
 }
 
