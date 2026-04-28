@@ -303,6 +303,7 @@ export async function boardCommand({ action = "start", port = 4000, logger }) {
         await startBoard(port);
       }
       const url = `http://localhost:${port}`;
+      // eslint-disable-next-line import-x/no-unresolved -- optional peer; the .catch handles its absence
       const { default: open } = await import("open").catch(() => ({ default: null }));
       if (open) {
         await open(url);

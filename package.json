@@ -46,10 +46,18 @@
     "setup": "node scripts/install.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "lint:syntax": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
     "typecheck": "npx -p typescript@5 tsc --noEmit -p tsconfig.json",
-    "validate": "npm run lint && npm test",
+    "validate": "npm run lint && npm run lint:syntax && npm test",
     "mcp": "node src/mcp/server.js"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "src/**/*.js": "eslint --max-warnings=999"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
@@ -60,9 +68,15 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.28.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-import-x": "^4.16.2",
+    "globals": "^17.5.0",
+    "lint-staged": "^16.4.0",
     "postject": "^1.0.0-alpha.6",
+    "simple-git-hooks": "^2.13.1",
     "vitest": "^4.0.0"
   }
 }

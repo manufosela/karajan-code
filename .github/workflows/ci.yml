@@ -33,8 +33,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (syntax check)
+      - name: Lint (ESLint — no-undef + import resolution)
         run: npm run lint
+
+      - name: Lint (node --check — parse-time syntax)
+        run: npm run lint:syntax
 
   # Tests are restricted to Node 20+. vitest 4 / rolldown (a devDependency)
   # uses `styleText` from `node:util` which only exists on Node 20.12+. The
