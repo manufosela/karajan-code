@@ -346,8 +346,96 @@ describe("hu-sub-pipeline", () => {
       });
       // No "reconciled" log line should fire.
       expect(logger.info).not.toHaveBeenCalledWith(
-        expect.stringMatching(/reconciled \d+ story status/),
+        expect.stringMatching(/reconciled .* from plan/),
       );
+    });
+
+    it("overlays acceptance_tests from plan when persisted batch has stale tests (regression #543)", async () => {
+      // 2026-04-29 incident: planner emitted a buggy jq query in
+      // acceptance_tests, run failed, batch.json persisted the broken
+      // test, user manually fixed it in the plan JSON and relaunched —
+      // but acceptance_tests was NOT reconciled, only status was. The
+      // acceptance runner read the broken test from the persisted
+      // batch every iteration. Coder couldn't fix it (irreparable).
+      // HU 002 → failed → 7 dependents blocked.
+      const persistedBatch = {
+        session_id: "plan-plan-X",
+        stories: [
+          {
+            id: "HU-001",
+            status: "certified",
+            original: { text: "1" },
+            blocked_by: [],
+            acceptance_tests: [{ type: "shell", content: "jq -e 'BROKEN as $n | $n.foo == .bar' file.json" }],
+            title: "Stale title",
+          },
+        ],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+      const huReviewerResult = {
+        ok: true, certified: 1, total: 1,
+        stories: [{
+          id: "HU-001",
+          status: "certified",
+          original: { text: "1" },
+          blocked_by: [],
+          acceptance_tests: [{ type: "shell", content: "jq -e '.foo == .bar' file.json" }],  // FIXED
+          title: "Fixed title",
+        }],
+        batchSessionId: "plan-plan-X",
+        source: { plan: true, planId: "plan-X" },
+      };
+
+      await runHuSubPipeline({
+        huReviewerResult, runIterationFn, emitter, eventBase, logger,
+      });
+
+      // The persisted batch we passed in was MUTATED to carry the
+      // plan's acceptance_tests + title.
+      expect(persistedBatch.stories[0].acceptance_tests[0].content)
+        .toBe("jq -e '.foo == .bar' file.json");
+      expect(persistedBatch.stories[0].title).toBe("Fixed title");
+      // Reconciled state was saved back to disk.
+      expect(saveHuBatchMock).toHaveBeenCalled();
+      // Log differentiates content from status.
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringMatching(/content field\(s\)/),
+      );
+    });
+
+    it("preserves in-flight runtime fields not owned by the plan (worktree path, refinement state)", async () => {
+      // The reconcile must NOT clobber per-run state (worktree paths
+      // assigned by the parallel executor, refinement state, etc.).
+      // We pin a few non-plan fields.
+      const persistedBatch = {
+        session_id: "plan-plan-X",
+        stories: [{
+          id: "HU-001",
+          status: "certified",
+          original: { text: "1" },
+          blocked_by: [],
+          acceptance_tests: [{ type: "shell", content: "echo 1" }],
+          // Runtime-only state — must survive reconcile:
+          context_requests: [{ id: "ctx-1", question: "?" }],
+          quality: { score: 0.9 },
+        }],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+      const huReviewerResult = {
+        ok: true, certified: 1, total: 1,
+        stories: [{ id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [], acceptance_tests: [{ type: "shell", content: "echo 1" }] }],
+        batchSessionId: "plan-plan-X",
+        source: { plan: true },
+      };
+
+      await runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger });
+
+      expect(persistedBatch.stories[0].context_requests).toEqual([{ id: "ctx-1", question: "?" }]);
+      expect(persistedBatch.stories[0].quality).toEqual({ score: 0.9 });
     });
   });
 

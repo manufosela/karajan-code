@@ -301,39 +301,71 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
     };
   }
 
-  // Plan-driven runs: the plan JSON is the source of truth for HU
-  // statuses, NOT the on-disk hu-stories batch. Pre-fix, after a failed
-  // run left stories=['failed','blocked',…] on disk, manually resetting
-  // the plan back to all-certified did NOT clear the persisted batch.
-  // The next run loaded the stale disk batch, found zero `certified`
-  // stories, skipped the entire for-loop, and reported "All HUs
-  // completed successfully" for ZERO actual work — silently approving
-  // a run that never ran.
+  // Plan-driven runs: the plan JSON is the source of truth for the
+  // ENTIRE HU, NOT just status, NOT the on-disk hu-stories batch.
   //
-  // Reconcile by overlaying the plan's authoritative status onto the
-  // persisted batch. We keep any in-flight context the disk batch may
-  // hold (worktree paths, partial refinement state) but trust the plan
-  // for what's runnable.
+  // PR #537 reconciled `status` and fixed the "All HUs completed
+  // successfully for zero work" bug. But status is only ONE field of
+  // the HU. The 2026-04-29 incident hit a different field — a user
+  // edited the plan JSON to fix a broken jq query inside the HU's
+  // `acceptance_tests`, but the persisted batch kept the broken
+  // version, so the acceptance runner used the broken test, the coder
+  // burned every iteration trying to make an irreparable test pass,
+  // and the HU failed.
+  //
+  // Treat the plan as authoritative for ALL content fields the user
+  // might edit between runs (acceptance_tests, title, scope,
+  // blocked_by, spec_section, original.text). In-flight runtime
+  // context that doesn't live in the plan (worktree path, refinement
+  // state, certification quality scores, context_requests) is
+  // preserved.
   if (huReviewerResult.source?.plan === true && Array.isArray(huReviewerResult.stories)) {
+    // Fields the plan owns. Anything NOT in this set is preserved
+    // from the persisted batch (in-flight runtime state).
+    const PLAN_OWNED_FIELDS = [
+      "status",
+      "title",
+      "scope",
+      "blocked_by",
+      "acceptance_tests",
+      "acceptance_criteria",
+      "spec_section",
+      "task_type",
+      "certified",   // canonical HU body
+      "original",    // original text reference
+    ];
     const planById = new Map(huReviewerResult.stories.map((s) => [s.id, s]));
-    let reconciled = 0;
+    let statusChanges = 0;
+    let contentChanges = 0;
     for (const persisted of batch.stories) {
       const fromPlan = planById.get(persisted.id);
-      if (fromPlan && fromPlan.status !== persisted.status) {
-        persisted.status = fromPlan.status;
-        reconciled += 1;
+      if (!fromPlan) continue;
+      for (const field of PLAN_OWNED_FIELDS) {
+        if (!(field in fromPlan)) continue;
+        const before = JSON.stringify(persisted[field]);
+        const after = JSON.stringify(fromPlan[field]);
+        if (before === after) continue;
+        persisted[field] = fromPlan[field];
+        if (field === "status") statusChanges += 1;
+        else contentChanges += 1;
       }
     }
     // Stories present in the plan but missing from disk → append.
     const persistedIds = new Set(batch.stories.map((s) => s.id));
+    let appended = 0;
     for (const fromPlan of huReviewerResult.stories) {
       if (!persistedIds.has(fromPlan.id)) {
         batch.stories.push(fromPlan);
-        reconciled += 1;
+        appended += 1;
       }
     }
-    if (reconciled > 0) {
-      logger.info(`HU sub-pipeline: reconciled ${reconciled} story status(es) from plan (disk batch was stale)`);
+    const totalChanges = statusChanges + contentChanges + appended;
+    if (totalChanges > 0) {
+      const parts = [];
+      if (statusChanges > 0) parts.push(`${statusChanges} status`);
+      if (contentChanges > 0) parts.push(`${contentChanges} content field(s)`);
+      if (appended > 0) parts.push(`${appended} appended`);
+      logger.info(`HU sub-pipeline: reconciled from plan — ${parts.join(", ")} (disk batch was stale)`);
       await saveHuBatch(batchSessionId, batch);
     }
   }
