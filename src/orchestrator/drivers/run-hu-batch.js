@@ -27,6 +27,8 @@ import { needsSubPipeline, runHuSubPipeline } from "../hu-sub-pipeline.js";
 import { runCoderStage } from "../stages/coder-stage.js";
 import { runSonarStage } from "../stages/sonar-stage.js";
 import { runIterationLoop } from "./iteration-loop.js";
+import { classifyFailure, createFailureTracker } from "../repair/repair-detector.js";
+import { runRepair } from "../repair/repair-runner.js";
 import { writeHistoryRecord } from "./post-loop.js";
 import { setReviewerFeedback } from "../../session/mutators.js";
 
@@ -107,6 +109,12 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       // concrete executable tests replace subjective reviewer opinions.
       if (story.acceptance_tests?.length > 0) {
         const { runAcceptanceTests, buildDiagnosticPrompt } = await import("../../hu/acceptance-runner.js");
+        // Issue #538 — Repairer runtime safety net. The tracker remembers
+        // each test's last failure signature; classifyFailure flags
+        // structural bugs (broken jq, shell parse error, missing tool)
+        // after 2 consecutive identical failures so we don't burn 5
+        // iterations against an irreparable test (the 2026-04-29 bug).
+        const failureTracker = createFailureTracker();
 
         for (let attempt = 1; attempt <= ctx.config.max_iterations; attempt++) {
           logger.info(`HU ${story.id}: coder iteration ${attempt}/${ctx.config.max_iterations}`);
@@ -232,6 +240,66 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
 
           // Brain diagnoses failures and sends concrete fix to coder
           const failed = testResult.results.filter(r => !r.passed);
+
+          // Repairer (#538): for each failing shell test, see if it's been
+          // failing the same way 2× in a row AND looks structurally broken
+          // (jq syntax, shell parse error, missing tool, etc.). If yes,
+          // invoke RepairerRole to rewrite the test in the plan + batch
+          // before iterating again. If unfixable, escalate (fail the HU
+          // immediately rather than burn the rest of max_iterations).
+          let repairedAny = false;
+          let repairEscalate = null;
+          for (const f of failed) {
+            if (f.type !== "shell") continue;
+            const consecutive = failureTracker.record(f.cmd, f.output);
+            const cls = classifyFailure({
+              cmd: f.cmd, errorOutput: f.output, consecutive,
+            });
+            if (!cls.infeasible) continue;
+            const testIndex = story.acceptance_tests.findIndex((t) => {
+              const c = typeof t === "object" ? t.content : t;
+              return c === f.cmd;
+            });
+            if (testIndex < 0) continue;
+            // Mutate `story.acceptance_tests` in place. The same story
+            // reference lives inside runHuSubPipeline's batch (passed
+            // by ref), so the next iteration's acceptance runner sees
+            // the fixed test without us needing batch+batchSessionId
+            // in this scope. The reconcile from PR #544 will sync the
+            // plan JSON on the next run.
+            const repair = await runRepair({
+              story, testIndex, errorOutput: f.output,
+              batchSessionId: ctx.stageResults.huReviewer.batchSessionId,
+              // batch unavailable in this closure scope — runRepair
+              // gates saveHuBatch on its presence and skips when
+              // missing; the in-memory mutation alone is sufficient
+              // for the next acceptance run within this same HU loop.
+              batch: null,
+              config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+              failureKind: cls.kind,
+              savePlanPatch: null,
+            });
+            if (repair.escalate) { repairEscalate = repair.reason; break; }
+            if (repair.repaired) {
+              repairedAny = true;
+              failureTracker.reset(f.cmd);
+            }
+          }
+
+          if (repairEscalate) {
+            logger.warn(`HU ${story.id}: Repairer escalated — ${repairEscalate}`);
+            return { approved: false, sessionId: ctx.session.id, reason: "repair_escalated" };
+          }
+          if (repairedAny) {
+            // Tests were rewritten — restart iteration with the fixed
+            // tests in place; do NOT increment attempt against the user
+            // because the failure was the planner's bug, not the coder's.
+            logger.info(`HU ${story.id}: Repairer fixed test(s); restarting acceptance gate without consuming iteration`);
+            attempt -= 1;
+            continue;
+          }
+
+          // No repair happened — normal coder feedback path.
           const diagnostic = buildDiagnosticPrompt(failed);
           logger.warn(`HU ${story.id}: ${failed.length} acceptance test(s) FAILED — sending diagnostic to coder`);
           setReviewerFeedback(ctx.session, diagnostic);
