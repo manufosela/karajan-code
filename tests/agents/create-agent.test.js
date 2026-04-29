@@ -11,49 +11,31 @@ const config = { roles: {}, coder_options: {}, reviewer_options: {} };
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
 describe("createAgent factory", () => {
+  // merged-from: 5 per-agent instance tests collapsed into a single it.each
+  // covering claude/codex/gemini/aider/opencode → expected concrete class.
   describe("creates correct agent instances", () => {
-    it("createAgent('claude') returns ClaudeAgent instance", () => {
-      const agent = createAgent("claude", config, logger);
-      expect(agent).toBeInstanceOf(ClaudeAgent);
-      expect(agent).toBeInstanceOf(BaseAgent);
-    });
-
-    it("createAgent('codex') returns CodexAgent instance", () => {
-      const agent = createAgent("codex", config, logger);
-      expect(agent).toBeInstanceOf(CodexAgent);
-      expect(agent).toBeInstanceOf(BaseAgent);
-    });
-
-    it("createAgent('gemini') returns GeminiAgent instance", () => {
-      const agent = createAgent("gemini", config, logger);
-      expect(agent).toBeInstanceOf(GeminiAgent);
-      expect(agent).toBeInstanceOf(BaseAgent);
-    });
-
-    it("createAgent('aider') returns AiderAgent instance", () => {
-      const agent = createAgent("aider", config, logger);
-      expect(agent).toBeInstanceOf(AiderAgent);
-      expect(agent).toBeInstanceOf(BaseAgent);
-    });
-
-    it("createAgent('opencode') returns OpenCodeAgent instance", () => {
-      const agent = createAgent("opencode", config, logger);
-      expect(agent).toBeInstanceOf(OpenCodeAgent);
+    it.each([
+      ["claude",   ClaudeAgent],
+      ["codex",    CodexAgent],
+      ["gemini",   GeminiAgent],
+      ["aider",    AiderAgent],
+      ["opencode", OpenCodeAgent]
+    ])("createAgent('%s') returns the matching concrete agent + extends BaseAgent", (name, AgentClass) => {
+      const agent = createAgent(name, config, logger);
+      expect(agent).toBeInstanceOf(AgentClass);
       expect(agent).toBeInstanceOf(BaseAgent);
     });
   });
 
+  // merged-from: 3 unsupported-name tests (unknown / empty / arbitrary string)
+  // collapsed; same throw contract, only the input + matched substring vary.
   describe("error handling", () => {
-    it("throws for unknown agent name", () => {
-      expect(() => createAgent("unknown", config, logger)).toThrow("Unsupported agent: unknown");
-    });
-
-    it("throws for empty string agent name", () => {
-      expect(() => createAgent("", config, logger)).toThrow("Unsupported agent: ");
-    });
-
-    it("throws with descriptive message including the agent name", () => {
-      expect(() => createAgent("nonexistent", config, logger)).toThrow("nonexistent");
+    it.each([
+      ["unknown",     "Unsupported agent: unknown"],
+      ["",            "Unsupported agent: "],
+      ["nonexistent", "nonexistent"]
+    ])("throws for invalid name '%s'", (name, match) => {
+      expect(() => createAgent(name, config, logger)).toThrow(match);
     });
   });
 
@@ -109,17 +91,15 @@ describe("createAgent factory", () => {
     });
   });
 
+  // merged-from: 3 invalid-name tests for registerAgent (empty / null / number)
+  // collapsed into one it.each; identical throw contract, only the bad input varies.
   describe("registerAgent", () => {
-    it("throws when name is empty", () => {
-      expect(() => registerAgent("", BaseAgent)).toThrow("Agent name must be a non-empty string");
-    });
-
-    it("throws when name is null", () => {
-      expect(() => registerAgent(null, BaseAgent)).toThrow("Agent name must be a non-empty string");
-    });
-
-    it("throws when name is a number", () => {
-      expect(() => registerAgent(42, BaseAgent)).toThrow("Agent name must be a non-empty string");
+    it.each([
+      ["empty string", ""],
+      ["null",         null],
+      ["number",       42]
+    ])("throws when name is %s", (_label, badName) => {
+      expect(() => registerAgent(badName, BaseAgent)).toThrow("Agent name must be a non-empty string");
     });
   });
 });
