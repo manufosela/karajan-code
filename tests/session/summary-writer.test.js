@@ -130,6 +130,7 @@ describe("session/journal/summary-writer — buildSummaryMarkdown", () => {
     expect(md).not.toContain(longSummary);
   });
 
+  // regression-for: TSK-0327
   describe("Skills section (KJC-TSK-0327)", () => {
     it("omits the Skills section entirely when no skills activity happened", () => {
       const md = buildSummaryMarkdown(sample()); // no `skills` field

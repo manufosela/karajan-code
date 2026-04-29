@@ -1,0 +1,5488 @@
+{
+  "generatedAt": "2026-04-29T21:42:01.241Z",
+  "rootDir": "tests",
+  "totals": {
+    "candidateCount": 324,
+    "outOfScopeCount": 9,
+    "locTotal": 55871
+  },
+  "filesOver300LOC": 39,
+  "files": [
+    {
+      "path": "tests/acceptance-runner.test.js",
+      "loc": 97,
+      "itCount": 10,
+      "imports": [
+        "../src/hu/acceptance-runner.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/activity-log.test.js",
+      "loc": 102,
+      "itCount": 5,
+      "imports": [
+        "../src/activity-log.js"
+      ],
+      "mocks": [
+        "../src/utils/fs.js",
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/adr-generator.test.js",
+      "loc": 210,
+      "itCount": 18,
+      "imports": [
+        "../src/plan/adr-generator.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agent-detect.test.js",
+      "loc": 62,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agent-fallback.test.js",
+      "loc": 246,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/session/store.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-availability.test.js",
+      "loc": 85,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-base.test.js",
+      "loc": 71,
+      "itCount": 10,
+      "imports": [
+        "../src/agents/base-agent.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-command.test.js",
+      "loc": 183,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/session/runtime-overrides.js",
+        "../src/utils/agent-detect.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-contract.test.js",
+      "loc": 56,
+      "itCount": 8,
+      "imports": [
+        "../src/agents/base-agent.js",
+        "../src/agents/index.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-implementations.test.js",
+      "loc": 278,
+      "itCount": 22,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/agents-index.test.js",
+      "loc": 79,
+      "itCount": 11,
+      "imports": [
+        "../src/agents/aider-agent.js",
+        "../src/agents/base-agent.js",
+        "../src/agents/claude-agent.js",
+        "../src/agents/codex-agent.js",
+        "../src/agents/gemini-agent.js",
+        "../src/agents/index.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents-role-model.test.js",
+      "loc": 76,
+      "itCount": 2,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents/agent-di.test.js",
+      "loc": 158,
+      "itCount": 10,
+      "imports": [
+        "../../src/agents/aider-agent.js",
+        "../../src/agents/base-agent.js",
+        "../../src/agents/claude-agent.js",
+        "../../src/agents/codex-agent.js",
+        "../../src/agents/gemini-agent.js",
+        "../../src/agents/index.js",
+        "../../src/agents/opencode-agent.js",
+        "../../src/infrastructure/environment.js",
+        "../../src/infrastructure/mocks.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0316",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0316, bug"
+      ]
+    },
+    {
+      "path": "tests/agents/aider-agent.test.js",
+      "loc": 167,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/resolve-bin.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents/base-agent.test.js",
+      "loc": 52,
+      "itCount": 5,
+      "imports": [
+        "../../src/agents/base-agent.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents/claude-agent.test.js",
+      "loc": 514,
+      "itCount": 42,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/resolve-bin.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: regression",
+        "file LOC 514 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/agents/codex-agent.test.js",
+      "loc": 317,
+      "itCount": 25,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/resolve-bin.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 317 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/agents/create-agent.test.js",
+      "loc": 125,
+      "itCount": 17,
+      "imports": [
+        "../../src/agents/aider-agent.js",
+        "../../src/agents/base-agent.js",
+        "../../src/agents/claude-agent.js",
+        "../../src/agents/codex-agent.js",
+        "../../src/agents/gemini-agent.js",
+        "../../src/agents/index.js",
+        "../../src/agents/opencode-agent.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents/gemini-agent.test.js",
+      "loc": 170,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/resolve-bin.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/agents/opencode-agent.test.js",
+      "loc": 194,
+      "itCount": 17,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/resolve-bin.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/anti-bypass-resume.test.js",
+      "loc": 111,
+      "itCount": 10,
+      "imports": [
+        "../src/mcp/server-handlers.js"
+      ],
+      "mocks": [
+        "../src/bootstrap.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/architect-adrs.test.js",
+      "loc": 136,
+      "itCount": 8,
+      "imports": [
+        "../src/planning-game/architect-adrs.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0042"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0042"
+      ]
+    },
+    {
+      "path": "tests/architect-role.test.js",
+      "loc": 326,
+      "itCount": 24,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 326 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/ask-question-enhanced.test.js",
+      "loc": 278,
+      "itCount": 22,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/audit-routing.test.js",
+      "loc": 95,
+      "itCount": 12,
+      "imports": [
+        "../src/guards/intent-guard.js",
+        "../src/guards/policy-resolver.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/auto-simplify.test.js",
+      "loc": 281,
+      "itCount": 18,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/prompts/planner.js",
+        "../src/roles/architect-role.js",
+        "../src/roles/discover-role.js",
+        "../src/roles/planner-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js",
+        "../src/utils/model-selector.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/base-role.test.js",
+      "loc": 132,
+      "itCount": 12,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/board-banner-shape.test.js",
+      "loc": 77,
+      "itCount": 5,
+      "imports": [
+        "../src/commands/board.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/board-prompt-bridge.test.js",
+      "loc": 109,
+      "itCount": 6,
+      "imports": [
+        "../src/utils/board-prompt-bridge.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/board-start-detach.test.js",
+      "loc": 92,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "node:child_process",
+        "node:http",
+        "node:net"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/board-stop-fallback.test.js",
+      "loc": 137,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "../src/utils/port-occupant.js",
+        "node:http"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/board.test.js",
+      "loc": 85,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/bootstrap.test.js",
+      "loc": 374,
+      "itCount": 20,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/config.js",
+        "../src/sonar/manager.js",
+        "../src/utils/fs.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 374 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/brain-coordinator.test.js",
+      "loc": 181,
+      "itCount": 19,
+      "imports": [],
+      "mocks": [
+        "node:child_process"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/brain-wiring.test.js",
+      "loc": 38,
+      "itCount": 3,
+      "imports": [
+        "../src/orchestrator/brain-coordinator.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/brain/decision-tracker.test.js",
+      "loc": 133,
+      "itCount": 13,
+      "imports": [
+        "../../src/brain/decision-tracker.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/brain/decisor.test.js",
+      "loc": 223,
+      "itCount": 27,
+      "imports": [
+        "../../src/brain/decisor.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/brain/integration.test.js",
+      "loc": 103,
+      "itCount": 9,
+      "imports": [
+        "../../src/brain/decision-tracker.js",
+        "../../src/brain/decisor.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/brain/solomon-consult.test.js",
+      "loc": 134,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../../src/orchestrator/solomon-escalation.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/budget.test.js",
+      "loc": 77,
+      "itCount": 7,
+      "imports": [
+        "../src/utils/budget.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/budget/comparison.test.js",
+      "loc": 131,
+      "itCount": 12,
+      "imports": [
+        "../../src/budget/comparison.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checkpoint-provider-model.test.js",
+      "loc": 455,
+      "itCount": 12,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/agent-fallback.js",
+        "../src/orchestrator/reviewer-fallback.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/planner.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/roles/coder-role.js",
+        "../src/roles/planner-role.js",
+        "../src/roles/refactorer-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/roles/security-role.js",
+        "../src/roles/sonar-role.js",
+        "../src/roles/tester-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/sonar/manager.js",
+        "../src/utils/events.js",
+        "../src/utils/model-selector.js",
+        "../src/utils/rate-limit-detector.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 455 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/checkpoint-ui.test.js",
+      "loc": 170,
+      "itCount": 20,
+      "imports": [
+        "../src/orchestrator.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/planning-game/decomposition.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0042",
+        "TSK-001"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0042, TSK-001"
+      ]
+    },
+    {
+      "path": "tests/checks/auto-remediation-e2e.test.js",
+      "loc": 257,
+      "itCount": 13,
+      "imports": [
+        "../../src/checks/types.js"
+      ],
+      "mocks": [
+        "../../src/skills/openskills-client.js",
+        "../../src/sonar/discovery.js",
+        "../../src/sonar/manager.js",
+        "../../src/utils/port-check.js",
+        "../../src/utils/port-occupant.js",
+        "node:child_process",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "TSK-0319"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0319"
+      ]
+    },
+    {
+      "path": "tests/checks/dir-setup.test.js",
+      "loc": 51,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/mcp-health.test.js",
+      "loc": 88,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../../src/utils/agent-detect.js",
+        "node:child_process"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/node.test.js",
+      "loc": 43,
+      "itCount": 6,
+      "imports": [
+        "../../src/checks/node.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/ports.test.js",
+      "loc": 144,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../../src/sonar/discovery.js",
+        "../../src/sonar/manager.js",
+        "../../src/utils/port-check.js",
+        "../../src/utils/port-occupant.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/runner.test.js",
+      "loc": 236,
+      "itCount": 18,
+      "imports": [
+        "../../src/checks/runner.js",
+        "../../src/checks/types.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/skills.test.js",
+      "loc": 59,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../../src/skills/openskills-client.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/checks/tokens.test.js",
+      "loc": 168,
+      "itCount": 14,
+      "imports": [],
+      "mocks": [
+        "../../src/utils/agent-detect.js"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/ci-dispatch.test.js",
+      "loc": 217,
+      "itCount": 16,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/ci-git-automation.test.js",
+      "loc": 135,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "../src/session/store.js",
+        "../src/utils/git.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/ci-pr-diff.test.js",
+      "loc": 40,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/ci-repo.test.js",
+      "loc": 124,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/claude-stream-filter.test.js",
+      "loc": 125,
+      "itCount": 13,
+      "imports": [
+        "../src/agents/claude-agent.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/cli-progress.test.js",
+      "loc": 110,
+      "itCount": 8,
+      "imports": [
+        "../src/utils/cli-progress.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/cli-unknown-command.test.js",
+      "loc": 79,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/cli-welcome.test.js",
+      "loc": 74,
+      "itCount": 7,
+      "imports": [
+        "../src/utils/welcome.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/coder-prompt-tests-first.test.js",
+      "loc": 252,
+      "itCount": 23,
+      "imports": [
+        "../src/prompts/coder.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "BUG-0032",
+        "regression",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: BUG-0032, regression, bug"
+      ]
+    },
+    {
+      "path": "tests/coder-role.test.js",
+      "loc": 259,
+      "itCount": 21,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/command-architect.test.js",
+      "loc": 96,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/architect.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-audit.test.js",
+      "loc": 131,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/audit.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-code.test.js",
+      "loc": 130,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/coder.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-discover.test.js",
+      "loc": 103,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/discover.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-plan.test.js",
+      "loc": 159,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/planner.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-researcher.test.js",
+      "loc": 81,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-review.test.js",
+      "loc": 165,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/profiles.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-roles.test.js",
+      "loc": 194,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/roles/base-role.js",
+        "../src/utils/fs.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-run.test.js",
+      "loc": 167,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/activity-log.js",
+        "../src/agents/availability.js",
+        "../src/config.js",
+        "../src/orchestrator.js",
+        "../src/utils/display/event-handlers.js",
+        "../src/utils/display/header.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-scan.test.js",
+      "loc": 120,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/sonar/api.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/scanner.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/command-triage.test.js",
+      "loc": 84,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/config.js",
+        "../src/prompts/triage.js",
+        "../src/review/parser.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/commiter-role.test.js",
+      "loc": 237,
+      "itCount": 20,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [
+        "../src/utils/git.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/config-edit.test.js",
+      "loc": 136,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/utils/fs.js",
+        "node:child_process",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/config-schema.test.js",
+      "loc": 183,
+      "itCount": 18,
+      "imports": [
+        "../src/config.js",
+        "../src/config/schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0318",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0318, regression"
+      ]
+    },
+    {
+      "path": "tests/config.test.js",
+      "loc": 406,
+      "itCount": 21,
+      "imports": [
+        "../src/config.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 406 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/cwd-confirm.test.js",
+      "loc": 55,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/derive-project-name-from-cwd.test.js",
+      "loc": 154,
+      "itCount": 19,
+      "imports": [
+        "../src/utils/derive-project-name-from-cwd.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/design-flag.test.js",
+      "loc": 202,
+      "itCount": 11,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/webperf/devtools-detect.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/diet-audit-out-of-scope.test.js",
+      "loc": 93,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/diet-baseline.test.js",
+      "loc": 89,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/diff-generator.test.js",
+      "loc": 99,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/direct-actions.test.js",
+      "loc": 237,
+      "itCount": 24,
+      "imports": [],
+      "mocks": [
+        "node:child_process"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/discover-role.test.js",
+      "loc": 500,
+      "itCount": 28,
+      "imports": [
+        "../src/roles/discover-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 500 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/display/budget-comparison.test.js",
+      "loc": 87,
+      "itCount": 6,
+      "imports": [
+        "../../src/utils/display/event-handlers.js",
+        "../../src/utils/display/session-summary.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/doc-links.test.js",
+      "loc": 61,
+      "itCount": 12,
+      "imports": [
+        "../src/utils/doc-links.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/doctor-rtk.test.js",
+      "loc": 123,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/config.js",
+        "../src/roles/base-role.js",
+        "../src/sonar/manager.js",
+        "../src/utils/fs.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/doctor.test.js",
+      "loc": 313,
+      "itCount": 17,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/config.js",
+        "../src/roles/base-role.js",
+        "../src/skills/openskills-client.js",
+        "../src/sonar/manager.js",
+        "../src/utils/fs.js",
+        "../src/utils/git.js",
+        "../src/utils/port-check.js",
+        "../src/utils/port-occupant.js",
+        "../src/utils/process.js",
+        "node:child_process",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 313 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/domain-autodetect.test.js",
+      "loc": 136,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-context-injection.test.js",
+      "loc": 87,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-curator-role.test.js",
+      "loc": 223,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-curator-stage.test.js",
+      "loc": 163,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/roles/domain-curator-role.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-loader.test.js",
+      "loc": 365,
+      "itCount": 16,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 365 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/domain-registry.test.js",
+      "loc": 222,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-synthesizer.test.js",
+      "loc": 141,
+      "itCount": 9,
+      "imports": [
+        "../src/domains/domain-synthesizer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/domain-system-integration.test.js",
+      "loc": 178,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/dry-run.test.js",
+      "loc": 219,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/sonar/api.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/scanner.js",
+        "../src/utils/git.js",
+        "../src/utils/project-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/events-helper.test.js",
+      "loc": 61,
+      "itCount": 7,
+      "imports": [
+        "../src/utils/events.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/feedback-enrichment.test.js",
+      "loc": 184,
+      "itCount": 25,
+      "imports": [
+        "../src/orchestrator/feedback-enrichment.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/feedback-queue.test.js",
+      "loc": 183,
+      "itCount": 17,
+      "imports": [
+        "../src/orchestrator/feedback-queue.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/final-audit-stage.test.js",
+      "loc": 227,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/roles/audit-role.js",
+        "../src/roles/impeccable-role.js",
+        "../src/roles/security-role.js",
+        "../src/roles/tester-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/flow-init-error-no-solomon.test.js",
+      "loc": 102,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/orchestrator/drivers/init-context.js",
+        "../src/orchestrator/drivers/iteration-loop.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/utils/garbage-collector.js"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/fs-leak-detector.test.js",
+      "loc": 129,
+      "itCount": 12,
+      "imports": [
+        "../src/orchestrator/fs-leak-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "BUG-0032",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: BUG-0032, bug"
+      ]
+    },
+    {
+      "path": "tests/git-automation.test.js",
+      "loc": 129,
+      "itCount": 10,
+      "imports": [
+        "../src/git/automation.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/guards/policy-guard.test.js",
+      "loc": 92,
+      "itCount": 9,
+      "imports": [
+        "../../src/guards/policy-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/guards/policy-resolver.test.js",
+      "loc": 156,
+      "itCount": 26,
+      "imports": [
+        "../../src/guards/policy-resolver.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/host-agent.test.js",
+      "loc": 107,
+      "itCount": 10,
+      "imports": [
+        "../src/agents/host-agent.js",
+        "../src/utils/agent-detect.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/hu-auto-generator.test.js",
+      "loc": 223,
+      "itCount": 32,
+      "imports": [
+        "../src/hu/auto-generator.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-01",
+        "HU-02",
+        "HU-03",
+        "HU-04",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-01, HU-02, HU-03, HU-04, bug"
+      ]
+    },
+    {
+      "path": "tests/hu-board-sync.test.js",
+      "loc": 264,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/hu/graph.js",
+        "../src/hu/lazy-planner.js",
+        "../src/hu/parallel-executor.js",
+        "../src/hu/store.js"
+      ],
+      "regressionPins": [
+        "HU-001"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001"
+      ]
+    },
+    {
+      "path": "tests/hu-decomposition.test.js",
+      "loc": 427,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/hu/graph.js",
+        "../src/hu/store.js",
+        "../src/roles/hu-reviewer-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/model-selector.js"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 427 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/hu-git-automation.test.js",
+      "loc": 59,
+      "itCount": 9,
+      "imports": [
+        "../src/git/hu-automation.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-01",
+        "HU-02",
+        "HU-03",
+        "HU-04",
+        "HU-05",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-01, HU-02, HU-03, HU-04, HU-05, bug"
+      ]
+    },
+    {
+      "path": "tests/hu-history-records.test.js",
+      "loc": 116,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/hu-splitter.test.js",
+      "loc": 339,
+      "itCount": 31,
+      "imports": [
+        "../src/hu/splitting-detector.js",
+        "../src/hu/splitting-generator.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001",
+        "HU-042",
+        "HU-002",
+        "HU-003"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: HU-001, HU-042, HU-002, HU-003",
+        "file LOC 339 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/hu-sub-pipeline.test.js",
+      "loc": 641,
+      "itCount": 22,
+      "imports": [],
+      "mocks": [
+        "../src/hu/graph.js",
+        "../src/hu/store.js"
+      ],
+      "regressionPins": [
+        "HU-001",
+        "HU-002",
+        "HU-003",
+        "regression",
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: HU-001, HU-002, HU-003, regression, bug",
+        "file LOC 641 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/hu/graph.test.js",
+      "loc": 97,
+      "itCount": 10,
+      "imports": [
+        "../../src/hu/graph.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/hu/pipeline-stage.test.js",
+      "loc": 185,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/index.js",
+        "../../src/session/store.js",
+        "../../src/utils/stall-detector.js"
+      ],
+      "regressionPins": [
+        "HU-001",
+        "HU-002"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001, HU-002"
+      ]
+    },
+    {
+      "path": "tests/hu/store.test.js",
+      "loc": 150,
+      "itCount": 11,
+      "imports": [
+        "../../src/hu/store.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001",
+        "HU-010",
+        "HU-020",
+        "HU-099",
+        "HU-030",
+        "HU-040",
+        "HU-999",
+        "HU-050",
+        "HU-060",
+        "HU-070",
+        "HU-080",
+        "HU-090",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001, HU-010, HU-020, HU-099, HU-030, HU-040, HU-999, HU-050, HU-060, HU-070, HU-080, HU-090, regression"
+      ]
+    },
+    {
+      "path": "tests/i18n-messages.test.js",
+      "loc": 71,
+      "itCount": 14,
+      "imports": [
+        "../src/utils/messages.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/i18n.test.js",
+      "loc": 148,
+      "itCount": 18,
+      "imports": [
+        "../src/prompts/coder.js",
+        "../src/prompts/hu-reviewer.js",
+        "../src/utils/locale.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001, bug"
+      ]
+    },
+    {
+      "path": "tests/infrastructure/defaults.test.js",
+      "loc": 72,
+      "itCount": 7,
+      "imports": [
+        "../../src/infrastructure/command-runner.js",
+        "../../src/infrastructure/environment.js",
+        "../../src/infrastructure/file-system-service.js",
+        "../../src/infrastructure/mocks.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/infrastructure/mocks.test.js",
+      "loc": 121,
+      "itCount": 13,
+      "imports": [
+        "../../src/infrastructure/mocks.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/init-wizard.test.js",
+      "loc": 228,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/sonar/manager.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/fs.js",
+        "../src/utils/paths.js",
+        "../src/utils/rtk-detect.js",
+        "../src/utils/rtk-install.js",
+        "../src/utils/wizard.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/injection-guard.test.js",
+      "loc": 224,
+      "itCount": 34,
+      "imports": [
+        "../src/utils/injection-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/install-cross-platform.test.js",
+      "loc": 89,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/installer-e2e.test.js",
+      "loc": 404,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/config.js",
+        "../src/roles/base-role.js",
+        "../src/skills/openskills-client.js",
+        "../src/sonar/manager.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/fs.js",
+        "../src/utils/git.js",
+        "../src/utils/paths.js",
+        "../src/utils/port-check.js",
+        "../src/utils/port-occupant.js",
+        "../src/utils/process.js",
+        "../src/utils/wizard.js",
+        "node:child_process",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "TSK-0319"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: TSK-0319",
+        "file LOC 404 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/intent-guard.test.js",
+      "loc": 167,
+      "itCount": 18,
+      "imports": [
+        "../src/guards/intent-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/iteration-stages-unit.test.js",
+      "loc": 595,
+      "itCount": 21,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/agent-fallback.js",
+        "../src/orchestrator/reviewer-fallback.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/scope-filter.js",
+        "../src/review/tdd-policy.js",
+        "../src/roles/coder-role.js",
+        "../src/roles/refactorer-role.js",
+        "../src/roles/sonar-role.js",
+        "../src/session/store.js",
+        "../src/sonar/manager.js",
+        "../src/utils/events.js",
+        "../src/utils/injection-guard.js",
+        "../src/utils/rate-limit-detector.js",
+        "../src/utils/stall-detector.js"
+      ],
+      "regressionPins": [
+        "BUG-0032",
+        "BUG-1",
+        "regression",
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: BUG-0032, BUG-1, regression, bug",
+        "file LOC 595 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/karajan-brain-role.test.js",
+      "loc": 161,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/kj-hu-tool.test.js",
+      "loc": 134,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/kj-run-smoke.test.js",
+      "loc": 367,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/preflight-checks.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/skills/openskills-client.js",
+        "../src/skills/skill-detector.js",
+        "../src/sonar/api.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/manager.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 367 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/kj-skills.test.js",
+      "loc": 223,
+      "itCount": 21,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/kj-suggest.test.js",
+      "loc": 131,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/kj-undo.test.js",
+      "loc": 121,
+      "itCount": 7,
+      "imports": [
+        "../src/commands/undo.js",
+        "../src/session/store.js",
+        "../src/utils/process.js"
+      ],
+      "mocks": [
+        "../src/session/store.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/lazy-hu-planning.test.js",
+      "loc": 376,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/hu/graph.js",
+        "../src/hu/lazy-planner.js",
+        "../src/hu/store.js"
+      ],
+      "regressionPins": [
+        "HU-001",
+        "HU-002"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: HU-001, HU-002",
+        "file LOC 376 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/lean-audit.test.js",
+      "loc": 173,
+      "itCount": 9,
+      "imports": [
+        "../src/audit/basal-cost.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/logger.test.js",
+      "loc": 99,
+      "itCount": 9,
+      "imports": [
+        "../src/utils/logger.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-clean-handler.test.js",
+      "loc": 97,
+      "itCount": 5,
+      "imports": [
+        "../src/mcp/handlers/management-handlers.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-direct-handlers.test.js",
+      "loc": 313,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/bootstrap.js",
+        "../src/config.js",
+        "../src/mcp/direct-role-runner.js",
+        "../src/mcp/preflight.js",
+        "../src/mcp/progress.js",
+        "../src/mcp/shared-helpers.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/planner.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/parser.js",
+        "../src/review/profiles.js",
+        "../src/utils/git.js",
+        "../src/utils/logger.js",
+        "../src/utils/run-log.js",
+        "../src/utils/stall-detector.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "TSK-001"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: TSK-001",
+        "file LOC 313 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/mcp-discover-tool.test.js",
+      "loc": 81,
+      "itCount": 7,
+      "imports": [
+        "../src/mcp/tools.js"
+      ],
+      "mocks": [
+        "../src/bootstrap.js"
+      ],
+      "regressionPins": [
+        "TSK-0327"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0327"
+      ]
+    },
+    {
+      "path": "tests/mcp-error-handling.test.js",
+      "loc": 68,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-orphan-guard.test.js",
+      "loc": 92,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-preloop-tools.test.js",
+      "loc": 103,
+      "itCount": 12,
+      "imports": [
+        "../src/mcp/tools.js"
+      ],
+      "mocks": [
+        "../src/bootstrap.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-progress.test.js",
+      "loc": 316,
+      "itCount": 27,
+      "imports": [
+        "../src/mcp/progress.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 316 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/mcp-reconnect.test.js",
+      "loc": 195,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "node:fs"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-server-handlers.test.js",
+      "loc": 653,
+      "itCount": 63,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/bootstrap.js",
+        "../src/config.js",
+        "../src/mcp/progress.js",
+        "../src/mcp/run-kj.js",
+        "../src/mcp/sovereignty-guard.js",
+        "../src/mcp/tool-arg-normalizers.js",
+        "../src/orchestrator.js",
+        "../src/plan/plan-store.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/planner.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/parser.js",
+        "../src/review/profiles.js",
+        "../src/roles/architect-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/utils/git.js",
+        "../src/utils/logger.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 653 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/mcp-tool-arg-normalizers.test.js",
+      "loc": 32,
+      "itCount": 2,
+      "imports": [
+        "../src/mcp/tool-arg-normalizers.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-tools-schema.test.js",
+      "loc": 49,
+      "itCount": 4,
+      "imports": [
+        "../src/mcp/tools.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mcp-version-watcher.test.js",
+      "loc": 95,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "node:fs"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/memory-watchdog.test.js",
+      "loc": 128,
+      "itCount": 6,
+      "imports": [
+        "../src/mcp/orphan-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/mock-agent.test.js",
+      "loc": 61,
+      "itCount": 8,
+      "imports": [
+        "../src/agents/base-agent.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/model-integration.test.js",
+      "loc": 23,
+      "itCount": 1,
+      "imports": [
+        "../src/agents/model-registry.js",
+        "../src/utils/model-selector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/model-registry.test.js",
+      "loc": 146,
+      "itCount": 19,
+      "imports": [
+        "../src/agents/model-registry.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/model-selector.test.js",
+      "loc": 232,
+      "itCount": 34,
+      "imports": [
+        "../src/utils/model-selector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/multi-language-detect.test.js",
+      "loc": 235,
+      "itCount": 27,
+      "imports": [
+        "../src/review/tdd-policy.js",
+        "../src/utils/project-detect.js"
+      ],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/multiformat-ac.test.js",
+      "loc": 225,
+      "itCount": 19,
+      "imports": [
+        "../src/prompts/hu-reviewer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-010",
+        "HU-011",
+        "HU-012"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-010, HU-011, HU-012"
+      ]
+    },
+    {
+      "path": "tests/nocode-mode.test.js",
+      "loc": 108,
+      "itCount": 15,
+      "imports": [
+        "../src/guards/intent-guard.js",
+        "../src/guards/policy-resolver.js",
+        "../src/prompts/triage.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/nocode-skills.test.js",
+      "loc": 109,
+      "itCount": 11,
+      "imports": [],
+      "mocks": [
+        "../src/skills/openskills-client.js",
+        "../src/skills/skill-loader.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-budget.test.js",
+      "loc": 257,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-checkpoint.test.js",
+      "loc": 374,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/git/automation.js",
+        "../src/orchestrator/iteration-stages.js",
+        "../src/orchestrator/post-loop-stages.js",
+        "../src/orchestrator/pre-loop-stages.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/review/diff-generator.js",
+        "../src/review/profiles.js",
+        "../src/roles/base-role.js",
+        "../src/roles/coder-role.js",
+        "../src/session/store.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 374 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-events.test.js",
+      "loc": 806,
+      "itCount": 12,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/sonar/api.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/manager.js",
+        "../src/sonar/scanner.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js",
+        "../src/utils/project-detect.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 806 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-iteration.test.js",
+      "loc": 338,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/reviewer-fallback.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/roles/refactorer-role.js",
+        "../src/roles/sonar-role.js",
+        "../src/session/store.js",
+        "../src/sonar/manager.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 338 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-pg-integration.test.js",
+      "loc": 262,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/git/automation.js",
+        "../src/orchestrator/iteration-stages.js",
+        "../src/orchestrator/post-loop-stages.js",
+        "../src/orchestrator/pre-loop-stages.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/planning-game/client.js",
+        "../src/review/diff-generator.js",
+        "../src/review/profiles.js",
+        "../src/roles/base-role.js",
+        "../src/roles/coder-role.js",
+        "../src/session/store.js"
+      ],
+      "regressionPins": [
+        "TSK-0099",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0099, bug"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-post-loop.test.js",
+      "loc": 175,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/roles/security-role.js",
+        "../src/roles/tester-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-pre-loop.test.js",
+      "loc": 589,
+      "itCount": 31,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/prompts/planner.js",
+        "../src/roles/architect-role.js",
+        "../src/roles/discover-role.js",
+        "../src/roles/planner-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 589 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-repeat-detection.test.js",
+      "loc": 313,
+      "itCount": 2,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/sonar/api.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/manager.js",
+        "../src/sonar/scanner.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js",
+        "../src/utils/project-detect.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 313 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator-triage.test.js",
+      "loc": 483,
+      "itCount": 11,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/git/automation.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/parser.js",
+        "../src/review/profiles.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/roles/architect-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/roles/security-role.js",
+        "../src/roles/sonar-role.js",
+        "../src/roles/tester-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/manager.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/process.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 483 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/orchestrator/concurrent-runs.test.js",
+      "loc": 101,
+      "itCount": 4,
+      "imports": [
+        "../../src/utils/run-context.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0338",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0338, regression"
+      ]
+    },
+    {
+      "path": "tests/orchestrator/hu-board-autostart.test.js",
+      "loc": 126,
+      "itCount": 9,
+      "imports": [
+        "../../src/commands/board.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0273",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0273, regression"
+      ]
+    },
+    {
+      "path": "tests/orchestrator/stage-executor.test.js",
+      "loc": 114,
+      "itCount": 14,
+      "imports": [
+        "../../src/orchestrator/stages/stage-executor.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/os-detect.test.js",
+      "loc": 120,
+      "itCount": 14,
+      "imports": [],
+      "mocks": [
+        "node:os"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/output-guard.test.js",
+      "loc": 268,
+      "itCount": 22,
+      "imports": [
+        "../src/guards/output-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/output-quiet.test.js",
+      "loc": 116,
+      "itCount": 9,
+      "imports": [
+        "../src/config.js",
+        "../src/utils/display/event-handlers.js",
+        "../src/utils/display/formatters.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/parallel-hu.test.js",
+      "loc": 360,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/hu/graph.js",
+        "../src/hu/lazy-planner.js",
+        "../src/hu/store.js",
+        "node:child_process",
+        "node:util"
+      ],
+      "regressionPins": [
+        "HU-001",
+        "HU-002",
+        "HU-003"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: HU-001, HU-002, HU-003",
+        "file LOC 360 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/perf-guard.test.js",
+      "loc": 197,
+      "itCount": 15,
+      "imports": [
+        "../src/guards/perf-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/pg-decomposition.test.js",
+      "loc": 155,
+      "itCount": 7,
+      "imports": [
+        "../src/planning-game/decomposition.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0042",
+        "TSK-0100",
+        "TSK-0101",
+        "TSK-0102",
+        "PR-0001",
+        "TSK-0001",
+        "TSK-0002",
+        "TSK-0010"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0042, TSK-0100, TSK-0101, TSK-0102, PR-0001, TSK-0001, TSK-0002, TSK-0010"
+      ]
+    },
+    {
+      "path": "tests/pg-hu-reviewer-feed.test.js",
+      "loc": 336,
+      "itCount": 12,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/hu/graph.js",
+        "../src/hu/store.js",
+        "../src/roles/hu-reviewer-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/model-selector.js"
+      ],
+      "regressionPins": [
+        "TSK-0188",
+        "TSK-0100",
+        "TSK-0200",
+        "TSK-0201",
+        "TSK-0202",
+        "TSK-0300",
+        "TSK-0301"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: TSK-0188, TSK-0100, TSK-0200, TSK-0201, TSK-0202, TSK-0300, TSK-0301",
+        "file LOC 336 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/pg-lifecycle.test.js",
+      "loc": 266,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/planning-game/client.js"
+      ],
+      "regressionPins": [
+        "TSK-0210"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0210"
+      ]
+    },
+    {
+      "path": "tests/plan-auto-certify-anomaly.test.js",
+      "loc": 145,
+      "itCount": 12,
+      "imports": [
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-hu-outcome.test.js",
+      "loc": 130,
+      "itCount": 9,
+      "imports": [
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-module.test.js",
+      "loc": 165,
+      "itCount": 18,
+      "imports": [
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-id.js",
+        "../src/plan/plan-schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-ready-tests-first-gate.test.js",
+      "loc": 101,
+      "itCount": 3,
+      "imports": [
+        "../src/commands/plan.js",
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-schema.js",
+        "../src/plan/plan-store.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-reviewer.test.js",
+      "loc": 159,
+      "itCount": 12,
+      "imports": [
+        "../src/plan/plan-reviewer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-spec-mapping.test.js",
+      "loc": 45,
+      "itCount": 5,
+      "imports": [
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-store-kj-home-isolation.test.js",
+      "loc": 91,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "regression",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression, bug"
+      ]
+    },
+    {
+      "path": "tests/plan-tests-first.test.js",
+      "loc": 141,
+      "itCount": 13,
+      "imports": [
+        "../src/plan/plan-hu-ops.js",
+        "../src/plan/plan-schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plan-to-run.test.js",
+      "loc": 179,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0315",
+        "TSK-0335",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0315, TSK-0335, bug"
+      ]
+    },
+    {
+      "path": "tests/planner-role.test.js",
+      "loc": 274,
+      "itCount": 15,
+      "imports": [
+        "../src/roles/base-role.js",
+        "../src/roles/planner-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/planning-game-adapter.test.js",
+      "loc": 308,
+      "itCount": 25,
+      "imports": [
+        "../src/planning-game/adapter.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0042",
+        "BUG-0015",
+        "TSK-0041",
+        "TSK-0043",
+        "TSK-0001",
+        "TSK-0010",
+        "TSK-0099",
+        "regression",
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: TSK-0042, BUG-0015, TSK-0041, TSK-0043, TSK-0001, TSK-0010, TSK-0099, regression, bug",
+        "file LOC 308 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/plugin-loader.test.js",
+      "loc": 121,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/plugins-wired.test.js",
+      "loc": 100,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0329",
+        "regression",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0329, regression, bug"
+      ]
+    },
+    {
+      "path": "tests/post-loop-fallback.test.js",
+      "loc": 174,
+      "itCount": 15,
+      "imports": [
+        "../src/orchestrator/post-loop-stages.js"
+      ],
+      "mocks": [
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/roles/impeccable-role.js",
+        "../src/roles/security-role.js",
+        "../src/roles/tester-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/postinstall.test.js",
+      "loc": 111,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/pre-loop-stages-unit.test.js",
+      "loc": 448,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/hu/graph.js",
+        "../src/hu/splitting-detector.js",
+        "../src/hu/splitting-generator.js",
+        "../src/hu/store.js",
+        "../src/planning-game/architect-adrs.js",
+        "../src/prompts/hu-reviewer.js",
+        "../src/prompts/planner.js",
+        "../src/roles/architect-role.js",
+        "../src/roles/discover-role.js",
+        "../src/roles/hu-reviewer-role.js",
+        "../src/roles/planner-role.js",
+        "../src/roles/researcher-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js",
+        "../src/utils/model-selector.js",
+        "../src/utils/stall-detector.js"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 448 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/preflight-checks.test.js",
+      "loc": 323,
+      "itCount": 11,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/skills/openskills-client.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/manager.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/port-check.js",
+        "../src/utils/port-occupant.js",
+        "../src/utils/process.js",
+        "node:child_process",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "TSK-0319"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: TSK-0319",
+        "file LOC 323 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/preflight.test.js",
+      "loc": 47,
+      "itCount": 5,
+      "imports": [
+        "../src/mcp/preflight.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/pricing.test.js",
+      "loc": 62,
+      "itCount": 5,
+      "imports": [
+        "../src/utils/pricing.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/process-streaming.test.js",
+      "loc": 93,
+      "itCount": 8,
+      "imports": [
+        "../src/utils/process.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/product-context.test.js",
+      "loc": 161,
+      "itCount": 16,
+      "imports": [
+        "../src/orchestrator.js",
+        "../src/prompts/architect.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/hu-reviewer.js",
+        "../src/prompts/planner.js",
+        "../src/prompts/reviewer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001"
+      ]
+    },
+    {
+      "path": "tests/prompt-architect.test.js",
+      "loc": 218,
+      "itCount": 24,
+      "imports": [
+        "../src/prompts/architect.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/prompt-coder.test.js",
+      "loc": 153,
+      "itCount": 16,
+      "imports": [
+        "../src/prompts/coder.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/prompt-discover.test.js",
+      "loc": 452,
+      "itCount": 52,
+      "imports": [
+        "../src/prompts/discover.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 452 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/prompt-planner.test.js",
+      "loc": 145,
+      "itCount": 15,
+      "imports": [
+        "../src/prompts/planner.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/prompt-project-name.test.js",
+      "loc": 44,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/prompt-reviewer.test.js",
+      "loc": 143,
+      "itCount": 17,
+      "imports": [
+        "../src/prompts/reviewer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/prompt-triage.test.js",
+      "loc": 103,
+      "itCount": 13,
+      "imports": [
+        "../src/prompts/triage.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/prompts/prompt-resolver.test.js",
+      "loc": 151,
+      "itCount": 13,
+      "imports": [
+        "../../src/prompts/prompt-resolver.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/prompts/provider-contract.test.js",
+      "loc": 128,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rate-limit-detector.test.js",
+      "loc": 295,
+      "itCount": 34,
+      "imports": [
+        "../src/utils/rate-limit-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rate-limit-stages.test.js",
+      "loc": 202,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/reviewer-fallback.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/roles/refactorer-role.js",
+        "../src/roles/sonar-role.js",
+        "../src/session/store.js",
+        "../src/utils/events.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/repair/repair-detector.test.js",
+      "loc": 93,
+      "itCount": 11,
+      "imports": [
+        "../../src/orchestrator/repair/repair-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "regression",
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression, bug"
+      ]
+    },
+    {
+      "path": "tests/repair/repair-runner.test.js",
+      "loc": 144,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../../src/hu/store.js",
+        "../../src/roles/repairer-role.js"
+      ],
+      "regressionPins": [
+        "HU-001"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001"
+      ]
+    },
+    {
+      "path": "tests/repair/repairer-role.test.js",
+      "loc": 115,
+      "itCount": 10,
+      "imports": [
+        "../../src/roles/repairer-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/repeat-detector.test.js",
+      "loc": 47,
+      "itCount": 5,
+      "imports": [
+        "../src/repeat-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/report-pg-task.test.js",
+      "loc": 137,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0042",
+        "TSK-0099",
+        "TSK-9999"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0042, TSK-0099, TSK-9999"
+      ]
+    },
+    {
+      "path": "tests/report-trace.test.js",
+      "loc": 152,
+      "itCount": 14,
+      "imports": [
+        "../src/commands/report.js",
+        "../src/utils/budget.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/researcher-role.test.js",
+      "loc": 263,
+      "itCount": 20,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/resilient-run.test.js",
+      "loc": 91,
+      "itCount": 11,
+      "imports": [
+        "../src/mcp/server-handlers.js"
+      ],
+      "mocks": [
+        "../src/bootstrap.js",
+        "../src/session/store.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/resolve-bin.test.js",
+      "loc": 37,
+      "itCount": 5,
+      "imports": [
+        "../src/agents/resolve-bin.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/response-compressor.test.js",
+      "loc": 159,
+      "itCount": 16,
+      "imports": [
+        "../src/mcp/response-compressor.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/resume-config-snapshot.test.js",
+      "loc": 106,
+      "itCount": 2,
+      "imports": [],
+      "mocks": [
+        "../src/session-cleanup.js",
+        "../src/session/store.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/retry.test.js",
+      "loc": 161,
+      "itCount": 21,
+      "imports": [
+        "../src/utils/retry.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/review-parser.test.js",
+      "loc": 124,
+      "itCount": 19,
+      "imports": [
+        "../src/review/parser.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/review-profiles.test.js",
+      "loc": 100,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [
+        "../src/roles/base-role.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/review-schema.test.js",
+      "loc": 118,
+      "itCount": 14,
+      "imports": [
+        "../src/review/schema.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/reviewer-parse-resilience.test.js",
+      "loc": 273,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/preflight-checks.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/sonar/api.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/manager.js",
+        "../src/sonar/scanner.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/git.js",
+        "../src/utils/project-detect.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/reviewer-role.test.js",
+      "loc": 191,
+      "itCount": 10,
+      "imports": [
+        "../src/roles/base-role.js",
+        "../src/roles/reviewer-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/role-assigner.test.js",
+      "loc": 91,
+      "itCount": 6,
+      "imports": [
+        "../src/utils/agent-detect.js"
+      ],
+      "mocks": [
+        "../src/utils/agent-detect.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/role-md-resolution.test.js",
+      "loc": 99,
+      "itCount": 9,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/role-output-compressor.test.js",
+      "loc": 148,
+      "itCount": 15,
+      "imports": [
+        "../src/orchestrator/role-output-compressor.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/roles/audit.test.js",
+      "loc": 64,
+      "itCount": 7,
+      "imports": [
+        "../../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/roles/base-role-provider.test.js",
+      "loc": 110,
+      "itCount": 5,
+      "imports": [
+        "../../src/roles/agent-role.js",
+        "../../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/roles/hu-reviewer.test.js",
+      "loc": 267,
+      "itCount": 18,
+      "imports": [
+        "../../src/prompts/hu-reviewer.js",
+        "../../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001",
+        "HU-002",
+        "HU-003",
+        "HU-004",
+        "HU-005",
+        "HU-D2",
+        "HU-D3"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001, HU-002, HU-003, HU-004, HU-005, HU-D2, HU-D3"
+      ]
+    },
+    {
+      "path": "tests/roles/impeccable.test.js",
+      "loc": 72,
+      "itCount": 8,
+      "imports": [
+        "../../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rtk-detect.test.js",
+      "loc": 43,
+      "itCount": 4,
+      "imports": [
+        "../src/utils/process.js",
+        "../src/utils/rtk-detect.js"
+      ],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rtk-install.test.js",
+      "loc": 85,
+      "itCount": 5,
+      "imports": [
+        "../src/utils/os-detect.js",
+        "../src/utils/process.js",
+        "../src/utils/rtk-detect.js",
+        "../src/utils/rtk-install.js"
+      ],
+      "mocks": [
+        "../src/utils/os-detect.js",
+        "../src/utils/process.js",
+        "../src/utils/rtk-detect.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rtk-savings.test.js",
+      "loc": 107,
+      "itCount": 10,
+      "imports": [
+        "../src/utils/rtk-wrapper.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/rtk-wrapper.test.js",
+      "loc": 123,
+      "itCount": 13,
+      "imports": [
+        "../src/utils/process.js",
+        "../src/utils/rtk-wrapper.js"
+      ],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/run-log.test.js",
+      "loc": 156,
+      "itCount": 14,
+      "imports": [
+        "../src/utils/run-log.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/scan-command.test.js",
+      "loc": 40,
+      "itCount": 1,
+      "imports": [],
+      "mocks": [
+        "../src/sonar/api.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/scanner.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/scope-filter.test.js",
+      "loc": 174,
+      "itCount": 16,
+      "imports": [
+        "../src/review/scope-filter.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/security-role.test.js",
+      "loc": 314,
+      "itCount": 21,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 314 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/server-handlers-unit.test.js",
+      "loc": 506,
+      "itCount": 43,
+      "imports": [],
+      "mocks": [
+        "../src/agents/availability.js",
+        "../src/agents/index.js",
+        "../src/bootstrap.js",
+        "../src/config.js",
+        "../src/hu/store.js",
+        "../src/mcp/direct-role-runner.js",
+        "../src/mcp/preflight.js",
+        "../src/mcp/progress.js",
+        "../src/mcp/run-kj.js",
+        "../src/mcp/sovereignty-guard.js",
+        "../src/mcp/suggest-handler.js",
+        "../src/mcp/tool-arg-normalizers.js",
+        "../src/orchestrator.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/planner.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/parser.js",
+        "../src/review/profiles.js",
+        "../src/session-cleanup.js",
+        "../src/skills/openskills-client.js",
+        "../src/utils/git.js",
+        "../src/utils/logger.js",
+        "../src/utils/run-log.js",
+        "../src/utils/stall-detector.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "HU-001",
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: HU-001, bug",
+        "file LOC 506 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/session-cleanup.test.js",
+      "loc": 145,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session-journal.test.js",
+      "loc": 188,
+      "itCount": 10,
+      "imports": [
+        "../src/orchestrator/session-journal.js"
+      ],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/session-pause.test.js",
+      "loc": 90,
+      "itCount": 4,
+      "imports": [
+        "../src/session/store.js"
+      ],
+      "mocks": [
+        "../src/utils/fs.js",
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session-store.test.js",
+      "loc": 352,
+      "itCount": 28,
+      "imports": [],
+      "mocks": [
+        "../src/utils/fs.js",
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 352 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/session/decisions-journal-integration.test.js",
+      "loc": 111,
+      "itCount": 5,
+      "imports": [
+        "../../src/session/journal/decisions-writer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session/decisions-writer.test.js",
+      "loc": 181,
+      "itCount": 16,
+      "imports": [
+        "../../src/session/journal/decisions-writer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session/iteration-logger.test.js",
+      "loc": 172,
+      "itCount": 17,
+      "imports": [
+        "../../src/session/journal/iteration-logger.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session/ruling-capture.test.js",
+      "loc": 94,
+      "itCount": 3,
+      "imports": [],
+      "mocks": [
+        "../../src/roles/solomon-role.js",
+        "../../src/session/store.js",
+        "../../src/utils/events.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session/runtime-overrides.test.js",
+      "loc": 86,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/session/summary-writer.test.js",
+      "loc": 244,
+      "itCount": 20,
+      "imports": [
+        "../../src/session/journal/summary-writer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0327",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0327, regression"
+      ]
+    },
+    {
+      "path": "tests/session/tree-writer.test.js",
+      "loc": 188,
+      "itCount": 18,
+      "imports": [],
+      "mocks": [
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skill-injection.test.js",
+      "loc": 228,
+      "itCount": 15,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skill-loader-type.test.js",
+      "loc": 150,
+      "itCount": 6,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills-dedup.test.js",
+      "loc": 48,
+      "itCount": 6,
+      "imports": [
+        "../src/skills/skill-loader.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/addyosmani-catalog.test.js",
+      "loc": 260,
+      "itCount": 22,
+      "imports": [],
+      "mocks": [
+        "../../src/utils/paths.js",
+        "../../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/addyosmani-role-map.test.js",
+      "loc": 98,
+      "itCount": 13,
+      "imports": [
+        "../../src/skills/addyosmani-role-map.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/cache.test.js",
+      "loc": 106,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../../src/utils/paths.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/fallback.test.js",
+      "loc": 74,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../../src/skills/openskills-client.js",
+        "../../src/skills/skill-loader.js",
+        "../../src/skills/skills-cache.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/integration.test.js",
+      "loc": 139,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../../src/skills/openskills-client.js",
+        "../../src/skills/skill-loader.js",
+        "../../src/skills/skills-cache.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/role-filter.test.js",
+      "loc": 104,
+      "itCount": 9,
+      "imports": [
+        "../../src/skills/skill-loader.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/semantic.test.js",
+      "loc": 142,
+      "itCount": 14,
+      "imports": [],
+      "mocks": [
+        "../../src/agents/index.js",
+        "../../src/config.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/skills/skill-detector-extended.test.js",
+      "loc": 199,
+      "itCount": 19,
+      "imports": [
+        "../../src/skills/skill-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/smart-checkpoint.test.js",
+      "loc": 58,
+      "itCount": 7,
+      "imports": [
+        "../src/orchestrator.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/snapshot-diff.test.js",
+      "loc": 76,
+      "itCount": 7,
+      "imports": [
+        "../src/review/snapshot-diff.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/solomon-messages.test.js",
+      "loc": 154,
+      "itCount": 10,
+      "imports": [
+        "../src/orchestrator/solomon-escalation.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/solomon-role.test.js",
+      "loc": 467,
+      "itCount": 26,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 467 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/solomon-rules.test.js",
+      "loc": 212,
+      "itCount": 14,
+      "imports": [
+        "../src/orchestrator/solomon-rules.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/sonar-api.test.js",
+      "loc": 181,
+      "itCount": 13,
+      "imports": [],
+      "mocks": [
+        "../src/sonar/project-key.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-config-error-feedback.test.js",
+      "loc": 86,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/sonar-config-resolver.test.js",
+      "loc": 145,
+      "itCount": 15,
+      "imports": [
+        "../src/sonar/config-resolver.js",
+        "../src/sonar/credentials.js"
+      ],
+      "mocks": [
+        "../src/sonar/credentials.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-discovery.test.js",
+      "loc": 158,
+      "itCount": 18,
+      "imports": [
+        "../src/sonar/discovery.js"
+      ],
+      "mocks": [
+        "../src/sonar/manager.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-enforcer.test.js",
+      "loc": 45,
+      "itCount": 6,
+      "imports": [
+        "../src/sonar/enforcer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-manager-init.test.js",
+      "loc": 199,
+      "itCount": 14,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/utils/fs.js",
+        "../src/utils/process.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-manager.test.js",
+      "loc": 204,
+      "itCount": 12,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/utils/fs.js",
+        "../src/utils/process.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-open.test.js",
+      "loc": 102,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/config.js",
+        "../src/sonar/manager.js",
+        "../src/sonar/project-key.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-project-key.test.js",
+      "loc": 120,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-role.test.js",
+      "loc": 256,
+      "itCount": 16,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [
+        "../src/sonar/api.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/scanner.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/sonar-scanner-run.test.js",
+      "loc": 358,
+      "itCount": 14,
+      "imports": [],
+      "mocks": [
+        "../src/sonar/credentials.js",
+        "../src/sonar/manager.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 358 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/sonar-scanner.test.js",
+      "loc": 59,
+      "itCount": 6,
+      "imports": [
+        "../src/sonar/scanner.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonar-token-flow.test.js",
+      "loc": 218,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/agents/resolve-bin.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/session/store.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/manager.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sonarcloud-scanner.test.js",
+      "loc": 106,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/sonar/project-key.js",
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/sovereignty-guard.test.js",
+      "loc": 202,
+      "itCount": 18,
+      "imports": [
+        "../src/mcp/sovereignty-guard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/spec-detector.test.js",
+      "loc": 80,
+      "itCount": 10,
+      "imports": [
+        "../src/plan/spec-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/split-validation.test.js",
+      "loc": 221,
+      "itCount": 17,
+      "imports": [
+        "../src/hu/split-validator.js"
+      ],
+      "mocks": [
+        "../src/utils/paths.js"
+      ],
+      "regressionPins": [
+        "HU-1",
+        "HU-999",
+        "HU-c1",
+        "HU-c2"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-1, HU-999, HU-c1, HU-c2"
+      ]
+    },
+    {
+      "path": "tests/stack-detect.test.js",
+      "loc": 176,
+      "itCount": 12,
+      "imports": [
+        "../src/utils/stack-detect.js"
+      ],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/stall-detector.test.js",
+      "loc": 193,
+      "itCount": 11,
+      "imports": [
+        "../src/utils/stall-detector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/standby.test.js",
+      "loc": 227,
+      "itCount": 9,
+      "imports": [
+        "../src/orchestrator/standby.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/status-dashboard.test.js",
+      "loc": 256,
+      "itCount": 22,
+      "imports": [
+        "../src/utils/status-dashboard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "HU-001",
+        "HU-002",
+        "HU-003",
+        "HU-004",
+        "HU-010"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: HU-001, HU-002, HU-003, HU-004, HU-010"
+      ]
+    },
+    {
+      "path": "tests/subloop-limits.test.js",
+      "loc": 341,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/orchestrator/preflight-checks.js",
+        "../src/orchestrator/solomon-escalation.js",
+        "../src/prompts/coder.js",
+        "../src/prompts/reviewer.js",
+        "../src/review/diff-generator.js",
+        "../src/review/schema.js",
+        "../src/review/tdd-policy.js",
+        "../src/session/store.js",
+        "../src/sonar/api.js",
+        "../src/sonar/credentials.js",
+        "../src/sonar/enforcer.js",
+        "../src/sonar/manager.js",
+        "../src/sonar/scanner.js",
+        "../src/utils/agent-detect.js",
+        "../src/utils/git.js",
+        "../src/utils/process.js",
+        "../src/utils/project-detect.js",
+        "../src/utils/rtk-detect.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 341 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/support/opt-in.test.js",
+      "loc": 54,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/tdd-policy.test.js",
+      "loc": 165,
+      "itCount": 13,
+      "imports": [
+        "../src/review/tdd-policy.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/telemetry.test.js",
+      "loc": 121,
+      "itCount": 13,
+      "imports": [
+        "../src/utils/telemetry.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/tester-role.test.js",
+      "loc": 283,
+      "itCount": 20,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/tester-tests-first.test.js",
+      "loc": 108,
+      "itCount": 6,
+      "imports": [
+        "../src/roles/tester-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/tests-synthesizer.test.js",
+      "loc": 163,
+      "itCount": 14,
+      "imports": [
+        "../src/plan/tests-synthesizer.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/timeout-handling.test.js",
+      "loc": 79,
+      "itCount": 9,
+      "imports": [
+        "../src/utils/process.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: regression"
+      ]
+    },
+    {
+      "path": "tests/triage-auto-skills.test.js",
+      "loc": 235,
+      "itCount": 21,
+      "imports": [],
+      "mocks": [
+        "../src/skills/openskills-client.js",
+        "../src/skills/skill-loader.js",
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/triage-domain-hints.test.js",
+      "loc": 110,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/triage-hu-reviewer-activation.test.js",
+      "loc": 195,
+      "itCount": 7,
+      "imports": [],
+      "mocks": [
+        "../src/agents/index.js",
+        "../src/hu/graph.js",
+        "../src/hu/store.js",
+        "../src/roles/hu-reviewer-role.js",
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/model-selector.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/triage-role.test.js",
+      "loc": 340,
+      "itCount": 21,
+      "imports": [
+        "../src/roles/base-role.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "REFACTOR",
+      "reasons": [
+        "file LOC 340 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/triage-stage.test.js",
+      "loc": 238,
+      "itCount": 10,
+      "imports": [],
+      "mocks": [
+        "../src/roles/triage-role.js",
+        "../src/session/store.js",
+        "../src/utils/model-selector.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/types.test.js",
+      "loc": 27,
+      "itCount": 1,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/types/solomon-typedef.test.js",
+      "loc": 96,
+      "itCount": 9,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0326",
+        "regression"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0326, regression"
+      ]
+    },
+    {
+      "path": "tests/update-check.test.js",
+      "loc": 102,
+      "itCount": 8,
+      "imports": [
+        "../src/utils/update-check.js"
+      ],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-display.test.js",
+      "loc": 450,
+      "itCount": 35,
+      "imports": [
+        "../src/utils/display/event-handlers.js",
+        "../src/utils/display/formatters.js",
+        "../src/utils/display/header.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "REFACTOR",
+      "reasons": [
+        "regression-pin: bug",
+        "file LOC 450 > 300 — split by behavior cluster"
+      ]
+    },
+    {
+      "path": "tests/utils-fs.test.js",
+      "loc": 53,
+      "itCount": 5,
+      "imports": [],
+      "mocks": [
+        "node:fs/promises"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-git.test.js",
+      "loc": 188,
+      "itCount": 19,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [
+        "bug"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: bug"
+      ]
+    },
+    {
+      "path": "tests/utils-paths.test.js",
+      "loc": 92,
+      "itCount": 8,
+      "imports": [],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-port-check.test.js",
+      "loc": 73,
+      "itCount": 5,
+      "imports": [
+        "../src/utils/port-check.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-port-occupant.test.js",
+      "loc": 59,
+      "itCount": 4,
+      "imports": [],
+      "mocks": [
+        "../src/utils/process.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-provider-env.test.js",
+      "loc": 116,
+      "itCount": 12,
+      "imports": [
+        "../src/utils/provider-env.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils-with-timeout.test.js",
+      "loc": 38,
+      "itCount": 5,
+      "imports": [
+        "../src/utils/with-timeout.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils/budget.test.js",
+      "loc": 144,
+      "itCount": 16,
+      "imports": [
+        "../../src/utils/budget.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils/cli-progress.test.js",
+      "loc": 99,
+      "itCount": 11,
+      "imports": [
+        "../../src/utils/cli-progress.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils/cli-run-log.test.js",
+      "loc": 101,
+      "itCount": 7,
+      "imports": [
+        "../../src/utils/cli-run-log.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils/garbage-collector.test.js",
+      "loc": 272,
+      "itCount": 15,
+      "imports": [
+        "../../src/utils/garbage-collector.js"
+      ],
+      "mocks": [],
+      "regressionPins": [
+        "TSK-0341"
+      ],
+      "classification": "KEEP",
+      "reasons": [
+        "regression-pin: TSK-0341"
+      ]
+    },
+    {
+      "path": "tests/utils/project-detect.test.js",
+      "loc": 165,
+      "itCount": 14,
+      "imports": [
+        "../../src/utils/project-detect.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/utils/task-file.test.js",
+      "loc": 122,
+      "itCount": 14,
+      "imports": [
+        "../../src/utils/task-file.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/verification-gate.test.js",
+      "loc": 138,
+      "itCount": 15,
+      "imports": [],
+      "mocks": [
+        "node:child_process"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/webperf-detect.test.js",
+      "loc": 99,
+      "itCount": 8,
+      "imports": [
+        "../src/skills/openskills-client.js",
+        "../src/webperf/devtools-detect.js"
+      ],
+      "mocks": [
+        "../src/skills/openskills-client.js"
+      ],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/webperf-gate.test.js",
+      "loc": 183,
+      "itCount": 20,
+      "imports": [
+        "../src/webperf/cwv-gate.js",
+        "../src/webperf/webperf-role-integration.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    },
+    {
+      "path": "tests/wizard.test.js",
+      "loc": 130,
+      "itCount": 9,
+      "imports": [
+        "../src/utils/wizard.js"
+      ],
+      "mocks": [],
+      "regressionPins": [],
+      "classification": "KEEP",
+      "reasons": [
+        "compact, no diet trigger — keep as-is"
+      ]
+    }
+  ],
+  "outOfScope": [
+    {
+      "path": "tests/architecture/dynamic-imports.test.js",
+      "loc": 147,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/layer-boundaries.test.js",
+      "loc": 114,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/no-globalThis-kj.test.js",
+      "loc": 106,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/no-provider-apis.test.js",
+      "loc": 154,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/session-store-imports.test.js",
+      "loc": 126,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/session-write-boundary.test.js",
+      "loc": 125,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/sonar-intrinsic.test.js",
+      "loc": 151,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/stage-registry.test.js",
+      "loc": 86,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    },
+    {
+      "path": "tests/architecture/tracker-coupling.test.js",
+      "loc": 101,
+      "classification": "OUT_OF_SCOPE",
+      "reasons": [
+        "under tests/architecture/ — out of scope per FASE 2 HU"
+      ]
+    }
+  ]
+}

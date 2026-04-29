@@ -8,6 +8,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { renderBoardBanner } from "../../src/commands/board.js";
 
+// regression-for: TSK-0273
 describe("renderBoardBanner — TSK-0273 banner format", () => {
   it("renders a box containing the URL and status", () => {
     const box = renderBoardBanner({ url: "http://localhost:4000", status: "started" });
@@ -38,6 +39,7 @@ describe("renderBoardBanner — TSK-0273 banner format", () => {
   });
 });
 
+// regression-for: TSK-0273
 describe("tryAutoStartBoard — TSK-0273 gating", () => {
   let startBoardSpy;
   let originalVitest;

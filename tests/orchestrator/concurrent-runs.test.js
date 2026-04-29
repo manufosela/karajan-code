@@ -17,6 +17,7 @@ import {
   withRunContext, getRunContext,
 } from "../../src/utils/run-context.js";
 
+// regression-for: TSK-0338
 describe("TSK-0338 — per-run context isolation", () => {
   it("two parallel withRunContext scopes see their own runner, not each other's", async () => {
     const runnerA = (cmd) => Promise.resolve({ tag: "A", cmd });

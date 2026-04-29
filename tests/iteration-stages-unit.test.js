@@ -386,6 +386,7 @@ describe("iteration-stages: runSonarStage", () => {
     expect(result.action).toBe("continue");
   });
 
+  // regression-for: regression, bug
   it("throws a clear error when called without sonarState (regression: silent run-hu-batch wiring bug)", async () => {
     // Pre-fix, run-hu-batch.js called runSonarStage without sonarState.
     // The stage didn't notice until line 300 (`sonarState.issuesInitial`)

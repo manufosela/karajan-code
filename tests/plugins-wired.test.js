@@ -42,6 +42,7 @@ async function setupProjectWithPlugin() {
   return projectDir;
 }
 
+// regression-for: TSK-0329
 describe("plugins — wired into bootstrap (TSK-0329)", () => {
   it("plugin dropped in .karajan/plugins/ registers its agent via bootstrap", async () => {
     const projectDir = await setupProjectWithPlugin();
@@ -85,6 +86,7 @@ describe("plugins — wired into bootstrap (TSK-0329)", () => {
     expect(loaded).toEqual([]);
   });
 
+  // regression-for: regression
   it("bootstrap.js imports from src/plugins/loader.js (regression guard)", async () => {
     // Pre-v2.7.5 this was the exact symptom of the bug: src/plugins/
     // was never imported from production code. This assertion fails

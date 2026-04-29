@@ -18,6 +18,7 @@ describe("planning-game/adapter", () => {
       expect(parseCardId("Implement KJC-TSK-0042 auth module")).toBe("KJC-TSK-0042");
     });
 
+    // regression-for: bug
     it("extracts bug card ID", () => {
       expect(parseCardId("PLN-BUG-0015")).toBe("PLN-BUG-0015");
     });

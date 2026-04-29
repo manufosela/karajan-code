@@ -66,6 +66,7 @@ describe("repair-detector / createFailureTracker", () => {
     expect(t.record("cmd-A", "err1")).toBe(3);
   });
 
+  // regression-for: bug
   it("resets count when the error signature changes (different bug = different problem)", () => {
     const t = createFailureTracker();
     t.record("cmd-A", "err1");

@@ -201,6 +201,7 @@ describe("buildCoderPrompt — reviewer findings filtered per HU", () => {
   });
 });
 
+// regression-for: BUG-0032, bug
 describe("buildCoderPrompt — projectDir boundary rule (PR-I, KJC-BUG-0032)", () => {
   it("renders the CRITICAL boundary section when projectDir is present", async () => {
     const prompt = await buildCoderPrompt({

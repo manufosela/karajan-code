@@ -91,6 +91,7 @@ describe("post-loop-stages", () => {
       expect(result.stageResult.summary).toBe("Tests failing");
     });
 
+    // regression-for: regression
     it("propagates verdict + failing_scenarios + translated_scenarios on the OK path (regression: FASE-2 run blocker)", async () => {
       // Pre-fix, the OK return shape was just { ok, summary } — losing the
       // verdict, failing_scenarios, translated_scenarios that the role
