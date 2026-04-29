@@ -1,0 +1,11 @@
+{
+  "id": "s_test",
+  "checkpoints": [
+    {
+      "at": "2026-04-29T22:21:24.199Z",
+      "stage": "ci-commit",
+      "committed": true
+    }
+  ],
+  "updated_at": "2026-04-29T22:21:24.199Z"
+}
