@@ -96,14 +96,20 @@ describe("hu-sub-pipeline", () => {
       expect(needsSubPipeline({ ok: false, stories: [] })).toBe(false);
     });
 
-    it("returns false for single certified story (no sub-pipeline needed)", () => {
+    it("returns true for a single certified story (was false pre-fix; broke single-HU runs)", () => {
+      // Regression: `kj run --plan <id> --hu <huId>` (the board's per-card
+      // ▶ launcher) lands here with exactly 1 certified story. Pre-fix,
+      // needsSubPipeline returned false → single-task pipeline → no
+      // updateStoryStatus → HU stuck in "coding" forever after the run
+      // finished. The sub-pipeline handles 1 HU as a degenerate case
+      // (no dep graph, no parallel batches) so it's safe to take it.
       const result = {
         ok: true,
         certified: 1,
         total: 1,
         stories: [{ id: "HU-001", status: "certified" }]
       };
-      expect(needsSubPipeline(result)).toBe(false);
+      expect(needsSubPipeline(result)).toBe(true);
     });
 
     it("returns true for multiple certified stories", () => {
@@ -120,7 +126,11 @@ describe("hu-sub-pipeline", () => {
       expect(needsSubPipeline(result)).toBe(true);
     });
 
-    it("returns false when only one story is certified even if total > 1", () => {
+    it("returns true when one story is certified even if total > 1 (others get filtered later)", () => {
+      // Same regression as the single-HU case — needs_context / pending
+      // siblings are skipped by the sub-pipeline's own filter; only
+      // certified ones run. The board's per-HU launcher passes only
+      // one certified, so we need this to be true.
       const result = {
         ok: true,
         certified: 1,
@@ -129,6 +139,19 @@ describe("hu-sub-pipeline", () => {
           { id: "HU-001", status: "certified" },
           { id: "HU-002", status: "needs_context" },
           { id: "HU-003", status: "pending" }
+        ]
+      };
+      expect(needsSubPipeline(result)).toBe(true);
+    });
+
+    it("returns false when zero stories are certified", () => {
+      const result = {
+        ok: true,
+        certified: 0,
+        total: 2,
+        stories: [
+          { id: "HU-001", status: "needs_context" },
+          { id: "HU-002", status: "pending" }
         ]
       };
       expect(needsSubPipeline(result)).toBe(false);
@@ -181,15 +204,19 @@ describe("hu-sub-pipeline", () => {
 
   // --- runHuSubPipeline ---
 
-  describe("runHuSubPipeline — single HU runs pipeline as before", () => {
-    it("single HU detected by needsSubPipeline returns false — no sub-pipeline", () => {
+  describe("runHuSubPipeline — single HU now goes through the sub-pipeline (regression fix)", () => {
+    it("single HU detected by needsSubPipeline returns true so status updates fire", () => {
+      // Pre-fix this returned false and the run skipped the sub-pipeline,
+      // leaving the HU stuck in "coding" forever. The sub-pipeline knows
+      // how to handle a 1-HU batch as a degenerate case (skip parallel
+      // grouping, skip topological resolution beyond identity).
       const result = {
         ok: true,
         certified: 1,
         total: 1,
         stories: [{ id: "HU-001", status: "certified", certified: { text: "do thing" }, original: { text: "do thing" }, blocked_by: [] }]
       };
-      expect(needsSubPipeline(result)).toBe(false);
+      expect(needsSubPipeline(result)).toBe(true);
     });
   });
 
@@ -236,6 +263,91 @@ describe("hu-sub-pipeline", () => {
 
       // Verify topologicalSort was called
       expect(topologicalSort).toHaveBeenCalled();
+    });
+  });
+
+  describe("runHuSubPipeline — plan is source of truth, stale on-disk batch is reconciled", () => {
+    it("overlays plan statuses onto persisted batch when source is plan (regression: 'All HUs completed successfully' for zero work)", async () => {
+      // Pre-fix scenario, paraphrasing 2026-04-29 incident:
+      //   1. A previous run failed → on-disk batch.json had
+      //      stories=[{ status: 'failed' }, { status: 'blocked' }, …].
+      //   2. User reset the plan JSON manually (all HUs back to
+      //      'certified') and relaunched.
+      //   3. runHuSubPipeline loaded the STALE on-disk batch and ran
+      //      `batch.stories.filter(s => s.status === 'certified')` —
+      //      empty array. The for-loop never executed. allApproved
+      //      stayed true vacuously. The orchestrator emitted
+      //      "All HUs completed successfully" for ZERO work and
+      //      reported approved=true.
+      // The fix: when source.plan === true, the plan's HU statuses
+      // win over the persisted batch (the plan JSON is authoritative
+      // for plan-driven runs).
+      const persistedBatch = {
+        session_id: "plan-plan-X",
+        stories: [
+          { id: "HU-001", status: "failed",  original: { text: "1" }, blocked_by: [] },
+          { id: "HU-002", status: "blocked", original: { text: "2" }, blocked_by: ["HU-001"] },
+          { id: "HU-003", status: "blocked", original: { text: "3" }, blocked_by: ["HU-002"] },
+        ],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+      const huReviewerResult = {
+        ok: true,
+        certified: 3,
+        total: 3,
+        // The plan JSON says all certified — this is the truth.
+        stories: [
+          { id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] },
+          { id: "HU-002", status: "certified", original: { text: "2" }, blocked_by: ["HU-001"] },
+          { id: "HU-003", status: "certified", original: { text: "3" }, blocked_by: ["HU-002"] },
+        ],
+        batchSessionId: "plan-plan-X",
+        source: { plan: true, planId: "plan-X" },
+      };
+
+      const result = await runHuSubPipeline({
+        huReviewerResult, runIterationFn, emitter, eventBase, logger,
+      });
+
+      // Coder ran for every HU — not zero like the bug.
+      expect(runIterationFn).toHaveBeenCalledTimes(3);
+      expect(result.approved).toBe(true);
+      expect(result.results).toHaveLength(3);
+      // The reconciled batch was persisted back so subsequent reads
+      // don't re-encounter the stale state.
+      expect(saveHuBatchMock).toHaveBeenCalled();
+    });
+
+    it("does NOT touch the persisted batch when source is not plan (auto-HU runs)", async () => {
+      // Auto-generated HU runs (no plan) should keep the original
+      // behaviour — disk batch wins, no reconciliation.
+      const persistedBatch = {
+        session_id: "auto-s_X",
+        stories: [
+          { id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] },
+        ],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+      const huReviewerResult = {
+        ok: true, certified: 1, total: 1,
+        stories: [{ id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] }],
+        batchSessionId: "auto-s_X",
+        // No source.plan → reconciliation skipped.
+        auto_generated: true,
+      };
+
+      await runHuSubPipeline({
+        huReviewerResult, runIterationFn, emitter, eventBase, logger,
+      });
+      // No "reconciled" log line should fire.
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.stringMatching(/reconciled \d+ story status/),
+      );
     });
   });
 

@@ -6,6 +6,7 @@ import { parseMaybeJsonString } from "../review/parser.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAutoGC, summarizeGC } from "../utils/garbage-collector.js";
 import { promptProjectName } from "../utils/prompt-project-name.js";
+import { deriveProjectNameFromCwd } from "../utils/derive-project-name-from-cwd.js";
 
 // ---- Formatting helpers ----
 
@@ -116,12 +117,20 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
 
   const projectDir = config.projectDir || process.cwd();
   const plan = createPlanV2(task);
-  // PR-H: deduce a default name from the task content (which the LLM
-  // saw and condensed), then ask the user to confirm or override.
-  // Skip the prompt on non-interactive runs (--json, --yes, board-
-  // spawned subprocesses with stdio:ignore) so CI / automation
-  // doesn't hang waiting on a TTY.
-  const defaultName = deriveProjectName(task);
+  // Default project name resolution, in priority order:
+  //   1. cwd signals — package.json "name" → git remote basename →
+  //      directory basename. This is what the user actually expects:
+  //      if they ran `git init` in `~/ws_demo/weather-dashboard` and
+  //      then asked Karajan to plan, the default name should reflect
+  //      THAT directory, not the words of the SPEC document.
+  //   2. Fallback: derive from the task text (legacy heuristic). Used
+  //      when none of the cwd signals yields anything (e.g. running
+  //      from a tmp dir, no git, no package.json — typical for
+  //      ad-hoc planning sessions).
+  // The user is still prompted to confirm / override on TTY runs;
+  // non-interactive runs (--json, --yes, board-spawned subprocesses)
+  // accept the default silently.
+  const defaultName = deriveProjectNameFromCwd(projectDir) || deriveProjectName(task);
   const canPrompt = process.stdin.isTTY && process.stdout.isTTY
     && !json && !flags?.yes && flags?.interactive !== false;
   plan.name = canPrompt ? await promptProjectName(defaultName) : defaultName;

@@ -9,8 +9,21 @@ import { refineHuWithContext } from "../hu/lazy-planner.js";
 import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
 
 /**
- * Determine whether the HU reviewer result requires a sub-pipeline
- * (more than one certified story).
+ * Determine whether the HU reviewer result needs the sub-pipeline path.
+ *
+ * Pre-fix this returned true only when there were > 1 certified stories.
+ * That broke single-HU runs (`kj run --plan <id> --hu <huId>`, the path
+ * the board's per-card ▶ button drives): with exactly one HU certified
+ * the flow fell through to the standard single-task pipeline, which
+ * does NOT call updateStoryStatus / saveHuBatch / emit hu:* events.
+ * Result: the HU stayed forever in `coding` even after the run finished
+ * because nobody persisted "done"/"failed" anywhere — board kanban
+ * showed "1 running…" indefinitely, plan JSON kept the stale status.
+ *
+ * The sub-pipeline already handles a 1-HU batch as a degenerate case
+ * (no dependency graph to resolve, no parallel batching) — so the fix
+ * is to take that path for any non-empty batch, not just >1.
+ *
  * @param {object|null} huReviewerResult - stageResults.huReviewer
  * @returns {boolean}
  */
@@ -19,7 +32,7 @@ export function needsSubPipeline(huReviewerResult) {
   const certified = (huReviewerResult.stories || []).filter(
     s => s.status === "certified"
   );
-  return certified.length > 1;
+  return certified.length >= 1;
 }
 
 /**
@@ -286,6 +299,43 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
       session_id: batchSessionId,
       stories: huReviewerResult.stories || []
     };
+  }
+
+  // Plan-driven runs: the plan JSON is the source of truth for HU
+  // statuses, NOT the on-disk hu-stories batch. Pre-fix, after a failed
+  // run left stories=['failed','blocked',…] on disk, manually resetting
+  // the plan back to all-certified did NOT clear the persisted batch.
+  // The next run loaded the stale disk batch, found zero `certified`
+  // stories, skipped the entire for-loop, and reported "All HUs
+  // completed successfully" for ZERO actual work — silently approving
+  // a run that never ran.
+  //
+  // Reconcile by overlaying the plan's authoritative status onto the
+  // persisted batch. We keep any in-flight context the disk batch may
+  // hold (worktree paths, partial refinement state) but trust the plan
+  // for what's runnable.
+  if (huReviewerResult.source?.plan === true && Array.isArray(huReviewerResult.stories)) {
+    const planById = new Map(huReviewerResult.stories.map((s) => [s.id, s]));
+    let reconciled = 0;
+    for (const persisted of batch.stories) {
+      const fromPlan = planById.get(persisted.id);
+      if (fromPlan && fromPlan.status !== persisted.status) {
+        persisted.status = fromPlan.status;
+        reconciled += 1;
+      }
+    }
+    // Stories present in the plan but missing from disk → append.
+    const persistedIds = new Set(batch.stories.map((s) => s.id));
+    for (const fromPlan of huReviewerResult.stories) {
+      if (!persistedIds.has(fromPlan.id)) {
+        batch.stories.push(fromPlan);
+        reconciled += 1;
+      }
+    }
+    if (reconciled > 0) {
+      logger.info(`HU sub-pipeline: reconciled ${reconciled} story status(es) from plan (disk batch was stale)`);
+      await saveHuBatch(batchSessionId, batch);
+    }
   }
 
   const certifiedStories = batch.stories.filter(s => s.status === HU_STATUS.CERTIFIED);

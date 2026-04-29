@@ -427,10 +427,11 @@ async function renderBoard() {
         ` : ''}
         <span class="section-header__count">${stories.length} stories</span>
         ${isRunning ? `
-          <span class="section-header__badge"
-                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;">
+          <button id="running-badge-btn" class="section-header__badge"
+                style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;border:none;cursor:pointer;"
+                title="Abrir el log de la HU en marcha">
             ⚙ ${runningCount} running…
-          </span>
+          </button>
         ` : ''}
         ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
@@ -485,6 +486,35 @@ async function renderBoard() {
         label: lastOpenedLog.label,
         tailUrl: lastOpenedLog.tailUrl,
       }));
+    }
+    // Wire the yellow "⚙ N running…" badge so it opens the live log of the
+    // first running HU. Without this the badge was decorative — and if the
+    // run was started before the current page load (refresh / new browser
+    // session) `lastOpenedLog` is null, so the "📜 View log" button isn't
+    // even rendered. Then the user has no way to see the live output.
+    //
+    // For a single-HU run the log lives at:
+    //   ~/.karajan/hu-board-runs/<planId>--hu-<localHuId>.log
+    // which the /api/runs/:commandId/log endpoint serves when commandId
+    // matches the basename. The composite id stored in SQLite is
+    // "<projectId>::<localHuId>", so we strip the prefix to derive
+    // localHuId and concatenate with plan_id (already on the story row).
+    const runningBadgeBtn = document.getElementById('running-badge-btn');
+    if (runningBadgeBtn) {
+      runningBadgeBtn.addEventListener('click', async () => {
+        const running = stories.find((s) => s.status === 'coding' || s.status === 'reviewing');
+        if (!running) return;
+        const planId = running.plan_id;
+        if (!planId) {
+          await showError('Esta HU no tiene plan_id asociado, no puedo localizar su log.', { title: 'Sin log' });
+          return;
+        }
+        const localHuId = running.id.includes('::') ? running.id.split('::').pop() : running.id;
+        const logBasename = `${planId}--hu-${localHuId}`;
+        const tailUrl = (offset) => `/api/runs/${encodeURIComponent(logBasename)}/log?offset=${offset || 0}`;
+        lastOpenedLog = { id: logBasename, label: `HU ${localHuId}`, tailUrl };
+        openGenericLogPanel({ id: logBasename, label: `HU ${localHuId}`, tailUrl });
+      });
     }
   } catch (err) {
     app.innerHTML = `<div class="empty-state"><div class="empty-state__title">Error loading board</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
@@ -1240,13 +1270,23 @@ window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
       return;
     }
     const body = await res.json();
-    // Surface the log path so the user can tail it from the View log button.
+    // Surface the log path so the user can tail it from the View log button
+    // AND auto-open the viewer so the click produces visible feedback. Without
+    // the open, the user clicks Lanzar, sees nothing change, and concludes the
+    // run never started — the run IS started, the log IS being written, the
+    // UI just wasn't showing it.
+    //
+    // The tail URL must be derived from body.logPath, not constructed from
+    // huId. When `kj run --plan ... --hu <id>` is launched, runPlan writes to
+    //   <runsDir>/<planId>--hu-<localHuId>.log
+    // — not <runsDir>/hu-<huId>.log. The previous code guessed the wrong
+    // filename and the viewer would have hit a non-existent file even if
+    // it had been opened.
     if (body.logPath) {
-      lastOpenedLog = {
-        id: `hu-${huId}`,
-        label: `HU ${huId}`,
-        tailUrl: (offset) => `/api/runs/${encodeURIComponent(`hu-${huId}`)}/log?offset=${offset || 0}`,
-      };
+      const logBasename = body.logPath.split('/').pop().replace(/\.log$/, '');
+      const tailUrl = (offset) => `/api/runs/${encodeURIComponent(logBasename)}/log?offset=${offset || 0}`;
+      lastOpenedLog = { id: `hu-${huId}`, label: `HU ${huId}`, tailUrl };
+      openGenericLogPanel({ id: logBasename, label: `HU ${huId}`, tailUrl });
     }
     await fetch('/api/sync', { method: 'POST' }).catch(() => {});
     await renderBoard();

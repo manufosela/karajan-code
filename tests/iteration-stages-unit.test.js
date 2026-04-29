@@ -385,6 +385,34 @@ describe("iteration-stages: runSonarStage", () => {
     // Solomon mock returns { action: "continue" }, so sonar stage continues
     expect(result.action).toBe("continue");
   });
+
+  it("throws a clear error when called without sonarState (regression: silent run-hu-batch wiring bug)", async () => {
+    // Pre-fix, run-hu-batch.js called runSonarStage without sonarState.
+    // The stage didn't notice until line 300 (`sonarState.issuesInitial`)
+    // and threw `Cannot read properties of undefined`. Higher up, the
+    // HU sub-pipeline's catch logged it as "non-blocking" and the gate
+    // never actually evaluated — every iteration burned budget against
+    // a Sonar that, from the orchestrator's POV, hadn't run. Failing
+    // fast at the function boundary surfaces the missing wiring on the
+    // first call so any new caller fixes it before launching agents.
+    await expect(runSonarStage({
+      config: makeConfig(), logger, emitter, eventBase,
+      session: makeSession(), trackBudget, iteration: 1,
+      repeatDetector, budgetSummary,
+      // sonarState intentionally omitted
+      askQuestion: null, task: "do X",
+    })).rejects.toThrow(/sonarState.*required/i);
+  });
+
+  it("throws a clear error when called without session (defense-in-depth for the same wiring class)", async () => {
+    const sonarState = { issuesInitial: null, issuesFinal: null };
+    await expect(runSonarStage({
+      config: makeConfig(), logger, emitter, eventBase,
+      // session intentionally omitted
+      trackBudget, iteration: 1,
+      repeatDetector, budgetSummary, sonarState, askQuestion: null, task: "do X",
+    })).rejects.toThrow(/session.*required/i);
+  });
 });
 
 describe("iteration-stages: runReviewerStage", () => {

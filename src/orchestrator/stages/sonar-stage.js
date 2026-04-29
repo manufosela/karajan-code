@@ -11,6 +11,50 @@ import {
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { sonarUp, isSonarReachable } from "../../sonar/manager.js";
+import { addEntries } from "../feedback-queue.js";
+
+/**
+ * Detect sonar errors that are caused by a malformed `sonar-project.properties`
+ * (or equivalent CLI args) — i.e. the scanner refused to start at all because
+ * a path is wrong, a key is missing, or a value is invalid. These are NOT
+ * findings about user code; they're the coder's own configuration mistake.
+ *
+ * When this fires, the right move is to send a precise diagnostic to the
+ * coder so it fixes the config in the next iteration. Bypassing with the
+ * Brain (or Solomon) on a config error means iterating 5 times against the
+ * same wall — Sonar can't possibly succeed until the config is fixed.
+ *
+ * Returns a string with actionable guidance, or null when the error is a
+ * different category (auth, network, scanner crash) that the coder can't
+ * resolve from inside the codebase.
+ */
+function detectSonarConfigError(rawError) {
+  if (!rawError || typeof rawError !== "string") return null;
+
+  // "Invalid value of sonar.tests for X — The folder 'tests' does not exist"
+  // (and its sonar.sources / sonar.exclusions / sonar.coverage.* siblings).
+  const invalidPath = rawError.match(/Invalid value of (sonar\.\w[\w.]*) for [^\n]+\nERROR The folder '([^']+)' does not exist/);
+  if (invalidPath) {
+    const [, key, dir] = invalidPath;
+    return [
+      `The Sonar property \`${key}=${dir}\` in sonar-project.properties points to a directory that doesn't exist.`,
+      `Fix one of these in the SAME iteration:`,
+      ` - Create the \`${dir}/\` directory in the project root, or`,
+      ` - Edit sonar-project.properties so \`${key}\` points to an existing directory, or`,
+      ` - Remove the \`${key}\` line entirely if the project legitimately has no such folder.`,
+      `Without this fix, Sonar will refuse to scan and the run will burn every remaining iteration on the same error.`,
+    ].join("\n");
+  }
+
+  // Fallback patterns for other config-shaped failures.
+  if (/Invalid value of sonar\./i.test(rawError)) {
+    return `Sonar refused to start because of an invalid value in sonar-project.properties. Read the scanner's error above and fix the offending key in this iteration: ${rawError.slice(0, 300)}`;
+  }
+  if (/sonar-project\.properties.*not found/i.test(rawError) || /No project key/i.test(rawError)) {
+    return `Sonar can't find a usable sonar-project.properties. Generate one at the project root with at minimum: sonar.projectKey, sonar.projectName, sonar.sources=src, and sonar.tests pointing to an EXISTING directory (or omit it).`;
+  }
+  return null;
+}
 
 async function handleSonarStalled({ repeatDetector, logger, emitter, eventBase, session, budgetSummary }) {
   const repeatCounts = repeatDetector.getRepeatCounts();
@@ -123,6 +167,20 @@ async function handleSonarBlocking({ sonarResult, config, logger, emitter, event
 }
 
 export async function runSonarStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx }) {
+  // Required-input guards. Without these, the bug class that broke the
+  // FASE-2 run on 2026-04-29 (run-hu-batch.js called runSonarStage
+  // without sonarState) is silent: the stage threw `Cannot read
+  // properties of undefined (reading 'issuesInitial')` later, the HU
+  // sub-pipeline's catch swallowed it as "non-blocking", and the
+  // Sonar gate effectively never ran. Failing fast here surfaces the
+  // missing wiring at the first iteration so any new caller fixes it
+  // before burning budget.
+  if (!sonarState || typeof sonarState !== "object") {
+    throw new Error("runSonarStage: `sonarState` is required (object with issuesInitial/issuesFinal slots — usually ctx.sonarState).");
+  }
+  if (!session) {
+    throw new Error("runSonarStage: `session` is required.");
+  }
   logger.setContext({ iteration, stage: "sonar" });
   emitProgress(
     emitter,
@@ -191,8 +249,31 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
       })
     );
 
-    // Brain: when enabled, skip Solomon for sonar errors — Brain handles via max_iterations
+    // Brain: when enabled, skip Solomon for sonar errors — Brain handles via max_iterations.
     if (brainCtx?.enabled) {
+      // BUT: if the error is a *configuration* mistake (sonar.tests pointing to a
+      // missing folder, etc.), iterating won't help — Sonar will refuse to scan
+      // again and again. Push a typed feedback entry into the brain queue so the
+      // next coder iteration sees a concrete fix-this-config diagnostic AND so
+      // handleMaxIterations doesn't auto-finalize as approved (config is a
+      // "correctness" category — pending entries block approval).
+      const configHint = detectSonarConfigError(sonarResult.error);
+      if (configHint) {
+        addEntries(brainCtx.feedbackQueue, [{
+          source: "sonar",
+          severity: "high",
+          category: "correctness",
+          description: configHint,
+          iteration
+        }]);
+        setReviewerFeedback(session, configHint);
+        logger.info("Brain: sonar config error detected — feeding fix-this-config diagnostic to coder");
+        emitProgress(emitter, makeEvent("brain:sonar-config-error", { ...eventBase, stage: "sonar" }, {
+          message: "Sonar refused to scan — config error fed back to coder",
+          detail: { hint: configHint.slice(0, 240) }
+        }));
+        return { action: "continue" };
+      }
       logger.info("Brain: sonar error — Brain will handle (Solomon bypassed)");
       emitProgress(emitter, makeEvent("brain:sonar-error", { ...eventBase, stage: "sonar" }, {
         message: `Sonar error — Brain handling: ${errorMessage.slice(0, 200)}`,

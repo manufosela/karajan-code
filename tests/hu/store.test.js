@@ -67,6 +67,23 @@ describe("HU Store", () => {
     expect(reloaded.updated_at).toBeTruthy();
   });
 
+  it("saveHuBatch creates the session dir on demand (regression for plan-driven runs)", async () => {
+    // Pre-fix, saveHuBatch assumed createHuBatch had already mkdir-ed the
+    // directory. That assumption broke for `kj run --plan <id>`: the
+    // sub-pipeline derived a batchSessionId from the plan id, never ran
+    // createHuBatch, fell back to in-memory stories, then crashed here
+    // with ENOENT on the first save attempt — taking the whole pipeline
+    // down. The fix is one mkdir -p; this test pins it.
+    const sessionId = `plan-driven-${Date.now()}`;
+    const batch = {
+      session_id: sessionId,
+      stories: [{ id: "HU-099", text: "from-memory", status: "pending" }]
+    };
+    await saveHuBatch(sessionId, batch);
+    const reloaded = await loadHuBatch(sessionId);
+    expect(reloaded.stories[0].id).toBe("HU-099");
+  });
+
   it("updateStoryStatus changes status", async () => {
     const batch = await createHuBatch("status-test", [{ id: "HU-030", text: "S" }]);
     const updated = updateStoryStatus(batch, "HU-030", "in_progress");

@@ -144,6 +144,16 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
               const sonarResult = await runSonarStage({
                 config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
                 session: ctx.session, trackBudget: ctx.trackBudget, iteration: attempt,
+                // sonarState is required: runSonarStage reads/writes
+                // .issuesInitial / .issuesFinal on it. Forgetting this
+                // surfaces as `Cannot read properties of undefined
+                // (reading 'issuesInitial')` and the catch below swallows
+                // it as "sonar stage failed (non-blocking)" — the gate
+                // never actually runs for the HU, every iteration burns
+                // budget for nothing. Mirrors iteration-loop.js.
+                sonarState: ctx.sonarState,
+                repeatDetector: ctx.repeatDetector,
+                budgetSummary: ctx.budgetSummary,
                 askQuestion, brainCtx: ctx.brainCtx
               });
               if (sonarResult?.action === "continue") {
