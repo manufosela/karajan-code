@@ -28,76 +28,41 @@ describe("AiderAgent", () => {
     AiderAgent = mod.AiderAgent;
   });
 
-  describe("--yes flag (non-interactive mode)", () => {
-    it("includes --yes flag for runTask", async () => {
+  // merged-from: 5 --yes/--message arg tests collapsed. Both run/review
+  // emit `--yes` then `--message <prompt>`; positional contract identical.
+  describe("--yes + --message arg contract", () => {
+    it.each([
+      ["runTask",    "coder",    "implement feature X"],
+      ["reviewTask", "reviewer", "review code quality"]
+    ])("%s emits --yes before --message <prompt>", async (method, role, prompt) => {
       const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.runTask({ prompt: "add tests", role: "coder" });
+      await agent[method]({ prompt, role });
 
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--yes");
-    });
-
-    it("includes --yes flag for reviewTask", async () => {
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("--yes");
-    });
-
-    it("--yes appears before --message in args", async () => {
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args.indexOf("--yes")).toBeLessThan(args.indexOf("--message"));
-    });
-  });
-
-  describe("--message flag with task prompt", () => {
-    it("includes --message flag followed by the task prompt", async () => {
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.runTask({ prompt: "implement feature X", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
       const msgIdx = args.indexOf("--message");
       expect(msgIdx).toBeGreaterThanOrEqual(0);
-      expect(args[msgIdx + 1]).toBe("implement feature X");
-    });
-
-    it("passes prompt via --message for reviewTask too", async () => {
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review code quality", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("--message");
-      expect(args).toContain("review code quality");
+      expect(args[msgIdx + 1]).toBe(prompt);
+      expect(args.indexOf("--yes")).toBeLessThan(msgIdx);
     });
   });
 
+  // merged-from: 2 exit-code tests collapsed (ok=true on 0 / ok=false on 1).
   describe("exit code handling", () => {
-    it("returns ok: true on exit code 0", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "changes applied", stderr: "" });
+    it.each([
+      [0, "changes applied", "",            { ok: true,  output: "changes applied", error: "",            exitCode: 0 }],
+      [1, "",                "aider error", { ok: false, output: "",                error: "aider error", exitCode: 1 }]
+    ])("exit=%i → ok=%s", async (exitCode, stdout, stderr, expected) => {
+      runCommand.mockResolvedValue({ exitCode, stdout, stderr });
       const agent = new AiderAgent("aider", baseConfig, logger);
       const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.ok).toBe(true);
-      expect(result.output).toBe("changes applied");
-    });
-
-    it("returns ok: false on non-zero exit code", async () => {
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "aider error" });
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "fail", role: "coder" });
-
-      expect(result.ok).toBe(false);
-      expect(result.error).toBe("aider error");
-      expect(result.exitCode).toBe(1);
+      expect(result).toEqual(expected);
     });
   });
 
+  // merged-from: 3 --model tests collapsed (configured / order vs --message / omitted).
   describe("model configuration", () => {
-    it("adds --model when configured", async () => {
+    it("adds --model after --message when configured", async () => {
       const config = { ...baseConfig, roles: { coder: { model: "gpt-4o" }, reviewer: {} } };
       const agent = new AiderAgent("aider", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
@@ -105,63 +70,38 @@ describe("AiderAgent", () => {
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--model");
       expect(args).toContain("gpt-4o");
-    });
-
-    it("--model appears after --message in args", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "gpt-4o" }, reviewer: {} } };
-      const agent = new AiderAgent("aider", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
       expect(args.indexOf("--model")).toBeGreaterThan(args.indexOf("--message"));
     });
 
     it("omits --model when not configured", async () => {
       const agent = new AiderAgent("aider", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).not.toContain("--model");
+      expect(runCommand.mock.calls[0][1]).not.toContain("--model");
     });
   });
 
-  describe("no special stdin/env handling (unlike Claude)", () => {
-    it("does NOT set stdin to 'ignore'", async () => {
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const opts = runCommand.mock.calls[0][2];
-      expect(opts.stdin).toBeUndefined();
-    });
+  it("does NOT set stdin to 'ignore' (unlike Claude)", async () => {
+    const agent = new AiderAgent("aider", baseConfig, logger);
+    await agent.runTask({ prompt: "test", role: "coder" });
+    expect(runCommand.mock.calls[0][2].stdin).toBeUndefined();
   });
 
-  describe("stdout/stderr mapping", () => {
-    it("maps stdout to output and stderr to error", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "result text", stderr: "warnings" });
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.output).toBe("result text");
-      expect(result.error).toBe("warnings");
-    });
+  it("maps stdout to output and stderr to error", async () => {
+    runCommand.mockResolvedValue({ exitCode: 0, stdout: "result text", stderr: "warnings" });
+    const result = await new AiderAgent("aider", baseConfig, logger).runTask({ prompt: "test", role: "coder" });
+    expect(result.output).toBe("result text");
+    expect(result.error).toBe("warnings");
   });
 
-  describe("timeout and streaming passthrough", () => {
-    it("passes onOutput, silenceTimeoutMs, and timeout to runCommand", async () => {
-      const onOutput = vi.fn();
-      const agent = new AiderAgent("aider", baseConfig, logger);
-      await agent.runTask({
-        prompt: "test",
-        role: "coder",
-        onOutput,
-        silenceTimeoutMs: 25000,
-        timeoutMs: 80000
-      });
-
-      const opts = runCommand.mock.calls[0][2];
-      expect(opts.onOutput).toBe(onOutput);
-      expect(opts.silenceTimeoutMs).toBe(25000);
-      expect(opts.timeout).toBe(80000);
+  it("forwards onOutput, silenceTimeoutMs and timeout to runCommand", async () => {
+    const onOutput = vi.fn();
+    await new AiderAgent("aider", baseConfig, logger).runTask({
+      prompt: "test", role: "coder", onOutput, silenceTimeoutMs: 25000, timeoutMs: 80000
     });
+
+    const opts = runCommand.mock.calls[0][2];
+    expect(opts.onOutput).toBe(onOutput);
+    expect(opts.silenceTimeoutMs).toBe(25000);
+    expect(opts.timeout).toBe(80000);
   });
 });
