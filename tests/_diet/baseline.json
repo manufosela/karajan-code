@@ -4,6 +4,14 @@
   "wallClockSec": 51.69,
   "branchCoveragePct": 69.48,
   "fileCount": 328,
+  "perArea": {
+    "agents": {
+      "locBefore": 1697,
+      "fileCountBefore": 8,
+      "filesOver300LOCBefore": 2,
+      "branchCoveragePctBefore": 69.48
+    }
+  },
   "files": [
     {
       "path": "tests/acceptance-runner.test.js",

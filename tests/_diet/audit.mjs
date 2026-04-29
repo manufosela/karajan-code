@@ -16,6 +16,13 @@
  *   - --annotate     → walk every test file and insert a
  *                       `// regression-for: <id(s)>` comment directly above
  *                       any pin line that is not already annotated. Idempotent.
+ *   - --check-coverage --baseline <path> --area <name>
+ *                    → verify a per-area diet pass: total LOC of
+ *                       `tests/<area>/` is strictly below the recorded
+ *                       `perArea.<area>.locBefore`, no surviving file in the
+ *                       area exceeds 300 LOC, and every regression-pin
+ *                       annotation present before the pass still exists.
+ *                       Exit 0 on green, 1 on any guardrail breach.
  *
  * Annotation format examples (kept here so `git grep -nE
  * '// regression-for: (TSK|KJC|BUG|HU|PR)-?\w?\d+'` always finds at least one
@@ -28,6 +35,7 @@
  *   node tests/_diet/audit.mjs --out tests/_diet/audit.json
  *   node tests/_diet/audit.mjs --report-pins
  *   node tests/_diet/audit.mjs --annotate
+ *   node tests/_diet/audit.mjs --check-coverage --baseline tests/_diet/baseline.json --area agents
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
@@ -51,20 +59,29 @@ const ANNOTATION_LINE_REGEX = /^\s*\/\/\s*regression-for:/;
 
 /**
  * @param {string[]} argv
- * @returns {{ out: string, mode: "audit" | "reportPins" | "annotate" }}
+ * @returns {{ out: string, mode: "audit" | "reportPins" | "annotate" | "checkCoverage", baseline: string | null, area: string | null }}
  */
 function parseArgs(argv) {
   let out = DEFAULT_OUT;
-  /** @type {"audit" | "reportPins" | "annotate"} */
+  /** @type {"audit" | "reportPins" | "annotate" | "checkCoverage"} */
   let mode = "audit";
+  /** @type {string | null} */
+  let baseline = null;
+  /** @type {string | null} */
+  let area = null;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--out") out = argv[++i] ?? out;
     else if (arg.startsWith("--out=")) out = arg.slice("--out=".length);
     else if (arg === "--report-pins") mode = "reportPins";
     else if (arg === "--annotate") mode = "annotate";
+    else if (arg === "--check-coverage") mode = "checkCoverage";
+    else if (arg === "--baseline") baseline = argv[++i] ?? baseline;
+    else if (arg.startsWith("--baseline=")) baseline = arg.slice("--baseline=".length);
+    else if (arg === "--area") area = argv[++i] ?? area;
+    else if (arg.startsWith("--area=")) area = arg.slice("--area=".length);
   }
-  return { out, mode };
+  return { out, mode, baseline, area };
 }
 
 /**
@@ -362,13 +379,93 @@ function runDefaultAudit(out) {
   writeOutput(out, payload);
 }
 
+/**
+ * Verify the per-area diet guardrails after a pass. Exits 0 on green, 1 on
+ * any guardrail breach. Three guardrails are enforced:
+ *   1. total LOC of `tests/<area>/` is strictly below
+ *      `perArea.<area>.locBefore` from the baseline.
+ *   2. every surviving `.test.js` in the area is ≤ 300 LOC.
+ *   3. every regression-pin `it/test/describe` block in the area still
+ *      carries a `// regression-for:` annotation on the previous line.
+ * @param {string} baselinePath
+ * @param {string} area
+ */
+function runCheckCoverage(baselinePath, area) {
+  if (!baselinePath) {
+    process.stderr.write("--check-coverage requires --baseline <path>\n");
+    process.exit(1);
+  }
+  if (!area) {
+    process.stderr.write("--check-coverage requires --area <name>\n");
+    process.exit(1);
+  }
+  const baselineAbs = resolve(REPO_ROOT, baselinePath);
+  const baselineRaw = readFileSync(baselineAbs, "utf8");
+  const baseline = JSON.parse(baselineRaw);
+  const areaInfo = baseline?.perArea?.[area];
+  if (!areaInfo) {
+    process.stderr.write(`baseline.perArea.${area} not found in ${baselinePath}\n`);
+    process.exit(1);
+  }
+  const areaPrefix = `tests/${area}/`;
+  const areaRoot = join(REPO_ROOT, "tests", area);
+  if (!statSync(areaRoot).isDirectory()) {
+    process.stderr.write(`area directory not found: ${areaRoot}\n`);
+    process.exit(1);
+  }
+  const files = walkTestFiles(areaRoot).sort();
+  let locTotal = 0;
+  /** @type {Array<{ rel: string, loc: number }>} */
+  const oversized = [];
+  /** @type {Array<{ rel: string, line: number, description: string }>} */
+  const unannotatedPins = [];
+  for (const abs of files) {
+    const rel = toPosixRelPath(abs);
+    if (!rel.startsWith(areaPrefix)) continue;
+    const content = readFileSync(abs, "utf8");
+    const loc = countLoc(content);
+    locTotal += loc;
+    if (loc > REFACTOR_LOC_THRESHOLD) oversized.push({ rel, loc });
+    for (const pin of scanPinsInFile(abs)) {
+      if (!pin.annotated) {
+        unannotatedPins.push({ rel, line: pin.line, description: pin.description });
+      }
+    }
+  }
+  /** @type {string[]} */
+  const errors = [];
+  if (locTotal >= areaInfo.locBefore) {
+    errors.push(
+      `LOC budget breached: tests/${area}/ total ${locTotal} ≥ baseline locBefore ${areaInfo.locBefore}`
+    );
+  }
+  if (oversized.length > 0) {
+    for (const { rel, loc } of oversized) {
+      errors.push(`file > 300 LOC: ${rel} (${loc} LOC)`);
+    }
+  }
+  if (unannotatedPins.length > 0) {
+    for (const { rel, line, description } of unannotatedPins) {
+      errors.push(`regression pin without annotation: ${rel}:${line} — ${description}`);
+    }
+  }
+  if (errors.length > 0) {
+    for (const e of errors) process.stderr.write(`✗ ${e}\n`);
+    process.exit(1);
+  }
+  process.stdout.write(
+    `✓ ${area}: ${files.length} files, ${locTotal} LOC (baseline locBefore=${areaInfo.locBefore}); all guardrails green.\n`
+  );
+}
+
 function main() {
-  const { out, mode } = parseArgs(process.argv.slice(2));
+  const { out, mode, baseline, area } = parseArgs(process.argv.slice(2));
   if (!statSync(TESTS_ROOT).isDirectory()) {
     throw new Error(`tests root not found: ${TESTS_ROOT}`);
   }
   if (mode === "reportPins") return runReportPins();
   if (mode === "annotate") return runAnnotate();
+  if (mode === "checkCoverage") return runCheckCoverage(baseline, area);
   return runDefaultAudit(out);
 }
 
