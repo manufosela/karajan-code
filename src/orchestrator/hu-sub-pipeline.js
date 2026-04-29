@@ -301,6 +301,43 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
     };
   }
 
+  // Plan-driven runs: the plan JSON is the source of truth for HU
+  // statuses, NOT the on-disk hu-stories batch. Pre-fix, after a failed
+  // run left stories=['failed','blocked',…] on disk, manually resetting
+  // the plan back to all-certified did NOT clear the persisted batch.
+  // The next run loaded the stale disk batch, found zero `certified`
+  // stories, skipped the entire for-loop, and reported "All HUs
+  // completed successfully" for ZERO actual work — silently approving
+  // a run that never ran.
+  //
+  // Reconcile by overlaying the plan's authoritative status onto the
+  // persisted batch. We keep any in-flight context the disk batch may
+  // hold (worktree paths, partial refinement state) but trust the plan
+  // for what's runnable.
+  if (huReviewerResult.source?.plan === true && Array.isArray(huReviewerResult.stories)) {
+    const planById = new Map(huReviewerResult.stories.map((s) => [s.id, s]));
+    let reconciled = 0;
+    for (const persisted of batch.stories) {
+      const fromPlan = planById.get(persisted.id);
+      if (fromPlan && fromPlan.status !== persisted.status) {
+        persisted.status = fromPlan.status;
+        reconciled += 1;
+      }
+    }
+    // Stories present in the plan but missing from disk → append.
+    const persistedIds = new Set(batch.stories.map((s) => s.id));
+    for (const fromPlan of huReviewerResult.stories) {
+      if (!persistedIds.has(fromPlan.id)) {
+        batch.stories.push(fromPlan);
+        reconciled += 1;
+      }
+    }
+    if (reconciled > 0) {
+      logger.info(`HU sub-pipeline: reconciled ${reconciled} story status(es) from plan (disk batch was stale)`);
+      await saveHuBatch(batchSessionId, batch);
+    }
+  }
+
   const certifiedStories = batch.stories.filter(s => s.status === HU_STATUS.CERTIFIED);
   let orderedIds;
   try {

@@ -167,6 +167,20 @@ async function handleSonarBlocking({ sonarResult, config, logger, emitter, event
 }
 
 export async function runSonarStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx }) {
+  // Required-input guards. Without these, the bug class that broke the
+  // FASE-2 run on 2026-04-29 (run-hu-batch.js called runSonarStage
+  // without sonarState) is silent: the stage threw `Cannot read
+  // properties of undefined (reading 'issuesInitial')` later, the HU
+  // sub-pipeline's catch swallowed it as "non-blocking", and the
+  // Sonar gate effectively never ran. Failing fast here surfaces the
+  // missing wiring at the first iteration so any new caller fixes it
+  // before burning budget.
+  if (!sonarState || typeof sonarState !== "object") {
+    throw new Error("runSonarStage: `sonarState` is required (object with issuesInitial/issuesFinal slots — usually ctx.sonarState).");
+  }
+  if (!session) {
+    throw new Error("runSonarStage: `session` is required.");
+  }
   logger.setContext({ iteration, stage: "sonar" });
   emitProgress(
     emitter,

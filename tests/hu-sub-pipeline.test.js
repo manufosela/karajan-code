@@ -266,6 +266,91 @@ describe("hu-sub-pipeline", () => {
     });
   });
 
+  describe("runHuSubPipeline — plan is source of truth, stale on-disk batch is reconciled", () => {
+    it("overlays plan statuses onto persisted batch when source is plan (regression: 'All HUs completed successfully' for zero work)", async () => {
+      // Pre-fix scenario, paraphrasing 2026-04-29 incident:
+      //   1. A previous run failed → on-disk batch.json had
+      //      stories=[{ status: 'failed' }, { status: 'blocked' }, …].
+      //   2. User reset the plan JSON manually (all HUs back to
+      //      'certified') and relaunched.
+      //   3. runHuSubPipeline loaded the STALE on-disk batch and ran
+      //      `batch.stories.filter(s => s.status === 'certified')` —
+      //      empty array. The for-loop never executed. allApproved
+      //      stayed true vacuously. The orchestrator emitted
+      //      "All HUs completed successfully" for ZERO work and
+      //      reported approved=true.
+      // The fix: when source.plan === true, the plan's HU statuses
+      // win over the persisted batch (the plan JSON is authoritative
+      // for plan-driven runs).
+      const persistedBatch = {
+        session_id: "plan-plan-X",
+        stories: [
+          { id: "HU-001", status: "failed",  original: { text: "1" }, blocked_by: [] },
+          { id: "HU-002", status: "blocked", original: { text: "2" }, blocked_by: ["HU-001"] },
+          { id: "HU-003", status: "blocked", original: { text: "3" }, blocked_by: ["HU-002"] },
+        ],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+      const huReviewerResult = {
+        ok: true,
+        certified: 3,
+        total: 3,
+        // The plan JSON says all certified — this is the truth.
+        stories: [
+          { id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] },
+          { id: "HU-002", status: "certified", original: { text: "2" }, blocked_by: ["HU-001"] },
+          { id: "HU-003", status: "certified", original: { text: "3" }, blocked_by: ["HU-002"] },
+        ],
+        batchSessionId: "plan-plan-X",
+        source: { plan: true, planId: "plan-X" },
+      };
+
+      const result = await runHuSubPipeline({
+        huReviewerResult, runIterationFn, emitter, eventBase, logger,
+      });
+
+      // Coder ran for every HU — not zero like the bug.
+      expect(runIterationFn).toHaveBeenCalledTimes(3);
+      expect(result.approved).toBe(true);
+      expect(result.results).toHaveLength(3);
+      // The reconciled batch was persisted back so subsequent reads
+      // don't re-encounter the stale state.
+      expect(saveHuBatchMock).toHaveBeenCalled();
+    });
+
+    it("does NOT touch the persisted batch when source is not plan (auto-HU runs)", async () => {
+      // Auto-generated HU runs (no plan) should keep the original
+      // behaviour — disk batch wins, no reconciliation.
+      const persistedBatch = {
+        session_id: "auto-s_X",
+        stories: [
+          { id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] },
+        ],
+      };
+      loadHuBatchMock.mockResolvedValue(persistedBatch);
+
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+      const huReviewerResult = {
+        ok: true, certified: 1, total: 1,
+        stories: [{ id: "HU-001", status: "certified", original: { text: "1" }, blocked_by: [] }],
+        batchSessionId: "auto-s_X",
+        // No source.plan → reconciliation skipped.
+        auto_generated: true,
+      };
+
+      await runHuSubPipeline({
+        huReviewerResult, runIterationFn, emitter, eventBase, logger,
+      });
+      // No "reconciled" log line should fire.
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.stringMatching(/reconciled \d+ story status/),
+      );
+    });
+  });
+
   describe("runHuSubPipeline — failed HU blocks dependents", () => {
     it("when HU-001 fails, HU-002 (which depends on it) is blocked", async () => {
       const stories = [

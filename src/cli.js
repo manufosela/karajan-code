@@ -28,6 +28,7 @@ import { researcherCommand } from "./commands/researcher.js";
 import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
+import { loadPlan } from "./plan/plan-store.js";
 import { undoCommand } from "./commands/undo.js";
 import { statusCommand } from "./commands/status.js";
 import { cleanCommand } from "./commands/clean.js";
@@ -168,8 +169,24 @@ program
   .option("-v, --verbose", "Show full agent output (stream-json, raw lines)")
   .action(async (task, flags) => {
     await withConfig("run", flags, async ({ config, logger }) => {
+      // If `--plan <id>` was passed and the user didn't provide a task
+      // argument or --task-file, fall back to the task embedded in the
+      // plan JSON. The whole point of `kj plan generate` is that the
+      // task is captured once and re-used; forcing the user to repeat
+      // --task-file on every run is friction with no upside.
+      let effectiveTask = task;
+      if (!task && !flags.taskFile && flags.plan) {
+        // config.projectDir is only populated post-init; before runFlow
+        // it can still be undefined. Plans are stored under cwd, so
+        // that's the correct fallback for the lookup.
+        const projectDir = config.projectDir || process.cwd();
+        const plan = await loadPlan(projectDir, flags.plan);
+        if (plan?.task && String(plan.task).trim()) {
+          effectiveTask = plan.task;
+        }
+      }
       const { resolveTaskInput } = await import("./utils/task-file.js");
-      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+      const resolvedTask = await resolveTaskInput({ task: effectiveTask, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
       await runCommandHandler({ task: resolvedTask, config, logger, flags });
     });
   });
