@@ -49,6 +49,12 @@ import { initFlowContext } from "./drivers/init-context.js";
 import { runIterationLoop } from "./drivers/iteration-loop.js";
 import { writeHistoryRecord } from "./drivers/post-loop.js";
 import { runHuBatch } from "./drivers/run-hu-batch.js";
+// Analysis-only path (taskType=audit/doc/infra) skips coder iterations
+// and runs security + audit directly. These three were called without
+// imports until ESLint surfaced it — same class of latent bug as the
+// `saveSession` ReferenceError that took the demo down on 2026-04-27.
+import { generateDiff } from "../review/diff-generator.js";
+import { runSecurityStage, runFinalAuditStage } from "./post-loop-stages.js";
 
 // Public re-exports (loadProductContext, shouldAutoContinueCheckpoint,
 // parseCheckpointAnswer) live in src/orchestrator.js (the barrel).

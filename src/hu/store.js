@@ -80,12 +80,23 @@ export async function loadHuBatch(sessionId) {
 
 /**
  * Save a batch back to disk.
+ *
+ * Ensures the target directory exists before writing — the previous
+ * implementation assumed createHuBatch had already done the mkdir,
+ * which holds for the auto-HU path but NOT for plan-driven runs:
+ * `kj run --plan <id>` derives a batchSessionId from the plan id,
+ * loads the (non-existent) batch.json, falls back to in-memory, then
+ * crashes here with ENOENT on the first save attempt because no one
+ * created `~/.karajan/hu-stories/<sessionId>/`. The fix is one
+ * mkdir -p; cheap and idempotent.
+ *
  * @param {string} sessionId - The session identifier.
  * @param {object} batch - The batch object to persist.
  * @returns {Promise<void>}
  */
 export async function saveHuBatch(sessionId, batch) {
   const dir = path.join(getHuDir(), sessionId);
+  await fs.mkdir(dir, { recursive: true });
   batch.updated_at = new Date().toISOString();
   await fs.writeFile(path.join(dir, "batch.json"), JSON.stringify(batch, null, 2));
 }

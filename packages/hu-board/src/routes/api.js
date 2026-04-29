@@ -15,6 +15,7 @@ import {
   getKjHome,
   getStoryRow,
   listPlanIdsForProject,
+  updateStoryStatus,
 } from '../db.js';
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject } from '../plan-mutations.js';
@@ -684,6 +685,27 @@ router.post('/hus/:huId/run', (req, res) => {
 
     const result = runPlan({ planId: row.plan_id, projectId: row.project_id, huIds });
     if (!result.ok) return res.status(400).json({ error: result.error });
+
+    // Move the launched HU(s) to "coding" in BOTH the SQLite mirror and the
+    // source-of-truth plan JSON. The plan JSON write is what makes it stick
+    // — the next /api/sync re-reads the plan file and would otherwise
+    // overwrite the SQLite update back to "certified". Without this the
+    // card flashes to Running for ~1s and snaps back, which the user reads
+    // as "nothing happened".
+    //
+    // The orchestrator owns the lifecycle once it boots (it'll move the HU
+    // through coding → reviewing → done/failed and persist back to the plan
+    // JSON), so this is just the bootstrap nudge to give the user immediate
+    // visual feedback.
+    const allHuIds = [planLocalHuId, ...extraIds];
+    for (const localId of allHuIds) {
+      try { setHuStatus({ planId: row.plan_id, huId: localId, status: 'coding', projectId: row.project_id }); } catch { /* non-fatal */ }
+      // Also stamp the SQLite row so the next renderBoard() (before any
+      // sync tick) shows it in Running.
+      const compositeId = localId.includes('::') ? localId : `${row.project_id}::${localId}`;
+      try { updateStoryStatus(compositeId, 'coding'); } catch { /* non-fatal */ }
+    }
+
     res.json({
       launched: true,
       planId: row.plan_id,

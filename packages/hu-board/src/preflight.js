@@ -84,11 +84,11 @@ function checkGitBranch(projectDir) {
 
 function checkGitClean(projectDir) {
   const r = runQuiet(`git -C "${projectDir}" status --porcelain`);
-  if (!r.ok) return { id: 'git_clean', label: 'Working tree limpio', status: 'info', detail: '(no disponible)', blocking: false };
+  if (!r.ok) return { id: 'git_clean', label: 'Estado del working tree', status: 'info', detail: '(no disponible)', blocking: false };
   if (!r.out) return { id: 'git_clean', label: 'Working tree limpio', status: 'ok', detail: 'sin cambios pendientes', blocking: false };
   const count = r.out.split('\n').length;
   return {
-    id: 'git_clean', label: 'Working tree limpio', status: 'warn',
+    id: 'git_clean', label: 'Working tree con cambios', status: 'warn',
     detail: `${count} archivo(s) modificado(s)/sin trackear`,
     consequence: 'Karajan trabaja sobre tu copia actual. Si tienes cambios sin commitear, podrían mezclarse con los del coder y dificultar la revisión. Recomendado: commitea o stashéa antes de lanzar.',
     blocking: false

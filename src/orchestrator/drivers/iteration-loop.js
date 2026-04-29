@@ -22,7 +22,7 @@
 
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { msg, getLang } from "../../utils/messages.js";
-import { markSessionStatus, addCheckpoint } from "../../session/store.js";
+import { markSessionStatus, addCheckpoint, saveSession } from "../../session/store.js";
 import {
   setReviewerFeedback, resetRetryCount,
 } from "../../session/mutators.js";
