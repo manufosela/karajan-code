@@ -90,6 +90,45 @@ describe("post-loop-stages", () => {
       expect(result.action).toBe("continue");
       expect(result.stageResult.summary).toBe("Tests failing");
     });
+
+    it("propagates verdict + failing_scenarios + translated_scenarios on the OK path (regression: FASE-2 run blocker)", async () => {
+      // Pre-fix, the OK return shape was just { ok, summary } — losing the
+      // verdict, failing_scenarios, translated_scenarios that the role
+      // produced. Callers in run-hu-batch.js read `stageResult.verdict`
+      // to decide approve-vs-feedback when Gherkin translation is in
+      // play; with the verdict undefined every Gherkin-bearing HU fell
+      // into the "fail" branch and burned all max_iterations on a tester
+      // that had actually passed. This pins the propagation so the
+      // mismatch can't come back.
+      testerRunMock.mockResolvedValueOnce({
+        ok: true,
+        summary: "Verdict: pass; Coverage: 78.7%; 1 scenario(s) translated",
+        result: {
+          verdict: "pass",
+          tests_pass: true,
+          coverage: { overall: 78.7 },
+          translated_scenarios: ["scenario A"],
+          failing_scenarios: [],
+          missing_scenarios: ["scenario B (deferred)"],
+        },
+      });
+      const session = { id: "s1", task: "t", checkpoints: [], tester_retry_count: 0 };
+
+      const result = await runTesterStage({
+        config: { session: {} }, logger, emitter, eventBase, session,
+        coderRole, trackBudget, iteration: 1, task: "t", diff: "diff",
+        pendingGherkinTests: [{ content: "Given … When … Then …" }],
+      });
+
+      expect(result.action).toBe("ok");
+      expect(result.stageResult.ok).toBe(true);
+      expect(result.stageResult.verdict).toBe("pass");
+      expect(result.stageResult.failing_scenarios).toEqual([]);
+      expect(result.stageResult.translated_scenarios).toEqual(["scenario A"]);
+      expect(result.stageResult.coverage).toEqual({ overall: 78.7 });
+      // summary is still set for compatibility with non-Gherkin callers.
+      expect(result.stageResult.summary).toContain("Coverage");
+    });
   });
 
   describe("runSecurityStage", () => {

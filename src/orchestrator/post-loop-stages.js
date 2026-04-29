@@ -167,7 +167,22 @@ export async function runTesterStage({ config, logger, emitter, eventBase, sessi
   }
 
   resetRetryCount(session, "tester");
-  return { action: "ok", stageResult: { ok: true, summary: testerOutput.summary || "All tests passed" } };
+  // Propagate the full tester result (verdict, failing_scenarios,
+  // translated_scenarios, coverage…) — not just {ok, summary}. Callers
+  // in the HU sub-pipeline read `stageResult.verdict === "pass"` to
+  // decide approve-vs-feedback when Gherkin translation is involved;
+  // dropping the verdict here forced every Gherkin-bearing HU into the
+  // "fail" branch even when the tester explicitly returned pass, which
+  // burned all max_iterations and broke the FASE-2 test-diet run.
+  return {
+    action: "ok",
+    stageResult: {
+      ...testerOutput.result,
+      ok: true,
+      summary: testerOutput.summary || "All tests passed",
+      provider: testerProvider,
+    },
+  };
 }
 
 export async function runSecurityStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion, brainCtx }) {
