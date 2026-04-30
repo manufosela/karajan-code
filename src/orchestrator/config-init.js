@@ -28,10 +28,13 @@ export async function autoInit(projectDir, logger) {
   // Ensure git repo exists — without git, diff/reviewer/commit won't work
   const gitDir = path.join(projectDir, ".git");
   if (!(await exists(gitDir))) {
-    const { execSync } = await import("node:child_process");
+    // Audit follow-up: was execSync with constant strings. Inputs are
+    // hardcoded, so injection isn't possible, but the project standard
+    // since #555 is execFileSync everywhere. Migrated for consistency.
+    const { execFileSync } = await import("node:child_process");
     try {
-      execSync("git init", { cwd: projectDir, stdio: "pipe" });
-      execSync("git commit --allow-empty -m 'initial commit'", { cwd: projectDir, stdio: "pipe" });
+      execFileSync("git", ["init"], { cwd: projectDir, stdio: "pipe" });
+      execFileSync("git", ["commit", "--allow-empty", "-m", "initial commit"], { cwd: projectDir, stdio: "pipe" });
       logger.info("Initialized git repository with empty initial commit");
     } catch (err) {
       logger.warn(`Failed to init git repo: ${err.message}`);

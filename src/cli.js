@@ -569,18 +569,21 @@ program
   .command("update")
   .description("Update karajan-code to the latest version from npm")
   .action(async () => {
-    const { execaCommand } = await import("execa");
+    // Audit follow-up: was execaCommand (shell parsing). Inputs are
+    // constants today, but the project standard since #555 is execa
+    // with arg arrays (no shell). Migrated for consistency.
+    const { execa } = await import("execa");
     console.log(`Current version: ${PKG_VERSION}`);
     console.log("Checking for updates...");
     try {
-      const { stdout } = await execaCommand("npm view karajan-code version");
+      const { stdout } = await execa("npm", ["view", "karajan-code", "version"]);
       const latest = stdout.trim();
       if (latest === PKG_VERSION) {
         console.log(`Already on the latest version (${PKG_VERSION}).`);
         return;
       }
       console.log(`Updating ${PKG_VERSION} → ${latest}...`);
-      await execaCommand("npm install -g karajan-code@latest", { stdio: "inherit" });
+      await execa("npm", ["install", "-g", "karajan-code@latest"], { stdio: "inherit" });
       console.log(`Updated to ${latest}. Restart Claude to pick up the new MCP server.`);
     } catch (err) {
       console.error(`Update failed: ${err.message}`);
