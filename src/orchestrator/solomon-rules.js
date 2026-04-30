@@ -118,11 +118,15 @@ export async function buildRulesContext({ session, task, iteration, blockingIssu
 
   // Count files changed via git
   try {
-    const { execaCommand } = await import("execa");
+    // Audit follow-up: was using execaCommand with template-string
+    // interpolation of `baseRef`. baseRef comes from session state, not
+    // user input, but the shape is a known shell-injection vector.
+    // Switched to execa with arg arrays so no shell expansion happens.
+    const { execa } = await import("execa");
     const baseRef = session.session_start_sha || "HEAD~1";
 
     // Files changed
-    const diffResult = await execaCommand(`git diff --name-only ${baseRef}`, { reject: false });
+    const diffResult = await execa("git", ["diff", "--name-only", String(baseRef)], { reject: false });
     if (diffResult.stdout) {
       const files = diffResult.stdout.split("\n").filter(Boolean);
       context.filesChanged = files.length;
@@ -142,7 +146,7 @@ export async function buildRulesContext({ session, task, iteration, blockingIssu
       // Detect new dependencies
       if (files.includes("package.json")) {
         try {
-          const pkgDiff = await execaCommand(`git diff ${baseRef} -- package.json`, { reject: false });
+          const pkgDiff = await execa("git", ["diff", String(baseRef), "--", "package.json"], { reject: false });
           const addedDeps = (pkgDiff.stdout || "").split("\n")
             .filter(line => line.startsWith("+") && line.includes('"') && !line.startsWith("+++"))
             .map(line => {

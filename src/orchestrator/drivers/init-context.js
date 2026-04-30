@@ -58,8 +58,9 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
   let diffScope = config.projectDir || null;
   if (!diffScope) {
     try {
-      const { execSync } = await import("node:child_process");
-      const repoRoot = execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+      // Audit follow-up: same execSync→execFileSync migration as #555.
+      const { execFileSync } = await import("node:child_process");
+      const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
       const cwd = process.cwd();
       if (cwd !== repoRoot && cwd.startsWith(repoRoot)) {
         diffScope = cwd.slice(repoRoot.length + 1);
