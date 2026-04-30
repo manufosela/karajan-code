@@ -1,6 +1,6 @@
 # Karajan Code — Test Suite Overview
 
-> **Snapshot as of v2.7.3+**: 3 711 tests across 288 files. All green on Node 20.x and 22.x. Lint matrix also runs Node 18.x to catch regressions for LTS users (vitest 4 / rolldown require Node 20+ at runtime, so tests don't run on 18 — see `.github/workflows/ci.yml`).
+> **Snapshot as of v2.8.0**: 4 199 tests across 357 files (+7 e2e in PR #570 closing the FASE 1 spec). All green on Node 20.x and 22.x. CI matrix dropped Node 18 in v2.8.0 (engines.node bumped to >=20.10.0; Node 18 LTS hit EOL on 2025-04-30) — see `.github/workflows/ci.yml`.
 
 This document explains **what each test directory tests, why it exists, and how to read its failures**. Karajan's test suite is the gate that keeps the orchestrator's contracts intact across releases. If you're touching anything under `src/`, find the matching directory below first.
 

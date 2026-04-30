@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-04-30
+
+Audit-driven hardening release. The 2026-04-30 self-audit (`kj audit`)
+flagged 13 issues across security, code quality, performance, architecture,
+and testing. This release closes all 13 plus several follow-ups surfaced
+during the cleanup. 16 PRs merged, 0 user-visible API changes.
+
+### Changed (BREAKING — runtime floor)
+
+- **`engines.node` bumped from `>=18.0.0` → `>=20.10.0`** (PR #563). Node 18 LTS reached EOL on 2025-04-30; the codebase had been using ESM TLA, AbortController, fetch, structuredClone (all 18+), but the bump unlocks newer JS patterns and matches what CI was already running (vitest 4 / rolldown require Node 20.12+). CI matrix dropped Node 18 too.
+
+### Added
+
+- **FASE 1 e2e suite** (PR #570). 7 scenarios mapped to the 5-bug class from the 2026-04-27 demo regression: `01-plan-generate`, `02-run-plan-happy`, `03-run-single-hu` (zombie-HU), `04-reviewer-rejected` (saveSession-missing), `05-sonar-config-error` (Repairer unfixable), `06-dead-process` (zombi-status), `07-kj-audit`. Plus `tests/e2e/fixtures/fake-coder.js` and `fake-sonar-server.js` infrastructure so each test runs in <90s with no real LLM/network. Total e2e: 23 tests in 6s.
+- **Per-directory coverage thresholds** in `vitest.config.js` (PR #566). Opt-in via `--coverage`: `src/agents/**` ≥80%, `src/mcp/handlers/**` ≥80%, `src/session/journal/**` ≥70%.
+- **Node subpath imports map** in package.json (PR #565): `#utils/*`, `#session/*`, `#hu/*`, `#skills/*`. Eliminates `../../../` chains in orchestrator phase modules.
+
+### Changed
+
+- **`src/cli.js` split** from 699 LOC into 6 register modules (PR #567): `register-pipeline.js`, `register-plan.js`, `register-meta.js`, `register-roles-skills.js`, `register-sonar.js`, plus `_shared.js`. Entry point now 113 LOC. No CLI surface change.
+- **`src/commands/plan.js` split** from 549 LOC into one file per sub-command under `src/commands/plan/` (PR #568). `plan.js` is a 14-LOC re-export shim; the 11 external callers don't change.
+- **`src/orchestrator/drivers/iteration-loop.js` split** from 513 LOC → 311 LOC (PR #569). Five phase implementations moved to `iteration-phases/`: coder-and-refactorer, guards, quality-gates, reviewer-gate, handle-approved. Mirrors the established `pre-loop-phases/` pattern.
+- **`src/orchestrator/drivers/pre-loop.js` split completed** (PR #560). Driver dropped 626 → 435 LOC by moving `emitConfigDeprecations`, `ensureAddyosmaniSkills`, and `maybeGenerateAutoHuBatch` into `pre-loop-phases/`.
+
+### Fixed (security)
+
+- **`execSync` / `execaCommand` → `execFileSync` / `execa` with arg arrays** (PRs #555 and #562). Closed 7 call sites where the legacy APIs accepted template strings with interpolated values. `baseRef` (session state) and similar inputs are no longer in shell-injection-vector shape. Sites: `verification-gate.js`, `derive-project-name-from-cwd.js`, `direct-actions.js`, `solomon-rules.js`, `cli.js`, `config-init.js`, `init-context.js`. After this batch, every child_process call in `src/` uses tokenised arg arrays.
+- **`src/utils/task-file.js` re-throw without `cause`** (PR #563). Error chain was broken; wrapped with `{ cause: err }`.
+
+### Fixed (correctness / quality)
+
+- **57 ESLint warnings closed in src/** (PR #564). 44 `no-unused-vars` (orphan imports, dead code, args renamed to `_arg`), 10 `no-useless-assignment` (dead `let foo = init` + try/catch reset patterns), 4 `preserve-caught-error` (re-throws now preserve `cause`).
+- **`activity-log.test.js` fixed-50ms sleeps replaced with `vi.waitFor`** (PR #561). Eliminates a CI flake class without changing assertions.
+- **`adr-loader.js` and `garbage-collector.js` parallelised** (PR #558). Independent for-of+await loops now use `Promise.all(map(...))`. ADR loads drop ~5× FS round-trips → 1 burst; GC subroutines run concurrently across disjoint subtrees of `KJ_HOME`/`KARAJAN_HOME`.
+
+### Infrastructure (lint hardening — defensive)
+
+- **ESLint baseline extended to `tests/`** (PR #556). The same three "bug-killer" rules that protect `src/` (`no-undef`, `import-x/no-unresolved`, `import-x/named`) now apply to tests too. Surfaced and fixed 3 latent test bugs: literal multi-space regex, re-throw without cause, unsafe optional chaining.
+- **`globalThis.__KJ_*` banned outside `src/config/test-harness.js`** (PR #557) via `no-restricted-syntax`. Stops the regression class where production code reaches into test-only override globals.
+- **`no-console: error` outside CLI/display/logger paths** (PR #559). The 309 existing console.* calls were reviewed and all are justified (CLI commands, banners, structured logger). The rule prevents future debug prints from sneaking into the library layer.
+- **ESLint warnings ratcheted to errors** (PR #564) for `no-unused-vars`, `no-useless-assignment`, `no-useless-escape`, `preserve-caught-error` in `src/`. Tests/ stays at `warn`.
+- **Telemetry silent failures surface under `KJ_DEBUG=1`** (PR #563). `catch{}` was hiding DNS/network bugs in the telemetry pipeline; now writes a one-line diagnostic to stderr behind the env flag.
+
+### Stale references and docs
+
+- `docs/ARCHITECTURE.md` regenerated via `scripts/regen-arch-stats.sh`. Source: 43k LOC / 327 files; tests: 356 files / 4199 passing.
+- Stale comments referencing the old `globalThis.__KJ_*` shape refreshed across `preflight-checks.js`, `iteration-loop.js`, `semantic-detector.js` to point at the typed `config.testHarness.*` getters (PR #563).
+
 ## [2.7.4] - 2026-04-24
 
 ### Changed (BREAKING contract, backward-compatible API)
