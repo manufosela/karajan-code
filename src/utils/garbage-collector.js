@@ -107,56 +107,75 @@ function ageInDays(stat, now) {
 // reads it from there. Legacy plans without the field fall back to
 // age-only retention — never marked as orphans on the way up.
 
+/**
+ * Per-plan classifier. Pulled out so the surrounding GC can evaluate
+ * candidates in parallel — every plan is independent (no shared state
+ * across iterations except the result accumulator, which is folded back
+ * after the bursts settle).
+ */
+async function classifyPlan(filePath, opts, now) {
+  const stat = await tryStat(filePath);
+  if (!stat) return { skip: true };
+  const data = await tryReadJson(filePath);
+  const status = data?.status || "draft";
+  const storedDir = typeof data?.projectDir === "string" ? data.projectDir : null;
+  const days = ageInDays(stat, now);
+
+  let reason = null;
+  // Orphan check: only when the plan stamped its origin projectDir.
+  // Plans older than the savePlan-stamping change don't have it, so
+  // we refuse to guess and just apply age-based retention.
+  if (storedDir && !(await exists(storedDir))) {
+    reason = "orphaned (project dir no longer exists)";
+  } else if (FINAL_PLAN_STATUSES.has(status) && days > opts.planRetentionDays) {
+    reason = `${status} plan older than ${opts.planRetentionDays}d (${Math.round(days)}d)`;
+  } else if (status === "draft" && days > opts.draftRetentionDays) {
+    reason = `stale draft older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
+  } else if (!KNOWN_PLAN_STATUSES.has(status) && days > opts.draftRetentionDays) {
+    // Unknown status (corrupt/legacy/plan from a future version) —
+    // apply the draft window. Doing nothing would leak them forever.
+    reason = `plan with unknown status "${status}" older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
+  }
+  return { skip: false, stat, reason };
+}
+
 async function gcPlans(opts) {
   const result = { removed: [], bytesFreed: 0, errors: [] };
   const now = opts.now || new Date();
   const plansRoot = path.join(getKjHome(), "plans");
   if (!(await exists(plansRoot))) return result;
 
-  for (const projEntry of await listDir(plansRoot)) {
-    if (!projEntry.isDirectory()) continue;
+  // Audit follow-up: was nested sequential for-of with multiple awaits per
+  // iteration. Plans are independent files so we now classify them in
+  // parallel per project directory. Each project dir's bursts complete
+  // before we move to the next so the order of `result.removed` stays
+  // deterministic for tests; cross-project parallelism wasn't worth the
+  // complexity given KJ_HOME rarely has more than a handful of projects.
+  const projEntries = (await listDir(plansRoot)).filter((e) => e.isDirectory());
+  for (const projEntry of projEntries) {
     const projDir = path.join(plansRoot, projEntry.name);
+    const planEntries = (await listDir(projDir))
+      .filter((e) => e.isFile() && e.name.endsWith(".json"));
+
+    const verdicts = await Promise.all(
+      planEntries.map(async (planEntry) => {
+        const filePath = path.join(projDir, planEntry.name);
+        const verdict = await classifyPlan(filePath, opts, now);
+        return { filePath, verdict };
+      })
+    );
 
     let removedCountInDir = 0;
-    let totalCountInDir = 0;
-
-    for (const planEntry of await listDir(projDir)) {
-      if (!planEntry.isFile() || !planEntry.name.endsWith(".json")) continue;
-      totalCountInDir += 1;
-      const filePath = path.join(projDir, planEntry.name);
-      const stat = await tryStat(filePath);
-      if (!stat) continue;
-
-      const data = await tryReadJson(filePath);
-      const status = data?.status || "draft";
-      const storedDir = typeof data?.projectDir === "string" ? data.projectDir : null;
-      const days = ageInDays(stat, now);
-
-      let reason = null;
-      // Orphan check: only when the plan stamped its origin projectDir.
-      // Plans older than the savePlan-stamping change don't have it, so
-      // we refuse to guess and just apply age-based retention.
-      if (storedDir && !(await exists(storedDir))) {
-        reason = "orphaned (project dir no longer exists)";
-      } else if (FINAL_PLAN_STATUSES.has(status) && days > opts.planRetentionDays) {
-        reason = `${status} plan older than ${opts.planRetentionDays}d (${Math.round(days)}d)`;
-      } else if (status === "draft" && days > opts.draftRetentionDays) {
-        reason = `stale draft older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
-      } else if (!KNOWN_PLAN_STATUSES.has(status) && days > opts.draftRetentionDays) {
-        // Unknown status (corrupt/legacy/plan from a future version) —
-        // apply the draft window. Doing nothing would leak them forever.
-        reason = `plan with unknown status "${status}" older than ${opts.draftRetentionDays}d (${Math.round(days)}d)`;
-      }
-
-      if (reason) {
-        try {
-          await unlinkOrRm(filePath, opts.dryRun);
-          result.removed.push({ path: filePath, reason, kind: "plan", bytes: stat.size });
-          result.bytesFreed += stat.size;
-          removedCountInDir += 1;
-        } catch (err) {
-          result.errors.push({ path: filePath, error: err.message });
-        }
+    const totalCountInDir = planEntries.length;
+    for (const { filePath, verdict } of verdicts) {
+      if (verdict.skip || !verdict.reason) continue;
+      try {
+        await unlinkOrRm(filePath, opts.dryRun);
+        result.removed.push({ path: filePath, reason: verdict.reason, kind: "plan", bytes: verdict.stat.size });
+        result.bytesFreed += verdict.stat.size;
+        removedCountInDir += 1;
+      } catch (err) {
+        result.errors.push({ path: filePath, error: err.message });
       }
     }
 
@@ -184,26 +203,32 @@ async function gcSessions(opts) {
   // only one knob to reason about.
   const staleRunningDays = opts.staleRunningDays ?? opts.sessionRetentionDays;
 
-  for (const sessEntry of await listDir(sessionsRoot)) {
-    if (!sessEntry.isDirectory()) continue;
-    const sessDir = path.join(sessionsRoot, sessEntry.name);
-    const sessionFile = path.join(sessDir, "session.json");
-    const stat = await tryStat(sessDir);
-    if (!stat) continue;
+  // Audit follow-up: parallelise the per-session classification (read
+  // session.json + stat the dir). Deletion stays sequential so the
+  // result.removed order is deterministic for tests.
+  const sessEntries = (await listDir(sessionsRoot)).filter((e) => e.isDirectory());
+  const verdicts = await Promise.all(
+    sessEntries.map(async (sessEntry) => {
+      const sessDir = path.join(sessionsRoot, sessEntry.name);
+      const sessionFile = path.join(sessDir, "session.json");
+      const stat = await tryStat(sessDir);
+      if (!stat) return { sessDir, reason: null };
+      const data = await tryReadJson(sessionFile);
+      const status = data?.status;
+      const days = ageInDays(stat, now);
 
-    const data = await tryReadJson(sessionFile);
-    const status = data?.status;
-    const days = ageInDays(stat, now);
+      let reason = null;
+      if (status && FINAL_SESSION_STATUSES.has(status) && days > opts.sessionRetentionDays) {
+        reason = `${status} session older than ${opts.sessionRetentionDays}d (${Math.round(days)}d)`;
+      } else if ((!status || status === "running") && days > staleRunningDays) {
+        reason = `zombie ${status || "unknown-status"} session older than ${staleRunningDays}d (${Math.round(days)}d)`;
+      }
+      return { sessDir, reason };
+    })
+  );
 
-    let reason = null;
-    if (status && FINAL_SESSION_STATUSES.has(status) && days > opts.sessionRetentionDays) {
-      reason = `${status} session older than ${opts.sessionRetentionDays}d (${Math.round(days)}d)`;
-    } else if ((!status || status === "running") && days > staleRunningDays) {
-      reason = `zombie ${status || "unknown-status"} session older than ${staleRunningDays}d (${Math.round(days)}d)`;
-    }
-
+  for (const { sessDir, reason } of verdicts) {
     if (!reason) continue;
-
     try {
       await unlinkOrRm(sessDir, opts.dryRun);
       result.removed.push({ path: sessDir, reason, kind: "session" });
@@ -220,24 +245,30 @@ async function gcHuStories(opts) {
   const huRoot = path.join(getKarajanHome(), "hu-stories");
   if (!(await exists(huRoot))) return result;
 
-  for (const batchEntry of await listDir(huRoot)) {
-    if (!batchEntry.isDirectory()) continue;
-    const batchDir = path.join(huRoot, batchEntry.name);
-    const stat = await tryStat(batchDir);
-    if (!stat) continue;
-
-    const days = ageInDays(stat, now);
-    if (days <= opts.huRetentionDays) continue;
-
-    try {
-      await unlinkOrRm(batchDir, opts.dryRun);
-      result.removed.push({
-        path: batchDir,
+  // Audit follow-up: stat-then-classify in parallel; deletion stays
+  // sequential for deterministic ordering.
+  const batchEntries = (await listDir(huRoot)).filter((e) => e.isDirectory());
+  const verdicts = await Promise.all(
+    batchEntries.map(async (batchEntry) => {
+      const batchDir = path.join(huRoot, batchEntry.name);
+      const stat = await tryStat(batchDir);
+      if (!stat) return null;
+      const days = ageInDays(stat, now);
+      if (days <= opts.huRetentionDays) return null;
+      return {
+        batchDir,
         reason: `HU batch older than ${opts.huRetentionDays}d (${Math.round(days)}d)`,
-        kind: "hu-batch",
-      });
+      };
+    })
+  );
+
+  for (const v of verdicts) {
+    if (!v) continue;
+    try {
+      await unlinkOrRm(v.batchDir, opts.dryRun);
+      result.removed.push({ path: v.batchDir, reason: v.reason, kind: "hu-batch" });
     } catch (err) {
-      result.errors.push({ path: batchDir, error: err.message });
+      result.errors.push({ path: v.batchDir, error: err.message });
     }
   }
   return result;
@@ -272,11 +303,16 @@ function defaultOpts(opts = {}) {
  */
 export async function runManualGC(opts = {}) {
   const o = defaultOpts(opts);
-  return mergeResults(
-    await gcPlans(o),
-    await gcSessions(o),
-    await gcHuStories(o),
-  );
+  // Audit follow-up: was 3 sequential awaits. Plans, sessions and HU
+  // stories live in different directory subtrees and don't share state,
+  // so Promise.all is safe and roughly halves end-to-end GC latency on
+  // a populated KJ_HOME.
+  const [plans, sessions, huStories] = await Promise.all([
+    gcPlans(o),
+    gcSessions(o),
+    gcHuStories(o),
+  ]);
+  return mergeResults(plans, sessions, huStories);
 }
 
 /**
