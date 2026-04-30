@@ -140,6 +140,7 @@ export default [
     // back to the default "no-console: error" set above.
     files: [
       "src/cli.js",
+      "src/cli/**/*.js",
       "src/commands/**/*.js",
       "src/utils/banner.js",
       "src/utils/welcome.js",
