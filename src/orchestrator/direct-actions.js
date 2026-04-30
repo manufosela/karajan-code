@@ -1,7 +1,7 @@
 // Direct actions: commands Karajan Brain can execute without invoking a full role.
 // Keeps the action catalog small, auditable, and safe.
 
-import { execSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -48,7 +48,11 @@ async function runCommand({ cmd, cwd }) {
   }
 
   try {
-    const output = execSync(cmd, {
+    // Audit follow-up: was using execSync, which routes through /bin/sh.
+    // Even though `cmd` is allow-listed, defense-in-depth: switched to
+    // execFileSync with a tokenised arg array so no shell expansion at all.
+    const [program, ...args] = cmd.trim().split(/\s+/);
+    const output = execFileSync(program, args, {
       cwd: cwd || process.cwd(),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
