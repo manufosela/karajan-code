@@ -31,15 +31,9 @@ import { persistInlineDomain } from "../../domains/domain-loader.js";
 import { detectTestFramework } from "../../utils/project-detect.js";
 import { detectNeededSkills, autoInstallSkills } from "../../skills/skill-detector.js";
 import { refineSkillsSemantically, resolveSkillsMode } from "../../skills/semantic-detector.js";
-import {
-  refreshIfStale as refreshAddyosmaniCatalog,
-  listAvailableSlugs as listAddyosmaniSlugs,
-} from "../../skills/addyosmani-catalog.js";
-import { resolveAddyosmaniSlugs } from "../../skills/addyosmani-role-map.js";
 import { saveSession } from "../../session/store.js";
 import {
-  setPreflight, setPreLoopContext, setPlanRef, setPlanSyncCallback, setLiveStatusUpdater, setLiveOutcomeUpdater,
-  setAutoInstalledSkills, setSkillsRecommended, setAddyosmaniSkills,
+  setPreflight, setAutoInstalledSkills, setSkillsRecommended,
 } from "../../session/mutators.js";
 import {
   runResearcherStage, runArchitectStage, runPlannerStage,
@@ -54,6 +48,13 @@ import { runStage } from "../stages/stage-executor.js";
 import { runDomainCuratorStage } from "../stages/domain-curator-stage.js";
 import { runPreflightChecks } from "../preflight-checks.js";
 import { injectLoadedPlan } from "./pre-loop-phases/inject-loaded-plan.js";
+import { emitConfigDeprecations } from "./pre-loop-phases/config-deprecations.js";
+import { ensureAddyosmaniSkills } from "./pre-loop-phases/ensure-addyosmani-skills.js";
+import { maybeGenerateAutoHuBatch } from "./pre-loop-phases/auto-hu-batch.js";
+
+// Re-export for back-compat with any external caller; the canonical
+// definitions now live in ./pre-loop-phases/.
+export { ensureAddyosmaniSkills };
 import {
   applyTriageOverrides, applyAutoSimplify, applyFlagOverrides,
   resolvePipelinePolicies, updateGitignoreForStack,
@@ -427,200 +428,7 @@ export async function runPlanningPhases({ config, logger, emitter, eventBase, se
 
   return { plannedTask };
 }
-/**
- * Print one-time deprecation warnings for config keys / CLI flags that
- * Karajan no longer honours. Called once per run, after policy resolution
- * so the message lands in context (the user sees what's being ignored
- * RIGHT before the preflight that would have been affected).
- *
- * Currently surfaces:
- *   - `sonarqube.enabled` set in user config → ignored since v2.7.4
- *   - `--no-sonar` CLI flag → ignored since v2.7.4
- */
-function emitConfigDeprecations(config, logger, emitter, eventBase) {
-  const dep = config?._deprecated;
-  if (!dep) return;
-
-  if (dep.sonarqubeEnabledKey) {
-    const m =
-      "DEPRECATED: `sonarqube.enabled` in kj.config.yml is ignored since v2.7.4. " +
-      "Sonar is intrinsic to Karajan for code tasks (sw/refactor/add-tests) and " +
-      "skipped for non-code tasks (audit/doc/infra/analysis/no-code) by policy. " +
-      "Remove the key from your config to silence this warning.";
-    logger.warn(m);
-    emitProgress(emitter, makeEvent("config:deprecated", { ...eventBase, stage: "config" }, {
-      message: m,
-      detail: { key: "sonarqube.enabled", since: "v2.7.4" },
-    }));
-  }
-
-  if (dep.noSonarFlag) {
-    const m =
-      "DEPRECATED: `--no-sonar` flag is ignored since v2.7.4. Sonar runs for code " +
-      "tasks by policy. To skip Sonar on a one-off run, use a non-code task type " +
-      "(e.g. `--task-type doc`) or rely on Solomon's runtime override.";
-    logger.warn(m);
-    emitProgress(emitter, makeEvent("config:deprecated", { ...eventBase, stage: "config" }, {
-      message: m,
-      detail: { flag: "--no-sonar", since: "v2.7.4" },
-    }));
-  }
-}
-export async function ensureAddyosmaniSkills({ task, config, logger, session, emitter, eventBase }) {
-  const skillsConfig = config?.skills || {};
-  const sources = Array.isArray(skillsConfig.sources) ? skillsConfig.sources : ["addyosmani", "openskills", "local"];
-  const addyConfig = skillsConfig.addyosmani || {};
-  // Test harness override: config.testHarness.defaultAddyosmaniEnabled=false
-  // prevents orchestrator tests from spawning git. Tests that need the real
-  // catalog opt in by setting config.skills.addyosmani.enabled = true.
-  // Post-v2.7.5 no longer reads globalThis directly — config.testHarness is
-  // populated by the loader from the global or the production default.
-  const harnessDefault = config?.testHarness?.defaultAddyosmaniEnabled;
-  const enabledFromConfig = addyConfig.enabled === true
-    || (addyConfig.enabled !== false && harnessDefault !== false);
-  const enabled = enabledFromConfig && sources.includes("addyosmani");
-  if (!enabled) return;
-
-  const refreshDays = Number.isFinite(addyConfig.refreshDays) ? addyConfig.refreshDays : 7;
-  const refreshMs = Math.max(0, refreshDays) * 24 * 60 * 60 * 1000;
-
-  try {
-    const refreshResult = await refreshAddyosmaniCatalog({
-      refreshMs,
-      repoUrl: addyConfig.repoUrl,
-      logger,
-    });
-
-    if (!refreshResult.ok) {
-      setAddyosmaniSkills(session, { available: false, reason: refreshResult.error || "refresh failed" });
-      emitProgress(emitter, makeEvent("skills:addyosmani-unavailable", { ...eventBase, stage: "skills" }, {
-        message: `addyosmani/agent-skills catalog unavailable: ${refreshResult.error || refreshResult.action}`,
-        detail: { action: refreshResult.action, hint: "Install git to enable process skills from addyosmani/agent-skills" },
-      }));
-      return;
-    }
-
-    const available = new Set(await listAddyosmaniSlugs());
-    const resolved = resolveAddyosmaniSlugs({ role: null, task }); // role resolution happens per-stage later
-    const valid = resolved.filter((slug) => available.has(slug));
-
-    setAddyosmaniSkills(session, {
-      available: true,
-      action: refreshResult.action,
-      resolvedSlugs: valid,
-      allAvailable: Array.from(available),
-    });
-
-    emitProgress(emitter, makeEvent("skills:addyosmani-ready", { ...eventBase, stage: "skills" }, {
-      message: `addyosmani/agent-skills ${refreshResult.action} — ${available.size} slug(s) available, ${valid.length} relevant to task`,
-      detail: {
-        action: refreshResult.action,
-        relevantSlugs: valid,
-        availableCount: available.size,
-      },
-    }));
-  } catch (err) {
-    logger.warn(`addyosmani catalog step failed (non-blocking): ${err.message}`);
-    setAddyosmaniSkills(session, { available: false, reason: err.message });
-  }
-}
-/**
- * Auto-generate HU batch from triage decomposition when no manual huFile is present.
- * Runs after researcher/architect/planner so that context is available for better HUs.
- * Sets stageResults.huReviewer so needsSubPipeline picks it up later.
- */
-async function maybeGenerateAutoHuBatch({ flags, stageResults, task, plannedTask, logger, emitter, eventBase, projectDir, session }) {
-  // Skip if user passed a manual hu-file
-  if (flags?.huFile) return;
-  // Skip if hu-reviewer already produced a batch (manual enable + PG stories)
-  if (stageResults.huReviewer) return;
-  // Need triage decomposition recommendation
-  const shouldDecompose = stageResults.triage?.shouldDecompose;
-  const subtasks = stageResults.triage?.subtasks;
-  if (!shouldDecompose || !Array.isArray(subtasks) || subtasks.length < 2) return;
-
-  const { generateHuBatch } = await import("../../hu/auto-generator.js");
-
-  // Detect if project is new: empty dir or only .git/.karajan/.gitignore
-  let isNewProject = false;
-  try {
-    const fs = await import("node:fs/promises");
-    const entries = await fs.readdir(projectDir);
-    const relevant = entries.filter(e => !e.startsWith(".git") && e !== ".karajan" && e !== ".gitignore");
-    isNewProject = relevant.length === 0;
-  } catch { /* ignore */ }
-
-  // Extract stack hints from planner + architect output
-  const stackHints = [];
-  const combined = `${stageResults.planner?.plan || ""} ${stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : ""} ${task}`.toLowerCase();
-  const stackKeywords = ["express", "vite", "vitest", "jest", "next", "astro", "react", "vue", "svelte", "fastapi", "django", "spring", "gin", "nestjs", "monorepo", "workspaces"];
-  for (const kw of stackKeywords) {
-    if (combined.includes(kw)) stackHints.push(kw);
-  }
-
-  const batch = generateHuBatch({
-    originalTask: task,
-    subtasks,
-    stackHints,
-    isNewProject,
-    researcherContext: stageResults.researcher?.summary || null,
-    architectContext: stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : null
-  });
-
-  // Persist batch to HU store so hu-sub-pipeline can update story status via saveHuBatch.
-  // Use session.id as batchSessionId.
-  const batchSessionId = `auto-${session.id}`;
-  try {
-    const fs = await import("node:fs/promises");
-    const path = await import("node:path");
-    const { getKarajanHome } = await import("../../utils/paths.js");
-    const huDir = path.join(getKarajanHome(), "hu-stories", batchSessionId);
-    await fs.mkdir(huDir, { recursive: true });
-    const persistBatch = {
-      session_id: batchSessionId,
-      project_id: batchSessionId,
-      project_name: batch.projectName,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      stories: batch.stories
-    };
-    await fs.writeFile(path.join(huDir, "batch.json"), JSON.stringify(persistBatch, null, 2));
-  } catch (err) {
-    logger.warn(`Auto-HU: failed to persist batch (${err.message}) — sub-pipeline will use in-memory fallback`);
-  }
-
-  // Wrap in format compatible with needsSubPipeline + runHuSubPipeline
-  stageResults.huReviewer = {
-    ok: true,
-    stories: batch.stories,
-    total: batch.total,
-    certified: batch.certified,
-    batchSessionId,
-    auto_generated: true,
-    source: batch.source
-  };
-
-  logger.info(`Auto-HU: generated ${batch.total} stories (${batch.source.triage_subtasks} subtasks${isNewProject ? ", new project" : ""}${stackHints.length ? `, stack: ${stackHints.join(",")}` : ""})`);
-  emitProgress(emitter, makeEvent("hu:auto-generated", { ...eventBase, stage: "hu-auto-gen" }, {
-    message: `Auto-generated ${batch.total} HU(s) from triage decomposition`,
-    detail: { total: batch.total, subtasks: batch.source.triage_subtasks, isNewProject, stackHints, projectName: batch.projectName }
-  }));
-
-  // Auto-start the board so the user can see the generated HUs.
-  // Always fires when auto-HU runs, independent of hu_board.auto_start flag.
-  // Never during vitest — would race the PID file and leave a detached
-  // node process around after the suite (TSK-0273).
-  if (process.env.VITEST || process.env.NODE_ENV === "test") return;
-  try {
-    const { startBoard, renderBoardBanner } = await import("../../commands/board.js");
-    const desiredPort = session.config_snapshot?.hu_board?.port ?? 4000;
-    const boardResult = await startBoard(desiredPort);
-    const url = boardResult.url;
-    const status = boardResult.alreadyRunning ? "already running" : "started";
-    const projectName = batch.projectName || "Auto-generated HUs";
-    console.log(renderBoardBanner({ url, status, projectName }));
-    logger.info(`HU Board ${status} at ${url} (project: ${projectName})`);
-  } catch (err) {
-    logger.warn(`HU Board auto-start failed (non-blocking): ${err.message}`);
-  }
-}
+// `emitConfigDeprecations`, `ensureAddyosmaniSkills` and
+// `maybeGenerateAutoHuBatch` were extracted to ./pre-loop-phases/ in
+// TSK-0337 to keep this driver under the 600-LOC ceiling. Imports at
+// the top of this file pull them back in; behaviour is unchanged.
