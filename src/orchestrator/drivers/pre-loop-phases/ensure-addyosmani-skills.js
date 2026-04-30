@@ -19,10 +19,10 @@
 import {
   refreshIfStale as refreshAddyosmaniCatalog,
   listAvailableSlugs as listAddyosmaniSlugs,
-} from "../../../skills/addyosmani-catalog.js";
-import { resolveAddyosmaniSlugs } from "../../../skills/addyosmani-role-map.js";
-import { setAddyosmaniSkills } from "../../../session/mutators.js";
-import { emitProgress, makeEvent } from "../../../utils/events.js";
+} from "#skills/addyosmani-catalog.js";
+import { resolveAddyosmaniSlugs } from "#skills/addyosmani-role-map.js";
+import { setAddyosmaniSkills } from "#session/mutators.js";
+import { emitProgress, makeEvent } from "#utils/events.js";
 
 export async function ensureAddyosmaniSkills({ task, config, logger, session, emitter, eventBase }) {
   const skillsConfig = config?.skills || {};

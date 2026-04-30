@@ -23,10 +23,10 @@
  * function parameters.
  */
 
-import { saveHuBatch, updateStoryStatus } from "../../../hu/store.js";
-import { emitProgress, makeEvent } from "../../../utils/events.js";
-import { detectIndicators, selectHeuristic } from "../../../hu/splitting-detector.js";
-import { generateSplitProposal, formatSplitProposalForFDE, buildSplitDependencies } from "../../../hu/splitting-generator.js";
+import { saveHuBatch, updateStoryStatus } from "#hu/store.js";
+import { emitProgress, makeEvent } from "#utils/events.js";
+import { detectIndicators, selectHeuristic } from "#hu/splitting-detector.js";
+import { generateSplitProposal, formatSplitProposalForFDE, buildSplitDependencies } from "#hu/splitting-generator.js";
 
 /**
  * Build a fresh sub-HU story object from a proposal entry. Same

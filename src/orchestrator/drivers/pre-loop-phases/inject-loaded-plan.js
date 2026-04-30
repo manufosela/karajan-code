@@ -26,12 +26,12 @@
  * mutator-routing invariant.
  */
 
-import { saveSession } from "../../../session/store.js";
+import { saveSession } from "#session/store.js";
 import {
   setPlanRef, setPlanSyncCallback, setLiveStatusUpdater,
   setLiveOutcomeUpdater, setPreLoopContext,
-} from "../../../session/mutators.js";
-import { emitProgress, makeEvent } from "../../../utils/events.js";
+} from "#session/mutators.js";
+import { emitProgress, makeEvent } from "#utils/events.js";
 
 /**
  * @param {object} args

@@ -15,7 +15,7 @@
  *   - Auto-starts the HU board (skipped under VITEST / NODE_ENV=test).
  */
 
-import { emitProgress, makeEvent } from "../../../utils/events.js";
+import { emitProgress, makeEvent } from "#utils/events.js";
 
 export async function maybeGenerateAutoHuBatch({
   flags, stageResults, task, logger, emitter, eventBase, projectDir, session,
@@ -29,7 +29,7 @@ export async function maybeGenerateAutoHuBatch({
   const subtasks = stageResults.triage?.subtasks;
   if (!shouldDecompose || !Array.isArray(subtasks) || subtasks.length < 2) return;
 
-  const { generateHuBatch } = await import("../../../hu/auto-generator.js");
+  const { generateHuBatch } = await import("#hu/auto-generator.js");
 
   // Detect if project is new: empty dir or only .git/.karajan/.gitignore
   let isNewProject = false;
@@ -63,7 +63,7 @@ export async function maybeGenerateAutoHuBatch({
   try {
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
-    const { getKarajanHome } = await import("../../../utils/paths.js");
+    const { getKarajanHome } = await import("#utils/paths.js");
     const huDir = path.join(getKarajanHome(), "hu-stories", batchSessionId);
     await fs.mkdir(huDir, { recursive: true });
     const persistBatch = {
