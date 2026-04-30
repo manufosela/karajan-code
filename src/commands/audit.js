@@ -1,9 +1,11 @@
+import path from "node:path";
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
+import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
 
 function formatFindings(findings) {
   const lines = [];
@@ -67,7 +69,24 @@ function formatAudit(parsed) {
   return lines.join("\n");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg }) {
+  // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
+  // dimension. It scores any third-party repo for AI-agent readability
+  // (llms.txt presence, page token budgets, robots allowlist, etc.).
+  // Per addyosmani/agentic-seo. Issue #542.
+  if (agentReadiness) {
+    const rootDir = path.resolve(pathArg || config?.projectDir || process.cwd());
+    logger.info(`Auditing agent-readiness of ${rootDir}`);
+    const report = runAgentReadiness(rootDir);
+    if (json) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatAgentReadinessReport(report, rootDir));
+    }
+    // Exit code: 0 always (audit succeeded). The score is the signal.
+    return;
+  }
+
   return withCliRunLog("audit", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
     const auditRole = resolveRole(config, "audit");
     await assertAgentsAvailable([auditRole.provider]);
