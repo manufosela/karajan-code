@@ -24,6 +24,37 @@ export default defineConfig({
       "demo/**"
     ],
     setupFiles: ["./tests/setup.js"],
-    testTimeout: 30000
+    testTimeout: 30000,
+    // Audit recommendation #7: per-directory coverage thresholds for the
+    // areas the audit flagged as "large surfaces with no same-name test
+    // file". Coverage isn't a CI gate yet (would block PRs unrelated to
+    // these dirs); when run with `npx vitest run --coverage` the values
+    // below are enforced only when the user explicitly opts in.
+    //
+    // Why `thresholds.perFile: false`: file-level thresholds are too
+    // strict for a project this size; we want directory-level signal.
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.js"],
+      exclude: [
+        "src/**/*.test.js",
+        "src/cli.js",                  // the CLI entry — exercised by e2e
+        "src/mcp/server.js",           // long-running process, hard to unit
+      ],
+      thresholds: {
+        // Per-glob targets reflect the audit's prioritisation:
+        // - agents/ talk to LLM SDKs and have lots of branches → 80%
+        // - mcp/handlers/ are the public RPC surface → 80%
+        // - session/journal/ persists run state → 70% (lots of fs IO)
+        "src/agents/**/*.js": { lines: 80, functions: 80 },
+        "src/mcp/handlers/**/*.js": { lines: 80, functions: 80 },
+        "src/session/journal/**/*.js": { lines: 70, functions: 70 },
+        // Defaults for everything else: keep low so coverage runs are
+        // useful as a signal without flipping into a blocking gate.
+        lines: 40,
+        functions: 40,
+      },
+    },
   }
 });
