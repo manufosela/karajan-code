@@ -1,0 +1,60 @@
+# Karajan Code
+
+> A local multi-agent coding orchestrator. Karajan owns the pipeline (triage → planner → coder → reviewer → tester → sonar gate → repairer); coding agents (Claude Code, Codex, Gemini, Aider, OpenCode) are workers it dispatches.
+
+## What Karajan does
+
+You write a SPEC.md (or pass a one-liner). Karajan:
+1. **Triages** — classifies task complexity + decomposes into HUs (atomic user stories).
+2. **Plans** — emits a versioned `plan-<id>.json` with HUs, dependencies and per-HU acceptance tests.
+3. **Runs** — for each HU: coder writes code → reviewer evaluates → tester checks tests → SonarQube gates quality → if any test is structurally broken, the **Repairer** rewrites it instead of burning iterations.
+4. **Persists** — sessions, plans, HU batches under `~/.karajan/` so any run is resumable.
+
+Output: working code in your repo, atomic commits, optional PR.
+
+## CLI surface (per-command capability docs)
+
+Each entry below is a single fetch under 8 KB tokens.
+
+- [kj plan](docs/agents/SKILL.kj-plan.md) (~3 KB) — generate / list / show / approve / validate / delete plans.
+- [kj run](docs/agents/SKILL.kj-run.md) (~4 KB) — execute a plan or a one-shot task; the central command.
+- [kj audit](docs/agents/SKILL.kj-audit.md) (~3 KB) — read-only analysis of any repo: god-functions, missing imports, structure smells.
+- [kj doctor](docs/agents/SKILL.kj-doctor.md) (~2 KB) — environment checks + auto-remediation.
+- [kj init](docs/agents/SKILL.kj-init.md) (~2 KB) — bootstrap config + review rules + SonarQube.
+- [kj board](docs/agents/SKILL.kj-board.md) (~2 KB) — start/stop the HU Board (web UI for plans + sessions).
+- [kj review](docs/agents/SKILL.kj-review.md) (~2 KB) — run the reviewer role only against current diff.
+- [kj resume](docs/agents/SKILL.kj-resume.md) (~2 KB) — resume a paused / stopped / failed session.
+- [kj clean](docs/agents/SKILL.kj-clean.md) (~2 KB) — GC stale plans / sessions / HU batches.
+- Other commands: `kj code`, `kj scan`, `kj status`, `kj report`, `kj triage`, `kj discover`, `kj researcher`, `kj architect`, `kj agents`, `kj roles`, `kj skills`, `kj config`. See `kj <cmd> --help`.
+
+## Architecture
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — pipeline phases, role boundaries, data flow.
+- [docs/agents/README.md](docs/agents/README.md) — entry point for AI agents consuming this repo.
+
+## Configuration
+
+- `~/.karajan/kj.config.yml` — global config (coder/reviewer providers, model overrides, pipeline flags).
+- `<repo>/.karajan/coder-rules.md` — per-project rules injected into the coder prompt.
+- `<repo>/.karajan/review-rules.md` — per-project rules injected into the reviewer prompt.
+
+## How to extend
+
+- **New role**: drop a `templates/roles/<role>.md` + a `src/roles/<role>-role.js` extending `AgentRole`.
+- **New agent**: drop a `src/agents/<provider>-agent.js` extending `BaseAgent`, register it in `src/agents/index.js`.
+- **New skill**: see [OpenSkills integration](docs/SKILLS.md).
+
+## Key rules for agents driving Karajan
+
+- **Always pass `--task-file <path>` or a positional task** for `kj run`/`kj plan generate`. Without one (and without `--plan <id>`), the CLI exits non-zero with a helpful error.
+- `--plan <planId>` reuses the plan's embedded task — no need to repeat `--task-file`.
+- `kj run -y` skips the cwd confirmation prompt for CI / scripted runs.
+- Subcommands follow `kj <group> <action>`: `kj plan generate`, NOT `kj generate plan`. The CLI guard suggests the right form when typo'd.
+
+## Repository
+
+https://github.com/manufosela/karajan-code
+
+## Issues / discussion
+
+https://github.com/manufosela/karajan-code/issues
