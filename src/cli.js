@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { readFile as fsReadFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { applyRunOverrides, loadConfig, validateConfig } from "./config.js";
@@ -29,6 +30,9 @@ import { architectCommand } from "./commands/architect.js";
 import { auditCommand } from "./commands/audit.js";
 import { boardCommand } from "./commands/board.js";
 import { loadPlan } from "./plan/plan-store.js";
+import { parseCanvasMarkdown } from "./canvas/parse-md.js";
+import { validateCanvas } from "./canvas/validate.js";
+import { canvasToTask } from "./canvas/to-flat.js";
 import { undoCommand } from "./commands/undo.js";
 import { statusCommand } from "./commands/status.js";
 import { cleanCommand } from "./commands/clean.js";
@@ -336,10 +340,56 @@ plan
   .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
   .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
   .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
+  .option("--canvas <path>", "Read the SPEC as a REASONS Canvas (.md or .yml). Validates schema + acceptance tests at plan-time. See issue #539.")
   .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
   .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
+      // --canvas: validate the structured spec BEFORE invoking the
+      // planner. If schema or acceptance tests don't parse, abort
+      // with a clear error pointing at the offending operation +
+      // test. This is the bug-class fix for the 2026-04-29
+      // jq-as-binding incident.
+      if (flags.canvas) {
+        let canvasText;
+        try {
+          canvasText = await fsReadFile(flags.canvas, "utf8");
+        } catch (err) {
+          throw new Error(`--canvas: cannot read ${flags.canvas}: ${err.message}`);
+        }
+        let parsed;
+        try {
+          parsed = parseCanvasMarkdown(canvasText);
+        } catch (err) {
+          throw new Error(`--canvas: parse error: ${err.message}`);
+        }
+        const validation = validateCanvas(parsed);
+        if (!validation.valid) {
+          const lines = ["--canvas: validation failed."];
+          if (validation.schemaIssues) {
+            lines.push("Schema issues:");
+            for (const issue of validation.schemaIssues) {
+              lines.push(`  - ${issue.path?.map((p) => p.key).join(".") || "(root)"}: ${issue.message}`);
+            }
+          }
+          if (validation.testIssues) {
+            lines.push("Acceptance test issues:");
+            for (const issue of validation.testIssues) {
+              lines.push(`  - Operation #${issue.operationIndex + 1} "${issue.operationTitle}", test #${issue.testIndex + 1} (${issue.type}, ${issue.kind}):`);
+              lines.push(`      ${issue.content}`);
+              lines.push(`      → ${issue.error}`);
+            }
+          }
+          throw new Error(lines.join("\n"));
+        }
+        // Convert Canvas → flat task text the planner can consume.
+        // The Norms + Safeguards become explicit constraints; the
+        // Operations become a numbered list with their acceptance
+        // tests inline. Preserves intent end-to-end.
+        const taskFromCanvas = canvasToTask(validation.canvas);
+        await planGenerateCommand({ task: taskFromCanvas, config, logger, flags });
+        return;
+      }
       const { resolveTaskInput } = await import("./utils/task-file.js");
       const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
       await planGenerateCommand({
