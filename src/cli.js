@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { readFileSync } from "node:fs";
-import { readFile as fsReadFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { applyRunOverrides, loadConfig, validateConfig } from "./config.js";
@@ -352,32 +351,33 @@ plan
   .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
   .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
   .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
-  .option("--canvas <path>", "Read the SPEC as a REASONS Canvas (.md or .yml). Validates schema + acceptance tests at plan-time. See issue #539.")
   .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
   .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
   .action(async (task, flags) => {
     await withConfig("plan", flags, async ({ config, logger }) => {
-      // --canvas: validate the structured spec BEFORE invoking the
-      // planner. If schema or acceptance tests don't parse, abort
-      // with a clear error pointing at the offending operation +
-      // test. This is the bug-class fix for the 2026-04-29
-      // jq-as-binding incident.
-      if (flags.canvas) {
-        let canvasText;
-        try {
-          canvasText = await fsReadFile(flags.canvas, "utf8");
-        } catch (err) {
-          throw new Error(`--canvas: cannot read ${flags.canvas}: ${err.message}`);
-        }
+      const { resolveTaskInput } = await import("./utils/task-file.js");
+      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+
+      // REASONS Canvas auto-detection: a SPEC that contains
+      // `## REASONS:Section` headings is treated as a structured
+      // Canvas — parsed + validated BEFORE the planner runs. This
+      // catches broken acceptance tests (jq syntax, bash parse,
+      // gherkin missing Given/Then, the 2026-04-29 as-binding
+      // misuse class) at plan-time, without spending LLM dollars.
+      //
+      // Detection by file CONTENTS, not by CLI flag — the Canvas
+      // format is the signal. Flat SPECs without REASONS sections
+      // continue through the legacy path unchanged (back-compat).
+      if (typeof resolvedTask === "string" && /^##\s+REASONS:/m.test(resolvedTask)) {
         let parsed;
         try {
-          parsed = parseCanvasMarkdown(canvasText);
+          parsed = parseCanvasMarkdown(resolvedTask);
         } catch (err) {
-          throw new Error(`--canvas: parse error: ${err.message}`);
+          throw new Error(`Canvas parse error: ${err.message}`);
         }
         const validation = validateCanvas(parsed);
         if (!validation.valid) {
-          const lines = ["--canvas: validation failed."];
+          const lines = ["Canvas validation failed."];
           if (validation.schemaIssues) {
             lines.push("Schema issues:");
             for (const issue of validation.schemaIssues) {
@@ -394,16 +394,13 @@ plan
           }
           throw new Error(lines.join("\n"));
         }
-        // Convert Canvas → flat task text the planner can consume.
-        // The Norms + Safeguards become explicit constraints; the
-        // Operations become a numbered list with their acceptance
-        // tests inline. Preserves intent end-to-end.
+        // Pass the Canvas-derived flat task to the existing planner.
+        // Norms + Safeguards ride along under explicit headings the
+        // coder prompt can grep for.
         const taskFromCanvas = canvasToTask(validation.canvas);
         await planGenerateCommand({ task: taskFromCanvas, config, logger, flags });
         return;
       }
-      const { resolveTaskInput } = await import("./utils/task-file.js");
-      const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
       await planGenerateCommand({
         task: resolvedTask, config, logger, json: flags.json, context: flags.context,
         flags: {
