@@ -475,6 +475,8 @@ program
   .option("--task-file <path>", "Read the task from a file (e.g. .md)")
   .option("--dimensions <list>", "Comma-separated: security,quality,performance,architecture,testing", "all")
   .option("--json", "Output raw JSON")
+  .option("--agent-readiness", "Score the repo for AI-agent readability (llms.txt, SKILL.md coverage, page token budgets, robots allowlist, heading hierarchy). LLM-free; uses [path] or cwd as the audit target. See issue #542.")
+  .option("--path <dir>", "Path to audit (used with --agent-readiness; defaults to cwd)")
   .action(async (task, flags) => {
     await withConfig("audit", flags, async ({ config, logger }) => {
       let resolvedTask = task;
@@ -482,7 +484,13 @@ program
         const { readTaskFile } = await import("./utils/task-file.js");
         resolvedTask = await readTaskFile(flags.taskFile, { projectDir: config.projectDir });
       }
-      await auditCommand({ task: resolvedTask || "Analyze the full codebase", config, logger, dimensions: flags.dimensions, json: flags.json });
+      await auditCommand({
+        task: resolvedTask || "Analyze the full codebase",
+        config, logger,
+        dimensions: flags.dimensions, json: flags.json,
+        agentReadiness: Boolean(flags.agentReadiness),
+        path: flags.path,
+      });
     });
   });
 
