@@ -39,7 +39,7 @@ describe("canvasToTask", () => {
 
   it("preserves gherkin scenarios in fenced blocks (newlines survive)", () => {
     const out = canvasToTask(FULL);
-    expect(out).toMatch(/```gherkin\n     Given X\n     When Y\n     Then Z\n     ```/);
+    expect(out).toMatch(/```gherkin\n {5}Given X\n {5}When Y\n {5}Then Z\n {5}```/);
   });
 
   it("brackets Norms and Safeguards so prompts can locate them by regex", () => {
@@ -64,7 +64,7 @@ describe("canvasToTask", () => {
     const out = canvasToTask(FULL);
     expect(out).toMatch(/^1\. Step A$/m);
     expect(out).toMatch(/^2\. Step B$/m);
-    expect(out).toMatch(/   Acceptance:$/m);
+    expect(out).toMatch(/^ {3}Acceptance:$/m);
   });
 
   it("includes file_hint and blocked_by when set", () => {
