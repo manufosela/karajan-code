@@ -13,6 +13,7 @@ import { reviewCommand } from "./commands/review.js";
 import { scanCommand } from "./commands/scan.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { reportCommand } from "./commands/report.js";
+import { syncCommand } from "./commands/sync.js";
 import {
   planCommand, planGenerateCommand, planListCommand,
   planShowCommand, planReadyCommand, planValidateCommand,
@@ -299,6 +300,17 @@ program
   .action(async (subcommand, role, provider, flags) => {
     await withConfig("agents", {}, async ({ config }) => {
       await agentsCommand({ config, subcommand: subcommand || "list", role, provider, global: flags.global });
+    });
+  });
+
+program
+  .command("sync")
+  .description("Detect drift between code and the latest plan. Read-only report (issue #540 MVP).")
+  .option("--plan <planId>", "Sync against a specific plan instead of the latest")
+  .option("--json", "Emit machine-readable JSON instead of human output")
+  .action(async (flags) => {
+    await withConfig("sync", flags, async ({ config, logger }) => {
+      await syncCommand({ config, logger, planId: flags.plan, json: flags.json });
     });
   });
 
