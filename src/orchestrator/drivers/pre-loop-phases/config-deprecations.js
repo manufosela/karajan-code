@@ -14,7 +14,7 @@
  *   - `--no-sonar` CLI flag → ignored
  */
 
-import { emitProgress, makeEvent } from "../../../utils/events.js";
+import { emitProgress, makeEvent } from "#utils/events.js";
 
 export function emitConfigDeprecations(config, logger, emitter, eventBase) {
   const dep = config?._deprecated;

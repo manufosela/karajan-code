@@ -26,6 +26,12 @@
   "engines": {
     "node": ">=20.10.0"
   },
+  "imports": {
+    "#utils/*": "./src/utils/*",
+    "#session/*": "./src/session/*",
+    "#hu/*": "./src/hu/*",
+    "#skills/*": "./src/skills/*"
+  },
   "files": [
     "src/",
     "bin/",
