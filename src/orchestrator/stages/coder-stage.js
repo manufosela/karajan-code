@@ -18,7 +18,7 @@ import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
-import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage } from "../fs-leak-detector.js";
+import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   logger.setContext({ iteration, stage: "coder" });
@@ -153,7 +153,16 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   // Runs BEFORE the success-path verification so a leaked HU doesn't
   // get marked as "Coder applied changes".
   const projectDirAbs = config.projectDir || process.cwd();
-  const fsLeaks = detectNewHomeEntries(homeSnapshotBeforeCoder, projectDirAbs);
+  const candidateLeaks = detectNewHomeEntries(homeSnapshotBeforeCoder, projectDirAbs);
+  // Issue #546: snapshot-diff alone produces false positives when other
+  // processes write to $HOME during the iteration window. Filter the
+  // detected entries against the coder's transcript: only flag those
+  // the coder demonstrably referenced.
+  const coderTranscript = coderExecResult.result?.output || "";
+  const fsLeaks = verifyLeaksAgainstTranscript(candidateLeaks, coderTranscript);
+  if (candidateLeaks.length > 0 && fsLeaks.length === 0) {
+    logger.warn(`fs-leak-detector: ${candidateLeaks.length} new $HOME entr(y/ies) detected but none referenced in the coder transcript — likely a concurrent host-side write, not flagging (#546).`);
+  }
   if (fsLeaks.length > 0) {
     const msg = formatLeakMessage(fsLeaks, projectDirAbs);
     logger.error(msg);

@@ -266,11 +266,18 @@ describe("iteration-stages: runCoderStage", () => {
     process.env.HOME = tmpHome;
     try {
       // The "coder" simulates the bug: creates a new top-level dir
-      // under $HOME during execution.
+      // under $HOME during execution AND mentions it in its transcript
+      // (real-world coders narrate their commands; the #546 attribution
+      // filter sees "assistant" in the transcript and confirms this leak
+      // is the coder's, not a concurrent host write).
       const executeMock = vi.fn(async () => {
         fs.mkdirSync(path.join(tmpHome, "assistant"));
         fs.writeFileSync(path.join(tmpHome, "assistant", "package.json"), "{}");
-        return { ok: true, result: { output: "done" }, summary: "ok" };
+        return {
+          ok: true,
+          result: { output: `Ran cd ${path.join(tmpHome, "assistant")} && pnpm init -y. Created assistant/package.json.` },
+          summary: "ok",
+        };
       });
       const coderRoleInstance = { execute: executeMock };
 

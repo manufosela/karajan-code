@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage,
+  verifyLeaksAgainstTranscript,
 } from "../src/orchestrator/fs-leak-detector.js";
 
 // KJC-BUG-0032 (PR-I): the coder's Bash tool can `cd` anywhere and
@@ -125,5 +126,54 @@ describe("formatLeakMessage", () => {
     expect(msg).toMatch(/Inspecciona/);
     expect(msg).toMatch(/Borra/);
     expect(msg).toMatch(/Edita el título/);
+  });
+});
+
+describe("verifyLeaksAgainstTranscript (issue #546 — host-write false positives)", () => {
+  it("filters out leaks the coder never mentioned (concurrent host write scenario)", () => {
+    // 2026-04-29 incident: host AI wrote ~/karajan-status-snapshot.md
+    // mid-coder-iteration. Snapshot diff flagged it. Coder transcript
+    // never mentions that file → not attributable, must be filtered.
+    const leaks = ["/home/manu/karajan-status-snapshot.md"];
+    const transcript = "I read tests/foo.test.js and modified src/bar.js. Ran npm test. All green.";
+    expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual([]);
+  });
+
+  it("keeps leaks the coder mentioned by absolute path (real coder leak)", () => {
+    const leaks = ["/home/manu/assistant"];
+    const transcript = "cd /home/manu/assistant && pnpm init -y\nCreated package.json at /home/manu/assistant.";
+    expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual(["/home/manu/assistant"]);
+  });
+
+  it("keeps leaks the coder mentioned by basename only", () => {
+    const leaks = ["/home/manu/assistant"];
+    const transcript = "I'll create the assistant directory and put the skeleton there.";
+    expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual(["/home/manu/assistant"]);
+  });
+
+  it("returns all leaks unchanged when transcript is empty (back-compat — strict)", () => {
+    const leaks = ["/home/x/foo", "/home/x/bar"];
+    expect(verifyLeaksAgainstTranscript(leaks, "")).toEqual(leaks);
+    expect(verifyLeaksAgainstTranscript(leaks, null)).toEqual(leaks);
+    expect(verifyLeaksAgainstTranscript(leaks, undefined)).toEqual(leaks);
+  });
+
+  it("returns empty when leaks input is empty", () => {
+    expect(verifyLeaksAgainstTranscript([], "anything")).toEqual([]);
+    expect(verifyLeaksAgainstTranscript(null, "anything")).toEqual([]);
+  });
+
+  it("does not attempt basename matching for very short basenames (would over-match)", () => {
+    // ".sh" / ".x" are too short to discriminate. Keep the strict
+    // behaviour: pass through untouched, let the user inspect.
+    const leaks = ["/home/x/.sh"];
+    expect(verifyLeaksAgainstTranscript(leaks, "no mention of anything"))
+      .toEqual(["/home/x/.sh"]);
+  });
+
+  it("handles a transcript that contains many path-like fragments without crashing", () => {
+    const leaks = ["/home/x/assistant"];
+    const transcript = "src/foo.js\nsrc/bar.js\nsrc/baz.js\nassistant\nfile.txt\n".repeat(100);
+    expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual(["/home/x/assistant"]);
   });
 });
