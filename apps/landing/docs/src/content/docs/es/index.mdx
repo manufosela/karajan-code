@@ -3,7 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v2.7.4 — Sonar es intrínseco a Karajan para tareas de código (como TDD). `sonarqube.enabled` y `--no-sonar` se ignoran con warning de deprecación — una tarea de código sin quality gate no es un trabajo que Karajan dé por terminado. Mata el check falso de API keys que bloqueaba cada ejecución vía Claude Code MCP. Dos invariantes arquitecturales nuevas (`no-provider-apis`, `sonar-intrinsic`) garantizan los contratos en CI. Nuevo `docs/TESTS.md` con diagramas. 3 720 tests, 289 ficheros."
+  tagline: "v2.8.0 — Release de endurecimiento dirigido por audit. Cerrados los 13 issues que el self-audit del 2026-04-30 detectó en seguridad, calidad de código, rendimiento, arquitectura y testing, en 16 PRs. Toda llamada a `child_process` en src/ ahora usa arrays de argumentos tokenizados (cero expansión de shell). Nueva FASE 1 e2e suite (7 escenarios) que cubre la familia de 5 bugs de la demo del 2026-04-27. Splits importantes: cli.js 699→113 LOC, plan.js 549→14, iteration-loop.js 513→311, pre-loop.js 626→435. ESLint ratcheteado: 57 warnings cerrados, reglas clave warn→error. BREAKING: engines.node 18→20.10.0 (Node 18 LTS llegó a EOL el 2025-04-30). 4 199 tests en 357 ficheros."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -23,6 +23,12 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
+  <Card title="Endurecimiento Dirigido por Audit (v2.8)" icon="seti:lock">
+    Toda llamada a `child_process` en `src/` migrada a arrays de argumentos tokenizados — cero expansión de metacaracteres de shell, incluso con inputs constantes. `cli.js`, `plan.js`, `iteration-loop.js` y `pre-loop.js` divididos por costuras limpias; cada driver bajo el techo de 600 LOC. Nuevas reglas ESLint que prohíben `console.*` fuera de paths CLI y `globalThis.__KJ_*` fuera del test-harness. 57 warnings cerrados en `src/`, luego `no-unused-vars` / `no-useless-assignment` / `preserve-caught-error` ratcheteados a errores: las regresiones rompen CI.
+  </Card>
+  <Card title="FASE 1 E2E Suite (v2.8)" icon="approve-check">
+    7 escenarios + fixtures fake-coder/sonar cubren la familia de 5 bugs de la demo del 2026-04-27: zombie-HU, saveSession-missing, Repairer unfixable, zombi-status, kj-audit smoke. Cada test < 90s; suite e2e completa en 6s sin LLM ni red reales. Los bugs que tumbaron la demo la semana pasada ahora rompen CI antes de poder mergear.
+  </Card>
   <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
     Skills de proceso de primera fuente desde [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development y más. Clonado automático en `~/.karajan/agent-skills/`, refresco semanal con `git pull`. Consciente del rol: cada rol de Karajan (tester, reviewer, security, architect, coder...) recibe los workflows que le corresponden. Totalmente ortogonal a OpenSkills — los skills de proceso y los de stack se componen.
   </Card>

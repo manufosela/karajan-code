@@ -62,6 +62,7 @@ export default defineConfig({
 						{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
 						{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
 						{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
+					{ label: 'Hardening Against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
 					],
 				},
 				{
