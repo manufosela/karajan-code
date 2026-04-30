@@ -1,5 +1,5 @@
 /**
- * E2E #04 — `kj doctor` runs end-to-end and emits a recognisable
+ * E2E #13 — `kj doctor` runs end-to-end and emits a recognisable
  * report. No LLM call. We don't assert specific check outcomes
  * (that depends on the host) — only that doctor RUNS, exits with a
  * valid code, and produces structured output.
@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runKj } from "./helpers/spawn-kj.js";
 import { makeTmpProject } from "./helpers/tmp-project.js";
 
-describe("e2e/04 — kj doctor", () => {
+describe("e2e/13 — kj doctor", () => {
   let proj;
   afterEach(() => proj?.cleanup());
 
