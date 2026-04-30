@@ -187,12 +187,12 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
   // rule alerts — that's a runtime decision, not a config option.
   //
   // Test-harness escape hatch via config.testHarness.disableSonarStage
-  // (resolved from the same value tests used to set on
-  // globalThis.__KJ_DISABLE_SONAR_STAGE — see src/config/test-harness.js).
-  // Post-v2.7.5 this path no longer reads globalThis directly; config is
-  // the single source of truth. tests/setup.js continues to set the
-  // globalThis flag for back-compat, and the loader pulls it into
-  // config.testHarness at load time.
+  // — production code reads `config?.testHarness?.disableSonarStage`,
+  // never `globalThis.*`. The legacy `globalThis.__KJ_DISABLE_SONAR_STAGE`
+  // shape is documented (and exclusively read) in
+  // src/config/test-harness.js, where the loader translates it into
+  // the typed config slot above. ESLint rule (#557) blocks any
+  // re-introduction outside that one file.
   const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
   const sonarEnabled = !sonarStageDisabledForTest && resolvedPolicies.sonar !== false;
   const isExternalSonar = Boolean(config.sonarqube?.external);

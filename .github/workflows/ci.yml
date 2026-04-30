@@ -10,15 +10,16 @@ permissions:
   contents: read
 
 jobs:
-  # node --check runs on 18/20/22 to catch parse-time syntax/import bugs
-  # that would break Node 18 LTS users (package.json engines: >=18.0.0).
+  # node --check runs on 20/22 to catch parse-time syntax/import bugs.
+  # Node 18 was dropped 2026-04-30 (audit cleanup): Node 18 LTS hit EOL on
+  # 2025-04-30 and engines.node is now >=20.10.0.
   syntax:
     name: Syntax (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [20.x, 22.x]
 
     steps:
       - name: Checkout
@@ -36,9 +37,9 @@ jobs:
       - name: Lint (node --check — parse-time syntax)
         run: npm run lint:syntax
 
-  # ESLint requires Node 20.12+ (uses util.styleText). Node 18 users still
-  # get parse-time guarantees from the `syntax` job above; ESLint adds the
-  # no-undef / import-resolution checks the user runtime is also bound by.
+  # ESLint runs on the same Node matrix as syntax (20/22). Pre-2026-04-30
+  # this used to mention "Node 18 users still get parse-time guarantees" —
+  # no longer relevant now that engines.node = >=20.10.0.
   lint:
     name: Lint (ESLint, Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
@@ -63,10 +64,8 @@ jobs:
       - name: Lint (ESLint — no-undef + import resolution)
         run: npm run lint
 
-  # Tests are restricted to Node 20+. vitest 4 / rolldown (a devDependency)
-  # uses `styleText` from `node:util` which only exists on Node 20.12+. The
-  # KARAJAN RUNTIME itself works on Node 18 — rolldown is never pulled into a
-  # user install. If/when vitest regains Node 18 support, add 18.x back here.
+  # Tests run on Node 20/22 — the engine floor is now also >=20.10.0
+  # so this matrix matches the supported runtime range.
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest

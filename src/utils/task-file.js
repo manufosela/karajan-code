@@ -49,7 +49,7 @@ export async function readTaskFile(filePath, opts = {}) {
   try {
     stat = await fs.stat(resolved);
   } catch (err) {
-    throw new Error(`Task file not found: ${resolved} (${err.code || err.message})`);
+    throw new Error(`Task file not found: ${resolved} (${err.code || err.message})`, { cause: err });
   }
   if (!stat.isFile()) {
     throw new Error(`Task file is not a regular file: ${resolved}`);

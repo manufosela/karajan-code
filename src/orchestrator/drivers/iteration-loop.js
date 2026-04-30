@@ -162,9 +162,11 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
   // runtime decision, not a config option.
   //
   // Test-harness escape hatch via config.testHarness.disableSonarStage
-  // (populated from globalThis.__KJ_DISABLE_SONAR_STAGE by the loader
-  // for back-compat with tests/setup.js). Production code reads config
-  // only; globalThis is not touched here.
+  // — production code reads `config?.testHarness?.disableSonarStage`,
+  // never `globalThis.*`. The legacy override surface is documented
+  // (and exclusively read) in src/config/test-harness.js. ESLint rule
+  // (#557) blocks any re-introduction of `globalThis.__KJ_*` outside
+  // that one file.
   const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
   if (!sonarStageDisabledForTest && session.resolved_policies?.sonar !== false) {
     const sonarResult = await runSonarStage({
