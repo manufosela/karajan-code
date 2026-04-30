@@ -75,12 +75,18 @@ describe("architecture/stage-registry — StageExecutor contract is load-bearing
   });
 
   it("drivers/iteration-loop.js routes coder + reviewer through stageRegistry.get(...)", async () => {
+    // v2.7.x audit follow-up: the coder and reviewer phase bodies were
+    // extracted to ./iteration-phases/coder-and-refactorer.js and
+    // ./iteration-phases/reviewer-gate.js to keep iteration-loop.js
+    // under the 600-LOC ceiling. The StageRegistry contract is still
+    // load-bearing — assert it at the new addresses.
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const url = await import("node:url");
     const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
-    const text = await fs.readFile(path.join(repoRoot, "src/orchestrator/drivers/iteration-loop.js"), "utf8");
-    expect(text).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']coder["']\s*\)/);
-    expect(text).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']reviewer["']\s*\)/);
+    const coderText = await fs.readFile(path.join(repoRoot, "src/orchestrator/drivers/iteration-phases/coder-and-refactorer.js"), "utf8");
+    const reviewerText = await fs.readFile(path.join(repoRoot, "src/orchestrator/drivers/iteration-phases/reviewer-gate.js"), "utf8");
+    expect(coderText).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']coder["']\s*\)/);
+    expect(reviewerText).toMatch(/runStage\(\s*stageRegistry\.get\(\s*["']reviewer["']\s*\)/);
   });
 });

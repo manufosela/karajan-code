@@ -61,14 +61,16 @@ describe("architecture/sonar-intrinsic — Sonar is not a config toggle", () => 
   describe("iteration-loop driver (runQualityGateStages)", () => {
     it("gates the sonar stage on resolved_policies.sonar, not config.sonarqube.enabled", async () => {
       // TSK-0335 (Oleada 3): runQualityGateStages moved from flow-runner.js
-      // into the iteration-loop driver. Assert the invariant at the new
-      // address so the decomposition can't sneak the forbidden gate back in.
+      // into the iteration-loop driver. v2.7.x audit follow-up: extracted
+      // again into ./iteration-phases/quality-gates.js to stay under the
+      // 600-LOC ceiling. Assert the invariant at the new address so the
+      // decomposition can't sneak the forbidden gate back in.
       const fs = await import("node:fs/promises");
       const path = await import("node:path");
       const url = await import("node:url");
       const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "../..");
       const text = await fs.readFile(
-        path.join(repoRoot, "src/orchestrator/drivers/iteration-loop.js"),
+        path.join(repoRoot, "src/orchestrator/drivers/iteration-phases/quality-gates.js"),
         "utf8",
       );
       // Forbid: `if (config.sonarqube.enabled && ...) runSonarStage`
