@@ -33,6 +33,19 @@
  * read once, inside `test-harness.js`, and the rest of src/ talks
  * to typed config getters. The selector below stops anyone (LLM or
  * human) re-introducing the old pattern.
+ *
+ * 2026-04-27 follow-up (audit recommendation #5): bans `console.*` in
+ * library / orchestrator code. Audit-time review of 309 console.* call
+ * sites confirmed every existing one is justified — they sit in CLI
+ * commands (`src/commands/`), display utilities (`src/utils/display/`,
+ * `banner.js`, `welcome.js`), the structured logger implementation
+ * itself (`src/utils/logger.js`), or the three orchestrator drivers
+ * that print user-facing run banners (`init-context.js`, `pre-loop.js`,
+ * `post-loop.js`). The rule below switches `no-console` from
+ * "off everywhere" to "error everywhere except those known-good
+ * paths" so future code can't slip a `console.log` into the library
+ * layer. New CLI commands inherit the allow list automatically because
+ * they live under `src/commands/**`.
  */
 
 import js from "@eslint/js";
@@ -84,9 +97,10 @@ export default [
       "no-useless-escape": "warn",
       "preserve-caught-error": "warn",
 
-      // --- Off (intentional) -----------------------------------------
-      // The codebase uses `console.log` deliberately in CLI output paths.
-      "no-console": "off",
+      // Audit rec #5: ban console.* in src/ by default. The override
+      // block below re-enables it for the known-good CLI / display /
+      // logger paths.
+      "no-console": "error",
       // Some files conditionally `let x; if (...) x = ...;`; legitimate.
       "prefer-const": "off",
       // ANSI escape parsing in run-log viewers legitimately uses \x1b
@@ -114,6 +128,29 @@ export default [
     files: ["src/config/test-harness.js"],
     rules: {
       "no-restricted-syntax": "off",
+    },
+  },
+  {
+    // Audit rec #5: paths where `console.*` is the intended UX surface,
+    // not a forgotten debug print. Everything else under src/ falls
+    // back to the default "no-console: error" set above.
+    files: [
+      "src/cli.js",
+      "src/commands/**/*.js",
+      "src/utils/banner.js",
+      "src/utils/welcome.js",
+      "src/utils/update-check.js",
+      "src/utils/display/**/*.js",
+      "src/utils/logger.js",
+      // The orchestrator drivers below print user-facing run banners
+      // (board URL, plan summary). They're terminal output, not log
+      // lines that would benefit from a structured logger.
+      "src/orchestrator/drivers/init-context.js",
+      "src/orchestrator/drivers/pre-loop.js",
+      "src/orchestrator/drivers/post-loop.js",
+    ],
+    rules: {
+      "no-console": "off",
     },
   },
   {
