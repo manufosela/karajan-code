@@ -35,7 +35,7 @@ function extractLangCode(locale) {
   const trimmed = locale.trim();
   if (!trimmed || trimmed === "C" || trimmed === "POSIX") return null;
   // Match first 2 lowercase letters before _, ., or end
-  const match = /^([a-z]{2})(?:[_.\-]|$)/i.exec(trimmed);
+  const match = /^([a-z]{2})(?:[_.-]|$)/i.exec(trimmed);
   if (match) return match[1].toLowerCase();
   return null;
 }

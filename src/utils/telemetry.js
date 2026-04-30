@@ -32,7 +32,19 @@ export async function sendTelemetryEvent(eventName, data, config) {
     } finally {
       clearTimeout(timeout);
     }
-  } catch { /* never block, never fail */ }
+  } catch (err) {
+    // Audit follow-up: was a silent catch{}. Telemetry MUST stay
+    // fire-and-forget (never block the user's pipeline, never throw),
+    // but completely silent failures hide DNS/network bugs that matter
+    // when debugging the telemetry pipeline itself. Surface the error
+    // to stderr only when KJ_DEBUG=1 is explicitly set, so normal runs
+    // are still silent.
+    if (process.env.KJ_DEBUG === "1") {
+      // Stderr (not console — telemetry runs from CLI commands and is
+      // legitimate user-visible diagnostic output under KJ_DEBUG).
+      process.stderr.write(`[telemetry-debug] ${eventName}: ${err.message}\n`);
+    }
+  }
 }
 
 /**

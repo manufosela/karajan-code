@@ -226,7 +226,7 @@ async function collectPythonDeps(projectDir, needed) {
     for (const line of raw.split("\n")) {
       const trimmed = line.trim().split("#")[0].trim();
       if (!trimmed) continue;
-      const name = trimmed.split(/[<>=!~\[\s]/)[0].toLowerCase();
+      const name = trimmed.split(/[<>=!~[\s]/)[0].toLowerCase();
       const skill = PYTHON_DEPS[name];
       if (skill) needed.add(skill);
     }
