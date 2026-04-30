@@ -22,244 +22,42 @@
 
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { msg, getLang } from "../../utils/messages.js";
-import { markSessionStatus, addCheckpoint, saveSession } from "../../session/store.js";
+import { saveSession, markSessionStatus } from "../../session/store.js";
 import {
   setReviewerFeedback, resetRetryCount,
 } from "../../session/mutators.js";
-import { generateDiff, computeBaseRef } from "../../review/diff-generator.js";
-import { scanDiff } from "../../guards/output-guard.js";
-import { scanPerfDiff } from "../../guards/perf-guard.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import {
-  runRefactorerStage, runTddCheckStage,
-  runSonarStage, runSonarCloudStage,
-} from "../iteration-stages.js";
-// TSK-0336: coder and reviewer go through the StageRegistry contract. The
-// registered classes (CoderStage / ReviewerStage) delegate execute() to
-// runCoderStage / runReviewerStage, so behavior is unchanged — the
-// difference is that canRun now gates execution declaratively instead of
-// requiring the callsite to guard the call itself.
-import { stageRegistry } from "../stages/stage-classes.js";
-import { runStage } from "../stages/stage-executor.js";
-import { runImpeccableStage } from "../post-loop-stages.js";
-import {
-  handleCiEarlyPrOrPush, handleCiReviewDispatch, tryCiComment,
+  handleCiEarlyPrOrPush, handleCiReviewDispatch,
 } from "../ci-integration.js";
 import {
   handleCheckpoint, checkSessionTimeout, checkBudgetExceeded,
   takeCheckpointSnapshot,
 } from "../flow-control.js";
 import {
-  handleStandbyResult, handleSolomonCheck, handleReviewerRetryAndSolomon,
+  handleSolomonCheck, handleReviewerRetryAndSolomon,
 } from "./error-recovery.js";
-import {
-  handlePostLoopStages, finalizeApprovedSession, handleMaxIterationsReached,
-} from "./post-loop.js";
+import { handleMaxIterationsReached } from "./post-loop.js";
+import { runCoderAndRefactorerStages } from "./iteration-phases/coder-and-refactorer.js";
+import { runGuardStages } from "./iteration-phases/guards.js";
+import { runQualityGateStages } from "./iteration-phases/quality-gates.js";
+import { runReviewerGateStage } from "./iteration-phases/reviewer-gate.js";
+import { handleApprovedReview } from "./iteration-phases/handle-approved.js";
 
-export async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i, brainCtx }) {
-  // Coder via StageRegistry (TSK-0336). canRun = coderRequired !== false; in
-  // analysis-only task types coderRequired is set to false by policy, so the
-  // stage is never even entered — matches the previous guard at the top of
-  // runFlow.
-  const coderCtx = { coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i, brainCtx, pipelineFlags };
-  const coderResult = await runStage(stageRegistry.get("coder"), coderCtx);
-  if (coderResult?.action === "pause") return { action: "return", result: coderResult.result };
-  const coderStandby = await handleStandbyResult({ stageResult: coderResult, session, emitter, eventBase, i, stage: "coder", logger, config });
-  if (coderStandby.handled) {
-    return coderStandby.action === "return"
-      ? { action: "return", result: coderStandby.result }
-      : { action: "retry" };
-  }
+// Re-export for back-compat with any external caller; the canonical
+// definitions now live in ./iteration-phases/.
+export { runCoderAndRefactorerStages } from "./iteration-phases/coder-and-refactorer.js";
+export { runGuardStages } from "./iteration-phases/guards.js";
+export { runQualityGateStages } from "./iteration-phases/quality-gates.js";
+export { runReviewerGateStage } from "./iteration-phases/reviewer-gate.js";
+export { handleApprovedReview } from "./iteration-phases/handle-approved.js";
 
-  if (pipelineFlags.refactorerEnabled) {
-    const refResult = await runRefactorerStage({ refactorerRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i });
-    if (refResult?.action === "pause") return { action: "return", result: refResult.result };
-    const refStandby = await handleStandbyResult({ stageResult: refResult, session, emitter, eventBase, i, stage: "refactorer", logger, config });
-    if (refStandby.handled) {
-      return refStandby.action === "return"
-        ? { action: "return", result: refStandby.result }
-        : { action: "retry" };
-    }
-  }
-
-  return { action: "ok" };
-}
-
-export async function runGuardStages({ config, logger, emitter, eventBase, session, iteration }) {
-  const outputEnabled = config.guards?.output?.enabled !== false;
-  const perfEnabled = config.guards?.perf?.enabled !== false;
-
-  if (!outputEnabled && !perfEnabled) return { action: "ok" };
-
-  const baseBranch = config.base_branch || "main";
-  let diff;
-  try {
-    const baseRef = await computeBaseRef({ baseBranch });
-    diff = await generateDiff({ baseRef });
-  } catch {
-    logger.warn("Guards: could not generate diff, skipping");
-    return { action: "ok" };
-  }
-
-  if (!diff) return { action: "ok" };
-
-  if (outputEnabled) {
-    const outputResult = scanDiff(diff, config);
-    if (outputResult.violations.length > 0) {
-      const critical = outputResult.violations.filter(v => v.severity === "critical");
-      const warnings = outputResult.violations.filter(v => v.severity === "warning");
-      emitProgress(emitter, makeEvent("guard:output", { ...eventBase, stage: "guard" }, {
-        message: `Output guard: ${critical.length} critical, ${warnings.length} warnings`,
-        detail: { violations: outputResult.violations, executorType: "local" }
-      }));
-      logger.info(`Output guard: ${outputResult.violations.length} violation(s) found`);
-      for (const v of outputResult.violations) {
-        logger.info(`  [${v.severity}] ${v.file}:${v.line} — ${v.message}`);
-      }
-      await addCheckpoint(session, { stage: "guard-output", iteration, pass: outputResult.pass, violations: outputResult.violations.length });
-
-      if (!outputResult.pass && config.guards.output.on_violation === "block") {
-        await markSessionStatus(session, "failed");
-        emitProgress(emitter, makeEvent("guard:blocked", { ...eventBase, stage: "guard" }, {
-          message: "Output guard blocked: critical violations detected",
-          detail: { violations: critical }
-        }));
-        return {
-          action: "return",
-          result: { approved: false, sessionId: session.id, reason: "guard_blocked", violations: critical }
-        };
-      }
-    }
-  }
-
-  if (perfEnabled) {
-    const perfResult = scanPerfDiff(diff, config);
-    if (!perfResult.skipped && perfResult.violations.length > 0) {
-      emitProgress(emitter, makeEvent("guard:perf", { ...eventBase, stage: "guard" }, {
-        message: `Perf guard: ${perfResult.violations.length} issue(s)`,
-        detail: { violations: perfResult.violations, executorType: "local" }
-      }));
-      logger.info(`Perf guard: ${perfResult.violations.length} issue(s) found`);
-      for (const v of perfResult.violations) {
-        logger.info(`  [${v.severity}] ${v.file}:${v.line} — ${v.message}`);
-      }
-      await addCheckpoint(session, { stage: "guard-perf", iteration, pass: perfResult.pass, violations: perfResult.violations.length });
-    }
-  }
-
-  return { action: "ok" };
-}
-
-export async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
-  const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion, task, brainCtx });
-  if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
-  if (tddResult.action === "continue") return { action: "continue" };
-
-  // Sonar runs for code tasks per policy. Since v2.7.4 it is NOT
-  // toggleable via config — that's intrinsic to Karajan. The taskType
-  // policy (resolved_policies.sonar) is the single source of truth.
-  // Solomon may skip a single iteration via rule alerts; that's a
-  // runtime decision, not a config option.
-  //
-  // Test-harness escape hatch via config.testHarness.disableSonarStage
-  // — production code reads `config?.testHarness?.disableSonarStage`,
-  // never `globalThis.*`. The legacy override surface is documented
-  // (and exclusively read) in src/config/test-harness.js. ESLint rule
-  // (#557) blocks any re-introduction of `globalThis.__KJ_*` outside
-  // that one file.
-  const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
-  if (!sonarStageDisabledForTest && session.resolved_policies?.sonar !== false) {
-    const sonarResult = await runSonarStage({
-      config, logger, emitter, eventBase, session, trackBudget, iteration: i,
-      repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx
-    });
-    if (sonarResult.action === "stalled" || sonarResult.action === "pause") return { action: "return", result: sonarResult.result };
-    if (sonarResult.action === "continue") return { action: "continue" };
-    if (sonarResult.stageResult) {
-      stageResults.sonar = sonarResult.stageResult;
-      await tryCiComment({ config, session, logger, agent: "Sonar", body: `SonarQube scan: ${sonarResult.stageResult.summary || "completed"}` });
-    }
-  }
-
-  if (config.sonarcloud?.enabled) {
-    const cloudResult = await runSonarCloudStage({
-      config, logger, emitter, eventBase, session, trackBudget, iteration: i
-    });
-    if (cloudResult.stageResult) {
-      stageResults.sonarcloud = cloudResult.stageResult;
-    }
-  }
-
-  if (pipelineFlags?.impeccableEnabled) {
-    const diff = await generateDiff({ baseRef: session.session_start_sha });
-    const impeccableMode = pipelineFlags?.impeccableMode || "audit";
-    const impeccableResult = await runImpeccableStage({
-      config, logger, emitter, eventBase, session, coderRole, trackBudget,
-      iteration: i, task, diff, mode: impeccableMode
-    });
-    if (impeccableResult.stageResult) {
-      stageResults.impeccable = impeccableResult.stageResult;
-    }
-  }
-
-  return { action: "ok" };
-}
-
-export async function runReviewerGateStage({ pipelineFlags, reviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion, brainCtx }) {
-  // Reviewer via StageRegistry (TSK-0336). ReviewerStage.canRun returns
-  // `reviewerEnabled !== false`; when false, runStage returns null and we
-  // synthesize the "disabled-by-pipeline" stub (same shape as the previous
-  // early-return). Otherwise execute() runs runReviewerStage.
-  const reviewerCtx = {
-    reviewerRole, config, logger, emitter, eventBase, session, trackBudget,
-    iteration: i, reviewRules, task, repeatDetector, budgetSummary, askQuestion,
-    brainCtx, pipelineFlags,
-  };
-  const reviewerResult = await runStage(stageRegistry.get("reviewer"), reviewerCtx);
-  if (reviewerResult === null) {
-    return {
-      action: "ok",
-      review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Reviewer disabled by pipeline", confidence: 1 }
-    };
-  }
-  if (reviewerResult.action === "pause") return { action: "return", result: reviewerResult.result };
-  const revStandby = await handleStandbyResult({ stageResult: reviewerResult, session, emitter, eventBase, i, stage: "reviewer", logger, config, askQuestion });
-  if (revStandby.handled) {
-    if (revStandby.action === "return") return { action: "return", result: revStandby.result };
-    if (revStandby.action === "skip") {
-      // Solomon said skip review — treat as approved
-      return { action: "ok", review: { approved: true, blocking_issues: [], non_blocking_suggestions: [], summary: "Review skipped (agent rate-limited, Solomon approved)", confidence: 0.7 } };
-    }
-    if (revStandby.action === "retry_reviewer_only") {
-      // Retry just the reviewer — use alternative agent if Solomon recommended one
-      let retryReviewerRole = reviewerRole;
-      const alt = session._alternative_agent;
-      if (alt?.stage === "reviewer" && alt?.provider) {
-        retryReviewerRole = { provider: alt.provider, model: null };
-        logger.info(`Retrying reviewer with alternative agent: ${alt.provider}`);
-        delete session._alternative_agent;
-      }
-      return runReviewerGateStage({ pipelineFlags: { reviewerEnabled: true }, reviewerRole: retryReviewerRole, config, logger, emitter, eventBase, session, trackBudget, i, reviewRules, task, repeatDetector, budgetSummary, askQuestion });
-    }
-    return { action: "retry" };
-  }
-  if (reviewerResult.stalled) return { action: "return", result: reviewerResult.stalledResult };
-  return { action: "ok", review: reviewerResult.review };
-}
-
-export async function handleApprovedReview({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, pipelineFlags, askQuestion, logger, gitCtx, budgetSummary, pgCard, pgProject, review, rtkTracker, brainCtx }) {
-  resetRetryCount(session, "reviewer");
-  const postLoopResult = await handlePostLoopStages({
-    config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults,
-    ciEnabled: Boolean(config.ci?.enabled), testerEnabled: pipelineFlags.testerEnabled, securityEnabled: pipelineFlags.securityEnabled, askQuestion, logger, brainCtx
-  });
-  if (postLoopResult.action === "return") return { action: "return", result: postLoopResult.result };
-  if (postLoopResult.action === "continue") return { action: "continue" };
-
-  const result = await finalizeApprovedSession({ config, gitCtx, task, logger, session, stageResults, emitter, eventBase, budgetSummary, pgCard, pgProject, review, i, rtkTracker });
-  return { action: "return", result };
-}
-
+// `runCoderAndRefactorerStages`, `runGuardStages`, `runQualityGateStages`,
+// `runReviewerGateStage` and `handleApprovedReview` were extracted to
+// ./iteration-phases/ in the v2.7.x audit follow-up (same pattern as
+// pre-loop-phases/). The imports above pull them back in; re-exports
+// keep the previous public surface for any external caller. Behaviour
+// is unchanged.
 
 
 export async function runSingleIteration(ctx) {
