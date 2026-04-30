@@ -148,6 +148,11 @@ export default [
       "src/orchestrator/drivers/init-context.js",
       "src/orchestrator/drivers/pre-loop.js",
       "src/orchestrator/drivers/post-loop.js",
+      // Pre-loop phases (sub-modules of pre-loop.js): when a phase
+      // auto-starts the HU board it prints the same banner the parent
+      // driver does. Allow console.* in the whole sub-package for
+      // architectural consistency with pre-loop.js itself.
+      "src/orchestrator/drivers/pre-loop-phases/**/*.js",
     ],
     rules: {
       "no-console": "off",
