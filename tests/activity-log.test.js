@@ -37,7 +37,10 @@ describe("createActivityLog", () => {
     });
 
     // Wait for async flush
-    await new Promise((r) => setTimeout(r, 50));
+    // Audit follow-up: was a fixed 50 ms sleep that flaked under CI load.
+    // vi.waitFor polls until fs.appendFile has been called once (or until
+    // the default 1 s timeout). Tests run in <10 ms locally either way.
+    await vi.waitFor(() => expect(fs.appendFile).toHaveBeenCalled());
 
     expect(fs.appendFile).toHaveBeenCalledTimes(1);
     const written = fs.appendFile.mock.calls[0][1];
@@ -59,7 +62,10 @@ describe("createActivityLog", () => {
       message: "Coder completed"
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    // Audit follow-up: was a fixed 50 ms sleep that flaked under CI load.
+    // vi.waitFor polls until fs.appendFile has been called once (or until
+    // the default 1 s timeout). Tests run in <10 ms locally either way.
+    await vi.waitFor(() => expect(fs.appendFile).toHaveBeenCalled());
 
     expect(fs.appendFile).toHaveBeenCalledTimes(1);
     const written = fs.appendFile.mock.calls[0][1];
@@ -78,7 +84,10 @@ describe("createActivityLog", () => {
       message: "Coder failed"
     });
 
-    await new Promise((r) => setTimeout(r, 50));
+    // Audit follow-up: was a fixed 50 ms sleep that flaked under CI load.
+    // vi.waitFor polls until fs.appendFile has been called once (or until
+    // the default 1 s timeout). Tests run in <10 ms locally either way.
+    await vi.waitFor(() => expect(fs.appendFile).toHaveBeenCalled());
 
     const written = fs.appendFile.mock.calls[0][1];
     expect(written).toContain("[ERROR]");
@@ -95,7 +104,10 @@ describe("createActivityLog", () => {
     });
 
     // Should not throw
-    await new Promise((r) => setTimeout(r, 50));
+    // Audit follow-up: was a fixed 50 ms sleep that flaked under CI load.
+    // vi.waitFor polls until fs.appendFile has been called once (or until
+    // the default 1 s timeout). Tests run in <10 ms locally either way.
+    await vi.waitFor(() => expect(fs.appendFile).toHaveBeenCalled());
 
     expect(fs.appendFile).toHaveBeenCalled();
   });
