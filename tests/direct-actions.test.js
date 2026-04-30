@@ -3,12 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 
+// Audit follow-up: run_command now uses execFileSync (no shell expansion).
+// Tests mock only execFileSync — execSync is no longer imported by the source.
 vi.mock("node:child_process", () => ({
-  execSync: vi.fn(),
   execFileSync: vi.fn()
 }));
 
-import { execSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 const {
   executeAction, executeActions, getAllowedActionTypes, isCommandAllowed
 } = await import("../src/orchestrator/direct-actions.js");
@@ -44,13 +45,15 @@ describe("direct-actions", () => {
 
   describe("run_command", () => {
     it("executes allowed command", async () => {
-      execSync.mockReturnValue("added 42 packages");
+      execFileSync.mockReturnValue("added 42 packages");
       const result = await executeAction({
         type: "run_command",
         params: { cmd: "npm install" }
       });
       expect(result.ok).toBe(true);
       expect(result.output).toContain("42 packages");
+      // Tokenised arg array, no shell expansion.
+      expect(execFileSync).toHaveBeenCalledWith("npm", ["install"], expect.any(Object));
     });
 
     it("rejects disallowed command", async () => {
@@ -63,7 +66,7 @@ describe("direct-actions", () => {
     });
 
     it("handles command failure", async () => {
-      execSync.mockImplementation(() => { throw new Error("install failed"); });
+      execFileSync.mockImplementation(() => { throw new Error("install failed"); });
       const result = await executeAction({
         type: "run_command",
         params: { cmd: "npm install" }
@@ -184,7 +187,7 @@ describe("direct-actions", () => {
 
   describe("executeActions", () => {
     it("executes multiple actions in sequence", async () => {
-      execSync.mockReturnValue("");
+      execFileSync.mockReturnValue("");
       const results = await executeActions([
         { type: "update_gitignore", params: { entries: ["a/"], cwd: tmpDir } },
         { type: "update_gitignore", params: { entries: ["b/"], cwd: tmpDir } }

@@ -27,7 +27,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 /**
  * Turn `weather-dashboard` / `weather_dashboard` / `WeatherDashboard`
@@ -70,7 +70,10 @@ function readPackageJsonName(cwd) {
 function readGitRemoteBasename(cwd) {
   try {
     // -C points git at the cwd without us cd'ing the process.
-    const out = execSync(`git -C "${cwd}" config --get remote.origin.url`, {
+    // Audit follow-up: was using execSync with template-string interpolation
+    // of `cwd`. Switched to execFileSync with arg arrays so no interpolation
+    // reaches /bin/sh.
+    const out = execFileSync("git", ["-C", String(cwd), "config", "--get", "remote.origin.url"], {
       stdio: ["ignore", "pipe", "ignore"],
       encoding: "utf8",
       timeout: 1500,

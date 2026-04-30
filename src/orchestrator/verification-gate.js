@@ -1,7 +1,7 @@
 // Verification gate: checks whether the coder actually produced changes.
 // Prevents advancing the pipeline when coder iterations produce 0 file changes.
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 /**
  * @typedef {Object} VerificationResult
@@ -16,14 +16,20 @@ import { execSync } from "node:child_process";
 /**
  * Count files and lines changed since a base reference.
  * Uses git diff --numstat to get both file and line counts.
+ *
+ * Audit follow-up: was using execSync with template-string interpolation
+ * of `baseRef` and `projectDir`. Both come ultimately from session
+ * state / config — not user shell input — but the shape was a known
+ * shell-injection vector. Switched to execFileSync with arg arrays so
+ * no interpolation reaches /bin/sh.
  */
 export function countChangesSince(baseRef, projectDir = null) {
   try {
-    const scope = projectDir ? `-- ${projectDir}` : "";
-    const output = execSync(
-      `git diff --numstat ${baseRef} ${scope}`,
-      { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }
-    ).trim();
+    const args = ["diff", "--numstat", String(baseRef)];
+    if (projectDir) args.push("--", String(projectDir));
+    const output = execFileSync("git", args, {
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
 
     if (!output) return { files: [], filesChanged: 0, linesAdded: 0, linesDeleted: 0 };
 
@@ -48,14 +54,16 @@ export function countChangesSince(baseRef, projectDir = null) {
 
 /**
  * Also count untracked files (new files not yet added to git).
+ *
+ * Audit follow-up: same execSync→execFileSync change as countChangesSince.
  */
 export function countUntrackedFiles(projectDir = null) {
   try {
-    const scope = projectDir || ".";
-    const output = execSync(
-      `git ls-files --others --exclude-standard ${scope}`,
-      { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }
-    ).trim();
+    const args = ["ls-files", "--others", "--exclude-standard"];
+    if (projectDir) args.push(String(projectDir));
+    const output = execFileSync("git", args, {
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
 
     if (!output) return [];
     return output.split("\n").filter(Boolean);

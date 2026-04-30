@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Audit follow-up: verification-gate now uses execFileSync instead of
+// execSync (no shell expansion of `baseRef` / `projectDir`). Tests mock
+// execFileSync accordingly and assert on the arg-array shape.
 vi.mock("node:child_process", () => ({
-  execSync: vi.fn()
+  execFileSync: vi.fn()
 }));
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 const {
   countChangesSince, countUntrackedFiles, verifyCoderOutput, VerificationTracker
 } = await import("../src/orchestrator/verification-gate.js");
@@ -14,7 +17,7 @@ describe("verification-gate", () => {
 
   describe("countChangesSince", () => {
     it("parses git diff --numstat output", () => {
-      execSync.mockReturnValue("10\t5\tsrc/a.js\n3\t2\tsrc/b.js\n");
+      execFileSync.mockReturnValue("10\t5\tsrc/a.js\n3\t2\tsrc/b.js\n");
       const result = countChangesSince("HEAD~1");
       expect(result.filesChanged).toBe(2);
       expect(result.linesAdded).toBe(13);
@@ -23,24 +26,27 @@ describe("verification-gate", () => {
     });
 
     it("returns zeros on empty output", () => {
-      execSync.mockReturnValue("");
+      execFileSync.mockReturnValue("");
       const result = countChangesSince("HEAD~1");
       expect(result.filesChanged).toBe(0);
       expect(result.linesAdded).toBe(0);
     });
 
     it("returns zeros on git error", () => {
-      execSync.mockImplementation(() => { throw new Error("not a git repo"); });
+      execFileSync.mockImplementation(() => { throw new Error("not a git repo"); });
       const result = countChangesSince("HEAD~1");
       expect(result.filesChanged).toBe(0);
       expect(result.files).toEqual([]);
     });
 
-    it("includes projectDir scope in command", () => {
-      execSync.mockReturnValue("");
+    it("includes projectDir scope in command (as a separate arg, post-`--`)", () => {
+      execFileSync.mockReturnValue("");
       countChangesSince("abc123", "demo/");
-      expect(execSync).toHaveBeenCalledWith(
-        expect.stringContaining("-- demo/"),
+      // execFileSync receives ("git", [args...], opts).
+      // No shell expansion: each arg is its own array element.
+      expect(execFileSync).toHaveBeenCalledWith(
+        "git",
+        expect.arrayContaining(["diff", "--numstat", "abc123", "--", "demo/"]),
         expect.any(Object)
       );
     });
@@ -48,25 +54,25 @@ describe("verification-gate", () => {
 
   describe("countUntrackedFiles", () => {
     it("returns list of untracked files", () => {
-      execSync.mockReturnValue("new.js\nnew-dir/file.ts\n");
+      execFileSync.mockReturnValue("new.js\nnew-dir/file.ts\n");
       const files = countUntrackedFiles();
       expect(files).toEqual(["new.js", "new-dir/file.ts"]);
     });
 
     it("returns empty array on no untracked", () => {
-      execSync.mockReturnValue("");
+      execFileSync.mockReturnValue("");
       expect(countUntrackedFiles()).toEqual([]);
     });
 
     it("returns empty array on error", () => {
-      execSync.mockImplementation(() => { throw new Error("fail"); });
+      execFileSync.mockImplementation(() => { throw new Error("fail"); });
       expect(countUntrackedFiles()).toEqual([]);
     });
   });
 
   describe("verifyCoderOutput", () => {
     it("passes when files are changed", () => {
-      execSync
+      execFileSync
         .mockReturnValueOnce("10\t5\tsrc/a.js\n")
         .mockReturnValueOnce("");
       const result = verifyCoderOutput({ baseRef: "HEAD~1" });
@@ -76,7 +82,7 @@ describe("verification-gate", () => {
     });
 
     it("passes when only untracked files exist", () => {
-      execSync
+      execFileSync
         .mockReturnValueOnce("")
         .mockReturnValueOnce("new.js\nother.js\n");
       const result = verifyCoderOutput({ baseRef: "HEAD~1" });
@@ -85,7 +91,7 @@ describe("verification-gate", () => {
     });
 
     it("fails when no changes at all", () => {
-      execSync.mockReturnValue("");
+      execFileSync.mockReturnValue("");
       const result = verifyCoderOutput({ baseRef: "HEAD~1" });
       expect(result.passed).toBe(false);
       expect(result.reason).toContain("0 file changes");
@@ -93,7 +99,7 @@ describe("verification-gate", () => {
     });
 
     it("combines tracked + untracked files", () => {
-      execSync
+      execFileSync
         .mockReturnValueOnce("5\t0\tsrc/existing.js\n")
         .mockReturnValueOnce("new.js\n");
       const result = verifyCoderOutput({ baseRef: "HEAD~1" });
