@@ -158,7 +158,7 @@ describe("session-store/addCheckpoint — defensive guard for stub sessions", ()
       // Acceptable: saveSession may fail with no fs setup. We only care that
       // the .push() didn't crash.
       if (/Cannot read properties of undefined.*push/.test(err.message)) {
-        throw new Error("addCheckpoint regressed: still crashes on missing checkpoints array");
+        throw new Error("addCheckpoint regressed: still crashes on missing checkpoints array", { cause: err });
       }
     }
     expect(Array.isArray(stub.checkpoints)).toBe(true);

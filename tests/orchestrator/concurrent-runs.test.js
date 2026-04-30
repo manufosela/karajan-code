@@ -17,7 +17,12 @@ describe("TSK-0338 — per-run context isolation", () => {
       obs[key].push(getRunContext()?.runner === runner);
       await new Promise((r) => setTimeout(r, delay));
       obs[key].push(getRunContext()?.runner === runner);
-      const res = await (getRunContext()?.runner)(`${key}-cmd`);
+      // Audit-fix #2: was `getRunContext()?.runner(...)` which would throw
+      // if the optional chain short-circuited. The test asserts that a
+      // runner exists, so use a non-optional access here — if it's
+      // undefined the test should fail loudly, not silently.
+      const ctx = getRunContext();
+      const res = await ctx.runner(`${key}-cmd`);
       obs[key].push(res.tag === key.toUpperCase());
     };
 

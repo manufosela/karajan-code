@@ -19,10 +19,11 @@
  * Anything beyond those is `warn` for now (formatting, unused vars).
  * We can ratchet later; first land the no-error baseline.
  *
- * Tests directory is intentionally excluded from this first pass —
- * vitest's `vi.mock()`, dynamic `await import("...")` patterns, and
- * heavy global injection make an over-strict config noisy without
- * payoff. Once the src baseline is green and stable, extend coverage.
+ * 2026-04-27 follow-up (audit recommendation #2): tests/ now covered
+ * too. The same three "bug-killer" rules apply — `no-undef`,
+ * `import-x/no-unresolved`, `import-x/named` — with a vitest globals
+ * block and a relaxed `no-unused-vars` (test fixtures often declare
+ * symbols for assertion-only purposes).
  */
 
 import js from "@eslint/js";
@@ -83,6 +84,50 @@ export default [
       // inside RegExp; disabling globally is fine because the codebase
       // doesn't accept untrusted regex from users.
       "no-control-regex": "off",
+    },
+  },
+  {
+    // Tests block — same bug-killer rules, plus vitest globals and
+    // relaxed unused-vars (helpers + fixtures legitimately allocate
+    // bindings whose value is only their existence).
+    files: ["tests/**/*.js", "tests/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        // Vitest is import-based (no `globalThis.describe`), but tests
+        // also drive Playwright fixtures and DOM assertions in a few
+        // places. The browser globals cover those without polluting src.
+      },
+    },
+    plugins: {
+      "import-x": importX,
+    },
+    rules: {
+      // --- Hard fail (the bug-killers) -------------------------------
+      "no-undef": "error",
+      "import-x/no-unresolved": ["error", {
+        ignore: ["^node:"],
+      }],
+      "import-x/named": "error",
+
+      // --- Soft signals (warn, not error) ----------------------------
+      // Tests routinely declare unused fixture vars for documentation
+      // ("the response shape used to look like X"). Keep as warn so
+      // we still see them, but don't block CI.
+      "no-unused-vars": "warn",
+      "no-useless-assignment": "warn",
+      "no-useless-escape": "warn",
+
+      // --- Off (intentional in tests) --------------------------------
+      "no-console": "off",
+      "prefer-const": "off",
+      "no-control-regex": "off",
+      // Tests legitimately use `var` in some setup blocks where binding
+      // hoisting is the cleanest expression of intent. Don't fight it.
+      "no-var": "off",
     },
   },
 ];
