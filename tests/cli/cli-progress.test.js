@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { createCliProgressReporter } from "../src/utils/cli-progress.js";
+import { createCliProgressReporter } from "../../src/utils/cli-progress.js";
 
 // Minimal Writable-like mock so we can assert what hits stderr.
 function makeStream() {

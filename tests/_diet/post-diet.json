@@ -1,4 +1,45 @@
 {
+  "capturedAt": "2026-04-30T01:22:34.657Z",
+  "baseline": "tests/_diet/baseline.json",
+  "locTotal": 55504,
+  "fileCount": 329,
+  "unprocessedFiles": 0,
+  "perArea": {
+    "agents": {
+      "locAfter": 1139,
+      "fileCountAfter": 9,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1697,
+      "fileCountBefore": 8,
+      "unprocessedFiles": 0
+    },
+    "orchestrator": {
+      "locAfter": 600,
+      "fileCountAfter": 5,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 400,
+      "fileCountBefore": 3,
+      "unprocessedFiles": 0
+    },
+    "skills,cli": {
+      "locAfter": 1234,
+      "fileCountAfter": 11,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1385,
+      "fileCountBefore": 11,
+      "unprocessedFiles": 0
+    },
+    "utils,integration": {
+      "locAfter": 986,
+      "fileCountAfter": 8,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1100,
+      "fileCountBefore": 9,
+      "unprocessedFiles": 0
+    }
+  }
+}
+{
   "capturedAt": "2026-04-29T10:58:54.195Z",
   "locTotal": 56188,
   "wallClockSec": 51.69,

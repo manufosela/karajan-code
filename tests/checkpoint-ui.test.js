@@ -144,7 +144,7 @@ describe("Checkpoint question format", () => {
       "3 = Continue for N minutes",
       "4 = Stop now"
     ];
-    // This test documents the expected format. The actual integration is tested in orchestrator-checkpoint.test.js
+    // This test documents the expected format. The actual integration is tested in runflow-checkpoint.test.js
     for (const opt of expectedOptions) {
       expect(opt).toMatch(/^\d = /);
     }

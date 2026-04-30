@@ -12,72 +12,50 @@ const SAMPLE_SKILLS = [
   { name: "python-data", content: "pandas" },
 ];
 
+const TEST_FRAMEWORK_SKILLS = [
+  { name: "vitest-patterns", content: "" },
+  { name: "jest-patterns", content: "" },
+  { name: "playwright-patterns", content: "" },
+];
+
 describe("skills/role-filter — filterSkillsForRole", () => {
-  describe("reviewer", () => {
-    it("includes *-code-review + security + sql-analysis allowlist, excludes irrelevant patterns", () => {
-      const names = filterSkillsForRole(SAMPLE_SKILLS, "reviewer").map((s) => s.name);
-      expect(names).toContain("java-code-review");
-      expect(names).toContain("java-security-checks");
-      expect(names).toContain("owasp-top-10");
-      expect(names).toContain("sql-analysis");
-      expect(names).not.toContain("react-patterns");
-      expect(names).not.toContain("pytest-patterns");
-      expect(names).not.toContain("python-data");
-    });
+  it.each([
+    {
+      role: "reviewer",
+      input: SAMPLE_SKILLS,
+      includes: ["java-code-review", "java-security-checks", "owasp-top-10", "sql-analysis"],
+      excludes: ["react-patterns", "pytest-patterns", "python-data"],
+    },
+    {
+      role: "architect",
+      input: SAMPLE_SKILLS,
+      includes: ["react-patterns", "sql-analysis", "prisma", "owasp-top-10", "python-data"],
+      excludes: ["pytest-patterns"],
+    },
+    {
+      role: "tester",
+      input: [...SAMPLE_SKILLS, ...TEST_FRAMEWORK_SKILLS],
+      includes: ["pytest-patterns", "vitest-patterns", "jest-patterns", "playwright-patterns"],
+      excludes: ["react-patterns", "sql-analysis"],
+    },
+    {
+      role: "security",
+      input: SAMPLE_SKILLS,
+      includes: ["java-security-checks", "owasp-top-10"],
+      excludes: ["pytest-patterns", "react-patterns"],
+    },
+  ])("$role role keeps the role-specific allowlist and drops the rest", ({ role, input, includes, excludes }) => {
+    const names = filterSkillsForRole(input, role).map((s) => s.name);
+    for (const name of includes) expect(names).toContain(name);
+    for (const name of excludes) expect(names).not.toContain(name);
   });
 
-  describe("architect", () => {
-    it("accepts broad context (anything except test-framework patterns)", () => {
-      const names = filterSkillsForRole(SAMPLE_SKILLS, "architect").map((s) => s.name);
-      // Architecture touches everything: patterns, databases, cloud, security...
-      expect(names).toContain("react-patterns");
-      expect(names).toContain("sql-analysis");
-      expect(names).toContain("prisma");
-      expect(names).toContain("owasp-top-10");
-      expect(names).toContain("python-data");
-      // But NOT test frameworks — those belong to the tester role.
-      expect(names).not.toContain("pytest-patterns");
-    });
-  });
-
-  describe("tester", () => {
-    it("includes *-test/pytest/vitest/jest/playwright patterns only", () => {
-      const extended = [
-        ...SAMPLE_SKILLS,
-        { name: "vitest-patterns", content: "" },
-        { name: "jest-patterns", content: "" },
-        { name: "playwright-patterns", content: "" },
-      ];
-      const names = filterSkillsForRole(extended, "tester").map((s) => s.name);
-      expect(names).toContain("pytest-patterns");
-      expect(names).toContain("vitest-patterns");
-      expect(names).toContain("jest-patterns");
-      expect(names).toContain("playwright-patterns");
-      expect(names).not.toContain("react-patterns");
-      expect(names).not.toContain("sql-analysis");
-    });
-  });
-
-  describe("security", () => {
-    it("includes only *-security / owasp / sast", () => {
-      const names = filterSkillsForRole(SAMPLE_SKILLS, "security").map((s) => s.name);
-      expect(names).toContain("java-security-checks");
-      expect(names).toContain("owasp-top-10");
-      expect(names).not.toContain("pytest-patterns");
-      expect(names).not.toContain("react-patterns");
-    });
-  });
-
-  describe("coder (unknown role) returns everything", () => {
-    it("passes all skills through unchanged", () => {
-      const names = filterSkillsForRole(SAMPLE_SKILLS, "coder").map((s) => s.name);
-      expect(names).toHaveLength(SAMPLE_SKILLS.length);
-    });
-
-    it("returns all when role is null/undefined", () => {
-      expect(filterSkillsForRole(SAMPLE_SKILLS, undefined)).toHaveLength(SAMPLE_SKILLS.length);
-      expect(filterSkillsForRole(SAMPLE_SKILLS, null)).toHaveLength(SAMPLE_SKILLS.length);
-    });
+  it.each([
+    { label: "coder (unknown role)", role: "coder" },
+    { label: "undefined role", role: undefined },
+    { label: "null role", role: null },
+  ])("$label passes all skills through unchanged", ({ role }) => {
+    expect(filterSkillsForRole(SAMPLE_SKILLS, role)).toHaveLength(SAMPLE_SKILLS.length);
   });
 });
 
