@@ -24,6 +24,15 @@
  * `import-x/no-unresolved`, `import-x/named` — with a vitest globals
  * block and a relaxed `no-unused-vars` (test fixtures often declare
  * symbols for assertion-only purposes).
+ *
+ * 2026-04-27 follow-up (audit recommendation #3): bans
+ * `globalThis.__KJ_*` everywhere in src/ except the one file that
+ * legitimately reads them (`src/config/test-harness.js`). Pre-v2.7.5
+ * those globals were scattered across orchestrator code, which made
+ * test setup brittle and the runtime config un-typed. They're now
+ * read once, inside `test-harness.js`, and the rest of src/ talks
+ * to typed config getters. The selector below stops anyone (LLM or
+ * human) re-introducing the old pattern.
  */
 
 import js from "@eslint/js";
@@ -84,6 +93,27 @@ export default [
       // inside RegExp; disabling globally is fine because the codebase
       // doesn't accept untrusted regex from users.
       "no-control-regex": "off",
+
+      // Audit rec #3: ban globalThis.__KJ_* outside test-harness.js.
+      // The selector matches both reads (`globalThis.__KJ_FOO`) and
+      // writes (`globalThis.__KJ_FOO = ...`), which is what we want —
+      // production code shouldn't touch these at all.
+      "no-restricted-syntax": ["error", {
+        selector: "MemberExpression[object.name='globalThis'][property.name=/^__KJ_/]",
+        message:
+          "globalThis.__KJ_* is a test-only override surface. " +
+          "Read/write it only from src/config/test-harness.js, then expose " +
+          "the value through a typed config getter that the rest of src/ uses.",
+      }],
+    },
+  },
+  {
+    // The single file allowed to read/write globalThis.__KJ_*.
+    // (The override is *only* for `no-restricted-syntax`; everything
+    // else still applies.)
+    files: ["src/config/test-harness.js"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
   {
