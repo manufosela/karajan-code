@@ -5,7 +5,6 @@ function buildCloudScannerArgs(projectKey, config) {
   const sc = config.sonarcloud || {};
   const scanner = sc.scanner || {};
   const host = sc.host || "https://sonarcloud.io";
-  const token = process.env.KJ_SONARCLOUD_TOKEN || sc.token;
   const organization = process.env.KJ_SONARCLOUD_ORG || sc.organization;
 
   const args = [

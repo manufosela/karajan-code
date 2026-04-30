@@ -16,7 +16,6 @@ import {
   markSessionStatus,
   resumeSessionWithAnswer,
   saveSession,
-  addCheckpoint,
 } from "../session/store.js";
 // TSK-0337: session mutations go through the mutators module. Every
 // `session.x = y` outside src/session/ should route through one of these
@@ -29,10 +28,8 @@ import {
   setBudget,
 } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
-import { invokeSolomon } from "./solomon-escalation.js";
-import { needsSubPipeline, runHuSubPipeline } from "./hu-sub-pipeline.js";
 import {
-  loadProductContext, resolvePipelineFlags, handleDryRun,
+  resolvePipelineFlags, handleDryRun,
 } from "./config-init.js";
 import { resolveTestHarness } from "../config/test-harness.js";
 import { cleanupAutoInstalledSkills } from "../skills/skill-detector.js";

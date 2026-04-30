@@ -113,7 +113,7 @@ export async function discoverRunningSonar(opts = {}) {
   }
   if (!candidate) return { found: false };
   if (!probe) return { ...candidate, reachable: true };
-  let reachable = false;
+  let reachable;
   try {
     reachable = await isSonarReachable(candidate.host, healthcheckSeconds);
   } catch {

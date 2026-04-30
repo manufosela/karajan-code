@@ -5,7 +5,7 @@
 
 import { EventEmitter } from "node:events";
 import { runFlow, resumeFlow } from "../../orchestrator.js";
-import { loadConfig, applyRunOverrides, validateConfig, resolveRole } from "../../config.js";
+import { loadConfig, resolveRole } from "../../config.js";
 import { createLogger } from "../../utils/logger.js";
 import { assertAgentsAvailable } from "../../agents/availability.js";
 import { validatePolicyCompliance } from "../../guards/policy-guard.js";
@@ -21,7 +21,6 @@ import {
   assertNotOnBaseBranch,
   buildConfig,
   buildAskQuestion,
-  enrichedFailPayload,
   ensureTaskFromFile,
 } from "../shared-helpers.js";
 

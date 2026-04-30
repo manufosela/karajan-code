@@ -125,7 +125,7 @@ function applyOverrides(roles, overrides) {
  * @param {{ forceRoles?: string[], skipRoles?: string[] }} [args.overrides]
  * @returns {Decision}
  */
-export function buildDecision({ triage, task, config = {}, overrides = {} } = {}) {
+export function buildDecision({ triage, task: _task, config = {}, overrides = {} } = {}) {
   const level = triage?.level || "simple";
   const taskType = triage?.taskType || "sw";
 

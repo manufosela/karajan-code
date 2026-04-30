@@ -12,7 +12,7 @@
  */
 
 import { emitProgress, makeEvent } from "../utils/events.js";
-import { addCheckpoint, saveSession } from "../session/store.js";
+import { addCheckpoint } from "../session/store.js";
 import { appendPgCommits } from "../session/mutators.js";
 import { getLang } from "../utils/messages.js";
 
@@ -29,7 +29,7 @@ import { getLang } from "../utils/messages.js";
  * @param {string|null} opts.pgProject - Planning Game project ID
  * @returns {{ pgCard: object|null }} The fetched PG card (or null)
  */
-export async function initPgAdapter({ session, config, logger, pgTaskId, pgProject }) {
+export async function initPgAdapter({ session: _session, config, logger, pgTaskId, pgProject }) {
   if (!pgTaskId || !pgProject || config.planning_game?.enabled === false) {
     return { pgCard: null };
   }

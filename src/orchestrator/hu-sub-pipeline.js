@@ -92,7 +92,7 @@ function buildHuTask(story) {
  * @param {number} args.startedAt — Date.now() when runSingleHu started
  * @returns {object}
  */
-function buildHuOutcome({ story, iterResult, status, startedAt }) {
+function buildHuOutcome({ story: _story, iterResult, status, startedAt }) {
   const r = iterResult || {};
   const git = r.git || {};
   // Iterations are tracked in the standard pipeline as

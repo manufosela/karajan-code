@@ -85,17 +85,21 @@ export default [
       "import-x/named": "error",
 
       // --- Soft signals (warn, not error) ----------------------------
-      "no-unused-vars": ["warn", {
+      // Audit rec #8: ratchet from "warn" to "error" after the
+      // 2026-04-30 cleanup pass that closed 57 warnings across 30
+      // files. With src/ at 0 warnings, the next no-unused-vars
+      // regression should fail CI, not silently accumulate.
+      "no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
         caughtErrors: "none",
       }],
-      // Cosmetic / quality-of-code rules: kept as warnings so FASE 0
-      // can land green today. Each is a real signal worth fixing later
-      // (track in follow-up PR), but none block bug-detection.
-      "no-useless-assignment": "warn",
-      "no-useless-escape": "warn",
-      "preserve-caught-error": "warn",
+      // Same ratchet rationale: these were warnings while the cleanup
+      // backlog existed; the same PR closed them all, so they're now
+      // hard errors. A regression is louder than a "warn".
+      "no-useless-assignment": "error",
+      "no-useless-escape": "error",
+      "preserve-caught-error": "error",
 
       // Audit rec #5: ban console.* in src/ by default. The override
       // block below re-enables it for the known-good CLI / display /

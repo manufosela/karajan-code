@@ -36,7 +36,7 @@ export function createSonarStatusCheck() {
       if (!sonarEnabled(config)) {
         return { ok: true, severity: "info", detail: "Disabled in config" };
       }
-      let reachable = false;
+      let reachable;
       try {
         reachable = await isSonarReachable(host);
       } catch {

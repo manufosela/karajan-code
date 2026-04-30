@@ -8,7 +8,7 @@ import { earlyPrCreation, incrementalPush } from "../git/automation.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { getIntegration } from "./integrations.js";
 
-export async function tryCiComment({ config, session, logger, agent, body }) {
+export async function tryCiComment({ config, session, logger: _logger, agent, body }) {
   if (!config.ci?.enabled || !session.ci_pr_number) return;
   try {
     const { dispatchComment } = await import("../ci/dispatch.js");

@@ -24,17 +24,6 @@ function extractPortFromHost(host, fallback) {
   return m ? Number(m[1]) : fallback;
 }
 
-/**
- * Whether the occupant looks like the Karajan-managed Sonar container.
- * Docker Desktop's proxy is typically `com.docker.backend` / `com.docker.vmnetd`
- * on macOS and `docker-proxy` on Linux. We treat those as OK.
- */
-function isKarajanSonarOccupant(occupant) {
-  if (!occupant?.command) return false;
-  const cmd = occupant.command.toLowerCase();
-  return cmd.includes("docker") || cmd.includes("sonar");
-}
-
 export function createSonarPortCheck() {
   return {
     name: "port:sonar",

@@ -100,7 +100,6 @@ function parseEvaluation(raw) {
   };
 }
 
-const VALID_AC_FORMATS = new Set(["gherkin", "checklist", "pre_post", "invariant"]);
 const AC_PREFIX_RE = /^\[(GHERKIN|CHECKLIST|PRE_POST|INVARIANT)]\s*/i;
 
 /**

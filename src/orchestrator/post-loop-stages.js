@@ -2,7 +2,7 @@ import { TesterRole } from "../roles/tester-role.js";
 import { SecurityRole } from "../roles/security-role.js";
 import { ImpeccableRole } from "../roles/impeccable-role.js";
 import { AuditRole } from "../roles/audit-role.js";
-import { addCheckpoint, saveSession } from "../session/store.js";
+import { addCheckpoint } from "../session/store.js";
 import { resetRetryCount } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
@@ -97,7 +97,7 @@ async function runRoleWithFallback(RoleClass, { roleName, config, logger, emitte
   };
 }
 
-export async function runTesterStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion, pendingGherkinTests = null, shellTestResults = null }) {
+export async function runTesterStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, iteration, task, diff, askQuestion: _askQuestion, pendingGherkinTests = null, shellTestResults = null }) {
   logger.setContext({ iteration, stage: "tester" });
   emitProgress(
     emitter,

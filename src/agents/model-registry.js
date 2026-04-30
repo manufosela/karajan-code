@@ -45,7 +45,7 @@ export function getModelInfo(name) {
 }
 
 export function getRegisteredModels() {
-	return [...modelRegistry.entries()].map(([name, entry]) => ({
+	return [...modelRegistry.entries()].map(([_name, entry]) => ({
 		name: entry.name,
 		provider: entry.provider,
 		pricing: { ...entry.pricing },

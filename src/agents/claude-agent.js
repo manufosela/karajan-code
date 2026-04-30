@@ -288,7 +288,7 @@ export function createStreamJsonFilter(onOutput) {
  *    response data.
  */
 function cleanExecaOpts(extra = {}) {
-  const { CLAUDECODE, ...env } = process.env;
+  const { CLAUDECODE: _CLAUDECODE, ...env } = process.env;
   return { env, stdin: "ignore", ...extra };
 }
 
@@ -333,7 +333,7 @@ export class ClaudeAgent extends BaseAgent {
     return result;
   }
 
-  async _runTaskExec(task, model, role) {
+  async _runTaskExec(task, model, _role) {
     const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS];
     if (model) args.push("--model", model);
 

@@ -41,7 +41,7 @@ export async function syncCommand({ config, logger, planId, json }) {
   const projectDir = config?.projectDir || process.cwd();
 
   // Resolve which plan to sync against.
-  let plan = null;
+  let plan;
   if (planId) {
     plan = await loadPlan(projectDir, planId);
     if (!plan) throw new Error(`kj sync: plan not found: ${planId}`);

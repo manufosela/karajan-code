@@ -37,7 +37,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
       err.httpStatus = 408;
       throw err;
     }
-    throw new Error(`Planning Game network error: ${error?.message || "unknown error"}`);
+    throw new Error(`Planning Game network error: ${error?.message || "unknown error"}`, { cause: error });
   } finally {
     clearTimeout(timeoutId);
   }
@@ -54,7 +54,7 @@ async function parseJsonResponse(response) {
   try {
     return await response.json();
   } catch (error) {
-    throw new Error(`Planning Game invalid response: ${error?.message || "invalid JSON"}`);
+    throw new Error(`Planning Game invalid response: ${error?.message || "invalid JSON"}`, { cause: error });
   }
 }
 
@@ -65,18 +65,7 @@ export async function fetchCard({ projectId, cardId, timeoutMs = DEFAULT_TIMEOUT
   return data?.card || data;
 }
 
-async function getCard({ projectId, cardId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  return fetchCard({ projectId, cardId, timeoutMs });
-}
-
-async function listCards({ projectId, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  const url = `${getApiUrl()}/projects/${encodeURIComponent(projectId)}/cards`;
-  const response = await fetchWithRetry(url, {}, timeoutMs);
-  const data = await parseJsonResponse(response);
-  return data?.cards || data;
-}
-
-export async function updateCard({ projectId, cardId, firebaseId, updates, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export async function updateCard({ projectId, cardId: _cardId, firebaseId, updates, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const url = `${getApiUrl()}/projects/${encodeURIComponent(projectId)}/cards/${encodeURIComponent(firebaseId)}`;
   const response = await fetchWithRetry(
     url,

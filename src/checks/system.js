@@ -32,7 +32,7 @@ export function createGitRepoCheck() {
     label: "Git repository",
     strategy: STRATEGY.MANUAL,
     async detect() {
-      let gitOk = false;
+      let gitOk;
       try {
         gitOk = await ensureGitRepo();
       } catch {

@@ -14,7 +14,7 @@ import { doctorCommand } from "./commands/doctor.js";
 import { reportCommand } from "./commands/report.js";
 import { syncCommand } from "./commands/sync.js";
 import {
-  planCommand, planGenerateCommand, planListCommand,
+  planGenerateCommand, planListCommand,
   planShowCommand, planReadyCommand, planValidateCommand,
   planDeleteCommand, planAddHuCommand, planRemoveHuCommand,
 } from "./commands/plan.js";
@@ -87,7 +87,7 @@ program
   .option("--no-interactive", "Skip wizard, use defaults (for CI/scripts)")
   .option("--scaffold-ci", "Scaffold Karajan CI Gateway workflow files")
   .action(async (flags) => {
-    await withConfig("init", flags, async ({ config, logger }) => {
+    await withConfig("init", flags, async ({ config: _config, logger }) => {
       await initCommand({ logger, flags });
     });
   });
@@ -373,7 +373,7 @@ plan
         try {
           parsed = parseCanvasMarkdown(resolvedTask);
         } catch (err) {
-          throw new Error(`Canvas parse error: ${err.message}`);
+          throw new Error(`Canvas parse error: ${err.message}`, { cause: err });
         }
         const validation = validateCanvas(parsed);
         if (!validation.valid) {

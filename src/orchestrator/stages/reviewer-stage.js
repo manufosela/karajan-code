@@ -7,7 +7,7 @@ import { addCheckpoint, markSessionStatus, saveSession } from "../../session/sto
 import { setReviewerFeedback, setDeferredIssues } from "../../session/mutators.js";
 import { generateDiff } from "../../review/diff-generator.js";
 import { validateReviewResult } from "../../review/schema.js";
-import { filterReviewScope, buildDeferredContext } from "../../review/scope-filter.js";
+import { filterReviewScope } from "../../review/scope-filter.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
 import { runReviewerWithFallback } from "../reviewer-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
@@ -145,7 +145,6 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
   if (brainCtx?.enabled && config.brain?.bypass_solomon_on_correctness !== false) {
     const cats = categorizeIssues(review.blocking_issues);
     const nonStyleIssues = cats.security + cats.correctness + cats.tests;
-    const styleIssues = cats.style;
     // Only bypass if there ARE non-style issues (correctness, tests, security, or "other" is correctness)
     // If it's style-only, let Solomon evaluate whether to override
     if (nonStyleIssues > 0 || cats.other > 0) {
