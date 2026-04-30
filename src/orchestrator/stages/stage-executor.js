@@ -71,7 +71,7 @@ export class StageExecutor {
    * @param {StageContext} _ctx
    * @returns {Promise<StageOutcome | void>}
    */
-  // eslint-disable-next-line no-unused-vars
+   
   async onFailure(err, _ctx) {
     throw err;
   }

@@ -6,7 +6,7 @@
 import { runKjCommand } from "../run-kj.js";
 import { loadConfig } from "../../config.js";
 import { readRunLog } from "../../utils/run-log.js";
-import { isPreflightAcked, ackPreflight, getSessionOverrides } from "../preflight.js";
+import { ackPreflight, getSessionOverrides } from "../preflight.js";
 import { ensureBootstrap } from "../../bootstrap.js";
 import {
   resolveProjectDir,

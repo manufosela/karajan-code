@@ -235,7 +235,6 @@ export async function runReviewerGateStage({ pipelineFlags, reviewerRole, config
       let retryReviewerRole = reviewerRole;
       const alt = session._alternative_agent;
       if (alt?.stage === "reviewer" && alt?.provider) {
-        const { createAgent } = await import("../../agents/index.js");
         retryReviewerRole = { provider: alt.provider, model: null };
         logger.info(`Retrying reviewer with alternative agent: ${alt.provider}`);
         delete session._alternative_agent;

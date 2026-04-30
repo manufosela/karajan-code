@@ -1,5 +1,3 @@
-import { runCommand } from "../utils/process.js";
-
 // Built-in destructive patterns
 const DESTRUCTIVE_PATTERNS = [
   { id: "rm-rf", pattern: /rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|--force\s+)*-[a-zA-Z]*r/, severity: "critical", message: "Recursive file deletion detected" },

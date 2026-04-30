@@ -149,7 +149,7 @@ export async function runCommand(command, args = [], options = {}) {
   }
 }
 
-function enrichResult(result, stdoutAccum, stderrAccum) {
+function enrichResult(result, stdoutAccum, _stderrAccum) {
   if (result.timedOut) return result;
 
   const killed = result.killed || !!result.signal;

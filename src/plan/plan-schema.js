@@ -4,7 +4,7 @@
  * v2 = plans + executable HUs with acceptance tests
  */
 
-import { generatePlanId, generateHuId } from "./plan-id.js";
+import { generatePlanId } from "./plan-id.js";
 
 const VALID_PLAN_STATUSES = new Set(["draft", "ready", "running", "done", "failed"]);
 const VALID_HU_STATUSES = new Set(["pending", "certified", "coding", "reviewing", "done", "failed", "blocked"]);

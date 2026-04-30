@@ -119,7 +119,7 @@ export function verifyCoderOutput({ baseRef, projectDir = null, minFiles = 1, mi
 /**
  * Build a retry strategy based on the verification failure.
  */
-function buildRetryStrategy(filesChanged, linesChanged) {
+function buildRetryStrategy(filesChanged, _linesChanged) {
   if (filesChanged === 0) {
     return "Rephrase the feedback with explicit file paths. List specific files to create/modify. Include example code snippets.";
   }

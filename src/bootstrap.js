@@ -36,7 +36,7 @@ function getPackageVersion() {
 // ── Individual checks ────────────────────────────────────────────────
 
 async function checkGitRepo() {
-  let ok = false;
+  let ok;
   try {
     ok = await ensureGitRepo();
   } catch { /* git may not be installed */

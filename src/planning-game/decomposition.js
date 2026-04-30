@@ -10,7 +10,7 @@ export async function createDecompositionSubtasks({
   client,
   projectId,
   parentCardId,
-  parentFirebaseId,
+  parentFirebaseId: _parentFirebaseId,
   subtasks,
   epic,
   sprint,

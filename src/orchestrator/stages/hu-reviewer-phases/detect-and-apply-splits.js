@@ -84,9 +84,8 @@ export async function detectAndApplySplits({ batch, batchSessionId, askQuestion,
     if (!heuristic) continue;
 
     const triedHeuristics = [];
-    let splitAccepted = false;
 
-    while (heuristic && !splitAccepted) {
+    while (heuristic) {
       const proposal = await generateSplitProposal(
         { id: story.id, text: story.original.text },
         heuristic, config, logger
@@ -101,7 +100,6 @@ export async function detectAndApplySplits({ batch, batchSessionId, askQuestion,
       if (!askQuestion) {
         // Autonomous mode: auto-accept the split.
         applySplit({ batch, story, proposal, heuristic, source: "Auto", eventBase, emitter });
-        splitAccepted = true;
       } else {
         // Interactive mode: ask FDE for confirmation.
         const formatted = formatSplitProposalForFDE(proposal);
@@ -113,7 +111,6 @@ export async function detectAndApplySplits({ batch, batchSessionId, askQuestion,
         const answer = await askQuestion(question, { iteration: 0, stage: "hu-reviewer" });
         if (!answer || answer.toLowerCase().startsWith("yes")) {
           applySplit({ batch, story, proposal, heuristic, source: "FDE", eventBase, emitter });
-          splitAccepted = true;
         } else if (answer.toLowerCase().includes("try") || answer.toLowerCase().startsWith("no")) {
           triedHeuristics.push(heuristic);
           heuristic = selectHeuristic(indicators, triedHeuristics);

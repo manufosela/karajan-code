@@ -91,7 +91,7 @@ export function resolveRole(config, role) {
   const legacyReviewer = config?.reviewer || null;
 
   const provider = resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer);
-  let { model, inherited: modelIsInherited } = resolveModel(roleConfig, role, config);
+  let { model } = resolveModel(roleConfig, role, config);
 
   // Drop model if incompatible with the resolved provider (inherited or explicit)
   if (provider && model && !isModelCompatible(provider, model)) {

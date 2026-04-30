@@ -369,7 +369,7 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
   return { action: "continue" };
 }
 
-export async function runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration, askQuestion, task, brainCtx }) {
+export async function runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget: _trackBudget, iteration, askQuestion, task, brainCtx }) {
   logger.setContext({ iteration, stage: "tdd" });
   let tddDiff, untrackedFiles;
   try {

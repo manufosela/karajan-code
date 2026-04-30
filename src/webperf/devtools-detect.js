@@ -3,7 +3,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { isOpenSkillsAvailable, installSkill, listSkills } from "../skills/openskills-client.js";
+import { isOpenSkillsAvailable, listSkills } from "../skills/openskills-client.js";
 
 /** Skill names relevant for WebPerf analysis. Already installed globally via openskills. */
 export const WEBPERF_SKILLS = [

@@ -67,7 +67,7 @@ export async function generateSnapshotDiff(before, after, rootDir) {
   const lines = [];
 
   // New files (in after but not before)
-  for (const [path, hash] of after) {
+  for (const [path, _hash] of after) {
     if (!before.has(path)) {
       const content = await safeRead(join(rootDir, path));
       if (content !== null) {

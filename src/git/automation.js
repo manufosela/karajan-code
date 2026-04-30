@@ -80,7 +80,7 @@ export async function prepareGitAutomation({ config, task, logger, session }) {
   return { enabled: true, branch, baseBranch, autoRebase };
 }
 
-export function buildPrBody({ task, stageResults }) {
+export function buildPrBody({ task: _task, stageResults }) {
   const sections = ["Created by Karajan Code."];
 
   const approach = stageResults?.planner?.approach;

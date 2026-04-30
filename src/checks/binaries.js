@@ -88,7 +88,7 @@ export function createSerenaCheck() {
     applies: (config) => config.serena?.enabled === true,
     describe: "Install Serena via: uvx --from git+https://github.com/oraios/serena serena",
     async detect() {
-      let ok = false;
+      let ok;
       try {
         const res = await runCommand("serena", ["--version"]);
         ok = res.exitCode === 0;

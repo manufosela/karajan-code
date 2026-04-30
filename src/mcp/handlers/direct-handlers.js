@@ -3,7 +3,6 @@
  * Extracted from server-handlers.js for maintainability.
  */
 
-import { EventEmitter } from "node:events";
 import fs from "node:fs/promises";
 import { resolveRole } from "../../config.js";
 import { createLogger } from "../../utils/logger.js";
@@ -154,7 +153,7 @@ export async function handlePlanDirect(a, server, extra) {
   sendTrackerLog(server, "planner", "running", plannerRole.provider);
   runLog.logText(`[planner] agent launched, waiting for response...`);
   let result;
-  let plannerStats = null;
+  let plannerStats;
   try {
     result = await planner.runTask({
       prompt,

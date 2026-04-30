@@ -59,7 +59,7 @@ function renderAcceptanceTestsSection(tests) {
   tests.forEach((entry, i) => {
     // Normalise: accept legacy strings and structured objects.
     let type = "shell";
-    let content = "";
+    let content;
     let file = null;
     if (typeof entry === "string") {
       content = entry;

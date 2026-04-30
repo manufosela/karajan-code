@@ -16,7 +16,6 @@ import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
 import {
   resolveSonarHost,
-  resolveSonarToken,
   resolveSonarTokenAsync,
   resolveSonarCredentials,
 } from "../sonar/config-resolver.js";

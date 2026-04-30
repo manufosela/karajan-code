@@ -34,7 +34,7 @@ import { tryCiComment } from "../ci-integration.js";
 import { writeIterationsJournal } from "../session-journal.js";
 import { getIntegration } from "../integrations.js";
 
-export async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled, testerEnabled, securityEnabled, askQuestion, logger, brainCtx }) {
+export async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled: _ciEnabled, testerEnabled, securityEnabled, askQuestion, logger, brainCtx }) {
   const postLoopDiff = await generateDiff({ baseRef: session.session_start_sha });
 
   if (testerEnabled) {
@@ -207,7 +207,6 @@ export async function handleMaxIterationsReached({ session, budgetSummary, emitt
     const pending = entries.map(e => ({ source: e.source, category: e.category, severity: e.severity, description: e.description }));
     const hasSecurity = entries.some(e => e.category === "security" || e.source === "security");
     const hasCorrectness = entries.some(e => ["correctness", "tests"].includes(e.category));
-    const hasStyleOnly = entries.length > 0 && !hasSecurity && !hasCorrectness;
 
     if (hasSecurity) {
       // Brain: security issues unresolved → cannot finalize, escalate
