@@ -84,6 +84,51 @@ export function detectNewHomeEntries(before, projectDir) {
 }
 
 /**
+ * Issue #546: filter potential leaks by attribution. Snapshot diff
+ * cannot tell coder writes from concurrent writes by other processes
+ * (host AI scratch files, parallel tooling, manual edits). Real-world
+ * 2026-04-29 incident: a host-side write of `~/karajan-status-snapshot.md`
+ * during a kj run aborted HU 003 with a false positive.
+ *
+ * Heuristic: if the coder genuinely created the leaked path, its
+ * transcript will mention the path or its basename — the coder
+ * narrates what it does (Bash commands, file operations, todos). If
+ * neither the absolute path nor the basename appears anywhere in
+ * the transcript, the entry was created by some other process during
+ * the iteration window and should NOT abort the HU.
+ *
+ * False-negative trade-off: a coder that creates a file silently
+ * (e.g. via a script that doesn't echo paths) escapes this filter.
+ * That trade-off is acceptable: the original leak class (coder
+ * skeleton-creating in $HOME) always emits the path in commands; the
+ * silent-write case has never been observed.
+ *
+ * Back-compat: when `transcript` is empty/null/undefined, NO filtering
+ * happens — every detected leak is passed through unchanged. This
+ * preserves the strict behaviour for callers that don't have a
+ * transcript handy.
+ *
+ * @param {string[]} leaks — output of detectNewHomeEntries()
+ * @param {string|null|undefined} transcript — coder's full output text
+ * @returns {string[]} filtered leaks (the subset attributable to coder)
+ */
+export function verifyLeaksAgainstTranscript(leaks, transcript) {
+  if (!Array.isArray(leaks) || leaks.length === 0) return [];
+  if (!transcript || typeof transcript !== "string" || transcript.length === 0) {
+    return leaks; // no transcript ⇒ no filtering, original behaviour
+  }
+  return leaks.filter((p) => {
+    const base = path.basename(p);
+    // Skip artefacts whose basename is too short to be discriminating
+    // (e.g. ".cache") — a 3-char basename matched against a long
+    // transcript is meaningless. For such cases we prefer the strict
+    // behaviour (flag) since they're rare and the user can inspect.
+    if (base.length < 4) return true;
+    return transcript.includes(p) || transcript.includes(base);
+  });
+}
+
+/**
  * Format a leak list into a multiline plain-Spanish error message.
  * Includes a hint about how to recover (move-or-delete) so the user
  * isn't left guessing.

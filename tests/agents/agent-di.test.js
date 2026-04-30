@@ -42,16 +42,15 @@ describe("BaseAgent — DI surface", () => {
   });
 });
 
+// merged-from: 2 environment-threading tests (custom + default) collapsed.
 describe("createAgent() — threads environment to concrete agents", () => {
-  it("passes a custom environment down to the instantiated agent", () => {
-    const { env } = buildMockEnvironment();
+  it.each([
+    ["custom env",  () => buildMockEnvironment().env, (env) => env],
+    ["default env", () => undefined,                  () => defaultEnvironment]
+  ])("%s reaches the agent.environment field", (_label, mkEnv, expectFn) => {
+    const env = mkEnv();
     const agent = createAgent("claude", { roles: {} }, silentLogger, env);
-    expect(agent.environment).toBe(env);
-  });
-
-  it("uses the default environment when none is supplied", () => {
-    const agent = createAgent("claude", { roles: {} }, silentLogger);
-    expect(agent.environment).toBe(defaultEnvironment);
+    expect(agent.environment).toBe(expectFn(env));
   });
 });
 
@@ -98,61 +97,59 @@ describe("ClaudeAgent — runTask with MockCommandRunner", () => {
   });
 });
 
-describe("CodexAgent — runTask with MockCommandRunner", () => {
-  it("extracts token usage from Codex trailing footer", async () => {
+// merged-from: 4 per-agent DI smoke tests (Codex/Gemini/Aider/OpenCode)
+// collapsed into one table. Each row stands in for the same DI contract:
+// MockCommandRunner replaces execa, the agent's run/review method emits the
+// expected CLI fingerprint, and stdout/stderr round-trip back through the
+// result. Per-agent payloads vary; the assertions are uniform.
+// kept-because: ClaudeAgent stays out of this table — it has its own
+// describe above with two separate cases (success NDJSON parse + sanitized
+// error path) that don't fit the simple fingerprint check.
+describe("agent adapters — DI smoke tests with MockCommandRunner", () => {
+  it.each([
+    [
+      "CodexAgent",   CodexAgent,   "runTask",    "coder",
+      { stdout: "done with work\ntokens used\n1,234", stderr: "" },
+      { prompt: "refactor" },
+      (res, runner) => {
+        expect(res.tokens_out).toBe(1234);
+        expect(runner.lastCall.options.input).toBe("refactor");
+      }
+    ],
+    [
+      "GeminiAgent",  GeminiAgent,  "reviewTask", "reviewer",
+      { stdout: '{"ok":true}', stderr: "" },
+      { prompt: "review" },
+      (res, runner) => {
+        expect(res.output).toBe('{"ok":true}');
+        expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--output-format", "json"]));
+      }
+    ],
+    [
+      "AiderAgent",   AiderAgent,   "runTask",    "coder",
+      { stdout: "done", stderr: "" },
+      { prompt: "fix bug" },
+      (_res, runner) => {
+        expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--yes", "--message", "fix bug"]));
+      }
+    ],
+    [
+      "OpenCodeAgent", OpenCodeAgent, "reviewTask", "reviewer",
+      { stdout: '{"review":"ok"}', stderr: "" },
+      { prompt: "audit" },
+      (res, runner) => {
+        expect(res.output).toBe('{"review":"ok"}');
+        expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--format", "json"]));
+      }
+    ]
+  ])("%s.%s round-trips through MockCommandRunner", async (_name, AgentClass, method, role, mockResult, taskArgs, assertExtra) => {
     const { env, runner } = buildMockEnvironment();
-    runner.enqueue({
-      exitCode: 0,
-      stdout: "done with work\ntokens used\n1,234",
-      stderr: ""
-    });
+    runner.enqueue({ exitCode: 0, ...mockResult });
 
-    const agent = makeAgent(CodexAgent, env);
-    const res = await agent.runTask({ prompt: "refactor", role: "coder" });
+    const agent = makeAgent(AgentClass, env);
+    const res = await agent[method]({ ...taskArgs, role });
 
     expect(res.ok).toBe(true);
-    expect(res.tokens_out).toBe(1234);
-    expect(runner.lastCall.options.input).toBe("refactor");
-  });
-});
-
-describe("GeminiAgent — reviewTask with MockCommandRunner", () => {
-  it("forwards stdout as output and includes --output-format json for reviews", async () => {
-    const { env, runner } = buildMockEnvironment();
-    runner.enqueue({ exitCode: 0, stdout: "{\"ok\":true}", stderr: "" });
-
-    const agent = makeAgent(GeminiAgent, env);
-    const res = await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-    expect(res.ok).toBe(true);
-    expect(res.output).toBe("{\"ok\":true}");
-    expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--output-format", "json"]));
-  });
-});
-
-describe("AiderAgent — runTask with MockCommandRunner", () => {
-  it("passes --yes and --message prompt flags", async () => {
-    const { env, runner } = buildMockEnvironment();
-    runner.enqueue({ exitCode: 0, stdout: "done", stderr: "" });
-
-    const agent = makeAgent(AiderAgent, env);
-    const res = await agent.runTask({ prompt: "fix bug", role: "coder" });
-
-    expect(res.ok).toBe(true);
-    expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--yes", "--message", "fix bug"]));
-  });
-});
-
-describe("OpenCodeAgent — reviewTask with MockCommandRunner", () => {
-  it("adds --format json for reviews and forwards stdout", async () => {
-    const { env, runner } = buildMockEnvironment();
-    runner.enqueue({ exitCode: 0, stdout: "{\"review\":\"ok\"}", stderr: "" });
-
-    const agent = makeAgent(OpenCodeAgent, env);
-    const res = await agent.reviewTask({ prompt: "audit", role: "reviewer" });
-
-    expect(res.ok).toBe(true);
-    expect(res.output).toBe("{\"review\":\"ok\"}");
-    expect(runner.lastCall.args).toEqual(expect.arrayContaining(["--format", "json"]));
+    assertExtra(res, runner);
   });
 });

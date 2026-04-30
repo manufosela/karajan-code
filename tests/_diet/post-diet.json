@@ -1,0 +1,1716 @@
+{
+  "capturedAt": "2026-04-30T01:22:34.657Z",
+  "baseline": "tests/_diet/baseline.json",
+  "locTotal": 55504,
+  "fileCount": 329,
+  "unprocessedFiles": 0,
+  "perArea": {
+    "agents": {
+      "locAfter": 1139,
+      "fileCountAfter": 9,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1697,
+      "fileCountBefore": 8,
+      "unprocessedFiles": 0
+    },
+    "orchestrator": {
+      "locAfter": 600,
+      "fileCountAfter": 5,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 400,
+      "fileCountBefore": 3,
+      "unprocessedFiles": 0
+    },
+    "skills,cli": {
+      "locAfter": 1234,
+      "fileCountAfter": 11,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1385,
+      "fileCountBefore": 11,
+      "unprocessedFiles": 0
+    },
+    "utils,integration": {
+      "locAfter": 986,
+      "fileCountAfter": 8,
+      "filesOver300LOCAfter": 0,
+      "locBefore": 1100,
+      "fileCountBefore": 9,
+      "unprocessedFiles": 0
+    }
+  }
+}
+{
+  "capturedAt": "2026-04-29T10:58:54.195Z",
+  "locTotal": 56188,
+  "wallClockSec": 51.69,
+  "branchCoveragePct": 69.48,
+  "fileCount": 328,
+  "perArea": {
+    "agents": {
+      "locBefore": 1697,
+      "fileCountBefore": 8,
+      "filesOver300LOCBefore": 2,
+      "branchCoveragePctBefore": 69.48
+    },
+    "orchestrator": {
+      "locBefore": 400,
+      "fileCountBefore": 3,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    },
+    "skills,cli": {
+      "locBefore": 1385,
+      "fileCountBefore": 11,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    },
+    "utils,integration": {
+      "locBefore": 1100,
+      "fileCountBefore": 9,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    }
+  },
+  "files": [
+    {
+      "path": "tests/acceptance-runner.test.js",
+      "loc": 97,
+      "architecture": false
+    },
+    {
+      "path": "tests/activity-log.test.js",
+      "loc": 102,
+      "architecture": false
+    },
+    {
+      "path": "tests/adr-generator.test.js",
+      "loc": 210,
+      "architecture": false
+    },
+    {
+      "path": "tests/agent-detect.test.js",
+      "loc": 62,
+      "architecture": false
+    },
+    {
+      "path": "tests/agent-fallback.test.js",
+      "loc": 246,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-availability.test.js",
+      "loc": 85,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-base.test.js",
+      "loc": 71,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-command.test.js",
+      "loc": 183,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-contract.test.js",
+      "loc": 56,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-implementations.test.js",
+      "loc": 278,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-index.test.js",
+      "loc": 79,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents-role-model.test.js",
+      "loc": 76,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/agent-di.test.js",
+      "loc": 158,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/aider-agent.test.js",
+      "loc": 167,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/base-agent.test.js",
+      "loc": 52,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/claude-agent.test.js",
+      "loc": 514,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/codex-agent.test.js",
+      "loc": 317,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/create-agent.test.js",
+      "loc": 125,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/gemini-agent.test.js",
+      "loc": 170,
+      "architecture": false
+    },
+    {
+      "path": "tests/agents/opencode-agent.test.js",
+      "loc": 194,
+      "architecture": false
+    },
+    {
+      "path": "tests/anti-bypass-resume.test.js",
+      "loc": 111,
+      "architecture": false
+    },
+    {
+      "path": "tests/architect-adrs.test.js",
+      "loc": 136,
+      "architecture": false
+    },
+    {
+      "path": "tests/architect-role.test.js",
+      "loc": 326,
+      "architecture": false
+    },
+    {
+      "path": "tests/architecture/dynamic-imports.test.js",
+      "loc": 147,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/layer-boundaries.test.js",
+      "loc": 114,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/no-globalThis-kj.test.js",
+      "loc": 106,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/no-provider-apis.test.js",
+      "loc": 154,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/session-store-imports.test.js",
+      "loc": 126,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/session-write-boundary.test.js",
+      "loc": 125,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/sonar-intrinsic.test.js",
+      "loc": 151,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/stage-registry.test.js",
+      "loc": 86,
+      "architecture": true
+    },
+    {
+      "path": "tests/architecture/tracker-coupling.test.js",
+      "loc": 101,
+      "architecture": true
+    },
+    {
+      "path": "tests/ask-question-enhanced.test.js",
+      "loc": 278,
+      "architecture": false
+    },
+    {
+      "path": "tests/audit-routing.test.js",
+      "loc": 95,
+      "architecture": false
+    },
+    {
+      "path": "tests/auto-simplify.test.js",
+      "loc": 281,
+      "architecture": false
+    },
+    {
+      "path": "tests/base-role.test.js",
+      "loc": 132,
+      "architecture": false
+    },
+    {
+      "path": "tests/board-banner-shape.test.js",
+      "loc": 77,
+      "architecture": false
+    },
+    {
+      "path": "tests/board-prompt-bridge.test.js",
+      "loc": 109,
+      "architecture": false
+    },
+    {
+      "path": "tests/board-start-detach.test.js",
+      "loc": 92,
+      "architecture": false
+    },
+    {
+      "path": "tests/board-stop-fallback.test.js",
+      "loc": 137,
+      "architecture": false
+    },
+    {
+      "path": "tests/board.test.js",
+      "loc": 85,
+      "architecture": false
+    },
+    {
+      "path": "tests/bootstrap.test.js",
+      "loc": 374,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain-coordinator.test.js",
+      "loc": 181,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain-wiring.test.js",
+      "loc": 38,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain/decision-tracker.test.js",
+      "loc": 133,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain/decisor.test.js",
+      "loc": 223,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain/integration.test.js",
+      "loc": 103,
+      "architecture": false
+    },
+    {
+      "path": "tests/brain/solomon-consult.test.js",
+      "loc": 134,
+      "architecture": false
+    },
+    {
+      "path": "tests/budget.test.js",
+      "loc": 77,
+      "architecture": false
+    },
+    {
+      "path": "tests/budget/comparison.test.js",
+      "loc": 131,
+      "architecture": false
+    },
+    {
+      "path": "tests/checkpoint-provider-model.test.js",
+      "loc": 455,
+      "architecture": false
+    },
+    {
+      "path": "tests/checkpoint-ui.test.js",
+      "loc": 170,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/auto-remediation-e2e.test.js",
+      "loc": 257,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/dir-setup.test.js",
+      "loc": 51,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/mcp-health.test.js",
+      "loc": 88,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/node.test.js",
+      "loc": 43,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/ports.test.js",
+      "loc": 144,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/runner.test.js",
+      "loc": 236,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/skills.test.js",
+      "loc": 59,
+      "architecture": false
+    },
+    {
+      "path": "tests/checks/tokens.test.js",
+      "loc": 167,
+      "architecture": false
+    },
+    {
+      "path": "tests/ci-dispatch.test.js",
+      "loc": 217,
+      "architecture": false
+    },
+    {
+      "path": "tests/ci-git-automation.test.js",
+      "loc": 135,
+      "architecture": false
+    },
+    {
+      "path": "tests/ci-pr-diff.test.js",
+      "loc": 40,
+      "architecture": false
+    },
+    {
+      "path": "tests/ci-repo.test.js",
+      "loc": 124,
+      "architecture": false
+    },
+    {
+      "path": "tests/claude-stream-filter.test.js",
+      "loc": 125,
+      "architecture": false
+    },
+    {
+      "path": "tests/cli/cli-progress.test.js",
+      "loc": 110,
+      "architecture": false
+    },
+    {
+      "path": "tests/cli/cli-unknown-command.test.js",
+      "loc": 79,
+      "architecture": false
+    },
+    {
+      "path": "tests/cli/cli-welcome.test.js",
+      "loc": 74,
+      "architecture": false
+    },
+    {
+      "path": "tests/coder-prompt-tests-first.test.js",
+      "loc": 251,
+      "architecture": false
+    },
+    {
+      "path": "tests/coder-role.test.js",
+      "loc": 259,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-architect.test.js",
+      "loc": 96,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-audit.test.js",
+      "loc": 131,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-code.test.js",
+      "loc": 130,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-discover.test.js",
+      "loc": 103,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-plan.test.js",
+      "loc": 159,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-researcher.test.js",
+      "loc": 81,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-review.test.js",
+      "loc": 165,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-roles.test.js",
+      "loc": 194,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-run.test.js",
+      "loc": 167,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-scan.test.js",
+      "loc": 120,
+      "architecture": false
+    },
+    {
+      "path": "tests/command-triage.test.js",
+      "loc": 84,
+      "architecture": false
+    },
+    {
+      "path": "tests/commiter-role.test.js",
+      "loc": 237,
+      "architecture": false
+    },
+    {
+      "path": "tests/config-edit.test.js",
+      "loc": 136,
+      "architecture": false
+    },
+    {
+      "path": "tests/config-schema.test.js",
+      "loc": 182,
+      "architecture": false
+    },
+    {
+      "path": "tests/config.test.js",
+      "loc": 406,
+      "architecture": false
+    },
+    {
+      "path": "tests/cwd-confirm.test.js",
+      "loc": 55,
+      "architecture": false
+    },
+    {
+      "path": "tests/derive-project-name-from-cwd.test.js",
+      "loc": 154,
+      "architecture": false
+    },
+    {
+      "path": "tests/design-flag.test.js",
+      "loc": 202,
+      "architecture": false
+    },
+    {
+      "path": "tests/diff-generator.test.js",
+      "loc": 99,
+      "architecture": false
+    },
+    {
+      "path": "tests/direct-actions.test.js",
+      "loc": 237,
+      "architecture": false
+    },
+    {
+      "path": "tests/discover-role.test.js",
+      "loc": 500,
+      "architecture": false
+    },
+    {
+      "path": "tests/display/budget-comparison.test.js",
+      "loc": 87,
+      "architecture": false
+    },
+    {
+      "path": "tests/doc-links.test.js",
+      "loc": 61,
+      "architecture": false
+    },
+    {
+      "path": "tests/doctor-rtk.test.js",
+      "loc": 123,
+      "architecture": false
+    },
+    {
+      "path": "tests/doctor.test.js",
+      "loc": 313,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-autodetect.test.js",
+      "loc": 136,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-context-injection.test.js",
+      "loc": 87,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-curator-role.test.js",
+      "loc": 223,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-curator-stage.test.js",
+      "loc": 163,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-loader.test.js",
+      "loc": 365,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-registry.test.js",
+      "loc": 222,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-synthesizer.test.js",
+      "loc": 141,
+      "architecture": false
+    },
+    {
+      "path": "tests/domain-system-integration.test.js",
+      "loc": 178,
+      "architecture": false
+    },
+    {
+      "path": "tests/dry-run.test.js",
+      "loc": 219,
+      "architecture": false
+    },
+    {
+      "path": "tests/events-helper.test.js",
+      "loc": 61,
+      "architecture": false
+    },
+    {
+      "path": "tests/feedback-enrichment.test.js",
+      "loc": 184,
+      "architecture": false
+    },
+    {
+      "path": "tests/feedback-queue.test.js",
+      "loc": 183,
+      "architecture": false
+    },
+    {
+      "path": "tests/final-audit-stage.test.js",
+      "loc": 227,
+      "architecture": false
+    },
+    {
+      "path": "tests/flow-init-error-no-solomon.test.js",
+      "loc": 102,
+      "architecture": false
+    },
+    {
+      "path": "tests/fs-leak-detector.test.js",
+      "loc": 129,
+      "architecture": false
+    },
+    {
+      "path": "tests/git-automation.test.js",
+      "loc": 129,
+      "architecture": false
+    },
+    {
+      "path": "tests/guards/policy-guard.test.js",
+      "loc": 92,
+      "architecture": false
+    },
+    {
+      "path": "tests/guards/policy-resolver.test.js",
+      "loc": 156,
+      "architecture": false
+    },
+    {
+      "path": "tests/host-agent.test.js",
+      "loc": 107,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-auto-generator.test.js",
+      "loc": 223,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-board-sync.test.js",
+      "loc": 264,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-decomposition.test.js",
+      "loc": 427,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-git-automation.test.js",
+      "loc": 59,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-history-records.test.js",
+      "loc": 116,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-splitter.test.js",
+      "loc": 339,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu-sub-pipeline.test.js",
+      "loc": 464,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu/graph.test.js",
+      "loc": 97,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu/pipeline-stage.test.js",
+      "loc": 185,
+      "architecture": false
+    },
+    {
+      "path": "tests/hu/store.test.js",
+      "loc": 149,
+      "architecture": false
+    },
+    {
+      "path": "tests/i18n-messages.test.js",
+      "loc": 71,
+      "architecture": false
+    },
+    {
+      "path": "tests/i18n.test.js",
+      "loc": 148,
+      "architecture": false
+    },
+    {
+      "path": "tests/infrastructure/defaults.test.js",
+      "loc": 72,
+      "architecture": false
+    },
+    {
+      "path": "tests/infrastructure/mocks.test.js",
+      "loc": 121,
+      "architecture": false
+    },
+    {
+      "path": "tests/init-wizard.test.js",
+      "loc": 228,
+      "architecture": false
+    },
+    {
+      "path": "tests/injection-guard.test.js",
+      "loc": 224,
+      "architecture": false
+    },
+    {
+      "path": "tests/install-cross-platform.test.js",
+      "loc": 89,
+      "architecture": false
+    },
+    {
+      "path": "tests/installer-e2e.test.js",
+      "loc": 404,
+      "architecture": false
+    },
+    {
+      "path": "tests/intent-guard.test.js",
+      "loc": 167,
+      "architecture": false
+    },
+    {
+      "path": "tests/iteration-stages-unit.test.js",
+      "loc": 566,
+      "architecture": false
+    },
+    {
+      "path": "tests/karajan-brain-role.test.js",
+      "loc": 161,
+      "architecture": false
+    },
+    {
+      "path": "tests/kj-hu-tool.test.js",
+      "loc": 134,
+      "architecture": false
+    },
+    {
+      "path": "tests/kj-run-smoke.test.js",
+      "loc": 367,
+      "architecture": false
+    },
+    {
+      "path": "tests/kj-skills.test.js",
+      "loc": 223,
+      "architecture": false
+    },
+    {
+      "path": "tests/kj-suggest.test.js",
+      "loc": 131,
+      "architecture": false
+    },
+    {
+      "path": "tests/kj-undo.test.js",
+      "loc": 121,
+      "architecture": false
+    },
+    {
+      "path": "tests/lazy-hu-planning.test.js",
+      "loc": 376,
+      "architecture": false
+    },
+    {
+      "path": "tests/lean-audit.test.js",
+      "loc": 173,
+      "architecture": false
+    },
+    {
+      "path": "tests/logger.test.js",
+      "loc": 99,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-clean-handler.test.js",
+      "loc": 97,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-direct-handlers.test.js",
+      "loc": 313,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-discover-tool.test.js",
+      "loc": 81,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-error-handling.test.js",
+      "loc": 68,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-orphan-guard.test.js",
+      "loc": 92,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-preloop-tools.test.js",
+      "loc": 103,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-progress.test.js",
+      "loc": 316,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-reconnect.test.js",
+      "loc": 195,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-server-handlers.test.js",
+      "loc": 653,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-tool-arg-normalizers.test.js",
+      "loc": 32,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-tools-schema.test.js",
+      "loc": 49,
+      "architecture": false
+    },
+    {
+      "path": "tests/mcp-version-watcher.test.js",
+      "loc": 95,
+      "architecture": false
+    },
+    {
+      "path": "tests/memory-watchdog.test.js",
+      "loc": 128,
+      "architecture": false
+    },
+    {
+      "path": "tests/mock-agent.test.js",
+      "loc": 61,
+      "architecture": false
+    },
+    {
+      "path": "tests/model-integration.test.js",
+      "loc": 23,
+      "architecture": false
+    },
+    {
+      "path": "tests/model-registry.test.js",
+      "loc": 146,
+      "architecture": false
+    },
+    {
+      "path": "tests/model-selector.test.js",
+      "loc": 232,
+      "architecture": false
+    },
+    {
+      "path": "tests/multi-language-detect.test.js",
+      "loc": 235,
+      "architecture": false
+    },
+    {
+      "path": "tests/multiformat-ac.test.js",
+      "loc": 225,
+      "architecture": false
+    },
+    {
+      "path": "tests/nocode-mode.test.js",
+      "loc": 108,
+      "architecture": false
+    },
+    {
+      "path": "tests/nocode-skills.test.js",
+      "loc": 109,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-budget.test.js",
+      "loc": 257,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-checkpoint.test.js",
+      "loc": 374,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-events.test.js",
+      "loc": 806,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-iteration.test.js",
+      "loc": 338,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-pg-integration.test.js",
+      "loc": 262,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-post-loop.test.js",
+      "loc": 135,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-pre-loop.test.js",
+      "loc": 589,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-repeat-detection.test.js",
+      "loc": 313,
+      "architecture": false
+    },
+    {
+      "path": "tests/runflow-triage.test.js",
+      "loc": 483,
+      "architecture": false
+    },
+    {
+      "path": "tests/orchestrator/concurrent-runs.test.js",
+      "loc": 100,
+      "architecture": false
+    },
+    {
+      "path": "tests/orchestrator/hu-board-autostart.test.js",
+      "loc": 124,
+      "architecture": false
+    },
+    {
+      "path": "tests/orchestrator/stage-executor.test.js",
+      "loc": 114,
+      "architecture": false
+    },
+    {
+      "path": "tests/os-detect.test.js",
+      "loc": 120,
+      "architecture": false
+    },
+    {
+      "path": "tests/output-guard.test.js",
+      "loc": 268,
+      "architecture": false
+    },
+    {
+      "path": "tests/output-quiet.test.js",
+      "loc": 116,
+      "architecture": false
+    },
+    {
+      "path": "tests/parallel-hu.test.js",
+      "loc": 360,
+      "architecture": false
+    },
+    {
+      "path": "tests/perf-guard.test.js",
+      "loc": 197,
+      "architecture": false
+    },
+    {
+      "path": "tests/pg-decomposition.test.js",
+      "loc": 155,
+      "architecture": false
+    },
+    {
+      "path": "tests/pg-hu-reviewer-feed.test.js",
+      "loc": 336,
+      "architecture": false
+    },
+    {
+      "path": "tests/pg-lifecycle.test.js",
+      "loc": 266,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-auto-certify-anomaly.test.js",
+      "loc": 145,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-hu-outcome.test.js",
+      "loc": 130,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-module.test.js",
+      "loc": 165,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-ready-tests-first-gate.test.js",
+      "loc": 101,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-reviewer.test.js",
+      "loc": 159,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-spec-mapping.test.js",
+      "loc": 45,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-store-kj-home-isolation.test.js",
+      "loc": 91,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-tests-first.test.js",
+      "loc": 141,
+      "architecture": false
+    },
+    {
+      "path": "tests/plan-to-run.test.js",
+      "loc": 179,
+      "architecture": false
+    },
+    {
+      "path": "tests/planner-role.test.js",
+      "loc": 274,
+      "architecture": false
+    },
+    {
+      "path": "tests/planning-game-adapter.test.js",
+      "loc": 307,
+      "architecture": false
+    },
+    {
+      "path": "tests/plugin-loader.test.js",
+      "loc": 121,
+      "architecture": false
+    },
+    {
+      "path": "tests/plugins-wired.test.js",
+      "loc": 98,
+      "architecture": false
+    },
+    {
+      "path": "tests/post-loop-fallback.test.js",
+      "loc": 174,
+      "architecture": false
+    },
+    {
+      "path": "tests/postinstall.test.js",
+      "loc": 111,
+      "architecture": false
+    },
+    {
+      "path": "tests/pre-loop-stages-unit.test.js",
+      "loc": 448,
+      "architecture": false
+    },
+    {
+      "path": "tests/preflight-checks.test.js",
+      "loc": 323,
+      "architecture": false
+    },
+    {
+      "path": "tests/preflight.test.js",
+      "loc": 47,
+      "architecture": false
+    },
+    {
+      "path": "tests/pricing.test.js",
+      "loc": 62,
+      "architecture": false
+    },
+    {
+      "path": "tests/process-streaming.test.js",
+      "loc": 93,
+      "architecture": false
+    },
+    {
+      "path": "tests/product-context.test.js",
+      "loc": 161,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-architect.test.js",
+      "loc": 218,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-coder.test.js",
+      "loc": 153,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-discover.test.js",
+      "loc": 452,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-planner.test.js",
+      "loc": 145,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-project-name.test.js",
+      "loc": 44,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-reviewer.test.js",
+      "loc": 143,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompt-triage.test.js",
+      "loc": 103,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompts/prompt-resolver.test.js",
+      "loc": 151,
+      "architecture": false
+    },
+    {
+      "path": "tests/prompts/provider-contract.test.js",
+      "loc": 128,
+      "architecture": false
+    },
+    {
+      "path": "tests/rate-limit-detector.test.js",
+      "loc": 295,
+      "architecture": false
+    },
+    {
+      "path": "tests/rate-limit-stages.test.js",
+      "loc": 202,
+      "architecture": false
+    },
+    {
+      "path": "tests/repeat-detector.test.js",
+      "loc": 47,
+      "architecture": false
+    },
+    {
+      "path": "tests/report-pg-task.test.js",
+      "loc": 137,
+      "architecture": false
+    },
+    {
+      "path": "tests/report-trace.test.js",
+      "loc": 152,
+      "architecture": false
+    },
+    {
+      "path": "tests/researcher-role.test.js",
+      "loc": 263,
+      "architecture": false
+    },
+    {
+      "path": "tests/resilient-run.test.js",
+      "loc": 91,
+      "architecture": false
+    },
+    {
+      "path": "tests/resolve-bin.test.js",
+      "loc": 37,
+      "architecture": false
+    },
+    {
+      "path": "tests/response-compressor.test.js",
+      "loc": 159,
+      "architecture": false
+    },
+    {
+      "path": "tests/resume-config-snapshot.test.js",
+      "loc": 106,
+      "architecture": false
+    },
+    {
+      "path": "tests/retry.test.js",
+      "loc": 161,
+      "architecture": false
+    },
+    {
+      "path": "tests/review-parser.test.js",
+      "loc": 124,
+      "architecture": false
+    },
+    {
+      "path": "tests/review-profiles.test.js",
+      "loc": 100,
+      "architecture": false
+    },
+    {
+      "path": "tests/review-schema.test.js",
+      "loc": 118,
+      "architecture": false
+    },
+    {
+      "path": "tests/reviewer-parse-resilience.test.js",
+      "loc": 273,
+      "architecture": false
+    },
+    {
+      "path": "tests/reviewer-role.test.js",
+      "loc": 191,
+      "architecture": false
+    },
+    {
+      "path": "tests/role-assigner.test.js",
+      "loc": 91,
+      "architecture": false
+    },
+    {
+      "path": "tests/role-md-resolution.test.js",
+      "loc": 99,
+      "architecture": false
+    },
+    {
+      "path": "tests/role-output-compressor.test.js",
+      "loc": 148,
+      "architecture": false
+    },
+    {
+      "path": "tests/roles/audit.test.js",
+      "loc": 64,
+      "architecture": false
+    },
+    {
+      "path": "tests/roles/base-role-provider.test.js",
+      "loc": 110,
+      "architecture": false
+    },
+    {
+      "path": "tests/roles/hu-reviewer.test.js",
+      "loc": 267,
+      "architecture": false
+    },
+    {
+      "path": "tests/roles/impeccable.test.js",
+      "loc": 72,
+      "architecture": false
+    },
+    {
+      "path": "tests/rtk-detect.test.js",
+      "loc": 43,
+      "architecture": false
+    },
+    {
+      "path": "tests/rtk-install.test.js",
+      "loc": 85,
+      "architecture": false
+    },
+    {
+      "path": "tests/rtk-savings.test.js",
+      "loc": 107,
+      "architecture": false
+    },
+    {
+      "path": "tests/rtk-wrapper.test.js",
+      "loc": 123,
+      "architecture": false
+    },
+    {
+      "path": "tests/run-log.test.js",
+      "loc": 156,
+      "architecture": false
+    },
+    {
+      "path": "tests/scan-command.test.js",
+      "loc": 40,
+      "architecture": false
+    },
+    {
+      "path": "tests/scope-filter.test.js",
+      "loc": 174,
+      "architecture": false
+    },
+    {
+      "path": "tests/security-role.test.js",
+      "loc": 314,
+      "architecture": false
+    },
+    {
+      "path": "tests/server-handlers-unit.test.js",
+      "loc": 506,
+      "architecture": false
+    },
+    {
+      "path": "tests/session-cleanup.test.js",
+      "loc": 145,
+      "architecture": false
+    },
+    {
+      "path": "tests/session-journal.test.js",
+      "loc": 188,
+      "architecture": false
+    },
+    {
+      "path": "tests/session-pause.test.js",
+      "loc": 90,
+      "architecture": false
+    },
+    {
+      "path": "tests/session-store.test.js",
+      "loc": 352,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/decisions-journal-integration.test.js",
+      "loc": 111,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/decisions-writer.test.js",
+      "loc": 181,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/iteration-logger.test.js",
+      "loc": 172,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/ruling-capture.test.js",
+      "loc": 94,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/runtime-overrides.test.js",
+      "loc": 86,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/summary-writer.test.js",
+      "loc": 243,
+      "architecture": false
+    },
+    {
+      "path": "tests/session/tree-writer.test.js",
+      "loc": 188,
+      "architecture": false
+    },
+    {
+      "path": "tests/skill-injection.test.js",
+      "loc": 228,
+      "architecture": false
+    },
+    {
+      "path": "tests/skill-loader-type.test.js",
+      "loc": 150,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills-dedup.test.js",
+      "loc": 48,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/addyosmani-catalog.test.js",
+      "loc": 260,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/addyosmani-role-map.test.js",
+      "loc": 98,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/cache.test.js",
+      "loc": 106,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/fallback.test.js",
+      "loc": 74,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/integration.test.js",
+      "loc": 139,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/role-filter.test.js",
+      "loc": 104,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/semantic.test.js",
+      "loc": 142,
+      "architecture": false
+    },
+    {
+      "path": "tests/skills/skill-detector-extended.test.js",
+      "loc": 199,
+      "architecture": false
+    },
+    {
+      "path": "tests/smart-checkpoint.test.js",
+      "loc": 58,
+      "architecture": false
+    },
+    {
+      "path": "tests/snapshot-diff.test.js",
+      "loc": 76,
+      "architecture": false
+    },
+    {
+      "path": "tests/solomon-messages.test.js",
+      "loc": 154,
+      "architecture": false
+    },
+    {
+      "path": "tests/solomon-role.test.js",
+      "loc": 467,
+      "architecture": false
+    },
+    {
+      "path": "tests/solomon-rules.test.js",
+      "loc": 212,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-api.test.js",
+      "loc": 181,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-config-error-feedback.test.js",
+      "loc": 86,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-config-resolver.test.js",
+      "loc": 145,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-discovery.test.js",
+      "loc": 158,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-enforcer.test.js",
+      "loc": 45,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-manager-init.test.js",
+      "loc": 199,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-manager.test.js",
+      "loc": 204,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-open.test.js",
+      "loc": 102,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-project-key.test.js",
+      "loc": 120,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-role.test.js",
+      "loc": 256,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-scanner-run.test.js",
+      "loc": 358,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-scanner.test.js",
+      "loc": 59,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonar-token-flow.test.js",
+      "loc": 218,
+      "architecture": false
+    },
+    {
+      "path": "tests/sonarcloud-scanner.test.js",
+      "loc": 106,
+      "architecture": false
+    },
+    {
+      "path": "tests/sovereignty-guard.test.js",
+      "loc": 202,
+      "architecture": false
+    },
+    {
+      "path": "tests/spec-detector.test.js",
+      "loc": 80,
+      "architecture": false
+    },
+    {
+      "path": "tests/split-validation.test.js",
+      "loc": 221,
+      "architecture": false
+    },
+    {
+      "path": "tests/stack-detect.test.js",
+      "loc": 176,
+      "architecture": false
+    },
+    {
+      "path": "tests/stall-detector.test.js",
+      "loc": 193,
+      "architecture": false
+    },
+    {
+      "path": "tests/standby.test.js",
+      "loc": 227,
+      "architecture": false
+    },
+    {
+      "path": "tests/status-dashboard.test.js",
+      "loc": 256,
+      "architecture": false
+    },
+    {
+      "path": "tests/subloop-limits.test.js",
+      "loc": 341,
+      "architecture": false
+    },
+    {
+      "path": "tests/support/opt-in.test.js",
+      "loc": 54,
+      "architecture": false
+    },
+    {
+      "path": "tests/tdd-policy.test.js",
+      "loc": 165,
+      "architecture": false
+    },
+    {
+      "path": "tests/telemetry.test.js",
+      "loc": 121,
+      "architecture": false
+    },
+    {
+      "path": "tests/tester-role.test.js",
+      "loc": 283,
+      "architecture": false
+    },
+    {
+      "path": "tests/tester-tests-first.test.js",
+      "loc": 108,
+      "architecture": false
+    },
+    {
+      "path": "tests/tests-synthesizer.test.js",
+      "loc": 163,
+      "architecture": false
+    },
+    {
+      "path": "tests/timeout-handling.test.js",
+      "loc": 78,
+      "architecture": false
+    },
+    {
+      "path": "tests/triage-auto-skills.test.js",
+      "loc": 235,
+      "architecture": false
+    },
+    {
+      "path": "tests/triage-domain-hints.test.js",
+      "loc": 110,
+      "architecture": false
+    },
+    {
+      "path": "tests/triage-hu-reviewer-activation.test.js",
+      "loc": 195,
+      "architecture": false
+    },
+    {
+      "path": "tests/triage-role.test.js",
+      "loc": 340,
+      "architecture": false
+    },
+    {
+      "path": "tests/triage-stage.test.js",
+      "loc": 238,
+      "architecture": false
+    },
+    {
+      "path": "tests/types.test.js",
+      "loc": 27,
+      "architecture": false
+    },
+    {
+      "path": "tests/types/solomon-typedef.test.js",
+      "loc": 95,
+      "architecture": false
+    },
+    {
+      "path": "tests/update-check.test.js",
+      "loc": 102,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-display.test.js",
+      "loc": 450,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-fs.test.js",
+      "loc": 53,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-git.test.js",
+      "loc": 188,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-paths.test.js",
+      "loc": 92,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-port-check.test.js",
+      "loc": 73,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-port-occupant.test.js",
+      "loc": 59,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-provider-env.test.js",
+      "loc": 116,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils-with-timeout.test.js",
+      "loc": 38,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/budget.test.js",
+      "loc": 144,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/cli-progress.test.js",
+      "loc": 99,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/cli-run-log.test.js",
+      "loc": 101,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/garbage-collector.test.js",
+      "loc": 272,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/project-detect.test.js",
+      "loc": 165,
+      "architecture": false
+    },
+    {
+      "path": "tests/utils/task-file.test.js",
+      "loc": 122,
+      "architecture": false
+    },
+    {
+      "path": "tests/verification-gate.test.js",
+      "loc": 138,
+      "architecture": false
+    },
+    {
+      "path": "tests/webperf-detect.test.js",
+      "loc": 99,
+      "architecture": false
+    },
+    {
+      "path": "tests/webperf-gate.test.js",
+      "loc": 183,
+      "architecture": false
+    },
+    {
+      "path": "tests/wizard.test.js",
+      "loc": 130,
+      "architecture": false
+    }
+  ]
+}

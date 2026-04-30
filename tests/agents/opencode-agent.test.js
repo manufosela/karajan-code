@@ -37,139 +37,80 @@ describe("OpenCodeAgent", () => {
     });
   });
 
-  describe("runTask args", () => {
-    it("starts with 'run' subcommand", async () => {
+  // merged-from: 7 runTask/reviewTask arg tests collapsed into a shared
+  // it.each. Both methods always lead with `run`, end with the prompt and
+  // never feed the prompt over stdin; only reviewTask adds --format json.
+  describe("subcommand + prompt placement (runTask & reviewTask)", () => {
+    it.each([
+      ["runTask",    "coder",    "fix bug",     false],
+      ["reviewTask", "reviewer", "review code", true]
+    ])("%s: starts with 'run', prompt last, no stdin, --format json=%s", async (method, role, prompt, expectsFormatJson) => {
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.runTask({ prompt: "fix bug", role: "coder" });
+      await agent[method]({ prompt, role });
 
-      const args = runCommand.mock.calls[0][1];
+      const [, args, opts] = runCommand.mock.calls[0];
       expect(args[0]).toBe("run");
-    });
-
-    it("puts the prompt as the last argument", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.runTask({ prompt: "implement feature", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args[args.length - 1]).toBe("implement feature");
-    });
-
-    it("does NOT use stdin for prompt (unlike Codex)", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const opts = runCommand.mock.calls[0][2];
+      expect(args[args.length - 1]).toBe(prompt);
       expect(opts.input).toBeUndefined();
+      if (expectsFormatJson) {
+        expect(args).toContain("--format");
+        expect(args).toContain("json");
+      } else {
+        expect(args).not.toContain("--format");
+      }
     });
   });
 
-  describe("reviewTask args", () => {
-    it("starts with 'run' subcommand for review too", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review code", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args[0]).toBe("run");
-    });
-
-    it("includes --format json for reviewTask", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("--format");
-      expect(args).toContain("json");
-    });
-
-    it("does NOT include --format json for runTask", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).not.toContain("--format");
-    });
-
-    it("puts prompt as last argument in reviewTask", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review this", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args[args.length - 1]).toBe("review this");
-    });
-  });
-
+  // merged-from: 4 --model tests (coder / reviewer / order vs prompt / omitted)
+  // collapsed into one it.each. Each row drives runTask or reviewTask with a
+  // role-specific model and asserts presence + relative position.
   describe("model configuration", () => {
-    it("adds --model when configured for coder role", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "anthropic/claude-3-5-sonnet" }, reviewer: {} } };
-      const agent = new OpenCodeAgent("opencode", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
+    const cfg = (role, model) => ({ ...baseConfig, roles: { coder: {}, reviewer: {}, [role]: { model } } });
+    it.each([
+      ["coder",    "runTask",    "anthropic/claude-3-5-sonnet"],
+      ["reviewer", "reviewTask", "openai/gpt-4o"],
+      ["coder",    "runTask",    "test-model"]
+    ])("%s adds --model %s before the prompt", async (role, method, model) => {
+      const agent = new OpenCodeAgent("opencode", cfg(role, model), logger);
+      const prompt = `prompt-${role}`;
+      await agent[method]({ prompt, role });
 
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--model");
-      expect(args).toContain("anthropic/claude-3-5-sonnet");
-    });
-
-    it("adds --model when configured for reviewer role", async () => {
-      const config = { ...baseConfig, roles: { coder: {}, reviewer: { model: "openai/gpt-4o" } } };
-      const agent = new OpenCodeAgent("opencode", config, logger);
-      await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("--model");
-      expect(args).toContain("openai/gpt-4o");
-    });
-
-    it("--model appears before prompt in args", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "test-model" }, reviewer: {} } };
-      const agent = new OpenCodeAgent("opencode", config, logger);
-      await agent.runTask({ prompt: "do work", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args.indexOf("--model")).toBeLessThan(args.indexOf("do work"));
+      expect(args).toContain(model);
+      expect(args.indexOf("--model")).toBeLessThan(args.indexOf(prompt));
     });
 
     it("omits --model when not configured", async () => {
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).not.toContain("--model");
+      expect(runCommand.mock.calls[0][1]).not.toContain("--model");
     });
   });
 
+  // merged-from: 2 exit-code tests (ok=true on 0 / ok=false on 1) collapsed.
   describe("exit code handling", () => {
-    it("returns ok: true on exit code 0", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "success", stderr: "" });
+    it.each([
+      [0, "success", "",      { ok: true,  output: "success", error: "",      exitCode: 0 }],
+      [1, "",        "error", { ok: false, output: "",        error: "error", exitCode: 1 }]
+    ])("exit=%i → result reflects ok+output+error", async (exitCode, stdout, stderr, expected) => {
+      runCommand.mockResolvedValue({ exitCode, stdout, stderr });
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result).toEqual({ ok: true, output: "success", error: "", exitCode: 0 });
-    });
-
-    it("returns ok: false on non-zero exit code", async () => {
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "error" });
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "fail", role: "coder" });
-
-      expect(result).toEqual({ ok: false, output: "", error: "error", exitCode: 1 });
+      const result = await agent.runTask({ prompt: "t", role: "coder" });
+      expect(result).toEqual(expected);
     });
   });
 
+  // merged-from: 2 stdin/env tests collapsed. OpenCode does not touch stdin
+  // nor strip env vars (unlike Claude); both opts come back undefined.
   describe("no special stdin/env handling", () => {
-    it("does NOT set stdin to 'ignore'", async () => {
+    it.each([
+      ["stdin", "stdin"],
+      ["env",   "env"]
+    ])("does NOT set %s", async (_label, optKey) => {
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
-
-      const opts = runCommand.mock.calls[0][2];
-      expect(opts.stdin).toBeUndefined();
-    });
-
-    it("does NOT strip env vars", async () => {
-      const agent = new OpenCodeAgent("opencode", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const opts = runCommand.mock.calls[0][2];
-      expect(opts.env).toBeUndefined();
+      expect(runCommand.mock.calls[0][2][optKey]).toBeUndefined();
     });
   });
 

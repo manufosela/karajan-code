@@ -16,184 +16,74 @@ describe("skills/skill-detector — extended detection", () => {
     cleanups.length = 0;
   });
 
-  describe(".NET", () => {
-    it("detects dotnet when a .csproj file exists", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "App.csproj"), "<Project/>");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("dotnet");
-    });
+  async function seedFile(file, contents) {
+    const dir = await mkTmpProject();
+    cleanups.push(dir);
+    const target = path.join(dir, file);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, contents);
+    return dir;
+  }
 
-    it("detects dotnet when a .sln file exists", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "MyApp.sln"), "Solution");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("dotnet");
-    });
+  it.each([
+    { label: ".csproj triggers dotnet", file: "App.csproj", contents: "<Project/>", task: "", includes: ["dotnet"], excludes: [] },
+    { label: ".sln triggers dotnet", file: "MyApp.sln", contents: "Solution", task: "", includes: ["dotnet"], excludes: [] },
+    { label: "pom.xml triggers java", file: "pom.xml", contents: "<project/>", task: "", includes: ["java"], excludes: [] },
+    { label: "schema.prisma triggers prisma", file: "schema.prisma", contents: "generator client {}", task: "", includes: ["prisma"], excludes: [] },
+    { label: "ipynb triggers python-data", file: "analysis.ipynb", contents: '{"cells": []}', task: "", includes: ["python-data"], excludes: [] },
+    { label: "nested ipynb triggers python-data", file: "notebooks/nb.ipynb", contents: "{}", task: "", includes: ["python-data"], excludes: [] },
+    { label: "any .sql file triggers sql-analysis", file: "db/schema.sql", contents: "CREATE TABLE users ();", task: "", includes: ["sql-analysis"], excludes: [] },
+    { label: "pandas in requirements.txt triggers python-data", file: "requirements.txt", contents: "pandas==2.2.0\nnumpy>=1.24\n# scipy commented\n", task: "", includes: ["python-data"], excludes: [] },
+    { label: "pytest in requirements.txt triggers pytest-patterns", file: "requirements.txt", contents: "pytest==8.0.0\n", task: "", includes: ["pytest-patterns"], excludes: [] },
+    { label: "torch in pyproject.toml triggers python-ml + python-data", file: "pyproject.toml", contents: '[project]\ndependencies = ["torch", "pandas"]\n', task: "", includes: ["python-ml", "python-data"], excludes: [] },
+    { label: "commented pandas does NOT trigger python-data", file: "requirements.txt", contents: "# pandas==2.2.0\n", task: "", includes: [], excludes: ["python-data"] },
+    { label: "@playwright/test in package.json triggers playwright-patterns", file: "package.json", contents: JSON.stringify({ devDependencies: { "@playwright/test": "^1.40.0" } }), task: "", includes: ["playwright-patterns"], excludes: [] },
+    { label: "vitest in package.json triggers vitest-patterns", file: "package.json", contents: JSON.stringify({ devDependencies: { vitest: "^1.0.0" } }), task: "", includes: ["vitest-patterns"], excludes: [] },
+    { label: "astro dep + frontend task triggers astro + frontend-design", file: "package.json", contents: JSON.stringify({ dependencies: { astro: "^4.0.0" } }), task: "build a landing page CSS", includes: ["astro", "frontend-design"], excludes: [] },
+  ])("$label", async ({ file, contents, task, includes, excludes }) => {
+    const dir = await seedFile(file, contents);
+    const skills = await detectNeededSkills(task, dir);
+    for (const s of includes) expect(skills).toContain(s);
+    for (const s of excludes) expect(skills).not.toContain(s);
   });
 
-  describe("Python deps", () => {
-    it("detects python-data when pandas is in requirements.txt", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "requirements.txt"), "pandas==2.2.0\nnumpy>=1.24\n# scipy commented\n");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("python-data");
-    });
-
-    it("detects python-ml when torch is in pyproject.toml", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "pyproject.toml"), '[project]\ndependencies = ["torch", "pandas"]\n');
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("python-ml");
-      expect(skills).toContain("python-data");
-    });
-
-    it("detects pytest-patterns when pytest is in requirements.txt", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "requirements.txt"), "pytest==8.0.0\n");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("pytest-patterns");
-    });
-
-    it("skips commented-out deps in requirements.txt", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "requirements.txt"), "# pandas==2.2.0\n");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).not.toContain("python-data");
-    });
+  it("detects sql-analysis via migrations directory (no file payload required)", async () => {
+    const dir = await mkTmpProject();
+    cleanups.push(dir);
+    await fs.mkdir(path.join(dir, "migrations"));
+    const skills = await detectNeededSkills("", dir);
+    expect(skills).toContain("sql-analysis");
   });
 
-  describe("Data / ML", () => {
-    it("detects python-data when a .ipynb file exists in the repo", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "analysis.ipynb"), '{"cells": []}');
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("python-data");
-    });
-
-    it("finds notebooks in nested directories up to maxDepth", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.mkdir(path.join(dir, "notebooks"));
-      await fs.writeFile(path.join(dir, "notebooks", "nb.ipynb"), "{}");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("python-data");
-    });
-
-    it("ignores node_modules during extension walk", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.mkdir(path.join(dir, "node_modules", "pkg"), { recursive: true });
-      await fs.writeFile(path.join(dir, "node_modules", "pkg", "fixture.ipynb"), "{}");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).not.toContain("python-data");
-    });
+  it("ignores node_modules during extension walk", async () => {
+    const dir = await mkTmpProject();
+    cleanups.push(dir);
+    await fs.mkdir(path.join(dir, "node_modules", "pkg"), { recursive: true });
+    await fs.writeFile(path.join(dir, "node_modules", "pkg", "fixture.ipynb"), "{}");
+    const skills = await detectNeededSkills("", dir);
+    expect(skills).not.toContain("python-data");
   });
 
-  describe("Databases", () => {
-    it("detects sql-analysis when any .sql file exists in the repo", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.mkdir(path.join(dir, "db"));
-      await fs.writeFile(path.join(dir, "db", "schema.sql"), "CREATE TABLE users ();");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("sql-analysis");
-    });
-
-    it("detects prisma when schema.prisma exists", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "schema.prisma"), "generator client {}");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("prisma");
-    });
-
-    it("detects sql-analysis via migrations directory", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.mkdir(path.join(dir, "migrations"));
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("sql-analysis");
-    });
+  it("respects maxDepth option (4-level deep marker only seen with maxDepth>=5)", async () => {
+    const dir = await mkTmpProject();
+    cleanups.push(dir);
+    const deep = path.join(dir, "a", "b", "c", "d");
+    await fs.mkdir(deep, { recursive: true });
+    await fs.writeFile(path.join(deep, "App.csproj"), "<Project/>");
+    expect(await detectNeededSkills("", dir)).not.toContain("dotnet");
+    expect(await detectNeededSkills("", dir, { maxDepth: 5 })).toContain("dotnet");
   });
 
-  describe("Testing frameworks via package.json", () => {
-    it("detects playwright-patterns when @playwright/test is a dep", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({
-        devDependencies: { "@playwright/test": "^1.40.0" }
-      }));
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("playwright-patterns");
-    });
-
-    it("detects vitest-patterns when vitest is a dep", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({
-        devDependencies: { vitest: "^1.0.0" }
-      }));
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("vitest-patterns");
-    });
+  it("can disable the extension walk entirely", async () => {
+    const dir = await seedFile("App.csproj", "<Project/>");
+    const skills = await detectNeededSkills("", dir, { includeExtensions: false });
+    expect(skills).not.toContain("dotnet");
   });
 
-  describe("Extension walk bounds", () => {
-    it("respects maxDepth option", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      // Put the marker file 4 levels deep
-      const deep = path.join(dir, "a", "b", "c", "d");
-      await fs.mkdir(deep, { recursive: true });
-      await fs.writeFile(path.join(deep, "App.csproj"), "<Project/>");
-      const defaultDepthSkills = await detectNeededSkills("", dir); // default 3
-      expect(defaultDepthSkills).not.toContain("dotnet");
-      const deeperSkills = await detectNeededSkills("", dir, { maxDepth: 5 });
-      expect(deeperSkills).toContain("dotnet");
-    });
-
-    it("can disable the extension walk entirely", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "App.csproj"), "<Project/>");
-      const skills = await detectNeededSkills("", dir, { includeExtensions: false });
-      expect(skills).not.toContain("dotnet");
-    });
-  });
-
-  describe("Backwards compat", () => {
-    it("still detects astro via package.json and reacts to frontend text", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({
-        dependencies: { astro: "^4.0.0" }
-      }));
-      const skills = await detectNeededSkills("build a landing page CSS", dir);
-      expect(skills).toContain("astro");
-      expect(skills).toContain("frontend-design");
-    });
-
-    it("still detects java via pom.xml", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      await fs.writeFile(path.join(dir, "pom.xml"), "<project/>");
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toContain("java");
-    });
-
-    it("returns empty array when no signals and no task text", async () => {
-      const dir = await mkTmpProject();
-      cleanups.push(dir);
-      const skills = await detectNeededSkills("", dir);
-      expect(skills).toEqual([]);
-    });
+  it("returns empty array when no signals and no task text", async () => {
+    const dir = await mkTmpProject();
+    cleanups.push(dir);
+    const skills = await detectNeededSkills("", dir);
+    expect(skills).toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 
+// regression-for: TSK-0326
 describe("src/types/solomon.js — Conflict typedef registry (TSK-0326)", () => {
   it("module loads without side effects", async () => {
     const mod = await import("../../src/types/solomon.js");

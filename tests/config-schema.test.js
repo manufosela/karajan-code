@@ -150,6 +150,7 @@ describe("applyRunOverrides — falsy handling regressions from #367", () => {
     };
   }
 
+  // regression-for: regression
   it("--no-rebase → git.auto_rebase=false (was the #367 regression)", () => {
     const out = applyRunOverrides(baseline(), { autoRebase: false });
     expect(out.git.auto_rebase).toBe(false);

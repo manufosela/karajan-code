@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { printWelcomeScreen } from "../src/utils/welcome.js";
+import { printWelcomeScreen } from "../../src/utils/welcome.js";
 
 describe("printWelcomeScreen", () => {
   let consoleSpy;

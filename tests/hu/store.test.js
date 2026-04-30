@@ -67,6 +67,7 @@ describe("HU Store", () => {
     expect(reloaded.updated_at).toBeTruthy();
   });
 
+  // regression-for: regression
   it("saveHuBatch creates the session dir on demand (regression for plan-driven runs)", async () => {
     // Pre-fix, saveHuBatch assumed createHuBatch had already mkdir-ed the
     // directory. That assumption broke for `kj run --plan <id>`: the

@@ -204,6 +204,7 @@ describe("hu-sub-pipeline", () => {
 
   // --- runHuSubPipeline ---
 
+  // regression-for: regression
   describe("runHuSubPipeline — single HU now goes through the sub-pipeline (regression fix)", () => {
     it("single HU detected by needsSubPipeline returns true so status updates fire", () => {
       // Pre-fix this returned false and the run skipped the sub-pipeline,
@@ -267,6 +268,7 @@ describe("hu-sub-pipeline", () => {
   });
 
   describe("runHuSubPipeline — plan is source of truth, stale on-disk batch is reconciled", () => {
+    // regression-for: regression
     it("overlays plan statuses onto persisted batch when source is plan (regression: 'All HUs completed successfully' for zero work)", async () => {
       // Pre-fix scenario, paraphrasing 2026-04-29 incident:
       //   1. A previous run failed → on-disk batch.json had
@@ -350,6 +352,7 @@ describe("hu-sub-pipeline", () => {
       );
     });
 
+    // regression-for: regression
     it("overlays acceptance_tests from plan when persisted batch has stale tests (regression #543)", async () => {
       // 2026-04-29 incident: planner emitted a buggy jq query in
       // acceptance_tests, run failed, batch.json persisted the broken
@@ -440,6 +443,7 @@ describe("hu-sub-pipeline", () => {
   });
 
   describe("runHuSubPipeline — failed HU blocks dependents", () => {
+    // regression-for: HU-001, HU-002
     it("when HU-001 fails, HU-002 (which depends on it) is blocked", async () => {
       const stories = [
         { id: "HU-001", status: "certified", certified: { text: "Base setup" }, original: { text: "Base setup" }, blocked_by: [] },

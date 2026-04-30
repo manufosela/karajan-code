@@ -1,18 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/utils/process.js", () => ({
-  runCommand: vi.fn()
-}));
-
+vi.mock("../../src/utils/process.js", () => ({ runCommand: vi.fn() }));
 vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/local/bin/${name}`)
 }));
 
-const baseConfig = {
-  roles: { coder: {}, reviewer: {} },
-  coder_options: {},
-  reviewer_options: {}
-};
+const baseConfig = { roles: { coder: {}, reviewer: {} }, coder_options: {}, reviewer_options: {} };
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
 describe("CodexAgent", () => {
@@ -21,183 +14,118 @@ describe("CodexAgent", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const proc = await import("../../src/utils/process.js");
-    runCommand = proc.runCommand;
+    ({ runCommand } = await import("../../src/utils/process.js"));
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "done", stderr: "" });
-    const mod = await import("../../src/agents/codex-agent.js");
-    CodexAgent = mod.CodexAgent;
+    ({ CodexAgent } = await import("../../src/agents/codex-agent.js"));
   });
 
+  // merged-from: 3 buildArgs tests collapsed into one assertion bundle.
   describe("buildArgs — exec command structure", () => {
-    it("starts args with 'exec' subcommand", async () => {
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      await agent.runTask({ prompt: "fix bug", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args[0]).toBe("exec");
-    });
-
-    it("ends args with '-' to read prompt from stdin", async () => {
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      await agent.runTask({ prompt: "fix bug", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args[args.length - 1]).toBe("-");
-    });
-
-    it("passes task prompt via input option (stdin)", async () => {
+    it("exec subcommand, '-' tail, prompt via stdin input", async () => {
       const agent = new CodexAgent("codex", baseConfig, logger);
       await agent.runTask({ prompt: "implement feature", role: "coder" });
 
-      const opts = runCommand.mock.calls[0][2];
+      const [, args, opts] = runCommand.mock.calls[0];
+      expect(args[0]).toBe("exec");
+      expect(args[args.length - 1]).toBe("-");
       expect(opts.input).toBe("implement feature");
     });
   });
 
+  // merged-from: 4 --full-auto tests covering coder vs reviewer × on/off/missing.
   describe("--full-auto flag", () => {
-    it("adds --full-auto when auto_approve is enabled for coder", async () => {
-      const config = { ...baseConfig, coder_options: { auto_approve: true } };
+    it.each([
+      ["coder, auto_approve=true",  { coder_options: { auto_approve: true } },  "runTask",    true],
+      ["coder, auto_approve=false", { coder_options: { auto_approve: false } }, "runTask",    false],
+      ["reviewer w/ coder auto",    { coder_options: { auto_approve: true } },  "reviewTask", false],
+      ["coder_options missing",     {},                                          "runTask",    false]
+    ])("%s → flag=%s", async (_n, override, method, expected) => {
+      const config = { ...baseConfig, ...override };
       const agent = new CodexAgent("codex", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
+      await agent[method]({ prompt: "t", role: method === "runTask" ? "coder" : "reviewer" });
 
-      expect(runCommand.mock.calls[0][1]).toContain("--full-auto");
-    });
-
-    it("does NOT add --full-auto when auto_approve is false", async () => {
-      const config = { ...baseConfig, coder_options: { auto_approve: false } };
-      const agent = new CodexAgent("codex", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(runCommand.mock.calls[0][1]).not.toContain("--full-auto");
-    });
-
-    it("does NOT add --full-auto for reviewer role (even if auto_approve is on)", async () => {
-      const config = { ...baseConfig, coder_options: { auto_approve: true } };
-      const agent = new CodexAgent("codex", config, logger);
-      await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      expect(runCommand.mock.calls[0][1]).not.toContain("--full-auto");
-    });
-
-    it("does NOT add --full-auto when coder_options is missing", async () => {
-      const config = { roles: { coder: {}, reviewer: {} } };
-      const agent = new CodexAgent("codex", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(runCommand.mock.calls[0][1]).not.toContain("--full-auto");
+      const args = runCommand.mock.calls[0][1];
+      if (expected) expect(args).toContain("--full-auto");
+      else expect(args).not.toContain("--full-auto");
     });
   });
 
+  // merged-from: 3 exit-code tests (success, non-zero, killed-143).
   describe("exit code handling", () => {
-    it("returns ok: true on exit code 0", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "success", stderr: "" });
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.ok).toBe(true);
-      expect(result.output).toBe("success");
-      expect(result.exitCode).toBe(0);
-    });
-
-    it("returns ok: false on non-zero exit code", async () => {
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "command failed" });
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "fail", role: "coder" });
-
-      expect(result.ok).toBe(false);
-      expect(result.error).toBe("command failed");
-      expect(result.exitCode).toBe(1);
-    });
-
-    it("returns ok: false for exit code 143 (killed)", async () => {
-      runCommand.mockResolvedValue({ exitCode: 143, stdout: "partial", stderr: "killed" });
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "timeout", role: "coder" });
-
-      expect(result.ok).toBe(false);
-      expect(result.exitCode).toBe(143);
+    it.each([
+      [0,   "success", "",              { ok: true,  output: "success", error: "" }],
+      [1,   "",        "command failed", { ok: false, output: "",        error: "command failed" }],
+      [143, "partial", "killed",        { ok: false, output: "partial", error: "killed" }]
+    ])("exit=%i → ok=%s", async (exitCode, stdout, stderr, expected) => {
+      runCommand.mockResolvedValue({ exitCode, stdout, stderr });
+      const result = await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.ok).toBe(expected.ok);
+      expect(result.output).toBe(expected.output);
+      expect(result.error).toBe(expected.error);
+      expect(result.exitCode).toBe(exitCode);
     });
   });
 
+  // merged-from: 3 model-config tests (coder/reviewer/none).
   describe("model configuration", () => {
-    it("adds --model flag when model is configured for coder", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "o3" }, reviewer: {} } };
-      const agent = new CodexAgent("codex", config, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
+    const cfg = (role, model) => ({ ...baseConfig, roles: { coder: {}, reviewer: {}, [role]: { model } } });
+    it.each([
+      ["coder",    "runTask",    "o3"],
+      ["reviewer", "reviewTask", "o4-mini"]
+    ])("%s configures --model %s", async (role, method, model) => {
+      const agent = new CodexAgent("codex", cfg(role, model), logger);
+      await agent[method]({ prompt: "t", role });
 
       const args = runCommand.mock.calls[0][1];
       expect(args).toContain("--model");
-      expect(args).toContain("o3");
+      expect(args).toContain(model);
     });
 
-    it("adds --model flag for reviewer when configured", async () => {
-      const config = { ...baseConfig, roles: { coder: {}, reviewer: { model: "o4-mini" } } };
-      const agent = new CodexAgent("codex", config, logger);
-      await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("--model");
-      expect(args).toContain("o4-mini");
-    });
-
-    it("omits --model flag when no model is configured", async () => {
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-
-      const args = runCommand.mock.calls[0][1];
-      expect(args).not.toContain("--model");
+    it("omits --model when no model is configured", async () => {
+      await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(runCommand.mock.calls[0][1]).not.toContain("--model");
     });
   });
 
   describe("reviewTask structure", () => {
-    it("uses exec subcommand with stdin for review too", async () => {
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      await agent.reviewTask({ prompt: "review code", role: "reviewer" });
+    it("uses exec subcommand with stdin and forwards stdout/stderr", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "review result", stderr: "warnings" });
+      const result = await new CodexAgent("codex", baseConfig, logger).reviewTask({ prompt: "review code", role: "reviewer" });
 
-      const args = runCommand.mock.calls[0][1];
+      const [, args, opts] = runCommand.mock.calls[0];
       expect(args[0]).toBe("exec");
       expect(args[args.length - 1]).toBe("-");
-      expect(runCommand.mock.calls[0][2].input).toBe("review code");
-    });
-
-    it("returns stdout as output and stderr as error", async () => {
-      runCommand.mockResolvedValue({ exitCode: 0, stdout: "review result", stderr: "warnings" });
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
+      expect(opts.input).toBe("review code");
       expect(result.output).toBe("review result");
       expect(result.error).toBe("warnings");
     });
   });
 
-  describe("timeout and streaming options passthrough", () => {
-    it("passes onOutput, silenceTimeoutMs, and timeout to runCommand", async () => {
-      const onOutput = vi.fn();
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      await agent.runTask({
-        prompt: "test",
-        role: "coder",
-        onOutput,
-        silenceTimeoutMs: 20000,
-        timeoutMs: 60000
-      });
-
-      const opts = runCommand.mock.calls[0][2];
-      expect(opts.onOutput).toBe(onOutput);
-      expect(opts.silenceTimeoutMs).toBe(20000);
-      expect(opts.timeout).toBe(60000);
+  it("passes onOutput, silenceTimeoutMs, and timeout to runCommand", async () => {
+    const onOutput = vi.fn();
+    await new CodexAgent("codex", baseConfig, logger).runTask({
+      prompt: "t", role: "coder", onOutput, silenceTimeoutMs: 20000, timeoutMs: 60000
     });
+
+    const opts = runCommand.mock.calls[0][2];
+    expect(opts.onOutput).toBe(onOutput);
+    expect(opts.silenceTimeoutMs).toBe(20000);
+    expect(opts.timeout).toBe(60000);
   });
 
+  // merged-from: 4 model-not-supported fallback tests collapsed to the 4
+  // distinct branches: retry runTask, retry reviewTask, no retry on
+  // unrelated error, no retry without custom model.
   describe("model-not-supported fallback", () => {
+    const NOT_SUPPORTED = "The 'X' model is not supported when using Codex with a ChatGPT account.";
+
     it("retries runTask without --model when model is not supported", async () => {
       const config = { ...baseConfig, roles: { coder: { model: "o4-mini" }, reviewer: {} } };
       runCommand
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "The 'o4-mini' model is not supported when using Codex with a ChatGPT account." })
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: NOT_SUPPORTED.replace("X", "o4-mini") })
         .mockResolvedValueOnce({ exitCode: 0, stdout: "done", stderr: "" });
 
-      const agent = new CodexAgent("codex", config, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
+      const result = await new CodexAgent("codex", config, logger).runTask({ prompt: "t", role: "coder" });
 
       expect(result.ok).toBe(true);
       expect(runCommand).toHaveBeenCalledTimes(2);
@@ -210,108 +138,45 @@ describe("CodexAgent", () => {
     it("retries reviewTask without --model when model is not supported", async () => {
       const config = { ...baseConfig, roles: { coder: {}, reviewer: { model: "o3" } } };
       runCommand
-        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "The 'o3' model is not supported when using Codex with a ChatGPT account." })
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: NOT_SUPPORTED.replace("X", "o3") })
         .mockResolvedValueOnce({ exitCode: 0, stdout: "review ok", stderr: "" });
 
-      const agent = new CodexAgent("codex", config, logger);
-      const result = await agent.reviewTask({ prompt: "review", role: "reviewer" });
+      const result = await new CodexAgent("codex", config, logger).reviewTask({ prompt: "r", role: "reviewer" });
 
       expect(result.ok).toBe(true);
       expect(runCommand).toHaveBeenCalledTimes(2);
-      const retryArgs = runCommand.mock.calls[1][1];
-      expect(retryArgs).not.toContain("--model");
+      expect(runCommand.mock.calls[1][1]).not.toContain("--model");
     });
 
-    it("does NOT retry when error is not model-related", async () => {
-      const config = { ...baseConfig, roles: { coder: { model: "o4-mini" }, reviewer: {} } };
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "connection timeout" });
-
-      const agent = new CodexAgent("codex", config, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.ok).toBe(false);
-      expect(runCommand).toHaveBeenCalledTimes(1);
-    });
-
-    it("does NOT retry when no custom model was used", async () => {
-      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "model is not supported" });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
+    it.each([
+      ["unrelated error",     { ...baseConfig, roles: { coder: { model: "o4-mini" }, reviewer: {} } }, "connection timeout"],
+      ["no custom model set", baseConfig,                                                              "model is not supported"]
+    ])("does NOT retry: %s", async (_n, config, stderr) => {
+      runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr });
+      const result = await new CodexAgent("codex", config, logger).runTask({ prompt: "t", role: "coder" });
 
       expect(result.ok).toBe(false);
       expect(runCommand).toHaveBeenCalledTimes(1);
     });
   });
 
+  // merged-from: 5 token-extraction tests collapsed into a single it.each
+  // covering: comma sep, no commas, missing footer, reviewTask, very large.
   describe("token usage extraction", () => {
-    it("extracts token count from 'tokens used' line in stdout", async () => {
-      runCommand.mockResolvedValue({
-        exitCode: 0,
-        stdout: "some output\ntokens used\n9,512\n",
-        stderr: ""
-      });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.ok).toBe(true);
-      expect(result.tokens_in).toBe(0);
-      expect(result.tokens_out).toBe(9512);
-    });
-
-    it("extracts token count without comma separators", async () => {
-      runCommand.mockResolvedValue({
-        exitCode: 0,
-        stdout: "done\ntokens used\n512\n",
-        stderr: ""
-      });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.tokens_out).toBe(512);
-    });
-
-    it("returns no token fields when stdout has no token info", async () => {
-      runCommand.mockResolvedValue({
-        exitCode: 0,
-        stdout: "just regular output",
-        stderr: ""
-      });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
+    it.each([
+      ["with commas",        "runTask",    "some output\ntokens used\n9,512\n",  { tokens_in: 0, tokens_out: 9512 }],
+      ["without commas",     "runTask",    "done\ntokens used\n512\n",            { tokens_in: 0, tokens_out: 512 }],
+      ["no token footer",    "runTask",    "just regular output",                 { tokens_in: undefined, tokens_out: undefined }],
+      ["reviewTask path",    "reviewTask", "review done\ntokens used\n15,000\n",  { tokens_in: 0, tokens_out: 15000 }],
+      ["large with commas",  "runTask",    "output\ntokens used\n1,234,567\n",    { tokens_in: 0, tokens_out: 1234567 }]
+    ])("%s", async (_n, method, stdout, expected) => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout, stderr: "" });
+      const role = method === "runTask" ? "coder" : "reviewer";
+      const result = await new CodexAgent("codex", baseConfig, logger)[method]({ prompt: "t", role });
 
       expect(result.ok).toBe(true);
-      expect(result.tokens_in).toBeUndefined();
-      expect(result.tokens_out).toBeUndefined();
-    });
-
-    it("extracts tokens from reviewTask stdout as well", async () => {
-      runCommand.mockResolvedValue({
-        exitCode: 0,
-        stdout: "review done\ntokens used\n15,000\n",
-        stderr: ""
-      });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.reviewTask({ prompt: "review", role: "reviewer" });
-
-      expect(result.tokens_out).toBe(15000);
-    });
-
-    it("handles large token counts with multiple comma separators", async () => {
-      runCommand.mockResolvedValue({
-        exitCode: 0,
-        stdout: "output\ntokens used\n1,234,567\n",
-        stderr: ""
-      });
-
-      const agent = new CodexAgent("codex", baseConfig, logger);
-      const result = await agent.runTask({ prompt: "test", role: "coder" });
-
-      expect(result.tokens_out).toBe(1234567);
+      expect(result.tokens_in).toBe(expected.tokens_in);
+      expect(result.tokens_out).toBe(expected.tokens_out);
     });
   });
 });

@@ -33,6 +33,7 @@ describe("runCommand timeout handling", () => {
     expect(result.signal).toBeTruthy();
   });
 
+  // regression-for: regression
   it("works without timeout (no regression)", async () => {
     const result = await runCommand("echo", ["hello"]);
     expect(result.exitCode).toBe(0);

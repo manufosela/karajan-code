@@ -93,6 +93,7 @@ describe("checks/tokens — provider CLI availability (post-v2.7.4)", () => {
     expect(agentDetect.checkBinary).toHaveBeenCalledWith("gemini");
   });
 
+  // regression-for: regression
   it("does NOT touch ANTHROPIC_API_KEY / OPENAI_API_KEY anywhere (regression guard)", async () => {
     // Set both env vars; the result must depend on the CLI, not on env.
     process.env.ANTHROPIC_API_KEY = "sk-test";

@@ -4,6 +4,32 @@
   "wallClockSec": 51.69,
   "branchCoveragePct": 69.48,
   "fileCount": 328,
+  "perArea": {
+    "agents": {
+      "locBefore": 1697,
+      "fileCountBefore": 8,
+      "filesOver300LOCBefore": 2,
+      "branchCoveragePctBefore": 69.48
+    },
+    "orchestrator": {
+      "locBefore": 400,
+      "fileCountBefore": 3,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    },
+    "skills,cli": {
+      "locBefore": 1385,
+      "fileCountBefore": 11,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    },
+    "utils,integration": {
+      "locBefore": 1100,
+      "fileCountBefore": 9,
+      "filesOver300LOCBefore": 0,
+      "branchCoveragePctBefore": 69.48
+    }
+  },
   "files": [
     {
       "path": "tests/acceptance-runner.test.js",
@@ -331,17 +357,17 @@
       "architecture": false
     },
     {
-      "path": "tests/cli-progress.test.js",
+      "path": "tests/cli/cli-progress.test.js",
       "loc": 110,
       "architecture": false
     },
     {
-      "path": "tests/cli-unknown-command.test.js",
+      "path": "tests/cli/cli-unknown-command.test.js",
       "loc": 79,
       "architecture": false
     },
     {
-      "path": "tests/cli-welcome.test.js",
+      "path": "tests/cli/cli-welcome.test.js",
       "loc": 74,
       "architecture": false
     },
@@ -826,47 +852,47 @@
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-budget.test.js",
+      "path": "tests/runflow-budget.test.js",
       "loc": 257,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-checkpoint.test.js",
+      "path": "tests/runflow-checkpoint.test.js",
       "loc": 374,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-events.test.js",
+      "path": "tests/runflow-events.test.js",
       "loc": 806,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-iteration.test.js",
+      "path": "tests/runflow-iteration.test.js",
       "loc": 338,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-pg-integration.test.js",
+      "path": "tests/runflow-pg-integration.test.js",
       "loc": 262,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-post-loop.test.js",
+      "path": "tests/runflow-post-loop.test.js",
       "loc": 135,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-pre-loop.test.js",
+      "path": "tests/runflow-pre-loop.test.js",
       "loc": 589,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-repeat-detection.test.js",
+      "path": "tests/runflow-repeat-detection.test.js",
       "loc": 313,
       "architecture": false
     },
     {
-      "path": "tests/orchestrator-triage.test.js",
+      "path": "tests/runflow-triage.test.js",
       "loc": 483,
       "architecture": false
     },
