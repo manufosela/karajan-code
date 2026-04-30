@@ -57,6 +57,18 @@ export function createRunLog(projectDir) {
   // Truncate/create the log file
   fs.writeFileSync(logPath, `--- Karajan run started at ${new Date().toISOString()} ---\n`);
 
+  // Audit recommendation (perf-LOW): suggested createWriteStream + queue.
+  // Tried it; broke the contract. `readRunLog` (used by `kj_status`,
+  // `kj-tail`, and the HU board's chokidar tick) reads the file with
+  // `fs.readFileSync` and expects every prior write to be visible the
+  // moment the writer's `logEvent()` returns — which is what
+  // `fs.writeSync(fd, ...)` guarantees and `stream.write()` does NOT.
+  //
+  // The current shape is already opened-once: `fs.openSync(logPath, "a")`
+  // returns an fd that every subsequent `fs.writeSync` reuses (no extra
+  // open/close per call). The hot-path complaint was about the FALLBACK
+  // `fs.appendFileSync` line, which only fires when openSync itself
+  // fails (rare; FS error or RO mount).
   let fd = null;
   try {
     fd = fs.openSync(logPath, "a");
