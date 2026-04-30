@@ -1,5 +1,5 @@
 /**
- * E2E #03 — `kj plan validate` and `kj plan ready` against pre-seeded plans.
+ * E2E #12 — `kj plan validate` and `kj plan ready` against pre-seeded plans.
  * No LLM call.
  */
 
@@ -17,7 +17,7 @@ function seedPlan(kjHome, projectDir, planId, plan) {
   return path.join(dir, `${planId}.json`);
 }
 
-describe("e2e/03 — kj plan validate / ready", () => {
+describe("e2e/12 — kj plan validate / ready", () => {
   let proj;
   afterEach(() => proj?.cleanup());
 

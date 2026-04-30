@@ -1,5 +1,5 @@
 /**
- * E2E #05 — `kj clean` removes stale session artifacts without touching
+ * E2E #14 — `kj clean` removes stale session artifacts without touching
  * fresh ones. Pins the GC contract end-to-end (file-system effects).
  * No LLM call.
  */
@@ -10,7 +10,7 @@ import path from "node:path";
 import { runKj } from "./helpers/spawn-kj.js";
 import { makeTmpProject } from "./helpers/tmp-project.js";
 
-describe("e2e/05 — kj clean", () => {
+describe("e2e/14 — kj clean", () => {
   let proj;
   afterEach(() => proj?.cleanup());
 

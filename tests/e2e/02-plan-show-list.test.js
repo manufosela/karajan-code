@@ -1,5 +1,5 @@
 /**
- * E2E #02 — `kj plan list` and `kj plan show` against pre-seeded plans.
+ * E2E #11 — `kj plan list` and `kj plan show` against pre-seeded plans.
  *
  * No LLM call: we drop a hand-crafted plan JSON into KJ_HOME and
  * assert the read-only commands surface it correctly. Pins the
@@ -24,7 +24,7 @@ function seedPlan(kjHome, projectDir, planId, plan) {
   return dir;
 }
 
-describe("e2e/02 — kj plan list / show", () => {
+describe("e2e/11 — kj plan list / show", () => {
   let proj;
   afterEach(() => proj?.cleanup());
 

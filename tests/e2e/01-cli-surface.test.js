@@ -1,5 +1,5 @@
 /**
- * E2E #01 — CLI surface (no LLM required).
+ * E2E #10 — CLI surface (no LLM required).
  *
  * Spawns the real `kj` binary and asserts the contract every user
  * touches first: --version, --help, unknown commands, basic flag
@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { runKj } from "./helpers/spawn-kj.js";
 import { makeTmpProject } from "./helpers/tmp-project.js";
 
-describe("e2e/01 — CLI surface", () => {
+describe("e2e/10 — CLI surface", () => {
   it("kj --version prints a semver string and exits 0", () => {
     const proj = makeTmpProject();
     try {
