@@ -92,14 +92,68 @@ function runDepcheck(projectDir) {
   });
 }
 
+// Regexes hoisted to module scope so they're compiled once instead of per file.
+// Naming: *Re catches static/syntactic patterns; we still rely on the import set
+// being a superset (false negative > false positive in audit context).
+const EXPORT_RE = /export\s+(?:default\s+)?(?:function|class|const|let|var|async\s+function)\s+(\w+)/g;
+const NAMED_EXPORT_RE = /export\s*\{([^}]+)\}/g;
+const STATIC_NAMED_IMPORT_RE = /import\s+\{([^}]+)\}\s+from/g;
+const DEFAULT_IMPORT_RE = /import\s+(\w+)\s+from/g;
+// Namespace import (`import * as ns from <path>`) — knip-equivalent: mark
+// the target file as fully-consumed because we cannot statically know
+// which `ns.X` accesses happen.
+const NAMESPACE_IMPORT_RE = /import\s+\*\s+as\s+\w+\s+from\s+["']([^"']+)["']/g;
+// Any dynamic `await import(<path>)` — destructured, late-bound, or
+// member-accessed. Conservatively mark the target as fully-consumed:
+// trying to enumerate downstream destructuring/member-access patterns is
+// fragile (the same test may use parenthesised assignment with no const,
+// or bind first and `.foo`-access later). A false-negative here (one
+// extra "live" export we can't prove dead) is always cheaper than a
+// false-positive in audit context.
+const DYNAMIC_IMPORT_RE = /\bawait\s+import\s*\(\s*["']([^"']+)["']\s*\)/g;
+// Re-export bridges (`export { x } from <path>` and `export * from <path>`)
+// — both consume from the target file (the re-exporter is itself another
+// file consumer downstream).
+const RE_EXPORT_NAMED_RE = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
+const RE_EXPORT_STAR_RE = /export\s*\*\s*from\s*["']([^"']+)["']/g;
+// Export preceded by a JSDoc block with `@internal` is opt-out: documented as
+// dynamic-import-only or test-fixture surface that the regex passes can't see.
+const INTERNAL_EXPORT_RE = /\/\*\*[\s\S]*?@internal[\s\S]*?\*\/\s*export\s+(?:default\s+)?(?:function|class|const|let|var|async\s+function)\s+(\w+)/g;
+
+function resolveImportSpecifier(fromFile, specifier) {
+  // Only resolve project-relative paths; bare specifiers (npm packages) and
+  // node: builtins are not in our exportMap and don't matter here.
+  if (!specifier.startsWith(".") && !specifier.startsWith("/")) return null;
+  const base = path.resolve(path.dirname(fromFile), specifier);
+  // Caller will probe both with and without explicit extensions.
+  return base.endsWith(".js") || base.endsWith(".mjs") || base.endsWith(".cjs")
+    || base.endsWith(".ts") || base.endsWith(".tsx")
+    ? base
+    : `${base}.js`;
+}
+
+// Strip every string literal (template, double, single) from the content
+// before scanning for export declarations. Test files routinely embed
+// sample source code inside fixtures (template literals for plugin
+// modules, double-quoted diff lines for prompt tests, etc.). At top level
+// `export ...` is a statement, never an expression, so it can never
+// legitimately appear inside a quoted string in real code — meaning the
+// strip is safe for export detection. We do NOT use this stripped view
+// for import detection: the import regexes anchor on `import {...} from`
+// regardless of the path string, but the namespace/dynamic-import passes
+// need the actual path inside the quotes to resolve the target module.
+function stripStringLiterals(content) {
+  return content
+    .replace(/`[^`]*`/g, "``")
+    .replace(/"(?:\\.|[^"\\])*"/g, '""')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''");
+}
+
 async function findDeadExports(sourceFiles) {
   const exportMap = new Map(); // file -> [exportName]
+  const internalExportsByFile = new Map(); // file -> Set<exportName>
   const importedNames = new Set();
-
-  const exportRe = /export\s+(?:default\s+)?(?:function|class|const|let|var|async\s+function)\s+(\w+)/g;
-  const namedExportRe = /export\s*\{([^}]+)\}/g;
-  const importRe = /import\s+\{([^}]+)\}\s+from/g;
-  const defaultImportRe = /import\s+(\w+)\s+from/g;
+  const fullyConsumedFiles = new Set(); // resolved file paths reached via `import *` or bound dynamic import
 
   for (const file of sourceFiles) {
     let content;
@@ -108,12 +162,13 @@ async function findDeadExports(sourceFiles) {
     } catch {
       continue;
     }
+    const exportContent = stripStringLiterals(content);
 
     const exports = [];
-    for (const match of content.matchAll(exportRe)) {
+    for (const match of exportContent.matchAll(EXPORT_RE)) {
       exports.push(match[1]);
     }
-    for (const match of content.matchAll(namedExportRe)) {
+    for (const match of exportContent.matchAll(NAMED_EXPORT_RE)) {
       const names = match[1].split(",").map(n => n.trim().split(/\s+as\s+/).pop().trim());
       exports.push(...names);
     }
@@ -121,18 +176,46 @@ async function findDeadExports(sourceFiles) {
       exportMap.set(file, exports);
     }
 
-    for (const match of content.matchAll(importRe)) {
+    // Collect `@internal`-tagged exports up front so the dead-pass can skip them.
+    const internalSet = new Set();
+    for (const match of exportContent.matchAll(INTERNAL_EXPORT_RE)) {
+      internalSet.add(match[1]);
+    }
+    if (internalSet.size > 0) {
+      internalExportsByFile.set(file, internalSet);
+    }
+
+    for (const match of content.matchAll(STATIC_NAMED_IMPORT_RE)) {
       const names = match[1].split(",").map(n => n.trim().split(/\s+as\s+/)[0].trim());
       for (const name of names) importedNames.add(name);
     }
-    for (const match of content.matchAll(defaultImportRe)) {
+    for (const match of content.matchAll(DEFAULT_IMPORT_RE)) {
       importedNames.add(match[1]);
+    }
+    for (const match of content.matchAll(NAMESPACE_IMPORT_RE)) {
+      const resolved = resolveImportSpecifier(file, match[1]);
+      if (resolved) fullyConsumedFiles.add(resolved);
+    }
+    for (const match of content.matchAll(DYNAMIC_IMPORT_RE)) {
+      const resolved = resolveImportSpecifier(file, match[1]);
+      if (resolved) fullyConsumedFiles.add(resolved);
+    }
+    for (const match of content.matchAll(RE_EXPORT_NAMED_RE)) {
+      const names = match[1].split(",").map(n => n.trim().split(/\s+as\s+/)[0].trim());
+      for (const name of names) importedNames.add(name);
+    }
+    for (const match of content.matchAll(RE_EXPORT_STAR_RE)) {
+      const resolved = resolveImportSpecifier(file, match[1]);
+      if (resolved) fullyConsumedFiles.add(resolved);
     }
   }
 
   const dead = [];
   for (const [file, exports] of exportMap) {
+    if (fullyConsumedFiles.has(file)) continue; // module imported via * or bound await import — can't tell which exports are used
+    const internalSet = internalExportsByFile.get(file);
     for (const name of exports) {
+      if (internalSet?.has(name)) continue; // explicitly opted out via @internal
       if (!importedNames.has(name)) {
         dead.push({ file, name });
       }
