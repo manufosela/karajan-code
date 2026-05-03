@@ -24,6 +24,10 @@ function extractPortFromHost(host, fallback) {
   return m ? Number(m[1]) : fallback;
 }
 
+/**
+ * @internal Exported for dynamic import from tests/checks/ports.test.js
+ * and tests/checks/auto-remediation-e2e.test.js. Knip false positive.
+ */
 export function createSonarPortCheck() {
   return {
     name: "port:sonar",
@@ -133,6 +137,10 @@ export function createSonarPortCheck() {
   };
 }
 
+/**
+ * @internal Exported for dynamic import from tests/checks/ports.test.js
+ * and tests/checks/auto-remediation-e2e.test.js. Knip false positive.
+ */
 export function createHuBoardPortCheck() {
   return {
     name: "port:hu-board",

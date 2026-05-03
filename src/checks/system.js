@@ -14,7 +14,7 @@ function getPackageVersion() {
   return JSON.parse(readFileSync(pkgPath, "utf8")).version;
 }
 
-export function createKarajanVersionCheck() {
+function createKarajanVersionCheck() {
   return {
     name: "karajan",
     label: "Karajan Code",
@@ -26,7 +26,7 @@ export function createKarajanVersionCheck() {
   };
 }
 
-export function createGitRepoCheck() {
+function createGitRepoCheck() {
   return {
     name: "git",
     label: "Git repository",

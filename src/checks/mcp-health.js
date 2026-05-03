@@ -86,6 +86,9 @@ async function pingMcpStdio(command, args) {
 /**
  * karajan-mcp health — stdio server bundled with this package.
  * Strategy: auto (we can re-spawn it ourselves).
+ *
+ * @internal Exported for dynamic import from tests/checks/mcp-health.test.js.
+ * Knip false positive.
  */
 export function createKarajanMcpCheck() {
   return {
@@ -121,6 +124,9 @@ export function createKarajanMcpCheck() {
 /**
  * Serena MCP — external tool the user installs themselves. Warn only when
  * enabled in config. Strategy: manual (we don't manage its lifecycle).
+ *
+ * @internal Exported for dynamic import from tests/checks/mcp-health.test.js.
+ * Knip false positive.
  */
 export function createSerenaMcpCheck() {
   return {

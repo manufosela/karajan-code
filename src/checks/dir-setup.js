@@ -15,6 +15,10 @@ const REQUIRED_DIRS = [
   "logs",
 ];
 
+/**
+ * @internal Exported for dynamic import from tests/checks/dir-setup.test.js
+ * and tests/checks/auto-remediation-e2e.test.js. Knip false positive.
+ */
 export function createKarajanDirsCheck() {
   return {
     name: "karajan-dirs",

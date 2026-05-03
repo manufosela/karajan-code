@@ -8,10 +8,14 @@ import { isOpenSkillsAvailable } from "../skills/openskills-client.js";
 import { runCommand } from "../utils/process.js";
 import { STRATEGY } from "./types.js";
 
-export function skillsEnabled(config) {
+function skillsEnabled(config) {
   return config?.skills?.enabled !== false;
 }
 
+/**
+ * @internal Exported for dynamic import from tests/checks/skills.test.js
+ * and tests/checks/auto-remediation-e2e.test.js. Knip false positive.
+ */
 export function createOpenSkillsCheck() {
   return {
     name: "openskills",

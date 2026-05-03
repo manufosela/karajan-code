@@ -8,7 +8,7 @@ import { getInstallCommand } from "../utils/os-detect.js";
 import { withDocLink } from "../utils/doc-links.js";
 import { STRATEGY } from "./types.js";
 
-export function createRtkCheck() {
+function createRtkCheck() {
   return {
     name: "rtk",
     label: "RTK (Rust Token Killer)",

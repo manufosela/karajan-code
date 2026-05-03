@@ -20,7 +20,7 @@ import { STRATEGY } from "./types.js";
 /**
  * kj.config.yml presence check.
  */
-export function createConfigFileCheck() {
+function createConfigFileCheck() {
   return {
     name: "config",
     label: "Config file",
@@ -42,7 +42,7 @@ export function createConfigFileCheck() {
 /**
  * Review rules (.md) informational check.
  */
-export function createReviewRulesCheck() {
+function createReviewRulesCheck() {
   return {
     name: "review-rules",
     label: "Reviewer rules (.md)",
@@ -63,7 +63,7 @@ export function createReviewRulesCheck() {
 /**
  * Coder rules (.md) informational check.
  */
-export function createCoderRulesCheck() {
+function createCoderRulesCheck() {
   return {
     name: "coder-rules",
     label: "Coder rules (.md)",
@@ -104,7 +104,7 @@ function findDuplicateTomlKeys(content) {
 /**
  * Claude config (~/.claude.json) validity.
  */
-export function createClaudeConfigCheck() {
+function createClaudeConfigCheck() {
   return {
     name: "agent-config:claude",
     label: "Agent config: claude (~/.claude.json)",
@@ -135,7 +135,7 @@ export function createClaudeConfigCheck() {
 /**
  * Codex config (~/.codex/config.toml) validity.
  */
-export function createCodexConfigCheck() {
+function createCodexConfigCheck() {
   return {
     name: "agent-config:codex",
     label: "Agent config: codex (~/.codex/config.toml)",
@@ -173,7 +173,7 @@ export function createCodexConfigCheck() {
 /**
  * KJ config (~/.karajan/kj.config.yml) YAML validity (separate from existence).
  */
-export function createKjConfigYamlCheck() {
+function createKjConfigYamlCheck() {
   return {
     name: "agent-config:karajan",
     label: "Agent config: karajan (kj.config.yml)",

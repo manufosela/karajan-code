@@ -146,4 +146,4 @@ export function getTokenChecks(config) {
 }
 
 // Re-export for tests that need to introspect the mapping.
-export { PROVIDER_TO_CLI, normalizeProvider };
+export { normalizeProvider };
