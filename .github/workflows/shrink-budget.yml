@@ -1,0 +1,168 @@
+# Shrink Budget — prevents uncontrolled LOC growth.
+#
+# Fires on PRs to main and computes the net LOC delta (added - removed) of
+# source files vs. the base branch. If a PR adds more than LOC_LIMIT net
+# lines without paired removals, the job fails. Authors who legitimately
+# need to grow the codebase (e.g. landing a vendored dependency, bringing in
+# a new orchestrator stage) can apply the `shrink-budget-exempt` label on
+# the PR — the job is skipped entirely.
+#
+# A separate, non-blocking check warns when package.json adds new entries
+# under `dependencies` or `devDependencies`. To silence the warning, apply
+# the `new-dep-approved` label or justify the new dep in the PR body.
+#
+# Source: kj_audit 2026-05-03 finding #3 (codeQuality, high impact) —
+# the repo grew +47% LOC in 4 weeks vs ~20% audit-driven cleanup.
+# Ref: KJC-TSK-0352, GitHub issue #573.
+name: Shrink Budget
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  # Net LOC limit per PR before the budget check fails. Tune carefully —
+  # raising this defeats the purpose. Use the `shrink-budget-exempt` label
+  # for one-off exceptions instead.
+  LOC_LIMIT: "500"
+
+jobs:
+  loc-budget:
+    name: Net LOC delta <= ${{ env.LOC_LIMIT }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'shrink-budget-exempt') }}
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute net LOC delta
+        id: loc
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Excluded paths: lockfiles, snapshots, build output, vendored
+          # third-party, minified bundles, generated diet baselines, and
+          # binary fixtures. Each entry is a glob pattern interpreted by
+          # `git diff --diff-filter=AM ... -- :(exclude)<pattern>`.
+          excludes=(
+            ":(exclude)package-lock.json"
+            ":(exclude)pnpm-lock.yaml"
+            ":(exclude)yarn.lock"
+            ":(exclude)**/*.snap"
+            ":(exclude)**/*.snapshot"
+            ":(exclude)dist/**"
+            ":(exclude)**/dist/**"
+            ":(exclude)node_modules/**"
+            ":(exclude)**/*.min.js"
+            ":(exclude)tests/_diet/**"
+            ":(exclude)public/docs/**"
+          )
+
+          stats=$(git diff --numstat "$BASE_SHA"..."$HEAD_SHA" -- . "${excludes[@]}")
+          # numstat columns: added removed path. Binary files emit '-'; skip those.
+          added=$(echo "$stats" | awk '$1 != "-" { sum += $1 } END { print sum + 0 }')
+          removed=$(echo "$stats" | awk '$2 != "-" { sum += $2 } END { print sum + 0 }')
+          net=$(( added - removed ))
+
+          echo "added=$added"     >> "$GITHUB_OUTPUT"
+          echo "removed=$removed" >> "$GITHUB_OUTPUT"
+          echo "net=$net"         >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Shrink Budget — net LOC delta"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Lines added | $added |"
+            echo "| Lines removed | $removed |"
+            echo "| **Net delta** | **$net** |"
+            echo "| Limit | ${LOC_LIMIT} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce LOC limit
+        env:
+          NET: ${{ steps.loc.outputs.net }}
+        run: |
+          set -euo pipefail
+          if [ "$NET" -gt "${LOC_LIMIT}" ]; then
+            echo "::error::Net LOC delta is $NET, exceeds limit ${LOC_LIMIT}."
+            echo ""
+            echo "Karajan tracks LOC delta per PR to prevent uncontrolled growth"
+            echo "(audit 2026-05-03 found +47% LOC in 4 weeks)."
+            echo ""
+            echo "Options:"
+            echo "  1. Pair the addition with removals so the net stays under ${LOC_LIMIT}."
+            echo "  2. If the growth is unavoidable (vendored dep, new pipeline role,"
+            echo "     legitimate large feature), apply the 'shrink-budget-exempt' label"
+            echo "     to this PR to skip the check."
+            exit 1
+          fi
+          echo "Net LOC delta $NET is within budget (limit ${LOC_LIMIT})."
+
+  new-deps-warning:
+    name: New dependencies (advisory)
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'new-dep-approved') }}
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect new entries in package.json
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Compare base vs head versions of package.json. Extract dep names
+          # from each, then diff to find net additions. We only WARN — this
+          # job is intentionally non-blocking; the LOC budget is the gate.
+          base_pkg=$(git show "$BASE_SHA":package.json 2>/dev/null || echo '{}')
+          head_pkg=$(git show "$HEAD_SHA":package.json 2>/dev/null || echo '{}')
+
+          extract_deps() {
+            echo "$1" | jq -r '
+              [
+                (.dependencies // {} | keys[]),
+                (.devDependencies // {} | keys[])
+              ] | sort | unique | .[]
+            ' 2>/dev/null || true
+          }
+
+          base_deps=$(extract_deps "$base_pkg")
+          head_deps=$(extract_deps "$head_pkg")
+
+          new_deps=$(comm -13 <(echo "$base_deps") <(echo "$head_deps") || true)
+
+          if [ -z "$new_deps" ]; then
+            echo "No new dependencies in this PR."
+            echo "## New dependencies — none" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "::warning::This PR introduces new dependencies. Justify in the PR body or apply the 'new-dep-approved' label."
+            echo "## New dependencies (advisory)"
+            echo ""
+            echo "| Dependency |"
+            echo "| --- |"
+            while IFS= read -r dep; do
+              [ -n "$dep" ] && echo "| \`$dep\` |"
+            done <<< "$new_deps"
+            echo ""
+            echo "Each new dep is install cost + supply-chain surface."
+            echo "Apply the \`new-dep-approved\` label to silence this warning."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
