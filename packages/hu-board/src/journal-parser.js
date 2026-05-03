@@ -25,14 +25,14 @@ import path from "node:path";
  * for the common "hu-board runs in a different process from the pipeline"
  * case; otherwise falls back to the current working directory.
  */
-export function getProjectDir() {
+function getProjectDir() {
   return process.env.KJ_PROJECT_DIR || process.cwd();
 }
 
 /**
  * Resolve the `.reviews/` directory under the active project dir.
  */
-export function getReviewsDir() {
+function getReviewsDir() {
   return path.join(getProjectDir(), ".reviews");
 }
 
