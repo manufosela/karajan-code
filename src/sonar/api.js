@@ -3,7 +3,7 @@ import { withRetry } from "../utils/retry.js";
 import { resolveSonarProjectKey } from "./project-key.js";
 import { resolveSonarToken } from "./config-resolver.js";
 
-export class SonarApiError extends Error {
+class SonarApiError extends Error {
   constructor(message, { url, httpStatus, hint } = {}) {
     super(message);
     this.name = "SonarApiError";

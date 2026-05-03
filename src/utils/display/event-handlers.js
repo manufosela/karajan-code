@@ -342,7 +342,7 @@ export const EVENT_HANDLERS = {
 };
 
 /** Event types suppressed in quiet mode (internal/noise events). */
-export const QUIET_SUPPRESSED = new Set([
+const QUIET_SUPPRESSED = new Set([
   "agent:output",
   "agent:stall",
   "pipeline:simplify",

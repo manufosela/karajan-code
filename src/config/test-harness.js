@@ -76,4 +76,3 @@ export function resolveTestHarness(explicit = {}) {
   return Object.freeze(out);
 }
 
-export { PROD_DEFAULTS, GLOBAL_KEYS };

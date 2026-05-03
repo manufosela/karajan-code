@@ -42,7 +42,7 @@ export async function initPgAdapter({ session: _session, config, logger, pgTaskI
  * Handle PG task decomposition after triage.
  * Creates subtask cards in PG when triage recommends decomposition.
  */
-export async function handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger }) {
+async function handlePgDecomposition({ triageResult, pgTaskId, pgProject, config, askQuestion, emitter, eventBase, session, stageResults, logger }) {
   const shouldDecompose = triageResult.stageResult?.shouldDecompose
     && triageResult.stageResult.subtasks?.length > 1
     && pgTaskId
