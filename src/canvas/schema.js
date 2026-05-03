@@ -51,7 +51,7 @@ const Operation = v.looseObject({
   acceptance: v.pipe(v.array(AcceptanceTest), v.minLength(1)),
 });
 
-export const CanvasSchema = v.looseObject({
+const CanvasSchema = v.looseObject({
   // Title is the project / feature name. The planner uses it as the
   // plan name unless the user overrides on prompt.
   title: NonEmptyString,

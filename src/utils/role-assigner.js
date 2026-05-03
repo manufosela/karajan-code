@@ -128,4 +128,4 @@ export function applyRoleAssignments(config, assignments) {
   return config;
 }
 
-export { CAPABILITY_TIERS, ROLE_PREFERENCES };
+export { CAPABILITY_TIERS };

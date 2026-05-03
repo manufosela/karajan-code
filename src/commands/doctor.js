@@ -77,7 +77,7 @@ function confirmViaTty(describe) {
  * @param {{ config: Object, checkOnly?: boolean, yes?: boolean, onConfirm?: Function, logger?: Object }} args
  * @returns {Promise<import("../checks/types.js").RunReport>}
  */
-export async function runDoctor({ config, checkOnly = false, yes = false, onConfirm, logger }) {
+async function runDoctor({ config, checkOnly = false, yes = false, onConfirm, logger }) {
   const checks = buildChecks(config);
   return runCheckPipeline(checks, { config }, {
     mode: checkOnly ? "check-only" : "fix",

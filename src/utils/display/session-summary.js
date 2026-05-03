@@ -15,7 +15,7 @@ export function printSessionStages(stages) {
   printSessionSonar(stages.sonar);
 }
 
-export function printSessionPlanner(planner) {
+function printSessionPlanner(planner) {
   if (!planner?.title && !planner?.approach && !planner?.completedSteps?.length) return;
   const planParts = [];
   if (planner.title) planParts.push(planner.title);
@@ -26,7 +26,7 @@ export function printSessionPlanner(planner) {
   }
 }
 
-export function printSessionSonar(sonar) {
+function printSessionSonar(sonar) {
   if (!sonar) return;
   const gateLabel = sonar.gateStatus === "OK" ? ANSI.green : ANSI.red;
   console.log(`  ${ANSI.dim}\ud83d\udd0d Sonar: ${gateLabel}${sonar.gateStatus}${ANSI.reset}${ANSI.dim} (${sonar.openIssues ?? 0} issues)${ANSI.reset}`);
@@ -55,7 +55,7 @@ export function printSessionGit(git) {
   }
 }
 
-export function isBudgetUnavailable(budget) {
+function isBudgetUnavailable(budget) {
   return budget.usage_available === false ||
     (budget.total_tokens === 0 && budget.total_cost_usd === 0 && Object.keys(budget.breakdown_by_role || {}).length > 0);
 }

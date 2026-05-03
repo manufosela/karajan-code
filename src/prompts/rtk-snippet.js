@@ -2,7 +2,7 @@
  * RTK (Rust Token Killer) prompt instruction snippet.
  * Injected into coder/reviewer prompts when RTK is detected.
  */
-export const RTK_INSTRUCTIONS = [
+const RTK_INSTRUCTIONS = [
   "## Token Optimization (RTK detected)",
   "RTK is installed. Prefix ALL Bash tool calls with `rtk` to reduce token usage:",
   "- Use `rtk git status` instead of `git status`",

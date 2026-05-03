@@ -93,20 +93,6 @@ export async function createCard({ projectId, card, timeoutMs = DEFAULT_TIMEOUT_
   return parseJsonResponse(response);
 }
 
-export async function createAdr({ projectId, adr, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  const url = `${getApiUrl()}/projects/${encodeURIComponent(projectId)}/adrs`;
-  const response = await fetchWithRetry(
-    url,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(adr)
-    },
-    timeoutMs
-  );
-  return parseJsonResponse(response);
-}
-
 export async function relateCards({ projectId, sourceCardId, targetCardId, relationType, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const url = `${getApiUrl()}/projects/${encodeURIComponent(projectId)}/cards/relate`;
   const response = await fetchWithRetry(

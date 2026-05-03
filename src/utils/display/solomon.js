@@ -1,6 +1,6 @@
 import { ANSI } from "./formatters.js";
 
-export const SOLOMON_RULING_HANDLERS = {
+const SOLOMON_RULING_HANDLERS = {
   approve(detail, elapsed) {
     const dismissedCount = detail?.dismissed?.length || 0;
     const dismissedSuffix = dismissedCount > 0 ? ` (${dismissedCount} dismissed)` : "";

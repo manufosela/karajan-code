@@ -115,20 +115,6 @@ export async function loadPlan(projectDir, planId) {
 }
 
 /**
- * Update a plan on disk (partial merge).
- * @returns {Promise<boolean>}
- */
-export async function updatePlan(projectDir, planId, patch) {
-  const plan = await loadPlan(projectDir, planId);
-  if (!plan) return false;
-  Object.assign(plan, patch);
-  plan.updatedAt = new Date().toISOString();
-  const filePath = path.join(plansDir(projectDir), `${planId}.json`);
-  await fs.writeFile(filePath, JSON.stringify(plan, null, 2), "utf8");
-  return true;
-}
-
-/**
  * Delete a plan from disk.
  * @returns {Promise<boolean>}
  */
