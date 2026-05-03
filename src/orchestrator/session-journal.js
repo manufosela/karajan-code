@@ -2,7 +2,6 @@
 // Creates .reviews/session_*/ directories containing markdown files per stage.
 import fs from "node:fs/promises";
 import path from "node:path";
-import { runCommand } from "../utils/process.js";
 
 /**
  * Create the journal directory for a session.
@@ -174,29 +173,6 @@ export function formatDecision({ timestamp, trigger, context, action, reasoning 
   return lines.join("\n");
 }
 
-// ── Tree of affected files ───────────────────────────────────────────────────
-
-export async function generateFileTree(baseRef) {
-  try {
-    const result = await runCommand("git", ["diff", "--name-status", `${baseRef}...HEAD`]);
-    if (result.exitCode !== 0 || !result.stdout?.trim()) return null;
-
-    const lines = ["# Affected Files\n"];
-    const statusMap = { M: "modified", A: "added", D: "deleted", R: "renamed" };
-
-    for (const line of result.stdout.trim().split("\n")) {
-      const [status, ...fileParts] = line.split("\t");
-      const file = fileParts.join("\t");
-      const label = statusMap[status?.[0]] || status;
-      lines.push(`- [${label}] ${file}`);
-    }
-
-    return lines.join("\n");
-  } catch {
-    return null;
-  }
-}
-
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 export function generateSummary({ task, result, sessionId, iterations, durationMs, budget, stages, commits, files }) {
@@ -325,20 +301,7 @@ export async function writeDecisionsJournal(journalDir, decisionEntries) {
   await writeJournalFile(journalDir, "decisions.md", content);
 }
 
-/**
- * Write the file tree.
- */
-export async function writeTreeJournal(journalDir, baseRef) {
-  const tree = await generateFileTree(baseRef);
-  if (tree) await writeJournalFile(journalDir, "tree.txt", tree);
-  return Boolean(tree);
-}
-
-/**
- * Write the session summary.
- */
-export async function writeSummaryJournal(journalDir, summaryData) {
-  const files = summaryData.files || [];
-  const content = generateSummary({ ...summaryData, files: [...files, "summary.md"] });
-  await writeJournalFile(journalDir, "summary.md", content);
-}
+// writeTreeJournal / writeSummaryJournal / generateFileTree were
+// superseded in v2.7.x by src/session/journal/{tree-writer,summary-writer}.js
+// (the V2 split). post-loop.js dynamically imports the V2 versions; this
+// orchestrator-side copy is no longer wired anywhere. KJC-TSK-0354 PR-D.

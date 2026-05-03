@@ -86,7 +86,7 @@ export async function handleCiEarlyPrOrPush({ ciEnabled, config, session, emitte
   }
 }
 
-export function formatBlockingIssues(issues) {
+function formatBlockingIssues(issues) {
   return issues?.map((x) => `- ${x.id || "ISSUE"} [${x.severity || ""}] ${x.description}`).join("\n") || "";
 }
 

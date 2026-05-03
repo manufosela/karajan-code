@@ -187,4 +187,3 @@ export function measureCompression(original, compressed) {
   };
 }
 
-export { COMPRESSORS };

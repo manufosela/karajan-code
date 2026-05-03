@@ -149,4 +149,3 @@ export function deserialize(str) {
   }
 }
 
-export { SEVERITY_ORDER, CATEGORY_ORDER };
