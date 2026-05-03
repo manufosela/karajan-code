@@ -64,7 +64,7 @@ async function api(path) {
  * appears in the latest iteration and has no "error" marker; "error" if the
  * body of its latest stage contains /error|failed/i.
  */
-export function deriveRoleStatus(iterations) {
+function deriveRoleStatus(iterations) {
   const summary = new Map();
   iterations.forEach((it) => {
     it.stages.forEach((stage) => {

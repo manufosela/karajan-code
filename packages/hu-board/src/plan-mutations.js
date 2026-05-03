@@ -52,7 +52,7 @@ function plansRoot() {
  * @param {string|undefined} projectId
  * @returns {string|null}
  */
-export function findPlanFilePath(planId, projectId) {
+function findPlanFilePath(planId, projectId) {
   const root = plansRoot();
   if (!existsSync(root)) return null;
   const fileName = `${planId}.json`;
