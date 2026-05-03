@@ -91,15 +91,3 @@ export const STRATEGY = Object.freeze({
   NONE: "none",
 });
 
-export const SEVERITY = Object.freeze({
-  FAIL: "fail",
-  WARN: "warn",
-  INFO: "info",
-});
-
-/**
- * Whether the final status blocks the pipeline (for preflight).
- */
-export function isBlocking(status) {
-  return status === STATUS.FAIL || status === STATUS.TIMEOUT;
-}

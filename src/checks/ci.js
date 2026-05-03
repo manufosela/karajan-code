@@ -37,7 +37,7 @@ function createWorkflowCheck(workflow) {
   };
 }
 
-export function createGhCliCheck() {
+function createGhCliCheck() {
   return {
     name: "ci:gh",
     label: "CI: gh CLI",
@@ -55,7 +55,7 @@ export function createGhCliCheck() {
   };
 }
 
-export function createGhSecretsCheck() {
+function createGhSecretsCheck() {
   return {
     name: "ci:secrets",
     label: "CI: GitHub secrets",

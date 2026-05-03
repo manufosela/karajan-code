@@ -60,7 +60,7 @@ function createCoreBinaryCheck(bin) {
 /**
  * Docker check. Manual strategy (platform-dependent install).
  */
-export function createDockerCheck() {
+function createDockerCheck() {
   return {
     name: "docker",
     label: "Docker",
@@ -80,7 +80,7 @@ export function createDockerCheck() {
 /**
  * Serena MCP (optional). Prompt strategy: we know how to install it.
  */
-export function createSerenaCheck() {
+function createSerenaCheck() {
   return {
     name: "serena",
     label: "Serena MCP",

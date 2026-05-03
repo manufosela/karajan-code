@@ -26,7 +26,7 @@ function sonarHost(config) {
  * Informative check: Sonar enabled/disabled status.
  * Produces an OK result with disabled description when Sonar is off.
  */
-export function createSonarStatusCheck() {
+function createSonarStatusCheck() {
   return {
     name: "sonarqube",
     label: "SonarQube",
