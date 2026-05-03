@@ -52,9 +52,6 @@ import { emitConfigDeprecations } from "./pre-loop-phases/config-deprecations.js
 import { ensureAddyosmaniSkills } from "./pre-loop-phases/ensure-addyosmani-skills.js";
 import { maybeGenerateAutoHuBatch } from "./pre-loop-phases/auto-hu-batch.js";
 
-// Re-export for back-compat with any external caller; the canonical
-// definitions now live in ./pre-loop-phases/.
-export { ensureAddyosmaniSkills };
 import {
   applyTriageOverrides, applyAutoSimplify, applyFlagOverrides,
   resolvePipelinePolicies, updateGitignoreForStack,
@@ -380,7 +377,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
   return { plannedTask, updatedConfig };
 }
-export async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx }) {
+async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx }) {
   let researchContext = null;
   let plannedTask = task;
 

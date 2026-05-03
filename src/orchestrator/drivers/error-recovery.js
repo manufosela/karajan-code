@@ -119,7 +119,7 @@ export async function handleStandbyResult({ stageResult, session, emitter, event
 }
 
 
-export function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
+function emitSolomonAlerts(alerts, emitter, eventBase, logger) {
   for (const alert of alerts) {
     emitProgress(emitter, makeEvent("brain:rules-alert", { ...eventBase, stage: "brain" }, {
       status: alert.severity === "critical" ? "fail" : "warn",
@@ -198,7 +198,7 @@ export async function handleSolomonCheck({ config, session, emitter, eventBase, 
   return { action: "continue" };
 }
 
-export async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i }) {
+async function checkSolomonCriticalAlerts({ rulesResult, askQuestion, session, i }) {
   if (!rulesResult.hasCritical || !askQuestion) return null;
 
   const alertSummary = rulesResult.alerts

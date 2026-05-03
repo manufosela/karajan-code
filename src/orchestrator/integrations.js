@@ -73,13 +73,6 @@ export function unregisterIntegration(name) {
 }
 
 /**
- * Clear the registry. Test-only; production never calls this.
- */
-export function __clearIntegrations() {
-  registry.clear();
-}
-
-/**
  * List registered integration names. Useful for bootstrap logging.
  * @returns {string[]}
  */

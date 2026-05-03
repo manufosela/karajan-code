@@ -82,5 +82,3 @@ export const stageRegistry = new StageRegistry();
 stageRegistry.register(new TriageStage());
 stageRegistry.register(new CoderStage());
 stageRegistry.register(new ReviewerStage());
-
-export { StageExecutor, StageRegistry };

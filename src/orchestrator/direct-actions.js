@@ -190,4 +190,4 @@ export function getAllowedActionTypes() {
   return Object.keys(ACTION_HANDLERS);
 }
 
-export { ALLOWED_COMMANDS, isCommandAllowed };
+export { isCommandAllowed };

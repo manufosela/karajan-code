@@ -44,23 +44,13 @@ import { runQualityGateStages } from "./iteration-phases/quality-gates.js";
 import { runReviewerGateStage } from "./iteration-phases/reviewer-gate.js";
 import { handleApprovedReview } from "./iteration-phases/handle-approved.js";
 
-// Re-export for back-compat with any external caller; the canonical
-// definitions now live in ./iteration-phases/.
-export { runCoderAndRefactorerStages } from "./iteration-phases/coder-and-refactorer.js";
-export { runGuardStages } from "./iteration-phases/guards.js";
-export { runQualityGateStages } from "./iteration-phases/quality-gates.js";
-export { runReviewerGateStage } from "./iteration-phases/reviewer-gate.js";
-export { handleApprovedReview } from "./iteration-phases/handle-approved.js";
-
 // `runCoderAndRefactorerStages`, `runGuardStages`, `runQualityGateStages`,
 // `runReviewerGateStage` and `handleApprovedReview` were extracted to
 // ./iteration-phases/ in the v2.7.x audit follow-up (same pattern as
-// pre-loop-phases/). The imports above pull them back in; re-exports
-// keep the previous public surface for any external caller. Behaviour
-// is unchanged.
+// pre-loop-phases/). The back-compat re-exports were removed in
+// KJC-TSK-0354 PR-D — no caller imported them via this module.
 
-
-export async function runSingleIteration(ctx) {
+async function runSingleIteration(ctx) {
   // Use plannedTask (HU-scoped or planner-enriched) over the raw original task.
   // When running per-HU sub-pipelines, plannedTask is the HU's text, not the full spec.
   const { config, logger, emitter, eventBase, session, iteration: i } = ctx;
