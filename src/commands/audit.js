@@ -191,19 +191,20 @@ async function buildReportHeader(projectDir, invocation) {
   return lines.join("\n");
 }
 
-function describeInvocation({ task, dimensions, noSonar, noOsv, json, deterministicOnly, yes }) {
+function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }) {
   const parts = ["kj audit"];
   if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
   if (dimensions && dimensions !== "all") parts.push(`--dimensions=${dimensions}`);
   if (noSonar) parts.push("--no-sonar");
   if (noOsv) parts.push("--no-osv");
+  if (noSemgrep) parts.push("--no-semgrep");
   if (deterministicOnly) parts.push("--deterministic-only");
   if (yes) parts.push("--yes");
   if (json) parts.push("--json");
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -237,6 +238,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       dimensions: dimensions || null,
       noSonar,
       noOsv,
+      noSemgrep,
     };
     const deterministicCtx = await role.collectDeterministic(roleInput);
     const deterministicMd = formatDeterministicSummary(deterministicCtx);
@@ -267,7 +269,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
         if (reportPath.endsWith(".json")) {
           payload = JSON.stringify({ deterministic: deterministicCtx, mode: "deterministic-only" }, null, 2);
         } else {
-          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, json, deterministicOnly, yes }));
+          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }));
           payload = header + deterministicMd + "\n";
         }
         await fs.writeFile(reportPath, payload, "utf8");
@@ -323,7 +325,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
           : { ...roleResult, usage: usage || undefined };
         payload = JSON.stringify(jsonPayload, null, 2);
       } else {
-        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, json, deterministicOnly, yes }));
+        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }));
         payload = header + stdoutContent + "\n";
       }
       await fs.writeFile(reportPath, payload, "utf8");
