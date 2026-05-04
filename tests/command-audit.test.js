@@ -190,11 +190,14 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
     });
     const mcpArgs = executeMock.mock.calls[executeMock.mock.calls.length - 1][0];
 
-    // Parity: both routes pass equivalent task + dimensions. CLI also adds
-    // an onOutput callback for terminal progress (MCP forwards events
-    // differently); strip that before comparing structural shape.
-    const { onOutput: _cliOnOutput, ...cliCore } = cliArgs;
-    const { onOutput: _mcpOnOutput, ...mcpCore } = mcpArgs;
+    // Parity: both routes pass equivalent task + dimensions. CLI also
+    // attaches an onOutput callback for terminal progress (MCP forwards
+    // events differently) and a noSonar boolean from the --no-sonar flag
+    // (MCP clients toggle the same control via the AuditRole input
+    // directly when they want it). Strip both before comparing the
+    // structural shape that drives the prompt.
+    const { onOutput: _cliOnOutput, noSonar: _cliNoSonar, ...cliCore } = cliArgs;
+    const { onOutput: _mcpOnOutput, noSonar: _mcpNoSonar, ...mcpCore } = mcpArgs;
     expect(cliCore).toEqual(mcpCore);
   });
 });

@@ -94,6 +94,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--json", "Output raw JSON")
     .option("--agent-readiness", "Score the repo for AI-agent readability (llms.txt, SKILL.md coverage, page token budgets, robots allowlist, heading hierarchy). LLM-free; uses [path] or cwd as the audit target. See issue #542.")
     .option("--path <dir>", "Path to audit (used with --agent-readiness; defaults to cwd)")
+    .option("--no-sonar", "Skip the SonarQube findings collector (faster, less context). Sonar findings are also skipped automatically when SonarQube is unreachable.")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "audit", flags, async ({ config, logger }) => {
         let resolvedTask = task;
@@ -101,12 +102,15 @@ export function registerMeta(program, { pkgVersion }) {
           const { readTaskFile } = await import("../utils/task-file.js");
           resolvedTask = await readTaskFile(flags.taskFile, { projectDir: config.projectDir });
         }
+        // commander resolves --no-sonar to flags.sonar=false (negation flag).
+        // We translate to the explicit `noSonar: true` shape AuditRole expects.
         await auditCommand({
           task: resolvedTask || "Analyze the full codebase",
           config, logger,
           dimensions: flags.dimensions, json: flags.json,
           agentReadiness: Boolean(flags.agentReadiness),
           path: flags.path,
+          noSonar: flags.sonar === false,
         });
       });
     });
