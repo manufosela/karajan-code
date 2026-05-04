@@ -1,8 +1,8 @@
 import path from "node:path";
-import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
-import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
+import { AUDIT_DIMENSIONS } from "../prompts/audit.js";
+import { AuditRole } from "../roles/audit-role.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
@@ -88,44 +88,56 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
   }
 
   return withCliRunLog("audit", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
-    const auditRole = resolveRole(config, "audit");
-    await assertAgentsAvailable([auditRole.provider]);
-    logger.info(`Audit (${auditRole.provider}) starting...`);
-    runLog.logText(`[audit] provider=${auditRole.provider} dimensions=${dimensions || "all"}`);
+    const auditRoleConfig = resolveRole(config, "audit");
+    await assertAgentsAvailable([auditRoleConfig.provider]);
+    logger.info(`Audit (${auditRoleConfig.provider}) starting...`);
+    runLog.logText(`[audit] provider=${auditRoleConfig.provider} dimensions=${dimensions || "all"}`);
 
-    const agent = createAgent(auditRole.provider, config, logger);
-    const dimList = dimensions && dimensions !== "all"
-      ? dimensions.split(",").map(d => d.trim().toLowerCase()).map(d => d === "quality" ? "codeQuality" : d).filter(d => AUDIT_DIMENSIONS.includes(d))
-      : null;
-
-    const prompt = buildAuditPrompt({ task: task || "Analyze the full codebase", dimensions: dimList });
+    // Path to audit output goes through AuditRole — same code path as MCP
+    // (kj_audit) and the orchestrator pipeline. Pre-KJC-TSK-0357 this CLI
+    // re-implemented createAgent + buildAuditPrompt + parseAuditOutput
+    // inline, which silently dropped the deterministic basalCost /
+    // growthDelta inputs that AuditRole.execute() collects. The result was
+    // a CLI prompt that didn't tell the LLM about deadExports, unused
+    // dependencies, or growth since the last audit.
+    const role = new AuditRole({ config, logger });
     const progress = createCliProgressReporter({ role: "auditor" });
-    let result;
+    let roleResult;
     try {
-      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "audit" });
-      progress.finish(result.ok ? "done" : "failed");
+      roleResult = await role.execute({
+        task: task || "Analyze the full codebase",
+        dimensions: dimensions || null,
+        onOutput: progress.onOutput,
+      });
+      progress.finish(roleResult.ok ? "done" : "failed");
     } catch (err) { progress.finish("failed"); throw err; }
 
-    if (!result.ok) {
-      throw new Error(result.error || result.output || "Audit failed");
+    if (!roleResult.ok) {
+      const err = roleResult.result?.error || "Audit failed";
+      throw new Error(err);
     }
 
-    const parsed = parseAuditOutput(result.output);
-    if (parsed?.summary) {
+    const parsed = roleResult.result;
+    if (parsed?.summary?.overallHealth) {
       runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
     }
 
     if (json) {
-      console.log(JSON.stringify(parsed || result.output, null, 2));
+      console.log(JSON.stringify(parsed || roleResult, null, 2));
       return { ok: true };
     }
 
-    if (parsed?.summary) {
+    if (parsed?.summary?.overallHealth) {
       console.log(formatAudit(parsed));
+    } else if (parsed?.raw) {
+      console.log(parsed.raw);
     } else {
-      console.log(result.output);
+      console.log(roleResult.summary || "Audit complete.");
     }
     logger.info("Audit completed.");
     return { ok: true };
   });
 }
+
+// Exposed for tests — kept module-private otherwise.
+export { formatAudit, AUDIT_DIMENSIONS };

@@ -65,6 +65,7 @@ export class AuditRole extends AgentRole {
         result: {
           summary: parsed.summary, dimensions: parsed.dimensions,
           topRecommendations: parsed.topRecommendations,
+          textSummary: parsed.textSummary || undefined,
           basalCost: basalCost || undefined, growthDelta: growthDelta || undefined, provider
         },
         summary: buildSummary(parsed),
