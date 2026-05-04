@@ -14,7 +14,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -26,6 +26,32 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     "Analyze the project across multiple dimensions and produce a comprehensive health report.",
     "DO NOT modify any files. This is a READ-ONLY analysis."
   );
+
+  // Stack hint — when detected, tells the LLM what kind of project this is
+  // so it can filter out irrelevant heuristics (e.g. don't flag bundle size
+  // in an Express-only API; don't flag N+1 queries in a static Astro site).
+  // Detected by src/utils/stack-detect.js — KJC-TSK-0358.
+  if (stack && (stack.frameworks?.length > 0 || stack.language || stack.isFrontend || stack.isBackend)) {
+    const stackLines = ["## Project Stack"];
+    if (stack.language) stackLines.push(`- Language: ${stack.language}`);
+    if (stack.frameworks?.length) stackLines.push(`- Frameworks: ${stack.frameworks.join(", ")}`);
+    const tier = stack.isFullstack
+      ? "fullstack (frontend + backend)"
+      : stack.isFrontend
+        ? "frontend-only"
+        : stack.isBackend
+          ? "backend-only"
+          : "unknown";
+    stackLines.push(`- Tier: ${tier}`);
+    if (stack.isFullstack) {
+      stackLines.push("Apply BOTH backend heuristics (queries, sync I/O, caching) AND frontend heuristics (bundle size, lazy loading, render-blocking) where each layer applies.");
+    } else if (stack.isFrontend) {
+      stackLines.push("This project is frontend-only. SKIP findings about N+1 queries, sync file I/O in request handlers, missing pagination on list endpoints, and other backend-specific patterns. Focus on bundle size, lazy loading, render-blocking resources, image optimisation, and accessibility hints.");
+    } else if (stack.isBackend) {
+      stackLines.push("This project is backend-only. SKIP findings about bundle size, lazy loading, render-blocking resources, image optimisation, and frontend accessibility. Focus on queries, sync I/O, pagination, caching, auth/authz, and dependency hygiene.");
+    }
+    sections.push(stackLines.join("\n"));
+  }
 
   const activeDimensions = dimensions
     ? dimensions.filter(d => AUDIT_DIMENSIONS.includes(d))
