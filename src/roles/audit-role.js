@@ -77,16 +77,27 @@ export class AuditRole extends AgentRole {
     const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
+    const startedAt = Date.now();
     const result = await agent.runTask(runArgs);
+    const durationMs = Date.now() - startedAt;
+
+    // KJC-TSK-0363 — extract usage fields the agent SPREADS at the
+    // top level of its result (tokens_in, tokens_out, cost_usd, model)
+    // and consolidate them under a single `usage` object. Pre-patch we
+    // forwarded `result.usage` which was always undefined because no
+    // agent uses that key. Providers without usage telemetry (gemini,
+    // aider, opencode) get an `available:false` marker so the consumer
+    // can render "usage data not available" instead of zeros.
+    const usage = extractUsage(result, { provider, durationMs });
 
     if (!result.ok) {
-      return { ok: false, result: { error: result.error || result.output || "Audit failed", provider }, summary: `Audit failed: ${result.error || "unknown error"}`, usage: result.usage };
+      return { ok: false, result: { error: result.error || result.output || "Audit failed", provider }, summary: `Audit failed: ${result.error || "unknown error"}`, usage };
     }
 
     try {
       const parsed = parseAuditOutput(result.output);
       if (!parsed) {
-        return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage: result.usage };
+        return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage };
       }
       if (basalCost) { try { await saveAuditSnapshot(projectDir, basalCost); } catch { /* best-effort */ } }
 
@@ -103,10 +114,40 @@ export class AuditRole extends AgentRole {
           provider
         },
         summary: buildSummary(parsed),
-        usage: result.usage
+        usage
       };
     } catch {
-      return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage: result.usage };
+      return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage };
     }
   }
+}
+
+/**
+ * Consolidate the usage telemetry the agent spreads across its top-level
+ * result fields. Returns a single object so consumers (CLI formatter,
+ * report-file writer, MCP) don't need to know about the spread shape.
+ *
+ * @param {object} result - raw agent.runTask() return
+ * @param {{provider: string, durationMs: number}} ctx
+ * @returns {{available: boolean, provider: string, model?: string, tokens_in?: number, tokens_out?: number, total_tokens?: number, cost_usd?: number, durationMs: number, reason?: string}}
+ */
+function extractUsage(result, { provider, durationMs }) {
+  if (!result || typeof result !== "object") {
+    return { available: false, provider, durationMs, reason: "no agent result" };
+  }
+  const tokens_in = Number.isFinite(result.tokens_in) ? result.tokens_in : null;
+  const tokens_out = Number.isFinite(result.tokens_out) ? result.tokens_out : null;
+  if (tokens_in === null && tokens_out === null) {
+    return { available: false, provider, model: result.model, durationMs, reason: `provider "${provider}" did not report token usage` };
+  }
+  return {
+    available: true,
+    provider,
+    model: result.model,
+    tokens_in: tokens_in ?? 0,
+    tokens_out: tokens_out ?? 0,
+    total_tokens: (tokens_in ?? 0) + (tokens_out ?? 0),
+    cost_usd: typeof result.cost_usd === "number" ? result.cost_usd : null,
+    durationMs,
+  };
 }
