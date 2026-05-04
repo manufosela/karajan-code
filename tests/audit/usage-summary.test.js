@@ -7,9 +7,16 @@ import os from "node:os";
 // the mocked modules. We import formatAudit/formatUsageSummary lazily
 // inside each describe/it that needs them.
 const executeMock = vi.fn();
+const collectMock = vi.fn();
+const executeWithDetMock = vi.fn();
 
 vi.mock("../../src/roles/audit-role.js", () => ({
-  AuditRole: class { constructor(opts) { this.opts = opts; } async execute(input) { return executeMock(input); } },
+  AuditRole: class {
+    constructor(opts) { this.opts = opts; }
+    async execute(input) { return executeMock(input); }
+    async collectDeterministic(input) { return collectMock(input); }
+    async executeWithDeterministic(input, ctx) { return executeWithDetMock(input, ctx); }
+  },
 }));
 vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn() }));
 vi.mock("../../src/config.js", () => ({
@@ -157,6 +164,8 @@ describe("auditCommand integration — usage flows through CLI/JSON/report-file"
   beforeEach(async () => {
     vi.resetAllMocks();
     executeMock.mockResolvedValue(successResult);
+    collectMock.mockResolvedValue({ projectDir: "/tmp", basalCost: null, growthDelta: null, stack: null, sonarFindings: null, webperf: null });
+    executeWithDetMock.mockResolvedValue(successResult);
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-audit-usage-"));
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
