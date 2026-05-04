@@ -3,6 +3,7 @@ import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts
 import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { collectSonarFindings } from "../audit/sonar-findings.js";
+import { collectWebPerfInput } from "../audit/webperf-input.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -62,10 +63,18 @@ export class AuditRole extends AgentRole {
         sonarFindings = await collectSonarFindings(this.config, this.logger);
       } catch { /* sonar fetch is best-effort */ }
     }
+    // WebPerf input — KJC-TSK-0360. Pure: static-hints for frontend
+    // projects, optional CWV verdict when config carries a previous
+    // measurement. No network/spawn from the audit; live CWV collection
+    // is the future `kj webperf` command's job.
+    let webperf = null;
+    try {
+      webperf = collectWebPerfInput(stack, this.config);
+    } catch { /* webperf input is best-effort */ }
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);
@@ -90,6 +99,7 @@ export class AuditRole extends AgentRole {
           basalCost: basalCost || undefined, growthDelta: growthDelta || undefined,
           stack: stack || undefined,
           sonarFindings: sonarFindings?.available ? sonarFindings : undefined,
+          webperf: webperf?.available ? webperf : undefined,
           provider
         },
         summary: buildSummary(parsed),

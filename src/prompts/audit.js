@@ -1,5 +1,6 @@
 import { extractFirstJson } from "../utils/json-extract.js";
 import { groupIssuesBySeverity } from "../audit/sonar-findings.js";
+import { formatCwvVerdict } from "../audit/webperf-input.js";
 
 const MAX_SONAR_ISSUES_IN_PROMPT = 50;
 
@@ -23,7 +24,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -248,6 +249,36 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     }
     lines.push("");
     lines.push("Cross-reference these with your own findings. When your finding overlaps a Sonar rule, mention the rule ID in the `rule` field — that's a high-confidence match. Findings the LLM raises that Sonar can't see (architecture, naming, API design) are still valuable; mark them with rule names like \"AUDIT-ARCH-N\".");
+    sections.push(lines.join("\n"));
+  }
+
+  // WebPerf — KJC-TSK-0360. Two modes: a real CWV measurement when one is
+  // surfaced via config.webperf.lastResult (future `kj webperf` command)
+  // OR static frontend-perf hints for the LLM to look at the source code
+  // when no live measurement is available. Backend-only projects skip the
+  // section entirely (collectWebPerfInput returns available:false).
+  if (webperf?.available) {
+    const lines = ["## WebPerf — Frontend Performance"];
+    if (webperf.mode === "cwv-result") {
+      lines.push("Live Core Web Vitals measurement available — incorporate the verdict below into the performance dimension findings:");
+      lines.push("");
+      lines.push(formatCwvVerdict(webperf));
+      lines.push("");
+      lines.push("If a metric is `poor`, recommend a concrete code change (preconnect, lazy-load, image format, critical CSS, defer script). Cite the offending file or pattern when you can find it in the source.");
+    } else {
+      lines.push("No live CWV measurement was provided. Audit the source for these static frontend-perf patterns and include findings under the `performance` dimension:");
+      lines.push("");
+      lines.push("- Render-blocking `<link rel=\"stylesheet\">` or `<script>` without `defer`/`async` in `<head>`");
+      lines.push("- Large JavaScript bundles imported eagerly that could be `await import(...)` or split by route");
+      lines.push("- Non-modern image formats (only .jpg/.png) where webp/avif are widely supported");
+      lines.push("- `<img>` without `width`/`height` attributes (causes CLS)");
+      lines.push("- `<img>` without `loading=\"lazy\"` for off-screen images, or videos auto-playing without `preload=\"metadata\"`");
+      lines.push("- Web fonts loaded without `font-display: swap` or without `<link rel=\"preconnect\">` to the font origin");
+      lines.push("- Whole-library imports for one helper (e.g. `import _ from 'lodash'` instead of `lodash/get`)");
+      lines.push("- Missing critical CSS extraction or above-the-fold inlining strategy in build config");
+      lines.push("- Large third-party scripts (analytics, A/B, chat widgets) without defer + facade pattern");
+      lines.push("- Unbounded list rendering without virtualisation for very long collections");
+    }
     sections.push(lines.join("\n"));
   }
 
