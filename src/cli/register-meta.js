@@ -95,6 +95,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--agent-readiness", "Score the repo for AI-agent readability (llms.txt, SKILL.md coverage, page token budgets, robots allowlist, heading hierarchy). LLM-free; uses [path] or cwd as the audit target. See issue #542.")
     .option("--path <dir>", "Path to audit (used with --agent-readiness; defaults to cwd)")
     .option("--no-sonar", "Skip the SonarQube findings collector (faster, less context). Sonar findings are also skipped automatically when SonarQube is unreachable.")
+    .option("--report-file <path>", "Write the audit report to disk in addition to stdout. <path> may be a file (extension drives format: .md or .json) or a directory (creates audit-<ISO>.<md|json> inside). $KJ_AUDIT_REPORT_DIR env var is used as default directory if no --report-file is given.")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "audit", flags, async ({ config, logger }) => {
         let resolvedTask = task;
@@ -111,6 +112,7 @@ export function registerMeta(program, { pkgVersion }) {
           agentReadiness: Boolean(flags.agentReadiness),
           path: flags.path,
           noSonar: flags.sonar === false,
+          reportFile: flags.reportFile || null,
         });
       });
     });
