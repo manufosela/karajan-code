@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v2.8.0 — Audit-driven hardening release. Closed all 13 items the 2026-04-30 self-audit flagged across security, code quality, performance, architecture and testing in 16 PRs. Every `child_process` call in src/ now uses tokenised arg arrays (no shell expansion). FASE 1 e2e suite (7 scenarios) covers the 5-bug class from the 2026-04-27 demo regression. Major file splits: cli.js 699→113 LOC, plan.js 549→14, iteration-loop.js 513→311, pre-loop.js 626→435. ESLint ratcheted: 57 warnings closed, key rules switched warn→error. BREAKING: engines.node 18→20.10.0 (Node 18 LTS hit EOL on 2025-04-30). 4 199 tests across 357 files."
+  tagline: "v2.9.0 — Audit overhaul release. `kj audit` becomes a stack-aware, two-phase analysis tool. Deterministic findings (basalCost + Sonar + OSV-Scanner + Semgrep + WebPerf) print first; an interactive prompt lets you decide whether to spend tokens on the LLM phase. New `--deterministic-only` flag for zero-token runs, `--report-file` to persist audits to .md or .json, `## LLM Usage` section showing tokens + cost in USD. Three new deterministic security collectors: SonarQube findings as ground truth, OSV-Scanner for CVE coverage broader than `npm audit`, Semgrep for SAST (XSS, SQLi, taint flow — equivalent to `snyk code` but free and local). Stack-aware prompt filters dimension heuristics — no more N+1 nags on Astro projects. New accessibility dimension auto-active for frontend (WCAG 2.x). CLI/MCP parity bug fixed. 228 dead exports cleaned in 5 atomic PRs. 4 305 tests across 367 files."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -23,11 +23,17 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
-  <Card title="Audit-Driven Hardening (v2.8)" icon="seti:lock">
-    Every `child_process` call in `src/` migrated to tokenised arg arrays — no shell metacharacter expansion anywhere, even with constant inputs. `cli.js`, `plan.js`, `iteration-loop.js` and `pre-loop.js` split along clean seams; each driver now under the 600-LOC ceiling. New ESLint rules ban `console.*` outside CLI paths and `globalThis.__KJ_*` outside the test-harness. 57 warnings cleared in `src/`, then `no-unused-vars` / `no-useless-assignment` / `preserve-caught-error` ratcheted to errors so regressions fail CI.
+  <Card title="Two-Phase Audit (v2.9)" icon="random">
+    `kj audit` now collects deterministic findings (basalCost, Sonar, OSV-Scanner, Semgrep, WebPerf, stack detection) in parallel — zero tokens — and prints them BEFORE asking `Continue with LLM analysis? [y/N]`. New `--deterministic-only` flag for zero-token runs, `-y`/`--yes` to auto-confirm, `--json` bypasses the prompt for pipeable output. CI / non-TTY paths auto-confirm — zero behaviour change for pipelines.
   </Card>
-  <Card title="FASE 1 E2E Suite (v2.8)" icon="approve-check">
-    7 scenarios + fake-coder/sonar fixtures cover the 5-bug class from the 2026-04-27 demo regression: zombie-HU, saveSession-missing, Repairer unfixable, zombi-status, kj-audit smoke. Each test < 90s; full e2e suite runs in 6s with no real LLM/network. The bugs that took down the demo last week now fail CI before merge.
+  <Card title="Three Deterministic Security Collectors (v2.9)" icon="seti:lock">
+    SonarQube findings as ground truth in the prompt (rule ID + line precision). OSV-Scanner integration covers CVEs across the entire OSV.dev DB — broader than `npm audit`, no account, no upload. Semgrep SAST catches XSS, SQLi, taint flow, hardcoded secrets, language-specific anti-patterns — equivalent to `snyk code` but free for OSS. All three are best-effort: missing binary or unreachable host silently skips the section.
+  </Card>
+  <Card title="Stack-Aware Audit (v2.9)" icon="puzzle">
+    `detectProjectStack` feeds the LLM auditor what kind of project it's looking at: frontend-only, backend-only, fullstack, language, frameworks. Heuristics get filtered — no more N+1 query nags on Astro sites, no more bundle-size nags on Express APIs. New `accessibility` dimension auto-activates for frontend / fullstack projects with WCAG 2.x checks (alt text, labels, ARIA, focus management, contrast hints). New WebPerf section with 10 frontend-perf patterns when no live CWV measurement is available.
+  </Card>
+  <Card title="Audit Reports + Token Cost Transparency (v2.9)" icon="open-book">
+    `--report-file <path>` persists the audit to `.md` (with reproducibility header: timestamp, branch, commit, invocation flags) or `.json`. `$KJ_AUDIT_REPORT_DIR` for CI defaults. Every audit ends with a `## LLM Usage` section showing provider + model + duration + tokens (in/out/total) + estimated cost in USD. Visible in stdout, JSON, and persisted reports. CLI/MCP parity bug fixed — both paths now drive the same `AuditRole` flow.
   </Card>
   <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
     First-source process skills from [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development, and more. Auto-cloned to `~/.karajan/agent-skills/`, refreshed weekly via `git pull`. Role-aware: each Karajan role (tester, reviewer, security, architect, coder...) receives the workflows that match its job. Fully orthogonal to OpenSkills — process skills and stack skills compose.
