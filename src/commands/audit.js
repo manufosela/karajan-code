@@ -1,4 +1,7 @@
 import path from "node:path";
+import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { AUDIT_DIMENSIONS } from "../prompts/audit.js";
@@ -6,6 +9,8 @@ import { AuditRole } from "../roles/audit-role.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
+
+const execFileAsync = promisify(execFile);
 
 function formatFindings(findings) {
   const lines = [];
@@ -69,7 +74,74 @@ function formatAudit(parsed) {
   return lines.join("\n");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false }) {
+/**
+ * Resolve where to write the audit report on disk, given a flag value, an
+ * env override, and the desired format. Returns null if no write target
+ * was requested. Creates parent directories on demand.
+ *
+ * Resolution rules (KJC-TSK-0362):
+ *   - flag undefined + no env → null (legacy behaviour, stdout only)
+ *   - flag is a directory → write `audit-<ISO>.{md,json}` inside it
+ *   - flag is a non-directory path → use it verbatim (extension drives format
+ *     when --json/--md not explicit)
+ *   - flag is undefined but env $KJ_AUDIT_REPORT_DIR is set → treat env as dir
+ */
+async function resolveReportFilePath(flagValue, isJson) {
+  const envDir = process.env.KJ_AUDIT_REPORT_DIR;
+  const target = flagValue || (envDir ? envDir : null);
+  if (!target) return null;
+
+  const ext = isJson ? "json" : "md";
+  let stats = null;
+  try { stats = await fs.stat(target); } catch { /* not a directory yet */ }
+  const isDir = stats?.isDirectory() || target.endsWith(path.sep) || target === envDir;
+
+  let resolved;
+  if (isDir) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    resolved = path.resolve(target, `audit-${stamp}.${ext}`);
+  } else {
+    resolved = path.resolve(target);
+  }
+
+  await fs.mkdir(path.dirname(resolved), { recursive: true });
+  return resolved;
+}
+
+/**
+ * Build the markdown header that prefixes a persisted report — captures
+ * timestamp + repo state + invocation flags so the file is reproducible.
+ */
+async function buildReportHeader(projectDir, invocation) {
+  const lines = ["# Karajan Audit Report", ""];
+  lines.push(`- **Generated:** ${new Date().toISOString()}`);
+  lines.push(`- **Project:** ${projectDir || process.cwd()}`);
+
+  // Best-effort git info — silent if outside a repo.
+  try {
+    const branch = (await execFileAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: projectDir, timeout: 2000 })).stdout.trim();
+    const commit = (await execFileAsync("git", ["rev-parse", "--short", "HEAD"], { cwd: projectDir, timeout: 2000 })).stdout.trim();
+    lines.push(`- **Branch:** ${branch}`);
+    lines.push(`- **Commit:** ${commit}`);
+  } catch { /* not a git repo or git missing */ }
+
+  if (invocation) lines.push(`- **Invocation:** \`${invocation}\``);
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  return lines.join("\n");
+}
+
+function describeInvocation({ task, dimensions, noSonar, json }) {
+  const parts = ["kj audit"];
+  if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
+  if (dimensions && dimensions !== "all") parts.push(`--dimensions=${dimensions}`);
+  if (noSonar) parts.push("--no-sonar");
+  if (json) parts.push("--json");
+  return parts.join(" ");
+}
+
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, reportFile = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -123,20 +195,38 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
     }
 
+    // Resolve write target BEFORE printing — if the user pointed at a
+    // path that can't be created we want to fail fast, not after the LLM
+    // has already printed everything to stdout.
+    const reportPath = await resolveReportFilePath(reportFile, json);
+
+    let stdoutContent;
     if (json) {
-      console.log(JSON.stringify(parsed || roleResult, null, 2));
-      return { ok: true };
+      stdoutContent = JSON.stringify(parsed || roleResult, null, 2);
+    } else if (parsed?.summary?.overallHealth) {
+      stdoutContent = formatAudit(parsed);
+    } else if (parsed?.raw) {
+      stdoutContent = parsed.raw;
+    } else {
+      stdoutContent = roleResult.summary || "Audit complete.";
+    }
+    console.log(stdoutContent);
+
+    if (reportPath) {
+      let payload;
+      if (reportPath.endsWith(".json")) {
+        payload = JSON.stringify(parsed || roleResult, null, 2);
+      } else {
+        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, json }));
+        payload = header + stdoutContent + "\n";
+      }
+      await fs.writeFile(reportPath, payload, "utf8");
+      runLog.logText(`[audit] report written → ${reportPath}`);
+      logger.info(`Audit report written: ${reportPath}`);
     }
 
-    if (parsed?.summary?.overallHealth) {
-      console.log(formatAudit(parsed));
-    } else if (parsed?.raw) {
-      console.log(parsed.raw);
-    } else {
-      console.log(roleResult.summary || "Audit complete.");
-    }
     logger.info("Audit completed.");
-    return { ok: true };
+    return { ok: true, reportPath: reportPath || undefined };
   });
 }
 
