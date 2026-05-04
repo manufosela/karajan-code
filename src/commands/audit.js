@@ -50,7 +50,8 @@ const DIMENSION_LABELS = {
   codeQuality: "Code Quality",
   performance: "Performance",
   architecture: "Architecture",
-  testing: "Testing"
+  testing: "Testing",
+  accessibility: "Accessibility (WCAG 2.x)"
 };
 
 function formatAudit(parsed) {
