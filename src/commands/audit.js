@@ -69,7 +69,7 @@ function formatAudit(parsed) {
   return lines.join("\n");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -108,6 +108,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
         task: task || "Analyze the full codebase",
         dimensions: dimensions || null,
         onOutput: progress.onOutput,
+        noSonar,
       });
       progress.finish(roleResult.ok ? "done" : "failed");
     } catch (err) { progress.finish("failed"); throw err; }
