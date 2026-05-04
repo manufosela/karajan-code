@@ -54,7 +54,7 @@ const DIMENSION_LABELS = {
   accessibility: "Accessibility (WCAG 2.x)"
 };
 
-function formatAudit(parsed) {
+function formatAudit(parsed, usage = null) {
   const lines = [];
   lines.push("## Codebase Health Report");
   lines.push(`**Overall Health:** ${parsed.summary.overallHealth}`);
@@ -72,6 +72,44 @@ function formatAudit(parsed) {
   }
 
   if (parsed.textSummary) lines.push(`---\n${parsed.textSummary}`);
+
+  const usageBlock = formatUsageSummary(usage);
+  if (usageBlock) {
+    lines.push("");
+    lines.push(usageBlock);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Format the LLM token + cost summary that closes every audit report.
+ * KJC-TSK-0363: makes the LLM cost visible (was silently discarded
+ * pre-patch — auditCommand never read roleResult.usage).
+ *
+ * @param {object|null} usage - shape produced by AuditRole's extractUsage
+ * @returns {string|null} markdown block, or null when there's nothing useful to show
+ */
+function formatUsageSummary(usage) {
+  if (!usage) return null;
+  const lines = ["## LLM Usage"];
+  lines.push(`- Provider: ${usage.provider}${usage.model ? ` (${usage.model})` : ""}`);
+  if (typeof usage.durationMs === "number") {
+    lines.push(`- Duration: ${(usage.durationMs / 1000).toFixed(1)}s`);
+  }
+  if (!usage.available) {
+    lines.push(`- Tokens: usage data not available — ${usage.reason || "provider does not report it"}`);
+    return lines.join("\n");
+  }
+  // Force en-US locale so the comma grouping is deterministic across CI
+  // machines (Node's default Intl.NumberFormat depends on the runtime
+  // locale; without this the rendering would look like "1234" on
+  // locale-less Node and "1,234" on a US-locale workstation).
+  const fmt = (n) => n.toLocaleString("en-US");
+  lines.push(`- Tokens: ${fmt(usage.total_tokens)} total (${fmt(usage.tokens_in)} in, ${fmt(usage.tokens_out)} out)`);
+  if (typeof usage.cost_usd === "number") {
+    lines.push(`- Estimated cost: $${usage.cost_usd.toFixed(4)} USD`);
+  }
   return lines.join("\n");
 }
 
@@ -192,8 +230,12 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     }
 
     const parsed = roleResult.result;
+    const usage = roleResult.usage;
     if (parsed?.summary?.overallHealth) {
       runLog.logText(`[audit] findings=${parsed.summary.totalFindings} (critical=${parsed.summary.critical}, high=${parsed.summary.high})`);
+    }
+    if (usage?.available) {
+      runLog.logText(`[audit] usage tokens=${usage.total_tokens} cost=$${(usage.cost_usd ?? 0).toFixed(4)} duration=${(usage.durationMs / 1000).toFixed(1)}s`);
     }
 
     // Resolve write target BEFORE printing — if the user pointed at a
@@ -203,11 +245,17 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
 
     let stdoutContent;
     if (json) {
-      stdoutContent = JSON.stringify(parsed || roleResult, null, 2);
+      // Surface usage on the JSON output so CI scripts can budget against it
+      // (KJC-TSK-0363). Falls into a top-level `usage` key so consumers
+      // don't have to dig into role-shape internals.
+      const jsonPayload = parsed
+        ? { ...parsed, usage: usage || undefined }
+        : { ...roleResult, usage: usage || undefined };
+      stdoutContent = JSON.stringify(jsonPayload, null, 2);
     } else if (parsed?.summary?.overallHealth) {
-      stdoutContent = formatAudit(parsed);
+      stdoutContent = formatAudit(parsed, usage);
     } else if (parsed?.raw) {
-      stdoutContent = parsed.raw;
+      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "");
     } else {
       stdoutContent = roleResult.summary || "Audit complete.";
     }
@@ -216,7 +264,13 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     if (reportPath) {
       let payload;
       if (reportPath.endsWith(".json")) {
-        payload = JSON.stringify(parsed || roleResult, null, 2);
+        // Mirror the stdout JSON shape exactly — a top-level `usage` key
+        // alongside the parsed audit result. Same payload no matter whether
+        // the user used --json on stdout or got it via --report-file alone.
+        const jsonPayload = parsed
+          ? { ...parsed, usage: usage || undefined }
+          : { ...roleResult, usage: usage || undefined };
+        payload = JSON.stringify(jsonPayload, null, 2);
       } else {
         const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, json }));
         payload = header + stdoutContent + "\n";
@@ -232,4 +286,4 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
 }
 
 // Exposed for tests — kept module-private otherwise.
-export { formatAudit, AUDIT_DIMENSIONS };
+export { formatAudit, formatUsageSummary, AUDIT_DIMENSIONS };
