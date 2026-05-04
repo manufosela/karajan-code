@@ -1,6 +1,7 @@
 import { AgentRole } from "./agent-role.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
+import { detectProjectStack } from "../utils/stack-detect.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -36,15 +37,22 @@ export class AuditRole extends AgentRole {
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
+    let stack = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
       growthDelta = computeGrowthDelta(basalCost, previous);
     } catch { /* basal cost is best-effort */ }
+    // Stack detection — KJC-TSK-0358. Best-effort: a project without
+    // package.json or recognisable language markers gets stack=null and the
+    // prompt falls back to the agnostic dimension list.
+    try {
+      stack = await detectProjectStack(projectDir);
+    } catch { /* stack detect is best-effort */ }
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);
@@ -66,7 +74,8 @@ export class AuditRole extends AgentRole {
           summary: parsed.summary, dimensions: parsed.dimensions,
           topRecommendations: parsed.topRecommendations,
           textSummary: parsed.textSummary || undefined,
-          basalCost: basalCost || undefined, growthDelta: growthDelta || undefined, provider
+          basalCost: basalCost || undefined, growthDelta: growthDelta || undefined,
+          stack: stack || undefined, provider
         },
         summary: buildSummary(parsed),
         usage: result.usage
