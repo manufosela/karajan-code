@@ -5,14 +5,21 @@ import os from "node:os";
 
 // Reuse the same AuditRole mocking strategy as tests/command-audit.test.js
 // so this file can drive auditCommand through the report-file branch
-// without spinning up an LLM.
+// without spinning up an LLM. Post KJC-TSK-0364 the role exposes both
+// the legacy execute() AND the two-phase split (collectDeterministic +
+// executeWithDeterministic). All three are mocked.
 const executeMock = vi.fn();
-class MockAuditRole {
-  constructor(opts) { this.opts = opts; }
-  async execute(input) { return executeMock(input); }
-}
+const collectMock = vi.fn();
+const executeWithDetMock = vi.fn();
 
-vi.mock("../../src/roles/audit-role.js", () => ({ AuditRole: MockAuditRole }));
+vi.mock("../../src/roles/audit-role.js", () => ({
+  AuditRole: class {
+    constructor(opts) { this.opts = opts; }
+    async execute(input) { return executeMock(input); }
+    async collectDeterministic(input) { return collectMock(input); }
+    async executeWithDeterministic(input, ctx) { return executeWithDetMock(input, ctx); }
+  },
+}));
 vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn() }));
 vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({ provider: config.roles?.[role]?.provider || role })),
@@ -53,6 +60,8 @@ let consoleSpy;
 beforeEach(async () => {
   vi.resetAllMocks();
   executeMock.mockResolvedValue(successResult);
+  collectMock.mockResolvedValue({ projectDir: "/tmp", basalCost: null, growthDelta: null, stack: null, sonarFindings: null, webperf: null });
+  executeWithDetMock.mockResolvedValue(successResult);
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-audit-report-"));
   consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   delete process.env.KJ_AUDIT_REPORT_DIR;
