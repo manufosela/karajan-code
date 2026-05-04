@@ -96,6 +96,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--path <dir>", "Path to audit (used with --agent-readiness; defaults to cwd)")
     .option("--no-sonar", "Skip the SonarQube findings collector (faster, less context). Sonar findings are also skipped automatically when SonarQube is unreachable.")
     .option("--report-file <path>", "Write the audit report to disk in addition to stdout. <path> may be a file (extension drives format: .md or .json) or a directory (creates audit-<ISO>.<md|json> inside). $KJ_AUDIT_REPORT_DIR env var is used as default directory if no --report-file is given.")
+    .option("--deterministic-only", "Skip the LLM analysis entirely. Print/persist only the deterministic findings (basalCost, sonar, stack, growth-delta, webperf). Zero tokens spent. Compatible with --report-file and --json.")
+    .option("-y, --yes", "Auto-confirm the 'Continue with LLM analysis?' prompt. Useful in scripts that want the full audit non-interactively. CI/non-TTY paths already auto-confirm without this flag.")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "audit", flags, async ({ config, logger }) => {
         let resolvedTask = task;
@@ -113,6 +115,8 @@ export function registerMeta(program, { pkgVersion }) {
           path: flags.path,
           noSonar: flags.sonar === false,
           reportFile: flags.reportFile || null,
+          deterministicOnly: Boolean(flags.deterministicOnly),
+          yes: Boolean(flags.yes),
         });
       });
     });

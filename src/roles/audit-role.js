@@ -29,48 +29,59 @@ export class AuditRole extends AgentRole {
     super({ ...opts, name: "audit" });
   }
 
-  async execute(input) {
-    const task = typeof input === "string" ? input : input?.task || this.context?.task || "";
-    const onOutput = typeof input === "string" ? null : input?.onOutput || null;
-    const rawDimensions = typeof input === "object" ? input?.dimensions || null : null;
-    const context = typeof input === "object" ? input?.context || null : null;
+  /**
+   * Run the deterministic side of an audit — basalCost, stack detection,
+   * Sonar issues, WebPerf input — without invoking the LLM. Cheap (no
+   * tokens, no API call). KJC-TSK-0364 splits the original execute() into
+   * this collector + executeWithDeterministic() so the CLI can show
+   * deterministic findings first and ask the user before paying for the
+   * LLM phase.
+   *
+   * @param {object|string} input - same shape execute() accepts
+   * @returns {Promise<object>} deterministic context (the same data
+   *   execute() would gather internally)
+   */
+  async collectDeterministic(input) {
     const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
-    const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
-
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
     let stack = null;
     let sonarFindings = null;
+    let webperf = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
       growthDelta = computeGrowthDelta(basalCost, previous);
     } catch { /* basal cost is best-effort */ }
-    // Stack detection — KJC-TSK-0358. Best-effort: a project without
-    // package.json or recognisable language markers gets stack=null and the
-    // prompt falls back to the agnostic dimension list.
     try {
       stack = await detectProjectStack(projectDir);
     } catch { /* stack detect is best-effort */ }
-    // Sonar findings — KJC-TSK-0361. Always best-effort + opt-out via
-    // noSonar (CLI --no-sonar). When sonar is reachable we read the open
-    // issues + quality gate to give the LLM deterministic findings with
-    // rule IDs and line numbers; the section is omitted when sonar is
-    // down or disabled.
     if (!noSonar) {
       try {
         sonarFindings = await collectSonarFindings(this.config, this.logger);
       } catch { /* sonar fetch is best-effort */ }
     }
-    // WebPerf input — KJC-TSK-0360. Pure: static-hints for frontend
-    // projects, optional CWV verdict when config carries a previous
-    // measurement. No network/spawn from the audit; live CWV collection
-    // is the future `kj webperf` command's job.
-    let webperf = null;
     try {
       webperf = collectWebPerfInput(stack, this.config);
     } catch { /* webperf input is best-effort */ }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf };
+  }
+
+  /**
+   * Run the LLM phase of an audit using a pre-collected deterministic
+   * context. KJC-TSK-0364: separated from execute() so the CLI can run
+   * collectDeterministic() first, show findings, prompt, and only then
+   * call this if the user wants to spend tokens.
+   */
+  async executeWithDeterministic(input, deterministicCtx) {
+    const task = typeof input === "string" ? input : input?.task || this.context?.task || "";
+    const onOutput = typeof input === "string" ? null : input?.onOutput || null;
+    const rawDimensions = typeof input === "object" ? input?.dimensions || null : null;
+    const context = typeof input === "object" ? input?.context || null : null;
+    const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
+
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
@@ -81,13 +92,6 @@ export class AuditRole extends AgentRole {
     const result = await agent.runTask(runArgs);
     const durationMs = Date.now() - startedAt;
 
-    // KJC-TSK-0363 — extract usage fields the agent SPREADS at the
-    // top level of its result (tokens_in, tokens_out, cost_usd, model)
-    // and consolidate them under a single `usage` object. Pre-patch we
-    // forwarded `result.usage` which was always undefined because no
-    // agent uses that key. Providers without usage telemetry (gemini,
-    // aider, opencode) get an `available:false` marker so the consumer
-    // can render "usage data not available" instead of zeros.
     const usage = extractUsage(result, { provider, durationMs });
 
     if (!result.ok) {
@@ -119,6 +123,15 @@ export class AuditRole extends AgentRole {
     } catch {
       return { ok: true, result: { raw: result.output, provider }, summary: "Audit complete (unstructured output)", usage };
     }
+  }
+
+  /**
+   * Convenience: run both phases in one call. Identical to the previous
+   * (single-phase) execute() so MCP and pipeline callers don't change.
+   */
+  async execute(input) {
+    const deterministicCtx = await this.collectDeterministic(input);
+    return this.executeWithDeterministic(input, deterministicCtx);
   }
 }
 

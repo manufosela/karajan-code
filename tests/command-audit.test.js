@@ -1,16 +1,21 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-// AuditRole.execute() is what auditCommand now drives (post KJC-TSK-0357).
-// Mocking the role surface keeps the CLI test focused on argument flow and
+// AuditRole.collectDeterministic() + executeWithDeterministic() drive
+// auditCommand post KJC-TSK-0364 (two-phase). The legacy execute()
+// convenience is kept for back-compat with MCP/pipeline callers.
+// Mocking all three keeps the CLI test focused on argument flow and
 // output formatting; AuditRole's own contract has its own test suite.
 const executeMock = vi.fn();
-class MockAuditRole {
-  constructor(opts) { this.opts = opts; }
-  async execute(input) { return executeMock(input); }
-}
+const collectMock = vi.fn();
+const executeWithDetMock = vi.fn();
 
 vi.mock("../src/roles/audit-role.js", () => ({
-  AuditRole: MockAuditRole,
+  AuditRole: class {
+    constructor(opts) { this.opts = opts; }
+    async execute(input) { return executeMock(input); }
+    async collectDeterministic(input) { return collectMock(input); }
+    async executeWithDeterministic(input, ctx) { return executeWithDetMock(input, ctx); }
+  },
 }));
 
 vi.mock("../src/agents/availability.js", () => ({
@@ -72,6 +77,8 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
     executeMock.mockResolvedValue(successResult);
+    collectMock.mockResolvedValue({ projectDir: "/tmp", basalCost: null, growthDelta: null, stack: null, sonarFindings: null, webperf: null });
+    executeWithDetMock.mockResolvedValue(successResult);
 
     const avail = await import("../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
@@ -84,21 +91,23 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
   });
 
-  it("invokes AuditRole.execute with the task verbatim", async () => {
+  it("invokes AuditRole.executeWithDeterministic with the task verbatim", async () => {
     const { auditCommand } = await import("../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger });
 
-    expect(executeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ task: "audit codebase" })
+    expect(executeWithDetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: "audit codebase" }),
+      expect.any(Object)
     );
   });
 
-  it("forwards --dimensions to AuditRole.execute (parseDimensions runs inside the role)", async () => {
+  it("forwards --dimensions to AuditRole (parseDimensions runs inside the role)", async () => {
     const { auditCommand } = await import("../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger, dimensions: "security,testing" });
 
-    expect(executeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ dimensions: "security,testing" })
+    expect(executeWithDetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ dimensions: "security,testing" }),
+      expect.any(Object)
     );
   });
 
@@ -106,13 +115,14 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     const { auditCommand } = await import("../src/commands/audit.js");
     await auditCommand({ config: makeConfig(), logger: noopLogger });
 
-    expect(executeMock).toHaveBeenCalledWith(
-      expect.objectContaining({ task: "Analyze the full codebase" })
+    expect(executeWithDetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ task: "Analyze the full codebase" }),
+      expect.any(Object)
     );
   });
 
   it("throws when AuditRole returns ok=false", async () => {
-    executeMock.mockResolvedValueOnce({
+    executeWithDetMock.mockResolvedValueOnce({
       ok: false,
       result: { error: "agent error", provider: "claude" },
       summary: "Audit failed: agent error",
@@ -145,7 +155,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
   });
 
   it("falls back to printing roleResult.summary when LLM output is unstructured", async () => {
-    executeMock.mockResolvedValueOnce({
+    executeWithDetMock.mockResolvedValueOnce({
       ok: true,
       result: { raw: "free-form text from the LLM", provider: "claude" },
       summary: "Audit complete (unstructured output)",
@@ -165,10 +175,12 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     executeMock.mockResolvedValue(successResult);
+    collectMock.mockResolvedValue({ projectDir: "/tmp", basalCost: null, growthDelta: null, stack: null, sonarFindings: null, webperf: null });
+    executeWithDetMock.mockResolvedValue(successResult);
   });
 
-  it("CLI auditCommand and MCP direct-handler both reach AuditRole.execute with the same input shape", async () => {
-    // CLI path: invoke auditCommand and capture what it passed to execute().
+  it("CLI auditCommand and MCP direct-handler both reach AuditRole with the same input shape", async () => {
+    // CLI path: invoke auditCommand and capture what it passed to executeWithDeterministic().
     const { auditCommand } = await import("../src/commands/audit.js");
     await auditCommand({
       task: "Analyze the full codebase",
@@ -176,11 +188,13 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
       logger: noopLogger,
       dimensions: "all",
     });
-    const cliArgs = executeMock.mock.calls[executeMock.mock.calls.length - 1][0];
+    const cliArgs = executeWithDetMock.mock.calls[executeWithDetMock.mock.calls.length - 1][0];
 
     // MCP path: instantiate AuditRole directly the same way direct-handlers
     // does (see src/mcp/handlers/direct-handlers.js — `new AuditRole(...)`)
-    // and invoke execute() with the same input shape.
+    // and invoke execute() with the same input shape. The MCP path uses the
+    // legacy execute() convenience which internally calls
+    // collectDeterministic() then executeWithDeterministic().
     executeMock.mockClear();
     const { AuditRole } = await import("../src/roles/audit-role.js");
     const mcpRole = new AuditRole({ config: makeConfig(), logger: noopLogger });

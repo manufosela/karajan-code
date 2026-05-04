@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
+import readline from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { assertAgentsAvailable } from "../agents/availability.js";
@@ -9,8 +10,27 @@ import { AuditRole } from "../roles/audit-role.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
+import { formatDeterministicSummary } from "../audit/deterministic-summary.js";
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Prompt the user (TTY only) to decide whether to continue with the LLM
+ * phase after deterministic findings have been printed. KJC-TSK-0364.
+ *
+ * @returns {Promise<boolean>} true to continue with LLM, false to skip
+ */
+function promptContinueWithLlm({ promptFn = null } = {}) {
+  if (typeof promptFn === "function") return promptFn();
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY) { resolve(true); return; } // CI / piped input → continue
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question("Continue with LLM analysis? [y/N] ", (answer) => {
+      rl.close();
+      resolve(/^y(es)?$/i.test((answer || "").trim()));
+    });
+  });
+}
 
 function formatFindings(findings) {
   const lines = [];
@@ -171,16 +191,18 @@ async function buildReportHeader(projectDir, invocation) {
   return lines.join("\n");
 }
 
-function describeInvocation({ task, dimensions, noSonar, json }) {
+function describeInvocation({ task, dimensions, noSonar, json, deterministicOnly, yes }) {
   const parts = ["kj audit"];
   if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
   if (dimensions && dimensions !== "all") parts.push(`--dimensions=${dimensions}`);
   if (noSonar) parts.push("--no-sonar");
+  if (deterministicOnly) parts.push("--deterministic-only");
+  if (yes) parts.push("--yes");
   if (json) parts.push("--json");
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, reportFile = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -202,25 +224,63 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     const auditRoleConfig = resolveRole(config, "audit");
     await assertAgentsAvailable([auditRoleConfig.provider]);
     logger.info(`Audit (${auditRoleConfig.provider}) starting...`);
-    runLog.logText(`[audit] provider=${auditRoleConfig.provider} dimensions=${dimensions || "all"}`);
+    runLog.logText(`[audit] provider=${auditRoleConfig.provider} dimensions=${dimensions || "all"} deterministicOnly=${deterministicOnly}`);
 
-    // Path to audit output goes through AuditRole — same code path as MCP
-    // (kj_audit) and the orchestrator pipeline. Pre-KJC-TSK-0357 this CLI
-    // re-implemented createAgent + buildAuditPrompt + parseAuditOutput
-    // inline, which silently dropped the deterministic basalCost /
-    // growthDelta inputs that AuditRole.execute() collects. The result was
-    // a CLI prompt that didn't tell the LLM about deadExports, unused
-    // dependencies, or growth since the last audit.
+    // Two-phase audit (KJC-TSK-0364) — collect deterministic findings
+    // first; show them; ask the user (when TTY + not --yes + not
+    // --deterministic-only) whether to spend tokens on the LLM analysis.
+    // CI / piped input / --yes / --deterministic-only never prompts.
     const role = new AuditRole({ config, logger });
+    const roleInput = {
+      task: task || "Analyze the full codebase",
+      dimensions: dimensions || null,
+      noSonar,
+    };
+    const deterministicCtx = await role.collectDeterministic(roleInput);
+    const deterministicMd = formatDeterministicSummary(deterministicCtx);
+
+    // --json suppresses the interactive flow regardless: it would mangle
+    // a script's stdout. JSON consumers always get the full audit unless
+    // they explicitly pass deterministicOnly.
+    const reportPath = await resolveReportFilePath(reportFile, json);
+    let runLlm = !deterministicOnly;
+    if (runLlm && !json && !yes) {
+      console.log(deterministicMd);
+      console.log("");
+      const ok = await promptContinueWithLlm({ promptFn });
+      runLlm = ok;
+      if (!ok) logger.info("LLM analysis skipped (deterministic-only mode).");
+    }
+
+    if (!runLlm) {
+      // Deterministic-only path. Produce the report from what we already
+      // have, persist it (md or json), and exit. Zero tokens spent.
+      const stdoutContent = json
+        ? JSON.stringify({ deterministic: deterministicCtx, mode: "deterministic-only" }, null, 2)
+        : (deterministicOnly ? deterministicMd : ""); // already printed above when interactive
+      if (json || deterministicOnly) console.log(stdoutContent);
+
+      if (reportPath) {
+        let payload;
+        if (reportPath.endsWith(".json")) {
+          payload = JSON.stringify({ deterministic: deterministicCtx, mode: "deterministic-only" }, null, 2);
+        } else {
+          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, json, deterministicOnly, yes }));
+          payload = header + deterministicMd + "\n";
+        }
+        await fs.writeFile(reportPath, payload, "utf8");
+        runLog.logText(`[audit] report written (deterministic-only) → ${reportPath}`);
+        logger.info(`Audit report written: ${reportPath}`);
+      }
+      logger.info("Audit completed (deterministic-only).");
+      return { ok: true, mode: "deterministic-only", reportPath: reportPath || undefined };
+    }
+
+    // Continue with the LLM phase using the already-collected context.
     const progress = createCliProgressReporter({ role: "auditor" });
     let roleResult;
     try {
-      roleResult = await role.execute({
-        task: task || "Analyze the full codebase",
-        dimensions: dimensions || null,
-        onOutput: progress.onOutput,
-        noSonar,
-      });
+      roleResult = await role.executeWithDeterministic({ ...roleInput, onOutput: progress.onOutput }, deterministicCtx);
       progress.finish(roleResult.ok ? "done" : "failed");
     } catch (err) { progress.finish("failed"); throw err; }
 
@@ -238,16 +298,8 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       runLog.logText(`[audit] usage tokens=${usage.total_tokens} cost=$${(usage.cost_usd ?? 0).toFixed(4)} duration=${(usage.durationMs / 1000).toFixed(1)}s`);
     }
 
-    // Resolve write target BEFORE printing — if the user pointed at a
-    // path that can't be created we want to fail fast, not after the LLM
-    // has already printed everything to stdout.
-    const reportPath = await resolveReportFilePath(reportFile, json);
-
     let stdoutContent;
     if (json) {
-      // Surface usage on the JSON output so CI scripts can budget against it
-      // (KJC-TSK-0363). Falls into a top-level `usage` key so consumers
-      // don't have to dig into role-shape internals.
       const jsonPayload = parsed
         ? { ...parsed, usage: usage || undefined }
         : { ...roleResult, usage: usage || undefined };
@@ -264,15 +316,12 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     if (reportPath) {
       let payload;
       if (reportPath.endsWith(".json")) {
-        // Mirror the stdout JSON shape exactly — a top-level `usage` key
-        // alongside the parsed audit result. Same payload no matter whether
-        // the user used --json on stdout or got it via --report-file alone.
         const jsonPayload = parsed
           ? { ...parsed, usage: usage || undefined }
           : { ...roleResult, usage: usage || undefined };
         payload = JSON.stringify(jsonPayload, null, 2);
       } else {
-        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, json }));
+        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, json, deterministicOnly, yes }));
         payload = header + stdoutContent + "\n";
       }
       await fs.writeFile(reportPath, payload, "utf8");
