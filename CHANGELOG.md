@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-05-04
+
+Audit overhaul release — `kj audit` becomes a stack-aware, two-phase
+analysis tool with deterministic security collectors (Sonar + OSV +
+Semgrep), dimension auto-activation per project type, persistable
+reports, token/cost transparency, and an interactive prompt that lets
+the user inspect deterministic findings before paying for the LLM
+phase. 13 PRs merged + 5-PR refactor (228 → 3 dead exports) +
+detector false-positive cleanup. Zero breaking changes for MCP/pipeline
+callers (the legacy `AuditRole.execute()` still chains both phases).
+
+### Added — `kj audit` overhaul
+
+- **Two-phase mode** (`KJC-TSK-0364`, #597). Deterministic findings
+  print first; `Continue with LLM analysis? [y/N]` prompt before
+  spending tokens. New `--deterministic-only` (zero-token mode) and
+  `-y`/`--yes` (auto-confirm). CI/non-TTY paths auto-confirm. `--json`
+  bypasses the prompt to keep stdout pipeable.
+- **Project stack detection** in prompt (`KJC-TSK-0358`, #586). New
+  `## Project Stack` section tells the LLM to filter heuristics by
+  tier — frontend-only projects don't get N+1 query nags, backend-only
+  projects don't get bundle-size nags, fullstack projects get both.
+- **Accessibility dimension** (`KJC-TSK-0359`, #593). New WCAG 2.x
+  audit auto-activated for frontend / fullstack / unknown stack;
+  auto-skipped for backend-only (override with `--dimensions=accessibility`).
+  Static checks for missing alt text, label-less inputs, heading
+  hierarchy gaps, icon-only buttons without aria-label, ARIA misuse,
+  focus management, colour-only signalling. Defers runtime contrast
+  to axe-core/Lighthouse.
+- **WebPerf section** (`KJC-TSK-0360`, #594). Frontend-perf hints
+  (render-blocking, lazy loading, image format, CLS, font-display,
+  critical CSS, third-party script facade pattern) when no live CWV
+  measurement is available; renders the Core Web Vitals verdict when
+  `config.webperf.lastResult` is present.
+- **SonarQube findings** as deterministic prompt input (`KJC-TSK-0361`,
+  #588). New `## SonarQube Findings` section with rule IDs + line
+  precision; the LLM cross-references its own findings instead of
+  guessing. `--no-sonar` to skip. Capped at 50 entries.
+- **OSV-Scanner integration** (`KJC-TSK-0365`, #598). Best-effort
+  collector that wraps `osv-scanner` for dependency vulnerability
+  findings (broader DB than `npm audit`: GitHub Advisory Database +
+  GLSA + Go vuln DB + others). Auto-skipped when not installed.
+  Findings fold into the `security` dimension with CVE/GHSA as the
+  rule. `--no-osv` flag.
+- **Semgrep SAST integration** (`KJC-TSK-0366`, #600). Best-effort
+  collector for static analysis findings (SQL/Cmd injection, XSS,
+  hardcoded secrets, taint flow, language-specific anti-patterns).
+  2000+ built-in rules via `--config auto`. CWE + OWASP metadata
+  preserved. `--no-semgrep` flag.
+- **Token/cost summary** (`KJC-TSK-0363`, #595). Every audit ends
+  with `## LLM Usage` section: provider + model + duration + tokens
+  + estimated cost in USD. Surfaces in stdout (markdown), `--json`
+  output (top-level `usage` key), and persisted reports.
+- **`--report-file` flag** (`KJC-TSK-0362`, #592). Persists the audit
+  on disk in addition to stdout. Path is a file (extension drives
+  format `.md` or `.json`) or a directory (auto-creates
+  `audit-<ISO>.<md|json>`). `$KJ_AUDIT_REPORT_DIR` env var as default.
+  Markdown reports get a reproducibility header (timestamp, project
+  dir, branch + commit, invocation flags).
+
+### Changed — `kj audit` parity bug fix
+
+- **CLI now drives `AuditRole`** (`KJC-TSK-0357`, #585). Pre-patch the
+  CLI re-implemented `createAgent + buildAuditPrompt + parseAuditOutput`
+  inline, silently dropping the deterministic `basalCost`/`growthDelta`
+  inputs that `AuditRole.execute()` collects when invoked via MCP.
+  Same code path now means same prompt content for CLI and MCP.
+
+### Fixed — `kj audit` detector accuracy
+
+- **`findDeadExports` false positives reduced 166 → 4** (`KJC-TSK-0356`,
+  #584). The `kj audit` detector now understands `@internal` JSDoc,
+  `await import("path")`, `import * as ns from "..."`, and
+  `export { x } from "y"` re-exports. Strings (template, double, single)
+  are stripped before export-detection regexes so embedded sample
+  source in test fixtures no longer pollutes findings. Result drops
+  from 55x to 1.3x noise vs knip ground truth.
+
+### Fixed — repo health (228 dead exports cleanup)
+
+- **228 dead exports → 3** across `src/checks/`, `packages/hu-board/`,
+  `src/orchestrator/`, `tests/fixtures/`, and the rest of `src/`.
+  Splits across 5 atomic PRs (`KJC-TSK-0354 A-E`, #579-#583) so each
+  bisect-friendly. Mix of demote-to-private (most), entirely-dead
+  removal (a handful), and `@internal` JSDoc documentation for the
+  6 helpers tests reach via dynamic import. Knip baseline drops from
+  228 → 3.
+
+### Test plan
+
+Full suite **4305/4305 passing** (was 4199 at the start of the
+release). 106 new tests added across 11 new test files in
+`tests/audit/` plus targeted updates to `tests/command-audit.test.js`.
+
 ## [2.8.0] - 2026-04-30
 
 Audit-driven hardening release. The 2026-04-30 self-audit (`kj audit`)
