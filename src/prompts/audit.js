@@ -1,10 +1,12 @@
 import { extractFirstJson } from "../utils/json-extract.js";
 import { groupIssuesBySeverity } from "../audit/sonar-findings.js";
 import { groupVulnerabilitiesBySeverity } from "../audit/osv-findings.js";
+import { groupFindingsBySeverity as groupSemgrepBySeverity } from "../audit/semgrep-findings.js";
 import { formatCwvVerdict } from "../audit/webperf-input.js";
 
 const MAX_SONAR_ISSUES_IN_PROMPT = 50;
 const MAX_OSV_VULNS_IN_PROMPT = 50;
+const MAX_SEMGREP_FINDINGS_IN_PROMPT = 50;
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -26,7 +28,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null, semgrepFindings = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -311,6 +313,36 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     }
     lines.push("");
     lines.push("These CVE/GHSA findings are GROUND TRUTH — incorporate them into the `security` dimension. Use the OSV id (CVE-XXXX-XXXX or GHSA-xxxx-xxxx-xxxx) as the `rule` field. Recommend the fixed version when available.");
+    sections.push(lines.join("\n"));
+  }
+
+  // Semgrep SAST findings — KJC-TSK-0366. Static analysis catches what
+  // sonar/CVE-DBs miss: SQL/Cmd injection, XSS, hardcoded secrets,
+  // taint flow, language-specific anti-patterns. Capped at
+  // MAX_SEMGREP_FINDINGS_IN_PROMPT entries; LLM is told these are
+  // deterministic and asked to use rule IDs as-is in findings.
+  if (semgrepFindings?.available && semgrepFindings.total > 0) {
+    const lines = ["## Semgrep SAST Findings"];
+    lines.push(`- Total findings: ${semgrepFindings.total}`);
+    const groups = groupSemgrepBySeverity(semgrepFindings.findings);
+    let remaining = MAX_SEMGREP_FINDINGS_IN_PROMPT;
+    for (const [severity, findings] of Object.entries(groups)) {
+      if (findings.length === 0) continue;
+      lines.push("");
+      lines.push(`### ${severity} (${findings.length})`);
+      const slice = findings.slice(0, Math.max(0, remaining));
+      for (const f of slice) {
+        const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "";
+        const cwe = f.cwe ? ` (${Array.isArray(f.cwe) ? f.cwe.join(", ") : f.cwe})` : "";
+        lines.push(`  - ${loc} [${f.rule}]${cwe}: ${f.message || ""}`.trim());
+      }
+      if (findings.length > slice.length) {
+        lines.push(`  - ... and ${findings.length - slice.length} more in ${severity}`);
+      }
+      remaining -= slice.length;
+    }
+    lines.push("");
+    lines.push("These SAST findings are GROUND TRUTH — fold ERROR-severity ones into the `security` dimension as critical/high findings. Use the semgrep rule id (e.g. javascript.express.security.audit.xss.direct-response-write) verbatim in the `rule` field; that lets the developer look it up in the semgrep registry.");
     sections.push(lines.join("\n"));
   }
 

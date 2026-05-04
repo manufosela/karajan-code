@@ -5,6 +5,7 @@ import { detectProjectStack } from "../utils/stack-detect.js";
 import { collectSonarFindings } from "../audit/sonar-findings.js";
 import { collectWebPerfInput } from "../audit/webperf-input.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
+import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -45,6 +46,7 @@ export class AuditRole extends AgentRole {
   async collectDeterministic(input) {
     const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
     const noOsv = typeof input === "object" ? Boolean(input?.noOsv) : false;
+    const noSemgrep = typeof input === "object" ? Boolean(input?.noSemgrep) : false;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
@@ -52,6 +54,7 @@ export class AuditRole extends AgentRole {
     let sonarFindings = null;
     let webperf = null;
     let osvFindings = null;
+    let semgrepFindings = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -76,7 +79,14 @@ export class AuditRole extends AgentRole {
         osvFindings = await collectOsvFindings(projectDir, this.logger);
       } catch { /* osv-scanner is best-effort */ }
     }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings };
+    // Semgrep SAST — KJC-TSK-0366. Best-effort: missing semgrep binary
+    // returns available:false and the audit continues without the section.
+    if (!noSemgrep) {
+      try {
+        semgrepFindings = await collectSemgrepFindings(projectDir, this.logger);
+      } catch { /* semgrep is best-effort */ }
+    }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings };
   }
 
   /**
@@ -92,11 +102,11 @@ export class AuditRole extends AgentRole {
     const context = typeof input === "object" ? input?.context || null : null;
     const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
 
-    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings } = deterministicCtx;
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const startedAt = Date.now();
@@ -127,6 +137,7 @@ export class AuditRole extends AgentRole {
           sonarFindings: sonarFindings?.available ? sonarFindings : undefined,
           webperf: webperf?.available ? webperf : undefined,
           osvFindings: osvFindings?.available ? osvFindings : undefined,
+          semgrepFindings: semgrepFindings?.available ? semgrepFindings : undefined,
           provider
         },
         summary: buildSummary(parsed),
