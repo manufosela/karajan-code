@@ -2,6 +2,7 @@ import { AgentRole } from "./agent-role.js";
 import { buildAuditPrompt, parseAuditOutput, AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDelta } from "../audit/basal-cost.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
+import { collectSonarFindings } from "../audit/sonar-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -32,12 +33,14 @@ export class AuditRole extends AgentRole {
     const onOutput = typeof input === "string" ? null : input?.onOutput || null;
     const rawDimensions = typeof input === "object" ? input?.dimensions || null : null;
     const context = typeof input === "object" ? input?.context || null : null;
+    const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
     const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
 
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
     let stack = null;
+    let sonarFindings = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -49,10 +52,20 @@ export class AuditRole extends AgentRole {
     try {
       stack = await detectProjectStack(projectDir);
     } catch { /* stack detect is best-effort */ }
+    // Sonar findings — KJC-TSK-0361. Always best-effort + opt-out via
+    // noSonar (CLI --no-sonar). When sonar is reachable we read the open
+    // issues + quality gate to give the LLM deterministic findings with
+    // rule IDs and line numbers; the section is omitted when sonar is
+    // down or disabled.
+    if (!noSonar) {
+      try {
+        sonarFindings = await collectSonarFindings(this.config, this.logger);
+      } catch { /* sonar fetch is best-effort */ }
+    }
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const result = await agent.runTask(runArgs);
@@ -75,7 +88,9 @@ export class AuditRole extends AgentRole {
           topRecommendations: parsed.topRecommendations,
           textSummary: parsed.textSummary || undefined,
           basalCost: basalCost || undefined, growthDelta: growthDelta || undefined,
-          stack: stack || undefined, provider
+          stack: stack || undefined,
+          sonarFindings: sonarFindings?.available ? sonarFindings : undefined,
+          provider
         },
         summary: buildSummary(parsed),
         usage: result.usage

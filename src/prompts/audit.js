@@ -1,4 +1,7 @@
 import { extractFirstJson } from "../utils/json-extract.js";
+import { groupIssuesBySeverity } from "../audit/sonar-findings.js";
+
+const MAX_SONAR_ISSUES_IN_PROMPT = 50;
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -14,7 +17,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -169,6 +172,42 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     }
     lines.push("");
     lines.push("Flag if basal cost is growing faster than feature delivery. Recommend elimination of unused code and dependencies.");
+    sections.push(lines.join("\n"));
+  }
+
+  // Sonar findings — KJC-TSK-0361. Deterministic input from a tool the
+  // codebase already runs (kj run + SonarStage). The audit reads existing
+  // open issues + quality-gate state instead of re-scanning. Capped at
+  // MAX_SONAR_ISSUES_IN_PROMPT total entries (50) across all severities to
+  // bound prompt size; the LLM is told the truncated count so it can
+  // prioritise.
+  if (sonarFindings?.available && (sonarFindings.total > 0 || sonarFindings.qualityGate)) {
+    const lines = ["## SonarQube Findings"];
+    if (sonarFindings.qualityGate?.status) {
+      lines.push(`- Quality gate: ${sonarFindings.qualityGate.status}`);
+    }
+    if (sonarFindings.total > 0) {
+      lines.push(`- Total open issues: ${sonarFindings.total}`);
+      const groups = groupIssuesBySeverity(sonarFindings.issues);
+      let remaining = MAX_SONAR_ISSUES_IN_PROMPT;
+      for (const [severity, issues] of Object.entries(groups)) {
+        if (issues.length === 0) continue;
+        lines.push("");
+        lines.push(`### ${severity} (${issues.length})`);
+        const slice = issues.slice(0, Math.max(0, remaining));
+        for (const issue of slice) {
+          const loc = issue.component ? `${issue.component}${issue.line ? `:${issue.line}` : ""}` : "";
+          const rule = issue.rule ? ` [${issue.rule}]` : "";
+          lines.push(`  - ${loc}${rule} ${issue.message || ""}`.trim());
+        }
+        if (issues.length > slice.length) {
+          lines.push(`  - ... and ${issues.length - slice.length} more in ${severity}`);
+        }
+        remaining -= slice.length;
+      }
+    }
+    lines.push("");
+    lines.push("Cross-reference these with your own findings. When your finding overlaps a Sonar rule, mention the rule ID in the `rule` field — that's a high-confidence match. Findings the LLM raises that Sonar can't see (architecture, naming, API design) are still valuable; mark them with rule names like \"AUDIT-ARCH-N\".");
     sections.push(lines.join("\n"));
   }
 
