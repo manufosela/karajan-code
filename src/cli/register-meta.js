@@ -90,7 +90,7 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Analyze codebase health (read-only)")
     .argument("[task]", "Task description. If absent, defaults to a full-codebase analysis. Use --task-file to point at a .md.")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
-    .option("--dimensions <list>", "Comma-separated: security,quality,performance,architecture,testing", "all")
+    .option("--dimensions <list>", "Comma-separated: security,quality,performance,architecture,testing,accessibility (default: all; accessibility auto-skipped on detected backend-only projects)", "all")
     .option("--json", "Output raw JSON")
     .option("--agent-readiness", "Score the repo for AI-agent readability (llms.txt, SKILL.md coverage, page token budgets, robots allowlist, heading hierarchy). LLM-free; uses [path] or cwd as the audit target. See issue #542.")
     .option("--path <dir>", "Path to audit (used with --agent-readiness; defaults to cwd)")
