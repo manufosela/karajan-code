@@ -10,7 +10,13 @@ const SUBAGENT_PREAMBLE = [
   "DO NOT modify any files — this is a read-only analysis. Only use: Read, Grep, Glob, Bash (for analysis commands like wc, find, git log, du, npm ls)."
 ].join(" ");
 
-export const AUDIT_DIMENSIONS = ["security", "codeQuality", "performance", "architecture", "testing"];
+export const AUDIT_DIMENSIONS = ["security", "codeQuality", "performance", "architecture", "testing", "accessibility"];
+
+// Dimensions that only apply to frontend / fullstack projects. Auto-dropped
+// from the default dimension list when stack detection knows the project
+// is backend-only — preserves activation when the user explicitly opts in
+// via --dimensions=accessibility (KJC-TSK-0359).
+const FRONTEND_ONLY_DIMENSIONS = new Set(["accessibility"]);
 
 const VALID_HEALTH = new Set(["good", "fair", "poor", "critical"]);
 const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
@@ -56,9 +62,20 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     sections.push(stackLines.join("\n"));
   }
 
-  const activeDimensions = dimensions
-    ? dimensions.filter(d => AUDIT_DIMENSIONS.includes(d))
-    : AUDIT_DIMENSIONS;
+  // When dimensions are explicit, honour them verbatim — even frontend-only
+  // dimensions on a backend project (the user knows what they want).
+  // When dimensions are absent, default to all but drop frontend-only
+  // dimensions if the stack is provably backend-only. Unknown stack falls
+  // back to the full list (no false negatives — better an extra section
+  // than a missing one).
+  let activeDimensions;
+  if (dimensions) {
+    activeDimensions = dimensions.filter(d => AUDIT_DIMENSIONS.includes(d));
+  } else if (stack && stack.isBackend && !stack.isFrontend) {
+    activeDimensions = AUDIT_DIMENSIONS.filter(d => !FRONTEND_ONLY_DIMENSIONS.has(d));
+  } else {
+    activeDimensions = AUDIT_DIMENSIONS;
+  }
 
   if (activeDimensions.includes("security")) {
     sections.push(
@@ -134,9 +151,32 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     );
   }
 
+  if (activeDimensions.includes("accessibility")) {
+    sections.push(
+      "## Accessibility Analysis (WCAG 2.x)",
+      [
+        "- Missing alt text on <img> tags (decorative images need empty alt=\"\", not absent)",
+        "- Form inputs without associated <label> or aria-label",
+        "- Heading hierarchy violations (h1 → h3 skipping h2; multiple h1 per page)",
+        "- Buttons / links containing only icons without aria-label or visually-hidden text",
+        "- Interactive elements built from <div>/<span> without role + keyboard handlers",
+        "- ARIA roles misused (presentation on focusable elements, redundant on native semantics)",
+        "- Focus management gaps (modals without focus trap, no visible :focus styles, tabindex misuse)",
+        "- Colour-only signalling (status indicated by red/green only, no icon or text)",
+        "- Static contrast — flag suspicious low-contrast colour pairs in CSS variables / token files",
+        "- Missing lang attribute on <html>, missing skip-to-content link, missing landmarks"
+      ].join("\n"),
+      "Skip findings about colour contrast that require runtime rendering (e.g. computed styles); flag the suspect CSS values and recommend an axe-core/Lighthouse runtime check."
+    );
+  }
+
+  // JSON schema — keep the per-dimension entries in sync with AUDIT_DIMENSIONS.
+  const schemaDimensions = AUDIT_DIMENSIONS
+    .map(d => `"${d}":{"score":"A|B|C|D|F","findings":[]}`)
+    .join(",");
   sections.push(
     "Return a single valid JSON object and nothing else.",
-    'JSON schema: {"ok":true,"result":{"summary":{"overallHealth":"good|fair|poor|critical","totalFindings":number,"critical":number,"high":number,"medium":number,"low":number},"dimensions":{"security":{"score":"A|B|C|D|F","findings":[]},"codeQuality":{"score":"A|B|C|D|F","findings":[]},"performance":{"score":"A|B|C|D|F","findings":[]},"architecture":{"score":"A|B|C|D|F","findings":[]},"testing":{"score":"A|B|C|D|F","findings":[]}},"topRecommendations":[{"priority":number,"dimension":string,"action":string,"impact":"high|medium|low","effort":"high|medium|low"}]},"summary":string}',
+    `JSON schema: {"ok":true,"result":{"summary":{"overallHealth":"good|fair|poor|critical","totalFindings":number,"critical":number,"high":number,"medium":number,"low":number},"dimensions":{${schemaDimensions}},"topRecommendations":[{"priority":number,"dimension":string,"action":string,"impact":"high|medium|low","effort":"high|medium|low"}]},"summary":string}`,
     'Each finding: {"severity":"critical|high|medium|low","file":string,"line":number,"rule":string,"description":string,"recommendation":string}',
     `Only include dimensions you were asked to analyze: ${activeDimensions.join(", ")}`
   );
