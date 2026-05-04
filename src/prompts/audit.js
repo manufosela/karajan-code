@@ -1,8 +1,10 @@
 import { extractFirstJson } from "../utils/json-extract.js";
 import { groupIssuesBySeverity } from "../audit/sonar-findings.js";
+import { groupVulnerabilitiesBySeverity } from "../audit/osv-findings.js";
 import { formatCwvVerdict } from "../audit/webperf-input.js";
 
 const MAX_SONAR_ISSUES_IN_PROMPT = 50;
+const MAX_OSV_VULNS_IN_PROMPT = 50;
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -24,7 +26,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -279,6 +281,36 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
       lines.push("- Large third-party scripts (analytics, A/B, chat widgets) without defer + facade pattern");
       lines.push("- Unbounded list rendering without virtualisation for very long collections");
     }
+    sections.push(lines.join("\n"));
+  }
+
+  // OSV vulnerabilities — KJC-TSK-0365. Deterministic CVE/GHSA findings
+  // from osv-scanner across the dependency manifest. Capped at
+  // MAX_OSV_VULNS_IN_PROMPT entries; the LLM is told the truncated count.
+  // Findings fold into the `security` dimension with the upstream
+  // identifier (CVE-/GHSA-) as the rule.
+  if (osvFindings?.available && (osvFindings.total > 0)) {
+    const lines = ["## OSV Vulnerabilities"];
+    lines.push(`- Total open vulnerabilities in dependencies: ${osvFindings.total}`);
+    const groups = groupVulnerabilitiesBySeverity(osvFindings.vulnerabilities);
+    let remaining = MAX_OSV_VULNS_IN_PROMPT;
+    for (const [severity, vulns] of Object.entries(groups)) {
+      if (vulns.length === 0) continue;
+      lines.push("");
+      lines.push(`### ${severity} (${vulns.length})`);
+      const slice = vulns.slice(0, Math.max(0, remaining));
+      for (const vuln of slice) {
+        const where = vuln.package ? `${vuln.package}@${vuln.version || "?"}` : "(unknown package)";
+        const fixed = vuln.fixed ? ` → fixed in ${vuln.fixed}` : "";
+        lines.push(`  - ${vuln.id} ${where}${fixed}: ${vuln.summary || ""}`.trim());
+      }
+      if (vulns.length > slice.length) {
+        lines.push(`  - ... and ${vulns.length - slice.length} more in ${severity}`);
+      }
+      remaining -= slice.length;
+    }
+    lines.push("");
+    lines.push("These CVE/GHSA findings are GROUND TRUTH — incorporate them into the `security` dimension. Use the OSV id (CVE-XXXX-XXXX or GHSA-xxxx-xxxx-xxxx) as the `rule` field. Recommend the fixed version when available.");
     sections.push(lines.join("\n"));
   }
 

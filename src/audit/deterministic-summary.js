@@ -10,12 +10,14 @@
  */
 
 import { groupIssuesBySeverity } from "./sonar-findings.js";
+import { groupVulnerabilitiesBySeverity } from "./osv-findings.js";
 
 const MAX_SAMPLE_DEAD_EXPORTS = 10;
 const MAX_SAMPLE_SONAR_PER_SEVERITY = 5;
+const MAX_SAMPLE_OSV_PER_SEVERITY = 5;
 
 /**
- * @param {{basalCost?: object, growthDelta?: object, stack?: object, sonarFindings?: object, webperf?: object}} ctx
+ * @param {{basalCost?: object, growthDelta?: object, stack?: object, sonarFindings?: object, webperf?: object, osvFindings?: object}} ctx
  * @returns {string} markdown block
  */
 export function formatDeterministicSummary(ctx) {
@@ -26,9 +28,35 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.stack) lines.push(...formatStackBlock(ctx.stack));
   if (ctx.basalCost) lines.push(...formatBasalCostBlock(ctx.basalCost, ctx.growthDelta));
   if (ctx.sonarFindings) lines.push(...formatSonarBlock(ctx.sonarFindings));
+  if (ctx.osvFindings) lines.push(...formatOsvBlock(ctx.osvFindings));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+function formatOsvBlock(osvFindings) {
+  if (!osvFindings.available) {
+    return ["### OSV Vulnerabilities", `- Status: not available — ${osvFindings.reason || "osv-scanner not installed"}`, ""];
+  }
+  const lines = ["### OSV Vulnerabilities (Dependencies)"];
+  lines.push(`- Total open: ${osvFindings.total ?? 0}`);
+  if ((osvFindings.total ?? 0) > 0) {
+    const groups = groupVulnerabilitiesBySeverity(osvFindings.vulnerabilities || []);
+    for (const [severity, vulns] of Object.entries(groups)) {
+      if (vulns.length === 0) continue;
+      lines.push(`  - ${severity} (${vulns.length}):`);
+      for (const v of vulns.slice(0, MAX_SAMPLE_OSV_PER_SEVERITY)) {
+        const where = v.package ? `${v.package}@${v.version || "?"}` : "(unknown)";
+        const fixed = v.fixed ? ` → fixed in ${v.fixed}` : "";
+        lines.push(`    - ${v.id} ${where}${fixed}`);
+      }
+      if (vulns.length > MAX_SAMPLE_OSV_PER_SEVERITY) {
+        lines.push(`    - ... and ${vulns.length - MAX_SAMPLE_OSV_PER_SEVERITY} more in ${severity}`);
+      }
+    }
+  }
+  lines.push("");
+  return lines;
 }
 
 function formatStackBlock(stack) {
@@ -138,6 +166,7 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.basalCost?.unusedDependencies?.unused?.length > 0) return true;
   if (ctx.sonarFindings?.available && (ctx.sonarFindings.total ?? 0) > 0) return true;
   if (ctx.sonarFindings?.qualityGate?.status === "ERROR") return true;
+  if (ctx.osvFindings?.available && (ctx.osvFindings.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
   return false;
 }

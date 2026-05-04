@@ -4,6 +4,7 @@ import { measureBasalCost, loadPreviousAudit, saveAuditSnapshot, computeGrowthDe
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { collectSonarFindings } from "../audit/sonar-findings.js";
 import { collectWebPerfInput } from "../audit/webperf-input.js";
+import { collectOsvFindings } from "../audit/osv-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -43,12 +44,14 @@ export class AuditRole extends AgentRole {
    */
   async collectDeterministic(input) {
     const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
+    const noOsv = typeof input === "object" ? Boolean(input?.noOsv) : false;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
     let stack = null;
     let sonarFindings = null;
     let webperf = null;
+    let osvFindings = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -65,7 +68,15 @@ export class AuditRole extends AgentRole {
     try {
       webperf = collectWebPerfInput(stack, this.config);
     } catch { /* webperf input is best-effort */ }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf };
+    // OSV vulnerabilities — KJC-TSK-0365. Best-effort: missing
+    // osv-scanner binary returns available:false and the audit
+    // continues without the section.
+    if (!noOsv) {
+      try {
+        osvFindings = await collectOsvFindings(projectDir, this.logger);
+      } catch { /* osv-scanner is best-effort */ }
+    }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings };
   }
 
   /**
@@ -81,11 +92,11 @@ export class AuditRole extends AgentRole {
     const context = typeof input === "object" ? input?.context || null : null;
     const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
 
-    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf } = deterministicCtx;
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const startedAt = Date.now();
@@ -115,6 +126,7 @@ export class AuditRole extends AgentRole {
           stack: stack || undefined,
           sonarFindings: sonarFindings?.available ? sonarFindings : undefined,
           webperf: webperf?.available ? webperf : undefined,
+          osvFindings: osvFindings?.available ? osvFindings : undefined,
           provider
         },
         summary: buildSummary(parsed),
