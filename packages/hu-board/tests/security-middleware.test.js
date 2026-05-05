@@ -1,0 +1,80 @@
+/**
+ * KJC-TSK-0355 — verifies the security middleware stack (helmet +
+ * rate-limit) wired into server.js. Tests use a disposable Express
+ * app so we don't have to spin up the real DB-backed server.
+ */
+
+import { describe, it, expect } from 'vitest';
+import express from 'express';
+import request from 'supertest';
+import { buildSecurityMiddleware, buildRateLimiter } from '../src/server.js';
+
+function buildApp({ withRateLimit = false } = {}) {
+  const app = express();
+  app.use(...buildSecurityMiddleware());
+  if (withRateLimit) app.use('/api', buildRateLimiter());
+  app.get('/api/ping', (_req, res) => res.json({ ok: true }));
+  return app;
+}
+
+describe('security middleware — helmet headers', () => {
+  it('sets X-Content-Type-Options: nosniff', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('sets X-Frame-Options to deny clickjacking', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    // helmet defaults to SAMEORIGIN; the important thing is that it's
+    // NOT absent (clickjacking surface) and NOT a wildcard.
+    expect(res.headers['x-frame-options']).toBeDefined();
+    expect(res.headers['x-frame-options']).toMatch(/^(DENY|SAMEORIGIN)$/i);
+  });
+
+  it('sets a Content-Security-Policy header', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    expect(res.headers['content-security-policy']).toBeDefined();
+    expect(res.headers['content-security-policy']).toMatch(/default-src/);
+  });
+
+  it('removes the X-Powered-By: Express header', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+});
+
+describe('security middleware — rate limit', () => {
+  it('emits standard RateLimit headers and lets normal traffic through', async () => {
+    const app = buildApp({ withRateLimit: true });
+    const res = await request(app).get('/api/ping');
+    expect(res.status).toBe(200);
+    // express-rate-limit "draft-7" emits RateLimit / RateLimit-Remaining etc.
+    const headerNames = Object.keys(res.headers);
+    expect(headerNames.some((h) => /^ratelimit/i.test(h))).toBe(true);
+  });
+
+  it('returns 429 once the per-window quota is exhausted', async () => {
+    // Build an app with a deliberately tiny limit so the test stays fast.
+    const app = express();
+    app.use(...buildSecurityMiddleware());
+    const limiter = (await import('express-rate-limit')).default({
+      windowMs: 60 * 1000,
+      limit: 3,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { error: 'Too Many Requests' },
+    });
+    app.use('/api', limiter);
+    app.get('/api/ping', (_req, res) => res.json({ ok: true }));
+
+    const agent = request(app);
+    for (let i = 0; i < 3; i++) {
+      const r = await agent.get('/api/ping');
+      expect(r.status).toBe(200);
+    }
+    const blocked = await agent.get('/api/ping');
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toBe('Too Many Requests');
+  });
+});

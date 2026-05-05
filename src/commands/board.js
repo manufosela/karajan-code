@@ -89,7 +89,7 @@ function buildBoardUrl(port, projectSlug) {
 }
 
 export async function startBoard(desiredPort = 4000, opts = {}) {
-  const { projectSlug = null } = opts;
+  const { projectSlug = null, bind = "127.0.0.1" } = opts;
   const existingPid = readPid();
   if (existingPid && isProcessAlive(existingPid)) {
     // Trust the saved PID — port info comes from the PID file if present
@@ -129,7 +129,7 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   // Use process.execPath (absolute path to current node binary) instead of "node".
   // Fixes ENOENT on nvm setups where `node` is not in the spawned process's PATH.
   const child = spawn(process.execPath, [serverPath], {
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), BIND_HOST: bind },
     detached: true,
     stdio: "ignore",
     cwd: BOARD_DIR
@@ -265,14 +265,17 @@ export function renderBoardBanner({ url, status, projectName }) {
   return ["", rule, ...content, rule, ""].join("\n");
 }
 
-export async function boardCommand({ action = "start", port = 4000, logger }) {
+export async function boardCommand({ action = "start", port = 4000, bind = "127.0.0.1", logger }) {
   switch (action) {
     case "start": {
-      const result = await startBoard(port);
+      const result = await startBoard(port, { bind });
       if (result.alreadyRunning) {
         logger.info(`HU Board already running (PID ${result.pid}) at ${result.url}`);
       } else {
         logger.info(`HU Board started (PID ${result.pid}) at ${result.url}`);
+        if (bind !== "127.0.0.1" && bind !== "localhost") {
+          logger.warn(`HU Board bound to ${bind} — token auth enforced for non-loopback peers. Token: ~/.karajan/hu-board/token`);
+        }
       }
       return result;
     }

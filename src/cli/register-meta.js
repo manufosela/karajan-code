@@ -189,10 +189,12 @@ export function registerMeta(program, { pkgVersion }) {
     .command("board [action]")
     .description("Manage HU Board (start|stop|status|open)")
     .option("--port <number>", "Port (default: 4000)", "4000")
+    .option("--bind <host>", "Bind host (default: 127.0.0.1; use 0.0.0.0 to expose on LAN — token auth auto-enforced)")
     .action(async (action = "start", opts) => {
       await withConfig(pkgVersion, "board", opts, async ({ config, logger }) => {
         const port = Number(opts.port) || config.hu_board?.port || 4000;
-        await boardCommand({ action, port, logger });
+        const bind = opts.bind || config.hu_board?.bind || "127.0.0.1";
+        await boardCommand({ action, port, bind, logger });
       });
     });
 
