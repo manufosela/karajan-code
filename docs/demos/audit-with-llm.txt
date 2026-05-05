@@ -1,0 +1,32 @@
+# Demo: kj audit (full two-phase audit on a sample repo)
+# Length: ~2 minutes.
+# Requires: a coder agent CLI logged in for the LLM phase.
+
+# Setup: cd into a moderately-sized repo (1000-5000 LOC works well —
+# enough findings to be interesting, not so many that the report
+# scrolls forever). Karajan-code itself is a fine target.
+
+# 1. Phase 1 — deterministic findings only. Zero tokens spent.
+clear
+kj audit --deterministic-only
+
+# (Shows: basal cost, sonar findings if scanner present, OSV deps,
+# semgrep SAST hits, growth-delta, webperf if .karajan/webperf/ exists.
+# The audience sees a structured report in seconds.)
+
+# 2. Phase 2 — opt-in LLM analysis. Run the same audit without
+# --deterministic-only. Karajan prints the deterministic findings,
+# asks "Continue with LLM analysis? [y/N]", and waits.
+kj audit
+# (Type `y` and Enter when prompted.)
+
+# (LLM call streams; takes 30-90s depending on coder. Ends with
+# stack-aware recommendations + a token/cost summary.)
+
+# 3. Save the audit to a markdown report for sharing.
+kj audit --report-file ~/audits/karajan-$(date +%Y%m%d).md --yes
+
+# 4. Show the saved report's header (reproducibility metadata).
+head -25 ~/audits/karajan-$(date +%Y%m%d).md
+
+# Done. Ctrl+D.
