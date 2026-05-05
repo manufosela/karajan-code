@@ -27,8 +27,29 @@ describe("skills/addyosmani-role-map — resolveAddyosmaniSlugs", () => {
   it.each([
     { task: "Improve Core Web Vitals and LCP on landing", expected: "performance-optimization" },
     { task: "Fix XSS in user form", expected: "security-and-hardening" },
+    // KJC-TSK-0351 — accessibility lexicon should route to frontend-ui-engineering.
+    { task: "Fix accessibility issue on login", expected: "frontend-ui-engineering" },
+    { task: "Add WCAG 2.1 AA audit to checkout flow", expected: "frontend-ui-engineering" },
+    { task: "Add ARIA labels to dialog component", expected: "frontend-ui-engineering" },
+    { task: "Screen reader announces wrong text in nav", expected: "frontend-ui-engineering" },
+    { task: "Keyboard navigation broken on dropdown", expected: "frontend-ui-engineering" },
+    { task: "a11y audit before launch", expected: "frontend-ui-engineering" },
   ])("infers '$expected' from task text", ({ task, expected }) => {
     expect(resolveAddyosmaniSlugs({ task })).toContain(expected);
+  });
+
+  it("does NOT add frontend-ui-engineering for unrelated tasks (no false-positive on a11y rule)", () => {
+    // KJC-TSK-0351 — guard against the new pattern matching too eagerly.
+    const slugs = resolveAddyosmaniSlugs({ task: "refactor logger" });
+    expect(slugs).not.toContain("frontend-ui-engineering");
+  });
+
+  it("dedupes when accessibility pattern + frontend pattern both fire on the same task", () => {
+    // KJC-TSK-0351 — both /\bui\b/ and /\ba11y\b/ now resolve to the same
+    // slug; the dedup contract from the original test must still hold.
+    const slugs = resolveAddyosmaniSlugs({ task: "Improve UI a11y on the dashboard" });
+    const hits = slugs.filter((s) => s === "frontend-ui-engineering");
+    expect(hits).toHaveLength(1);
   });
 
   it("combines role slugs first, then task slugs (role-first ordering)", () => {
