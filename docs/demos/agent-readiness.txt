@@ -1,0 +1,31 @@
+# Demo: kj audit --agent-readiness — score third-party repos for AI-agent compatibility
+# Length: ~1 minute. No LLM calls. Reproducible against any tagged release.
+#
+# Setup: cd into the karajan-code repo (or any other) BEFORE starting asciinema.
+# The script below lists the EXACT commands to type, with optional pauses
+# the user can read while typing.
+
+# 1. Show the score for a repo that's NOT prepared (third-party).
+#    Use any popular OSS repo you have cloned locally. Replace the path
+#    with whatever you have. Try a famous one for the wow factor.
+clear
+ls ~/some-third-party-repo
+kj audit --agent-readiness --path ~/some-third-party-repo
+
+# (Pause ~3s after the score appears — the audience needs to read
+# the per-check breakdown and the top-fixes list.)
+
+# 2. Now the punchline: same command on Karajan Code itself.
+clear
+kj audit --agent-readiness
+
+# (The score line says 100/100. Pause ~3s.)
+
+# 3. Show that it's machine-readable too — pipe to jq for CI use.
+kj audit --agent-readiness --json | jq '.score'
+
+# 4. Optional: hint at what's behind the score by tailing llms.txt.
+head -20 llms.txt
+ls docs/agents/SKILL.kj-*.md
+
+# Done. Hit Ctrl+D or type `exit` to stop the recording.
