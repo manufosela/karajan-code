@@ -217,6 +217,7 @@ export function resolvePipelineFlags(config) {
     testerEnabled: Boolean(config.pipeline?.tester?.enabled),
     securityEnabled: Boolean(config.pipeline?.security?.enabled),
     impeccableEnabled: Boolean(config.pipeline?.impeccable?.enabled),
+    perfEnabled: Boolean(config.pipeline?.perf?.enabled),
     reviewerEnabled: config.pipeline?.reviewer?.enabled !== false,
     discoverEnabled: Boolean(config.pipeline?.discover?.enabled),
     architectEnabled: Boolean(config.pipeline?.architect?.enabled),
@@ -225,7 +226,7 @@ export function resolvePipelineFlags(config) {
 }
 
 export async function handleDryRun({ task, config, flags, emitter, pipelineFlags }) {
-  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, reviewerEnabled, discoverEnabled, architectEnabled, huReviewerEnabled } = pipelineFlags;
+  const { plannerEnabled, refactorerEnabled, researcherEnabled, testerEnabled, securityEnabled, impeccableEnabled, perfEnabled, reviewerEnabled, discoverEnabled, architectEnabled, huReviewerEnabled } = pipelineFlags;
   const plannerRole = resolveRole(config, "planner");
   const coderRole = resolveRole(config, "coder");
   const reviewerRole = resolveRole(config, "reviewer");
@@ -259,6 +260,7 @@ export async function handleDryRun({ task, config, flags, emitter, pipelineFlags
       tester_enabled: testerEnabled,
       security_enabled: securityEnabled,
       impeccable_enabled: impeccableEnabled,
+      perf_enabled: perfEnabled,
       solomon_enabled: Boolean(config.pipeline?.solomon?.enabled),
       hu_reviewer_enabled: huReviewerEnabled
     },

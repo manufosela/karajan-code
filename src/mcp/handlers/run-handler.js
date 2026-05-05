@@ -263,7 +263,7 @@ export async function handleResume(a, server, extra) {
     }
     a.answer = validation.sanitized;
   }
-  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
+  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable", "enablePerf"]);
   return handleResumeDirect(a, server, extra);
 }
 
@@ -303,6 +303,6 @@ export async function handleRun(a, server, extra) {
     const logger = createLogger("info", "mcp");
     logger.info("Preflight auto-acknowledged with default agent config");
   }
-  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable"]);
+  applySessionOverrides(a, ["coder", "reviewer", "tester", "security", "solomon", "enableTester", "enableSecurity", "enableImpeccable", "enablePerf"]);
   return handleRunDirect(a, server, extra);
 }

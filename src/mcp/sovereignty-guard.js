@@ -14,7 +14,7 @@ const ALLOWED_PARAMS = new Set([
   "planner", "coder", "reviewer", "refactorer",
   "plannerModel", "coderModel", "reviewerModel", "refactorerModel",
   "enablePlanner", "enableReviewer", "enableRefactorer", "enableResearcher",
-  "enableTester", "enableSecurity", "enableImpeccable",
+  "enableTester", "enableSecurity", "enableImpeccable", "enablePerf",
   "enableDiscover", "enableArchitect",
   "architectModel", "huFile",
   "enableSerena", "enableCi",

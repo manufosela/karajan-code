@@ -18,6 +18,7 @@ import {
   runTddCheckStage, runSonarStage, runSonarCloudStage,
 } from "../../iteration-stages.js";
 import { runImpeccableStage } from "../../post-loop-stages.js";
+import { runPerfStage } from "../../stages/perf-stage.js";
 import { tryCiComment } from "../../ci-integration.js";
 
 export async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
@@ -70,6 +71,17 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
     if (impeccableResult.stageResult) {
       stageResults.impeccable = impeccableResult.stageResult;
     }
+  }
+
+  if (pipelineFlags?.perfEnabled) {
+    const perfResult = await runPerfStage({
+      config, logger, emitter, eventBase, session, trackBudget,
+      iteration: i, task, brainCtx
+    });
+    if (perfResult.stageResult) {
+      stageResults.perf = perfResult.stageResult;
+    }
+    if (perfResult.action === "continue") return { action: "continue" };
   }
 
   return { action: "ok" };

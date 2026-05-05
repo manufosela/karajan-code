@@ -239,6 +239,7 @@ export function buildPlanSummary({ pipelineFlags, config, stageResults, task }) 
   if (pipelineFlags.testerEnabled) activeStages.push("Tester");
   if (pipelineFlags.securityEnabled) activeStages.push("Security");
   if (pipelineFlags.impeccableEnabled) activeStages.push("Impeccable");
+  if (pipelineFlags.perfEnabled) activeStages.push("Perf");
   lines.push(`│ Stages: ${activeStages.join(" → ")}`);
 
   // Config

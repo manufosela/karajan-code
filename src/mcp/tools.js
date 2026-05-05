@@ -76,6 +76,7 @@ export const tools = [
         enableTester: { type: "boolean" },
         enableSecurity: { type: "boolean" },
         enableImpeccable: { type: "boolean" },
+        enablePerf: { type: "boolean" },
         enableTriage: { type: "boolean" },
         enableDiscover: { type: "boolean" },
         enableArchitect: { type: "boolean" },

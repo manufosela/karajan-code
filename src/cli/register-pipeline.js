@@ -58,6 +58,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--enable-tester")
     .option("--enable-security")
     .option("--enable-impeccable")
+    .option("--enable-perf")
     .option("--enable-triage")
     .option("--enable-discover")
     .option("--enable-architect")

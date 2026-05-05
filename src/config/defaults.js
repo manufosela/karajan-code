@@ -37,6 +37,7 @@ const DEFAULTS = {
     tester: { enabled: true },
     security: { enabled: true },
     impeccable: { enabled: false },
+    perf: { enabled: false },
     triage: { enabled: true },
     discover: { enabled: false },
     architect: { enabled: false },

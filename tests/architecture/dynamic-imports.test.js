@@ -53,7 +53,14 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // `await import(...)` callsites were hiding behind that swallow and
 // never counted; they've always existed in the source. Real headcount
 // is 159.
-const DYNAMIC_IMPORT_BUDGET = 159;
+//
+// 2026-05-04 (KJC-TSK-0151): bumped 159 → 160 for the new PerfStage
+// brain-coordinator lazy import. Same feature-flag-gated pattern used
+// by sonar-stage.js — `processRoleOutput` is only needed when
+// `brainCtx.enabled`, and pulling its transitive graph during cold
+// pipeline starts (where the perf gate is off by default) would be
+// wasteful.
+const DYNAMIC_IMPORT_BUDGET = 160;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
