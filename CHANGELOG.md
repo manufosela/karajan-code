@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-05-05
+
+Agent-readiness release — Karajan becomes the first orchestrator with a
+full agent-readability surface (llms.txt + a SKILL.md per CLI command +
+a static auditor that scores any third-party repo for the same shape).
+Plus a webperf quality gate inside the iteration loop, hu-board security
+hardening, and a skills mapper that auto-pulls WCAG context for a11y
+tasks. Five PRs merged. Zero breaking changes; opt-in flags throughout.
+
+### Added — agent-readiness surface
+
+- **`kj audit --agent-readiness`** (`KJC-TSK-0350`, #609). Static, LLM-
+  free score for any repo against seven checks: llms.txt presence,
+  llms.txt validity (sections + links), robots.txt AI-bot allowlist,
+  per-doc token budget (≤ 32 KB), heading hierarchy, agents/README.md
+  entry point, SKILL.md coverage. Output: 0–100 score, per-check ✓/✗,
+  ranked top-fixes list. `--json` for CI; pure data transformation
+  (no network, no LLM, no side effects). Two detector bug fixes that
+  brought Karajan-on-Karajan from 80 → 100/100: bash comments inside
+  fenced code blocks no longer count as H1, and `<h1 align="center">`
+  HTML banners are now recognised as valid H1s.
+- **SKILL.md per CLI subcommand** (`KJC-TSK-0349`, #608). Six new
+  `docs/agents/SKILL.kj-{doctor,init,board,review,resume,clean}.md`
+  files, all following the established contract (What it does ·
+  Inputs · Outputs · Constraints · Side effects · Common failure
+  modes · Example · Related). Architectural test
+  `tests/architecture/agent-readability.test.js` fails CI when a
+  SKILL link in `llms.txt` no longer resolves or a SKILL.md drops a
+  required section.
+- **`docs/demos/`** (`KJC-TSK-0228`, #610). Three asciinema recording
+  scripts (happy-path, agent-readiness, audit-with-llm) plus a README
+  with terminal config, pre-recording checklist, embedding via
+  `<asciinema-player>`, and a re-record cadence. Source-of-truth
+  approach: scripts in repo, .cast files re-recorded per release.
+- **`robots.txt`** at repo root. Explicit `Allow: /` for GPTBot,
+  ClaudeBot, anthropic-ai, PerplexityBot, Google-Extended, CCBot.
+
+### Added — webperf quality gate
+
+- **`PerfStage` in iteration loop** (`KJC-TSK-0151`, #605). Wires
+  `PerfRole` (#603) into `runQualityGateStages` after Impeccable when
+  `pipeline.perf.enabled` is `true`. PASS verdict → iteration
+  continues; FAIL verdict → reviewer feedback with concrete blocking
+  metrics + top opportunities, iteration retries; scanner unavailable
+  → log warn and skip (best-effort, never blocks the pipeline by
+  itself). CLI/MCP parity: `--enable-perf` flag + matching
+  `enablePerf` in `mcp/tools.js`, `mcp/run-kj.js`, sovereignty-guard
+  allowlist, and `applySessionOverrides`. Default OFF.
+
+### Added — skills mapper
+
+- **a11y/WCAG/ARIA pattern in `TASK_PATTERN_TO_SLUG`**
+  (`KJC-TSK-0351`, #606). Tasks mentioning accessibility / a11y /
+  WCAG / ARIA / screen reader / keyboard navigation auto-pull the
+  `frontend-ui-engineering` skill — until the upstream addyosmani
+  catalog ships a dedicated a11y skill, that's the closest
+  authoritative source for WCAG-aware UI work. 8 new positive task-
+  text tests + 1 negative + 1 dedup guard.
+
+### Changed — hu-board security hardening
+
+- **Bind 127.0.0.1 by default** (`KJC-TSK-0355`, #607). Was binding
+  all interfaces — fine on a personal laptop, problematic on shared
+  WiFi with auto-discovery. New `kj board start --bind <host>` flag
+  for the explicit \"expose on LAN\" case; banner emits a warning +
+  token URL when binding non-loopback.
+- **Auto-token, opt-in enforcement**. Token auto-generated at
+  `~/.karajan/hu-board/token` (mode 0600, 32 random bytes hex,
+  idempotent). Auth middleware only enforces the token for non-
+  loopback peers — same-machine browser keeps working without
+  `?token=` on every link. Three accepted carriers: `Authorization:
+  Bearer`, `?token=`, `kj_board_token` cookie.
+- **`helmet` middleware**: X-Content-Type-Options, X-Frame-Options,
+  conservative CSP (allows inline scripts/styles for the existing
+  dashboard), removes `X-Powered-By: Express`.
+- **`express-rate-limit`** on `/api`: 300 req/min per IP, draft-7
+  `RateLimit-*` headers.
+
+### Tests
+
+- Full suite: **4358/4358** passing (373 files), up from 4305 in v2.9.
+- New: `tests/webperf/perf-stage.test.js` (5), bash-comment + HTML
+  H1 regression tests in `tests/audit/agent-readiness.test.js` (12
+  total), `tests/architecture/agent-readability.test.js` (4),
+  `tests/skills/addyosmani-role-map.test.js` extended (28 total),
+  `packages/hu-board/tests/{auth,security-middleware,token-store}.test.js`
+  (175 total in the hu-board package).
+- New `dynamic-imports.test.js` budget bump (159 → 160) for
+  `PerfStage`'s feature-flag-gated brain-coordinator import.
+
+### PRs merged in this cycle
+
+| # | Card | Description |
+|---|---|---|
+| #605 | KJC-TSK-0151 | PerfStage + pipeline integration |
+| #606 | KJC-TSK-0351 | a11y/WCAG/ARIA skills pattern |
+| #607 | KJC-TSK-0355 | hu-board security hardening |
+| #608 | KJC-TSK-0349 | SKILL.md per kj subcommand + coverage guard |
+| #609 | KJC-TSK-0350 | --agent-readiness false-positives + 100/100 |
+
 ## [2.9.0] - 2026-05-04
 
 Audit overhaul release — `kj audit` becomes a stack-aware, two-phase
