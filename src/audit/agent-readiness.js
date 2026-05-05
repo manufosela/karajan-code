@@ -104,10 +104,15 @@ const CHECKS = [
       if (!fs.existsSync(docsDir)) return { ok: true, hint: null, details: { docsDirPresent: false } };
       const violations = [];
       for (const f of listMarkdownFiles(docsDir)) {
-        const text = safeRead(f);
-        const h1Count = (text.match(/^#\s+/gm) || []).length;
+        const text = stripFencedCodeBlocks(safeRead(f));
+        // Count BOTH markdown `# ` and HTML `<h1>` headings — bilingual
+        // README-style files often use a centered `<h1 align="center">`
+        // banner, which is still semantically the document's H1.
+        const mdH1Count = (text.match(/^#\s+/gm) || []).length;
+        const htmlH1Count = (text.match(/<h1[\s>]/gi) || []).length;
+        const h1Count = mdH1Count + htmlH1Count;
         if (h1Count !== 1) {
-          violations.push({ file: path.relative(rootDir, f), h1Count });
+          violations.push({ file: path.relative(rootDir, f), h1Count, mdH1Count, htmlH1Count });
           continue;
         }
         // Check for skipped levels (#### without preceding ###, etc.)
@@ -164,6 +169,19 @@ const CHECKS = [
 
 function safeRead(p) {
   try { return fs.readFileSync(p, "utf8"); } catch { return ""; }
+}
+
+/**
+ * Replace every fenced code block (```…``` or ~~~…~~~) with blank lines
+ * of the same line count so heading regexes don't accidentally match
+ * shell comments inside bash code blocks (`# install foo`). Preserving
+ * line counts keeps later byte-offset checks stable.
+ */
+function stripFencedCodeBlocks(text) {
+  return text.replace(/^([ \t]*)(```|~~~)[^\n]*\n([\s\S]*?)\n\1\2[^\n]*$/gm, (match) => {
+    const lineCount = match.split("\n").length;
+    return "\n".repeat(lineCount - 1);
+  });
 }
 
 function listMarkdownFiles(dir, out = []) {

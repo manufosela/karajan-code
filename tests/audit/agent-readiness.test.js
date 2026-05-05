@@ -125,6 +125,62 @@ describe("runAgentReadiness", () => {
     expect(r.score).toBeGreaterThanOrEqual(0);
   });
 
+  it("does NOT count bash comments inside fenced code blocks as H1 (KJC-TSK-0350)", () => {
+    fs.writeFileSync(path.join(tmp, "llms.txt"), "# x\n\n## y\n\n[a](b)");
+    const docsDir = path.join(tmp, "docs");
+    fs.mkdirSync(docsDir, { recursive: true });
+    // Single real H1, plus a bash code block full of `# comment` lines.
+    // Pre-fix the detector counted those as additional H1s and flagged
+    // the file as broken — the audit on Karajan itself reported 26
+    // false positives until this bug was fixed.
+    fs.writeFileSync(path.join(docsDir, "bash.md"), [
+      "# Real Title",
+      "",
+      "Some text.",
+      "",
+      "```bash",
+      "# Show help",
+      "kj --help",
+      "",
+      "# Run doctor",
+      "kj doctor",
+      "",
+      "# Run the pipeline",
+      "kj run",
+      "```",
+      "",
+      "## Section",
+      "",
+      "More text.",
+    ].join("\n"));
+
+    const r = runAgentReadiness(tmp);
+    const heading = r.checks.find((c) => c.id === "heading-hierarchy");
+    expect(heading.ok, `details: ${JSON.stringify(heading.details)}`).toBe(true);
+  });
+
+  it("counts <h1> HTML tags as a valid H1 (centered banners) (KJC-TSK-0350)", () => {
+    fs.writeFileSync(path.join(tmp, "llms.txt"), "# x\n\n## y\n\n[a](b)");
+    const docsDir = path.join(tmp, "docs");
+    fs.mkdirSync(docsDir, { recursive: true });
+    // Bilingual / branded README pattern — the document title lives in
+    // an `<h1 align="center">` HTML tag so badges + logo can centre
+    // around it. Pre-fix the detector saw 0 markdown H1s and flagged
+    // the file as broken.
+    fs.writeFileSync(path.join(docsDir, "README.md"), [
+      `<p align="center"><img src="logo.svg" alt="Logo"></p>`,
+      `<h1 align="center">My Project</h1>`,
+      "",
+      "## Intro",
+      "",
+      "Text.",
+    ].join("\n"));
+
+    const r = runAgentReadiness(tmp);
+    const heading = r.checks.find((c) => c.id === "heading-hierarchy");
+    expect(heading.ok, `details: ${JSON.stringify(heading.details)}`).toBe(true);
+  });
+
   it("isolates one check's exception from the others", () => {
     // Run on a non-existent path — most checks will fail (existsSync false)
     // but the function must not crash; it must return a report.

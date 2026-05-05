@@ -1,0 +1,27 @@
+# robots.txt — Karajan Code
+# Explicitly allow AI agent crawlers so this repo's docs surface
+# in agent context windows. Keep this file alongside llms.txt.
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+# Standard crawlers — also welcome.
+User-agent: *
+Allow: /
+
+Sitemap: https://karajan-code.web.app/sitemap.xml
