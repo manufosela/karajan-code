@@ -89,6 +89,7 @@ const PipelineMap = v.optional(v.looseObject({
   tester: v.optional(PipelineEntry),
   security: v.optional(PipelineEntry),
   impeccable: v.optional(PipelineEntry),
+  perf: v.optional(PipelineEntry),
   triage: v.optional(PipelineEntry),
   discover: v.optional(PipelineEntry),
   architect: v.optional(PipelineEntry),

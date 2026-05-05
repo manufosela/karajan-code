@@ -37,6 +37,7 @@ const PIPELINE_ENABLE_FLAGS = [
   ["enablePlanner", "planner"], ["enableRefactorer", "refactorer"],
   ["enableSolomon", "solomon"], ["enableResearcher", "researcher"],
   ["enableTester", "tester"], ["enableSecurity", "security"], ["enableImpeccable", "impeccable"],
+  ["enablePerf", "perf"],
   ["enableTriage", "triage"], ["enableDiscover", "discover"],
   ["enableArchitect", "architect"],
   ["enableHuReviewer", "hu_reviewer"]
