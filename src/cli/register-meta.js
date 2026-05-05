@@ -5,6 +5,7 @@ import { architectCommand } from "../commands/architect.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
+import { webperfCommand } from "../commands/webperf.js";
 import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
@@ -122,6 +123,27 @@ export function registerMeta(program, { pkgVersion }) {
           deterministicOnly: Boolean(flags.deterministicOnly),
           yes: Boolean(flags.yes),
         });
+      });
+    });
+
+  program
+    .command("webperf")
+    .description("Run a Lighthouse web-perf scan against a URL — Core Web Vitals + opportunities")
+    .argument("<url>", "Target URL (e.g. http://localhost:3000)")
+    .option("--mobile", "Use the Lighthouse mobile preset (default: desktop)")
+    .option("--json", "Output raw JSON")
+    .option("--no-persist", "Don't write the result into ~/.karajan/webperf/<slug>/last.json (kj audit reads it from there)")
+    .action(async (url, flags) => {
+      await withConfig(pkgVersion, "webperf", flags, async ({ config, logger }) => {
+        const result = await webperfCommand({
+          url,
+          config, logger,
+          mobile: Boolean(flags.mobile),
+          json: Boolean(flags.json),
+          persist: flags.persist !== false,
+        });
+        // Exit with non-zero when the verdict is FAIL so CI can gate.
+        if (result && result.ok === false) process.exitCode = 1;
       });
     });
 
