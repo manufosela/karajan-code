@@ -21,7 +21,7 @@ Each entry below is a single fetch under 8 KB tokens.
 - [kj audit](docs/agents/SKILL.kj-audit.md) (~3 KB) — read-only analysis of any repo: god-functions, missing imports, structure smells.
 - [kj doctor](docs/agents/SKILL.kj-doctor.md) (~2 KB) — environment checks + auto-remediation.
 - [kj init](docs/agents/SKILL.kj-init.md) (~2 KB) — bootstrap config + review rules + SonarQube.
-- [kj board](docs/agents/SKILL.kj-board.md) (~2 KB) — start/stop the HU Board (web UI for plans + sessions).
+- [kj board](docs/agents/SKILL.kj-board.md) (~2 KB) — start/stop the HU Board (web UI for plans + sessions). Default bind 127.0.0.1; `--bind 0.0.0.0` exposes on LAN with token auth.
 - [kj review](docs/agents/SKILL.kj-review.md) (~2 KB) — run the reviewer role only against current diff.
 - [kj resume](docs/agents/SKILL.kj-resume.md) (~2 KB) — resume a paused / stopped / failed session.
 - [kj clean](docs/agents/SKILL.kj-clean.md) (~2 KB) — GC stale plans / sessions / HU batches.
