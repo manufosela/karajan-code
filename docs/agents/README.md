@@ -21,15 +21,20 @@ modes, and a runnable example for one `kj` command.
 | `kj plan` | [SKILL.kj-plan.md](SKILL.kj-plan.md) | Generate / list / show / approve plans |
 | `kj run` | [SKILL.kj-run.md](SKILL.kj-run.md) | Execute a plan or a one-shot task |
 | `kj audit` | [SKILL.kj-audit.md](SKILL.kj-audit.md) | Read-only repo analysis |
-| `kj doctor` | (TBD) | Environment checks + auto-remediation |
-| `kj init` | (TBD) | Bootstrap config + rules + SonarQube |
-| `kj board` | (TBD) | Web UI for plans + sessions |
-| `kj review` | (TBD) | Reviewer-only against current diff |
-| `kj resume` | (TBD) | Resume a paused / stopped session |
-| `kj clean` | (TBD) | GC stale plans / sessions / batches |
+| `kj doctor` | [SKILL.kj-doctor.md](SKILL.kj-doctor.md) | Environment checks + auto-remediation |
+| `kj init` | [SKILL.kj-init.md](SKILL.kj-init.md) | Bootstrap config + rules + SonarQube |
+| `kj board` | [SKILL.kj-board.md](SKILL.kj-board.md) | Web UI for plans + sessions |
+| `kj review` | [SKILL.kj-review.md](SKILL.kj-review.md) | Reviewer-only against current diff |
+| `kj resume` | [SKILL.kj-resume.md](SKILL.kj-resume.md) | Resume a paused / stopped session |
+| `kj clean` | [SKILL.kj-clean.md](SKILL.kj-clean.md) | GC stale plans / sessions / batches |
 
-(TBD) entries: contract is `kj <cmd> --help`. SKILL.md will be added
-incrementally — see issue #541 follow-ups.
+Other commands not (yet) covered by a dedicated SKILL.md — `kj code`,
+`kj scan`, `kj status`, `kj report`, `kj triage`, `kj discover`,
+`kj researcher`, `kj architect`, `kj agents`, `kj roles`,
+`kj skills`, `kj config`, `kj webperf`, `kj sync`, `kj undo` — fall
+back to `kj <cmd> --help`. They're either thin wrappers around an
+agent role (no novel inputs) or under iteration; SKILL.md will land
+when their surface stabilises.
 
 ## Conventions for agents
 
@@ -41,6 +46,8 @@ incrementally — see issue #541 follow-ups.
 
 ## Coverage guard
 
-`tests/architecture/agent-docs-coverage.test.js` (TBD, follow-up)
-asserts every kj subcommand has a matching SKILL.md. CI fails when
-a new subcommand is added without documenting it.
+[`tests/architecture/agent-readability.test.js`](../../tests/architecture/agent-readability.test.js)
+asserts every SKILL.md link in `llms.txt` resolves to a real file
+under `docs/agents/`, and that every SKILL.md has the four
+contract sections (`What it does`, `Inputs`, `Outputs`, `Example`).
+CI fails when those rot.
