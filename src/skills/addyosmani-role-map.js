@@ -89,6 +89,12 @@ export const TASK_PATTERN_TO_SLUG = [
   { pattern: /\bsecurity\b|\bhardening\b|\bauth(entication|orization)?\b|\bxss\b|\bcsrf\b|\binjection\b/i, slug: "security-and-hardening" },
   { pattern: /\btdd\b|\btest[- ]driven\b/i, slug: "test-driven-development" },
   { pattern: /\bfrontend\b|\bui\b|\bux\b|\bcss\b|\bresponsive\b/i, slug: "frontend-ui-engineering" },
+  // Accessibility (a11y / WCAG / ARIA / screen reader / keyboard nav).
+  // No dedicated addyosmani skill exists yet for a11y; until one ships,
+  // route to frontend-ui-engineering — the closest authoritative source
+  // for WCAG-aware UI work. When upstream ships an a11y skill, change
+  // only the `slug` field here.
+  { pattern: /\baccessibility\b|\ba11y\b|\bwcag\b|\baria\b|\bscreen[\s-]?reader\b|\bkeyboard[\s-]?nav(igation)?\b/i, slug: "frontend-ui-engineering" },
   { pattern: /\bapi\b|\bendpoint\b|\binterface\s+design\b|\bopenapi\b|\brest\b|\bgraphql\b/i, slug: "api-and-interface-design" },
   { pattern: /\bci\b|\bcd\b|\bci\/cd\b|\bpipeline\b|\bgithub\s+actions\b|\bworkflow\b/i, slug: "ci-cd-and-automation" },
   { pattern: /\bgit\b|\bcommit\b|\bbranch\b|\bmerge\b|\bversioning\b|\bsemver\b/i, slug: "git-workflow-and-versioning" },
