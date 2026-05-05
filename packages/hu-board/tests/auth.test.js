@@ -54,23 +54,63 @@ describe('auth disabled (no HU_BOARD_TOKEN)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Token configured -> enforce auth
+// Token configured but request comes from loopback (default supertest behaviour)
+// -> auth is skipped (KJC-TSK-0355: only enforce on non-loopback).
 // ---------------------------------------------------------------------------
-describe('auth enabled (HU_BOARD_TOKEN set)', () => {
+describe('auth enabled, request from loopback', () => {
   const TOKEN = 'test-secret-42';
 
-  it('rejects requests with no auth header or query param', async () => {
+  it('allows requests without a token because peer is 127.0.0.1', async () => {
     process.env.HU_BOARD_TOKEN = TOKEN;
     const app = await buildApp();
     const res = await request(app).get('/api/dashboard');
+    expect(res.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token configured AND request comes from a non-loopback IP -> enforce auth.
+// We synthesize a non-loopback peer by mounting a tiny middleware that
+// rewrites req.ip / req.socket.remoteAddress before authMiddleware sees it.
+// ---------------------------------------------------------------------------
+describe('auth enabled, simulated non-loopback peer', () => {
+  const TOKEN = 'test-secret-42';
+  const FAKE_IP = '192.168.1.50';
+
+  /** Build app with a middleware that fakes a non-loopback peer IP. */
+  async function buildAppFromLan() {
+    const { authMiddleware } = await import('../src/auth.js');
+    const { default: apiRoutes } = await import('../src/routes/api.js');
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      // Override req.ip with a configurable getter; auth.js consults
+      // req.ip first and only falls back to req.socket.remoteAddress
+      // when req.ip is empty, so we don't touch the socket (its
+      // remoteAddress is a getter-only property and writing to it
+      // throws).
+      Object.defineProperty(req, 'ip', {
+        configurable: true,
+        get() { return FAKE_IP; },
+      });
+      next();
+    });
+    app.use('/api', authMiddleware(), apiRoutes);
+    return app;
+  }
+
+  it('rejects requests with no auth header or query param', async () => {
+    process.env.HU_BOARD_TOKEN = TOKEN;
+    const app = await buildAppFromLan();
+    const res = await request(app).get('/api/dashboard');
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Unauthorized');
-    expect(res.body.message).toContain('HU_BOARD_TOKEN');
+    expect(res.body.message).toMatch(/non-loopback/i);
   });
 
   it('accepts a valid Bearer token in Authorization header', async () => {
     process.env.HU_BOARD_TOKEN = TOKEN;
-    const app = await buildApp();
+    const app = await buildAppFromLan();
     const res = await request(app)
       .get('/api/dashboard')
       .set('Authorization', `Bearer ${TOKEN}`);
@@ -79,14 +119,23 @@ describe('auth enabled (HU_BOARD_TOKEN set)', () => {
 
   it('accepts a valid token via ?token= query param', async () => {
     process.env.HU_BOARD_TOKEN = TOKEN;
-    const app = await buildApp();
+    const app = await buildAppFromLan();
     const res = await request(app).get(`/api/dashboard?token=${TOKEN}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('accepts a valid token via kj_board_token cookie', async () => {
+    process.env.HU_BOARD_TOKEN = TOKEN;
+    const app = await buildAppFromLan();
+    const res = await request(app)
+      .get('/api/dashboard')
+      .set('Cookie', `kj_board_token=${TOKEN}`);
     expect(res.status).toBe(200);
   });
 
   it('rejects an invalid token', async () => {
     process.env.HU_BOARD_TOKEN = TOKEN;
-    const app = await buildApp();
+    const app = await buildAppFromLan();
     const res = await request(app)
       .get('/api/dashboard')
       .set('Authorization', 'Bearer wrong-token');
