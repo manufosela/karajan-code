@@ -113,6 +113,19 @@ cd wrappers/python && pip install .
 
 That's it. `kj init` auto-detects your installed agents and installs RTK for token optimization.
 
+### Optional scanners for `kj audit` + `kj webperf`
+
+Karajan auto-skips any scanner that isn't installed. Add the ones that match your projects:
+
+| Tool | Install | What you get |
+|------|---------|--------------|
+| **SonarQube** | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | Code quality + security rules with line-precision in `kj audit` |
+| **OSV-Scanner** | `go install github.com/google/osv-scanner@latest` | Dependency CVE coverage broader than `npm audit` |
+| **Semgrep** | `pipx install semgrep` | SAST: XSS, SQLi, taint flow, secrets — equivalent to `snyk code`, free for OSS |
+| **Lighthouse** | `npm install -g lighthouse` | Core Web Vitals + opportunities for `kj webperf` (auto-feeds `kj audit`) |
+
+Skip any per-run with `--no-sonar`, `--no-osv`, `--no-semgrep`. See [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md#optional-scanners--kj-audit--kj-webperf) for full table.
+
 ## Three ways to use Karajan
 
 Karajan installs **three commands**: `kj`, `kj-tail`, and `karajan-mcp`.

@@ -2,11 +2,24 @@
 
 ## Requisitos previos
 
-- Node.js ≥ 18
+- Node.js ≥ 20.10
 - Git
 - Al menos una CLI de IA instalada: `claude`, `codex`, `gemini`, `aider` u `opencode`
 - (Opcional) Docker para SonarQube local
 - (Opcional) RTK para ahorro de tokens: `cargo install rtk`
+
+### Scanners opcionales — `kj audit` + `kj webperf`
+
+El pipeline de audit de Karajan corre scanners deterministas en paralelo y mete sus hallazgos en el prompt del LLM. **Ninguno es obligatorio** — Karajan se salta los que no estén instalados, con un hint amigable. Instala los que correspondan al tipo de proyecto que auditas.
+
+| Tool | Instalación | Usado por | Te da |
+|------|-------------|-----------|-------|
+| **SonarQube** | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | `kj audit`, `kj run` | Code quality + security rules con line-precision; `kj audit` cruza los hallazgos del LLM con los rule IDs de Sonar |
+| **OSV-Scanner** | `go install github.com/google/osv-scanner@latest` | `kj audit` | Cobertura CVE de dependencias más amplia que `npm audit` (GitHub Advisory DB + GLSA + Go vuln DB + otros). Sin cuenta, sin upload |
+| **Semgrep** | `pipx install semgrep` (o `brew install semgrep`) | `kj audit` | SAST: XSS, SQLi, taint flow, secrets hardcodeados, anti-patrones específicos por lenguaje. Equivalente a `snyk code` pero gratis para OSS. `--config auto` trae 2 000+ reglas |
+| **Lighthouse** | `npm install -g lighthouse` | `kj webperf`, `kj audit` (cuando hay scan) | Core Web Vitals (LCP, CLS, INP) + audits de oportunidades (render-blocking, CSS sin uso, formato de imagen, font-display) para proyectos frontend. `kj webperf` escribe el resultado en `~/.karajan/webperf/<slug>/last.json` y `kj audit` lo lee automáticamente |
+
+Saltar cualquiera por ejecución con el flag `--no-*` correspondiente (`--no-sonar`, `--no-osv`, `--no-semgrep`).
 
 ## Instalación
 
