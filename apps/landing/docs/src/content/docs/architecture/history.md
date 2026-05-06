@@ -5,6 +5,10 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 61.1: Patch — `--json` stdout contamination fix (v2.10.1)
+
+**v2.10.1** (patch, 2026-05-06) — One-line guard in `src/commands/audit.js` that suppresses the `[info]` banner when `--json` is set. Pre-fix, `kj audit --agent-readiness --json | jq` died with a parse error because the logger emitted `Auditing agent-readiness of <path>` to stdout BEFORE the JSON document. Detected in a pre-talk code review (3 Sonnet agents in parallel) before the 2026-05-21 demo. PR #613 (fix) + #614 (release). Plus polish in `docs/demos/` scripts (concrete repo recommendation, realistic timing, `--auto-commit`, `npm install` safety net). New `TODO-post-talk.md` with the 8 P1/P2 findings deferred to post-talk. 4 359 tests passing.
+
 ## Phase 61: Agent-readiness — full agent-readability surface + score (v2.10.0)
 
 **v2.10.0** (minor, 2026-05-05) — Karajan becomes the first orchestrator with a full agent-readability surface: an `llms.txt` index at the root, a `SKILL.md` per CLI command under `docs/agents/`, and a static auditor (`kj audit --agent-readiness`) that scores any third-party repo against the same shape. Five PRs (#605–#610) bundling KJC-TSK-0151 / 0228 / 0349 / 0350 / 0351 / 0355. Karajan-on-Karajan agent-readiness score: 100/100. Zero breaking changes; every new flag is opt-in.
