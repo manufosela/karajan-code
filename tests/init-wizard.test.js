@@ -133,14 +133,28 @@ describe("initCommand", () => {
     ]);
 
     const mockWizard = {
-      ask: vi.fn(),
+      ask: vi.fn().mockResolvedValue(""),  // branch_prefix only asked if auto_commit
       confirm: vi.fn().mockResolvedValue(false),
       select: vi.fn()
-        .mockResolvedValueOnce("codex")  // coder
-        .mockResolvedValueOnce("claude") // reviewer
-        .mockResolvedValueOnce("tdd")    // methodology
-        .mockResolvedValueOnce("en")     // pipeline language
-        .mockResolvedValueOnce("en"),    // HU language
+        .mockResolvedValueOnce("codex")        // coder
+        .mockResolvedValueOnce("claude")       // reviewer
+        // KJC-TSK-0367: 10 per-role selects (planner, researcher,
+        // architect, tester, security, solomon, refactorer,
+        // impeccable, perf, hu_reviewer). Sentinel "__default__"
+        // means "inherit from coder/reviewer".
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("__default__")
+        .mockResolvedValueOnce("tdd")          // methodology
+        .mockResolvedValueOnce("en")           // pipeline language
+        .mockResolvedValueOnce("en"),          // HU language
       close: vi.fn()
     };
     createWizard.mockReturnValue(mockWizard);
@@ -148,13 +162,21 @@ describe("initCommand", () => {
     await initCommand({ logger, flags: {} });
 
     expect(detectAvailableAgents).toHaveBeenCalled();
-    expect(mockWizard.select).toHaveBeenCalledTimes(5);
+    // 2 (agents) + 10 (per-role) + 3 (methodology/pipelineLang/huLang) = 15
+    expect(mockWizard.select).toHaveBeenCalledTimes(15);
     expect(writeConfig).toHaveBeenCalled();
     const writtenConfig = writeConfig.mock.calls[0][1];
     expect(writtenConfig.coder).toBe("codex");
     expect(writtenConfig.reviewer).toBe("claude");
     expect(writtenConfig.language).toBe("en");
     expect(writtenConfig.hu_language).toBe("en");
+    // KJC-TSK-0367: per-role providers default to null (inherit at runtime)
+    expect(writtenConfig.roles.tester.provider).toBeNull();
+    expect(writtenConfig.roles.solomon.provider).toBeNull();
+    // git automation defaults to false when user accepts defaults
+    expect(writtenConfig.git.auto_commit).toBe(false);
+    expect(writtenConfig.git.auto_push).toBe(false);
+    expect(writtenConfig.git.auto_pr).toBe(false);
     mockWizard.close();
   });
 
@@ -224,5 +246,220 @@ describe("initCommand", () => {
     expect(mockWizard.confirm).toHaveBeenCalledWith(expect.stringContaining("triage"), false);
     expect(mockWizard.confirm).toHaveBeenCalledWith(expect.stringContaining("SonarQube"), true);
     expect(mockWizard.select).toHaveBeenCalledWith(expect.stringContaining("methodology"), expect.any(Array));
+  });
+});
+
+// =====================================================================
+// KJC-TSK-0367 — direct unit tests for the new wizard sub-functions.
+// We exercise them via the internal `__test__` export so we don't need
+// to drive the whole initCommand pipeline for each scenario.
+// =====================================================================
+describe("askPerRoleProviders (KJC-TSK-0367)", () => {
+  const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+  function makeBlankConfig() {
+    return {
+      coder: "claude",
+      reviewer: "codex",
+      roles: {
+        planner: {}, researcher: {}, architect: {}, refactorer: {}, coder: {},
+        reviewer: {}, tester: {}, security: {}, solomon: {}, impeccable: {},
+        triage: {}, discover: {}, architect2: {}, hu_reviewer: {}, perf: {},
+      },
+      pipeline: {
+        planner: { enabled: false }, researcher: { enabled: false },
+        architect: { enabled: false }, refactorer: { enabled: false },
+        tester: { enabled: false }, security: { enabled: false },
+        solomon: { enabled: false }, impeccable: { enabled: false },
+        perf: { enabled: false }, hu_reviewer: { enabled: false },
+      },
+    };
+  }
+
+  it("noop when only one agent is available", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = makeBlankConfig();
+    const wizard = { select: vi.fn() };
+    await __test__.askPerRoleProviders(wizard, [{ name: "claude" }], config, { coder: "claude", reviewer: "claude" }, logger);
+    expect(wizard.select).not.toHaveBeenCalled();
+  });
+
+  it("answering '__default__' for every role leaves provider null and enables the pipeline flag", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = makeBlankConfig();
+    const wizard = { select: vi.fn().mockResolvedValue("__default__") };
+
+    await __test__.askPerRoleProviders(
+      wizard,
+      [{ name: "claude" }, { name: "codex" }],
+      config,
+      { coder: "claude", reviewer: "codex" },
+      logger,
+    );
+
+    // 10 selects: one per non-coder/non-reviewer role we ask about.
+    expect(wizard.select).toHaveBeenCalledTimes(10);
+    // Spot-check several roles
+    expect(config.roles.tester.provider).toBeNull();
+    expect(config.roles.security.provider).toBeNull();
+    expect(config.roles.solomon.provider).toBeNull();
+    expect(config.pipeline.tester.enabled).toBe(true);
+    expect(config.pipeline.solomon.enabled).toBe(true);
+  });
+
+  it("answering '__disabled__' on a disable-allowed role flips its pipeline flag off", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = makeBlankConfig();
+    config.pipeline.researcher.enabled = true;  // pretend it was on
+    const wizard = {
+      select: vi.fn(),
+    };
+    // PER_ROLE_QUESTIONS: planner(disable-allowed), researcher(disable-allowed), architect, tester(no-disable), ...
+    // Rather than tracking exact order, return __disabled__ first time, __default__ otherwise.
+    let call = 0;
+    wizard.select.mockImplementation(() => {
+      call += 1;
+      return Promise.resolve(call === 1 ? "__disabled__" : "__default__");
+    });
+
+    await __test__.askPerRoleProviders(
+      wizard,
+      [{ name: "claude" }, { name: "codex" }],
+      config,
+      { coder: "claude", reviewer: "codex" },
+      logger,
+    );
+
+    // First role asked is planner — should now be disabled.
+    expect(config.pipeline.planner.enabled).toBe(false);
+  });
+
+  it("answering with an explicit CLI name persists provider correctly", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = makeBlankConfig();
+    const wizard = {
+      select: vi.fn().mockResolvedValue("gemini"),
+    };
+
+    await __test__.askPerRoleProviders(
+      wizard,
+      [{ name: "claude" }, { name: "codex" }, { name: "gemini" }],
+      config,
+      { coder: "claude", reviewer: "codex" },
+      logger,
+    );
+
+    expect(config.roles.tester.provider).toBe("gemini");
+    expect(config.roles.solomon.provider).toBe("gemini");
+  });
+});
+
+describe("askGitAutomation (KJC-TSK-0367)", () => {
+  const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+  it("persists three booleans + branch_prefix when auto_commit is on", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = {};
+    const wizard = {
+      confirm: vi.fn()
+        .mockResolvedValueOnce(true)   // auto_commit
+        .mockResolvedValueOnce(true)   // auto_push
+        .mockResolvedValueOnce(false), // auto_pr
+      ask: vi.fn().mockResolvedValue("kj/"),
+    };
+
+    await __test__.askGitAutomation(wizard, config, logger);
+
+    expect(config.git.auto_commit).toBe(true);
+    expect(config.git.auto_push).toBe(true);
+    expect(config.git.auto_pr).toBe(false);
+    expect(config.git.branch_prefix).toBe("kj/");
+  });
+
+  it("skips branch_prefix when auto_commit is off", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = {};
+    const wizard = {
+      confirm: vi.fn().mockResolvedValue(false),
+      ask: vi.fn(),
+    };
+
+    await __test__.askGitAutomation(wizard, config, logger);
+
+    expect(config.git.auto_commit).toBe(false);
+    expect(wizard.ask).not.toHaveBeenCalled();
+    expect(config.git.branch_prefix).toBeUndefined();
+  });
+
+  it("falls back to feat/ when user submits an empty branch prefix", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = {};
+    const wizard = {
+      confirm: vi.fn()
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false),
+      ask: vi.fn().mockResolvedValue(""),  // empty input → default
+    };
+
+    await __test__.askGitAutomation(wizard, config, logger);
+
+    expect(config.git.branch_prefix).toBe("feat/");
+  });
+});
+
+describe("askBoardSecurity (KJC-TSK-0367)", () => {
+  const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+  it("noop when HU board is disabled", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = { hu_board: { enabled: false } };
+    const wizard = { select: vi.fn(), ask: vi.fn() };
+
+    await __test__.askBoardSecurity(wizard, config, logger);
+
+    expect(wizard.select).not.toHaveBeenCalled();
+    expect(wizard.ask).not.toHaveBeenCalled();
+  });
+
+  it("default loopback bind + default port", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = { hu_board: { enabled: true } };
+    const wizard = {
+      select: vi.fn().mockResolvedValue("127.0.0.1"),
+      ask: vi.fn().mockResolvedValue(""),  // empty port → default
+    };
+
+    await __test__.askBoardSecurity(wizard, config, logger);
+
+    expect(config.hu_board.bind).toBe("127.0.0.1");
+    expect(config.hu_board.port).toBe(4000);
+  });
+
+  it("LAN bind + custom port", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = { hu_board: { enabled: true } };
+    const wizard = {
+      select: vi.fn().mockResolvedValue("0.0.0.0"),
+      ask: vi.fn().mockResolvedValue("5050"),
+    };
+
+    await __test__.askBoardSecurity(wizard, config, logger);
+
+    expect(config.hu_board.bind).toBe("0.0.0.0");
+    expect(config.hu_board.port).toBe(5050);
+  });
+
+  it("falls back to 4000 when user provides invalid port", async () => {
+    const { __test__ } = await import("../src/commands/init.js");
+    const config = { hu_board: { enabled: true } };
+    const wizard = {
+      select: vi.fn().mockResolvedValue("127.0.0.1"),
+      ask: vi.fn().mockResolvedValue("not-a-number"),
+    };
+
+    await __test__.askBoardSecurity(wizard, config, logger);
+
+    expect(config.hu_board.port).toBe(4000);
   });
 });
