@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-05-06
+
+Patch release. One-line fix for a stdout contamination bug in
+`kj audit --agent-readiness --json`, plus polish in the asciinema demo
+scripts under `docs/demos/`. No API changes; safe upgrade from 2.10.0.
+
+### Fixed
+
+- **`kj audit --agent-readiness --json` no longer contaminates stdout
+  with the `[info]` banner** (PR #613). Pre-fix, piping the JSON output
+  into `jq` (e.g. `kj audit --agent-readiness --json | jq '.score'`)
+  failed with a parse error because the logger emitted
+  `Auditing agent-readiness of <path>` to stdout BEFORE the JSON
+  document. The fix is a one-line guard in `src/commands/audit.js` that
+  suppresses the banner whenever `--json` is set. Regression pin in
+  `tests/e2e/07-kj-audit.test.js` asserts `r.stdout` starts with `{`
+  and parses with `JSON.parse()` without preprocessing.
+
+### Changed — demo scripts (`docs/demos/`)
+
+- `agent-readiness.txt`: replace the `~/some-third-party-repo`
+  placeholder with a concrete recommendation (clone `expressjs/express`
+  — no llms.txt → low score → contrast vs Karajan's 100/100).
+- `happy-path.txt`:
+  - Realistic timing (~5–10 min, not ~3 — asciinema's idle-time
+    collapse doesn't apply to a live audience).
+  - Add `--auto-commit` to the hero `kj run` so commits actually
+    appear in `git log`.
+  - `npm install --silent` before `npm test` (safety net — coder may
+    not run install on its own).
+  - Drop `--dimensions architecture` from the closing audit (no-op
+    when combined with `--deterministic-only`).
+  - Replace `cat package.json | head -15` with `head -15 package.json`.
+
+### Added
+
+- **`TODO-post-talk.md`** — backlog of P1/P2 latent bugs and test gaps
+  surfaced by the pre-talk code review (3 Sonnet agents in parallel).
+  None affect the live demo on 2026-05-21; all deferred to post-talk.
+
+### Tests
+
+- 4 359 / 4 359 passing (was 4 358; +1 regression test for the
+  showstopper).
+
 ## [2.10.0] - 2026-05-05
 
 Agent-readiness release — Karajan becomes the first orchestrator with a
