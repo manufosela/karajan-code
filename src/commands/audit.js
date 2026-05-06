@@ -211,7 +211,11 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
   // Per addyosmani/agentic-seo. Issue #542.
   if (agentReadiness) {
     const rootDir = path.resolve(pathArg || config?.projectDir || process.cwd());
-    logger.info(`Auditing agent-readiness of ${rootDir}`);
+    // Suppress the info banner in --json mode so stdout stays a single
+    // valid JSON document. Without this guard, `kj audit --agent-readiness
+    // --json | jq` fails with a parse error because the logger writes
+    // "Auditing agent-readiness of ..." to stdout BEFORE the JSON blob.
+    if (!json) logger.info(`Auditing agent-readiness of ${rootDir}`);
     const report = runAgentReadiness(rootDir);
     if (json) {
       console.log(JSON.stringify(report, null, 2));

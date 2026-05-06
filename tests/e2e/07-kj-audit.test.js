@@ -77,4 +77,36 @@ describe("e2e/07 — kj audit on a smelly tmp repo", () => {
     const failed = parsed.checks.some(c => c.ok === false || (Number.isFinite(c.score) && c.score < c.weight));
     expect(failed, "audit should have flagged at least one missing-readiness item on a bare tmp repo").toBe(true);
   }, 90_000);
+
+  // Regression pin for the live-demo showstopper detected on 2026-05-06:
+  // `kj audit --agent-readiness --json` was emitting a colored
+  // `[info] Auditing agent-readiness of <path>` banner to stdout BEFORE
+  // the JSON document. The demo script `docs/demos/agent-readiness.txt`
+  // pipes that command into `jq '.score'`, which then dies with a parse
+  // error live on stage. The fix is a one-line guard in
+  // src/commands/audit.js. This test pins the contract so it cannot
+  // regress without CI catching it.
+  it("--json stdout is a single valid JSON document (no logger banner contamination)", () => {
+    proj = makeTmpProject({ prefix: "kj-e2e-07b-" });
+    writeSmellyFiles(proj.projectDir);
+
+    const r = runKj(
+      ["audit", "--agent-readiness", "--json", "--path", proj.projectDir],
+      { cwd: proj.projectDir, timeoutMs: 60_000 }
+    );
+
+    expect(r.exitCode, `audit stderr: ${r.stderr}`).toBe(0);
+
+    // First non-empty stdout char must be "{" — anything else (an ANSI
+    // colour code, a "[info]" banner, etc.) means a downstream `jq`
+    // pipe will die.
+    const trimmed = r.stdout.trimStart();
+    expect(
+      trimmed.startsWith("{"),
+      `stdout must start with '{' for downstream JSON consumers; got: ${JSON.stringify(r.stdout.slice(0, 80))}`,
+    ).toBe(true);
+
+    // And the entire stdout must parse without any preprocessing.
+    expect(() => JSON.parse(r.stdout)).not.toThrow();
+  }, 90_000);
 });
