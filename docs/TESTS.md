@@ -1,6 +1,6 @@
 # Karajan Code — Test Suite Overview
 
-> **Snapshot as of v2.9.0**: 4 305 tests across 367 files (+106 in the audit overhaul). All green on Node 20.x and 22.x. CI matrix dropped Node 18 in v2.8.0 (engines.node bumped to >=20.10.0; Node 18 LTS hit EOL on 2025-04-30) — see `.github/workflows/ci.yml`.
+> **Snapshot as of v2.10.0**: 4 358 tests across 373 files (+53 in the agent-readiness cycle). All green on Node 20.x and 22.x. CI matrix dropped Node 18 in v2.8.0 (engines.node bumped to >=20.10.0; Node 18 LTS hit EOL on 2025-04-30) — see `.github/workflows/ci.yml`.
 
 This document explains **what each test directory tests, why it exists, and how to read its failures**. Karajan's test suite is the gate that keeps the orchestrator's contracts intact across releases. If you're touching anything under `src/`, find the matching directory below first.
 
