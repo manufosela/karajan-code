@@ -210,6 +210,26 @@ de versión en `README.md` línea 26 y `docs/GETTING-STARTED.md` con
 
 ---
 
+## UX — wizard de instalación incompleto (KJC-TSK-0367)
+
+### `kj init` solo cubre el 30% de la configuración necesaria
+
+**Problema**: el wizard actual (9 prompts) deja fuera lo más importante:
+
+- **Provider para los otros 11 roles** (planner, researcher, architect, refactorer, tester, security, solomon, impeccable, perf, brain, hu_reviewer). Hoy todos heredan del coder; no se puede pedir "tester con gemini, security con codex" sin editar el yml.
+- **Token de Sonar**: el wizard solo imprime instrucciones manuales para abrir `localhost:9000`, login admin/admin, generar token. Debería hacerlo via API REST (`POST /api/user_tokens/generate`).
+- **`auto_commit / auto_push / auto_pr`**: hoy quedan en defaults silenciosos. En el demo del 21 mayo tuvimos que añadir `--auto-commit` al flag a mano para que `git log` enseñara commits.
+- **HU Board bind** (loopback vs `0.0.0.0` con token autogen) — la feature de seguridad del v2.10 (#607) no se expone en el wizard.
+- **Brain on/off, Solomon on/off** — hoy son defaults tácitos; falta poder elegirlos explícitamente.
+
+**Esfuerzo estimado**: ~400 LOC en `src/commands/init.js` + `src/sonar/token-bootstrap.js` (nuevo) + tests. **3-4 horas**, 1 sesión.
+
+**Card en PG**: `KJC-TSK-0367` con plan de 7 pasos + 6 acceptance criteria.
+
+**Riesgo**: medio (wizard interactivo, hay que probarlo a mano además de tests con wizard mockeado). No afecta al demo del 21 mayo, solo al setup de máquinas nuevas.
+
+---
+
 ## Plan recomendado
 
 **Sprint inmediato post-charla** (1–2 días):
