@@ -6,11 +6,12 @@
 # the user can read while typing.
 
 # 1. Show the score for a repo that's NOT prepared (third-party).
-#    Use any popular OSS repo you have cloned locally. Replace the path
-#    with whatever you have. Try a famous one for the wow factor.
+#    Recommended: clone https://github.com/expressjs/express somewhere
+#    (it has no llms.txt → low score, big contrast vs Karajan's 100/100).
+#    Replace the path below with wherever you cloned it.
 clear
-ls ~/some-third-party-repo
-kj audit --agent-readiness --path ~/some-third-party-repo
+ls ~/oss/express
+kj audit --agent-readiness --path ~/oss/express
 
 # (Pause ~3s after the score appears — the audience needs to read
 # the per-check breakdown and the top-fixes list.)

@@ -1,10 +1,13 @@
 # Demo: kj run — zero-config end-to-end pipeline
-# Length: ~3 minutes (depends on the coder agent's speed).
+# Length: ~5–10 minutes (depends on the coder agent's speed and how many
+# HUs triage produces — the audience watches REAL time, not asciinema-
+# accelerated time).
 # Requires: claude / codex / gemini logged in (whichever you set as `coder`).
 #
 # Setup BEFORE recording:
 #   mkdir /tmp/karajan-demo && cd /tmp/karajan-demo
-#   (the demo will create a git repo + write code + commit)
+#   (the demo will create a git repo + write code; commits depend on the
+#   coder agent. Pass --auto-commit if you want guaranteed atomic commits.)
 
 # 1. Show the empty workspace.
 clear
@@ -12,24 +15,31 @@ ls
 git status 2>/dev/null || echo "(no git repo yet — kj will init one)"
 
 # 2. The one-liner. This is the hero shot.
-kj run "Build a REST API for a todo list with Express and Vitest tests" -y
+#    --auto-commit forces atomic commits per HU so `git log` shows the
+#    audit-trail clearly. Drop it if you want to leave commits to the coder.
+kj run "Build a REST API for a todo list with Express and Vitest tests" -y --auto-commit
 
 # (kj triages → decomposes into HUs → coder writes code per HU →
-# reviewer evaluates → tester checks → all atomic commits + a PR.)
+# reviewer evaluates → tester checks → atomic commits per HU.)
 #
-# The pipeline takes 1-3 minutes depending on the coder. Asciinema's
-# --idle-time-limit 2 collapses the LLM thinking pauses into ≤2s
-# blocks so the recording stays watchable.
+# Pipeline timing: budget 5-10 minutes live. To cap it tighter for stage
+# pacing add: --max-iterations 3 --max-iteration-minutes 3
+# (a partially-complete run is also a valid demo: "Karajan worked for 3
+# min, here's what it produced").
 
 # 3. Show the output.
 git log --oneline
 ls
-cat package.json | head -15
+head -15 package.json
 
-# 4. Run the tests Karajan wrote.
+# 4. Run the tests Karajan wrote. Make sure deps are installed first
+#    (the coder may or may not run npm install on its own).
+npm install --silent
 npm test
 
-# 5. (Optional cherry on top) Show the audit dimension.
-kj audit --dimensions architecture --deterministic-only
+# 5. (Optional cherry on top) Show the deterministic audit.
+#    NOTE: --dimensions only affects the LLM phase; with
+#    --deterministic-only it has no effect, so we leave it out.
+kj audit --deterministic-only
 
 # Done. Ctrl+D to stop.
