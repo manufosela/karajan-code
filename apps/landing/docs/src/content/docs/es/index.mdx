@@ -23,6 +23,18 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
+  <Card title="Score Agent-Readiness (v2.10)" icon="approve-check">
+    `kj audit --agent-readiness` puntúa cualquier repo de 0 a 100 sobre **7 checks sin LLM**: presencia y validez de llms.txt, allowlist de bots IA en robots.txt, presupuesto de tokens por doc (≤ 32 KB), jerarquía de headings (markdown + HTML `<h1>`), `docs/agents/README.md` como entry point, cobertura de SKILL.md. Transformación pura — sin red, sin LLM, sin side effects. `--json` para CI. Karajan-sobre-Karajan: **100/100**. Pásalo a tu propio repo, mira con qué luchan los agentes, arregla desde la lista de top-fixes.
+  </Card>
+  <Card title="SKILL.md por Comando del CLI (v2.10)" icon="document">
+    `docs/agents/SKILL.kj-{plan,run,audit,doctor,init,board,review,resume,clean}.md` — un fetch por capacidad del CLI (~ 2-4 KB de tokens cada uno), todos bajo el mismo contrato: What it does · Inputs · Outputs · Constraints · Side effects · Common failure modes · Example · Related. Guardado por CI: cada link en `llms.txt` debe resolver a un fichero con las cuatro secciones requeridas, o el build falla.
+  </Card>
+  <Card title="Quality Gate de Webperf (v2.10)" icon="rocket">
+    `PerfStage` se engancha al bucle de iteración justo después de Impeccable cuando `pipeline.perf.enabled` es true. Envuelve Lighthouse para un veredicto Core Web Vitals por iteración. **PASS** continúa; **FAIL** empuja feedback de métricas bloqueantes (p.ej. `LCP=5500 (poor>4000)` más top-opportunities como recursos render-blocking) al coder para la siguiente iteración; scanner no disponible salta best-effort. CLI: `--enable-perf`. MCP: `enablePerf`. Sin retry-loop — `max_iterations` es el techo natural.
+  </Card>
+  <Card title="Hardening del HU Board (v2.10)" icon="seti:lock">
+    El bind por defecto es ahora **127.0.0.1** (antes: todas las interfaces). Nuevo `--bind 0.0.0.0` para el caso explícito de exposición en LAN, con token autogenerado en `~/.karajan/hu-board/token` (mode 0600). El middleware de auth fuerza el token solo para peers no-loopback — el navegador en la misma máquina sigue funcionando sin `?token=`. Headers `helmet` + `express-rate-limit` 300 req/min en `/api`. Tres carriers aceptados: `Authorization: Bearer`, `?token=`, cookie `kj_board_token`.
+  </Card>
   <Card title="Audit en Dos Fases (v2.9)" icon="random">
     `kj audit` ahora recolecta hallazgos deterministas (basalCost, Sonar, OSV-Scanner, Semgrep, WebPerf, detección de stack) en paralelo — cero tokens — y los imprime ANTES de preguntar `Continue with LLM analysis? [y/N]`. Nuevo flag `--deterministic-only` para corridas sin tokens, `-y`/`--yes` para auto-confirmar, `--json` evita el prompt para output pipeable. CI / paths sin TTY auto-confirman — cero cambio de comportamiento para pipelines.
   </Card>

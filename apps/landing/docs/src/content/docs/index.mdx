@@ -23,6 +23,18 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
+  <Card title="Agent-Readiness Score (v2.10)" icon="approve-check">
+    `kj audit --agent-readiness` scores any repo 0–100 across **7 LLM-free checks**: llms.txt presence + validity, robots.txt AI-bot allowlist, per-doc token budget (≤ 32 KB), heading hierarchy (markdown + HTML `<h1>`), `docs/agents/README.md` entry point, SKILL.md coverage. Pure data transformation — no network, no LLM, no side effects. `--json` for CI. Karajan-on-Karajan: **100/100**. Run it on your own repo, see what agents struggle with, fix from the top-fixes list.
+  </Card>
+  <Card title="SKILL.md per CLI Command (v2.10)" icon="document">
+    `docs/agents/SKILL.kj-{plan,run,audit,doctor,init,board,review,resume,clean}.md` — one fetch per CLI capability (~ 2-4 KB tokens each), all under the same contract: What it does · Inputs · Outputs · Constraints · Side effects · Common failure modes · Example · Related. CI-guarded: every link in `llms.txt` must resolve to a file with all four required sections, or the build fails.
+  </Card>
+  <Card title="Webperf Quality Gate (v2.10)" icon="rocket">
+    `PerfStage` slots into the iteration loop right after Impeccable when `pipeline.perf.enabled` is true. Wraps Lighthouse for a Core Web Vitals verdict per iteration. **PASS** continues; **FAIL** pushes blocking-metric feedback (e.g. `LCP=5500 (poor>4000)` plus top opportunities like render-blocking resources) back to the coder for the next iteration; scanner unavailable skips best-effort. CLI: `--enable-perf`. MCP: `enablePerf`. No retry-loop — `max_iterations` is the natural ceiling.
+  </Card>
+  <Card title="HU Board Hardening (v2.10)" icon="seti:lock">
+    Default bind is now **127.0.0.1** (was: all interfaces). New `--bind 0.0.0.0` for the explicit LAN-exposure case, with auto-generated token at `~/.karajan/hu-board/token` (mode 0600). Auth middleware enforces the token only for non-loopback peers — same-machine browser keeps working without `?token=`. `helmet` headers + `express-rate-limit` 300 req/min on `/api`. Three accepted carriers: `Authorization: Bearer`, `?token=`, `kj_board_token` cookie.
+  </Card>
   <Card title="Two-Phase Audit (v2.9)" icon="random">
     `kj audit` now collects deterministic findings (basalCost, Sonar, OSV-Scanner, Semgrep, WebPerf, stack detection) in parallel — zero tokens — and prints them BEFORE asking `Continue with LLM analysis? [y/N]`. New `--deterministic-only` flag for zero-token runs, `-y`/`--yes` to auto-confirm, `--json` bypasses the prompt for pipeable output. CI / non-TTY paths auto-confirm — zero behaviour change for pipelines.
   </Card>
