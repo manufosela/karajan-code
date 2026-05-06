@@ -4,9 +4,34 @@
 
 One-time bootstrap for a project that wants to use Karajan: writes
 `~/.karajan/kj.config.yml` (global config), seeds `<project>/.karajan/`
-with role rule templates (coder-rules, review-rules), and optionally
-brings up SonarQube via Docker. Idempotent — re-running on an already
-initialised project leaves existing files alone.
+with role rule templates (coder-rules, review-rules), brings up
+SonarQube via Docker (and **auto-generates the analysis token** via
+the Sonar REST API), and walks the user through a wizard that covers
+**all** the meaningful runtime knobs:
+
+1. **Coder + reviewer agent** (which CLI to use as default).
+2. **Per-role provider** (planner / researcher / architect / refactorer
+   / tester / security / solomon / impeccable / perf / hu_reviewer):
+   for each one, choose to inherit from coder/reviewer, pick a specific
+   CLI, or disable the role.
+3. **Pipeline toggles**: triage, SonarQube, HU Board.
+4. **Methodology** (TDD vs standard).
+5. **Pipeline + HU language**.
+6. **Git automation**: `auto_commit`, `auto_push`, `auto_pr`, plus
+   `branch_prefix` when auto_commit is on.
+7. **HU Board security** (only if HU Board is on): bind host
+   (loopback default | `0.0.0.0` with auto-generated token enforced
+   for non-loopback peers), port.
+8. **Sonar token bootstrap** (when interactive + Docker container up):
+   logs in with admin/admin, rotates the default password to a fresh
+   value persisted at `~/.karajan/sonar.admin-password` (mode 0600),
+   generates the `karajan-cli` analysis token via
+   `POST /api/user_tokens/generate`, writes it to the config and to
+   `~/.karajan/sonar.token` (mode 0600). Falls back to manual flow
+   if any step fails.
+
+Idempotent — re-running on an already initialised project asks
+"Reconfigure? [y/N]" first.
 
 `kj run` invokes this automatically when it detects a fresh project,
 so manual `kj init` is mostly for users who want to inspect/edit the

@@ -13,6 +13,200 @@ import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
+import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
+
+/**
+ * Roles asked individually after coder/reviewer. Each entry:
+ *   - key: config.roles.<key>.provider
+ *   - pipelineKey: config.pipeline.<key>.enabled (omit when not gated by a flag)
+ *   - default: which role's CLI to inherit ("coder" | "reviewer")
+ *   - allowDisable: true if "off" is a valid choice
+ *
+ * Order matters — keep the most-impactful first so the wizard never hides
+ * critical roles behind a long tail of opt-ins.
+ */
+const PER_ROLE_QUESTIONS = [
+  { key: "planner",     pipelineKey: "planner",     default: "coder",    allowDisable: true,  label: "Planner (decomposes complex tasks into HUs)" },
+  { key: "researcher",  pipelineKey: "researcher",  default: "coder",    allowDisable: true,  label: "Researcher (explores codebase before coding)" },
+  { key: "architect",   pipelineKey: "architect",   default: "coder",    allowDisable: true,  label: "Architect (designs solution + contracts)" },
+  { key: "tester",      pipelineKey: "tester",      default: "coder",    allowDisable: false, label: "Tester (verifies tests + coverage)" },
+  { key: "security",    pipelineKey: "security",    default: "coder",    allowDisable: false, label: "Security (OWASP audit)" },
+  { key: "solomon",     pipelineKey: "solomon",     default: "reviewer", allowDisable: false, label: "Solomon (judge AI for dilemmas)" },
+  { key: "refactorer",  pipelineKey: "refactorer",  default: "coder",    allowDisable: true,  label: "Refactorer (clarity passes)" },
+  { key: "impeccable",  pipelineKey: "impeccable",  default: "coder",    allowDisable: true,  label: "Impeccable (UI/UX audit — frontend only)" },
+  { key: "perf",        pipelineKey: "perf",        default: "coder",    allowDisable: true,  label: "Perf (Core Web Vitals gate — frontend only)" },
+  { key: "hu_reviewer", pipelineKey: "hu_reviewer", default: "reviewer", allowDisable: true,  label: "HU Reviewer (mandatory user-story certification)" },
+];
+
+// ---- Sub-asks ----
+
+async function askAgents(wizard, available, config, logger) {
+  if (available.length === 1) {
+    const only = available[0].name;
+    logger.info(`Only one agent available: ${only}. Using it for all roles.\n`);
+    config.coder = only;
+    config.reviewer = only;
+    config.roles.coder.provider = only;
+    config.roles.reviewer.provider = only;
+    return { coder: only, reviewer: only };
+  }
+
+  const agentOptions = available.map((a) => ({
+    label: `${a.name} (${a.version})`,
+    value: a.name,
+    available: true,
+  }));
+
+  const coder = await wizard.select("Select default CODER agent:", agentOptions);
+  config.coder = coder;
+  config.roles.coder.provider = coder;
+  logger.info(`  -> Coder: ${coder}`);
+
+  const reviewer = await wizard.select("Select default REVIEWER agent:", agentOptions);
+  config.reviewer = reviewer;
+  config.roles.reviewer.provider = reviewer;
+  logger.info(`  -> Reviewer: ${reviewer}`);
+
+  return { coder, reviewer };
+}
+
+/**
+ * For each non-coder/non-reviewer role, ask: use coder default | use reviewer
+ * default | pick a specific CLI | (when allowed) disable. The choice is
+ * persisted as `config.roles.<role>.provider` (null means "inherit from
+ * coder" at runtime). Pipeline-flag-gated roles also flip
+ * `config.pipeline.<role>.enabled`.
+ *
+ * `available.length === 1` short-circuits: every role uses the only CLI
+ * available, no point asking.
+ */
+async function askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger) {
+  if (available.length <= 1) return;
+
+  logger.info("");
+  logger.info("Configure provider per role (Enter accepts the default):");
+
+  // Make sure containers exist for every role/pipeline key we touch —
+  // older configs may have a sparser shape than DEFAULTS.
+  config.roles = config.roles || {};
+  config.pipeline = config.pipeline || {};
+
+  for (const role of PER_ROLE_QUESTIONS) {
+    config.roles[role.key] = config.roles[role.key] || { provider: null, model: null };
+    if (role.pipelineKey) {
+      config.pipeline[role.pipelineKey] = config.pipeline[role.pipelineKey] || { enabled: false };
+    }
+
+    const defaultLabel = role.default === "coder" ? `coder (${coder})` : `reviewer (${reviewer})`;
+    const baseOptions = [
+      { label: `Use ${defaultLabel} — default`, value: "__default__", available: true },
+    ];
+    for (const a of available) {
+      if ((role.default === "coder" && a.name === coder) || (role.default === "reviewer" && a.name === reviewer)) continue;
+      baseOptions.push({ label: a.name, value: a.name, available: true });
+    }
+    if (role.allowDisable) {
+      baseOptions.push({ label: "Disable role", value: "__disabled__", available: true });
+    }
+
+    const choice = await wizard.select(`  ${role.label}:`, baseOptions);
+
+    if (choice === "__disabled__") {
+      if (role.pipelineKey) config.pipeline[role.pipelineKey].enabled = false;
+      logger.info(`    -> ${role.key}: disabled`);
+    } else if (choice === "__default__") {
+      // Inherit from coder/reviewer at runtime — leave provider null.
+      config.roles[role.key].provider = null;
+      if (role.pipelineKey) config.pipeline[role.pipelineKey].enabled = true;
+      logger.info(`    -> ${role.key}: ${defaultLabel}`);
+    } else {
+      config.roles[role.key].provider = choice;
+      if (role.pipelineKey) config.pipeline[role.pipelineKey].enabled = true;
+      logger.info(`    -> ${role.key}: ${choice}`);
+    }
+  }
+}
+
+async function askMethodology(wizard, config, logger) {
+  const methodology = await wizard.select("Development methodology:", [
+    { label: "TDD (test-driven development)", value: "tdd", available: true },
+    { label: "Standard (no TDD enforcement)", value: "standard", available: true },
+  ]);
+  config.development.methodology = methodology;
+  config.development.require_test_changes = methodology === "tdd";
+  logger.info(`  -> Methodology: ${methodology}`);
+}
+
+async function askLanguages(wizard, config, logger) {
+  const detectedLocale = detectOsLocale();
+  const allLangEntries = Object.entries(SUPPORTED_LANGUAGES).map(([code, name]) => ({
+    label: `${name} (${code})`,
+    value: code,
+    available: true,
+  }));
+  const languageOptions = [
+    ...allLangEntries.filter((o) => o.value === detectedLocale),
+    ...allLangEntries.filter((o) => o.value !== detectedLocale),
+  ];
+
+  const pipelineLang = await wizard.select("Pipeline language:", languageOptions);
+  config.language = pipelineLang;
+  logger.info(`  -> Pipeline language: ${pipelineLang}`);
+
+  const huLangOptions = [
+    ...allLangEntries.filter((o) => o.value === pipelineLang),
+    ...allLangEntries.filter((o) => o.value !== pipelineLang),
+  ];
+  const huLang = await wizard.select("HU language (for user stories):", huLangOptions);
+  config.hu_language = huLang;
+  logger.info(`  -> HU language: ${huLang}`);
+}
+
+async function askGitAutomation(wizard, config, logger) {
+  config.git = config.git || {};
+  const autoCommit = await wizard.confirm("Auto-commit per HU? (recommended for `kj run` so commits show up in git log)", false);
+  config.git.auto_commit = autoCommit;
+  logger.info(`  -> auto_commit: ${autoCommit}`);
+
+  const autoPush = await wizard.confirm("Auto-push to remote after each commit?", false);
+  config.git.auto_push = autoPush;
+  logger.info(`  -> auto_push: ${autoPush}`);
+
+  const autoPr = await wizard.confirm("Auto-open a Pull Request when the run finishes?", false);
+  config.git.auto_pr = autoPr;
+  logger.info(`  -> auto_pr: ${autoPr}`);
+
+  // Branch prefix only worth asking when auto_commit is on; otherwise leave default.
+  if (autoCommit) {
+    const prefix = await wizard.ask("Branch prefix (e.g. feat/, kj/, ai/) [feat/]: ");
+    config.git.branch_prefix = (prefix && prefix.trim()) || "feat/";
+    logger.info(`  -> branch_prefix: ${config.git.branch_prefix}`);
+  }
+}
+
+async function askBoardSecurity(wizard, config, logger) {
+  if (!config.hu_board?.enabled) return;
+
+  const bindChoice = await wizard.select(
+    "HU Board bind host:",
+    [
+      { label: "127.0.0.1 (loopback only — recommended for personal laptops)", value: "127.0.0.1", available: true },
+      { label: "0.0.0.0 (LAN exposure — token auth auto-enforced for non-loopback peers)", value: "0.0.0.0", available: true },
+    ],
+  );
+  config.hu_board.bind = bindChoice;
+  logger.info(`  -> HU Board bind: ${bindChoice}`);
+
+  if (bindChoice === "0.0.0.0") {
+    logger.info("     A secret token will be auto-generated on first start at ~/.karajan/hu-board/token (mode 0600).");
+    logger.info("     Open the URL printed by `kj board start` to grab it.");
+  }
+
+  const portInput = await wizard.ask("HU Board port [4000]: ");
+  const port = Number.parseInt(portInput, 10);
+  config.hu_board.port = Number.isFinite(port) && port > 0 && port < 65536 ? port : 4000;
+  logger.info(`  -> HU Board port: ${config.hu_board.port}`);
+}
 
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
@@ -41,30 +235,7 @@ async function runWizard(config, logger) {
 
   const wizard = createWizard();
   try {
-    if (available.length === 1) {
-      const only = available[0].name;
-      logger.info(`Only one agent available: ${only}. Using it for all roles.\n`);
-      config.coder = only;
-      config.reviewer = only;
-      config.roles.coder.provider = only;
-      config.roles.reviewer.provider = only;
-    } else {
-      const agentOptions = available.map((a) => ({
-        label: `${a.name} (${a.version})`,
-        value: a.name,
-        available: true
-      }));
-
-      const coder = await wizard.select("Select default CODER agent:", agentOptions);
-      config.coder = coder;
-      config.roles.coder.provider = coder;
-      logger.info(`  -> Coder: ${coder}`);
-
-      const reviewer = await wizard.select("Select default REVIEWER agent:", agentOptions);
-      config.reviewer = reviewer;
-      config.roles.reviewer.provider = reviewer;
-      logger.info(`  -> Reviewer: ${reviewer}`);
-    }
+    const { coder, reviewer } = await askAgents(wizard, available, config, logger);
 
     const enableTriage = await wizard.confirm("Enable triage (auto-classify task complexity)?", false);
     config.pipeline.triage = config.pipeline.triage || {};
@@ -84,38 +255,19 @@ async function runWizard(config, logger) {
     }
     logger.info(`  -> HU Board: ${enableHuBoard ? "enabled (auto-start on kj run)" : "disabled"}`);
 
-    const methodology = await wizard.select("Development methodology:", [
-      { label: "TDD (test-driven development)", value: "tdd", available: true },
-      { label: "Standard (no TDD enforcement)", value: "standard", available: true }
-    ]);
-    config.development.methodology = methodology;
-    config.development.require_test_changes = methodology === "tdd";
-    logger.info(`  -> Methodology: ${methodology}`);
+    await askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger);
+    await askMethodology(wizard, config, logger);
+    await askLanguages(wizard, config, logger);
 
-    const detectedLocale = detectOsLocale();
-    const allLangEntries = Object.entries(SUPPORTED_LANGUAGES).map(([code, name]) => ({
-      label: `${name} (${code})`,
-      value: code,
-      available: true
-    }));
-    // Put detected locale first so it becomes the default selection
-    const languageOptions = [
-      ...allLangEntries.filter((o) => o.value === detectedLocale),
-      ...allLangEntries.filter((o) => o.value !== detectedLocale)
-    ];
+    logger.info("");
+    logger.info("Git automation:");
+    await askGitAutomation(wizard, config, logger);
 
-    const pipelineLang = await wizard.select("Pipeline language:", languageOptions);
-    config.language = pipelineLang;
-    logger.info(`  -> Pipeline language: ${pipelineLang}`);
-
-    // Reorder for HU language with pipeline language as default
-    const huLangOptions = [
-      ...allLangEntries.filter((o) => o.value === pipelineLang),
-      ...allLangEntries.filter((o) => o.value !== pipelineLang)
-    ];
-    const huLang = await wizard.select("HU language (for user stories):", huLangOptions);
-    config.hu_language = huLang;
-    logger.info(`  -> HU language: ${huLang}`);
+    if (enableHuBoard) {
+      logger.info("");
+      logger.info("HU Board security:");
+      await askBoardSecurity(wizard, config, logger);
+    }
 
     logger.info("");
   } finally {
@@ -182,7 +334,7 @@ async function ensureCoderRules(coderRulesPath, logger) {
   logger.info("Created .karajan/coder-rules.md");
 }
 
-async function setupSonarQube(config, logger) {
+async function setupSonarQube(config, logger, { interactive } = {}) {
   if (config.sonarqube?.enabled === false) {
     logger.info("SonarQube disabled — skipping container setup.");
     return;
@@ -212,8 +364,32 @@ async function setupSonarQube(config, logger) {
   }
 
   logger.info("SonarQube container started");
+
+  // KJC-TSK-0367: try to bootstrap the analysis token automatically. The
+  // bootstrapper logs in with admin/admin, rotates the password if it's
+  // still the default, and POSTs to /api/user_tokens/generate. On 401 or
+  // any other failure, we fall back to the manual flow that was the only
+  // option before this card.
+  if (interactive) {
+    logger.info("Bootstrapping SonarQube token automatically...");
+    const result = await bootstrapSonarToken({
+      host: config.sonarqube.host || "http://localhost:9000",
+      configPath: getConfigPath(),
+    });
+    if (result.ok) {
+      config.sonarqube.token = result.token;
+      logger.info(`  -> Sonar token saved to ${result.savedTo}`);
+      if (result.passwordRotated) {
+        logger.info(`  -> Sonar admin password rotated. New value at ${result.passwordSavedTo}`);
+      }
+      return;
+    }
+    logger.warn(`Could not auto-generate Sonar token: ${result.reason}`);
+    logger.info("Falling back to manual flow:");
+  }
+
   logger.info("");
-  logger.info("To configure the SonarQube token:");
+  logger.info("To configure the SonarQube token manually:");
   logger.info("  1. Open http://localhost:9000");
   logger.info("  2. Log in (default credentials: admin / admin)");
   logger.info("  3. Go to: My Account > Security > Generate Token");
@@ -402,8 +578,11 @@ export async function initCommand({ logger, flags = {} }) {
     }
   }
 
-  await setupSonarQube(config, logger);
+  await setupSonarQube(config, logger, { interactive });
   await scaffoldCiGateway(config, flags, logger);
+
+  // Persist any changes setupSonarQube made (token, etc.) back to disk.
+  await writeConfig(configPath, config);
 
   // Telemetry: anonymous install event (non-blocking)
   const { sendTelemetryEvent } = await import("../utils/telemetry.js");
@@ -416,3 +595,14 @@ export async function initCommand({ logger, flags = {} }) {
     sendTelemetryEvent("install", { version }, config).catch(() => {});
   } catch { /* non-blocking */ }
 }
+
+// Internal exports for unit testing (KJC-TSK-0367)
+export const __test__ = {
+  askAgents,
+  askPerRoleProviders,
+  askMethodology,
+  askLanguages,
+  askGitAutomation,
+  askBoardSecurity,
+  PER_ROLE_QUESTIONS,
+};
