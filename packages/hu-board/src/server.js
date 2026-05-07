@@ -228,14 +228,51 @@ async function main() {
   });
 
   // Graceful shutdown
+  //
+  // Two pre-2026-05-07 footguns this fixes:
+  //
+  //   1) `server.close()` was called LAST, so for ~1s after `kj board
+  //      stop` the HTTP server stayed up while watcher/DB cleanup ran.
+  //      A browser refresh during that window — exactly the user's
+  //      "1 segundo después se carga el board" report — saw a working
+  //      board because the old keep-alive connections were still
+  //      being served. Now we tell the server to stop accepting new
+  //      connections IMMEDIATELY.
+  //
+  //   2) `server.close()` only waits for active connections to drain.
+  //      The browser's HTTP/1.1 keep-alive connections can stay open
+  //      for minutes, so the daemon process never actually exited
+  //      after stop. `closeAllConnections()` (Node 18.2+) force-kills
+  //      every active socket so the daemon can exit promptly.
+  //
+  //   3) A 5s hard deadline guarantees exit even if something goes
+  //      wrong with the cleanup. SIGKILL-by-the-OS is the cure if
+  //      the user really wants out, but a clean exit is the goal.
+  let shuttingDown = false;
   const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('\n[server] Shutting down...');
-    watcher.close();
-    closeDb();
-    // Best-effort PID file cleanup on graceful exit. If we crash the
-    // file stays — the CLI's `isProcessAlive` check handles that.
-    try { rmSync(PID_FILE, { force: true }); } catch { /* ignore */ }
-    server.close(() => process.exit(0));
+    // 1. Stop accepting new connections + force-close existing ones.
+    server.close(() => {
+      // The cleanup happens in the close callback so we don't run it
+      // before the server has detached from its listening socket.
+      try { watcher.close(); } catch { /* ignore */ }
+      try { closeDb(); } catch { /* ignore */ }
+      try { rmSync(PID_FILE, { force: true }); } catch { /* ignore */ }
+      console.log('[server] Shutdown complete.');
+      process.exit(0);
+    });
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
+    // 5s hard deadline: if the close callback hasn't fired by then,
+    // something is wedged — exit anyway. unref so this timer doesn't
+    // itself keep the loop alive.
+    setTimeout(() => {
+      console.warn('[server] Forced exit after 5s shutdown deadline.');
+      process.exit(1);
+    }, 5000).unref();
   };
 
   process.on('SIGINT', shutdown);
