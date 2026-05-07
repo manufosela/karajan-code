@@ -159,6 +159,13 @@ export function initDb() {
   try { db.exec('ALTER TABLE stories ADD COLUMN outcome TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
+  // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
+  // controls the ephemeral-cleanup heuristic. NULL = follow heuristic
+  // (id under tmp_/test_/demo_/kj-test- → ephemeral after 24h);
+  // 1 = always treat as ephemeral; 0 = NEVER auto-clean (user override).
+  // The UI surfaces this as a toggle on each project card.
+  try { db.exec('ALTER TABLE projects ADD COLUMN is_test INTEGER'); } catch { /* already migrated */ }
+
   return db;
 }
 
@@ -514,6 +521,28 @@ export function deleteProject(projectId) {
     db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
   })();
   return true;
+}
+
+/**
+ * Set or clear the `is_test` flag on a project. Drives the
+ * ephemeral-cleanup heuristic in ephemeral-cleaner.js:
+ *   - 1     → always treat as ephemeral (cleanup once last_activity > TTL)
+ *   - 0     → NEVER auto-clean, regardless of id pattern (user override)
+ *   - null  → follow the default id-pattern heuristic
+ *
+ * @param {string} projectId
+ * @param {number|null} value  one of 0, 1, null
+ * @returns {boolean} true when the project existed and was updated
+ */
+export function setProjectIsTest(projectId, value) {
+  if (value !== 0 && value !== 1 && value !== null) {
+    throw new Error(`setProjectIsTest: value must be 0, 1, or null (got ${value})`);
+  }
+  const db = getDb();
+  const result = db
+    .prepare('UPDATE projects SET is_test = ? WHERE id = ?')
+    .run(value, projectId);
+  return result.changes > 0;
 }
 
 /**

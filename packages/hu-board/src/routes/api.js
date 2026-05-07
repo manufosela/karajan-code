@@ -16,6 +16,7 @@ import {
   getStoryRow,
   listPlanIdsForProject,
   updateStoryStatus,
+  setProjectIsTest,
 } from '../db.js';
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject } from '../plan-mutations.js';
@@ -99,6 +100,39 @@ router.put('/projects/:id/name', (req, res) => {
       return res.status(code).json({ error: result.error });
     }
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/projects/:id/is-test — KJC-TSK-0371 (board polish #3).
+ *
+ * Sets/clears the per-project ephemeral-cleanup override. The
+ * heuristic (id under tmp_/test_/demo_/kj-test- AND last_activity
+ * older than 24h → auto-delete on next board start) is the default.
+ * `is_test` lets the user override per-project:
+ *   - body { is_test: 1 }    → always treat as ephemeral
+ *   - body { is_test: 0 }    → NEVER auto-clean (keep this one)
+ *   - body { is_test: null } → revert to the default heuristic
+ *
+ * Sending anything else is a 400 — explicit ternary, no truthy/
+ * falsy coercion, because that exact distinction is what the
+ * cleaner relies on.
+ */
+router.patch('/projects/:id/is-test', (req, res) => {
+  const raw = req.body?.is_test;
+  // Accept the three legal sentinel values explicitly — undefined
+  // (key missing) is rejected because this endpoint only exists to
+  // set or clear, not to "leave as-is".
+  const allowed = raw === 0 || raw === 1 || raw === null;
+  if (!allowed) {
+    return res.status(400).json({ error: 'is_test must be 0, 1, or null' });
+  }
+  try {
+    const ok = setProjectIsTest(req.params.id, raw);
+    if (!ok) return res.status(404).json({ error: 'project not found' });
+    res.json({ ok: true, project_id: req.params.id, is_test: raw });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

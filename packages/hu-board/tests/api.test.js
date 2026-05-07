@@ -199,3 +199,66 @@ describe('GET /api/sessions', () => {
     expect(ids).toContain('sess-2');
   });
 });
+
+// ---------------------------------------------------------------------------
+// PATCH /api/projects/:id/is-test  (KJC-TSK-0371 — board polish #3)
+//
+// The endpoint exists so the user can override the default ephemeral-
+// cleanup heuristic per-project: keep something the heuristic would
+// delete (`is_test=0`) or force-delete something it wouldn't
+// (`is_test=1`). The handler accepts ONLY the three legal sentinels
+// (0, 1, null) — anything else is a 400.
+// ---------------------------------------------------------------------------
+describe('PATCH /api/projects/:id/is-test', () => {
+  it('accepts is_test=1 and persists it', async () => {
+    seed();
+    const res = await request(app)
+      .patch('/api/projects/proj-1/is-test')
+      .send({ is_test: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, project_id: 'proj-1', is_test: 1 });
+    const projects = dbMod.getProjects();
+    expect(projects.find((p) => p.id === 'proj-1').is_test).toBe(1);
+  });
+
+  it('accepts is_test=0 (preserve override) and persists it', async () => {
+    const res = await request(app)
+      .patch('/api/projects/proj-1/is-test')
+      .send({ is_test: 0 });
+    expect(res.status).toBe(200);
+    expect(res.body.is_test).toBe(0);
+    expect(dbMod.getProjects().find((p) => p.id === 'proj-1').is_test).toBe(0);
+  });
+
+  it('accepts is_test=null (revert to default heuristic)', async () => {
+    const res = await request(app)
+      .patch('/api/projects/proj-1/is-test')
+      .send({ is_test: null });
+    expect(res.status).toBe(200);
+    expect(res.body.is_test).toBeNull();
+    expect(dbMod.getProjects().find((p) => p.id === 'proj-1').is_test).toBeNull();
+  });
+
+  it('returns 400 for an invalid is_test value', async () => {
+    const res = await request(app)
+      .patch('/api/projects/proj-1/is-test')
+      .send({ is_test: 'yes' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/must be 0, 1, or null/);
+  });
+
+  it('returns 400 when is_test key is missing', async () => {
+    const res = await request(app)
+      .patch('/api/projects/proj-1/is-test')
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for an unknown project', async () => {
+    const res = await request(app)
+      .patch('/api/projects/no-such-id/is-test')
+      .send({ is_test: 1 });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/not found/);
+  });
+});

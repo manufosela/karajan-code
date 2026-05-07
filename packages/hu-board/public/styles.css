@@ -711,6 +711,35 @@ a:hover {
   border-color: rgba(255, 80, 80, 0.4);
 }
 
+/* is_test toggle (KJC-TSK-0371). Sits to the LEFT of the delete
+ * button, same affordances. Visible at low opacity by default
+ * because — unlike delete — it conveys live state (is the
+ * cleaner watching this project?). Hovering brightens it. */
+.project-card__is-test {
+  position: absolute;
+  top: 8px;
+  right: 44px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: all 0.15s;
+  z-index: 2;
+}
+
+.project-card:hover .project-card__is-test {
+  opacity: 0.85;
+}
+
+.project-card__is-test:hover {
+  opacity: 1 !important;
+  background: rgba(160, 160, 255, 0.15);
+  border-color: rgba(160, 160, 255, 0.4);
+}
+
 .project-card__name {
   font-size: 1rem;
   font-weight: 600;
