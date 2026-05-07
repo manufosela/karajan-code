@@ -65,6 +65,42 @@ export async function revParse(ref) {
   return runGit(["rev-parse", ref]);
 }
 
+/**
+ * List commits in the range `fromSha..toRef`. Used by the post-loop
+ * journal builder to enumerate every commit produced during a `kj run`
+ * — both the coder's own commits AND the post-loop scaffold commit —
+ * so the user-visible summary doesn't lose track of them. Pre-fix the
+ * summary only listed `gitResult.commits` (post-loop only), which made
+ * `kj run "..."` runs look like the coder hadn't committed.
+ *
+ * Returns oldest-first so the list reads in execution order.
+ *
+ * @param {string|null|undefined} fromSha The SHA right BEFORE the run started
+ *   (typically `session.session_start_sha`). Empty/missing → returns [].
+ * @param {string} [toRef="HEAD"]
+ * @returns {Promise<Array<{hash: string, message: string}>>}
+ */
+export async function listCommitsBetween(fromSha, toRef = "HEAD") {
+  if (!fromSha) return [];
+  const result = await run(
+    "git",
+    ["log", "--reverse", "--format=%H%x09%s", `${fromSha}..${toRef}`],
+  ).catch(() => null);
+  if (!result || result.exitCode !== 0) return [];
+  return String(result.stdout || "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const tabIdx = line.indexOf("\t");
+      // Defensive: if git emitted no tab (shouldn't happen with our format)
+      // treat the whole line as the hash and leave the message empty rather
+      // than throw — caller can still render the row.
+      if (tabIdx === -1) return { hash: line, message: "" };
+      return { hash: line.slice(0, tabIdx), message: line.slice(tabIdx + 1) };
+    });
+}
+
 export async function syncBaseBranch({ baseBranch, autoRebase }) {
   const local = await revParse(baseBranch);
   const remote = await revParse(`origin/${baseBranch}`);
