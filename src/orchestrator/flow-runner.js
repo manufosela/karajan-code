@@ -60,6 +60,45 @@ import { runSecurityStage, runFinalAuditStage } from "./post-loop-stages.js";
 // PG card "In Progress" logic moved to src/planning-game/pipeline-adapter.js → initPgAdapter()
 
 
+/**
+ * Boundary guard: make sure the session's terminal status reflects what
+ * actually happened, even if some inner exit path forgot to call
+ * `markSessionStatus`. KJC-BUG-0037 (N1 dogfooding 2026-05-07): runs
+ * that took the Brain "max_iterations approved" / "Solomon-after-error
+ * approved" / "Brain solomon-approved" exits returned `{approved:true}`
+ * upstream but left `session.status = "running"` on disk indefinitely.
+ * `kj status` then showed "Pipeline RUNNING" forever and the HU Board
+ * carried a perma-zombie.
+ *
+ * Maps the result shape to a terminal status:
+ *   approved → "approved"
+ *   paused   → "paused"
+ *   cancelled → "cancelled"
+ *   anything else → "failed"
+ *
+ * Idempotent: only writes when the current status is still "running"
+ * (or unset). If an inner path already sealed it correctly, this is a
+ * no-op.
+ *
+ * Safe-by-default: never throws. A failure here must not block the
+ * top-level result from being returned to the caller.
+ *
+ * @param {object} session
+ * @param {object} [result]
+ */
+export async function sealSessionStatusIfStillRunning(session, result) {
+  try {
+    if (!session) return;
+    const current = session.status;
+    if (current && current !== "running") return;
+    let target = "failed";
+    if (result?.approved === true) target = "approved";
+    else if (result?.paused === true) target = "paused";
+    else if (result?.cancelled === true) target = "cancelled";
+    await markSessionStatus(session, target);
+  } catch { /* non-blocking */ }
+}
+
 export async function runFlow(opts) {
   // TSK-0338: isolate per-run state (git/diff runner, projectDir, snapshot)
   // inside an AsyncLocalStorage scope. Two concurrent `runFlow` invocations
@@ -193,12 +232,14 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
     // policies + acceptance-tests gate + Sonar + tester translation.
     const huBatch = await runHuBatch({ ctx, task, askQuestion, emitter, logger });
     if (huBatch.handled) {
+      await sealSessionStatusIfStillRunning(ctx.session, huBatch.result);
       return huBatch.result;
     }
 
     // --- Standard single-task pipeline (1 HU or no HU reviewer) ---
     const result = await runIterationLoop(ctx, { task: ctx.plannedTask, askQuestion, emitter, logger });
     await writeHistoryRecord({ sessionId: ctx.session.id, task, result, logger });
+    await sealSessionStatusIfStillRunning(ctx.session, result);
     return result;
   } finally {
     // --- Cleanup auto-installed skills ---
