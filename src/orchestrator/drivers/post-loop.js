@@ -23,6 +23,7 @@
 
 import { generateDiff } from "../../review/diff-generator.js";
 import { finalizeGitAutomation } from "../../git/automation.js";
+import { listCommitsBetween } from "../../utils/git.js";
 import { saveSession, markSessionStatus } from "../../session/store.js";
 import {
   setReviewerFeedback, setBudget, setRtkSavings, resetRetryCount,
@@ -151,6 +152,20 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
       const { writeSummaryJournal: writeSummaryJournalV2 } =
         await import("../../session/journal/summary-writer.js");
       const startedAt = session._startedAt ? new Date(session._startedAt).toISOString() : undefined;
+      // 2026-05-07 dogfooding: gitResult.commits only carries the post-loop
+      // commit (scaffold), not the coder's own commit. The summary's
+      // "Commits" section was therefore misleading — it claimed the run
+      // produced one chore commit when in fact the coder had also written
+      // a docs/feat commit. Compute the full range from session_start_sha
+      // so every commit between then and HEAD shows up in execution order.
+      // try/catch (instead of `.catch(...)`) so we tolerate both promise
+      // rejection AND a sync return of undefined — the latter happens
+      // when a test mocks listCommitsBetween with a plain vi.fn() that
+      // resetAllMocks has stripped of its mockResolvedValue.
+      let allCommits = [];
+      try { allCommits = (await listCommitsBetween(session.head_at_start || session.session_start_sha)) || []; }
+      catch { allCommits = gitResult?.commits || []; }
+      const summaryCommits = allCommits.length > 0 ? allCommits : (gitResult?.commits || []);
       await writeSummaryJournalV2(journalDir, {
         task: session.task,
         result: "APPROVED",
@@ -159,7 +174,7 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
         durationMs: Date.now() - (session._startedAt || Date.now()),
         budget: budgetSummary(),
         stages: stageResults,
-        commits: gitResult?.commits || [],
+        commits: summaryCommits,
         files: journalFiles,
         startedAt,
         finishedAt: new Date().toISOString(),
@@ -180,7 +195,21 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
     }
   }
 
-  const endDetail = { approved: true, iterations: i, stages: stageResults, git: gitResult, budget: budgetSummary(), deferredIssues };
+  // Mirror the same enriched commit list into the session:end event so the
+  // terminal `🏁 Result` banner (printSessionGit) shows every commit the
+  // run produced, not just the post-loop scaffold one. We compute again
+  // (cheap: one git log call) rather than threading a variable through
+  // because the journal block is wrapped in try/catch and may have set
+  // `summaryCommits` to a fallback we don't want for the event detail.
+  // try/catch tolerates both promise rejection and sync undefined returns
+  // (see the journal block above for the detailed rationale).
+  let eventCommits = null;
+  try { eventCommits = await listCommitsBetween(session.head_at_start || session.session_start_sha); }
+  catch { /* leave null — we'll use gitResult unchanged */ }
+  const gitForEvent = (Array.isArray(eventCommits) && eventCommits.length > 0)
+    ? { ...gitResult, commits: eventCommits }
+    : gitResult;
+  const endDetail = { approved: true, iterations: i, stages: stageResults, git: gitForEvent, budget: budgetSummary(), deferredIssues };
   if (rtkSavings) endDetail.rtk_savings = rtkSavings;
   emitProgress(
     emitter,

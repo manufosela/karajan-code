@@ -230,4 +230,83 @@ describe("utils/git", () => {
       ]);
     });
   });
+
+  // 2026-05-07 dogfooding fix: the post-loop summary was listing ONLY
+  // `gitResult.commits` (the scaffold commit produced by the post-loop)
+  // and forgetting the coder's own commits. listCommitsBetween() asks
+  // git for the full range so every commit shows up.
+  describe("listCommitsBetween", () => {
+    it("returns [] when fromSha is missing or empty", async () => {
+      expect(await git.listCommitsBetween()).toEqual([]);
+      expect(await git.listCommitsBetween(null)).toEqual([]);
+      expect(await git.listCommitsBetween("")).toEqual([]);
+      expect(runCommand).not.toHaveBeenCalled();
+    });
+
+    it("parses oldest-first hash<TAB>message lines", async () => {
+      // git log --reverse → coder's commit first, scaffold last.
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout:
+          "abc1234567890abcdef1234567890abcdef123456\tdocs: add JSDoc to index.js\n"
+          + "def4567890abcdef1234567890abcdef12345678\tchore: scaffold karajan workspace\n",
+        stderr: "",
+      });
+      const commits = await git.listCommitsBetween("a2516ec");
+      expect(runCommand).toHaveBeenCalledWith(
+        "git",
+        ["log", "--reverse", "--format=%H%x09%s", "a2516ec..HEAD"],
+      );
+      expect(commits).toHaveLength(2);
+      expect(commits[0]).toEqual({
+        hash: "abc1234567890abcdef1234567890abcdef123456",
+        message: "docs: add JSDoc to index.js",
+      });
+      expect(commits[1].message).toBe("chore: scaffold karajan workspace");
+    });
+
+    it("honours a custom toRef", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+      await git.listCommitsBetween("origin/main", "feat/foo");
+      expect(runCommand).toHaveBeenCalledWith(
+        "git",
+        ["log", "--reverse", "--format=%H%x09%s", "origin/main..feat/foo"],
+      );
+    });
+
+    it("returns [] on a non-zero git log exit (defensive — keep summary writable)", async () => {
+      runCommand.mockResolvedValue({ exitCode: 128, stdout: "", stderr: "fatal: bad revision" });
+      expect(await git.listCommitsBetween("nonexistent")).toEqual([]);
+    });
+
+    it("returns [] when runCommand throws (no exception leak)", async () => {
+      runCommand.mockRejectedValue(new Error("git binary missing"));
+      expect(await git.listCommitsBetween("a2516ec")).toEqual([]);
+    });
+
+    it("survives a malformed line (no tab) by treating it as hash with empty message", async () => {
+      // Defensive: should never happen with --format=%H%x09%s, but if a
+      // future format change emits a hash on its own line we don't want
+      // to crash the summary writer.
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: "abc1234567890abcdef1234567890abcdef123456\n",
+        stderr: "",
+      });
+      const commits = await git.listCommitsBetween("a2516ec");
+      expect(commits).toEqual([
+        { hash: "abc1234567890abcdef1234567890abcdef123456", message: "" },
+      ]);
+    });
+
+    it("filters empty trailing lines", async () => {
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: "abc1\tone\ndef2\ttwo\n\n\n",
+        stderr: "",
+      });
+      const commits = await git.listCommitsBetween("a");
+      expect(commits.map((c) => c.hash)).toEqual(["abc1", "def2"]);
+    });
+  });
 });

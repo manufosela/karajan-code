@@ -5,6 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { computeBaseRef, setSnapshot } from "../review/diff-generator.js";
+import { revParse } from "../utils/git.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
@@ -367,12 +368,28 @@ export async function initializeSession({ task, config, flags, pgTaskId, pgProje
   const projectDir = config.projectDir || process.cwd();
   const project_id = projectSlug(projectDir);
 
+  // Capture HEAD at the very start of the run, separately from base_ref.
+  // session_start_sha was being conflated with base_ref (used for `git diff`)
+  // — when the user's repo had a single commit and no remote main, base_ref
+  // fell through to git's empty-tree SHA. The post-loop journal then read
+  // session_start_sha to enumerate "commits made by this run" and got back
+  // the entire history, including pre-existing commits. Capturing actual
+  // HEAD here makes "what did the run produce?" deterministic and correct.
+  // Falls back to baseRef when HEAD doesn't exist (zero-commits repo); in
+  // that case "everything since baseRef" still equals "everything the run
+  // produced" because there was no prior history.
+  let headAtStart;
+  try {
+    headAtStart = (await revParse("HEAD")) || baseRef;
+  } catch { headAtStart = baseRef; }
+
   const sessionInit = {
     task,
     project_id,
     config_snapshot: config,
     base_ref: baseRef,
     session_start_sha: baseRef,
+    head_at_start: headAtStart,
     last_reviewer_feedback: null,
     repeated_issue_count: 0,
     sonar_retry_count: 0,

@@ -132,7 +132,10 @@ vi.mock("../src/utils/git.js", () => ({
   buildBranchName: vi.fn().mockReturnValue("feat/test"),
   commitAll: vi.fn().mockResolvedValue({ committed: true }),
   pushBranch: vi.fn(),
-  createPullRequest: vi.fn()
+  createPullRequest: vi.fn(),
+  // Post-loop reads commit history via this helper for the summary.
+  // Empty array → summary falls back to gitResult.commits.
+  listCommitsBetween: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock("node:fs/promises", () => ({

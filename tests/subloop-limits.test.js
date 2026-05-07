@@ -128,7 +128,10 @@ vi.mock("../src/utils/git.js", () => ({
   buildBranchName: vi.fn().mockReturnValue("feat/test"),
   commitAll: vi.fn().mockResolvedValue({ committed: true }),
   pushBranch: vi.fn(),
-  createPullRequest: vi.fn()
+  createPullRequest: vi.fn(),
+  // Post-loop reads commit history via this helper for the summary.
+  // Empty array → summary falls back to gitResult.commits.
+  listCommitsBetween: vi.fn().mockResolvedValue([])
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -249,7 +252,7 @@ describe("configurable sub-loop limits", () => {
     // max_sonar_retries=3, fail_fast_repeats=99 — sonar should use its own limit (3)
     const config = makeConfig({ max_sonar_retries: 3, fail_fast_repeats: 99, repeat_detection_threshold: 99 });
 
-    const result = await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
+    await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
 
     const solomonEvents = events.filter((e) => e.type === "solomon:escalate");
     // With Solomon boss, the sonar escalation event should fire after max_sonar_retries
@@ -306,7 +309,7 @@ describe("configurable sub-loop limits", () => {
 
     const config = makeConfig({ max_reviewer_retries: 4, fail_fast_repeats: 2 });
 
-    const result = await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
+    await runFlow({ task: "Fix bug", config, logger: noopLogger, emitter });
 
     const solomonEvents = events.filter((e) => e.type === "solomon:escalate");
     expect(solomonEvents[0].detail.retryCount).toBe(4);

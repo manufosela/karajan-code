@@ -64,7 +64,8 @@
  * @property {string[]} [skillsRecommended]               - wouldHaveUsed when openskills missing
  * @property {string[]} [autoInstalledSkills]
  * @property {RtkSavings} [rtk_savings]
- * @property {string} [session_start_sha]
+ * @property {string} [session_start_sha]                 - baseline for `git diff`; may be the empty-tree SHA when no prior commits exist
+ * @property {string} [head_at_start]                     - actual HEAD when the run started; used by the post-loop journal to enumerate commits produced BY the run. Falls back to session_start_sha in zero-commits repos. (2026-05-07 dogfooding fix.)
  * @property {string} [_journalDir]                       - runtime journal path
  * @property {string[]} [_journalIterations]              - rendered iteration markdown
  * @property {string[]} [_journalFiles]
