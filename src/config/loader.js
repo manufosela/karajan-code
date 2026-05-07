@@ -128,9 +128,40 @@ export async function loadConfig(projectDir) {
   return { config: merged, path: configPath, exists: globalExists, hasProjectConfig: !!projectConfig };
 }
 
+/**
+ * Runtime-only keys that the loader synthesises on every load (or that
+ * a wizard uses as transient in-memory hints). They MUST NOT survive
+ * to the on-disk YAML — otherwise the `kj run` deprecation warning
+ * fossilises (KJC-BUG-0036, observed in dogfooding 2026-05-07: the
+ * `_deprecated.sonarqubeEnabledKey: true` block ended up baked into
+ * `~/.karajan/kj.config.yml` and re-fired the warning on every run
+ * even after the user cleaned `sonarqube.enabled`).
+ *
+ * Pure: returns a shallow-copied config without the runtime keys —
+ * the caller's object is left untouched.
+ */
+function stripRuntimeOnlyKeys(config) {
+  if (!config || typeof config !== "object") return config;
+  const out = { ...config };
+  // _deprecated is loader-synthesised — never written intentionally.
+  if ("_deprecated" in out) delete out._deprecated;
+  // sonarqube.enabled was deprecated in v2.7.4. The init wizard still
+  // uses it as a hint to drive setupSonarQube during install, but the
+  // runtime ignores it. Persisting it would re-trigger the deprecation
+  // warning on every subsequent kj run.
+  if (out.sonarqube && typeof out.sonarqube === "object"
+      && Object.prototype.hasOwnProperty.call(out.sonarqube, "enabled")) {
+    const { enabled: _drop, ...rest } = out.sonarqube;
+    void _drop;
+    out.sonarqube = rest;
+  }
+  return out;
+}
+
 export async function writeConfig(configPath, config) {
   await ensureDir(path.dirname(configPath));
-  await fs.writeFile(configPath, yaml.dump(config, { lineWidth: 120 }), "utf8");
+  const sanitized = stripRuntimeOnlyKeys(config);
+  await fs.writeFile(configPath, yaml.dump(sanitized, { lineWidth: 120 }), "utf8");
 }
 
 // Declarative mappings for applyRunOverrides to reduce cognitive complexity.
