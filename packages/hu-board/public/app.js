@@ -1082,7 +1082,7 @@ function renderSessionCard(session) {
         <span>Stages: ${stages.join(', ') || '--'}</span>
         <span>${timeAgo(session.created_at)}</span>
       </div>
-      <div class="session-card__id-chip" title="Session ID — use with kj resume <id>">${esc(label.idChip)}</div>
+      <div class="session-card__id-chip" title="Session ID — use with kj resume &lt;id&gt;">${esc(label.idChip)}</div>
     </div>
   `;
 }
