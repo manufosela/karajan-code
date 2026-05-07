@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.2] - 2026-05-07
+
+Patch release. Pure UX improvement on `kj init`: the wizard goes from
+9 prompts (covering ~30% of the meaningful runtime knobs) to a full
+setup that lets the user pick a CLI per role, auto-generates the
+SonarQube analysis token via REST API, and exposes the git automation
++ HU Board security flags. No API changes; safe upgrade from 2.10.1.
+
+### Added — `kj init` wizard expansion (`KJC-TSK-0367`, #616)
+
+- **Per-role provider selection**. For each of `planner`, `researcher`,
+  `architect`, `refactorer`, `tester`, `security`, `solomon`,
+  `impeccable`, `perf`, `hu_reviewer`: choose **inherit from
+  coder/reviewer** (default), **pick a specific CLI**
+  (claude/codex/gemini/opencode/...), or **disable the role** when
+  allowed. Defensive: initialises missing role/pipeline entries on
+  configs coming from older versions, so re-running on an upgraded
+  install never crashes.
+- **SonarQube token bootstrap**
+  (`src/sonar/token-bootstrap.js`, NEW). After the Docker container
+  is up:
+  1. Probes `admin/admin` via `/api/authentication/validate`.
+  2. **Rotates the default password** to a fresh 32-byte secret
+     persisted at `~/.karajan/sonar.admin-password` (mode 0600).
+     Removes the well-known credentials surface from the user's
+     machine.
+  3. Revokes any pre-existing `karajan-cli` token (idempotent
+     re-runs).
+  4. Generates a fresh `GLOBAL_ANALYSIS_TOKEN` via
+     `POST /api/user_tokens/generate`.
+  5. Persists at `~/.karajan/sonar.token` (mode 0600) **and**
+     writes it into `config.sonarqube.token`.
+  6. On any failure (401, network, etc.) returns `ok: false` and
+     the wizard falls back to the manual instructions that existed
+     before this card.
+- **Git automation prompts**: `auto_commit`, `auto_push`, `auto_pr`
+  booleans. `branch_prefix` asked only when `auto_commit` is on
+  (default `feat/`).
+- **HU Board security prompts** (only when HU Board is enabled):
+  bind host (`127.0.0.1` default | `0.0.0.0` with auto-generated
+  token enforced for non-loopback peers) and port.
+
+### Tests
+
+- `tests/init-wizard.test.js` extended:
+  - Existing happy-path test updated to expect **15** `wizard.select`
+    calls (2 agents + 10 per-role + 3 lang/methodology) instead of
+    the pre-fix 5.
+  - **4 new direct unit tests** for `askPerRoleProviders`.
+  - **3 new tests** for `askGitAutomation`.
+  - **4 new tests** for `askBoardSecurity`.
+- `tests/sonar-token-bootstrap.test.js` (NEW, 5 tests): success path,
+  admin/admin login fails, network error, password rotation rejected,
+  token generation failure.
+- Internal `__test__` named export on `init.js` so the sub-functions
+  are testable without driving the whole `initCommand` pipeline.
+
+**4 375 / 4 375** passing across 374 test files (was 4 359; +16 new).
+
+### Documentation
+
+- `docs/agents/SKILL.kj-init.md` updated to describe the 8 sections
+  of the new wizard.
+
+### Out of scope (deferred)
+
+- Wizard reentrante (`kj init --role coder --change`).
+- Stack-driven defaults (frontend project → impeccable on by default).
+- SonarCloud token bootstrap (only the local container is covered).
+
 ## [2.10.1] - 2026-05-06
 
 Patch release. One-line fix for a stdout contamination bug in
