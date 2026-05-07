@@ -419,24 +419,38 @@ export function getStoryDetail(storyId) {
 
 /**
  * Returns sessions for a specific project.
+ *
+ * The `project_name` column is joined in so the UI can show a human
+ * label like `tmp_kj-test-4 · trivial(doc) · 08:35` instead of just
+ * the cryptic `s_2026-05-07T...` id.
+ *
  * @param {string} projectId
  * @returns {Array<object>}
  */
 export function getSessionsByProject(projectId) {
   return getDb().prepare(`
-    SELECT id, project_id, task, status, created_at, updated_at,
-           iterations, duration_ms, approved, stages_completed
-    FROM sessions WHERE project_id = ? ORDER BY created_at DESC
+    SELECT s.id, s.project_id, s.task, s.status, s.created_at, s.updated_at,
+           s.iterations, s.duration_ms, s.approved, s.stages_completed,
+           p.name AS project_name
+    FROM sessions s
+    LEFT JOIN projects p ON p.id = s.project_id
+    WHERE s.project_id = ?
+    ORDER BY s.created_at DESC
   `).all(projectId);
 }
 
 /**
- * Returns full session detail.
+ * Returns full session detail (with the joined project_name).
  * @param {string} sessionId
  * @returns {object | null}
  */
 export function getSessionDetail(sessionId) {
-  return getDb().prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
+  return getDb().prepare(`
+    SELECT s.*, p.name AS project_name
+    FROM sessions s
+    LEFT JOIN projects p ON p.id = s.project_id
+    WHERE s.id = ?
+  `).get(sessionId);
 }
 
 /**
