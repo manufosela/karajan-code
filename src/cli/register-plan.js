@@ -26,7 +26,7 @@ export function registerPlan(program, { pkgVersion }) {
   plan
     .command("generate", { isDefault: true })
     .description("Generate implementation plan with HUs")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--planner <name>")
     .option("--planner-model <name>")
