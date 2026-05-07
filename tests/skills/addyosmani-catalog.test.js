@@ -238,14 +238,60 @@ describe("skills/addyosmani-catalog", () => {
       expect(result.action).toBe("pulled");
     });
 
-    it("degrades to 'skipped' without error when git pull fails", async () => {
+    it("degrades to 'skipped' without error when git pull AND fetch/reset both fail", async () => {
       await seedCatalog({ lastPullAgoMs: 8 * 24 * 60 * 60 * 1000 });
-      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "git version", stderr: "" });
-      runCommand.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "conflict" });
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "git version", stderr: "" }); // probe
+      runCommand.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "conflict" });    // pull
+      runCommand.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "no remote" });   // fetch fails
 
       const result = await mod.refreshIfStale({ refreshMs: 0 });
       expect(result.ok).toBe(false);
       expect(result.action).toBe("skipped");
+      expect(result.error).toMatch(/recovery/);
+    });
+
+    // KJC-BUG-0033 / N3-2: when upstream force-pushes (rewriting
+    // history), `git pull --ff-only` exits non-zero with "non-fast-
+    // forward". The catalog is read-only, so we recover by fetching
+    // shallow and hard-resetting to FETCH_HEAD instead of staying
+    // on a stale cache. The user hit this on 2026-05-07 when the
+    // addyosmani/agent-skills repo was force-pushed.
+    it("recovers via fetch+reset when ff-only pull fails (upstream force-push)", async () => {
+      await seedCatalog({ lastPullAgoMs: 8 * 24 * 60 * 60 * 1000 });
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "git version", stderr: "" }); // probe
+      runCommand.mockResolvedValueOnce({                                                    // pull --ff-only
+        exitCode: 128,
+        stdout: "",
+        stderr: "fatal: Not possible to fast-forward, aborting.",
+      });
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" }); // fetch HEAD
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" }); // reset --hard
+
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const result = await mod.refreshIfStale({ refreshMs: 0, logger });
+
+      expect(result.ok).toBe(true);
+      expect(result.action).toBe("reset");
+      // The recovery emits an info log so the user understands what
+      // happened. No warn (warn is reserved for genuine failures).
+      expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/force-pushed|fetch\+reset/));
+      expect(logger.warn).not.toHaveBeenCalled();
+      // The 4 expected git invocations: probe, pull, fetch, reset.
+      expect(runCommand).toHaveBeenCalledTimes(4);
+    });
+
+    it("degrades to 'skipped' when ff-only fails and the recovery reset also fails", async () => {
+      await seedCatalog({ lastPullAgoMs: 8 * 24 * 60 * 60 * 1000 });
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "git version", stderr: "" }); // probe
+      runCommand.mockResolvedValueOnce({ exitCode: 128, stdout: "", stderr: "non-ff" });    // pull
+      runCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });            // fetch ok
+      runCommand.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "permission denied" }); // reset fails
+
+      const result = await mod.refreshIfStale({ refreshMs: 0 });
+      expect(result.ok).toBe(false);
+      expect(result.action).toBe("skipped");
+      expect(result.error).toMatch(/permission denied/);
+      expect(result.error).toMatch(/recovery/);
     });
 
     it("delegates to ensureCatalog when catalog is absent", async () => {

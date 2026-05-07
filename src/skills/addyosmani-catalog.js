@@ -146,7 +146,7 @@ export async function ensureCatalog(opts = {}) {
  * ensureCatalog().
  *
  * @param {{ refreshMs?: number, repoUrl?: string, force?: boolean, logger?: object }} [opts]
- * @returns {Promise<{ok: boolean, action: "cloned"|"pulled"|"fresh"|"skipped", error?: string}>}
+ * @returns {Promise<{ok: boolean, action: "cloned"|"pulled"|"reset"|"fresh"|"skipped", error?: string}>}
  */
 export async function refreshIfStale(opts = {}) {
   const { refreshMs = DEFAULT_REFRESH_MS, repoUrl = REPO_URL, force = false, logger } = opts;
@@ -171,16 +171,38 @@ export async function refreshIfStale(opts = {}) {
     return { ok: true, action: "skipped" };
   }
 
-  const result = await runCommand(
+  const pullResult = await runCommand(
     "git",
     ["-C", root, "pull", "--ff-only", "--depth", "1"],
     { timeout: 60_000 }
   );
 
-  if (result.exitCode !== 0) {
-    const stderr = (result.stderr || "").trim();
-    logger?.warn?.(`addyosmani-catalog: git pull failed — ${stderr} (keeping stale cache)`);
-    return { ok: false, action: "skipped", error: stderr };
+  let action = "pulled";
+  if (pullResult.exitCode !== 0) {
+    // The cached catalog is read-only (we never commit to it), so a
+    // non-fast-forward result is virtually always upstream rewriting
+    // history with `git push --force` — see KJC-BUG-0033 / N3-2 (the
+    // user hit this on 2026-05-07 when addyosmani force-pushed his
+    // skills repo). Recover by fetching shallow and hard-resetting to
+    // FETCH_HEAD: there's nothing local to lose.
+    const fetchResult = await runCommand(
+      "git",
+      ["-C", root, "fetch", "--depth", "1", "origin", "HEAD"],
+      { timeout: 60_000 }
+    );
+    const resetResult = fetchResult.exitCode === 0
+      ? await runCommand("git", ["-C", root, "reset", "--hard", "FETCH_HEAD"], { timeout: 30_000 })
+      : { exitCode: fetchResult.exitCode, stderr: fetchResult.stderr };
+
+    if (resetResult.exitCode !== 0) {
+      const pullErr = (pullResult.stderr || "").trim();
+      const recoveryErr = (resetResult.stderr || "").trim();
+      const combined = recoveryErr ? `${pullErr} | recovery: ${recoveryErr}` : pullErr;
+      logger?.warn?.(`addyosmani-catalog: git pull failed — ${combined} (keeping stale cache)`);
+      return { ok: false, action: "skipped", error: combined };
+    }
+    action = "reset";
+    logger?.info?.("addyosmani-catalog: ff-only failed, recovered via fetch+reset (upstream force-pushed)");
   }
 
   await writeMeta({
@@ -189,7 +211,7 @@ export async function refreshIfStale(opts = {}) {
     lastPullAt: new Date().toISOString(),
   });
 
-  return { ok: true, action: "pulled" };
+  return { ok: true, action };
 }
 
 /**
