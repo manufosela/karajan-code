@@ -73,12 +73,22 @@ describe("startBoard — detaches properly", () => {
     expect(unref).toHaveBeenCalledTimes(1);
   });
 
-  it("spawns with detached:true and stdio:'ignore' (no parent pipe references)", async () => {
+  it("spawns with detached:true and stdio routed to a log file (no parent pipe references)", async () => {
+    // Pre-2026-05-07 the daemon was spawned with stdio: "ignore", which
+    // sent every console.log from server.js to /dev/null and made
+    // debugging — particularly the [zombie-reaper] line — invisible.
+    // Now stdout/stderr are redirected to ~/.karajan/hu-board.log so
+    // `tail -f` works. The pin: index 0 is "ignore" (the daemon never
+    // reads stdin), indices 1 and 2 are file descriptors (numbers).
     const { startBoard } = await import("../src/commands/board.js");
     await startBoard(4000);
     const opts = spawn.mock.calls[0][2];
     expect(opts.detached).toBe(true);
-    expect(opts.stdio).toBe("ignore");
+    expect(Array.isArray(opts.stdio)).toBe(true);
+    expect(opts.stdio[0]).toBe("ignore");
+    expect(typeof opts.stdio[1]).toBe("number");  // log file fd
+    expect(typeof opts.stdio[2]).toBe("number");  // same fd, stderr → log
+    expect(opts.stdio[1]).toBe(opts.stdio[2]);    // stdout + stderr merged
   });
 
   it("writes the PID file so subsequent kj board status / stop find the child", async () => {
