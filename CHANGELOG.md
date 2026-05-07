@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-05-08
+
+Minor release. Two-day dogfooding pass (10-level test plan) surfaced and
+fixed a long tail of UX papercuts, two latent zombi-status bugs, and the
+HU sub-pipeline branch-creation regression on fresh repos. All N0–N8
+levels are now re-validated green; N9 is the human rehearsal step. Two
+small `hu-board` features land alongside the fixes: an automatic cleanup
+of ephemeral test projects at boot and an in-UI help modal + tooltips
+for the five header views.
+
+### Added — `hu-board`
+
+- **Auto-cleanup of ephemeral test projects** (`KJC-TSK-0371`, #627). On board
+  start, any project whose id matches `/^(tmp_|test_|demo_|kj-test-)/i`
+  AND has been inactive for >24h is cascade-deleted (project + stories +
+  sessions). A new `is_test` column on `projects` lets the user override
+  per-project: `1` forces ephemeral, `0` pins forever, `null` follows the
+  default heuristic. New `PATCH /api/projects/:id/is-test` endpoint and
+  a 3-state toggle button on each project card.
+- **In-UI help and tab tooltips** (`KJC-TSK-0372`, #628). New `?` button
+  in the header opens a modal explaining each of the five views. Every
+  nav tab carries a native `title` attribute for the standard hover
+  tooltip.
+
+### Fixed — pipeline reliability
+
+- **Session-level status zombi** (`KJC-BUG-0037`, #635). Several `runFlow`
+  exit paths returned `{approved: true}` upstream without sealing
+  `session.status`, leaving runs at `running` indefinitely. New boundary
+  guard `sealSessionStatusIfStillRunning` at the runFlow return points
+  maps the result shape to the terminal status (`approved` / `paused` /
+  `cancelled` / `failed`); idempotent + never-throws.
+- **`SonarStage` no longer loops on remoteless repos** (`KJC-TSK-0373`,
+  #624 + #633). The audit collector skipped Sonar cleanly when no git
+  remote was configured, but the run-loop SonarStage hit the same
+  scanner code path and threw `Missing git remote.origin.url` on every
+  iteration — Brain exhausted `max_iterations` and finalised via the
+  "approved-by-exhaustion" fallback without ever running Sonar. New
+  shared `canResolveSonarProjectKey` predicate skips the stage cleanly.
+- **`commitAll` race tolerance** (#633). Post-loop sometimes saw
+  `hasChanges()` return true after `git add -A` but `git commit` then
+  refused with locale-specific "nothing to commit" / "nada para hacer
+  commit". The thrown error escalated to Solomon and the journal writer
+  was skipped. `commitAll` now matches en/es/de/fr "nothing to commit"
+  and returns `{committed: false}` cleanly.
+- **HU branch fallback when `main` doesn't exist** (#636). `git init -q`
+  on a fresh `/tmp/...` repo with `init.defaultBranch=master` produced
+  7 identical "branch 'main' is not a commit" warnings during N6 plan
+  flow, and every HU silently fell back to the original branch. New
+  `resolveExistingBranchRef` probes the configured base, then `main`,
+  `master`, `HEAD`; uses the first ref that exists.
+- **`writeConfig` strips runtime-only keys** (`KJC-BUG-0036`, #629).
+  The loader synthesised `_deprecated.sonarqubeEnabledKey` and the
+  wizard used `sonarqube.enabled` as a transient hint, but
+  `writeConfig` serialised both — fossilising the deprecation warning
+  on disk. New `stripRuntimeOnlyKeys` removes both before serialisation.
+- **`addyosmani-catalog` recovers from upstream force-push**
+  (`KJC-BUG-0033`, #625). When the cached catalog's upstream rewrites
+  history, `git pull --ff-only` fails permanently. New fallback runs
+  `git fetch --depth 1 origin HEAD` + `git reset --hard FETCH_HEAD`.
+- **`kj init` no longer writes deprecated `sonarqube.enabled`**
+  (`KJC-BUG-0034`, #626). Wizard answer survived in memory as a hint
+  for `setupSonarQube`, but the persisted YAML now drops the key.
+
+### Fixed — UX / display
+
+- **Sonar `SKIPPED` renders gray, not red, in the result banner** (#634).
+  Pre-fix, every non-OK gateStatus painted red, so a clean run with a
+  legitimate `SKIPPED` looked like a failure. Three buckets now: `OK`
+  → green, `SKIPPED` / `PENDING` → gray, anything else → red.
+- **Result panel + summary list every commit the run produced**
+  (`KJC-TSK-0373` follow-up, #632). `gitResult.commits` only carried
+  the post-loop scaffold commit; the coder's commits had no journal
+  owner. New `listCommitsBetween(fromSha)` helper queries git directly.
+  New `session.head_at_start` field captures actual HEAD at run start
+  (separate from `base_ref` which can be the empty-tree SHA on
+  single-commit repos).
+- **Help text says `task` is REQUIRED** (#631). 8 commands (`kj run`,
+  `kj code`, `kj review`, `kj plan generate`, `kj triage`,
+  `kj researcher`, `kj architect`, `kj discover`) advertised the
+  positional as `[task]` (commander's "optional" syntax) but the
+  runtime requires either the positional or `--task-file`. Description
+  updated to "Task description (REQUIRED — provide as argument or via
+  --task-file)". `kj audit` is intentionally untouched.
+
+### Documentation
+
+- **`docs/dogfooding-levels.md`** (#630, #637). New 10-level test plan
+  reconstructed from the JSONL transcript after a context compaction.
+  Each level has a Histórico / Re-validado entry from the 2026-05-07
+  dogfooding pass.
+
 ## [2.10.2] - 2026-05-07
 
 Patch release. Pure UX improvement on `kj init`: the wizard goes from

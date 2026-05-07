@@ -23,7 +23,9 @@
 
 ---
 
-> **v2.10.2 released** — Patch release. `kj init` wizard expanded from 9 prompts to a full setup: per-role provider selection (10 roles, "inherit / pick CLI / disable"), automatic SonarQube token generation via REST API (no more web UI walkthrough), git automation flags (`auto_commit/push/pr`) and HU Board security (bind host + port). +16 new tests. Safe upgrade from 2.10.1.
+> **v2.11.0 released** — Dogfooding pass release. Two-day pass through a 10-level test plan surfaced and fixed a long tail of UX papercuts and three latent bugs that only show up on fresh `/tmp` repos: the `SonarStage` no longer loops on remoteless projects (was burning iterations until `max_iterations`-fallback-approval), the post-loop `commitAll` now tolerates the locale-specific "nothing to commit" race, the HU sub-pipeline branches off `master`/`HEAD` when the configured `main` doesn't exist, and `runFlow` now seals `session.status` at the boundary so `kj status` never shows zombi `running` runs again. Plus `hu-board` gains automatic ephemeral-project cleanup and an in-UI help modal for the five views. 14 PRs (#624–#637), 4452/4452 tests passing. Safe upgrade from 2.10.2.
+>
+> **v2.10.2** — Patch release. `kj init` wizard expanded from 9 prompts to a full setup: per-role provider selection (10 roles, "inherit / pick CLI / disable"), automatic SonarQube token generation via REST API (no more web UI walkthrough), git automation flags (`auto_commit/push/pr`) and HU Board security (bind host + port). +16 new tests. Safe upgrade from 2.10.1.
 >
 > **v2.10.1** — Patch release. One-line fix for a stdout contamination bug in `kj audit --agent-readiness --json` (the `[info]` banner was breaking downstream `jq` pipes), plus polish in the asciinema demo scripts. Safe upgrade from 2.10.0.
 >
