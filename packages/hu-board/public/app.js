@@ -2583,6 +2583,66 @@ function showError(message, opts = {}) {
 }
 
 /**
+ * Five-view quick reference modal (KJC-TSK-0372 — board polish #4).
+ *
+ * Triggered by the `?` button in the header. The native `title=`
+ * attributes on each tab cover the hover-1s tooltip case (browsers
+ * surface those automatically). This modal is the deeper "what does
+ * each view do" answer for users who arrive cold.
+ *
+ * Returns a promise that resolves when the user dismisses the modal.
+ */
+function showHelp() {
+  return new Promise((resolve) => {
+    const dlg = ensureDialog();
+    const sections = [
+      ['📋 Board',
+       'Kanban with every HU of the selected project, grouped by status (Pending → Certified → Done). Click a card to open its detail panel; cards highlight when blocked-by another HU.'],
+      ['🌐 Graph',
+       'Dependency graph of the selected project — who blocks whom. Useful before scheduling work to spot critical paths or orphan HUs.'],
+      ['📊 Dashboard',
+       'Per-project landing: stats grid (total / certified / done) + project list. Click a project card to focus the kanban / graph on that project.'],
+      ['📚 Sessions',
+       'Every kj run that has touched the board, newest first. Filter by project; click a session to inspect its iterations, commits and checkpoints.'],
+      ['⚙️ Pipeline',
+       'Live observability of pipeline runs (Karajan v2.7+): stage timings, agent calls, decision logs. Opens in a separate page since the data is per-run, not per-project.'],
+    ];
+    const sectionHtml = sections
+      .map(([title, body]) => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;color:var(--accent-purple);margin-bottom:4px">${esc(title)}</div>
+          <div style="font-size:0.85rem;line-height:1.5;color:var(--text-secondary)">${esc(body)}</div>
+        </div>`)
+      .join('');
+    dlg.innerHTML = `
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600">
+        HU Board — what does each view do?
+      </div>
+      <div style="padding:8px 18px 4px 18px">${sectionHtml}</div>
+      <div style="padding:10px 18px;border-top:1px solid var(--border);
+                  font-size:0.78rem;color:var(--text-muted)">
+        Tip: hover any tab in the header for ~1 second to see a one-line summary.
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);text-align:right">
+        <button id="app-dialog-close" class="control-btn"
+                style="padding:6px 16px;border:1px solid var(--border);
+                       background:var(--bg-primary);color:var(--text);
+                       border-radius:var(--radius-sm);cursor:pointer">
+          Close
+        </button>
+      </div>
+    `;
+    const done = () => {
+      if (dlg.open) dlg.close();
+      resolve();
+    };
+    dlg.addEventListener('close', done, { once: true });
+    dlg.querySelector('#app-dialog-close').addEventListener('click', done, { once: true });
+    dlg.showModal();
+  });
+}
+
+/**
  * Show a blocking confirm dialog. Resolves to true when the user clicks
  * the primary action, false otherwise (cancel / Esc / backdrop click).
  * @param {string} message
@@ -3054,6 +3114,13 @@ document.getElementById('sync-btn').addEventListener('click', async () => {
 // dropping to a terminal. Output streams to the existing log panel.
 document.getElementById('commands-btn').addEventListener('click', () => {
   showCommandLauncher();
+});
+
+// Help button — KJC-TSK-0372. Quick reference modal for the 5 views.
+// Hover tooltips on each tab cover the 1-line case; this modal is
+// for users who arrive cold and want "ok, what does each one do?".
+document.getElementById('help-btn').addEventListener('click', () => {
+  showHelp();
 });
 
 // PR5: Settings button — opens the kj.config.yml editor modal.

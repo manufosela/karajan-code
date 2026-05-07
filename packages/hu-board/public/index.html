@@ -20,15 +20,16 @@
       </div>
     </div>
     <nav class="header__nav">
-      <button class="nav-btn active" data-view="board">Board</button>
-      <button class="nav-btn" data-view="graph" title="Dependency graph of the selected project's HUs">Graph</button>
-      <button class="nav-btn" data-view="dashboard">Dashboard</button>
-      <button class="nav-btn" data-view="sessions">Sessions</button>
-      <a class="nav-btn" href="/pipeline.html" title="Pipeline observability view (v2.7)">Pipeline</a>
+      <button class="nav-btn active" data-view="board" title="Kanban board: every HU of the selected project, grouped by status (Pending → Certified → Done). Click an HU card to expand the detail panel.">Board</button>
+      <button class="nav-btn" data-view="graph" title="Dependency graph of the selected project's HUs — who blocks whom. Useful before scheduling work.">Graph</button>
+      <button class="nav-btn" data-view="dashboard" title="Per-project landing: stats grid + project list. Click a project card to focus the kanban / graph on that project.">Dashboard</button>
+      <button class="nav-btn" data-view="sessions" title="Every kj run that has touched the board, newest first. Filter by project; click a session to inspect its iterations, commits and checkpoints.">Sessions</button>
+      <a class="nav-btn" href="/pipeline.html" title="Live observability of pipeline runs (Karajan v2.7+): stage timings, agent calls, decision logs.">Pipeline</a>
       <select class="project-select" id="project-select">
         <option value="">All Projects</option>
       </select>
       <div class="header__controls">
+        <button class="control-btn" id="help-btn" title="What does each view do? Quick reference for Board / Graph / Dashboard / Sessions / Pipeline.">?</button>
         <button class="control-btn" id="config-btn" title="Configurar Karajan (modelos, agentes, tope de iteraciones, …)">⚙</button>
         <button class="control-btn" id="commands-btn" title="Launch a Karajan CLI command (kj plan, kj architect, kj clean…)">⚡</button>
         <button class="control-btn" id="restart-btn" title="Restart the HU Board server (preserves URL, the page reconnects automatically)">🔁</button>
