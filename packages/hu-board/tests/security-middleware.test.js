@@ -38,6 +38,27 @@ describe('security middleware — helmet headers', () => {
     expect(res.headers['content-security-policy']).toMatch(/default-src/);
   });
 
+  // Regression pin for the 2026-05-07 dogfooding bug: the original
+  // helmet config (PR #607) put `script-src-attr 'none'` by default,
+  // silently blocking every `onclick="..."` in app.js. Sessions cards
+  // became un-clickable. Without this directive, inline event handlers
+  // do not run.
+  it('allows inline event handlers (script-src-attr unsafe-inline)', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    const csp = res.headers['content-security-policy'] || '';
+    // script-src-attr must EXIST and must allow 'unsafe-inline'.
+    expect(csp).toMatch(/script-src-attr[^;]*'unsafe-inline'/);
+  });
+
+  // Google Fonts loaded from index.html — must be allowed by both
+  // style-src (the @import of CSS) and font-src (the woff2 files).
+  it('allows Google Fonts CSS (style-src) and font files (font-src)', async () => {
+    const res = await request(buildApp()).get('/api/ping');
+    const csp = res.headers['content-security-policy'] || '';
+    expect(csp).toMatch(/style-src[^;]*fonts\.googleapis\.com/);
+    expect(csp).toMatch(/font-src[^;]*fonts\.gstatic\.com/);
+  });
+
   it('removes the X-Powered-By: Express header', async () => {
     const res = await request(buildApp()).get('/api/ping');
     expect(res.headers['x-powered-by']).toBeUndefined();
