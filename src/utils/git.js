@@ -181,11 +181,43 @@ export async function listPendingPaths() {
   return out;
 }
 
+// Locale-tolerant detection of "git commit refused because the working
+// tree was already clean by the time we ran it". Observed in N4
+// dogfooding (2026-05-07) — `hasChanges()` reported true after `add -A`
+// but `git commit` then failed with the Spanish message "nada para hacer
+// commit, el árbol de trabajo está limpio". The race window is real:
+// post-loop journal writes can finish between hasChanges and commit, and
+// some files come back from `add -A` with no diff vs HEAD even though
+// they show up in `git status --porcelain`. We treat any of those as
+// "no commit needed" rather than escalating to Solomon.
+const NOTHING_TO_COMMIT_PATTERNS = [
+  /nothing to commit/i,
+  /nada para hacer commit/i,         // git in es_ES locale
+  /no hay nada para confirmar/i,     // git in es_ES alt phrasing
+  /aucune modification ajout[ée]e au commit/i, // fr_FR
+  /nichts zu committen/i,            // de_DE
+];
+function isNothingToCommit(message) {
+  const m = String(message || "");
+  return NOTHING_TO_COMMIT_PATTERNS.some((re) => re.test(m));
+}
+
 export async function commitAll(message) {
   await runGit(["add", "-A"]);
   const changed = await hasChanges();
   if (!changed) return { committed: false };
-  await runGit(["commit", "-m", message]);
+  try {
+    await runGit(["commit", "-m", message]);
+  } catch (err) {
+    // `git status --porcelain` and `git commit` disagreed about whether
+    // there was anything to commit. Don't escalate — the only outcome
+    // either way is "no new commit was created", which the caller
+    // already handles via committed=false.
+    if (isNothingToCommit(err?.message)) {
+      return { committed: false };
+    }
+    throw err;
+  }
   const raw = await runGit(["log", "-1", "--pretty=format:%H%x1f%s"]);
   const [hash, commitMessage] = raw.split("\x1f");
   return { committed: true, commit: { hash, message: commitMessage } };

@@ -5,7 +5,7 @@ vi.mock("../src/utils/process.js", () => ({
 }));
 
 const { runCommand } = await import("../src/utils/process.js");
-const { resolveSonarProjectKey } = await import("../src/sonar/project-key.js");
+const { resolveSonarProjectKey, canResolveSonarProjectKey } = await import("../src/sonar/project-key.js");
 
 describe("[opt-in: sonar] resolveSonarProjectKey", () => {
   beforeEach(() => {
@@ -116,5 +116,69 @@ describe("[opt-in: sonar] resolveSonarProjectKey", () => {
     await expect(resolveSonarProjectKey(config)).rejects.toThrow(
       "Unable to parse git remote.origin.url. Use a valid SSH/HTTPS remote or set sonarqube.project_key explicitly."
     );
+  });
+});
+
+// =====================================================================
+// canResolveSonarProjectKey — non-throwing predicate used by callers
+// (run-loop SonarStage, audit collector) that want to skip Sonar
+// cleanly instead of letting the scanner throw "Missing git remote".
+// 2026-05-07 dogfooding: N4 hit this on a fresh /tmp/... repo with no
+// remote — the SonarStage threw repeatedly until max_iterations and the
+// run finalised as "approved" by exhaustion fallback.
+// =====================================================================
+describe("[opt-in: sonar] canResolveSonarProjectKey (KJC-TSK-0373 / N4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.KJ_SONAR_PROJECT_KEY;
+  });
+
+  it("returns true when an explicit projectKey option is passed", async () => {
+    expect(await canResolveSonarProjectKey({ sonarqube: {} }, { projectKey: "kj-explicit" })).toBe(true);
+    // git probe must NOT be invoked when an explicit key short-circuits.
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("returns true when KJ_SONAR_PROJECT_KEY env is set", async () => {
+    process.env.KJ_SONAR_PROJECT_KEY = "env-key";
+    expect(await canResolveSonarProjectKey({ sonarqube: {} })).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("returns true when sonarqube.project_key is set in config", async () => {
+    expect(await canResolveSonarProjectKey({ sonarqube: { project_key: "config-key" } })).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+  });
+
+  it("returns true when git remote.origin.url is present", async () => {
+    runCommand.mockResolvedValue({
+      exitCode: 0,
+      stdout: "git@github.com:owner/repo.git\n",
+      stderr: "",
+    });
+    expect(await canResolveSonarProjectKey({ sonarqube: {} })).toBe(true);
+  });
+
+  it("returns false when no explicit key AND no git remote", async () => {
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
+    expect(await canResolveSonarProjectKey({ sonarqube: {} })).toBe(false);
+  });
+
+  it("returns false when git probe throws (defensive — keep run-loop alive)", async () => {
+    runCommand.mockRejectedValue(new Error("git binary missing"));
+    expect(await canResolveSonarProjectKey({ sonarqube: {} })).toBe(false);
+  });
+
+  it("treats whitespace-only env var as 'not set' and falls back to git probe", async () => {
+    process.env.KJ_SONAR_PROJECT_KEY = "   ";
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
+    expect(await canResolveSonarProjectKey({ sonarqube: {} })).toBe(false);
+    expect(runCommand).toHaveBeenCalled();
+  });
+
+  it("treats whitespace-only config project_key as 'not set'", async () => {
+    runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "" });
+    expect(await canResolveSonarProjectKey({ sonarqube: { project_key: "  " } })).toBe(false);
+    expect(runCommand).toHaveBeenCalled();
   });
 });
