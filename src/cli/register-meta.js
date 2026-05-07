@@ -24,7 +24,7 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("discover")
     .description("Analyze task for gaps, ambiguities and missing info")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--mode <name>", "Discovery mode: gaps|momtest|wendel|classify|jtbd", "gaps")
     .option("--discover <name>", "Override discover agent")
@@ -41,7 +41,7 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("triage")
     .description("Classify task complexity and recommend pipeline roles")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--triage <name>", "Override triage agent")
     .option("--triage-model <name>", "Override triage model")
@@ -57,7 +57,7 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("researcher")
     .description("Research codebase for a task (files, patterns, constraints)")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--researcher <name>", "Override researcher agent")
     .option("--researcher-model <name>", "Override researcher model")
@@ -72,7 +72,7 @@ export function registerMeta(program, { pkgVersion }) {
   program
     .command("architect")
     .description("Design solution architecture (layers, patterns, contracts)")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--architect <name>", "Override architect agent")
     .option("--architect-model <name>", "Override architect model")

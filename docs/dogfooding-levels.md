@@ -70,9 +70,10 @@ cd ~/ws_npm-packages/karajan-code
 kj researcher "¿Dónde decide Brain entre Solomon y fallback?"
 # ⇒ summary con paths concretos
 
-# Reviewer sobre cambios actuales (si los hay) o vs main
-kj review --base-ref main
-# ⇒ findings o "nothing to review"
+# Reviewer sobre cambios actuales vs main (REQUIERE un task — lo positional o --task-file)
+kj review --base-ref main "Verifica que los cambios mantienen los contratos del módulo afectado"
+# ⇒ JSON con approved / blocking_issues / non_blocking_suggestions / confidence.
+# Si la rama coincide con main (diff vacío), el reviewer responde "no diff in request" y aprueba — esto es lo esperado.
 
 # Audit deterministic — zero tokens, full pipeline excepto LLM
 kj audit --deterministic-only
@@ -87,6 +88,13 @@ kj audit --deterministic-only
 **Stop si** algún rol crashea — no subir hasta arreglar.
 
 Histórico 2026-05-07: ✅ Verde. Triage 7.2 s, Researcher 90.9 s. Sonar 401 token expirado y MCP-CLI parity bug observados (3 issues operacionales que ya están en backlog/arreglados).
+
+Re-validado 2026-05-07 (post-fixes hygiene + writeConfig): ✅ Verde.
+- Triage `simple/sw/[reviewer,tester]` en 13.7 s.
+- Researcher 94.7 s (10 affected_files, 7 patterns, 6 constraints, 6 risks).
+- Review `--base-ref main` con task arg en 18.9 s — devuelve approved con "no diff in request" (esperado: rama sincronizada con main).
+- Audit deterministic 3.7 s — 304 sonar issues, 4 unused deps, 4 dead exports, +6680 LOC desde 2026-05-04.
+- Hallazgo cosmético resuelto: el help de `kj review/run/code/plan generate/discover/triage/researcher/architect` decía `[task]` (opcional) sin reflejar el requerimiento "task O --task-file". Aclarado en PR (texto "Task description (REQUIRED — provide as argument or via --task-file)").
 
 ---
 

@@ -40,7 +40,7 @@ export function registerPipeline(program, { pkgVersion }) {
   program
     .command("run")
     .description("Run coder+sonar+reviewer loop")
-    .argument("[task]", "Task description (or use --task-file to read from a .md file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md). Alternative to the positional task argument.")
     .option("-y, --yes", "Skip the cwd confirmation prompt (CI / scripted runs).")
     .option("--planner <name>")
@@ -135,7 +135,7 @@ export function registerPipeline(program, { pkgVersion }) {
   program
     .command("code")
     .description("Run only coder")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--coder <name>")
     .option("--coder-model <name>")
@@ -150,7 +150,7 @@ export function registerPipeline(program, { pkgVersion }) {
   program
     .command("review")
     .description("Run only reviewer")
-    .argument("[task]", "Task description (or use --task-file)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--reviewer <name>")
     .option("--reviewer-model <name>")
