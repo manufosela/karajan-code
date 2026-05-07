@@ -465,15 +465,18 @@ describe("askBoardSecurity (KJC-TSK-0367)", () => {
 });
 
 // =====================================================================
-// KJC-BUG-0034 / N3-3 — writeInitConfig must NOT persist the deprecated
-// `sonarqube.enabled` key, which was removed from the runtime in v2.7.4.
-// The wizard still uses it as an in-memory hint to drive
-// setupSonarQube(), but it must be stripped before serialization or
-// every fresh `kj run` after `kj init` would emit the
-// "DEPRECATED: sonarqube.enabled is ignored since v2.7.4" warning
-// (the user hit this on 2026-05-07).
+// KJC-BUG-0034 / KJC-BUG-0036 — `writeInitConfig` is now a thin alias
+// for `writeConfig`. The actual stripping of runtime-only keys
+// (sonarqube.enabled + the loader-synthesised `_deprecated` block)
+// lives inside `writeConfig` so EVERY caller benefits, not just init.
+// The end-to-end strip behaviour is exercised in
+// tests/config-loader-strip.test.js against the real writer.
+//
+// This block stays here as a contract-level test: writeInitConfig must
+// delegate to writeConfig with the same arguments, and must NOT mutate
+// the caller's config object.
 // =====================================================================
-describe("writeInitConfig — strips deprecated sonarqube.enabled (KJC-BUG-0034)", () => {
+describe("writeInitConfig — delegates to writeConfig (KJC-BUG-0034 / 0036)", () => {
   let writeInitConfig;
   let writeConfig;
 
@@ -483,41 +486,20 @@ describe("writeInitConfig — strips deprecated sonarqube.enabled (KJC-BUG-0034)
     ({ writeInitConfig } = await import("../src/commands/init.js"));
   });
 
-  it("removes sonarqube.enabled before delegating to writeConfig", async () => {
+  it("forwards path + config to writeConfig untouched", async () => {
     const config = {
       coder: "claude",
       sonarqube: { enabled: true, host: "http://localhost:9000", token: "abc" },
     };
     await writeInitConfig("/tmp/kj.config.yml", config);
-    const persisted = writeConfig.mock.calls[0][1];
-    expect(persisted.sonarqube).toBeDefined();
-    expect("enabled" in persisted.sonarqube).toBe(false);
-    // Sister keys MUST survive — only the deprecated one is dropped.
-    expect(persisted.sonarqube.host).toBe("http://localhost:9000");
-    expect(persisted.sonarqube.token).toBe("abc");
+    expect(writeConfig).toHaveBeenCalledTimes(1);
+    expect(writeConfig).toHaveBeenCalledWith("/tmp/kj.config.yml", config);
   });
 
   it("does not mutate the caller's config object (purity)", async () => {
     const config = { sonarqube: { enabled: false, host: "http://localhost:9000" } };
     await writeInitConfig("/tmp/kj.config.yml", config);
-    // Caller still sees the in-memory hint.
     expect(config.sonarqube.enabled).toBe(false);
-  });
-
-  it("is a no-op when sonarqube.enabled is already absent", async () => {
-    const config = { coder: "claude", sonarqube: { host: "http://localhost:9000" } };
-    await writeInitConfig("/tmp/kj.config.yml", config);
-    const persisted = writeConfig.mock.calls[0][1];
-    expect(persisted.sonarqube.host).toBe("http://localhost:9000");
-    // Same reference is fine here — nothing had to change.
-    expect("enabled" in persisted.sonarqube).toBe(false);
-  });
-
-  it("survives a config without a sonarqube block", async () => {
-    const config = { coder: "claude" };
-    await writeInitConfig("/tmp/kj.config.yml", config);
-    const persisted = writeConfig.mock.calls[0][1];
-    expect(persisted.coder).toBe("claude");
-    expect(persisted.sonarqube).toBeUndefined();
+    expect(config.sonarqube.host).toBe("http://localhost:9000");
   });
 });

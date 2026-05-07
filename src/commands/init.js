@@ -278,34 +278,19 @@ async function runWizard(config, logger) {
 }
 
 /**
- * Persist the wizard's choices to disk WITHOUT serializing the
- * `sonarqube.enabled` key. That key was deprecated in v2.7.4 (sonar
- * is intrinsic to code-task pipelines and skipped for non-code by
- * policy). The wizard still uses it as an in-memory flag during
- * `init` to drive `setupSonarQube` (whether to bring up the
- * container right now), but persisting it to kj.config.yml causes a
- * "DEPRECATED: sonarqube.enabled is ignored since v2.7.4" warning
- * on every `kj run` afterwards — KJC-BUG-0034 / N3-3, observed in
- * dogfooding 2026-05-07.
+ * Backwards-compatible alias for `writeConfig`. Pre-KJC-BUG-0036 this
+ * wrapper was the *only* writer that stripped `sonarqube.enabled`
+ * before serialising — we needed it because the global `writeConfig`
+ * would happily persist the wizard's transient hint. KJC-BUG-0036
+ * moved that strip (and the equivalent `_deprecated` strip) into
+ * `writeConfig` itself, so this is now a thin alias kept around to
+ * keep callers and tests stable. Prefer `writeConfig` in new code.
  *
  * @param {string} configPath
  * @param {object} config
  */
 export async function writeInitConfig(configPath, config) {
-  const out = stripDeprecatedSonarEnabled(config);
-  await writeConfig(configPath, out);
-}
-
-function stripDeprecatedSonarEnabled(config) {
-  if (!config?.sonarqube || !Object.prototype.hasOwnProperty.call(config.sonarqube, "enabled")) {
-    return config;
-  }
-  // Shallow copy + drop `enabled`. Other sonar fields (host, token,
-  // container_name, timeouts, …) MUST survive — they are still
-  // honoured by the runtime.
-  const { enabled: _drop, ...rest } = config.sonarqube;
-  void _drop;
-  return { ...config, sonarqube: rest };
+  await writeConfig(configPath, config);
 }
 
 async function handleConfigSetup({ config, configExists, interactive, configPath, logger }) {
