@@ -26,9 +26,19 @@ function printSessionPlanner(planner) {
   }
 }
 
-function printSessionSonar(sonar) {
+export function printSessionSonar(sonar) {
   if (!sonar) return;
-  const gateLabel = sonar.gateStatus === "OK" ? ANSI.green : ANSI.red;
+  // Three buckets so the banner reads correctly:
+  //   - OK                                 \u2192 green (real pass).
+  //   - SKIPPED / PENDING                  \u2192 gray (informational; sonar
+  //     wasn't gated against, this is NOT a fail). Pre-2026-05-07 N4
+  //     dogfooding these were rendered red, which made a clean run
+  //     look like a sonar failure during the live demo.
+  //   - everything else (ERROR, WARN, ...) \u2192 red (real fail).
+  let gateLabel;
+  if (sonar.gateStatus === "OK") gateLabel = ANSI.green;
+  else if (sonar.gateStatus === "SKIPPED" || sonar.gateStatus === "PENDING") gateLabel = ANSI.gray;
+  else gateLabel = ANSI.red;
   console.log(`  ${ANSI.dim}\ud83d\udd0d Sonar: ${gateLabel}${sonar.gateStatus}${ANSI.reset}${ANSI.dim} (${sonar.openIssues ?? 0} issues)${ANSI.reset}`);
   if (typeof sonar.issuesInitial === "number" || typeof sonar.issuesResolved === "number") {
     const issuesInitial = sonar.issuesInitial ?? sonar.openIssues ?? 0;
