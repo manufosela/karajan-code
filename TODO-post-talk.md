@@ -210,6 +210,39 @@ de versión en `README.md` línea 26 y `docs/GETTING-STARTED.md` con
 
 ---
 
+## Bug menor del wizard expandido (post v2.10.2)
+
+### Sonar admin password rotation falla silenciosamente
+
+**Ficheros**: `src/sonar/token-bootstrap.js:101–127`.
+
+**Problema**: tras lanzar `kj init` reconfigure el 2026-05-07, el token
+se generó correctamente (`~/.karajan/sonar.token` mode 0600, 44 bytes,
+y `kj audit --deterministic-only` ya consume issues reales en lugar
+de devolver 401). Pero la rotación de la password admin NO ocurrió:
+**no existe `~/.karajan/sonar.admin-password`**. Eso significa que
+`admin/admin` sigue funcionando en el Sonar local.
+
+Causa probable: el `change_password` devuelve un status que mi código
+trata como "non-fatal — probably the admin already changed the password"
+y sigue silenciosamente con admin/admin. Cuando luego `revoke` y
+`generate` funcionan (admin/admin SÍ es la pass actual), el resultado
+es éxito visible (token guardado) pero rotación silenciosamente
+saltada.
+
+**Fix sugerido (XS)**: en el `else if (change.status !== 0 && change.status !== 401)`
+branch, loggear warning con el status y body recibidos para que el
+usuario sepa que la rotación se saltó. Y considerar reintentar con
+detalle. Alternativa: si la rotación falla pero admin/admin sigue
+funcionando para revoke+generate, persistir la default `admin` como
+"current admin pass" en `sonar-credentials.json` para que futuros
+runs sepan que la pass sigue siendo default.
+
+**Demo**: NO afecta — Sonar es local, loopback, contenedor del
+usuario. Riesgo de seguridad nulo durante la charla.
+
+---
+
 ## UX — wizard de instalación incompleto (KJC-TSK-0367)
 
 ### `kj init` solo cubre el 30% de la configuración necesaria
