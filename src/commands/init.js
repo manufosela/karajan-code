@@ -277,6 +277,37 @@ async function runWizard(config, logger) {
   return config;
 }
 
+/**
+ * Persist the wizard's choices to disk WITHOUT serializing the
+ * `sonarqube.enabled` key. That key was deprecated in v2.7.4 (sonar
+ * is intrinsic to code-task pipelines and skipped for non-code by
+ * policy). The wizard still uses it as an in-memory flag during
+ * `init` to drive `setupSonarQube` (whether to bring up the
+ * container right now), but persisting it to kj.config.yml causes a
+ * "DEPRECATED: sonarqube.enabled is ignored since v2.7.4" warning
+ * on every `kj run` afterwards — KJC-BUG-0034 / N3-3, observed in
+ * dogfooding 2026-05-07.
+ *
+ * @param {string} configPath
+ * @param {object} config
+ */
+export async function writeInitConfig(configPath, config) {
+  const out = stripDeprecatedSonarEnabled(config);
+  await writeConfig(configPath, out);
+}
+
+function stripDeprecatedSonarEnabled(config) {
+  if (!config?.sonarqube || !Object.prototype.hasOwnProperty.call(config.sonarqube, "enabled")) {
+    return config;
+  }
+  // Shallow copy + drop `enabled`. Other sonar fields (host, token,
+  // container_name, timeouts, …) MUST survive — they are still
+  // honoured by the runtime.
+  const { enabled: _drop, ...rest } = config.sonarqube;
+  void _drop;
+  return { ...config, sonarqube: rest };
+}
+
 async function handleConfigSetup({ config, configExists, interactive, configPath, logger }) {
   if (configExists && interactive) {
     const wizard = createWizard();
@@ -284,7 +315,7 @@ async function handleConfigSetup({ config, configExists, interactive, configPath
       const reconfigure = await wizard.confirm("Config already exists. Reconfigure?", false);
       if (reconfigure) {
         const updated = await runWizard(config, logger);
-        await writeConfig(configPath, updated);
+        await writeInitConfig(configPath, updated);
         logger.info(`Updated ${configPath}`);
       } else {
         logger.info("Keeping existing config.");
@@ -294,10 +325,10 @@ async function handleConfigSetup({ config, configExists, interactive, configPath
     }
   } else if (!configExists && interactive) {
     const updated = await runWizard(config, logger);
-    await writeConfig(configPath, updated);
+    await writeInitConfig(configPath, updated);
     logger.info(`Created ${configPath}`);
   } else if (!configExists) {
-    await writeConfig(configPath, config);
+    await writeInitConfig(configPath, config);
     logger.info(`Created ${configPath}`);
   }
 }
@@ -561,7 +592,7 @@ export async function initCommand({ logger, flags = {} }) {
       config.development.methodology = config.development.methodology || "tdd";
     }
 
-    await writeConfig(configPath, config);
+    await writeInitConfig(configPath, config);
   } else {
     logger.info("No project stack detected — using default configuration.");
   }
@@ -582,7 +613,10 @@ export async function initCommand({ logger, flags = {} }) {
   await scaffoldCiGateway(config, flags, logger);
 
   // Persist any changes setupSonarQube made (token, etc.) back to disk.
-  await writeConfig(configPath, config);
+  // Use writeInitConfig so the deprecated `sonarqube.enabled` key —
+  // which setupSonarQube still mutates as an in-memory hint — never
+  // reaches the YAML file.
+  await writeInitConfig(configPath, config);
 
   // Telemetry: anonymous install event (non-blocking)
   const { sendTelemetryEvent } = await import("../utils/telemetry.js");
