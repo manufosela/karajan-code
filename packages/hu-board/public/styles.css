@@ -544,6 +544,30 @@ a:hover {
   color: var(--accent-purple);
 }
 
+/* Human-readable session title (project + HH:MM) — replaces the
+   cryptic id as the card's primary header. The id stays available
+   as `idChip` at the bottom of the card for kj resume <id>. */
+.session-card__title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.session-card__id-chip {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  word-break: break-all;
+}
+
+.modal__subtitle {
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
 .session-card__status {
   font-size: 0.75rem;
   font-weight: 500;

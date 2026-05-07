@@ -83,11 +83,19 @@ export function buildSecurityMiddleware() {
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          // Allow inline scripts & styles for the existing dashboard UI.
-          // Tightening this is a follow-up: the UI would need to move
-          // inline handlers and styles to external files first.
+          // Allow inline scripts, styles AND inline event handlers
+          // (onclick="..."). Helmet's default puts `script-src-attr
+          // 'none'` which silently blocks every onclick in app.js —
+          // detected during the 2026-05-07 dogfooding session when
+          // `kj board` Sessions cards became un-clickable.
+          //
+          // Tightening this is a follow-up: app.js would need to
+          // migrate every inline handler to addEventListener.
           "script-src": ["'self'", "'unsafe-inline'"],
-          "style-src": ["'self'", "'unsafe-inline'"],
+          "script-src-attr": ["'unsafe-inline'"],
+          // Google Fonts (CSS + woff2) used by index.html.
+          "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
           "img-src": ["'self'", "data:"],
         },
       },

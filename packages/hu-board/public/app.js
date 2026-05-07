@@ -35,6 +35,59 @@ let selectedProject = scopedProjectSlug || '';
 /** @type {number | null} Auto-refresh interval ID */
 let refreshInterval = null;
 
+// ---- Format helpers (KEEP IN SYNC with packages/hu-board/src/format.js) ----
+//
+// Browsers don't share Node's module loader and `app.js` is a classic
+// (non-module) <script>, so the helpers below are duplicated inline.
+// The source of truth for tests lives at packages/hu-board/src/format.js;
+// any change to one MUST be made to the other. Tests in
+// packages/hu-board/tests/format.test.js pin the contract.
+
+/** Format an ISO 8601 timestamp as HH:MM (24h, server-local). Falls back to "—". */
+function formatHHMM(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** Truncate a task description to <=max chars, ellipsis when truncated. */
+function shortTask(text, max = 60) {
+  if (!text) return "";
+  const collapsed = String(text).replace(/\s+/g, " ").trim();
+  if (collapsed.length <= max) return collapsed;
+  return collapsed.slice(0, max - 1).trimEnd() + "…";
+}
+
+/**
+ * Build the human-readable label tuple used by the Sessions view.
+ * Replaces the cryptic `s_2026-05-07T08-35-58-010Z` rendered before
+ * KJC fix on 2026-05-07. The id is preserved as `idChip` so the user
+ * can still grab it for `kj resume <id>`.
+ *
+ * @returns {{ title: string, subtitle: string, idChip: string }}
+ */
+function formatSessionLabel(session) {
+  if (!session || !session.id) {
+    return { title: "(no session)", subtitle: "", idChip: "" };
+  }
+  const projectName = (session.project_name || "").trim();
+  const time = formatHHMM(session.created_at);
+  const projectPart = projectName
+    ? projectName.length > 40
+      ? projectName.slice(0, 39) + "…"
+      : projectName
+    : session.id;
+  const title = time !== "—" ? `${projectPart} · ${time}` : projectPart;
+  return {
+    title,
+    subtitle: shortTask(session.task, 60),
+    idChip: session.id,
+  };
+}
+
 // ---- API Layer ----
 
 /**
@@ -1014,20 +1067,22 @@ async function renderSessions() {
  */
 function renderSessionCard(session) {
   const stages = session.stages_completed ? JSON.parse(session.stages_completed) : [];
+  const label = formatSessionLabel(session);
 
   return `
     <div class="session-card" onclick="showSessionDetail('${esc(session.id)}')">
       <div class="session-card__header">
-        <span class="session-card__id">${esc(session.id)}</span>
+        <span class="session-card__title" title="${esc(session.id)}">${esc(label.title)}</span>
         <span class="session-card__status session-status--${session.status || 'unknown'}">${esc(session.status || 'unknown')}</span>
       </div>
-      <div class="session-card__task">${esc(truncate(session.task, 150))}</div>
+      ${label.subtitle ? `<div class="session-card__task">${esc(label.subtitle)}</div>` : ''}
       <div class="session-card__meta">
         <span>Iterations: ${session.iterations || 0}</span>
         <span>Duration: ${formatDuration(session.duration_ms)}</span>
         <span>Stages: ${stages.join(', ') || '--'}</span>
         <span>${timeAgo(session.created_at)}</span>
       </div>
+      <div class="session-card__id-chip" title="Session ID — use with kj resume &lt;id&gt;">${esc(label.idChip)}</div>
     </div>
   `;
 }
@@ -2327,10 +2382,12 @@ async function showSessionDetail(sessionId) {
     const budget = session.budget || {};
     const startTime = session.created_at ? new Date(session.created_at).getTime() : 0;
 
+    const __label = formatSessionLabel(session);
     content.innerHTML = `
       <div class="modal__header">
         <div>
-          <div class="modal__title">${esc(session.id)}</div>
+          <div class="modal__title">${esc(__label.title)}</div>
+          <div class="modal__subtitle session-card__id-chip" title="Use with kj resume &lt;id&gt;">${esc(session.id)}</div>
           <span class="session-card__status session-status--${session.status}">${esc(session.status)}</span>
         </div>
         <button class="modal__close" onclick="closeModal()">&times;</button>
