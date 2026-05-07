@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { commitMessageFromTask, buildPrBody } from "../src/git/automation.js";
+import {
+  commitMessageFromTask,
+  buildPrBody,
+  pendingPathsAreOnlyKarajanScaffold,
+  buildFinalizeCommitMessage,
+} from "../src/git/automation.js";
 
 describe("commitMessageFromTask", () => {
   it("generates feat: prefix with truncated task", () => {
@@ -22,6 +27,100 @@ describe("commitMessageFromTask", () => {
     expect(commitMessageFromTask("")).toBe("feat: karajan update");
     expect(commitMessageFromTask(null)).toBe("feat: karajan update");
     expect(commitMessageFromTask(undefined)).toBe("feat: karajan update");
+  });
+
+  // KJC fix(double-commit) — N3-1
+  it.each([
+    ["doc",       "docs"],
+    ["add-tests", "test"],
+    ["refactor",  "refactor"],
+    ["infra",     "chore"],
+    ["sw",        "feat"],
+  ])("maps taskType '%s' to '%s:' prefix", (taskType, prefix) => {
+    expect(commitMessageFromTask("My task", taskType)).toBe(`${prefix}: My task`);
+  });
+
+  it("falls back to 'feat:' when taskType is null/unknown", () => {
+    expect(commitMessageFromTask("My task", null)).toBe("feat: My task");
+    expect(commitMessageFromTask("My task", "garbage")).toBe("feat: My task");
+  });
+});
+
+describe("pendingPathsAreOnlyKarajanScaffold (KJC fix N3-1)", () => {
+  it("returns false on an empty array", () => {
+    expect(pendingPathsAreOnlyKarajanScaffold([])).toBe(false);
+  });
+
+  it("returns true when every path is a Karajan internal", () => {
+    expect(pendingPathsAreOnlyKarajanScaffold([".gitignore"])).toBe(true);
+    expect(pendingPathsAreOnlyKarajanScaffold([".karajan/coder-rules.md"])).toBe(true);
+    expect(pendingPathsAreOnlyKarajanScaffold([".reviews/s_2026/summary.md"])).toBe(true);
+    expect(pendingPathsAreOnlyKarajanScaffold([
+      ".gitignore",
+      ".karajan/roles/coder.md",
+      ".reviews/s_xx/summary.md",
+    ])).toBe(true);
+  });
+
+  it("returns false when ANY path is project code", () => {
+    expect(pendingPathsAreOnlyKarajanScaffold([".gitignore", "src/index.js"])).toBe(false);
+    expect(pendingPathsAreOnlyKarajanScaffold(["package.json"])).toBe(false);
+    expect(pendingPathsAreOnlyKarajanScaffold(["src/foo.js", "tests/foo.test.js"])).toBe(false);
+  });
+
+  it("does not match a project file that happens to start with .karajan-something", () => {
+    // Prefix check is `.karajan/` (with trailing slash) precisely so a
+    // sibling like `.karajan-config.yml` is treated as project code.
+    expect(pendingPathsAreOnlyKarajanScaffold([".karajan-config.yml"])).toBe(false);
+  });
+});
+
+describe("buildFinalizeCommitMessage (KJC fix N3-1)", () => {
+  it("returns 'chore: scaffold karajan workspace' when only Karajan internals are pending", () => {
+    const msg = buildFinalizeCommitMessage({
+      task: "Add a JSDoc comment to index.js",
+      taskType: "doc",
+      pendingPaths: [".gitignore", ".karajan/roles/coder.md"],
+    });
+    expect(msg).toBe("chore: scaffold karajan workspace");
+  });
+
+  it("uses task-driven message when project files are pending", () => {
+    const msg = buildFinalizeCommitMessage({
+      task: "Add a JSDoc comment to index.js",
+      taskType: "doc",
+      pendingPaths: ["index.js"],
+    });
+    expect(msg).toBe("docs: Add a JSDoc comment to index.js");
+  });
+
+  it("respects taskType prefix in mixed pending paths (project file present)", () => {
+    const msg = buildFinalizeCommitMessage({
+      task: "Refactor auth",
+      taskType: "refactor",
+      pendingPaths: [".gitignore", "src/auth.js"],
+    });
+    expect(msg).toBe("refactor: Refactor auth");
+  });
+
+  it("falls back to feat: when taskType is missing and project files are pending", () => {
+    const msg = buildFinalizeCommitMessage({
+      task: "Build it",
+      taskType: null,
+      pendingPaths: ["src/index.js"],
+    });
+    expect(msg).toBe("feat: Build it");
+  });
+
+  it("uses task-driven message when pendingPaths is undefined or empty", () => {
+    // Defensive: if we couldn't list pending paths, behave like
+    // before this fix (don't accidentally call every commit "scaffold").
+    expect(
+      buildFinalizeCommitMessage({ task: "Foo", taskType: "doc", pendingPaths: [] }),
+    ).toBe("docs: Foo");
+    expect(
+      buildFinalizeCommitMessage({ task: "Foo", taskType: "doc", pendingPaths: undefined }),
+    ).toBe("docs: Foo");
   });
 });
 

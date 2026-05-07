@@ -109,6 +109,42 @@ export async function hasChanges() {
   return status.length > 0;
 }
 
+/**
+ * Return the relative paths of every uncommitted change (modified,
+ * untracked, staged, etc.) in the working tree. Each path is the
+ * filename as `git status --porcelain` reports it (after the 2-char
+ * status code + space). Returns an empty array when the tree is clean.
+ *
+ * Used by `finalizeGitAutomation` to decide whether the changes
+ * pending at the end of a pipeline are exclusively Karajan
+ * scaffolding (and thus deserve a `chore:` commit message instead
+ * of inheriting the user task's `feat:`).
+ *
+ * NOTE: bypasses `runGit()` because that helper trims stdout, which
+ * eats the leading space of porcelain lines whose first status char
+ * is " " (e.g. " M .gitignore" → "M .gitignore"). The leading space
+ * is structural here — without it the slice(3) below would crop one
+ * character off the first path.
+ */
+export async function listPendingPaths() {
+  const res = await run("git", ["status", "--porcelain"]);
+  if (res.exitCode !== 0) {
+    throw new Error(`git status --porcelain failed: ${res.stderr || res.stdout}`);
+  }
+  const stdout = res.stdout;
+  if (!stdout) return [];
+  const lines = stdout.split("\n").map((l) => l.replace(/\r$/, "")).filter(Boolean);
+  const out = [];
+  for (const line of lines) {
+    // Each line is "XY <path>" (XY = 2-char status, space, path).
+    // Renames look like "R  old -> new"; we want the new path.
+    const after = line.slice(3);
+    const arrow = after.indexOf(" -> ");
+    out.push(arrow !== -1 ? after.slice(arrow + 4) : after);
+  }
+  return out;
+}
+
 export async function commitAll(message) {
   await runGit(["add", "-A"]);
   const changed = await hasChanges();

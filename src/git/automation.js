@@ -15,14 +15,88 @@ import {
   buildBranchName,
   commitAll,
   pushBranch,
-  createPullRequest
+  createPullRequest,
+  listPendingPaths
 } from "../utils/git.js";
 
-export function commitMessageFromTask(task) {
+/**
+ * Karajan writes / updates several internal directories during a pipeline
+ * run (the workspace scaffold + the session journal). When they're the
+ * ONLY thing pending at finalization, the post-loop commit shouldn't
+ * inherit the user task's `feat:` message — it should be a clear
+ * `chore: scaffold karajan workspace` so `git log --oneline` reads:
+ *
+ *     2d770aa  docs: add JSDoc comment to index.js
+ *     abc1234  chore: scaffold karajan workspace
+ *     8a95ef0  initial
+ *
+ * A path counts as scaffolding when it lives at one of these prefixes
+ * OR is the project's root `.gitignore` (we extend it to include
+ * stack-specific entries during triage).
+ */
+const KARAJAN_SCAFFOLD_PREFIXES = [
+  ".karajan/",
+  ".reviews/",
+  ".kj/",
+  ".agent/",
+];
+
+function isKarajanScaffoldPath(p) {
+  if (p === ".gitignore") return true;
+  return KARAJAN_SCAFFOLD_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
+
+/**
+ * @param {string[]} paths
+ * @returns {boolean} true when every pending path is a Karajan internal
+ */
+export function pendingPathsAreOnlyKarajanScaffold(paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return false;
+  return paths.every(isKarajanScaffoldPath);
+}
+
+/**
+ * Map the taskType (as classified by triage) to the matching
+ * Conventional Commits prefix. When triage hasn't run or the type is
+ * unknown we default to `feat:` (the pre-fix behaviour).
+ */
+const TASK_TYPE_TO_PREFIX = {
+  doc: "docs",
+  "add-tests": "test",
+  refactor: "refactor",
+  infra: "chore",
+  sw: "feat",
+};
+
+function prefixForTaskType(taskType) {
+  return TASK_TYPE_TO_PREFIX[taskType] || "feat";
+}
+
+export function commitMessageFromTask(task, taskType = null) {
   const clean = String(task || "")
     .replaceAll(/\s+/g, " ")
     .trim();
-  return `feat: ${clean.slice(0, 72) || "karajan update"}`;
+  const prefix = prefixForTaskType(taskType);
+  return `${prefix}: ${clean.slice(0, 72) || "karajan update"}`;
+}
+
+/**
+ * Build the message used by `finalizeGitAutomation` for the post-loop
+ * commit. Two paths:
+ *   - When the only pending changes are Karajan scaffold files
+ *     (.gitignore, .karajan/, .reviews/, ...), use a fixed
+ *     `chore: scaffold karajan workspace` message. This avoids the
+ *     "duplicate feat:" git log seen when triage extends .gitignore
+ *     for a freshly detected stack and the coder already committed
+ *     the user-visible change.
+ *   - Otherwise, fall back to `commitMessageFromTask(task, taskType)`,
+ *     respecting the type for the prefix.
+ */
+export function buildFinalizeCommitMessage({ task, taskType, pendingPaths }) {
+  if (pendingPathsAreOnlyKarajanScaffold(pendingPaths)) {
+    return "chore: scaffold karajan workspace";
+  }
+  return commitMessageFromTask(task, taskType);
 }
 
 export async function prepareGitAutomation({ config, task, logger, session }) {
@@ -173,7 +247,23 @@ export async function incrementalPush({ gitCtx, task, logger, session }) {
 export async function finalizeGitAutomation({ config, gitCtx, task, logger, session, stageResults = null }) {
   if (!gitCtx?.enabled) return { git: "disabled", commits: [] };
 
-  const commitMsg = config.git.commit_message || commitMessageFromTask(task);
+  // Take a snapshot of pending paths BEFORE staging so we can decide
+  // whether what's about to be committed is just Karajan scaffolding
+  // (in which case we use `chore: scaffold karajan workspace`) or a
+  // real, user-visible change (in which case we honour the task's
+  // taskType for the Conventional Commits prefix).
+  const taskType = stageResults?.triage?.taskType ?? null;
+  let pendingPaths = [];
+  if (config.git.auto_commit) {
+    try {
+      pendingPaths = await listPendingPaths();
+    } catch { /* best-effort — fall back to default message */ }
+  }
+
+  const commitMsg =
+    config.git.commit_message
+    || buildFinalizeCommitMessage({ task, taskType, pendingPaths });
+
   let committed = false;
   const commits = [];
   if (config.git.auto_commit) {
