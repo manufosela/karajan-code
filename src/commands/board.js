@@ -126,14 +126,29 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   const karajanHome = getKarajanHome();
   fs.mkdirSync(karajanHome, { recursive: true });
 
+  // Open a log file for the daemon. Pre-fix the daemon was spawned
+  // with `stdio: "ignore"`, so every `console.log` from server.js
+  // (including the new [zombie-reaper] messages) went straight to
+  // /dev/null and the user had no way to see what was happening.
+  // The file is opened in append-only mode so successive starts
+  // don't truncate the history.
+  const logPath = path.join(karajanHome, "hu-board.log");
+  const logFd = fs.openSync(logPath, "a");
+  fs.writeSync(
+    logFd,
+    `\n--- kj board start at ${new Date().toISOString()} (port ${port}, bind ${bind}) ---\n`,
+  );
+
   // Use process.execPath (absolute path to current node binary) instead of "node".
   // Fixes ENOENT on nvm setups where `node` is not in the spawned process's PATH.
   const child = spawn(process.execPath, [serverPath], {
     env: { ...process.env, PORT: String(port), BIND_HOST: bind },
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", logFd, logFd],
     cwd: BOARD_DIR
   });
+  // The parent doesn't need the fd anymore — the child inherited it.
+  fs.closeSync(logFd);
   // Swallow spawn errors so an HU Board failure never crashes the pipeline.
   child.on("error", () => { /* non-blocking — caller logs via tryAutoStartBoard catch */ });
   if (!child.pid) {
@@ -143,10 +158,16 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   // Detach for real: `detached: true` only sets up the new session;
   // without `unref()` the parent's event loop still holds a reference
   // to the child handle and `kj board start` hangs at the prompt
-  // instead of returning. Pair this with stdio:"ignore" (already set)
-  // to ensure the parent isn't waiting on any of the child's pipes.
+  // instead of returning.
   child.unref();
-  return { ok: true, alreadyRunning: false, pid: child.pid, url: buildBoardUrl(port, projectSlug), port };
+  return {
+    ok: true,
+    alreadyRunning: false,
+    pid: child.pid,
+    url: buildBoardUrl(port, projectSlug),
+    port,
+    logPath,
+  };
 }
 
 export async function stopBoard(opts = {}) {
@@ -273,6 +294,9 @@ export async function boardCommand({ action = "start", port = 4000, bind = "127.
         logger.info(`HU Board already running (PID ${result.pid}) at ${result.url}`);
       } else {
         logger.info(`HU Board started (PID ${result.pid}) at ${result.url}`);
+        if (result.logPath) {
+          logger.info(`Daemon logs: tail -f ${result.logPath}`);
+        }
         if (bind !== "127.0.0.1" && bind !== "localhost") {
           logger.warn(`HU Board bound to ${bind} — token auth enforced for non-loopback peers. Token: ~/.karajan/hu-board/token`);
         }
