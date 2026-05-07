@@ -210,6 +210,121 @@ de versión en `README.md` línea 26 y `docs/GETTING-STARTED.md` con
 
 ---
 
+## Hallazgos del Nivel 3 testing — `kj run` trivial (2026-05-07)
+
+### N3-1 · Pipeline crea DOS commits en vez de uno (post-pipeline duplica el del coder con prefix `feat:`)
+
+**Repro**: `kj run "Add a JSDoc comment to index.js"` (taskType=`doc`).
+Tras un solo run, `git log --oneline` muestra:
+
+```
+98b1059 (HEAD) feat: Add a JSDoc comment to index.js explaining what it exports
+2d770aa         docs: add JSDoc comment to index.js explaining module exports
+8a95ef0         initial
+```
+
+El **coder** crea correctamente `2d770aa` con prefix `docs:`. Pero el
+**audit/post-pipeline** añade un segundo commit `98b1059` con prefix
+`feat:` que duplica el cambio (o lo confirma con un re-commit).
+
+Dos problemas:
+1. Tener 2 commits para un solo cambio es ruido en `git log`. Si
+   ejecutas `git diff 8a95ef0..98b1059` el cambio neto es solo el
+   JSDoc.
+2. El segundo commit usa `feat:` para una tarea `doc` — además de
+   redundante, viola la convención.
+
+**Sospecha**: hay un commit del coder + un commit del post-loop
+("Committed changes" que aparece en el log: `06:34:10.664 Committed
+changes`). Ese segundo commit no debería existir cuando el coder ya
+hizo el suyo, o si existe debería ser un `--amend` o respetar el
+taskType para el prefix.
+
+**Fix sugerido (S)**: en `src/orchestrator/drivers/post-loop.js` (o
+donde esté la línea "Committed changes"), detectar si el coder ya
+hizo `git commit` y, si es así:
+- skipear el commit duplicado, **o**
+- hacer `git commit --amend` para enriquecer el message preservando
+  el prefix del coder, **o**
+- fusionar diff cuando sea seguro.
+
+**Demo**: SÍ afecta — si en directo enseñas `git log --oneline` tras
+una run, la audiencia ve dos commits casi idénticos y se queda con
+cara rara. **Mitigación pre-charla**: investigar y arreglar, o
+dejar el demo en `git log -1` (último commit solo).
+
+### N3-2 · addyosmani-catalog git pull falla por force-push upstream
+
+**Repro**: cualquier `kj run`. Ver línea:
+
+```
+addyosmani-catalog: git pull failed — Desde https://github.com/addyosmani/agent-skills
+ + 1f66d57...742dca5 main → origin/main  (actualización forzada)
+fatal: No es posible hacer fast-forward, abortando. (keeping stale cache)
+```
+
+El upstream addyosmani/agent-skills hizo force-push. Mi sync local
+intenta fast-forward y falla. El cache stale se mantiene como fallback,
+pero el catálogo queda desactualizado hasta que alguien lo arregle a mano
+(`git fetch + git reset --hard origin/main`).
+
+**Fix sugerido (S)**: en `src/skills/addyosmani-sync.js` (o donde esté
+el sync), capturar el error de fast-forward y hacer `git fetch && git
+reset --hard origin/main` automáticamente. El cache es un mirror del
+upstream, no nuestro fork — es seguro.
+
+**Demo**: si ejecutas `kj run` en directo y la audiencia ve "addyosmani-
+catalog unavailable", queda mal. **Mitigación pre-charla**: ejecutar a
+mano `cd ~/.karajan/skills/addyosmani && git fetch && git reset --hard
+origin/main` la noche del 20 mayo.
+
+### N3-3 · `kj init` sigue escribiendo `sonarqube.enabled` (deprecated desde v2.7.4)
+
+**Repro**: tras ejecutar `kj init` reconfigure el 2026-05-06 (con el
+wizard expandido del PR #616), el siguiente `kj run` emite:
+
+```
+DEPRECATED: `sonarqube.enabled` in kj.config.yml is ignored since
+v2.7.4. Sonar is intrinsic to Karajan for code tasks ... Remove the
+key from your config to silence this warning.
+```
+
+El wizard sigue preguntando "Enable SonarQube analysis?" y guardando
+`sonarqube.enabled: true|false`. La policy desde v2.7.4 lo ignora.
+Hay que limpiar el wizard.
+
+**Fix sugerido (XS)**: en `src/commands/init.js`:
+- Eliminar el prompt "Enable SonarQube analysis?".
+- En su lugar, decir al usuario "Sonar is intrinsic to Karajan for
+  code tasks (sw / refactor / add-tests). Configure the token via
+  the bootstrap below."
+- El bootstrap del token ya se ejecuta sí o sí.
+
+**Demo**: si la audiencia copia tu config tras ver `kj init`, hereda
+el warning. Cosmética pero rascable.
+
+### N3-4 · Audit final reporta "Missing git remote.origin.url" como warning en repos locales
+
+**Repro**: cualquier `kj run` en un dir git nuevo sin remote. El audit
+final emite:
+
+```
+sonar audit input: getOpenIssues failed: Missing git remote.origin.url.
+Configure remote origin or set sonarqube.project_key explicitly.
+```
+
+Esto es esperable (sin remote no hay project_key automático). Pero se
+reporta como warning visible al usuario, dando la impresión de error.
+
+**Fix sugerido (XS)**: detectar `remote not configured` en el sonar
+input collector y devolver `not applicable` en lugar de `failed`. Igual
+que ya hacen los otros best-effort scanners (osv, semgrep) cuando faltan.
+
+**Demo**: si en directo ejecutas `kj run` en `/tmp/kj-demo` (sin
+remote), la audiencia ve un warning que parece error.
+
+---
+
 ## Bug menor del wizard expandido (post v2.10.2)
 
 ### Sonar admin password rotation falla silenciosamente
