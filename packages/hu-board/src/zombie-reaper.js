@@ -13,8 +13,9 @@
  * anymore.
  *
  * Concretely, on 2026-05-07 the user opened the board on a fresh
- * `kj board start` and saw the popup of an HU from 2026-04-29 — that
- * was 8 days dead. The fix per his explicit mandate:
+ * `kj board start` and saw the popup of an HU from 2026-04-27 — 9
+ * days dead, status still `paused`. The fix per his explicit
+ * mandate:
  *
  *   "No puede quedarse nada zombie. Debe haber algun sistema que lo
  *    compruebe al arrancar y mate esos zombies."
@@ -24,13 +25,27 @@
  *   - status === paused and >= 24h since updated_at            → reap
  *   - everything else                                          → skip
  *
- * What "reap" means: set the session's `status` column to `failed`
- * and append a structured checkpoint of the form
+ * What "reap" means: write `status: "failed"` BOTH to the DB row
+ * AND to the underlying `~/.karajan/sessions/<id>/session.json`,
+ * append a structured checkpoint of the form
  *   { stage: 'zombie-reap', reason: <reason>, at: <iso> }
- * to the existing `checkpoints` JSON blob, so the audit trail
- * survives. The session row stays in place (we don't DELETE — the
- * user can still inspect what happened).
+ * so the audit trail survives. The session row stays in place
+ * (we don't DELETE — the user can still inspect what happened).
+ *
+ * Why update the JSON on disk too
+ * -------------------------------
+ *
+ * The board's `fullScan()` reads every session.json on startup and
+ * upserts the row, OVERWRITING any DB-only mutation. If the reaper
+ * only updated the DB, the next reboot would reset the status back
+ * to `paused`/`stalled` because the JSON still says so. Persisting
+ * to disk makes the reap permanent on the first reboot — the user
+ * sees the cleanup once, and never again.
  */
+
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 const DEFAULT_CODING_HOURS = 6;
 const DEFAULT_PAUSED_HOURS = 24;
@@ -110,15 +125,59 @@ export function appendZombieCheckpoint(existingJson, reason, isoTimestamp) {
 }
 
 /**
- * Reap every zombie session in the DB. Side-effecting: updates
- * `status` and `checkpoints`. Returns the list of reaped sessions
- * so the server can log them.
+ * Default location of the on-disk session JSON files.
+ * Honours $KJ_HOME so tests and per-user setups can point elsewhere.
+ *
+ * @returns {string}
+ */
+export function getSessionsDir() {
+  const home = process.env.KJ_HOME || path.join(os.homedir(), ".karajan");
+  return path.join(home, "sessions");
+}
+
+/**
+ * Persist `status: "failed"` and the new zombie-reap checkpoint to
+ * the on-disk session.json. This stops the next `fullScan()` from
+ * resurrecting the zombi.
+ *
+ * Safe-by-default: if the file is missing, malformed, or the write
+ * fails, this returns `false` and the caller logs a warning. We
+ * never throw and we never block the daemon's startup.
+ *
+ * @param {string} sessionId
+ * @param {string} reason
+ * @param {string} reapedAtIso
+ * @param {{ sessionsDir?: string }} [opts]
+ * @returns {boolean} true when the file was rewritten successfully
+ */
+export function markSessionFailedOnDisk(sessionId, reason, reapedAtIso, opts = {}) {
+  const dir = opts.sessionsDir || getSessionsDir();
+  const file = path.join(dir, sessionId, "session.json");
+  let raw;
+  try { raw = fs.readFileSync(file, "utf8"); } catch { return false; }
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return false; }
+  if (!parsed || typeof parsed !== "object") return false;
+  parsed.status = "failed";
+  parsed.updated_at = reapedAtIso;
+  parsed.checkpoints = Array.isArray(parsed.checkpoints) ? parsed.checkpoints : [];
+  parsed.checkpoints.push({ stage: "zombie-reap", reason, at: reapedAtIso });
+  try {
+    fs.writeFileSync(file, JSON.stringify(parsed, null, 2));
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Reap every zombie session in the DB AND in the underlying
+ * session.json files. Side-effecting. Returns the list of reaped
+ * sessions so the server can log them.
  *
  * @param {object} deps
  * @param {object} deps.db        better-sqlite3 Database handle
- * @param {object} [deps.opts]    threshold overrides
+ * @param {object} [deps.opts]    threshold + sessionsDir overrides
  * @param {Function} [deps.now]   () => number, for tests
- * @returns {Array<{ id: string, status_before: string, reason: string }>}
+ * @returns {Array<{ id: string, status_before: string, reason: string, disk_persisted: boolean }>}
  */
 export function reapZombieSessions({ db, opts = {}, now = () => Date.now() }) {
   if (!db) return [];
@@ -135,7 +194,15 @@ export function reapZombieSessions({ db, opts = {}, now = () => Date.now() }) {
   for (const { session, reason } of zombies) {
     const newCheckpoints = appendZombieCheckpoint(session.checkpoints, reason, reapedAt);
     update.run(newCheckpoints, reapedAt, session.id);
-    reaped.push({ id: session.id, status_before: session.status, reason });
+    const diskPersisted = markSessionFailedOnDisk(session.id, reason, reapedAt, {
+      sessionsDir: opts.sessionsDir,
+    });
+    reaped.push({
+      id: session.id,
+      status_before: session.status,
+      reason,
+      disk_persisted: diskPersisted,
+    });
   }
   return reaped;
 }

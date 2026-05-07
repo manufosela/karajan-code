@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   classifyZombie,
   findZombieSessions,
   appendZombieCheckpoint,
   reapZombieSessions,
+  markSessionFailedOnDisk,
 } from "../src/zombie-reaper.js";
 
 const NOW = new Date("2026-05-07T10:00:00.000Z").getTime();
@@ -124,8 +128,71 @@ describe("appendZombieCheckpoint", () => {
   });
 });
 
-describe("reapZombieSessions (integration with in-memory SQLite)", () => {
+describe("markSessionFailedOnDisk", () => {
+  let tmp;
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-zombie-disk-"));
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function writeSession(id, contents) {
+    const dir = path.join(tmp, id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "session.json"), JSON.stringify(contents));
+  }
+
+  it("returns false when the session.json doesn't exist", () => {
+    const ok = markSessionFailedOnDisk("missing", "reason", "2026-05-07T10:00Z", { sessionsDir: tmp });
+    expect(ok).toBe(false);
+  });
+
+  it("returns false on malformed JSON", () => {
+    const dir = path.join(tmp, "broken");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "session.json"), "{ not json }");
+    expect(markSessionFailedOnDisk("broken", "reason", "2026-05-07T10:00Z", { sessionsDir: tmp })).toBe(false);
+  });
+
+  it("rewrites status, updated_at and appends a checkpoint", () => {
+    writeSession("good", {
+      id: "good",
+      status: "coding",
+      updated_at: "2026-04-29T21:44:02.000Z",
+      checkpoints: [{ stage: "coder-start", at: "2026-04-29T21:30Z" }],
+    });
+
+    const ok = markSessionFailedOnDisk("good", "coding 192h inactive", "2026-05-07T10:00:00.000Z", { sessionsDir: tmp });
+    expect(ok).toBe(true);
+
+    const written = JSON.parse(fs.readFileSync(path.join(tmp, "good", "session.json"), "utf8"));
+    expect(written.status).toBe("failed");
+    expect(written.updated_at).toBe("2026-05-07T10:00:00.000Z");
+    expect(written.checkpoints).toHaveLength(2);
+    expect(written.checkpoints[1]).toEqual({
+      stage: "zombie-reap",
+      reason: "coding 192h inactive",
+      at: "2026-05-07T10:00:00.000Z",
+    });
+  });
+
+  it("creates a checkpoints array when the original lacks one", () => {
+    writeSession("nochk", { id: "nochk", status: "stalled" });
+    const ok = markSessionFailedOnDisk("nochk", "stalled 8h", "2026-05-07T10:00Z", { sessionsDir: tmp });
+    expect(ok).toBe(true);
+
+    const written = JSON.parse(fs.readFileSync(path.join(tmp, "nochk", "session.json"), "utf8"));
+    expect(written.checkpoints).toEqual([
+      { stage: "zombie-reap", reason: "stalled 8h", at: "2026-05-07T10:00Z" },
+    ]);
+  });
+});
+
+describe("reapZombieSessions (integration with in-memory SQLite + disk)", () => {
   let db;
+  let tmp;
 
   beforeEach(() => {
     db = new Database(":memory:");
@@ -138,10 +205,12 @@ describe("reapZombieSessions (integration with in-memory SQLite)", () => {
         checkpoints TEXT
       );
     `);
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-zombie-int-"));
   });
 
   afterEach(() => {
     db.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
   });
 
   function insert(row) {
@@ -193,5 +262,55 @@ describe("reapZombieSessions (integration with in-memory SQLite)", () => {
     insert({ id: "s_zombie", status: "coding", updated_at: ago(8) });
     expect(reapZombieSessions({ db, now: () => NOW })).toHaveLength(1);
     expect(reapZombieSessions({ db, now: () => NOW })).toHaveLength(0);  // already failed
+  });
+
+  it("persists failed status to BOTH DB and session.json on disk", () => {
+    // Repro the exact 2026-05-07 dogfooding scenario: DB has a coding
+    // session that was synced from disk, the JSON on disk still says
+    // 'coding' so the next fullScan would resurrect it. After the
+    // reap, BOTH must say 'failed'.
+    const sessionId = "s_2026-04-29T21-44-02-558Z";
+    insert({
+      id: sessionId,
+      status: "stalled",
+      updated_at: ago(192),
+      checkpoints: JSON.stringify([{ stage: "coder-start" }]),
+    });
+    const dir = path.join(tmp, sessionId);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(
+      path.join(dir, "session.json"),
+      JSON.stringify({
+        id: sessionId,
+        status: "stalled",
+        updated_at: new Date(NOW - 192 * HOUR).toISOString(),
+        checkpoints: [{ stage: "coder-start" }],
+      }),
+    );
+
+    const reaped = reapZombieSessions({ db, opts: { sessionsDir: tmp }, now: () => NOW });
+    expect(reaped).toHaveLength(1);
+    expect(reaped[0].disk_persisted).toBe(true);
+
+    // 1) DB row is failed
+    const row = db.prepare("SELECT status FROM sessions WHERE id = ?").get(sessionId);
+    expect(row.status).toBe("failed");
+
+    // 2) session.json on disk is also failed
+    const onDisk = JSON.parse(fs.readFileSync(path.join(dir, "session.json"), "utf8"));
+    expect(onDisk.status).toBe("failed");
+    expect(onDisk.checkpoints).toHaveLength(2);
+    expect(onDisk.checkpoints[1].stage).toBe("zombie-reap");
+  });
+
+  it("DB still updates when the session.json is missing (disk_persisted=false)", () => {
+    insert({ id: "s_db_only", status: "coding", updated_at: ago(8) });
+    // No session.json on disk.
+
+    const reaped = reapZombieSessions({ db, opts: { sessionsDir: tmp }, now: () => NOW });
+    expect(reaped).toHaveLength(1);
+    expect(reaped[0].disk_persisted).toBe(false);
+    // DB updated regardless
+    expect(db.prepare("SELECT status FROM sessions WHERE id = 's_db_only'").get().status).toBe("failed");
   });
 });
