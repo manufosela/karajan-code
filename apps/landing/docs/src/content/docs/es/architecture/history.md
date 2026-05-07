@@ -5,6 +5,10 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
+## Fase 61.2: Patch — Wizard `kj init` ampliado (v2.10.2)
+
+**v2.10.2** (patch, 2026-05-07) — `kj init` pasa de 9 prompts a un setup completo. Nuevo `askPerRoleProviders` recorre los 10 roles no-coder/no-reviewer (planner, researcher, architect, refactorer, tester, security, solomon, impeccable, perf, hu_reviewer) ofreciendo "heredar de coder/reviewer", elegir un CLI específico o desactivar el rol. Nuevo `src/sonar/token-bootstrap.js` hace login en el Sonar local con admin/admin, **rota la contraseña por defecto** a un secret nuevo persistido en `~/.karajan/sonar.admin-password` (mode 0600), revoca cualquier token `karajan-cli` previo y genera un `GLOBAL_ANALYSIS_TOKEN` fresco via `POST /api/user_tokens/generate` — sin más vueltas por la UI web. Prompts nuevos para automatización git (`auto_commit/push/pr` + `branch_prefix`) y seguridad del HU Board (bind host + port). Disparado por feedback del usuario en testing pre-charla el 2026-05-06: "el init es minimalista, falta configurar el resto de roles con qué CLI". PR #616 (KJC-TSK-0367) + #617 (release). +16 tests nuevos; **4 375 / 4 375** pasando en 374 ficheros.
+
 ## Fase 61.1: Patch — fix de contaminación de stdout en `--json` (v2.10.1)
 
 **v2.10.1** (patch, 2026-05-06) — Guard de una línea en `src/commands/audit.js` que suprime el banner `[info]` cuando `--json` está activo. Pre-fix, `kj audit --agent-readiness --json | jq` moría con parse error porque el logger emitía `Auditing agent-readiness of <path>` a stdout ANTES del JSON. Detectado en un code review pre-charla (3 agentes Sonnet en paralelo) antes del demo del 21 mayo 2026. PR #613 (fix) + #614 (release). Más polish en scripts `docs/demos/` (recomendación de repo concreto, timing realista, `--auto-commit`, safety net `npm install`). Nuevo `TODO-post-talk.md` con los 8 findings P1/P2 diferidos a post-charla. 4 359 tests pasando.

@@ -5,6 +5,10 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 61.2: Patch — `kj init` wizard expansion (v2.10.2)
+
+**v2.10.2** (patch, 2026-05-07) — `kj init` goes from 9 prompts to a full setup. New `askPerRoleProviders` walks all 10 non-coder/non-reviewer roles (planner, researcher, architect, refactorer, tester, security, solomon, impeccable, perf, hu_reviewer) offering "inherit from coder/reviewer", pick a specific CLI, or disable. New `src/sonar/token-bootstrap.js` logs in to the local Sonar with admin/admin, **rotates the default password** to a fresh secret persisted at `~/.karajan/sonar.admin-password` (mode 0600), revokes any pre-existing `karajan-cli` token and generates a fresh `GLOBAL_ANALYSIS_TOKEN` via `POST /api/user_tokens/generate` — no more walking through the web UI. New prompts for git automation (`auto_commit/push/pr` + `branch_prefix`) and HU Board security (bind host + port). Triggered by user feedback during pre-talk testing on 2026-05-06: "el init es minimalista, falta configurar el resto de roles con qué CLI". PR #616 (KJC-TSK-0367) + #617 (release). +16 new tests; **4 375 / 4 375** passing across 374 files.
+
 ## Phase 61.1: Patch — `--json` stdout contamination fix (v2.10.1)
 
 **v2.10.1** (patch, 2026-05-06) — One-line guard in `src/commands/audit.js` that suppresses the `[info]` banner when `--json` is set. Pre-fix, `kj audit --agent-readiness --json | jq` died with a parse error because the logger emitted `Auditing agent-readiness of <path>` to stdout BEFORE the JSON document. Detected in a pre-talk code review (3 Sonnet agents in parallel) before the 2026-05-21 demo. PR #613 (fix) + #614 (release). Plus polish in `docs/demos/` scripts (concrete repo recommendation, realistic timing, `--auto-commit`, `npm install` safety net). New `TODO-post-talk.md` with the 8 P1/P2 findings deferred to post-talk. 4 359 tests passing.
