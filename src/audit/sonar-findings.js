@@ -22,6 +22,33 @@
 
 import { isSonarReachable } from "../sonar/manager.js";
 import { getOpenIssues, getQualityGateStatus } from "../sonar/api.js";
+import { runCommand } from "../utils/process.js";
+
+/**
+ * Quick async check: does the cwd's git repo have a `remote.origin.url`
+ * configured AND does the user have an explicit `project_key` override?
+ *
+ * Sonar's project key is derived from the git remote URL by default,
+ * so a fresh repo with no remote (the typical `kj run` in /tmp/...
+ * scenario detected on 2026-05-07) would otherwise hit
+ * `resolveSonarProjectKey` → "Missing git remote.origin.url" → noisy
+ * warning in every audit. This helper lets the caller skip the entire
+ * Sonar collection cleanly with a "not applicable" reason instead of
+ * an "error" warning.
+ *
+ * @param {object} config
+ * @returns {Promise<boolean>} true when sonar input can be derived
+ */
+async function canDeriveSonarProjectKey(config) {
+  const explicit = String(
+    process.env.KJ_SONAR_PROJECT_KEY || config?.sonarqube?.project_key || "",
+  ).trim();
+  if (explicit) return true;
+  const res = await runCommand("git", ["config", "--get", "remote.origin.url"]).catch(
+    () => ({ exitCode: 1, stdout: "" }),
+  );
+  return res.exitCode === 0 && String(res.stdout || "").trim().length > 0;
+}
 
 /**
  * Collect deterministic Sonar findings for the audit prompt.
@@ -41,6 +68,17 @@ export async function collectSonarFindings(config, logger = null) {
   if (!reachable) {
     if (logger?.warn) logger.warn(`sonar audit input skipped: host ${host} not reachable`);
     return { available: false, reason: `sonar host ${host} not reachable` };
+  }
+
+  // No git remote and no explicit project_key → silent skip. This is the
+  // typical `kj run` in a fresh /tmp/... folder. Reporting it as a
+  // warning treats it like an error (which it isn't — sonar simply
+  // doesn't apply to a remoteless repo).
+  if (!(await canDeriveSonarProjectKey(config))) {
+    return {
+      available: false,
+      reason: "not applicable: no git remote and no sonarqube.project_key configured",
+    };
   }
 
   let issuesResult;

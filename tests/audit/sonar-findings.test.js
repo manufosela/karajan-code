@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock the sonar surface so we can drive collectSonarFindings under
 // controlled conditions without spinning up a real SonarQube container.
@@ -9,17 +9,41 @@ vi.mock("../../src/sonar/api.js", () => ({
   getOpenIssues: vi.fn(),
   getQualityGateStatus: vi.fn(),
 }));
+// Stub runCommand so the silent-skip "no git remote" path is
+// deterministic — we don't want the test to depend on whatever git
+// remote happens to be configured in the working tree.
+vi.mock("../../src/utils/process.js", () => ({
+  runCommand: vi.fn(),
+}));
 
 import { collectSonarFindings, groupIssuesBySeverity } from "../../src/audit/sonar-findings.js";
 import { isSonarReachable } from "../../src/sonar/manager.js";
 import { getOpenIssues, getQualityGateStatus } from "../../src/sonar/api.js";
+import { runCommand } from "../../src/utils/process.js";
 import { buildAuditPrompt } from "../../src/prompts/audit.js";
 
 const baseConfig = { sonarqube: { host: "http://localhost:9000" } };
 const noopLogger = { warn: vi.fn(), info: vi.fn() };
 
+// Default git-remote stub: pretend the working tree HAS a remote so the
+// existing tests (written before the silent-skip path) keep exercising
+// the happy-path Sonar API code. Per-test overrides cover the new path.
+function stubGitRemote(remoteUrl) {
+  runCommand.mockImplementation(async () => ({
+    exitCode: remoteUrl ? 0 : 1,
+    stdout: remoteUrl || "",
+    stderr: "",
+  }));
+}
+
 describe("collectSonarFindings (KJC-TSK-0361)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    stubGitRemote("git@github.com:manufosela/karajan-code.git");
+  });
+  afterEach(() => {
+    delete process.env.KJ_SONAR_PROJECT_KEY;
+  });
 
   it("returns available=false when sonar host is unreachable (no API call attempted)", async () => {
     isSonarReachable.mockResolvedValue(false);
@@ -73,6 +97,66 @@ describe("collectSonarFindings (KJC-TSK-0361)", () => {
     const r = await collectSonarFindings(baseConfig, noopLogger);
     expect(r.available).toBe(false);
     expect(r.reason).toMatch(/getOpenIssues failed/);
+  });
+
+  // KJC-TSK-0373 — silent-skip path. When the working tree has no
+  // git remote AND no explicit project_key, Sonar simply doesn't
+  // apply: we mustn't hit the API (which would 404 noisy) and we
+  // mustn't surface a "Missing git remote" warning to the user.
+  describe("silent-skip when sonar can't be addressed (KJC-TSK-0373)", () => {
+    it("returns 'not applicable' when git has no remote and no project_key is configured", async () => {
+      isSonarReachable.mockResolvedValue(true);
+      stubGitRemote(null); // git config exitCode 1 = no remote.origin.url
+
+      const r = await collectSonarFindings(baseConfig, noopLogger);
+      expect(r.available).toBe(false);
+      expect(r.reason).toMatch(/not applicable/);
+      expect(r.reason).toMatch(/no git remote/);
+      // The whole point: don't call the Sonar API and don't warn.
+      expect(getOpenIssues).not.toHaveBeenCalled();
+      expect(noopLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it("bypasses the git-remote check when sonarqube.project_key is set in config", async () => {
+      isSonarReachable.mockResolvedValue(true);
+      stubGitRemote(null); // even with no remote...
+      getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
+      getQualityGateStatus.mockResolvedValue({ ok: true, status: "OK", conditions: [] });
+
+      const r = await collectSonarFindings(
+        { sonarqube: { host: "http://localhost:9000", project_key: "explicit-key" } },
+      );
+      // ...the explicit project_key short-circuits the skip.
+      expect(r.available).toBe(true);
+      expect(getOpenIssues).toHaveBeenCalled();
+    });
+
+    it("bypasses the git-remote check when KJ_SONAR_PROJECT_KEY env var is set", async () => {
+      process.env.KJ_SONAR_PROJECT_KEY = "env-key";
+      isSonarReachable.mockResolvedValue(true);
+      stubGitRemote(null);
+      getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
+      getQualityGateStatus.mockResolvedValue({ ok: true, status: "OK", conditions: [] });
+
+      const r = await collectSonarFindings(baseConfig);
+      expect(r.available).toBe(true);
+      expect(getOpenIssues).toHaveBeenCalled();
+    });
+
+    it("treats whitespace-only project_key as 'no override' and falls through to the git check", async () => {
+      // Defensive: an env var like `export KJ_SONAR_PROJECT_KEY=" "`
+      // should NOT count as a real override. The user almost
+      // certainly meant "unset", and triggering the API with an
+      // empty key would return 404.
+      process.env.KJ_SONAR_PROJECT_KEY = "   ";
+      isSonarReachable.mockResolvedValue(true);
+      stubGitRemote(null);
+
+      const r = await collectSonarFindings(baseConfig, noopLogger);
+      expect(r.available).toBe(false);
+      expect(r.reason).toMatch(/not applicable/);
+      expect(getOpenIssues).not.toHaveBeenCalled();
+    });
   });
 });
 
