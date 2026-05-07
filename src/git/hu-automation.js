@@ -42,6 +42,34 @@ export function resolveHuBase(story, huBranches, baseBranch) {
 }
 
 /**
+ * Resolve to an actually-existing local ref. Tries the preferred branch
+ * first, then `main` and `master`, then plain `HEAD` as last resort.
+ *
+ * Why: N6 plan-flow dogfooding (2026-05-07) on a `git init -q` repo
+ * with `init.defaultBranch=master` produced 7 identical warnings:
+ *   `failed to create branch feat/...-001 from main:
+ *    fatal: 'main' is not a commit and a branch can't be created`.
+ * Every HU then fell back to running on the original branch, which
+ * defeats the per-HU isolation the sub-pipeline was supposed to give.
+ *
+ * The configured base_branch is honoured when it exists; otherwise we
+ * pick the most likely default. HEAD always exists once the repo has
+ * any commit, so the fallback never throws past the gate.
+ *
+ * @param {string} preferred
+ * @returns {Promise<string>}
+ */
+async function resolveExistingBranchRef(preferred) {
+  const candidates = [preferred, "main", "master", "HEAD"]
+    .filter((c, i, arr) => c && arr.indexOf(c) === i); // unique, truthy
+  for (const ref of candidates) {
+    const probe = await runCommand("git", ["rev-parse", "--verify", "--quiet", ref], {});
+    if (probe.exitCode === 0) return ref;
+  }
+  return preferred; // give up; caller will surface the original error
+}
+
+/**
  * Create a branch for an HU starting from its resolved base.
  * Returns the branch name created (or null if git automation is disabled).
  *
@@ -57,17 +85,21 @@ export async function prepareHuBranch({ story, huBranches, config, logger }) {
     return null;
   }
   const baseBranch = resolveHuBase(story, huBranches, config.base_branch || "main");
+  const effectiveBase = await resolveExistingBranchRef(baseBranch);
+  if (effectiveBase !== baseBranch) {
+    logger.info(`HU git: configured base '${baseBranch}' not found locally — using '${effectiveBase}' instead`);
+  }
   const prefix = config.git?.branch_prefix || "feat/";
   const branchName = buildHuBranchName(prefix, story);
 
   // Checkout from the resolved base. Use `git checkout -B` to overwrite if rerun.
-  const res = await runCommand("git", ["checkout", "-B", branchName, baseBranch], {});
+  const res = await runCommand("git", ["checkout", "-B", branchName, effectiveBase], {});
   if (res.exitCode !== 0) {
-    logger.warn(`HU git: failed to create branch ${branchName} from ${baseBranch}: ${res.stderr}`);
+    logger.warn(`HU git: failed to create branch ${branchName} from ${effectiveBase}: ${res.stderr}`);
     return null;
   }
   huBranches.set(story.id, branchName);
-  logger.info(`HU ${story.id}: branch '${branchName}' from '${baseBranch}'`);
+  logger.info(`HU ${story.id}: branch '${branchName}' from '${effectiveBase}'`);
   return branchName;
 }
 
