@@ -11,6 +11,7 @@ import apiRoutes from './routes/api.js';
 import pipelineRoutes from './routes/pipeline.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
+import { reapZombieSessions } from './zombie-reaper.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
 /**
@@ -135,6 +136,25 @@ async function main() {
   // Initialize SQLite
   console.log('[server] Initializing database...');
   initDb();
+
+  // Reap any session that the orchestrator left in a non-terminal
+  // state. The board used to surface 8-day-old `Karajan needs an
+  // answer` modals on startup because nothing ever flipped those
+  // sessions to `failed`. See packages/hu-board/src/zombie-reaper.js
+  // for the threshold rationale.
+  try {
+    const dbHandle = (await import('./db.js')).getDb();
+    const reaped = reapZombieSessions({ db: dbHandle });
+    if (reaped.length > 0) {
+      console.log(`[zombie-reaper] reaped ${reaped.length} stale session(s):`);
+      for (const r of reaped) {
+        console.log(`  - ${r.id} (was ${r.status_before}; ${r.reason})`);
+      }
+    }
+  } catch (err) {
+    // Never block startup on the reaper. Log and move on.
+    console.warn(`[zombie-reaper] skipped: ${err.message}`);
+  }
 
   // Full scan of existing files
   console.log('[server] Running full scan of JSON files...');
