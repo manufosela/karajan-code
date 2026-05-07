@@ -6,18 +6,18 @@
 
 ## Tabla resumen
 
-| Nivel | Qué prueba | Tiempo real | Coste tokens | LLM |
-|-------|------------|-------------|--------------|-----|
-| N0 | Sanity binarios + doctor | 30 s | 0 | no |
-| N1 | Comandos read-only sin LLM | 2 min | 0 | no |
-| N2 | Roles individuales con LLM | 5 min | 5–30 ¢ | sí |
-| N3 | `kj run` con tarea trivial | 10 min | 30–80 ¢ | sí |
-| N4 | `kj run` zero-config con tarea rica | 5–10 min | $1–3 | sí |
-| N5 | Auto-HU decomposition (sub-pipelines) | 20–30 min | $2–5 | sí |
-| N6 | Plan flow (`kj plan generate` + `kj plan ready` + `kj run --plan`) | 30 min | $3–5 | sí |
-| N7 | Resilience / failure modes | 10 min | bajo | mixto |
-| N8 | Demo scripts literal (los 3 .txt de la charla) | 15–20 min | depende | mixto |
-| N9 | Ensayo completo cronometrado | 40 min | depende | sí |
+| Nivel | Qué prueba | Tiempo real | Coste tokens | LLM | Estado 2026-05-07 |
+|-------|------------|-------------|--------------|-----|-------|
+| N0 | Sanity binarios + doctor | 30 s | 0 | no | ✅ Re-validado verde |
+| N1 | Comandos read-only sin LLM | 2 min | 0 | no | ✅ Re-validado verde |
+| N2 | Roles individuales con LLM | 5 min | 5–30 ¢ | sí | ✅ Re-validado verde |
+| N3 | `kj run` con tarea trivial | 10 min | 30–80 ¢ | sí | ✅ Re-validado verde |
+| N4 | `kj run` zero-config con tarea rica | 5–10 min | $1–3 | sí | ✅ Re-validado verde |
+| N5 | Auto-HU decomposition (sub-pipelines) | 20–30 min | $2–5 | sí | ✅ Verde (sub-pipeline real en N6) |
+| N6 | Plan flow (`kj plan generate` + `kj plan ready` + `kj run --plan`) | 30 min | $3–5 | sí | ✅ Verde (7 HUs, 12 commits) |
+| N7 | Resilience / failure modes | 10 min | bajo | mixto | ✅ Verde (4/4 sub-tests) |
+| N8 | Demo scripts literal (los 3 .txt de la charla) | 15–20 min | depende | mixto | ✅ Verde (3/3 demos) |
+| N9 | Ensayo completo cronometrado | 40 min | depende | sí | 🟡 Pendiente del usuario (manual) |
 
 ---
 
@@ -172,6 +172,8 @@ kj run "Build a REST API for a todo list. Express + Vitest. Endpoints: GET /todo
 
 **Stop si**: una HU se queda zombi — bug arreglado hace una semana, debería estar gone.
 
+Re-validado 2026-05-07: ✅ Verde. **Pero ojo a la expectativa**: con la config por defecto (`pipeline.hu_reviewer.enabled: false`) el triage clasifica esta tarea como `medium (sw)` y el flow ejecuta como single-task pipeline, NO como auto-HU sub-pipeline. Eso es lo correcto dado el config — la demo "varias HUs en paralelo" se valida realmente en **N6** (plan flow), no aquí. Resultados de la corrida: 5 commits con prefijos correctos (chore + feat×2 + test + fix), Sonar SKIPPED limpio (gris), 10m13s, $2.56. Para forzar sub-pipeline aquí se necesita `kj init` con HU Reviewer activo o usar la ruta de N6.
+
 ---
 
 ## N6 — Plan flow (10 min sin LLM + ejecución del plan)
@@ -194,6 +196,10 @@ kj run --plan <planId> -y
 ```
 
 **Qué valida**: el flujo plan-driven separado del run zero-config (N5). Útil cuando quieres revisar/editar el plan antes de gastar tokens del coder.
+
+Re-validado 2026-05-07: ✅ Verde. 7 HUs generadas, todas certificadas y ejecutadas como sub-pipelines. 12 commits resultantes. session.status correctamente sellada como `approved` (BUG-0037 fix verificado live). Total 22m 16s.
+
+> ⚠️ **Hallazgo durante este nivel** (arreglado hoy en PR #636): cuando el repo se inicializa con `git init -q` y `init.defaultBranch=master`, la rama `main` no existe localmente. Antes del fix, `prepareHuBranch` emitía 7 warnings idénticos ("`'main' is not a commit`") y cada HU caía silenciosamente a la rama original. Ahora hay un fallback `main → master → HEAD` que escoge la primera ref existente.
 
 ---
 
@@ -222,10 +228,17 @@ ls ~/.karajan/sessions/ | tail -3
 kj resume <sessionId>
 # ⇒ retoma sin perder contexto
 
-# D) kj clean --dry-run
-kj clean --dry-run
-# ⇒ enumera lo que borraría sin tocar
+# D) kj clean es dry-run por defecto (--yes para borrar de verdad)
+kj clean
+# ⇒ enumera lo que borraría sin tocar; añade --yes para aplicar.
 ```
+
+Re-validado 2026-05-07: ✅ Verde.
+- A) `kj webperf` con lighthouse missing → reporta WARN + "skipped" + exit 0. ✓
+- B) `kj run --no-sonar` → emite deprecation warning ("flag ignored since v2.7.4"), audit input "skipped: host not reachable", APPROVED en 54s. ✓
+- C) Resume tras kill → `kj resume <sessionId>` retoma exitosamente; al completar, status sellado correctamente. ✓
+- D) `kj clean` (dry-run default) → "[clean] nothing to clean — ~/.kj/ and ~/.karajan/ are tidy". ✓
+- ⚠️ Doc-fix: el flag `--dry-run` no existe; es el comportamiento por defecto. `--yes` aplica.
 
 ---
 
@@ -250,6 +263,11 @@ bash -c "$(cat ~/ws_npm-packages/karajan-code/docs/demos/happy-path.txt)" 2>&1 |
 ```
 
 **Qué validar**: que cada script funciona end-to-end sin retoques manuales y los timings caben en el slot reservado.
+
+Re-validado 2026-05-07: ✅ Verde.
+- Demo 1 (`agent-readiness.txt`): exit 0, sin LLM, output consistente.
+- Demo 3 (`audit-with-llm.txt`): exit 0, full audit two-phase. 8m 36s, 28 findings priorizadas (security/codeQuality/performance/architecture/testing/accessibility), $7.18 (haiku-4-5), reporte markdown escrito a `~/audits/karajan-YYYYMMDD.md`.
+- Demo 2 (`happy-path.txt`): exit 0 en 8m 08s. APPROVED, 6 commits del coder con prefijos correctos (chore + feat×2 + test + fix×2). $1.87. Sonar SKIPPED gris. session.status sellado correctamente.
 
 ---
 
