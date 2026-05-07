@@ -185,4 +185,49 @@ describe("utils/git", () => {
       await expect(git.syncBaseBranch({ baseBranch: "main", autoRebase: false })).rejects.toThrow("behind");
     });
   });
+
+  // KJC fix(double-commit) — N3-1
+  describe("listPendingPaths", () => {
+    it("returns [] when working tree is clean", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+      const paths = await git.listPendingPaths();
+      expect(paths).toEqual([]);
+    });
+
+    it("parses simple modified/added paths", async () => {
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: " M src/foo.js\n?? new-file.txt\nA  staged.js\n",
+        stderr: "",
+      });
+      const paths = await git.listPendingPaths();
+      expect(paths).toEqual(["src/foo.js", "new-file.txt", "staged.js"]);
+    });
+
+    it("returns the post-rename path when git reports a rename", async () => {
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: "R  old/path.js -> new/path.js\n",
+        stderr: "",
+      });
+      const paths = await git.listPendingPaths();
+      expect(paths).toEqual(["new/path.js"]);
+    });
+
+    it("includes the .gitignore + .karajan/ scaffold when triage extends them", async () => {
+      // This is the exact `git status --porcelain` shape that produced
+      // the duplicate `feat: ...` commit reported in N3-1.
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: " M .gitignore\n?? .karajan/coder-rules.md\n?? .reviews/s_xx/summary.md\n",
+        stderr: "",
+      });
+      const paths = await git.listPendingPaths();
+      expect(paths).toEqual([
+        ".gitignore",
+        ".karajan/coder-rules.md",
+        ".reviews/s_xx/summary.md",
+      ]);
+    });
+  });
 });
