@@ -288,6 +288,25 @@ function esc(str) {
   return el.innerHTML;
 }
 
+// is_test toggle visuals (KJC-TSK-0371). The icon and tooltip
+// reflect the user's explicit override OR the default heuristic
+// when none is set. Heuristic mirrors ephemeral-cleaner.js so the
+// UI never lies about what the cleaner will actually do.
+const EPHEMERAL_HEURISTIC_RE = /^(auto-)?(tmp_|test_|demo_|kj-test-)/i;
+function isTestIcon(p) {
+  if (p.is_test === 1) return '🧪';                                  // user marked
+  if (p.is_test === 0) return '📌';                                  // user pinned
+  return EPHEMERAL_HEURISTIC_RE.test(p.id || '') ? '🧪?' : '·';      // heuristic
+}
+function isTestTitle(p) {
+  if (p.is_test === 1) return 'Marked as test — auto-cleans 24h after last activity. Click to pin.';
+  if (p.is_test === 0) return 'Pinned — never auto-cleans. Click to clear.';
+  if (EPHEMERAL_HEURISTIC_RE.test(p.id || '')) {
+    return 'Looks ephemeral by id heuristic — will auto-clean after 24h. Click to pin.';
+  }
+  return 'Real project — never auto-cleans. Click to mark as test.';
+}
+
 /**
  * Truncates text to a max length.
  * @param {string} text
@@ -360,6 +379,7 @@ async function renderDashboard() {
           ${projects.map((p) => `
             <div class="project-card">
               <button class="project-card__delete" title="Delete project (cascade)" data-project-id="${esc(p.id)}" data-project-name="${esc(p.name || p.id)}">🗑️</button>
+              <button class="project-card__is-test" title="${esc(isTestTitle(p))}" data-project-id="${esc(p.id)}" data-is-test="${p.is_test === null || p.is_test === undefined ? '' : p.is_test}">${isTestIcon(p)}</button>
               <div class="project-card__body" onclick="selectProject('${esc(p.id)}')">
                 <div class="project-card__name">${esc(p.name || p.id)}</div>
                 <div class="project-card__stats">
@@ -3078,6 +3098,41 @@ document.getElementById('restart-btn').addEventListener('click', async () => {
   } catch { /* the server is going down; the catch is expected */ }
   // Give the new server a beat to bind, then reload the page.
   setTimeout(() => window.location.reload(), 1200);
+});
+
+// is_test toggle (KJC-TSK-0371 — board polish #3). Three-state cycle:
+//   null (heuristic) → 1 (always test) → 0 (always keep) → null …
+// `null` is encoded as the empty string in `data-is-test` so the
+// button's HTML serialisation is stable across renders.
+function nextIsTestValue(current) {
+  // Treat both empty string ("") and "null" as "no override" — the
+  // dataset value is the empty string at render time, but URLs and
+  // some legacy callers may send the literal "null".
+  if (current === '' || current === 'null') return 1;
+  if (current === '1') return 0;
+  return null;  // from "0" → revert to default
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.project-card__is-test');
+  if (!btn) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const projectId = btn.dataset.projectId;
+  const next = nextIsTestValue(btn.dataset.isTest);
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/is-test`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_test: next }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Re-render the project list so the badge reflects the new value.
+    await populateProjectSelect();
+    render();
+  } catch (err) {
+    await showError(err.message, { title: 'Failed to update is_test' });
+  }
 });
 
 // Delete project (cascade) — delegated handler on the dashboard grid

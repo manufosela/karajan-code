@@ -12,6 +12,7 @@ import pipelineRoutes from './routes/pipeline.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
 import { reapZombieSessions } from './zombie-reaper.js';
+import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
 /**
@@ -163,6 +164,27 @@ async function main() {
   } catch (err) {
     // Never block startup on the reaper. Log and move on.
     console.warn(`[zombie-reaper] skipped: ${err.message}`);
+  }
+
+  // KJC-TSK-0371 (board polish #3) — clean up ephemeral projects
+  // (`/tmp/`-rooted, `tmp_*`/`test_*`/`demo_*`/`kj-test-*` prefixed)
+  // that have been inactive for >24h. Runs AFTER the zombie-reaper
+  // so any session that just got marked failed counts toward
+  // last_activity correctly. The user can override per-project via
+  // PATCH /api/projects/:id/is-test.
+  try {
+    const dbHandle = (await import('./db.js')).getDb();
+    const cleaned = cleanupEphemeralProjects({ db: dbHandle });
+    if (cleaned.length > 0) {
+      console.log(`[ephemeral-cleaner] removed ${cleaned.length} ephemeral project(s):`);
+      for (const c of cleaned) {
+        console.log(`  - ${c.id} (${c.reason}; ${c.stories_deleted} stories, ${c.sessions_deleted} sessions cascaded)`);
+      }
+    } else {
+      console.log('[ephemeral-cleaner] no ephemeral projects detected');
+    }
+  } catch (err) {
+    console.warn(`[ephemeral-cleaner] skipped: ${err.message}`);
   }
 
   // Start file watcher
