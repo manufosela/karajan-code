@@ -169,7 +169,6 @@ describe("sonar token resolution — runSonarStage", () => {
       }
     }));
 
-    const { markSessionStatus } = await import("../src/session/store.js");
     const { runSonarStage } = await import("../src/orchestrator/iteration-stages.js");
 
     const session = {
@@ -181,7 +180,12 @@ describe("sonar token resolution — runSonarStage", () => {
     };
 
     const config = {
-      sonarqube: { enabled: true, host: "http://localhost:9000" },
+      // Set an explicit project_key so canResolveSonarProjectKey returns true
+      // and the stage proceeds to the token-resolution path being tested.
+      // Without this, the new (KJC-TSK-0373 / N4) "no git remote AND no
+      // project_key" silent-skip kicks in first and the token failure path
+      // is never exercised.
+      sonarqube: { enabled: true, host: "http://localhost:9000", project_key: "kj-test-token-flow" },
       session: { fail_fast_repeats: 3 }
     };
 

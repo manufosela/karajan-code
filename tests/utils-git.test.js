@@ -96,6 +96,44 @@ describe("utils/git", () => {
     });
   });
 
+  // Regression for N4 (2026-05-07 dogfooding): commitAll was throwing
+  // "nada para hacer commit" when the working tree was clean by the
+  // time `git commit` ran, even though `hasChanges()` had reported a
+  // change moments earlier. The error escalated to Solomon and aborted
+  // the post-loop journal writer (no summary.md / iterations.md). The
+  // fix swallows the locale-specific "nothing to commit" message and
+  // returns `committed: false` cleanly.
+  describe("commitAll — race tolerance", () => {
+    it("returns committed: false when git commit refuses with English 'nothing to commit'", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })            // git add -A
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" }) // git status --porcelain → has changes
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "nothing to commit, working tree clean\n", stderr: "" }); // git commit fails
+
+      const result = await git.commitAll("test commit");
+      expect(result).toEqual({ committed: false });
+    });
+
+    it("returns committed: false on Spanish 'nada para hacer commit'", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "nada para hacer commit, el árbol de trabajo está limpio\n" });
+
+      const result = await git.commitAll("test commit");
+      expect(result).toEqual({ committed: false });
+    });
+
+    it("re-throws on a real git error (not a 'nothing to commit' false alarm)", async () => {
+      runCommand
+        .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 0, stdout: " M file.js\n", stderr: "" })
+        .mockResolvedValueOnce({ exitCode: 128, stdout: "", stderr: "fatal: unable to write index\n" });
+
+      await expect(git.commitAll("test commit")).rejects.toThrow(/unable to write index/);
+    });
+  });
+
   describe("commitAll", () => {
     it("stages and commits when there are changes", async () => {
       runCommand

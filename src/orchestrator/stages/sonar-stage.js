@@ -11,6 +11,7 @@ import {
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { sonarUp, isSonarReachable } from "../../sonar/manager.js";
+import { canResolveSonarProjectKey } from "../../sonar/project-key.js";
 import { addEntries } from "../feedback-queue.js";
 
 /**
@@ -220,6 +221,24 @@ export async function runSonarStage({ config, logger, emitter, eventBase, sessio
       return { action: "ok", stageResult: { gateStatus: "PENDING", reason: "SonarQube starting up" } };
     }
     logger.info("SonarQube is ready");
+  }
+
+  // 2026-05-07 (N4 dogfooding): when the working tree has neither a git
+  // remote nor an explicit `sonarqube.project_key`, the scanner inside
+  // SonarRole would throw "Missing git remote.origin.url" — the Brain
+  // logs that as a sonar error, the iteration cap is reached, and the
+  // run finalises as "approved" by exhaustion fallback even though no
+  // sonar gate ever ran. KJC-TSK-0373 silenced this for the audit
+  // collector but the run loop hit it on the parallel code path.
+  // Skipping cleanly here means the gate reports "SKIPPED" once and
+  // the iteration loop progresses on the next stage.
+  if (!await canResolveSonarProjectKey(config)) {
+    logger.info("Sonar gate skipped: no git remote and no sonarqube.project_key configured");
+    emitProgress(emitter, makeEvent("sonar:end", { ...eventBase, stage: "sonar" }, {
+      status: "skip",
+      message: "Sonar skipped — no git remote and no sonarqube.project_key configured (run `git remote add origin …` or set `sonarqube.project_key` to enable)"
+    }));
+    return { action: "ok", stageResult: { gateStatus: "SKIPPED", reason: "no git remote and no sonarqube.project_key configured" } };
   }
 
   const sonarRole = new SonarRole({ config, logger, emitter });

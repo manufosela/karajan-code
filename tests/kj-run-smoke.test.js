@@ -176,6 +176,8 @@ describe("kj_run smoke", () => {
 
     const { runCommand } = await import("../src/utils/process.js");
     runCommand
+      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
@@ -242,6 +244,8 @@ describe("kj_run smoke", () => {
 
     const { runCommand } = await import("../src/utils/process.js");
     runCommand
+      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" })
       .mockResolvedValueOnce({
@@ -321,6 +325,8 @@ describe("kj_run smoke", () => {
 
     const { runCommand } = await import("../src/utils/process.js");
     runCommand
+      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
@@ -362,9 +368,17 @@ describe("kj_run smoke", () => {
     const result = await runFlow({ task: "smoke test", config, logger, flags: {}, emitter });
 
     expect(result.approved).toBe(true);
+    // Calls 0 and 1 are git probes (canResolveSonarProjectKey + scanner's
+    // resolveSonarProjectKey). The contract being tested is the ordering
+    // of coverage→docker, which still holds — assert by content rather
+    // than by absolute index so the test doesn't break when more probes
+    // are added in front.
+    const bashIdx = runCommand.mock.calls.findIndex(([bin]) => bin === "bash");
+    const dockerIdx = runCommand.mock.calls.findIndex(([bin]) => bin === "docker");
+    expect(bashIdx).toBeGreaterThanOrEqual(0);
+    expect(dockerIdx).toBeGreaterThanOrEqual(0);
+    expect(bashIdx).toBeLessThan(dockerIdx);
+    expect(runCommand.mock.calls[bashIdx][1]).toEqual(["-lc", "echo coverage"]);
     expect(runCommand.mock.calls[0][0]).toBe("git");
-    expect(runCommand.mock.calls[1][0]).toBe("bash");
-    expect(runCommand.mock.calls[1][1]).toEqual(["-lc", "echo coverage"]);
-    expect(runCommand.mock.calls[2][0]).toBe("docker");
   });
 });
