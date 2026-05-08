@@ -8,6 +8,16 @@ on:
 permissions:
   contents: write
 
+# Force JS actions in this workflow to run on Node.js 24. GitHub will
+# make this the default on 2026-06-02 and remove Node.js 20 from the
+# runner on 2026-09-16. `actions/checkout@v5` and `actions/setup-node@v5`
+# already declare Node 24, but `softprops/action-gh-release@v2` (used
+# below to upload SEA binaries) still ships a Node 20 runtime in its
+# action.yml; this env opts it into Node 24 today so we don't get the
+# deprecation banner on every release.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build ${{ matrix.target }}
@@ -26,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
