@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **Audit false positives registry** (`KJC-TSK-0353`, #578) — new
+  `docs/audit-false-positives.md` recording the 4 dependencies that
+  `kj audit` flags as unused but are actually used via indirect
+  mechanisms (config files, hooks, `npx` from scripts): `@changesets/cli`,
+  `@vitest/coverage-v8`, `postject`, `simple-git-hooks`. Future audits
+  skip the same investigation. Re-confirmed live in N8 audit
+  (2026-05-07). No code or dependency changes.
+
 ## [2.11.0] - 2026-05-08
 
 Minor release. Two-day dogfooding pass (10-level test plan) surfaced and
