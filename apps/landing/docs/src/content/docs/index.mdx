@@ -3,7 +3,7 @@ title: Karajan Code
 description: Role-based AI orchestrator with 16 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
 template: splash
 hero:
-  tagline: "v2.10.2 — `kj init` wizard expanded: per-role provider selection (10 roles, inherit/pick CLI/disable), automatic SonarQube token bootstrap via REST API (no more web UI walk), git automation flags (auto_commit/push/pr) and HU Board security prompts. On top of the agent-readiness surface from v2.10: `llms.txt` index, a `SKILL.md` per CLI command under `docs/agents/`, and a static auditor (`kj audit --agent-readiness`) that scores any third-party repo 0–100 across seven LLM-free checks. Karajan-on-Karajan: 100/100. Webperf quality gate inside the iteration loop. HU Board hardening: binds 127.0.0.1 by default. a11y / WCAG / ARIA tasks auto-pull the frontend-ui-engineering skill. Asciinema demo scripts under `docs/demos/`. 4 375 tests across 374 files."
+  tagline: "v2.11.0 — Dogfooding pass release. Two-day pass through a 10-level test plan surfaced and fixed a long tail of UX papercuts and three latent bugs that only show up on fresh `/tmp` repos. The `SonarStage` no longer loops on remoteless projects (was burning iterations until `max_iterations`-fallback-approval); the post-loop `commitAll` tolerates the locale-specific 'nothing to commit' race; the HU sub-pipeline branches off `master`/`HEAD` when the configured `main` doesn't exist; and `runFlow` seals `session.status` at the boundary so `kj status` never shows zombi `running` runs. Plus `hu-board` gains automatic ephemeral-project cleanup at boot and an in-UI help modal for the five views. 14 PRs (#624–#637), 4 452 tests across 377 files."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -23,6 +23,12 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
 <CardGrid stagger>
+  <Card title="Dogfooding-Hardened (v2.11)" icon="approve-check">
+    A two-day, ten-level dogfooding pass through every Karajan surface — from `kj --version` to a full plan-driven multi-HU sub-pipeline — fixed three latent bugs that only surfaced on fresh `/tmp` repos: the `SonarStage` no longer burns `max_iterations` looping on `Missing git remote.origin.url`, `commitAll` tolerates the locale-specific "nothing to commit" race, and the HU sub-pipeline now branches off `master`/`HEAD` when the configured `main` doesn't exist. `runFlow` seals `session.status` at the boundary, so `kj status` never shows a zombi `running` run again. **All N0–N8 levels re-validated green.**
+  </Card>
+  <Card title="hu-board: Ephemeral-Project Cleanup + Help (v2.11)" icon="seti:html">
+    On board start, projects whose id matches `tmp_*` / `test_*` / `demo_*` / `kj-test-*` AND have been inactive for >24 h are cascade-deleted (project + stories + sessions). Per-project override via a 3-state toggle on each card (🧪 force-test / 📌 pin / · default heuristic) and `PATCH /api/projects/:id/is-test`. The header also gained a `?` button: opens a modal explaining each of the five views (Board / Graph / Dashboard / Sessions / Pipeline), and every nav tab carries a native `title` for the standard 1-second hover tooltip.
+  </Card>
   <Card title="Agent-Readiness Score (v2.10)" icon="approve-check">
     `kj audit --agent-readiness` scores any repo 0–100 across **7 LLM-free checks**: llms.txt presence + validity, robots.txt AI-bot allowlist, per-doc token budget (≤ 32 KB), heading hierarchy (markdown + HTML `<h1>`), `docs/agents/README.md` entry point, SKILL.md coverage. Pure data transformation — no network, no LLM, no side effects. `--json` for CI. Karajan-on-Karajan: **100/100**. Run it on your own repo, see what agents struggle with, fix from the top-fixes list.
   </Card>
