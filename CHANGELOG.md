@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Plan adherence metric** (`KJC-TSK-0376`, #645/#646) — every `kj run`
+  that executes against a known plan now computes a deterministic 0–100
+  score in `summary.md` answering *"did the coder follow the plan?"*.
+  Four weighted components (commit attribution 40%, acceptance tests
+  30%, scope discipline 20%, dependency order 10%) reported in a
+  breakdown table. Pure offline calculation — no LLM, no extra cost.
+  Spec in `docs/plan-adherence.md`. Inspired by deepeval, kept fully
+  deterministic for reproducibility (golden-task suite friendly).
+
 ### Documentation
+
+- **Plan adherence spec** (`docs/plan-adherence.md`) — full reference
+  for the new metric: components, attribution rules, output shape,
+  when the section is omitted, why no LLM judge.
 
 - **Audit false positives registry** (`KJC-TSK-0353`, #578) — new
   `docs/audit-false-positives.md` recording the 4 dependencies that
