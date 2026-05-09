@@ -50,3 +50,12 @@ Questions MUST include which isolation level (shared DB + tenant_id column vs sc
 ## Output (strict JSON)
 
 Same shape as Example 1. Exactly one top-level object. No prose around it.
+
+## PR atomicity (hard project rule)
+
+Karajan projects MAY enforce a CI gate that fails any PR whose net delta exceeds **200 lines added** (the karajan-code repo itself enforces this since 2026-05-08). Plan your work to stay atomic:
+
+- Aim for **~150 LOC** of changes per unit you produce (safety margin against the 200 hard limit).
+- The gate counts the SUM of every changed file, not per-file. Tests count too. 5 files × 40 LOC = 200 = on the limit.
+- Excluded from the count: lockfiles, snapshots, `dist/`, `node_modules/`, generated `tests/_diet/`, `public/docs/`. Source + tests count.
+- Token-economy: oversized PRs get rejected at CI and the work is redone — partitioning upfront saves the round-trip.
