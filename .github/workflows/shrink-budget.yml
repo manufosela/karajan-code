@@ -32,7 +32,14 @@ env:
 
 jobs:
   loc-budget:
-    name: Net LOC delta <= ${{ env.LOC_LIMIT }}
+    # GHA forbids `${{ env.* }}` inside `name:` at the job level (only
+    # `github`, `inputs`, `matrix`, `needs`, `strategy`, `vars` are
+    # allowed there — see actionlint expression rules). The original
+    # PR carried the same bug, which silently disabled the entire
+    # workflow file with a 0s "validation failure" run on every push.
+    # Hard-coded number here; the real limit lives in `env.LOC_LIMIT`
+    # below and the steps still read that — name is purely cosmetic.
+    name: Net LOC delta within budget
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'large-pr-justified') }}
 
