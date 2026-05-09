@@ -26,10 +26,13 @@ For `kj_run`, use:
 - Edit manually only if the user asks or KJ cannot complete the task.
 
 ## PR atomicity (hard project rule)
-This repo enforces a CI gate that fails any PR whose net delta of **code** exceeds **200 lines added** (`shrink-budget` workflow, since 2026-05-08). Both for `kj_run` and for direct edits:
-- Aim for **~150 LOC of code per PR** (margin against the 200 hard limit).
-- The gate counts the SUM of every changed source file. Tests count. **Documentation files do NOT count** — `*.md`, `*.mdx`, `*.txt`, `*.rst` are excluded (a 10 000-line README is fine; a 500-line refactor is not). Also excluded: lockfiles, snapshots, `dist/`, `node_modules/`, `tests/_diet/`, `public/docs/`.
-- If a task clearly needs >150 LOC of code, **partition it upfront** (multiple PRs, multiple HUs, multiple commits). Don't ship a single 500-LOC PR — the gate rejects it, the work gets redone, tokens burn twice.
+This repo enforces a CI gate that fails any PR whose net delta exceeds **200 lines added** (`shrink-budget` workflow, since 2026-05-08). Both for `kj_run` and for direct edits:
+- Aim for **~150 LOC per PR** (margin against the 200 hard limit).
+- The gate counts the SUM of every changed source file. Tests count.
+- **Human-facing docs are excluded** — `docs/**/*.md`, `docs/**/*.mdx`, `CHANGELOG.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `MIGRATION*.md`, `TODO*.md`. A 10 000-line README is fine; a 500-line refactor is not.
+- **AI-rule files DO count** — `CLAUDE.md`, `AGENTS.md`, `templates/**/*.md` (role prompts, coder rules, review rules). Those go into the agent's context every run, so the same ≤200 LOC discipline applies — bloating them dilutes the signal the AI receives.
+- Other exclusions: lockfiles, snapshots, `dist/`, `node_modules/`, `tests/_diet/`, `public/docs/`.
+- If a task clearly needs >150 LOC, **partition it upfront** (multiple PRs, multiple HUs, multiple commits). Don't ship a single 500-LOC PR — the gate rejects it, the work gets redone, tokens burn twice.
 - Escape hatch: `large-pr-justified` label on the PR, but use it sparingly and justify in the PR body.
 
 ## Troubleshooting and subprocess architecture
