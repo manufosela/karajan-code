@@ -1,0 +1,12 @@
+{
+  "id": "todo-rest-api",
+  "title": "Express REST API for a todo list",
+  "prompt": "Build a REST API for a todo list. Express + Vitest. Endpoints: GET /todos, POST /todos, DELETE /todos/:id. With validation, error handling, and tests.",
+  "description": "The N4 happy-path demo task. Exercises planner decomposition + sub-pipelines + Vitest scaffolding + final audit. Should reliably produce 3-6 commits and >=2 test files.",
+  "timeout_minutes": 30,
+  "expected_commits_min": 3,
+  "expected_audit_status": "pass",
+  "expected_test_files": ["tests/todos.test.js"],
+  "allowed_loc_range": [80, 350],
+  "expected_plan_adherence_min": 70
+}

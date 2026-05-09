@@ -1,0 +1,12 @@
+{
+  "id": "npm-package-cli",
+  "title": "Tiny CLI tool — `slugify <text>`",
+  "prompt": "Create a Node.js CLI tool that slugifies its input. Use commander for argument parsing. Read text from a positional argument or stdin if absent. Lowercase, replace spaces and special characters with hyphens, trim leading/trailing hyphens. Include Vitest tests for the core slugify function and one for the CLI entry.",
+  "description": "Smaller-than-todo task. Tests planner discipline on a focused single-file feature plus its tests. Should produce 2-4 commits.",
+  "timeout_minutes": 25,
+  "expected_commits_min": 2,
+  "expected_audit_status": "pass",
+  "expected_test_files": ["tests/slugify.test.js"],
+  "allowed_loc_range": [50, 200],
+  "expected_plan_adherence_min": 75
+}

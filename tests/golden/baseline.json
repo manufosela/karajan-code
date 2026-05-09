@@ -1,0 +1,31 @@
+{
+  "$schema": "./baseline.schema.md",
+  "version": 1,
+  "description": "Latest known-good plan-adherence + commit counts per golden task. Updated by the runner on a successful release-candidate run; the regression check compares the next run against this snapshot.",
+  "results": {
+    "todo-rest-api": {
+      "last_run_at": null,
+      "last_kj_version": null,
+      "commits": null,
+      "plan_adherence_score": null,
+      "loc_added": null,
+      "audit_status": null
+    },
+    "npm-package-cli": {
+      "last_run_at": null,
+      "last_kj_version": null,
+      "commits": null,
+      "plan_adherence_score": null,
+      "loc_added": null,
+      "audit_status": null
+    },
+    "react-counter-component": {
+      "last_run_at": null,
+      "last_kj_version": null,
+      "commits": null,
+      "plan_adherence_score": null,
+      "loc_added": null,
+      "audit_status": null
+    }
+  }
+}
