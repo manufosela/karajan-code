@@ -199,9 +199,48 @@ export function buildSummaryMarkdown(input) {
 
   sections.push("", "## Commits", "", renderCommits(input.commits));
 
+  // KJC-TSK-0376 — plan adherence metric (deepeval-inspired). Only
+  // rendered when the run executed against a known plan and the
+  // calculation produced a non-null score (a run with no commits or
+  // no files changed yields nulls everywhere → omit the section).
+  const planAdherenceSection = renderPlanAdherence(input.planAdherence);
+  if (planAdherenceSection) {
+    sections.push("", "## Plan adherence", "", planAdherenceSection);
+  }
+
   sections.push("", "## Journal files", "", renderJournalLinks(input.files));
 
   return sections.join("\n") + "\n";
+}
+
+function renderPlanAdherence(planAdherence) {
+  if (!planAdherence || typeof planAdherence !== "object") return "";
+  if (planAdherence.score === null || planAdherence.score === undefined) return "";
+  const lines = [`**Score**: ${planAdherence.score}/100`, ""];
+  const breakdown = planAdherence.breakdown || {};
+  lines.push("| Component | Score | Weight |");
+  lines.push("| --- | --- | --- |");
+  const rows = [
+    ["Commit attribution", breakdown.commit_attribution, "40%"],
+    ["Acceptance tests",   breakdown.acceptance_tests,   "30%"],
+    ["Scope discipline",   breakdown.scope_discipline,   "20%"],
+    ["Dependency order",   breakdown.dependency_order,   "10%"],
+  ];
+  for (const [label, value, weight] of rows) {
+    const cell = value === null || value === undefined ? "n/a" : `${value}/100`;
+    lines.push(`| ${label} | ${cell} | ${weight} |`);
+  }
+  const huScores = Array.isArray(planAdherence.hu_scores) ? planAdherence.hu_scores : [];
+  if (huScores.length > 0) {
+    const unattributed = huScores.filter((h) => !h.attributed);
+    if (unattributed.length > 0) {
+      lines.push("", `_${unattributed.length} HU(s) without an attributed commit:_`);
+      for (const h of unattributed) {
+        lines.push(`- \`${h.huId}\``);
+      }
+    }
+  }
+  return lines.join("\n");
 }
 
 /**
