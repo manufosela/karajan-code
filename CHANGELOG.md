@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-05-09
+
+Minor release. Two new quality-measurement features land together: a
+per-run **plan adherence** score and a **golden-tasks** regression suite
+for cross-version output-quality detection. Plus a CI policy refinement
+that frees documentation from the LOC budget while keeping AI-rule
+files (CLAUDE.md, AGENTS.md, role prompts) capped.
+
 ### Added
 
 - **Plan adherence metric** (`KJC-TSK-0376`, #645/#646) — every `kj run`
