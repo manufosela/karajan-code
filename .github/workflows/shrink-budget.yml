@@ -58,8 +58,12 @@ jobs:
           set -euo pipefail
 
           # Excluded paths: lockfiles, snapshots, build output, vendored
-          # third-party, minified bundles, generated diet baselines, and
-          # binary fixtures. Each entry is a glob pattern interpreted by
+          # third-party, minified bundles, generated diet baselines,
+          # binary fixtures, and *documentation files* — Markdown, MDX,
+          # plain text and reST are docs, not code, so they don't burn
+          # the LOC budget (clarified 2026-05-09 — the gate exists to
+          # cap code growth, not to ration documentation).
+          # Each entry is a glob pattern interpreted by
           # `git diff --diff-filter=AM ... -- :(exclude)<pattern>`.
           excludes=(
             ":(exclude)package-lock.json"
@@ -73,6 +77,10 @@ jobs:
             ":(exclude)**/*.min.js"
             ":(exclude)tests/_diet/**"
             ":(exclude)public/docs/**"
+            ":(exclude)**/*.md"
+            ":(exclude)**/*.mdx"
+            ":(exclude)**/*.txt"
+            ":(exclude)**/*.rst"
           )
 
           stats=$(git diff --numstat "$BASE_SHA"..."$HEAD_SHA" -- . "${excludes[@]}")
