@@ -1,46 +1,10 @@
 /**
  * Plan adherence metric — KJC-TSK-0376 (deepeval-inspired).
- *
- * Computes a 0-100 score measuring how faithfully the coder respected
- * the plan emitted by `kj plan generate`. Pure offline calculation —
- * no LLM judge, derives everything from the plan JSON + the commits
- * the run produced + the files it changed.
- *
- * The score is a weighted average of four components:
- *
- *   commit_attribution    40%  — fraction of commits that can be tied
- *                                back to one of the plan's HUs (by id
- *                                in the message, or by branch name).
- *   acceptance_tests       30%  — fraction of plan acceptance tests
- *                                that the coder appears to have
- *                                introduced (heuristic: there is at
- *                                least one `test:`-prefixed commit
- *                                touching test files for that HU).
- *   scope_discipline       20%  — fraction of file changes that fall
- *                                within at least one HU's declared
- *                                scope (matched against id/title slug
- *                                or scope keywords).
- *   dependency_order       10%  — fraction of declared dependency
- *                                edges (HU-B blocked_by HU-A) where
- *                                the commit timestamps respect the
- *                                ordering (A's commit older than B's).
- *
- * When a metric has no data to score (e.g. no acceptance tests
- * declared in the plan), it returns `null` and the aggregator
- * redistributes its weight across the other three components so the
- * score is comparable across runs of different shapes.
- *
- * Output:
- *   {
- *     score: 0-100,
- *     breakdown: {
- *       commit_attribution: 0-100 | null,
- *       acceptance_tests:   0-100 | null,
- *       scope_discipline:   0-100 | null,
- *       dependency_order:   0-100 | null
- *     },
- *     hu_scores: [{ huId, attributed: bool, issues: string[] }]
- *   }
+ * Pure offline 0-100 score: how faithfully did the coder follow the plan?
+ * Components (weighted): commit_attribution 40%, acceptance_tests 30%,
+ * scope_discipline 20%, dependency_order 10%. Components return null
+ * when no data; aggregator redistributes the weight.
+ * See docs/plan-adherence.md (PR-C) for the full spec.
  */
 
 const WEIGHTS = {
