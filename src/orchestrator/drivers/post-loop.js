@@ -23,7 +23,9 @@
 
 import { generateDiff } from "../../review/diff-generator.js";
 import { finalizeGitAutomation } from "../../git/automation.js";
-import { listCommitsBetween } from "../../utils/git.js";
+import { listCommitsBetween, listFilesChangedSince } from "../../utils/git.js";
+import { loadPlan, projectSlug as slugFor } from "../../plan/plan-store.js";
+import { computePlanAdherenceScore } from "../../audit/plan-adherence.js";
 import { saveSession, markSessionStatus } from "../../session/store.js";
 import {
   setReviewerFeedback, setBudget, setRtkSavings, resetRetryCount,
@@ -166,6 +168,36 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
       try { allCommits = (await listCommitsBetween(session.head_at_start || session.session_start_sha)) || []; }
       catch { allCommits = gitResult?.commits || []; }
       const summaryCommits = allCommits.length > 0 ? allCommits : (gitResult?.commits || []);
+
+      // KJC-TSK-0376 — plan adherence metric (deepeval-inspired). When the
+      // run executed against a known plan (`kj run --plan <id>`), score how
+      // faithfully the coder followed it. Pure offline; safe-by-default
+      // (try/catch swallows missing helper or unreadable plan).
+      let planAdherence = null;
+      try {
+        const planId = session._planRef?.planId
+          || stageResults?.huReviewer?.planId
+          || null;
+        if (planId) {
+          const projectDir = config?.projectDir
+            || session.config_snapshot?.projectDir
+            || process.cwd();
+          const plan = await loadPlan(projectDir, planId).catch(() => null);
+          if (plan && Array.isArray(plan.hus) && plan.hus.length > 0) {
+            const filesChanged = await listFilesChangedSince(
+              session.head_at_start || session.session_start_sha,
+            ).catch(() => []);
+            planAdherence = computePlanAdherenceScore({
+              commits: summaryCommits,
+              plan,
+              filesChanged,
+            });
+          }
+        }
+      } catch (err) {
+        logger?.warn?.(`Plan adherence calculation skipped: ${err.message}`);
+      }
+
       await writeSummaryJournalV2(journalDir, {
         task: session.task,
         result: "APPROVED",
@@ -188,6 +220,7 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
           installed: session.autoInstalledSkills,
           recommended: session.skillsRecommended,
         },
+        planAdherence,
       }, { logger });
       logger.info(`Session journal written to ${journalDir}`);
     } catch (err) {
@@ -361,7 +394,6 @@ export async function tryAutoStartBoard(config, logger, emitter, eventBase) {
 
   try {
     const { startBoard, renderBoardBanner } = await import("../../commands/board.js");
-    const { projectSlug: slugFor } = await import("../../plan/plan-store.js");
     const boardPort = config.hu_board.port || 4000;
     // Scope the board URL to the current run's project (`/p/<slug>`) so
     // the user lands on a filtered view, not the global dashboard.

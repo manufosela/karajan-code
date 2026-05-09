@@ -80,6 +80,33 @@ export async function revParse(ref) {
  * @param {string} [toRef="HEAD"]
  * @returns {Promise<Array<{hash: string, message: string}>>}
  */
+/**
+ * List the file paths changed in the range `fromSha..toRef`. Used by the
+ * plan-adherence metric (KJC-TSK-0376) to score whether the coder's
+ * file changes fall within any HU's declared scope.
+ *
+ * Returns a deduplicated array of file paths, oldest commit's files
+ * first. Defensive: returns [] on missing `fromSha`, non-zero git exit,
+ * or thrown error — consistent with `listCommitsBetween`'s contract.
+ *
+ * @param {string|null|undefined} fromSha
+ * @param {string} [toRef="HEAD"]
+ * @returns {Promise<string[]>}
+ */
+export async function listFilesChangedSince(fromSha, toRef = "HEAD") {
+  if (!fromSha) return [];
+  const result = await run(
+    "git",
+    ["diff", "--name-only", `${fromSha}..${toRef}`],
+  ).catch(() => null);
+  if (!result || result.exitCode !== 0) return [];
+  const lines = String(result.stdout || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return Array.from(new Set(lines));
+}
+
 export async function listCommitsBetween(fromSha, toRef = "HEAD") {
   if (!fromSha) return [];
   const result = await run(

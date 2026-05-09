@@ -347,4 +347,47 @@ describe("utils/git", () => {
       expect(commits.map((c) => c.hash)).toEqual(["abc1", "def2"]);
     });
   });
+
+  // KJC-TSK-0376 — used by the plan-adherence metric to score whether
+  // the coder's file changes fall inside any HU's declared scope.
+  describe("listFilesChangedSince", () => {
+    it("returns [] on empty / missing fromSha", async () => {
+      expect(await git.listFilesChangedSince()).toEqual([]);
+      expect(await git.listFilesChangedSince(null)).toEqual([]);
+      expect(runCommand).not.toHaveBeenCalled();
+    });
+
+    it("invokes `git diff --name-only` and returns the unique paths", async () => {
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: "src/store.js\nsrc/routes/todos.js\npackage.json\n",
+        stderr: "",
+      });
+      const files = await git.listFilesChangedSince("abc123");
+      expect(runCommand).toHaveBeenCalledWith(
+        "git",
+        ["diff", "--name-only", "abc123..HEAD"],
+      );
+      expect(files).toEqual(["src/store.js", "src/routes/todos.js", "package.json"]);
+    });
+
+    it("dedupes when a file is listed more than once across the range", async () => {
+      runCommand.mockResolvedValue({
+        exitCode: 0,
+        stdout: "src/foo.js\nsrc/bar.js\nsrc/foo.js\n",
+        stderr: "",
+      });
+      expect(await git.listFilesChangedSince("a")).toEqual(["src/foo.js", "src/bar.js"]);
+    });
+
+    it("returns [] on non-zero exit (defensive)", async () => {
+      runCommand.mockResolvedValue({ exitCode: 128, stdout: "", stderr: "fatal: bad rev" });
+      expect(await git.listFilesChangedSince("nope")).toEqual([]);
+    });
+
+    it("returns [] when runCommand throws", async () => {
+      runCommand.mockRejectedValue(new Error("git not on PATH"));
+      expect(await git.listFilesChangedSince("a")).toEqual([]);
+    });
+  });
 });

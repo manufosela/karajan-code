@@ -241,4 +241,58 @@ describe("session/journal/summary-writer — writeSummaryJournal", () => {
     expect(result.written).toBe(false);
     expect(result.path).toBeNull();
   });
+
+  // KJC-TSK-0376 — Plan adherence section.
+  describe("Plan adherence section", () => {
+    it("omits the section when planAdherence is missing or null", () => {
+      expect(buildSummaryMarkdown(sample())).not.toContain("## Plan adherence");
+      expect(buildSummaryMarkdown(sample({ planAdherence: null }))).not.toContain("## Plan adherence");
+    });
+
+    it("omits the section when score is null (no data to compute)", () => {
+      const md = buildSummaryMarkdown(sample({
+        planAdherence: { score: null, breakdown: {}, hu_scores: [] },
+      }));
+      expect(md).not.toContain("## Plan adherence");
+    });
+
+    it("renders score, breakdown table, and unattributed HUs", () => {
+      const md = buildSummaryMarkdown(sample({
+        planAdherence: {
+          score: 87,
+          breakdown: {
+            commit_attribution: 100,
+            acceptance_tests: 67,
+            scope_discipline: 80,
+            dependency_order: null,
+          },
+          hu_scores: [
+            { huId: "hu_001", attributed: true, issues: [] },
+            { huId: "hu_002", attributed: false, issues: ["no commit attributed"] },
+          ],
+        },
+      }));
+      expect(md).toContain("## Plan adherence");
+      expect(md).toContain("**Score**: 87/100");
+      expect(md).toContain("| Commit attribution | 100/100 | 40% |");
+      expect(md).toContain("| Acceptance tests | 67/100 | 30% |");
+      expect(md).toContain("| Dependency order | n/a | 10% |");
+      expect(md).toContain("1 HU(s) without an attributed commit");
+      expect(md).toContain("`hu_002`");
+    });
+
+    it("hides the unattributed-HUs list when all HUs got at least one commit", () => {
+      const md = buildSummaryMarkdown(sample({
+        planAdherence: {
+          score: 100,
+          breakdown: { commit_attribution: 100, acceptance_tests: 100, scope_discipline: 100, dependency_order: 100 },
+          hu_scores: [
+            { huId: "hu_001", attributed: true, issues: [] },
+          ],
+        },
+      }));
+      expect(md).toContain("## Plan adherence");
+      expect(md).not.toContain("without an attributed commit");
+    });
+  });
 });
