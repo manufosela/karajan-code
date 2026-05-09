@@ -58,9 +58,17 @@ jobs:
           set -euo pipefail
 
           # Excluded paths: lockfiles, snapshots, build output, vendored
-          # third-party, minified bundles, generated diet baselines, and
-          # binary fixtures. Each entry is a glob pattern interpreted by
-          # `git diff --diff-filter=AM ... -- :(exclude)<pattern>`.
+          # third-party, minified bundles, generated diet baselines,
+          # binary fixtures, and *human-facing documentation* — README,
+          # CHANGELOG, the `docs/` tree, etc. (clarified 2026-05-09 —
+          # the gate exists to cap code growth, not to ration docs).
+          #
+          # IMPORTANT: AI-rule Markdown files (CLAUDE.md, AGENTS.md,
+          # templates/**/*.md including role prompts) DO count toward
+          # the budget on purpose — those files become part of the
+          # agent's context window every run, and unbounded growth
+          # there dilutes the signal the AI receives. They follow the
+          # same ≤200 LOC discipline as code.
           excludes=(
             ":(exclude)package-lock.json"
             ":(exclude)pnpm-lock.yaml"
@@ -73,6 +81,18 @@ jobs:
             ":(exclude)**/*.min.js"
             ":(exclude)tests/_diet/**"
             ":(exclude)public/docs/**"
+            ":(exclude)docs/**/*.md"
+            ":(exclude)docs/**/*.mdx"
+            ":(exclude)docs/**/*.txt"
+            ":(exclude)docs/**/*.rst"
+            ":(exclude)CHANGELOG.md"
+            ":(exclude)README.md"
+            ":(exclude)README.*.md"
+            ":(exclude)CODE_OF_CONDUCT.md"
+            ":(exclude)CONTRIBUTING.md"
+            ":(exclude)SECURITY.md"
+            ":(exclude)MIGRATION*.md"
+            ":(exclude)TODO*.md"
           )
 
           stats=$(git diff --numstat "$BASE_SHA"..."$HEAD_SHA" -- . "${excludes[@]}")
