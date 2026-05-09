@@ -150,6 +150,8 @@ kj run "Build a REST API for a todo list. Express + Vitest. Endpoints: GET /todo
 
 **Stop si**: alguna HU se queda zombi (`coding` sin avanzar) — debería ser cosa del pasado tras los fixes #534/#537/#544.
 
+**Métrica nueva (v2.12.0)**: `summary.md` debe terminar con sección **`## Plan adherence`** mostrando score 0–100, tabla de los 4 componentes (commit attribution 40%, acceptance tests 30%, scope discipline 20%, dependency order 10%) y lista de HUs sin commit atribuido. Si la sección no aparece → comprobar que `session._planRef.planId` se guardó tras el planner. Spec: `docs/plan-adherence.md`.
+
 ---
 
 ## N5 — Auto-HU decomposition (20–30 min, $2–5)
