@@ -18,11 +18,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Spec in `docs/plan-adherence.md`. Inspired by deepeval, kept fully
   deterministic for reproducibility (golden-task suite friendly).
 
+- **Golden tasks regression suite** (`KJC-TSK-0374`, #648/#650/#651) —
+  a small set of canonical tasks (`todo-rest-api`, `npm-package-cli`,
+  `react-counter-component`) executed before every release to detect
+  output-quality regressions between Karajan versions. Five assertion
+  families per task: commits-min, audit status, plan adherence,
+  expected test files, allowed LOC range. All deterministic — no LLM
+  judge. Library-only in this release; CLI integration is a follow-up
+  task. Spec in `docs/golden-tasks.md`.
+
+### Changed
+
+- **Shrink-budget gate refined** (#649) — `*.md` files used to count
+  toward the 200-LOC PR limit, which forced trimming of legitimate
+  documentation. Human-facing docs (`docs/**`, `CHANGELOG.md`,
+  `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `MIGRATION*.md`,
+  `TODO*.md`) are now excluded. AI-rule files (`CLAUDE.md`,
+  `AGENTS.md`, `templates/**/*.md` — role prompts, coder/review rules)
+  still count, since unbounded growth there dilutes the agent's
+  context.
+
 ### Documentation
 
 - **Plan adherence spec** (`docs/plan-adherence.md`) — full reference
   for the new metric: components, attribution rules, output shape,
   when the section is omitted, why no LLM judge.
+
+- **Golden tasks spec** (`docs/golden-tasks.md`) — full reference for
+  the regression suite: how it works, the 3 tasks, schema, baseline
+  format, when the suite runs.
 
 - **Audit false positives registry** (`KJC-TSK-0353`, #578) — new
   `docs/audit-false-positives.md` recording the 4 dependencies that

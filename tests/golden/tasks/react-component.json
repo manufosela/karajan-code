@@ -1,0 +1,12 @@
+{
+  "id": "react-counter-component",
+  "title": "React Counter component with tests",
+  "prompt": "Build a React Counter component with TypeScript. Two buttons: increment, decrement. Disabled decrement when count is 0. Use Vitest + Testing Library for tests. Also include a README.md describing usage.",
+  "description": "Frontend-leaning task. Verifies that the planner picks an appropriate test framework (Vitest + RTL), produces a TypeScript file, and that audit doesn't break on JSX/TSX.",
+  "timeout_minutes": 30,
+  "expected_commits_min": 2,
+  "expected_audit_status": "pass",
+  "expected_test_files": ["src/Counter.test.tsx"],
+  "allowed_loc_range": [60, 250],
+  "expected_plan_adherence_min": 70
+}
