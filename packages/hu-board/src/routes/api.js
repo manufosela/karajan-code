@@ -24,8 +24,20 @@ import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
 import { readConfig, writeConfigPatch } from '../config-yaml.js';
+import { BOOT_TIME, PKG_VERSION } from '../boot-info.js';
 
 const router = Router();
+
+/**
+ * GET /api/version - Server version + boot timestamp.
+ * The client polls this every 30s; if `boot_time` differs from the first
+ * response, the server restarted and the client triggers a reload to pick
+ * up any new HTML/JS (KJC-TSK-0379).
+ */
+router.get('/version', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ version: PKG_VERSION, boot_time: BOOT_TIME });
+});
 
 /**
  * Resolve the hu-stories dir where batch.json files live.

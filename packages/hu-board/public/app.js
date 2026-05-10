@@ -3605,3 +3605,38 @@ refreshInterval = setInterval(async () => {
     await smartRefresh(null);
   }
 }, 60_000);
+
+// --- Server-restart detector (KJC-TSK-0379) ---------------------------
+// Poll /api/version every 30s. First response anchors the baseline; if
+// `boot_time` later differs, the server restarted (likely after a `kj
+// board start`) and the client reloads to pick up any new HTML/JS
+// served with `Cache-Control: no-store`. Avoids the "I killed the
+// server but the browser keeps showing stale UI" pain.
+let __versionBaseline = null;
+async function pollServerVersion() {
+  try {
+    const res = await api('/version');
+    if (!__versionBaseline) { __versionBaseline = res; return; }
+    if (res.boot_time !== __versionBaseline.boot_time) {
+      console.info('[hu-board] server restart detected, reloading...');
+      window.forceRefresh();
+    }
+  } catch (_) { /* network blip; try next tick */ }
+}
+setInterval(pollServerVersion, 30_000);
+pollServerVersion();
+
+// Manual escape hatch: bound to the 🔄 button in the header. Wipes all
+// caches the browser may be holding (Cache API + sessionStorage) and
+// hard-reloads. Useful when the user thinks something is wrong even
+// though the version-poll hasn't fired.
+window.forceRefresh = async function forceRefresh() {
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    sessionStorage.clear();
+  } catch (_) { /* best effort */ }
+  window.location.reload();
+};

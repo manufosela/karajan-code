@@ -30,6 +30,18 @@ const PID_FILE = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-bo
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '..', 'public');
 
+/**
+ * Cache-Control headers that tell the browser to revalidate every fetch.
+ * Applied to HTML / JS / CSS so a server restart can't be hidden by stale
+ * in-memory cache. Assets with content-hash in filename can override this
+ * later with `immutable` if we adopt a build step.
+ */
+function noStoreHeaders(res, filePath) {
+  if (/\.(html|js|css)$/i.test(filePath)) {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  }
+}
+
 /** Default bind: loopback only. Override with BIND_HOST=0.0.0.0 (or any IP). */
 const DEFAULT_BIND_HOST = '127.0.0.1';
 
@@ -203,12 +215,13 @@ async function main() {
   const app = express();
   app.use(...buildSecurityMiddleware());
   app.use(express.json());
-  app.use(express.static(PUBLIC_DIR));
+  app.use(express.static(PUBLIC_DIR, { setHeaders: noStoreHeaders, etag: false, lastModified: false }));
   app.use('/api', buildRateLimiter(), authMiddleware(), apiRoutes);
   app.use('/api/pipeline', authMiddleware(), pipelineRoutes);
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.get('/{*splat}', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
     res.sendFile(join(PUBLIC_DIR, 'index.html'));
   });
 
