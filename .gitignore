@@ -26,3 +26,16 @@ review-rules.md
 tests/e2e/karajan-code.tgz
 .env
 audits/
+
+# IDE / language-server local config (lives only on the maintainer's machine)
+.serena/
+
+# Maintainer-private files (talk slides, unpublished drafts, brand assets,
+# personal TODO lists). Survives in the maintainer's working tree but NEVER
+# leaves the local repo.
+PERSONAL/
+
+# Bug-class trap: legacy sweeps with KJ_HOME=undefined created a literal
+# `undefined/` directory full of test artefacts. Tracked the contents in the
+# Planning Game; meanwhile keep it out of the repo to stop it returning.
+undefined/

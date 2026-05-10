@@ -334,9 +334,10 @@ scripts under `docs/demos/`. No API changes; safe upgrade from 2.10.0.
 
 ### Added
 
-- **`TODO-post-talk.md`** — backlog of P1/P2 latent bugs and test gaps
-  surfaced by the pre-talk code review (3 Sonnet agents in parallel).
-  None affect the live demo on 2026-05-21; all deferred to post-talk.
+- **Pre-talk code review backlog** — 3 Sonnet agents in parallel
+  surfaced P1/P2 latent bugs and test gaps. None affect the live
+  demo on 2026-05-21; all deferred to post-talk. (Backlog lives
+  in the maintainer's private notes, not in this repo.)
 
 ### Tests
 
