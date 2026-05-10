@@ -105,24 +105,30 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // the tests manually before executing.
   const { normaliseAcceptanceTests } = await import("../../plan/plan-schema.js");
   const steps = parsed?.steps || [];
-  let prevId = null;
   let stepsMissingTests = 0;
   for (const step of steps) {
     const desc = typeof step === "string" ? step : step.description || step.title || JSON.stringify(step);
     const rawTests = typeof step === "object" ? step.acceptance_tests : null;
     const tests = normaliseAcceptanceTests(rawTests);
     if (tests.length === 0) stepsMissingTests += 1;
-    const hu = addHu(plan, {
+    addHu(plan, {
       title: desc.slice(0, 80),
       task_type: classifyTaskType(desc),
       scope: desc,
-      blocked_by: prevId ? [prevId] : [],
+      // KJC-BUG-0041: never chain HUs by their order of appearance. The
+      // planner role doesn't model dependencies in its output schema; the
+      // pre-v2.13.1 code synthesised `blocked_by: [previousHuId]` for
+      // every HU, which produced a linear chain artefact and silently
+      // serialised parallelisable work. Real dependencies (when they
+      // exist in the user's spec text) are surfaced by the plan-reviewer
+      // pass as `order_issues`, and the user can promote them manually
+      // before `kj run --plan`.
+      blocked_by: [],
       acceptance_tests: tests,
       // Spec mapping (PR C): preserve the planner's section citation
       // so the coder/reviewer / board can show "implements §5.3".
       spec_section: typeof step === "object" && typeof step.spec_section === "string" ? step.spec_section.trim() || null : null,
     });
-    prevId = hu.id;
   }
   // Tests-synthesizer pass (v2.7.5): the first planner call asks for
   // acceptance_tests inline, but Claude / Codex frequently skip that
