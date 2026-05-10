@@ -1116,7 +1116,6 @@ function renderSessionCard(session) {
 function renderEmptyState(title, text) {
   return `
     <div class="empty-state">
-      <div class="empty-state__icon">&#9744;</div>
       <div class="empty-state__title">${title || 'No data yet'}</div>
       <div class="empty-state__text">${text || 'HU stories and sessions will appear here as Karajan processes them.'}</div>
       <div class="empty-state__path">~/.karajan/hu-stories/</div>

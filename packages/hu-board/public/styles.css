@@ -6,6 +6,12 @@
 
 :root {
   --bg-primary: #0a0e1a;
+  /* --bg-secondary was referenced from app.js (modal backgrounds, inputs,
+     code blocks) but never declared, so it fell back to `transparent` and
+     made the prompt modal show cards bleeding through. Anchored to a
+     slightly lighter shade than --bg-card so layered surfaces stay
+     visually distinct. */
+  --bg-secondary: #131a30;
   --bg-card: #0f1425;
   --bg-card-hover: #141a30;
   --border: #1e2740;
@@ -781,12 +787,6 @@ a:hover {
   text-align: center;
   padding: 60px 20px;
   color: var(--text-muted);
-}
-
-.empty-state__icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.4;
 }
 
 .empty-state__title {
