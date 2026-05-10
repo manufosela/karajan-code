@@ -25,6 +25,8 @@ import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
 import { readConfig, writeConfigPatch } from '../config-yaml.js';
 import { BOOT_TIME, PKG_VERSION } from '../boot-info.js';
+import { addTombstone, getDb, isTombstoned as isTombstonedFn } from '../db.js';
+import { publish as publishEvent } from '../event-bus.js';
 
 const router = Router();
 
@@ -324,10 +326,59 @@ router.get('/sessions', (_req, res) => {
  */
 router.delete('/projects/:id', (req, res) => {
   try {
-    const existed = deleteProject(req.params.id);
+    const id = req.params.id;
+    // Gather filesystem paths to remove BEFORE deleting DB rows so we
+    // can stop the next sync from resurrecting anything.
+    const db = getDb();
+    const storyIds = db.prepare('SELECT id FROM stories WHERE project_id = ?').all(id).map((r) => r.id);
+    const sessionIds = db.prepare('SELECT id FROM sessions WHERE project_id = ?').all(id).map((r) => r.id);
+    const fsPaths = [
+      ...storyIds.map((sid) => path.join(huStoriesDir(), sid)),
+      ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
+      path.join(getKjHome(), '..', '.kj', 'plans', id),
+    ];
+
+    const existed = deleteProject(id);
     if (!existed) return res.status(404).json({ error: 'Project not found' });
-    const dirRemoved = removeBatchDir(req.params.id);
-    res.json({ deleted: true, dirRemoved });
+
+    // Tombstone the project AND its children so chokidar / fullScan
+    // can't bring them back via syncStoryFile / syncSessionFile.
+    addTombstone('project', id, { source: 'api', fsPaths });
+    for (const sid of storyIds) addTombstone('story', sid, { source: 'api' });
+    for (const sid of sessionIds) addTombstone('session', sid, { source: 'api' });
+
+    // Best-effort fs cleanup; failure does NOT undo the tombstones.
+    let pathsRemoved = 0;
+    for (const p of fsPaths) {
+      try { fs.rmSync(p, { recursive: true, force: true }); pathsRemoved++; } catch { /* */ }
+    }
+    res.json({ deleted: true, pathsRemoved, tombstoned: 1 + storyIds.length + sessionIds.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/prompts/:promptId - Discard a pending prompt the runner left
+ * behind (KJC-TSK-0380). Removes the RPC files from disk, tombstones the
+ * prompt id so a stale chokidar event can't recreate it, and emits a
+ * `prompt:resolved` event so all open boards close the modal.
+ */
+router.delete('/prompts/:promptId', (req, res) => {
+  try {
+    const promptId = req.params.promptId;
+    const dir = promptsDir();
+    const main = path.join(dir, `${promptId}.json`);
+    const answer = path.join(dir, `${promptId}.answer.json`);
+    let removed = 0;
+    for (const p of [main, answer]) {
+      try { fs.unlinkSync(p); removed++; } catch { /* missing is fine */ }
+    }
+    addTombstone('prompt', promptId, { source: 'api', fsPaths: [main, answer] });
+    // Re-use the same event the runner emits when answered, so any open
+    // modal in any connected board client closes itself.
+    publishEvent({ type: 'prompt-resolved', promptId });
+    res.json({ deleted: true, filesRemoved: removed });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -524,6 +575,13 @@ router.get('/prompts', (_req, res) => {
     const result = [];
     for (const name of entries) {
       if (!name.endsWith('.json') || name.endsWith('.answer.json')) continue;
+      const promptId = name.replace(/\.json$/, '');
+      // KJC-TSK-0380 — skip tombstoned prompts and clean their files.
+      if (isTombstonedFn('prompt', promptId)) {
+        try { fs.unlinkSync(path.join(dir, name)); } catch { /* */ }
+        try { fs.unlinkSync(path.join(dir, `${promptId}.answer.json`)); } catch { /* */ }
+        continue;
+      }
       try {
         const raw = fs.readFileSync(path.join(dir, name), 'utf-8');
         result.push(JSON.parse(raw));

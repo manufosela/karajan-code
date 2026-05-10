@@ -1,6 +1,6 @@
 import { watch } from 'chokidar';
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { readFileSync, readdirSync, existsSync, statSync, rmSync } from 'node:fs';
+import { dirname, join, basename } from 'node:path';
 import { homedir } from 'node:os';
 import {
   getKjHome,
@@ -9,8 +9,24 @@ import {
   upsertSession,
   insertContextRequest,
   getDb,
+  isTombstoned,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
+
+/**
+ * Skip + best-effort fs cleanup when the resource is tombstoned. Returns
+ * true if the caller should bail out (resource is dead).
+ *
+ * KJC-TSK-0380: without this, every fullScan/chokidar event resurrects
+ * resources the user already deleted via the API.
+ */
+function skipIfTombstoned(resourceType, resourceId, fsPathToRemove) {
+  if (!isTombstoned(resourceType, resourceId)) return false;
+  if (fsPathToRemove) {
+    try { rmSync(fsPathToRemove, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  return true;
+}
 
 /**
  * Derive a human-readable project name from batch data.
@@ -106,6 +122,11 @@ function syncStoryFile(filePath) {
     const data = JSON.parse(raw);
     const sessionId = data.session_id || basename(join(filePath, '..'));
     const projectId = data.project_id || sessionId;
+
+    // Tombstone gate: if the project or its batch is buried, drop the
+    // file from disk and skip. Without this, fullScan resurrects them.
+    if (skipIfTombstoned('project', projectId, dirname(filePath))) return;
+    if (skipIfTombstoned('story', sessionId, dirname(filePath))) return;
 
     // Skip if this is a non-auto batch and an auto- version already exists.
     // Prevents duplicate projects when both auto-s_xxx/ and s_xxx/ exist.
@@ -207,6 +228,8 @@ function syncSessionFile(filePath) {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
     const sessionId = data.id || basename(join(filePath, '..'));
+
+    if (skipIfTombstoned('session', sessionId, dirname(filePath))) return;
 
     // Resolve which project this session belongs to:
     //   1. If a plan / HU batch already created `auto-<sessionId>`, reuse it
@@ -315,6 +338,9 @@ export function syncPlanFile(filePath) {
     const projectId = data.projectDir
       ? deriveProjectIdFromDir(data.projectDir)
       : data.planId;
+
+    if (skipIfTombstoned('plan', data.planId, filePath)) return;
+    if (skipIfTombstoned('project', projectId, dirname(filePath))) return;
     // Human-friendly project name resolution order (most-specific first):
     //   1. plan.name explicitly set by the user / planner ("Linux Assistant
     //      Orchestrator" — preserved across renames done from the board).
