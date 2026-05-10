@@ -7,7 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.12.0] - 2026-05-09
+## [2.13.0] - 2026-05-11
+
+Minor release. **HU Board hardening pass.** Cinco PRs centradas en
+hacer el board resiliente y autoreparable tras la sesión de
+dogfooding del 2026-05-10 que reveló cuatro patologías acumuladas
+(modal "Karajan needs an answer" zombi del 7 de mayo bloqueando
+toda la UI, 18 proyectos zombi reapareciendo tras cada `kj board
+start`, cache HTTP del navegador sirviendo HTML/JS antiguos tras
+restart del server, modal con fondo transparente porque
+`var(--bg-secondary)` nunca estaba declarada). Cero parches sueltos
+— refactor estructural por causa raíz.
+
+### Added
+
+- **Tombstones — delete persistente que sobrevive a fullScan**
+  (`KJC-TSK-0380`, #655/#656/#657). El board reconstruía la DB
+  SQLite desde el filesystem en cada sync y revertía silenciosamente
+  cualquier delete por API. Solución: tabla `tombstones (resource_type,
+  resource_id, deleted_at, source, fs_paths)` que registra los ids
+  que el usuario enterró; los syncs consultan la tombstone ANTES de
+  upsert y, si está, hacen `rm -rf` del path del filesystem y
+  abortan. Patrón clásico de Cassandra/Riak. Permanentes por diseño,
+  restauración explícita vía endpoint.
+- **Endpoints DELETE reforzados + nuevos** — `/api/projects/:id`,
+  `/api/stories/:id`, `/api/sessions/:id` ahora tombstone + `rm -rf`
+  del fs path correspondiente. Nuevos: `/api/prompts/:id`,
+  `/api/plans/:planId`, `GET /api/tombstones`,
+  `POST /api/tombstones/:type/:id/restore`.
+- **Nuevo comando `kj board cleanup`** (`KJC-TSK-0380` PR-C, #657)
+  detecta y borra: proyectos efímeros (`tmp_*`/`test_*`/`demo_*`/
+  `kj-test-*`/`s_*`/`plan-*` con >7d sin actividad), prompts
+  huérfanos (sin `.answer.json` y mtime >24h), directorios de
+  sesión huérfanos. Soporta `--dry-run`. Resuelve los ~20 zombis
+  acumulados en una pasada.
+- **Server-restart detector + `/api/version`** (`KJC-TSK-0379`,
+  #654). El cliente polea `/api/version` cada 30s; si `boot_time`
+  cambia (server reiniciado), `forceRefresh()` automático: limpia
+  caches y recarga. El usuario ya no tiene que cerrar pestañas o
+  hacer Clear Site Data tras un `kj board stop` + `kj board start`.
+- **Botón 🧹 manual** en el header del HU Board (escotilla manual
+  para los casos en que el polling todavía no ha disparado pero algo
+  visualmente no cuadra).
+
+### Changed
+
+- **`Cache-Control: no-store, must-revalidate`** para HTML/JS/CSS
+  servidos por el board (#654). ETag + Last-Modified desactivados.
+  Garantiza que el primer request tras un restart trae el código
+  nuevo, sin revalidación condicional que el navegador pueda
+  saltarse.
+- **HU Board v2.10 rate-limit** documentado como problema en
+  `KJC-BUG-0039` (no fix en este release; aterrizará después).
+
+### Fixed
+
+- **Modal del prompt transparente** (#658). `var(--bg-secondary)`
+  estaba referenciada en 8 sitios de `app.js` (modal, textareas,
+  inputs) pero nunca declarada en `:root` → fallback a `transparent`
+  → cards visibles detrás del modal. Fix: declarar la variable en
+  `:root` con `#131a30`. Una línea CSS, ocho consumidores corregidos.
+- **Empty-state del HU Board mostraba ☐** (cuadrado vacío Unicode
+  U+2610) sin estilo coherente (#658). Eliminado del template; el
+  title + text + path son suficientes para transmitir "no hay nada".
+- **Causa raíz de modales zombi** (`KJC-BUG-0038`) absorbida por el
+  refactor de tombstones — ya no hay forma de que un prompt huérfano
+  bloquee la UI.
+
+### Documentation
+
+- **Glosario de tombstones** implícito en CHANGELOG y comentarios
+  inline. Patrón explicado en cada writer/reader que lo consulta.
+
+
 
 Minor release. Two new quality-measurement features land together: a
 per-run **plan adherence** score and a **golden-tasks** regression suite
