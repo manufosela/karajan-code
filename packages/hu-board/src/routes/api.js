@@ -25,7 +25,7 @@ import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
 import { readConfig, writeConfigPatch } from '../config-yaml.js';
 import { BOOT_TIME, PKG_VERSION } from '../boot-info.js';
-import { addTombstone, getDb, isTombstoned as isTombstonedFn } from '../db.js';
+import { addTombstone, getDb, isTombstoned as isTombstonedFn, removeTombstone, listTombstones } from '../db.js';
 import { publish as publishEvent } from '../event-bus.js';
 
 const router = Router();
@@ -385,28 +385,100 @@ router.delete('/prompts/:promptId', (req, res) => {
 });
 
 /**
- * DELETE /api/stories/:id - Delete a single story from DB.
- * The underlying batch.json is not mutated (story survives on disk and will
- * be re-imported on next sync). This endpoint is a DB-only soft hide.
+ * DELETE /api/stories/:id - Delete a single story.
+ *
+ * Tombstones the story (KJC-TSK-0380) and removes its batch directory
+ * from `~/.karajan/hu-stories/<id>/` so the next sync does NOT re-import
+ * it. Pre-tombstones this endpoint was a DB-only soft hide that the next
+ * chokidar event undid silently.
  */
 router.delete('/stories/:id', (req, res) => {
   try {
-    const ok = deleteStory(req.params.id);
+    const id = req.params.id;
+    const dir = path.join(huStoriesDir(), id);
+    const ok = deleteStory(id);
     if (!ok) return res.status(404).json({ error: 'Story not found' });
-    res.json({ deleted: true });
+    addTombstone('story', id, { source: 'api', fsPaths: [dir] });
+    let dirRemoved = false;
+    try { fs.rmSync(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
+    res.json({ deleted: true, dirRemoved });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * DELETE /api/sessions/:id - Delete a single session from DB.
+ * DELETE /api/sessions/:id - Delete a single session.
+ *
+ * Tombstones + removes `~/.karajan/sessions/<id>/` (KJC-TSK-0380).
  */
 router.delete('/sessions/:id', (req, res) => {
   try {
-    const ok = deleteSession(req.params.id);
+    const id = req.params.id;
+    const dir = path.join(getKjHome(), 'sessions', id);
+    const ok = deleteSession(id);
     if (!ok) return res.status(404).json({ error: 'Session not found' });
-    res.json({ deleted: true });
+    addTombstone('session', id, { source: 'api', fsPaths: [dir] });
+    let dirRemoved = false;
+    try { fs.rmSync(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
+    res.json({ deleted: true, dirRemoved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/plans/:planId - Delete a single plan file.
+ *
+ * Removes `~/.kj/plans/<projectSlug>/plan-<planId>.json` and tombstones
+ * the plan id so the next watcher event doesn't re-sync it. Does NOT
+ * delete the project: a project can have multiple plans, deleting one
+ * plan only removes that plan's HUs from the board.
+ */
+router.delete('/plans/:planId', (req, res) => {
+  try {
+    const planId = req.params.planId;
+    // Locate the plan file by scanning the plans dir for filename match.
+    const plansRoot = process.env.KJ_PLANS_DIR || path.join(getKjHome(), '..', '.kj', 'plans');
+    let foundPath = null;
+    try {
+      for (const projSlug of fs.readdirSync(plansRoot)) {
+        const candidate = path.join(plansRoot, projSlug, `plan-${planId}.json`);
+        if (fs.existsSync(candidate)) { foundPath = candidate; break; }
+      }
+    } catch { /* plansRoot missing */ }
+    addTombstone('plan', planId, { source: 'api', fsPaths: foundPath ? [foundPath] : [] });
+    if (foundPath) { try { fs.unlinkSync(foundPath); } catch { /* */ } }
+    res.json({ deleted: true, fileRemoved: !!foundPath });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/tombstones - List every active tombstone for diagnostics.
+ *
+ * Returns rows ordered by deleted_at DESC; useful for the diagnostics
+ * pane and for the cleanup script (KJC-TSK-0380 PR-C).
+ */
+router.get('/tombstones', (_req, res) => {
+  try {
+    res.json(listTombstones());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/tombstones/:type/:id/restore - Bring a buried id back to
+ * life. The next sync will then re-import the resource if its filesystem
+ * source still exists. Idempotent: returns false when nothing to remove.
+ */
+router.post('/tombstones/:type/:id/restore', (req, res) => {
+  try {
+    const removed = removeTombstone(req.params.type, req.params.id);
+    if (!removed) return res.status(404).json({ error: 'Tombstone not found' });
+    res.json({ restored: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
