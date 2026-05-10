@@ -187,7 +187,7 @@ export function registerMeta(program, { pkgVersion }) {
 
   program
     .command("board [action]")
-    .description("Manage HU Board (start|stop|status|open)")
+    .description("Manage HU Board (start|stop|status|open|cleanup)")
     .option("--port <number>", "Port (default: 4000)", "4000")
     .option("--bind <host>", "Bind host (default: 127.0.0.1; use 0.0.0.0 to expose on LAN — token auth auto-enforced)")
     .action(async (action = "start", opts) => {

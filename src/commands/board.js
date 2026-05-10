@@ -340,8 +340,26 @@ export async function boardCommand({ action = "start", port = 4000, bind = "127.
       }
       return { ok: true, url };
     }
+    case "cleanup": {
+      const { initDb, closeDb, cleanupZombies } = await import("../../packages/hu-board/src/cleanup-zombies.js");
+      initDb();
+      try {
+        const dryRun = process.argv.includes("--dry-run");
+        const report = cleanupZombies({ dryRun });
+        const total = report.projects.length + report.prompts.length + report.sessions.length;
+        const prefix = dryRun ? "[dry-run] Would clean" : "Cleaned";
+        logger.info(`${prefix}: ${report.projects.length} projects, ${report.prompts.length} prompts, ${report.sessions.length} sessions (total ${total})`);
+        if (report.projects.length) logger.info(`  projects: ${report.projects.join(", ")}`);
+        if (report.prompts.length)  logger.info(`  prompts:  ${report.prompts.join(", ")}`);
+        if (report.sessions.length) logger.info(`  sessions: ${report.sessions.join(", ")}`);
+        if (total === 0) logger.info("  Board is already clean.");
+        return { ok: true, ...report };
+      } finally {
+        closeDb();
+      }
+    }
     default:
-      logger.error(`Unknown board action: ${action}. Use start|stop|status|open`);
+      logger.error(`Unknown board action: ${action}. Use start|stop|status|open|cleanup`);
       return { ok: false, error: `Unknown action: ${action}` };
   }
 }
