@@ -164,4 +164,64 @@ describe('tombstones — DELETE endpoints', () => {
     // And the file was cleaned up as a side effect of the listing
     expect(readdirSync(promptsRoot).filter((n) => n === 'pr-zombi.json')).toHaveLength(0);
   });
+
+  // ---------- PR B endpoints (story / session / plan / restore / list) ------
+
+  it('DELETE /api/stories/:id tombstones + removes its batch dir', async () => {
+    dbMod.upsertStory({ id: 'st-1', project_id: 'p1', status: 'pending' });
+    const dir = join(tmpDir, 'hu-stories', 'st-1');
+    mkdirSync(dir, { recursive: true });
+
+    const r = await request(app).delete('/api/stories/st-1').expect(200);
+    expect(r.body).toMatchObject({ deleted: true, dirRemoved: true });
+    expect(dbMod.isTombstoned('story', 'st-1')).toBe(true);
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it('DELETE /api/sessions/:id tombstones + removes its session dir', async () => {
+    dbMod.upsertSession({ id: 'sess-1', project_id: 'p1', status: 'running' });
+    const dir = join(tmpDir, 'sessions', 'sess-1');
+    mkdirSync(dir, { recursive: true });
+
+    const r = await request(app).delete('/api/sessions/sess-1').expect(200);
+    expect(r.body).toMatchObject({ deleted: true, dirRemoved: true });
+    expect(dbMod.isTombstoned('session', 'sess-1')).toBe(true);
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it('DELETE /api/plans/:planId tombstones + removes the plan file (not the project)', async () => {
+    const planDir = join(tmpDir, '.kj', 'plans', 'my-proj');
+    mkdirSync(planDir, { recursive: true });
+    const planFile = join(planDir, 'plan-xyz.json');
+    writeFileSync(planFile, JSON.stringify({ version: 2, planId: 'xyz', hus: [] }));
+
+    const r = await request(app).delete('/api/plans/xyz').expect(200);
+    expect(r.body).toMatchObject({ deleted: true, fileRemoved: true });
+    expect(dbMod.isTombstoned('plan', 'xyz')).toBe(true);
+    expect(existsSync(planFile)).toBe(false);
+  });
+
+  it('GET /api/tombstones lists every active tombstone newest first', async () => {
+    dbMod.addTombstone('project', 'old-proj', { source: 'api' });
+    await new Promise((r) => setTimeout(r, 5));
+    dbMod.addTombstone('prompt', 'recent-prompt', { source: 'api' });
+
+    const r = await request(app).get('/api/tombstones').expect(200);
+    expect(r.body).toHaveLength(2);
+    expect(r.body[0].resource_id).toBe('recent-prompt');
+    expect(r.body[1].resource_id).toBe('old-proj');
+  });
+
+  it('POST /api/tombstones/:type/:id/restore removes the tombstone', async () => {
+    dbMod.addTombstone('project', 'to-restore');
+    expect(dbMod.isTombstoned('project', 'to-restore')).toBe(true);
+
+    const r = await request(app).post('/api/tombstones/project/to-restore/restore').expect(200);
+    expect(r.body).toMatchObject({ restored: true });
+    expect(dbMod.isTombstoned('project', 'to-restore')).toBe(false);
+  });
+
+  it('POST /api/tombstones/.../restore returns 404 when tombstone does not exist', async () => {
+    await request(app).post('/api/tombstones/project/never-buried/restore').expect(404);
+  });
 });
