@@ -114,10 +114,26 @@ export function initDb() {
       answered_at TEXT
     );
 
+    -- KJC-TSK-0380 — Tombstones: "deleted, do not resurrect".
+    -- The board's data is reconstructed from the filesystem on every
+    -- fullScan(), so a plain DELETE from the table is silently undone
+    -- the next time chokidar fires. The tombstone table holds the ids
+    -- the user explicitly killed; sync* functions check it before any
+    -- upsert and skip + clean fs paths.
+    CREATE TABLE IF NOT EXISTS tombstones (
+      resource_type TEXT NOT NULL,
+      resource_id   TEXT NOT NULL,
+      deleted_at    TEXT NOT NULL,
+      source        TEXT NOT NULL,
+      fs_paths      TEXT,
+      PRIMARY KEY (resource_type, resource_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_stories_project ON stories(project_id);
     CREATE INDEX IF NOT EXISTS idx_stories_status ON stories(status);
     CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
     CREATE INDEX IF NOT EXISTS idx_context_story ON context_requests(story_id);
+    CREATE INDEX IF NOT EXISTS idx_tombstones_deleted_at ON tombstones(deleted_at);
   `);
 
   // --- Migrations ---
@@ -561,6 +577,44 @@ export function deleteSession(sessionId) {
   const db = getDb();
   const res = db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
   return res.changes > 0;
+}
+
+// --- Tombstones (KJC-TSK-0380) ---------------------------------------
+// "This (resource_type, resource_id) is dead — don't bring it back." The
+// sync layer consults this table BEFORE every upsert and skips records
+// whose id is buried. Restoration is explicit via removeTombstone().
+
+export function addTombstone(resourceType, resourceId, opts = {}) {
+  getDb().prepare(`
+    INSERT OR REPLACE INTO tombstones (resource_type, resource_id, deleted_at, source, fs_paths)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    resourceType, resourceId,
+    new Date().toISOString(),
+    opts.source || 'api',
+    opts.fsPaths ? JSON.stringify(opts.fsPaths) : null,
+  );
+}
+
+export function isTombstoned(resourceType, resourceId) {
+  return !!getDb().prepare(
+    'SELECT 1 FROM tombstones WHERE resource_type = ? AND resource_id = ? LIMIT 1'
+  ).get(resourceType, resourceId);
+}
+
+export function removeTombstone(resourceType, resourceId) {
+  return getDb().prepare(
+    'DELETE FROM tombstones WHERE resource_type = ? AND resource_id = ?'
+  ).run(resourceType, resourceId).changes > 0;
+}
+
+export function listTombstones() {
+  return getDb().prepare(
+    'SELECT resource_type, resource_id, deleted_at, source, fs_paths FROM tombstones ORDER BY deleted_at DESC'
+  ).all().map((row) => ({
+    ...row,
+    fs_paths: row.fs_paths ? JSON.parse(row.fs_paths) : [],
+  }));
 }
 
 /**
