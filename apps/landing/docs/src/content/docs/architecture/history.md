@@ -5,6 +5,18 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 64: HU Board hardening — tombstones + restart detector + cleanup (v2.13.0)
+
+**v2.13.0** (minor, 2026-05-11) — Cinco PRs absorben las patologías que la sesión de dogfooding del 2026-05-10 reveló sobre el HU Board: un modal "Karajan needs an answer" del 7 de mayo bloqueando toda la UI, ~18 proyectos zombi reapareciendo tras cada `kj board start`, el navegador sirviendo HTML/JS antiguo tras un `kj board stop` + `start`, y el modal del prompt mostrando transparencia porque `var(--bg-secondary)` jamás se declaró. No band-aids — refactor estructural por causa raíz.
+
+**Tombstones — delete persistente** (`KJC-TSK-0380`, #655/#656/#657): el HU Board reconstruye la DB SQLite desde el filesystem en cada `fullScan`, así que cualquier `DELETE` por API era silenciosamente revertido al siguiente sync de chokidar. Solución: tabla `tombstones (resource_type, resource_id, deleted_at, source, fs_paths)` con clave primaria compuesta. Los `sync*File` consultan tombstone antes de upsert; si está, hacen `rm -rf` del path del filesystem y abortan. Patrón clásico de Cassandra/Riak. Permanentes; restauración explícita vía endpoint. Endpoints DELETE reforzados (`/api/projects/:id`, `/api/stories/:id`, `/api/sessions/:id`) y nuevos (`DELETE /api/prompts/:id`, `DELETE /api/plans/:planId`, `GET /api/tombstones`, `POST /api/tombstones/:type/:id/restore`). Comando nuevo `kj board cleanup` detecta proyectos efímeros (`tmp_*`/`test_*`/`demo_*`/`kj-test-*`/`s_*`/`plan-*` con >7d sin actividad), prompts huérfanos (sin `.answer.json` y mtime >24h) y directorios de sesión huérfanos. Soporta `--dry-run`. Resuelve los ~20 zombis acumulados en una sola pasada.
+
+**Server-restart detector** (`KJC-TSK-0379`, #654): `Cache-Control: no-store, must-revalidate` para HTML/JS/CSS servidos por el board (ETag y Last-Modified desactivados) garantiza que el primer request tras un restart trae código fresco. El cliente polea `/api/version` cada 30s; si `boot_time` cambia (server reiniciado), `forceRefresh()` automático: limpia caches y recarga sin que el usuario tenga que cerrar pestañas o hacer Clear Site Data. Botón **🧹** en el header como escotilla manual visible.
+
+**Polish UX** (#658): `var(--bg-secondary)` referenciada en 8 sitios de `app.js` (modal del prompt, textareas, inputs, code blocks) pero jamás declarada en `:root` → fallback a `transparent` → cards visibles detrás. Fix: declarar la variable en `:root` con `#131a30`. Una línea CSS, ocho consumidores arreglados. Y el icono `☐` (cuadrado vacío Unicode U+2610) del empty-state, eliminado del template — el title + text + path bastan.
+
+**4 522 / 4 522 tests** passing. Safe upgrade from 2.12.0.
+
 ## Phase 63: Quality measurement — plan adherence + golden tasks (v2.12.0)
 
 **v2.12.0** (minor, 2026-05-09) — Two new quality-measurement features land together. The pipeline now scores its *own* runs (per-run **plan adherence**, deterministic 0–100 metric in `summary.md`) and the project as a whole protects itself against version-to-version regression with a small **golden-tasks** suite. Plus a CI policy refinement that frees human-facing documentation from the LOC budget while keeping AI-rule files capped. 8 PRs total (#645–#652) + the release commit #653.
