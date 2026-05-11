@@ -129,6 +129,55 @@ export function verifyLeaksAgainstTranscript(leaks, transcript) {
 }
 
 /**
+ * Layer 2 detection (KJC-BUG-0032): scan the coder's transcript for
+ * `cd <abs-path> && <write-cmd>` patterns where <abs-path> is OUTSIDE
+ * projectDir. Catches the bug class even when the target directory
+ * already existed (so snapshot-diff misses it) — e.g.
+ *   `cd /home/manu/assistant && pnpm init -y`
+ * when `~/assistant` was pre-existing.
+ *
+ * Filters applied:
+ *  - Only absolute paths (`/`, `~/`, `$HOME/`) — relative `cd subdir`
+ *    is assumed inside projectDir.
+ *  - Skips `/tmp/...` (ephemeral, legitimate scratch).
+ *  - Skips targets inside projectDir.
+ *  - Only flags if followed (same line, within 200 chars) by a
+ *    write/creation command: mkdir / touch / cp / mv / git init /
+ *    {pnpm,npm,yarn} init / {pnpm,npm,yarn,npx} create / cat > /
+ *    echo > / shell redirect (>, >>).
+ *  - Pure read commands (ls, which, cat <file>, grep) do NOT flag.
+ *
+ * @param {string|null|undefined} transcript
+ * @param {string|null} projectDir
+ * @returns {string[]} deduplicated absolute leak paths
+ */
+export function detectTranscriptCdLeaks(transcript, projectDir) {
+  if (!transcript || typeof transcript !== "string") return [];
+  const projectDirAbs = projectDir ? path.resolve(projectDir) : null;
+  const homeDir = os.homedir();
+  // Capture cd target + the next ~200 chars of the same line for write-cmd lookup.
+  const cdRegex = /\bcd\s+(~\/[^\s&|;`'"\n]+|\$HOME\/[^\s&|;`'"\n]+|\/[^\s&|;`'"\n]+)([^\n]{0,200})/g;
+  const writeCmdRegex = /\b(mkdir|touch|cp|mv|git\s+init|(?:pnpm|npm|yarn)\s+(?:init|create)|npx\s+create|cat\s*>|echo\s+[^|]*>|>>?\s*\S)/i;
+  const leaks = new Set();
+  let match;
+  while ((match = cdRegex.exec(transcript)) !== null) {
+    const original = match[1];
+    let target = original;
+    const rest = match[2] || "";
+    if (target.startsWith("~/")) target = path.join(homeDir, target.slice(2));
+    else if (target.startsWith("$HOME/")) target = path.join(homeDir, target.slice(6));
+    const abs = path.resolve(target);
+    // /tmp guard only applies to literal /tmp/... paths (ephemeral scratch),
+    // not to ~/ expansions that happen to land in /tmp during tests.
+    if (original === "/tmp" || original.startsWith("/tmp/")) continue;
+    if (projectDirAbs && (abs === projectDirAbs || abs.startsWith(projectDirAbs + path.sep))) continue;
+    if (!writeCmdRegex.test(rest)) continue;
+    leaks.add(abs);
+  }
+  return Array.from(leaks);
+}
+
+/**
  * Format a leak list into a multiline plain-Spanish error message.
  * Includes a hint about how to recover (move-or-delete) so the user
  * isn't left guessing.

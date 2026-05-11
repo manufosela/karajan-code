@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage,
-  verifyLeaksAgainstTranscript,
+  verifyLeaksAgainstTranscript, detectTranscriptCdLeaks,
 } from "../src/orchestrator/fs-leak-detector.js";
 
 // KJC-BUG-0032 (PR-I): the coder's Bash tool can `cd` anywhere and
@@ -175,5 +175,98 @@ describe("verifyLeaksAgainstTranscript (issue #546 — host-write false positive
     const leaks = ["/home/x/assistant"];
     const transcript = "src/foo.js\nsrc/bar.js\nsrc/baz.js\nassistant\nfile.txt\n".repeat(100);
     expect(verifyLeaksAgainstTranscript(leaks, transcript)).toEqual(["/home/x/assistant"]);
+  });
+});
+
+describe("detectTranscriptCdLeaks (BUG-0032 layer 2 — cd-then-write outside projectDir)", () => {
+  it("flags `cd /abs && pnpm init` when target is outside projectDir", () => {
+    const transcript = "cd /home/manu/assistant && pnpm init -y\nDone.";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain("/home/manu/assistant");
+  });
+
+  it("flags `cd /abs && mkdir foo` when target is outside projectDir", () => {
+    const transcript = "cd /opt/other && mkdir -p src/index.js";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain("/opt/other");
+  });
+
+  it("flags `cd /abs && touch file.txt`", () => {
+    const transcript = "cd /var/data && touch new.csv";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain("/var/data");
+  });
+
+  it("flags `cd /abs && git init`", () => {
+    const transcript = "cd /home/manu/other-proj && git init";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain("/home/manu/other-proj");
+  });
+
+  it("flags `cd /abs && echo ... > file`", () => {
+    const transcript = "cd /home/manu/x && echo 'hi' > config.yaml";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain("/home/manu/x");
+  });
+
+  it("does NOT flag `cd /abs && ls` (pure read command)", () => {
+    const transcript = "cd /usr/local/bin && ls -la";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toEqual([]);
+  });
+
+  it("does NOT flag `cd /abs && which node` (read command)", () => {
+    const transcript = "cd /usr && which node";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toEqual([]);
+  });
+
+  it("does NOT flag `cd <relative> && pnpm init` (relative paths are inside projectDir)", () => {
+    const transcript = "cd subdir && pnpm init -y";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toEqual([]);
+  });
+
+  it("does NOT flag when target is INSIDE projectDir", () => {
+    const transcript = "cd /home/manu/proj/sub && pnpm init -y";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toEqual([]);
+  });
+
+  it("does NOT flag /tmp (ephemeral, legitimate scratch space)", () => {
+    const transcript = "cd /tmp/scratch && touch test.txt";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toEqual([]);
+  });
+
+  it("handles ~/path expansion", () => {
+    const home = process.env.HOME;
+    const transcript = "cd ~/rogue && pnpm init -y";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain(`${home}/rogue`);
+  });
+
+  it("handles $HOME expansion", () => {
+    const home = process.env.HOME;
+    const transcript = "cd $HOME/rogue && touch x.js";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks).toContain(`${home}/rogue`);
+  });
+
+  it("deduplicates leaks across multiple cd commands to the same dir", () => {
+    const transcript = "cd /opt/x && touch a\ncd /opt/x && touch b";
+    const leaks = detectTranscriptCdLeaks(transcript, "/home/manu/proj");
+    expect(leaks.filter(l => l === "/opt/x")).toHaveLength(1);
+  });
+
+  it("returns [] for empty/null transcript", () => {
+    expect(detectTranscriptCdLeaks("", "/proj")).toEqual([]);
+    expect(detectTranscriptCdLeaks(null, "/proj")).toEqual([]);
+    expect(detectTranscriptCdLeaks(undefined, "/proj")).toEqual([]);
+  });
+
+  it("does NOT crash when projectDir is null", () => {
+    const leaks = detectTranscriptCdLeaks("cd /opt/x && touch a", null);
+    expect(Array.isArray(leaks)).toBe(true);
   });
 });
