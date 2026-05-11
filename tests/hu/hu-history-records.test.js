@@ -5,7 +5,7 @@ import os from "node:os";
 
 // Mock getKarajanHome to use a temp directory
 let tmpDir;
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: () => tmpDir
 }));
 
@@ -19,7 +19,7 @@ describe("HU history records", () => {
   });
 
   it("pipeline completion creates a history record in hu/store", async () => {
-    const { createHistoryRecord } = await import("../src/hu/store.js");
+    const { createHistoryRecord } = await import("../../src/hu/store.js");
     const sessionId = "test-session-001";
     const batch = await createHistoryRecord(sessionId, {
       task: "Add login button",
@@ -40,7 +40,7 @@ describe("HU history records", () => {
   });
 
   it("history record contains task, result, approved status, and timestamp", async () => {
-    const { createHistoryRecord } = await import("../src/hu/store.js");
+    const { createHistoryRecord } = await import("../../src/hu/store.js");
     const ts = "2026-03-26T10:00:00.000Z";
     const batch = await createHistoryRecord("sess-002", {
       task: "Fix authentication bug",
@@ -60,7 +60,7 @@ describe("HU history records", () => {
   });
 
   it("failed pipelines also create a history record with approved: false", async () => {
-    const { createHistoryRecord } = await import("../src/hu/store.js");
+    const { createHistoryRecord } = await import("../../src/hu/store.js");
     const batch = await createHistoryRecord("sess-fail-003", {
       task: "Refactor database layer",
       result: "max_iterations reached",
@@ -81,7 +81,7 @@ describe("HU history records", () => {
   });
 
   it("history record format is compatible with HU Board sync (same shape as batch.json)", async () => {
-    const { createHistoryRecord, loadHuBatch } = await import("../src/hu/store.js");
+    const { createHistoryRecord, loadHuBatch } = await import("../../src/hu/store.js");
     const sessionId = "sess-compat-004";
 
     await createHistoryRecord(sessionId, {

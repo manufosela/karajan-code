@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateHuBatch, classifyTaskType, needsSetupHu, deriveProjectName } from "../src/hu/auto-generator.js";
+import { generateHuBatch, classifyTaskType, needsSetupHu, deriveProjectName } from "../../src/hu/auto-generator.js";
 
 describe("deriveProjectName", () => {
   it("strips action verbs and stopwords", () => {

@@ -12,7 +12,7 @@ const updateStoryStatusMock = vi.fn((batch, storyId, status) => {
   return story;
 });
 
-vi.mock("../src/hu/store.js", () => ({
+vi.mock("../../src/hu/store.js", () => ({
   HU_STATUS: Object.freeze({
     PENDING: "pending",
     CODING: "coding",
@@ -28,7 +28,7 @@ vi.mock("../src/hu/store.js", () => ({
   updateStoryStatus: (...args) => updateStoryStatusMock(...args)
 }));
 
-vi.mock("../src/hu/graph.js", () => ({
+vi.mock("../../src/hu/graph.js", () => ({
   topologicalSort: vi.fn((stories) => {
     // Simple implementation: dependencies first via Kahn's algorithm
     const ids = new Set(stories.map(s => s.id));
@@ -63,8 +63,8 @@ vi.mock("../src/hu/graph.js", () => ({
   })
 }));
 
-const { needsSubPipeline, runHuSubPipeline, blockDependents } = await import("../src/orchestrator/hu-sub-pipeline.js");
-const { topologicalSort } = await import("../src/hu/graph.js");
+const { needsSubPipeline, runHuSubPipeline, blockDependents } = await import("../../src/orchestrator/hu-sub-pipeline.js");
+const { topologicalSort } = await import("../../src/hu/graph.js");
 
 describe("hu-sub-pipeline", () => {
   const logger = {

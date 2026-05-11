@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn(),
 }));
-vi.mock("../src/utils/git.js", () => ({
+vi.mock("../../src/utils/git.js", () => ({
   commitAll: vi.fn(),
   pushBranch: vi.fn(),
   createPullRequest: vi.fn(),
   hasChanges: vi.fn(),
 }));
 
-const { buildHuBranchName, resolveHuBase, prepareHuBranch } = await import("../src/git/hu-automation.js");
-const { runCommand } = await import("../src/utils/process.js");
+const { buildHuBranchName, resolveHuBase, prepareHuBranch } = await import("../../src/git/hu-automation.js");
+const { runCommand } = await import("../../src/utils/process.js");
 
 describe("buildHuBranchName", () => {
   it("builds branch name with prefix, id and slug", () => {
