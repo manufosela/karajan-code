@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { addHu, updateHu } from "../src/plan/plan-hu-ops.js";
-import { createPlanV2 } from "../src/plan/plan-schema.js";
+import { addHu, updateHu } from "../../src/plan/plan-hu-ops.js";
+import { createPlanV2 } from "../../src/plan/plan-schema.js";
 
 // PR C: every HU now carries a `spec_section` pointer to the SPEC.md
 // heading it implements. Free-form string. The planner LLM emits it

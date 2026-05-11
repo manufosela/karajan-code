@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   autoCertifyPendingHus, assertPlanRunnable, addHu,
-} from "../src/plan/plan-hu-ops.js";
-import { createPlanV2 } from "../src/plan/plan-schema.js";
+} from "../../src/plan/plan-hu-ops.js";
+import { createPlanV2 } from "../../src/plan/plan-schema.js";
 
 function makePlan(huSpecs) {
   const plan = createPlanV2("test");

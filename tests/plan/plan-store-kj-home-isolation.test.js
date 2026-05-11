@@ -31,20 +31,20 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
   it("returns ~/.kj when KJ_HOME and VITEST are both unset", async () => {
     delete process.env.KJ_HOME;
     delete process.env.VITEST;
-    const { getKjHome } = await import("../src/plan/plan-store.js");
+    const { getKjHome } = await import("../../src/plan/plan-store.js");
     expect(getKjHome()).toBe(path.join(os.homedir(), ".kj"));
   });
 
   it("returns $KJ_HOME when set", async () => {
     process.env.KJ_HOME = "/explicit/kj";
-    const { getKjHome } = await import("../src/plan/plan-store.js");
+    const { getKjHome } = await import("../../src/plan/plan-store.js");
     expect(getKjHome()).toBe("/explicit/kj");
   });
 
   it("returns a tmp dir under VITEST when KJ_HOME is unset", async () => {
     delete process.env.KJ_HOME;
     process.env.VITEST = "true";
-    const { getKjHome } = await import("../src/plan/plan-store.js");
+    const { getKjHome } = await import("../../src/plan/plan-store.js");
     const home = getKjHome();
     expect(home.startsWith(os.tmpdir())).toBe(true);
     expect(home).not.toBe(path.join(os.homedir(), ".kj"));
@@ -56,21 +56,21 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
   it("memoises the tmp dir across calls within the same process", async () => {
     delete process.env.KJ_HOME;
     process.env.VITEST = "true";
-    const { getKjHome } = await import("../src/plan/plan-store.js");
+    const { getKjHome } = await import("../../src/plan/plan-store.js");
     expect(getKjHome()).toBe(getKjHome());
   });
 
   it("explicit KJ_HOME wins over VITEST tmp default", async () => {
     process.env.KJ_HOME = "/winner";
     process.env.VITEST = "true";
-    const { getKjHome } = await import("../src/plan/plan-store.js");
+    const { getKjHome } = await import("../../src/plan/plan-store.js");
     expect(getKjHome()).toBe("/winner");
   });
 
   it("plansDir + savePlan write under the tmp root, not ~/.kj/", async () => {
     delete process.env.KJ_HOME;
     process.env.VITEST = "true";
-    const { plansDir, savePlan, getKjHome } = await import("../src/plan/plan-store.js");
+    const { plansDir, savePlan, getKjHome } = await import("../../src/plan/plan-store.js");
     const projectDir = "/some/fake/project";
     const dir = plansDir(projectDir);
     expect(dir.startsWith(getKjHome())).toBe(true);

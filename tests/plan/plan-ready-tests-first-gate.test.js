@@ -2,10 +2,10 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { planReadyCommand } from "../src/commands/plan.js";
-import { createPlanV2 } from "../src/plan/plan-schema.js";
-import { addHu } from "../src/plan/plan-hu-ops.js";
-import { savePlan } from "../src/plan/plan-store.js";
+import { planReadyCommand } from "../../src/commands/plan.js";
+import { createPlanV2 } from "../../src/plan/plan-schema.js";
+import { addHu } from "../../src/plan/plan-hu-ops.js";
+import { savePlan } from "../../src/plan/plan-store.js";
 
 // Tests-first gate (v2.7.5): `kj plan ready <planId>` refuses to mark
 // a plan as ready unless every HU has at least one acceptance_test.

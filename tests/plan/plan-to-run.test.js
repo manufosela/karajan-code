@@ -25,7 +25,7 @@ describe("plan-store", () => {
   });
 
   it("savePlan persists to disk and returns planId", async () => {
-    const { savePlan } = await import("../src/plan/plan-store.js");
+    const { savePlan } = await import("../../src/plan/plan-store.js");
 
     const planId = await savePlan("/home/user/my-project", {
       task: "Add login feature",
@@ -56,7 +56,7 @@ describe("plan-store", () => {
   });
 
   it("loadPlan retrieves a saved plan", async () => {
-    const { savePlan, loadPlan } = await import("../src/plan/plan-store.js");
+    const { savePlan, loadPlan } = await import("../../src/plan/plan-store.js");
 
     const planId = await savePlan("/home/user/project-a", {
       task: "Fix bug #42",
@@ -78,14 +78,14 @@ describe("plan-store", () => {
   });
 
   it("loadPlan returns null for non-existent plan", async () => {
-    const { loadPlan } = await import("../src/plan/plan-store.js");
+    const { loadPlan } = await import("../../src/plan/plan-store.js");
 
     const loaded = await loadPlan("/home/user/project-x", "plan-nonexistent-abc");
     expect(loaded).toBeNull();
   });
 
   it("listPlans returns available plans sorted newest first", async () => {
-    const { savePlan, listPlans } = await import("../src/plan/plan-store.js");
+    const { savePlan, listPlans } = await import("../../src/plan/plan-store.js");
 
     const id1 = await savePlan("/home/user/proj", { task: "Task A", plan: "plan a" });
 
@@ -103,14 +103,14 @@ describe("plan-store", () => {
   });
 
   it("listPlans returns empty array for project with no plans", async () => {
-    const { listPlans } = await import("../src/plan/plan-store.js");
+    const { listPlans } = await import("../../src/plan/plan-store.js");
 
     const plans = await listPlans("/nonexistent/project");
     expect(plans).toEqual([]);
   });
 
   it("getLatestPlan returns the most recent plan", async () => {
-    const { savePlan, getLatestPlan } = await import("../src/plan/plan-store.js");
+    const { savePlan, getLatestPlan } = await import("../../src/plan/plan-store.js");
 
     await savePlan("/home/user/proj2", { task: "Old task", plan: "old plan" });
     await new Promise((r) => setTimeout(r, 20));
@@ -123,7 +123,7 @@ describe("plan-store", () => {
   });
 
   it("getLatestPlan returns null when no plans exist", async () => {
-    const { getLatestPlan } = await import("../src/plan/plan-store.js");
+    const { getLatestPlan } = await import("../../src/plan/plan-store.js");
 
     const latest = await getLatestPlan("/empty/project");
     expect(latest).toBeNull();
@@ -132,7 +132,7 @@ describe("plan-store", () => {
 
 describe("kj_plan runs researcher + architect before planner", () => {
   it("handlePlanDirect invokes researcher and architect phases", async () => {
-    const directHandlers = await import("../src/mcp/handlers/direct-handlers.js");
+    const directHandlers = await import("../../src/mcp/handlers/direct-handlers.js");
     const fnSource = directHandlers.handlePlanDirect.toString();
     expect(fnSource).toContain("ResearcherRole");
     expect(fnSource).toContain("ArchitectRole");
@@ -142,7 +142,7 @@ describe("kj_plan runs researcher + architect before planner", () => {
 
 describe("kj_run with plan parameter", () => {
   it("kj_run tool definition includes plan parameter", async () => {
-    const { tools } = await import("../src/mcp/tools.js");
+    const { tools } = await import("../../src/mcp/tools.js");
     const runTool = tools.find((t) => t.name === "kj_run");
     expect(runTool).toBeDefined();
     expect(runTool.inputSchema.properties.plan).toBeDefined();
