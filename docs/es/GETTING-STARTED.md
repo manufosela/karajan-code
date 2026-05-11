@@ -182,6 +182,7 @@ Problemas comunes: [troubleshooting.md](../troubleshooting.md)
 ## Siguientes pasos
 
 - Lee [ARCHITECTURE.md](../ARCHITECTURE.md) para entender el pipeline
+- Usa las [plantillas de task file](../task-templates/README.md) cuando ejecutes `kj plan generate`, `kj run`, `kj researcher`, `kj architect`, `kj discover` o `kj refactorer` — codifican el sweet spot entre demasiado-breve y demasiado-pre-procesado
 - Revisa [SKILLS.md](../SKILLS.md) para la integración con OpenSkills
 - Navega [templates/roles/](../../templates/roles/) para ver las definiciones de roles
 - Si migras desde v1: [MIGRATION-v2.md](../../MIGRATION-v2.md)
