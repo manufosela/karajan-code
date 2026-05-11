@@ -68,8 +68,24 @@ export function evaluateRules(context, rulesConfig = {}) {
   // Rule 6: Reviewer style-only block — all blocking issues are style/naming/formatting, not security/correctness
   if (rules.reviewer_style_block && context.blockingIssues?.length > 0) {
     const styleKeywords = /\b(naming|name|rename|style|format|formatting|indent|spacing|camelCase|snake_case|convention|cosmetic|readability|comment|jsdoc|documentation|whitespace|semicolon|quotes|trailing)\b/i;
+    // Anti-style: if any of these match, the issue is NOT style — it's a real correctness/security concern.
+    // Fixes KJC-BUG-0026 (Solomon approving legitimate security blockers misclassified as "style").
+    const securityKeywords = /\b(sql\s*injection|xss|csrf|ssrf|rce|injection|vulnerab|exploit|sanitiz|escape\b|encod\b|cors|auth|authn|authz|password|secret|credential|token|api[-_\s]*key|private[-_\s]*key|hash|cipher|crypto|encrypt|decrypt|tls|ssl|certificate|leak|sensitive|pii|privacy|insecure|unsafe|race[-_\s]*condition|deadlock|memory[-_\s]*leak|null[-_\s]*deref|uaf|overflow|traversal|prototype[-_\s]*pollution|deserializ|eval\b|exec\b|spawn|shell|command[-_\s]*injection)\b/i;
+    const securityCategories = new Set(["security", "correctness", "bug", "vulnerability"]);
     const styleSeverities = new Set(["low", "minor"]);
+    const blockingSeverities = new Set(["critical", "high", "blocker", "major"]);
+    const isSecurityIssue = issue => {
+      const desc = issue.description || "";
+      const sev = (issue.severity || "").toLowerCase();
+      const cat = (issue.category || issue.type || "").toLowerCase();
+      const tags = Array.isArray(issue.tags) ? issue.tags.map(t => String(t).toLowerCase()) : [];
+      if (blockingSeverities.has(sev)) return true;
+      if (securityCategories.has(cat)) return true;
+      if (tags.some(t => securityCategories.has(t))) return true;
+      return securityKeywords.test(desc);
+    };
     const allStyle = context.blockingIssues.every(issue => {
+      if (isSecurityIssue(issue)) return false;
       const desc = issue.description || "";
       const sev = (issue.severity || "").toLowerCase();
       return styleSeverities.has(sev) || styleKeywords.test(desc);
