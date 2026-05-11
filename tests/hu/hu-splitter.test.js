@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { detectIndicators, selectHeuristic, HEURISTIC_DESCRIPTIONS } from "../src/hu/splitting-detector.js";
+import { detectIndicators, selectHeuristic, HEURISTIC_DESCRIPTIONS } from "../../src/hu/splitting-detector.js";
 import {
   buildSplitPrompt,
   parseSplitOutput,
   generateSplitProposal,
   formatSplitProposalForFDE,
   buildSplitDependencies
-} from "../src/hu/splitting-generator.js";
+} from "../../src/hu/splitting-generator.js";
 
 // --- splitting-detector tests ---
 

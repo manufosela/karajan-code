@@ -13,7 +13,7 @@ const updateStoryStatusMock = vi.fn((batch, storyId, status) => {
   return story;
 });
 
-vi.mock("../src/hu/store.js", () => ({
+vi.mock("../../src/hu/store.js", () => ({
   HU_STATUS: Object.freeze({
     PENDING: "pending",
     CODING: "coding",
@@ -29,22 +29,22 @@ vi.mock("../src/hu/store.js", () => ({
   updateStoryStatus: (...args) => updateStoryStatusMock(...args)
 }));
 
-vi.mock("../src/hu/graph.js", () => ({
+vi.mock("../../src/hu/graph.js", () => ({
   topologicalSort: vi.fn((stories) => stories.map(s => s.id))
 }));
 
-vi.mock("../src/hu/parallel-executor.js", () => ({
+vi.mock("../../src/hu/parallel-executor.js", () => ({
   findParallelGroups: vi.fn((stories, orderedIds) => orderedIds.map(id => [id])),
   createWorktree: vi.fn(async () => "/tmp/wt"),
   mergeWorktree: vi.fn(async () => {}),
   removeWorktree: vi.fn(async () => {})
 }));
 
-vi.mock("../src/hu/lazy-planner.js", () => ({
+vi.mock("../../src/hu/lazy-planner.js", () => ({
   refineHuWithContext: vi.fn(async (story) => story)
 }));
 
-const { runHuSubPipeline } = await import("../src/orchestrator/hu-sub-pipeline.js");
+const { runHuSubPipeline } = await import("../../src/orchestrator/hu-sub-pipeline.js");
 
 describe("[opt-in: hu-board] hu-board-sync — HU status changes for real-time board sync", () => {
   const logger = {
