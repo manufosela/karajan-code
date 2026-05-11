@@ -397,6 +397,12 @@ async function setupSonarQube(config, logger, { interactive } = {}) {
       logger.info(`  -> Sonar token saved to ${result.savedTo}`);
       if (result.passwordRotated) {
         logger.info(`  -> Sonar admin password rotated. New value at ${result.passwordSavedTo}`);
+      } else if (result.passwordRotationError) {
+        // KJC-BUG-0035: rotation failed but token generation succeeded.
+        // admin/admin is still live — surface it loudly so the user can
+        // fix it manually before someone else exploits it.
+        logger.warn(`  -> SonarQube admin password NOT rotated: ${result.passwordRotationError}`);
+        logger.warn("     admin/admin remains active. Rotate it manually at http://localhost:9000/account/security");
       }
       return;
     }

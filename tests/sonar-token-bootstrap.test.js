@@ -93,6 +93,57 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
     expect(r.ok).toBe(true);
     expect(r.token).toBe("squ_kept_password");
     expect(r.passwordRotated).toBe(false);
+    // 401 = "admin already changed it" → not an error, no rotation diagnostic
+    expect(r.passwordRotationError).toBe(null);
+  });
+
+  // KJC-BUG-0035: rotation must NOT fail silently on unexpected statuses.
+  // Pre-fix the bootstrapper swallowed 403/500/etc., leaving admin/admin
+  // live on disk while pretending everything worked.
+  it("surfaces passwordRotationError on HTTP 403 rotation (no permission)", async () => {
+    fetchMock
+      .mockReturnValueOnce(jsonResponse(200, { valid: true }))
+      .mockReturnValueOnce(jsonResponse(403, { errors: [{ msg: "Forbidden" }] }))
+      .mockReturnValueOnce(jsonResponse(200, ""))
+      .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_403" }));
+
+    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
+
+    expect(r.ok).toBe(true);
+    expect(r.passwordRotated).toBe(false);
+    expect(r.passwordRotationError).toMatch(/HTTP 403/);
+    expect(r.passwordRotationError).toMatch(/Forbidden/);
+  });
+
+  it("surfaces passwordRotationError on HTTP 500 rotation (server error)", async () => {
+    fetchMock
+      .mockReturnValueOnce(jsonResponse(200, { valid: true }))
+      .mockReturnValueOnce(jsonResponse(500, { errors: [{ msg: "Internal error" }] }))
+      .mockReturnValueOnce(jsonResponse(200, ""))
+      .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_500" }));
+
+    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
+
+    expect(r.ok).toBe(true);
+    expect(r.passwordRotated).toBe(false);
+    expect(r.passwordRotationError).toMatch(/HTTP 500/);
+  });
+
+  it("surfaces passwordRotationError on 400-without-default-error (validation mismatch)", async () => {
+    fetchMock
+      .mockReturnValueOnce(jsonResponse(200, { valid: true }))
+      .mockReturnValueOnce(jsonResponse(400, { errors: [{ msg: "Password too short" }] }))
+      .mockReturnValueOnce(jsonResponse(200, ""))
+      .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_400" }));
+
+    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
+
+    expect(r.ok).toBe(true);
+    expect(r.passwordRotated).toBe(false);
+    expect(r.passwordRotationError).toMatch(/HTTP 400/);
   });
 
   it("returns ok=false with reason when token generation itself fails", async () => {
