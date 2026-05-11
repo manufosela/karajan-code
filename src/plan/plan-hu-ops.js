@@ -22,7 +22,7 @@ function nextSeq(plan) {
 /**
  * Add an HU to the plan. Auto-generates a globally unique ID.
  * @param {object} plan - v2 plan
- * @param {object} huData - { title, task_type?, scope?, acceptance_criteria?, acceptance_tests?, blocked_by? }
+ * @param {object} huData - { title, task_type?, scope?, acceptance_criteria?, acceptance_tests?, blocked_by?, reuse? }
  * @returns {object} the created HU (with id assigned)
  */
 export function addHu(plan, huData) {
@@ -34,6 +34,11 @@ export function addHu(plan, huData) {
     task_type: huData.task_type || "sw",
     status: "pending",
     blocked_by: huData.blocked_by || [],
+    // KJC-BUG-0044 / P3: ids of OTHER HUs whose implementation this HU
+    // piggy-backs on instead of reimplementing the same logic. Set by
+    // the planner; consumed by the coder prompt + plan-reviewer to
+    // avoid duplicate code generation.
+    reuse: huData.reuse || [],
     scope: huData.scope || null,
     acceptance_criteria: huData.acceptance_criteria || [],
     acceptance_tests: huData.acceptance_tests || [],
@@ -59,9 +64,10 @@ export function removeHu(plan, huId) {
   const idx = plan.hus.findIndex(h => h.id === huId);
   if (idx === -1) return false;
   plan.hus.splice(idx, 1);
-  // Clean up blocked_by refs
+  // Clean up blocked_by + reuse refs
   for (const hu of plan.hus) {
     hu.blocked_by = (hu.blocked_by || []).filter(dep => dep !== huId);
+    hu.reuse = (hu.reuse || []).filter(dep => dep !== huId);
   }
   plan.updatedAt = new Date().toISOString();
   return true;
@@ -77,7 +83,7 @@ export function removeHu(plan, huId) {
 export function updateHu(plan, huId, patch) {
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return null;
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "spec_section"];
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }

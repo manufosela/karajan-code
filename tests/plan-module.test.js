@@ -128,6 +128,35 @@ describe("plan-hu-ops", () => {
     expect(plan.hus[0].acceptance_tests).toEqual(["echo PASS"]);
   });
 
+  // KJC-BUG-0044 / P3: reuse marker — declares the HU piggy-backs on
+  // another HU's implementation instead of reimplementing it.
+  it("addHu defaults reuse to empty array", () => {
+    const hu = addHu(plan, { title: "Standalone" });
+    expect(hu.reuse).toEqual([]);
+  });
+
+  it("addHu preserves reuse ids when provided", () => {
+    const a = addHu(plan, { title: "Crypto util" });
+    const b = addHu(plan, { title: "Uses crypto", reuse: [a.id] });
+    expect(b.reuse).toEqual([a.id]);
+  });
+
+  it("removeHu cleans dangling reuse references", () => {
+    const a = addHu(plan, { title: "Crypto util" });
+    const b = addHu(plan, { title: "Uses crypto", reuse: [a.id] });
+    removeHu(plan, a.id);
+    expect(plan.hus.length).toBe(1);
+    expect(plan.hus[0].id).toBe(b.id);
+    expect(plan.hus[0].reuse).toEqual([]);
+  });
+
+  it("updateHu allows mutating the reuse list", () => {
+    const a = addHu(plan, { title: "Util A" });
+    const b = addHu(plan, { title: "Consumer" });
+    updateHu(plan, b.id, { reuse: [a.id] });
+    expect(plan.hus[1].reuse).toEqual([a.id]);
+  });
+
   it("ignores unknown patch fields", () => {
     const hu = addHu(plan, { title: "Test" });
     updateHu(plan, hu.id, { title: "New", dangerousField: "hack" });
