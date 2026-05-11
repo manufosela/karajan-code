@@ -50,6 +50,61 @@ export function parsePlannerOutput(output) {
   return { title: state.title, approach: state.approach, steps };
 }
 
+/**
+ * KJC-BUG-0042 / P1: extract explicit scope exclusions from the task.
+ *
+ * The planner consistently produced HUs for items the user explicitly
+ * excluded ("NO incluye en este plan: vistas compartidas, …"). Once
+ * these phrases land in the task text, the LLM still generated steps
+ * for them — the rule was implicit, never made FORBIDDEN. This function
+ * harvests them so the prompt can echo them back literally.
+ *
+ * Detected patterns (inline comma-separated lists, case-insensitive):
+ *   - "NO incluye[...]: a, b, c"           (Spanish)
+ *   - "Fuera de(l) scope[...]: a, b, c"
+ *   - "Out of scope[...]: a, b, c"          (English)
+ *   - "Not in (this) plan[...]: a, b, c"
+ *   - "Plan N handles: a, b, c"             (cross-plan reference)
+ *   - "Reserved for plan[...]: a, b, c"
+ *
+ * @param {string} task
+ * @returns {string[]} deduplicated trimmed exclusion items
+ */
+export function extractScopeExclusions(task) {
+  if (!task || typeof task !== "string") return [];
+  const patterns = [
+    /\bNO\s+incluye[^:\n]{0,60}:\s*([^.\n]+)/gi,
+    /\bFuera\s+de(?:l)?\s+scope[^:\n]{0,60}:\s*([^.\n]+)/gi,
+    /\bOut\s+of\s+scope[^:\n]{0,60}:\s*([^.\n]+)/gi,
+    /\bNot\s+in\s+(?:this\s+)?plan[^:\n]{0,60}:\s*([^.\n]+)/gi,
+    /\bPlan\s+\d+\s+handles[^:\n]{0,60}:?\s*([^.\n]+)/gi,
+    /\bReserved\s+for\s+plan[^:\n]{0,60}:\s*([^.\n]+)/gi,
+  ];
+  const items = new Set();
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(task)) !== null) {
+      const list = m[1] || "";
+      for (const raw of list.split(/,|;| y |\sand\s/)) {
+        const item = raw.trim().replace(/^[-*]\s*/, "").replace(/\.$/, "");
+        if (item && item.length < 120) items.add(item);
+      }
+    }
+  }
+  return Array.from(items);
+}
+
+function renderScopeExclusions(exclusions) {
+  if (!exclusions || exclusions.length === 0) return null;
+  const list = exclusions.map((e) => `  - ${e}`).join("\n");
+  return [
+    "## FORBIDDEN scope (out-of-scope items declared in the task)",
+    "The task explicitly excludes the following from this plan. Do NOT generate steps that implement them. If a step would touch any of these, drop it and put the item in `outOfScope` instead:",
+    "",
+    list,
+  ].join("\n");
+}
+
 function formatArchitectContext(architectContext) {
   if (!architectContext) return null;
   const arch = architectContext.architecture || {};
@@ -146,6 +201,12 @@ export function buildPlannerPrompt({ task, context, architectContext, productCon
 
   if (context) {
     parts.push("## Context", context, "");
+  }
+
+  const exclusions = extractScopeExclusions(task);
+  const exclusionsSection = renderScopeExclusions(exclusions);
+  if (exclusionsSection) {
+    parts.push(exclusionsSection, "");
   }
 
   const archSection = formatArchitectContext(architectContext);
