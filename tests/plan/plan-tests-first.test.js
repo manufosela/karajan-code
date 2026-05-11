@@ -4,8 +4,8 @@ import {
   normaliseAcceptanceTests,
   createPlanV2,
   validatePlan,
-} from "../src/plan/plan-schema.js";
-import { addHu } from "../src/plan/plan-hu-ops.js";
+} from "../../src/plan/plan-schema.js";
+import { addHu } from "../../src/plan/plan-hu-ops.js";
 
 // Tests-first schema (v2.7.5): planner now emits a structured
 // { type: "shell"|"gherkin", content, file? } per test, and the legacy

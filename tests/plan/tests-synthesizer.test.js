@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSynthesizerPrompt, synthesizeMissingTests } from "../src/plan/tests-synthesizer.js";
+import { buildSynthesizerPrompt, synthesizeMissingTests } from "../../src/plan/tests-synthesizer.js";
 
 describe("buildSynthesizerPrompt", () => {
   it("opens with the role hand-off so the LLM knows it's a follow-up", () => {

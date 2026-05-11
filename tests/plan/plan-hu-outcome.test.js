@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   setHuOutcome, setPlanOutcome, computePlanOutcome, addHu, updateHuStatus,
-} from "../src/plan/plan-hu-ops.js";
-import { createPlanV2 } from "../src/plan/plan-schema.js";
+} from "../../src/plan/plan-hu-ops.js";
+import { createPlanV2 } from "../../src/plan/plan-schema.js";
 
 function makePlan() {
   const p = createPlanV2("test task");

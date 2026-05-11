@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { generatePlanId, generateHuId } from "../src/plan/plan-id.js";
-import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan } from "../src/plan/plan-schema.js";
-import { addHu, removeHu, updateHu, updateHuStatus, certifyAllHus, reorderHus } from "../src/plan/plan-hu-ops.js";
+import { generatePlanId, generateHuId } from "../../src/plan/plan-id.js";
+import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan } from "../../src/plan/plan-schema.js";
+import { addHu, removeHu, updateHu, updateHuStatus, certifyAllHus, reorderHus } from "../../src/plan/plan-hu-ops.js";
 
 describe("plan-id", () => {
   it("generates unique plan IDs", () => {

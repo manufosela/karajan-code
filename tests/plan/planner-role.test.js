@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
-import { PlannerRole } from "../src/roles/planner-role.js";
-import { ROLE_EVENTS } from "../src/roles/base-role.js";
+import { PlannerRole } from "../../src/roles/planner-role.js";
+import { ROLE_EVENTS } from "../../src/roles/base-role.js";
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn() };
 

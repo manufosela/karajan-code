@@ -6,7 +6,7 @@ import {
   buildCompletionUpdates,
   buildTaskPrompt,
   updateCardOnCompletion
-} from "../src/planning-game/adapter.js";
+} from "../../src/planning-game/adapter.js";
 
 describe("planning-game/adapter", () => {
   describe("parseCardId", () => {

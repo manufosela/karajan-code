@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildReviewerPrompt, reviewPlan, findingsCount } from "../src/plan/plan-reviewer.js";
+import { buildReviewerPrompt, reviewPlan, findingsCount } from "../../src/plan/plan-reviewer.js";
 
 describe("buildReviewerPrompt", () => {
   it("constrains the LLM to five closed-ended questions, no free-form suggestions", () => {

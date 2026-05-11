@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   buildFixerPrompt, applyReviewerFeedback, applyFixerPatch,
-} from "../src/plan/plan-fixer.js";
+} from "../../src/plan/plan-fixer.js";
 
 // KJC-BUG-0045 / P4: self-fix loop after plan-reviewer. The reviewer is
 // flag-only; the fixer asks the planner to patch the plan and applies

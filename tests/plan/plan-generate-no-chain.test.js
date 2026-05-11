@@ -28,12 +28,12 @@ function loadOnlyPlan() {
   throw new Error("no plan written under KJ_HOME/plans");
 }
 
-vi.mock("../src/agents/index.js", () => ({ createAgent: vi.fn() }));
-vi.mock("../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn() }));
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({ createAgent: vi.fn() }));
+vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn() }));
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({ provider: config.roles?.[role]?.provider || "claude" })),
 }));
-vi.mock("../src/prompts/planner.js", () => ({
+vi.mock("../../src/prompts/planner.js", () => ({
   buildPlannerPrompt: vi.fn().mockReturnValue("planner prompt"),
 }));
 
@@ -62,7 +62,7 @@ beforeEach(async () => {
   process.env.KJ_HOME = tmpHome;
   vi.resetAllMocks();
 
-  const agents = await import("../src/agents/index.js");
+  const agents = await import("../../src/agents/index.js");
   agents.createAgent.mockReturnValue({
     runTask: vi.fn().mockResolvedValue({ ok: true, output: sixSteps, exitCode: 0 }),
   });
@@ -75,7 +75,7 @@ afterEach(() => {
 
 describe("KJC-BUG-0041 — planGenerate must NOT chain HUs by order", () => {
   it("emits blocked_by: [] for every HU when the planner output declares no dependencies", async () => {
-    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    const { planGenerateCommand } = await import("../../src/commands/plan/generate.js");
     await planGenerateCommand({
       task: "Build the foundation",
       config: {
@@ -96,7 +96,7 @@ describe("KJC-BUG-0041 — planGenerate must NOT chain HUs by order", () => {
   });
 
   it("does NOT chain HUs by their order of appearance (no HU lists its predecessor as blocker)", async () => {
-    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    const { planGenerateCommand } = await import("../../src/commands/plan/generate.js");
     await planGenerateCommand({
       task: "long plan",
       config: {
@@ -134,12 +134,12 @@ describe("KJC-TSK-0382 follow-up — planner-emitted dependencies map to blocked
   });
 
   it("translates planner dependencies (symbolic ids) into blocked_by (real hu ids)", async () => {
-    const agents = await import("../src/agents/index.js");
+    const agents = await import("../../src/agents/index.js");
     agents.createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: planWithRealDeps, exitCode: 0 }),
     });
 
-    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    const { planGenerateCommand } = await import("../../src/commands/plan/generate.js");
     await planGenerateCommand({
       task: "deps test",
       config: {
@@ -169,12 +169,12 @@ describe("KJC-TSK-0382 follow-up — planner-emitted dependencies map to blocked
       ],
       risks: [], outOfScope: [],
     });
-    const agents = await import("../src/agents/index.js");
+    const agents = await import("../../src/agents/index.js");
     agents.createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: orphanedDep, exitCode: 0 }),
     });
 
-    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    const { planGenerateCommand } = await import("../../src/commands/plan/generate.js");
     await planGenerateCommand({
       task: "orphan deps test",
       config: { roles: { planner: { provider: "claude" } }, session: { max_iteration_minutes: 10 }, projectDir: tmpHome },
