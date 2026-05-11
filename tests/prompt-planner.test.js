@@ -143,6 +143,28 @@ describe("prompts/planner buildPlannerPrompt", () => {
     });
   });
 
+  describe("reuse marker (KJC-BUG-0044 / P3)", () => {
+    it("documents the reuse field in the step schema", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toContain('"reuse"');
+    });
+
+    it("instructs the planner to mark reuse instead of reimplementing existing functionality", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/reuse.*instead of reimplementing/i);
+    });
+
+    it("provides a concrete reuse example so the rule is concrete", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt.toLowerCase()).toMatch(/versionado|versioning|hash|encryption|cache|util/);
+    });
+
+    it("clarifies that reuse and dependencies are different semantic concepts", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/reuse.*(?:not|≠|different).*dependenc/i);
+    });
+  });
+
   describe("transversal dependencies (KJC-BUG-0043 / P2)", () => {
     it("instructs the planner to declare deps to ALL members of a category, not just the first", () => {
       const prompt = buildPlannerPrompt({ task: "anything" });

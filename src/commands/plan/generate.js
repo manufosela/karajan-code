@@ -117,6 +117,7 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // doesn't exist yet) would otherwise be impossible to resolve.
   const symbolicToHuId = new Map();
   const stepDeps = []; // parallel array: stepDeps[i] = array of symbolic dep ids
+  const stepReuse = []; // parallel array: stepReuse[i] = array of symbolic reuse ids (KJC-BUG-0044 / P3)
   for (const step of steps) {
     const desc = typeof step === "string" ? step : step.description || step.title || JSON.stringify(step);
     const rawTests = typeof step === "object" ? step.acceptance_tests : null;
@@ -137,15 +138,22 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     }
     const deps = typeof step === "object" && Array.isArray(step.dependencies) ? step.dependencies : [];
     stepDeps.push(deps);
+    const reuse = typeof step === "object" && Array.isArray(step.reuse) ? step.reuse : [];
+    stepReuse.push(reuse);
   }
-  // Pass 2: resolve dependencies. Unknown symbolic ids are dropped silently
-  // (the plan-reviewer pass will flag them as gaps if they matter).
+  // Pass 2: resolve dependencies + reuse. Unknown symbolic ids are dropped
+  // silently (the plan-reviewer pass will flag them as gaps if they matter).
   for (let i = 0; i < plan.hus.length; i++) {
-    const symbolic = stepDeps[i] || [];
-    const resolved = symbolic
+    const symbolicDeps = stepDeps[i] || [];
+    const resolvedDeps = symbolicDeps
       .map((s) => typeof s === "string" ? symbolicToHuId.get(s.trim()) : null)
       .filter(Boolean);
-    if (resolved.length > 0) plan.hus[i].blocked_by = resolved;
+    if (resolvedDeps.length > 0) plan.hus[i].blocked_by = resolvedDeps;
+    const symbolicReuse = stepReuse[i] || [];
+    const resolvedReuse = symbolicReuse
+      .map((s) => typeof s === "string" ? symbolicToHuId.get(s.trim()) : null)
+      .filter(Boolean);
+    if (resolvedReuse.length > 0) plan.hus[i].reuse = resolvedReuse;
   }
   // Tests-synthesizer pass (v2.7.5): the first planner call asks for
   // acceptance_tests inline, but Claude / Codex frequently skip that
