@@ -120,3 +120,70 @@ describe("KJC-BUG-0041 — planGenerate must NOT chain HUs by order", () => {
     expect(chained, "no HU should declare its predecessor as a blocker").toEqual([]);
   });
 });
+
+describe("KJC-TSK-0382 follow-up — planner-emitted dependencies map to blocked_by", async () => {
+  const planWithRealDeps = JSON.stringify({
+    approach: "Three independent steps and one that waits for both",
+    steps: [
+      { id: "INFRA-001", description: "Bootstrap GCP", dependencies: [], acceptance_tests: [{ type: "shell", content: "t1" }] },
+      { id: "INFRA-002", description: "Setup KMS",     dependencies: ["INFRA-001"], acceptance_tests: [{ type: "shell", content: "t2" }] },
+      { id: "AUTH-001",  description: "Setup auth",    dependencies: ["INFRA-001"], acceptance_tests: [{ type: "shell", content: "t3" }] },
+      { id: "AUTH-002",  description: "Login flow",    dependencies: ["AUTH-001", "INFRA-002"], acceptance_tests: [{ type: "shell", content: "t4" }] },
+    ],
+    risks: [], outOfScope: [],
+  });
+
+  it("translates planner dependencies (symbolic ids) into blocked_by (real hu ids)", async () => {
+    const agents = await import("../src/agents/index.js");
+    agents.createAgent.mockReturnValue({
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: planWithRealDeps, exitCode: 0 }),
+    });
+
+    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    await planGenerateCommand({
+      task: "deps test",
+      config: {
+        roles: { planner: { provider: "claude" } },
+        session: { max_iteration_minutes: 10 },
+        projectDir: tmpHome,
+      },
+      logger: noopLogger,
+      json: true,
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+    });
+
+    const plan = loadOnlyPlan();
+    expect(plan.hus).toHaveLength(4);
+    const [infra1, infra2, auth1, auth2] = plan.hus;
+    expect(infra1.blocked_by).toEqual([]);
+    expect(infra2.blocked_by).toEqual([infra1.id]);
+    expect(auth1.blocked_by).toEqual([infra1.id]);
+    expect(auth2.blocked_by).toEqual([auth1.id, infra2.id]);
+  });
+
+  it("silently drops references to symbolic ids that don't exist in the plan", async () => {
+    const orphanedDep = JSON.stringify({
+      approach: "ok",
+      steps: [
+        { id: "STEP-A", description: "valid", dependencies: ["NONEXISTENT-001"], acceptance_tests: [{ type: "shell", content: "t" }] },
+      ],
+      risks: [], outOfScope: [],
+    });
+    const agents = await import("../src/agents/index.js");
+    agents.createAgent.mockReturnValue({
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: orphanedDep, exitCode: 0 }),
+    });
+
+    const { planGenerateCommand } = await import("../src/commands/plan/generate.js");
+    await planGenerateCommand({
+      task: "orphan deps test",
+      config: { roles: { planner: { provider: "claude" } }, session: { max_iteration_minutes: 10 }, projectDir: tmpHome },
+      logger: noopLogger,
+      json: true,
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+    });
+
+    const plan = loadOnlyPlan();
+    expect(plan.hus[0].blocked_by).toEqual([]);
+  });
+});

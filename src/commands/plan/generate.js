@@ -106,29 +106,46 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   const { normaliseAcceptanceTests } = await import("../../plan/plan-schema.js");
   const steps = parsed?.steps || [];
   let stepsMissingTests = 0;
+
+  // Two-pass HU creation (KJC-TSK-0382 follow-up):
+  //   Pass 1 — create every HU with `blocked_by: []` and remember the
+  //            mapping `<symbolic id from planner> -> <stable hu id>`.
+  //   Pass 2 — translate the planner's `dependencies: [symbolicId, …]`
+  //            into the corresponding `blocked_by: [huId, …]`.
+  // The split is needed because `addHu` assigns the stable id at insertion
+  // time, so a forward reference (step B depends on step A whose hu id
+  // doesn't exist yet) would otherwise be impossible to resolve.
+  const symbolicToHuId = new Map();
+  const stepDeps = []; // parallel array: stepDeps[i] = array of symbolic dep ids
   for (const step of steps) {
     const desc = typeof step === "string" ? step : step.description || step.title || JSON.stringify(step);
     const rawTests = typeof step === "object" ? step.acceptance_tests : null;
     const tests = normaliseAcceptanceTests(rawTests);
     if (tests.length === 0) stepsMissingTests += 1;
-    addHu(plan, {
+    const hu = addHu(plan, {
       title: desc.slice(0, 80),
       task_type: classifyTaskType(desc),
       scope: desc,
-      // KJC-BUG-0041: never chain HUs by their order of appearance. The
-      // planner role doesn't model dependencies in its output schema; the
-      // pre-v2.13.1 code synthesised `blocked_by: [previousHuId]` for
-      // every HU, which produced a linear chain artefact and silently
-      // serialised parallelisable work. Real dependencies (when they
-      // exist in the user's spec text) are surfaced by the plan-reviewer
-      // pass as `order_issues`, and the user can promote them manually
-      // before `kj run --plan`.
       blocked_by: [],
       acceptance_tests: tests,
       // Spec mapping (PR C): preserve the planner's section citation
       // so the coder/reviewer / board can show "implements §5.3".
       spec_section: typeof step === "object" && typeof step.spec_section === "string" ? step.spec_section.trim() || null : null,
     });
+    if (typeof step === "object" && typeof step.id === "string" && step.id.trim()) {
+      symbolicToHuId.set(step.id.trim(), hu.id);
+    }
+    const deps = typeof step === "object" && Array.isArray(step.dependencies) ? step.dependencies : [];
+    stepDeps.push(deps);
+  }
+  // Pass 2: resolve dependencies. Unknown symbolic ids are dropped silently
+  // (the plan-reviewer pass will flag them as gaps if they matter).
+  for (let i = 0; i < plan.hus.length; i++) {
+    const symbolic = stepDeps[i] || [];
+    const resolved = symbolic
+      .map((s) => typeof s === "string" ? symbolicToHuId.get(s.trim()) : null)
+      .filter(Boolean);
+    if (resolved.length > 0) plan.hus[i].blocked_by = resolved;
   }
   // Tests-synthesizer pass (v2.7.5): the first planner call asks for
   // acceptance_tests inline, but Claude / Codex frequently skip that
