@@ -182,6 +182,7 @@ Common issues: [troubleshooting.md](troubleshooting.md)
 ## Next steps
 
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the pipeline
+- Use [task file templates](task-templates/README.md) when invoking `kj plan generate`, `kj run`, `kj researcher`, `kj architect`, `kj discover` or `kj refactorer` — they encode the sweet spot between too-brief and too-pre-processed
 - Check [SKILLS.md](SKILLS.md) for OpenSkills integration
 - Browse [templates/roles/](../templates/roles/) to see role definitions
 - If migrating from v1: [MIGRATION-v2.md](../MIGRATION-v2.md)
