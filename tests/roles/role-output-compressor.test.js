@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   compressRoleOutput, estimateTokens, measureCompression
-} from "../src/orchestrator/role-output-compressor.js";
+} from "../../src/orchestrator/role-output-compressor.js";
 
 describe("role-output-compressor", () => {
   describe("compressRoleOutput", () => {

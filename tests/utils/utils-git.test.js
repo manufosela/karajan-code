@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
@@ -9,9 +9,9 @@ describe("utils/git", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const processMod = await import("../src/utils/process.js");
+    const processMod = await import("../../src/utils/process.js");
     runCommand = processMod.runCommand;
-    git = await import("../src/utils/git.js");
+    git = await import("../../src/utils/git.js");
   });
 
   describe("ensureGitRepo", () => {

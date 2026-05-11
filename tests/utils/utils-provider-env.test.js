@@ -5,7 +5,7 @@ import {
   collectActiveProviders,
   getRequiredProviderEnvs,
   normalizeProvider,
-} from "../src/utils/provider-env.js";
+} from "../../src/utils/provider-env.js";
 
 describe("utils/provider-env", () => {
   const savedEnv = { ...process.env };

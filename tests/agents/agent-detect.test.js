@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/agents/resolve-bin.js", () => ({
+vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/bin/${name}`)
 }));
 
@@ -14,8 +14,8 @@ describe("agent-detect", () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    ({ runCommand } = await import("../src/utils/process.js"));
-    ({ checkBinary, detectAvailableAgents, KNOWN_AGENTS } = await import("../src/utils/agent-detect.js"));
+    ({ runCommand } = await import("../../src/utils/process.js"));
+    ({ checkBinary, detectAvailableAgents, KNOWN_AGENTS } = await import("../../src/utils/agent-detect.js"));
   });
 
   it("checkBinary returns ok=true when command succeeds", async () => {

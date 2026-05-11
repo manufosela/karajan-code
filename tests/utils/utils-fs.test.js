@@ -14,7 +14,7 @@ describe("utils/fs", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
     fsMock = (await import("node:fs/promises")).default;
-    const mod = await import("../src/utils/fs.js");
+    const mod = await import("../../src/utils/fs.js");
     ensureDir = mod.ensureDir;
     exists = mod.exists;
     resolveFromCwd = mod.resolveFromCwd;

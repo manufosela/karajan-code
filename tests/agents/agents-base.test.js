@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BaseAgent } from "../src/agents/base-agent.js";
+import { BaseAgent } from "../../src/agents/base-agent.js";
 
 describe("BaseAgent", () => {
   const config = {

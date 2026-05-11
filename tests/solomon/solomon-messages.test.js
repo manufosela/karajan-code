@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatEscalationMessage } from "../src/orchestrator/solomon-escalation.js";
+import { formatEscalationMessage } from "../../src/orchestrator/solomon-escalation.js";
 
 describe("formatEscalationMessage", () => {
   it("produces readable text from raw history", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getRegisteredModels } from "../src/agents/model-registry.js";
-import { getDefaultModelTiers } from "../src/utils/model-selector.js";
+import { getRegisteredModels } from "../../src/agents/model-registry.js";
+import { getDefaultModelTiers } from "../../src/utils/model-selector.js";
 
 describe("Model Registry & Selector Integration", () => {
   it("ensures all models in default selector tiers are registered in the registry", () => {

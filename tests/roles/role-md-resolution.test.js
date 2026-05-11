@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { BaseRole, resolveRoleMdPath, loadFirstExisting } from "../src/roles/base-role.js";
+import { BaseRole, resolveRoleMdPath, loadFirstExisting } from "../../src/roles/base-role.js";
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn() };
 
@@ -35,7 +35,7 @@ describe("Role .md file resolution", () => {
     const content = await loadFirstExisting([
       "/nonexistent/path/a.md",
       "/nonexistent/path/b.md",
-      path.resolve(import.meta.dirname, "..", "templates", "roles", "coder.md")
+      path.resolve(import.meta.dirname, "..", "..", "templates", "roles", "coder.md")
     ]);
     expect(content).toBeTruthy();
     expect(content).toContain("Coder");
@@ -91,7 +91,7 @@ describe("Built-in role templates exist", () => {
 
   for (const roleName of roles) {
     it(`templates/roles/${roleName}.md exists and is non-empty`, async () => {
-      const mdPath = path.resolve(import.meta.dirname, "..", "templates", "roles", `${roleName}.md`);
+      const mdPath = path.resolve(import.meta.dirname, "..", "..", "templates", "roles", `${roleName}.md`);
       const content = await fs.readFile(mdPath, "utf8");
       expect(content.length).toBeGreaterThan(50);
     });

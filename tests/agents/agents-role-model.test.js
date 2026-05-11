@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "ok", stderr: "" })
 }));
 
-vi.mock("../src/agents/resolve-bin.js", () => ({
+vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => name)
 }));
 
@@ -13,11 +13,11 @@ describe("agents role model handling", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    ({ runCommand } = await import("../src/utils/process.js"));
+    ({ runCommand } = await import("../../src/utils/process.js"));
   });
 
   it("passes role model to GeminiAgent runTask and reviewTask", async () => {
-    const { GeminiAgent } = await import("../src/agents/gemini-agent.js");
+    const { GeminiAgent } = await import("../../src/agents/gemini-agent.js");
 
     const config = {
       session: { max_iteration_minutes: 1 },
@@ -46,7 +46,7 @@ describe("agents role model handling", () => {
   });
 
   it("passes role model to AiderAgent runTask and reviewTask", async () => {
-    const { AiderAgent } = await import("../src/agents/aider-agent.js");
+    const { AiderAgent } = await import("../../src/agents/aider-agent.js");
 
     const config = {
       session: { max_iteration_minutes: 1 },

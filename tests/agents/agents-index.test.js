@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAgent, registerAgent, getAvailableAgents } from "../src/agents/index.js";
-import { ClaudeAgent } from "../src/agents/claude-agent.js";
-import { CodexAgent } from "../src/agents/codex-agent.js";
-import { GeminiAgent } from "../src/agents/gemini-agent.js";
-import { AiderAgent } from "../src/agents/aider-agent.js";
-import { BaseAgent } from "../src/agents/base-agent.js";
+import { createAgent, registerAgent, getAvailableAgents } from "../../src/agents/index.js";
+import { ClaudeAgent } from "../../src/agents/claude-agent.js";
+import { CodexAgent } from "../../src/agents/codex-agent.js";
+import { GeminiAgent } from "../../src/agents/gemini-agent.js";
+import { AiderAgent } from "../../src/agents/aider-agent.js";
+import { BaseAgent } from "../../src/agents/base-agent.js";
 
 const config = { session: { max_iteration_minutes: 5 } };
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };

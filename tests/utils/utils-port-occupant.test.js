@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn(),
 }));
 
@@ -9,8 +9,8 @@ describe("utils/port-occupant", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    ({ getPortOccupant } = await import("../src/utils/port-occupant.js"));
-    ({ runCommand } = await import("../src/utils/process.js"));
+    ({ getPortOccupant } = await import("../../src/utils/port-occupant.js"));
+    ({ runCommand } = await import("../../src/utils/process.js"));
   });
 
   it("parses lsof -Fpcn output into pid + command", async () => {

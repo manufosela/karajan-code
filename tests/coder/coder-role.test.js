@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
-import { ROLE_EVENTS } from "../src/roles/base-role.js";
+import { ROLE_EVENTS } from "../../src/roles/base-role.js";
 
 const mockRunTask = vi.fn();
 const mockCreateAgent = vi.fn(() => ({ runTask: mockRunTask }));
 
-const { CoderRole } = await import("../src/roles/coder-role.js");
+const { CoderRole } = await import("../../src/roles/coder-role.js");
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn() };
 

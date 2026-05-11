@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/agent-detect.js", () => ({
+vi.mock("../../src/utils/agent-detect.js", () => ({
   detectAvailableAgents: vi.fn()
 }));
 
-import { detectAvailableAgents } from "../src/utils/agent-detect.js";
-const { autoAssignRoles, applyRoleAssignments, CAPABILITY_TIERS } = await import("../src/utils/role-assigner.js");
+import { detectAvailableAgents } from "../../src/utils/agent-detect.js";
+const { autoAssignRoles, applyRoleAssignments, CAPABILITY_TIERS } = await import("../../src/utils/role-assigner.js");
 
 describe("role-assigner", () => {
   beforeEach(() => vi.clearAllMocks());

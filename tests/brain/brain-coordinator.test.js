@@ -7,7 +7,7 @@ vi.mock("node:child_process", () => ({
 const {
   createBrainContext, isBrainEnabled, processRoleOutput,
   buildCoderFeedbackPrompt, verifyCoderRan, clearFeedback, summarize
-} = await import("../src/orchestrator/brain-coordinator.js");
+} = await import("../../src/orchestrator/brain-coordinator.js");
 
 describe("[opt-in: brain] brain-coordinator", () => {
   beforeEach(() => vi.clearAllMocks());

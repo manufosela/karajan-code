@@ -4,7 +4,7 @@ import {
   getDefaultRoleOverrides,
   resolveModelForRole,
   selectModelsForRoles
-} from "../src/utils/model-selector.js";
+} from "../../src/utils/model-selector.js";
 
 describe("getDefaultModelTiers", () => {
   it("returns a deep copy (not the same reference)", () => {

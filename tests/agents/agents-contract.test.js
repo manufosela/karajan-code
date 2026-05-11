@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getAvailableAgents, createAgent } from "../src/agents/index.js";
-import { BaseAgent } from "../src/agents/base-agent.js";
+import { getAvailableAgents, createAgent } from "../../src/agents/index.js";
+import { BaseAgent } from "../../src/agents/base-agent.js";
 
 const config = {
   session: { max_iteration_minutes: 5 },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
-import { REVIEW_OK, makeConfig as makeBaseConfig, noopLogger, reapplyDefaultMocks } from "./fixtures/orchestrator-mocks.js";
+import { REVIEW_OK, makeConfig as makeBaseConfig, noopLogger, reapplyDefaultMocks } from "../fixtures/orchestrator-mocks.js";
 
 function makeConfig(sessionOverrides = {}) {
   return makeBaseConfig({
@@ -18,11 +18,11 @@ function makeConfig(sessionOverrides = {}) {
   });
 }
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session/store.js", () => {
+vi.mock("../../src/session/store.js", () => {
   let session = null;
   return {
     createSession: vi.fn(async (initial) => {
@@ -38,49 +38,49 @@ vi.mock("../src/session/store.js", () => {
   };
 });
 
-vi.mock("../src/review/diff-generator.js", () => ({
+vi.mock("../../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
   generateDiff: vi.fn().mockResolvedValue("diff content"),
   setProjectDir: vi.fn()
 }));
 
-vi.mock("../src/review/schema.js", () => ({
+vi.mock("../../src/review/schema.js", () => ({
   validateReviewResult: vi.fn((r) => r)
 }));
 
-vi.mock("../src/review/tdd-policy.js", () => ({
+vi.mock("../../src/review/tdd-policy.js", () => ({
   evaluateTddPolicy: vi.fn().mockReturnValue({ ok: true, reason: "pass", sourceFiles: ["a.js"], testFiles: ["a.test.js"], message: "OK" })
 }));
 
-vi.mock("../src/prompts/coder.js", () => ({
+vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPrompt: vi.fn().mockReturnValue("coder prompt")
 }));
 
-vi.mock("../src/prompts/reviewer.js", () => ({
+vi.mock("../../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
 }));
 
-vi.mock("../src/sonar/api.js", () => ({
+vi.mock("../../src/sonar/api.js", () => ({
   getQualityGateStatus: vi.fn().mockResolvedValue({ status: "OK" }),
   getOpenIssues: vi.fn().mockResolvedValue({ total: 0, issues: [] })
 }));
 
-vi.mock("../src/sonar/scanner.js", () => ({
+vi.mock("../../src/sonar/scanner.js", () => ({
   runSonarScan: vi.fn().mockResolvedValue({ ok: true, projectKey: "test-key" })
 }));
 
-vi.mock("../src/sonar/enforcer.js", () => ({
+vi.mock("../../src/sonar/enforcer.js", () => ({
   shouldBlockByProfile: vi.fn().mockReturnValue(false),
   summarizeIssues: vi.fn().mockReturnValue("")
 }));
 
-vi.mock("../src/utils/project-detect.js", () => ({
+vi.mock("../../src/utils/project-detect.js", () => ({
   detectTestFramework: vi.fn().mockResolvedValue({ hasTests: true, framework: "vitest" }),
   detectSonarConfig: vi.fn().mockResolvedValue({ configured: false })
 }));
 
-vi.mock("../src/utils/git.js", () => ({
+vi.mock("../../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
   fetchBase: vi.fn(),
@@ -96,25 +96,25 @@ vi.mock("../src/utils/git.js", () => ({
   listCommitsBetween: vi.fn().mockResolvedValue([])
 }));
 
-vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+vi.mock("../../src/orchestrator/solomon-escalation.js", () => ({
   invokeSolomon: vi.fn().mockResolvedValue({ action: "continue", humanGuidance: "Proceed" }),
   escalateToHuman: vi.fn().mockResolvedValue({ action: "pause", question: "Human needed" })
 }));
 
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
   isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
-vi.mock("../src/utils/rtk-detect.js", () => ({
+vi.mock("../../src/utils/rtk-detect.js", () => ({
   detectRtk: vi.fn().mockResolvedValue({ available: false })
 }));
 
-vi.mock("../src/orchestrator/preflight-checks.js", () => ({
+vi.mock("../../src/orchestrator/preflight-checks.js", () => ({
   runPreflightChecks: vi.fn().mockResolvedValue({ ok: true, checks: [], configOverrides: {} })
 }));
 
-vi.mock("../src/utils/agent-detect.js", () => ({
+vi.mock("../../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn().mockResolvedValue({ ok: true }),
   isHostAgent: vi.fn().mockReturnValue(false)
 }));
@@ -134,50 +134,50 @@ describe("reviewer parse resilience", () => {
     vi.resetAllMocks();
     await reapplyDefaultMocks();
 
-    const { invokeSolomon } = await import("../src/orchestrator/solomon-escalation.js");
+    const { invokeSolomon } = await import("../../src/orchestrator/solomon-escalation.js");
     invokeSolomon.mockResolvedValue({ action: "continue", humanGuidance: "Proceed" });
 
-    const { sonarUp, isSonarReachable } = await import("../src/sonar/manager.js");
+    const { sonarUp, isSonarReachable } = await import("../../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
     isSonarReachable.mockResolvedValue(true);
 
-    const { runSonarScan } = await import("../src/sonar/scanner.js");
+    const { runSonarScan } = await import("../../src/sonar/scanner.js");
     runSonarScan.mockResolvedValue({ ok: true, projectKey: "test-key" });
 
-    const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
+    const { getQualityGateStatus, getOpenIssues } = await import("../../src/sonar/api.js");
     getQualityGateStatus.mockResolvedValue({ status: "OK" });
     getOpenIssues.mockResolvedValue({ total: 0, issues: [] });
 
-    const { detectRtk } = await import("../src/utils/rtk-detect.js");
+    const { detectRtk } = await import("../../src/utils/rtk-detect.js");
     detectRtk.mockResolvedValue({ available: false });
 
-    const { runPreflightChecks } = await import("../src/orchestrator/preflight-checks.js");
+    const { runPreflightChecks } = await import("../../src/orchestrator/preflight-checks.js");
     runPreflightChecks.mockResolvedValue({ ok: true, checks: [], configOverrides: {} });
 
-    const { checkBinary, isHostAgent } = await import("../src/utils/agent-detect.js");
+    const { checkBinary, isHostAgent } = await import("../../src/utils/agent-detect.js");
     checkBinary.mockResolvedValue({ ok: true });
     isHostAgent.mockReturnValue(false);
 
-    const { getUntrackedFiles } = await import("../src/review/diff-generator.js");
+    const { getUntrackedFiles } = await import("../../src/review/diff-generator.js");
     getUntrackedFiles.mockResolvedValue([]);
 
-    const { detectSonarConfig } = await import("../src/utils/project-detect.js");
+    const { detectSonarConfig } = await import("../../src/utils/project-detect.js");
     detectSonarConfig.mockResolvedValue({ configured: false });
 
-    const { shouldBlockByProfile, summarizeIssues } = await import("../src/sonar/enforcer.js");
+    const { shouldBlockByProfile, summarizeIssues } = await import("../../src/sonar/enforcer.js");
     shouldBlockByProfile.mockReturnValue(false);
     summarizeIssues.mockReturnValue("");
 
-    const { escalateToHuman } = await import("../src/orchestrator/solomon-escalation.js");
+    const { escalateToHuman } = await import("../../src/orchestrator/solomon-escalation.js");
     escalateToHuman.mockResolvedValue({ action: "pause", question: "Human needed" });
 
-    const mod = await import("../src/orchestrator.js");
+    const mod = await import("../../src/orchestrator.js");
     runFlow = mod.runFlow;
   });
 
   it("does not crash when reviewer returns non-JSON — treats as rejected iteration", async () => {
     let reviewerCallCount = 0;
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
       reviewTask: vi.fn().mockImplementation(() => {
@@ -208,7 +208,7 @@ describe("reviewer parse resilience", () => {
   });
 
   it("includes PARSE_ERROR blocking issue when reviewer output is garbage", async () => {
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     let reviewerCallCount = 0;
     createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
@@ -221,7 +221,7 @@ describe("reviewer parse resilience", () => {
       })
     });
 
-    const { validateReviewResult } = await import("../src/review/schema.js");
+    const { validateReviewResult } = await import("../../src/review/schema.js");
     validateReviewResult.mockImplementation((r) => {
       // Real validation for the second call
       if (r.approved !== undefined) return r;
@@ -243,7 +243,7 @@ describe("reviewer parse resilience", () => {
   });
 
   it("does not crash when validateReviewResult throws", async () => {
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     let reviewerCallCount = 0;
     createAgent.mockReturnValue({
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
@@ -257,7 +257,7 @@ describe("reviewer parse resilience", () => {
       })
     });
 
-    const { validateReviewResult } = await import("../src/review/schema.js");
+    const { validateReviewResult } = await import("../../src/review/schema.js");
     validateReviewResult.mockImplementation((r) => {
       if (typeof r.approved !== "boolean") {
         throw new Error("Reviewer output missing boolean field: approved");

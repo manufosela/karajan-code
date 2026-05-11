@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { evaluateRules, buildRulesContext, DEFAULT_RULES } from "../src/orchestrator/solomon-rules.js";
+import { evaluateRules, buildRulesContext, DEFAULT_RULES } from "../../src/orchestrator/solomon-rules.js";
 
 describe("evaluateRules", () => {
   const baseContext = {
@@ -210,7 +210,7 @@ describe("buildRulesContext", () => {
     vi.doMock("execa", () => ({ execaCommand: mockExeca }));
 
     // Re-import after mock
-    const { buildRulesContext: build } = await import("../src/orchestrator/solomon-rules.js");
+    const { buildRulesContext: build } = await import("../../src/orchestrator/solomon-rules.js");
     const ctx = await build({
       session: { session_start_sha: "abc123", checkpoints: [] },
       task: "test task",
@@ -234,7 +234,7 @@ describe("buildRulesContext", () => {
 
     vi.doMock("execa", () => ({ execaCommand: mockExeca }));
 
-    const { buildRulesContext: build } = await import("../src/orchestrator/solomon-rules.js");
+    const { buildRulesContext: build } = await import("../../src/orchestrator/solomon-rules.js");
     const ctx = await build({
       session: { checkpoints: [] },
       task: "some task",
@@ -250,7 +250,7 @@ describe("buildRulesContext", () => {
   });
 
   it("detects stale iterations from repeated reviewer feedback", async () => {
-    const { buildRulesContext: build } = await import("../src/orchestrator/solomon-rules.js");
+    const { buildRulesContext: build } = await import("../../src/orchestrator/solomon-rules.js");
     const session = {
       session_start_sha: "abc",
       checkpoints: [

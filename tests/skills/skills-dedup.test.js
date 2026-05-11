@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSkillSection } from "../src/skills/skill-loader.js";
+import { buildSkillSection } from "../../src/skills/skill-loader.js";
 
 const fakeSkills = [
   { name: "java-code-review", content: "Long instructions about Java reviews...\n## Checks\n- null handling\n- exception leakage\n- generics variance\n" },

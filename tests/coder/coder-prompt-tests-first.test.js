@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCoderPrompt } from "../src/prompts/coder.js";
+import { buildCoderPrompt } from "../../src/prompts/coder.js";
 
 // Tests-first Phase 2 (v2.7.5): the coder prompt carries the HU's
 // acceptance_tests so the coder knows the contract from turn 1, rather

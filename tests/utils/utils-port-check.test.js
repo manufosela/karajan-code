@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { createServer } from "node:net";
-import { isPortAvailable, findAvailablePort } from "../src/utils/port-check.js";
+import { isPortAvailable, findAvailablePort } from "../../src/utils/port-check.js";
 
 describe("utils/port-check", () => {
   const openServers = [];

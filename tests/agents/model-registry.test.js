@@ -7,7 +7,7 @@ import {
   getModelInfo,
   getRegisteredModels,
   buildDefaultPricingTable,
-} from "../src/agents/model-registry.js";
+} from "../../src/agents/model-registry.js";
 
 describe("model-registry", () => {
   describe("built-in models", () => {

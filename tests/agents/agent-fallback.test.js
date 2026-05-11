@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   pauseSession: vi.fn(async () => {})
 }));
@@ -16,8 +16,8 @@ describe("runCoderWithFallback", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    ({ runCoderWithFallback } = await import("../src/orchestrator/agent-fallback.js"));
-    ({ addCheckpoint } = await import("../src/session/store.js"));
+    ({ runCoderWithFallback } = await import("../../src/orchestrator/agent-fallback.js"));
+    ({ addCheckpoint } = await import("../../src/session/store.js"));
   });
 
   it("returns success on first attempt when primary agent succeeds", async () => {

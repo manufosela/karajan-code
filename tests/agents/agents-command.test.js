@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/agent-detect.js", () => ({
+vi.mock("../../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn(async () => ({ ok: false })),
   KNOWN_AGENTS: [
     { name: "claude", install: "npm i -g @anthropic-ai/claude-code" },
@@ -12,7 +12,7 @@ vi.mock("../src/utils/agent-detect.js", () => ({
 
 // Post-v2.7.5 agents.js imports from src/session/runtime-overrides.js
 // (layer-neutral), not from src/mcp/preflight.js (layer violation).
-vi.mock("../src/session/runtime-overrides.js", () => ({
+vi.mock("../../src/session/runtime-overrides.js", () => ({
   setRuntimeOverride: vi.fn(),
   getRuntimeOverrides: vi.fn(() => ({})),
   clearRuntimeOverrides: vi.fn()
@@ -20,7 +20,7 @@ vi.mock("../src/session/runtime-overrides.js", () => ({
 
 // loadProjectConfig / getProjectConfigPath are now called by the session
 // fallback path — mock them here so the test doesn't hit the real fs.
-vi.mock("../src/config.js", async (importOriginal) => {
+vi.mock("../../src/config.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -39,9 +39,9 @@ vi.mock("../src/config.js", async (importOriginal) => {
   };
 });
 
-const { listAgents, setAgent } = await import("../src/commands/agents.js");
-const { loadConfig, writeConfig } = await import("../src/config.js");
-const { setRuntimeOverride } = await import("../src/session/runtime-overrides.js");
+const { listAgents, setAgent } = await import("../../src/commands/agents.js");
+const { loadConfig, writeConfig } = await import("../../src/config.js");
+const { setRuntimeOverride } = await import("../../src/session/runtime-overrides.js");
 
 describe("agents command", () => {
   beforeEach(() => {

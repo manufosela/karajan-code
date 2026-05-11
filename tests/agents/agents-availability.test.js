@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/agents/resolve-bin.js", () => ({
+vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => name)
 }));
 
@@ -13,26 +13,26 @@ describe("agents/availability", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const proc = await import("../src/utils/process.js");
+    const proc = await import("../../src/utils/process.js");
     runCommand = proc.runCommand;
   });
 
   it("does not throw when all agents are available", async () => {
     runCommand.mockResolvedValue({ exitCode: 0 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
     await expect(assertAgentsAvailable(["claude", "codex"])).resolves.toBeUndefined();
   });
 
   it("throws with descriptive error when agent is missing", async () => {
     runCommand.mockResolvedValue({ exitCode: 1 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
 
     await expect(assertAgentsAvailable(["claude"])).rejects.toThrow(/Missing required AI CLIs/);
   });
 
   it("includes install URL in error message", async () => {
     runCommand.mockResolvedValue({ exitCode: 1 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
 
     try {
       await assertAgentsAvailable(["codex"]);
@@ -44,7 +44,7 @@ describe("agents/availability", () => {
 
   it("deduplicates agent names", async () => {
     runCommand.mockResolvedValue({ exitCode: 0 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
     await assertAgentsAvailable(["claude", "claude", "claude"]);
 
     expect(runCommand).toHaveBeenCalledTimes(1);
@@ -52,7 +52,7 @@ describe("agents/availability", () => {
 
   it("skips null and undefined entries", async () => {
     runCommand.mockResolvedValue({ exitCode: 0 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
     await assertAgentsAvailable([null, undefined, "claude"]);
 
     expect(runCommand).toHaveBeenCalledTimes(1);
@@ -60,14 +60,14 @@ describe("agents/availability", () => {
 
   it("skips unknown agent names gracefully", async () => {
     runCommand.mockResolvedValue({ exitCode: 0 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
     await expect(assertAgentsAvailable(["unknown-agent"])).resolves.toBeUndefined();
     expect(runCommand).not.toHaveBeenCalled();
   });
 
   it("reports multiple missing agents", async () => {
     runCommand.mockResolvedValue({ exitCode: 1 });
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
 
     try {
       await assertAgentsAvailable(["claude", "codex"]);
@@ -78,7 +78,7 @@ describe("agents/availability", () => {
   });
 
   it("does not throw for empty array", async () => {
-    const { assertAgentsAvailable } = await import("../src/agents/availability.js");
+    const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
     await expect(assertAgentsAvailable([])).resolves.toBeUndefined();
     expect(runCommand).not.toHaveBeenCalled();
   });

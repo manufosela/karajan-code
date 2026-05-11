@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { translateStreamJsonEvent, createStreamJsonFilter } from "../src/agents/claude-agent.js";
+import { translateStreamJsonEvent, createStreamJsonFilter } from "../../src/agents/claude-agent.js";
 
 // Pre-v2.7.5 the filter only recognised assistant/result and dumped
 // everything else as raw JSON to the user — including the giant

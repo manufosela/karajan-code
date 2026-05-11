@@ -24,19 +24,19 @@ describe("utils/paths", () => {
     it("returns ~/.karajan when KJ_HOME and VITEST are both unset", async () => {
       delete process.env.KJ_HOME;
       delete process.env.VITEST;
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       expect(getKarajanHome()).toBe(path.join(os.homedir(), ".karajan"));
     });
 
     it("returns $KJ_HOME when set", async () => {
       process.env.KJ_HOME = "/custom/kj";
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       expect(getKarajanHome()).toBe(path.resolve("/custom/kj"));
     });
 
     it("resolves relative $KJ_HOME to absolute", async () => {
       process.env.KJ_HOME = "relative/path";
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       expect(path.isAbsolute(getKarajanHome())).toBe(true);
     });
 
@@ -48,7 +48,7 @@ describe("utils/paths", () => {
     it("returns a tmp dir under VITEST when KJ_HOME is unset", async () => {
       delete process.env.KJ_HOME;
       process.env.VITEST = "true";
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       const home = getKarajanHome();
       expect(home.startsWith(os.tmpdir())).toBe(true);
       expect(home).not.toBe(path.join(os.homedir(), ".karajan"));
@@ -60,14 +60,14 @@ describe("utils/paths", () => {
     it("memoises the tmp dir across calls within the same process", async () => {
       delete process.env.KJ_HOME;
       process.env.VITEST = "true";
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       expect(getKarajanHome()).toBe(getKarajanHome());
     });
 
     it("explicit KJ_HOME wins over VITEST tmp default", async () => {
       process.env.KJ_HOME = "/explicit/path";
       process.env.VITEST = "true";
-      const { getKarajanHome } = await import("../src/utils/paths.js");
+      const { getKarajanHome } = await import("../../src/utils/paths.js");
       expect(getKarajanHome()).toBe(path.resolve("/explicit/path"));
     });
   });
@@ -76,7 +76,7 @@ describe("utils/paths", () => {
     it("returns sessions dir under karajan home", async () => {
       delete process.env.KJ_HOME;
       delete process.env.VITEST;
-      const { getSessionRoot } = await import("../src/utils/paths.js");
+      const { getSessionRoot } = await import("../../src/utils/paths.js");
       expect(getSessionRoot()).toBe(path.join(os.homedir(), ".karajan", "sessions"));
     });
   });
@@ -85,7 +85,7 @@ describe("utils/paths", () => {
     it("returns docker-compose path under karajan home", async () => {
       delete process.env.KJ_HOME;
       delete process.env.VITEST;
-      const { getSonarComposePath } = await import("../src/utils/paths.js");
+      const { getSonarComposePath } = await import("../../src/utils/paths.js");
       expect(getSonarComposePath()).toBe(path.join(os.homedir(), ".karajan", "docker-compose.sonar.yml"));
     });
   });

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/agents/resolve-bin.js", () => ({
+vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/local/bin/${name}`)
 }));
 
@@ -20,14 +20,14 @@ describe("Agent implementations", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const proc = await import("../src/utils/process.js");
+    const proc = await import("../../src/utils/process.js");
     runCommand = proc.runCommand;
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "output", stderr: "" });
   });
 
   describe("ClaudeAgent", () => {
     it("runs task with claude -p and --output-format json (no streaming without onOutput)", async () => {
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       await agent.runTask({ prompt: "fix bug", role: "coder" });
 
@@ -43,7 +43,7 @@ describe("Agent implementations", () => {
     });
 
     it("adds --model flag when model is configured", async () => {
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const config = { ...baseConfig, roles: { coder: { model: "opus" }, reviewer: {} } };
       const agent = new ClaudeAgent("claude", config, logger);
       await agent.runTask({ prompt: "fix", role: "coder" });
@@ -54,7 +54,7 @@ describe("Agent implementations", () => {
     });
 
     it("reviews task with --output-format stream-json and --verbose", async () => {
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       await agent.reviewTask({ prompt: "review code", role: "reviewer" });
 
@@ -66,7 +66,7 @@ describe("Agent implementations", () => {
 
     it("returns ok=false on non-zero exit with error from stderr", async () => {
       runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "error detail" });
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       const result = await agent.runTask({ prompt: "fail", role: "coder" });
 
@@ -76,7 +76,7 @@ describe("Agent implementations", () => {
     });
 
     it("uses stream-json with --verbose and wraps onOutput when callback is provided", async () => {
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       const onOutput = vi.fn();
       await agent.runTask({ prompt: "work", role: "coder", onOutput });
@@ -92,7 +92,7 @@ describe("Agent implementations", () => {
 
     it("strips CLAUDECODE from env and ignores stdin", async () => {
       process.env.CLAUDECODE = "1";
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -106,7 +106,7 @@ describe("Agent implementations", () => {
     it("reads output from stderr when stdout is empty (Claude 2.x behavior)", async () => {
       const stderrJson = '{"type":"result","result":"PONG"}';
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: stderrJson });
-      const { ClaudeAgent } = await import("../src/agents/claude-agent.js");
+      const { ClaudeAgent } = await import("../../src/agents/claude-agent.js");
       const agent = new ClaudeAgent("claude", baseConfig, logger);
       const result = await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -117,7 +117,7 @@ describe("Agent implementations", () => {
 
   describe("CodexAgent", () => {
     it("runs task with codex exec reading prompt from stdin", async () => {
-      const { CodexAgent } = await import("../src/agents/codex-agent.js");
+      const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", baseConfig, logger);
       await agent.runTask({ prompt: "add tests", role: "coder" });
 
@@ -129,7 +129,7 @@ describe("Agent implementations", () => {
 
     it("adds --full-auto when auto_approve is enabled", async () => {
       const config = { ...baseConfig, coder_options: { auto_approve: true } };
-      const { CodexAgent } = await import("../src/agents/codex-agent.js");
+      const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -138,7 +138,7 @@ describe("Agent implementations", () => {
 
     it("does not add --full-auto for reviewer role", async () => {
       const config = { ...baseConfig, coder_options: { auto_approve: true } };
-      const { CodexAgent } = await import("../src/agents/codex-agent.js");
+      const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", config, logger);
       await agent.reviewTask({ prompt: "review", role: "reviewer" });
 
@@ -147,7 +147,7 @@ describe("Agent implementations", () => {
 
     it("adds --model flag when configured", async () => {
       const config = { ...baseConfig, roles: { coder: { model: "o3" }, reviewer: {} } };
-      const { CodexAgent } = await import("../src/agents/codex-agent.js");
+      const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -158,7 +158,7 @@ describe("Agent implementations", () => {
 
     it("returns structured result", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "done", stderr: "" });
-      const { CodexAgent } = await import("../src/agents/codex-agent.js");
+      const { CodexAgent } = await import("../../src/agents/codex-agent.js");
       const agent = new CodexAgent("codex", baseConfig, logger);
       const result = await agent.runTask({ prompt: "task", role: "coder" });
 
@@ -169,7 +169,7 @@ describe("Agent implementations", () => {
 
   describe("GeminiAgent", () => {
     it("runs task with gemini -p and prompt", async () => {
-      const { GeminiAgent } = await import("../src/agents/gemini-agent.js");
+      const { GeminiAgent } = await import("../../src/agents/gemini-agent.js");
       const agent = new GeminiAgent("gemini", baseConfig, logger);
       await agent.runTask({ prompt: "build feature", role: "coder" });
 
@@ -179,7 +179,7 @@ describe("Agent implementations", () => {
     });
 
     it("reviews with --output-format json", async () => {
-      const { GeminiAgent } = await import("../src/agents/gemini-agent.js");
+      const { GeminiAgent } = await import("../../src/agents/gemini-agent.js");
       const agent = new GeminiAgent("gemini", baseConfig, logger);
       await agent.reviewTask({ prompt: "review", role: "reviewer" });
 
@@ -190,7 +190,7 @@ describe("Agent implementations", () => {
 
     it("adds model when configured", async () => {
       const config = { ...baseConfig, roles: { coder: { model: "gemini-2" }, reviewer: {} } };
-      const { GeminiAgent } = await import("../src/agents/gemini-agent.js");
+      const { GeminiAgent } = await import("../../src/agents/gemini-agent.js");
       const agent = new GeminiAgent("gemini", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -202,7 +202,7 @@ describe("Agent implementations", () => {
 
   describe("AiderAgent", () => {
     it("runs task with aider --yes --message", async () => {
-      const { AiderAgent } = await import("../src/agents/aider-agent.js");
+      const { AiderAgent } = await import("../../src/agents/aider-agent.js");
       const agent = new AiderAgent("aider", baseConfig, logger);
       await agent.runTask({ prompt: "add feature", role: "coder" });
 
@@ -213,7 +213,7 @@ describe("Agent implementations", () => {
     });
 
     it("reviews with same --yes --message pattern", async () => {
-      const { AiderAgent } = await import("../src/agents/aider-agent.js");
+      const { AiderAgent } = await import("../../src/agents/aider-agent.js");
       const agent = new AiderAgent("aider", baseConfig, logger);
       await agent.reviewTask({ prompt: "review", role: "reviewer" });
 
@@ -224,7 +224,7 @@ describe("Agent implementations", () => {
 
     it("adds model when configured", async () => {
       const config = { ...baseConfig, roles: { coder: { model: "gpt-4o" }, reviewer: {} } };
-      const { AiderAgent } = await import("../src/agents/aider-agent.js");
+      const { AiderAgent } = await import("../../src/agents/aider-agent.js");
       const agent = new AiderAgent("aider", config, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
 
@@ -236,7 +236,7 @@ describe("Agent implementations", () => {
 
   describe("OpenCodeAgent", () => {
     it("runs task with opencode run and prompt as argument", async () => {
-      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const { OpenCodeAgent } = await import("../../src/agents/opencode-agent.js");
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       await agent.runTask({ prompt: "fix bug", role: "coder" });
 
@@ -246,7 +246,7 @@ describe("Agent implementations", () => {
     });
 
     it("adds --model flag when configured", async () => {
-      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const { OpenCodeAgent } = await import("../../src/agents/opencode-agent.js");
       const config = { ...baseConfig, roles: { coder: { model: "anthropic/claude-3-5-sonnet" }, reviewer: {} } };
       const agent = new OpenCodeAgent("opencode", config, logger);
       await agent.runTask({ prompt: "work", role: "coder" });
@@ -257,7 +257,7 @@ describe("Agent implementations", () => {
     });
 
     it("reviews with --format json", async () => {
-      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const { OpenCodeAgent } = await import("../../src/agents/opencode-agent.js");
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       await agent.reviewTask({ prompt: "review code", role: "reviewer" });
 
@@ -268,7 +268,7 @@ describe("Agent implementations", () => {
 
     it("returns structured result", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "done", stderr: "warn" });
-      const { OpenCodeAgent } = await import("../src/agents/opencode-agent.js");
+      const { OpenCodeAgent } = await import("../../src/agents/opencode-agent.js");
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       const result = await agent.runTask({ prompt: "work", role: "coder" });
 
