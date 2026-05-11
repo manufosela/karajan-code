@@ -95,6 +95,72 @@ describe("evaluateRules", () => {
     expect(result2.alerts[0].rule).toBe("max_stale_iterations");
   });
 
+  describe("reviewer_style_block rule (BUG-0026 regression)", () => {
+    it("triggers when all blocking issues are pure style/naming", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "variable naming convention violation", severity: "low" },
+          { description: "indentation inconsistent in user.js", severity: "minor" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(true);
+      expect(result.hasCritical).toBe(true);
+    });
+
+    it("does NOT trigger when severity is critical/high even if matches style keyword", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "input validation missing in user form", severity: "critical" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(false);
+    });
+
+    it("does NOT trigger when description mentions security (BUG-0026)", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "SQL injection in user input parsing", severity: "low" },
+          { description: "Missing CORS documentation policy", severity: "low" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(false);
+    });
+
+    it("does NOT trigger when description mentions secrets/credentials", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "Hardcoded API token in config file", severity: "minor" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(false);
+    });
+
+    it("does NOT trigger when category/tags flag the issue as security", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "weak naming on hash", severity: "low", category: "security" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(false);
+    });
+
+    it("does NOT trigger on mixed issues (one security + one style)", () => {
+      const result = evaluateRules({
+        ...baseContext,
+        blockingIssues: [
+          { description: "variable naming convention", severity: "low" },
+          { description: "XSS vulnerability in render path", severity: "low" }
+        ]
+      });
+      expect(result.alerts.some(a => a.rule === "reviewer_style_block")).toBe(false);
+    });
+  });
+
   it("hasCritical and hasWarnings flags are correct", () => {
     // Only warnings
     const warnOnly = evaluateRules({
