@@ -142,4 +142,56 @@ describe("prompts/planner buildPlannerPrompt", () => {
       expect(prompt).toMatch(/NEVER `null`, NEVER omitted, NEVER a free-form paraphrase/);
     });
   });
+
+  describe("scope exclusions (KJC-BUG-0042 / P1)", () => {
+    it("echoes NO incluye items as FORBIDDEN scope when task has explicit Spanish exclusions", () => {
+      const SPEC = [
+        "# Plan 2 — GRETA",
+        "## Scope",
+        "Cubre PROFILE, ASSESS, AI.",
+        "",
+        "NO incluye en este plan: vistas compartidas, filtros comparativos, exportación CSV.",
+      ].join("\n");
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toContain("FORBIDDEN");
+      expect(prompt).toContain("vistas compartidas");
+      expect(prompt).toContain("filtros comparativos");
+      expect(prompt).toContain("exportación CSV");
+    });
+
+    it("echoes Out of scope items when task has English exclusions", () => {
+      const SPEC = [
+        "# Spec",
+        "Out of scope: real-time sync, mobile UI, payment integration.",
+      ].join("\n");
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toContain("FORBIDDEN");
+      expect(prompt).toContain("real-time sync");
+      expect(prompt).toContain("mobile UI");
+      expect(prompt).toContain("payment integration");
+    });
+
+    it("echoes 'Plan X handles' references as out-of-scope for current plan", () => {
+      const SPEC = [
+        "# Plan 2",
+        "Plan 3 handles cross-tenant views and shared dashboards.",
+      ].join("\n");
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toContain("FORBIDDEN");
+      expect(prompt).toContain("cross-tenant views");
+      expect(prompt).toContain("shared dashboards");
+    });
+
+    it("does NOT emit FORBIDDEN section when no exclusions are declared", () => {
+      const prompt = buildPlannerPrompt({ task: "Add login page with email/password" });
+      expect(prompt).not.toContain("FORBIDDEN");
+    });
+
+    it("instructs the planner to NEVER generate steps for FORBIDDEN items", () => {
+      const SPEC = "NO incluye: foo, bar.";
+      const prompt = buildPlannerPrompt({ task: SPEC });
+      expect(prompt).toMatch(/Do NOT generate steps/i);
+      expect(prompt).toMatch(/outOfScope/);
+    });
+  });
 });
