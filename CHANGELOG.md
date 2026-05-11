@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-05-12
+
+Quality pass — 16 PRs absorbiendo bugs blockers, patologías del planner detectadas durante el dogfooding de Plan 2 GRETA, hardening del HU Board, y la primera tanda de reorganización de tests (issue #368).
+
+### Fixed — bugs blockers
+
+- **KJC-BUG-0026** — Solomon ya no aprueba security blockers legítimos clasificados erróneamente como "style" (#665). Rule 6 (`reviewer_style_block`) ahora detecta security keywords (sql injection, xss, csrf, auth, password, secret, hash, traversal, …), severities altas (critical/high/blocker/major), y categorías security/correctness antes de clasificar como style.
+- **KJC-BUG-0032** — Detección de leak filesystem con segunda capa: `detectTranscriptCdLeaks()` escanea el transcript del coder buscando `cd <abs-out-of-project> && <write-cmd>` (mkdir/touch/git init/pnpm init/echo >/...) que la snapshot-diff anterior no capturaba si el target ya existía (#666).
+- **KJC-BUG-0035** — Sonar admin password rotation ya no falla silenciosamente: si `change_password` devuelve 403/500/400-sin-error-default/network error, `passwordRotationError` se propaga al caller y `kj init` lo logue como WARNING con instrucciones para rotar a mano (#672).
+
+### Fixed — patologías del planner (P1-P4)
+
+Detectadas en el dogfooding de Plan 2 GRETA (2026-05-11), donde el reviewer flagaba 4 huecos del SPEC en cada iteración:
+
+- **P1 / KJC-BUG-0042** — Planner respeta exclusiones explícitas del scope (#667). `extractScopeExclusions(task)` detecta 6 patrones (ES + EN): "NO incluye en este plan: X, Y", "Out of scope: X", "Plan N handles: X", … y los renderiza como sección **FORBIDDEN scope** en el prompt.
+- **P2 / KJC-BUG-0043** — Planner declara deps a TODOS los miembros de una categoría transversal (#668). Si una HU tiene AC tipo "listado transversal de warnings filtrables por guardrail", la dep es a `GUARD-001..N`, no solo a `GUARD-001`.
+- **P3 / KJC-BUG-0044** — Nuevo campo `reuse` en step schema (#669). Si la funcionalidad ya está cubierta por otra HU, declara `reuse: ["<id>"]` en lugar de reimplementar. Wiring completo end-to-end: prompt, plan-hu-ops (addHu/removeHu/updateHu), generate.js.
+- **P4 / KJC-BUG-0045** — Reviewer self-fix loop tras la primera review (#670 + #671). Nuevo módulo `src/plan/plan-fixer.js` con `applyReviewerFeedback` que pide al planner un patch estructurado (`additions`/`deps_to_add`/`deletions`) y `applyFixerPatch` que lo aplica in-place. Loop max=2 iter o hasta 0 findings. Skippable con `--no-plan-fixer`/`--quick`.
+
+### Fixed — HU Board polish
+
+- **KJC-BUG-0038** — Prompts zombi de runners crashed se limpian solos. `GET /api/prompts` aplica TTL 30 min sobre `createdAt` (fallback a `mtime`); más viejo → unlink + tombstone + skip (#673). Cubre Solomon escalations legítimamente largas pero no deja la UI bloqueada por archivos huérfanos.
+- **KJC-BUG-0039** — Rate-limit menos agresivo y SSE exento (#674). Default 300→600 req/min, env var `HU_BOARD_RATE_LIMIT` para override, `skip:` para `/api/events` (SSE persistente + reconnects automáticos del browser no deberían contar contra el budget).
+
+### Closed without code change
+
+- **KJC-BUG-0027** — Scope guard `max_files_per_iteration` ya fue retirado en v2.0.0 (PR #357 / commit 906a4273). Coder prompt ahora enforce atomic commits sin guard hard-coded por número de archivos. Card movida a Closed con commits + rootCause + resolution.
+
+### Refactor — tests folder reorganization (issue #368, parcial)
+
+5 PRs movieron ~93 archivos `*.test.js` de `tests/` root a subcarpetas espejo de `src/`:
+
+- #675 `tests/plan/` (14 archivos)
+- #676 `tests/hu/` (7 archivos)
+- #677 `tests/sonar/` (14 archivos)
+- #678 `tests/board/`, `tests/session/`, `tests/triage/`, `tests/domain/` (23 archivos)
+- #679 `tests/agents/`, `tests/brain/`, `tests/reviewer/`, `tests/security/`, `tests/utils/`, `tests/coder/`, `tests/solomon/`, `tests/skills/`, `tests/roles/` (35 archivos)
+
+Cambios puramente mecánicos: `git mv` + sed para 6 patrones de imports (`from`, `vi.mock`, `vi.doMock`, `import()`, `./fixtures`, `import.meta.dirname` patterns). Quedan ~170 archivos en root para próximas oleadas.
+
+### Tests
+
+Suite de 4577 tests verde durante toda la sesión. 16 PRs mergeadas, **0 regresiones**.
+
 ## [2.13.0] - 2026-05-11
 
 Minor release. **HU Board hardening pass.** Cinco PRs centradas en
