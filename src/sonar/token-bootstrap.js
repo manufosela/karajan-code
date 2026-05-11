@@ -102,6 +102,10 @@ export async function bootstrapSonarToken({ host = "http://localhost:9000" } = {
   let pass = DEFAULT_PASS;
   let passwordRotated = false;
   let passwordSavedTo = null;
+  // KJC-BUG-0035: capture rotation failures so the caller can log them
+  // instead of swallowing the error silently. Pre-fix the rotation
+  // returned status 403/500/network were ignored and the user never knew.
+  let passwordRotationError = null;
 
   // 1) Probe: does admin/admin still work?
   const probe = await call(host, "/api/authentication/validate", { user, pass }).catch((err) => ({ status: 0, body: err.message }));
@@ -142,10 +146,19 @@ export async function bootstrapSonarToken({ host = "http://localhost:9000" } = {
       pass = longerPass;
       passwordRotated = true;
       passwordSavedTo = persistSecret("sonar.admin-password", pass);
+    } else {
+      passwordRotationError = `rotate-retry HTTP ${retry.status}: ${detailFromBody(retry.body)}`;
     }
-  } else if (change.status !== 0 && change.status !== 401) {
-    // Non-fatal: probably the admin already changed the password. We
-    // continue using whatever credentials worked at the probe step.
+  } else if (change.status === 401) {
+    // Expected: admin already changed password — not a failure.
+  } else if (change.status !== 0) {
+    // KJC-BUG-0035: ANY other non-success status (403, 500, 400-without-default, …)
+    // means the rotation didn't happen and admin/admin is still live on disk.
+    // Surface it via the result so the caller can warn the user.
+    passwordRotationError = `rotate HTTP ${change.status}: ${detailFromBody(change.body)}`;
+  } else {
+    // status === 0: network error before getting any HTTP response.
+    passwordRotationError = `rotate network error: ${detailFromBody(change.body)}`;
   }
 
   // 3) Token already exists? Revoke it so we can re-create cleanly.
@@ -178,5 +191,15 @@ export async function bootstrapSonarToken({ host = "http://localhost:9000" } = {
     savedTo,
     passwordRotated,
     passwordSavedTo: passwordRotated ? passwordSavedTo : null,
+    passwordRotationError,
   };
+}
+
+function detailFromBody(body) {
+  if (!body) return "no body";
+  if (typeof body === "string") return body.slice(0, 200);
+  if (Array.isArray(body.errors)) {
+    return body.errors.map(e => e?.msg || JSON.stringify(e)).join("; ").slice(0, 200);
+  }
+  try { return JSON.stringify(body).slice(0, 200); } catch { return "(unserialisable)"; }
 }
