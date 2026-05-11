@@ -639,25 +639,46 @@ function promptsDir() {
  * boot to surface modals for prompts that were already pending when
  * the page loaded (the SSE event fires only on new arrivals).
  */
+// KJC-BUG-0038: prompts whose runner crashed leave the .json behind in
+// ~/.kj/prompts/. Without a TTL, every board reload re-shows the zombie
+// modal "Karajan needs an answer" with no runner behind it — the user
+// can answer but nothing happens. 30 minutes covers the longest legitimate
+// Solomon escalation; anything older is a crashed runner.
+const PROMPT_ZOMBIE_TTL_MS = 30 * 60 * 1000;
+
 router.get('/prompts', (_req, res) => {
   try {
     const dir = promptsDir();
     if (!fs.existsSync(dir)) return res.json([]);
     const entries = fs.readdirSync(dir);
     const result = [];
+    const now = Date.now();
     for (const name of entries) {
       if (!name.endsWith('.json') || name.endsWith('.answer.json')) continue;
       const promptId = name.replace(/\.json$/, '');
+      const mainPath = path.join(dir, name);
+      const answerPath = path.join(dir, `${promptId}.answer.json`);
       // KJC-TSK-0380 — skip tombstoned prompts and clean their files.
       if (isTombstonedFn('prompt', promptId)) {
-        try { fs.unlinkSync(path.join(dir, name)); } catch { /* */ }
-        try { fs.unlinkSync(path.join(dir, `${promptId}.answer.json`)); } catch { /* */ }
+        try { fs.unlinkSync(mainPath); } catch { /* */ }
+        try { fs.unlinkSync(answerPath); } catch { /* */ }
         continue;
       }
+      let parsed;
       try {
-        const raw = fs.readFileSync(path.join(dir, name), 'utf-8');
-        result.push(JSON.parse(raw));
-      } catch { /* malformed — skip */ }
+        parsed = JSON.parse(fs.readFileSync(mainPath, 'utf-8'));
+      } catch { continue; /* malformed — skip */ }
+      // KJC-BUG-0038: zombie detection. Prefer parsed.createdAt; fall back
+      // to mtime if the runner skipped the timestamp (older formats).
+      const createdMs = Date.parse(parsed?.createdAt || '');
+      const ageRef = Number.isFinite(createdMs) ? createdMs : safeMtime(mainPath);
+      if (ageRef && (now - ageRef) > PROMPT_ZOMBIE_TTL_MS) {
+        try { fs.unlinkSync(mainPath); } catch { /* */ }
+        try { fs.unlinkSync(answerPath); } catch { /* */ }
+        addTombstone('prompt', promptId, { source: 'zombie-ttl', fsPaths: [mainPath, answerPath] });
+        continue;
+      }
+      result.push(parsed);
     }
     result.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     res.json(result);
@@ -665,6 +686,10 @@ router.get('/prompts', (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+function safeMtime(p) {
+  try { return fs.statSync(p).mtimeMs; } catch { return 0; }
+}
 
 /**
  * POST /api/prompts/:promptId/answer - Body { answer }. Writes a
