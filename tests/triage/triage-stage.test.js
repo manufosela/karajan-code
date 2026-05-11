@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 
 const triageRunMock = vi.fn();
 
-vi.mock("../src/roles/triage-role.js", () => ({
+vi.mock("../../src/roles/triage-role.js", () => ({
   TriageRole: class {
     async init() {}
     async run() {
@@ -12,16 +12,16 @@ vi.mock("../src/roles/triage-role.js", () => ({
   }
 }));
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {})
 }));
 
-vi.mock("../src/utils/model-selector.js", () => ({
+vi.mock("../../src/utils/model-selector.js", () => ({
   selectModelsForRoles: vi.fn(() => ({ modelOverrides: {}, reasoning: "test" }))
 }));
 
-const { runTriageStage } = await import("../src/orchestrator/pre-loop-stages.js");
+const { runTriageStage } = await import("../../src/orchestrator/pre-loop-stages.js");
 
 describe("runTriageStage", () => {
   const logger = {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { synthesizeDomainContext } from "../src/domains/domain-synthesizer.js";
+import { synthesizeDomainContext } from "../../src/domains/domain-synthesizer.js";
 
 const dentalDomain = {
   name: "dental-clinical",

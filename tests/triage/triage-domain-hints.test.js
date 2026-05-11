@@ -7,7 +7,7 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 const { readFile } = await import("node:fs/promises");
-const { TriageRole } = await import("../src/roles/triage-role.js");
+const { TriageRole } = await import("../../src/roles/triage-role.js");
 
 function createMockAgent(output) {
   return {
@@ -96,7 +96,7 @@ describe("TriageRole domainHints", () => {
 
 describe("PipelineContext domainContext", () => {
   it("has domainContext field defaulting to null", async () => {
-    const { PipelineContext } = await import("../src/orchestrator/pipeline-context.js");
+    const { PipelineContext } = await import("../../src/orchestrator/pipeline-context.js");
     const ctx = new PipelineContext({
       config: {},
       session: {},

@@ -3,14 +3,14 @@ import { EventEmitter } from "node:events";
 
 const mockExecute = vi.fn();
 
-vi.mock("../src/roles/domain-curator-role.js", () => ({
+vi.mock("../../src/roles/domain-curator-role.js", () => ({
   DomainCuratorRole: class {
     constructor() {}
     execute(...args) { return mockExecute(...args); }
   }
 }));
 
-const { runDomainCuratorStage } = await import("../src/orchestrator/stages/domain-curator-stage.js");
+const { runDomainCuratorStage } = await import("../../src/orchestrator/stages/domain-curator-stage.js");
 
 describe("runDomainCuratorStage", () => {
   let emitter;

@@ -7,12 +7,12 @@ vi.mock("node:fs/promises", () => ({
   access: vi.fn()
 }));
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => "/home/user/.karajan")
 }));
 
 const { readdir, readFile } = await import("node:fs/promises");
-const { parseDomainFile, loadDomains } = await import("../src/domains/domain-loader.js");
+const { parseDomainFile, loadDomains } = await import("../../src/domains/domain-loader.js");
 
 const DENTAL_DOMAIN_MD = `---
 name: dental-clinical
