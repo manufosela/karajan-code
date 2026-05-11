@@ -19,7 +19,10 @@ const PKG_VERSION = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "ut
 const seaTransformPlugin = {
   name: "sea-transform",
   setup(build) {
-    build.onLoad({ filter: /\.m?js$/ }, async (args) => {
+    // Only process real files. Imports redirected by hu-board-stub (or any
+    // other namespaced plugin) MUST not pass through this transform —
+    // their `args.path` is a virtual id, not a path readFile can open.
+    build.onLoad({ filter: /\.m?js$/, namespace: "file" }, async (args) => {
       let contents = await fs.readFile(args.path, "utf8");
       let modified = false;
 
@@ -86,6 +89,56 @@ const seaTransformPlugin = {
   }
 };
 
+/**
+ * Stub plugin for the HU Board package (KJC-BUG-0040).
+ *
+ * The HU Board lives in `packages/hu-board/` and requires `better-sqlite3`
+ * — a native node-gyp module that esbuild cannot resolve at bundle time
+ * (it has no JS entry point, only `.node` binaries compiled per platform).
+ *
+ * The SEA binary is the lean CLI distribution. Users who want the HU
+ * Board install via `npm install -g karajan-code`, which installs
+ * better-sqlite3 normally. So the right answer is: do NOT include
+ * `packages/hu-board/` in the SEA bundle at all.
+ *
+ * This plugin intercepts every import / dynamic import that points into
+ * `packages/hu-board/src/*` and rewrites it to a stub module that throws
+ * a clear, actionable error when invoked at runtime — instead of failing
+ * silently during bundling.
+ */
+const huBoardStubPlugin = {
+  name: "hu-board-stub",
+  setup(build) {
+    build.onResolve({ filter: /packages[\\/]hu-board[\\/]src[\\/].*/ }, (args) => ({
+      path: args.path,
+      namespace: "hu-board-stub",
+    }));
+    build.onLoad({ filter: /.*/, namespace: "hu-board-stub" }, () => ({
+      contents: `
+        const NOT_AVAILABLE = "The HU Board is not available in this standalone binary.\\n" +
+          "Install karajan-code from npm to get the dashboard:\\n" +
+          "  npm install -g karajan-code\\n";
+        function notAvailable() { throw new Error(NOT_AVAILABLE); }
+        // Explicit named exports for every symbol the CLI imports from
+        // hu-board. Adding them by name (rather than relying on a Proxy)
+        // avoids esbuild's CJS↔ESM interop confusion: a Proxy that
+        // returns truthy for "__esModule" makes esbuild wrap the import
+        // and the destructured names resolve to undefined.
+        module.exports = {
+          __esModule: false,
+          initDb: notAvailable,
+          closeDb: notAvailable,
+          cleanupZombies: notAvailable,
+          // Catch-all default so \`import foo from\` and \`import * as foo\`
+          // also throw the same message instead of returning undefined.
+          default: notAvailable,
+        };
+      `,
+      loader: "js",
+    }));
+  },
+};
+
 /** @type {import('esbuild').BuildOptions} */
 export const seaBuildOptions = {
   entryPoints: ["src/cli.js"],
@@ -95,7 +148,12 @@ export const seaBuildOptions = {
   target: "node20",
   bundle: true,
   minify: false,
-  external: [],
-  plugins: [seaTransformPlugin],
+  // better-sqlite3 is a native module imported by packages/hu-board/src/db.js.
+  // The hu-board-stub plugin below replaces the whole hu-board package so
+  // this `external` entry is belt-and-braces — if any other dependency
+  // pulls better-sqlite3 in we want a clear "not bundled" error, not a
+  // silent half-bundle.
+  external: ["better-sqlite3"],
+  plugins: [seaTransformPlugin, huBoardStubPlugin],
   logLevel: "info",
 };
