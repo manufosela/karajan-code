@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldBlockByProfile, summarizeIssues } from "../src/sonar/enforcer.js";
+import { shouldBlockByProfile, summarizeIssues } from "../../src/sonar/enforcer.js";
 
 describe("[opt-in: sonar] shouldBlockByProfile", () => {
   it("pragmatic blocks only on ERROR", () => {

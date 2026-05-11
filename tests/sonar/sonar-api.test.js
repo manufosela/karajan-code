@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/sonar/project-key.js", () => ({
+vi.mock("../../src/sonar/project-key.js", () => ({
   resolveSonarProjectKey: vi.fn().mockResolvedValue("my-project")
 }));
 
@@ -21,11 +21,11 @@ describe("[opt-in: sonar] sonar/api", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const processMod = await import("../src/utils/process.js");
+    const processMod = await import("../../src/utils/process.js");
     runCommand = processMod.runCommand;
-    const { resolveSonarProjectKey } = await import("../src/sonar/project-key.js");
+    const { resolveSonarProjectKey } = await import("../../src/sonar/project-key.js");
     resolveSonarProjectKey.mockResolvedValue("my-project");
-    const api = await import("../src/sonar/api.js");
+    const api = await import("../../src/sonar/api.js");
     getQualityGateStatus = api.getQualityGateStatus;
     getOpenIssues = api.getOpenIssues;
   });
@@ -167,7 +167,7 @@ describe("[opt-in: sonar] sonar/api", () => {
     });
 
     it("passes custom projectKey when provided", async () => {
-      const { resolveSonarProjectKey } = await import("../src/sonar/project-key.js");
+      const { resolveSonarProjectKey } = await import("../../src/sonar/project-key.js");
       runCommand.mockResolvedValue({
         exitCode: 0,
         stdout: JSON.stringify({ total: 0, issues: [] }) + "\n200",

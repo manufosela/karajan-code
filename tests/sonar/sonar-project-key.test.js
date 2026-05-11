@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-const { runCommand } = await import("../src/utils/process.js");
-const { resolveSonarProjectKey, canResolveSonarProjectKey } = await import("../src/sonar/project-key.js");
+const { runCommand } = await import("../../src/utils/process.js");
+const { resolveSonarProjectKey, canResolveSonarProjectKey } = await import("../../src/sonar/project-key.js");
 
 describe("[opt-in: sonar] resolveSonarProjectKey", () => {
   beforeEach(() => {

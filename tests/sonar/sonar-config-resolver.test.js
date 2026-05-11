@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock credentials.js before importing the module under test
-vi.mock("../src/sonar/credentials.js", () => ({
+vi.mock("../../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue({ user: null, password: null }),
 }));
 
@@ -9,8 +9,8 @@ import {
   resolveSonarHost,
   resolveSonarToken,
   resolveSonarCredentials,
-} from "../src/sonar/config-resolver.js";
-import { loadSonarCredentials } from "../src/sonar/credentials.js";
+} from "../../src/sonar/config-resolver.js";
+import { loadSonarCredentials } from "../../src/sonar/credentials.js";
 
 describe("[opt-in: sonar] resolveSonarHost", () => {
   it("returns default host when no input", () => {

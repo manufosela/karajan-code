@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { extractHostPort, discoverRunningSonar } from "../src/sonar/discovery.js";
+import { extractHostPort, discoverRunningSonar } from "../../src/sonar/discovery.js";
 
 describe("extractHostPort", () => {
   it("returns the host port when published with the standard 0.0.0.0 binding", () => {
@@ -44,10 +44,10 @@ describe("extractHostPort", () => {
 
 // Mock the process runner + reachability probe so we never actually
 // shell out to docker / curl in the unit suite.
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn(),
 }));
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   isSonarReachable: vi.fn(),
 }));
 
@@ -56,8 +56,8 @@ describe("discoverRunningSonar", () => {
   let isSonarReachable;
 
   beforeEach(async () => {
-    runCommand = (await import("../src/utils/process.js")).runCommand;
-    isSonarReachable = (await import("../src/sonar/manager.js")).isSonarReachable;
+    runCommand = (await import("../../src/utils/process.js")).runCommand;
+    isSonarReachable = (await import("../../src/sonar/manager.js")).isSonarReachable;
     runCommand.mockReset();
     isSonarReachable.mockReset();
   });

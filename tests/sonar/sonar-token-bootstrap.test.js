@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(),
 }));
 
@@ -15,7 +15,7 @@ let tmpHome;
 beforeEach(async () => {
   vi.resetAllMocks();
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "kj-sonar-token-"));
-  const { getKarajanHome } = await import("../src/utils/paths.js");
+  const { getKarajanHome } = await import("../../src/utils/paths.js");
   getKarajanHome.mockReturnValue(tmpHome);
 });
 
@@ -42,7 +42,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       // 4. generate token → 200 with token
       .mockReturnValueOnce(jsonResponse(200, { token: "squ_aabbccdd11223344" }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(true);
@@ -59,7 +59,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
   it("returns ok=false when admin/admin login fails (password already customized)", async () => {
     fetchMock.mockReturnValueOnce(jsonResponse(401, { errors: [{ msg: "no" }] }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(false);
@@ -69,7 +69,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
   it("returns ok=false on network error reaching the host", async () => {
     fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(false);
@@ -84,7 +84,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       .mockReturnValueOnce(jsonResponse(200, ""))
       .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_password" }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     // We continue with whatever creds worked at probe; here change failed
@@ -107,7 +107,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       .mockReturnValueOnce(jsonResponse(200, ""))
       .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_403" }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(true);
@@ -123,7 +123,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       .mockReturnValueOnce(jsonResponse(200, ""))
       .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_500" }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(true);
@@ -138,7 +138,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       .mockReturnValueOnce(jsonResponse(200, ""))
       .mockReturnValueOnce(jsonResponse(200, { token: "squ_kept_400" }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(true);
@@ -154,7 +154,7 @@ describe("bootstrapSonarToken (KJC-TSK-0367)", () => {
       // Generate fails
       .mockReturnValueOnce(jsonResponse(403, { errors: [{ msg: "Insufficient privileges" }] }));
 
-    const { bootstrapSonarToken } = await import("../src/sonar/token-bootstrap.js");
+    const { bootstrapSonarToken } = await import("../../src/sonar/token-bootstrap.js");
     const r = await bootstrapSonarToken({ host: "http://localhost:9000" });
 
     expect(r.ok).toBe(false);

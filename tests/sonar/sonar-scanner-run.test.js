@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   sonarUp: vi.fn()
 }));
 
-vi.mock("../src/sonar/credentials.js", () => ({
+vi.mock("../../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue({ user: null, password: null }),
   credentialsPath: vi.fn().mockReturnValue("/home/user/.karajan/sonar-credentials.json")
 }));
 
-const { runCommand } = await import("../src/utils/process.js");
-const { sonarUp } = await import("../src/sonar/manager.js");
-const { loadSonarCredentials } = await import("../src/sonar/credentials.js");
-const { runSonarScan } = await import("../src/sonar/scanner.js");
+const { runCommand } = await import("../../src/utils/process.js");
+const { sonarUp } = await import("../../src/sonar/manager.js");
+const { loadSonarCredentials } = await import("../../src/sonar/credentials.js");
+const { runSonarScan } = await import("../../src/sonar/scanner.js");
 
 const baseConfig = {
   sonarqube: {

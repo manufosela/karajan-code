@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildScannerOpts } from "../src/sonar/scanner.js";
+import { buildScannerOpts } from "../../src/sonar/scanner.js";
 
 describe("[opt-in: sonar] buildScannerOpts", () => {
   it("generates projectKey arg", () => {

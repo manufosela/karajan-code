@@ -2,34 +2,34 @@ import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 
 // --- Mocks for preflight-checks ---
 
-vi.mock("../src/utils/agent-detect.js", () => ({
+vi.mock("../../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn()
 }));
 
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   isSonarReachable: vi.fn(),
   sonarUp: vi.fn()
 }));
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/agents/resolve-bin.js", () => ({
+vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/bin/${name}`)
 }));
 
-vi.mock("../src/sonar/credentials.js", () => ({
+vi.mock("../../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue(null)
 }));
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(),
   markSessionStatus: vi.fn(),
   saveSession: vi.fn()
 }));
 
-vi.mock("../src/orchestrator/solomon-escalation.js", () => ({
+vi.mock("../../src/orchestrator/solomon-escalation.js", () => ({
   invokeSolomon: vi.fn(async () => ({ action: "continue" }))
 }));
 
@@ -50,11 +50,11 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
     delete process.env.KJ_SONAR_ADMIN_USER;
     delete process.env.KJ_SONAR_ADMIN_PASSWORD;
 
-    checkBinary = (await import("../src/utils/agent-detect.js")).checkBinary;
-    isSonarReachable = (await import("../src/sonar/manager.js")).isSonarReachable;
-    sonarUp = (await import("../src/sonar/manager.js")).sonarUp;
-    runCommand = (await import("../src/utils/process.js")).runCommand;
-    loadSonarCredentials = (await import("../src/sonar/credentials.js")).loadSonarCredentials;
+    checkBinary = (await import("../../src/utils/agent-detect.js")).checkBinary;
+    isSonarReachable = (await import("../../src/sonar/manager.js")).isSonarReachable;
+    sonarUp = (await import("../../src/sonar/manager.js")).sonarUp;
+    runCommand = (await import("../../src/utils/process.js")).runCommand;
+    loadSonarCredentials = (await import("../../src/sonar/credentials.js")).loadSonarCredentials;
 
     checkBinary.mockResolvedValue({ ok: true, version: "v24.0", path: "/usr/bin/docker" });
     isSonarReachable.mockResolvedValue(true);
@@ -64,7 +64,7 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
     emitter = { emit: vi.fn() };
     eventBase = { sessionId: "test", iteration: 0, stage: null, startedAt: Date.now() };
 
-    const mod = await import("../src/orchestrator/preflight-checks.js");
+    const mod = await import("../../src/orchestrator/preflight-checks.js");
     runPreflightChecks = mod.runPreflightChecks;
   });
 
@@ -143,11 +143,11 @@ describe("sonar token resolution — runSonarStage", () => {
   });
 
   it("delegates to Solomon when sonar is reachable but token is missing", async () => {
-    const { isSonarReachable } = await import("../src/sonar/manager.js");
+    const { isSonarReachable } = await import("../../src/sonar/manager.js");
     isSonarReachable.mockResolvedValue(true);
 
     // Mock SonarRole at the role level to simulate token-missing scan failure
-    vi.doMock("../src/roles/sonar-role.js", () => ({
+    vi.doMock("../../src/roles/sonar-role.js", () => ({
       SonarRole: class MockSonarRole {
         constructor() {}
         async init() {}
@@ -169,7 +169,7 @@ describe("sonar token resolution — runSonarStage", () => {
       }
     }));
 
-    const { runSonarStage } = await import("../src/orchestrator/iteration-stages.js");
+    const { runSonarStage } = await import("../../src/orchestrator/iteration-stages.js");
 
     const session = {
       id: "test-session",
