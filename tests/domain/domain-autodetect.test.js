@@ -8,12 +8,12 @@ vi.mock("node:fs/promises", () => ({
   stat: vi.fn()
 }));
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => "/home/user/.karajan")
 }));
 
 const { readdir, readFile, mkdir, writeFile, stat } = await import("node:fs/promises");
-const { autoDetectDomains, persistInlineDomain } = await import("../src/domains/domain-loader.js");
+const { autoDetectDomains, persistInlineDomain } = await import("../../src/domains/domain-loader.js");
 
 beforeEach(() => {
   vi.resetAllMocks();

@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { askThroughBoard, _getPromptsDirForTests } from "../src/utils/board-prompt-bridge.js";
+import { askThroughBoard, _getPromptsDirForTests } from "../../src/utils/board-prompt-bridge.js";
 
 let tmp;
 let savedHome;

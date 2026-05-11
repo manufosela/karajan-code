@@ -15,7 +15,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("coder prompt includes domain context when provided", async () => {
-    const { buildCoderPrompt } = await import("../src/prompts/coder.js");
+    const { buildCoderPrompt } = await import("../../src/prompts/coder.js");
     const prompt = await buildCoderPrompt({
       task: "Build feature",
       domainContext: "### dental\n\nTeeth use FDI numbering."
@@ -26,7 +26,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("coder prompt omits domain context when null", async () => {
-    const { buildCoderPrompt } = await import("../src/prompts/coder.js");
+    const { buildCoderPrompt } = await import("../../src/prompts/coder.js");
     const prompt = await buildCoderPrompt({
       task: "Build feature",
       domainContext: null
@@ -36,7 +36,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("reviewer prompt includes domain context when provided", async () => {
-    const { buildReviewerPrompt } = await import("../src/prompts/reviewer.js");
+    const { buildReviewerPrompt } = await import("../../src/prompts/reviewer.js");
     const prompt = await buildReviewerPrompt({
       task: "Review code",
       diff: "some diff",
@@ -50,7 +50,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("architect prompt includes domain context when provided", async () => {
-    const { buildArchitectPrompt } = await import("../src/prompts/architect.js");
+    const { buildArchitectPrompt } = await import("../../src/prompts/architect.js");
     const prompt = await buildArchitectPrompt({
       task: "Design system",
       instructions: "Follow patterns",
@@ -62,7 +62,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("planner prompt includes domain context when provided", async () => {
-    const { buildPlannerPrompt } = await import("../src/prompts/planner.js");
+    const { buildPlannerPrompt } = await import("../../src/prompts/planner.js");
     const prompt = buildPlannerPrompt({
       task: "Plan feature",
       context: "some context",
@@ -74,7 +74,7 @@ describe("domainContext injection into prompt builders", () => {
   });
 
   it("hu-reviewer prompt includes domain context when provided", async () => {
-    const { buildHuReviewerPrompt } = await import("../src/prompts/hu-reviewer.js");
+    const { buildHuReviewerPrompt } = await import("../../src/prompts/hu-reviewer.js");
     const prompt = buildHuReviewerPrompt({
       stories: [{ title: "Test story", criteria: "Works" }],
       instructions: "Review HU",

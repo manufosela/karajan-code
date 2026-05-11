@@ -12,20 +12,20 @@ vi.mock("node:fs/promises", () => {
   };
 });
 
-vi.mock("../src/skills/openskills-client.js", () => ({
+vi.mock("../../src/skills/openskills-client.js", () => ({
   isOpenSkillsAvailable: vi.fn(),
   installSkill: vi.fn(),
   removeSkill: vi.fn()
 }));
 
-vi.mock("../src/skills/skill-loader.js", () => ({
+vi.mock("../../src/skills/skill-loader.js", () => ({
   loadAvailableSkills: vi.fn()
 }));
 
 const { readFile, readdir, access } = await import("node:fs/promises");
-const { isOpenSkillsAvailable, installSkill, removeSkill } = await import("../src/skills/openskills-client.js");
-const { loadAvailableSkills } = await import("../src/skills/skill-loader.js");
-const { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } = await import("../src/skills/skill-detector.js");
+const { isOpenSkillsAvailable, installSkill, removeSkill } = await import("../../src/skills/openskills-client.js");
+const { loadAvailableSkills } = await import("../../src/skills/skill-loader.js");
+const { detectNeededSkills, autoInstallSkills, cleanupAutoInstalledSkills } = await import("../../src/skills/skill-detector.js");
 
 describe("skill-detector", () => {
   beforeEach(() => {

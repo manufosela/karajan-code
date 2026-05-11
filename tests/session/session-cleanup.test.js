@@ -5,7 +5,7 @@ import os from "node:os";
 
 let testSessionRoot;
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => path.dirname(testSessionRoot)),
   getSessionRoot: vi.fn(() => testSessionRoot)
 }));
@@ -20,7 +20,7 @@ describe("session-cleanup", () => {
     testSessionRoot = path.join(tmpDir, "sessions");
     await fs.mkdir(testSessionRoot, { recursive: true });
 
-    const { getSessionRoot } = await import("../src/utils/paths.js");
+    const { getSessionRoot } = await import("../../src/utils/paths.js");
     getSessionRoot.mockReturnValue(testSessionRoot);
   });
 
@@ -41,7 +41,7 @@ describe("session-cleanup", () => {
     await createFakeSession("s_failed-old", 2, "failed");
     await createFakeSession("s_failed-fresh", 0.5, "failed");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(1);
@@ -52,7 +52,7 @@ describe("session-cleanup", () => {
   it("removes stopped sessions older than 1 day", async () => {
     await createFakeSession("s_stopped-old", 3, "stopped");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(1);
@@ -61,7 +61,7 @@ describe("session-cleanup", () => {
   it("removes stale running sessions older than 1 day", async () => {
     await createFakeSession("s_running-stale", 2, "running");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(1);
@@ -71,7 +71,7 @@ describe("session-cleanup", () => {
     await createFakeSession("s_approved-old", 10, "approved");
     await createFakeSession("s_approved-recent", 3, "approved");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(1);
@@ -82,7 +82,7 @@ describe("session-cleanup", () => {
   it("never removes paused sessions", async () => {
     await createFakeSession("s_paused-old", 30, "paused");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(0);
@@ -91,7 +91,7 @@ describe("session-cleanup", () => {
   it("handles missing sessions directory gracefully", async () => {
     await fs.rm(testSessionRoot, { recursive: true });
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(0);
@@ -106,7 +106,7 @@ describe("session-cleanup", () => {
     const oldTime = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     await fs.utimes(dir, oldTime, oldTime);
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(1);
@@ -116,7 +116,7 @@ describe("session-cleanup", () => {
     const dir = path.join(testSessionRoot, "not-a-session");
     await fs.mkdir(dir, { recursive: true });
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(0);
@@ -128,7 +128,7 @@ describe("session-cleanup", () => {
     await createFakeSession("s_expired1", 3, "failed");
     await createFakeSession("s_expired2", 5, "stopped");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     await cleanupExpiredSessions({ logger });
 
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("2 expired session"));
@@ -137,7 +137,7 @@ describe("session-cleanup", () => {
   it("keeps fresh failed sessions (less than 1 day old)", async () => {
     await createFakeSession("s_just-failed", 0.1, "failed");
 
-    const { cleanupExpiredSessions } = await import("../src/session-cleanup.js");
+    const { cleanupExpiredSessions } = await import("../../src/session-cleanup.js");
     const result = await cleanupExpiredSessions({ logger });
 
     expect(result.removed).toBe(0);

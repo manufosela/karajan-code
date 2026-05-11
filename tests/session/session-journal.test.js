@@ -9,7 +9,7 @@ import {
   formatDecision,
   generateSummary,
   buildPlanSummary
-} from "../src/orchestrator/session-journal.js";
+} from "../../src/orchestrator/session-journal.js";
 
 vi.mock("node:fs/promises", () => ({
   default: {

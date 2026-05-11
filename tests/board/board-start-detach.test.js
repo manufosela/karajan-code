@@ -68,7 +68,7 @@ afterEach(() => {
 
 describe("startBoard — detaches properly", () => {
   it("calls child.unref() so the parent process can exit", async () => {
-    const { startBoard } = await import("../src/commands/board.js");
+    const { startBoard } = await import("../../src/commands/board.js");
     await startBoard(4000);
     expect(unref).toHaveBeenCalledTimes(1);
   });
@@ -80,7 +80,7 @@ describe("startBoard — detaches properly", () => {
     // Now stdout/stderr are redirected to ~/.karajan/hu-board.log so
     // `tail -f` works. The pin: index 0 is "ignore" (the daemon never
     // reads stdin), indices 1 and 2 are file descriptors (numbers).
-    const { startBoard } = await import("../src/commands/board.js");
+    const { startBoard } = await import("../../src/commands/board.js");
     await startBoard(4000);
     const opts = spawn.mock.calls[0][2];
     expect(opts.detached).toBe(true);
@@ -92,7 +92,7 @@ describe("startBoard — detaches properly", () => {
   });
 
   it("writes the PID file so subsequent kj board status / stop find the child", async () => {
-    const { startBoard } = await import("../src/commands/board.js");
+    const { startBoard } = await import("../../src/commands/board.js");
     const result = await startBoard(4000);
     expect(result.pid).toBe(4242);
     const pidPath = join(tmpHome, "hu-board.pid");

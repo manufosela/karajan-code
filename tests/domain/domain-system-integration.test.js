@@ -10,7 +10,7 @@ vi.mock("node:fs/promises", () => ({
   access: vi.fn()
 }));
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => "/home/user/.karajan")
 }));
 
@@ -30,8 +30,8 @@ describe("Domain Knowledge System — integration", () => {
   });
 
   it("full flow: parseDomainFile -> synthesize -> verify output", async () => {
-    const { parseDomainFile } = await import("../src/domains/domain-loader.js");
-    const { synthesizeDomainContext } = await import("../src/domains/domain-synthesizer.js");
+    const { parseDomainFile } = await import("../../src/domains/domain-loader.js");
+    const { synthesizeDomainContext } = await import("../../src/domains/domain-synthesizer.js");
 
     readFile.mockResolvedValue(EXAMPLE_DENTAL);
     const domain = await parseDomainFile("/domains/dental/DOMAIN.md");
@@ -54,7 +54,7 @@ describe("Domain Knowledge System — integration", () => {
   });
 
   it("full flow: loadDomains -> curator -> domainContext", async () => {
-    const { DomainCuratorRole } = await import("../src/roles/domain-curator-role.js");
+    const { DomainCuratorRole } = await import("../../src/roles/domain-curator-role.js");
 
     readdir.mockImplementation(async (dir) => {
       if (dir === "/project/.karajan/domains") {
@@ -89,7 +89,7 @@ describe("Domain Knowledge System — integration", () => {
     readdir.mockRejectedValue(new Error("ENOENT"));
     readFile.mockRejectedValue(new Error("ENOENT"));
 
-    const { DomainCuratorRole } = await import("../src/roles/domain-curator-role.js");
+    const { DomainCuratorRole } = await import("../../src/roles/domain-curator-role.js");
 
     const curator = new DomainCuratorRole({
       config: {},
@@ -108,7 +108,7 @@ describe("Domain Knowledge System — integration", () => {
   });
 
   it("project-local domains merge with user-global", async () => {
-    const { loadDomains } = await import("../src/domains/domain-loader.js");
+    const { loadDomains } = await import("../../src/domains/domain-loader.js");
 
     const projectDomain = `---
 name: dental-project
@@ -162,7 +162,7 @@ tags: [billing]
     readdir.mockRejectedValue(new Error("ENOENT"));
     readFile.mockRejectedValue(new Error("ENOENT"));
 
-    const { buildCoderPrompt } = await import("../src/prompts/coder.js");
+    const { buildCoderPrompt } = await import("../../src/prompts/coder.js");
     const prompt = await buildCoderPrompt({
       task: "Build dental treatment approval workflow",
       domainContext: "### dental-clinical\n\n#### Business Rules\nTreatment plans must be approved by lead clinician.",

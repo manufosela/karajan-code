@@ -21,7 +21,7 @@ vi.mock("node:http", () => ({
 }));
 
 const portOccupant = vi.fn();
-vi.mock("../src/utils/port-occupant.js", () => ({
+vi.mock("../../src/utils/port-occupant.js", () => ({
   getPortOccupant: (...args) => portOccupant(...args),
 }));
 
@@ -86,7 +86,7 @@ describe("stopBoard — three-step fallback", () => {
   it("strategy 1: live PID in the file → SIGTERM via PID, reports via:pidfile", async () => {
     writeFileSync(join(tmpHome, "hu-board.pid"), "12345");
     global.__alivePids = new Set([12345]);
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
     expect(result).toMatchObject({ wasRunning: true, pid: 12345, via: "pidfile" });
     expect(killCalls.some((c) => c.pid === 12345 && c.sig === "SIGTERM")).toBe(true);
@@ -96,14 +96,14 @@ describe("stopBoard — three-step fallback", () => {
     writeFileSync(join(tmpHome, "hu-board.pid"), "99999");
     // 99999 is NOT in __alivePids → isProcessAlive returns false → fall through
     mockHttpReply(200);
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
     expect(result).toMatchObject({ wasRunning: true, via: "api" });
   });
 
   it("strategy 2: PID file missing entirely → API shutdown still works", async () => {
     mockHttpReply(200);
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
     expect(result.via).toBe("api");
   });
@@ -111,7 +111,7 @@ describe("stopBoard — three-step fallback", () => {
   it("strategy 3: API endpoint unavailable (old build) → port-occupant SIGTERM, reports via:port-occupant", async () => {
     mockHttpError();
     portOccupant.mockResolvedValue({ port: 4000, pid: 7777, command: "node", raw: "" });
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
     expect(result).toMatchObject({ wasRunning: true, pid: 7777, via: "port-occupant" });
     expect(killCalls.some((c) => c.pid === 7777 && c.sig === "SIGTERM")).toBe(true);
@@ -120,7 +120,7 @@ describe("stopBoard — three-step fallback", () => {
   it("nothing running anywhere → wasRunning:false, no kill calls", async () => {
     mockHttpError();
     portOccupant.mockResolvedValue(null);
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     const result = await stopBoard({ port: 4000 });
     expect(result).toEqual({ ok: true, wasRunning: false });
     expect(killCalls.filter((c) => c.sig === "SIGTERM")).toHaveLength(0);
@@ -129,7 +129,7 @@ describe("stopBoard — three-step fallback", () => {
   it("API succeeds preempts the port-occupant fallback (no double-kill)", async () => {
     mockHttpReply(200);
     portOccupant.mockResolvedValue({ port: 4000, pid: 8888, command: "node", raw: "" });
-    const { stopBoard } = await import("../src/commands/board.js");
+    const { stopBoard } = await import("../../src/commands/board.js");
     await stopBoard({ port: 4000 });
     expect(killCalls.filter((c) => c.sig === "SIGTERM")).toHaveLength(0);
     expect(portOccupant).not.toHaveBeenCalled();

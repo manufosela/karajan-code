@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderBoardBanner } from "../src/commands/board.js";
+import { renderBoardBanner } from "../../src/commands/board.js";
 
 // Strip ANSI escapes so we can measure the actual rendered width of a
 // banner line.

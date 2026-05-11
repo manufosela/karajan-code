@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import fs from "node:fs/promises";
-import { pauseSession, resumeSessionWithAnswer } from "../src/session/store.js";
+import { pauseSession, resumeSessionWithAnswer } from "../../src/session/store.js";
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getSessionRoot: () => "/tmp/test-sessions"
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   ensureDir: vi.fn().mockResolvedValue(undefined),
   exists: vi.fn().mockResolvedValue(true)
 }));

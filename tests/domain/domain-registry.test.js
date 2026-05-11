@@ -6,12 +6,12 @@ vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn()
 }));
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => "/home/user/.karajan")
 }));
 
 const { readFile, writeFile, mkdir } = await import("node:fs/promises");
-const { DomainRegistry } = await import("../src/domains/domain-registry.js");
+const { DomainRegistry } = await import("../../src/domains/domain-registry.js");
 
 describe("DomainRegistry", () => {
   beforeEach(() => {

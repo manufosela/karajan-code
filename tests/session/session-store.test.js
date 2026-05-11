@@ -1,18 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import fs from "node:fs/promises";
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getSessionRoot: () => "/tmp/test-sessions"
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   ensureDir: vi.fn().mockResolvedValue(undefined),
   exists: vi.fn()
 }));
 
 // Dynamic import so mocks are set up first
-const { createSession, saveSession, loadSession, addCheckpoint, markSessionStatus, pauseSession, resumeSessionWithAnswer, loadMostRecentSession } = await import("../src/session/store.js");
-const { exists } = await import("../src/utils/fs.js");
+const { createSession, saveSession, loadSession, addCheckpoint, markSessionStatus, pauseSession, resumeSessionWithAnswer, loadMostRecentSession } = await import("../../src/session/store.js");
+const { exists } = await import("../../src/utils/fs.js");
 
 describe("session-store", () => {
   beforeEach(() => {

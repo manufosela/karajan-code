@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We exercise the boundary guard directly. The mocks isolate
 // markSessionStatus so the test doesn't need a real session-store.
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   markSessionStatus: vi.fn(),
   saveSession: vi.fn(),
   loadSession: vi.fn(),
@@ -17,8 +17,8 @@ vi.mock("../src/session/store.js", () => ({
   setBudget: vi.fn(),
 }));
 
-const { sealSessionStatusIfStillRunning } = await import("../src/orchestrator/flow-runner.js");
-const { markSessionStatus } = await import("../src/session/store.js");
+const { sealSessionStatusIfStillRunning } = await import("../../src/orchestrator/flow-runner.js");
+const { markSessionStatus } = await import("../../src/session/store.js");
 
 describe("sealSessionStatusIfStillRunning (KJC-BUG-0037)", () => {
   beforeEach(() => vi.clearAllMocks());

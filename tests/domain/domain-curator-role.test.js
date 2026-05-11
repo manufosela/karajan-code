@@ -8,12 +8,12 @@ vi.mock("node:fs/promises", () => ({
   access: vi.fn()
 }));
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn(() => "/home/user/.karajan")
 }));
 
 const { readdir, readFile, writeFile, mkdir } = await import("node:fs/promises");
-const { DomainCuratorRole } = await import("../src/roles/domain-curator-role.js");
+const { DomainCuratorRole } = await import("../../src/roles/domain-curator-role.js");
 
 const DENTAL_DOMAIN_MD = `---
 name: dental-clinical
