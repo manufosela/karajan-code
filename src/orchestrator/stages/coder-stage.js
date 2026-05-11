@@ -18,7 +18,7 @@ import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
-import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript } from "../fs-leak-detector.js";
+import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript, detectTranscriptCdLeaks } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
   logger.setContext({ iteration, stage: "coder" });
@@ -159,10 +159,14 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   // detected entries against the coder's transcript: only flag those
   // the coder demonstrably referenced.
   const coderTranscript = coderExecResult.result?.output || "";
-  const fsLeaks = verifyLeaksAgainstTranscript(candidateLeaks, coderTranscript);
-  if (candidateLeaks.length > 0 && fsLeaks.length === 0) {
+  const layer1Leaks = verifyLeaksAgainstTranscript(candidateLeaks, coderTranscript);
+  if (candidateLeaks.length > 0 && layer1Leaks.length === 0) {
     logger.warn(`fs-leak-detector: ${candidateLeaks.length} new $HOME entr(y/ies) detected but none referenced in the coder transcript — likely a concurrent host-side write, not flagging (#546).`);
   }
+  // Layer 2 (BUG-0032): scan the transcript for `cd <abs-out-of-project> && <write-cmd>`
+  // patterns the snapshot-diff misses (e.g. when target dir pre-existed).
+  const layer2Leaks = detectTranscriptCdLeaks(coderTranscript, projectDirAbs);
+  const fsLeaks = Array.from(new Set([...layer1Leaks, ...layer2Leaks]));
   if (fsLeaks.length > 0) {
     const msg = formatLeakMessage(fsLeaks, projectDirAbs);
     logger.error(msg);
