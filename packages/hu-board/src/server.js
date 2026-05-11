@@ -123,18 +123,31 @@ export function buildSecurityMiddleware() {
 }
 
 /**
- * Build the rate-limit middleware for `/api`. Default is 300 req/min
- * per IP — comfortable for the dashboard's polling pattern (typical:
- * a /api/sync + a /api/dashboard every 2-3s) and well below what an
- * abusive scanner would do.
+ * Build the rate-limit middleware for `/api`.
+ *
+ * Default is 600 req/min per IP (raised from 300 in KJC-BUG-0039 —
+ * the first-load fanout of the dashboard + multiple tabs + SSE
+ * reconnects after a refresh could push past 300/min and hit the user
+ * with a 429 on the very first page they see).
+ *
+ * Override via env var `HU_BOARD_RATE_LIMIT=<n>` for unusual setups
+ * (load tests, multi-board farms behind a shared NAT).
+ *
+ * SSE (`/api/events`) is exempt — a single persistent stream should
+ * not count toward a per-minute request budget, and tab refreshes
+ * legitimately create new SSE connections.
+ *
  * @returns {import('express').RequestHandler}
  */
 export function buildRateLimiter() {
+  const raw = Number(process.env.HU_BOARD_RATE_LIMIT);
+  const limit = Number.isFinite(raw) && raw > 0 ? raw : 600;
   return rateLimit({
     windowMs: 60 * 1000,
-    limit: 300,
+    limit,
     standardHeaders: 'draft-7',  // RateLimit-* headers
     legacyHeaders: false,         // drop X-RateLimit-*
+    skip: (req) => req.path === '/events' || req.path.startsWith('/events/'),
     message: {
       error: 'Too Many Requests',
       message: 'Rate limit exceeded. Try again in a few seconds.',

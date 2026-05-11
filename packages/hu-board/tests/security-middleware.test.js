@@ -98,4 +98,48 @@ describe('security middleware — rate limit', () => {
     expect(blocked.status).toBe(429);
     expect(blocked.body.error).toBe('Too Many Requests');
   });
+
+  // KJC-BUG-0039: SSE must be exempt from the rate limit. A single
+  // persistent stream + tab refreshes were enough to hit the old 300/min
+  // budget on the very first page load.
+  it('exempts /api/events (SSE) from the rate limit', async () => {
+    const original = process.env.HU_BOARD_RATE_LIMIT;
+    process.env.HU_BOARD_RATE_LIMIT = '3';
+    try {
+      const app = express();
+      app.use(...buildSecurityMiddleware());
+      app.use('/api', buildRateLimiter());
+      app.get('/api/events', (_req, res) => res.json({ stream: true }));
+      app.get('/api/ping', (_req, res) => res.json({ ok: true }));
+      const agent = request(app);
+      // Exhaust ping quota
+      for (let i = 0; i < 3; i++) await agent.get('/api/ping');
+      const pingBlocked = await agent.get('/api/ping');
+      expect(pingBlocked.status).toBe(429);
+      // SSE must still pass even when quota is exhausted
+      const sse = await agent.get('/api/events');
+      expect(sse.status).toBe(200);
+    } finally {
+      if (original === undefined) delete process.env.HU_BOARD_RATE_LIMIT;
+      else process.env.HU_BOARD_RATE_LIMIT = original;
+    }
+  });
+
+  it('honors HU_BOARD_RATE_LIMIT env var override', async () => {
+    const original = process.env.HU_BOARD_RATE_LIMIT;
+    process.env.HU_BOARD_RATE_LIMIT = '2';
+    try {
+      const app = express();
+      app.use(...buildSecurityMiddleware());
+      app.use('/api', buildRateLimiter());
+      app.get('/api/ping', (_req, res) => res.json({ ok: true }));
+      const agent = request(app);
+      expect((await agent.get('/api/ping')).status).toBe(200);
+      expect((await agent.get('/api/ping')).status).toBe(200);
+      expect((await agent.get('/api/ping')).status).toBe(429);
+    } finally {
+      if (original === undefined) delete process.env.HU_BOARD_RATE_LIMIT;
+      else process.env.HU_BOARD_RATE_LIMIT = original;
+    }
+  });
 });
