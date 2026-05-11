@@ -1,14 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   ensureDir: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   loadConfig: vi.fn().mockResolvedValue({
     config: { sonarqube: { host: "http://localhost:9000" } }
   })
@@ -26,13 +26,13 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const proc = await import("../src/utils/process.js");
+    const proc = await import("../../src/utils/process.js");
     runCommand = proc.runCommand;
 
-    const fsUtils = await import("../src/utils/fs.js");
+    const fsUtils = await import("../../src/utils/fs.js");
     ensureDir = fsUtils.ensureDir;
 
-    const { loadConfig } = await import("../src/config.js");
+    const { loadConfig } = await import("../../src/config.js");
     loadConfig.mockResolvedValue({
       config: { sonarqube: { host: "http://localhost:9000" } }
     });
@@ -41,7 +41,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   describe("ensureComposeFile", () => {
     it("creates KJ_HOME directory and writes compose file", async () => {
       const fs = await import("node:fs/promises");
-      const { ensureComposeFile } = await import("../src/sonar/manager.js");
+      const { ensureComposeFile } = await import("../../src/sonar/manager.js");
 
       await ensureComposeFile();
 
@@ -55,7 +55,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("compose template uses karajan-sonarqube container name", async () => {
       const fs = await import("node:fs/promises");
-      const { ensureComposeFile } = await import("../src/sonar/manager.js");
+      const { ensureComposeFile } = await import("../../src/sonar/manager.js");
 
       await ensureComposeFile();
 
@@ -69,7 +69,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   describe("isSonarReachable", () => {
     it("returns true when curl gets 2xx status", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "200" });
-      const { isSonarReachable } = await import("../src/sonar/manager.js");
+      const { isSonarReachable } = await import("../../src/sonar/manager.js");
 
       const result = await isSonarReachable("http://localhost:9000");
       expect(result).toBe(true);
@@ -77,7 +77,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("returns false when curl fails", async () => {
       runCommand.mockResolvedValue({ exitCode: 1, stdout: "" });
-      const { isSonarReachable } = await import("../src/sonar/manager.js");
+      const { isSonarReachable } = await import("../../src/sonar/manager.js");
 
       const result = await isSonarReachable("http://localhost:9000");
       expect(result).toBe(false);
@@ -85,7 +85,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("returns false on non-2xx status", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "503" });
-      const { isSonarReachable } = await import("../src/sonar/manager.js");
+      const { isSonarReachable } = await import("../../src/sonar/manager.js");
 
       const result = await isSonarReachable("http://localhost:9000");
       expect(result).toBe(false);
@@ -95,7 +95,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   describe("sonarUp", () => {
     it("skips start when SonarQube is already reachable", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "200" });
-      const { sonarUp } = await import("../src/sonar/manager.js");
+      const { sonarUp } = await import("../../src/sonar/manager.js");
 
       const result = await sonarUp("http://localhost:9000");
       expect(result.exitCode).toBe(0);
@@ -108,7 +108,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })  // discoverRunningSonar `docker ps` → empty
         .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });  // docker compose up
 
-      const { sonarUp } = await import("../src/sonar/manager.js");
+      const { sonarUp } = await import("../../src/sonar/manager.js");
       const result = await sonarUp("http://localhost:9000");
 
       expect(result.exitCode).toBe(0);
@@ -127,7 +127,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
         })
         .mockResolvedValueOnce({ exitCode: 0, stdout: "200" });  // discovery's HTTP probe → OK
 
-      const { sonarUp } = await import("../src/sonar/manager.js");
+      const { sonarUp } = await import("../../src/sonar/manager.js");
       const result = await sonarUp("http://localhost:9000");
 
       expect(result.exitCode).toBe(0);
@@ -142,7 +142,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   describe("sonarStatus", () => {
     it("checks karajan-sonarqube container name", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "Up 2 hours" });
-      const { sonarStatus } = await import("../src/sonar/manager.js");
+      const { sonarStatus } = await import("../../src/sonar/manager.js");
 
       await sonarStatus();
 
@@ -154,7 +154,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
   describe("sonarLogs", () => {
     it("reads logs from karajan-sonarqube container", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "log line" });
-      const { sonarLogs } = await import("../src/sonar/manager.js");
+      const { sonarLogs } = await import("../../src/sonar/manager.js");
 
       await sonarLogs();
 
@@ -165,7 +165,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
   describe("checkVmMaxMapCount", () => {
     it("returns ok on macOS (darwin)", async () => {
-      const { checkVmMaxMapCount } = await import("../src/sonar/manager.js");
+      const { checkVmMaxMapCount } = await import("../../src/sonar/manager.js");
       const result = await checkVmMaxMapCount("darwin");
       expect(result.ok).toBe(true);
       expect(result.reason).toContain("not required");
@@ -173,7 +173,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("returns ok when vm.max_map_count is sufficient on Linux", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "vm.max_map_count = 262144" });
-      const { checkVmMaxMapCount } = await import("../src/sonar/manager.js");
+      const { checkVmMaxMapCount } = await import("../../src/sonar/manager.js");
 
       const result = await checkVmMaxMapCount("linux");
       expect(result.ok).toBe(true);
@@ -181,7 +181,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("returns not ok when vm.max_map_count is too low on Linux", async () => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "vm.max_map_count = 65530" });
-      const { checkVmMaxMapCount } = await import("../src/sonar/manager.js");
+      const { checkVmMaxMapCount } = await import("../../src/sonar/manager.js");
 
       const result = await checkVmMaxMapCount("linux");
       expect(result.ok).toBe(false);
@@ -190,7 +190,7 @@ describe("[opt-in: sonar] sonar/manager cross-platform", () => {
 
     it("returns not ok when sysctl fails on Linux", async () => {
       runCommand.mockResolvedValue({ exitCode: 1, stdout: "" });
-      const { checkVmMaxMapCount } = await import("../src/sonar/manager.js");
+      const { checkVmMaxMapCount } = await import("../../src/sonar/manager.js");
 
       const result = await checkVmMaxMapCount("linux");
       expect(result.ok).toBe(false);

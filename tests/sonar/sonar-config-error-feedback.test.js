@@ -29,7 +29,7 @@ import { describe, expect, it } from "vitest";
 // its behaviour through the public surface via a small import shim — the
 // regex contract is what matters, not the closure binding.
 async function loadDetector() {
-  const mod = await import("../src/orchestrator/stages/sonar-stage.js");
+  const mod = await import("../../src/orchestrator/stages/sonar-stage.js");
   // detectSonarConfigError isn't exported because it's an internal helper;
   // we re-implement the same matchers here so the test asserts the
   // contract and not the symbol name. Keep this in sync with sonar-stage.js.

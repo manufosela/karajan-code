@@ -1,14 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   loadConfig: vi.fn()
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   ensureDir: vi.fn()
 }));
 
@@ -16,9 +16,9 @@ vi.mock("node:fs/promises", () => ({
   default: { writeFile: vi.fn() }
 }));
 
-const { runCommand } = await import("../src/utils/process.js");
-const { loadConfig } = await import("../src/config.js");
-const { sonarUp, sonarStatus, sonarDown, ensureComposeFile } = await import("../src/sonar/manager.js");
+const { runCommand } = await import("../../src/utils/process.js");
+const { loadConfig } = await import("../../src/config.js");
+const { sonarUp, sonarStatus, sonarDown, ensureComposeFile } = await import("../../src/sonar/manager.js");
 
 function mockConfig(host = "http://localhost:9000", extraSonar = {}) {
   loadConfig.mockResolvedValue({

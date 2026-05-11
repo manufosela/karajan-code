@@ -1,18 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   isSonarReachable: vi.fn()
 }));
 
-vi.mock("../src/sonar/project-key.js", () => ({
+vi.mock("../../src/sonar/project-key.js", () => ({
   resolveSonarProjectKey: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   loadConfig: vi.fn()
 }));
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" })
 }));
 
@@ -30,21 +30,21 @@ describe("[opt-in: sonar] sonarOpenCommand", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const managerMod = await import("../src/sonar/manager.js");
+    const managerMod = await import("../../src/sonar/manager.js");
     isSonarReachable = managerMod.isSonarReachable;
 
-    const pkMod = await import("../src/sonar/project-key.js");
+    const pkMod = await import("../../src/sonar/project-key.js");
     resolveSonarProjectKey = pkMod.resolveSonarProjectKey;
 
-    const configMod = await import("../src/config.js");
+    const configMod = await import("../../src/config.js");
     loadConfig = configMod.loadConfig;
     loadConfig.mockResolvedValue({ config: baseConfig });
 
-    const procMod = await import("../src/utils/process.js");
+    const procMod = await import("../../src/utils/process.js");
     runCommand = procMod.runCommand;
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
 
-    const mod = await import("../src/commands/sonar.js");
+    const mod = await import("../../src/commands/sonar.js");
     sonarOpenCommand = mod.sonarOpenCommand;
   });
 

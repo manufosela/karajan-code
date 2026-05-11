@@ -1,25 +1,25 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
-import { ROLE_EVENTS } from "../src/roles/base-role.js";
+import { ROLE_EVENTS } from "../../src/roles/base-role.js";
 
-vi.mock("../src/sonar/scanner.js", () => ({
+vi.mock("../../src/sonar/scanner.js", () => ({
   runSonarScan: vi.fn()
 }));
 
-vi.mock("../src/sonar/api.js", () => ({
+vi.mock("../../src/sonar/api.js", () => ({
   getQualityGateStatus: vi.fn(),
   getOpenIssues: vi.fn()
 }));
 
-vi.mock("../src/sonar/enforcer.js", () => ({
+vi.mock("../../src/sonar/enforcer.js", () => ({
   shouldBlockByProfile: vi.fn(),
   summarizeIssues: vi.fn()
 }));
 
-const { SonarRole } = await import("../src/roles/sonar-role.js");
-const { runSonarScan } = await import("../src/sonar/scanner.js");
-const { getQualityGateStatus, getOpenIssues } = await import("../src/sonar/api.js");
-const { shouldBlockByProfile, summarizeIssues } = await import("../src/sonar/enforcer.js");
+const { SonarRole } = await import("../../src/roles/sonar-role.js");
+const { runSonarScan } = await import("../../src/sonar/scanner.js");
+const { getQualityGateStatus, getOpenIssues } = await import("../../src/sonar/api.js");
+const { shouldBlockByProfile, summarizeIssues } = await import("../../src/sonar/enforcer.js");
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), setContext: vi.fn() };
 
