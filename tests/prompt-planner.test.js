@@ -143,6 +143,24 @@ describe("prompts/planner buildPlannerPrompt", () => {
     });
   });
 
+  describe("transversal dependencies (KJC-BUG-0043 / P2)", () => {
+    it("instructs the planner to declare deps to ALL members of a category, not just the first", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt.toLowerCase()).toContain("transversal");
+      expect(prompt).toMatch(/ALL members of (?:a |that )?category/i);
+    });
+
+    it("provides a concrete listado/summary example so the LLM cannot miss the rule", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt.toLowerCase()).toMatch(/listado|list of all|summary across|summary of all/);
+    });
+
+    it("forbids depending only on the index/first step of a category", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/NOT just (?:the )?(?:first|index)/i);
+    });
+  });
+
   describe("scope exclusions (KJC-BUG-0042 / P1)", () => {
     it("echoes NO incluye items as FORBIDDEN scope when task has explicit Spanish exclusions", () => {
       const SPEC = [
