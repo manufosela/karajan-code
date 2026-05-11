@@ -7,6 +7,7 @@ import { createCliProgressReporter } from "../../utils/cli-progress.js";
 import { runAutoGC, summarizeGC } from "../../utils/garbage-collector.js";
 import { promptProjectName } from "../../utils/prompt-project-name.js";
 import { deriveProjectNameFromCwd } from "../../utils/derive-project-name-from-cwd.js";
+import { applyReviewerFeedback, applyFixerPatch } from "../../plan/plan-fixer.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -233,6 +234,44 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
           ? `[planner] reviewer surfaced ${count} item(s): ${review.findings.summary || "(see plan.review for details)"}`
           : `[planner] reviewer found nothing actionable: ${review.findings.summary || "OK"}`
       );
+      // KJC-BUG-0045 / P4: self-fix loop. The reviewer is flag-only by
+      // contract; when it surfaces actionable issues, ask the planner to
+      // PATCH the plan, apply in-process, and re-review. Loop until 0
+      // findings or maxIterations. Skippable with --no-plan-fixer/--quick.
+      const skipFixer = Boolean(flags?.noPlanFixer || flags?.quick);
+      const maxFixerIterations = 2;
+      if (count > 0 && !skipFixer) {
+        for (let i = 1; i <= maxFixerIterations; i++) {
+          const currentCount = findingsCount(plan.review);
+          if (currentCount === 0) break;
+          runLog.logText(`[planner] self-fix iter ${i}/${maxFixerIterations} — patching ${currentCount} issue(s)`);
+          progress.onOutput?.({ line: `Self-fix iter ${i}: patching ${currentCount} issue(s)`, kind: "text" });
+          const fix = await applyReviewerFeedback({
+            agent: planner, task, hus: plan.hus, findings: plan.review,
+            onOutput: progress.onOutput, silenceTimeoutMs, timeoutMs,
+          });
+          if (!fix.ok) {
+            runLog.logText(`[planner] self-fix iter ${i} failed (non-blocking): ${fix.error}`);
+            break;
+          }
+          const ops = applyFixerPatch(plan, fix.patch);
+          runLog.logText(`[planner] self-fix iter ${i} applied: +${ops.added} HU, +${ops.depsAdded} dep, -${ops.deleted} HU`);
+          if (ops.added + ops.depsAdded + ops.deleted === 0) {
+            runLog.logText(`[planner] self-fix iter ${i} empty patch — stopping`);
+            break;
+          }
+          const review2 = await reviewPlan({
+            agent: planner, task, hus: plan.hus,
+            onOutput: progress.onOutput, silenceTimeoutMs, timeoutMs,
+          });
+          if (!review2.ok) {
+            runLog.logText(`[planner] re-review after iter ${i} failed: ${review2.error}`);
+            break;
+          }
+          plan.review = review2.findings;
+          runLog.logText(`[planner] after self-fix iter ${i}: ${findingsCount(review2.findings)} issue(s) remaining`);
+        }
+      }
     } else {
       runLog.logText(`[planner] reviewer pass failed (non-blocking): ${review.error}`);
     }
