@@ -5,6 +5,16 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 66: Patch — Self-fix convergence guard + async-deps respect (v2.14.1)
+
+**v2.14.1** (patch, 2026-05-12) — 2 PRs absorbiendo las patologías del planner que el dogfooding de v2.14.0 contra GRETA Plan 2 reveló a las pocas horas de release.
+
+**Self-fix loop divergence** (`KJC-BUG-0046` / P5, #684): el self-fix loop introducido en v2.14.0 podía empeorar el plan en lugar de mejorarlo. El dogfooding mostró que iter 1 reducía 15→10 issues pero iter 2 borraba HUs que iter 1 había añadido, dejando referencias dangling que el reviewer post-iter-2 contaba como nuevos `missing_dependencies`, terminando en 17 findings — peor que antes de iter 2. Fix: snapshot del plan (`JSON.parse(JSON.stringify(plan.hus))` + `plan.review`) ANTES de aplicar cada patch del fixer. Tras re-review, si `newCount > currentCount`, restaurar el snapshot y `break` el loop. Log nuevo en `run.log`: `[planner] self-fix iter 2 regressed (10 → 17) — reverted, stopping`. La cota inferior queda fijada en `min(reviews observados)` en lugar del último review.
+
+**Async-deps respect** (`KJC-BUG-0047` / P6, #685): el planner convertía sistemáticamente "Y reacciona a X" en `X blocked_by Y`, rompiendo el principio "AVISA-no-BLOQUEA" que GRETA define para sus guardarraíles. Ejemplo del Plan 2: 4 de 5 order_issues del reviewer eran del mismo patrón ("041 Outcome blocked_by 052 Guardarraíl 1 — pero G1 es async y NO bloquea creación"). Fix: regla explícita añadida a la sección `dependencies` del prompt del planner enumerando 6 patrones de async observers — (a) guardrails/validators/monitors, (b) cron jobs / scheduled tasks, (c) webhooks / event handlers / listeners, (d) async queues / workers / pipelines, (e) audit logs / metric collectors, (f) "validator" / "monitor" steps que corren después — junto con una heurística clara: "¿X CONSUME un deliverable que debe EXISTIR antes de X empezar?" → `blocked_by`. "¿Y solo REACCIONA a X después?" → NO `blocked_by`, paralelos.
+
+**Resultado del dogfooding**: regenerar Plan 2 GRETA contra v2.14.1 devuelve **9 findings sobre 58 HUs** (15% issue density), igualando el baseline iter 1 de v2.13.0 + #661-#664. v2.14.0 puro devolvía 17 findings. Reducción del 47% en findings iniciales gracias a P6 (15→9 antes de cualquier iter del fixer); P5 evita que cualquier iter posterior empeore el resultado. Las 9 patologías restantes son gaps reales del SPEC (`dimension_link` no cubierto, envelope encryption del `reasoning` IA emocional faltante, cascada GDPR sin algunas deps implícitas), no fallos del planner — son ediciones manuales tras revisión.
+
 ## Phase 65: Quality pass — Solomon classification + planner self-fix + tests reorg (v2.14.0)
 
 **v2.14.0** (minor, 2026-05-12) — 16 PRs en una sesión absorbiendo bugs blockers, patologías del planner detectadas en el dogfooding de Plan 2 GRETA, hardening del HU Board, y la primera tanda de reorg de `tests/` (issue #368). Suite 4577/4577 verde toda la sesión, 0 regresiones.

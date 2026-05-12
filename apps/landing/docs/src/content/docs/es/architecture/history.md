@@ -5,6 +5,16 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
+## Fase 66: Patch — Convergence guard del self-fix + respeto a async-deps (v2.14.1)
+
+**v2.14.1** (patch, 2026-05-12) — 2 PRs absorbiendo las patologías del planner que el dogfooding de v2.14.0 contra GRETA Plan 2 reveló a las pocas horas del release.
+
+**Self-fix loop diverge** (`KJC-BUG-0046` / P5, #684): el self-fix loop de v2.14.0 podía empeorar el plan. Iter 1 reducía 15→10 issues, pero iter 2 borraba HUs que iter 1 había añadido, dejando referencias dangling que el reviewer post-iter-2 contaba como nuevos `missing_dependencies`, terminando en 17 findings. Fix: snapshot del plan antes de cada iter del fixer. Si `newCount > currentCount` tras re-review, restaurar snapshot y `break`. Log nuevo: `[planner] self-fix iter 2 regressed (10 → 17) — reverted, stopping`.
+
+**Async-deps respect** (`KJC-BUG-0047` / P6, #685): el planner convertía sistemáticamente "Y reacciona a X" en `X blocked_by Y`, rompiendo "AVISA-no-BLOQUEA" de GRETA. 4 de 5 order_issues del reviewer en Plan 2 eran del mismo patrón ("041 Outcome blocked_by 052 Guardarraíl 1 — pero G1 es async"). Fix: regla explícita en el prompt enumerando 6 patrones de async observers + heurística "¿X consume un deliverable de Y? → blocked_by. ¿Y solo reacciona a X? → paralelos".
+
+**Resultado dogfooding**: regenerar Plan 2 GRETA devuelve **9 findings sobre 58 HUs** (15% issue density), igualando el baseline iter 1 de v2.13.0+#661-664. v2.14.0 puro daba 17. Las 9 patologías restantes son gaps reales del SPEC, no fallos del planner.
+
 ## Fase 65: Pasada de calidad — clasificación Solomon + self-fix del planner + reorg de tests (v2.14.0)
 
 **v2.14.0** (minor, 2026-05-12) — 16 PRs en una sesión absorbiendo bugs blockers, patologías del planner detectadas en el dogfooding de Plan 2 GRETA, hardening del HU Board, y la primera tanda de reorg de `tests/` (issue #368). Suite 4577/4577 verde toda la sesión, 0 regresiones.
