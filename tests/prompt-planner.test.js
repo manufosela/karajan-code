@@ -143,6 +143,31 @@ describe("prompts/planner buildPlannerPrompt", () => {
     });
   });
 
+  describe("epica prefix in description", () => {
+    it("documents [EPICA] prefix requirement on description", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/\[EPICA\].*prefix/);
+      expect(prompt).toMatch(/MUST start with/);
+    });
+
+    it("explains the consequence (80-char truncation becomes the board title)", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt.toLowerCase()).toMatch(/board|title|first 80/);
+    });
+
+    it("provides concrete examples per common epic tag", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/\[PROFILE\]/);
+      expect(prompt).toMatch(/\[GUARD\]/);
+      expect(prompt).toMatch(/\[INFRA\]/);
+    });
+
+    it("suggests SHARED/INFRA fallback when no epica fits", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/SHARED.*cross-cutting|cross-cutting.*SHARED/i);
+    });
+  });
+
   describe("async-deps respect (KJC-BUG-0047 / P6)", () => {
     it("explicitly forbids declaring deps on async observers", () => {
       const prompt = buildPlannerPrompt({ task: "anything" });
