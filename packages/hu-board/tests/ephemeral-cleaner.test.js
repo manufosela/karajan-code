@@ -33,6 +33,11 @@ describe("classifyEphemeral (KJC-TSK-0371 — board polish #3)", () => {
     // case-insensitive
     ["TMP_FOO", true],
     ["Test_bar", true],
+    // KJC-TSK-0377: session/plan-prefixed projects (no projectDir at run time)
+    ["s_2026-04-29T09-42-14-000Z", true],
+    ["plan-20260429094214-0srv", true],
+    ["S_FOO", true],
+    ["Plan-XYZ", true],
   ])("id-pattern heuristic: %s → %s (when stale)", (id, expected) => {
     const project = { id, last_activity: ago(48), is_test: null };
     expect(classifyEphemeral(project, ctx).ephemeral).toBe(expected);

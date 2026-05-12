@@ -40,6 +40,13 @@ const EPHEMERAL_ID_PATTERNS = [
   /^auto-tmp_/i,    // also covers auto-batch projects derived from /tmp/
   /^auto-test_/i,
   /^auto-demo_/i,
+  // KJC-TSK-0377: stray session/plan-prefixed projects accumulate during
+  // dogfooding when a kj run is invoked without a proper projectDir.
+  // The HU Board's sync_*File handlers create a placeholder project row
+  // with `id = session_id` or `id = plan_id`, which after 24h of
+  // inactivity is the same kind of zombi the other patterns target.
+  /^s_/i,
+  /^plan-/i,
 ];
 
 /**
