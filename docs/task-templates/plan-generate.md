@@ -1,5 +1,7 @@
 # Template — `kj plan generate`
 
+> 📘 **Antes de leer esta plantilla**, lee [`spec-conventions.md`](spec-conventions.md). Cubre las **6 convenciones clave** que el planner v2.14.1+ entiende (`[EPICA]` prefix, scope exclusions, deps transversales, reuse, async observers, deps explícitas) y los antipatrones detectados en dogfooding.
+
 ## Cuándo usar este comando
 
 Tienes una feature de tamaño medio-grande (≥ 5 HUs) y necesitas que Karajan la descomponga en HUs ejecutables, con dependencias, sprints estimados, riesgos y out-of-scope. **No** uses esto para tareas simples (1-3 HUs); para eso usa `kj run` directo.
@@ -17,7 +19,7 @@ El plan resultante se guarda en `~/.kj/plans/<projectSlug>/plan-<id>.json` (la r
 
 ## Plantilla
 
-Copia esto a `tasks/01-<nombre-feature>.task.md` y rellena:
+Copia esto a `tasks/01-<nombre-feature>.task.md` y rellena. Las secciones marcadas con 📘 invocan **convenciones del planner** (ver [`spec-conventions.md`](spec-conventions.md)) que producen comportamiento específico — no son cosméticas.
 
 ```markdown
 # [REPLACE: Título corto de la feature — 1 línea]
@@ -32,7 +34,7 @@ Copia esto a `tasks/01-<nombre-feature>.task.md` y rellena:
  - Datos/entidades clave
  - Diferencias vs lo que YA existe en el proyecto]
 
-**NO incluye en este plan**: [REPLACE: lista las features que pertenecen a OTROS planes futuros, para que el planner no las arrastre.]
+📘 **NO incluye en este plan**: [REPLACE: lista las features que pertenecen a OTROS planes futuros, para que el planner no las arrastre. Patrones aceptados: `NO incluye en este plan: …`, `Out of scope: …`, `Plan 3 handles …`, `Reserved for plan 4: …`. Ver §2 de spec-conventions.md.]
 
 ## Stack técnico ya decidido
 
@@ -44,6 +46,23 @@ Copia esto a `tasks/01-<nombre-feature>.task.md` y rellena:
 - **Region / compliance**: [REPLACE: europe-west1 GDPR / us-east1 / etc.]
 
 [OPTIONAL: lista de paquetes externos ya decididos]
+
+📘 **Épicas con [EPICA] prefix** (orientación visual en el board): agrupa las funcionalidades en bloques `### Épica NOMBRE — descripción corta`. El planner detecta el patrón y prefija cada title del HU con `[NOMBRE]`. Convención: `<=12 chars MAYÚSCULAS`. Ejemplos: `PROFILE`, `ASSESS`, `INFRA`, `GUARD`, `SHARED`. Ver §1 de spec-conventions.md.
+
+```markdown
+### Épica PROFILE — ficha de persona
+1. Subir CV (PDF/DOCX) cifrado a Storage…
+2. Cloud Function processCV trigger…
+
+### Épica GUARD — guardarraíles AVISA-no-BLOQUEA
+3. Guardarraíl 1 — evalúa outcome async on-save…
+```
+
+📘 **Async observers**: si una HU es un guardarraíl/cron/listener/webhook que **reacciona** a otra (no la precondiciona), márcalo explícito. Frases que el planner reconoce: `AVISA-no-BLOQUEA`, `async, no precondiciona`, `cron diario`, `webhook reactivo`. Sin esto, el planner declara `Outcome blocked_by Guardarraíl-1` por error. Ver §5 de spec-conventions.md.
+
+📘 **Deps transversales**: si una HU consume TODOS los miembros de una categoría, usa la palabra `TODOS` o `transversal` literal en la descripción. El planner emitirá `blocked_by: [X1, X2, …, XN]` en vez de solo el primero. Ejemplos: `Listado transversal de TODOS los warnings`, `Dashboard de TODOS los outcomes del equipo`. Ver §3.
+
+📘 **Utilidades reutilizables**: declara las utilidades compartidas como spike + lista de consumidores (ver §4). El planner emitirá `reuse: ["util_id"]` en los HUs consumidores para evitar re-implementación.
 
 ## Funcionalidades a descomponer en HUs
 
@@ -109,6 +128,8 @@ Mira [`tasks/04-plan-1-simple.task.md` en el proyecto de Equipazgo](https://gith
 Un task de 353 líneas con cada épica enumerada en una tabla `| ID | Actor | Precondiciones | Postcondiciones |` con los 30+ casos de uso ya escritos. El planner lo tratará como "documento ya hecho" y producirá meta-documentación. Reportado como KJC-BUG-0041 en dogfooding 2026-05-10.
 
 ## Verificación del plan generado
+
+Tras la generación habrá **findings advisory** del reviewer. Esperable. El plan-fixer (P4) intenta resolverlos en 1-2 iter; si tras eso siguen, son **gaps reales del SPEC** que necesitan edición manual. El P5 convergence guard garantiza que el fixer **nunca empeora** el plan. Ver §7 de spec-conventions.md para densidad aceptable (<15% findings/HUs).
 
 Tras la generación, inspecciona:
 

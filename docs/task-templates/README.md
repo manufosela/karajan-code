@@ -22,8 +22,20 @@ Ese sweet spot es lo que estas plantillas codifican.
 
 ## Plantillas disponibles
 
+> 📘 **Antes de tu primer task file**, lee [`spec-conventions.md`](spec-conventions.md). Cubre las **6 convenciones clave** que el planner v2.14.1+ entiende para producir planes de calidad:
+>
+> 1. `### Épica NOMBRE` → `[NOMBRE]` prefix en titles del board
+> 2. `NO incluye en este plan: …` → scope exclusions (ES + EN)
+> 3. `Listado transversal de TODOS los X` → deps a TODOS los miembros
+> 4. Utilidades reutilizables → `reuse` marker end-to-end
+> 5. Async observers (`AVISA-no-BLOQUEA`, `cron`, `webhook`) → NO `blocked_by`
+> 6. Deps explícitas (`Depende: X`, `requires Y`, `after Z`) → `blocked_by`
+>
+> Más antipatrones detectados en dogfooding y checklist pre-generación.
+
 | Comando | Plantilla | Cuándo |
 |---|---|---|
+| _(referencia)_ | [`spec-conventions.md`](spec-conventions.md) | Convenciones que aplican a TODOS los task files |
 | `kj plan generate` | [`plan-generate.md`](plan-generate.md) | Descomponer una feature en HUs ejecutables |
 | `kj run` | [`run.md`](run.md) | Lanzar una sola HU concreta (sin plan) |
 | `kj researcher` | [`researcher.md`](researcher.md) | Explorar el codebase antes de codear |
