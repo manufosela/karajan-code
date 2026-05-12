@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.2] - 2026-05-12
+
+Patch release. Dogfooding GRETA Plan 2 v2.14.1 reveló 2 bugs UX + 1 gap de documentación:
+
+### Fixed
+
+- **KJC-BUG-0048** — Botón ▶ Run en cards del HU Board ya no aparece en HUs con `blocked_by` no resueltas (#687). `canRunHu` en `packages/hu-board/public/app.js` solo miraba `status + testCount`; ahora añade `&& blockedBy.length === 0`. Las 19/58 HUs entry-point siguen mostrando ▶; las 39 con deps muestran solo "⏳ waits for: …" hasta que sus deps se certifiquen.
+
+### Added
+
+- **`[EPICA]` prefix** automático en titles del planner (#687). El prompt ahora exige que `description` empiece con `[EPICA] one-sentence description`. El planner extrae las épicas de headings del SPEC (`### Épica NOMBRE`) y prefija cada HU. Fallbacks: `[INFRA]` para setup, `[SHARED]` para cross-cutting. Tras dogfooding GRETA Plan 2: 62/62 HUs con prefix correcto (PROFILE, ASSESS, AI, IMPACT, GUARD, INFRA, CATALOG).
+- **`docs/task-templates/spec-conventions.md`** (#688, KJC-TSK-0385). Documento central con las 6 convenciones que el planner v2.14.x entiende: épicas, scope exclusions, deps transversales, reuse, async observers, deps explícitas. Más antipatrones detectados en dogfooding y checklist pre-generación.
+- **`plan-generate.md` updated** (#688): banner + 4 secciones 📘 con ejemplos de cada convención.
+
 ## [2.14.1] - 2026-05-12
 
 Patch release. Dos patologías del planner descubiertas en dogfooding de GRETA Plan 2 contra v2.14.0:
