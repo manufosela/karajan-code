@@ -246,6 +246,14 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
           if (currentCount === 0) break;
           runLog.logText(`[planner] self-fix iter ${i}/${maxFixerIterations} — patching ${currentCount} issue(s)`);
           progress.onOutput?.({ line: `Self-fix iter ${i}: patching ${currentCount} issue(s)`, kind: "text" });
+          // KJC-BUG-0046 / P5: snapshot plan + review BEFORE applying the patch
+          // so we can revert if the iteration regresses (newCount > currentCount).
+          // Dogfooding 2026-05-12: GRETA Plan 2 iter 2 went 10 → 17 findings
+          // because the fixer's deletions created dangling references the
+          // reviewer then flagged. Without the guard, the loop made the plan
+          // strictly worse than before iter 2 started.
+          const husSnapshot = JSON.parse(JSON.stringify(plan.hus));
+          const reviewSnapshot = JSON.parse(JSON.stringify(plan.review));
           const fix = await applyReviewerFeedback({
             agent: planner, task, hus: plan.hus, findings: plan.review,
             onOutput: progress.onOutput, silenceTimeoutMs, timeoutMs,
@@ -266,10 +274,20 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
           });
           if (!review2.ok) {
             runLog.logText(`[planner] re-review after iter ${i} failed: ${review2.error}`);
+            plan.hus = husSnapshot;
+            plan.review = reviewSnapshot;
+            break;
+          }
+          const newCount = findingsCount(review2.findings);
+          if (newCount > currentCount) {
+            // P5 convergence guard: iter made things worse — revert + stop.
+            plan.hus = husSnapshot;
+            plan.review = reviewSnapshot;
+            runLog.logText(`[planner] self-fix iter ${i} regressed (${currentCount} → ${newCount}) — reverted, stopping`);
             break;
           }
           plan.review = review2.findings;
-          runLog.logText(`[planner] after self-fix iter ${i}: ${findingsCount(review2.findings)} issue(s) remaining`);
+          runLog.logText(`[planner] after self-fix iter ${i}: ${newCount} issue(s) remaining`);
         }
       }
     } else {
