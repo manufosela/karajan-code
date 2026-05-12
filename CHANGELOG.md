@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.1] - 2026-05-12
+
+Patch release. Dos patologías del planner descubiertas en dogfooding de GRETA Plan 2 contra v2.14.0:
+
+### Fixed
+
+- **KJC-BUG-0046 (P5)** — Self-fix loop ya no diverge sin convergencia (#684). Dogfooding mostró que el iter 2 del self-fix podía empeorar el plan (iter 1 reducía 15→10 issues, iter 2 subía a 17 al borrar HUs que iter 1 había añadido). Fix: snapshot del plan (deep clone de `plan.hus` + `plan.review`) ANTES de aplicar cada patch del fixer; tras re-review, si `newCount > currentCount`, restaurar snapshot y `break`. Log nuevo: `[planner] self-fix iter N regressed (X → Y) — reverted, stopping`.
+- **KJC-BUG-0047 (P6)** — Planner ya no declara `blocked_by` sobre observers asíncronos (#685). Dogfooding mostró que el planner convertía "Y reacciona a X" en `blocked_by`, rompiendo el principio AVISA-no-BLOQUEA: HUs business marcaban como dependencia sus guardarraíles asíncronos. Fix: regla explícita en el prompt listando 6 patrones de async observers (guardrails/validators/monitors, cron jobs, webhooks/listeners, async queues/workers, audit logs/metrics, validators que corren después) + heurística "consume vs react": si X CONSUME un deliverable de Y antes de empezar → `blocked_by`. Si Y solo REACCIONA a X → paralelo, NO `blocked_by`.
+
+### Dogfooding result
+
+Regenerar Plan 2 GRETA con esta release iguala el baseline de v2.13.0 + parches iter 1 (9 findings sobre 58 HUs, 15% issue density) cuando v2.14.0 puro devolvía 17. Reducción del 47% en findings iniciales gracias a P6; P5 evita el regreso en cualquier iter 2.
+
 ## [2.14.0] - 2026-05-12
 
 Quality pass — 16 PRs absorbiendo bugs blockers, patologías del planner detectadas durante el dogfooding de Plan 2 GRETA, hardening del HU Board, y la primera tanda de reorganización de tests (issue #368).
