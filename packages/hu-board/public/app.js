@@ -960,10 +960,15 @@ function renderStoryCard(story) {
   //   - the HU is certified or failed (re-run after fixing) AND
   //   - it has at least one acceptance test (otherwise the run
   //     would refuse) AND
-  //   - it isn't currently coding/reviewing.
+  //   - it isn't currently coding/reviewing AND
+  //   - KJC-BUG-0048: it has no unresolved blocked_by deps. The card
+  //     already shows "⏳ waits for: ..." below the title; the ▶ button
+  //     must match that gating or the user can launch a HU whose deps
+  //     don't exist yet, hitting the missing-prereq path at runtime.
   const canRunHu = ['certified', 'failed', 'pending'].includes(story.status)
     && testCount > 0
-    && !['coding', 'reviewing'].includes(story.status);
+    && !['coding', 'reviewing'].includes(story.status)
+    && blockedBy.length === 0;
 
   return `
     <div class="story-card" data-story-id="${esc(story.id)}" data-status="${esc(story.status || 'pending')}" onclick="showStoryDetail('${esc(story.id)}')">
