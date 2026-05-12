@@ -143,6 +143,27 @@ describe("prompts/planner buildPlannerPrompt", () => {
     });
   });
 
+  describe("async-deps respect (KJC-BUG-0047 / P6)", () => {
+    it("explicitly forbids declaring deps on async observers", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt.toLowerCase()).toMatch(/async.*observer|observer.*async|asynchronous/);
+      expect(prompt).toMatch(/(?:NOT|do not|don't).*depend/i);
+    });
+
+    it("lists common async-pattern names so the LLM can recognise them", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      const lower = prompt.toLowerCase();
+      expect(lower).toMatch(/guardrail|guard\b/);
+      expect(lower).toMatch(/cron/);
+      expect(lower).toMatch(/listener|webhook|event/);
+    });
+
+    it("explains the heuristic: if Y reacts to X, X is NOT blocked_by Y", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/react|reactive|observ/i);
+    });
+  });
+
   describe("reuse marker (KJC-BUG-0044 / P3)", () => {
     it("documents the reuse field in the step schema", () => {
       const prompt = buildPlannerPrompt({ task: "anything" });
