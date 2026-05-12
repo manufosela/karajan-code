@@ -5,7 +5,7 @@ import os from "node:os";
 
 // Mock getKarajanHome to use a temp directory
 let tmpDir;
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getKarajanHome: () => tmpDir
 }));
 
@@ -23,7 +23,7 @@ describe("kj_hu tool", () => {
   });
 
   it("create HU stores it in hu-stories directory", async () => {
-    const { createManualHu } = await import("../src/hu/store.js");
+    const { createManualHu } = await import("../../src/hu/store.js");
     const hu = await createManualHu(projectDir, {
       title: "Add login page",
       description: "Create a login page with email/password",
@@ -46,7 +46,7 @@ describe("kj_hu tool", () => {
   });
 
   it("create HU in new project auto-creates batch file", async () => {
-    const { createManualHu } = await import("../src/hu/store.js");
+    const { createManualHu } = await import("../../src/hu/store.js");
     const newProjectDir = path.join(tmpDir, "brand-new-project");
     await fs.mkdir(newProjectDir, { recursive: true });
 
@@ -62,7 +62,7 @@ describe("kj_hu tool", () => {
   });
 
   it("list HUs returns all HUs for the project", async () => {
-    const { createManualHu, listHus } = await import("../src/hu/store.js");
+    const { createManualHu, listHus } = await import("../../src/hu/store.js");
     await createManualHu(projectDir, { title: "Story A" });
     await createManualHu(projectDir, { title: "Story B", status: "coding" });
     await createManualHu(projectDir, { title: "Story C" });
@@ -83,7 +83,7 @@ describe("kj_hu tool", () => {
   });
 
   it("get HU by id returns correct HU", async () => {
-    const { createManualHu, getHu } = await import("../src/hu/store.js");
+    const { createManualHu, getHu } = await import("../../src/hu/store.js");
     const created = await createManualHu(projectDir, {
       title: "Specific story",
       description: "Details here"
@@ -96,7 +96,7 @@ describe("kj_hu tool", () => {
   });
 
   it("update HU status changes the status", async () => {
-    const { createManualHu, updateHuStatus, getHu } = await import("../src/hu/store.js");
+    const { createManualHu, updateHuStatus, getHu } = await import("../../src/hu/store.js");
     const created = await createManualHu(projectDir, { title: "Update me" });
 
     // Small delay to ensure updatedAt differs
@@ -111,21 +111,21 @@ describe("kj_hu tool", () => {
   });
 
   it("create without title returns error", async () => {
-    const { createManualHu } = await import("../src/hu/store.js");
+    const { createManualHu } = await import("../../src/hu/store.js");
     await expect(
       createManualHu(projectDir, { description: "No title" })
     ).rejects.toThrow("title is required");
   });
 
   it("update non-existent HU returns error", async () => {
-    const { updateHuStatus } = await import("../src/hu/store.js");
+    const { updateHuStatus } = await import("../../src/hu/store.js");
     await expect(
       updateHuStatus(projectDir, "HU-nonexistent", "done")
     ).rejects.toThrow("HU HU-nonexistent not found");
   });
 
   it("project detection from directory name works", async () => {
-    const { detectProject } = await import("../src/hu/store.js");
+    const { detectProject } = await import("../../src/hu/store.js");
     const result = await detectProject(projectDir);
     expect(result.name).toBe("my-test-project");
     // No git repo in temp dir, so remoteUrl should be null

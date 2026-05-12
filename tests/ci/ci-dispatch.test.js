@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockRunCommand = vi.fn();
-vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
+vi.mock("../../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
 const { dispatchComment, dispatchReview, VALID_AGENTS } = await import(
-  "../src/ci/dispatch.js"
+  "../../src/ci/dispatch.js"
 );
 
 describe("[opt-in: ci] ci/dispatch", () => {

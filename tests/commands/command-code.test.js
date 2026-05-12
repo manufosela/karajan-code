@@ -1,20 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({
     provider: config.roles?.[role]?.provider || role
   }))
 }));
 
-vi.mock("../src/prompts/coder.js", () => ({
+vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPrompt: vi.fn().mockReturnValue("coder prompt")
 }));
 
@@ -43,13 +43,13 @@ describe("commands/code", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const agents = await import("../src/agents/index.js");
+    const agents = await import("../../src/agents/index.js");
     createAgent = agents.createAgent;
 
-    const avail = await import("../src/agents/availability.js");
+    const avail = await import("../../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
 
-    const prompts = await import("../src/prompts/coder.js");
+    const prompts = await import("../../src/prompts/coder.js");
     buildCoderPrompt = prompts.buildCoderPrompt;
     buildCoderPrompt.mockReturnValue("coder prompt");
 
@@ -62,14 +62,14 @@ describe("commands/code", () => {
   });
 
   it("asserts coder provider is available", async () => {
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
 
     expect(assertAgentsAvailable).toHaveBeenCalledWith(["codex"]);
   });
 
   it("creates agent with resolved provider", async () => {
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     const config = makeConfig();
     await codeCommand({ task: "add feature", config, logger: noopLogger });
 
@@ -77,7 +77,7 @@ describe("commands/code", () => {
   });
 
   it("builds coder prompt with task and rules", async () => {
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
 
     expect(buildCoderPrompt).toHaveBeenCalledWith(expect.objectContaining({
@@ -88,7 +88,7 @@ describe("commands/code", () => {
   });
 
   it("runs task with prompt and onOutput callback", async () => {
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
 
     const agent = createAgent.mock.results[0].value;
@@ -103,7 +103,7 @@ describe("commands/code", () => {
       runTask: vi.fn().mockResolvedValue({ ok: false, error: "syntax error", exitCode: 1 })
     });
 
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await expect(
       codeCommand({ task: "bad code", config: makeConfig(), logger: noopLogger })
     ).rejects.toThrow("syntax error");
@@ -113,7 +113,7 @@ describe("commands/code", () => {
     const fs = await import("node:fs/promises");
     fs.default.readFile.mockRejectedValue(new Error("ENOENT"));
 
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
 
     expect(buildCoderPrompt).toHaveBeenCalledWith(expect.objectContaining({
@@ -122,7 +122,7 @@ describe("commands/code", () => {
   });
 
   it("logs completion on success", async () => {
-    const { codeCommand } = await import("../src/commands/code.js");
+    const { codeCommand } = await import("../../src/commands/code.js");
     await codeCommand({ task: "add feature", config: makeConfig(), logger: noopLogger });
 
     expect(noopLogger.info).toHaveBeenCalledWith(expect.stringContaining("completed"));

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import path from "node:path";
 
-vi.mock("../src/roles/base-role.js", async (importOriginal) => {
+vi.mock("../../src/roles/base-role.js", async (importOriginal) => {
   const original = await importOriginal();
   return {
     ...original,
@@ -9,8 +9,8 @@ vi.mock("../src/roles/base-role.js", async (importOriginal) => {
   };
 });
 
-const { resolveReviewProfile } = await import("../src/review/profiles.js");
-const { loadFirstExisting } = await import("../src/roles/base-role.js");
+const { resolveReviewProfile } = await import("../../src/review/profiles.js");
+const { loadFirstExisting } = await import("../../src/roles/base-role.js");
 
 describe("review/profiles", () => {
   beforeEach(() => {

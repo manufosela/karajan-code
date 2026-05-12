@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import yaml from "js-yaml";
 
-import { writeConfig } from "../src/config/loader.js";
+import { writeConfig } from "../../src/config/loader.js";
 
 // =====================================================================
 // KJC-BUG-0036 — `writeConfig` MUST strip runtime-only keys before

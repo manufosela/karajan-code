@@ -44,7 +44,7 @@ function resetRunFns() {
 
 // --- Module-level mocks ---
 
-vi.mock("../src/roles/triage-role.js", () => ({
+vi.mock("../../src/roles/triage-role.js", () => ({
   TriageRole: class {
     constructor() {
       this.init = vi.fn(async () => {});
@@ -53,7 +53,7 @@ vi.mock("../src/roles/triage-role.js", () => ({
   }
 }));
 
-vi.mock("../src/roles/researcher-role.js", () => ({
+vi.mock("../../src/roles/researcher-role.js", () => ({
   ResearcherRole: class {
     constructor() {
       this.init = vi.fn(async () => {});
@@ -62,7 +62,7 @@ vi.mock("../src/roles/researcher-role.js", () => ({
   }
 }));
 
-vi.mock("../src/roles/planner-role.js", () => ({
+vi.mock("../../src/roles/planner-role.js", () => ({
   PlannerRole: class {
     constructor() {
       this.context = null;
@@ -72,7 +72,7 @@ vi.mock("../src/roles/planner-role.js", () => ({
   }
 }));
 
-vi.mock("../src/roles/discover-role.js", () => ({
+vi.mock("../../src/roles/discover-role.js", () => ({
   DiscoverRole: class {
     constructor() {
       this.init = vi.fn(async () => {});
@@ -83,7 +83,7 @@ vi.mock("../src/roles/discover-role.js", () => ({
   }
 }));
 
-vi.mock("../src/roles/architect-role.js", () => ({
+vi.mock("../../src/roles/architect-role.js", () => ({
   ArchitectRole: class {
     constructor() {
       this.init = vi.fn(async () => {});
@@ -92,7 +92,7 @@ vi.mock("../src/roles/architect-role.js", () => ({
   }
 }));
 
-vi.mock("../src/roles/hu-reviewer-role.js", () => ({
+vi.mock("../../src/roles/hu-reviewer-role.js", () => ({
   HuReviewerRole: class {
     constructor() {
       this.init = vi.fn(async () => {});
@@ -101,28 +101,28 @@ vi.mock("../src/roles/hu-reviewer-role.js", () => ({
   }
 }));
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn(async () => ({ ok: true, output: "agent output" }))
   }))
 }));
 
-vi.mock("../src/planning-game/architect-adrs.js", () => ({
+vi.mock("../../src/planning-game/architect-adrs.js", () => ({
   createArchitectADRs: vi.fn(async () => ({ created: 0 }))
 }));
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {}),
   saveSession: vi.fn(async () => {})
 }));
 
-vi.mock("../src/utils/events.js", () => ({
+vi.mock("../../src/utils/events.js", () => ({
   emitProgress: vi.fn(),
   makeEvent: vi.fn((type, base, data) => ({ type, ...base, ...data }))
 }));
 
-vi.mock("../src/prompts/planner.js", () => ({
+vi.mock("../../src/prompts/planner.js", () => ({
   parsePlannerOutput: vi.fn(() => ({
     title: "Plan Title",
     approach: "incremental",
@@ -130,16 +130,16 @@ vi.mock("../src/prompts/planner.js", () => ({
   }))
 }));
 
-vi.mock("../src/prompts/hu-reviewer.js", () => ({
+vi.mock("../../src/prompts/hu-reviewer.js", () => ({
   buildDecompositionPrompt: vi.fn(() => "decompose prompt"),
   parseDecompositionOutput: vi.fn(() => null)
 }));
 
-vi.mock("../src/utils/model-selector.js", () => ({
+vi.mock("../../src/utils/model-selector.js", () => ({
   selectModelsForRoles: vi.fn(() => ({ modelOverrides: {}, reasoning: "default" }))
 }));
 
-vi.mock("../src/utils/stall-detector.js", () => ({
+vi.mock("../../src/utils/stall-detector.js", () => ({
   createStallDetector: vi.fn(() => ({
     onOutput: vi.fn(),
     stop: vi.fn(),
@@ -147,7 +147,7 @@ vi.mock("../src/utils/stall-detector.js", () => ({
   }))
 }));
 
-vi.mock("../src/hu/store.js", () => ({
+vi.mock("../../src/hu/store.js", () => ({
   createHuBatch: vi.fn(async (id, stories) => ({
     stories: stories.map(s => ({
       id: s.id, status: "pending", original: { text: s.text },
@@ -167,16 +167,16 @@ vi.mock("../src/hu/store.js", () => ({
   answerContextRequest: vi.fn()
 }));
 
-vi.mock("../src/hu/graph.js", () => ({
+vi.mock("../../src/hu/graph.js", () => ({
   topologicalSort: vi.fn((stories) => stories.map(s => s.id))
 }));
 
-vi.mock("../src/hu/splitting-detector.js", () => ({
+vi.mock("../../src/hu/splitting-detector.js", () => ({
   detectIndicators: vi.fn(() => []),
   selectHeuristic: vi.fn(() => null)
 }));
 
-vi.mock("../src/hu/splitting-generator.js", () => ({
+vi.mock("../../src/hu/splitting-generator.js", () => ({
   generateSplitProposal: vi.fn(async () => null),
   formatSplitProposalForFDE: vi.fn(() => ""),
   buildSplitDependencies: vi.fn((subs) => subs)
@@ -220,7 +220,7 @@ describe("pre-loop-stages: runTriageStage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runTriageStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runTriageStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("returns complexity classification on success", async () => {
@@ -262,7 +262,7 @@ describe("pre-loop-stages: runResearcherStage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runResearcherStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runResearcherStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("returns research context on success", async () => {
@@ -294,7 +294,7 @@ describe("pre-loop-stages: runArchitectStage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runArchitectStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runArchitectStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("returns architecture design on success", async () => {
@@ -328,7 +328,7 @@ describe("pre-loop-stages: runPlannerStage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runPlannerStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runPlannerStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("returns implementation plan on success", async () => {
@@ -348,7 +348,7 @@ describe("pre-loop-stages: runPlannerStage", () => {
       ok: false, result: { error: "no plan" }, summary: "Planner error: no plan"
     }));
 
-    const { markSessionStatus } = await import("../src/session/store.js");
+    const { markSessionStatus } = await import("../../src/session/store.js");
     const plannerRole = { provider: "claude", model: null };
 
     await expect(
@@ -368,7 +368,7 @@ describe("pre-loop-stages: runHuReviewerStage", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runHuReviewerStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runHuReviewerStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("auto-generates single HU when no huFile and no PG stories", async () => {
@@ -416,12 +416,12 @@ describe("pre-loop-stages: splitting detection", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     resetRunFns();
-    ({ runHuReviewerStage } = await import("../src/orchestrator/pre-loop-stages.js"));
+    ({ runHuReviewerStage } = await import("../../src/orchestrator/pre-loop-stages.js"));
   });
 
   it("triggers split flow when indicators are detected", async () => {
-    const { detectIndicators, selectHeuristic } = await import("../src/hu/splitting-detector.js");
-    const { generateSplitProposal, buildSplitDependencies } = await import("../src/hu/splitting-generator.js");
+    const { detectIndicators, selectHeuristic } = await import("../../src/hu/splitting-detector.js");
+    const { generateSplitProposal, buildSplitDependencies } = await import("../../src/hu/splitting-generator.js");
 
     detectIndicators.mockReturnValue(["conjunctions"]);
     selectHeuristic.mockReturnValue("workflow-steps");

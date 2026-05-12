@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { createDecompositionSubtasks, buildDecompositionQuestion } from "../src/planning-game/decomposition.js";
+import { createDecompositionSubtasks, buildDecompositionQuestion } from "../../src/planning-game/decomposition.js";
 
 describe("buildDecompositionQuestion", () => {
   it("formats subtasks as numbered list with parent card reference", () => {

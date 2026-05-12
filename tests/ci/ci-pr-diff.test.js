@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockRunCommand = vi.fn();
-vi.mock("../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
+vi.mock("../../src/utils/process.js", () => ({ runCommand: mockRunCommand }));
 
-const { getPrDiff } = await import("../src/ci/pr-diff.js");
+const { getPrDiff } = await import("../../src/ci/pr-diff.js");
 
 describe("[opt-in: ci] ci/pr-diff", () => {
   beforeEach(() => {

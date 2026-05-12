@@ -9,8 +9,8 @@ import {
   parseConfig,
   safeParseConfig,
   formatConfigIssues,
-} from "../src/config/schema.js";
-import { applyRunOverrides } from "../src/config.js";
+} from "../../src/config/schema.js";
+import { applyRunOverrides } from "../../src/config.js";
 import * as v from "valibot";
 
 describe("config schema — parse", () => {

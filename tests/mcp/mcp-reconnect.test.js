@@ -22,7 +22,7 @@ vi.mock("node:fs", async (importOriginal) => {
 
 const fs = await import("node:fs");
 const { setupVersionWatcher, writeRestartMarker, readAndDeleteRestartMarker } = await import(
-  "../src/mcp/orphan-guard.js"
+  "../../src/mcp/orphan-guard.js"
 );
 
 describe("MCP reconnect after npm update", () => {

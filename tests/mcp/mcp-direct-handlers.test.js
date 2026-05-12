@@ -2,57 +2,57 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 // ── Mock heavy dependencies ─────────────────────────────────────
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn(() => ({ provider: "claude" })),
   loadConfig: vi.fn(() => ({ config: { output: { log_level: "silent" }, base_branch: "main" } })),
   applyRunOverrides: vi.fn((c, o) => ({ ...c, ...o })),
   validateConfig: vi.fn()
 }));
 
-vi.mock("../src/utils/logger.js", () => ({
+vi.mock("../../src/utils/logger.js", () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn()
   }))
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn(async () => ({ ok: true, output: "done", exitCode: 0 })),
     reviewTask: vi.fn(async () => ({ ok: true, output: "lgtm", exitCode: 0 }))
   }))
 }));
 
-vi.mock("../src/prompts/planner.js", () => ({
+vi.mock("../../src/prompts/planner.js", () => ({
   buildPlannerPrompt: vi.fn(() => "plan prompt")
 }));
 
-vi.mock("../src/prompts/coder.js", () => ({
+vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPrompt: vi.fn(async () => "code prompt")
 }));
 
-vi.mock("../src/prompts/reviewer.js", () => ({
+vi.mock("../../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn(async () => "review prompt")
 }));
 
-vi.mock("../src/review/parser.js", () => ({
+vi.mock("../../src/review/parser.js", () => ({
   parseMaybeJsonString: vi.fn((s) => null)
 }));
 
-vi.mock("../src/review/diff-generator.js", () => ({
+vi.mock("../../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn(async () => "main"),
   generateDiff: vi.fn(async () => "diff content"),
   setProjectDir: vi.fn()
 }));
 
-vi.mock("../src/review/profiles.js", () => ({
+vi.mock("../../src/review/profiles.js", () => ({
   resolveReviewProfile: vi.fn(async () => ({ rules: "default rules" }))
 }));
 
-vi.mock("../src/utils/run-log.js", () => ({
+vi.mock("../../src/utils/run-log.js", () => ({
   createRunLog: vi.fn(() => ({
     logText: vi.fn(),
     logEvent: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("../src/utils/run-log.js", () => ({
   }))
 }));
 
-vi.mock("../src/utils/stall-detector.js", () => ({
+vi.mock("../../src/utils/stall-detector.js", () => ({
   createStallDetector: vi.fn(() => ({
     onOutput: vi.fn(),
     stop: vi.fn(),
@@ -68,26 +68,26 @@ vi.mock("../src/utils/stall-detector.js", () => ({
   }))
 }));
 
-vi.mock("../src/mcp/progress.js", () => ({
+vi.mock("../../src/mcp/progress.js", () => ({
   sendTrackerLog: vi.fn(),
   buildProgressNotifier: vi.fn(() => null)
 }));
 
-vi.mock("../src/mcp/direct-role-runner.js", () => ({
+vi.mock("../../src/mcp/direct-role-runner.js", () => ({
   runDirectRole: vi.fn(async () => ({ ok: true, output: "role result" }))
 }));
 
-vi.mock("../src/mcp/preflight.js", () => ({
+vi.mock("../../src/mcp/preflight.js", () => ({
   isPreflightAcked: vi.fn(() => true),
   ackPreflight: vi.fn(),
   getSessionOverrides: vi.fn(() => ({}))
 }));
 
-vi.mock("../src/bootstrap.js", () => ({
+vi.mock("../../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn()
 }));
 
-vi.mock("../src/utils/git.js", () => ({
+vi.mock("../../src/utils/git.js", () => ({
   currentBranch: vi.fn(async () => "feat/test-branch")
 }));
 
@@ -98,7 +98,7 @@ vi.mock("node:fs/promises", () => ({
 import { EventEmitter } from "node:events";
 
 // Mock resolveProjectDir and friends in shared-helpers
-vi.mock("../src/mcp/shared-helpers.js", async (importOriginal) => {
+vi.mock("../../src/mcp/shared-helpers.js", async (importOriginal) => {
   const original = await importOriginal();
   return {
     ...original,
@@ -120,10 +120,10 @@ const {
   handleCode, handleReview, handlePlan,
   handleDiscover, handleTriage, handleResearcher,
   handleArchitect, handleAudit
-} = await import("../src/mcp/handlers/direct-handlers.js");
+} = await import("../../src/mcp/handlers/direct-handlers.js");
 
-const { runDirectRole } = await import("../src/mcp/direct-role-runner.js");
-const { isPreflightAcked, ackPreflight } = await import("../src/mcp/preflight.js");
+const { runDirectRole } = await import("../../src/mcp/direct-role-runner.js");
+const { isPreflightAcked, ackPreflight } = await import("../../src/mcp/preflight.js");
 
 // ── Helpers ─────────────────────────────────────────────────────
 

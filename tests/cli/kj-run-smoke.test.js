@@ -9,11 +9,11 @@ const REVIEW_OK = JSON.stringify({
   confidence: 0.9
 });
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/session/store.js", () => {
+vi.mock("../../src/session/store.js", () => {
   let session = null;
   return {
     createSession: vi.fn(async (initial) => {
@@ -43,18 +43,18 @@ vi.mock("../src/session/store.js", () => {
   };
 });
 
-vi.mock("../src/review/diff-generator.js", () => ({
+vi.mock("../../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
   generateDiff: vi.fn().mockResolvedValue("diff content"),
   setProjectDir: vi.fn()
 }));
 
-vi.mock("../src/review/schema.js", () => ({
+vi.mock("../../src/review/schema.js", () => ({
   validateReviewResult: vi.fn((r) => r)
 }));
 
-vi.mock("../src/review/tdd-policy.js", () => ({
+vi.mock("../../src/review/tdd-policy.js", () => ({
   evaluateTddPolicy: vi.fn().mockReturnValue({
     ok: true,
     reason: "pass",
@@ -64,25 +64,25 @@ vi.mock("../src/review/tdd-policy.js", () => ({
   })
 }));
 
-vi.mock("../src/prompts/coder.js", () => ({
+vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPrompt: vi.fn().mockReturnValue("coder prompt")
 }));
 
-vi.mock("../src/prompts/reviewer.js", () => ({
+vi.mock("../../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt")
 }));
 
-vi.mock("../src/sonar/api.js", () => ({
+vi.mock("../../src/sonar/api.js", () => ({
   getQualityGateStatus: vi.fn().mockResolvedValue({ status: "OK" }),
   getOpenIssues: vi.fn().mockResolvedValue({ total: 0, issues: [] })
 }));
 
-vi.mock("../src/sonar/enforcer.js", () => ({
+vi.mock("../../src/sonar/enforcer.js", () => ({
   shouldBlockByProfile: vi.fn().mockReturnValue(false),
   summarizeIssues: vi.fn().mockReturnValue("")
 }));
 
-vi.mock("../src/utils/git.js", () => ({
+vi.mock("../../src/utils/git.js", () => ({
   ensureGitRepo: vi.fn().mockResolvedValue(true),
   currentBranch: vi.fn().mockResolvedValue("feat/test"),
   fetchBase: vi.fn(),
@@ -107,36 +107,36 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
-vi.mock("../src/sonar/manager.js", () => ({
+vi.mock("../../src/sonar/manager.js", () => ({
   sonarUp: vi.fn(),
   isSonarReachable: vi.fn().mockResolvedValue(true)
 }));
 
-vi.mock("../src/sonar/credentials.js", () => ({
+vi.mock("../../src/sonar/credentials.js", () => ({
   loadSonarCredentials: vi.fn().mockResolvedValue({ user: "admin", password: "admin" })
 }));
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-vi.mock("../src/utils/rtk-detect.js", () => ({
+vi.mock("../../src/utils/rtk-detect.js", () => ({
   detectRtk: vi.fn().mockResolvedValue({ available: false, version: null })
 }));
 
-vi.mock("../src/skills/openskills-client.js", () => ({
+vi.mock("../../src/skills/openskills-client.js", () => ({
   isOpenSkillsAvailable: vi.fn().mockResolvedValue(false),
   installSkill: vi.fn().mockResolvedValue({ ok: false }),
   removeSkill: vi.fn().mockResolvedValue({ ok: true })
 }));
 
-vi.mock("../src/skills/skill-detector.js", () => ({
+vi.mock("../../src/skills/skill-detector.js", () => ({
   detectNeededSkills: vi.fn().mockResolvedValue([]),
   autoInstallSkills: vi.fn().mockResolvedValue({ installed: [], failed: [], alreadyInstalled: [] }),
   cleanupAutoInstalledSkills: vi.fn().mockResolvedValue({ removed: [], failed: [] })
 }));
 
-vi.mock("../src/orchestrator/preflight-checks.js", () => ({
+vi.mock("../../src/orchestrator/preflight-checks.js", () => ({
   runPreflightChecks: vi.fn().mockResolvedValue({
     ok: true, checks: [], remediations: [], configOverrides: {}, warnings: [], errors: []
   })
@@ -159,7 +159,7 @@ describe("kj_run smoke", () => {
   });
 
   it("autostarts SonarQube and scans before review when sonar service is unavailable", async () => {
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     const coderAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }) };
     const reviewerAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }), reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK }) };
     createAgent.mockImplementation((name) => {
@@ -167,21 +167,21 @@ describe("kj_run smoke", () => {
       return reviewerAgent;
     });
 
-    const { sonarUp } = await import("../src/sonar/manager.js");
+    const { sonarUp } = await import("../../src/sonar/manager.js");
     sonarUp.mockResolvedValue({
       exitCode: 0,
       stdout: "SonarQube was unreachable and docker compose up -d was executed",
       stderr: ""
     });
 
-    const { runCommand } = await import("../src/utils/process.js");
+    const { runCommand } = await import("../../src/utils/process.js");
     runCommand
       // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
-    const { runFlow } = await import("../src/orchestrator.js");
+    const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e.type));
@@ -231,7 +231,7 @@ describe("kj_run smoke", () => {
   });
 
   it("autostarts SonarQube and auto-authenticates when token is not configured", async () => {
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     const coderAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }) };
     const reviewerAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }), reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK }) };
     createAgent.mockImplementation((name) => {
@@ -239,10 +239,10 @@ describe("kj_run smoke", () => {
       return reviewerAgent;
     });
 
-    const { sonarUp } = await import("../src/sonar/manager.js");
+    const { sonarUp } = await import("../../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "started", stderr: "" });
 
-    const { runCommand } = await import("../src/utils/process.js");
+    const { runCommand } = await import("../../src/utils/process.js");
     runCommand
       // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
@@ -255,7 +255,7 @@ describe("kj_run smoke", () => {
       })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
-    const { runFlow } = await import("../src/orchestrator.js");
+    const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
     const events = [];
     emitter.on("progress", (e) => events.push(e.type));
@@ -312,7 +312,7 @@ describe("kj_run smoke", () => {
   });
 
   it("runs configured coverage command before scan when enabled", async () => {
-    const { createAgent } = await import("../src/agents/index.js");
+    const { createAgent } = await import("../../src/agents/index.js");
     const coderAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }) };
     const reviewerAgent = { runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }), reviewTask: vi.fn().mockResolvedValue({ ok: true, output: REVIEW_OK }) };
     createAgent.mockImplementation((name) => {
@@ -320,10 +320,10 @@ describe("kj_run smoke", () => {
       return reviewerAgent;
     });
 
-    const { sonarUp } = await import("../src/sonar/manager.js");
+    const { sonarUp } = await import("../../src/sonar/manager.js");
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "started", stderr: "" });
 
-    const { runCommand } = await import("../src/utils/process.js");
+    const { runCommand } = await import("../../src/utils/process.js");
     runCommand
       // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
       .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
@@ -331,7 +331,7 @@ describe("kj_run smoke", () => {
       .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
       .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
 
-    const { runFlow } = await import("../src/orchestrator.js");
+    const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
     const config = {
       coder: "codex",

@@ -1,16 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/roles/base-role.js", () => ({
+vi.mock("../../src/roles/base-role.js", () => ({
   resolveRoleMdPath: vi.fn(),
   loadFirstExisting: vi.fn()
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   exists: vi.fn().mockResolvedValue(false),
   ensureDir: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn(),
   getConfigPath: vi.fn(),
   loadConfig: vi.fn(),
@@ -46,10 +46,10 @@ describe("roles command", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    ({ resolveRole } = await import("../src/config.js"));
-    ({ resolveRoleMdPath, loadFirstExisting } = await import("../src/roles/base-role.js"));
-    ({ exists } = await import("../src/utils/fs.js"));
-    ({ listRoles, showRole, rolesCommand, PIPELINE_ROLES, REVIEW_VARIANTS } = await import("../src/commands/roles.js"));
+    ({ resolveRole } = await import("../../src/config.js"));
+    ({ resolveRoleMdPath, loadFirstExisting } = await import("../../src/roles/base-role.js"));
+    ({ exists } = await import("../../src/utils/fs.js"));
+    ({ listRoles, showRole, rolesCommand, PIPELINE_ROLES, REVIEW_VARIANTS } = await import("../../src/commands/roles.js"));
   });
 
   describe("PIPELINE_ROLES", () => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { createRunLog, readRunLog } from "../src/utils/run-log.js";
+import { createRunLog, readRunLog } from "../../src/utils/run-log.js";
 
 describe("run-log", () => {
   let tmpDir;

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/bootstrap.js", () => ({
+vi.mock("../../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
-import { tools } from "../src/mcp/tools.js";
+import { tools } from "../../src/mcp/tools.js";
 
 describe("kj_discover MCP tool schema", () => {
   it("is registered in tools list", () => {
@@ -52,7 +52,7 @@ describe("handleDiscoverDirect", () => {
 
   it("returns error when task is missing", async () => {
     // Import fresh to avoid module caching issues
-    const mod = await import("../src/mcp/server-handlers.js");
+    const mod = await import("../../src/mcp/server-handlers.js");
     handleToolCall = mod.handleToolCall;
 
     const mockServer = {
@@ -66,7 +66,7 @@ describe("handleDiscoverDirect", () => {
   });
 
   it("validates invalid mode", async () => {
-    const mod = await import("../src/mcp/server-handlers.js");
+    const mod = await import("../../src/mcp/server-handlers.js");
     handleToolCall = mod.handleToolCall;
 
     const mockServer = {

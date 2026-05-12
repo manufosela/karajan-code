@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
-import { buildProgressHandler, buildProgressNotifier, buildPipelineTracker, sendTrackerLog, PROGRESS_STAGES } from "../src/mcp/progress.js";
+import { buildProgressHandler, buildProgressNotifier, buildPipelineTracker, sendTrackerLog, PROGRESS_STAGES } from "../../src/mcp/progress.js";
 
 describe("mcp/progress", () => {
   describe("PROGRESS_STAGES", () => {

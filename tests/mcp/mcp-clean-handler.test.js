@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { handleClean } from "../src/mcp/handlers/management-handlers.js";
+import { handleClean } from "../../src/mcp/handlers/management-handlers.js";
 
 let tmpKj;
 let tmpKarajan;

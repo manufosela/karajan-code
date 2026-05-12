@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/bootstrap.js", () => ({
+vi.mock("../../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
-import { tools } from "../src/mcp/tools.js";
+import { tools } from "../../src/mcp/tools.js";
 
 describe("kj_triage MCP tool schema", () => {
   it("is registered in tools list", () => {
@@ -62,7 +62,7 @@ describe("kj_triage handler validation", () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("returns error when task is missing", async () => {
-    const mod = await import("../src/mcp/server-handlers.js");
+    const mod = await import("../../src/mcp/server-handlers.js");
     const mockServer = { sendLoggingMessage: vi.fn(), listRoots: vi.fn().mockResolvedValue({ roots: [] }) };
     const result = await mod.handleToolCall("kj_triage", {}, mockServer);
     expect(result.ok).toBe(false);
@@ -74,7 +74,7 @@ describe("kj_researcher handler validation", () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("returns error when task is missing", async () => {
-    const mod = await import("../src/mcp/server-handlers.js");
+    const mod = await import("../../src/mcp/server-handlers.js");
     const mockServer = { sendLoggingMessage: vi.fn(), listRoots: vi.fn().mockResolvedValue({ roots: [] }) };
     const result = await mod.handleToolCall("kj_researcher", {}, mockServer);
     expect(result.ok).toBe(false);
@@ -86,7 +86,7 @@ describe("kj_architect handler validation", () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("returns error when task is missing", async () => {
-    const mod = await import("../src/mcp/server-handlers.js");
+    const mod = await import("../../src/mcp/server-handlers.js");
     const mockServer = { sendLoggingMessage: vi.fn(), listRoots: vi.fn().mockResolvedValue({ roots: [] }) };
     const result = await mod.handleToolCall("kj_architect", {}, mockServer);
     expect(result.ok).toBe(false);

@@ -1,31 +1,31 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/orchestrator.js", () => ({
+vi.mock("../../src/orchestrator.js", () => ({
   runFlow: vi.fn()
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({
     provider: config.roles?.[role]?.provider || role
   }))
 }));
 
-vi.mock("../src/activity-log.js", () => ({
+vi.mock("../../src/activity-log.js", () => ({
   createActivityLog: vi.fn(() => ({
     write: vi.fn(),
     writeEvent: vi.fn()
   }))
 }));
 
-vi.mock("../src/utils/display/header.js", () => ({
+vi.mock("../../src/utils/display/header.js", () => ({
   printHeader: vi.fn()
 }));
 
-vi.mock("../src/utils/display/event-handlers.js", () => ({
+vi.mock("../../src/utils/display/event-handlers.js", () => ({
   printEvent: vi.fn()
 }));
 
@@ -53,23 +53,23 @@ describe("commands/run", () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
-    const orch = await import("../src/orchestrator.js");
+    const orch = await import("../../src/orchestrator.js");
     runFlow = orch.runFlow;
 
-    const avail = await import("../src/agents/availability.js");
+    const avail = await import("../../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
 
-    const header = await import("../src/utils/display/header.js");
+    const header = await import("../../src/utils/display/header.js");
     printHeader = header.printHeader;
 
-    const eventHandlers = await import("../src/utils/display/event-handlers.js");
+    const eventHandlers = await import("../../src/utils/display/event-handlers.js");
     printEvent = eventHandlers.printEvent;
 
     runFlow.mockResolvedValue({ approved: true, sessionId: "s1" });
   });
 
   it("calls assertAgentsAvailable with required providers", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig({ reviewer_options: { fallback_reviewer: "codex" } });
     await runCommandHandler({ task: "test task", config, logger: noopLogger, flags: {} });
 
@@ -80,7 +80,7 @@ describe("commands/run", () => {
   });
 
   it("does not require codex fallback if coder is something else", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig({
       roles: {
         coder: { provider: "gemini" },
@@ -96,7 +96,7 @@ describe("commands/run", () => {
   });
 
   it("includes planner provider when planner is enabled", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig({
       pipeline: { planner: { enabled: true }, refactorer: { enabled: false } },
       roles: {
@@ -114,7 +114,7 @@ describe("commands/run", () => {
   });
 
   it("calls runFlow with task, config, logger, flags, and emitter", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig();
     await runCommandHandler({ task: "do something", config, logger: noopLogger, flags: { dryRun: true } });
 
@@ -127,7 +127,7 @@ describe("commands/run", () => {
   });
 
   it("prints header and events in normal mode", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig();
     await runCommandHandler({ task: "test", config, logger: noopLogger, flags: {} });
 
@@ -135,7 +135,7 @@ describe("commands/run", () => {
   });
 
   it("does not print header in json mode", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig();
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await runCommandHandler({ task: "test", config, logger: noopLogger, flags: { json: true } });
@@ -145,7 +145,7 @@ describe("commands/run", () => {
   });
 
   it("outputs JSON result in json mode", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig();
     runFlow.mockResolvedValue({ approved: true, sessionId: "s1" });
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -156,7 +156,7 @@ describe("commands/run", () => {
   });
 
   it("propagates runFlow errors", async () => {
-    const { runCommandHandler } = await import("../src/commands/run.js");
+    const { runCommandHandler } = await import("../../src/commands/run.js");
     const config = makeConfig();
     runFlow.mockRejectedValue(new Error("orchestrator failed"));
 

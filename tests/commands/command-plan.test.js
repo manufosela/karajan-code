@@ -1,20 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({
     provider: config.roles?.[role]?.provider || "claude"
   }))
 }));
 
-vi.mock("../src/prompts/planner.js", () => ({
+vi.mock("../../src/prompts/planner.js", () => ({
   buildPlannerPrompt: vi.fn().mockReturnValue("planner prompt")
 }));
 
@@ -46,13 +46,13 @@ describe("commands/plan", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const agents = await import("../src/agents/index.js");
+    const agents = await import("../../src/agents/index.js");
     createAgent = agents.createAgent;
 
-    const avail = await import("../src/agents/availability.js");
+    const avail = await import("../../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
 
-    const prompts = await import("../src/prompts/planner.js");
+    const prompts = await import("../../src/prompts/planner.js");
     buildPlannerPrompt = prompts.buildPlannerPrompt;
     buildPlannerPrompt.mockReturnValue("planner prompt");
 
@@ -62,7 +62,7 @@ describe("commands/plan", () => {
   });
 
   it("asserts planner agent is available", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add auth", config: makeConfig(), logger: noopLogger });
     consoleSpy.mockRestore();
@@ -71,7 +71,7 @@ describe("commands/plan", () => {
   });
 
   it("builds planner prompt with task", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add auth", config: makeConfig(), logger: noopLogger });
     consoleSpy.mockRestore();
@@ -82,7 +82,7 @@ describe("commands/plan", () => {
   });
 
   it("calls agent runTask with prompt and planner role", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add auth", config: makeConfig(), logger: noopLogger });
     consoleSpy.mockRestore();
@@ -95,7 +95,7 @@ describe("commands/plan", () => {
   });
 
   it("passes planner runtime and silence timeouts when configured", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({
       task: "Add auth",
@@ -112,7 +112,7 @@ describe("commands/plan", () => {
   });
 
   it("prints formatted plan on success", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add auth", config: makeConfig(), logger: noopLogger });
 
@@ -123,7 +123,7 @@ describe("commands/plan", () => {
   });
 
   it("outputs raw JSON in json mode", async () => {
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add auth", config: makeConfig(), logger: noopLogger, json: true });
 
@@ -137,7 +137,7 @@ describe("commands/plan", () => {
       runTask: vi.fn().mockResolvedValue({ ok: false, error: "planner crashed", exitCode: 1 })
     });
 
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     await expect(
       planCommand({ task: "Bad plan", config: makeConfig(), logger: noopLogger })
     ).rejects.toThrow("planner crashed");
@@ -148,7 +148,7 @@ describe("commands/plan", () => {
       runTask: vi.fn().mockResolvedValue({ ok: true, output: "Plain text plan:\n1. Do this\n2. Do that", exitCode: 0 })
     });
 
-    const { planCommand } = await import("../src/commands/plan.js");
+    const { planCommand } = await import("../../src/commands/plan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await planCommand({ task: "Add feature", config: makeConfig(), logger: noopLogger });
 

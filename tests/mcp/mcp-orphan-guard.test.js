@@ -24,7 +24,7 @@ describe("orphan-guard", () => {
     vi.useFakeTimers();
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => { throw new Error("ESRCH"); });
 
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const { timer } = setupOrphanGuard({ intervalMs: 100, exitFn });
 
     vi.advanceTimersByTime(100);
@@ -39,7 +39,7 @@ describe("orphan-guard", () => {
     vi.useFakeTimers();
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => true);
 
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const { timer } = setupOrphanGuard({ intervalMs: 100, exitFn });
 
     vi.advanceTimersByTime(300);
@@ -51,7 +51,7 @@ describe("orphan-guard", () => {
   });
 
   it("calls exitFn when stdin emits 'end'", async () => {
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const { timer } = setupOrphanGuard({ intervalMs: 60000, exitFn });
 
     fakeStdin.emit("end");
@@ -61,7 +61,7 @@ describe("orphan-guard", () => {
   });
 
   it("calls exitFn when stdin emits 'close'", async () => {
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const { timer } = setupOrphanGuard({ intervalMs: 60000, exitFn });
 
     fakeStdin.emit("close");
@@ -71,7 +71,7 @@ describe("orphan-guard", () => {
   });
 
   it("calls exitFn on SIGHUP", async () => {
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const { timer } = setupOrphanGuard({ intervalMs: 60000, exitFn });
 
     process.emit("SIGHUP");
@@ -81,7 +81,7 @@ describe("orphan-guard", () => {
   });
 
   it("returns parentPid and timer handle", async () => {
-    const { setupOrphanGuard } = await import("../src/mcp/orphan-guard.js");
+    const { setupOrphanGuard } = await import("../../src/mcp/orphan-guard.js");
     const result = setupOrphanGuard({ intervalMs: 60000, exitFn });
 
     expect(result.parentPid).toBe(process.ppid);

@@ -1,17 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-const { runCommand } = await import("../src/utils/process.js");
+const { runCommand } = await import("../../src/utils/process.js");
 const {
   isOpenSkillsAvailable,
   installSkill,
   removeSkill,
   listSkills,
   readSkill
-} = await import("../src/skills/openskills-client.js");
+} = await import("../../src/skills/openskills-client.js");
 
 describe("openskills-client", () => {
   beforeEach(() => {
@@ -181,7 +181,7 @@ describe("openskills-client", () => {
   });
 });
 
-const { handleToolCall } = await import("../src/mcp/server-handlers.js");
+const { handleToolCall } = await import("../../src/mcp/server-handlers.js");
 
 describe("kj_skills handler", () => {
   beforeEach(() => {

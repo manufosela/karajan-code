@@ -1,14 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({
     provider: config.roles?.[role]?.provider || role
   }))
@@ -31,10 +31,10 @@ describe("commands/researcher", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const agents = await import("../src/agents/index.js");
+    const agents = await import("../../src/agents/index.js");
     createAgent = agents.createAgent;
 
-    const avail = await import("../src/agents/availability.js");
+    const avail = await import("../../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
 
     createAgent.mockReturnValue({
@@ -43,14 +43,14 @@ describe("commands/researcher", () => {
   });
 
   it("asserts researcher provider is available", async () => {
-    const { researcherCommand } = await import("../src/commands/researcher.js");
+    const { researcherCommand } = await import("../../src/commands/researcher.js");
     await researcherCommand({ task: "investigate auth", config: makeConfig(), logger: noopLogger });
 
     expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
   });
 
   it("runs task with researcher role", async () => {
-    const { researcherCommand } = await import("../src/commands/researcher.js");
+    const { researcherCommand } = await import("../../src/commands/researcher.js");
     await researcherCommand({ task: "investigate auth", config: makeConfig(), logger: noopLogger });
 
     const agent = createAgent.mock.results[0].value;
@@ -64,7 +64,7 @@ describe("commands/researcher", () => {
       runTask: vi.fn().mockResolvedValue({ ok: false, error: "research error", exitCode: 1 })
     });
 
-    const { researcherCommand } = await import("../src/commands/researcher.js");
+    const { researcherCommand } = await import("../../src/commands/researcher.js");
     await expect(
       researcherCommand({ task: "bad task", config: makeConfig(), logger: noopLogger })
     ).rejects.toThrow("research error");
@@ -72,7 +72,7 @@ describe("commands/researcher", () => {
 
   it("outputs result on success", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { researcherCommand } = await import("../src/commands/researcher.js");
+    const { researcherCommand } = await import("../../src/commands/researcher.js");
     await researcherCommand({ task: "investigate auth", config: makeConfig(), logger: noopLogger });
 
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("affected_files"));

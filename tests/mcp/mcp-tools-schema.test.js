@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tools } from "../src/mcp/tools.js";
+import { tools } from "../../src/mcp/tools.js";
 
 describe("MCP tools schema", () => {
   it("keeps legacy coder aliases in kj_plan input schema", () => {

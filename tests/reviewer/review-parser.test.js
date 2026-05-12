@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseJsonOutput, parseMaybeJsonString, normalizeReviewPayload } from "../src/review/parser.js";
+import { parseJsonOutput, parseMaybeJsonString, normalizeReviewPayload } from "../../src/review/parser.js";
 
 describe("parseJsonOutput", () => {
   it("parses valid JSON with approved and blocking_issues", () => {

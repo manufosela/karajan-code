@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/sonar/scanner.js", () => ({
+vi.mock("../../src/sonar/scanner.js", () => ({
   runSonarScan: vi.fn()
 }));
 
-vi.mock("../src/sonar/api.js", () => ({
+vi.mock("../../src/sonar/api.js", () => ({
   getQualityGateStatus: vi.fn(),
   getOpenIssues: vi.fn()
 }));
 
-vi.mock("../src/sonar/enforcer.js", () => ({
+vi.mock("../../src/sonar/enforcer.js", () => ({
   summarizeIssues: vi.fn()
 }));
 
@@ -25,14 +25,14 @@ describe("commands/scan", () => {
   beforeEach(async () => {
     vi.resetAllMocks();
 
-    const scanner = await import("../src/sonar/scanner.js");
+    const scanner = await import("../../src/sonar/scanner.js");
     runSonarScan = scanner.runSonarScan;
 
-    const api = await import("../src/sonar/api.js");
+    const api = await import("../../src/sonar/api.js");
     getQualityGateStatus = api.getQualityGateStatus;
     getOpenIssues = api.getOpenIssues;
 
-    const enforcer = await import("../src/sonar/enforcer.js");
+    const enforcer = await import("../../src/sonar/enforcer.js");
     summarizeIssues = enforcer.summarizeIssues;
 
     runSonarScan.mockResolvedValue({ ok: true, projectKey: "my-project" });
@@ -42,7 +42,7 @@ describe("commands/scan", () => {
   });
 
   it("runs sonar scan with config", async () => {
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     const config = makeConfig();
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await scanCommand({ config });
@@ -52,7 +52,7 @@ describe("commands/scan", () => {
   });
 
   it("queries quality gate and issues after scan", async () => {
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     const config = makeConfig();
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await scanCommand({ config });
@@ -63,7 +63,7 @@ describe("commands/scan", () => {
   });
 
   it("prints project key, quality gate status, and issue count", async () => {
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await scanCommand({ config: makeConfig() });
 
@@ -78,7 +78,7 @@ describe("commands/scan", () => {
     getOpenIssues.mockResolvedValue({ total: 3, issues: [{ severity: "MAJOR" }] });
     summarizeIssues.mockReturnValue("MAJOR: 3");
 
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await scanCommand({ config: makeConfig() });
 
@@ -90,14 +90,14 @@ describe("commands/scan", () => {
   it("throws when scan fails", async () => {
     runSonarScan.mockResolvedValue({ ok: false, stderr: "connection refused" });
 
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     await expect(scanCommand({ config: makeConfig() })).rejects.toThrow("scan failed");
   });
 
   it("does not query issues when scan fails", async () => {
     runSonarScan.mockResolvedValue({ ok: false, stderr: "timeout" });
 
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     try {
       await scanCommand({ config: makeConfig() });
     } catch { /* expected */ }
@@ -109,7 +109,7 @@ describe("commands/scan", () => {
   it("prints 'none' when no issues by severity", async () => {
     summarizeIssues.mockReturnValue("");
 
-    const { scanCommand } = await import("../src/commands/scan.js");
+    const { scanCommand } = await import("../../src/commands/scan.js");
     const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await scanCommand({ config: makeConfig() });
 

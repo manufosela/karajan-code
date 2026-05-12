@@ -4,12 +4,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const mockFetchCard = vi.fn();
 const mockUpdateCard = vi.fn();
 
-vi.mock("../src/planning-game/client.js", () => ({
+vi.mock("../../src/planning-game/client.js", () => ({
   fetchCard: (...args) => mockFetchCard(...args),
   updateCard: (...args) => mockUpdateCard(...args)
 }));
 
-const { initPgAdapter, markPgCardToValidate, accumulateCommit } = await import("../src/planning-game/pipeline-adapter.js");
+const { initPgAdapter, markPgCardToValidate, accumulateCommit } = await import("../../src/planning-game/pipeline-adapter.js");
 
 function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn(), setContext: vi.fn() };

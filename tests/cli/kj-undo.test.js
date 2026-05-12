@@ -1,16 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   loadMostRecentSession: vi.fn()
 }));
 
-vi.mock("../src/utils/process.js", () => ({
+vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
 }));
 
-import { loadMostRecentSession } from "../src/session/store.js";
-import { runCommand } from "../src/utils/process.js";
-import { undoCommand } from "../src/commands/undo.js";
+import { loadMostRecentSession } from "../../src/session/store.js";
+import { runCommand } from "../../src/utils/process.js";
+import { undoCommand } from "../../src/commands/undo.js";
 
 describe("kj undo", () => {
   beforeEach(() => {

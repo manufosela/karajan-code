@@ -9,7 +9,7 @@ const executeMock = vi.fn();
 const collectMock = vi.fn();
 const executeWithDetMock = vi.fn();
 
-vi.mock("../src/roles/audit-role.js", () => ({
+vi.mock("../../src/roles/audit-role.js", () => ({
   AuditRole: class {
     constructor(opts) { this.opts = opts; }
     async execute(input) { return executeMock(input); }
@@ -18,24 +18,24 @@ vi.mock("../src/roles/audit-role.js", () => ({
   },
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn(),
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({
     provider: config.roles?.[role]?.provider || role,
   })),
 }));
 
-vi.mock("../src/utils/cli-progress.js", () => ({
+vi.mock("../../src/utils/cli-progress.js", () => ({
   createCliProgressReporter: vi.fn(() => ({
     onOutput: vi.fn(),
     finish: vi.fn(),
   })),
 }));
 
-vi.mock("../src/utils/cli-run-log.js", () => ({
+vi.mock("../../src/utils/cli-run-log.js", () => ({
   withCliRunLog: vi.fn(async (_name, _opts, fn) => {
     const runLog = { logText: vi.fn(), logEvent: vi.fn(), close: vi.fn() };
     return fn({ runLog, forwardProgress: vi.fn() });
@@ -80,19 +80,19 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     collectMock.mockResolvedValue({ projectDir: "/tmp", basalCost: null, growthDelta: null, stack: null, sonarFindings: null, webperf: null });
     executeWithDetMock.mockResolvedValue(successResult);
 
-    const avail = await import("../src/agents/availability.js");
+    const avail = await import("../../src/agents/availability.js");
     assertAgentsAvailable = avail.assertAgentsAvailable;
   });
 
   it("asserts audit provider is available before invoking the role", async () => {
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger });
 
     expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
   });
 
   it("invokes AuditRole.executeWithDeterministic with the task verbatim", async () => {
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger });
 
     expect(executeWithDetMock).toHaveBeenCalledWith(
@@ -102,7 +102,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
   });
 
   it("forwards --dimensions to AuditRole (parseDimensions runs inside the role)", async () => {
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger, dimensions: "security,testing" });
 
     expect(executeWithDetMock).toHaveBeenCalledWith(
@@ -112,7 +112,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
   });
 
   it("falls back to a default task when none is provided", async () => {
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ config: makeConfig(), logger: noopLogger });
 
     expect(executeWithDetMock).toHaveBeenCalledWith(
@@ -128,7 +128,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
       summary: "Audit failed: agent error",
     });
 
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await expect(
       auditCommand({ task: "bad task", config: makeConfig(), logger: noopLogger })
     ).rejects.toThrow("agent error");
@@ -136,7 +136,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
 
   it("outputs JSON when --json flag is set", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit", config: makeConfig(), logger: noopLogger, json: true });
 
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("overallHealth"));
@@ -145,7 +145,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
 
   it("formats the report when JSON is off", async () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit", config: makeConfig(), logger: noopLogger });
 
     const allOutput = spy.mock.calls.map(c => c[0]).join("\n");
@@ -162,7 +162,7 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     });
 
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit", config: makeConfig(), logger: noopLogger });
 
     const allOutput = spy.mock.calls.map(c => c[0]).join("\n");
@@ -181,7 +181,7 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
 
   it("CLI auditCommand and MCP direct-handler both reach AuditRole with the same input shape", async () => {
     // CLI path: invoke auditCommand and capture what it passed to executeWithDeterministic().
-    const { auditCommand } = await import("../src/commands/audit.js");
+    const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({
       task: "Analyze the full codebase",
       config: makeConfig(),
@@ -196,7 +196,7 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
     // legacy execute() convenience which internally calls
     // collectDeterministic() then executeWithDeterministic().
     executeMock.mockClear();
-    const { AuditRole } = await import("../src/roles/audit-role.js");
+    const { AuditRole } = await import("../../src/roles/audit-role.js");
     const mcpRole = new AuditRole({ config: makeConfig(), logger: noopLogger });
     await mcpRole.execute({
       task: "Analyze the full codebase",

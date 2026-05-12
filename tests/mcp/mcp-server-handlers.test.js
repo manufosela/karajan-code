@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../src/mcp/run-kj.js", () => ({
+vi.mock("../../src/mcp/run-kj.js", () => ({
   runKjCommand: vi.fn().mockResolvedValue({ ok: true, exitCode: 0, stdout: "done", stderr: "" })
 }));
 
-vi.mock("../src/orchestrator.js", () => ({
+vi.mock("../../src/orchestrator.js", () => ({
   runFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" }),
   resumeFlow: vi.fn().mockResolvedValue({ approved: true, sessionId: "s_test" })
 }));
 
-vi.mock("../src/config.js", () => ({
+vi.mock("../../src/config.js", () => ({
   loadConfig: vi.fn().mockResolvedValue({
     config: {
       coder: "codex",
@@ -39,61 +39,61 @@ vi.mock("../src/config.js", () => ({
   }))
 }));
 
-vi.mock("../src/utils/logger.js", () => ({
+vi.mock("../../src/utils/logger.js", () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(),
     onLog: vi.fn(), setContext: vi.fn()
   }))
 }));
 
-vi.mock("../src/agents/availability.js", () => ({
+vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn()
 }));
 
-vi.mock("../src/mcp/progress.js", () => ({
+vi.mock("../../src/mcp/progress.js", () => ({
   buildProgressHandler: vi.fn(() => vi.fn()),
   buildProgressNotifier: vi.fn(() => null),
   buildPipelineTracker: vi.fn(() => ({ stages: [] })),
   sendTrackerLog: vi.fn()
 }));
 
-vi.mock("../src/mcp/tool-arg-normalizers.js", () => ({
+vi.mock("../../src/mcp/tool-arg-normalizers.js", () => ({
   normalizePlanArgs: vi.fn((a) => a)
 }));
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn().mockResolvedValue({ ok: true, output: "done", exitCode: 0 }),
     reviewTask: vi.fn().mockResolvedValue({ ok: true, output: '{"approved":true}', exitCode: 0 })
   }))
 }));
 
-vi.mock("../src/prompts/planner.js", () => ({
+vi.mock("../../src/prompts/planner.js", () => ({
   buildPlannerPrompt: vi.fn(() => "planner prompt")
 }));
 
-vi.mock("../src/prompts/coder.js", () => ({
+vi.mock("../../src/prompts/coder.js", () => ({
   buildCoderPrompt: vi.fn(() => "coder prompt")
 }));
 
-vi.mock("../src/prompts/reviewer.js", () => ({
+vi.mock("../../src/prompts/reviewer.js", () => ({
   buildReviewerPrompt: vi.fn(() => "reviewer prompt")
 }));
 
-vi.mock("../src/review/parser.js", () => ({
+vi.mock("../../src/review/parser.js", () => ({
   parseMaybeJsonString: vi.fn((s) => {
     try { return JSON.parse(s); } catch { return null; }
   })
 }));
 
-vi.mock("../src/review/diff-generator.js", () => ({
+vi.mock("../../src/review/diff-generator.js", () => ({
   computeBaseRef: vi.fn().mockResolvedValue("abc123"),
   getUntrackedFiles: vi.fn().mockResolvedValue([]),
   generateDiff: vi.fn().mockResolvedValue("diff content"),
   setProjectDir: vi.fn()
 }));
 
-vi.mock("../src/review/profiles.js", () => ({
+vi.mock("../../src/review/profiles.js", () => ({
   resolveReviewProfile: vi.fn().mockResolvedValue({ rules: "review rules" })
 }));
 
@@ -103,33 +103,33 @@ vi.mock("node:fs/promises", () => ({
   access: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock("../src/utils/git.js", () => ({
+vi.mock("../../src/utils/git.js", () => ({
   currentBranch: vi.fn().mockResolvedValue("feat/my-feature")
 }));
 
-vi.mock("../src/bootstrap.js", () => ({
+vi.mock("../../src/bootstrap.js", () => ({
   ensureBootstrap: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock("../src/roles/researcher-role.js", () => ({
+vi.mock("../../src/roles/researcher-role.js", () => ({
   ResearcherRole: vi.fn().mockImplementation(() => ({
     init: vi.fn().mockResolvedValue(),
     run: vi.fn().mockResolvedValue({ ok: true, result: { files: ["a.js"] }, summary: "research done" })
   }))
 }));
 
-vi.mock("../src/roles/architect-role.js", () => ({
+vi.mock("../../src/roles/architect-role.js", () => ({
   ArchitectRole: vi.fn().mockImplementation(() => ({
     init: vi.fn().mockResolvedValue(),
     run: vi.fn().mockResolvedValue({ ok: true, result: { layers: ["service"] }, summary: "architecture done" })
   }))
 }));
 
-vi.mock("../src/plan/plan-store.js", () => ({
+vi.mock("../../src/plan/plan-store.js", () => ({
   savePlan: vi.fn().mockResolvedValue("plan-20260331-test")
 }));
 
-vi.mock("../src/mcp/sovereignty-guard.js", () => ({
+vi.mock("../../src/mcp/sovereignty-guard.js", () => ({
   validateSovereignty: vi.fn((params) => ({ params: { ...params }, warnings: [] }))
 }));
 
@@ -145,15 +145,15 @@ const {
   handlePlanDirect,
   handleCodeDirect,
   handleReviewDirect
-} = await import("../src/mcp/server-handlers.js");
+} = await import("../../src/mcp/server-handlers.js");
 
-const { runKjCommand } = await import("../src/mcp/run-kj.js");
-const { runFlow, resumeFlow } = await import("../src/orchestrator.js");
-const { assertAgentsAvailable } = await import("../src/agents/availability.js");
-const { createAgent } = await import("../src/agents/index.js");
-const { sendTrackerLog } = await import("../src/mcp/progress.js");
-const { currentBranch } = await import("../src/utils/git.js");
-const { ackPreflight, resetPreflight } = await import("../src/mcp/preflight.js");
+const { runKjCommand } = await import("../../src/mcp/run-kj.js");
+const { runFlow, resumeFlow } = await import("../../src/orchestrator.js");
+const { assertAgentsAvailable } = await import("../../src/agents/availability.js");
+const { createAgent } = await import("../../src/agents/index.js");
+const { sendTrackerLog } = await import("../../src/mcp/progress.js");
+const { currentBranch } = await import("../../src/utils/git.js");
+const { ackPreflight, resetPreflight } = await import("../../src/mcp/preflight.js");
 
 const mockServer = {
   sendLoggingMessage: vi.fn(),

@@ -14,7 +14,7 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 const { readFileSync, watch } = await import("node:fs");
-const { setupVersionWatcher } = await import("../src/mcp/orphan-guard.js");
+const { setupVersionWatcher } = await import("../../src/mcp/orphan-guard.js");
 
 describe("setupVersionWatcher", () => {
   beforeEach(() => {

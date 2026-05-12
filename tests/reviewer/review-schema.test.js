@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateReviewResult } from "../src/review/schema.js";
+import { validateReviewResult } from "../../src/review/schema.js";
 
 describe("validateReviewResult", () => {
   it("accepts valid complete shape", () => {

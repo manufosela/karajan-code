@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn()
 }));
 
@@ -8,7 +8,7 @@ const mockCommitAll = vi.fn();
 const mockPushBranch = vi.fn();
 const mockCreatePullRequest = vi.fn();
 
-vi.mock("../src/utils/git.js", async (importOriginal) => {
+vi.mock("../../src/utils/git.js", async (importOriginal) => {
   const original = await importOriginal();
   return {
     ...original,
@@ -18,7 +18,7 @@ vi.mock("../src/utils/git.js", async (importOriginal) => {
   };
 });
 
-const { earlyPrCreation, incrementalPush } = await import("../src/git/automation.js");
+const { earlyPrCreation, incrementalPush } = await import("../../src/git/automation.js");
 
 const makeLogger = () => ({ info: vi.fn(), warn: vi.fn() });
 const makeSession = () => ({ id: "s_test", checkpoints: [] });

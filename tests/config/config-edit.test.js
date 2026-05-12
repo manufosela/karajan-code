@@ -13,7 +13,7 @@ vi.mock("node:fs/promises", () => ({
   }
 }));
 
-vi.mock("../src/utils/fs.js", () => ({
+vi.mock("../../src/utils/fs.js", () => ({
   ensureDir: vi.fn(),
   exists: vi.fn().mockResolvedValue(true)
 }));
@@ -33,7 +33,7 @@ describe("editConfigOnce", () => {
     spawnSync = cpMod.spawnSync;
     spawnSync.mockReturnValue({ status: 0 });
 
-    const mod = await import("../src/commands/config.js");
+    const mod = await import("../../src/commands/config.js");
     editConfigOnce = mod.editConfigOnce;
   });
 

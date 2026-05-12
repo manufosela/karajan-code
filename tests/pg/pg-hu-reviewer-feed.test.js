@@ -6,30 +6,30 @@ import { EventEmitter } from "node:events";
 const triageRunMock = vi.fn();
 const huReviewerRunMock = vi.fn();
 
-vi.mock("../src/roles/triage-role.js", () => ({
+vi.mock("../../src/roles/triage-role.js", () => ({
   TriageRole: class {
     async init() {}
     async run() { return triageRunMock(); }
   }
 }));
 
-vi.mock("../src/session/store.js", () => ({
+vi.mock("../../src/session/store.js", () => ({
   addCheckpoint: vi.fn(async () => {}),
   markSessionStatus: vi.fn(async () => {})
 }));
 
-vi.mock("../src/utils/model-selector.js", () => ({
+vi.mock("../../src/utils/model-selector.js", () => ({
   selectModelsForRoles: vi.fn(() => ({ modelOverrides: {}, reasoning: "test" }))
 }));
 
-vi.mock("../src/roles/hu-reviewer-role.js", () => ({
+vi.mock("../../src/roles/hu-reviewer-role.js", () => ({
   HuReviewerRole: class {
     async init() {}
     async run(input) { return huReviewerRunMock(input); }
   }
 }));
 
-vi.mock("../src/hu/store.js", () => ({
+vi.mock("../../src/hu/store.js", () => ({
   createHuBatch: vi.fn(async (_id, stories) => ({
     stories: stories.map(s => ({
       ...s,
@@ -51,18 +51,18 @@ vi.mock("../src/hu/store.js", () => ({
   answerContextRequest: vi.fn()
 }));
 
-vi.mock("../src/hu/graph.js", () => ({
+vi.mock("../../src/hu/graph.js", () => ({
   topologicalSort: vi.fn((stories) => stories.map(s => s.id))
 }));
 
-vi.mock("../src/agents/index.js", () => ({
+vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn(() => ({
     runTask: vi.fn(async () => ({ ok: true, output: "{}", usage: {} }))
   }))
 }));
 
-const { runHuReviewerStage } = await import("../src/orchestrator/pre-loop-stages.js");
-const { buildHuStoriesFromPgCard } = await import("../src/planning-game/pipeline-adapter.js");
+const { runHuReviewerStage } = await import("../../src/orchestrator/pre-loop-stages.js");
+const { buildHuStoriesFromPgCard } = await import("../../src/planning-game/pipeline-adapter.js");
 
 describe("PG card feeds HU reviewer", () => {
   const logger = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlanArgs } from "../src/mcp/tool-arg-normalizers.js";
+import { normalizePlanArgs } from "../../src/mcp/tool-arg-normalizers.js";
 
 describe("normalizePlanArgs", () => {
   it("maps legacy coder aliases to planner fields", () => {

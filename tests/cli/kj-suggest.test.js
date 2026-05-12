@@ -6,11 +6,11 @@ import os from "node:os";
 // We need to mock getSessionRoot before importing the handler
 const TEST_SESSION_ROOT = path.join(os.tmpdir(), `kj-suggest-test-${Date.now()}`);
 
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("../../src/utils/paths.js", () => ({
   getSessionRoot: () => TEST_SESSION_ROOT
 }));
 
-const { handleSuggestion } = await import("../src/mcp/suggest-handler.js");
+const { handleSuggestion } = await import("../../src/mcp/suggest-handler.js");
 
 async function createTestSession(id, data = {}) {
   const dir = path.join(TEST_SESSION_ROOT, id);
@@ -89,7 +89,7 @@ describe("kj_suggest", () => {
   });
 
   it("tool description mentions it cannot override decisions", async () => {
-    const { tools } = await import("../src/mcp/tools.js");
+    const { tools } = await import("../../src/mcp/tools.js");
     const suggestTool = tools.find(t => t.name === "kj_suggest");
 
     expect(suggestTool).toBeDefined();
