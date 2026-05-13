@@ -39,3 +39,4 @@ PERSONAL/
 # `undefined/` directory full of test artefacts. Tracked the contents in the
 # Planning Game; meanwhile keep it out of the repo to stop it returning.
 undefined/
+ai-trash-prompt.md

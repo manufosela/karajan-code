@@ -21,6 +21,7 @@
 
 import { checkBinary } from "../utils/agent-detect.js";
 import { getRequiredProviderEnvs, normalizeProvider } from "../utils/provider-env.js";
+import { runCommand } from "../utils/process.js";
 import { STRATEGY } from "./types.js";
 
 /**
@@ -111,10 +112,25 @@ function createGhTokenCheck() {
           extra: { hasGh: false },
         };
       }
+      // KJC-BUG-0049 — el check anterior asumía que un usuario sin env var no
+      // tiene auth válida y abortaba el run. Pero `gh` puede estar autenticado
+      // por keyring/OAuth (caso default tras `gh auth login --web`) y operar
+      // sin env var. Si `gh auth status` devuelve exit 0 (logged in), el flujo
+      // de `auto_pr` funciona — Karajan ya no necesita `GH_TOKEN` en env.
+      try {
+        const auth = await runCommand("gh", ["auth", "status"], { reject: false });
+        if (auth.exitCode === 0) {
+          return {
+            ok: true,
+            severity: "info",
+            detail: "`gh` authenticated via keyring/OAuth (no env var needed)",
+          };
+        }
+      } catch { /* fall through to FAIL */ }
       return {
         ok: false,
         severity: "fail",
-        detail: "No GH_TOKEN/GITHUB_TOKEN; `gh` is installed but auth status unknown",
+        detail: "No GH_TOKEN/GITHUB_TOKEN and `gh auth status` reports not logged in",
         fix: "Run 'gh auth login' or export GH_TOKEN=...",
         extra: { hasGh: true },
       };
