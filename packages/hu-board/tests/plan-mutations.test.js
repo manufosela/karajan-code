@@ -436,6 +436,75 @@ describe('POST /api/plans/:planId/run', () => {
   });
 });
 
+// KJC-TSK-0396: endpoints de Stop + active runs.
+describe('POST /api/runs/:planId/stop + GET /api/runs/:planId/active', () => {
+  let trackerMod;
+  beforeEach(async () => {
+    trackerMod = await import('../src/run-tracker.js');
+    trackerMod._resetForTests();
+  });
+
+  it('GET /active devuelve [] cuando no hay runs', async () => {
+    const res = await request(app).get(`/api/runs/${PLAN_ID}/active`);
+    expect(res.status).toBe(200);
+    expect(res.body.active).toEqual([]);
+  });
+
+  it('GET /active devuelve los runs vivos tracked', async () => {
+    trackerMod.trackRun(PLAN_ID, { pid: process.pid });
+    const res = await request(app).get(`/api/runs/${PLAN_ID}/active`);
+    expect(res.status).toBe(200);
+    expect(res.body.active).toHaveLength(1);
+    expect(res.body.active[0].pid).toBe(process.pid);
+  });
+
+  it('POST /stop sin runs activos ni HUs zombi responde 200 con mensaje', async () => {
+    const res = await request(app)
+      .post(`/api/runs/${PLAN_ID}/stop`)
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.stopped).toBe(0);
+    expect(res.body.killed).toBe(0);
+    expect(res.body.hu_reset_count).toBe(0);
+    expect(res.body.message).toMatch(/No active runs and no stuck HUs/);
+  });
+
+  it('POST /stop con un PID falso (no existe) tras tracking devuelve errors + sigue limpio', async () => {
+    // Tracking de un PID que ya no existe (filtrado en getActiveRuns).
+    trackerMod.trackRun(PLAN_ID, { pid: 99999999 });
+    const res = await request(app)
+      .post(`/api/runs/${PLAN_ID}/stop`)
+      .send({ timeoutMs: 50 });
+    // getActiveRuns filtra el muerto antes de matar → sin runs activos.
+    expect(res.status).toBe(200);
+    expect(res.body.stopped).toBe(0);
+    expect(res.body.killed).toBe(0);
+  });
+
+  it('POST /stop resetea HUs en coding/reviewing del plan a pending', async () => {
+    // Pasamos la HU 001 a coding manualmente vía API para tener algo
+    // que resetear. Esto NO necesita un run real, solo el reset de DB.
+    await request(app)
+      .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_001`)}`)
+      .send({ status: 'certified' });
+    // Ahora simulamos que estaba coding (bypass API porque no acepta coding):
+    dbMod.getDb().prepare(
+      "UPDATE stories SET status = 'coding' WHERE id = ?"
+    ).run(`${PROJECT_ID}::${PLAN_ID}_001`);
+
+    const res = await request(app)
+      .post(`/api/runs/${PLAN_ID}/stop`)
+      .send({ timeoutMs: 10 });
+    expect(res.status).toBe(200);
+    expect(res.body.hu_reset_count).toBeGreaterThanOrEqual(1);
+
+    const row = dbMod.getDb().prepare(
+      'SELECT status FROM stories WHERE id = ?'
+    ).get(`${PROJECT_ID}::${PLAN_ID}_001`);
+    expect(row.status).toBe('pending');
+  });
+});
+
 describe('GET /api/plans/:planId/log', () => {
   it('returns exists:false when the log file does not exist yet', async () => {
     const res = await request(app).get(`/api/plans/${PLAN_ID}/log`);

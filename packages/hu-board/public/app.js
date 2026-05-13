@@ -505,6 +505,11 @@ async function renderBoard() {
                 title="Abrir el log de la HU en marcha">
             ⚙ ${runningCount} running…
           </button>
+          <button id="stop-run-btn" class="control-btn"
+                style="padding:4px 10px;font-size:0.8rem;background:var(--color-red,#ef4444);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;"
+                title="Abortar todos los kj run en marcha de este proyecto (SIGTERM con escalado a SIGKILL tras 5s)">
+            ⏹ Stop
+          </button>
         ` : ''}
         ${lastOpenedLog ? `
           <button class="control-btn" id="view-log-btn"
@@ -587,6 +592,47 @@ async function renderBoard() {
         const tailUrl = (offset) => `/api/runs/${encodeURIComponent(logBasename)}/log?offset=${offset || 0}`;
         lastOpenedLog = { id: logBasename, label: `HU ${localHuId}`, tailUrl };
         openGenericLogPanel({ id: logBasename, label: `HU ${localHuId}`, tailUrl });
+      });
+    }
+
+    // KJC-TSK-0396: botón ⏹ Stop. Abortar todos los kj run vivos del
+    // proyecto. Si hay múltiples planes corriendo (caso raro pero
+    // posible), itera sobre cada planId único de las HUs running.
+    const stopRunBtn = document.getElementById('stop-run-btn');
+    if (stopRunBtn) {
+      stopRunBtn.addEventListener('click', async () => {
+        const runningHus = stories.filter((s) => s.status === 'coding' || s.status === 'reviewing');
+        const planIds = [...new Set(runningHus.map((s) => s.plan_id).filter(Boolean))];
+        if (planIds.length === 0) {
+          await showError('No hay plan_id asociado a las HUs en marcha.', { title: 'Sin runs' });
+          return;
+        }
+        const ok = await showConfirm(
+          `Esto matará ${planIds.length === 1 ? 'el proceso' : `los ${planIds.length} procesos`} del orquestador en marcha y dejará las HUs en curso (coding/reviewing) en pending para que puedas relanzarlas.\n\n¿Seguro?`,
+          { title: 'Abortar kj run', okLabel: 'Stop', cancelLabel: 'Cancelar', destructive: true }
+        );
+        if (!ok) return;
+        const summaries = [];
+        for (const planId of planIds) {
+          try {
+            const res = await fetch(`/api/runs/${encodeURIComponent(planId)}/stop`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+            });
+            const body = await res.json();
+            if (!res.ok) summaries.push(`${planId}: error ${body.error || res.status}`);
+            else summaries.push(`${planId}: ${body.stopped} SIGTERM, ${body.killed} SIGKILL, ${body.hu_reset_count || 0} HUs → pending`);
+          } catch (err) {
+            summaries.push(`${planId}: ${err.message}`);
+          }
+        }
+        await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+        await renderBoard();
+        if (summaries.some((s) => s.includes('SIGKILL') && !s.startsWith('0 ')) && summaries.some((s) => /\b[1-9]\d* SIGKILL/.test(s))) {
+          await showError(
+            `Algún proceso no respondió a SIGTERM en 5s y fue forzado con SIGKILL:\n\n${summaries.join('\n')}`,
+            { title: 'Forzado con SIGKILL' }
+          );
+        }
       });
     }
   } catch (err) {

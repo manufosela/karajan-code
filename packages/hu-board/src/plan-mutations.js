@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, openSy
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
+import { trackRun, untrack } from './run-tracker.js';
 import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
 import { syncPlanFile } from './sync.js';
@@ -326,5 +327,14 @@ export function runPlan({ planId, projectId, taskOverride, huIds = null } = {}) 
     env: { ...process.env, CLAUDECODE: undefined },
   });
   child.unref();
+  // KJC-TSK-0396: registrar el PID para que el botón ⏹ Stop del board
+  // sepa qué procesos matar. trackRun usa Set, así que llamadas
+  // duplicadas no inflan el registro. Cuando el proceso muera, el
+  // event 'exit' lo des-registra (defensa adicional: reaper periódico
+  // que limpia PIDs muertos cada 30s).
+  if (child.pid) {
+    trackRun(planId, { pid: child.pid, huIds: huIds || null });
+    child.on('exit', () => { untrack(planId, child.pid); });
+  }
   return { ok: true, pid: child.pid ?? 0, logPath };
 }
