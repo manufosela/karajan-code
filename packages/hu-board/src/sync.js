@@ -10,6 +10,7 @@ import {
   insertContextRequest,
   getDb,
   isTombstoned,
+  removeTombstone,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
 
@@ -340,7 +341,19 @@ export function syncPlanFile(filePath) {
       : data.planId;
 
     if (skipIfTombstoned('plan', data.planId, filePath)) return;
-    if (skipIfTombstoned('project', projectId, dirname(filePath))) return;
+    // KJC-BUG-0050: el tombstone del PROYECTO no debe bloquear plans
+    // futuros. Cuando el usuario borra un proyecto del board (🗑️), el
+    // tombstone permanente impedía regenerar planes en el mismo
+    // projectDir — `kj plan` escribía el JSON y este sync lo borraba.
+    // Fix: si el proyecto está tombstoned pero el PLAN concreto NO lo
+    // está, asumimos que el usuario quiere resurrectarlo (creó un plan
+    // nuevo) y borramos el tombstone del proyecto. El tombstone-de-plan
+    // sigue respetándose: planes individuales que el usuario borró
+    // siguen muertos hasta que se cree un planId distinto.
+    if (isTombstoned('project', projectId)) {
+      console.log(`[sync] Project ${projectId} was tombstoned but a new plan ${data.planId} arrived — reviving (removing project tombstone).`);
+      removeTombstone('project', projectId);
+    }
     // Human-friendly project name resolution order (most-specific first):
     //   1. plan.name explicitly set by the user / planner ("Linux Assistant
     //      Orchestrator" — preserved across renames done from the board).

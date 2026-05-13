@@ -115,6 +115,34 @@ describe('tombstones — sync.* skip + cleanup', () => {
     syncMod.fullScan();
     expect(existsSync(planPath)).toBe(false);
   });
+
+  // KJC-BUG-0050: tombstone de proyecto NO debe bloquear nuevos planes.
+  // Cuando el usuario borra un proyecto desde el board (🗑️ Delete project)
+  // y luego lanza `kj plan` otra vez en el mismo projectDir, el plan
+  // nuevo (con planId distinto del que estaba al borrar) DEBE sobrevivir
+  // al sync. El tombstone del proyecto se reabsorbe.
+  // El `projectId` se deriva de `data.projectDir` con la misma regla que
+  // `deriveProjectIdFromDir` — `/some/path` → `some_path`.
+  it('syncPlanFile resurrects a tombstoned project when a NEW plan arrives', () => {
+    const planPath = writePlan('some_path', 'plan-NEW');
+    dbMod.addTombstone('project', 'some_path');
+    expect(dbMod.isTombstoned('project', 'some_path')).toBe(true);
+    syncMod.fullScan();
+    // El plan sobrevive en disco
+    expect(existsSync(planPath)).toBe(true);
+    // El tombstone del proyecto se ha borrado
+    expect(dbMod.isTombstoned('project', 'some_path')).toBe(false);
+  });
+
+  // El tombstone del PLAN sigue respetándose aunque el proyecto NO esté tombstoned.
+  it('syncPlanFile still skips when the PLAN itself is tombstoned (project not)', () => {
+    const planPath = writePlan('some_path', 'plan-dead');
+    dbMod.addTombstone('plan', 'plan-dead');
+    syncMod.fullScan();
+    expect(existsSync(planPath)).toBe(false);
+    // El plan permanece tombstoned tras el sync.
+    expect(dbMod.isTombstoned('plan', 'plan-dead')).toBe(true);
+  });
 });
 
 // ---------- DELETE endpoints behaviour ---------------------------------------
