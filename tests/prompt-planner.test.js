@@ -280,4 +280,42 @@ describe("prompts/planner buildPlannerPrompt", () => {
       expect(prompt).toMatch(/outOfScope/);
     });
   });
+
+  // KJC-BUG-0052: hard guard against the planner executing tools when the
+  // task.md contains imperative instructions ("execute", "create file",
+  // "run script"). Without these rules Claude reads them as commands and
+  // mutates the filesystem instead of returning the JSON plan.
+  describe("planner-mode guardrails (KJC-BUG-0052)", () => {
+    it("declares planner-mode rules BEFORE the task body so they bind every input", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      const headerIdx = prompt.indexOf("CRITICAL: planner mode");
+      const taskIdx = prompt.indexOf("## Task");
+      expect(headerIdx).toBeGreaterThan(-1);
+      expect(headerIdx).toBeLessThan(taskIdx);
+    });
+
+    it("prohibits the planner from using write/exec tools", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/DO NOT call Bash, Write, Edit/);
+      expect(prompt).toMatch(/git commits/);
+    });
+
+    it("disambiguates imperative instructions in the task as HU material, not commands", () => {
+      const imperativeSpec = [
+        "## INSTRUCCIONES",
+        "1. Ejecuta los 4 prompts en orden estricto.",
+        "2. Guarda el output como GRETA-research.md.",
+        "3. Run the migration script and commit the result.",
+      ].join("\n");
+      const prompt = buildPlannerPrompt({ task: imperativeSpec });
+      expect(prompt).toMatch(/describe what the FINAL PRODUCT/);
+      expect(prompt).toMatch(/translate every such instruction into one or more HUs/);
+    });
+
+    it("reminds the planner that read-only tools are acceptable but JSON-only output is required", () => {
+      const prompt = buildPlannerPrompt({ task: "task" });
+      expect(prompt).toMatch(/Read-only tools .* are acceptable/i);
+      expect(prompt).toMatch(/ONLY required output is the JSON object/);
+    });
+  });
 });
