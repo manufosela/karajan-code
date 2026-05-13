@@ -865,13 +865,18 @@ async function renderProjectPicker() {
         const counts = bucket(byProject.get(p.id) || []);
         const total = counts.pending + counts.running + counts.done + counts.failed;
         const name = projectNameCache[p.id] || p.name || humaniseProjectName(p.id);
+        // div en lugar de <button> para poder anidar el botón de
+        // delete (HTML no permite buttons anidados). role+tabindex
+        // mantienen la accesibilidad equivalente.
         return `
-          <button type="button" class="project-picker__card" data-project-id="${esc(p.id)}"
-                  style="text-align:left;display:flex;flex-direction:column;gap:8px;padding:14px 16px;
+          <div role="button" tabindex="0" class="project-picker__card" data-project-id="${esc(p.id)}"
+                  style="position:relative;text-align:left;display:flex;flex-direction:column;gap:8px;padding:14px 16px;
                          background:var(--bg-secondary);border:1px solid var(--border);
                          border-radius:var(--radius-sm);cursor:pointer;color:var(--text);
                          transition:border-color 120ms">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+            <button class="project-card__delete" title="Borrar proyecto (cascade)"
+                    data-project-id="${esc(p.id)}" data-project-name="${esc(name)}">🗑️</button>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-right:32px">
               <strong style="font-size:0.95rem">${esc(name)}</strong>
               <span style="font-size:0.75rem;color:var(--text-muted)">${total} HU${total === 1 ? '' : 's'}</span>
             </div>
@@ -885,18 +890,31 @@ async function renderProjectPicker() {
             <div style="font-family:var(--font-mono, monospace);font-size:0.7rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.id)}">
               ${esc(p.id)}
             </div>
-          </button>
+          </div>
         `;
       }).join('')}
     </div>
   `;
 
   app.querySelectorAll('.project-picker__card').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    const enter = () => {
       const id = btn.dataset.projectId;
       // Use the existing route so back/forward work and the dropdown
       // syncs via handleRoute().
       window.location.hash = `board/${encodeURIComponent(id)}`;
+    };
+    btn.addEventListener('click', (e) => {
+      // Click sobre el botón delete anidado — el handler global ya
+      // hace stopPropagation + preventDefault, pero por defensa
+      // ignoramos aquí cualquier click que venga de dentro de él.
+      if (e.target.closest('.project-card__delete')) return;
+      enter();
+    });
+    btn.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.project-card__delete')) {
+        e.preventDefault();
+        enter();
+      }
     });
     // Tiny hover affordance — no CSS file edit needed.
     btn.addEventListener('mouseenter', () => { btn.style.borderColor = 'var(--color-green)'; });

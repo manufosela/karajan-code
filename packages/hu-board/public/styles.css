@@ -718,13 +718,14 @@ a:hover {
   padding: 4px 8px;
   font-size: 0.95rem;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.55;
   transition: all 0.15s;
   z-index: 2;
 }
 
-.project-card:hover .project-card__delete {
-  opacity: 0.6;
+.project-card:hover .project-card__delete,
+.project-picker__card:hover .project-card__delete {
+  opacity: 0.85;
 }
 
 .project-card__delete:hover {
