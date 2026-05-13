@@ -177,6 +177,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("-y, --yes", "Auto-confirm prompts for invasive remediations (CI mode)")
     .option("--json", "Emit machine-readable JSON instead of human output")
     .option("--verbose", "Include fix hints and timing for every check")
+    .option("--project", "Run ONLY project-aware checks (signals, tools per signal, write perms, .env consistency, gh remote access) — useful to validate a specific project before kj run")
     .action(async (flags) => {
       const exitCode = await withConfig(pkgVersion, "doctor", {}, (ctx) =>
         doctorCommand({
@@ -185,6 +186,7 @@ export function registerPipeline(program, { pkgVersion }) {
           yes: !!flags.yes,
           json: !!flags.json,
           verbose: !!flags.verbose,
+          projectOnly: !!flags.project,
         })
       );
       if (Number.isInteger(exitCode)) process.exit(exitCode);

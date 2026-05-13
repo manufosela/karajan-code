@@ -85,6 +85,61 @@ describe("checks/runner", () => {
     });
   });
 
+  describe("degradable checks (KJC-BUG-0049)", () => {
+    it("degrades FAIL → WARN and disables feature flag when check is degradable", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: false, severity: "fail", detail: "no token" })),
+        degradable: {
+          disables: ["git.auto_pr"],
+          warn: "auto_pr disabled",
+        },
+      });
+      const report = await runChecks([c], { config: { git: { auto_pr: true } } });
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.checks[0].detail).toContain("auto_pr disabled");
+      expect(report.overrides.git.auto_pr).toBe(false);
+      expect(report.summary.fail).toBe(0);
+      expect(report.summary.warn).toBe(1);
+    });
+
+    it("supports multiple disables in one degradable check", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: false, severity: "fail", detail: "missing" })),
+        degradable: {
+          disables: ["git.auto_pr", "git.auto_push", "ci.enabled"],
+          warn: "git/ci automation off",
+        },
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.WARN);
+      expect(report.overrides.git.auto_pr).toBe(false);
+      expect(report.overrides.git.auto_push).toBe(false);
+      expect(report.overrides.ci.enabled).toBe(false);
+    });
+
+    it("does NOT touch overrides when check is degradable but passes", async () => {
+      const c = makeCheck({
+        detect: vi.fn(async () => ({ ok: true, severity: "info", detail: "OK" })),
+        degradable: { disables: ["git.auto_pr"], warn: "should not show" },
+      });
+      const report = await runChecks([c], { config: { git: { auto_pr: true } } });
+      expect(report.checks[0].status).toBe(STATUS.OK);
+      expect(report.overrides.git?.auto_pr).toBeUndefined();
+    });
+
+    it("does NOT degrade when check is NOT degradable (regression)", async () => {
+      const c = makeCheck({
+        strategy: STRATEGY.MANUAL,
+        detect: vi.fn(async () => ({ ok: false, severity: "fail", detail: "missing" })),
+      });
+      const report = await runChecks([c], { config: {} });
+      expect(report.checks[0].status).toBe(STATUS.FAIL);
+      expect(report.summary.fail).toBe(1);
+    });
+  });
+
   describe("remediate phase", () => {
     it("FIXED when remediate succeeds and re-verify passes", async () => {
       let detectCall = 0;

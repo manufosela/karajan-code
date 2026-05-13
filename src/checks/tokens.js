@@ -96,6 +96,13 @@ function createGhTokenCheck() {
     strategy: STRATEGY.PROMPT,
     applies: (config) => config?.git?.auto_pr === true,
     describe: "Run 'gh auth login' to authenticate with GitHub",
+    // KJC-BUG-0049: auto_pr es feature opcional. Si falta el token, no abortar
+    // el run — desactivar auto_pr y auto_push (sin push no hay PR posible) y
+    // continuar. El usuario verá WARN y el commit local sigue funcionando.
+    degradable: {
+      disables: ["git.auto_pr", "git.auto_push"],
+      warn: "auto_pr y auto_push DESACTIVADOS para este run (commit local sí funciona). Ejecuta `gh auth login` para reactivar.",
+    },
     async detect() {
       const envOk = !!process.env.GH_TOKEN || !!process.env.GITHUB_TOKEN;
       if (envOk) {

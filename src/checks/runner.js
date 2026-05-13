@@ -98,6 +98,17 @@ export async function runChecks(checks, ctx, options = {}) {
         entry.runMs = Date.now() - start;
         entry.status = resolveStatusFromDetect(entry.check, result);
         entry.detail = result.detail;
+        // KJC-BUG-0049: si el check es degradable y falló (status FAIL/WARN tras
+        // resolveStatusFromDetect), aplicar disables al overrides y degradar a WARN.
+        // Así el preflight no aborta — la feature opcional se desactiva con aviso.
+        if (!result.ok && entry.check.degradable && (entry.status === STATUS.FAIL || entry.status === STATUS.WARN)) {
+          for (const dotPath of entry.check.degradable.disables || []) {
+            setDotPath(overrides, dotPath, false);
+          }
+          entry.status = STATUS.WARN;
+          entry.detail = `${result.detail} → ${entry.check.degradable.warn}`;
+          entry.degraded = true;
+        }
       } catch (err) {
         entry.runMs = Date.now() - start;
         if (err instanceof TimeoutError) {
@@ -225,6 +236,24 @@ function summarize(reports) {
     if (k in summary) summary[k]++;
   }
   return summary;
+}
+
+/**
+ * Set a dot-path on a target object, creating intermediate objects as needed.
+ * Used by the `degradable` check support (KJC-BUG-0049) to disable feature
+ * flags like `git.auto_pr` when their preflight check fails.
+ *
+ * @example setDotPath({}, "git.auto_pr", false) // → { git: { auto_pr: false } }
+ */
+function setDotPath(target, dotPath, value) {
+  const parts = String(dotPath).split(".");
+  let cursor = target;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (cursor[k] == null || typeof cursor[k] !== "object") cursor[k] = {};
+    cursor = cursor[k];
+  }
+  cursor[parts.at(-1)] = value;
 }
 
 /**

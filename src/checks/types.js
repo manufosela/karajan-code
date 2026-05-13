@@ -42,6 +42,12 @@
  */
 
 /**
+ * @typedef {Object} DegradableSpec
+ * @property {string[]} disables        - dot-paths del config a desactivar si el check falla (e.g. ["git.auto_pr", "git.auto_push"])
+ * @property {string} warn              - mensaje WARN que se muestra al usuario explicando qué se desactivó y por qué
+ */
+
+/**
  * @typedef {Object} Check
  * @property {string} name                       - slug, unique across all checks (e.g. "node-version")
  * @property {string} label                      - human label (e.g. "Node.js runtime")
@@ -50,6 +56,10 @@
  * @property {(ctx: RemediationContext) => Promise<RemediationResult>} [remediate]
  * @property {string} [describe]                 - shown to user when strategy is "prompt"
  * @property {(config: Object) => boolean} [applies]  - if false, check is SKIPPED (lazy evaluation). Default: always applies.
+ * @property {DegradableSpec} [degradable]       - KJC-BUG-0049: si está definido y el check falla, en lugar de abortar
+ *                                                  el preflight, se desactivan los flags listados en `disables` y se emite
+ *                                                  WARN con `warn`. Útil para features opcionales (auto_pr, auto_push,
+ *                                                  sonar advisory, etc.) que no son blockers absolutos.
  */
 
 /**

@@ -26,13 +26,25 @@ import { getTokenChecks } from "../checks/tokens.js";
 import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
 import { getDirSetupChecks } from "../checks/dir-setup.js";
+import { getProjectChecks } from "../checks/project-checks.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
+ *
+ * KJC-TSK-0393: cuando `projectOnly === true`, devuelve SOLO los project-aware
+ * checks (signals, tools per signal, write perms, .env consistency, gh remote
+ * access). Útil para validar un proyecto específico sin re-correr todos los
+ * checks globales (CLIs, node, sonar, etc.).
+ *
  * @param {Object} config
+ * @param {{ projectOnly?: boolean }} [opts]
  * @returns {import("../checks/types.js").Check[]}
  */
-function buildChecks(config) {
+function buildChecks(config, { projectOnly = false } = {}) {
+  const projectDir = config?.projectDir || process.cwd();
+  if (projectOnly) {
+    return getProjectChecks({ projectDir });
+  }
   return [
     ...getSystemChecks(),
     ...getNodeChecks(),
@@ -46,6 +58,7 @@ function buildChecks(config) {
     ...getSkillsChecks(),
     ...getCiChecks(),
     ...getRtkChecks(),
+    ...getProjectChecks({ projectDir }),
   ];
 }
 
@@ -77,8 +90,8 @@ function confirmViaTty(describe) {
  * @param {{ config: Object, checkOnly?: boolean, yes?: boolean, onConfirm?: Function, logger?: Object }} args
  * @returns {Promise<import("../checks/types.js").RunReport>}
  */
-async function runDoctor({ config, checkOnly = false, yes = false, onConfirm, logger }) {
-  const checks = buildChecks(config);
+async function runDoctor({ config, checkOnly = false, yes = false, onConfirm, logger, projectOnly = false }) {
+  const checks = buildChecks(config, { projectOnly });
   return runCheckPipeline(checks, { config }, {
     mode: checkOnly ? "check-only" : "fix",
     yes,
@@ -105,8 +118,8 @@ export async function runChecks({ config }) {
  * @param {{ config: Object, checkOnly?: boolean, yes?: boolean, json?: boolean, verbose?: boolean }} args
  * @returns {Promise<number>}
  */
-export async function doctorCommand({ config, checkOnly = false, yes = false, json = false, verbose = false }) {
-  const report = await runDoctor({ config, checkOnly, yes });
+export async function doctorCommand({ config, checkOnly = false, yes = false, json = false, verbose = false, projectOnly = false }) {
+  const report = await runDoctor({ config, checkOnly, yes, projectOnly });
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));
