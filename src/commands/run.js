@@ -4,6 +4,7 @@ import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
+import { registerRun, unregisterRun } from "../utils/run-registry.js";
 import { printHeader } from "../utils/display/header.js";
 import { printEvent } from "../utils/display/event-handlers.js";
 import { resolveRole } from "../config.js";
@@ -112,6 +113,28 @@ export async function runCommandHandler({ task, config, logger, flags }) {
   return withCliRunLog("run", { projectDir: config?.projectDir, logger }, async ({ runLog, forwardProgress }) => {
     runLog.logText(`[kj_run] task="${String(task).slice(0, 80)}..."`);
 
+    // KJC-TSK-0396 extensión: registrar el PID + planId + huIds en
+    // ~/.karajan/runs/<runId>.json para que el HU Board pueda mostrar
+    // el botón ⏹ Stop incluso cuando el run se lanza desde terminal
+    // externa (no solo desde el botón ▶ Run del board). Best-effort:
+    // si la escritura falla, el run sigue su curso normal. Limpieza
+    // garantizada en el finally del withCliRunLog vía registry.unregisterRun.
+    const huIdsFromFlag = typeof flags?.hu === "string"
+      ? flags.hu.split(",").map((s) => s.trim()).filter(Boolean)
+      : null;
+    const runId = registerRun({
+      pid: process.pid,
+      planId: flags?.plan || null,
+      huIds: huIdsFromFlag,
+      projectDir: config?.projectDir || process.cwd(),
+      source: "cli",
+    });
+    const cleanupRegistry = () => { if (runId) unregisterRun(runId); };
+    // Cubrir todos los caminos de salida del proceso.
+    process.once("exit", cleanupRegistry);
+    process.once("SIGTERM", () => { cleanupRegistry(); process.exit(143); });
+    process.once("SIGINT", () => { cleanupRegistry(); process.exit(130); });
+
     const emitter = new EventEmitter();
     let activityLog = null;
 
@@ -139,7 +162,16 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     }
 
     const askQuestion = createCliAskQuestion();
-    const result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+    let result;
+    try {
+      result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+    } finally {
+      // KJC-TSK-0396: limpia el registro pase lo que pase (éxito,
+      // throw, o paused). Los handlers de SIGINT/SIGTERM/exit son
+      // backstop para casos donde el throw no llega aquí (segfault,
+      // kill -9, etc.).
+      cleanupRegistry();
+    }
 
     if (jsonMode) {
       console.log(JSON.stringify(result, null, 2));
