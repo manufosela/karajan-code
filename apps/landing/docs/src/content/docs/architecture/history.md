@@ -5,6 +5,16 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 67: Patch — ▶ button respects blocked_by + [EPICA] prefix + spec-conventions docs (v2.14.2)
+
+**v2.14.2** (patch, 2026-05-12) — 2 UX bugs + 1 docs gap from GRETA Plan 2 dogfooding v2.14.1.
+
+**Botón ▶ Run respeta blocked_by** (`KJC-BUG-0048`, #687): el cálculo `canRunHu` en `packages/hu-board/public/app.js` solo miraba `status + testCount`, así que el botón ▶ se pintaba en TODAS las HUs `pending`, permitiendo lanzar HUs cuyas deps aún no existían. El frontend ya pintaba "⏳ waits for: …" debajo del título pero el botón ▶ aparecía igual. Fix: añadir `&& blockedBy.length === 0` al `canRunHu`. La variable `blockedBy` ya estaba en scope (línea 944).
+
+**[EPICA] prefix en titles del planner** (#687): durante la evolución v2.14.x, los titles perdieron el prefix `[NOMBRE_EPICA]` que orientaba al usuario sobre qué área del plan pertenecía cada HU. Fix: añadir sección `\`description\` (REQUIRED — MUST start with \`[EPICA] \` prefix)` al prompt del planner. El primer carácter del `description` se convierte en el title del board tras truncar a 80 chars (en `commands/plan/generate.js:127`), así que el prefix sale automático. Heurística: identificar la EPICA del task text (`### Épica NOMBRE`, `## Phase X`, categorías repetidas como `INFRA`/`SHARED`/`UI`/`API`). Fallback: `[INFRA]` para setup, `[SHARED]` para cross-cutting. Dogfooding GRETA Plan 2 produce 62/62 HUs con prefix correcto (PROFILE, ASSESS, AI, IMPACT, GUARD, INFRA, CATALOG).
+
+**`spec-conventions.md` documento central** (`KJC-TSK-0385`, #688): el usuario observó que las plantillas existentes (PR #664 / TSK-0378) cubrían parcialmente las convenciones del task file, pero faltaban las patologías nuevas descubiertas en v2.14.x. Nuevo documento `docs/task-templates/spec-conventions.md` (191 LOC) con las **6 convenciones** que el planner v2.14.x entiende: (1) épicas con `### Épica NOMBRE`, (2) scope exclusions `NO incluye en este plan: …` (6 patrones ES + EN), (3) deps transversales `TODOS los X`, (4) reuse marker, (5) async observers (AVISA-no-BLOQUEA), (6) deps explícitas. Más tabla de antipatrones detectados en dogfooding y checklist pre-generación. La plantilla `plan-generate.md` se actualizó con banner + 4 secciones 📘 invocando estas convenciones, y el README de task-templates destaca el documento central.
+
 ## Phase 66: Patch — Self-fix convergence guard + async-deps respect (v2.14.1)
 
 **v2.14.1** (patch, 2026-05-12) — 2 PRs absorbiendo las patologías del planner que el dogfooding de v2.14.0 contra GRETA Plan 2 reveló a las pocas horas de release.

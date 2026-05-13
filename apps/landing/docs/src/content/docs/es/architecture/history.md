@@ -5,6 +5,16 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
+## Fase 67: Patch — Botón ▶ respeta blocked_by + [EPICA] prefix + docs spec-conventions (v2.14.2)
+
+**v2.14.2** (patch, 2026-05-12) — 2 UX bugs + 1 gap docs detectados en dogfooding GRETA Plan 2 v2.14.1.
+
+**Botón ▶ Run respeta blocked_by** (`KJC-BUG-0048`, #687): `canRunHu` en `packages/hu-board/public/app.js` solo miraba `status + testCount`, así que el botón ▶ aparecía en TODAS las HUs `pending`, permitiendo lanzar HUs cuyas deps no existían aún. El frontend ya mostraba "⏳ waits for: …" debajo del title pero el botón ▶ se pintaba igual. Fix: añadir `&& blockedBy.length === 0`. Las 19/58 HUs entry-point siguen mostrando ▶; las 39 con deps muestran solo el badge waits-for.
+
+**[EPICA] prefix en titles** (#687): los titles del board habían perdido el prefix `[NOMBRE_EPICA]` durante v2.14.x. Sin él era imposible orientarse de un vistazo. Fix: regla en el prompt del planner `description: "[EPICA] one-sentence description"`. Los primeros 80 chars del `description` se convierten en el title del board, así el prefix sale automático. Fallback `[INFRA]`/`[SHARED]`. Dogfooding GRETA: 62/62 HUs con prefix correcto.
+
+**spec-conventions.md** (`KJC-TSK-0385`, #688): documento central de 191 LOC con las **6 convenciones SPEC** que el planner v2.14.x entiende: épicas, scope exclusions, deps transversales, reuse, async observers, deps explícitas. Más antipatrones y checklist pre-generación. `plan-generate.md` y `README.md` de task-templates actualizados para enlazar.
+
 ## Fase 66: Patch — Convergence guard del self-fix + respeto a async-deps (v2.14.1)
 
 **v2.14.1** (patch, 2026-05-12) — 2 PRs absorbiendo las patologías del planner que el dogfooding de v2.14.0 contra GRETA Plan 2 reveló a las pocas horas del release.
