@@ -7,7 +7,21 @@
 import { generatePlanId } from "./plan-id.js";
 
 const VALID_PLAN_STATUSES = new Set(["draft", "ready", "running", "done", "failed"]);
-const VALID_HU_STATUSES = new Set(["pending", "certified", "coding", "reviewing", "done", "failed", "blocked"]);
+// KJC-TSK-0394 step 5: el modelo CANONICAL del lifecycle es
+// {pending, running, done}. Los valores certified/coding/reviewing/
+// failed/blocked/needs_context se mantienen como LEGACY (siguen
+// aceptados por validatePlan para no romper plans existentes ni el
+// runtime actual). El cleanup definitivo del runtime queda como
+// follow-up; mientras tanto la UI puede usar canonicalStatus +
+// effectiveResult para presentar el modelo de 3 estados sin tocar
+// la persistencia.
+const VALID_HU_STATUSES = new Set([
+  // Canonical
+  "pending", "running", "done",
+  // Legacy
+  "certified", "coding", "reviewing", "failed", "blocked", "needs_context",
+]);
+export const CANONICAL_HU_STATUSES = new Set(["pending", "running", "done"]);
 // KJC-TSK-0394: nuevo campo `result` ortogonal a status. Reemplaza la
 // sobrecarga semántica del status (certified=pass, failed=fail) por una
 // distinción explícita entre lifecycle (status) y último resultado (result).
@@ -29,6 +43,51 @@ export function inferResultFromLegacyStatus(hu) {
   if (hu?.status === "done") return "pass";
   if (hu?.status === "failed") return "fail";
   return null;
+}
+
+/**
+ * KJC-TSK-0394 step 5: mapea cualquier status (legacy o canonical) al
+ * modelo CANONICAL {pending, running, done}. Permite que la UI y los
+ * agregados (counts, kanban columns) trabajen contra un enum pequeño
+ * sin tener que conocer todas las variantes legacy.
+ *
+ *   certified | blocked | needs_context | pending → pending
+ *   coding | reviewing | running                  → running
+ *   done | failed                                 → done
+ *
+ * `failed` mapea a `done` porque conceptualmente es lifecycle terminal
+ * — el "falló" lo lleva el campo `result` ortogonal (step 1). Lo mismo
+ * para `certified`: no es un lifecycle, es "ready to run" que en el
+ * modelo canónico vive como `pending` + acceptance_tests no vacío.
+ */
+export function canonicalStatus(status) {
+  switch (status) {
+    case "running":
+    case "coding":
+    case "reviewing":
+      return "running";
+    case "done":
+    case "failed":
+      return "done";
+    default:
+      return "pending";
+  }
+}
+
+/**
+ * KJC-TSK-0394 step 5: result "efectivo" para la UI. Si el HU tiene
+ * `result` poblado (plans migrados), lo usa directamente. Si no
+ * (plans legacy pre-migración), lo deduce del status — equivalente a
+ * inferResultFromLegacyStatus pero llamable directamente sobre cada
+ * HU al renderizar.
+ *
+ * Permite a la UI mostrar badges ✓/✗ en plans antiguos sin esperar a
+ * que el usuario corra `kj plan migrate-result`.
+ */
+export function effectiveResult(hu) {
+  if (!hu) return null;
+  if (hu.result !== undefined && hu.result !== null) return hu.result;
+  return inferResultFromLegacyStatus(hu);
 }
 
 /**
