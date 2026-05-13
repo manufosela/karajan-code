@@ -1012,12 +1012,29 @@ function renderStoryCard(story) {
       ${antipatterns.length > 0 ? `<div class="story-card__antipattern">${antipatterns.map((a) => esc(a)).join(', ')}</div>` : ''}
       <div class="story-card__meta" style="margin-top:6px">
         <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
-        ${renderResultBadge(story.result)}
+        ${renderResultBadge(computeEffectiveResult(story))}
         <span class="story-card__time">${timeAgo(story.updated_at)}</span>
         ${renderOutcomeChip(story.outcome)}
       </div>
     </div>
   `;
+}
+
+/**
+ * KJC-TSK-0394 step 5: result "efectivo" para la UI. Sobre el campo
+ * persistido `story.result` (si existe), o inferido del status legacy
+ * (done→pass, failed→fail). Permite pintar badges en plans antiguos
+ * sin requerir migración previa con `kj plan migrate-result`.
+ *
+ * Espejo de plan-schema.js::effectiveResult — necesario aquí porque la
+ * UI corre en el browser y no puede importar módulos Node del backend.
+ */
+function computeEffectiveResult(story) {
+  if (!story) return null;
+  if (story.result !== undefined && story.result !== null) return story.result;
+  if (story.status === 'done') return 'pass';
+  if (story.status === 'failed') return 'fail';
+  return null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { generatePlanId, generateHuId } from "../../src/plan/plan-id.js";
-import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan, mapLegacyStatusToResult, VALID_HU_RESULTS } from "../../src/plan/plan-schema.js";
+import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan, mapLegacyStatusToResult, VALID_HU_RESULTS, canonicalStatus, effectiveResult, CANONICAL_HU_STATUSES } from "../../src/plan/plan-schema.js";
 import { addHu, removeHu, updateHu, updateHuStatus, certifyAllHus, reorderHus } from "../../src/plan/plan-hu-ops.js";
 
 describe("plan-id", () => {
@@ -267,5 +267,63 @@ describe("mapLegacyStatusToResult (KJC-TSK-0394 migration)", () => {
   it("idempotente — re-mapear un valor canónico no rompe", () => {
     expect(mapLegacyStatusToResult("pending").status).toBe("pending");
     expect(mapLegacyStatusToResult("done").status).toBe("done");
+  });
+});
+
+describe("canonicalStatus (KJC-TSK-0394 step 5)", () => {
+  it("canónicos se devuelven intactos", () => {
+    expect(canonicalStatus("pending")).toBe("pending");
+    expect(canonicalStatus("running")).toBe("running");
+    expect(canonicalStatus("done")).toBe("done");
+  });
+  it("coding/reviewing → running", () => {
+    expect(canonicalStatus("coding")).toBe("running");
+    expect(canonicalStatus("reviewing")).toBe("running");
+  });
+  it("failed → done (failure lo lleva el campo result, no el status)", () => {
+    expect(canonicalStatus("failed")).toBe("done");
+  });
+  it("certified/blocked/needs_context → pending", () => {
+    expect(canonicalStatus("certified")).toBe("pending");
+    expect(canonicalStatus("blocked")).toBe("pending");
+    expect(canonicalStatus("needs_context")).toBe("pending");
+  });
+  it("valor desconocido → pending (defensive)", () => {
+    expect(canonicalStatus("weird")).toBe("pending");
+    expect(canonicalStatus(undefined)).toBe("pending");
+  });
+  it("CANONICAL_HU_STATUSES expone los 3 canónicos", () => {
+    expect([...CANONICAL_HU_STATUSES].sort()).toEqual(["done", "pending", "running"]);
+  });
+});
+
+describe("effectiveResult (KJC-TSK-0394 step 5)", () => {
+  it("hu con result poblado → lo devuelve", () => {
+    expect(effectiveResult({ status: "done", result: "partial" })).toBe("partial");
+    expect(effectiveResult({ status: "running", result: "fail" })).toBe("fail");
+  });
+  it("hu legacy sin result + status done → pass", () => {
+    expect(effectiveResult({ status: "done" })).toBe("pass");
+  });
+  it("hu legacy sin result + status failed → fail", () => {
+    expect(effectiveResult({ status: "failed" })).toBe("fail");
+  });
+  it("hu sin result y status no-terminal → null", () => {
+    expect(effectiveResult({ status: "pending" })).toBe(null);
+    expect(effectiveResult({ status: "coding" })).toBe(null);
+  });
+  it("hu null o vacío → null", () => {
+    expect(effectiveResult(null)).toBe(null);
+    expect(effectiveResult({})).toBe(null);
+  });
+});
+
+// validatePlan ahora acepta el nuevo status canonical `running`.
+describe("validatePlan running canonical (KJC-TSK-0394 step 5)", () => {
+  it("acepta status `running` como válido", () => {
+    const plan = createPlanV2("test");
+    addHu(plan, { title: "x" });
+    plan.hus[0].status = "running";
+    expect(validatePlan(plan).valid).toBe(true);
   });
 });
