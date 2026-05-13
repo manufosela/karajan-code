@@ -383,6 +383,22 @@ a:hover {
 .status--done { background: rgba(52, 211, 153, 0.15); color: var(--color-green); }
 .status--coding { background: rgba(124, 58, 237, 0.15); color: var(--accent-purple); }
 
+/* KJC-TSK-0394 step 2: badge ortogonal al status que pinta el último
+   `result` conocido (pass / fail / partial). Convive con el status:
+   p. ej. status=done + result=pass = "terminó y todo OK"; status=done
+   + result=fail = "terminó pero tests fallaron"; status=pending +
+   result=fail = "está en cola para reintentar (último run falló)". */
+.story-card__result {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+}
+.result--pass { background: rgba(52, 211, 153, 0.15); color: var(--color-green); }
+.result--fail { background: rgba(248, 113, 113, 0.15); color: var(--color-red); }
+.result--partial { background: rgba(234, 179, 8, 0.15); color: var(--color-yellow); }
+
 .story-card__time {
   font-size: 0.65rem;
   color: var(--text-muted);

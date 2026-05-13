@@ -957,15 +957,18 @@ function renderStoryCard(story) {
   const missingTestContract = testCount === 0 && ['pending', 'certified'].includes(story.status);
 
   // PR4: per-HU ▶ Run button. Visible when:
-  //   - the HU is certified or failed (re-run after fixing) AND
-  //   - it has at least one acceptance test (otherwise the run
-  //     would refuse) AND
+  //   - the HU is in a re-runnable lifecycle state (certified / failed /
+  //     pending / done — KJC-TSK-0394 step 2 adds `done` so the user can
+  //     replay a HU whose `result` was fail or partial without having to
+  //     "reset to pending" first) AND
+  //   - it has at least one acceptance test (otherwise the run would
+  //     refuse) AND
   //   - it isn't currently coding/reviewing AND
   //   - KJC-BUG-0048: it has no unresolved blocked_by deps. The card
   //     already shows "⏳ waits for: ..." below the title; the ▶ button
   //     must match that gating or the user can launch a HU whose deps
   //     don't exist yet, hitting the missing-prereq path at runtime.
-  const canRunHu = ['certified', 'failed', 'pending'].includes(story.status)
+  const canRunHu = ['certified', 'failed', 'pending', 'done'].includes(story.status)
     && testCount > 0
     && !['coding', 'reviewing'].includes(story.status)
     && blockedBy.length === 0;
@@ -1009,11 +1012,34 @@ function renderStoryCard(story) {
       ${antipatterns.length > 0 ? `<div class="story-card__antipattern">${antipatterns.map((a) => esc(a)).join(', ')}</div>` : ''}
       <div class="story-card__meta" style="margin-top:6px">
         <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
+        ${renderResultBadge(story.result)}
         <span class="story-card__time">${timeAgo(story.updated_at)}</span>
         ${renderOutcomeChip(story.outcome)}
       </div>
     </div>
   `;
+}
+
+/**
+ * KJC-TSK-0394 step 2: render the per-HU `result` badge. Ortogonal al
+ * status — el status es lifecycle (pending → running → done), el result
+ * es el último outcome conocido de la ejecución (pass / fail / partial).
+ * Sin result = nunca se ha ejecutado, no se pinta nada.
+ *
+ * @param {string|null} result
+ * @returns {string} HTML
+ */
+function renderResultBadge(result) {
+  if (!result) return '';
+  const icons = { pass: '✓', fail: '✗', partial: '~' };
+  const titles = {
+    pass: 'Última ejecución: todos los tests pasaron',
+    fail: 'Última ejecución: falló',
+    partial: 'Última ejecución: pasó parcialmente',
+  };
+  const icon = icons[result];
+  if (!icon) return '';
+  return `<span class="story-card__result result--${esc(result)}" title="${esc(titles[result])}">${icon}</span>`;
 }
 
 /**
@@ -1371,6 +1397,45 @@ window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
     await renderBoard();
   } catch (err) {
     await showError(err.message || String(err), { title: 'Fallo al lanzar la HU' });
+  }
+};
+
+/**
+ * KJC-TSK-0394 step 2: devolver una HU al estado `pending` desde
+ * cualquier estado no-terminal (coding/reviewing/blocked zombi) o
+ * terminal (done/failed) que el usuario quiera relanzar limpio.
+ *
+ * No tocamos el campo `result`: si una HU acaba en done+fail y el
+ * usuario hace Reset → status: pending, result: fail (badge ✗ persiste
+ * como historial). El siguiente run sobreescribirá result cuando
+ * termine.
+ *
+ * El backend ya acepta {status: 'pending'} en ALLOWED_STORY_STATUSES
+ * (ver routes/api.js); plan-mutations::setHuStatus refleja el cambio
+ * al fichero del plan y resincroniza la BBDD.
+ */
+window.resetHuToPending = async function resetHuToPending(storyId) {
+  const ok = await showConfirm(
+    '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',
+    { title: 'Reset HU', okLabel: 'Reset', cancelLabel: 'Cancelar' }
+  );
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'pending' }),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudo resetear la HU' });
+      return;
+    }
+    closeModal();
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo al resetear la HU' });
   }
 };
 
@@ -1975,6 +2040,12 @@ async function showStoryDetail(storyId) {
     // (plan_id null) have no source-of-truth file to write to, so PATCH
     // would 409 anyway.
     const canEdit = ['pending', 'certified', 'needs_context', 'blocked'].includes(story.status);
+    // KJC-TSK-0394 step 2: "Reset to pending" para destrabar HUs zombi
+    // (coding/reviewing/blocked colgados) o relanzar limpio una HU
+    // done/failed. Solo plan-backed. Pending/certified ya están en el
+    // estado destino, no tiene sentido el botón.
+    const canResetToPending = story.plan_id
+      && !['pending', 'certified'].includes(story.status);
 
     content.innerHTML = `
       <div class="modal__header">
@@ -1989,6 +2060,14 @@ async function showStoryDetail(storyId) {
                     style="padding:6px 12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
                     title="Edit title, scope, task type, and acceptance criteria">
               ✎ Edit
+            </button>
+          ` : ''}
+          ${canResetToPending ? `
+            <button id="reset-hu-btn" class="control-btn"
+                    style="padding:6px 12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
+                    title="Devolver esta HU a pending (sin tocar el result anterior)"
+                    onclick="resetHuToPending('${esc(story.id)}')">
+              ↺ Reset
             </button>
           ` : ''}
           <button class="modal__close" onclick="closeModal()">&times;</button>

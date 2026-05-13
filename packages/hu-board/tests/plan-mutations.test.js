@@ -152,6 +152,50 @@ describe('PATCH /api/stories/:id', () => {
       .send({ status: 'certified' });
     expect(res.status).toBe(404);
   });
+
+  // KJC-TSK-0394 step 2: el botón "↺ Reset" del modal envía
+  // PATCH {status: 'pending'} desde cualquier estado no terminal
+  // o terminal. La API ya aceptaba 'pending' en ALLOWED_STORY_STATUSES,
+  // pero conviene asegurar que el reset SOBREVIVE al ciclo escritura→
+  // sync de plan-mutations y NO toca el campo `result` (historial).
+  it('reset desde "coding" zombi a "pending" reescribe el plan', async () => {
+    // Simulamos el zombi: el orquestador empezó la HU y murió antes de
+    // estampar outcome. El plan-on-disk tiene status=coding.
+    const plan = readPlanFromDisk();
+    plan.hus[0].status = 'coding';
+    plan.hus[0].result = 'fail';
+    writeFileSync(planPath(), JSON.stringify(plan, null, 2), 'utf-8');
+    syncMod.syncPlanFile(planPath());
+
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ status: 'pending' });
+
+    expect(res.status).toBe(200);
+    const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.status).toBe('pending');
+    // result se preserva como historial
+    expect(hu.result).toBe('fail');
+  });
+
+  it('reset desde "done" a "pending" preserva el result anterior', async () => {
+    const plan = readPlanFromDisk();
+    plan.hus[0].status = 'done';
+    plan.hus[0].result = 'pass';
+    writeFileSync(planPath(), JSON.stringify(plan, null, 2), 'utf-8');
+    syncMod.syncPlanFile(planPath());
+
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ status: 'pending' });
+
+    expect(res.status).toBe(200);
+    const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.status).toBe('pending');
+    expect(hu.result).toBe('pass');
+  });
 });
 
 describe('POST /api/plans/:planId/ready', () => {
