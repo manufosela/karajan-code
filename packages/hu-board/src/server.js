@@ -12,6 +12,8 @@ import pipelineRoutes from './routes/pipeline.js';
 import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
 import { reapZombieSessions } from './zombie-reaper.js';
+import { reapZombieHus } from './hu-zombie-reaper.js';
+import { setHuStatus as setHuStatusPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
@@ -189,6 +191,25 @@ async function main() {
   } catch (err) {
     // Never block startup on the reaper. Log and move on.
     console.warn(`[zombie-reaper] skipped: ${err.message}`);
+  }
+
+  // KJC-TSK-0394 step 3 — resetear a `pending` HUs colgadas en
+  // coding/reviewing >30min (orquestador crashed mid-iteration). NO
+  // a `failed` porque no sabemos el outcome; `result` se preserva.
+  try {
+    const dbHandle = (await import('./db.js')).getDb();
+    const reapedHus = reapZombieHus({ db: dbHandle, setHuStatus: setHuStatusPlanMutation });
+    if (reapedHus.length > 0) {
+      console.log(`[hu-zombie-reaper] reset ${reapedHus.length} stuck HU(s) to pending:`);
+      for (const r of reapedHus) {
+        const planNote = r.plan_persisted ? '' : ' (plan write failed — DB-only)';
+        console.log(`  - ${r.id} (was ${r.status_before}; ${r.reason})${planNote}`);
+      }
+    } else {
+      console.log('[hu-zombie-reaper] no stuck HUs detected');
+    }
+  } catch (err) {
+    console.warn(`[hu-zombie-reaper] skipped: ${err.message}`);
   }
 
   // KJC-TSK-0371 (board polish #3) — clean up ephemeral projects
