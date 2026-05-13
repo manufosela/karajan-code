@@ -4,6 +4,10 @@ vi.mock("../../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn(),
 }));
 
+vi.mock("../../src/utils/process.js", () => ({
+  runCommand: vi.fn(),
+}));
+
 describe("checks/tokens — provider CLI availability (post-v2.7.4)", () => {
   let mod, agentDetect;
   const savedEnv = { ...process.env };
@@ -133,13 +137,26 @@ describe("checks/tokens — provider CLI availability (post-v2.7.4)", () => {
     expect(result.fix).toContain("cli.github.com");
   });
 
-  it("gh token: FAIL with 'gh auth login' hint when CLI present", async () => {
+  it("gh token: FAIL with 'gh auth login' hint when CLI present but `gh auth status` says not logged in", async () => {
     agentDetect.checkBinary.mockResolvedValue({ ok: true, version: "2.50.0" });
+    const proc = await import("../../src/utils/process.js");
+    proc.runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "not logged in" });
     const checks = mod.getTokenChecks({});
     const gh = checks.find((c) => c.name === "token:gh");
     const result = await gh.detect({});
     expect(result.ok).toBe(false);
     expect(result.fix).toContain("gh auth login");
+  });
+
+  it("gh token: OK when CLI is authenticated via keyring (KJC-BUG-0049)", async () => {
+    agentDetect.checkBinary.mockResolvedValue({ ok: true, version: "2.50.0" });
+    const proc = await import("../../src/utils/process.js");
+    proc.runCommand.mockResolvedValue({ exitCode: 0, stdout: "Logged in to github.com", stderr: "" });
+    const checks = mod.getTokenChecks({});
+    const gh = checks.find((c) => c.name === "token:gh");
+    const result = await gh.detect({});
+    expect(result.ok).toBe(true);
+    expect(result.detail).toMatch(/keyring|OAuth/i);
   });
 });
 
