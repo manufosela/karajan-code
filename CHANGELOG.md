@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.14.3] - 2026-05-13
+
+Patch. Tres mejoras al sistema de preflight detectadas al lanzar el primer `kj run` real sobre un proyecto greenfield (greta-app).
+
+### Fixed
+
+- **KJC-BUG-0049 (fix puntual)** — `preflight` ya no aborta cuando `gh` está autenticado por keyring/OAuth (caso default tras `gh auth login --web`) sin `GH_TOKEN` en env (#690). El check ejecuta `gh auth status` como fallback antes de fallar.
+
+### Added
+
+- **KJC-BUG-0049 (fix arquitectural)** — Sistema de checks **degradables** (#691). Nuevo campo `Check.degradable` con shape `{ disables: ["git.auto_pr", ...], warn: "mensaje" }`. Cuando un check degradable falla, el preflight NO aborta: desactiva los flags listados y emite WARN. La sesión continúa con esas features off. Aplicado a `token:gh`: si `gh` no está auth, se desactivan `auto_pr` + `auto_push` y el coder sigue haciendo commits locales. Reemplaza el patrón "fail-closed" rígido por "degrade-or-fail" según la naturaleza del check.
+
+- **KJC-TSK-0393** — Project-aware preflight (#691). Nuevo módulo `src/checks/project-checks.js` con signal detection + checks dinámicos basados en el proyecto real:
+  - **Signals detectados**: `node` (package.json), `docker` (Dockerfile/compose), `firebase` (firebase.json/.firebaserc), `python` (pyproject.toml/requirements.txt/setup.py), `rust` (Cargo.toml), `go` (go.mod), `terraform` (*.tf), `env-example` (.env.example/.sample/.template), `env` (.env).
+  - **Checks dinámicos**:
+    - `project:kj-init-ran` — avisa si falta config Karajan global Y local
+    - `project:write-perms` — verifica permisos de escritura en projectDir + .kj/ + .karajan/
+    - `project:tool:<docker|firebase|python3|cargo|go|terraform>` — solo aplica cuando el signal está, comprueba que la tool está instalada con install command ejecutable
+    - `project:env-consistency` — lista variables faltantes en .env vs .env.example
+    - `project:gh-remote-access` — degradable, ejecuta `git ls-remote --heads origin` para validar acceso al remote real (no solo `gh auth status` global)
+  - Integrado en preflight extended phase de `kj run` automáticamente.
+  - **Comando nuevo**: `kj doctor --project` ejecuta SOLO esta fase. Útil para validar un proyecto antes de `kj run` sin re-correr todos los checks globales (CLIs, node, sonar, etc.).
+
+### Tests
+- 4 nuevos en `runner.test.js` para degradable
+- 15 nuevos en `project-checks.test.js`
+- Suite total: **4608/4608** verde (+24)
+
 ## [2.14.2] - 2026-05-12
 
 Patch release. Dogfooding GRETA Plan 2 v2.14.1 reveló 2 bugs UX + 1 gap de documentación:
