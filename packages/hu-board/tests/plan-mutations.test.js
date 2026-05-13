@@ -179,6 +179,32 @@ describe('PATCH /api/stories/:id', () => {
     expect(hu.result).toBe('fail');
   });
 
+  // Dropdown libre del modal: PATCH acepta cualquier status del set
+  // user-settable (pending/certified/done/failed/blocked/needs_context).
+  it.each(['certified', 'done', 'failed', 'blocked', 'needs_context'])(
+    'PATCH stories acepta cambiar a "%s" manualmente',
+    async (target) => {
+      const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+      const res = await request(app)
+        .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+        .send({ status: target });
+      expect(res.status).toBe(200);
+      const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+      expect(hu.status).toBe(target);
+    },
+  );
+
+  // NO se permite settear lifecycle del orquestador (genera zombies).
+  it.each(['coding', 'reviewing', 'running'])(
+    'PATCH stories RECHAZA status del orquestador "%s" con 400',
+    async (target) => {
+      const res = await request(app)
+        .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_001`)}`)
+        .send({ status: target });
+      expect(res.status).toBe(400);
+    },
+  );
+
   it('reset desde "done" a "pending" preserva el result anterior', async () => {
     const plan = readPlanFromDisk();
     plan.hus[0].status = 'done';

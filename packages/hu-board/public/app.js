@@ -1449,6 +1449,47 @@ window.runSingleHuFromCard = async function runSingleHuFromCard(huId, title) {
  * (ver routes/api.js); plan-mutations::setHuStatus refleja el cambio
  * al fichero del plan y resincroniza la BBDD.
  */
+/**
+ * Cambio libre de status desde el dropdown del modal. PATCH al backend
+ * con el status nuevo + confirmación (algunos targets como `done` /
+ * `failed` son blast-radius alto: no se puede deshacer sin Reset).
+ *
+ * El propio backend valida que `newStatus` esté en ALLOWED_STORY_
+ * STATUSES, así que si el dropdown trae basura el servidor rechaza con
+ * 400 — no necesitamos re-validar aquí.
+ */
+window.changeHuStatusFromModal = async function changeHuStatusFromModal(storyId, newStatus, oldStatus) {
+  // Opción "Cambiar a…" placeholder: el usuario abrió el dropdown sin
+  // elegir nada. Selecciona el placeholder otra vez para no quedar en
+  // un estado ambiguo.
+  if (!newStatus) return;
+  const select = document.getElementById('hu-status-select');
+  const ok = await showConfirm(
+    `Cambiar el status de esta HU de "${oldStatus}" a "${newStatus}"?\n\nEl plan file y el board se actualizan al instante. El campo result (badge ✓/✗) se conserva como historial.`,
+    { title: 'Cambiar status', okLabel: 'Cambiar', cancelLabel: 'Cancelar' }
+  );
+  if (!ok) { if (select) select.value = ''; return; }
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudo cambiar el status' });
+      if (select) select.value = '';
+      return;
+    }
+    closeModal();
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo al cambiar el status' });
+    if (select) select.value = '';
+  }
+};
+
 window.resetHuToPending = async function resetHuToPending(storyId) {
   const ok = await showConfirm(
     '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',
@@ -2081,13 +2122,33 @@ async function showStoryDetail(storyId) {
     // estado destino, no tiene sentido el botón.
     const canResetToPending = story.plan_id
       && !['pending', 'certified'].includes(story.status);
+    // Dropdown libre de status. Solo plan-backed. La lista es la misma
+    // que ALLOWED_STORY_STATUSES en el backend — NO incluye coding/
+    // reviewing/running (esos los pone el orquestador; setearlos a
+    // mano genera zombies en el reaper).
+    const canChangeStatus = !!story.plan_id;
+    const userSettableStatuses = ['pending', 'certified', 'done', 'failed', 'blocked', 'needs_context'];
 
     content.innerHTML = `
       <div class="modal__header">
         <div>
           <div class="modal__title" title="${esc(story.id)}">${esc(shortId)}</div>
           <div class="modal__subtitle" style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px">${esc(story.id)}</div>
-          <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span class="story-card__status status--${story.status}">${esc(story.status)}</span>
+            ${canChangeStatus ? `
+              <select id="hu-status-select"
+                      title="Cambiar manualmente el status de esta HU"
+                      style="padding:3px 6px;font-size:0.75rem;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer"
+                      onchange="changeHuStatusFromModal('${esc(story.id)}', this.value, '${esc(story.status)}')">
+                <option value="">Cambiar a…</option>
+                ${userSettableStatuses
+                  .filter((s) => s !== story.status)
+                  .map((s) => `<option value="${s}">${s}</option>`)
+                  .join('')}
+              </select>
+            ` : ''}
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           ${canEdit ? `

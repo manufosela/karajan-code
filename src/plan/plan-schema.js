@@ -15,6 +15,10 @@ const VALID_PLAN_STATUSES = new Set(["draft", "ready", "running", "done", "faile
 // follow-up; mientras tanto la UI puede usar canonicalStatus +
 // effectiveResult para presentar el modelo de 3 estados sin tocar
 // la persistencia.
+//
+// needs_context se PATCHeaba vía /api/stories/:id (dropdown libre del
+// modal) sin que el enum lo aceptara → `kj plan validate` daba
+// false-negative tras un set manual. Incluido aquí para alinear.
 const VALID_HU_STATUSES = new Set([
   // Canonical
   "pending", "running", "done",
