@@ -10,5 +10,6 @@ export {
   planDeleteCommand,
   planAddHuCommand,
   planRemoveHuCommand,
+  planMigrateResultCommand,
   planCommand,
 } from "./plan/index.js";

@@ -7,6 +7,7 @@ import {
   planDeleteCommand,
   planAddHuCommand,
   planRemoveHuCommand,
+  planMigrateResultCommand,
 } from "../commands/plan.js";
 import { parseCanvasMarkdown } from "../canvas/parse-md.js";
 import { validateCanvas } from "../canvas/validate.js";
@@ -149,4 +150,17 @@ export function registerPlan(program, { pkgVersion }) {
       await planRemoveHuCommand({ config, planId, huId });
     });
   });
+
+  // KJC-TSK-0394 step 4: migración one-shot que siembra `result` en las
+  // HUs de los plan files existentes (basado en su status legacy). Solo
+  // toca el campo result, NO el status — el cleanup del enum lo hará
+  // step 5. Idempotente.
+  plan.command("migrate-result")
+    .description("Backfill the `result` field on existing plan HUs (KJC-TSK-0394 step 4)")
+    .option("--dry-run", "Show what would change without writing")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "plan", flags, async ({ config }) => {
+        await planMigrateResultCommand({ config, flags: { dryRun: flags.dryRun } });
+      });
+    });
 }
