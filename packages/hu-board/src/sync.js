@@ -432,6 +432,10 @@ export function syncPlanFile(filePath) {
         // the front parses on read. Null until hu-sub-pipeline
         // stamps it at the end of each HU.
         outcome: hu.outcome ? JSON.stringify(hu.outcome) : null,
+        // KJC-TSK-0394: result (pass|fail|partial|null) ortogonal al status.
+        // Distinto de `outcome` (blob JSON) — esto es el enum corto para
+        // badge ✓/✗ en la card.
+        result: hu.result || null,
       });
     }
 

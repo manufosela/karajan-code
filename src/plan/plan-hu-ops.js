@@ -33,6 +33,12 @@ export function addHu(plan, huData) {
     title: huData.title,
     task_type: huData.task_type || "sw",
     status: "pending",
+    // KJC-TSK-0394: result ortogonal al status (último resultado conocido
+    // de la ejecución; null = nunca ejecutada). Se actualiza cuando el
+    // pipeline termina con pass / fail / partial. Nombre `result` (no
+    // `outcome`) porque `outcome` ya está en uso como blob JSON con
+    // iterations/duration/commits del run.
+    result: huData.result ?? null,
     blocked_by: huData.blocked_by || [],
     // KJC-BUG-0044 / P3: ids of OTHER HUs whose implementation this HU
     // piggy-backs on instead of reimplementing the same logic. Set by
@@ -83,7 +89,7 @@ export function removeHu(plan, huId) {
 export function updateHu(plan, huId, patch) {
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return null;
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section"];
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }

@@ -173,6 +173,10 @@ export function initDb() {
   // again. Stored as TEXT (JSON.stringify'd) for simplicity —
   // parsed on read by the UI.
   try { db.exec('ALTER TABLE stories ADD COLUMN outcome TEXT'); } catch { /* already migrated */ }
+  // KJC-TSK-0394: result (pass | fail | partial | null) ortogonal al status.
+  // Diferente del campo `outcome` arriba (que es blob JSON con metadata del
+  // run). result es el enum de "último resultado" para mostrar como badge.
+  try { db.exec('ALTER TABLE stories ADD COLUMN result TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
@@ -228,14 +232,14 @@ export function upsertStory(story) {
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
-      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome
+      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome, result
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
-      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome
+      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome, @result
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -263,7 +267,8 @@ export function upsertStory(story) {
       acceptance_tests = COALESCE(@acceptance_tests, acceptance_tests),
       plan_order = COALESCE(@plan_order, plan_order),
       spec_section = COALESCE(@spec_section, spec_section),
-      outcome = COALESCE(@outcome, outcome)
+      outcome = COALESCE(@outcome, outcome),
+      result = COALESCE(@result, result)
   `);
   stmt.run({
     id: story.id,
@@ -296,6 +301,7 @@ export function upsertStory(story) {
     plan_order: story.plan_order ?? null,
     spec_section: story.spec_section || null,
     outcome: story.outcome || null,
+    result: story.result || null,
   });
 }
 

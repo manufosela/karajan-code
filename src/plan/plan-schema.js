@@ -8,8 +8,47 @@ import { generatePlanId } from "./plan-id.js";
 
 const VALID_PLAN_STATUSES = new Set(["draft", "ready", "running", "done", "failed"]);
 const VALID_HU_STATUSES = new Set(["pending", "certified", "coding", "reviewing", "done", "failed", "blocked"]);
+// KJC-TSK-0394: nuevo campo `result` ortogonal a status. Reemplaza la
+// sobrecarga semántica del status (certified=pass, failed=fail) por una
+// distinción explícita entre lifecycle (status) y último resultado (result).
+// Vacío `null` significa "nunca ejecutado". Migración no-breaking: status
+// legacy sigue válido durante el período de transición.
+// Nota: usamos `result` y NO `outcome` porque el campo `outcome` ya existe
+// con otra semántica (blob JSON con iterations/duration/commits del run).
+export const VALID_HU_RESULTS = new Set([null, "pass", "fail", "partial"]);
 const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor", "nocode"]);
 const VALID_TEST_TYPES = new Set(["shell", "gherkin"]);
+
+/**
+ * Map a legacy status to (newStatus, result) pair. Used by addHu() defaults
+ * and by the migration script in step 4. Idempotent: re-mapping a value that
+ * is already in the canonical {pending, running, done} set keeps it.
+ *
+ * @param {string|null|undefined} legacy
+ * @returns {{ status: string, result: string|null }}
+ */
+export function mapLegacyStatusToResult(legacy) {
+  switch (legacy) {
+    case "pending":
+    case "blocked":         // blocked es lifecycle no terminal → pending
+    case "needs_context":   // ídem
+    case undefined:
+    case null:
+      return { status: "pending", result: null };
+    case "coding":
+    case "reviewing":
+    case "running":
+      return { status: "running", result: null };
+    case "certified":
+      return { status: "done", result: "pass" };
+    case "failed":
+      return { status: "done", result: "fail" };
+    case "done":
+      return { status: "done", result: null }; // sin result conocido (raro)
+    default:
+      return { status: "pending", result: null };
+  }
+}
 
 /**
  * Structured acceptance-test shape introduced in v2.7.5 (tests-first):
@@ -144,6 +183,10 @@ export function validatePlan(plan) {
     huIds.add(hu.id);
     if (!hu.title) errors.push(`HU ${hu.id}: missing title`);
     if (!VALID_HU_STATUSES.has(hu.status)) errors.push(`HU ${hu.id}: invalid status ${hu.status}`);
+    // KJC-TSK-0394: result es opcional. Si está presente, debe ser pass/fail/partial.
+    if (hu.result !== undefined && hu.result !== null && !VALID_HU_RESULTS.has(hu.result)) {
+      errors.push(`HU ${hu.id}: invalid result ${hu.result} (expected pass|fail|partial|null)`);
+    }
     if (hu.task_type && !VALID_TASK_TYPES.has(hu.task_type)) errors.push(`HU ${hu.id}: invalid task_type ${hu.task_type}`);
     // acceptance_tests: may be absent (legacy) or an array of either
     // plain strings (legacy shell) or { type, content, file? } objects.

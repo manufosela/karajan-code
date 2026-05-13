@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { generatePlanId, generateHuId } from "../../src/plan/plan-id.js";
-import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan } from "../../src/plan/plan-schema.js";
+import { createPlanV2, migratePlanV1toV2, isPlanV2, validatePlan, mapLegacyStatusToResult, VALID_HU_RESULTS } from "../../src/plan/plan-schema.js";
 import { addHu, removeHu, updateHu, updateHuStatus, certifyAllHus, reorderHus } from "../../src/plan/plan-hu-ops.js";
 
 describe("plan-id", () => {
@@ -105,6 +105,50 @@ describe("plan-hu-ops", () => {
     expect(plan.hus.length).toBe(1);
   });
 
+  // KJC-TSK-0394: campo `result` ortogonal al status
+  it("addHu inicializa result a null por defecto", () => {
+    const hu = addHu(plan, { title: "X" });
+    expect(hu.result).toBe(null);
+  });
+
+  it("addHu acepta result inicial cuando se pasa explícitamente", () => {
+    const hu = addHu(plan, { title: "X", result: "pass" });
+    expect(hu.result).toBe("pass");
+  });
+
+  it("updateHu permite mutar el campo result", () => {
+    const hu = addHu(plan, { title: "X" });
+    updateHu(plan, hu.id, { result: "fail" });
+    expect(plan.hus[0].result).toBe("fail");
+  });
+
+  it("validatePlan rechaza result fuera del enum", () => {
+    const hu = addHu(plan, { title: "X" });
+    hu.result = "weird-value";
+    const v = validatePlan(plan);
+    expect(v.valid).toBe(false);
+    expect(v.errors.some(e => /invalid result/i.test(e))).toBe(true);
+  });
+
+  it("validatePlan acepta result null/pass/fail/partial", () => {
+    for (const r of [null, "pass", "fail", "partial"]) {
+      const p = createPlanV2(`task ${r}`);
+      const hu = addHu(p, { title: "X" });
+      hu.result = r;
+      const v = validatePlan(p);
+      expect(v.valid, `result=${r}`).toBe(true);
+    }
+  });
+
+  it("VALID_HU_RESULTS contiene exactamente null+pass+fail+partial", () => {
+    expect(VALID_HU_RESULTS.has(null)).toBe(true);
+    expect(VALID_HU_RESULTS.has("pass")).toBe(true);
+    expect(VALID_HU_RESULTS.has("fail")).toBe(true);
+    expect(VALID_HU_RESULTS.has("partial")).toBe(true);
+    expect(VALID_HU_RESULTS.has("done")).toBe(false);
+    expect(VALID_HU_RESULTS.size).toBe(4);
+  });
+
   it("sequential IDs increment", () => {
     addHu(plan, { title: "First" });
     const second = addHu(plan, { title: "Second" });
@@ -190,5 +234,38 @@ describe("plan-hu-ops", () => {
     expect(updateHu(plan, "fake", { title: "x" })).toBeNull();
     expect(updateHuStatus(plan, "fake", "done")).toBe(false);
     expect(removeHu(plan, "fake")).toBe(false);
+  });
+});
+
+describe("mapLegacyStatusToResult (KJC-TSK-0394 migration)", () => {
+  it("pending → pending+null", () => {
+    expect(mapLegacyStatusToResult("pending")).toEqual({ status: "pending", result: null });
+  });
+  it("blocked/needs_context → pending+null (lifecycle non-terminal)", () => {
+    expect(mapLegacyStatusToResult("blocked")).toEqual({ status: "pending", result: null });
+    expect(mapLegacyStatusToResult("needs_context")).toEqual({ status: "pending", result: null });
+  });
+  it("coding/reviewing/running → running+null (zombi recovery)", () => {
+    expect(mapLegacyStatusToResult("coding")).toEqual({ status: "running", result: null });
+    expect(mapLegacyStatusToResult("reviewing")).toEqual({ status: "running", result: null });
+    expect(mapLegacyStatusToResult("running")).toEqual({ status: "running", result: null });
+  });
+  it("certified → done+pass (success en el modelo viejo)", () => {
+    expect(mapLegacyStatusToResult("certified")).toEqual({ status: "done", result: "pass" });
+  });
+  it("failed → done+fail", () => {
+    expect(mapLegacyStatusToResult("failed")).toEqual({ status: "done", result: "fail" });
+  });
+  it("done → done+null (status terminal sin info de result)", () => {
+    expect(mapLegacyStatusToResult("done")).toEqual({ status: "done", result: null });
+  });
+  it("undefined/null/desconocido → pending+null (defensive)", () => {
+    expect(mapLegacyStatusToResult(null)).toEqual({ status: "pending", result: null });
+    expect(mapLegacyStatusToResult(undefined)).toEqual({ status: "pending", result: null });
+    expect(mapLegacyStatusToResult("weird")).toEqual({ status: "pending", result: null });
+  });
+  it("idempotente — re-mapear un valor canónico no rompe", () => {
+    expect(mapLegacyStatusToResult("pending").status).toBe("pending");
+    expect(mapLegacyStatusToResult("done").status).toBe("done");
   });
 });
