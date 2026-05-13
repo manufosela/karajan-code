@@ -42,6 +42,13 @@ vi.mock("../src/skills/openskills-client.js", () => ({
   isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
 }));
 
+// KJC-TSK-0393: mock project-checks so this installer-E2E test stays focused
+// on init→doctor flow without project-aware noise.
+vi.mock("../src/checks/project-checks.js", () => ({
+  getProjectChecks: vi.fn(() => []),
+  detectProjectSignals: vi.fn(() => new Set()),
+}));
+
 vi.mock("node:child_process", () => {
   const { EventEmitter } = require("node:events");
   return {

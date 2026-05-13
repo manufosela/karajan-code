@@ -33,6 +33,15 @@ vi.mock("../src/utils/port-occupant.js", () => ({
   getPortOccupant: vi.fn().mockResolvedValue(null)
 }));
 
+// KJC-TSK-0393: project-aware checks are integrated into preflight extended
+// phase, but in this test suite we mock everything (no real projectDir, no
+// real git remote). Mock the project-checks module to return [] so these
+// existing tests assertions about warnings count stay accurate.
+vi.mock("../src/checks/project-checks.js", () => ({
+  getProjectChecks: vi.fn(() => []),
+  detectProjectSignals: vi.fn(() => new Set()),
+}));
+
 vi.mock("../src/skills/openskills-client.js", () => ({
   isOpenSkillsAvailable: vi.fn().mockResolvedValue(true)
 }));

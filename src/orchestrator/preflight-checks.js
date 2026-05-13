@@ -29,6 +29,7 @@ import { getPortChecks } from "../checks/ports.js";
 import { getTokenChecks } from "../checks/tokens.js";
 import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
+import { getProjectChecks } from "../checks/project-checks.js";
 import { resolveTestHarness } from "../config/test-harness.js";
 
 function parseJsonSafe(text) {
@@ -369,6 +370,10 @@ async function runExtendedPreflight({ config, result, emitter, eventBase, logger
     ...getTokenChecks(config),
     ...getMcpHealthChecks(),
     ...getSkillsChecks(),
+    // KJC-TSK-0393: project-aware checks (signal detection, write perms,
+    // tools per signal, .env consistency, gh remote access). Saltables con
+    // flag --no-project-checks en kj run.
+    ...(config?.flags?.noProjectChecks ? [] : getProjectChecks({ projectDir: config?.projectDir || process.cwd() })),
   ];
   let report;
   try {
