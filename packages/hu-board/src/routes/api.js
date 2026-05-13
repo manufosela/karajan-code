@@ -20,6 +20,7 @@ import {
 } from '../db.js';
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject } from '../plan-mutations.js';
+import { getActiveRuns } from '../run-tracker.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
 import { runPreflight } from '../preflight.js';
@@ -1024,6 +1025,82 @@ router.post('/commands/:command', (req, res) => {
  *
  * Same offset semantics + 1 MiB cap as the plans endpoint.
  */
+/**
+ * GET /api/runs/:planId/active - Devuelve los runs activos (PIDs vivos)
+ * de un plan. Usado por el frontend para decidir si mostrar el botón
+ * ⏹ Stop. Respuesta: { active: [{pid, huIds, startedAt}, ...] }.
+ *
+ * KJC-TSK-0396.
+ */
+router.get('/runs/:planId/active', (req, res) => {
+  try {
+    const active = getActiveRuns(req.params.planId);
+    res.json({ active });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/runs/:planId/stop - Mata todos los procesos del orquestador
+ * asociados a este plan. SIGTERM primero, espera 5s, escala a SIGKILL
+ * si el proceso no respondió. Devuelve { stopped, killed, errors }.
+ *
+ * Tras matar el proceso, las HUs que estaban en coding/reviewing se
+ * resetean a pending (no a failed) vía hu-zombie-reaper logic — pero
+ * eso lo hace el reaper en el siguiente arranque del board. Para
+ * efecto inmediato, marcamos aquí las HUs running del plan a pending.
+ *
+ * KJC-TSK-0396.
+ */
+router.post('/runs/:planId/stop', async (req, res) => {
+  const { planId } = req.params;
+  const stopTimeoutMs = Number(req.body?.timeoutMs ?? 5000);
+  try {
+    const errors = [];
+    let stopped = 0;
+    let killed = 0;
+    const active = getActiveRuns(planId);
+    // Fase 1: SIGTERM a todos los procesos trackeados (si los hay).
+    for (const run of active) {
+      try { process.kill(run.pid, 'SIGTERM'); stopped += 1; }
+      catch (err) { errors.push({ pid: run.pid, phase: 'SIGTERM', error: err.message }); }
+    }
+    // Fase 2: esperar `stopTimeoutMs` y escalar a SIGKILL los que sigan
+    // vivos. Saltamos la espera si no había nada que matar.
+    if (active.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, stopTimeoutMs));
+      const stillAlive = getActiveRuns(planId);
+      for (const run of stillAlive) {
+        try { process.kill(run.pid, 'SIGKILL'); killed += 1; }
+        catch (err) { errors.push({ pid: run.pid, phase: 'SIGKILL', error: err.message }); }
+      }
+    }
+    // Fase 3: SIEMPRE reset de HUs en coding/reviewing del plan → pending.
+    // El reset corre aunque no hubiera PIDs trackeados (caso: el run lo
+    // lanzaste manualmente desde la terminal, killeaste tú mismo el
+    // proceso, pero la DB sigue mostrando HUs en coding y necesitas
+    // dejarlas en pending para relanzar limpio).
+    let hu_reset_count = 0;
+    try {
+      const db = getDb();
+      const result = db.prepare(
+        "UPDATE stories SET status = 'pending', updated_at = ? WHERE plan_id = ? AND status IN ('coding', 'reviewing', 'running')"
+      ).run(new Date().toISOString(), planId);
+      hu_reset_count = result.changes;
+    } catch (err) {
+      errors.push({ phase: 'hu_reset', error: err.message });
+    }
+    const out = { stopped, killed, errors, hu_reset_count };
+    if (stopped === 0 && killed === 0 && hu_reset_count === 0) {
+      out.message = 'No active runs and no stuck HUs for this plan.';
+    }
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/runs/:commandId/log', (req, res) => {
   try {
     const runsDir = path.join(getKjHome(), 'hu-board-runs');
