@@ -5,6 +5,16 @@ description: Cómo ha evolucionado la arquitectura de Karajan Code.
 
 Esta página documenta las decisiones arquitectónicas principales y cómo Karajan Code evolucionó desde un simple script orquestador hasta un pipeline modular multi-agente.
 
+## Fase 68: Patch — Preflight degradable + project-aware (v2.14.3)
+
+**v2.14.3** (patch, 2026-05-13) — 3 mejoras al preflight surgidas del primer `kj run` real sobre greta-app (greenfield).
+
+**Auth `gh` por keyring reconocida** (`KJC-BUG-0049` puntual, #690): el check `token:gh` solo miraba env vars. Cuando `gh` estaba auth vía keyring (default tras `gh auth login --web`), Karajan rechazaba aunque funcionara. Fix: ejecutar `gh auth status` como fallback.
+
+**Sistema de checks degradables** (`KJC-BUG-0049` arquitectural, #691): nuevo campo `Check.degradable = { disables, warn }`. Cuando un check degradable falla, en lugar de abortar el run, desactiva los flags listados (e.g. `git.auto_pr`, `git.auto_push`) y emite WARN. La sesión continúa con esas features off. Reemplaza el "fail-closed" rígido por "degrade-or-fail" según el check.
+
+**Preflight project-aware** (`KJC-TSK-0393`, #691): nuevo módulo `src/checks/project-checks.js` que detecta signals del proyecto (Dockerfile/firebase.json/pyproject.toml/Cargo.toml/*.tf/.env.example) y registra checks dinámicos: tool presente, permisos write en projectDir+.kj/+.karajan/, `.env` consistency, gh push access al remote real (degradable). Comando nuevo `kj doctor --project` ejecuta solo esta fase.
+
 ## Fase 67: Patch — Botón ▶ respeta blocked_by + [EPICA] prefix + docs spec-conventions (v2.14.2)
 
 **v2.14.2** (patch, 2026-05-12) — 2 UX bugs + 1 gap docs detectados en dogfooding GRETA Plan 2 v2.14.1.

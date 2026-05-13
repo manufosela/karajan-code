@@ -5,6 +5,16 @@ description: How Karajan Code's architecture has evolved over time.
 
 This page documents the major architectural decisions and how Karajan Code evolved from a simple shell script orchestrator to a modular, multi-agent pipeline.
 
+## Phase 68: Patch — Preflight degradable + project-aware (v2.14.3)
+
+**v2.14.3** (patch, 2026-05-13) — 3 mejoras al sistema de preflight surgidas del primer `kj run` real sobre greta-app (proyecto greenfield).
+
+**Gh keyring auth recognized** (`KJC-BUG-0049` puntual, #690): el check `token:gh` solo miraba `process.env.GH_TOKEN || GITHUB_TOKEN`. Cuando `gh` estaba autenticado vía keyring/OAuth (caso default tras `gh auth login --web`), Karajan rechazaba con FAIL aunque la auth estuviera operativa. Fix: ejecutar `gh auth status` como fallback antes de fallar.
+
+**Degradable checks system** (`KJC-BUG-0049` arquitectural, #691): nuevo campo `Check.degradable = { disables: ["git.auto_pr", ...], warn: "..." }`. Cuando un check degradable falla, en lugar de abortar el preflight, desactiva los flags listados en `disables` y emite WARN. La sesión continúa con esas features off. Reemplaza el patrón "fail-closed" rígido por "degrade-or-fail" según la naturaleza del check. El check `token:gh` ahora es degradable: si `gh` no auth, se desactivan `auto_pr` + `auto_push` y el coder sigue haciendo commits locales (no PRs).
+
+**Project-aware preflight** (`KJC-TSK-0393`, #691): el `kj doctor` global y el preflight estándar comprobaban el ENTORNO de Karajan (CLIs, node, dirs ~/.karajan/, sonar). Nada validaba que el PROYECTO actual tuviera lo necesario. Nuevo módulo `src/checks/project-checks.js` con signal detection + checks dinámicos: detecta signals (`package.json`, `Dockerfile`, `firebase.json`, `pyproject.toml`, `Cargo.toml`, `*.tf`, `.env.example`) y registra los checks correspondientes (tool presente, permisos write, .env consistency, gh remote access — este último degradable). Comando nuevo `kj doctor --project` ejecuta solo esta fase, útil para validar un proyecto antes de `kj run` sin re-correr todos los checks globales.
+
 ## Phase 67: Patch — ▶ button respects blocked_by + [EPICA] prefix + spec-conventions docs (v2.14.2)
 
 **v2.14.2** (patch, 2026-05-12) — 2 UX bugs + 1 docs gap from GRETA Plan 2 dogfooding v2.14.1.
