@@ -508,7 +508,13 @@ router.post('/tombstones/:type/:id/restore', (req, res) => {
  * rewritten before we ack, then re-synced into SQLite, so a reload
  * renders the committed state.
  */
-const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'needs_context']);
+// Status que el USUARIO puede setear manualmente vía el dropdown del
+// modal. NO incluimos coding/reviewing/running — esos son lifecycle
+// del orquestador (settearlos a mano genera zombies). Tampoco
+// incluimos los canonicales (`running`) por la misma razón. `failed`
+// y `blocked` son útiles para que el usuario marque manualmente HUs
+// que no quiere correr ahora.
+const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'failed', 'blocked', 'needs_context']);
 const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by'];
 
 router.patch('/stories/:id', (req, res) => {
