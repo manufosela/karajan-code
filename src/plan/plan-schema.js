@@ -20,6 +20,18 @@ const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor",
 const VALID_TEST_TYPES = new Set(["shell", "gherkin"]);
 
 /**
+ * KJC-TSK-0394 step 4: deduce `result` de un HU legacy. Idempotente.
+ * Heurística: done→pass (si hubiera fallado estaría en failed),
+ * failed→fail, resto→null. NO toca status (eso es step 5).
+ */
+export function inferResultFromLegacyStatus(hu) {
+  if (hu && hu.result != null) return hu.result;
+  if (hu?.status === "done") return "pass";
+  if (hu?.status === "failed") return "fail";
+  return null;
+}
+
+/**
  * Map a legacy status to (newStatus, result) pair. Used by addHu() defaults
  * and by the migration script in step 4. Idempotent: re-mapping a value that
  * is already in the canonical {pending, running, done} set keeps it.
