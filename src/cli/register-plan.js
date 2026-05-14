@@ -8,6 +8,7 @@ import {
   planAddHuCommand,
   planRemoveHuCommand,
   planMigrateResultCommand,
+  planFixCommand,
 } from "../commands/plan.js";
 import { parseCanvasMarkdown } from "../canvas/parse-md.js";
 import { validateCanvas } from "../canvas/validate.js";
@@ -150,6 +151,20 @@ export function registerPlan(program, { pkgVersion }) {
       await planRemoveHuCommand({ config, planId, huId });
     });
   });
+
+  // KJC-TSK-0402: re-ejecuta reviewer + self-fix + structural pass sobre
+  // un plan existente. Acepta --prompt opcional con feedback humano que
+  // el reviewer inyecta como contexto extra antes de revisar.
+  plan.command("fix")
+    .description("Relanzar self-fix loop sobre plan existente (con --prompt opcional)")
+    .argument("<planId>")
+    .option("--prompt <text>", "Feedback del usuario para guiar al reviewer")
+    .option("--json", "Output JSON con before/after counts")
+    .action(async (planId, flags) => {
+      await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
+        await planFixCommand({ config, planId, prompt: flags.prompt, logger, json: flags.json });
+      });
+    });
 
   // KJC-TSK-0394 step 4: migración one-shot que siembra `result` en las
   // HUs de los plan files existentes (basado en su status legacy). Solo
