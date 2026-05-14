@@ -60,6 +60,14 @@ export function addHu(plan, huData) {
     // re-read. Free-form string — typically "5.3", "§5.3 Initial
     // Scope", or whatever the planner extracted from the source spec.
     spec_section: huData.spec_section || null,
+    // KJC-TSK-0405: coder_model y reviewer_model asignados por el
+    // triage según complexity. null = usar el del config global / role
+    // resolver. Independientes — el usuario puede overridearlos por HU
+    // desde el board sin tocar el resto del plan.
+    coder_model: huData.coder_model ?? null,
+    coder_provider: huData.coder_provider ?? null,
+    reviewer_model: huData.reviewer_model ?? null,
+    reviewer_provider: huData.reviewer_provider ?? null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -95,7 +103,10 @@ export function removeHu(plan, huId) {
 export function updateHu(plan, huId, patch) {
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return null;
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result", "short_id"];
+  // KJC-TSK-0405: coder_model y reviewer_model son override per-HU del
+  // routing automático del triage. Independientes — el usuario puede
+  // subir el reviewer sin tocar el coder, o viceversa.
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result", "short_id", "coder_model", "reviewer_model", "coder_provider", "reviewer_provider"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }
