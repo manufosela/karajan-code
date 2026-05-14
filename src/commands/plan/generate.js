@@ -124,19 +124,25 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     const rawTests = typeof step === "object" ? step.acceptance_tests : null;
     const tests = normaliseAcceptanceTests(rawTests);
     if (tests.length === 0) stepsMissingTests += 1;
+    // Humanización IDs: preservar el id simbólico del planner ("INFRA-001",
+    // "AUTH-SIGNUP", etc.) como short_id del HU. La clave canónica
+    // sigue siendo el `hu.id` largo (`hu_<planId>_<NNN>`); el short_id
+    // solo da una etiqueta amigable que la CLI muestra y acepta como
+    // referencia en `kj run --hu INFRA-001`.
+    const symbolicId = typeof step === "object" && typeof step.id === "string" && step.id.trim()
+      ? step.id.trim() : null;
     const hu = addHu(plan, {
       title: desc.slice(0, 80),
       task_type: classifyTaskType(desc),
       scope: desc,
       blocked_by: [],
       acceptance_tests: tests,
+      short_id: symbolicId,
       // Spec mapping (PR C): preserve the planner's section citation
       // so the coder/reviewer / board can show "implements §5.3".
       spec_section: typeof step === "object" && typeof step.spec_section === "string" ? step.spec_section.trim() || null : null,
     });
-    if (typeof step === "object" && typeof step.id === "string" && step.id.trim()) {
-      symbolicToHuId.set(step.id.trim(), hu.id);
-    }
+    if (symbolicId) symbolicToHuId.set(symbolicId, hu.id);
     const deps = typeof step === "object" && Array.isArray(step.dependencies) ? step.dependencies : [];
     stepDeps.push(deps);
     const reuse = typeof step === "object" && Array.isArray(step.reuse) ? step.reuse : [];
@@ -341,9 +347,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       console.log(`Reviewer flagged: ${counts.join(", ")} — see \`kj plan show ${planId}\``);
     }
   }
+  // Humanización IDs: si el plan tiene alias, lo preferimos como
+  // referencia visible (más legible). Fallback al planId.
+  const ref = plan.alias || planId;
   console.log("");
-  console.log(`Inspect: kj plan show ${planId}`);
-  console.log(`Run:     kj run --plan ${planId} "${task.slice(0, 40)}..."`);
+  console.log(`Inspect: kj plan show ${ref}`);
+  console.log(`Run:     kj run --plan ${ref}`);
   console.log(`         (or click ▶ Run plan on the board, if running)`);
 
   // UX boost for HU-bearing plans: auto-start the HU Board (same pattern as

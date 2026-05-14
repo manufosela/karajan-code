@@ -39,6 +39,12 @@ export function addHu(plan, huData) {
     // `outcome`) porque `outcome` ya está en uso como blob JSON con
     // iterations/duration/commits del run.
     result: huData.result ?? null,
+    // Humanización IDs: short_id es el id legible que el planner asignó
+    // al step (ej "INFRA-001", "AUTH-SIGNUP"). El `id` largo
+    // (`hu_<planId>_<NNN>`) sigue siendo la clave canónica, pero el
+    // CLI / board prefieren short_id para mostrar y aceptarlo como
+    // referencia en `--hu`. Null cuando el planner no lo emitió.
+    short_id: huData.short_id || null,
     blocked_by: huData.blocked_by || [],
     // KJC-BUG-0044 / P3: ids of OTHER HUs whose implementation this HU
     // piggy-backs on instead of reimplementing the same logic. Set by
@@ -89,7 +95,7 @@ export function removeHu(plan, huId) {
 export function updateHu(plan, huId, patch) {
   const hu = plan.hus.find(h => h.id === huId);
   if (!hu) return null;
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result"];
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result", "short_id"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }

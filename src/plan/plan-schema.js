@@ -188,6 +188,12 @@ export function createPlanV2(task, context = {}) {
   const planId = generatePlanId();
   return {
     planId,
+    // KJC-TSK humanización IDs: alias legible (ej "greta-app"). Se
+    // asigna en savePlan a partir de plan.name. El planId sigue
+    // siendo la ID canónica interna (timestamp+random), pero la CLI
+    // y el board prefieren el alias para mostrar y aceptan ambos
+    // como referencia (--plan greta-app o --plan plan-XXX-XX).
+    alias: null,
     version: 2,
     task,
     name: null, // set by caller via deriveProjectName or manually

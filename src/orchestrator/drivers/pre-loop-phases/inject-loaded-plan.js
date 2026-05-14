@@ -189,23 +189,33 @@ function applyHuFilterIfRequested({ huBatch, flags, eventBase, emitter, logger }
     logger.warn(`--hu was empty after parsing — falling back to running every certified HU`);
     return;
   }
-  const requestedSet = new Set(requested);
-  const found = huBatch.stories.filter((s) => requestedSet.has(s.id));
-  const missing = requested.filter((id) => !huBatch.stories.some((s) => s.id === id));
-  if (missing.length > 0) {
-    logger.warn(`--hu: ignored ${missing.length} unknown HU id(s): ${missing.join(", ")}`);
+  // Humanización IDs: resolver cada ref a un hu.id largo aceptando 3 formas:
+  //  1. `hu_<planId>_<NNN>` (id largo, exacto)
+  //  2. `INFRA-001` (short_id que el planner asignó)
+  //  3. `001` (sufijo numérico — busca un hu.id que termine en `_001`)
+  // El resolver es case-insensitive para short_id y sufijo.
+  const resolvedIds = new Set();
+  const unresolved = [];
+  for (const ref of requested) {
+    const id = resolveHuRef(ref, huBatch.stories);
+    if (id) resolvedIds.add(id);
+    else unresolved.push(ref);
+  }
+  const found = huBatch.stories.filter((s) => resolvedIds.has(s.id));
+  if (unresolved.length > 0) {
+    logger.warn(`--hu: ignored ${unresolved.length} unknown HU ref(s): ${unresolved.join(", ")}`);
   }
   if (found.length === 0) {
-    throw new Error(`--hu: none of the requested HU id(s) exist in plan ${flags.plan}: ${requested.join(", ")}`);
+    throw new Error(`--hu: none of the requested HU ref(s) exist in plan ${flags.plan}: ${requested.join(", ")}`);
   }
   for (const story of huBatch.stories) {
-    if (!requestedSet.has(story.id)) story.status = "done";
+    if (!resolvedIds.has(story.id)) story.status = "done";
   }
   huBatch.certified = found.length;
   logger.info(`Plan ${flags.plan}: --hu filter active — ${found.length}/${huBatch.total} HU(s) will run (${found.map((s) => s.id).join(", ")})`);
   emitProgress(emitter, makeEvent("plan:hu-filter", { ...eventBase, stage: "plan" }, {
     message: `--hu filter: ${found.length} HU(s) selected, ${huBatch.total - found.length} skipped`,
-    detail: { planId: flags.plan, requested, ignored: missing, willRun: found.map((s) => s.id) }
+    detail: { planId: flags.plan, requested, ignored: unresolved, willRun: found.map((s) => s.id) }
   }));
 }
 
@@ -244,6 +254,35 @@ function wirePlanCallbacks({ session, loadedPlan, projectDir, syncResultsToPlan,
       logger?.warn?.(`Live outcome update failed for ${huId}: ${err.message}`);
     }
   });
+}
+
+/**
+ * Resuelve una referencia humana a HU al `id` canónico largo. Acepta:
+ *   - id largo exacto: `hu_<planId>_<NNN>` → match directo.
+ *   - short_id: `INFRA-001`, `AUTH-SIGNUP` → match case-insensitive contra hu.short_id.
+ *   - sufijo numérico: `001` → match contra hu.id terminado en `_001`.
+ * Devuelve el hu.id largo o null si no resuelve.
+ *
+ * @param {string} ref
+ * @param {Array<{id: string, short_id?: string|null}>} hus
+ * @returns {string|null}
+ */
+function resolveHuRef(ref, hus) {
+  if (!ref || !Array.isArray(hus)) return null;
+  // Match exacto contra id largo (camino caliente).
+  const exact = hus.find((s) => s.id === ref);
+  if (exact) return exact.id;
+  // Match case-insensitive contra short_id.
+  const lower = ref.toLowerCase();
+  const byShort = hus.find((s) => s.short_id && String(s.short_id).toLowerCase() === lower);
+  if (byShort) return byShort.id;
+  // Match por sufijo numérico (`001` → cualquier hu cuyo id termine en `_001`).
+  if (/^\d+$/.test(ref)) {
+    const padded = ref.padStart(3, "0");
+    const bySuffix = hus.find((s) => s.id.endsWith(`_${padded}`));
+    if (bySuffix) return bySuffix.id;
+  }
+  return null;
 }
 
 /**

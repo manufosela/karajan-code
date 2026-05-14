@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { generatePlanId } from "./plan-id.js";
+import { generatePlanId, normaliseAlias } from "./plan-id.js";
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
 // Per-process tmp dir for VITEST runs that forget to set KJ_HOME. We
@@ -77,6 +77,12 @@ export async function savePlan(projectDir, planResult) {
     // engineering it from the slug is lossy (underscores in the original
     // name collide with underscores introduced by slash-substitution).
     if (!planResult.projectDir && projectDir) planResult.projectDir = projectDir;
+    // Humanización IDs: si el plan no tiene alias todavía, derívalo de
+    // plan.name (lo que el planner pidió al usuario). Resuelve
+    // colisiones con sufijo -2, -3… leyendo el dir antes.
+    if (!planResult.alias && planResult.name) {
+      planResult.alias = await resolveUniqueAlias(dir, planResult.planId, normaliseAlias(planResult.name));
+    }
     await fs.writeFile(filePath, JSON.stringify(planResult, null, 2), "utf8");
     return planResult.planId;
   }
@@ -99,19 +105,67 @@ export async function savePlan(projectDir, planResult) {
 }
 
 /**
- * Load a plan by ID. Auto-migrates v1 to v2 on read (lazy).
- * @returns {Promise<object|null>} v2 plan or null
+ * Resuelve un alias único en `dir`. Si `base` ya está en uso por otro
+ * plan, intenta `base-2`, `base-3`… hasta encontrar libre.
+ * @param {string} dir
+ * @param {string} ownPlanId - planId del plan que se está guardando (su propio archivo se ignora en el lookup).
+ * @param {string|null} base
+ * @returns {Promise<string|null>}
  */
-export async function loadPlan(projectDir, planId) {
-  const filePath = path.join(plansDir(projectDir), `${planId}.json`);
+async function resolveUniqueAlias(dir, ownPlanId, base) {
+  if (!base) return null;
+  let files;
+  try { files = await fs.readdir(dir); } catch { return base; }
+  const taken = new Set();
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const record = JSON.parse(await fs.readFile(path.join(dir, f), "utf8"));
+      if (record.planId === ownPlanId) continue;
+      if (record.alias) taken.add(record.alias);
+    } catch { /* skip corrupt */ }
+  }
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 1000; i += 1) {
+    const candidate = `${base}-${i}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base}-${ownPlanId.slice(-4)}`;  // fallback improbable
+}
+
+/**
+ * Load a plan by ID or alias. Auto-migrates v1 to v2 on read (lazy).
+ * Acepta tanto el planId canónico (plan-XXX-XX) como el alias humano
+ * (greta-app). Primero busca por filename exacto (planId.json), luego
+ * escanea el dir y matchea por alias.
+ *
+ * @returns {Promise<object|null>} v2 plan o null
+ */
+export async function loadPlan(projectDir, ref) {
+  if (!ref) return null;
+  const dir = plansDir(projectDir);
+  // 1. Match exacto por planId.json (camino caliente).
+  const direct = path.join(dir, `${ref}.json`);
   try {
-    const data = await fs.readFile(filePath, "utf8");
+    const data = await fs.readFile(direct, "utf8");
     const plan = JSON.parse(data);
     if (!isPlanV2(plan)) return migratePlanV1toV2(plan);
     return plan;
-  } catch {
-    return null;
+  } catch { /* fall through to alias scan */ }
+  // 2. Escaneo del dir por alias. Coste O(N) pero N suele ser <10.
+  let files;
+  try { files = await fs.readdir(dir); } catch { return null; }
+  for (const f of files) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const record = JSON.parse(await fs.readFile(path.join(dir, f), "utf8"));
+      if (record.alias === ref || record.planId === ref) {
+        if (!isPlanV2(record)) return migratePlanV1toV2(record);
+        return record;
+      }
+    } catch { /* skip corrupt */ }
   }
+  return null;
 }
 
 /**
@@ -148,6 +202,7 @@ export async function listPlans(projectDir) {
       const record = JSON.parse(data);
       plans.push({
         planId: record.planId,
+        alias: record.alias || null,
         task: record.task,
         name: record.name || null,
         status: record.status || "draft",

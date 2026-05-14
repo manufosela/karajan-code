@@ -23,3 +23,23 @@ export function generatePlanId() {
 export function generateHuId(planId, seq) {
   return `hu_${planId}_${String(seq).padStart(3, "0")}`;
 }
+
+/**
+ * Normalise a human-friendly name into a CLI-typeable alias.
+ * "Greta App" → "greta-app", "Linux Assistant Orchestrator" → "linux-assistant-orchestrator".
+ * Acotado a 60 chars para que no se vuelva tan ilegible como el planId.
+ *
+ * @param {string|null|undefined} name
+ * @returns {string|null} alias o null si name está vacío.
+ */
+export function normaliseAlias(name) {
+  if (!name || typeof name !== "string") return null;
+  const slug = name
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")        // strip diacritics
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")            // non-alphanum → guion
+    .replace(/^-+|-+$/g, "")                // trim guiones extremos
+    .slice(0, 60);
+  return slug || null;
+}
