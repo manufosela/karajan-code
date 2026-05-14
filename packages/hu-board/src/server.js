@@ -13,7 +13,7 @@ import { authMiddleware } from './auth.js';
 import { getOrCreateToken, getTokenPath } from './token-store.js';
 import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
-import { setHuStatus as setHuStatusPlanMutation } from './plan-mutations.js';
+import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
 import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
 
@@ -198,7 +198,11 @@ async function main() {
   // a `failed` porque no sabemos el outcome; `result` se preserva.
   try {
     const dbHandle = (await import('./db.js')).getDb();
-    const reapedHus = reapZombieHus({ db: dbHandle, setHuStatus: setHuStatusPlanMutation });
+    const reapedHus = reapZombieHus({
+      db: dbHandle,
+      setHuStatus: setHuStatusPlanMutation,
+      setHuFailResult: setHuFailResultPlanMutation,
+    });
     if (reapedHus.length > 0) {
       console.log(`[hu-zombie-reaper] reset ${reapedHus.length} stuck HU(s) to pending:`);
       for (const r of reapedHus) {

@@ -59,7 +59,7 @@ export function findZombieHus(hus, opts = {}) {
  * plan. `setHuStatus` se inyecta para que los tests no necesiten un
  * plan-file real. Devuelve la lista de reapeados para el log.
  */
-export function reapZombieHus({ db, setHuStatus, opts = {}, now = () => Date.now() }) {
+export function reapZombieHus({ db, setHuStatus, setHuFailResult, opts = {}, now = () => Date.now() }) {
   if (!db || typeof setHuStatus !== "function") return [];
   const rows = db.prepare(
     "SELECT id, project_id, plan_id, status, updated_at FROM stories WHERE status IN ('coding', 'reviewing', 'running')",
@@ -77,6 +77,18 @@ export function reapZombieHus({ db, setHuStatus, opts = {}, now = () => Date.now
         const result = setHuStatus({ planId: hu.plan_id, huId: localHuId, status: "pending", projectId: hu.project_id });
         planPersisted = !!(result && result.ok);
       } catch { /* swallow — never block startup */ }
+      // KJC-TSK-0404: además de resetear status=pending, marcar la HU con
+      // result=fail + blocker. El siguiente `kj run` ve el blocker y se
+      // lo inyecta al coder como "## PREVIOUS ATTEMPT FAILED" para que
+      // no repita el mismo error. No-op si la fn no se inyectó.
+      if (planPersisted && typeof setHuFailResult === "function") {
+        try {
+          setHuFailResult({
+            planId: hu.plan_id, huId: localHuId, projectId: hu.project_id,
+            blocker: `timeout: ${reason}`,
+          });
+        } catch { /* swallow — el status reset ya está hecho */ }
+      }
     }
     // Fallback DB-only para legacy rows (plan_id null) o si el write al
     // plan falló. setHuStatus ya resincroniza en el caso happy.
