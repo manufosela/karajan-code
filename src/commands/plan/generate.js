@@ -232,7 +232,7 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   if (plan.hus.length > 0 && !skipReview) {
     runLog.logText("[planner] running plan reviewer pass");
     const reviewProgress = createCliProgressReporter({ role: "planner:reviewer", quiet: Boolean(json) });
-    const { reviewPlan, findingsCount } = await import("../../plan/plan-reviewer.js");
+    const { reviewPlan, findingsCount, findingsCountByType } = await import("../../plan/plan-reviewer.js");
     const review = await reviewPlan({
       agent: planner,
       task,
@@ -255,7 +255,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       // PATCH the plan, apply in-process, and re-review. Loop until 0
       // findings or maxIterations. Skippable with --no-plan-fixer/--quick.
       const skipFixer = Boolean(flags?.noPlanFixer || flags?.quick);
-      const maxFixerIterations = 2;
+      // KJC-BUG-0054: bumped 2 → 4 — el guard antiguo cortaba el loop
+      // demasiado pronto cuando había muchos hallazgos. Con el guard
+      // inteligente (priority vs secondary) podemos permitir más
+      // iteraciones sin riesgo de divergir indefinidamente, porque
+      // cada iter que NO reduce priority ni total se revierte.
+      const maxFixerIterations = 4;
       if (count > 0 && !skipFixer) {
         for (let i = 1; i <= maxFixerIterations; i++) {
           const currentCount = findingsCount(plan.review);
@@ -297,18 +302,41 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
             plan.review = reviewSnapshot;
             break;
           }
-          const newCount = findingsCount(review2.findings);
-          if (newCount > currentCount) {
-            // P5 convergence guard: iter made things worse — revert + stop.
+          // KJC-BUG-0054: smart convergence guard. El guard antiguo
+          // (newCount > currentCount → revert) tiraba iteraciones
+          // VÁLIDAS que arreglaban un ciclo o una HU faltante pero
+          // a cambio creaban deps menores. Ahora distinguimos:
+          //   - priority = cycles + missing_hus (CRÍTICO, no ignorable)
+          //   - secondary = missing_deps + overlaps + order non-circular
+          //
+          // Reglas (en orden):
+          //   1. priority bajó → ACEPTAR (aunque secondary suba — el plan es ejecutable)
+          //   2. priority igual + total bajó → ACEPTAR
+          //   3. priority igual + total igual → ACEPTAR (lateral move, da chance)
+          //   4. priority subió → REVERT
+          //   5. priority igual + total subió → REVERT (regresión genuina)
+          const before = findingsCountByType(reviewSnapshot);
+          const after = findingsCountByType(review2.findings);
+          const newCount = after.total;
+          const accept =
+            after.priority < before.priority
+            || (after.priority === before.priority && after.total <= before.total);
+          if (!accept) {
+            const reason = after.priority > before.priority
+              ? `priority ${before.priority}→${after.priority}`
+              : `total ${before.total}→${after.total} (priority unchanged at ${after.priority})`;
             plan.hus = husSnapshot;
             plan.review = reviewSnapshot;
             fixProgress.finish("reverted");
-            runLog.logText(`[planner] self-fix iter ${i} regressed (${currentCount} → ${newCount}) — reverted, stopping`);
+            runLog.logText(`[planner] self-fix iter ${i} regressed (${reason}) — reverted, stopping`);
             break;
           }
           plan.review = review2.findings;
           fixProgress.finish("done");
-          runLog.logText(`[planner] after self-fix iter ${i}: ${newCount} issue(s) remaining`);
+          const deltaSummary = after.priority < before.priority
+            ? `priority ${before.priority}→${after.priority}, total ${before.total}→${after.total}`
+            : `total ${before.total}→${after.total}`;
+          runLog.logText(`[planner] after self-fix iter ${i}: ${newCount} issue(s) (${deltaSummary})`);
         }
       }
     } else {
