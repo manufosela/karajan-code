@@ -179,9 +179,10 @@ describe('PATCH /api/stories/:id', () => {
     expect(hu.result).toBe('fail');
   });
 
-  // Dropdown libre del modal: PATCH acepta cualquier status del set
-  // user-settable (pending/certified/done/failed/blocked/needs_context).
-  it.each(['certified', 'done', 'failed', 'blocked', 'needs_context'])(
+  // KJC-TSK-0403: 'failed' eliminado del dropdown — el orquestador
+  // estampa result=fail dejando status=pending. Setearlo a mano ya no
+  // tiene sentido. Set permitido: pending/certified/done/blocked/needs_context.
+  it.each(['certified', 'done', 'blocked', 'needs_context'])(
     'PATCH stories acepta cambiar a "%s" manualmente',
     async (target) => {
       const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
@@ -193,6 +194,15 @@ describe('PATCH /api/stories/:id', () => {
       expect(hu.status).toBe(target);
     },
   );
+
+  // KJC-TSK-0403: 'failed' explícitamente RECHAZADO.
+  it('PATCH stories RECHAZA status="failed" con 400 (KJC-TSK-0403)', async () => {
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ status: 'failed' });
+    expect(res.status).toBe(400);
+  });
 
   // NO se permite settear lifecycle del orquestador (genera zombies).
   it.each(['coding', 'reviewing', 'running'])(

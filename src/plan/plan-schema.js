@@ -117,7 +117,10 @@ export function mapLegacyStatusToResult(legacy) {
     case "certified":
       return { status: "done", result: "pass" };
     case "failed":
-      return { status: "done", result: "fail" };
+      // KJC-TSK-0403: HU fallida vuelve a Pending con result=fail
+      // (no a Done) para que el usuario pueda relanzarla con el
+      // contexto del fallo previo (KJC-TSK-0404).
+      return { status: "pending", result: "fail" };
     case "done":
       return { status: "done", result: null }; // sin result conocido (raro)
     default:
