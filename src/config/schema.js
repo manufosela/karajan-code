@@ -177,6 +177,30 @@ const Skills = v.optional(v.looseObject({
 }));
 
 /**
+ * KJC-TSK-0407: routing automático de modelos por HU según complexity.
+ *   - by_provider: override de tiers per provider (claude/codex/gemini).
+ *     Cada provider mapea level → modelo. Sobreescribe defaults del router.
+ *   - fixed.coder / fixed.reviewer: si presentes, override TOTAL — todas
+ *     las HUs usan esos modelos independientemente del score. Útil para
+ *     forzar Sonnet en todo el proyecto, por ejemplo.
+ */
+const ModelRouting = v.optional(v.looseObject({
+  by_provider: v.optional(v.record(
+    v.string(),
+    v.looseObject({
+      trivial: v.optional(v.string()),
+      simple: v.optional(v.string()),
+      medium: v.optional(v.string()),
+      complex: v.optional(v.string()),
+    })
+  )),
+  fixed: v.optional(v.looseObject({
+    coder: v.optional(v.nullable(v.string())),
+    reviewer: v.optional(v.nullable(v.string())),
+  })),
+}));
+
+/**
  * Main config schema. `looseObject` lets every consumer that reads an
  * undeclared key keep working while the schema catches the bugs we care
  * about.
@@ -207,6 +231,7 @@ export const ConfigSchema = v.looseObject({
   policies: v.optional(v.record(v.string(), v.unknown())),
   telemetry: v.optional(v.boolean()),
   skills: Skills,
+  model_routing: ModelRouting,
 });
 
 /**

@@ -181,3 +181,47 @@ describe("applyRunOverrides — falsy handling regressions from #367", () => {
       .toThrow(/review_mode must be one of/);
   });
 });
+
+// KJC-TSK-0407: nueva sección model_routing.
+describe("config schema — model_routing", () => {
+  it("acepta config sin model_routing (campo opcional)", () => {
+    const out = parseConfig({});
+    expect(out.model_routing).toBeUndefined();
+  });
+
+  it("acepta model_routing.by_provider con tiers per provider", () => {
+    const out = parseConfig({
+      model_routing: {
+        by_provider: {
+          claude: { trivial: "haiku", medium: "sonnet", complex: "opus" },
+          codex: { medium: "o4-mini", complex: "o3" },
+        },
+      },
+    });
+    expect(out.model_routing.by_provider.claude.medium).toBe("sonnet");
+    expect(out.model_routing.by_provider.codex.complex).toBe("o3");
+  });
+
+  it("acepta model_routing.fixed.coder y fixed.reviewer como override total", () => {
+    const out = parseConfig({
+      model_routing: { fixed: { coder: "claude-sonnet-4-6", reviewer: "opus" } },
+    });
+    expect(out.model_routing.fixed.coder).toBe("claude-sonnet-4-6");
+    expect(out.model_routing.fixed.reviewer).toBe("opus");
+  });
+
+  it("acepta fixed.coder = null (uso parcial: solo fija reviewer)", () => {
+    const out = parseConfig({
+      model_routing: { fixed: { coder: null, reviewer: "opus" } },
+    });
+    expect(out.model_routing.fixed.coder).toBeNull();
+    expect(out.model_routing.fixed.reviewer).toBe("opus");
+  });
+
+  it("by_provider acepta providers desconocidos (looseObject — futuro-proof)", () => {
+    const out = parseConfig({
+      model_routing: { by_provider: { someNewProvider: { medium: "x" } } },
+    });
+    expect(out.model_routing.by_provider.someNewProvider.medium).toBe("x");
+  });
+});
