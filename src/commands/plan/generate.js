@@ -9,6 +9,7 @@ import { promptProjectName } from "../../utils/prompt-project-name.js";
 import { deriveProjectNameFromCwd } from "../../utils/derive-project-name-from-cwd.js";
 import { applyReviewerFeedback, applyFixerPatch } from "../../plan/plan-fixer.js";
 import { runStructuralPass } from "../../plan/plan-structural-pass.js";
+import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-router.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -137,16 +138,29 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     // referencia en `kj run --hu INFRA-001`.
     const symbolicId = typeof step === "object" && typeof step.id === "string" && step.id.trim()
       ? step.id.trim() : null;
+    const taskType = classifyTaskType(desc);
+    // KJC-TSK-0405 step 2: asigna coder_model + reviewer_model
+    // automáticamente según complexity inferido del task_type. El
+    // planner puede emitir `step.complexity` (trivial/simple/medium/complex
+    // o score 1-5) para override más fino. Cross-provider reviewer
+    // (claude↔codex) por defecto.
+    const coderProvider = config?.roles?.coder?.provider || config?.coder || "claude";
+    const complexity = (typeof step === "object" && step.complexity)
+      ? step.complexity
+      : complexityFromTaskType(taskType);
+    const models = recommendModelsForHu({ complexity, coderProvider, config });
     const hu = addHu(plan, {
       title: desc.slice(0, 80),
-      task_type: classifyTaskType(desc),
+      task_type: taskType,
       scope: desc,
       blocked_by: [],
       acceptance_tests: tests,
       short_id: symbolicId,
-      // Spec mapping (PR C): preserve the planner's section citation
-      // so the coder/reviewer / board can show "implements §5.3".
       spec_section: typeof step === "object" && typeof step.spec_section === "string" ? step.spec_section.trim() || null : null,
+      coder_model: models.coder_model,
+      coder_provider: models.coder_provider,
+      reviewer_model: models.reviewer_model,
+      reviewer_provider: models.reviewer_provider,
     });
     if (symbolicId) symbolicToHuId.set(symbolicId, hu.id);
     const deps = typeof step === "object" && Array.isArray(step.dependencies) ? step.dependencies : [];
