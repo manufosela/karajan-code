@@ -262,6 +262,37 @@ describe('PATCH /api/stories/:id', () => {
   });
 });
 
+// KJC-TSK-0408: POST /api/stories/:id/undo deshace una HU restaurando
+// el snapshot git. Los tests cubren los códigos de error (sin snapshot,
+// HU inexistente, plan sin projectDir); el happy path requiere un repo
+// git real así que se valida en e2e.
+describe('POST /api/stories/:id/undo', () => {
+  it('400 cuando la HU no tiene snapshot_sha en outcome', async () => {
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app).post(`/api/stories/${encodeURIComponent(storyId)}/undo`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/snapshot/i);
+  });
+
+  it('404 cuando la story no existe', async () => {
+    const res = await request(app).post('/api/stories/ghost/undo');
+    expect(res.status).toBe(404);
+  });
+
+  it('400 cuando el plan no tiene projectDir', async () => {
+    // Pre-seed: la HU tiene snapshot_sha pero el plan carece de projectDir
+    const plan = readPlanFromDisk();
+    plan.hus[0].outcome = { snapshot_sha: 'abc123', snapshot_ref: 'refs/kj-snapshots/x' };
+    delete plan.projectDir;
+    writeFileSync(planPath(), JSON.stringify(plan, null, 2), 'utf-8');
+    syncMod.syncPlanFile(planPath());
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app).post(`/api/stories/${encodeURIComponent(storyId)}/undo`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/projectDir/);
+  });
+});
+
 describe('POST /api/plans/:planId/ready', () => {
   it('certifies every pending HU and flips the plan to ready', async () => {
     const res = await request(app)

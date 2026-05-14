@@ -202,6 +202,43 @@ export function setHuFailResult({ planId, huId, blocker, projectId }) {
 }
 
 /**
+ * KJC-TSK-0408 step 2/3: deshace los cambios de una HU restaurando
+ * el snapshot git tomado pre-run. Marca status=pending, result=null
+ * y outcome.reverted=true para que la UI muestre "deshecha".
+ *
+ * @param {object} args
+ * @param {string} args.planId
+ * @param {string} args.huId
+ * @param {string} [args.projectId]
+ * @returns {Promise<{ ok: boolean, sha?: string, error?: string }>}
+ */
+export async function revertHuFromSnapshot({ planId, huId, projectId }) {
+  const filePath = findPlanFilePath(planId, projectId);
+  if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
+  const plan = readPlan(filePath);
+  const hu = plan.hus?.find(h => h.id === huId);
+  if (!hu) return { ok: false, error: `hu not found: ${huId}` };
+  const snapshotSha = hu.outcome?.snapshot_sha;
+  if (!snapshotSha) {
+    return { ok: false, error: 'esta HU no tiene snapshot — solo HUs ejecutadas con KJC-TSK-0408 pueden deshacerse' };
+  }
+  const projectDir = plan.projectDir;
+  if (!projectDir) return { ok: false, error: 'plan sin projectDir' };
+
+  const { restoreHuSnapshot } = await import('../../../src/git/hu-snapshot.js');
+  const restore = await restoreHuSnapshot({ projectDir, huId });
+  if (!restore.ok) return { ok: false, error: `restore falló: ${restore.error}` };
+
+  hu.status = 'pending';
+  hu.result = null;
+  hu.outcome = { ...(hu.outcome || {}), reverted: true, revertedAt: new Date().toISOString() };
+  hu.updatedAt = new Date().toISOString();
+  writePlan(filePath, plan);
+  syncPlanFile(filePath);
+  return { ok: true, sha: restore.sha };
+}
+
+/**
  * Bulk certify: equivalent to `kj plan ready <planId>` over HTTP. Flips
  * every pending HU to certified and sets `plan.status = "ready"`. No-op
  * on already-ready plans (idempotent, returns count=0).
