@@ -6,7 +6,14 @@
  * @typedef {import("../types/config.js").KarajanConfig} KarajanConfig
  */
 
-export const VALID_TASK_TYPES = new Set(["sw", "infra", "doc", "add-tests", "refactor", "audit", "analysis", "no-code"]);
+// KJC-TSK-0400: spike y research añadidos como tipos no-code. Comparten
+// las defaults restrictivas (tdd/sonar/testsRequired off) porque NO
+// producen código que medir: un SPIKE es un .md de decisión, un research
+// es una nota de investigación. Forzar Sonar les hace fallar siempre.
+export const VALID_TASK_TYPES = new Set([
+  "sw", "infra", "doc", "add-tests", "refactor",
+  "audit", "analysis", "no-code", "spike", "research",
+]);
 
 export const DEFAULT_POLICIES = {
   sw:        { tdd: true,  sonar: true,  reviewer: true, testsRequired: true  },
@@ -17,7 +24,37 @@ export const DEFAULT_POLICIES = {
   audit:     { tdd: false, sonar: false, reviewer: false, testsRequired: false, coderRequired: false },
   analysis:  { tdd: false, sonar: false, reviewer: false, testsRequired: false, coderRequired: false },
   "no-code": { tdd: false, sonar: false, reviewer: true, testsRequired: false, coderRequired: true },
+  spike:     { tdd: false, sonar: false, reviewer: true, testsRequired: false, coderRequired: true },
+  research:  { tdd: false, sonar: false, reviewer: true, testsRequired: false, coderRequired: true },
 };
+
+// KJC-TSK-0400: si el title arranca con [SPIKE] / [DOC] / [RESEARCH] /
+// [NOCODE], inferimos el task_type del prefijo. Pensado para casos donde
+// el planner emite task_type='sw' por defecto pero el title declara
+// claramente que la HU no produce código. Devuelve null si no hay match.
+const TITLE_PREFIX_TO_TYPE = {
+  SPIKE: "spike",
+  RESEARCH: "research",
+  DOC: "doc",
+  NOCODE: "no-code",
+  "NO-CODE": "no-code",
+};
+
+export function inferTaskTypeFromTitle(title) {
+  if (typeof title !== "string") return null;
+  const m = title.match(/^\s*\[([A-Z][A-Z-]+)\]/);
+  if (!m) return null;
+  return TITLE_PREFIX_TO_TYPE[m[1].toUpperCase()] || null;
+}
+
+// KJC-TSK-0400: dado un HU del plan, devuelve el task_type efectivo:
+// explícito en story.task_type si es válido, si no inferido del title.
+// Fallback 'sw' (conservador, mantiene gates activos cuando hay duda).
+export function effectiveTaskType(story) {
+  if (!story || typeof story !== "object") return "sw";
+  if (VALID_TASK_TYPES.has(story.task_type)) return story.task_type;
+  return inferTaskTypeFromTitle(story.title) || "sw";
+}
 
 const FALLBACK_TYPE = "sw";
 

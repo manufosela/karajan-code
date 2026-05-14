@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { resolvePolicies, applyPolicies, VALID_TASK_TYPES, DEFAULT_POLICIES } from "../../src/guards/policy-resolver.js";
+import {
+  resolvePolicies, applyPolicies, VALID_TASK_TYPES, DEFAULT_POLICIES,
+  inferTaskTypeFromTitle, effectiveTaskType,
+} from "../../src/guards/policy-resolver.js";
 
 describe("policy-resolver", () => {
   describe("VALID_TASK_TYPES", () => {
-    it("contains exactly the eight expected task types", () => {
-      expect(VALID_TASK_TYPES).toEqual(new Set(["sw", "infra", "doc", "add-tests", "refactor", "audit", "analysis", "no-code"]));
+    it("contains all valid task types (sw + infra + doc + add-tests + refactor + audit + analysis + no-code + spike + research)", () => {
+      // KJC-TSK-0400: añadidos spike y research como no-code variants.
+      expect(VALID_TASK_TYPES).toEqual(new Set([
+        "sw", "infra", "doc", "add-tests", "refactor",
+        "audit", "analysis", "no-code", "spike", "research",
+      ]));
     });
   });
 
@@ -151,6 +158,63 @@ describe("policy-resolver", () => {
       const before = { ...DEFAULT_POLICIES.sw };
       resolvePolicies("sw", { sw: { tdd: false } });
       expect(DEFAULT_POLICIES.sw).toEqual(before);
+    });
+  });
+
+  // KJC-TSK-0400: spike y research como nuevos tipos no-code +
+  // inferencia de task_type desde prefijo del title.
+  describe("spike / research task types", () => {
+    it("spike → todo en false excepto reviewer (decisión arquitectónica)", () => {
+      expect(resolvePolicies("spike")).toEqual({
+        tdd: false, sonar: false, reviewer: true, testsRequired: false, coderRequired: true,
+      });
+    });
+    it("research → mismos defaults que spike", () => {
+      expect(resolvePolicies("research")).toEqual(resolvePolicies("spike"));
+    });
+  });
+
+  describe("inferTaskTypeFromTitle", () => {
+    it("[SPIKE] prefix → spike", () => {
+      expect(inferTaskTypeFromTitle("[SPIKE] Decidir auth strategy")).toBe("spike");
+    });
+    it("[DOC] prefix → doc", () => {
+      expect(inferTaskTypeFromTitle("[DOC] Escribir README")).toBe("doc");
+    });
+    it("[RESEARCH] prefix → research", () => {
+      expect(inferTaskTypeFromTitle("[RESEARCH] Comparar libs de PDF")).toBe("research");
+    });
+    it("[NOCODE] y [NO-CODE] → no-code", () => {
+      expect(inferTaskTypeFromTitle("[NOCODE] Subir assets")).toBe("no-code");
+      expect(inferTaskTypeFromTitle("[NO-CODE] Subir assets")).toBe("no-code");
+    });
+    it("sin prefijo → null", () => {
+      expect(inferTaskTypeFromTitle("Implementar login")).toBeNull();
+    });
+    it("prefijo desconocido → null", () => {
+      expect(inferTaskTypeFromTitle("[FOOBAR] cosa")).toBeNull();
+    });
+    it("entrada no-string → null", () => {
+      expect(inferTaskTypeFromTitle(null)).toBeNull();
+      expect(inferTaskTypeFromTitle(undefined)).toBeNull();
+    });
+  });
+
+  describe("effectiveTaskType", () => {
+    it("respeta task_type explícito si es válido", () => {
+      expect(effectiveTaskType({ task_type: "infra", title: "[SPIKE] x" })).toBe("infra");
+    });
+    it("infiere del title cuando task_type es null", () => {
+      expect(effectiveTaskType({ task_type: null, title: "[SPIKE] x" })).toBe("spike");
+    });
+    it("infiere del title cuando task_type es desconocido", () => {
+      expect(effectiveTaskType({ task_type: "junk", title: "[DOC] x" })).toBe("doc");
+    });
+    it("fallback sw cuando no hay nada que inferir", () => {
+      expect(effectiveTaskType({ title: "Implementar login" })).toBe("sw");
+    });
+    it("story null → sw conservador", () => {
+      expect(effectiveTaskType(null)).toBe("sw");
     });
   });
 });
