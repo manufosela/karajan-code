@@ -10,6 +10,7 @@ export { planDeleteCommand } from "./delete.js";
 export { planAddHuCommand } from "./add-hu.js";
 export { planRemoveHuCommand } from "./remove-hu.js";
 export { planMigrateResultCommand } from "./migrate-result.js";
+export { planFixCommand } from "./fix.js";
 
 // Keep backward compat — old callers import planCommand
 export const planCommand = planGenerateCommand;
