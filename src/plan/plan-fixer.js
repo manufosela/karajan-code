@@ -110,15 +110,42 @@ export function applyFixerPatch(plan, patch) {
   for (const huId of patch.deletions || []) {
     if (removeHu(plan, huId)) counts.deleted += 1;
   }
+  // KJC-BUG-0053: las HUs añadidas por el fixer dejaban `short_id` y
+  // `blocked_by` vacíos porque addHu no recibía esos campos. Resultado:
+  // HUs huérfanas con id largo críptico y sin orden de ejecución.
+  //
+  // Fix: (1) pasar `short_id: a.id` (el id simbólico que el fixer LLM
+  // asigna a cada addition). (2) resolver `a.dependencies` simbólicas
+  // → hu.id largos contra el plan ya existente + el mapa de símbolos
+  // recién añadidos. La resolución necesita 2 pasadas (primera crea
+  // las HUs y registra el mapping, segunda asigna deps) para que
+  // additions que se referencian entre sí funcionen.
+  const symbolicToHuId = new Map();
+  for (const hu of plan.hus) {
+    if (hu.short_id) symbolicToHuId.set(hu.short_id, hu.id);
+  }
+  const addedHus = []; // {hu, depsSymbolic}
   for (const a of patch.additions || []) {
-    addHu(plan, {
+    const symbolicId = typeof a.id === "string" && a.id.trim() ? a.id.trim() : null;
+    const hu = addHu(plan, {
       title: (a.description || "").slice(0, 80),
       scope: a.description,
+      short_id: symbolicId,
       spec_section: a.spec_section,
       acceptance_tests: a.acceptance_tests,
       reuse: a.reuse || [],
     });
+    if (symbolicId) symbolicToHuId.set(symbolicId, hu.id);
+    const depsSymbolic = Array.isArray(a.dependencies) ? a.dependencies : [];
+    addedHus.push({ hu, depsSymbolic });
     counts.added += 1;
+  }
+  // Pasada 2: resolver deps simbólicas de las additions a ids largos.
+  for (const { hu, depsSymbolic } of addedHus) {
+    const resolved = depsSymbolic
+      .map((s) => typeof s === "string" ? symbolicToHuId.get(s.trim()) : null)
+      .filter(Boolean);
+    if (resolved.length > 0) hu.blocked_by = resolved;
   }
   const knownIds = new Set(plan.hus.map(h => h.id));
   for (const { huId, on } of patch.deps_to_add || []) {

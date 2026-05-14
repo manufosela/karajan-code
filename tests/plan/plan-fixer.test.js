@@ -109,4 +109,55 @@ describe("applyFixerPatch", () => {
     expect(plan.hus).toHaveLength(1);
     expect(plan.hus[0].blocked_by).toEqual([]);
   });
+
+  // KJC-BUG-0053: HUs añadidas por fixer deben llevar short_id y blocked_by
+  // resueltos desde el id simbólico + dependencies del patch.
+  it("addition con id simbólico se persiste como short_id de la HU nueva", () => {
+    const plan = makePlan();
+    applyFixerPatch(plan, {
+      additions: [{ id: "INFRA-NEW", description: "Audit log", spec_section: "5.3" }],
+      deps_to_add: [],
+      deletions: [],
+    });
+    const added = plan.hus.find((h) => h.scope === "Audit log");
+    expect(added.short_id).toBe("INFRA-NEW");
+  });
+
+  it("addition con dependencies simbólicas se resuelve a blocked_by con ids largos de HUs existentes", () => {
+    const plan = makePlan();
+    plan.hus[0].short_id = "BASE-001"; // hu_001 tiene short_id conocido
+    applyFixerPatch(plan, {
+      additions: [{ id: "DERIVED-001", description: "Depends on base", dependencies: ["BASE-001"] }],
+      deps_to_add: [],
+      deletions: [],
+    });
+    const added = plan.hus.find((h) => h.short_id === "DERIVED-001");
+    expect(added.blocked_by).toEqual(["hu_001"]);
+  });
+
+  it("dependencies entre 2 additions del mismo patch se resuelven (forward ref)", () => {
+    const plan = makePlan();
+    applyFixerPatch(plan, {
+      additions: [
+        { id: "X-001", description: "first" },
+        { id: "Y-001", description: "second", dependencies: ["X-001"] },
+      ],
+      deps_to_add: [],
+      deletions: [],
+    });
+    const x = plan.hus.find((h) => h.short_id === "X-001");
+    const y = plan.hus.find((h) => h.short_id === "Y-001");
+    expect(y.blocked_by).toEqual([x.id]);
+  });
+
+  it("dependencies simbólicas desconocidas se descartan silenciosamente (sin matchear no se añaden)", () => {
+    const plan = makePlan();
+    applyFixerPatch(plan, {
+      additions: [{ id: "DANGLER", description: "orphan ref", dependencies: ["NONEXISTENT-999"] }],
+      deps_to_add: [],
+      deletions: [],
+    });
+    const added = plan.hus.find((h) => h.short_id === "DANGLER");
+    expect(added.blocked_by).toEqual([]);
+  });
 });
