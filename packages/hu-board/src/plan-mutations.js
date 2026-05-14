@@ -21,6 +21,7 @@ import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';
 import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
+import { validateBlockedByChange } from '../../../src/plan/plan-validation.js';
 import { syncPlanFile } from './sync.js';
 import { getDb } from './db.js';
 
@@ -149,6 +150,15 @@ export function setHuFields({ planId, huId, patch, projectId }) {
 
   const plan = readPlan(filePath);
   if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
+
+  // KJC-TSK-0401: si el patch toca blocked_by, validar antes de
+  // persistir. Rechazar refs huérfanas, auto-deps y ciclos.
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'blocked_by')) {
+    const result = validateBlockedByChange(plan, huId, patch.blocked_by);
+    if (!result.ok) {
+      return { ok: false, error: result.error, code: 'INVALID_BLOCKED_BY', cycle: result.cycle };
+    }
+  }
 
   const updated = updateHu(plan, huId, patch || {});
   if (!updated) return { ok: false, error: `hu not found: ${huId}` };
