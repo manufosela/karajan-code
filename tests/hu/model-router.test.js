@@ -121,3 +121,38 @@ describe("complexityFromTaskType", () => {
     expect(complexityFromTaskType(undefined)).toBe("medium");
   });
 });
+
+// KJC-TSK-0410: opencode + aider como first-class providers en el router.
+describe("recommendModelsForHu — opencode / aider", () => {
+  it("opencode coder usa alias 'coder' por defecto en cualquier complexity", () => {
+    const cfg = { roles: { coder: { provider: "opencode" } } };
+    for (const level of ["trivial", "simple", "medium", "complex"]) {
+      const r = recommendModelsForHu({ complexity: level, coderProvider: "opencode", config: cfg });
+      expect(r.coder_model).toBe("coder");
+    }
+  });
+
+  it("opencode → reviewer claude (cross-provider: local escribe, cloud revisa)", () => {
+    const r = recommendModelsForHu({ complexity: "medium", coderProvider: "opencode", config: {} });
+    expect(r.reviewer_provider).toBe("claude");
+    expect(r.reviewer_model).toBe("sonnet");
+  });
+
+  it("aider coder devuelve null por defecto (aider envuelve a otros, no tiene modelos propios)", () => {
+    const r = recommendModelsForHu({ complexity: "medium", coderProvider: "aider", config: {} });
+    expect(r.coder_model).toBeNull();
+    expect(r.reviewer_provider).toBe("claude");
+  });
+
+  it("by_provider.opencode override per-tier funciona — fast para trivial, coder-n3 para complex", () => {
+    const cfg = {
+      model_routing: {
+        by_provider: {
+          opencode: { trivial: "fast", complex: "coder-n3" },
+        },
+      },
+    };
+    expect(recommendModelsForHu({ complexity: "trivial", coderProvider: "opencode", config: cfg }).coder_model).toBe("fast");
+    expect(recommendModelsForHu({ complexity: "complex", coderProvider: "opencode", config: cfg }).coder_model).toBe("coder-n3");
+  });
+});

@@ -16,18 +16,32 @@ const SCORE_TO_LEVEL = {
 };
 
 // Defaults por provider — alineados con utils/model-selector.js DEFAULTS.
+// opencode: usa "coder" como alias razonable; el usuario suele definir
+// gemma-local/coder, ollama/coder o similar en opencode.json. Override
+// per-tier vía config.model_routing.by_provider.opencode si quieres
+// rutear distinto por complexity (ej. fast para trivial, coder para
+// complex). aider: null porque aider envuelve a otros providers — no
+// tiene "modelos propios". Si el usuario lo elige, debe configurarlo
+// explícito en config.model_routing.by_provider.aider o vía override
+// del modal por HU.
 const DEFAULT_TIERS = {
   claude: { trivial: "haiku", simple: "haiku", medium: "sonnet", complex: "opus" },
   codex: { trivial: "o4-mini", simple: "o4-mini", medium: "o4-mini", complex: "o3" },
   gemini: { trivial: "gemini-2.0-flash", simple: "gemini-2.0-flash", medium: "gemini-2.5-pro", complex: "gemini-2.5-pro" },
+  opencode: { trivial: "coder", simple: "coder", medium: "coder", complex: "coder" },
+  aider: { trivial: null, simple: null, medium: null, complex: null },
 };
 
 // Cross-provider reviewer default: para cada coder provider, qué provider
-// usa el reviewer por defecto. Idea: dos cabezas distintas miran el código.
+// usa el reviewer por defecto. Dos cabezas distintas miran el código.
+// opencode → claude: pattern "local barato escribe + cloud revisa".
+// aider → claude: aider suele correr en un model pequeño, claude verifica.
 const CROSS_PROVIDER_REVIEWER = {
   claude: "codex",
   codex: "claude",
   gemini: "claude",
+  opencode: "claude",
+  aider: "claude",
 };
 
 // KJC-TSK-0405 step 2: heurística para inferir complexity desde
