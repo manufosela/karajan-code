@@ -246,7 +246,7 @@ export function buildPlannerPrompt({ task, context, architectContext, productCon
     "- `approach`: A concise paragraph describing the overall strategy.",
     "- `steps`: An array of step objects (see shape below). Each step = one commit.",
     "- `risks`: An array of strings describing potential risks or challenges.",
-    "- `outOfScope`: An array of strings listing what is explicitly NOT included.",
+    "- `outOfScope`: An array of strings listing what is explicitly NOT included. **RULES**: only populate it with items the task text EXPLICITLY excludes (phrases like 'NO incluye:', 'Fuera de scope:', 'Out of scope:', 'Not in this plan:', 'Plan N handles:', 'Reserved for plan…'). DO NOT invent items the task does not mention. DO NOT list things the user 'might' want next. If the task has no explicit exclusions, return `outOfScope: []` — an empty array is the correct answer.",
     "",
     "Each step in `steps` has this shape:",
     "```json",

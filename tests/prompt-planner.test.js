@@ -318,4 +318,20 @@ describe("prompts/planner buildPlannerPrompt", () => {
       expect(prompt).toMatch(/ONLY required output is the JSON object/);
     });
   });
+
+  // KJC outputs limpios: outOfScope NO debe inventarse.
+  describe("outOfScope hardening", () => {
+    it("instruye que NO se invente y que el default sea []", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/DO NOT invent items the task does not mention/);
+      expect(prompt).toMatch(/empty array is the correct answer/);
+    });
+
+    it("lista los marcadores aceptables para exclusiones explícitas", () => {
+      const prompt = buildPlannerPrompt({ task: "anything" });
+      expect(prompt).toMatch(/NO incluye:/);
+      expect(prompt).toMatch(/Fuera de scope:/);
+      expect(prompt).toMatch(/Out of scope:/);
+    });
+  });
 });

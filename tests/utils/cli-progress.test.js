@@ -96,4 +96,51 @@ describe("utils/cli-progress — createCliProgressReporter", () => {
     expect(() => onOutput({})).not.toThrow();
     expect(() => onOutput({ line: 123 })).not.toThrow(); // non-string ignored
   });
+
+  // KJC outputs limpios: bloques JSON multilínea NO inundan el stderr.
+  describe("JSON suppression", () => {
+    it("suprime bloque ```json ... ``` y muestra un marcador", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: "Generating plan...", kind: "text" });
+      onOutput({ line: "```json", kind: "text" });
+      onOutput({ line: '  "approach": "build it"', kind: "text" });
+      onOutput({ line: '  "steps": [', kind: "text" });
+      onOutput({ line: '    { "id": "INFRA-001" }', kind: "text" });
+      onOutput({ line: "  ]", kind: "text" });
+      onOutput({ line: "}", kind: "text" });
+      onOutput({ line: "```", kind: "text" });
+      onOutput({ line: "Done.", kind: "text" });
+      const suppressed = stream.out.split("\n").filter((l) => l.includes("<json suprimido>"));
+      expect(suppressed).toHaveLength(1);
+      expect(stream.out).not.toContain('"approach":');
+      expect(stream.out).not.toContain('"id": "INFRA-001"');
+      expect(stream.out).toMatch(/Generating plan\.\.\./);
+      expect(stream.out).toMatch(/Done\./);
+    });
+
+    it("suprime JSON sin fence (que empieza con `{` solo)", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: "Output:", kind: "text" });
+      onOutput({ line: "{", kind: "text" });
+      onOutput({ line: '  "ok": true', kind: "text" });
+      onOutput({ line: "}", kind: "text" });
+      onOutput({ line: "After.", kind: "text" });
+      expect(stream.out).toMatch(/<json suprimido>/);
+      expect(stream.out).not.toContain('"ok": true');
+      expect(stream.out).toMatch(/Output:/);
+      expect(stream.out).toMatch(/After\./);
+    });
+
+    it("no suprime líneas normales que casualmente tengan llaves", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: "Found {x} items.", kind: "text" });
+      onOutput({ line: "Listing patterns matching {pattern}", kind: "text" });
+      expect(stream.out).toMatch(/Found \{x\} items\./);
+      expect(stream.out).toMatch(/Listing patterns matching \{pattern\}/);
+      expect(stream.out).not.toMatch(/<json suprimido>/);
+    });
+  });
 });
