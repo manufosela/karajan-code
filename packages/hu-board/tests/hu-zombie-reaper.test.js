@@ -81,4 +81,27 @@ describe('reapZombieHus', () => {
     expect(reapZombieHus({ db, setHuStatus: vi.fn(), now: () => NOW })).toEqual([]);
     expect(reapZombieHus({ db: null, setHuStatus: vi.fn() })).toEqual([]);
   });
+
+  // KJC-TSK-0404: además de resetear status=pending, el reaper marca
+  // la HU con result=fail + blocker para que el siguiente `kj run`
+  // tenga contexto del fallo previo.
+  it('al detectar zombi llama setHuFailResult con el motivo del timeout', () => {
+    insert('proj::hu_001', 'plan-x', 'coding', null, ago(60));
+    const setHuStatus = vi.fn(() => ({ ok: true, status: 'pending', planStatus: 'draft' }));
+    const setHuFailResult = vi.fn(() => ({ ok: true }));
+    reapZombieHus({ db, setHuStatus, setHuFailResult, opts: { runningMinutes: 30 }, now: () => NOW });
+    expect(setHuFailResult).toHaveBeenCalledTimes(1);
+    const call = setHuFailResult.mock.calls[0][0];
+    expect(call.planId).toBe('plan-x');
+    expect(call.huId).toBe('hu_001');
+    expect(call.blocker).toMatch(/timeout/i);
+  });
+
+  it('no llama setHuFailResult si setHuStatus falla (DB-only fallback)', () => {
+    insert('proj::hu_001', 'plan-x', 'coding', null, ago(60));
+    const setHuStatus = vi.fn(() => ({ ok: false, error: 'plan not found' }));
+    const setHuFailResult = vi.fn(() => ({ ok: true }));
+    reapZombieHus({ db, setHuStatus, setHuFailResult, opts: { runningMinutes: 30 }, now: () => NOW });
+    expect(setHuFailResult).not.toHaveBeenCalled();
+  });
 });

@@ -169,6 +169,39 @@ export function setHuFields({ planId, huId, patch, projectId }) {
 }
 
 /**
+ * KJC-TSK-0404: marcar una HU como fallida con blocker y timestamp
+ * (sin tocar status). Usado por el zombie-reaper al detectar timeout
+ * para que el siguiente `kj run` sepa el motivo del último fallo.
+ *
+ * @param {object} args
+ * @param {string} args.planId
+ * @param {string} args.huId
+ * @param {string} args.blocker - razón del fallo
+ * @param {string} [args.projectId]
+ * @returns {{ ok: boolean, hu?: object, error?: string }}
+ */
+export function setHuFailResult({ planId, huId, blocker, projectId }) {
+  const filePath = findPlanFilePath(planId, projectId);
+  if (!filePath) return { ok: false, error: `plan not found: ${planId}` };
+  const plan = readPlan(filePath);
+  if (!Array.isArray(plan.hus)) return { ok: false, error: 'plan has no hus[]' };
+  const hu = plan.hus.find(h => h.id === huId);
+  if (!hu) return { ok: false, error: `hu not found: ${huId}` };
+
+  hu.result = 'fail';
+  hu.updatedAt = new Date().toISOString();
+  const existing = (hu.outcome && Array.isArray(hu.outcome.blockers)) ? hu.outcome.blockers : [];
+  hu.outcome = {
+    ...(hu.outcome || {}),
+    blockers: blocker ? [...existing, blocker] : existing,
+    failedAt: new Date().toISOString(),
+  };
+  writePlan(filePath, plan);
+  syncPlanFile(filePath);
+  return { ok: true, hu };
+}
+
+/**
  * Bulk certify: equivalent to `kj plan ready <planId>` over HTTP. Flips
  * every pending HU to certified and sets `plan.status = "ready"`. No-op
  * on already-ready plans (idempotent, returns count=0).
