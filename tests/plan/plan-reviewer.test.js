@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildReviewerPrompt, reviewPlan, findingsCount } from "../../src/plan/plan-reviewer.js";
+import { buildReviewerPrompt, reviewPlan, findingsCount, findingsCountByType } from "../../src/plan/plan-reviewer.js";
 
 describe("buildReviewerPrompt", () => {
   it("constrains the LLM to five closed-ended questions, no free-form suggestions", () => {
@@ -155,5 +155,48 @@ describe("findingsCount", () => {
     expect(findingsCount(null)).toBe(0);
     expect(findingsCount({})).toBe(0);
     expect(findingsCount({ missing_hus: [] })).toBe(0);
+  });
+});
+
+// KJC-BUG-0054: convergence guard inteligente necesita distinguir
+// "regresión genuina" (priority subió) de "tradeoff válido" (priority
+// bajó pero secondary subió). El test fija las dos categorías.
+describe("findingsCountByType", () => {
+  it("clasifica cycles + missing_hus como priority; el resto como secondary", () => {
+    const f = {
+      missing_hus: [{ spec_section: "5.1", rationale: "x" }, { spec_section: "5.2", rationale: "y" }],
+      missing_dependencies: [{ from: "h1", on: "h2", rationale: "z" }],
+      scope_overlaps: [{ between: ["h3", "h4"], rationale: "w" }, { between: ["h5", "h6"], rationale: "v" }],
+      order_issues: [
+        { hus: ["h7", "h8"], issue: "circular", rationale: "loop" },
+        { hus: ["h9"], issue: "wrong order", rationale: "non-circular" },
+      ],
+    };
+    const r = findingsCountByType(f);
+    expect(r.priority).toBe(3);    // 1 cycle + 2 missing_hus
+    expect(r.secondary).toBe(4);   // 1 dep + 2 overlaps + 1 non-circular order
+    expect(r.total).toBe(7);
+    expect(r.cycles).toBe(1);
+  });
+
+  it("vuelve a cero para findings vacíos / nulos", () => {
+    expect(findingsCountByType(null)).toEqual({ priority: 0, secondary: 0, total: 0, cycles: 0 });
+    expect(findingsCountByType({})).toEqual({ priority: 0, secondary: 0, total: 0, cycles: 0 });
+  });
+
+  it("distingue order_issues circulares vs no-circulares (los no-circulares NO son priority)", () => {
+    const onlyNonCircular = findingsCountByType({
+      order_issues: [{ hus: ["h1"], issue: "wrong order", rationale: "x" }],
+    });
+    expect(onlyNonCircular.priority).toBe(0);
+    expect(onlyNonCircular.cycles).toBe(0);
+    expect(onlyNonCircular.secondary).toBe(1);
+
+    const onlyCircular = findingsCountByType({
+      order_issues: [{ hus: ["h1", "h2"], issue: "circular", rationale: "loop" }],
+    });
+    expect(onlyCircular.priority).toBe(1);
+    expect(onlyCircular.cycles).toBe(1);
+    expect(onlyCircular.secondary).toBe(0);
   });
 });

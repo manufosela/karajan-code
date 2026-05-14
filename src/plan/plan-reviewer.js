@@ -197,3 +197,33 @@ export function findingsCount(findings) {
     // parallelisable_groups is informational, not an issue.
   );
 }
+
+/**
+ * KJC-BUG-0054: count findings categorised por prioridad, para que
+ * el self-fix convergence guard pueda distinguir "regresión genuina"
+ * de "regresión por arreglar algo importante".
+ *
+ * Categorías:
+ *   - priority: ciclos (order_issues con issue=='circular') + missing_hus.
+ *     Estos NO pueden ignorarse — un ciclo deja el plan no ejecutable;
+ *     una HU faltante es feature missing.
+ *   - secondary: missing_dependencies + scope_overlaps + order_issues
+ *     no-circulares. Importantes pero recuperables.
+ *
+ * @param {object} findings
+ * @returns {{ priority: number, secondary: number, total: number, cycles: number }}
+ */
+export function findingsCountByType(findings) {
+  if (!findings) return { priority: 0, secondary: 0, total: 0, cycles: 0 };
+  const orderIssues = findings.order_issues || [];
+  const cycles = orderIssues.filter(
+    (i) => i && typeof i === "object" && i.issue === "circular"
+  ).length;
+  const orderNonCircular = orderIssues.length - cycles;
+  const missingHus = findings.missing_hus?.length || 0;
+  const missingDeps = findings.missing_dependencies?.length || 0;
+  const overlaps = findings.scope_overlaps?.length || 0;
+  const priority = cycles + missingHus;
+  const secondary = missingDeps + overlaps + orderNonCircular;
+  return { priority, secondary, total: priority + secondary, cycles };
+}
