@@ -132,14 +132,46 @@ export function createCliProgressReporter(opts = {}) {
     if (typeof heartbeatTimer.unref === "function") heartbeatTimer.unref();
   }
 
+  // JSON suppression state — cuando el agente emite un bloque JSON
+  // multi-línea (``` json ... ``` o `{ ... }` standalone), evitamos
+  // imprimirlo línea a línea porque inunda el stderr con ruido
+  // estructural que nadie lee. Mostramos un solo marcador
+  // `<json suprimido>` la primera vez que abrimos un bloque.
+  //
+  // Dos modos de cierre:
+  //   - fenceMode = true  → terminamos al ver otro ``` (ignora brace count).
+  //   - fenceMode = false → terminamos cuando braceDepth llega a 0.
+  let inJsonBlock = false;
+  let fenceMode = false;
+  let braceDepth = 0;
+  const JSON_FENCE_RE = /^\s*```(json)?\s*$/;
   const onOutput = (event) => {
     if (!event || typeof event !== "object") return;
     const raw = typeof event.line === "string" ? event.line : "";
     if (!raw) return;
-    // Strip trailing newline — we re-add our own.
     const line = raw.replace(/\s+$/, "");
     if (!line) return;
     lastActivityAt = Date.now();
+    // Detección + supresión de JSON multilínea.
+    if (!inJsonBlock) {
+      if (JSON_FENCE_RE.test(line)) {
+        inJsonBlock = true; fenceMode = true; braceDepth = 0;
+        stream.write(`  ${ICONS.text} <json suprimido>\n`);
+        return;
+      }
+      if (/^[\s]*[{[]\s*$/.test(line)) {
+        inJsonBlock = true; fenceMode = false; braceDepth = 1;
+        stream.write(`  ${ICONS.text} <json suprimido>\n`);
+        return;
+      }
+    } else if (fenceMode) {
+      if (JSON_FENCE_RE.test(line)) { inJsonBlock = false; fenceMode = false; }
+      return; // sigue dentro del fence
+    } else {
+      braceDepth += (line.match(/[{[]/g) || []).length - (line.match(/[}\]]/g) || []).length;
+      if (braceDepth <= 0) { inJsonBlock = false; braceDepth = 0; }
+      return; // sigue dentro del brace-block
+    }
     const icon = ICONS[event.kind] || ICONS.text;
     stream.write(`  ${icon} ${line}\n`);
   };

@@ -51,7 +51,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // Live progress to stderr so the user sees what the planner is doing
   // instead of staring at a silent shell for 30 s – 3 min. `--json` mode
   // stays quiet so stdout remains a pure JSON document.
-  const progress = createCliProgressReporter({ role: "planner", quiet: Boolean(json) });
+  // Sub-progress por fase (KJC outputs limpios): cada llamada al
+  // agente arranca su propio "[planner:fase] starting → done" para
+  // que el usuario no piense que "[planner] done" significa "el
+  // comando entero terminó" — sigue habiendo tests-synth, reviewer,
+  // self-fix iter N por delante.
+  const progress = createCliProgressReporter({ role: "planner:initial", quiet: Boolean(json) });
   let result;
   try {
     result = await planner.runTask({
@@ -175,7 +180,10 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     runLog.logText(
       `[planner] ${stepsMissingTests}/${steps.length} HUs missing acceptance_tests — running tests-synthesizer pass`
     );
-    progress.onOutput?.({ line: `${stepsMissingTests} HU(s) missing tests — running synthesizer pass`, kind: "text" });
+    // Sub-progress reporter por fase: el usuario ve cada fase como su
+    // propio "[planner:X] starting → done" en vez de un solo
+    // "[planner] done" que oculta que aún hay trabajo en cola.
+    const synthProgress = createCliProgressReporter({ role: "planner:tests-synth", quiet: Boolean(json) });
     const { synthesizeMissingTests } = await import("../../plan/tests-synthesizer.js");
     const husNeedingTests = plan.hus
       .filter((h) => !Array.isArray(h.acceptance_tests) || h.acceptance_tests.length === 0)
@@ -184,10 +192,11 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       agent: planner,
       task,
       husNeedingTests,
-      onOutput: progress.onOutput,
+      onOutput: synthProgress.onOutput,
       silenceTimeoutMs,
       timeoutMs,
     });
+    synthProgress.finish(synthResult.ok ? "done" : "failed");
     if (synthResult.ok) {
       let patched = 0;
       for (const hu of plan.hus) {
@@ -222,16 +231,17 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   const skipReview = Boolean(flags?.noPlanReview || flags?.quick);
   if (plan.hus.length > 0 && !skipReview) {
     runLog.logText("[planner] running plan reviewer pass");
-    progress.onOutput?.({ line: "Reviewing the plan for gaps / overlaps / order issues", kind: "text" });
+    const reviewProgress = createCliProgressReporter({ role: "planner:reviewer", quiet: Boolean(json) });
     const { reviewPlan, findingsCount } = await import("../../plan/plan-reviewer.js");
     const review = await reviewPlan({
       agent: planner,
       task,
       hus: plan.hus,
-      onOutput: progress.onOutput,
+      onOutput: reviewProgress.onOutput,
       silenceTimeoutMs,
       timeoutMs,
     });
+    reviewProgress.finish(review.ok ? "done" : "failed");
     if (review.ok) {
       plan.review = review.findings;
       const count = findingsCount(review.findings);
@@ -251,7 +261,7 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
           const currentCount = findingsCount(plan.review);
           if (currentCount === 0) break;
           runLog.logText(`[planner] self-fix iter ${i}/${maxFixerIterations} — patching ${currentCount} issue(s)`);
-          progress.onOutput?.({ line: `Self-fix iter ${i}: patching ${currentCount} issue(s)`, kind: "text" });
+          const fixProgress = createCliProgressReporter({ role: `planner:self-fix iter ${i}`, quiet: Boolean(json) });
           // KJC-BUG-0046 / P5: snapshot plan + review BEFORE applying the patch
           // so we can revert if the iteration regresses (newCount > currentCount).
           // Dogfooding 2026-05-12: GRETA Plan 2 iter 2 went 10 → 17 findings
@@ -262,23 +272,26 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
           const reviewSnapshot = JSON.parse(JSON.stringify(plan.review));
           const fix = await applyReviewerFeedback({
             agent: planner, task, hus: plan.hus, findings: plan.review,
-            onOutput: progress.onOutput, silenceTimeoutMs, timeoutMs,
+            onOutput: fixProgress.onOutput, silenceTimeoutMs, timeoutMs,
           });
           if (!fix.ok) {
+            fixProgress.finish("failed");
             runLog.logText(`[planner] self-fix iter ${i} failed (non-blocking): ${fix.error}`);
             break;
           }
           const ops = applyFixerPatch(plan, fix.patch);
           runLog.logText(`[planner] self-fix iter ${i} applied: +${ops.added} HU, +${ops.depsAdded} dep, -${ops.deleted} HU`);
           if (ops.added + ops.depsAdded + ops.deleted === 0) {
+            fixProgress.finish("done");
             runLog.logText(`[planner] self-fix iter ${i} empty patch — stopping`);
             break;
           }
           const review2 = await reviewPlan({
             agent: planner, task, hus: plan.hus,
-            onOutput: progress.onOutput, silenceTimeoutMs, timeoutMs,
+            onOutput: fixProgress.onOutput, silenceTimeoutMs, timeoutMs,
           });
           if (!review2.ok) {
+            fixProgress.finish("failed");
             runLog.logText(`[planner] re-review after iter ${i} failed: ${review2.error}`);
             plan.hus = husSnapshot;
             plan.review = reviewSnapshot;
@@ -289,10 +302,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
             // P5 convergence guard: iter made things worse — revert + stop.
             plan.hus = husSnapshot;
             plan.review = reviewSnapshot;
+            fixProgress.finish("reverted");
             runLog.logText(`[planner] self-fix iter ${i} regressed (${currentCount} → ${newCount}) — reverted, stopping`);
             break;
           }
           plan.review = review2.findings;
+          fixProgress.finish("done");
           runLog.logText(`[planner] after self-fix iter ${i}: ${newCount} issue(s) remaining`);
         }
       }
