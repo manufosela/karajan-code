@@ -558,7 +558,15 @@ router.patch('/stories/:id', (req, res) => {
         patch: fieldPatch,
         projectId: row.project_id,
       });
-      if (!fieldResult.ok) return res.status(404).json({ error: fieldResult.error });
+      if (!fieldResult.ok) {
+        // KJC-TSK-0401: validación de blocked_by devuelve 400 con cycle?
+        // info para que el board destaque la cadena en la UI. Resto de
+        // fallos siguen devolviendo 404 (plan / hu no encontrados).
+        if (fieldResult.code === 'INVALID_BLOCKED_BY') {
+          return res.status(400).json({ error: fieldResult.error, cycle: fieldResult.cycle });
+        }
+        return res.status(404).json({ error: fieldResult.error });
+      }
       updatedHu = fieldResult.hu;
     }
 
