@@ -91,15 +91,23 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
         ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
         ctx.brainCtx.verificationTracker = fresh.verificationTracker;
       }
-      // Apply per-HU policies based on task_type (infra skips reviewer/sonar/tdd)
-      const { applyPolicies } = await import("../../guards/policy-resolver.js");
-      const huPolicies = applyPolicies({ taskType: story.task_type, policies: ctx.config.policies });
+      // Apply per-HU policies based on task_type (infra skips reviewer/sonar/tdd).
+      // KJC-TSK-0400: `effectiveTaskType` mira primero story.task_type y, si
+      // no es válido, infiere del prefijo del title ([SPIKE], [DOC]…). Así
+      // un HU con title "[SPIKE] Decidir auth" entra automáticamente a las
+      // policies de spike (sin Sonar/TDD/tests).
+      const { applyPolicies, effectiveTaskType } = await import("../../guards/policy-resolver.js");
+      const resolvedTaskType = effectiveTaskType(story);
+      if (resolvedTaskType !== story.task_type) {
+        logger.info(`HU ${story.id}: task_type inferido del title → ${resolvedTaskType} (era ${story.task_type || "null"})`);
+      }
+      const huPolicies = applyPolicies({ taskType: resolvedTaskType, policies: ctx.config.policies });
       const savedFlags = { ...ctx.pipelineFlags };
       if (!huPolicies.reviewer) ctx.pipelineFlags.reviewerEnabled = false;
       if (!huPolicies.tdd) ctx.config.development = { ...ctx.config.development, methodology: "standard", require_test_changes: false };
       if (!huPolicies.sonar) ctx.config.sonarqube = { ...ctx.config.sonarqube, enabled: false };
       if (!huPolicies.testsRequired) ctx.pipelineFlags.testerEnabled = false;
-      logger.info(`HU ${story.id} (${story.task_type}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
+      logger.info(`HU ${story.id} (${resolvedTaskType}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
 
       const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
       const projectDir = ctx.config.projectDir || process.cwd();
