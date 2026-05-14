@@ -8,6 +8,7 @@ import { runAutoGC, summarizeGC } from "../../utils/garbage-collector.js";
 import { promptProjectName } from "../../utils/prompt-project-name.js";
 import { deriveProjectNameFromCwd } from "../../utils/derive-project-name-from-cwd.js";
 import { applyReviewerFeedback, applyFixerPatch } from "../../plan/plan-fixer.js";
+import { runStructuralPass } from "../../plan/plan-structural-pass.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -341,6 +342,19 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       }
     } else {
       runLog.logText(`[planner] reviewer pass failed (non-blocking): ${review.error}`);
+    }
+  }
+
+  // KJC-TSK-0399: deterministic structural integrity pass — cycles,
+  // orphan refs, missing short_id. Runs after self-fix loop because
+  // the LLM is bad at graph problems. Always runs (cheap, no network).
+  if (plan.hus.length > 0) {
+    const { fixes } = runStructuralPass(plan);
+    if (fixes.length > 0) {
+      if (!plan.review) plan.review = {};
+      plan.review.structural_fixes = fixes;
+      const byKind = fixes.reduce((a, f) => ({ ...a, [f.kind]: (a[f.kind] || 0) + 1 }), {});
+      runLog.logText(`[planner] structural pass: ${fixes.length} fix(es) — ${JSON.stringify(byKind)}`);
     }
   }
 
