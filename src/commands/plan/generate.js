@@ -344,6 +344,20 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     }
   }
 
+  // KJC-TSK-0399: deterministic structural integrity pass — cycles,
+  // orphan refs, missing short_id. Runs after self-fix loop because
+  // the LLM is bad at graph problems. Always runs (cheap, no network).
+  if (plan.hus.length > 0) {
+    const { runStructuralPass } = await import("../../plan/plan-structural-pass.js");
+    const { fixes } = runStructuralPass(plan);
+    if (fixes.length > 0) {
+      if (!plan.review) plan.review = {};
+      plan.review.structural_fixes = fixes;
+      const byKind = fixes.reduce((a, f) => ({ ...a, [f.kind]: (a[f.kind] || 0) + 1 }), {});
+      runLog.logText(`[planner] structural pass: ${fixes.length} fix(es) — ${JSON.stringify(byKind)}`);
+    }
+  }
+
   const planId = await savePlan(projectDir, plan);
   const { plansDir } = await import("../../plan/plan-store.js");
   const path = await import("node:path");
