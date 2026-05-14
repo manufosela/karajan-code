@@ -177,6 +177,14 @@ export function initDb() {
   // Diferente del campo `outcome` arriba (que es blob JSON con metadata del
   // run). result es el enum de "último resultado" para mostrar como badge.
   try { db.exec('ALTER TABLE stories ADD COLUMN result TEXT'); } catch { /* already migrated */ }
+  // KJC-TSK-0406: coder_model y reviewer_model independientes por HU.
+  // Asignados por el triage según complexity (KJC-TSK-0405) y override-able
+  // desde el modal del board. coder_provider y reviewer_provider permiten
+  // cross-provider review (claude↔codex) sin tocar el config global.
+  try { db.exec('ALTER TABLE stories ADD COLUMN coder_model TEXT'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN reviewer_model TEXT'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN coder_provider TEXT'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN reviewer_provider TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
@@ -232,14 +240,16 @@ export function upsertStory(story) {
       quality_total, quality_d1, quality_d2, quality_d3, quality_d4, quality_d5, quality_d6,
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
-      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome, result
+      ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome, result,
+      coder_model, reviewer_model, coder_provider, reviewer_provider
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
       @quality_total, @quality_d1, @quality_d2, @quality_d3, @quality_d4, @quality_d5, @quality_d6,
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
-      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome, @result
+      @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome, @result,
+      @coder_model, @reviewer_model, @coder_provider, @reviewer_provider
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -268,7 +278,11 @@ export function upsertStory(story) {
       plan_order = COALESCE(@plan_order, plan_order),
       spec_section = COALESCE(@spec_section, spec_section),
       outcome = COALESCE(@outcome, outcome),
-      result = COALESCE(@result, result)
+      result = COALESCE(@result, result),
+      coder_model = COALESCE(@coder_model, coder_model),
+      reviewer_model = COALESCE(@reviewer_model, reviewer_model),
+      coder_provider = COALESCE(@coder_provider, coder_provider),
+      reviewer_provider = COALESCE(@reviewer_provider, reviewer_provider)
   `);
   stmt.run({
     id: story.id,
@@ -302,6 +316,10 @@ export function upsertStory(story) {
     spec_section: story.spec_section || null,
     outcome: story.outcome || null,
     result: story.result || null,
+    coder_model: story.coder_model || null,
+    reviewer_model: story.reviewer_model || null,
+    coder_provider: story.coder_provider || null,
+    reviewer_provider: story.reviewer_provider || null,
   });
 }
 

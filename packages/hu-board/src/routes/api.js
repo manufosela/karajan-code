@@ -518,7 +518,10 @@ router.post('/tombstones/:type/:id/restore', (req, res) => {
 // KJC-TSK-0403: 'failed' eliminado — el orquestador estampa result=fail
 // dejando status=pending. Setearlo a mano vía PATCH ya no tiene sentido.
 const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'blocked', 'needs_context']);
-const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by'];
+// KJC-TSK-0406: coder_model y reviewer_model son editables desde el
+// modal del board. Independientes — el usuario puede subir el reviewer
+// y bajar el coder sin afectar al resto del plan.
+const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by', 'coder_model', 'reviewer_model', 'coder_provider', 'reviewer_provider'];
 
 router.patch('/stories/:id', (req, res) => {
   try {

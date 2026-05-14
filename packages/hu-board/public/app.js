@@ -1524,6 +1524,34 @@ window.changeHuStatusFromModal = async function changeHuStatusFromModal(storyId,
   }
 };
 
+// KJC-TSK-0406: persist coder_model + reviewer_model overrides from the
+// modal. Vacío → null (re-asignación automática por triage en siguiente
+// run). Cada modelo es independiente.
+window.saveHuModels = async function saveHuModels(storyId) {
+  const coderInput = document.getElementById('hu-coder-model');
+  const reviewerInput = document.getElementById('hu-reviewer-model');
+  const patch = {
+    coder_model: coderInput?.value?.trim() || null,
+    reviewer_model: reviewerInput?.value?.trim() || null,
+  };
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudieron guardar los modelos' });
+      return;
+    }
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo guardando modelos' });
+  }
+};
+
 window.resetHuToPending = async function resetHuToPending(storyId) {
   const ok = await showConfirm(
     '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',
@@ -2211,6 +2239,47 @@ async function showStoryDetail(storyId) {
         <div class="modal__section-title">Original Text</div>
         <div class="modal__field-value">${esc(story.original_text || 'N/A')}</div>
       </div>
+
+      ${(story.coder_model || story.reviewer_model || canEdit) ? `
+        <!-- KJC-TSK-0406: model routing per HU. Cada modelo es independiente
+             y editable. Reviewer cross-provider del coder por defecto. -->
+        <div class="modal__section">
+          <div class="modal__section-title">Models</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.85rem">
+            <div>
+              <div class="modal__field-label">Coder</div>
+              <div class="modal__field-value" style="font-family:monospace">
+                ${esc(story.coder_model || 'auto')} ${story.coder_provider ? `<span style="color:var(--text-muted)">(${esc(story.coder_provider)})</span>` : ''}
+              </div>
+              ${canEdit ? `
+                <input id="hu-coder-model" type="text" placeholder="modelo override"
+                       value="${esc(story.coder_model || '')}"
+                       style="margin-top:4px;width:100%;padding:4px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.8rem">
+              ` : ''}
+            </div>
+            <div>
+              <div class="modal__field-label">Reviewer (cross-provider)</div>
+              <div class="modal__field-value" style="font-family:monospace">
+                ${esc(story.reviewer_model || 'auto')} ${story.reviewer_provider ? `<span style="color:var(--text-muted)">(${esc(story.reviewer_provider)})</span>` : ''}
+              </div>
+              ${canEdit ? `
+                <input id="hu-reviewer-model" type="text" placeholder="modelo override"
+                       value="${esc(story.reviewer_model || '')}"
+                       style="margin-top:4px;width:100%;padding:4px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.8rem">
+              ` : ''}
+            </div>
+          </div>
+          ${canEdit ? `
+            <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+              <button onclick="saveHuModels('${esc(story.id)}')" class="control-btn"
+                      style="padding:4px 10px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:0.8rem">
+                💾 Save models
+              </button>
+              <span style="color:var(--text-muted);font-size:0.75rem">vacío → re-asignar automáticamente</span>
+            </div>
+          ` : ''}
+        </div>
+      ` : ''}
 
       ${story.certified_as ? `
         <div class="modal__section">

@@ -215,6 +215,34 @@ describe('PATCH /api/stories/:id', () => {
     },
   );
 
+  // KJC-TSK-0406: PATCH stories acepta coder_model / reviewer_model
+  // como overrides per-HU.
+  it('PATCH stories acepta coder_model y reviewer_model como overrides', async () => {
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ coder_model: 'opus', reviewer_model: 'o3' });
+    expect(res.status).toBe(200);
+    const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.coder_model).toBe('opus');
+    expect(hu.reviewer_model).toBe('o3');
+  });
+
+  it('PATCH stories con coder_model=null limpia el override', async () => {
+    // Pre-set algún valor
+    const planPre = readPlanFromDisk();
+    planPre.hus[0].coder_model = 'opus';
+    writeFileSync(planPath(), JSON.stringify(planPre, null, 2), 'utf-8');
+    syncMod.syncPlanFile(planPath());
+    const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
+    const res = await request(app)
+      .patch(`/api/stories/${encodeURIComponent(storyId)}`)
+      .send({ coder_model: null });
+    expect(res.status).toBe(200);
+    const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.coder_model).toBeNull();
+  });
+
   it('reset desde "done" a "pending" preserva el result anterior', async () => {
     const plan = readPlanFromDisk();
     plan.hus[0].status = 'done';
