@@ -253,8 +253,8 @@ describe("mapLegacyStatusToResult (KJC-TSK-0394 migration)", () => {
   it("certified → done+pass (success en el modelo viejo)", () => {
     expect(mapLegacyStatusToResult("certified")).toEqual({ status: "done", result: "pass" });
   });
-  it("failed → done+fail", () => {
-    expect(mapLegacyStatusToResult("failed")).toEqual({ status: "done", result: "fail" });
+  it("failed → pending+fail (KJC-TSK-0403: HU fallida vuelve a pending para retry)", () => {
+    expect(mapLegacyStatusToResult("failed")).toEqual({ status: "pending", result: "fail" });
   });
   it("done → done+null (status terminal sin info de result)", () => {
     expect(mapLegacyStatusToResult("done")).toEqual({ status: "done", result: null });

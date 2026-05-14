@@ -515,7 +515,9 @@ router.post('/tombstones/:type/:id/restore', (req, res) => {
 // incluimos los canonicales (`running`) por la misma razón. `failed`
 // y `blocked` son útiles para que el usuario marque manualmente HUs
 // que no quiere correr ahora.
-const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'failed', 'blocked', 'needs_context']);
+// KJC-TSK-0403: 'failed' eliminado — el orquestador estampa result=fail
+// dejando status=pending. Setearlo a mano vía PATCH ya no tiene sentido.
+const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'blocked', 'needs_context']);
 const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by'];
 
 router.patch('/stories/:id', (req, res) => {

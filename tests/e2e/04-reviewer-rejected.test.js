@@ -111,9 +111,10 @@ describe("e2e/04 — reviewer rejected → HU fails (no ReferenceError)", () => 
 
     const after = JSON.parse(fs.readFileSync(planPath, "utf8"));
     const hu = after.hus[0];
-    // After max_iterations the HU MUST end at `failed`, not still `coding`
-    // (zombie regression: 2026-04-27 HU-status-not-persisted-on-crash bug).
-    expect(["failed", "blocked"]).toContain(hu.status);
+    // KJC-TSK-0403: tras max_iterations la HU debe terminar en pending+result=fail
+    // o blocked (status/result ortogonal). NUNCA en coding/reviewing (zombi).
+    expect(["pending", "blocked"]).toContain(hu.status);
+    if (hu.status === "pending") expect(hu.result).toBe("fail");
     expect(hu.status).not.toBe("coding");
     expect(hu.status).not.toBe("reviewing");
   }, 90_000);

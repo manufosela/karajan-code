@@ -442,25 +442,16 @@ async function renderBoard() {
       ? (projectNameCache[selectedProject] || humaniseProjectName(selectedProject))
       : '';
 
-    // Kanban status → column mapping. The plan schema recognises seven
-    // statuses (pending/certified/coding/reviewing/done/failed/blocked/
-    // needs_context) but the user only cares about four lanes:
-    //   - Pending: anything generated but not running yet (including the
-    //     legacy intermediate "certified" state, which is a no-op from
-    //     the user's perspective — "I said it's ok to run but kj hasn't
-    //     started yet").
-    //   - Running: actively being processed by the pipeline.
-    //   - Done:    pipeline approved.
-    //   - Failed:  pipeline rejected.
-    // Empty lanes are hidden so the board doesn't fill with sad empty
-    // columns when a run is purely green.
+    // KJC-TSK-0403: status/result ortogonal. 3 columnas (Pending /
+    // Running / Done) en vez de 4. Las HUs que fallaron NO van a una
+    // columna "Failed" — vuelven a Pending con result=fail y badge ✗.
+    // status=failed legacy se trata como pending (migración lazy).
     const columns = {
       pending: stories.filter((s) =>
-        ['pending', 'certified', 'needs_context', 'blocked'].includes(s.status)
+        ['pending', 'certified', 'needs_context', 'blocked', 'failed'].includes(s.status)
       ),
       running: stories.filter((s) => ['coding', 'reviewing'].includes(s.status)),
       done: stories.filter((s) => s.status === 'done'),
-      failed: stories.filter((s) => s.status === 'failed'),
     };
 
     if (stories.length === 0) {
@@ -478,15 +469,12 @@ async function renderBoard() {
     const canRun = Boolean(selectedProject) && awaitingCount > 0 && runningCount === 0;
     const isRunning = runningCount > 0;
 
-    // Always show the four canonical lanes so the user has a mental
-    // map of the flow, even when every HU is still in Pending. Empty
-    // columns render their header (with count=0) but suppress the "No
-    // stories" placeholder inside so they don't steal visual space.
+    // KJC-TSK-0403: 3 canonical lanes. Failed eliminado — HUs con
+    // result=fail aparecen en Pending con badge ✗.
     const visibleColumns = [
       { title: 'Pending', cls: 'pending', rows: columns.pending },
       { title: 'Running', cls: 'running', rows: columns.running },
       { title: 'Done', cls: 'done', rows: columns.done },
-      { title: 'Failed', cls: 'failed', rows: columns.failed },
     ];
 
     app.innerHTML = `
@@ -2173,7 +2161,9 @@ async function showStoryDetail(storyId) {
     // reviewing/running (esos los pone el orquestador; setearlos a
     // mano genera zombies en el reaper).
     const canChangeStatus = !!story.plan_id;
-    const userSettableStatuses = ['pending', 'certified', 'done', 'failed', 'blocked', 'needs_context'];
+    // KJC-TSK-0403: 'failed' eliminado del dropdown — result=fail vive en
+    // la HU via outcome.blockers, no como status manual.
+    const userSettableStatuses = ['pending', 'certified', 'done', 'blocked', 'needs_context'];
 
     content.innerHTML = `
       <div class="modal__header">

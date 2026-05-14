@@ -5,7 +5,7 @@
  */
 
 import { isPlanV2 } from "./plan-schema.js";
-import { updateHuStatus, computePlanOutcome, setPlanOutcome } from "./plan-hu-ops.js";
+import { updateHuStatus, updateHu, computePlanOutcome, setPlanOutcome } from "./plan-hu-ops.js";
 
 /**
  * Convert a v2 plan's HUs into the stageResults.huReviewer format
@@ -63,9 +63,18 @@ export function planToHuBatch(plan) {
 export function syncResultsToPlan(plan, subPipelineResult) {
   if (!isPlanV2(plan)) return;
 
+  // KJC-TSK-0403: status/result ortogonal. HU fallida queda en status=pending
+  // con result=fail (no status=failed) para que el usuario pueda relanzarla
+  // con el contexto del fallo previo. El plan se considera failed si CUALQUIER
+  // HU tiene result=fail.
   for (const r of subPipelineResult.results || []) {
-    const status = r.approved ? "done" : "failed";
-    updateHuStatus(plan, r.huId, status);
+    if (r.approved) {
+      updateHuStatus(plan, r.huId, "done");
+      updateHu(plan, r.huId, { result: "pass" });
+    } else {
+      updateHuStatus(plan, r.huId, "pending");
+      updateHu(plan, r.huId, { result: "fail" });
+    }
   }
 
   for (const blockedId of subPipelineResult.blockedIds || []) {
@@ -73,7 +82,7 @@ export function syncResultsToPlan(plan, subPipelineResult) {
   }
 
   const allDone = plan.hus.every(h => h.status === "done");
-  const anyFailed = plan.hus.some(h => h.status === "failed");
+  const anyFailed = plan.hus.some(h => h.result === "fail");
   plan.status = allDone ? "done" : anyFailed ? "failed" : "running";
   plan.updatedAt = new Date().toISOString();
 

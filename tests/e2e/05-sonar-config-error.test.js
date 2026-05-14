@@ -125,11 +125,11 @@ describe("e2e/05 — Repairer escalation (regression #538)", () => {
     const seenRepairStart = /repair:start|Repairer.*invoked|Repairer escalated|Repairer fixed/i.test(all + runLog);
     expect(seenRepairStart, "Repairer should have been invoked at least once").toBe(true);
 
-    // HU ended `failed` — Repairer's `unfixable` verdict short-circuits
-    // max_iterations so this is the *immediate* failure path, not the
-    // generic max-iterations-exhausted path.
+    // KJC-TSK-0403: tras Repairer "unfixable" la HU vuelve a pending+result=fail
+    // (path inmediato de fallo, no el de max_iterations).
     const after = JSON.parse(fs.readFileSync(planPath, "utf8"));
     const hu = after.hus[0];
-    expect(["failed", "blocked"]).toContain(hu.status);
+    expect(["pending", "blocked"]).toContain(hu.status);
+    if (hu.status === "pending") expect(hu.result).toBe("fail");
   }, 90_000);
 });
