@@ -30,6 +30,26 @@ const CROSS_PROVIDER_REVIEWER = {
   gemini: "claude",
 };
 
+// KJC-TSK-0405 step 2: heurística para inferir complexity desde
+// task_type cuando el planner no emite un score explícito. Permite
+// que el model-router asigne modelos razonables sin un triage explícito.
+const TASK_TYPE_COMPLEXITY = {
+  sw: "medium",
+  refactor: "medium",
+  "add-tests": "simple",
+  infra: "trivial",
+  doc: "trivial",
+  spike: "complex",
+  research: "complex",
+  audit: "complex",
+  analysis: "medium",
+  "no-code": "trivial",
+};
+
+export function complexityFromTaskType(taskType) {
+  return TASK_TYPE_COMPLEXITY[taskType] || "medium";
+}
+
 export function complexityToLevel(complexity) {
   if (typeof complexity === "string" && LEVELS.includes(complexity)) return complexity;
   if (typeof complexity === "number" && SCORE_TO_LEVEL[complexity]) return SCORE_TO_LEVEL[complexity];
