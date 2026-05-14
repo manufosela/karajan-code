@@ -31,6 +31,7 @@ import { classifyFailure, createFailureTracker } from "../repair/repair-detector
 import { runRepair } from "../repair/repair-runner.js";
 import { writeHistoryRecord } from "./post-loop.js";
 import { setReviewerFeedback } from "../../session/mutators.js";
+import { createHuSnapshot } from "../../git/hu-snapshot.js";
 
 /**
  * @param {object} args
@@ -118,7 +119,6 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       // así que apunta al estado limpio sobre el que el coder empieza.
       // Idempotente — si la HU ya tenía snapshot, se sobreescribe.
       try {
-        const { createHuSnapshot } = await import("../../git/hu-snapshot.js");
         const snap = await createHuSnapshot({ projectDir, huId: story.id });
         if (snap.ok) {
           story.outcome = { ...(story.outcome || {}), snapshot_sha: snap.sha, snapshot_ref: snap.ref };
