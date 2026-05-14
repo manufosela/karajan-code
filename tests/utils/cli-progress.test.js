@@ -97,9 +97,11 @@ describe("utils/cli-progress — createCliProgressReporter", () => {
     expect(() => onOutput({ line: 123 })).not.toThrow(); // non-string ignored
   });
 
-  // KJC outputs limpios: bloques JSON multilínea NO inundan el stderr.
+  // KJC outputs limpios: bloques JSON NO inundan el stderr.
+  // Supresión SILENCIOSA (sin marker "<json suprimido>" — un marker
+  // también confunde al usuario; si suprimimos, suprimimos sin más).
   describe("JSON suppression", () => {
-    it("suprime bloque ```json ... ``` y muestra un marcador", () => {
+    it("suprime bloque ```json ... ``` sin dejar marker", () => {
       const stream = fakeStream();
       const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
       onOutput({ line: "Generating plan...", kind: "text" });
@@ -111,10 +113,10 @@ describe("utils/cli-progress — createCliProgressReporter", () => {
       onOutput({ line: "}", kind: "text" });
       onOutput({ line: "```", kind: "text" });
       onOutput({ line: "Done.", kind: "text" });
-      const suppressed = stream.out.split("\n").filter((l) => l.includes("<json suprimido>"));
-      expect(suppressed).toHaveLength(1);
       expect(stream.out).not.toContain('"approach":');
       expect(stream.out).not.toContain('"id": "INFRA-001"');
+      expect(stream.out).not.toMatch(/<json suprimido>/);
+      expect(stream.out).not.toContain("```");
       expect(stream.out).toMatch(/Generating plan\.\.\./);
       expect(stream.out).toMatch(/Done\./);
     });
@@ -127,8 +129,8 @@ describe("utils/cli-progress — createCliProgressReporter", () => {
       onOutput({ line: '  "ok": true', kind: "text" });
       onOutput({ line: "}", kind: "text" });
       onOutput({ line: "After.", kind: "text" });
-      expect(stream.out).toMatch(/<json suprimido>/);
       expect(stream.out).not.toContain('"ok": true');
+      expect(stream.out).not.toMatch(/<json suprimido>/);
       expect(stream.out).toMatch(/Output:/);
       expect(stream.out).toMatch(/After\./);
     });
@@ -140,6 +142,42 @@ describe("utils/cli-progress — createCliProgressReporter", () => {
       onOutput({ line: "Listing patterns matching {pattern}", kind: "text" });
       expect(stream.out).toMatch(/Found \{x\} items\./);
       expect(stream.out).toMatch(/Listing patterns matching \{pattern\}/);
+    });
+
+    // Casos del usuario en dogfooding GRETA: trozos de JSON SUELTOS
+    // sin bloque previo y fences embedidos en texto.
+    it("suprime trozos de propiedad JSON sueltos sin bloque", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: '  "spec_section": "1"', kind: "text" });
+      onOutput({ line: '  "id": "INFRA-001",', kind: "text" });
+      onOutput({ line: "  },", kind: "text" });
+      onOutput({ line: "  ],", kind: "text" });
+      onOutput({ line: "Texto normal después", kind: "text" });
+      expect(stream.out).not.toContain('"spec_section":');
+      expect(stream.out).not.toContain('"id": "INFRA-001"');
+      expect(stream.out).toMatch(/Texto normal después/);
+    });
+
+    it("suprime líneas con fence embedded en texto (done: ```json)", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: "done: ```json", kind: "text" });
+      onOutput({ line: '  "x": 1', kind: "text" });
+      onOutput({ line: "```", kind: "text" });
+      onOutput({ line: "Plan completed.", kind: "text" });
+      expect(stream.out).not.toContain("done: ");
+      expect(stream.out).not.toContain('"x": 1');
+      expect(stream.out).not.toContain("```");
+      expect(stream.out).toMatch(/Plan completed\./);
+    });
+
+    it("ya NO emite el marker `<json suprimido>` en ningún caso", () => {
+      const stream = fakeStream();
+      const { onOutput } = createCliProgressReporter({ role: "x", stream, heartbeatMs: 0 });
+      onOutput({ line: "```json", kind: "text" });
+      onOutput({ line: '"foo": "bar"', kind: "text" });
+      onOutput({ line: "```", kind: "text" });
       expect(stream.out).not.toMatch(/<json suprimido>/);
     });
   });

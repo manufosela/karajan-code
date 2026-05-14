@@ -132,19 +132,33 @@ export function createCliProgressReporter(opts = {}) {
     if (typeof heartbeatTimer.unref === "function") heartbeatTimer.unref();
   }
 
-  // JSON suppression state — cuando el agente emite un bloque JSON
-  // multi-línea (``` json ... ``` o `{ ... }` standalone), evitamos
-  // imprimirlo línea a línea porque inunda el stderr con ruido
-  // estructural que nadie lee. Mostramos un solo marcador
-  // `<json suprimido>` la primera vez que abrimos un bloque.
+  // JSON suppression — cuando el agente emite estructura JSON, la
+  // suprimimos por completo SIN marker ("<json suprimido>" confundía
+  // tanto como el propio JSON). Si no hay nada útil que decirle al
+  // usuario, mejor silencio.
   //
-  // Dos modos de cierre:
-  //   - fenceMode = true  → terminamos al ver otro ``` (ignora brace count).
-  //   - fenceMode = false → terminamos cuando braceDepth llega a 0.
+  // Capturamos 4 patrones:
+  //   1. Fence multilínea ``` json ... ``` (state in fence hasta cierre).
+  //   2. Brace block standalone { ... } o [ ... ] (state hasta brace=0).
+  //   3. Línea suelta con ``` o ```json EN CUALQUIER PARTE (incluso
+  //      "done: ```json" embedded en texto): suprimida + abre fence
+  //      si no estaba abierto.
+  //   4. Línea suelta con shape de propiedad JSON (`  "key": ...`,
+  //      `  },`, `  ],`, `  {`) cuando NO estamos en bloque: heurística
+  //      de "trozo de JSON suelto" — se suprime, no entra al stderr.
   let inJsonBlock = false;
   let fenceMode = false;
   let braceDepth = 0;
-  const JSON_FENCE_RE = /^\s*```(json)?\s*$/;
+  const FULL_FENCE_RE = /^\s*```(?:json)?\s*$/;
+  const HAS_FENCE_RE = /```/;
+  const STANDALONE_BRACE_OPEN = /^[\s]*[{[]\s*$/;
+  // Trozo de línea que es CLARAMENTE sintaxis JSON aislada:
+  //   - `  "foo": "bar",`        propiedad
+  //   - `  "foo": 123`           propiedad numérica
+  //   - `  "foo": {`             apertura de objeto en valor
+  //   - `  },` / `  ],` / `  }` / `  ]`  cierre con o sin coma
+  const JSON_SCRAP_RE =
+    /^\s*(?:"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*.+|[}\]][,]?)\s*$/;
   const onOutput = (event) => {
     if (!event || typeof event !== "object") return;
     const raw = typeof event.line === "string" ? event.line : "";
@@ -152,26 +166,37 @@ export function createCliProgressReporter(opts = {}) {
     const line = raw.replace(/\s+$/, "");
     if (!line) return;
     lastActivityAt = Date.now();
-    // Detección + supresión de JSON multilínea.
-    if (!inJsonBlock) {
-      if (JSON_FENCE_RE.test(line)) {
-        inJsonBlock = true; fenceMode = true; braceDepth = 0;
-        stream.write(`  ${ICONS.text} <json suprimido>\n`);
+    // Estado: dentro de bloque ya marcado.
+    if (inJsonBlock) {
+      if (fenceMode) {
+        if (HAS_FENCE_RE.test(line)) { inJsonBlock = false; fenceMode = false; }
         return;
       }
-      if (/^[\s]*[{[]\s*$/.test(line)) {
-        inJsonBlock = true; fenceMode = false; braceDepth = 1;
-        stream.write(`  ${ICONS.text} <json suprimido>\n`);
-        return;
-      }
-    } else if (fenceMode) {
-      if (JSON_FENCE_RE.test(line)) { inJsonBlock = false; fenceMode = false; }
-      return; // sigue dentro del fence
-    } else {
       braceDepth += (line.match(/[{[]/g) || []).length - (line.match(/[}\]]/g) || []).length;
       if (braceDepth <= 0) { inJsonBlock = false; braceDepth = 0; }
-      return; // sigue dentro del brace-block
+      return;
     }
+    // Apertura de bloque por fence (línea es SOLO ``` o ```json).
+    if (FULL_FENCE_RE.test(line)) {
+      inJsonBlock = true; fenceMode = true; braceDepth = 0;
+      return;
+    }
+    // Apertura de bloque por brace standalone.
+    if (STANDALONE_BRACE_OPEN.test(line)) {
+      inJsonBlock = true; fenceMode = false; braceDepth = 1;
+      return;
+    }
+    // Fence embedded en texto (línea tipo `done: ```json` o `texto ```).
+    // Si la fence está sin cerrar en la misma línea → entra al modo.
+    if (HAS_FENCE_RE.test(line)) {
+      const fences = (line.match(/```/g) || []).length;
+      if (fences % 2 === 1) {           // impar → queda fence abierto
+        inJsonBlock = true; fenceMode = true; braceDepth = 0;
+      }
+      return;                            // suprimida en cualquier caso
+    }
+    // Trozo de JSON suelto sin fence: suprimir silenciosamente.
+    if (JSON_SCRAP_RE.test(line)) return;
     const icon = ICONS[event.kind] || ICONS.text;
     stream.write(`  ${icon} ${line}\n`);
   };
