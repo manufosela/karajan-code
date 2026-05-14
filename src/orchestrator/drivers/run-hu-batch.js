@@ -31,6 +31,7 @@ import { classifyFailure, createFailureTracker } from "../repair/repair-detector
 import { runRepair } from "../repair/repair-runner.js";
 import { writeHistoryRecord } from "./post-loop.js";
 import { setReviewerFeedback } from "../../session/mutators.js";
+import { createHuSnapshot } from "../../git/hu-snapshot.js";
 
 /**
  * @param {object} args
@@ -111,6 +112,23 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
 
       const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
       const projectDir = ctx.config.projectDir || process.cwd();
+
+      // KJC-TSK-0408 step 2: snapshot del workspace ANTES de invocar al
+      // coder. Si el usuario hace Undo después, restaura este SHA. El
+      // ref se crea sobre el HEAD ya checkouteado a la rama de la HU,
+      // así que apunta al estado limpio sobre el que el coder empieza.
+      // Idempotente — si la HU ya tenía snapshot, se sobreescribe.
+      try {
+        const snap = await createHuSnapshot({ projectDir, huId: story.id });
+        if (snap.ok) {
+          story.outcome = { ...(story.outcome || {}), snapshot_sha: snap.sha, snapshot_ref: snap.ref };
+          logger.info(`HU ${story.id}: snapshot ${snap.sha.slice(0, 7)} (ref ${snap.ref})`);
+        } else {
+          logger.warn(`HU ${story.id}: snapshot falló (non-blocking): ${snap.error}`);
+        }
+      } catch (err) {
+        logger.warn(`HU ${story.id}: snapshot threw (non-blocking): ${err.message}`);
+      }
 
       // If HU has acceptance_tests, Brain runs them as the gate instead of
       // the standard reviewer/tester pipeline. This is the radical fix:

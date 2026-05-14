@@ -1552,6 +1552,30 @@ window.saveHuModels = async function saveHuModels(storyId) {
   }
 };
 
+// KJC-TSK-0408: deshace los cambios de una HU restaurando el snapshot
+// git tomado pre-run. ATENCIÓN: es destructivo (git reset --hard) —
+// confirmamos siempre antes de invocar.
+window.undoHuChanges = async function undoHuChanges(storyId) {
+  const ok = await showConfirm(
+    '⚠️ Esta acción es destructiva.\n\nSe descartan los cambios de ficheros que esta HU hizo durante su última ejecución y se restaura el estado pre-run. La HU vuelve a pending y podrás relanzarla con otros modelos.\n\n¿Continuar?',
+    { title: 'Deshacer cambios de la HU', okLabel: 'Deshacer', cancelLabel: 'Cancelar' }
+  );
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}/undo`, { method: 'POST' });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudo deshacer la HU' });
+      return;
+    }
+    closeModal();
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo al deshacer la HU' });
+  }
+};
+
 window.resetHuToPending = async function resetHuToPending(storyId) {
   const ok = await showConfirm(
     '¿Devolver esta HU a pending?\n\nEl estado se cambia a pending y se podrá relanzar. El resultado de la última ejecución (✓/✗/~) se conserva como historial hasta que vuelvas a ejecutarla.',
@@ -2230,6 +2254,20 @@ async function showStoryDetail(storyId) {
               ↺ Reset
             </button>
           ` : ''}
+          ${(() => {
+            // KJC-TSK-0408: Undo solo si la HU tiene snapshot_sha en outcome.
+            let parsedOutcome = null;
+            try { parsedOutcome = typeof story.outcome === 'string' ? JSON.parse(story.outcome) : story.outcome; } catch { /* */ }
+            const canUndo = parsedOutcome?.snapshot_sha && !parsedOutcome?.reverted;
+            return canUndo ? `
+              <button id="undo-hu-btn" class="control-btn"
+                      style="padding:6px 12px;border:1px solid var(--color-red,#ef4444);background:var(--bg-primary);color:var(--color-red,#ef4444);border-radius:var(--radius-sm);cursor:pointer;font-size:0.85rem"
+                      title="Deshacer cambios de esta HU: restaura los ficheros al snapshot pre-run y marca pending"
+                      onclick="undoHuChanges('${esc(story.id)}')">
+                ⏪ Undo
+              </button>
+            ` : '';
+          })()}
           <button class="modal__close" onclick="closeModal()">&times;</button>
         </div>
       </div>

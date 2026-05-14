@@ -19,7 +19,7 @@ import {
   setProjectIsTest,
 } from '../db.js';
 import { fullScan } from '../sync.js';
-import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject } from '../plan-mutations.js';
+import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject, revertHuFromSnapshot } from '../plan-mutations.js';
 import { getActiveRuns } from '../run-tracker.js';
 import { subscribe as subscribeEvents } from '../event-bus.js';
 import { runKjCommand, listSupportedCommands } from '../command-runner.js';
@@ -593,6 +593,37 @@ router.patch('/stories/:id', (req, res) => {
       planStatus: statusResult ? statusResult.planStatus : undefined,
       hu: updatedHu,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/stories/:id/undo — KJC-TSK-0408: revert a HU.
+ *
+ * Restaura los ficheros del workspace al snapshot pre-run guardado por
+ * la pipeline. Marca status=pending + result=null + outcome.reverted=true
+ * para que el usuario pueda relanzar la HU con otros modelos.
+ *
+ * Falla con 400 si la HU no tiene snapshot (HUs anteriores al hook).
+ * Falla con 404 si plan/HU no existe.
+ */
+router.post('/stories/:id/undo', async (req, res) => {
+  try {
+    const row = getStoryRow(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Story not found' });
+    if (!row.plan_id) {
+      return res.status(409).json({ error: 'Story sin plan_id — legacy row no soportada.' });
+    }
+    const huId = req.params.id.includes('::')
+      ? req.params.id.split('::').slice(1).join('::')
+      : req.params.id;
+    const result = await revertHuFromSnapshot({ planId: row.plan_id, huId, projectId: row.project_id });
+    if (!result.ok) {
+      const code = /not found|no encontrado/i.test(result.error) ? 404 : 400;
+      return res.status(code).json({ error: result.error });
+    }
+    res.json({ ok: true, id: req.params.id, sha: result.sha });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
