@@ -449,6 +449,13 @@ export function syncPlanFile(filePath) {
         // Distinto de `outcome` (blob JSON) — esto es el enum corto para
         // badge ✓/✗ en la card.
         result: hu.result || null,
+        // KJC-TSK-0406: coder_model y reviewer_model por HU. Reflejan
+        // qué modelo se va a usar (o se usó) en este HU. El modal del
+        // board los muestra y permite cambiarlos antes de run.
+        coder_model: hu.coder_model || null,
+        reviewer_model: hu.reviewer_model || null,
+        coder_provider: hu.coder_provider || null,
+        reviewer_provider: hu.reviewer_provider || null,
       });
     }
 
