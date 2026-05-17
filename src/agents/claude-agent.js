@@ -156,7 +156,7 @@ function summarizeToolCall(name, input = {}) {
     case "Glob": return `Glob ${input.pattern || ""}`.trim();
     case "Grep": return `Grep "${(input.pattern || "").slice(0, 60)}"${input.path ? ` in ${rel(input.path)}` : ""}`;
     case "Bash": {
-      const cmd = String(input.command || "").replace(/\s+/g, " ").slice(0, 100);
+      const cmd = String(input.command || "").replaceAll(/\s+/g, " ").slice(0, 100);
       return `Bash $ ${cmd}`;
     }
     case "TodoWrite": return `Todo ${(input.todos || []).length} items`;
@@ -259,7 +259,7 @@ export function createStreamJsonFilter(onOutput) {
         } else if (block.type === "tool_use") {
           onOutput({ stream, line: summarizeToolCall(block.name, block.input), kind: "tool" });
         } else if (block.type === "thinking" && block.thinking) {
-          onOutput({ stream, line: `thinking: ${block.thinking.slice(0, 80).replace(/\s+/g, " ")}…`, kind: "thinking" });
+          onOutput({ stream, line: `thinking: ${block.thinking.slice(0, 80).replaceAll(/\s+/g, " ")}…`, kind: "thinking" });
         }
       }
       return;

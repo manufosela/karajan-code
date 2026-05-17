@@ -8,7 +8,7 @@
  */
 export function generatePlanId() {
   const now = new Date();
-  const ts = now.toISOString().replace(/[-:T]/g, "").replace(/\.\d+Z$/, "");
+  const ts = now.toISOString().replaceAll(/[-:T]/g, "").replace(/\.\d+Z$/, "");
   const rand = Math.random().toString(36).slice(2, 6);
   return `plan-${ts}-${rand}`;
 }
@@ -36,10 +36,10 @@ export function normaliseAlias(name) {
   if (!name || typeof name !== "string") return null;
   const slug = name
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")        // strip diacritics
+    .replaceAll(/[̀-ͯ]/g, "")        // strip diacritics
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")            // non-alphanum → guion
-    .replace(/^-+|-+$/g, "")                // trim guiones extremos
+    .replaceAll(/[^a-z0-9]+/g, "-")            // non-alphanum → guion
+    .replaceAll(/^-+|-+$/g, "")                // trim guiones extremos
     .slice(0, 60);
   return slug || null;
 }

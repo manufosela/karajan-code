@@ -18,7 +18,7 @@ const EXCLUDE_DIRS = new Set([
 ]);
 
 function slugify(projectDir) {
-  return path.basename(projectDir).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.basename(projectDir).replaceAll(/[^a-zA-Z0-9_-]/g, "_");
 }
 
 async function walkSourceFiles(dir) {
@@ -144,9 +144,9 @@ function resolveImportSpecifier(fromFile, specifier) {
 // need the actual path inside the quotes to resolve the target module.
 function stripStringLiterals(content) {
   return content
-    .replace(/`[^`]*`/g, "``")
-    .replace(/"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/'(?:\\.|[^'\\])*'/g, "''");
+    .replaceAll(/`[^`]*`/g, "``")
+    .replaceAll(/"(?:\\.|[^"\\])*"/g, '""')
+    .replaceAll(/'(?:\\.|[^'\\])*'/g, "''");
 }
 
 async function findDeadExports(sourceFiles) {

@@ -34,7 +34,7 @@ export function standbyDoneDir() {
 
 function sanitizeId(sessionId) {
   if (!sessionId || typeof sessionId !== "string") throw new Error("sessionId requerido");
-  return sessionId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+  return sessionId.replaceAll(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
 }
 
 /**

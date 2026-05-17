@@ -39,7 +39,7 @@ function webperfHome() {
 }
 
 function projectSlug(projectDir) {
-  return path.basename(projectDir || process.cwd()).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.basename(projectDir || process.cwd()).replaceAll(/[^a-zA-Z0-9_-]/g, "_");
 }
 
 /**

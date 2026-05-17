@@ -16,7 +16,7 @@ const DEFAULT_HOST = "http://localhost:9000";
  */
 export function resolveSonarHost(rawHost) {
   const host = String(rawHost || DEFAULT_HOST)
-    .replace(/host\.docker\.internal/g, "localhost")
+    .replaceAll(/host\.docker\.internal/g, "localhost")
     .replace(/\/+$/, "");
   return host;
 }

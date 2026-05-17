@@ -24,7 +24,7 @@ const REF_PREFIX = "refs/kj-snapshots/";
  */
 export function snapshotRefForHu(huId) {
   if (!huId) throw new Error("huId requerido");
-  const safe = String(huId).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+  const safe = String(huId).replaceAll(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
   return REF_PREFIX + safe;
 }
 

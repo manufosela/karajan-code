@@ -11,7 +11,7 @@ import { resolveBin } from "./resolve-bin.js";
 function extractCodexTokens(stdout) {
   const match = (stdout || "").match(/tokens?\s+used\s*\n\s*([\d,]+)/i);
   if (!match) return null;
-  const total = Number(match[1].replace(/,/g, ""));
+  const total = Number(match[1].replaceAll(/,/g, ""));
   if (!Number.isFinite(total) || total <= 0) return null;
   return { tokens_in: 0, tokens_out: total };
 }

@@ -178,7 +178,7 @@ export function scanDiff(diff, opts = {}) {
 function excerpt(text, index) {
   const start = Math.max(0, index - 20);
   const end = Math.min(text.length, index + 100);
-  return text.slice(start, end).replace(/\n/g, "\\n").slice(0, 120);
+  return text.slice(start, end).replaceAll(/\n/g, "\\n").slice(0, 120);
 }
 
 function lineAt(text, index) {

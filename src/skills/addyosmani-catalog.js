@@ -279,7 +279,7 @@ export async function listAvailableSlugs() {
  */
 export async function loadSkillBySlug(slug) {
   if (!slug || typeof slug !== "string") return null;
-  const safeSlug = slug.trim().replace(/[^A-Za-z0-9._-]/g, "");
+  const safeSlug = slug.trim().replaceAll(/[^A-Za-z0-9._-]/g, "");
   if (!safeSlug) return null;
 
   const skillPath = path.join(getSkillsRoot(), safeSlug, SKILL_FILE);
