@@ -225,3 +225,41 @@ describe("config schema — model_routing", () => {
     expect(out.model_routing.by_provider.someNewProvider.medium).toBe("x");
   });
 });
+
+// KJC-TSK-0415: fallback chain per rol.
+describe("config schema — roles.<role>.fallback (Plan B)", () => {
+  it("acepta fallback simple { provider, max_wait_hours }", () => {
+    const out = parseConfig({
+      roles: {
+        coder: { provider: "claude", fallback: { provider: "codex", max_wait_hours: 12 } },
+      },
+    });
+    expect(out.roles.coder.fallback.provider).toBe("codex");
+    expect(out.roles.coder.fallback.max_wait_hours).toBe(12);
+  });
+
+  it("max_wait_hours default 12 si no se especifica", () => {
+    const out = parseConfig({ roles: { coder: { fallback: { provider: "codex" } } } });
+    expect(out.roles.coder.fallback.max_wait_hours).toBe(12);
+  });
+
+  it("fallback anidado (cadena) es válido", () => {
+    const out = parseConfig({
+      roles: {
+        coder: {
+          provider: "claude",
+          fallback: {
+            provider: "codex",
+            fallback: { provider: "opencode" },
+          },
+        },
+      },
+    });
+    expect(out.roles.coder.fallback.fallback.provider).toBe("opencode");
+  });
+
+  it("rechaza fallback sin provider", () => {
+    expect(() => parseConfig({ roles: { coder: { fallback: { max_wait_hours: 5 } } } }))
+      .toThrow(/provider/);
+  });
+});
