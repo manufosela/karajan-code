@@ -178,7 +178,7 @@ function safeRead(p) {
  * line counts keeps later byte-offset checks stable.
  */
 function stripFencedCodeBlocks(text) {
-  return text.replace(/^([ \t]*)(```|~~~)[^\n]*\n([\s\S]*?)\n\1\2[^\n]*$/gm, (match) => {
+  return text.replaceAll(/^([ \t]*)(```|~~~)[^\n]*\n([\s\S]*?)\n\1\2[^\n]*$/gm, (match) => {
     const lineCount = match.split("\n").length;
     return "\n".repeat(lineCount - 1);
   });

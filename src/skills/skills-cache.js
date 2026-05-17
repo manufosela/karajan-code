@@ -24,7 +24,7 @@ export function getCacheRoot() {
 
 function sanitize(name) {
   // Allow safe skill name characters, replace everything else with "_".
-  return String(name || "").replace(/[^A-Za-z0-9._-]/g, "_");
+  return String(name || "").replaceAll(/[^A-Za-z0-9._-]/g, "_");
 }
 
 function metaPath(name) {

@@ -38,11 +38,11 @@ function slugifyTitle(title) {
     // Decompose accents (NFD) then strip combining marks so "versión"
     // → "version", keeping the ADR id ASCII-only and filesystem-safe.
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
+    .replaceAll(/[̀-ͯ]/g, "")
+    .replaceAll(/[^a-z0-9\s-]/g, "")
+    .replaceAll(/\s+/g, "-")
+    .replaceAll(/-+/g, "-")
+    .replaceAll(/^-|-$/g, "")
     .slice(0, 80) || "untitled";
 }
 

@@ -41,7 +41,7 @@ import { getSessionRoot } from "../../utils/paths.js";
  */
 
 function esc(text) {
-  return String(text ?? "").replace(/\|/g, "\\|");
+  return String(text ?? "").replaceAll(/\|/g, "\\|");
 }
 
 function formatConditions(conditions) {

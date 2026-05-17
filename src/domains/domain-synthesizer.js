@@ -80,7 +80,7 @@ function buildKeywords(task, hints) {
 
   const taskWords = task
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, " ")
+    .replaceAll(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
     .filter(w => w.length > 3 && !stopWords.has(w));
 

@@ -48,7 +48,7 @@ const MESSAGES = {
  */
 export function msg(key, lang = "en", params = {}) {
   const template = MESSAGES[lang]?.[key] || MESSAGES.en[key] || key;
-  return template.replace(/\{(\w+)\}/g, (_, k) => params[k] ?? `{${k}}`);
+  return template.replaceAll(/\{(\w+)\}/g, (_, k) => params[k] ?? `{${k}}`);
 }
 
 /**

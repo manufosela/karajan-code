@@ -50,7 +50,7 @@ export function projectSlug(projectDir) {
   return projectDir
     .replace(/^\//, "")
     .replace(/[/\\]/g, "_")
-    .replace(/[^a-zA-Z0-9_.-]/g, "")
+    .replaceAll(/[^a-zA-Z0-9_.-]/g, "")
     .slice(0, 120);
 }
 

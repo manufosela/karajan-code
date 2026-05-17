@@ -164,7 +164,7 @@ async function ensureSonarProjectProperties(cwd = process.cwd()) {
     } catch {
       // no package.json or invalid JSON — use defaults
     }
-    const projectKey = (pkg.name || path.basename(cwd)).replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const projectKey = (pkg.name || path.basename(cwd)).replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
     const props = [
       `sonar.projectKey=${projectKey}`,
       `sonar.projectName=${pkg.name || path.basename(cwd)}`,

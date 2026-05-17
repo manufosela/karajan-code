@@ -218,7 +218,7 @@ function parseOperations(text) {
       if (testMatch && inAcceptance) {
         current.acceptance.push({
           type: testMatch[1].toLowerCase(),
-          content: testMatch[2].replace(/^`+|`+$/g, "").trim(),
+          content: testMatch[2].replaceAll(/^`+|`+$/g, "").trim(),
         });
       }
     }

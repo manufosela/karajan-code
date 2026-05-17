@@ -33,7 +33,7 @@ import path from "node:path";
  */
 
 function esc(text) {
-  return String(text ?? "").replace(/\|/g, "\\|");
+  return String(text ?? "").replaceAll(/\|/g, "\\|");
 }
 
 function formatDuration(ms) {

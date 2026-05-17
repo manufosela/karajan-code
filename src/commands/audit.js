@@ -157,7 +157,7 @@ async function resolveReportFilePath(flagValue, isJson) {
 
   let resolved;
   if (isDir) {
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
     resolved = path.resolve(target, `audit-${stamp}.${ext}`);
   } else {
     resolved = path.resolve(target);

@@ -24,7 +24,7 @@ export function deriveProjectName(originalTask) {
   ]);
   const words = originalTask
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replaceAll(/[^\p{L}\p{N}\s-]/gu, " ")
     .split(/\s+/)
     .filter(w => w && !STOPWORDS.has(w));
   const meaningful = words.slice(0, 6);
