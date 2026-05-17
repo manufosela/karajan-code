@@ -43,6 +43,22 @@ router.get('/version', (_req, res) => {
 });
 
 /**
+ * GET /api/standby — KJC-TSK-0414 PR4. Lista sesiones hibernadas.
+ * Devuelve [{ sessionId, planId, huId, role, cooldownUntil, reason, ... }]
+ * El front renderiza un badge "💤 standby · resume en HH:MM:SS" por sesión.
+ */
+router.get('/standby', async (_req, res) => {
+  try {
+    const { listPendingStandby } = await import('../../../../src/brain/standby-store.js');
+    const sessions = listPendingStandby();
+    res.set('Cache-Control', 'no-store');
+    res.json({ sessions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Resolve the hu-stories dir where batch.json files live.
  */
 function huStoriesDir() {
