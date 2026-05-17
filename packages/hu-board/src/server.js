@@ -228,9 +228,9 @@ async function main() {
     const { fileURLToPath } = await import('node:url');
     const KJ_CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'src', 'cli.js');
     const onResume = (sessionId) => {
-      console.log(`[standby] reanudando sesión ${sessionId} (spawn kj resume)`);
+      console.log(`[standby] reanudando sesión ${sessionId} (spawn kj standby resume)`);
       try {
-        const child = spawn(process.execPath, [KJ_CLI, 'resume', sessionId], {
+        const child = spawn(process.execPath, [KJ_CLI, 'standby', 'resume', sessionId], {
           detached: true, stdio: 'ignore', env: process.env,
         });
         child.unref();

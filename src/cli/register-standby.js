@@ -1,4 +1,8 @@
-// KJC-TSK-0414 PR2: registra `kj standby list` + `kj resume <id>` en el CLI.
+// KJC-TSK-0414 PR2: registra `kj standby list` + `kj standby resume <id>`.
+// `resume` es subcomando de standby para no colisionar con el `kj resume`
+// pre-existente (Solomon pauses con --answer). Modelos mentales distintos:
+//   - `kj resume <id> --answer X`  → Solomon pauseado (existente)
+//   - `kj standby resume <id>`     → run hibernada por quota
 import { resumeCommand, standbyListCommand } from "../commands/standby.js";
 
 export function registerStandby(program) {
@@ -11,7 +15,8 @@ export function registerStandby(program) {
       await standbyListCommand({ json: flags.json });
     });
 
-  program.command("resume")
+  standby
+    .command("resume")
     .description("Reanuda una sesión hibernada (re-spawn comando original)")
     .argument("<sessionId>")
     .option("--force", "Reanudar aunque cooldownUntil todavía esté en el futuro (no recomendado)")
