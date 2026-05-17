@@ -201,6 +201,71 @@ describe("garbage-collector — HU story batches", () => {
   });
 });
 
+// KJC-TSK-0414 PR3: GC para standby/done, audits, hu-board-runs.
+describe("garbage-collector — KJC-TSK-0414 categorías nuevas", () => {
+  async function writeStandbyDone(id, { mtime } = {}) {
+    const dir = path.join(tmpKj, "standby", "done");
+    await mkdirp(dir);
+    const file = path.join(dir, `${id}.json`);
+    await fs.writeFile(file, "{}");
+    if (mtime) await fs.utimes(file, mtime, mtime);
+    return file;
+  }
+  async function writeAudit(name, { mtime } = {}) {
+    const dir = path.join(tmpKarajan, "audits", name);
+    await mkdirp(dir);
+    await fs.writeFile(path.join(dir, "report.md"), "x");
+    if (mtime) await fs.utimes(dir, mtime, mtime);
+    return dir;
+  }
+  async function writeHuBoardRun(name, { mtime } = {}) {
+    const dir = path.join(tmpKarajan, "hu-board-runs", name);
+    await mkdirp(dir);
+    await fs.writeFile(path.join(dir, "run.log"), "x");
+    if (mtime) await fs.utimes(dir, mtime, mtime);
+    return dir;
+  }
+
+  it("standby/done > 7d eliminado, < 7d preservado", async () => {
+    const old = await writeStandbyDone("s-old", { mtime: new Date(Date.now() - 30 * DAY) });
+    const fresh = await writeStandbyDone("s-fresh", { mtime: new Date(Date.now() - 2 * DAY) });
+    const r = await runManualGC({ standbyDoneRetentionDays: 7, dryRun: false });
+    const paths = r.removed.map((x) => x.path);
+    expect(paths).toContain(old);
+    expect(paths).not.toContain(fresh);
+  });
+
+  it("audits/<project> > 30d eliminado", async () => {
+    const old = await writeAudit("kj-test-old", { mtime: new Date(Date.now() - 60 * DAY) });
+    const fresh = await writeAudit("kj-recent", { mtime: new Date(Date.now() - 10 * DAY) });
+    const r = await runManualGC({ auditsRetentionDays: 30, dryRun: false });
+    const paths = r.removed.map((x) => x.path);
+    expect(paths).toContain(old);
+    expect(paths).not.toContain(fresh);
+  });
+
+  it("hu-board-runs/<runId> > 30d eliminado", async () => {
+    const old = await writeHuBoardRun("run-old", { mtime: new Date(Date.now() - 60 * DAY) });
+    const fresh = await writeHuBoardRun("run-fresh", { mtime: new Date(Date.now() - 10 * DAY) });
+    const r = await runManualGC({ huBoardRunsRetentionDays: 30, dryRun: false });
+    const paths = r.removed.map((x) => x.path);
+    expect(paths).toContain(old);
+    expect(paths).not.toContain(fresh);
+  });
+
+  it("standby/<id>.json (pendiente, NO done) NUNCA se toca", async () => {
+    const pendingDir = path.join(tmpKj, "standby");
+    await mkdirp(pendingDir);
+    const pending = path.join(pendingDir, "active.json");
+    await fs.writeFile(pending, JSON.stringify({ sessionId: "active", cooldownUntil: "2099-01-01T00:00:00Z" }));
+    await fs.utimes(pending, new Date(Date.now() - 365 * DAY), new Date(Date.now() - 365 * DAY));
+    const r = await runManualGC({ standbyDoneRetentionDays: 7, dryRun: false });
+    expect(r.removed.map((x) => x.path)).not.toContain(pending);
+    // Y el archivo sigue ahí
+    await expect(fs.access(pending)).resolves.toBeUndefined();
+  });
+});
+
 describe("garbage-collector — summary + autoGC", () => {
   it("runAutoGC is runManualGC with dryRun=false", async () => {
     const orphan = await writePlan("x", "plan-auto", {
