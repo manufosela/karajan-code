@@ -12,6 +12,7 @@
 import { extractFirstJson } from "../utils/json-extract.js";
 import { addHu, removeHu } from "./plan-hu-ops.js";
 import { normaliseAcceptanceTests } from "./plan-schema.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 export function buildFixerPrompt({ task, hus, findings }) {
   const huSummary = hus.map((h) => {
@@ -90,14 +91,18 @@ function normalisePatch(raw) {
   return out;
 }
 
-export async function applyReviewerFeedback({ agent, task, hus, findings, onOutput, silenceTimeoutMs, timeoutMs }) {
+export async function applyReviewerFeedback({ agent, task, hus, findings, onOutput, silenceTimeoutMs, timeoutMs, emitter, eventBase, logger }) {
   const prompt = buildFixerPrompt({ task, hus, findings });
   const runArgs = { prompt, role: "planner" };
   if (onOutput) runArgs.onOutput = onOutput;
   if (silenceTimeoutMs) runArgs.silenceTimeoutMs = silenceTimeoutMs;
   if (timeoutMs) runArgs.timeoutMs = timeoutMs;
-  const result = await agent.runTask(runArgs);
-  if (!result.ok) return { ok: false, error: result.error || "fixer agent failed" };
+  // KJC-TSK-0413: Brain Recovery — fix loop ya no muere silencioso.
+  const result = await withBrainRecovery({
+    agent, taskArgs: runArgs, role: "plan-fixer",
+    emitter, eventBase, logger,
+  });
+  if (!result.ok) return { ok: false, error: result.error || `fixer agent failed (${result.recovery?.class || "unknown"})`, recovery: result.recovery, action: result.action };
   const parsed = extractFirstJson(result.output || "");
   if (!parsed || typeof parsed !== "object") {
     return { ok: false, error: "fixer returned no JSON object" };

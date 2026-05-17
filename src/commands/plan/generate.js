@@ -10,6 +10,7 @@ import { deriveProjectNameFromCwd } from "../../utils/derive-project-name-from-c
 import { applyReviewerFeedback, applyFixerPatch } from "../../plan/plan-fixer.js";
 import { runStructuralPass } from "../../plan/plan-structural-pass.js";
 import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-router.js";
+import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -61,11 +62,15 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   const progress = createCliProgressReporter({ role: "planner:initial", quiet: Boolean(json) });
   let result;
   try {
-    result = await planner.runTask({
-      prompt, role: "planner", silenceTimeoutMs, timeoutMs,
-      onOutput: progress.onOutput,
+    // KJC-TSK-0413: planner inicial pasa por Brain Recovery — clasifica
+    // 401/429/5xx/SILENCED/etc y decide retry/standby/hibernate/abort.
+    result = await withBrainRecovery({
+      agent: planner,
+      taskArgs: { prompt, role: "planner", silenceTimeoutMs, timeoutMs, onOutput: progress.onOutput },
+      role: "planner",
+      logger,
     });
-    progress.finish(result.ok ? "done" : "failed");
+    progress.finish(result.ok ? "done" : (result.action || "failed"));
   } catch (err) {
     progress.finish("failed");
     throw err;

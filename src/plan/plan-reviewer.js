@@ -30,6 +30,7 @@
  */
 
 import { extractFirstJson } from "../utils/json-extract.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 /**
  * Build the focused review prompt. Exported for unit-testing the
@@ -113,7 +114,7 @@ export function buildReviewerPrompt({ task, hus }) {
  * @param {number} [args.timeoutMs]
  * @returns {Promise<{ ok: boolean, findings?: object, error?: string }>}
  */
-export async function reviewPlan({ agent, task, hus, onOutput, silenceTimeoutMs, timeoutMs }) {
+export async function reviewPlan({ agent, task, hus, onOutput, silenceTimeoutMs, timeoutMs, emitter, eventBase, logger }) {
   if (!Array.isArray(hus) || hus.length === 0) {
     return { ok: true, findings: emptyFindings("Plan has no HUs to review.") };
   }
@@ -123,9 +124,15 @@ export async function reviewPlan({ agent, task, hus, onOutput, silenceTimeoutMs,
   if (silenceTimeoutMs) runArgs.silenceTimeoutMs = silenceTimeoutMs;
   if (timeoutMs) runArgs.timeoutMs = timeoutMs;
 
-  const result = await agent.runTask(runArgs);
+  // KJC-TSK-0413: el caso real del 2026-05-16 (plan-fix iter 2 "failed
+  // 219.3s" sin clase) entraba aquí. Ahora Brain clasifica el fallo y
+  // decide retry/standby/hibernate/abort.
+  const result = await withBrainRecovery({
+    agent, taskArgs: runArgs, role: "plan-reviewer",
+    emitter, eventBase, logger,
+  });
   if (!result.ok) {
-    return { ok: false, error: result.error || "reviewer agent failed" };
+    return { ok: false, error: result.error || `reviewer agent failed (${result.recovery?.class || "unknown"})`, recovery: result.recovery, action: result.action };
   }
   const parsed = extractFirstJson(result.output || "");
   if (!parsed || typeof parsed !== "object") {

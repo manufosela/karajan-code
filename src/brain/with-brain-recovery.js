@@ -32,6 +32,11 @@ function backoffDelay(policyForClass, attempt) {
 }
 
 function sleep(ms) {
+  // En tests (VITEST / NODE_ENV=test) saltamos sleeps reales — los tests que
+  // necesitan timing controlado inyectan sleepFn explícito. Esto evita que
+  // tests de stages downstream que llaman a withBrainRecovery se cuelguen
+  // esperando standby cuando el agente fake devuelve un error recoverable.
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
