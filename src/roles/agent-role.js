@@ -15,6 +15,7 @@
  */
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 export class AgentRole extends BaseRole {
   constructor({ name, config, logger, emitter = null, createAgentFn = null }) {
@@ -116,13 +117,27 @@ export class AgentRole extends BaseRole {
     const runArgs = { prompt, role: this.name };
     if (onOutput) runArgs.onOutput = onOutput;
 
-    const result = await agent[this.agentMethod](runArgs);
+    // KJC-TSK-0413 step B: TODAS las roles que heredan de AgentRole pasan
+    // por Brain Recovery aquí — cubre AuditRole, SecurityRole, HuReviewerRole,
+    // CoderRole, ArchitectRole, DiscoverRole, ImpeccableRole, RefactorerRole,
+    // ResearcherRole, TriageRole, etc. Roles con agentMethod custom (ej.
+    // reviewer usa reviewTask) también funcionan: el wrapper sólo necesita
+    // un objeto con la firma `runTask(args) → { ok, output, error, exitCode }`.
+    const result = await withBrainRecovery({
+      agent: { runTask: (args) => agent[this.agentMethod](args), provider },
+      taskArgs: runArgs,
+      role: this.name,
+      provider,
+      emitter: this.emitter,
+      logger: this.logger,
+    });
 
     if (!result.ok) {
+      const recoveryNote = result.recovery?.class ? ` [${result.recovery.class}]` : "";
       return {
         ok: false,
-        result: { error: result.error || result.output || `${this.name} failed`, provider },
-        summary: `${this.name} failed: ${result.error || "unknown error"}`,
+        result: { error: result.error || result.output || `${this.name} failed${recoveryNote}`, provider, recovery: result.recovery, action: result.action },
+        summary: `${this.name} failed${recoveryNote}: ${result.recovery?.message || result.error || "unknown error"}`,
         usage: result.usage
       };
     }
