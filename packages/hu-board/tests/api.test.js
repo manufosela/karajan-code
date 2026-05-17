@@ -262,3 +262,28 @@ describe('PATCH /api/projects/:id/is-test', () => {
     expect(res.body.error).toMatch(/not found/);
   });
 });
+
+// KJC-TSK-0414 PR4
+describe('GET /api/standby', () => {
+  it('lista vacía cuando no hay sesiones hibernadas', async () => {
+    const res = await request(app).get('/api/standby');
+    expect(res.status).toBe(200);
+    expect(res.body.sessions).toEqual([]);
+  });
+
+  it('devuelve las sesiones persistidas', async () => {
+    const { persistStandby } = await import('../../../src/brain/standby-store.js');
+    persistStandby({
+      sessionId: 'test-s1',
+      cooldownUntil: '2099-01-01T00:00:00Z',
+      reason: 'QUOTA_EXHAUSTED_DAILY',
+      planId: 'p1',
+      huId: 'hu_001',
+    });
+    const res = await request(app).get('/api/standby');
+    expect(res.status).toBe(200);
+    expect(res.body.sessions).toHaveLength(1);
+    expect(res.body.sessions[0].sessionId).toBe('test-s1');
+    expect(res.body.sessions[0].planId).toBe('p1');
+  });
+});
