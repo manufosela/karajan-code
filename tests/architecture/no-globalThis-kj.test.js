@@ -73,17 +73,16 @@ describe("architecture/no-globalThis-kj — test-harness globals isolated to sin
         offenders.push({ file: path.relative(REPO_ROOT, file), snippet: match?.[0] ?? "" });
       }
     }
-    if (offenders.length > 0) {
-      const msg = offenders
-        .map((o) => `  ${o.file}: ${o.snippet}`)
-        .join("\n");
-      throw new Error(
-        "globalThis.__KJ_* reads must live only in src/config/test-harness.js.\n" +
-        "Production code should read config.testHarness.* instead.\n" +
-        "See src/config/test-harness.js for the resolution contract.\n\n" +
-        "Offenders:\n" + msg,
-      );
-    }
+    const msg = offenders
+      .map((o) => `  ${o.file}: ${o.snippet}`)
+      .join("\n");
+    expect(
+      offenders,
+      "globalThis.__KJ_* reads must live only in src/config/test-harness.js.\n" +
+      "Production code should read config.testHarness.* instead.\n" +
+      "See src/config/test-harness.js for the resolution contract.\n\n" +
+      "Offenders:\n" + msg,
+    ).toEqual([]);
   });
 
   it("the allowed site actually reads globalThis", () => {

@@ -61,18 +61,17 @@ describe("architecture/tracker-coupling — orchestrator depends only on integra
         });
       }
     }
-    if (offenders.length > 0) {
-      const msg = offenders
-        .map((o) => `  ${o.file}: ${o.import}`)
-        .join("\n");
-      throw new Error(
-        "src/orchestrator/ must not import src/planning-game/ directly.\n" +
-        "Route through the integrations registry:\n" +
-        "  import { getIntegration } from \"./integrations.js\";\n" +
-        "  await getIntegration(\"tracker\")?.hookName?.(...);\n\n" +
-        "Offenders:\n" + msg,
-      );
-    }
+    const msg = offenders
+      .map((o) => `  ${o.file}: ${o.import}`)
+      .join("\n");
+    expect(
+      offenders,
+      "src/orchestrator/ must not import src/planning-game/ directly.\n" +
+      "Route through the integrations registry:\n" +
+      "  import { getIntegration } from \"./integrations.js\";\n" +
+      "  await getIntegration(\"tracker\")?.hookName?.(...);\n\n" +
+      "Offenders:\n" + msg,
+    ).toEqual([]);
   });
 
   it("integrations module exports the documented API", async () => {

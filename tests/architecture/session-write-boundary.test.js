@@ -97,15 +97,14 @@ describe("architecture/session-write-boundary — mutations only via src/session
       }
     }
 
-    if (offenders.length > 0) {
-      const msg = offenders
-        .map((o) => `  ${o.site}: ${o.snippet}`)
-        .join("\n");
-      throw new Error(
-        "Direct session mutations outside src/session/ — route through " +
-        "src/session/mutators.js (or add a whitelist entry with a reason):\n" + msg,
-      );
-    }
+    const msg = offenders
+      .map((o) => `  ${o.site}: ${o.snippet}`)
+      .join("\n");
+    expect(
+      offenders,
+      "Direct session mutations outside src/session/ — route through " +
+      "src/session/mutators.js (or add a whitelist entry with a reason):\n" + msg,
+    ).toEqual([]);
   });
 
   it("mutators module exports the documented core helpers", async () => {
