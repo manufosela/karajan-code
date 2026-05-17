@@ -22,6 +22,7 @@
 
 import { extractFirstJson } from "../utils/json-extract.js";
 import { normaliseAcceptanceTests } from "./plan-schema.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 /**
  * Build the focused-pass prompt asking ONLY for tests for the given
@@ -85,7 +86,7 @@ export function buildSynthesizerPrompt({ task, husNeedingTests }) {
  * @param {number} [args.timeoutMs]
  * @returns {Promise<{ ok: boolean, tests?: Record<string, object[]>, error?: string }>}
  */
-export async function synthesizeMissingTests({ agent, task, husNeedingTests, onOutput, silenceTimeoutMs, timeoutMs }) {
+export async function synthesizeMissingTests({ agent, task, husNeedingTests, onOutput, silenceTimeoutMs, timeoutMs, emitter, eventBase, logger }) {
   if (!Array.isArray(husNeedingTests) || husNeedingTests.length === 0) {
     return { ok: true, tests: {} };
   }
@@ -95,9 +96,13 @@ export async function synthesizeMissingTests({ agent, task, husNeedingTests, onO
   if (silenceTimeoutMs) runArgs.silenceTimeoutMs = silenceTimeoutMs;
   if (timeoutMs) runArgs.timeoutMs = timeoutMs;
 
-  const result = await agent.runTask(runArgs);
+  // KJC-TSK-0413: Brain Recovery wraps el agent call.
+  const result = await withBrainRecovery({
+    agent, taskArgs: runArgs, role: "tests-synthesizer",
+    emitter, eventBase, logger,
+  });
   if (!result.ok) {
-    return { ok: false, error: result.error || "synthesizer agent failed" };
+    return { ok: false, error: result.error || `synthesizer agent failed (${result.recovery?.class || "unknown"})`, recovery: result.recovery, action: result.action };
   }
 
   const parsed = extractFirstJson(result.output || "");
