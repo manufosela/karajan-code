@@ -114,13 +114,12 @@ describe("architecture / session/store imports", () => {
         }
       }
     }
-    if (offenders.length > 0) {
-      const list = offenders.map((o) => `  ${o.file}: calls ${o.name}() but doesn't import it`).join("\n");
-      throw new Error(
-        `Found ${offenders.length} call(s) to session/store functions without a matching import.\n` +
-        `This is the exact bug class that broke the demo on 2026-04-27 — fix by adding the import:\n\n` +
-        list,
-      );
-    }
+    const list = offenders.map((o) => `  ${o.file}: calls ${o.name}() but doesn't import it`).join("\n");
+    expect(
+      offenders,
+      `Found ${offenders.length} call(s) to session/store functions without a matching import.\n` +
+      `This is the exact bug class that broke the demo on 2026-04-27 — fix by adding the import:\n\n` +
+      list,
+    ).toEqual([]);
   });
 });

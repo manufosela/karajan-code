@@ -53,13 +53,12 @@ describe("agent-readability — llms.txt SKILL links resolve", () => {
       if (!fs.existsSync(abs)) missing.push(filename);
     }
 
-    if (missing.length > 0) {
-      throw new Error(
-        "llms.txt advertises SKILL files that don't exist:\n  " +
-        missing.map((f) => `docs/agents/${f}`).join("\n  ") +
-        "\n\nEither create them under docs/agents/ or remove the link from llms.txt.",
-      );
-    }
+    expect(
+      missing,
+      "llms.txt advertises SKILL files that don't exist:\n  " +
+      missing.map((f) => `docs/agents/${f}`).join("\n  ") +
+      "\n\nEither create them under docs/agents/ or remove the link from llms.txt.",
+    ).toEqual([]);
   });
 
   it("every SKILL.md under docs/agents/ has the expected sections", () => {
@@ -80,13 +79,12 @@ describe("agent-readability — llms.txt SKILL links resolve", () => {
       }
     }
 
-    if (offenders.length > 0) {
-      throw new Error(
-        "SKILL.md files missing required sections:\n  " +
-        offenders.join("\n  ") +
-        "\n\nEvery SKILL.md must have ## What it does, ## Inputs, ## Outputs, ## Example " +
-        "for agents to consume them deterministically.",
-      );
-    }
+    expect(
+      offenders,
+      "SKILL.md files missing required sections:\n  " +
+      offenders.join("\n  ") +
+      "\n\nEvery SKILL.md must have ## What it does, ## Inputs, ## Outputs, ## Example " +
+      "for agents to consume them deterministically.",
+    ).toEqual([]);
   });
 });

@@ -68,14 +68,13 @@ describe("architecture/layer-boundaries — CLI and MCP are peer layers", () => 
         offenders.push({ file: path.relative(REPO_ROOT, file), imports: hits });
       }
     }
-    if (offenders.length > 0) {
-      const msg = offenders
-        .map((o) => `  ${o.file}: ${o.imports.join(", ")}`)
-        .join("\n");
-      throw new Error(
-        "src/commands/ must not depend on src/mcp/. Shared concepts go to src/session/ or src/config/:\n" + msg,
-      );
-    }
+    const msg = offenders
+      .map((o) => `  ${o.file}: ${o.imports.join(", ")}`)
+      .join("\n");
+    expect(
+      offenders,
+      "src/commands/ must not depend on src/mcp/. Shared concepts go to src/session/ or src/config/:\n" + msg,
+    ).toEqual([]);
   });
 
   it("src/mcp/ → src/commands/ is a known debt, not worse than baseline", () => {

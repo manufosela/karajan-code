@@ -31,7 +31,7 @@ export function removeOrphanRefs(plan) {
   return fixes;
 }
 
-export function breakCycles(plan) {
+function breakCycles(plan) {
   const fixes = [];
   let cycles = findCycles(plan.hus);
   let budget = plan.hus.length;

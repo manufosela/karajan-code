@@ -50,9 +50,9 @@ const INFEASIBLE_SIGNATURES = [
 export function failureSignature(cmd, errorOutput) {
   const cmdNorm = String(cmd || "").trim().slice(0, 200);
   const errNorm = String(errorOutput || "")
-    .replace(/\s+/g, " ")        // collapse whitespace
-    .replace(/\d+/g, "N")          // numbers tend to drift; line numbers, counts
-    .replace(/\/[^\s]+/g, "/PATH") // absolute paths drift across runs
+    .replaceAll(/\s+/g, " ")        // collapse whitespace
+    .replaceAll(/\d+/g, "N")          // numbers tend to drift; line numbers, counts
+    .replaceAll(/\/[^\s]+/g, "/PATH") // absolute paths drift across runs
     .trim()
     .slice(0, 300);
   return `${cmdNorm}|||${errNorm}`;

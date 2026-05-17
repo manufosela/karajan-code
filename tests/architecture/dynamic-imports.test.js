@@ -123,32 +123,30 @@ function findRedundantImports() {
 describe("architecture/dynamic-imports — budget + no-redundant rule", () => {
   it(`total dynamic import count is ≤ ${DYNAMIC_IMPORT_BUDGET}`, () => {
     const { total, perFile } = countDynamicImports();
-    if (total > DYNAMIC_IMPORT_BUDGET) {
-      const worst = [...perFile.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([f, n]) => `  ${n}  ${f}`)
-        .join("\n");
-      throw new Error(
-        `Dynamic imports under src/ grew past the ${DYNAMIC_IMPORT_BUDGET} budget ` +
-        `(now ${total}).\n\nTop offenders:\n${worst}\n\n` +
-        `Either convert a legitimate one to static (see ` +
-        `tests/architecture/dynamic-imports.test.js for when that applies), ` +
-        `or bump the budget in the SAME PR with a justification comment.`,
-      );
-    }
+    const worst = [...perFile.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([f, n]) => `  ${n}  ${f}`)
+      .join("\n");
+    expect(
+      total,
+      `Dynamic imports under src/ grew past the ${DYNAMIC_IMPORT_BUDGET} budget ` +
+      `(now ${total}).\n\nTop offenders:\n${worst}\n\n` +
+      `Either convert a legitimate one to static (see ` +
+      `tests/architecture/dynamic-imports.test.js for when that applies), ` +
+      `or bump the budget in the SAME PR with a justification comment.`,
+    ).toBeLessThanOrEqual(DYNAMIC_IMPORT_BUDGET);
   });
 
   it("no dynamic import is redundant with a static import of the same module", () => {
     const offenders = findRedundantImports();
-    if (offenders.length > 0) {
-      const msg = offenders
-        .map((o) => `  ${o.file}: await import("${o.mod}") — already statically imported`)
-        .join("\n");
-      throw new Error(
-        "Redundant dynamic imports detected — lift the static binding and " +
-        "reuse it at the callsite:\n" + msg,
-      );
-    }
+    const msg = offenders
+      .map((o) => `  ${o.file}: await import("${o.mod}") — already statically imported`)
+      .join("\n");
+    expect(
+      offenders,
+      "Redundant dynamic imports detected — lift the static binding and " +
+      "reuse it at the callsite:\n" + msg,
+    ).toEqual([]);
   });
 });
