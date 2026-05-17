@@ -1,6 +1,7 @@
 import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { buildDiscoverPrompt, parseDiscoverOutput } from "../prompts/discover.js";
 
@@ -75,8 +76,11 @@ export async function discoverCommand({ task, config, logger, mode, json }) {
     const progress = createCliProgressReporter({ role: "discover" });
     let result;
     try {
-      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "discover" });
-      progress.finish(result.ok ? "done" : "failed");
+      result = await withBrainRecovery({
+        agent, taskArgs: { prompt, onOutput: progress.onOutput, role: "discover" },
+        role: "discover", provider: discoverRole.provider, logger,
+      });
+      progress.finish(result.ok ? "done" : (result.action || "failed"));
     } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {

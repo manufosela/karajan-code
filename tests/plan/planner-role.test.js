@@ -75,7 +75,9 @@ describe("PlannerRole", () => {
     expect(output.ok).toBe(true);
   });
 
-  it("returns ok=false when agent fails", async () => {
+  it("returns ok=false when agent fails (post Brain Recovery: classifica y abort)", async () => {
+    // KJC-TSK-0413: el wrapper clasifica "Agent timeout" como UNKNOWN_FATAL
+    // (no encaja patterns conocidos) y aborta inmediato sin retries.
     const fakeAgent = {
       runTask: vi.fn().mockResolvedValue({
         ok: false,
@@ -89,7 +91,8 @@ describe("PlannerRole", () => {
     const output = await role.run("Complex task");
 
     expect(output.ok).toBe(false);
-    expect(output.result.error).toBe("Agent timeout");
+    expect(output.result.error).toMatch(/Agent timeout/);
+    expect(output.result.recovery?.class).toBe("UNKNOWN_FATAL");
   });
 
   it("emits role:start and role:end events", async () => {

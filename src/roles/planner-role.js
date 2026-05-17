@@ -1,4 +1,5 @@
 import { AgentRole } from "./agent-role.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const RESEARCH_FIELDS = [
   { key: "affected_files", label: "Affected files" },
@@ -124,13 +125,19 @@ export class PlannerRole extends AgentRole {
     const timeoutMs = resolveRuntimeTimeoutMs(this.config);
     if (timeoutMs) runArgs.timeoutMs = timeoutMs;
 
-    const result = await agent.runTask(runArgs);
+    // KJC-TSK-0413 step C: PlannerRole tiene execute() custom (no usa el de
+    // AgentRole). Wrap aquí también.
+    const result = await withBrainRecovery({
+      agent, taskArgs: runArgs, role: "planner", provider,
+      emitter: this.emitter, logger: this.logger,
+    });
 
     if (!result.ok) {
+      const recoveryNote = result.recovery?.class ? ` [${result.recovery.class}]` : "";
       return {
         ok: false,
-        result: { ...result, error: result.error || result.output || "Planner agent failed", plan: null },
-        summary: `Planner failed: ${result.error || "unknown error"}`
+        result: { ...result, error: result.error || result.output || `Planner agent failed${recoveryNote}`, plan: null, recovery: result.recovery, action: result.action },
+        summary: `Planner failed${recoveryNote}: ${result.recovery?.message || result.error || "unknown error"}`
       };
     }
 

@@ -1,6 +1,7 @@
 import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { extractFirstJson } from "../utils/json-extract.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -207,16 +208,21 @@ export class SolomonRole extends BaseRole {
       instructions: this.instructions
     });
 
-    const result = await agent.runTask({ prompt, role: "solomon" });
+    // KJC-TSK-0413 step C: Solomon es BaseRole (no AgentRole) — wrap explícito.
+    const result = await withBrainRecovery({
+      agent, taskArgs: { prompt, role: "solomon" }, role: "solomon", provider,
+      emitter: this.emitter, logger: this.logger,
+    });
 
     if (!result.ok) {
+      const recoveryNote = result.recovery?.class ? ` [${result.recovery.class}]` : "";
       return {
         ok: false,
         result: {
-          error: result.error || result.output || "Solomon arbitration failed",
-          provider
+          error: result.error || result.output || `Solomon arbitration failed${recoveryNote}`,
+          provider, recovery: result.recovery, action: result.action,
         },
-        summary: `Solomon failed: ${result.error || "unknown error"}`
+        summary: `Solomon failed${recoveryNote}: ${result.recovery?.message || result.error || "unknown error"}`
       };
     }
 

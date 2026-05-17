@@ -7,6 +7,7 @@
  */
 import { createAgent } from "../agents/index.js";
 import { extractFirstJson } from "../utils/json-extract.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -72,7 +73,11 @@ export async function refineHuWithContext(hu, completedHus, config, logger) {
   const agent = createAgent(provider, config, logger);
   let result;
   try {
-    result = await agent.runTask({ prompt, role: "hu-reviewer" });
+    // KJC-TSK-0413 step C
+    result = await withBrainRecovery({
+      agent, taskArgs: { prompt, role: "hu-reviewer" },
+      role: "lazy-planner", provider, logger,
+    });
   } catch (err) {
     logger.warn(`Lazy planner: refinement failed for HU ${hu.id}: ${err.message}`);
     return hu;
