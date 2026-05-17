@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-05-17
+
+Minor release. Tres epics completos sumando 30+ commits y ~4 000 LOC: self-healing de plans, model routing per HU con cross-provider review y undo, y un sistema completo de recuperación ante fallos de IA (rate limit, quota daily/monthly, network, silenced) con hibernación persistente y fallback chain.
+
+4 835/4 835 tests passing across 400 test files.
+
+### Added — Epic Brain Recovery (KJC-PCS-0044)
+
+- **KJC-TSK-0411** — Universal agent error classifier (#722). Clasifica cualquier fallo de IA en 7 clases con metadata accionable: RATE_LIMIT_SHORT, QUOTA_EXHAUSTED_DAILY, QUOTA_EXHAUSTED_MONTHLY, API_DOWN, AUTH_FAILED, NETWORK_TIMEOUT, SILENCED, UNKNOWN_FATAL. Parsers per-provider (claude, codex, gemini, opencode).
+- **KJC-TSK-0412** — withBrainRecovery wrapper (#724). Política central de retry/standby/backoff/hibernate/abort según clase. Backoff exponencial con jitter, observabilidad vía emitter.
+- **KJC-TSK-0413** — Wire universal del wrapper (#726, #727, #728). TODA invocación a agente IA pasa por Brain Recovery. Coverage: plan-reviewer, plan-fixer, tests-synthesizer, planner, coder, reviewer, hu-reviewer, security, audit, refactorer, architect, discover, researcher, triage, solomon, lazy-planner, hu-splitter, kj triage/architect/researcher/discover standalone.
+- **KJC-TSK-0414** — Hibernación persistente (#729, #733, #734, #735). standby-store al disco + scheduler event-driven (setTimeout único per session, sin polling). reconcileAll() al arrancar el board. Comandos `kj standby list` + `kj standby resume <id>`. GC extendido limpia standby/done > 7d, audits > 30d, hu-board-runs > 30d. UI board: banner sticky con countdown HH:MM:SS.
+- **KJC-TSK-0415** — Plan B fallback chain (#736). Anthropic introduce \$200/mes Agent SDK desde 15-jun-2026 — agotarlo bloquearía runs 30 días. Cuando QUOTA_EXHAUSTED_* con retryAfter > max_wait_hours (default 12h) y hay fallback configurado, Brain switchea al provider alternativo. Recursivo (claude → codex → opencode). Configurable per rol. Wizard `kj init` extendido.
+
+### Added — Epic Model Routing + Undo (KJC-PCS-0043)
+
+- **KJC-TSK-0405** — Model router por HU (#715, #719). Cada HU lleva coder_model + reviewer_model asignados automáticamente según complexity. Reviewer cross-provider del coder por defecto (claude↔codex).
+- **KJC-TSK-0406** — Override modelos desde el board (#717). Modal HU expone inputs para overridear coder/reviewer por HU.
+- **KJC-TSK-0407** — Sección `model_routing` en config schema (#716).
+- **KJC-TSK-0410** — opencode + aider first-class en model-router (#721).
+- **KJC-TSK-0408** — Undo per HU con snapshots git (#718, #720). Ref git pre-coder + botón ⏪ Undo en modal → reset --hard → status=pending.
+
+### Added — Epic Self-Healing Plan (KJC-PCS-0042)
+
+- **KJC-BUG-0053** — plan-fixer asigna short_id + blocked_by a HUs añadidas (#707).
+- **KJC-BUG-0054** — Convergence guard inteligente (priority vs secondary) (#708).
+- **KJC-TSK-0399** — Structural integrity pass post-review (#709). Rompe ciclos (DFS), elimina blocked_by huérfanos, AUTOFIX-NNN para short_id missing.
+- **KJC-TSK-0400** — Skip Sonar/TDD/tests en HUs no-code (#710). Nuevos task_types `spike` y `research`. Title prefix [SPIKE]/[DOC]/[RESEARCH] → task_type inferido.
+- **KJC-TSK-0401** — Validación estructural en PATCH blocked_by (#711). Rechaza ciclos + refs huérfanas con HTTP 400.
+- **KJC-TSK-0402** — `kj plan fix [planId] [--prompt]` (#712). Re-corre reviewer + self-fix + structural pass sobre plan existente.
+- **KJC-TSK-0403** — Eliminar columna Failed del board (#713). status/result ortogonal: HUs fallidas vuelven a Pending con badge ✗.
+- **KJC-TSK-0404 step 1** — Zombie reaper marca result=fail + blocker (#714).
+
+### Internal
+
+- 4 835/4 835 tests passing (era ~4 700 en v2.14.3). 400 test files.
+- 30+ commits desde v2.14.3, todos pasando shrink-budget (≤ 200 LOC neto por PR salvo 4 exclusiones cohesivas con `large-pr-justified`).
+
 ## [2.14.3] - 2026-05-13
 
 Patch. Tres mejoras al sistema de preflight detectadas al lanzar el primer `kj run` real sobre un proyecto greenfield (greta-app).
