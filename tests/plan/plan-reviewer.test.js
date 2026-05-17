@@ -113,11 +113,15 @@ describe("reviewPlan", () => {
     expect(result.findings.parallelisable_groups).toHaveLength(1);
   });
 
-  it("returns ok:false on agent failure", async () => {
+  it("returns ok:false on agent failure (post Brain Recovery: abort tras retries)", async () => {
+    // KJC-TSK-0413: ahora el agent error pasa por classifier+wrapper.
+    // "rate limited" se clasifica como RATE_LIMIT_SHORT, Brain reintenta
+    // y tras maxRetries devuelve action='abort' + recovery info.
     const agent = { runTask: vi.fn().mockResolvedValue({ ok: false, error: "rate limited" }) };
     const result = await reviewPlan({ agent, task: "x", hus: [{ id: "h1" }] });
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/rate limited/);
+    expect(result.recovery?.class).toBe("RATE_LIMIT_SHORT");
+    expect(result.action).toBe("abort");
   });
 
   it("returns ok:false on non-JSON output", async () => {
