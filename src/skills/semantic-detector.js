@@ -16,6 +16,7 @@
 
 import { createAgent } from "../agents/index.js";
 import { resolveRole } from "../config.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 /**
  * Curated catalog of skills the classifier is allowed to suggest. Keeping
@@ -106,15 +107,29 @@ export async function refineSkillsSemantically({ task, alreadyDetected = [], con
   }
 
   const prompt = PROMPT(task, SEMANTIC_CATALOG, alreadyDetected);
+  // KJC-TSK-0413 step D: wrap with Brain Recovery. semantic-detector usa
+  // signature legacy `runTask(prompt, opts)` — adapter normaliza al estándar
+  // `runTask({ prompt, timeoutMs })` que withBrainRecovery espera.
+  const adapter = {
+    provider: agent.provider,
+    runTask: (args) => agent.runTask(args.prompt, { timeoutMs: args.timeoutMs }),
+  };
   let res;
   try {
-    res = await agent.runTask(prompt, { timeoutMs: 30_000 });
+    res = await withBrainRecovery({
+      agent: adapter,
+      taskArgs: { prompt, timeoutMs: 30_000 },
+      role: "semantic-detector",
+      logger,
+    });
   } catch (err) {
     logger?.warn?.(`semantic-detector: classifier call failed (${err.message}) — skipping`);
     return [];
   }
   if (!res?.ok) {
-    logger?.debug?.("semantic-detector: classifier returned not-ok — skipping");
+    // En test env el sleep es no-op así que abort viene rápido. Skip-on-fail
+    // sigue siendo el comportamiento — semantic detection es best-effort.
+    logger?.debug?.(`semantic-detector: classifier returned not-ok (${res?.recovery?.class || "unknown"}) — skipping`);
     return [];
   }
 
