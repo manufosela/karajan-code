@@ -62,6 +62,21 @@ describe("classifyAgentError — RATE_LIMIT_SHORT vs QUOTA_EXHAUSTED_DAILY", () 
     const r = classifyAgentError({ provider: "gemini", stderr: "resource exhausted", exitCode: 1 });
     expect(r.class).toBe(ERROR_CLASS.RATE_LIMIT_SHORT);
   });
+
+  // KJC-TSK-0415: nueva clase MONTHLY (Anthropic Agent SDK $200/mes desde jun-2026).
+  it("usage limit con reset > 7 días → QUOTA_EXHAUSTED_MONTHLY", () => {
+    const target = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const r = classifyAgentError({ provider: "claude", stderr: `Agent SDK monthly limit, resets at ${target}`, exitCode: 1 });
+    expect(r.class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY);
+    expect(r.retryUntil).toBe(target);
+  });
+
+  it("threshold: 6 días → DAILY, 8 días → MONTHLY", () => {
+    const sixDays = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
+    const eightDays = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString();
+    expect(classifyAgentError({ stderr: `usage limit, resets at ${sixDays}`, exitCode: 1 }).class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_DAILY);
+    expect(classifyAgentError({ stderr: `usage limit, resets at ${eightDays}`, exitCode: 1 }).class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY);
+  });
 });
 
 describe("classifyAgentError — API_DOWN", () => {

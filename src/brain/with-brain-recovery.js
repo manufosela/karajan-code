@@ -11,12 +11,19 @@ import { persistStandby } from "./standby-store.js";
 
 const ONE_MIN = 60 * 1000;
 
+const ONE_HOUR = 60 * 60 * 1000;
+const DEFAULT_FALLBACK_WAIT_HOURS = 12;
+
 export const DEFAULT_RECOVERY_POLICY = Object.freeze({
   hibernateThresholdMs: 5 * ONE_MIN, // > 5 min de espera → hibernar
   longStandbyCapMs: 10 * ONE_MIN,    // si el caller no hiberna, espera máx 10 min
+  // KJC-TSK-0415: threshold de fallback. Si retryAfter > esto Y el role
+  // tiene fallback configurado → switch provider en vez de hibernar.
+  fallbackWaitHoursDefault: DEFAULT_FALLBACK_WAIT_HOURS,
   classes: {
     [ERROR_CLASS.RATE_LIMIT_SHORT]: { mode: "standby", maxRetries: 3 },
-    [ERROR_CLASS.QUOTA_EXHAUSTED_DAILY]: { mode: "hibernate", maxRetries: 1 },
+    [ERROR_CLASS.QUOTA_EXHAUSTED_DAILY]: { mode: "hibernate", maxRetries: 1, fallbackEligible: true },
+    [ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY]: { mode: "hibernate", maxRetries: 1, fallbackEligible: true },
     [ERROR_CLASS.API_DOWN]: { mode: "backoff", maxRetries: 3, baseMs: 5_000, factor: 3, jitterPct: 0.2 },
     [ERROR_CLASS.NETWORK_TIMEOUT]: { mode: "backoff", maxRetries: 3, baseMs: 5_000, factor: 3, jitterPct: 0.2 },
     [ERROR_CLASS.SILENCED]: { mode: "backoff", maxRetries: 2, baseMs: 30_000, factor: 2, jitterPct: 0.15 },
@@ -68,14 +75,19 @@ export async function withBrainRecovery({
   sleepFn = sleep,
   // TSK-0414 PR2: si presente, en hibernate persiste { sessionId, planId?, huId?,
   // argv?, ... } a ~/.kj/standby/<sessionId>.json y devuelve standbyFile en
-  // el resultado. Caller (típicamente cli.js o ej. plan-fix) decide qué hacer.
+  // el resultado.
   sessionState,
+  // KJC-TSK-0415: fallback chain. Si QUOTA_EXHAUSTED_* con retryAfter
+  // > maxWaitHours (default 12h) y hay fallback, switch en vez de hibernar.
+  fallback = null,
 }) {
-  const effectiveProvider = provider || agent?.provider || "unknown";
+  let effectiveAgent = agent;
+  let effectiveProvider = provider || agent?.provider || "unknown";
+  let effectiveFallback = fallback;
   const attemptsByClass = {};
 
   while (true) {
-    const result = await agent.runTask(taskArgs);
+    const result = await effectiveAgent.runTask(taskArgs);
     if (result?.ok) return result;
 
     const cls = classifyAgentError({
@@ -95,6 +107,29 @@ export async function withBrainRecovery({
     if (classPolicy.mode === "abort" || attempt > classPolicy.maxRetries) {
       emit(emitter, "brain:fatal", eventBase, { role, class: cls.class, message: cls.message });
       return { ok: false, action: "abort", recovery: cls, error: `Brain aborted: ${cls.class} — ${cls.message}` };
+    }
+
+    // KJC-TSK-0415: ¿switch a fallback antes de hibernar?
+    // Aplica si:
+    //   - classPolicy.fallbackEligible (QUOTA_EXHAUSTED_*)
+    //   - hay fallback configurado
+    //   - retryAfter excede maxWaitHours del fallback (default 12h)
+    if (classPolicy.fallbackEligible && effectiveFallback?.agent && cls.retryAfter) {
+      const maxWaitMs = (effectiveFallback.maxWaitHours ?? policy.fallbackWaitHoursDefault ?? DEFAULT_FALLBACK_WAIT_HOURS) * ONE_HOUR;
+      if (cls.retryAfter > maxWaitMs) {
+        const from = effectiveProvider;
+        const to = effectiveFallback.provider || effectiveFallback.agent.provider || "unknown";
+        emit(emitter, "brain:fallback-switched", eventBase, { role, from, to, class: cls.class, retryAfter: cls.retryAfter, maxWaitMs });
+        logger?.info?.(`[brain] ${role}: fallback ${from} → ${to} (retryAfter ${Math.round(cls.retryAfter/3600000)}h > maxWait ${maxWaitMs/3600000}h)`);
+        // Switch al fallback. Reset attempts para que el nuevo provider
+        // pueda fallar/retry independientemente. Fallback puede tener su
+        // propio fallback en cadena.
+        effectiveAgent = effectiveFallback.agent;
+        effectiveProvider = to;
+        effectiveFallback = effectiveFallback.fallback || null;
+        for (const k of Object.keys(attemptsByClass)) attemptsByClass[k] = 0;
+        continue;
+      }
     }
 
     // HIBERNATE: persistir + signal action=hibernate al caller.

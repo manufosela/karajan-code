@@ -54,11 +54,26 @@ const Methodology = v.picklist(
 );
 
 /**
+ * KJC-TSK-0415: fallback chain. Cuando provider primario hits
+ * QUOTA_EXHAUSTED_* con cooldown > max_wait_hours, switch a fallback.
+ * Recursivo — el fallback puede tener su propio fallback.
+ */
+const RoleFallback = v.looseObject({
+  provider: v.string("fallback.provider required (claude|codex|gemini|opencode|aider)"),
+  model: v.optional(v.nullable(v.string())),
+  max_wait_hours: v.optional(v.pipe(v.number(), v.minValue(0)), 12),
+  // Recursivo. Schema permite cualquier shape compatible con RoleFallback.
+  fallback: v.optional(v.lazy(() => RoleFallback)),
+});
+
+/**
  * Role entry — provider + model, both nullable. Extra keys allowed.
+ * KJC-TSK-0415: campo fallback opcional para Plan B en quota exhausted.
  */
 const RoleEntry = v.looseObject({
   provider: v.optional(v.nullable(v.string())),
   model: v.optional(v.nullable(v.string())),
+  fallback: v.optional(RoleFallback),
 });
 
 const RolesMap = v.optional(v.looseObject({

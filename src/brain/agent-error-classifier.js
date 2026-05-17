@@ -17,6 +17,10 @@ import { parseCooldown } from "../utils/rate-limit-detector.js";
 export const ERROR_CLASS = Object.freeze({
   RATE_LIMIT_SHORT: "RATE_LIMIT_SHORT",
   QUOTA_EXHAUSTED_DAILY: "QUOTA_EXHAUSTED_DAILY",
+  // KJC-TSK-0415: Anthropic Max 20x cambia a $200/mes Agent SDK desde
+  // 15-jun-2026. Cuando llegues al cap mensual, el reset es 1-mes —
+  // muy distinto del daily de Claude Pro. Esta clase distingue ambos.
+  QUOTA_EXHAUSTED_MONTHLY: "QUOTA_EXHAUSTED_MONTHLY",
   API_DOWN: "API_DOWN",
   AUTH_FAILED: "AUTH_FAILED",
   NETWORK_TIMEOUT: "NETWORK_TIMEOUT",
@@ -25,10 +29,11 @@ export const ERROR_CLASS = Object.freeze({
 });
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const AUTH_PATTERNS = /\b401\b|\b403\b|unauthorized|invalid\s+api\s+key|authentication\s+failed|expired\s+token/i;
 const SILENCED_PATTERNS = /killed\s+after\s+\d+\s*ms|silence\s*timeout|no\s+output\s+for\s+\d+/i;
-const RATE_LIMIT_PATTERNS = /usage\s+limit|rate\s*limit|too\s+many\s+requests|\b429\b|throttl|exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached/i;
+const RATE_LIMIT_PATTERNS = /usage\s+limit|rate\s*limit|too\s+many\s+requests|\b429\b|throttl|exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached|monthly\s+limit|daily\s+limit/i;
 const API_DOWN_PATTERNS = /\b50[0-4]\b|bad\s+gateway|service\s+unavailable|gateway\s+timeout|overloaded|internal\s+server\s+error/i;
 const NETWORK_PATTERNS = /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket\s+hang\s+up|fetch\s+failed|network\s+error/i;
 
@@ -60,14 +65,20 @@ export function classifyAgentError({ provider = "unknown", stdout = "", stderr =
     return { ...base, class: ERROR_CLASS.SILENCED, message: pickMessage(combined, SILENCED_PATTERNS) || "Agent silenciado por timeout", recoverable: true };
   }
 
-  // 3. RATE_LIMIT con cooldown. Threshold 1h → DAILY (hibernar candidato).
+  // 3. RATE_LIMIT con cooldown. Thresholds:
+  //    cooldown > 7d  → MONTHLY (Anthropic Agent SDK $200/mes desde jun-2026)
+  //    cooldown > 1h  → DAILY (Claude Pro daily, OpenAI rate-limit-by-day)
+  //    cooldown <= 1h → SHORT (rate limit transitorio)
   if (RATE_LIMIT_PATTERNS.test(combined)) {
     const msg = pickMessage(combined, RATE_LIMIT_PATTERNS);
     const { cooldownUntil, cooldownMs } = parseCooldown(msg) ?? {};
-    const isDailyQuota = cooldownMs != null && cooldownMs > ONE_HOUR_MS;
+    let quotaClass;
+    if (cooldownMs != null && cooldownMs > ONE_WEEK_MS) quotaClass = ERROR_CLASS.QUOTA_EXHAUSTED_MONTHLY;
+    else if (cooldownMs != null && cooldownMs > ONE_HOUR_MS) quotaClass = ERROR_CLASS.QUOTA_EXHAUSTED_DAILY;
+    else quotaClass = ERROR_CLASS.RATE_LIMIT_SHORT;
     return {
       ...base,
-      class: isDailyQuota ? ERROR_CLASS.QUOTA_EXHAUSTED_DAILY : ERROR_CLASS.RATE_LIMIT_SHORT,
+      class: quotaClass,
       message: msg,
       retryAfter: cooldownMs ?? null,
       retryUntil: cooldownUntil ?? null,

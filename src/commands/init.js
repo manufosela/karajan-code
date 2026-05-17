@@ -127,6 +127,52 @@ async function askPerRoleProviders(wizard, available, config, { coder, reviewer 
   }
 }
 
+/**
+ * KJC-TSK-0415: Plan B — fallback chain. Cuando el provider primario se
+ * queda sin créditos (QUOTA_EXHAUSTED_DAILY/MONTHLY) y el cooldown excede
+ * max_wait_hours, Brain switchea al fallback en vez de hibernar.
+ *
+ * Solo pregunta si hay >= 2 providers disponibles (sin alternativas reales
+ * no tiene sentido el fallback).
+ */
+async function askFallbackChain(wizard, available, config, { coder, reviewer }, logger) {
+  if (available.length < 2) return;
+
+  logger.info("");
+  logger.info("Plan B — fallback automático cuando un provider se queda sin créditos:");
+  const enable = await wizard.confirm(
+    "  ¿Configurar fallback? (default: 12h; si el cooldown supera ese tiempo, switch al provider alternativo)",
+    true
+  );
+  if (!enable) return;
+
+  const maxHoursRaw = await wizard.input("  Máximo tiempo de espera antes de fallback (horas):", "12");
+  const maxHours = Number.parseFloat(maxHoursRaw) || 12;
+
+  config.roles = config.roles || {};
+  const KEY_ROLES = [
+    { key: "coder", label: "coder", primary: coder },
+    { key: "reviewer", label: "reviewer", primary: reviewer },
+    { key: "planner", label: "planner", primary: coder },
+  ];
+  for (const role of KEY_ROLES) {
+    config.roles[role.key] = config.roles[role.key] || {};
+    const opts = [{ label: "Sin fallback (hibernar)", value: "__none__", available: true }];
+    for (const a of available) {
+      if (a.name === role.primary) continue;
+      opts.push({ label: a.name, value: a.name, available: true });
+    }
+    const choice = await wizard.select(`  Fallback de ${role.label} cuando ${role.primary} se quede sin créditos:`, opts);
+    if (choice === "__none__") {
+      delete config.roles[role.key].fallback;
+      logger.info(`    -> ${role.key}: sin fallback (hibernará)`);
+    } else {
+      config.roles[role.key].fallback = { provider: choice, max_wait_hours: maxHours };
+      logger.info(`    -> ${role.key}: ${role.primary} → ${choice} (tras ${maxHours}h)`);
+    }
+  }
+}
+
 async function askMethodology(wizard, config, logger) {
   const methodology = await wizard.select("Development methodology:", [
     { label: "TDD (test-driven development)", value: "tdd", available: true },
@@ -256,6 +302,7 @@ async function runWizard(config, logger) {
     logger.info(`  -> HU Board: ${enableHuBoard ? "enabled (auto-start on kj run)" : "disabled"}`);
 
     await askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger);
+    await askFallbackChain(wizard, available, config, { coder, reviewer }, logger);
     await askMethodology(wizard, config, logger);
     await askLanguages(wizard, config, logger);
 
