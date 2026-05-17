@@ -7,6 +7,7 @@
 // puede ignorarlo (fallback a long standby capped) hasta que llegue 0414.
 
 import { classifyAgentError, ERROR_CLASS } from "./agent-error-classifier.js";
+import { persistStandby } from "./standby-store.js";
 
 const ONE_MIN = 60 * 1000;
 
@@ -65,6 +66,10 @@ export async function withBrainRecovery({
   policy = DEFAULT_RECOVERY_POLICY,
   emitter, eventBase, logger,
   sleepFn = sleep,
+  // TSK-0414 PR2: si presente, en hibernate persiste { sessionId, planId?, huId?,
+  // argv?, ... } a ~/.kj/standby/<sessionId>.json y devuelve standbyFile en
+  // el resultado. Caller (típicamente cli.js o ej. plan-fix) decide qué hacer.
+  sessionState,
 }) {
   const effectiveProvider = provider || agent?.provider || "unknown";
   const attemptsByClass = {};
@@ -92,11 +97,28 @@ export async function withBrainRecovery({
       return { ok: false, action: "abort", recovery: cls, error: `Brain aborted: ${cls.class} — ${cls.message}` };
     }
 
-    // HIBERNATE: persistir+morir es TSK-0414. Aquí emitimos la señal y, si
-    // el caller no maneja, hacemos long-standby capped (degradación graceful).
+    // HIBERNATE: persistir + signal action=hibernate al caller.
+    // Si el caller pasó `sessionState` (TSK-0414 PR2), persistimos el JSON
+    // automáticamente en ~/.kj/standby/<sessionId>.json. Caller decide qué
+    // hacer con action=hibernate (típicamente exit 0 para liberar memoria).
     if (classPolicy.mode === "hibernate" && cls.retryAfter && cls.retryAfter > policy.hibernateThresholdMs) {
-      emit(emitter, "brain:hibernate-request", eventBase, { role, class: cls.class, retryUntil: cls.retryUntil, retryAfter: cls.retryAfter });
-      return { ok: false, action: "hibernate", recovery: cls };
+      let standbyFile = null;
+      if (sessionState && sessionState.sessionId) {
+        try {
+          standbyFile = persistStandby({
+            ...sessionState,
+            cooldownUntil: cls.retryUntil,
+            reason: cls.class,
+            role, provider: effectiveProvider,
+            classifierMessage: cls.message,
+          });
+          logger?.info?.(`[brain] hibernated session ${sessionState.sessionId} → ${standbyFile} (resume at ${cls.retryUntil})`);
+        } catch (err) {
+          logger?.warn?.(`[brain] failed to persist standby: ${err.message}`);
+        }
+      }
+      emit(emitter, "brain:hibernate-request", eventBase, { role, class: cls.class, retryUntil: cls.retryUntil, retryAfter: cls.retryAfter, standbyFile });
+      return { ok: false, action: "hibernate", recovery: cls, standbyFile };
     }
 
     // STANDBY: espera hasta cooldownUntil (capado por longStandbyCapMs).

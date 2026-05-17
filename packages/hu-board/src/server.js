@@ -216,6 +216,34 @@ async function main() {
     console.warn(`[hu-zombie-reaper] skipped: ${err.message}`);
   }
 
+  // KJC-TSK-0414 PR2 — reconciliación de sesiones hibernadas al arrancar.
+  // Para cada session en ~/.kj/standby/<id>.json:
+  //   - cooldownUntil <= now → spawn `kj resume <id>` inmediato
+  //   - cooldownUntil > now  → re-programa setTimeout que dispara en cooldown
+  // Idempotente (lockfile per session). Cero polling.
+  try {
+    const { reconcileAll } = await import('../../../src/brain/standby-scheduler.js');
+    const { spawn } = await import('node:child_process');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const KJ_CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'src', 'cli.js');
+    const onResume = (sessionId) => {
+      console.log(`[standby] reanudando sesión ${sessionId} (spawn kj resume)`);
+      try {
+        const child = spawn(process.execPath, [KJ_CLI, 'resume', sessionId], {
+          detached: true, stdio: 'ignore', env: process.env,
+        });
+        child.unref();
+      } catch (err) {
+        console.warn(`[standby] spawn resume falló para ${sessionId}: ${err.message}`);
+      }
+    };
+    const r = reconcileAll({ onResume, logger: { info: console.log.bind(console), warn: console.warn.bind(console) } });
+    if (r.total > 0) console.log(`[standby] reconcile: ${r.total} session(es) — ${r.immediate} resume inmediato, ${r.scheduled} programadas`);
+  } catch (err) {
+    console.warn(`[standby] reconcile skipped: ${err.message}`);
+  }
+
   // KJC-TSK-0371 (board polish #3) — clean up ephemeral projects
   // (`/tmp/`-rooted, `tmp_*`/`test_*`/`demo_*`/`kj-test-*` prefixed)
   // that have been inactive for >24h. Runs AFTER the zombie-reaper
