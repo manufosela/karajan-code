@@ -274,6 +274,82 @@ async function gcHuStories(opts) {
   return result;
 }
 
+// KJC-TSK-0414 PR3: limpia ~/.kj/standby/done/<id>-<ts>.json finalizadas
+// hace > N días. Las pendientes en ~/.kj/standby/<id>.json NUNCA se tocan
+// — son las que esperan resume.
+async function gcStandbyDone(opts) {
+  const result = { removed: [], bytesFreed: 0, errors: [] };
+  const now = opts.now || new Date();
+  const doneDir = path.join(getKjHome(), "standby", "done");
+  if (!(await exists(doneDir))) return result;
+
+  const entries = (await listDir(doneDir)).filter((e) => e.isFile());
+  for (const entry of entries) {
+    const file = path.join(doneDir, entry.name);
+    const stat = await tryStat(file);
+    if (!stat) continue;
+    const days = ageInDays(stat, now);
+    if (days <= opts.standbyDoneRetentionDays) continue;
+    try {
+      await unlinkOrRm(file, opts.dryRun);
+      result.removed.push({ path: file, reason: `standby done > ${opts.standbyDoneRetentionDays}d (${Math.round(days)}d)`, kind: "standby-done" });
+    } catch (err) {
+      result.errors.push({ path: file, error: err.message });
+    }
+  }
+  return result;
+}
+
+// KJC-TSK-0414 PR3: limpia ~/.karajan/audits/<project>/ con last mtime > N días.
+// El usuario reportó decenas de carpetas kj-test-* huérfanas — son audits de
+// runs antiguos cuyo project ya no existe o que llevan meses sin actividad.
+async function gcAudits(opts) {
+  const result = { removed: [], bytesFreed: 0, errors: [] };
+  const now = opts.now || new Date();
+  const auditRoot = path.join(getKarajanHome(), "audits");
+  if (!(await exists(auditRoot))) return result;
+
+  const entries = (await listDir(auditRoot)).filter((e) => e.isDirectory());
+  for (const entry of entries) {
+    const dir = path.join(auditRoot, entry.name);
+    const stat = await tryStat(dir);
+    if (!stat) continue;
+    const days = ageInDays(stat, now);
+    if (days <= opts.auditsRetentionDays) continue;
+    try {
+      await unlinkOrRm(dir, opts.dryRun);
+      result.removed.push({ path: dir, reason: `audit > ${opts.auditsRetentionDays}d sin actividad (${Math.round(days)}d)`, kind: "audit" });
+    } catch (err) {
+      result.errors.push({ path: dir, error: err.message });
+    }
+  }
+  return result;
+}
+
+// KJC-TSK-0414 PR3: ~/.karajan/hu-board-runs/<runId>/ con mtime > N días.
+async function gcHuBoardRuns(opts) {
+  const result = { removed: [], bytesFreed: 0, errors: [] };
+  const now = opts.now || new Date();
+  const root = path.join(getKarajanHome(), "hu-board-runs");
+  if (!(await exists(root))) return result;
+
+  const entries = (await listDir(root)).filter((e) => e.isDirectory());
+  for (const entry of entries) {
+    const dir = path.join(root, entry.name);
+    const stat = await tryStat(dir);
+    if (!stat) continue;
+    const days = ageInDays(stat, now);
+    if (days <= opts.huBoardRunsRetentionDays) continue;
+    try {
+      await unlinkOrRm(dir, opts.dryRun);
+      result.removed.push({ path: dir, reason: `hu-board-run > ${opts.huBoardRunsRetentionDays}d (${Math.round(days)}d)`, kind: "hu-board-run" });
+    } catch (err) {
+      result.errors.push({ path: dir, error: err.message });
+    }
+  }
+  return result;
+}
+
 function mergeResults(...parts) {
   const out = { removed: [], bytesFreed: 0, errors: [] };
   for (const r of parts) {
@@ -290,6 +366,10 @@ function defaultOpts(opts = {}) {
     draftRetentionDays: opts.draftRetentionDays ?? 60,
     sessionRetentionDays: opts.sessionRetentionDays ?? 7,
     huRetentionDays: opts.huRetentionDays ?? 14,
+    // KJC-TSK-0414 PR3
+    standbyDoneRetentionDays: opts.standbyDoneRetentionDays ?? 7,
+    auditsRetentionDays: opts.auditsRetentionDays ?? 30,
+    huBoardRunsRetentionDays: opts.huBoardRunsRetentionDays ?? 30,
     dryRun: Boolean(opts.dryRun),
     now: opts.now || new Date(),
   };
@@ -307,12 +387,15 @@ export async function runManualGC(opts = {}) {
   // stories live in different directory subtrees and don't share state,
   // so Promise.all is safe and roughly halves end-to-end GC latency on
   // a populated KJ_HOME.
-  const [plans, sessions, huStories] = await Promise.all([
+  const [plans, sessions, huStories, standbyDone, audits, huBoardRuns] = await Promise.all([
     gcPlans(o),
     gcSessions(o),
     gcHuStories(o),
+    gcStandbyDone(o),
+    gcAudits(o),
+    gcHuBoardRuns(o),
   ]);
-  return mergeResults(plans, sessions, huStories);
+  return mergeResults(plans, sessions, huStories, standbyDone, audits, huBoardRuns);
 }
 
 /**
