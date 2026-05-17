@@ -3,13 +3,7 @@ title: Karajan Code
 description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "v2.14.3 — Patch. Tres mejoras del preflight detectadas en el primer `kj run` real sobre un proyecto greenfield: (1) la auth de `gh` por keyring ya se reconoce (antes Karajan exigía `GH_TOKEN` en env aunque `gh auth login --web` hubiera funcionado), (2) nuevo sistema de **checks degradables** que desactiva features opcionales (auto_pr/auto_push) con WARN en lugar de abortar el run, y (3) nuevo **preflight project-aware** que detecta signals (Dockerfile/firebase.json/pyproject.toml/Cargo.toml/*.tf/.env.example), comprueba las tools correspondientes, valida permisos de escritura en projectDir/.kj/.karajan, compara `.env` vs `.env.example`, y verifica acceso `gh push` al remote real. Comando nuevo `kj doctor --project`. 2 PRs (#690, #691). 4608/4608 tests verde.
-
-v2.14.2 — Patch. Más caza de bugs UX del dogfooding GRETA Plan 2 v2.14.1: el botón **▶ Run** en cards del HU Board aparecía en TODAS las HUs `pending` ignorando `blocked_by` (podías lanzar una HU cuyas deps aún no existían), y los titles del board habían perdido el prefix **`[EPICA]`** así que era imposible orientarse de un vistazo sobre qué área del plan pertenecía cada card. Fixes: `canRunHu` ahora exige `blockedBy.length === 0`; el prompt del planner exige `description: \"[EPICA] one-sentence description\"` con fallback INFRA/SHARED. Más nuevo doc `spec-conventions.md` con las 6 convenciones SPEC que el planner v2.14.x entiende, para que el usuario no las descubra por dogfooding. 2 PRs (#687, #688). 4584/4584 tests verde.
-
-v2.14.1 — Patch. Dos patologías más del planner detectadas en dogfooding de v2.14.0 contra GRETA Plan 2: el **self-fix loop podía empeorar el plan** (iter 1 reducía 15→10 issues, iter 2 borraba HUs que iter 1 había añadido y subía a 17), y el **planner declaraba `blocked_by` sobre observers asíncronos** (HUs marcadas dependiendo de guardarraíles o cron jobs que solo *reaccionan* a ellas, rompiendo AVISA-no-BLOQUEA de GRETA). Fixes: P5 hace snapshot de `plan.hus`+`plan.review` antes de cada iter y revierte si `newCount > currentCount`; P6 lista seis patrones async observer en el prompt + heurística 'consume vs react'. Regenerar Plan 2 GRETA con esta release vuelve al baseline-iter-1 (9 findings en 58 HUs, 15%) en lugar del 17 de v2.14.0. 2 PRs (#684, #685). 4580/4580 tests verde. Upgrade seguro desde 2.14.0.
-
-v2.14.0 — Pasada de calidad. 16 PRs absorben bugs blockers (Solomon ya no aprueba issues de seguridad clasificados erróneamente como 'style', la detección de fs-leak del coder añade una segunda capa que pilla `cd <abs> && pnpm init` incluso cuando el dir preexistía, la rotación de password admin de Sonar ya no falla silenciosamente), las cuatro patologías del planner detectadas en el dogfooding de GRETA Plan 2 (respeto al scope, deps transversales uno-a-muchos, campo `reuse` explícito, y un **self-fix loop** nuevo donde el plan-reviewer re-invoca al planner con feedback estructurado hasta cero issues), pulido del HU Board (TTL para prompts zombi de runners crashed, rate-limit menos agresivo con SSE exento), y la primera tanda de reorg de `tests/` (issue #368): 93 archivos movidos de root a subcarpetas espejo. 4577/4577 tests verde, 0 regresiones en las 16 PRs."
+  tagline: "Orquestador de coding multiagente. 16 roles, 5 agentes, guards deterministas, TDD, SonarQube, revisión automatizada."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -29,163 +23,193 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
 <CardGrid stagger>
-  <Card title="Self-fix loop del planner (v2.14)" icon="random">
-    El plan-reviewer era flag-only: detectaba missing HUs, missing dependencies y scope overlaps, y los dejaba para que el usuario los aplicara a mano. v2.14 cierra ese loop. Tras el primer review pass, el nuevo módulo `plan-fixer.js` pide al planner que PARCHEE el plan (`additions` / `deps_to_add` / `deletions`), aplica el patch in-process vía `addHu` / `removeHu` / mutaciones de `blocked_by`, y re-review. Loop hasta 2 iteraciones o hasta cero issues. Opt-out con `--no-plan-fixer` / `--quick`. Combinado con tres arreglos al prompt del planner (respeto al scope, deps transversales uno-a-muchos, marker `reuse` explícito), las cuatro patologías que el dogfooding de GRETA Plan 2 seguía sacando ahora quedan cerradas en origen.
+  <Card title="Sin Costes Extra" icon="star">
+    Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con RTK y Squeezr (cards de abajo) para un 60-90% adicional de ahorro en tokens.
   </Card>
-  <Card title="Solomon ya no aprueba blockers de seguridad (v2.14)" icon="seti:lock">
-    Rule 6 del Solomon rules engine (`reviewer_style_block`) clasificaba cualquier issue blocker con severity `low`/`minor` o keywords cosméticas (`name`, `format`, `documentation`, …) como "style" — incluso blockers de seguridad legítimos se colaban. v2.14 añade un anti-clasificador: severities `critical`/`high`/`blocker`/`major`, categorías `security`/`correctness`, y una regex de keywords de seguridad (SQL injection, XSS, CSRF, auth, password, secret, hash, traversal, …) descalifican el issue del "all style". 6 tests de regresión cubren los falsos positivos del incidente original.
+  <Card title="Integración RTK — compresión de salidas Bash" icon="seti:powershell">
+    [RTK](https://github.com/rtk-ai/rtk) (Rust Token Killer) comprime la salida de 13 comandos Bash (`git, ls, find, grep, cat, head, tail, wc, diff, tree, du, file`) que el agente coder usa constantemente. Si Karajan detecta `rtk --version` en el preflight, envuelve transparentemente cada comando soportado vía `wrapWithRtk()` y acumula bytes ahorrados por sesión con `RtkSavingsTracker`. **Opcional, opt-in al instalarlo** — no hace falta flag de config. Ver [docs de instalación](/docs/es/getting-started/installation/#opcional-instalar-rtk-para-ahorro-de-tokens).
   </Card>
-  <Card title="Detector de fs-leak del coder, segunda capa (v2.14)" icon="warning">
-    El `fs-leak-detector` original hacía diff de `$HOME` antes y después de que el coder corriera. Pillaba el incidente original (`cd /home/manu/assistant && pnpm init` creando 36 MB fuera de `projectDir`) solo porque `~/assistant` era nuevo. Si el dir target preexistía, el diff lo dejaba pasar. v2.14 añade `detectTranscriptCdLeaks()` como segunda capa: escanea el transcript del coder buscando patrones `cd <abs-out-of-project> && <write-cmd>` y los flagea independientemente del estado en disco. Comandos write reconocidos: `mkdir`, `touch`, `cp`, `mv`, `git init`, `{pnpm,npm,yarn} init/create`, `npx create-*`, `cat >`, `echo >`, redirects de shell. Comandos pure-read (`ls`, `which`, `grep`) no disparan, y `/tmp` está exento por convención.
+  <Card title="Compatible con Squeezr — compresión de respuestas MCP" icon="random">
+    [Squeezr](https://github.com/squeezr-ai/squeezr) es un proxy MCP que comprime las respuestas que el server MCP de Karajan devuelve al host (Claude Code, Cursor, etc.). Es **arquitectónicamente ortogonal a RTK**: RTK comprime *dentro* del pipeline (salida de comandos Bash); Squeezr comprime *encima* (mensajes MCP por el cable). Karajan no integra Squeezr — Squeezr vive en el transporte MCP del host — pero ambos componen limpiamente. Instalas Squeezr en la config MCP de tu host y Karajan se beneficia sin cambios.
   </Card>
-  <Card title="Endurecido por Dogfooding (v2.11)" icon="approve-check">
-    Un paso de dogfooding de dos días por toda la superficie de Karajan — desde `kj --version` hasta un sub-pipeline multi-HU completo dirigido por plan — arregló tres bugs latentes que sólo aparecían en repos `/tmp` recién creados: el `SonarStage` ya no quema `max_iterations` haciendo loop con `Missing git remote.origin.url`, `commitAll` tolera la carrera locale-específica de "nada para hacer commit", y el sub-pipeline de HUs ramifica desde `master`/`HEAD` cuando el `main` configurado no existe. `runFlow` sella `session.status` en la frontera, así que `kj status` no muestra runs zombi `running`. **Niveles N0–N8 re-validados verdes.**
-  </Card>
-  <Card title="hu-board: Limpieza efímera + Ayuda (v2.11)" icon="seti:html">
-    Al arrancar el board, los proyectos cuyo id encaja con `tmp_*` / `test_*` / `demo_*` / `kj-test-*` Y llevan >24 h inactivos se borran en cascada (proyecto + stories + sesiones). Override por proyecto vía un toggle de 3 estados en cada card (🧪 forzar test / 📌 fijar / · heurística por defecto) y `PATCH /api/projects/:id/is-test`. El header gana también un botón `?`: abre un modal explicando cada una de las cinco vistas (Board / Graph / Dashboard / Sessions / Pipeline), y cada tab tiene un atributo `title` nativo para el tooltip de hover de 1 segundo.
-  </Card>
-  <Card title="Score Agent-Readiness (v2.10)" icon="approve-check">
-    `kj audit --agent-readiness` puntúa cualquier repo de 0 a 100 sobre **7 checks sin LLM**: presencia y validez de llms.txt, allowlist de bots IA en robots.txt, presupuesto de tokens por doc (≤ 32 KB), jerarquía de headings (markdown + HTML `<h1>`), `docs/agents/README.md` como entry point, cobertura de SKILL.md. Transformación pura — sin red, sin LLM, sin side effects. `--json` para CI. Karajan-sobre-Karajan: **100/100**. Pásalo a tu propio repo, mira con qué luchan los agentes, arregla desde la lista de top-fixes.
-  </Card>
-  <Card title="SKILL.md por Comando del CLI (v2.10)" icon="document">
-    `docs/agents/SKILL.kj-{plan,run,audit,doctor,init,board,review,resume,clean}.md` — un fetch por capacidad del CLI (~ 2-4 KB de tokens cada uno), todos bajo el mismo contrato: What it does · Inputs · Outputs · Constraints · Side effects · Common failure modes · Example · Related. Guardado por CI: cada link en `llms.txt` debe resolver a un fichero con las cuatro secciones requeridas, o el build falla.
-  </Card>
-  <Card title="Quality Gate de Webperf (v2.10)" icon="rocket">
-    `PerfStage` se engancha al bucle de iteración justo después de Impeccable cuando `pipeline.perf.enabled` es true. Envuelve Lighthouse para un veredicto Core Web Vitals por iteración. **PASS** continúa; **FAIL** empuja feedback de métricas bloqueantes (p.ej. `LCP=5500 (poor>4000)` más top-opportunities como recursos render-blocking) al coder para la siguiente iteración; scanner no disponible salta best-effort. CLI: `--enable-perf`. MCP: `enablePerf`. Sin retry-loop — `max_iterations` es el techo natural.
-  </Card>
-  <Card title="Hardening del HU Board (v2.10)" icon="seti:lock">
-    El bind por defecto es ahora **127.0.0.1** (antes: todas las interfaces). Nuevo `--bind 0.0.0.0` para el caso explícito de exposición en LAN, con token autogenerado en `~/.karajan/hu-board/token` (mode 0600). El middleware de auth fuerza el token solo para peers no-loopback — el navegador en la misma máquina sigue funcionando sin `?token=`. Headers `helmet` + `express-rate-limit` 300 req/min en `/api`. Tres carriers aceptados: `Authorization: Bearer`, `?token=`, cookie `kj_board_token`.
-  </Card>
-  <Card title="Audit en Dos Fases (v2.9)" icon="random">
-    `kj audit` ahora recolecta hallazgos deterministas (basalCost, Sonar, OSV-Scanner, Semgrep, WebPerf, detección de stack) en paralelo — cero tokens — y los imprime ANTES de preguntar `Continue with LLM analysis? [y/N]`. Nuevo flag `--deterministic-only` para corridas sin tokens, `-y`/`--yes` para auto-confirmar, `--json` evita el prompt para output pipeable. CI / paths sin TTY auto-confirman — cero cambio de comportamiento para pipelines.
-  </Card>
-  <Card title="Tres Colectores Deterministas de Seguridad (v2.9)" icon="seti:lock">
-    Hallazgos de SonarQube como ground truth en el prompt (rule ID + precisión de línea). OSV-Scanner cubre CVEs en toda la DB de OSV.dev — más amplia que `npm audit`, sin cuenta, sin upload. Semgrep SAST detecta XSS, SQLi, taint flow, secrets hardcodeados, anti-patrones específicos del lenguaje — equivalente a `snyk code` pero gratis para OSS. Los tres son best-effort: binario faltante o host inalcanzable saltan la sección silently.
-  </Card>
-  <Card title="Audit Stack-Aware (v2.9)" icon="puzzle">
-    `detectProjectStack` informa al auditor LLM qué tipo de proyecto está mirando: frontend-only, backend-only, fullstack, lenguaje, frameworks. Las heurísticas se filtran — sin más alertas de N+1 queries en Astro, sin más alertas de bundle-size en APIs Express. Nueva dimensión `accessibility` auto-activa para proyectos frontend / fullstack con checks WCAG 2.x (alt text, labels, ARIA, focus management, hints de contraste). Nueva sección WebPerf con 10 patrones de perf frontend cuando no hay medición CWV en vivo.
-  </Card>
-  <Card title="Reportes de Audit + Transparencia de Coste (v2.9)" icon="open-book">
-    `--report-file <path>` persiste el audit a `.md` (con cabecera reproducible: timestamp, branch, commit, flags de invocación) o `.json`. `$KJ_AUDIT_REPORT_DIR` para defaults en CI. Cada audit termina con una sección `## LLM Usage` mostrando provider + model + duration + tokens (in/out/total) + coste estimado en USD. Visible en stdout, JSON y reportes persistidos. Bug de paridad CLI/MCP corregido — ambos paths ahora ejecutan el mismo flow `AuditRole`.
-  </Card>
-  <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
-    Skills de proceso de primera fuente desde [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development y más. Clonado automático en `~/.karajan/agent-skills/`, refresco semanal con `git pull`. Consciente del rol: cada rol de Karajan (tester, reviewer, security, architect, coder...) recibe los workflows que le corresponden. Totalmente ortogonal a OpenSkills — los skills de proceso y los de stack se componen.
-  </Card>
-  <Card title="Orquestador Modular (v2.6)" icon="puzzle">
-    `src/orchestrator.js` pasa de monolito de 2 084 líneas a barrel público de 22 líneas sobre `src/orchestrator/flow-runner.js`. Nuevo contrato `StageExecutor` (`canRun` / `execute` / `onFailure`) + `StageRegistry` permite registrar stages sin tocar el core. Añadir un stage nuevo es ahora un drop-in: subclase bajo `src/orchestrator/stages/`, registrar y listo.
-  </Card>
-  <Card title="Inyección de Dependencias de Infraestructura (v2.6)" icon="random">
-    Adaptadores `FileSystemService` y `CommandRunner` bajo `src/infrastructure/`. `BaseAgent` acepta un `Environment` opcional; `createAgent(…, env)` lo propaga. En tests se inyecta `MockFileSystem` + `MockCommandRunner` con `buildMockEnvironment()` y todos los agents (Claude, Codex, Gemini, Aider, OpenCode) se testean sin lanzar subprocesos reales.
-  </Card>
-  <Card title="Validación de Config con Valibot (v2.6)" icon="approve-check-circle">
-    La configuración se valida al cargar contra un schema Valibot. Erratas en `review_mode`, `max_iterations: 0`, `hu_board.port` fuera de rango, `max_budget_usd` negativo o `budget.warn_threshold_pct` fuera de 0-100 fallan con mensajes claros. Flags CLI falsy (`--no-rebase`, `--reviewer-retries 0`) por fin se respetan. Co-autoría con Jorge del Casar.
-  </Card>
-  <Card title="Diario de Sesión Rico (v2.6)" icon="open-book">
-    Cada run escribe `.reviews/<session>/decisions.md`, `iterations.md`, `summary.md` y `tree.txt`. Log iteración a iteración de coder/reviewer/sonar/Solomon, resumen ejecutivo con tabla de stages y desglose de presupuesto, vista agrupada por directorio de cada fichero tocado.
-  </Card>
-  <Card title="Budget: Con KJ vs Sin KJ (v2.6)" icon="star">
-    Al cerrar sesión, el budget proyecta el coste que habrías pagado sin las optimizaciones de Karajan (RTK + compresión Brain). Líneas claras con el delta (`-88%`, por ejemplo) mantienen las expectativas pegadas a números reales.
-  </Card>
-  <Card title="Tests de Aceptación Ejecutables (v2.4)" icon="approve-check">
-    Cada HU lleva `acceptance_tests`: un array de comandos shell que Brain ejecuta tras cada iteración del coder. Todos pasan → HU aprobada. Alguno falla → Brain lee el error exacto y envía un diagnóstico concreto al coder. Sin reviewer. Sin tester genérico. Pasa/falla concreto.
-  </Card>
-  <Card title="Karajan Brain (v2.0)" icon="rocket">
-    Orquestador central con IA que enruta toda la comunicación entre roles, enriquece feedback con pistas de ficheros, verifica outputs vía git diff, ejecuta acciones directas (npm install, gitignore) y comprime outputs de roles para 40-70% de ahorro de tokens. Consulta a Solomon solo en dilemas genuinos.
-  </Card>
-  <Card title="Solomon — Juez IA (v2.0)" icon="seti:config">
-    Refinado de jefe del pipeline a juez IA. Consultado solo en dilemas genuinos: seguridad-vs-deadline, gates de calidad en conflicto, loops estancados, evaluación de riesgos. Los issues de seguridad bypasean Solomon deterministicamente y vuelven directo al coder.
-  </Card>
-  <Card title="Pipeline Multi-Agente" icon="rocket">
-    16 roles configurables: discover, triage, domain-curator, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer. Auditoría obligatoria post-aprobación que certifica el código generado como limpio antes de completar.
-  </Card>
-  <Card title="5 Agentes IA" icon="laptop">
-    Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
-  </Card>
-  <Card title="Servidor MCP" icon="puzzle">
-    24 herramientas via MCP — incluyendo `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` para ejecucion standalone de roles, `kj_preflight` para configuracion confirmada por humano, `kj_board` para gestion del HU Board, `kj_status` para estado parseado en vivo, y `kj_undo` para revertir ejecuciones del pipeline. Notificaciones de progreso en tiempo real para todas las herramientas. Reinicio graceful tras actualizaciones npm.
-  </Card>
-  <Card title="TDD Obligatorio" icon="approve-check">
-    Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
-  </Card>
-  <Card title="Sistema de Plugins" icon="add-document">
-    Extiende con agentes custom via `.karajan/plugins/`. Auto-descubiertos al iniciar.
-  </Card>
-  <Card title="Pipeline Tracker" icon="list-format">
-    Vista de progreso acumulativo durante `kj_run` — ve qué stages están completadas, en ejecución o pendientes en tiempo real via MCP y CLI.
-  </Card>
-  <Card title="Standby por Rate-Limit" icon="random">
-    Detecta rate limits, parsea tiempos de espera, espera con backoff exponencial y reanuda automáticamente — hasta 5 reintentos antes de preguntar al humano.
-  </Card>
-  <Card title="Preflight Handshake" icon="approve-check-circle">
-    `kj_preflight` requiere confirmación humana de la config de agentes antes de ejecutar. Config de 3 niveles: sesión > proyecto > global.
-  </Card>
-  <Card title="Solomon — Pipeline Boss" icon="seti:config">
-    Evalúa cada rechazo del reviewer, clasifica issues como críticos vs. solo estilo, y puede anular bloqueos por estilo. 6 reglas incluyendo scope guard, reviewer overreach y control inteligente de iteraciones.
-  </Card>
-  <Card title="Monitorización en Tiempo Real" icon="seti:log">
-    Detector de stalls, heartbeats continuos, guardarraíles de silencio, límite de runtime. `kj-tail` para log colorizado en vivo. `kj_status` para estado parseado.
-  </Card>
-  <Card title="Mediación Inteligente del Reviewer" icon="approve-check">
-    El scope filter auto-difiere issues del reviewer fuera de scope en vez de bloquear el pipeline. Los issues diferidos se rastrean como deuda técnica y se inyectan en el prompt del coder.
-  </Card>
-  <Card title="BecarIA Gateway" icon="open-book">
-    Integración CI/CD completa con GitHub PRs como fuente de verdad. Todos los agentes publican comentarios y reviews en PRs. Creación temprana de PR, dispatch events configurables y workflow templates embebidos.
-  </Card>
-  <Card title="Discovery Pre-Ejecución" icon="magnifier">
-    `kj_discover` analiza tareas buscando gaps antes de empezar a codificar. 5 modos: detección de gaps, preguntas Mom Test, checklist Wendel de cambio de comportamiento, clasificación START/STOP/DIFFERENT y generación de Jobs-to-be-Done.
-  </Card>
-  <Card title="Guards Deterministas" icon="warning">
-    Output guard bloquea operaciones destructivas y filtraciones de credenciales. Perf guard detecta anti-patrones de rendimiento en frontend. Intent classifier pre-clasifica tareas obvias sin coste LLM. Todo configurable con patrones custom.
-  </Card>
-  <Card title="Auditoría de Diseño Impeccable" icon="approve-check">
-    Quality gate automatizado de UI/UX. Audita ficheros frontend modificados buscando problemas de accesibilidad, rendimiento, theming, responsive y anti-patrones. Se ejecuta después de SonarQube y aplica correcciones automáticamente.
-  </Card>
-  <Card title="SonarQube + SonarCloud" icon="seti:config">
-    Análisis estático dual: SonarQube (Docker local, quality gates bloqueantes) y SonarCloud (cloud, advisory). Ambos se ejecutan juntos en el mismo pipeline.
-  </Card>
-  <Card title="Comandos de Rol Standalone" icon="seti:shell">
-    Ejecuta cualquier rol pre-build de forma independiente: `kj discover`, `kj triage`, `kj researcher`, `kj architect`. Disponibles como comandos CLI y herramientas MCP.
-  </Card>
-  <Card title="Resilient Run" icon="random">
-    Auto-diagnostica fallos y reanuda sesiones caídas — hasta 2 reintentos. Errores no recuperables (config, auth, agente no encontrado) fallan inmediatamente. Configurable via `session.max_auto_resumes`.
-  </Card>
-  <Card title="Host-as-Coder" icon="laptop">
-    Cuando el host MCP es el mismo agente que el coder (ej. Claude llamando kj_run con coder=claude), Karajan delega directamente — sin subproceso, sin overhead. Todos los guardrails siguen activos.
-  </Card>
-  <Card title="Modo Skills" icon="open-book">
-    8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) con guardrails integrados. Sin MCP — funciona directamente en Claude Code.
-  </Card>
-  <Card title="Pipeline Zero-Config" icon="setting">
-    Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
-  </Card>
-  <Card title="3 638+ Tests Automatizados" icon="approve-check">
-    283 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en unos 45 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
-  </Card>
-  <Card title="Auditoría de Salud del Codebase" icon="magnifier">
-    Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A-F y recomendaciones priorizadas sin modificar ningún fichero.
-  </Card>
-  <Card title="Certificacion de Historias de Usuario" icon="approve-check">
-    Quality gate obligatorio que evalua historias de usuario en 6 dimensiones (contexto JTBD, especificidad de usuario, cambio de comportamiento, zona de control, restricciones temporales, experimento viable). Detecta 7 antipatrones, reescribe historias debiles, pausa para contexto FDE. Soporta grafos de dependencias.
-  </Card>
-  <Card title="Dashboard HU Board" icon="list-format">
-    Dashboard web para visualizar historias de usuario y sesiones de todos los proyectos. Tablero kanban, timeline de sesiones, puntuaciones de calidad. Listo para Docker, sincroniza automáticamente desde ficheros locales.
-  </Card>
-  <Card title="kj undo" icon="random">
-    Revierte la ultima ejecucion del pipeline con soft reset o `--hard`. Deshaz cambios de forma segura cuando un run produce resultados inesperados.
-  </Card>
-  <Card title="Dashboard kj status" icon="list-format">
-    Dashboard de terminal mostrando estados de HUs, stage actual, tiempos y progreso. El MCP devuelve JSON estructurado para acceso programatico.
-  </Card>
-  <Card title="Auto-Deteccion de Stack" icon="setting">
-    `kj init` escanea package.json, go.mod, Cargo.toml y mas para detectar tu framework y lenguaje. Auto-activa impeccable para proyectos frontend.
+  <Card title="Links a Documentación en Errores" icon="open-book">
+    Errores de preflight, bootstrap y MCP incluyen un puntero `See: <url>` a la página de docs relevante. Anclas específicas para SonarQube, Docker, install de agentes, install de RTK y problemas de config; el resto cae al troubleshooting genérico.
   </Card>
   <Card title="Telemetria (Opt-Out)" icon="seti:log">
     Estadisticas de uso anonimas (version, SO, comando, duracion del pipeline, tasa de exito) para mejorar Karajan. Totalmente desactivable con `telemetry: false` en el config.
   </Card>
-  <Card title="Links a Documentacion en Errores" icon="open-book">
-    Todos los mensajes de error incluyen una URL directa a la pagina de documentacion relevante, acelerando la resolucion de problemas.
+  <Card title="Auto-Deteccion de Stack" icon="setting">
+    `kj init` escanea package.json, go.mod, Cargo.toml y mas para detectar tu framework y lenguaje. Auto-activa impeccable para proyectos frontend.
   </Card>
-  <Card title="Sin Costes Extra" icon="star">
-    Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con [RTK](https://github.com/rtk-ai/rtk) para un ahorro adicional del 60-90% en tokens.
+  <Card title="Dashboard kj status" icon="list-format">
+    Dashboard de terminal mostrando estados de HUs, stage actual, tiempos y progreso. El MCP devuelve JSON estructurado para acceso programatico.
+  </Card>
+  <Card title="kj undo" icon="random">
+    Revierte la ultima ejecucion del pipeline con soft reset o `--hard`. Deshaz cambios de forma segura cuando un run produce resultados inesperados.
+  </Card>
+  <Card title="Dashboard HU Board" icon="list-format">
+    Dashboard web para visualizar historias de usuario y sesiones de todos los proyectos. Tablero kanban, timeline de sesiones, puntuaciones de calidad. Listo para Docker, sincroniza automáticamente desde ficheros locales.
+  </Card>
+  <Card title="Certificacion de Historias de Usuario" icon="approve-check">
+    Quality gate obligatorio que evalua historias de usuario en 6 dimensiones (contexto JTBD, especificidad de usuario, cambio de comportamiento, zona de control, restricciones temporales, experimento viable). Detecta 7 antipatrones, reescribe historias debiles, pausa para contexto FDE. Soporta grafos de dependencias.
+  </Card>
+  <Card title="Auditoría de Salud del Codebase" icon="magnifier">
+    Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
+  </Card>
+  <Card title="4 835+ Tests Automatizados" icon="approve-check">
+    400 ficheros de test cubriendo cada rol, guard, opción de config y herramienta MCP. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  </Card>
+  <Card title="Pipeline Zero-Config" icon="setting">
+    Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
+  </Card>
+  <Card title="Modo Skills" icon="open-book">
+    8 slash commands (`/kj-run`, `/kj-code`, `/kj-review`, `/kj-test`, `/kj-security`, `/kj-discover`, `/kj-architect`, `/kj-sonar`) con guardrails integrados. Sin MCP — funciona directamente en Claude Code.
+  </Card>
+  <Card title="Host-as-Coder" icon="laptop">
+    Cuando el host MCP es el mismo agente que el coder (ej. Claude llamando kj_run con coder=claude), Karajan delega directamente — sin subproceso, sin overhead. Todos los guardrails siguen activos.
+  </Card>
+  <Card title="Resilient Run" icon="random">
+    Auto-diagnostica fallos y reanuda sesiones caídas — hasta 2 reintentos. Errores no recuperables (config, auth, agente no encontrado) fallan inmediatamente. Configurable via `session.max_auto_resumes`.
+  </Card>
+  <Card title="Comandos de Rol Standalone" icon="seti:shell">
+    Ejecuta cualquier rol pre-build de forma independiente: `kj discover`, `kj triage`, `kj researcher`, `kj architect`. Disponibles como comandos CLI y herramientas MCP.
+  </Card>
+  <Card title="SonarQube + SonarCloud opcional" icon="seti:config">
+    SonarQube (Docker local, quality gates bloqueantes) corre por defecto y es el motor del stage de análisis estático. SonarCloud es **opt-in y complementario** — actívalo con el flag `--enable-sonarcloud`, `enableSonarcloud: true` (MCP) o `sonarcloud.enabled: true` en `kj.config.yml`. Requiere `sonarcloud.token` y `sonarcloud.organization` (o las env vars `KJ_SONARCLOUD_TOKEN` / `KJ_SONARCLOUD_ORG`). Cuando ambos están activos, los resultados de SonarCloud son informativos.
+  </Card>
+  <Card title="Auditoría de Diseño Impeccable" icon="approve-check">
+    Quality gate automatizado de UI/UX. Audita ficheros frontend modificados buscando problemas de accesibilidad, rendimiento, theming, responsive y anti-patrones. Se ejecuta después de SonarQube y aplica correcciones automáticamente.
+  </Card>
+  <Card title="Guards Deterministas" icon="warning">
+    Output guard bloquea operaciones destructivas y filtraciones de credenciales. Perf guard detecta anti-patrones de rendimiento en frontend. Intent classifier pre-clasifica tareas obvias sin coste LLM. Todo configurable con patrones custom.
+  </Card>
+  <Card title="Discovery Pre-Ejecución" icon="magnifier">
+    `kj_discover` analiza tareas buscando gaps antes de empezar a codificar. 5 modos: detección de gaps, preguntas Mom Test, checklist Wendel de cambio de comportamiento, clasificación START/STOP/DIFFERENT y generación de Jobs-to-be-Done.
+  </Card>
+  <Card title="BecarIA Gateway" icon="open-book">
+    Integración CI/CD completa con GitHub PRs como fuente de verdad. Todos los agentes publican comentarios y reviews en PRs. Creación temprana de PR, dispatch events configurables y workflow templates embebidos.
+  </Card>
+  <Card title="Mediación Inteligente del Reviewer" icon="approve-check">
+    El scope filter auto-difiere issues del reviewer fuera de scope en vez de bloquear el pipeline. Los issues diferidos se rastrean como deuda técnica y se inyectan en el prompt del coder.
+  </Card>
+  <Card title="Monitorización en Tiempo Real" icon="seti:log">
+    Detector de stalls, heartbeats continuos, guardarraíles de silencio, límite de runtime. `kj-tail` para log colorizado en vivo. `kj_status` para estado parseado.
+  </Card>
+  <Card title="Solomon — Pipeline Boss" icon="seti:config">
+    Evalúa cada rechazo del reviewer, clasifica issues como críticos vs. solo estilo, y puede anular bloqueos por estilo. 6 reglas incluyendo scope guard, reviewer overreach y control inteligente de iteraciones.
+  </Card>
+  <Card title="Preflight Handshake" icon="approve-check-circle">
+    `kj_preflight` requiere confirmación humana de la config de agentes antes de ejecutar. Config de 3 niveles: sesión > proyecto > global.
+  </Card>
+  <Card title="Standby por Rate-Limit" icon="random">
+    Detecta mensajes de rate-limit / cuota de los CLIs (Claude / Codex / Gemini) y errores HTTP 429/5xx. Parsea el cooldown cuando el mensaje usa un formato reconocido (timestamp ISO, `Retry-After: <segundos>`, `retry in N minutes`, o el formato Claude `resets at YYYY-MM-DD HH:MM UTC`) y espera exactamente ese tiempo con heartbeats cada 30s — aunque sean horas. Si no hay tiempo parseable, cae a 5 min default con backoff exponencial (cap 30 min) y hasta 5 reintentos antes de pedir intervención humana.
+  </Card>
+  <Card title="Pipeline Tracker" icon="list-format">
+    Vista de progreso acumulativo durante `kj_run` — ve qué stages están completadas, en ejecución o pendientes en tiempo real via MCP y CLI.
+  </Card>
+  <Card title="Sistema de Plugins" icon="add-document">
+    Extiende con agentes custom via `.karajan/plugins/`. Auto-descubiertos al iniciar.
+  </Card>
+  <Card title="TDD Obligatorio" icon="approve-check">
+    Se exigen cambios en tests cuando se modifican ficheros fuente. El pipeline rechaza iteraciones sin tests.
+  </Card>
+  <Card title="Servidor MCP" icon="puzzle">
+    24 herramientas via MCP — incluyendo `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect` para ejecucion standalone de roles, `kj_preflight` para configuracion confirmada por humano, `kj_board` para gestion del HU Board, `kj_status` para estado parseado en vivo, y `kj_undo` para revertir ejecuciones del pipeline. Notificaciones de progreso en tiempo real para todas las herramientas. Reinicio graceful tras actualizaciones npm.
+  </Card>
+  <Card title="5 Agentes IA" icon="laptop">
+    Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
+  </Card>
+  <Card title="Pipeline Multi-Agente" icon="rocket">
+    16 roles configurables: discover, triage, domain-curator, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer. Auditoría obligatoria post-aprobación que certifica el código generado como limpio antes de completar.
+  </Card>
+  <Card title="Solomon — Juez IA (v2.0)" icon="seti:config">
+    Refinado de jefe del pipeline a juez IA. Consultado solo en dilemas genuinos: seguridad-vs-deadline, gates de calidad en conflicto, loops estancados, evaluación de riesgos. Los issues de seguridad bypasean Solomon deterministicamente y vuelven directo al coder.
+  </Card>
+  <Card title="Karajan Brain (v2.0)" icon="rocket">
+    Orquestador central con IA que enruta toda la comunicación entre roles, enriquece feedback con pistas de ficheros, verifica outputs vía git diff, ejecuta acciones directas (npm install, gitignore) y comprime outputs de roles para 40-70% de ahorro de tokens. Consulta a Solomon solo en dilemas genuinos.
+  </Card>
+  <Card title="Tests de Aceptación Ejecutables (v2.4)" icon="approve-check">
+    Cada HU lleva `acceptance_tests`: un array de comandos shell que Brain ejecuta tras cada iteración del coder. Todos pasan → HU aprobada. Alguno falla → Brain lee el error exacto y envía un diagnóstico concreto al coder. Sin reviewer. Sin tester genérico. Pasa/falla concreto.
+  </Card>
+  <Card title="Budget: Con KJ vs Sin KJ (v2.6)" icon="star">
+    Al cerrar sesión, el budget proyecta el coste que habrías pagado sin las optimizaciones de Karajan (RTK + compresión Brain). Líneas claras con el delta (`-88%`, por ejemplo) mantienen las expectativas pegadas a números reales.
+  </Card>
+  <Card title="Diario de Sesión Rico (v2.6)" icon="open-book">
+    Cada run escribe `.reviews/<session>/decisions.md`, `iterations.md`, `summary.md` y `tree.txt`. Log iteración a iteración de coder/reviewer/sonar/Solomon, resumen ejecutivo con tabla de stages y desglose de presupuesto, vista agrupada por directorio de cada fichero tocado.
+  </Card>
+  <Card title="Validación de Config con Valibot (v2.6)" icon="approve-check-circle">
+    La configuración se valida al cargar contra un schema Valibot. Erratas en `review_mode`, `max_iterations: 0`, `hu_board.port` fuera de rango, `max_budget_usd` negativo o `budget.warn_threshold_pct` fuera de 0-100 fallan con mensajes claros. Flags CLI falsy (`--no-rebase`, `--reviewer-retries 0`) por fin se respetan. Co-autoría con Jorge del Casar.
+  </Card>
+  <Card title="Inyección de Dependencias de Infraestructura (v2.6)" icon="random">
+    Adaptadores `FileSystemService` y `CommandRunner` bajo `src/infrastructure/`. `BaseAgent` acepta un `Environment` opcional; `createAgent(…, env)` lo propaga. En tests se inyecta `MockFileSystem` + `MockCommandRunner` con `buildMockEnvironment()` y todos los agents (Claude, Codex, Gemini, Aider, OpenCode) se testean sin lanzar subprocesos reales.
+  </Card>
+  <Card title="Orquestador Modular (v2.6)" icon="puzzle">
+    `src/orchestrator.js` pasa de monolito de 2 084 líneas a barrel público de 22 líneas sobre `src/orchestrator/flow-runner.js`. Nuevo contrato `StageExecutor` (`canRun` / `execute` / `onFailure`) + `StageRegistry` permite registrar stages sin tocar el core. Añadir un stage nuevo es ahora un drop-in: subclase bajo `src/orchestrator/stages/`, registrar y listo.
+  </Card>
+  <Card title="addyosmani/agent-skills (v2.7)" icon="seti:github">
+    Skills de proceso de primera fuente desde [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): TDD, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, CI/CD, debugging, spec-driven-development y más. Clonado automático en `~/.karajan/agent-skills/`, refresco semanal con `git pull`. Consciente del rol: cada rol de Karajan (tester, reviewer, security, architect, coder...) recibe los workflows que le corresponden. Totalmente ortogonal a OpenSkills — los skills de proceso y los de stack se componen.
+  </Card>
+  <Card title="Reportes de Audit + Transparencia de Coste (v2.9)" icon="open-book">
+    `--report-file <path>` persiste el audit a `.md` (con cabecera reproducible: timestamp, branch, commit, flags de invocación) o `.json`. `$KJ_AUDIT_REPORT_DIR` para defaults en CI. Cada audit termina con una sección `## LLM Usage` mostrando provider + model + duration + tokens (in/out/total) + coste estimado en USD. Visible en stdout, JSON y reportes persistidos. Bug de paridad CLI/MCP corregido — ambos paths ahora ejecutan el mismo flow `AuditRole`.
+  </Card>
+  <Card title="Audit Stack-Aware (v2.9)" icon="puzzle">
+    `detectProjectStack` informa al auditor LLM qué tipo de proyecto está mirando: frontend-only, backend-only, fullstack, lenguaje, frameworks. Las heurísticas se filtran — sin más alertas de N+1 queries en Astro, sin más alertas de bundle-size en APIs Express. Nueva dimensión `accessibility` auto-activa para proyectos frontend / fullstack con checks WCAG 2.x (alt text, labels, ARIA, focus management, hints de contraste). Nueva sección WebPerf con 10 patrones de perf frontend cuando no hay medición CWV en vivo.
+  </Card>
+  <Card title="Tres Colectores Deterministas de Seguridad (v2.9)" icon="seti:lock">
+    Hallazgos de SonarQube como ground truth en el prompt (rule ID + precisión de línea). OSV-Scanner cubre CVEs en toda la DB de OSV.dev — más amplia que `npm audit`, sin cuenta, sin upload. Semgrep SAST detecta XSS, SQLi, taint flow, secrets hardcodeados, anti-patrones específicos del lenguaje — equivalente a `snyk code` pero gratis para OSS. Los tres son best-effort: binario faltante o host inalcanzable saltan la sección silently.
+  </Card>
+  <Card title="Audit en Dos Fases (v2.9)" icon="random">
+    `kj audit` ahora recolecta hallazgos deterministas (basalCost, Sonar, OSV-Scanner, Semgrep, WebPerf, detección de stack) en paralelo — cero tokens — y los imprime ANTES de preguntar `Continue with LLM analysis? [y/N]`. Nuevo flag `--deterministic-only` para corridas sin tokens, `-y`/`--yes` para auto-confirmar, `--json` evita el prompt para output pipeable. CI / paths sin TTY auto-confirman — cero cambio de comportamiento para pipelines.
+  </Card>
+  <Card title="Hardening del HU Board (v2.10)" icon="seti:lock">
+    El bind por defecto es ahora **127.0.0.1** (antes: todas las interfaces). Nuevo `--bind 0.0.0.0` para el caso explícito de exposición en LAN, con token autogenerado en `~/.karajan/hu-board/token` (mode 0600). El middleware de auth fuerza el token solo para peers no-loopback — el navegador en la misma máquina sigue funcionando sin `?token=`. Headers `helmet` + `express-rate-limit` 300 req/min en `/api`. Tres carriers aceptados: `Authorization: Bearer`, `?token=`, cookie `kj_board_token`.
+  </Card>
+  <Card title="Quality Gate de Webperf (v2.10)" icon="rocket">
+    `PerfStage` se engancha al bucle de iteración justo después de Impeccable cuando `pipeline.perf.enabled` es true. Envuelve Lighthouse para un veredicto Core Web Vitals por iteración. **PASS** continúa; **FAIL** empuja feedback de métricas bloqueantes (p.ej. `LCP=5500 (poor>4000)` más top-opportunities como recursos render-blocking) al coder para la siguiente iteración; scanner no disponible salta best-effort. CLI: `--enable-perf`. MCP: `enablePerf`. Sin retry-loop — `max_iterations` es el techo natural.
+  </Card>
+  <Card title="SKILL.md por Comando del CLI (v2.10)" icon="document">
+    `docs/agents/SKILL.kj-{plan,run,audit,doctor,init,board,review,resume,clean}.md` — un fetch por capacidad del CLI (~ 2-4 KB de tokens cada uno), todos bajo el mismo contrato: What it does · Inputs · Outputs · Constraints · Side effects · Common failure modes · Example · Related. Guardado por CI: cada link en `llms.txt` debe resolver a un fichero con las cuatro secciones requeridas, o el build falla.
+  </Card>
+  <Card title="Score Agent-Readiness (v2.10)" icon="approve-check">
+    `kj audit --agent-readiness` puntúa cualquier repo de 0 a 100 sobre **7 checks sin LLM**: presencia y validez de llms.txt, allowlist de bots IA en robots.txt, presupuesto de tokens por doc (≤ 32 KB), jerarquía de headings (markdown + HTML `<h1>`), `docs/agents/README.md` como entry point, cobertura de SKILL.md. Transformación pura — sin red, sin LLM, sin side effects. `--json` para CI. Karajan-sobre-Karajan: **100/100**. Pásalo a tu propio repo, mira con qué luchan los agentes, arregla desde la lista de top-fixes.
+  </Card>
+  <Card title="hu-board: Limpieza efímera + Ayuda (v2.11)" icon="seti:html">
+    Al arrancar el board, los proyectos cuyo id encaja con `tmp_*` / `test_*` / `demo_*` / `kj-test-*` Y llevan >24 h inactivos se borran en cascada (proyecto + stories + sesiones). Override por proyecto vía un toggle de 3 estados en cada card (🧪 forzar test / 📌 fijar / · heurística por defecto) y `PATCH /api/projects/:id/is-test`. El header gana también un botón `?`: abre un modal explicando cada una de las cinco vistas (Board / Graph / Dashboard / Sessions / Pipeline), y cada tab tiene un atributo `title` nativo para el tooltip de hover de 1 segundo.
+  </Card>
+  <Card title="Endurecido por Dogfooding (v2.11)" icon="approve-check">
+    Un paso de dogfooding de dos días por toda la superficie de Karajan — desde `kj --version` hasta un sub-pipeline multi-HU completo dirigido por plan — arregló tres bugs latentes que sólo aparecían en repos `/tmp` recién creados: el `SonarStage` ya no quema `max_iterations` haciendo loop con `Missing git remote.origin.url`, `commitAll` tolera la carrera locale-específica de "nada para hacer commit", y el sub-pipeline de HUs ramifica desde `master`/`HEAD` cuando el `main` configurado no existe. `runFlow` sella `session.status` en la frontera, así que `kj status` no muestra runs zombi `running`. **Niveles N0–N8 re-validados verdes.**
+  </Card>
+  <Card title="Detector de fs-leak del coder, segunda capa (v2.14)" icon="warning">
+    El `fs-leak-detector` original hacía diff de `$HOME` antes y después de que el coder corriera. Pillaba el incidente original (`cd /home/manu/assistant && pnpm init` creando 36 MB fuera de `projectDir`) solo porque `~/assistant` era nuevo. Si el dir target preexistía, el diff lo dejaba pasar. v2.14 añade `detectTranscriptCdLeaks()` como segunda capa: escanea el transcript del coder buscando patrones `cd <abs-out-of-project> && <write-cmd>` y los flagea independientemente del estado en disco. Comandos write reconocidos: `mkdir`, `touch`, `cp`, `mv`, `git init`, `{pnpm,npm,yarn} init/create`, `npx create-*`, `cat >`, `echo >`, redirects de shell. Comandos pure-read (`ls`, `which`, `grep`) no disparan, y `/tmp` está exento por convención.
+  </Card>
+  <Card title="Solomon ya no aprueba blockers de seguridad (v2.14)" icon="seti:lock">
+    Rule 6 del Solomon rules engine (`reviewer_style_block`) clasificaba cualquier issue blocker con severity `low`/`minor` o keywords cosméticas (`name`, `format`, `documentation`, …) como "style" — incluso blockers de seguridad legítimos se colaban. v2.14 añade un anti-clasificador: severities `critical`/`high`/`blocker`/`major`, categorías `security`/`correctness`, y una regex de keywords de seguridad (SQL injection, XSS, CSRF, auth, password, secret, hash, traversal, …) descalifican el issue del "all style". 6 tests de regresión cubren los falsos positivos del incidente original.
+  </Card>
+  <Card title="Self-fix loop del planner (v2.14)" icon="random">
+    El plan-reviewer era flag-only: detectaba missing HUs, missing dependencies y scope overlaps, y los dejaba para que el usuario los aplicara a mano. v2.14 cierra ese loop. Tras el primer review pass, el nuevo módulo `plan-fixer.js` pide al planner que PARCHEE el plan (`additions` / `deps_to_add` / `deletions`), aplica el patch in-process vía `addHu` / `removeHu` / mutaciones de `blocked_by`, y re-review. Loop hasta 2 iteraciones o hasta cero issues. Opt-out con `--no-plan-fixer` / `--quick`. Combinado con tres arreglos al prompt del planner (respeto al scope, deps transversales uno-a-muchos, marker `reuse` explícito), las cuatro patologías que el dogfooding de GRETA Plan 2 seguía sacando ahora quedan cerradas en origen.
   </Card>
 </CardGrid>
+
+## Releases recientes
+
+Últimas release notes, primero las antiguas. La versión actual se muestra en la navbar; el histórico completo vive en [Historia de la arquitectura](/docs/es/architecture/history/).
+
+### v2.14.0 — Pasada de calidad
+
+16 PRs absorben bugs blockers (Solomon ya no aprueba issues de seguridad clasificados erróneamente como 'style', la detección de fs-leak del coder añade una segunda capa que pilla `cd <abs> && pnpm init` incluso cuando el dir preexistía, la rotación de password admin de Sonar ya no falla silenciosamente), las cuatro patologías del planner detectadas en el dogfooding de GRETA Plan 2 (respeto al scope, deps transversales uno-a-muchos, campo `reuse` explícito, y un **self-fix loop** nuevo donde el plan-reviewer re-invoca al planner con feedback estructurado hasta cero issues), pulido del HU Board (TTL para prompts zombi de runners crashed, rate-limit menos agresivo con SSE exento), y la primera tanda de reorg de `tests/` (issue #368): 93 archivos movidos de root a subcarpetas espejo. 4577/4577 tests verde, 0 regresiones en las 16 PRs.
+
+### v2.14.1 — Patch
+
+Dos patologías más del planner detectadas en dogfooding de v2.14.0 contra GRETA Plan 2: el **self-fix loop podía empeorar el plan** (iter 1 reducía 15→10 issues, iter 2 borraba HUs que iter 1 había añadido y subía a 17), y el **planner declaraba `blocked_by` sobre observers asíncronos** (HUs marcadas dependiendo de guardarraíles o cron jobs que solo *reaccionan* a ellas, rompiendo AVISA-no-BLOQUEA de GRETA). Fixes: P5 hace snapshot de `plan.hus`+`plan.review` antes de cada iter y revierte si `newCount > currentCount`; P6 lista seis patrones async observer en el prompt + heurística 'consume vs react'. Regenerar Plan 2 GRETA con esta release vuelve al baseline-iter-1 (9 findings en 58 HUs, 15%) en lugar del 17 de v2.14.0. 2 PRs (#684, #685). 4580/4580 tests verde. Upgrade seguro desde 2.14.0.
+
+### v2.14.2 — Patch
+
+Más caza de bugs UX del dogfooding GRETA Plan 2 v2.14.1: el botón **▶ Run** en cards del HU Board aparecía en TODAS las HUs `pending` ignorando `blocked_by` (podías lanzar una HU cuyas deps aún no existían), y los titles del board habían perdido el prefix **`[EPICA]`** así que era imposible orientarse de un vistazo sobre qué área del plan pertenecía cada card. Fixes: `canRunHu` ahora exige `blockedBy.length === 0`; el prompt del planner exige `description: "[EPICA] one-sentence description"` con fallback INFRA/SHARED. Más nuevo doc `spec-conventions.md` con las 6 convenciones SPEC que el planner v2.14.x entiende, para que el usuario no las descubra por dogfooding. 2 PRs (#687, #688). 4584/4584 tests verde.
+
+### v2.14.3 — Patch
+
+Tres mejoras del preflight detectadas en el primer `kj run` real sobre un proyecto greenfield: (1) la auth de `gh` por keyring ya se reconoce (antes Karajan exigía `GH_TOKEN` en env aunque `gh auth login --web` hubiera funcionado), (2) nuevo sistema de **checks degradables** que desactiva features opcionales (auto_pr/auto_push) con WARN en lugar de abortar el run, y (3) nuevo **preflight project-aware** que detecta signals (Dockerfile/firebase.json/pyproject.toml/Cargo.toml/*.tf/.env.example), comprueba las tools correspondientes, valida permisos de escritura en projectDir/.kj/.karajan, compara `.env` vs `.env.example`, y verifica acceso `gh push` al remote real. Comando nuevo `kj doctor --project`. 2 PRs (#690, #691). 4608/4608 tests verde.
+
+### v2.15.0 — Minor (actual)
+
+Tres epics, 30+ commits, ~4 000 LOC. **Brain Recovery** (KJC-PCS-0044): clasificador universal de errores con 7 clases ricas cableado en TODAS las invocaciones a agentes IA (no más fallos silenciosos), hibernación persistente en `~/.kj/standby/` con scheduler event-driven (cero polling), `kj standby list` + `kj standby resume`, reconciliación del board al arrancar, y un **fallback chain** que cambia de provider automáticamente cuando se agota la cuota con `retryAfter > 12h` — crítico para el nuevo cap de \$200/mes del Agent SDK de Anthropic desde el 15 de junio. **Model Routing + Undo** (KJC-PCS-0043): cada HU recibe `coder_model` + `reviewer_model` con revisión cross-provider por defecto (claude↔codex), override por HU desde el modal del board, OpenCode + Aider como providers de primera clase, y un botón ⏪ Undo que restaura ficheros vía snapshots git. **Self-Healing Plan** (KJC-PCS-0042): pasada de integridad estructural que rompe ciclos y limpia refs huérfanas, convergence guard inteligente para el self-fix loop, nuevo comando `kj plan fix [planId] [--prompt]` para iterar sin regenerar, skip de Sonar en HUs SPIKE/DOC/RESEARCH, y la columna Failed del kanban da paso a un badge result=fail en Pending. 4 835/4 835 tests passing en 400 ficheros.

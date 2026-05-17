@@ -43,3 +43,20 @@ Developers evaluating Karajan Code — typically senior engineers or tech leads 
 3. **Restraint is refinement** — Minimal color use, generous whitespace, no decorative elements without purpose. The mascot is the one allowed personality moment.
 4. **Accessibility is non-negotiable** — Target WCAG AAA. High contrast in both themes, keyboard navigation everywhere, `prefers-reduced-motion` respected, semantic HTML throughout.
 5. **Performance is a feature** — Single HTML file, no JS framework, responsive images with WebP, inline critical CSS. The page should feel instant.
+
+## Documentation ordering rule — `fundamentals-first, recent-last`
+
+**Regla obligatoria** (definida 2026-05-14 por el usuario tras el primer paso real por la landing):
+
+Las páginas que acumulan entradas en el tiempo van en **orden ascendente cronológico** — lo más antiguo / fundamental arriba, los añadidos recientes al final. La razón: el visitante que aterriza llega a entender QUÉ es Karajan, no qué cambió en v2.14.3. Los detalles versión-específicos son progresivos al final, no la primera impresión.
+
+Afecta a:
+
+- **`docs/src/content/docs/architecture/history.md`** + `es/architecture/history.md` → `## Phase 1` arriba, `## Phase N` (la más reciente) al final, justo antes de `## Key Architectural Decisions` y `## References`. Cuando salga una nueva versión, AÑADIR la Phase nueva **al final** (antes de Architectural Decisions), NO al principio.
+- **`docs/src/content/docs/index.mdx`** + `es/index.mdx` → `<CardGrid stagger>` empieza por los Cards fundamentales ("Multi-Agent Pipeline", "5 AI Agents", "MCP Server", "TDD", "Plugin System", "Zero API Costs"...) y termina con los Cards versión-específicos ("Planner self-fix loop (v2.14)"...). Cuando salga una nueva feature destacada, INSERTAR el `<Card>` nuevo **al final del CardGrid**, NO al principio.
+- **Sección `## Recent releases` / `## Releases recientes`** (al final de `index.mdx` + `es/index.mdx`, después del `</CardGrid>`) → release notes en orden ascendente (versión más antigua primero). Cuando salga una versión nueva, AÑADIR un `### vX.Y.Z — Título` **al final** de la sección con el marcador `(current)` / `(actual)` en el título; quitarle el marcador a la anterior.
+- Cualquier futura página tipo "Changelog feature highlights" o "Recent improvements" sigue la misma regla.
+
+**Importante sobre el `hero.tagline`** (`index.mdx` frontmatter): tiene que ser **corto y atemporal** — descripción de QUÉ es Karajan, NO release notes. Las release notes específicas van en `## Recent releases`. Nunca pegues bloques de `vX.Y.Z — Patch ...` al tagline; el usuario ve el tagline ANTES de "¿Por qué Karajan?" y lo único que puede hacer un teaser de release notes ahí es enterrar la propuesta de valor. Tagline tipo `"Multiagent coding orchestrator. 16 roles, 5 agents, deterministic guards, TDD, SonarQube, automated review."` es el patrón.
+
+Si en una actualización futura el patrón parece incorrecto, NO revertirlo sin preguntar — comprobar primero esta regla y la `feedback_landing_ordering.md` del MEMORY.md de `karajan-code`. El usuario rechazó explícitamente el 2026-05-14 la idea de poner release notes en el hero.
