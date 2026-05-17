@@ -2,6 +2,7 @@ import { runCommand } from "../utils/process.js";
 import { withRetry } from "../utils/retry.js";
 import { resolveSonarProjectKey } from "./project-key.js";
 import { resolveSonarToken } from "./config-resolver.js";
+import { filterFalsePositives } from "./issue-filter.js";
 
 class SonarApiError extends Error {
   constructor(message, { url, httpStatus, hint } = {}) {
@@ -83,10 +84,27 @@ export async function getOpenIssues(config, projectKey = null) {
   const effectiveProjectKey = await resolveSonarProjectKey(config, { projectKey });
   const body = await sonarFetch(config, `/api/issues/search?projectKeys=${effectiveProjectKey}&statuses=OPEN`);
 
+  let parsedIssues = [];
+  let parsedRaw = body;
   try {
     const parsed = JSON.parse(body);
-    return { total: parsed.total || 0, issues: parsed.issues || [], raw: parsed };
-  } catch { /* SonarQube response is not valid JSON */
-    return { total: 0, issues: [], raw: body };
-  }
+    parsedIssues = parsed.issues || [];
+    parsedRaw = parsed;
+  } catch { /* SonarQube response is not valid JSON */ }
+
+  // KJC-TSK-0416: pre-filtro de falsos positivos antes de devolver al
+  // caller. El coder, audit y scan consumen lo que pasa el filtro;
+  // suppressed se devuelve aparte para observabilidad.
+  const extraRules = config?.sonar?.false_positives || [];
+  const { kept, suppressed } = filterFalsePositives(parsedIssues, {
+    extraRules,
+    projectRoot: config?.projectDir,
+  });
+
+  return {
+    total: kept.length,
+    issues: kept,
+    suppressed,
+    raw: parsedRaw,
+  };
 }
