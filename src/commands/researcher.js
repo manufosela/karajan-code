@@ -2,6 +2,7 @@ import { createAgent } from "../agents/index.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -33,8 +34,11 @@ export async function researcherCommand({ task, config, logger }) {
     const progress = createCliProgressReporter({ role: "researcher" });
     let result;
     try {
-      result = await agent.runTask({ prompt, onOutput: progress.onOutput, role: "researcher" });
-      progress.finish(result.ok ? "done" : "failed");
+      result = await withBrainRecovery({
+        agent, taskArgs: { prompt, onOutput: progress.onOutput, role: "researcher" },
+        role: "researcher", provider: researcherRole.provider, logger,
+      });
+      progress.finish(result.ok ? "done" : (result.action || "failed"));
     } catch (err) { progress.finish("failed"); throw err; }
 
     if (!result.ok) {

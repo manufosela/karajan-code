@@ -7,6 +7,7 @@
 import { createAgent } from "../agents/index.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { HEURISTIC_DESCRIPTIONS } from "./splitting-detector.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -97,7 +98,11 @@ export async function generateSplitProposal(hu, heuristic, config, logger) {
 
   let result;
   try {
-    result = await agent.runTask({ prompt, role: "hu-splitter" });
+    // KJC-TSK-0413 step C
+    result = await withBrainRecovery({
+      agent, taskArgs: { prompt, role: "hu-splitter" },
+      role: "hu-splitter", provider, logger,
+    });
   } catch (err) {
     logger.warn(`HU split generation threw: ${err.message}`);
     return null;
