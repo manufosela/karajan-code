@@ -9,6 +9,7 @@ import { registerPlan } from "./cli/register-plan.js";
 import { registerRolesSkills } from "./cli/register-roles-skills.js";
 import { registerMeta } from "./cli/register-meta.js";
 import { registerSonar } from "./cli/register-sonar.js";
+import { registerStandby } from "./cli/register-standby.js";
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
 
@@ -44,6 +45,7 @@ registerPlan(program, { pkgVersion: PKG_VERSION });
 registerRolesSkills(program, { pkgVersion: PKG_VERSION });
 registerMeta(program, { pkgVersion: PKG_VERSION });
 registerSonar(program);
+registerStandby(program);
 
 /**
  * Find subcommands whose name is "close enough" to a typo. Used by the
