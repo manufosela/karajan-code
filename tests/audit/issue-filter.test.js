@@ -6,9 +6,10 @@ import {
   filterFalsePositives,
   hasInlineIgnore,
   DEFAULT_FALSE_POSITIVES,
-} from "../../src/sonar/issue-filter.js";
+} from "../../src/audit/issue-filter.js";
 
-// KJC-TSK-0416: pre-filtro de falsos positivos Sonar.
+// KJC-TSK-0416 (v2.16): pre-filtro de falsos positivos Sonar.
+// Generalised to all audit collectors in v2.17 — see cross-tool cases below.
 
 describe("DEFAULT_FALSE_POSITIVES", () => {
   it("contiene la regla S2699 para tests/architecture/", () => {
@@ -106,5 +107,75 @@ describe("filterFalsePositives — inline ignore integration", () => {
     expect(suppressed).toHaveLength(1);
     expect(suppressed[0]._suppressedBy.reason).toMatch(/inline/i);
     expect(kept).toHaveLength(0);
+  });
+});
+
+// v2.17: cross-tool cases. The filter must distinguish issues from different
+// collectors so a `knip:unused-exports` rule cannot accidentally match a
+// `sonar:unused-exports` issue (or vice-versa) just because the ruleId collides.
+describe("filterFalsePositives — cross-tool", () => {
+  it("static rule with tool='knip' only matches knip issues, not sonar", () => {
+    const issues = [
+      { tool: "knip", rule: "unused-exports", component: "p:src/a.js", line: 1 },
+      { tool: "sonar", rule: "unused-exports", component: "p:src/a.js", line: 1 },
+    ];
+    const { kept, suppressed } = filterFalsePositives(issues, {
+      extraRules: [{ tool: "knip", rule: "unused-exports", filePattern: "src/", reason: "fixture" }],
+    });
+    expect(suppressed).toHaveLength(1);
+    expect(suppressed[0].tool).toBe("knip");
+    expect(kept).toHaveLength(1);
+    expect(kept[0].tool).toBe("sonar");
+  });
+
+  it("issues without explicit tool default to 'sonar' (backwards compat)", () => {
+    const issues = [{ rule: "javascript:S2699", component: "p:tests/architecture/x.test.js", line: 1 }];
+    const { kept, suppressed } = filterFalsePositives(issues);
+    expect(suppressed).toHaveLength(1);
+    expect(kept).toHaveLength(0);
+  });
+
+  it("new inline marker `// karajan-audit-ignore: <tool>:<rule>` works", () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), "issue-filter-x-"));
+    try {
+      mkdirSync(path.join(tmp, "src"), { recursive: true });
+      const rel = "src/x.js";
+      writeFileSync(path.join(tmp, rel), "const a = 1; // karajan-audit-ignore: knip:unused-exports\n");
+      const issues = [{ tool: "knip", rule: "unused-exports", component: `p:${rel}`, line: 1 }];
+      const { kept, suppressed } = filterFalsePositives(issues, { projectRoot: tmp });
+      expect(suppressed).toHaveLength(1);
+      expect(kept).toHaveLength(0);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("legacy `// karajan-sonar-ignore: <rule>` still works for sonar issues only", () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), "issue-filter-y-"));
+    try {
+      mkdirSync(path.join(tmp, "src"), { recursive: true });
+      const rel = "src/y.js";
+      writeFileSync(path.join(tmp, rel), "const a = 1; // karajan-sonar-ignore: javascript:S1234\n");
+      const sonarIssue = { tool: "sonar", rule: "javascript:S1234", component: `p:${rel}`, line: 1 };
+      const knipIssue = { tool: "knip", rule: "javascript:S1234", component: `p:${rel}`, line: 1 };
+      const res = filterFalsePositives([sonarIssue, knipIssue], { projectRoot: tmp });
+      expect(res.suppressed).toHaveLength(1);
+      expect(res.suppressed[0].tool).toBe("sonar");
+      expect(res.kept).toHaveLength(1);
+      expect(res.kept[0].tool).toBe("knip");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+// v2.17: the compat shim at src/sonar/issue-filter.js must re-export the same
+// surface — existing imports must keep working.
+describe("compat shim: src/sonar/issue-filter.js", () => {
+  it("re-exports filterFalsePositives, hasInlineIgnore, DEFAULT_FALSE_POSITIVES", async () => {
+    const shim = await import("../../src/sonar/issue-filter.js");
+    expect(typeof shim.filterFalsePositives).toBe("function");
+    expect(typeof shim.hasInlineIgnore).toBe("function");
+    expect(Array.isArray(shim.DEFAULT_FALSE_POSITIVES)).toBe(true);
   });
 });
