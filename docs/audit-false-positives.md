@@ -45,3 +45,86 @@ Investigation tracked in KJC-TSK-0353 / GH issue #574.
    instead of removing the dependency.
 4. Only `npm uninstall` after all four verification paths come back
    empty (JS imports, config files, scripts, hooks).
+
+## Deterministic FP filter (v2.16+)
+
+In addition to this manual log, `kj audit` runs a deterministic filter
+on every collector's findings BEFORE they reach the LLM or the user.
+Source: `src/audit/issue-filter.js`. Two complementary mechanisms:
+
+### 1. Static rules in `config.audit.false_positives`
+
+Shape: `{ tool, rule, filePattern, reason }`. Example in a project's
+`karajan.config.json`:
+
+```jsonc
+{
+  "audit": {
+    "false_positives": [
+      {
+        "tool": "knip",
+        "rule": "unused-exports",
+        "filePattern": "src/api/public/",
+        "reason": "Public API surface for downstream consumers"
+      },
+      {
+        "tool": "madge",
+        "rule": "circular-import",
+        "filePattern": "src/legacy/",
+        "reason": "Known legacy module cluster — tracked in EPIC-XYZ"
+      },
+      {
+        "tool": "sonar",
+        "rule": "javascript:S6840",
+        "filePattern": "tests/fixtures/",
+        "reason": "Test fixture deliberately uses anti-pattern under test"
+      }
+    ]
+  }
+}
+```
+
+The legacy `config.sonar.false_positives` keeps working (entries are
+treated as if they had `tool: "sonar"`).
+
+### 2. Inline ignore markers
+
+Drop a marker on the issue line (or the line above):
+
+```js
+const userInput = req.query.q; // karajan-audit-ignore: semgrep:javascript.express.security.audit.xss.direct-response-write
+```
+
+The legacy `// karajan-sonar-ignore: <ruleId>` marker keeps working for
+sonar issues only.
+
+### Built-in catalogue
+
+`src/audit/issue-filter.js` ships a small catalogue of patterns that
+ship as filtered by default — currently:
+
+| Tool | Rule | File pattern | Reason |
+| --- | --- | --- | --- |
+| sonar | `javascript:S2699` | `tests/architecture/` | Architectural tests assert via `expect(off, msg).toEqual([])` and Sonar misses the custom-message form |
+
+Suppressed findings remain accessible in the `suppressed` field of each
+collector's result for auditability.
+
+## Structural collectors (v2.17+)
+
+`kj audit` runs four deterministic collectors before the LLM phase
+(KJC-TSK v2.17). Each is stack-aware and degrades cleanly when its
+prerequisites are missing:
+
+| Collector | Source | Dimension | Stack | Skips if |
+| --- | --- | --- | --- | --- |
+| Sonar | `src/audit/sonar-findings.js` | mixed | any | Sonar host unreachable |
+| OSV | `src/audit/osv-findings.js` | security | any | `osv-scanner` binary missing |
+| Semgrep | `src/audit/semgrep-findings.js` | security | any | `semgrep` binary missing |
+| Madge circular-deps | `src/audit/circular-deps.js` | architecture | JS/TS only | No JS/TS sources, no `src/` |
+| Knip dead-exports | `src/audit/dead-exports.js` | codeQuality | JS/TS only | No `package.json`, no JS/TS |
+
+All five flow through the FP filter above. CLI flags `--no-sonar`,
+`--no-osv`, `--no-semgrep`, `--no-madge`, `--no-knip` disable each one
+independently. `--deterministic-only` runs the collectors but skips the
+LLM phase entirely (zero tokens).

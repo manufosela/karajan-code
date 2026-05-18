@@ -24,6 +24,32 @@ export const DEFAULT_FALSE_POSITIVES = [
     filePattern: /tests\/architecture\//,
     reason: "Structural tests assert via expect(offenders, msg).toEqual([]) — Sonar misses the custom-message form",
   },
+  // Knip — v2.17 audit/dead-exports collector.
+  {
+    tool: "knip",
+    rule: "unused-files",
+    filePattern: /(?:^|\/)tests\/fixtures\//,
+    reason: "Test fixtures are loaded by file path at runtime, not statically imported — knip can't see them",
+  },
+  {
+    tool: "knip",
+    rule: "unused-files",
+    filePattern: /(?:^|\/)examples\//,
+    reason: "Example projects are user-facing entry points, not consumed by the parent project's source",
+  },
+  {
+    tool: "knip",
+    rule: "unused-exports",
+    filePattern: /(?:^|\/)(?:index|main)\.(?:js|ts|mjs|cjs|jsx|tsx)$/,
+    reason: "Barrel re-exports in index.{js,ts} are legitimate public API surface even when no in-tree caller uses them",
+  },
+  // Madge — v2.17 audit/circular-deps collector.
+  {
+    tool: "madge",
+    rule: "circular-import",
+    filePattern: /node_modules\//,
+    reason: "Cycles inside node_modules are upstream's problem, not ours — defensive default since madge excludes node_modules by config",
+  },
 ];
 
 export function hasInlineIgnore(filePath, line, ruleId, tool = "sonar") {
