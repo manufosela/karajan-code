@@ -17,6 +17,39 @@ describe("DEFAULT_FALSE_POSITIVES", () => {
       (r) => r.rule === "javascript:S2699" && r.filePattern.test("tests/architecture/foo.test.js")
     )).toBe(true);
   });
+
+  // v2.17: built-in entries for the new knip + madge collectors.
+  it("filtra knip:unused-files dentro de tests/fixtures/", () => {
+    const issue = { tool: "knip", rule: "unused-files", component: "tests/fixtures/foo.json", line: 1 };
+    const { kept, suppressed } = filterFalsePositives([issue]);
+    expect(kept).toHaveLength(0);
+    expect(suppressed[0]._suppressedBy.reason).toMatch(/fixture/i);
+  });
+
+  it("filtra knip:unused-files dentro de examples/", () => {
+    const issue = { tool: "knip", rule: "unused-files", component: "examples/demo-app/index.js", line: 1 };
+    const { suppressed } = filterFalsePositives([issue]);
+    expect(suppressed).toHaveLength(1);
+    expect(suppressed[0]._suppressedBy.reason).toMatch(/example/i);
+  });
+
+  it("filtra knip:unused-exports en barrel files index.js/ts", () => {
+    const a = { tool: "knip", rule: "unused-exports", component: "src/index.js", line: 1 };
+    const b = { tool: "knip", rule: "unused-exports", component: "src/feature/index.ts", line: 1 };
+    const c = { tool: "knip", rule: "unused-exports", component: "src/feature/util.ts", line: 1 };
+    const { kept, suppressed } = filterFalsePositives([a, b, c]);
+    // a + b match the barrel pattern, c does not
+    expect(suppressed).toHaveLength(2);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].component).toBe("src/feature/util.ts");
+  });
+
+  it("filtra madge:circular-import dentro de node_modules/", () => {
+    const issue = { tool: "madge", rule: "circular-import", component: "node_modules/pkg/a.js", line: 1 };
+    const { kept, suppressed } = filterFalsePositives([issue]);
+    expect(kept).toHaveLength(0);
+    expect(suppressed[0]._suppressedBy.reason).toMatch(/upstream/i);
+  });
 });
 
 describe("filterFalsePositives — rules estáticas", () => {
