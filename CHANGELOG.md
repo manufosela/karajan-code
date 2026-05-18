@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-05-18
+
+Minor release. `kj audit` gains two new deterministic structural collectors (knip dead-exports + madge circular-deps) and the Sonar false-positive filter from v2.16 is generalised to apply across every collector. Engine pin bumped to Node ≥ 20.19 (knip 6.x requirement).
+
+4 872/4 872 tests passing across 402 test files.
+
+### Added
+
+- **KJC-TSK v2.17 — Madge circular-import collector** (#744). New deterministic collector for the `architecture` dimension. Detects circular import chains via madge. Stack-aware: skipped on non-JS/TS projects. Severity heuristic: chain ≥ 4 files = MAJOR, shorter = MINOR. Honours `tsconfig.json` / `jsconfig.json` for path-alias resolution. 60 s timeout. Findings pass through the audit FP filter.
+- **KJC-TSK v2.17 — Knip dead-exports collector** (#745). New deterministic collector for the `codeQuality` dimension. Reports unused exports / types (MINOR) and unused files (MAJOR). Stack-aware: skipped on non-JS/TS or missing `package.json`. Invoked as subprocess via `--reporter json`. 120 s timeout. Findings pass through the audit FP filter.
+- **Generalised audit FP filter** (#743). Sonar-specific `src/sonar/issue-filter.js` from v2.16.0 moved to `src/audit/issue-filter.js` with a new `tool` field. Every collector — sonar, knip, madge, osv, semgrep — uses the same two mechanisms: static rules in `config.audit.false_positives` and inline marker `// karajan-audit-ignore: <tool>:<ruleId>`. Backwards compatible: compat shim re-exports from the old path, legacy `config.sonar.false_positives` and `// karajan-sonar-ignore: <ruleId>` markers keep working.
+- **Built-in FP catalogue** (#746). Four entries shipped by default:
+  - `knip:unused-files` in `tests/fixtures/` (loaded by path, not import).
+  - `knip:unused-files` in `examples/` (user-facing entry points).
+  - `knip:unused-exports` on `index.{js,ts,mjs,cjs,jsx,tsx}` barrels.
+  - `madge:circular-import` in `node_modules/` (defensive).
+
+### Changed (BREAKING engines)
+
+- **Node engine: `>=20.10.0` → `>=20.19.0`**. Required by knip 6.x. Same pattern as the v2.8.0 bump (Node 18 → 20.10). Users on Node 20.10–20.18 must upgrade to 20.19+ or 22.12+.
+
+### Internal
+
+- 26 new unit tests (10 madge + 7 knip + 5 cross-tool filter + 4 built-in FP catalogue).
+- SEA build: `madge`, `knip`, `oxc-parser`, `oxc-resolver` added to esbuild externals. Collectors degrade gracefully in the SEA binary (`require.resolve` throws → `available:false`); npm installs work normally.
+- Dynamic-import budget 160 → 161 (lazy `await import("madge")` in `circular-deps.js`).
+- `docs/audit-false-positives.md` extended with config schema, inline marker syntax, built-in catalogue table, and stack-gating table for all 5 collectors.
+
 ## [2.16.0] - 2026-05-18
 
 Minor release centrada en calidad: filtro determinístico de falsos positivos Sonar (config + inline ignores), cierre del wire universal de Brain Recovery con el `semantic-detector`, codemod `replace`/g → `replaceAll`/g (41 sitios) y limpieza de hallazgos del propio `kj audit` v2.15.0.
