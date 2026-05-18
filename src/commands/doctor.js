@@ -171,4 +171,21 @@ function printHuman(report, { verbose }) {
   if (Object.keys(report.overrides).length > 0) {
     console.log(`Runtime overrides applied: ${JSON.stringify(report.overrides)}`);
   }
+
+  // KJC-TSK v2.18 — if any external audit tool (semgrep, osv-scanner,
+  // lighthouse) reported missing, surface the one-line remediation so
+  // the user doesn't have to dig the fix lines out of the wall of
+  // checks. The audit-tool checks emit names like "audit-tool:semgrep"
+  // and embed { tool, suggested } in `extra` (see binaries.js).
+  const installable = report.checks
+    .filter((c) => c.name?.startsWith("audit-tool:") && c.status === STATUS.WARN && c.extra?.tool)
+    .map((c) => c.extra.tool);
+  if (installable.length > 0) {
+    console.log();
+    const list = installable.join(", ");
+    const only = installable.length === 1 ? ` --only ${installable[0]}` : "";
+    console.log(`Tip: run \`kj install-tools${only}\` to install: ${list}.`);
+  }
 }
+
+export const __test = { printHuman };

@@ -196,6 +196,10 @@ export async function runChecks(checks, ctx, options = {}) {
     detail: e.detail ?? "",
     fix: e.detectResult?.fix,
     runMs: e.runMs,
+    // Forward optional structured metadata so the doctor printer can
+    // surface per-tool remediation tips (KJC-TSK v2.18). Undefined when
+    // the check didn't set one — kept minimal so JSON output stays tight.
+    extra: e.detectResult?.extra,
   }));
 
   const summary = summarize(reports);
