@@ -68,7 +68,14 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // `kj audit` working in npm installs and degrades gracefully in the SEA
 // binary (madge is marked external; the import throws there and the
 // collector returns available:false).
-const DYNAMIC_IMPORT_BUDGET = 161;
+//
+// 2026-05-18 (KJC-TSK v2.18 doctor-external-tool-hints): bumped 161 →
+// 162 for the lazy `await import("../utils/stack-detect.js")` inside the
+// gated lighthouse check (`src/checks/binaries.js`). Stack detection is
+// only needed when the lighthouse check actually runs (i.e. when the
+// user has the binary or wants the install hint) — deferring it keeps
+// non-frontend doctor runs from paying the cost.
+const DYNAMIC_IMPORT_BUDGET = 162;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
