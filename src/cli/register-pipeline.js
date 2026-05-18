@@ -3,6 +3,7 @@ import { configCommand } from "../commands/config.js";
 import { codeCommand } from "../commands/code.js";
 import { reviewCommand } from "../commands/review.js";
 import { scanCommand } from "../commands/scan.js";
+import { installToolsCommand } from "../commands/install-tools.js";
 import { doctorCommand } from "../commands/doctor.js";
 import { reportCommand } from "../commands/report.js";
 import { runCommandHandler } from "../commands/run.js";
@@ -190,6 +191,26 @@ export function registerPipeline(program, { pkgVersion }) {
         })
       );
       if (Number.isInteger(exitCode)) process.exit(exitCode);
+    });
+
+  program
+    .command("install-tools")
+    .description("Install external audit tools (semgrep, osv-scanner, lighthouse, docker, sonar) using the package manager available on your system")
+    .option("--only <tools>", "Comma-separated subset (e.g. \"semgrep,osv-scanner\"). Bypasses stack-gating.")
+    .option("-y, --yes", "Auto-accept all prompts (non-interactive)")
+    .option("--dry-run", "Show what would be installed without running anything")
+    .action(async (flags) => {
+      try {
+        const { exitCode } = await installToolsCommand({
+          only: flags.only,
+          yes: !!flags.yes,
+          dryRun: !!flags.dryRun,
+        });
+        if (Number.isInteger(exitCode)) process.exit(exitCode);
+      } catch (err) {
+        console.error(`kj install-tools: ${err?.message || err}`);
+        process.exit(1);
+      }
     });
 
   program
