@@ -45,9 +45,13 @@ vi.mock("node:fs/promises", () => ({
 
 // Stub spawn so mcp-health check doesn't actually fork `node bin/karajan-mcp.js`
 // during unit runs. A minimal fake emits a JSON-RPC result so the check passes.
-vi.mock("node:child_process", () => {
+vi.mock("node:child_process", async (orig) => {
+  const real = await orig();
   const { EventEmitter } = require("node:events");
   return {
+    // Keep real execFile / exec etc. so modules that probe binaries via
+    // child_process (install-hints.js, agent-detect.js) still work.
+    ...real,
     spawn: vi.fn(() => {
       const child = new EventEmitter();
       child.stdin = { write: vi.fn() };

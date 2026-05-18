@@ -49,9 +49,13 @@ vi.mock("../src/checks/project-checks.js", () => ({
   detectProjectSignals: vi.fn(() => new Set()),
 }));
 
-vi.mock("node:child_process", () => {
+vi.mock("node:child_process", async (orig) => {
+  const real = await orig();
   const { EventEmitter } = require("node:events");
   return {
+    // Preserve real execFile / exec so modules that probe binaries via
+    // child_process (install-hints.js, agent-detect.js) keep working.
+    ...real,
     spawn: vi.fn(() => {
       const child = new EventEmitter();
       child.stdin = { write: vi.fn() };
