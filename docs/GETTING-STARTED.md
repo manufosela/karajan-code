@@ -21,6 +21,34 @@ Karajan's audit pipeline runs deterministic scanners in parallel and feeds their
 
 Skip any of them per-run with the matching `--no-*` flag (`--no-sonar`, `--no-osv`, `--no-semgrep`).
 
+### One-command install with `kj install-tools` (v2.18+)
+
+You don't have to copy the commands above by hand. After `npm install -g karajan-code`:
+
+```bash
+kj doctor                 # Shows what's missing and the install command for YOUR system
+kj install-tools          # Interactive — installs every missing tool using the package manager you already have
+kj install-tools --yes    # Non-interactive (CI / automation)
+kj install-tools --dry-run                       # Plan-only, prints what it would do
+kj install-tools --only semgrep,osv-scanner      # Subset
+```
+
+Behaviour per tool:
+
+- **Semgrep**: picks `pipx install semgrep` if pipx is available, falls back to `brew install semgrep`, then `pip install semgrep`.
+- **OSV-Scanner**: picks `go install github.com/google/osv-scanner@latest` if Go is available, falls back to `brew install osv-scanner`.
+- **Lighthouse**: `npm install -g lighthouse`. **Only suggested on frontend / fullstack projects** — backend-only projects don't see lighthouse noise. Use `--only lighthouse` to force.
+- **Docker**: never auto-installed (platform-specific). Prints docs URL and, on macOS, the `brew install --cask docker` hint.
+- **Sonar**: requires Docker. If a `docker-compose.yml` exists in the cwd, suggests `docker compose up -d`; otherwise a one-shot `docker run` with the official SonarQube image.
+
+`kj doctor` lists each missing tool with the exact install command picked for your system and ends with a one-line `Tip: run kj install-tools …` reminder, so the typical flow is:
+
+```bash
+kj doctor              # see what's missing
+kj install-tools       # fix it
+kj doctor              # confirm clean
+```
+
 ## Install
 
 ```bash
