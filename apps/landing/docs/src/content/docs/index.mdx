@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="4 835+ Automated Tests" icon="approve-check">
-    400 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="4 846+ Automated Tests" icon="approve-check">
+    401 test files covering every pipeline role, guard, config option, and MCP tool. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -210,6 +210,10 @@ More dogfooding fallout from GRETA Plan 2 v2.14.1: the **▶ Run button** appear
 
 Three preflight improvements surfaced by the first real `kj run` against a greenfield project: (1) `gh` keyring auth is now recognized (no more demanding `GH_TOKEN` env var when `gh auth login --web` already worked), (2) new **degradable checks** system that disables optional features (auto_pr/auto_push) with a WARN instead of aborting the run, and (3) new **project-aware preflight** that detects signals (Dockerfile/firebase.json/pyproject.toml/Cargo.toml/*.tf/.env.example), checks the corresponding tools, validates write permissions on the project paths, compares `.env` vs `.env.example`, and tests `gh` push access to the actual remote. New command `kj doctor --project` runs only this phase. 2 PRs (#690, #691). 4608/4608 tests passing.
 
-### v2.15.0 — Minor (current)
+### v2.15.0 — Minor
 
 Three epics, 30+ commits, ~4 000 LOC. **Brain Recovery** (KJC-PCS-0044): universal error classifier with 7 rich classes wired into ALL agent invocations (no silent failures), persistent hibernation in `~/.kj/standby/` with event-driven scheduler (no polling), `kj standby list` + `kj standby resume`, board reconcile at startup, and a **fallback chain** that switches provider automatically when quota is exhausted with `retryAfter > 12h` — critical for Anthropic's new $200/month Agent SDK cap from June 15. **Model Routing + Undo** (KJC-PCS-0043): each HU gets `coder_model` + `reviewer_model` with cross-provider review by default (claude↔codex), per-HU override from the board modal, OpenCode + Aider as first-class providers, and a ⏪ Undo button that restores files via git snapshots. **Self-Healing Plan** (KJC-PCS-0042): structural integrity pass breaks cycles and cleans orphan refs, smart convergence guard for the self-fix loop, new `kj plan fix [planId] [--prompt]` command to iterate without regenerating, skip Sonar for SPIKE/DOC/RESEARCH HUs, and the Failed kanban column gives way to a result=fail badge in Pending. 4 835/4 835 tests passing across 400 files.
+
+### v2.16.0 — Minor (current)
+
+Quality-focused release. The headline feature is a **deterministic Sonar false-positive filter** (KJC-TSK-0416). Before Sonar findings reach the coder or the auditor they are pre-filtered by two mechanisms: (1) static rules `{ rule, filePattern, reason }` from a built-in catalog (covering common false positives like `javascript:S2699` on `tests/architecture/` where assertions use `expect(off, msg).toEqual([])` that Sonar can't detect), extensible per project via `config.sonar.false_positives`; (2) inline ignores with `// karajan-sonar-ignore: <ruleId>` on the issue line. Result: the coder stops burning tokens "fixing" assertions that aren't broken. Brain Recovery now wraps **every** AI call in the pipeline — `semantic-detector` was the last legacy caller, wired via adapter (TSK-0413 step D). Codemod `.replace(/regex/g, …)` → `.replaceAll(/regex/g, …)` in 41 sites, plus audit cleanup of BLOCKER false positives in tests. 4 846/4 846 tests passing across 401 files.
