@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-05-18
+
+Minor release centrada en calidad: filtro determinístico de falsos positivos Sonar (config + inline ignores), cierre del wire universal de Brain Recovery con el `semantic-detector`, codemod `replace`/g → `replaceAll`/g (41 sitios) y limpieza de hallazgos del propio `kj audit` v2.15.0.
+
+4 846/4 846 tests passing across 401 test files.
+
+### Added
+
+- **KJC-TSK-0416** — Pre-filtro determinístico de falsos positivos Sonar (#741). Antes de mandar issues al coder (rol `sonar-role`) o al auditor, se filtran por:
+  1. **Rules estáticas**: `{ rule, filePattern, reason }`. Catálogo built-in (incluye `javascript:S2699` para `tests/architecture/` — fallan vía `expect(offenders, msg).toEqual([])` y Sonar no detecta el assert con mensaje custom). Extensible por proyecto vía `config.sonar.false_positives`.
+  2. **Inline ignore**: `// karajan-sonar-ignore: <ruleId>` en la línea del issue (o la anterior) suprime ese hit exacto. Útil para falsos positivos puntuales sin tocar config.
+  Issues filtrados quedan registrados con `_suppressedBy` para auditoría. Resultado: el coder deja de quemar tokens "arreglando" cosas que no están rotas.
+
+### Fixed
+
+- **KJC-TSK-0413 step D** — Wire del `semantic-detector` vía adapter a `withBrainRecovery` (#739). El módulo usaba la signature legacy `runTask(prompt, opts)` mientras el wrapper espera `runTask({ prompt, timeoutMs })`. Adapter inline en el módulo. Completa el wire universal de Brain Recovery: ahora **todas** las llamadas IA del pipeline pasan por el clasificador.
+- **Codemod `replace` → `replaceAll`** (#738). 41 ocurrencias de `.replace(/regex/g, ...)` migradas a `.replaceAll(/regex/g, ...)` en `src/`. Mismo resultado, semántica explícita (replaceAll exige flag global, `replace(/regex/g, …)` lo hacía por accidente). Detectado por `kj audit` v2.15.0 como hint de modernización ES2024.
+- **Audit cleanup BLOCKER false positives** (#740). Refactorizado `expect(offenders, msg).toEqual([])` → `expect(offenders).toEqual([])` con mensaje en variable previa para que Sonar detecte el assert. Reduce BLOCKER count del audit en 11 (todos eran asserts custom con mensaje, no test sin assert real).
+
+### Internal
+
+- `planCommand` alias eliminado → `planGenerateCommand` (16 call sites en tests). Cero alias muertos en superficie pública del CLI.
+- Tests Brain Recovery skip-on-fail confirmado en `semantic-detector` (test env: el sleep es no-op, abort viene rápido, best-effort intacto).
+
 ## [2.15.0] - 2026-05-17
 
 Minor release. Tres epics completos sumando 30+ commits y ~4 000 LOC: self-healing de plans, model routing per HU con cross-provider review y undo, y un sistema completo de recuperación ante fallos de IA (rate limit, quota daily/monthly, network, silenced) con hibernación persistente y fallback chain.
