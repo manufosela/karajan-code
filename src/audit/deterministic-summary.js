@@ -13,12 +13,14 @@ import { groupIssuesBySeverity } from "./sonar-findings.js";
 import { groupVulnerabilitiesBySeverity } from "./osv-findings.js";
 import { groupFindingsBySeverity as groupSemgrepBySeverity } from "./semgrep-findings.js";
 import { groupCyclesBySeverity } from "./circular-deps.js";
+import { groupDeadExportsBySeverity } from "./dead-exports.js";
 
 const MAX_SAMPLE_DEAD_EXPORTS = 10;
 const MAX_SAMPLE_SONAR_PER_SEVERITY = 5;
 const MAX_SAMPLE_OSV_PER_SEVERITY = 5;
 const MAX_SAMPLE_SEMGREP_PER_SEVERITY = 5;
 const MAX_SAMPLE_CYCLES_PER_SEVERITY = 5;
+const MAX_SAMPLE_KNIP_PER_SEVERITY = 5;
 
 /**
  * @param {{basalCost?: object, growthDelta?: object, stack?: object, sonarFindings?: object, webperf?: object, osvFindings?: object}} ctx
@@ -35,6 +37,7 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.osvFindings) lines.push(...formatOsvBlock(ctx.osvFindings));
   if (ctx.semgrepFindings) lines.push(...formatSemgrepBlock(ctx.semgrepFindings));
   if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
+  if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
@@ -108,6 +111,34 @@ function formatOsvBlock(osvFindings) {
       }
       if (vulns.length > MAX_SAMPLE_OSV_PER_SEVERITY) {
         lines.push(`    - ... and ${vulns.length - MAX_SAMPLE_OSV_PER_SEVERITY} more in ${severity}`);
+      }
+    }
+  }
+  lines.push("");
+  return lines;
+}
+
+function formatDeadExportsBlock(deadExports) {
+  if (!deadExports.available) {
+    return ["### Dead Code (knip)", `- Status: not available — ${deadExports.reason || "knip not available"}`, ""];
+  }
+  const lines = ["### Dead Code (knip)"];
+  const exportsTotal = (deadExports.exports || []).length;
+  const filesTotal = (deadExports.files || []).length;
+  lines.push(`- Unused exports/types: ${exportsTotal}`);
+  lines.push(`- Unused files: ${filesTotal}`);
+  if (deadExports.suppressedCount) lines.push(`- Suppressed (FP filter): ${deadExports.suppressedCount}`);
+  const allItems = [...(deadExports.exports || []), ...(deadExports.files || [])];
+  if (allItems.length > 0) {
+    const groups = groupDeadExportsBySeverity(allItems);
+    for (const [severity, items] of Object.entries(groups)) {
+      if (items.length === 0) continue;
+      lines.push(`  - ${severity} (${items.length}):`);
+      for (const item of items.slice(0, MAX_SAMPLE_KNIP_PER_SEVERITY)) {
+        lines.push(`    - ${item.path}${item.line ? `:${item.line}` : ""} [${item.rule}]${item.name ? ` \`${item.name}\`` : ""}`);
+      }
+      if (items.length > MAX_SAMPLE_KNIP_PER_SEVERITY) {
+        lines.push(`    - ... and ${items.length - MAX_SAMPLE_KNIP_PER_SEVERITY} more in ${severity}`);
       }
     }
   }
@@ -225,6 +256,7 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.osvFindings?.available && (ctx.osvFindings.total ?? 0) > 0) return true;
   if (ctx.semgrepFindings?.available && (ctx.semgrepFindings.total ?? 0) > 0) return true;
   if (ctx.circularDeps?.available && (ctx.circularDeps.total ?? 0) > 0) return true;
+  if (ctx.deadExports?.available && (ctx.deadExports.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
   return false;
 }

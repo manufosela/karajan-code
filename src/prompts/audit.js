@@ -28,7 +28,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null, semgrepFindings = null, circularDeps = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null, semgrepFindings = null, circularDeps = null, deadExports = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -343,6 +343,24 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     }
     lines.push("");
     lines.push("These SAST findings are GROUND TRUTH — fold ERROR-severity ones into the `security` dimension as critical/high findings. Use the semgrep rule id (e.g. javascript.express.security.audit.xss.direct-response-write) verbatim in the `rule` field; that lets the developer look it up in the semgrep registry.");
+    sections.push(lines.join("\n"));
+  }
+
+  // Knip dead-exports findings — KJC-TSK v2.17. Stack-aware, JS/TS only.
+  // Folds into the `codeQuality` dimension as MINOR for unused exports/types
+  // and MAJOR for unused files (likely real dead code).
+  if (deadExports?.available && deadExports.total > 0) {
+    const lines = ["## Dead Code (knip)"];
+    lines.push(`- Unused exports/types: ${(deadExports.exports || []).length}`);
+    lines.push(`- Unused files: ${(deadExports.files || []).length}`);
+    const allItems = [...(deadExports.exports || []), ...(deadExports.files || [])].slice(0, 40);
+    for (const item of allItems) {
+      const loc = `${item.path}${item.line ? `:${item.line}` : ""}`;
+      const name = item.name ? ` \`${item.name}\`` : "";
+      lines.push(`  - [${item.severity}] ${loc} [${item.rule}]${name}`);
+    }
+    lines.push("");
+    lines.push("These dead-code findings are GROUND TRUTH (deterministic, no LLM guessing). Fold them into the `codeQuality` dimension. Use the knip rule id (`knip:unused-exports`, `knip:unused-types`, `knip:unused-files`) verbatim in the `rule` field. Unused files at MAJOR severity are most likely real dead code; unused exports at MINOR may be public API surface kept for downstream consumers — flag but don't insist on deletion.");
     sections.push(lines.join("\n"));
   }
 

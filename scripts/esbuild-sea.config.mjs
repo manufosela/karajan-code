@@ -162,7 +162,13 @@ export const seaBuildOptions = {
   // in npm-installed Karajan (madge is in node_modules) and degrades
   // gracefully in the SEA binary (the dynamic import fails → audit
   // continues without circular-dep findings).
-  external: ["better-sqlite3", "madge"],
+  // knip (KJC-TSK v2.17): invoked as a subprocess by src/audit/dead-exports.js
+  // via `process.execPath knip-bin --reporter json`. Its native parser
+  // (oxc-parser, oxc-resolver) and CLI machinery must not be bundled. In SEA
+  // builds the createRequire(import.meta.url).resolve("knip/bin/knip.js")
+  // throws → collector returns available:false. npm installs get knip
+  // resolved normally from node_modules.
+  external: ["better-sqlite3", "madge", "knip", "oxc-parser", "oxc-resolver"],
   plugins: [seaTransformPlugin, huBoardStubPlugin],
   logLevel: "info",
 };

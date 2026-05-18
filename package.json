@@ -24,7 +24,7 @@
     "cli"
   ],
   "engines": {
-    "node": ">=20.10.0"
+    "node": ">=20.19.0"
   },
   "imports": {
     "#utils/*": "./src/utils/*",
@@ -70,6 +70,7 @@
     "commander": "^14.0.0",
     "execa": "^9.6.0",
     "js-yaml": "^4.1.0",
+    "knip": "^6.14.1",
     "madge": "^8.0.0",
     "valibot": "^1.3.1"
   },
