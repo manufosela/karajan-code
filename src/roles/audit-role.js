@@ -6,6 +6,7 @@ import { collectSonarFindings } from "../audit/sonar-findings.js";
 import { collectWebPerfInput } from "../audit/webperf-input.js";
 import { collectOsvFindings } from "../audit/osv-findings.js";
 import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
+import { collectCircularDeps } from "../audit/circular-deps.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -47,6 +48,7 @@ export class AuditRole extends AgentRole {
     const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
     const noOsv = typeof input === "object" ? Boolean(input?.noOsv) : false;
     const noSemgrep = typeof input === "object" ? Boolean(input?.noSemgrep) : false;
+    const noMadge = typeof input === "object" ? Boolean(input?.noMadge) : false;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
@@ -55,6 +57,7 @@ export class AuditRole extends AgentRole {
     let webperf = null;
     let osvFindings = null;
     let semgrepFindings = null;
+    let circularDeps = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -86,7 +89,15 @@ export class AuditRole extends AgentRole {
         semgrepFindings = await collectSemgrepFindings(projectDir, this.logger);
       } catch { /* semgrep is best-effort */ }
     }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings };
+    // Madge circular-import deps — KJC-TSK v2.17. Stack-aware: skipped for
+    // non-JS/TS projects. Best-effort: any failure returns available:false
+    // and the audit continues without the section.
+    if (!noMadge) {
+      try {
+        circularDeps = await collectCircularDeps(projectDir, stack, this.config, this.logger);
+      } catch { /* madge is best-effort */ }
+    }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps };
   }
 
   /**
@@ -102,11 +113,11 @@ export class AuditRole extends AgentRole {
     const context = typeof input === "object" ? input?.context || null : null;
     const dimensions = typeof rawDimensions === "string" ? parseDimensions(rawDimensions) : rawDimensions;
 
-    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings } = deterministicCtx;
+    const { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps } = deterministicCtx;
 
     const provider = this.resolveProvider();
     const agent = this.createAgentInstance(provider);
-    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings });
+    const prompt = buildAuditPrompt({ task, instructions: this.instructions, dimensions, context, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps });
     const runArgs = { prompt, role: "audit" };
     if (onOutput) runArgs.onOutput = onOutput;
     const startedAt = Date.now();
@@ -138,6 +149,7 @@ export class AuditRole extends AgentRole {
           webperf: webperf?.available ? webperf : undefined,
           osvFindings: osvFindings?.available ? osvFindings : undefined,
           semgrepFindings: semgrepFindings?.available ? semgrepFindings : undefined,
+          circularDeps: circularDeps?.available ? circularDeps : undefined,
           provider
         },
         summary: buildSummary(parsed),

@@ -12,11 +12,13 @@
 import { groupIssuesBySeverity } from "./sonar-findings.js";
 import { groupVulnerabilitiesBySeverity } from "./osv-findings.js";
 import { groupFindingsBySeverity as groupSemgrepBySeverity } from "./semgrep-findings.js";
+import { groupCyclesBySeverity } from "./circular-deps.js";
 
 const MAX_SAMPLE_DEAD_EXPORTS = 10;
 const MAX_SAMPLE_SONAR_PER_SEVERITY = 5;
 const MAX_SAMPLE_OSV_PER_SEVERITY = 5;
 const MAX_SAMPLE_SEMGREP_PER_SEVERITY = 5;
+const MAX_SAMPLE_CYCLES_PER_SEVERITY = 5;
 
 /**
  * @param {{basalCost?: object, growthDelta?: object, stack?: object, sonarFindings?: object, webperf?: object, osvFindings?: object}} ctx
@@ -32,9 +34,36 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.sonarFindings) lines.push(...formatSonarBlock(ctx.sonarFindings));
   if (ctx.osvFindings) lines.push(...formatOsvBlock(ctx.osvFindings));
   if (ctx.semgrepFindings) lines.push(...formatSemgrepBlock(ctx.semgrepFindings));
+  if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+function formatCircularDepsBlock(circularDeps) {
+  if (!circularDeps.available) {
+    return ["### Circular Dependencies (architecture)", `- Status: not available — ${circularDeps.reason || "madge not available"}`, ""];
+  }
+  const lines = ["### Circular Dependencies (architecture)"];
+  lines.push(`- Total cycles: ${circularDeps.total ?? 0}${circularDeps.suppressedCount ? ` (+${circularDeps.suppressedCount} suppressed)` : ""}`);
+  if ((circularDeps.total ?? 0) > 0) {
+    const groups = groupCyclesBySeverity(circularDeps.cycles || []);
+    for (const [severity, cycles] of Object.entries(groups)) {
+      if (cycles.length === 0) continue;
+      lines.push(`  - ${severity} (${cycles.length}):`);
+      for (const c of cycles.slice(0, MAX_SAMPLE_CYCLES_PER_SEVERITY)) {
+        const head = (c.cycle || [c.path]).slice(0, 3).join(" → ");
+        const more = (c.cycle?.length || 0) > 3 ? ` → … (${c.cycle.length} files)` : "";
+        lines.push(`    - ${head}${more}`);
+      }
+      if (cycles.length > MAX_SAMPLE_CYCLES_PER_SEVERITY) {
+        lines.push(`    - ... and ${cycles.length - MAX_SAMPLE_CYCLES_PER_SEVERITY} more in ${severity}`);
+      }
+    }
+    if (circularDeps.truncated > 0) lines.push(`  - ... ${circularDeps.truncated} more cycles not shown`);
+  }
+  lines.push("");
+  return lines;
 }
 
 function formatSemgrepBlock(semgrepFindings) {
@@ -195,6 +224,7 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.sonarFindings?.qualityGate?.status === "ERROR") return true;
   if (ctx.osvFindings?.available && (ctx.osvFindings.total ?? 0) > 0) return true;
   if (ctx.semgrepFindings?.available && (ctx.semgrepFindings.total ?? 0) > 0) return true;
+  if (ctx.circularDeps?.available && (ctx.circularDeps.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
   return false;
 }
