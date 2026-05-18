@@ -95,9 +95,13 @@ export async function getOpenIssues(config, projectKey = null) {
   // KJC-TSK-0416: pre-filtro de falsos positivos antes de devolver al
   // caller. El coder, audit y scan consumen lo que pasa el filtro;
   // suppressed se devuelve aparte para observabilidad.
-  const extraRules = config?.sonar?.false_positives || [];
-  const { kept, suppressed } = filterFalsePositives(parsedIssues, {
-    extraRules,
+  // v2.17.0: accepts both legacy config.sonar.false_positives (no `tool`
+  // field, implicit "sonar") and the new generalised config.audit.false_positives.
+  const sonarLegacy = (config?.sonar?.false_positives || []).map((r) => ({ tool: "sonar", ...r }));
+  const auditRules = (config?.audit?.false_positives || []).filter((r) => (r.tool || "sonar") === "sonar");
+  const taggedIssues = parsedIssues.map((i) => ({ ...i, tool: "sonar" }));
+  const { kept, suppressed } = filterFalsePositives(taggedIssues, {
+    extraRules: [...sonarLegacy, ...auditRules],
     projectRoot: config?.projectDir,
   });
 
