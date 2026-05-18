@@ -60,7 +60,15 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // `brainCtx.enabled`, and pulling its transitive graph during cold
 // pipeline starts (where the perf gate is off by default) would be
 // wasteful.
-const DYNAMIC_IMPORT_BUDGET = 160;
+//
+// 2026-05-18 (KJC-TSK v2.17 audit/circular-deps): bumped 160 → 161 for
+// the lazy `await import("madge")` in src/audit/circular-deps.js. madge
+// transitively pulls @vue/compiler-sfc which optionally requires ~20
+// template engines that are not installed — the dynamic load keeps
+// `kj audit` working in npm installs and degrades gracefully in the SEA
+// binary (madge is marked external; the import throws there and the
+// collector returns available:false).
+const DYNAMIC_IMPORT_BUDGET = 161;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

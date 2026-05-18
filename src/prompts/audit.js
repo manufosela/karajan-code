@@ -28,7 +28,7 @@ const VALID_SCORES = new Set(["A", "B", "C", "D", "F"]);
 const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
 const VALID_IMPACT = new Set(["high", "medium", "low"]);
 
-export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null, semgrepFindings = null }) {
+export function buildAuditPrompt({ task, instructions, dimensions = null, context = null, basalCost = null, growthDelta = null, stack = null, sonarFindings = null, webperf = null, osvFindings = null, semgrepFindings = null, circularDeps = null }) {
   const sections = [SUBAGENT_PREAMBLE];
 
   if (instructions) {
@@ -343,6 +343,23 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     }
     lines.push("");
     lines.push("These SAST findings are GROUND TRUTH — fold ERROR-severity ones into the `security` dimension as critical/high findings. Use the semgrep rule id (e.g. javascript.express.security.audit.xss.direct-response-write) verbatim in the `rule` field; that lets the developer look it up in the semgrep registry.");
+    sections.push(lines.join("\n"));
+  }
+
+  // Madge circular-import findings — KJC-TSK v2.17. Stack-aware, JS/TS only.
+  if (circularDeps?.available && circularDeps.total > 0) {
+    const lines = ["## Circular Import Cycles"];
+    lines.push(`- Total cycles: ${circularDeps.total}`);
+    const slice = (circularDeps.cycles || []).slice(0, 30);
+    for (const c of slice) {
+      const chain = (c.cycle || []).join(" → ");
+      lines.push(`  - [${c.severity}] ${chain} → ${c.cycle?.[0] || ""}`);
+    }
+    if (circularDeps.cycles?.length > slice.length) {
+      lines.push(`  - ... ${circularDeps.cycles.length - slice.length} more cycles`);
+    }
+    lines.push("");
+    lines.push("These cycles are GROUND TRUTH (deterministic, no LLM guessing). Fold them into the `architecture` dimension. Use `madge:circular-import` as the rule field. MAJOR severity = chain length ≥ 4 files; MINOR = shorter chains. Recommend the standard fix: extract a third module that both ends depend on, or break the cycle with a typeof/inline import.");
     sections.push(lines.join("\n"));
   }
 

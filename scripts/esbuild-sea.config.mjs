@@ -153,7 +153,16 @@ export const seaBuildOptions = {
   // this `external` entry is belt-and-braces — if any other dependency
   // pulls better-sqlite3 in we want a clear "not bundled" error, not a
   // silent half-bundle.
-  external: ["better-sqlite3"],
+  //
+  // madge (KJC-TSK v2.17): pulled in by src/audit/circular-deps.js via a
+  // dynamic import. Madge transitively depends on @vue/compiler-sfc which
+  // optionally requires ~20 template engines (velocityjs, dustjs-linkedin,
+  // twig, …) that are not installed — esbuild fails the bundle if it
+  // tries to walk those. Marking madge external keeps `kj audit` working
+  // in npm-installed Karajan (madge is in node_modules) and degrades
+  // gracefully in the SEA binary (the dynamic import fails → audit
+  // continues without circular-dep findings).
+  external: ["better-sqlite3", "madge"],
   plugins: [seaTransformPlugin, huBoardStubPlugin],
   logLevel: "info",
 };
