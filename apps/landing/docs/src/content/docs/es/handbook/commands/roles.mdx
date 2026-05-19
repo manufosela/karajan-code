@@ -1,0 +1,73 @@
+---
+title: kj roles
+description: Lista los roles del pipeline o imprime las instrucciones-plantilla de un rol — el scaffolding de prompt tras cada rol.
+---
+
+`kj roles` es el **comando de introspección del pipeline en sí**. Lista cada rol que Karajan puede correr, y muestra las instrucciones-plantilla reales que dirigen un rol dado. Donde [`kj agents`](./agents/) responde "qué proveedor respalda este rol", `kj roles` responde "qué *es* este rol, y qué prompt está corriendo".
+
+## Qué hace
+
+`kj roles` (o `kj roles list`) imprime el catálogo de roles del pipeline — el mismo set documentado en [Roles del pipeline](../pipeline-roles/) — para que veas, desde la CLI, qué hay disponible. `kj roles show <role>` imprime las **instrucciones-plantilla** de ese rol: el scaffolding de prompt que Karajan inyecta cuando el rol corre. Es introspección read-only; no cambia nada.
+
+Es cómo respondes "¿por qué el reviewer se comportó así?" o "¿qué se le dice exactamente al rol `solomon`?" sin leer el source. Las plantillas son el contrato entre Karajan y el agente; `kj roles show` hace ese contrato inspeccionable.
+
+## Cuándo usarlo
+
+- **Entender el comportamiento de un rol** — `kj roles show reviewer` para ver la rúbrica real que se le da.
+- **Debug de output inesperado del pipeline** — lee la plantilla del rol que lo produjo.
+- **Auditar qué se le instruye a un agente** — antes de confiar un rol en código sensible.
+- **Descubrir roles disponibles desde el terminal** — `kj roles` como referencia rápida sin salir del shell.
+
+## Cuándo NO usarlo
+
+- **Cambiar el proveedor de un rol** — eso es [`kj agents`](./agents/); `kj roles` es read-only.
+- **Activar/desactivar un rol para un run** — eso es `kj run --enable-X` / `--skip-role`; `kj roles` no afecta qué corre.
+- **Una explicación narrativa con guía de cuándo usar** — eso es la página [Roles del pipeline](../pipeline-roles/). `kj roles show` da la plantilla cruda, no la prosa.
+- **Editar la plantilla** — las plantillas vienen con Karajan; `kj roles` las muestra, no las abre para editar.
+
+## Opciones y subcomandos
+
+| Forma | Efecto |
+| --- | --- |
+| `kj roles` / `kj roles list` | Lista cada rol del pipeline. |
+| `kj roles show <role>` | Imprime las instrucciones-plantilla de ese rol (p.ej. `kj roles show coder`). |
+
+`kj roles` no toma flags — es introspección pura sobre las plantillas de rol que vienen incluidas.
+
+## Ejemplos
+
+### Listar los roles desde el terminal
+
+```bash
+kj roles
+```
+
+Qué pasa: imprime el catálogo de roles — un índice rápido en el shell cuando no quieres abrir el handbook.
+
+### Inspeccionar qué se le dice al reviewer
+
+```bash
+kj roles show reviewer
+```
+
+Qué pasa: imprime la plantilla del reviewer — la rúbrica exacta (corrección, estructural-vs-estilo, formato de veredicto) que dirige cada `kj review` y el paso de review de `kj run`.
+
+### Auditar el árbitro antes de confiar en él
+
+```bash
+kj roles show solomon
+```
+
+Qué pasa: muestra precisamente qué se le instruye a Solomon que pese al arbitrar disputas coder-vs-reviewer — útil antes de depender de él para código de producción.
+
+## Cómo funciona por dentro
+
+`kj roles show` existe porque **las plantillas de rol son la fuente de verdad real del comportamiento, y los contratos ocultos son contratos no auditables**. El output de Karajan es función de estos prompts; si no puedes verlos, "¿por qué hizo eso?" es irrespondible y la confianza es ciega. Exponer las plantillas verbatim es una elección deliberada de transparencia — la misma filosofía que [`kj review`](./review/) exponiendo su clasificación estructural/estilo en vez de colapsar a un veredicto: no hagas al usuario re-derivar lo que el sistema ya codifica.
+
+El split entre `kj roles show` (plantilla cruda) y la página [Roles del pipeline](../pipeline-roles/) (narrativa) es intencional. La plantilla es el *contrato*; la página del handbook es la *explicación*. Sirven necesidades distintas — debuggear output inesperado quiere las palabras exactas que el agente recibió, mientras decidir si activar un rol quiere el razonamiento y los trade-offs. Fusionarlas daría a los debuggers prosa que tienen que reverse-engineerear y a los aprendices un prompt crudo sin contexto.
+
+## Relacionado
+
+- [Roles del pipeline](../pipeline-roles/) — el compañero narrativo: qué hace cada rol, cuándo aporta, cuándo es overhead.
+- [`kj agents`](./agents/) — fija qué proveedor respalda un rol (`kj roles` muestra qué es, `kj agents` fija quién lo corre).
+- [`kj run`](./run/) — `--enable-X` / `--skip-role` controlan cuáles de estos roles corren realmente.

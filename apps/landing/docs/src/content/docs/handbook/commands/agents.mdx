@@ -1,0 +1,78 @@
+---
+title: kj agents
+description: List or change which AI provider backs each pipeline role — coder, reviewer, planner, and the rest.
+---
+
+`kj agents` is the **role → provider map**. Every pipeline role (coder, reviewer, planner, …) is backed by some AI provider (Claude, Codex, Gemini, Aider, OpenCode); this command shows that mapping and changes it without re-running the `kj init` wizard.
+
+## What it does
+
+`kj agents` reads the role-to-provider assignments from your config and either lists them (`kj agents` / `kj agents list`) or sets one (`kj agents set <role> <provider>`). It operates on the same `karajan.config.yml` that [`kj init`](./init/) writes — but where `init` is a full interactive wizard, `kj agents set` is a single targeted edit. From the CLI the change is persisted globally (`--global` is the CLI default), so it sticks across runs.
+
+This is the "I want Gemini reviewing instead of Codex from now on" command. It changes the *default* binding; a one-off override for a single run is still `kj run --reviewer gemini`, which doesn't touch the config.
+
+## When to use
+
+- **Switching a role's provider permanently** — `kj agents set reviewer gemini`.
+- **Inspecting the current map** — `kj agents` before a run to confirm who's backing what.
+- **After installing a new agent CLI** — point a role at it without the full `kj init` wizard.
+- **Cost/quality tuning** — move the coder to a cheaper provider, keep the reviewer on a strong one.
+
+## When NOT to use
+
+- **One-run-only change** — use `kj run --coder <name>` / `--reviewer <name>`; `kj agents set` is permanent.
+- **First-time setup** — [`kj init`](./init/) detects what's installed and walks every role; `kj agents` assumes you already know the provider name.
+- **Enabling/disabling a role** — that's pipeline toggles (`--enable-X` / config), not provider mapping. `kj agents` only answers "which provider", not "does this role run".
+- **Reading what a role *does*** — that's [`kj roles`](./roles/), not `kj agents`.
+
+## Options & subcommands
+
+| Form | Effect |
+| --- | --- |
+| `kj agents` / `kj agents list` | Print every role and its assigned provider. |
+| `kj agents set <role> <provider>` | Reassign one role: `kj agents set coder claude`. |
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--global` | on (CLI default) | Persist the change to `kj.config.yml`. It's already the default from the CLI; the flag is explicit for clarity in scripts. |
+
+## Examples
+
+### Inspect the current map
+
+```bash
+kj agents
+```
+
+What happens: prints the role→provider table (e.g. `coder → claude`, `reviewer → codex`, `planner → claude`). The fastest way to answer "who reviews here?".
+
+### Permanently switch the reviewer
+
+```bash
+kj agents set reviewer gemini
+```
+
+What happens: `karajan.config.yml` is updated; every subsequent `kj run` uses Gemini for review until you change it again. No wizard, no other roles touched.
+
+### Cost tuning
+
+```bash
+kj agents set coder codex
+kj agents set reviewer claude
+```
+
+What happens: coding moves to one provider, review to another — a deliberate cross-provider pair set as the persistent default.
+
+## How it works internally
+
+`kj agents` exists because **the role/provider binding is a frequently-tuned dial that shouldn't require the setup wizard**. `kj init` is correct for "I have no config"; it's overkill for "change one mapping". Splitting the targeted edit out keeps the common adjustment a one-liner and keeps the config the single source of truth — `kj agents set` is just a typed, validated write to the same file you could hand-edit.
+
+The deliberate separation from per-run flags encodes a distinction the rest of Karajan relies on: `--coder` on `kj run` is *ephemeral intent* ("just this once"), `kj agents set` is *standing policy* ("this is the default now"). Collapsing them would make every experiment accidentally permanent. Keeping `kj agents` (the provider behind a role) distinct from [`kj roles`](./roles/) (what the role is) and from pipeline toggles (whether it runs) reflects three genuinely independent axes — conflating any two makes the config harder to reason about, not easier.
+
+## Related
+
+- [`kj roles`](./roles/) — what each role *is*; `kj agents` only sets *who* backs it.
+- [`kj init`](./init/) — the wizard that establishes the initial mapping.
+- [`kj config`](./maintenance/#kj-config) — view/edit the underlying `karajan.config.yml` directly.
+- [`kj run`](./run/) — `--coder` / `--reviewer` for one-off overrides that don't persist.
+- [Pipeline roles](../pipeline-roles/) — the full catalogue of roles you can reassign.
