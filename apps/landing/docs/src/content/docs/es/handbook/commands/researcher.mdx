@@ -1,0 +1,80 @@
+---
+title: kj researcher
+description: Explora el codebase para una task — ficheros afectados, patrones existentes, constraints, decisiones previas — sin escribir código.
+---
+
+`kj researcher` hace la **pasada de grep-y-lectura** por ti: dada una task, explora el codebase y reporta qué ficheros se ven afectados, qué patrones ya existen, qué constraints y decisiones previas aplican, y dónde están los riesgos. No escribe nada — produce el contexto que el coder (o tú) deberíais tener antes de tocar nada.
+
+## Qué hace
+
+`kj researcher` toma una task e investiga el codebase existente contra ella: los ficheros y módulos que el cambio tocará, las convenciones y patrones ya en uso que el cambio debería seguir, decisiones previas relevantes (ADRs, comentarios, estructura), y las áreas de riesgo. El output es un brief de research estructurado, no código y no un diseño — puramente "esto es lo que es verdad sobre este codebase relevante para esta task".
+
+Es el paso `--enable-researcher` de `kj run`, standalone. Su output está diseñado para alimentarse adelante: a [`kj architect`](./architect/) vía `--context`, a `kj plan` como contexto, o solo leído por ti antes de un cambio manual. Dentro del pipeline, hacer esto una vez pre-loop significa que el coder se beneficia en cada iteración en vez de redescubrir el codebase cada vez.
+
+## Cuándo usarlo
+
+- **Tasks decision-heavy en un área desconocida** — `kj researcher "añade caching al API de reportes"` (¿qué hay ya? ¿qué flavour encaja?).
+- **Antes de arquitecturar** — research → `--context` → [`kj architect`](./architect/).
+- **Codebases grandes** — cuando la task toca código que no tienes en la cabeza y el coder si no adivinaría.
+- **Onboarding a un cambio** — genera el brief, léelo, luego implementa con confianza.
+- **Reducir churn de iteración** — adelanta la exploración para que un `kj run` posterior converja más rápido.
+
+## Cuándo NO usarlo
+
+- **Tasks pequeñas/localizadas** — si ya sabes los dos ficheros involucrados, research es latencia. Ve directo a [`kj code`](./code/) / [`kj run`](./run/).
+- **Vas a correr el pipeline completo igualmente** — usa `kj run --enable-researcher`; standalone solo ayuda si quieres el brief como artefacto o para alimentar architect.
+- **Greenfield / repo vacío** — nada que investigar. [`kj architect`](./architect/) o [`kj plan`](./plan/) directo.
+- **Necesitas un diseño o un tamaño** — eso es [`kj architect`](./architect/) / [`kj triage`](./triage/); researcher reporta hechos, no decisiones.
+
+## Opciones
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | La task a investigar. Requerida salvo `--task-file`. | — |
+| `--task-file <path>` | none | Task larga / fichero spec. | Sobrescribe el `[task]` inline. |
+| `--researcher <name>` | config | Override del agente researcher. | — |
+| `--researcher-model <name>` | tier-driven | Pinea el modelo. | — |
+
+`kj researcher` no tiene `--json` propio en la superficie CLI — su brief se consume como contexto de texto downstream (p.ej. `--context "$(kj researcher ... )"`).
+
+## Ejemplos
+
+### Típico: explorar antes de cambiar
+
+```bash
+kj researcher "Añade rate limiting al API público"
+```
+
+Qué pasa: devuelve el stack de middleware, dónde encajarían los límites, patrones similares existentes, y los riesgos (estado compartido, tests). Implementas contra la realidad.
+
+### Alimentar architect
+
+```bash
+kj researcher "Añade rate limiting al API público" > research.txt
+kj architect "Añade rate limiting al API público" --context "$(cat research.txt)"
+```
+
+Qué pasa: el architect diseña contra la estructura real de middleware que researcher encontró, no asunciones.
+
+### Adelantar antes de un run convergente
+
+```bash
+kj researcher --task-file specs/big-refactor.md
+# léelo, verifica el scope, luego:
+kj run --task-file specs/big-refactor.md --enable-researcher
+```
+
+Qué pasa: validas el framing del research primero; el run luego converge con ese contexto horneado desde la iteración uno.
+
+## Cómo funciona por dentro
+
+El researcher existe por un modo de fallo específico: un agente al que se le dice "implementa X" en un codebase no trivial **inventará** el contexto circundante que no se molestó en leer — imports plausibles que no existen, patrones que el proyecto no usa. Separar "averigua qué es verdad" de "escribe el cambio" fuerza a que el descubrimiento ocurra de verdad y sea inspeccionable. Dentro de `kj run` la razón más profunda es amortización: research es caro y la respuesta no cambia entre iteraciones, así que hacerlo una vez pre-loop y reusarlo cada iteración es estrictamente mejor que dejar a cada iteración re-explorar (la racional de diseño detallada en los internals de [`kj run`](./run/)).
+
+Researcher y architect se mantienen separados a propósito — hechos versus decisiones. Un rol combinado difumina "el código actualmente hace X" con "deberíamos hacer Y", y cuando esos se mezclan, hechos erróneos se lavan en diseños confiados. El pipe `--context` entre ellos es la costura visible de esa separación; standalone, los compones a mano y ves exactamente el límite que el pipeline automatiza.
+
+## Relacionado
+
+- [`kj architect`](./architect/) — consume output de researcher vía `--context` para diseñar contra la realidad.
+- [`kj run`](./run/) — `--enable-researcher` corre esto una vez pre-loop; ver sus internals para la racional de amortización.
+- [`kj discover`](./discover/) — researcher explora el *código*; discover interroga la *task*.
+- [Roles del pipeline → `researcher`](../pipeline-roles/#researcher) — el rol que este comando corre standalone.

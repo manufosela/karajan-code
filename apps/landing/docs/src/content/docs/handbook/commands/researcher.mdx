@@ -1,0 +1,80 @@
+---
+title: kj researcher
+description: Explore the codebase for a task — affected files, existing patterns, constraints, prior decisions — without writing code.
+---
+
+`kj researcher` does the **grep-and-read pass** for you: given a task, it explores the codebase and reports which files are affected, what patterns already exist, what constraints and prior decisions apply, and where the risks are. It writes nothing — it produces the context the coder (or you) should have before touching anything.
+
+## What it does
+
+`kj researcher` takes a task and investigates the existing codebase against it: the files and modules the change will touch, the conventions and patterns already in use that the change should follow, relevant prior decisions (ADRs, comments, structure), and the risk areas. The output is a structured research brief, not code and not a design — purely "here is what is true about this codebase relevant to this task".
+
+It's the `--enable-researcher` step of `kj run`, standalone. Its output is designed to be fed forward: into [`kj architect`](./architect/) via `--context`, into `kj plan` as context, or just read by you before a manual change. Inside the pipeline, doing this once pre-loop means the coder benefits from it in every iteration instead of re-discovering the codebase each time.
+
+## When to use
+
+- **Decision-heavy tasks in an unfamiliar area** — `kj researcher "add caching to the report API"` (what's already there? what flavour fits?).
+- **Before architecting** — research → `--context` → [`kj architect`](./architect/).
+- **Large codebases** — when the task touches code you don't have in your head and the coder would otherwise guess.
+- **Onboarding to a change** — generate the brief, read it, then implement confidently.
+- **Reducing iteration churn** — front-load the exploration so a later `kj run` converges faster.
+
+## When NOT to use
+
+- **Small/localised tasks** — if you already know the two files involved, research is latency. Go straight to [`kj code`](./code/) / [`kj run`](./run/).
+- **You'll run the full pipeline anyway** — use `kj run --enable-researcher`; standalone only helps if you want the brief as an artifact or to feed architect.
+- **Greenfield / empty repo** — nothing to research. [`kj architect`](./architect/) or [`kj plan`](./plan/) directly.
+- **You need a design or a size** — that's [`kj architect`](./architect/) / [`kj triage`](./triage/); researcher reports facts, not decisions.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | The task to research. Required unless `--task-file`. | — |
+| `--task-file <path>` | none | Long task / spec file. | Supersedes the inline `[task]`. |
+| `--researcher <name>` | config | Override the researcher agent. | — |
+| `--researcher-model <name>` | tier-driven | Pin the model. | — |
+
+`kj researcher` has no `--json` of its own in the CLI surface — its brief is consumed as text context downstream (e.g. `--context "$(kj researcher ... )"`).
+
+## Examples
+
+### Typical: explore before changing
+
+```bash
+kj researcher "Add rate limiting to the public API"
+```
+
+What happens: returns the middleware stack, where limits would slot in, existing similar patterns, and the risks (shared state, tests). You implement against reality.
+
+### Feed architect
+
+```bash
+kj researcher "Add rate limiting to the public API" > research.txt
+kj architect "Add rate limiting to the public API" --context "$(cat research.txt)"
+```
+
+What happens: the architect designs against the actual middleware structure researcher found, not assumptions.
+
+### Front-load before a converging run
+
+```bash
+kj researcher --task-file specs/big-refactor.md
+# read it, sanity-check scope, then:
+kj run --task-file specs/big-refactor.md --enable-researcher
+```
+
+What happens: you validate the research framing first; the run then converges with that context baked in from iteration one.
+
+## How it works internally
+
+The researcher exists because of a specific failure mode: an agent told to "implement X" in a non-trivial codebase will **invent** the surrounding context it didn't bother to read — plausible imports that don't exist, patterns the project doesn't use. Separating "find out what's true" from "write the change" forces the discovery to actually happen and be inspectable. Inside `kj run` the deeper reason is amortisation: research is expensive and the answer doesn't change between iterations, so doing it once pre-loop and reusing it every iteration is strictly better than letting each iteration re-explore (the design rationale spelled out in [`kj run`](./run/)'s internals).
+
+Researcher and architect are kept separate on purpose — facts versus decisions. A combined role blurs "the code currently does X" with "we should do Y", and when those mix, wrong facts get laundered into confident designs. The `--context` pipe between them is the visible seam of that separation; standalone, you compose them by hand and see exactly the boundary the pipeline automates.
+
+## Related
+
+- [`kj architect`](./architect/) — consumes researcher output via `--context` to design against reality.
+- [`kj run`](./run/) — `--enable-researcher` runs this once pre-loop; see its internals for the amortisation rationale.
+- [`kj discover`](./discover/) — researcher explores the *code*; discover interrogates the *task*.
+- [Pipeline roles → `researcher`](../pipeline-roles/#researcher) — the role this command runs standalone.

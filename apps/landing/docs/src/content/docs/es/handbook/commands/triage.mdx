@@ -1,0 +1,77 @@
+---
+title: kj triage
+description: Clasifica la complejidad de una task y obtén los roles del pipeline recomendados — la decisión que kj run toma internamente, expuesta standalone.
+---
+
+`kj triage` responde "¿cómo de grande es esta task, y qué roles deberían correr para ella?" sin correr nada. Es la clasificación que `kj run` hace internamente para decidir qué activar — expuesta para que veas (y verifiques) la decisión antes de comprometerte a un run.
+
+## Qué hace
+
+`kj triage` toma una descripción de task y devuelve una **clasificación de complejidad** (trivial / simple / medium / complex), el **tipo de task** inferido (sw / infra / doc / add-tests / refactor), y un **set recomendado de roles del pipeline** para activar — más, para tasks grandes, una descomposición sugerida. Es una sola llamada LLM rápida; no escribe nada y no corre coder.
+
+Es la misma lógica que `kj run` usa cuando `--enable-triage` está on (o `--auto-simplify` está colapsando el pipeline para una task trivial). Correrlo standalone te deja previsualizar "¿pensaría Karajan que esto es un one-liner o una épica de seis HUs?" y decidir si planear, simplificar, o solo correr.
+
+Output legible por humanos por defecto, `--json` para tooling.
+
+## Cuándo usarlo
+
+- **Dimensionar antes de comprometerte** — `kj triage "<task>"` para decidir plan-primero vs correr-directo.
+- **Verificar el auto-simplify** — confirmar que Karajan no degradará una task que consideras arriesgada.
+- **Routing en CI** — `--json` para ramificar un pipeline: trivial → `kj code`, complex → `kj plan` + `kj run`.
+- **Estimar coste de roles** — ver qué roles arrastraría una task antes de pagarlos.
+
+## Cuándo NO usarlo
+
+- **Vas a correrla igualmente** — `kj run` triagea internamente; una llamada separada es latencia redundante salvo que necesites la decisión *antes* de correr.
+- **La task es obviamente trivial u obviamente enorme** — no necesitas un clasificador para saber que un typo es trivial.
+- **Quieres análisis de gaps, no dimensionado** — eso es [`kj discover`](./discover/); triage dimensiona, discover encuentra qué falta.
+
+## Opciones
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | La task a clasificar. Requerida salvo `--task-file`. | — |
+| `--task-file <path>` | none | Task larga / fichero spec. | Sobrescribe el `[task]` inline. |
+| `--triage <name>` | config | Override del agente triage. | — |
+| `--triage-model <name>` | tier-driven | Pinea el modelo triage — normalmente uno barato/rápido vale. | — |
+| `--json` | off | Routing en CI / tooling. | — |
+
+## Ejemplos
+
+### Típico: dimensionar una task
+
+```bash
+kj triage "Añade export CSV a la página de reportes"
+```
+
+Qué pasa: devuelve p.ej. `simple`, tipo `sw`, roles recomendados `coder, reviewer, sonar` — diciéndote que esto no necesita planner/architect. Córrelo directo.
+
+### Routing en CI
+
+```bash
+level=$(kj triage --task-file task.md --json | jq -r .level)
+[ "$level" = complex ] && kj plan --task-file task.md || kj run --task-file task.md
+```
+
+Qué pasa: el pipeline planea tasks complejas y corre directo las simples, dirigido por la clasificación.
+
+### Verificar antes de un run paranoid
+
+```bash
+kj triage "Migra auth a JWT con rotación de refresh"
+```
+
+Qué pasa: probablemente `complex`, recomienda planner + security + tester — confirmando que un run `--mode paranoid` está justificado, no es exceso.
+
+## Cómo funciona por dentro
+
+`kj triage` es el cerebro de routing de `kj run` hecho inspeccionable. La razón de diseño por la que existe standalone: la forma del pipeline es una *decisión*, y las decisiones que la herramienta toma invisiblemente son decisiones que los usuarios no pueden confiar ni sobrescribir inteligentemente. Exponiendo el clasificador, "¿por qué Karajan saltó el reviewer en esa task?" se vuelve respondible antes del run, no arqueología después. Es intencionalmente una llamada barata — el trabajo de triage es ser un ahorra-costes rápido (no correr seis roles en un typo), así que un triage que fuera él mismo caro derrotaría su propósito.
+
+La clasificación alimenta dos comportamientos de `kj run` que parecen opuestos pero comparten este motor: `--auto-simplify` usa un veredicto de *baja* complejidad para quitar roles, y `--mode paranoid` / `--enable-*` usan uno *alto* para justificar añadirlos. Ambos son la misma pregunta — "¿qué necesita realmente esta task?" — que es por qué triage devuelve roles recomendados, no solo una etiqueta de tamaño: el tamaño solo no te dice qué hacer, la recomendación de roles sí.
+
+## Relacionado
+
+- [`kj run`](./run/) — `--enable-triage` corre esto dentro del pipeline; `--auto-simplify` actúa sobre su veredicto.
+- [`kj discover`](./discover/) — complementario: encuentra gaps/ambigüedades en vez de dimensionar.
+- [`kj plan`](./plan/) — lo que triage recomienda para tasks complejas.
+- [Roles del pipeline → `triage`](../pipeline-roles/#triage) — el rol que este comando corre standalone.

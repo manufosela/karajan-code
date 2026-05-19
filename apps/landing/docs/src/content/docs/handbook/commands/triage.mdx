@@ -1,0 +1,77 @@
+---
+title: kj triage
+description: Classify a task's complexity and get the recommended pipeline roles — the decision kj run makes internally, exposed standalone.
+---
+
+`kj triage` answers "how big is this task, and which roles should run for it?" without running anything. It's the classification `kj run` performs internally to decide what to enable — surfaced so you can see (and sanity-check) the decision before committing to a run.
+
+## What it does
+
+`kj triage` takes a task description and returns a **complexity classification** (trivial / simple / medium / complex), the inferred **task type** (sw / infra / doc / add-tests / refactor), and a **recommended set of pipeline roles** to activate for it — plus, for larger tasks, a suggested decomposition. It's a single fast LLM call; it writes nothing and runs no coder.
+
+This is the same logic `kj run` uses when `--enable-triage` is on (or `--auto-simplify` is collapsing the pipeline for a trivial task). Running it standalone lets you preview "would Karajan think this is a one-liner or a six-HU epic?" and decide whether to plan, simplify, or just run.
+
+Output is human-readable by default, `--json` for tooling.
+
+## When to use
+
+- **Sizing before committing** — `kj triage "<task>"` to decide plan-first vs run-directly.
+- **Sanity-checking auto-simplify** — confirm Karajan won't downgrade a task you consider risky.
+- **CI routing** — `--json` to branch a pipeline: trivial → `kj code`, complex → `kj plan` + `kj run`.
+- **Estimating role cost** — see which roles a task would pull in before paying for them.
+
+## When NOT to use
+
+- **You're going to run it anyway** — `kj run` triages internally; a separate call is redundant latency unless you need the decision *before* running.
+- **The task is obviously trivial or obviously huge** — you don't need a classifier to tell you a typo is trivial.
+- **You want gap analysis, not sizing** — that's [`kj discover`](./discover/); triage sizes, discover finds what's missing.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | The task to classify. Required unless `--task-file`. | — |
+| `--task-file <path>` | none | Long task / spec file. | Supersedes the inline `[task]`. |
+| `--triage <name>` | config | Override the triage agent. | — |
+| `--triage-model <name>` | tier-driven | Pin the triage model — usually a cheap/fast one is fine. | — |
+| `--json` | off | CI routing / tooling. | — |
+
+## Examples
+
+### Typical: size a task
+
+```bash
+kj triage "Add CSV export to the reports page"
+```
+
+What happens: returns e.g. `simple`, type `sw`, recommended roles `coder, reviewer, sonar` — telling you this doesn't need planner/architect. Run it directly.
+
+### CI routing
+
+```bash
+level=$(kj triage --task-file task.md --json | jq -r .level)
+[ "$level" = complex ] && kj plan --task-file task.md || kj run --task-file task.md
+```
+
+What happens: the pipeline plans complex tasks and runs simple ones directly, driven by the classification.
+
+### Sanity-check before a paranoid run
+
+```bash
+kj triage "Migrate auth to JWT with refresh rotation"
+```
+
+What happens: likely `complex`, recommends planner + security + tester — confirming a `--mode paranoid` run is warranted, not overkill.
+
+## How it works internally
+
+`kj triage` is the routing brain of `kj run` made inspectable. The design reason it exists standalone: pipeline shape is a *decision*, and decisions the tool makes invisibly are decisions users can't trust or override intelligently. By exposing the classifier, "why did Karajan skip the reviewer on that task?" becomes answerable before the run, not archaeology after it. It's intentionally one cheap call — triage's job is to be a fast cost-saver (don't run six roles on a typo), so a triage that was itself expensive would defeat its purpose.
+
+The classification feeds two `kj run` behaviours that look opposite but share this engine: `--auto-simplify` uses a *low* complexity verdict to strip roles out, and `--mode paranoid` / `--enable-*` use a *high* one to justify adding them. Both are the same question — "what does this task actually need?" — which is why triage returns recommended roles, not just a size label: the size alone doesn't tell you what to do, the role recommendation does.
+
+## Related
+
+- [`kj run`](./run/) — `--enable-triage` runs this inside the pipeline; `--auto-simplify` acts on its verdict.
+- [`kj discover`](./discover/) — complementary: finds gaps/ambiguities rather than sizing.
+- [`kj plan`](./plan/) — what triage recommends for complex tasks.
+- [Pipeline roles → `triage`](../pipeline-roles/#triage) — the role this command runs standalone.
