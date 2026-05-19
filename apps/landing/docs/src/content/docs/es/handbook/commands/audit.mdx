@@ -1,0 +1,99 @@
+---
+title: kj audit
+description: Reporte read-only de salud del codebase en seis dimensiones — colectores deterministas primero, análisis LLM opcional después, cero cambios de código.
+---
+
+`kj audit` es la mitad **read-only** de Karajan. Nunca toca un fichero. Responde "¿qué salud tiene este codebase y qué arreglo primero?" — y está deliberadamente estructurado para que la verdad barata y determinista venga antes del juicio caro guiado por LLM.
+
+## Qué hace
+
+`kj audit` corre en **dos fases**. La fase uno es determinista y gratis: un set de colectores reúne hechos duros — basal cost (LOC, conteo de ficheros, conteo de dependencias, deps no usadas, dead exports), findings de SonarQube si hay servidor alcanzable, CVEs de OSV-Scanner si está instalado, findings SAST de Semgrep si está instalado, detección de stack, growth-delta contra el último audit, y cualquier resultado Lighthouse persistido. Se imprimen y opcionalmente se escriben a un report file con **cero tokens gastados**.
+
+La fase dos es el análisis LLM. Los findings deterministas se meten como contexto en un sub-agente auditor que evalúa el codebase en **seis dimensiones** — security, code quality, performance, architecture, testing, accessibility — y produce un reporte con score (A–F por dimensión, salud global, recomendaciones rankeadas con impacto/esfuerzo). En TTY se te pregunta "Continue with LLM analysis?" entre las dos fases para que puedas parar tras la parte gratis; en CI / no-TTY auto-continúa.
+
+La detección de stack moldea el análisis: un proyecto backend-only descarta automáticamente la dimensión `accessibility` y le dice al auditor que salte heurísticas de frontend (bundle size, lazy loading); un proyecto frontend-only recibe el inverso. Puedes sobrescribir el set de dimensiones explícitamente con `--dimensions`, y una elección explícita se honra verbatim incluso contra el stack detectado.
+
+El output es un reporte de salud en markdown (o `--json`): scores y findings por dimensión (file:line, severidad, regla, recomendación), una lista rankeada "Top Recommendations", y un bloque final de uso/coste LLM. `kj audit` no cambia nada — es input para tus decisiones, no un actor sobre el código.
+
+## Cuándo usarlo
+
+- **Heredar u onboarding de un codebase** — `kj audit` te da el panorama y los peores incendios en una pasada.
+- **Antes de un refactor grande** — `kj audit --report-file before.md`, refactorizas, vuelves a auditar, diff del growth-delta.
+- **Quality gate de CI (barato)** — `kj audit --deterministic-only --json` en un paso de pipeline: dead exports, deps no usadas, CVEs, Sonar — sin LLM, sin coste, rápido.
+- **Spot-check de seguridad** — `kj audit --dimensions security` tras tocar auth o boundaries de input.
+- **AI-agent readiness** — `kj audit --agent-readiness` puntúa el repo para legibilidad LLM (llms.txt, cobertura SKILL.md, presupuesto de tokens por página, jerarquía de headings). Sin LLM.
+
+## Cuándo NO usarlo
+
+- **Quieres el código arreglado, no solo diagnosticado** — `kj audit` es read-only por diseño. Mete sus findings en [`kj run`](./run/) (`kj run "arregla los findings críticos del audit"`).
+- **Solo te importa Sonar** — usa [`kj scan`](./scan/); es el camino SonarQube focalizado sin las dimensiones LLM.
+- **Perf de frontend en concreto** — [`kj webperf <url>`](./webperf/) corre Lighthouse directo; `kj audit` solo *lee* un resultado webperf persistido, no lanza navegador.
+- **Review de diff por PR** — eso es [`kj review`](./review/). `kj audit` evalúa el codebase entero, no un changeset.
+
+## Opciones
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `[task]` (arg) | "Analyze the full codebase" | Focaliza el audit: `kj audit "revisa el módulo de pagos por seguridad"`. | — |
+| `--task-file <path>` | none | El foco del audit vive en un `.md`. | Sobrescribe el `[task]` inline. |
+| `--dimensions <list>` | `all` | Estrecha scope: `--dimensions security,testing`. Válidas: `security,quality,performance,architecture,testing,accessibility`. | Una lista explícita sobrescribe el auto-drop por stack (fuerza `accessibility` en proyecto backend). |
+| `--json` | off | Consumo programático / dashboards CI. | Combina con `--report-file` y `--deterministic-only`. |
+| `--deterministic-only` | off | Gate CI cero-tokens: solo colectores, sin LLM. | Compatible con `--report-file` / `--json`. Hace `-y` irrelevante. |
+| `--agent-readiness` | off | Puntúa legibilidad AI-agent en vez de salud. Sin LLM; usa `--path` o cwd. | Independiente de las seis dimensiones. |
+| `--path <dir>` | cwd | Directorio objetivo para `--agent-readiness`. | Solo significativo con `--agent-readiness`. |
+| `--no-sonar` | sonar on | Salta el colector SonarQube (más rápido, menos contexto). | Auto-saltado igualmente cuando SonarQube es inalcanzable. |
+| `--no-osv` | osv on | Salta el colector de CVEs OSV-Scanner. | Auto-saltado cuando `osv-scanner` no está instalado. |
+| `--no-semgrep` | semgrep on | Salta el colector SAST Semgrep. | Auto-saltado cuando `semgrep` no está instalado. |
+| `--report-file <path>` | none | Persiste el reporte. La extensión decide formato (`.md` / `.json`); un directorio crea `audit-<ISO>.<ext>`. `$KJ_AUDIT_REPORT_DIR` es el dir por defecto si no se da. | Funciona con `--deterministic-only` y `--json`. |
+| `-y, --yes` | off | Auto-confirma "Continue with LLM analysis?" no-interactivamente. | Sin efecto con `--deterministic-only` (no hay prompt) ni en CI/no-TTY (ya auto-confirma). |
+
+## Ejemplos
+
+### Típico: reporte de salud completo
+
+```bash
+kj audit
+```
+
+Qué pasa: los colectores corren e imprimen findings deterministas (LOC, dead exports, CVEs, Sonar). Se te pregunta "Continue with LLM analysis? [y/N]". En `y`, el auditor puntúa las seis dimensiones e imprime las recomendaciones rankeadas + coste de tokens. Nada se modifica.
+
+### Gate CI, cero tokens
+
+```bash
+kj audit --deterministic-only --json --report-file audit.json
+```
+
+Qué pasa: solo corre la fase determinista — sin prompt, sin LLM, sin coste. `audit.json` contiene basal cost, findings Sonar, CVEs OSV, growth-delta. Un paso de CI downstream puede fallar el build por, por ejemplo, un CVE crítico nuevo.
+
+### Audit de seguridad focalizado, no-interactivo
+
+```bash
+kj audit "audita src/auth y src/api por injection y gaps de authz" \
+         --dimensions security --yes --report-file ./reports/
+```
+
+Qué pasa: el scope se estrecha a security, el auditor se enfoca en las rutas nombradas, `--yes` salta el prompt de continuar, y el reporte aterriza como `./reports/audit-<ISO>.md`.
+
+### AI-agent readiness de un repo de docs
+
+```bash
+kj audit --agent-readiness --path ../my-docs-site
+```
+
+Qué pasa: puntuación sin LLM de presencia de llms.txt, cobertura SKILL.md, presupuesto de tokens por página, robots allowlist y jerarquía de headings del directorio objetivo. Útil antes de publicar docs que consumirá un LLM.
+
+## Cómo funciona por dentro
+
+El **ordenamiento determinista-primero es la decisión de diseño central**. La mayoría de herramientas "AI code review" lideran con el LLM y atornillan linters como añadido; `kj audit` invierte eso. Los colectores (basal cost, Sonar, OSV, Semgrep, stack, growth-delta, webperf) son baratos, exactos y reproducibles — van primero, tanto porque son gratis como porque su output hace más afilada la pasada LLM *posterior*: el auditor razona sobre dead exports reales y CVEs reales en vez de adivinar. El prompt de confirmación TTY entre fases existe para que la fase gratis sea genuinamente usable sola — muchos días solo necesitas la parte determinista.
+
+La detección de stack alimentando el prompt es un mecanismo de precisión, no un checkbox de feature. Un auditor que marca "falta paginación en list endpoints" en un sitio Astro estático, o "bundle demasiado grande" en una API Express, genera ruido que erosiona la confianza en el reporte entero. Diciéndole al sub-agente el tier del proyecto por adelantado, las familias de falsos positivos se suprimen en origen. La regla de override — `--dimensions` explícito gana sobre el auto-drop — codifica el principio de que la herramienta por defecto va segura (nunca un falso negativo por auto-drop) pero nunca discute con una instrucción humana explícita.
+
+Los caminos CLI y MCP comparten una implementación `auditCommand`, así que `kj audit` desde terminal y la herramienta MCP `kj_audit` producen reportes idénticos — una paridad testeada explícitamente, porque una divergencia ahí significaría dos "verdades" distintas según cómo invocaste el audit.
+
+## Relacionado
+
+- [Dimensiones del audit](../audit-dimensions/) — las seis dimensiones a fondo: qué cuenta como finding en cada una, y por qué.
+- [Herramientas externas](../external-tools/) — Sonar, OSV-Scanner, Semgrep, Lighthouse: los colectores que `kj audit` orquesta y qué hacer cuando faltan.
+- [`kj scan`](./scan/) — camino focalizado solo-SonarQube.
+- [`kj webperf`](./webperf/) — produce el resultado Lighthouse que `kj audit` lee.
+- [Roles del pipeline → `audit (post-run)`](../pipeline-roles/#audit-post-run) — el mismo auditor como rol post-loop opcional dentro de `kj run`.
