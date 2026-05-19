@@ -75,6 +75,12 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Handbook',
+					translations: { es: 'Manual' },
+					collapsed: true,
+					autogenerate: { directory: 'handbook' },
+				},
+				{
 					label: 'Architecture',
 					translations: { es: 'Arquitectura' },
 					items: [
