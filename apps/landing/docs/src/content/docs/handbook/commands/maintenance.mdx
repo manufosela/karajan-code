@@ -1,0 +1,157 @@
+---
+title: Maintenance commands
+description: The housekeeping surface — config, status, report, resume, undo, sync, clean, update. One page, one section each.
+---
+
+These eight commands aren't part of the build pipeline — they're the **housekeeping** around it: inspect the config, watch a run, read the post-mortem, resume a paused session, undo a run, detect plan drift, garbage-collect old state, update Karajan itself. Each is small enough that a full page would be padding; collected here, they share one mental model.
+
+Each section uses a compact shape: what it does, when to reach for it, the options, and the reasoning where it isn't obvious.
+
+---
+
+## kj config
+
+**What it does:** Prints the effective `karajan.config.yml` (global layered with project-local) — the actual values a run will use, not just the file. `--json` for tooling; `--edit` opens it in `$EDITOR`.
+
+**When to use:** Confirm what a run *will* do before running it ("which provider is the reviewer right now?"); make a one-value change without the [`kj init`](./init/) wizard (`kj config --edit`).
+
+**When not:** Changing a role's provider is clearer via [`kj agents set`](./agents/) (typed + validated) than hand-editing YAML. Full first-time setup is [`kj init`](./init/).
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--json` | off | Programmatic consumption / diffing config across machines. |
+| `--edit` | off | Open the config in `$EDITOR` for a hand edit. |
+
+**Reasoning:** `kj config` shows the *resolved* config, not the raw file, because the value that bites you is the effective one after global+project layering — a raw-file viewer would hide exactly the merge that causes "why is it using Codex here?".
+
+---
+
+## kj status
+
+**What it does:** Shows the live pipeline dashboard for the current/last run — current stage, HU progress, recent log lines. `-n` controls how many log lines.
+
+**When to use:** A `kj run` is working and you want a quick textual pulse without opening the [board](./board/); checking where a long run is stuck.
+
+**When not:** Multi-HU visual tracking is the [HU Board](./board/). Post-run metrics (tokens, timings) are `kj report`, not `kj status`.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `-n, --lines <n>` | `50` | Raise for more log context on a stuck stage; lower for a terse pulse. |
+
+**Reasoning:** `status` is the headless-friendly counterpart to the board — same underlying run-log reader, no web server, so it works over SSH or in a tmux pane where opening `:4000` isn't an option.
+
+---
+
+## kj report
+
+**What it does:** Prints the report for the latest session (or `--session-id`): stages, timings, token usage, cost, decisions. `--trace` gives the chronological stage-by-stage breakdown; `--list` enumerates session ids; `--pg-task` filters by Planning Game card.
+
+**When to use:** Post-mortem of a finished run — "where did the time/tokens go?"; comparing two runs' cost; auditing what Solomon decided and why.
+
+**When not:** Live progress is [`kj status`](#kj-status) / the [board](./board/). `report` is retrospective; it doesn't tail an in-flight run.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--list` | off | Enumerate session ids to pick one. |
+| `--session-id <id>` | latest | Report on a specific past session. |
+| `--format <text\|json>` | `text` | `json` for tooling. |
+| `--trace` | off | Chronological stage-by-stage trace with per-stage timing/tokens. |
+| `--currency <usd\|eur>` | `usd` | Display cost in the other currency. |
+| `--pg-task <cardId>` | none | Filter reports to one Planning Game card. |
+
+**Reasoning:** `--trace` exists because an aggregate ("12 min, 400k tokens") doesn't tell you *which* stage was expensive; the chronological breakdown is what turns a report from a number into a diagnosis.
+
+---
+
+## kj resume
+
+**What it does:** Resumes a session **paused by Solomon** (a question that blocked the run) with `kj resume <sessionId> --answer "<text>"`.
+
+**When to use:** A run paused asking for a decision; you supply it and the run continues from the pause.
+
+**When not:** A session frozen by **quota exhaustion** is a different recovery path — [`kj standby resume`](./standby/), not `kj resume`. The split is deliberate (decision-wait vs time-wait); see the [`kj standby`](./standby/) reasoning.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--answer <text>` | none | The decision that unblocks the pause. The whole point of the command. |
+| `--json` | off | Scripted resumption. |
+
+**Reasoning:** Paused ≠ failed. A run that needs a human decision shouldn't discard its accumulated context waiting for one — `kj resume` re-enters exactly at the pause with the answer injected, the same "the work isn't wasted" principle behind `kj standby`.
+
+---
+
+## kj undo
+
+**What it does:** Reverts the last pipeline run. Soft by default (resets to the pre-run commit, keeps changes staged so you can inspect them); `--hard` discards them entirely.
+
+**When to use:** A `kj run` produced something you don't want; `kj undo` to get back to the pre-run state. Soft to review what it did first, `--hard` when you're sure it's garbage.
+
+**When not:** Reverting a *specific old* run isn't this — `undo` targets the *last* run. For older history, use git directly.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--hard` | off (soft reset) | Discard all changes from the last run with no review. Irreversible — be sure. |
+
+**Reasoning:** The default is soft because the common case after a bad run is "what did it actually do?" — destroying the diff before you can read it is the wrong default. `--hard` is the explicit "I've seen enough" opt-in.
+
+---
+
+## kj sync
+
+**What it does:** Read-only drift detection between the code and the latest plan (or `--plan <id>`). Reports where the implementation diverged from what the plan said; changes nothing.
+
+**When to use:** After hand-edits between plan runs, to see if the code still matches the plan; before resuming a `--plan` run that's been paused for a while.
+
+**When not:** It doesn't *fix* drift, only reports it. To re-align, feed the findings into [`kj run`](./run/) or update the plan ([`kj plan fix`](./plan/)).
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--plan <planId>` | latest | Diff against a specific plan instead of the most recent. |
+| `--json` | off | CI drift gate. |
+
+**Reasoning:** Drift is silent until it bites mid-run; a read-only detector you can run cheaply (no LLM) turns "the plan and the code disagree" into something you find on purpose, not by surprise three HUs in.
+
+---
+
+## kj clean
+
+**What it does:** Garbage-collects stale plans, sessions and HU batches. **Dry-run by default** — prints what would be removed; `--yes` actually deletes. Retention windows are tunable; `--nuke` is the scorched-earth option.
+
+**When to use:** `~/.karajan` accumulated cruft after heavy dogfooding; periodic housekeeping. Always run it once without `--yes` first to see the blast radius.
+
+**When not:** Removing one specific plan is [`kj plan delete`](./plan/); cleaning the board's batches specifically is [`kj board cleanup`](./board/). `kj clean` is the broad GC across all state.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--yes` | off (dry-run) | Actually delete. Without it, nothing is removed. |
+| `--nuke` | off | Retention=0 everywhere + wipe the HU board DB. "I want it all gone." |
+| `--plan-days <n>` | `30` | Keep finalised plans longer/shorter. |
+| `--draft-days <n>` | `60` | Retention for draft plans. |
+| `--session-days <n>` | `7` | Retention for finalised sessions. |
+| `--hu-days <n>` | `14` | Retention for HU story batches. |
+
+**Reasoning:** Dry-run-by-default is the load-bearing decision: a GC that deletes on first invocation is a footgun, so `kj clean` makes you see the list before `--yes` makes it real — the same "safe by default, destruction is opt-in" rule as `kj undo --hard`.
+
+---
+
+## kj update
+
+**What it does:** Updates Karajan itself to the latest version from npm.
+
+**When to use:** A new release is out and you want it. (In repos where `kj` is linked to a working copy, you don't — you consume the source tree directly.)
+
+**When not:** Don't `kj update` a checkout you're developing against; it's for npm-installed Karajan, not a linked dev copy.
+
+*No flags.*
+
+**Reasoning:** It's a thin convenience wrapper over the npm install so "update Karajan" is one obvious command rather than something you have to remember the package name for.
+
+---
+
+## Related
+
+- [`kj run`](./run/) — the pipeline all of these orbit.
+- [`kj plan`](./plan/) — `kj sync` diffs against it; `kj plan delete` is the targeted version of `kj clean`.
+- [`kj board`](./board/) — visual counterpart to `kj status`; `kj board cleanup` is the targeted version of `kj clean`.
+- [`kj standby`](./standby/) — quota-freeze recovery; the counterpart to `kj resume`'s pause recovery.
+- [`kj agents`](./agents/) — the typed way to change what `kj config --edit` would hand-edit.

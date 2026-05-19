@@ -1,0 +1,78 @@
+---
+title: kj standby
+description: List and resume sessions hibernated by quota exhaustion — the recovery surface for runs the daily limit froze.
+---
+
+`kj standby` is the recovery surface for runs that **hibernated because a provider quota ran out** (`QUOTA_EXHAUSTED_DAILY` and friends). When the Brain layer hits a hard daily limit it doesn't fail the run — it freezes it. `kj standby` is how you see those frozen sessions and wake them up once the quota window resets.
+
+## What it does
+
+When a `kj run` hits a quota wall the Brain can't route around (the daily cap, not a transient rate-limit), the session is **hibernated**: its state is persisted with a `cooldownUntil` timestamp instead of being marked failed. `kj standby list` shows every hibernated session waiting to resume; `kj standby resume <sessionId>` re-spawns the original command exactly as it was, continuing where it froze.
+
+`resume` is a subcommand of `standby` specifically so it doesn't collide with the pre-existing `kj resume`. They are different mental models: [`kj resume`](./maintenance/#kj-resume) answers a Solomon **pause** (a question that needs `--answer`); `kj standby resume` thaws a **quota hibernation** (no answer needed, just time). Confusing the two is the reason they're deliberately namespaced apart.
+
+By default `resume` respects `cooldownUntil` — if the quota window hasn't reset yet it refuses, because resuming into the same wall just re-hibernates. `--force` overrides that (not recommended; you'll likely hit the cap again immediately).
+
+## When to use
+
+- **A run froze on the daily limit** — `kj standby list` the next day, `kj standby resume <id>`.
+- **Checking what's waiting** — `kj standby list` to see hibernated sessions and their cooldown times.
+- **Scripted recovery** — `kj standby list --json` in a cron that resumes sessions once cooldown passes.
+- **You know the quota actually reset early** — `kj standby resume <id> --force` (only when you're certain).
+
+## When NOT to use
+
+- **The session paused on a question, not quota** — that's a Solomon pause; use [`kj resume <id> --answer`](./maintenance/#kj-resume), not `kj standby`.
+- **The run actually failed** — a crashed/failed run isn't hibernated. Re-run it (or `kj run --plan … --hu …` for a single HU); `kj standby` only lists quota-frozen sessions.
+- **Cooldown hasn't passed** — resuming now just re-hibernates. Wait, don't `--force`, unless you have outside knowledge the quota reset.
+
+## Options & subcommands
+
+| Form | Effect |
+| --- | --- |
+| `kj standby` / `kj standby list` | List sessions hibernated by quota exhaustion (default subcommand). |
+| `kj standby resume <sessionId>` | Re-spawn the original command for that hibernated session. |
+
+| Flag | Applies to | Default | When to flip it |
+| --- | --- | --- | --- |
+| `--json` | `list` | off | Scripted recovery — parse the list and cooldown timestamps. |
+| `--force` | `resume` | off | Resume even if `cooldownUntil` is still in the future. Not recommended — only with outside knowledge the quota reset. |
+
+## Examples
+
+### See what's frozen
+
+```bash
+kj standby list
+```
+
+What happens: prints each hibernated session — id, the command that froze, and when its cooldown expires. Empty output means nothing is waiting on quota.
+
+### Resume after the window resets
+
+```bash
+kj standby resume sess_a1b2c3
+```
+
+What happens: the original `kj run` command is re-spawned and continues from where the quota wall hit it. Refused (with the cooldown time) if the window hasn't passed yet.
+
+### Scripted recovery loop
+
+```bash
+kj standby list --json | jq -r '.[] | select(.cooldownPassed) | .sessionId' \
+  | xargs -rn1 kj standby resume
+```
+
+What happens: a cron resumes every session whose cooldown has elapsed — automated quota-window recovery without babysitting.
+
+## How it works internally
+
+`kj standby` exists because **a daily quota cap is not a failure — it's a wait**. The naive behaviour (mark the run failed when the API says "no more today") throws away all the context the run accumulated and forces a full restart tomorrow. Hibernation instead persists the session with a `cooldownUntil` and lets it thaw, so a 4-hour run that hit the cap at hour 3 resumes at hour 3, not hour 0. This is the Brain's "the limit is temporary, the work isn't" philosophy made operable.
+
+The deliberate namespacing away from `kj resume` encodes that these are genuinely different recovery modes with different inputs. A Solomon pause is *waiting on a human decision* — it needs an `--answer`. A quota hibernation is *waiting on wall-clock time* — it needs patience (or `--force`). Collapsing them into one `resume` would force every caller to disambiguate "is this paused because it asked me something, or because the quota died?" — exactly the question the two-command split answers up front. The `cooldownUntil` guard on `resume` is the same principle as the board's auto-auth: make the safe behaviour the default, so the common mistake (resuming straight back into the wall) is something you have to explicitly opt into with `--force`.
+
+## Related
+
+- [`kj resume`](./maintenance/#kj-resume) — the *other* resume: answers a Solomon pause (`--answer`), not a quota freeze.
+- [`kj run`](./run/) — the command whose sessions hibernate; the Brain layer decides freeze-vs-fail.
+- [Pipeline roles → `brain`](../pipeline-roles/#brain) — the universal error-recovery layer that hibernates instead of failing on quota walls.

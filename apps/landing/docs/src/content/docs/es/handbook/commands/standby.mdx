@@ -1,0 +1,78 @@
+---
+title: kj standby
+description: Lista y reanuda sesiones hibernadas por agotamiento de cuota — la superficie de recuperación de runs que el límite diario congeló.
+---
+
+`kj standby` es la superficie de recuperación de runs que **hibernaron porque se agotó la cuota de un proveedor** (`QUOTA_EXHAUSTED_DAILY` y similares). Cuando la capa Brain choca con un límite diario duro no falla el run — lo congela. `kj standby` es cómo ves esas sesiones congeladas y las despiertas una vez que la ventana de cuota se resetea.
+
+## Qué hace
+
+Cuando un `kj run` choca con un muro de cuota que Brain no puede esquivar (el tope diario, no un rate-limit transitorio), la sesión se **hiberna**: su estado se persiste con un timestamp `cooldownUntil` en vez de marcarse fallida. `kj standby list` muestra cada sesión hibernada esperando reanudarse; `kj standby resume <sessionId>` re-spawnea el comando original exactamente como estaba, continuando donde se congeló.
+
+`resume` es subcomando de `standby` específicamente para que no colisione con el `kj resume` pre-existente. Son modelos mentales distintos: [`kj resume`](./maintenance/#kj-resume) responde una **pausa** de Solomon (una pregunta que necesita `--answer`); `kj standby resume` descongela una **hibernación de cuota** (sin respuesta, solo tiempo). Confundir los dos es la razón de que estén deliberadamente con namespace aparte.
+
+Por defecto `resume` respeta `cooldownUntil` — si la ventana de cuota aún no se reseteó, rehúsa, porque reanudar contra el mismo muro solo re-hiberna. `--force` lo sobrescribe (no recomendado; probablemente vuelvas a chocar con el tope inmediatamente).
+
+## Cuándo usarlo
+
+- **Un run se congeló por el límite diario** — `kj standby list` al día siguiente, `kj standby resume <id>`.
+- **Ver qué está esperando** — `kj standby list` para ver sesiones hibernadas y sus tiempos de cooldown.
+- **Recuperación scriptada** — `kj standby list --json` en un cron que reanuda sesiones cuando pasa el cooldown.
+- **Sabes que la cuota se reseteó antes** — `kj standby resume <id> --force` (solo cuando estás seguro).
+
+## Cuándo NO usarlo
+
+- **La sesión pausó por una pregunta, no por cuota** — eso es una pausa de Solomon; usa [`kj resume <id> --answer`](./maintenance/#kj-resume), no `kj standby`.
+- **El run falló de verdad** — un run crasheado/fallido no está hibernado. Re-córrelo (o `kj run --plan … --hu …` para una HU); `kj standby` solo lista sesiones congeladas por cuota.
+- **El cooldown no ha pasado** — reanudar ahora solo re-hiberna. Espera, no `--force`, salvo que tengas conocimiento externo de que la cuota se reseteó.
+
+## Opciones y subcomandos
+
+| Forma | Efecto |
+| --- | --- |
+| `kj standby` / `kj standby list` | Lista sesiones hibernadas por agotamiento de cuota (subcomando default). |
+| `kj standby resume <sessionId>` | Re-spawnea el comando original de esa sesión hibernada. |
+
+| Flag | Aplica a | Default | Cuándo activarla |
+| --- | --- | --- | --- |
+| `--json` | `list` | off | Recuperación scriptada — parsear la lista y los timestamps de cooldown. |
+| `--force` | `resume` | off | Reanudar aunque `cooldownUntil` siga en el futuro. No recomendado — solo con conocimiento externo de que la cuota se reseteó. |
+
+## Ejemplos
+
+### Ver qué está congelado
+
+```bash
+kj standby list
+```
+
+Qué pasa: imprime cada sesión hibernada — id, el comando que se congeló, y cuándo expira su cooldown. Output vacío significa que nada espera por cuota.
+
+### Reanudar tras resetearse la ventana
+
+```bash
+kj standby resume sess_a1b2c3
+```
+
+Qué pasa: el comando `kj run` original se re-spawnea y continúa desde donde el muro de cuota lo golpeó. Rehusado (con el tiempo de cooldown) si la ventana aún no pasó.
+
+### Loop de recuperación scriptado
+
+```bash
+kj standby list --json | jq -r '.[] | select(.cooldownPassed) | .sessionId' \
+  | xargs -rn1 kj standby resume
+```
+
+Qué pasa: un cron reanuda cada sesión cuyo cooldown ha pasado — recuperación automatizada de ventana de cuota sin niñera.
+
+## Cómo funciona por dentro
+
+`kj standby` existe porque **un tope de cuota diario no es un fallo — es una espera**. El comportamiento naíf (marcar el run fallido cuando la API dice "no más por hoy") tira todo el contexto que el run acumuló y fuerza un reinicio completo mañana. La hibernación en cambio persiste la sesión con un `cooldownUntil` y la deja descongelarse, así que un run de 4 horas que chocó el tope a la hora 3 reanuda en la hora 3, no en la 0. Es la filosofía de Brain "el límite es temporal, el trabajo no" hecha operable.
+
+El namespace deliberado aparte de `kj resume` codifica que son modos de recuperación genuinamente distintos con inputs distintos. Una pausa de Solomon está *esperando una decisión humana* — necesita un `--answer`. Una hibernación de cuota está *esperando tiempo de reloj* — necesita paciencia (o `--force`). Colapsarlos en un `resume` forzaría a cada caller a desambiguar "¿esto pausó porque me preguntó algo, o porque la cuota murió?" — exactamente la pregunta que el split de dos comandos responde por adelantado. El guard `cooldownUntil` en `resume` es el mismo principio que el auto-auth del board: haz el comportamiento seguro el default, para que el error común (reanudar directo contra el muro) sea algo que tengas que optar explícitamente con `--force`.
+
+## Relacionado
+
+- [`kj resume`](./maintenance/#kj-resume) — el *otro* resume: responde una pausa de Solomon (`--answer`), no una congelación de cuota.
+- [`kj run`](./run/) — el comando cuyas sesiones hibernan; la capa Brain decide congelar-vs-fallar.
+- [Roles del pipeline → `brain`](../pipeline-roles/#brain) — la capa universal de recuperación de errores que hiberna en vez de fallar ante muros de cuota.

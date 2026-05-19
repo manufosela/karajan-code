@@ -1,0 +1,74 @@
+---
+title: kj skills
+description: Gestiona la caché de skills — lista las skills cargadas, limpia la caché, sincroniza el catálogo addyosmani.
+---
+
+`kj skills` gestiona la **caché de skills**: la biblioteca de conocimiento de proceso de dominio que Karajan inyecta en el contexto del coder para que siga práctica establecida en vez de inventarla. Este comando lista lo cacheado, lo limpia, y sincroniza el catálogo externo de skills.
+
+## Qué hace
+
+Las skills son unidades reutilizables de conocimiento de proceso (cómo hacer X bien) que el pipeline carga — automáticamente, por relevancia — en el prompt del coder durante `kj run`. `kj skills` es la superficie de mantenimiento de esa caché: `list` muestra lo cacheado actualmente, `clear-cache` la vacía (forzando una carga fresca el siguiente run), y `sync-addyosmani` / `list-addyosmani` gestionan el catálogo [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) que Karajan usa como biblioteca de proceso de primera fuente.
+
+No corre el pipeline ni cambia qué skills arrastra una task (eso es el matching automático de skills dentro de `kj run`, ajustado vía `--skills-mode`). `kj skills` es puramente sobre la *caché* — qué se almacena localmente y mantener fresco el catálogo externo.
+
+## Cuándo usarlo
+
+- **Ver qué hay cacheado** — `kj skills list` para saber qué conocimiento de proceso está disponible localmente.
+- **Forzar un refresco** — `kj skills clear-cache` tras actualizar skills, para que el siguiente run recargue.
+- **Actualizar el catálogo externo** — `kj skills sync-addyosmani` para traer las últimas agent-skills.
+- **Navegar el set upstream** — `kj skills list-addyosmani` para ver qué ofrece el catálogo externo.
+
+## Cuándo NO usarlo
+
+- **Controlar skills para un run concreto** — eso es `kj run --skills-mode <auto|regex|semantic|none>`, no `kj skills`.
+- **Misterio de caché obsoleta durante un run** — normalmente `clear-cache` y re-corres; pero si las skills hacen el prompt ruidoso para una task, el fix es `--skills-mode none` en ese run, no limpiar la caché globalmente.
+- **Autorear nuevas skills** — `kj skills` gestiona la caché de skills existentes; no es un editor de skills.
+
+## Opciones y acciones
+
+| Acción | Efecto |
+| --- | --- |
+| `list` (default) | Muestra las skills actualmente cacheadas. |
+| `clear-cache` | Vacía la caché de skills; el siguiente run recarga desde fuente. |
+| `sync-addyosmani` | Trae/refresca el catálogo addyosmani/agent-skills. |
+| `list-addyosmani` | Lista qué contiene el catálogo addyosmani. |
+
+`kj skills` toma la acción como argumento posicional; sin flags.
+
+## Ejemplos
+
+### Ver qué hay cacheado
+
+```bash
+kj skills list
+```
+
+Qué pasa: imprime las skills actualmente en la caché local — el conocimiento de proceso que un `kj run` podría meter en el contexto del coder para una task que matchee.
+
+### Refrescar tras una actualización
+
+```bash
+kj skills clear-cache && kj skills sync-addyosmani
+```
+
+Qué pasa: la caché se vacía y el catálogo externo se re-sincroniza; el siguiente `kj run` carga skills actuales en vez de obsoletas.
+
+### Navegar el catálogo upstream
+
+```bash
+kj skills list-addyosmani
+```
+
+Qué pasa: lista las entradas addyosmani/agent-skills de las que Karajan puede tirar, sin afectar la caché local.
+
+## Cómo funciona por dentro
+
+Las skills existen por un modo de fallo recurrente: un agente al que se le pide "haz X" a menudo inventará un proceso *plausible* cuando existe uno *correcto y establecido*. Inyectar conocimiento de proceso curado en el contexto del coder convierte "la conjetura del modelo sobre cómo hacer X" en "la forma buena conocida de hacer X". `kj skills` es la superficie de gestión de caché de ese mecanismo — deliberadamente separada de `--skills-mode` porque responden preguntas distintas: `kj skills` gestiona *qué conocimiento de proceso existe localmente*, `--skills-mode` controla *con qué agresividad un run dado lo matchea en el prompt*.
+
+Usar addyosmani/agent-skills como catálogo de primera fuente es una decisión deliberada de "no reinventar el corpus": una biblioteca externa bien mantenida de skills de proceso de agentes es más valiosa mantenida en sync que re-autorada, así que `sync-addyosmani` hace ese upstream una dependencia viva en vez de una copia única. La caché en sí es una capa de rendimiento y determinismo — cargar skills fresco cada run sería lento y podría driftear, así que se cachean y `clear-cache` es la invalidación explícita e intencional en vez de un refresco automático que no puedes predecir.
+
+## Relacionado
+
+- [`kj run`](./run/) — `--skills-mode` controla cómo un run matchea skills cacheadas en el prompt del coder.
+- [Guía de skills](../../guides/skills/) — el walkthrough original del sistema de skills (precede a este handbook).
+- [Roles del pipeline → `skills`](../pipeline-roles/#skills) — el rol que carga skills al contexto durante un run.
