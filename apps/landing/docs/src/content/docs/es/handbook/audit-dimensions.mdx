@@ -1,0 +1,250 @@
+---
+title: Dimensiones del audit
+description: Las seis dimensiones que puntúa kj audit — qué cuenta como finding en cada una, por qué existe, y cuándo es señal vs ruido.
+---
+
+`kj audit` evalúa un codebase en **seis dimensiones**. Cada una recibe su propio score A–F y su propia lista de findings. Esta página documenta qué busca realmente cada dimensión, por qué es un eje separado en vez de un único bloque "calidad", y cuándo sus findings son señal vs ruido para tu proyecto.
+
+El set de dimensiones es `security`, `codeQuality`, `performance`, `architecture`, `testing`, `accessibility`. Por defecto corren las seis; la detección de stack descarta automáticamente `accessibility` en un proyecto provablemente backend-only, y `--dimensions <list>` sobrescribe el set explícitamente (una elección explícita se honra incluso contra el stack detectado).
+
+Cada dimensión usa la misma estructura:
+
+- **Qué marca** — los patrones concretos que el auditor caza.
+- **Por qué es su propia dimensión** — qué captura que las otras estructuralmente no pueden.
+- **Cuándo aporta / Cuándo es ruido** — formas de proyecto donde se gana su score vs donde genera falsos positivos.
+- **Ejemplo** — un finding realista.
+
+Usa el TOC lateral (o Ctrl-F) para saltar a una dimensión.
+
+---
+
+## security
+
+### Qué marca
+
+- Secrets, API keys, tokens hardcodeados en el source.
+- Vectores de injection SQL / NoSQL.
+- Sinks XSS (`innerHTML`, `dangerouslySetInnerHTML`, `eval`).
+- Command injection (`exec` / `spawn` con input de usuario).
+- Dependencias inseguras o con vulnerabilidades conocidas.
+- Validación de input faltante en boundaries del sistema.
+- Gaps de autenticación / autorización.
+
+### Por qué es su propia dimensión
+
+Los findings de seguridad son **severidad-dominantes**: una key de producción hardcodeada pesa más que cien funciones largas. Plegar security en "code quality" dejaría que un alto conteo de issues cosméticos enmascare uno crítico. Es también la dimensión más amplificada por los colectores deterministas — Semgrep SAST y CVEs de OSV-Scanner la alimentan directamente, así que el LLM razona sobre paquetes vulnerables *confirmados* en vez de adivinar.
+
+### Cuándo aporta
+
+- Cualquier cosa con auth, pagos, subida de ficheros, o input de usuario llegando a un shell/DB/DOM.
+- Antes de exponer un servicio interno externamente.
+- Tras añadir una dependencia que no vetaste del todo (`--dimensions security` + OSV).
+
+### Cuándo es ruido
+
+- Librerías de puro cómputo sin boundaries de I/O — las heurísticas de injection/XSS no tienen dónde morder.
+- Código generado o árboles de terceros vendorizados (audita tu código, no `node_modules`).
+
+### Ejemplo
+
+```
+[CRITICAL] src/db/reports.js:88 [security]
+  SQL concatenado con req.query.range — vector de injection.
+  Fix: parametriza vía el query builder; nunca interpoles datos de request en SQL.
+```
+
+---
+
+## codeQuality
+
+### Qué marca
+
+Violaciones SOLID / DRY / KISS / YAGNI:
+
+- Funciones > 50 líneas, ficheros > 500 líneas.
+- Lógica duplicada en múltiples sitios.
+- God classes/módulos (demasiadas responsabilidades).
+- Anidamiento profundo (> 4 niveles).
+- Código muerto (exports no usados, ramas inalcanzables).
+- Manejo de errores faltante (promises sin catch, catches vacíos).
+- Over-engineering (abstracciones para un solo uso).
+
+### Por qué es su propia dimensión
+
+Es el eje del **impuesto de mantenibilidad** — nada de esto rompe nada hoy, que es exactamente por qué hace falta un score separado. Mezclado en "¿funciona?", son invisibles; aislado, la nota C es la señal de alarma temprana. Los colectores deterministas de dead-export y basal-cost lo alimentan con datos duros, así que "mucho código muerto" es un conteo, no una sensación.
+
+### Cuándo aporta
+
+- Codebases que han crecido orgánicamente > 6 meses.
+- Antes de onboarding de nuevos contribuidores (mucha deuda de calidad = ramp lento).
+- Baseline pre-refactor: auditas, refactorizas, re-auditas, comparas el growth-delta.
+
+### Cuándo es ruido
+
+- Spikes / prototipos desechables — ahí *quieres* atajos que violan YAGNI.
+- Codebases muy jóvenes (< 2 semanas) donde los patrones aún no se estabilizaron.
+
+### Ejemplo
+
+```
+[MEDIUM] src/orchestrator/flow-runner.js:1–612 [codeQuality]
+  God module: orquestación, persistencia y reporting en un fichero de 612 líneas.
+  Fix: extrae los concerns de persistencia y reporting a módulos dedicados.
+```
+
+---
+
+## performance
+
+### Qué marca
+
+- Patrones de query N+1.
+- I/O de fichero síncrono en request handlers.
+- Paginación faltante en list endpoints.
+- Imports de bundle grandes (librería entera para una función).
+- Lazy loading faltante.
+- Operaciones caras dentro de loops.
+- Oportunidades de caching faltantes.
+
+### Por qué es su propia dimensión
+
+Los problemas de performance son **estructuralmente invisibles a las otras dimensiones**: una query N+1 es código limpio, bien testeado y seguro que resulta ser O(n) sobre un round-trip de red. Solo una dimensión que busque explícitamente el patrón lo caza. La detección de stack es crítica aquí — el set de heurísticas se parte para que los proyectos backend reciban chequeos de query/I/O y los frontend reciban chequeos de bundle/lazy-load, nunca la mitad irrelevante.
+
+### Cuándo aporta
+
+- Backends que manejan requests con base de datos.
+- Apps frontend donde el bundle size o el render-blocking importa (empareja con un resultado `kj webperf` persistido).
+- Antes de un aumento de carga predecible (launch, migración).
+
+### Cuándo es ruido
+
+- Herramientas CLI y scripts one-shot — la latencia rara vez importa, las heurísticas fallan.
+- Sitios estáticos sin capa de datos — la mitad backend es todo falsos positivos (la detección de stack la descarta automáticamente).
+
+### Ejemplo
+
+```
+[HIGH] src/api/orders.js:34 [performance]
+  Carga los line-items de cada order en un loop sobre orders — N+1 clásico.
+  Fix: batch con una sola query IN o un include/join del ORM.
+```
+
+---
+
+## architecture
+
+### Qué marca
+
+- Dependencias circulares.
+- Violaciones de capa (UI importando la capa de datos directamente).
+- Acoplamiento de módulos (estado mutable compartido).
+- Inyección de dependencias faltante.
+- Patrones inconsistentes a lo largo del codebase.
+- Documentación faltante o desactualizada.
+- Configuración dispersa vs centralizada.
+
+### Por qué es su propia dimensión
+
+Architecture es la única dimensión puntuada a nivel **entre-ficheros** — cada fichero individual puede pasar code-quality mientras el grafo de imports es un nudo. Los colectores de dependencia circular y dead-export (madge/knip) la alimentan con hechos deterministas del grafo, así que "tienes 3 ciclos" es medido, no estimado.
+
+### Cuándo aporta
+
+- Codebases multi-módulo / multi-capa.
+- Cuando "cambios pequeños provocan ripples inesperados" — eso es un smell de acoplamiento que esta dimensión nombra.
+- Antes de extraer un paquete o un servicio de un monolito.
+
+### Cuándo es ruido
+
+- Scripts de un fichero y utilidades minúsculas — no hay arquitectura que violar.
+- Codebases que siguen intencionadamente la estructura prescrita por un framework (sus "violaciones" son el diseño del framework).
+
+### Ejemplo
+
+```
+[HIGH] src/ui/Dashboard.jsx:12 [architecture]
+  Componente UI importa src/db/client.js directamente — violación de capa.
+  Fix: enruta el acceso a datos por la capa de servicio; la UI no debe saber que el DB existe.
+```
+
+---
+
+## testing
+
+### Qué marca
+
+- Gaps de cobertura (ficheros source sin test correspondiente).
+- Calidad de test (assertions por test, nombres significativos).
+- Cobertura de edge-case faltante.
+- Aislamiento de test (estado compartido entre tests).
+- Indicadores de test flaky (timeouts, `sleep`, retries).
+
+### Por qué es su propia dimensión
+
+Un codebase puede sacar A en todas las demás dimensiones y seguir siendo **inseguro de cambiar** porque nada verifica el comportamiento. Testing es la dimensión que puntúa la *red de seguridad en sí*, no el código — que es por qué "alta cobertura pero todos los tests sin assertions" se marca aquí y en ningún otro sitio.
+
+### Cuándo aporta
+
+- Antes de cualquier refactor (la red es lo que hace el refactor seguro).
+- Codebases donde "nos da miedo tocar X" — normalmente X tiene el peor score de testing.
+- Checks de confianza pre-release.
+
+### Cuándo es ruido
+
+- Código generado o glue fino sin nada significativo que asertar.
+- Prototipos exploratorios que vas a tirar.
+
+### Ejemplo
+
+```
+[MEDIUM] src/services/billing.js [testing]
+  Sin fichero de test para un módulo con lógica monetaria; ruta de refund sin cubrir.
+  Fix: añade billing.test.js con assertions explícitas sobre las ramas de refund y prorrateo.
+```
+
+---
+
+## accessibility
+
+### Qué marca
+
+Issues WCAG 2.x, subconjunto de análisis estático:
+
+- `alt` faltante en `<img>` (imágenes decorativas necesitan `alt=""` vacío, no ausente).
+- Inputs de formulario sin `<label>` / `aria-label`.
+- Violaciones de jerarquía de headings (h1 → h3 saltándose h2; múltiples h1).
+- Botones/links solo-icono sin `aria-label` o texto visually-hidden.
+- `<div>`/`<span>` interactivos sin role + handlers de teclado.
+- Roles ARIA mal usados; gaps de focus management (sin focus trap, sin `:focus` visible).
+- Señalización solo-color; pares de color en tokens CSS con contraste sospechoso.
+- `lang` faltante, skip-to-content link faltante, landmarks faltantes.
+
+### Por qué es su propia dimensión
+
+La accesibilidad es **legal y éticamente portante** y completamente ortogonal a si el código es limpio, rápido o correcto. Es también la única dimensión gateada por stack por defecto: auto-descartada en un proyecto provablemente backend-only (sin markup que analizar), y re-habilitada en cuanto la pides explícitamente vía `--dimensions accessibility`.
+
+### Cuándo aporta
+
+- Cualquier frontend web de cara al usuario, especialmente públicos o regulados.
+- Librerías de componentes (un componente inaccesible se multiplica en cada consumidor).
+- Antes de un audit de accesibilidad por un tercero — arregla primero los issues detectables estáticamente.
+
+### Cuándo es ruido
+
+- Servicios backend-only, CLIs, librerías sin markup (auto-descartado).
+- Findings de contraste que necesitan rendering en runtime — el auditor deliberadamente marca valores CSS sospechosos y recomienda una pasada runtime axe-core/Lighthouse en vez de asertar un fallo de contraste que no puede computar estáticamente.
+
+### Ejemplo
+
+```
+[HIGH] src/components/IconButton.astro:7 [accessibility]
+  <button> solo-icono sin nombre accesible.
+  Fix: añade aria-label="Cerrar" (o texto visually-hidden); hoy los lectores de pantalla no anuncian nada.
+```
+
+---
+
+## Leer más
+
+- [`kj audit`](./commands/audit/) — el comando que produce estos scores, su diseño en dos fases y sus flags.
+- [Herramientas externas](./external-tools/) — Semgrep, OSV-Scanner, Sonar, Lighthouse: los colectores deterministas que alimentan las dimensiones security, quality y performance.
+- [Roles del pipeline → `audit (post-run)`](./pipeline-roles/#audit-post-run) — el mismo auditor de seis dimensiones como rol post-loop opcional dentro de `kj run`.

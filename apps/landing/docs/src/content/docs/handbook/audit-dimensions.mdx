@@ -1,0 +1,250 @@
+---
+title: Audit dimensions
+description: The six dimensions kj audit scores — what counts as a finding in each, why it exists, and when it's signal versus noise.
+---
+
+`kj audit` evaluates a codebase across **six dimensions**. Each gets its own A–F score and its own list of findings. This page documents what each dimension actually looks for, why it's a separate axis instead of one "quality" blob, and when its findings are signal versus noise for your project.
+
+The dimension set is `security`, `codeQuality`, `performance`, `architecture`, `testing`, `accessibility`. By default all six run; stack detection auto-drops `accessibility` on a provably backend-only project, and `--dimensions <list>` overrides the set explicitly (an explicit choice is honoured even against the detected stack).
+
+Each dimension below uses the same shape:
+
+- **What it flags** — the concrete patterns the auditor hunts for.
+- **Why it's its own dimension** — what it catches that the others structurally cannot.
+- **When it pays off / When it's noise** — project shapes where it earns its score versus where it generates false positives.
+- **Example** — a realistic finding.
+
+Use the right-hand TOC (or Ctrl-F) to jump to a dimension.
+
+---
+
+## security
+
+### What it flags
+
+- Hardcoded secrets, API keys, tokens in source.
+- SQL / NoSQL injection vectors.
+- XSS sinks (`innerHTML`, `dangerouslySetInnerHTML`, `eval`).
+- Command injection (`exec` / `spawn` with user input).
+- Insecure or known-vulnerable dependencies.
+- Missing input validation at system boundaries.
+- Authentication / authorization gaps.
+
+### Why it's its own dimension
+
+Security findings are **severity-dominant**: one hardcoded production key outweighs a hundred long functions. Folding security into "code quality" would let a high count of cosmetic issues mask a single critical one. It's also the dimension most amplified by the deterministic collectors — Semgrep SAST and OSV-Scanner CVEs feed directly into it, so the LLM reasons about *confirmed* vulnerable packages instead of guessing.
+
+### When it pays off
+
+- Anything with auth, payments, file uploads, or user-supplied input reaching a shell/DB/DOM.
+- Before exposing an internal service externally.
+- After adding a dependency you didn't fully vet (`--dimensions security` + OSV).
+
+### When it's noise
+
+- Pure-compute libraries with no I/O boundaries — the injection/XSS heuristics have nothing to bite on.
+- Generated code or vendored third-party trees (audit your code, not `node_modules`).
+
+### Example
+
+```
+[CRITICAL] src/db/reports.js:88 [security]
+  String-concatenated SQL with req.query.range — injection vector.
+  Fix: parameterise via the query builder; never interpolate request data into SQL.
+```
+
+---
+
+## codeQuality
+
+### What it flags
+
+SOLID / DRY / KISS / YAGNI violations:
+
+- Functions > 50 lines, files > 500 lines.
+- Duplicated logic across multiple sites.
+- God classes/modules (too many responsibilities).
+- Deep nesting (> 4 levels).
+- Dead code (unused exports, unreachable branches).
+- Missing error handling (uncaught promises, empty catches).
+- Over-engineering (abstractions for a single use).
+
+### Why it's its own dimension
+
+This is the **maintainability tax** axis — none of these crash anything today, which is exactly why a separate score is needed. Bundled into "does it work", they're invisible; isolated, the C grade is the early-warning signal. The deterministic dead-export and basal-cost collectors feed it hard data so "lots of dead code" is a count, not a vibe.
+
+### When it pays off
+
+- Codebases that have grown organically for > 6 months.
+- Before onboarding new contributors (high quality debt = slow ramp).
+- Pre-refactor baseline: audit, refactor, re-audit, compare the growth-delta.
+
+### When it's noise
+
+- Throwaway spikes / prototypes — you *want* YAGNI-violating shortcuts there.
+- Very young codebases (< 2 weeks) where the patterns haven't stabilised yet.
+
+### Example
+
+```
+[MEDIUM] src/orchestrator/flow-runner.js:1–612 [codeQuality]
+  God module: orchestration, persistence, and reporting in one 612-line file.
+  Fix: extract the persistence and reporting concerns into dedicated modules.
+```
+
+---
+
+## performance
+
+### What it flags
+
+- N+1 query patterns.
+- Synchronous file I/O in request handlers.
+- Missing pagination on list endpoints.
+- Large bundle imports (whole library for one function).
+- Missing lazy loading.
+- Expensive operations inside loops.
+- Missing caching opportunities.
+
+### Why it's its own dimension
+
+Performance problems are **structurally invisible to the other dimensions**: an N+1 query is clean, well-tested, secure code that happens to be O(n) on a network round-trip. Only a dimension explicitly looking for the pattern catches it. Stack detection is critical here — the heuristic set is split so backend projects get query/I/O checks and frontend projects get bundle/lazy-load checks, never the irrelevant half.
+
+### When it pays off
+
+- Request-handling backends with a database.
+- Frontend apps where bundle size or render-blocking matters (pair with a persisted `kj webperf` result).
+- Before a load increase you can predict (launch, migration).
+
+### When it's noise
+
+- CLI tools and one-shot scripts — latency rarely matters, the heuristics misfire.
+- Static sites with no data layer — the backend half is all false positives (stack detection drops it automatically).
+
+### Example
+
+```
+[HIGH] src/api/orders.js:34 [performance]
+  Loads each order's line-items in a loop over orders — classic N+1.
+  Fix: batch with a single IN query or an ORM include/join.
+```
+
+---
+
+## architecture
+
+### What it flags
+
+- Circular dependencies.
+- Layer violations (UI importing the data layer directly).
+- Module coupling (shared mutable state).
+- Missing dependency injection.
+- Inconsistent patterns across the codebase.
+- Missing or outdated documentation.
+- Scattered vs centralized configuration.
+
+### Why it's its own dimension
+
+Architecture is the only dimension scored at the **between-files** level — every individual file can pass code-quality while the import graph is a knot. Circular-dependency and dead-export collectors (madge/knip) feed it deterministic graph facts, so "you have 3 cycles" is measured, not estimated.
+
+### When it pays off
+
+- Multi-module / multi-layer codebases.
+- When "small changes ripple unexpectedly" — that's a coupling smell this dimension names.
+- Before extracting a package or a service from a monolith.
+
+### When it's noise
+
+- Single-file scripts and tiny utilities — there's no architecture to violate.
+- Codebases that intentionally follow a framework's prescribed structure (its "violations" are the framework's design).
+
+### Example
+
+```
+[HIGH] src/ui/Dashboard.jsx:12 [architecture]
+  UI component imports src/db/client.js directly — layer violation.
+  Fix: route data access through the service layer; the UI should not know the DB exists.
+```
+
+---
+
+## testing
+
+### What it flags
+
+- Coverage gaps (source files with no corresponding test).
+- Test quality (assertions per test, meaningful names).
+- Missing edge-case coverage.
+- Test isolation (shared state between tests).
+- Flaky-test indicators (timeouts, `sleep`, retries).
+
+### Why it's its own dimension
+
+A codebase can score A on every other dimension and still be **unsafe to change** because nothing verifies behaviour. Testing is the dimension that scores the *safety net itself*, not the code — which is why "high coverage but all assertion-free tests" gets flagged here and nowhere else.
+
+### When it pays off
+
+- Before any refactor (the net is what makes refactoring safe).
+- Codebases where "we're afraid to touch X" — usually X has the worst testing score.
+- Pre-release confidence checks.
+
+### When it's noise
+
+- Generated code or thin glue with nothing meaningful to assert.
+- Exploratory prototypes you intend to throw away.
+
+### Example
+
+```
+[MEDIUM] src/services/billing.js [testing]
+  No test file for a module with monetary logic; refund path uncovered.
+  Fix: add billing.test.js with explicit assertions on the refund and proration branches.
+```
+
+---
+
+## accessibility
+
+### What it flags
+
+WCAG 2.x issues, static-analysis subset:
+
+- Missing `alt` on `<img>` (decorative images need empty `alt=""`, not absent).
+- Form inputs without `<label>` / `aria-label`.
+- Heading hierarchy violations (h1 → h3 skipping h2; multiple h1).
+- Icon-only buttons/links without `aria-label` or visually-hidden text.
+- Interactive `<div>`/`<span>` without role + keyboard handlers.
+- Misused ARIA roles; focus-management gaps (no focus trap, no visible `:focus`).
+- Colour-only signalling; suspicious low-contrast CSS token pairs.
+- Missing `lang`, skip-to-content link, landmarks.
+
+### Why it's its own dimension
+
+Accessibility is **legally and ethically load-bearing** and entirely orthogonal to whether the code is clean, fast, or correct. It's also the one dimension stack-gated by default: auto-dropped on a provably backend-only project (no markup to analyse), and re-enabled the moment you ask for it explicitly via `--dimensions accessibility`.
+
+### When it pays off
+
+- Any user-facing web frontend, especially public or regulated ones.
+- Component libraries (one inaccessible component multiplies across every consumer).
+- Before an accessibility audit by a third party — fix the static-detectable issues first.
+
+### When it's noise
+
+- Backend-only services, CLIs, libraries with no markup (auto-dropped).
+- Contrast findings that need runtime rendering — the auditor deliberately flags suspect CSS values and recommends an axe-core/Lighthouse runtime pass rather than asserting a contrast failure it can't compute statically.
+
+### Example
+
+```
+[HIGH] src/components/IconButton.astro:7 [accessibility]
+  Icon-only <button> with no accessible name.
+  Fix: add aria-label="Close" (or visually-hidden text); screen readers announce nothing today.
+```
+
+---
+
+## Reading this further
+
+- [`kj audit`](./commands/audit/) — the command that produces these scores, its two-phase design and flags.
+- [External tools](./external-tools/) — Semgrep, OSV-Scanner, Sonar, Lighthouse: the deterministic collectors that feed the security, quality, and performance dimensions.
+- [Pipeline roles → `audit (post-run)`](./pipeline-roles/#audit-post-run) — the same six-dimension auditor as an optional post-loop role inside `kj run`.

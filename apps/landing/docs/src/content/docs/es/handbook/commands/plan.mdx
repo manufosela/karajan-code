@@ -1,0 +1,147 @@
+---
+title: kj plan
+description: Genera, revisa, certifica y ejecuta planes de implementación multi-HU — la mitad delantera de todo kj run no trivial.
+---
+
+`kj plan` convierte una descripción de tarea en un **plan estructurado de HUs atómicas** antes de escribir código. Es la diferencia entre "implementa esta feature de 600 líneas de golpe" (contra lo que pelearán el LOC gate y el reviewer) y "impleméntala como seis PRs de 100 líneas, cada uno testeable por separado".
+
+## Qué hace
+
+`kj plan generate` toma una task — inline, desde `--task-file`, o un REASONS Canvas estructurado — y corre el **rol planner** para descomponerla en HUs. Cada HU recibe título, scope, tipo de tarea (`sw` / `infra` / `doc` / `add-tests` / `refactor` / `nocode`), dependencias explícitas sobre otras HUs, y un set de tests de aceptación. El plan se persiste en `~/.karajan/plans/<planId>.json` y luego se puede inspeccionar, editar, validar y finalmente ejecutar con `kj run --plan <planId>`.
+
+La generación no es una sola llamada LLM. Por defecto es un **pipeline de calidad**: el planner redacta la descomposición, una pasada tests-synthesizer rellena cualquier HU que el planner dejó sin tests de aceptación, y una pasada plan-reviewer chequea el plan entero buscando gaps, dependencias circulares, solapamiento de scope entre HUs y orden incorrecto. Cada una se puede desactivar (`--no-tests-synth`, `--no-plan-review`, o `--quick` para un sketch crudo) cuando quieres velocidad sobre rigor.
+
+Si la task es un **REASONS Canvas** (un markdown con cabeceras `## REASONS:Section`), `kj plan` lo detecta por contenido — no por flag — y lo parsea + valida *antes* de gastar tokens LLM. Los tests de aceptación rotos (jq malformado, bash imparseable, gherkin sin Given/Then) se cazan en plan-time con un error preciso apuntando a la operación e índice de test, en vez de reventar a mitad de run tres iteraciones después.
+
+Los subcomandos (`list`, `show`, `ready`, `validate`, `fix`, `delete`, `add-hu`, `remove-hu`, `migrate-result`) gestionan el ciclo de vida: un plan nace `draft`, se certifica a `ready` cuando cada HU tiene tests de aceptación y tú lo apruebas, y lo consume `kj run --plan`.
+
+## Cuándo usarlo
+
+- **La task es mayor de ~150 LOC** — `kj plan "migra el módulo de auth de sesiones a JWT"` y luego ejecuta HU por HU. El uso más valioso.
+- **Quieres revisar el enfoque antes de escribir código** — `kj plan generate <task>` → `kj plan show <planId>` → editar el JSON o `kj plan fix` → solo entonces `kj run --plan`.
+- **El trabajo tiene restricciones de orden** — el planner codifica `depends_on` para que las HUs corran en orden válido; `kj run --plan` lo respeta.
+- **Ya existe una spec como REASONS Canvas** — `kj plan --task-file spec.md` valida los tests de aceptación por adelantado, gratis.
+- **Existe un plan pero el reviewer lo marcó** — `kj plan fix <planId> --prompt "parte HU-003, son dos concerns"` re-corre el self-fix loop con tu feedback inyectado.
+
+## Cuándo NO usarlo
+
+- **Tareas triviales de un solo fichero** — un fix de typo o un cambio de una función no necesita plan. Ve directo a [`kj run`](./run/); `--auto-simplify` ya colapsa el pipeline para esto.
+- **No vas a revisar el plan** — si vas a hacer `kj run --plan` a ciegas con lo que salga, la ronda de planning es solo latencia. `kj run` sin `--plan` ya hace planning implícito de una HU.
+- **Exploración pura** — "¿qué pinta tendría siquiera un plan?" es un sketch `--quick` como mucho, o sáltatelo y pregunta al agent CLI directo.
+- **La task es genuinamente desconocida hasta que codees** — los spikes no planifican bien. Corre un spike `--max-iterations 1` primero, luego planifica el trabajo real.
+
+## Opciones
+
+### `kj plan generate` (subcomando por defecto)
+
+`kj plan <task>` es atajo de `kj plan generate <task>`.
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `--task-file <path>` | (arg inline) | La task es larga o vive en un fichero spec. Un fichero con cabeceras `## REASONS:` dispara la validación Canvas. | Mutuamente excluyente en la práctica con el argumento `[task]` inline. |
+| `--planner <name>` | config (`roles.planner.provider`) | A/B otro agente para la descomposición: `--planner codex`. | — |
+| `--planner-model <name>` | tier-driven | Pinea un modelo: `--planner-model claude-opus-4-7`. Salta el tier picker. | — |
+| `--context <text>` | none | Mete research / constraints previos en el planner: `--context "tiene que quedarse en Node 20"`. | Empareja bien con pipear output de `kj researcher`. |
+| `--json` | off | Plan machine-readable para CI que lo post-procesa. | — |
+| `--no-tests-synth` | synth on | Salta la pasada que rellena tests de aceptación faltantes. Más rápido, menos calidad. | Implicado por `--quick`. |
+| `--no-plan-review` | review on | Salta la pasada reviewer de gaps/deps/overlap/order. | Implicado por `--quick`. |
+| `--quick` | off | Modo sketch — solo la llamada al planner, sin pasadas de calidad. Para evaluar factibilidad de un vistazo. | Sobrescribe `--no-tests-synth` / `--no-plan-review`. |
+| `-y, --yes` | off | Salta el prompt de nombre de proyecto (usa el default auto-derivado). CI. | — |
+| `--no-interactive` | interactivo | Fuerza no-interactivo: sin prompts, defaults en todo. | Implica el efecto de `--yes`. |
+
+### `kj plan list`
+
+Sin opciones. Lista cada plan persistido con su id, status (`draft` / `ready` / executed) y conteo de HUs.
+
+### `kj plan show <planId>`
+
+Sin opciones. Imprime el plan completo: título, tipo, scope, dependencias, tests de aceptación y resultado actual de cada HU.
+
+### `kj plan ready <planId>`
+
+Sin opciones. Certifica el plan: valida que cada HU tiene tests de aceptación, luego pasa el status a `ready` para que `kj run --plan` lo ejecute. El gate de aprobación.
+
+### `kj plan validate <planId>`
+
+Sin opciones. Solo chequeo estructural (schema, aciclicidad del grafo de dependencias, sin refs de HU colgantes) — no certifica. Úsalo en CI para fallar rápido sobre un plan editado a mano.
+
+### `kj plan fix <planId>`
+
+| Flag | Default | Cuándo activarla |
+| --- | --- | --- |
+| `--prompt <text>` | none | Inyecta feedback humano que el reviewer usa como contexto extra: `--prompt "HU-002 y HU-004 solapan, fusiónalas"`. |
+| `--json` | off | Emite conteos before/after de findings para dashboards de CI. |
+
+Re-corre reviewer + self-fix + pasada estructural sobre un plan existente. La forma de iterar sobre un plan sin regenerarlo desde cero.
+
+### `kj plan add-hu <planId>` / `remove-hu <planId> <huId>`
+
+| Flag (add-hu) | Default | Nota |
+| --- | --- | --- |
+| `--title <text>` | — | Título de la HU. |
+| `--type <type>` | `sw` | `sw\|infra\|doc\|add-tests\|refactor\|nocode`. |
+| `--deps <ids>` | none | IDs de HU separados por coma de los que depende. |
+| `--scope <text>` | none | Descripción del scope. |
+
+Cirugía manual sobre un plan cuando regenerarlo perdería ajuste a mano. `remove-hu` toma el id del plan y el id de la HU.
+
+### `kj plan migrate-result`
+
+| Flag | Default | Nota |
+| --- | --- | --- |
+| `--dry-run` | off | Muestra qué cambiaría sin escribir. |
+
+Mantenimiento one-shot: rellena el campo `result` en HUs de plan files antiguos a partir de su status legacy. Idempotente. Se corre una vez tras actualizar a través de la versión que introdujo el campo; no es parte del workflow normal.
+
+## Ejemplos
+
+### Típico: planear y ejecutar
+
+```bash
+kj plan "Añade soporte multi-tenant: modelo tenant, scoping por fila, UI admin"
+kj plan show PLN-007
+kj plan ready PLN-007
+kj run --plan PLN-007
+```
+
+Qué pasa: el planner descompone en ~5-7 HUs con dependencias (modelo antes que scoping antes que UI), el tests-synthesizer rellena tests de aceptación, el plan-reviewer marca cualquier gap. Inspeccionas con `show`, certificas con `ready`, luego `kj run` ejecuta cada HU como su propia branch/PR.
+
+### Validar un REASONS Canvas escrito a mano antes de gastar tokens
+
+```bash
+kj plan --task-file specs/payment-refunds.canvas.md --json
+```
+
+Qué pasa: las cabeceras `## REASONS:` disparan el parsing Canvas + validación de tests de aceptación *antes* de la llamada LLM del planner. Si un test tiene jq malformado o un bloque gherkin sin `Then`, recibes un error preciso (operación #, test #) y cero tokens gastados. Canvas limpio → plan generado como JSON para que lo consuma un paso de CI.
+
+### Sketch rápido de factibilidad
+
+```bash
+kj plan "reescribe el scheduler como modelo de actores" --quick
+```
+
+Qué pasa: una sola llamada al planner, sin synth, sin review. Recibes un desglose tosco de HUs en segundos para juzgar "¿esto son 3 HUs o 15?" antes de comprometerte a un plan real.
+
+### Iterar sobre un plan marcado con feedback
+
+```bash
+kj plan fix PLN-007 --prompt "HU-004 mezcla migración y UI — pártela"
+```
+
+Qué pasa: el loop reviewer + self-fix re-corre sobre PLN-007 con tu nota como contexto extra. El plan file se actualiza in place; `kj plan show PLN-007` refleja el split.
+
+## Cómo funciona por dentro
+
+El rol planner produce un draft, pero el **valor está en las pasadas posteriores**. Una sola descomposición LLM infra-especifica los tests de aceptación de forma fiable (el modelo optimiza para "plan plausible", no "plan verificable") y mis-ordena de forma fiable las HUs con dependencias implícitas. El tests-synthesizer y el plan-reviewer existen precisamente porque ese modo de fallo es predecible: en vez de confiar en una llamada, Karajan gasta dos llamadas focalizadas más baratas para endurecer el output. `--quick` existe para los casos donde aceptaste ese trade-off conscientemente.
+
+La **auto-detección del REASONS Canvas** es una decisión de diseño deliberada: la detección es por *contenido* del fichero (`/^##\s+REASONS:/m`), nunca por flag CLI. La razón es que el formato Canvas es en sí mismo la señal de intención — quien escribió secciones `## REASONS:` estructuradas quiere la validación estricta, y una spec plana no debería tener que optar por salir de un camino al que nunca optó entrar. Esto mantiene la back-compat de spec plana perfecta mientras hace el camino estricto gratis y automático para quien usa el formato. Validar en plan-time (no en run-time) es el punto entero: un test de aceptación roto cazado aquí no cuesta nada; el mismo test cazado en la iteración 3 de un `kj run` ya quemó al coder y al reviewer en tres rondas.
+
+Los planes son JSON plano en disco bajo `~/.karajan/plans/`, deliberadamente editables a mano. El ciclo de vida (`draft` → `ready` → executed) lo impone `kj plan ready` chequeando el invariante de tests de aceptación, pero nada te impide editar el JSON entre runs — y el camino `kj run --plan` reconcilia el batch persistido contra el plan file cada run, así que un fix a mano de una HU rota realmente surte efecto (esta reconciliación se añadió tras bugs de batch obsoleto que dejaban planes editados corriendo silenciosamente la versión vieja).
+
+## Relacionado
+
+- [`kj run`](./run/) — `kj run --plan <planId>` ejecuta un plan certificado.
+- [Roles del pipeline → `planner`](../pipeline-roles/#planner) — el rol que hace la descomposición.
+- [Roles del pipeline → `hu-reviewer`](../pipeline-roles/#hu-reviewer) — la pasada plan-review, también corrible en `kj run` vía `--enable-hu-reviewer`.
+- [Roles del pipeline → `acceptance`](../pipeline-roles/#acceptance) — cómo se consumen en run time los tests de aceptación sintetizados aquí.
+- [`kj audit`](./audit/) — el otro comando read-only de "pensar antes de codear".
