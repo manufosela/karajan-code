@@ -1,0 +1,78 @@
+---
+title: kj architect
+description: Design the solution architecture for a task — layers, patterns, contracts — without writing code.
+---
+
+`kj architect` produces a **design** for a task: the layers, the patterns, the interfaces and contracts, the trade-offs — and stops there. It's the architect role standalone, for when the *how* deserves a deliberate answer before any code is written.
+
+## What it does
+
+`kj architect` takes a task and returns a structured architecture proposal: how the change decomposes into layers/modules, which patterns apply, the API/data contracts involved, and the trade-offs of the chosen approach versus alternatives. It writes no code and modifies nothing — the output is a design document (human-readable, or `--json`).
+
+It accepts `--context`, which is how it composes with [`kj researcher`](./researcher/): research first to gather constraints and existing patterns, pipe that in as context, and the architect designs *against reality* instead of in a vacuum. Inside `kj run`, this is exactly the `--enable-architect` step (and it pairs with `--enable-researcher` for the same reason).
+
+## When to use
+
+- **Non-trivial structural changes** — `kj architect "introduce an event bus between the importer and the indexer"`.
+- **Multiple viable approaches** — when you want the trade-offs named before you commit.
+- **Before planning a large feature** — architect the shape, then [`kj plan`](./plan/) the HUs against that shape.
+- **Composed with research** — `kj researcher` → feed output via `--context` → `kj architect`.
+- **Design review artifact** — generate a design to circulate to humans before implementation.
+
+## When NOT to use
+
+- **Mechanical or small changes** — a rename or a bug fix has no architecture to design. [`kj code`](./code/) or [`kj run`](./run/).
+- **You'll run the full pipeline anyway** — use `kj run --enable-architect`; a separate call only helps if you want the design as a reviewable artifact first.
+- **The constraints are unknown** — architecting without knowing the codebase produces plausible-but-wrong designs. [`kj researcher`](./researcher/) first.
+- **Sizing, not designing** — that's [`kj triage`](./triage/).
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | The task to design. Required unless `--task-file`. | — |
+| `--task-file <path>` | none | Long task / spec file. | Supersedes the inline `[task]`. |
+| `--architect <name>` | config | Override the architect agent. | — |
+| `--architect-model <name>` | tier-driven | Pin the model — design benefits from a strong one. | — |
+| `--context <text>` | none | Feed researcher output / constraints so the design fits the real codebase. | The intended composition point with `kj researcher`. |
+| `--json` | off | Tooling / pipe into `kj plan` context. | — |
+
+## Examples
+
+### Typical: design before building
+
+```bash
+kj architect "Add offline-first sync to the mobile client"
+```
+
+What happens: returns layered design (local store, sync engine, conflict resolution), the patterns, the contracts, and trade-offs vs alternatives. You read it, then plan/run.
+
+### Composed with research
+
+```bash
+kj researcher "Add offline-first sync" --json > research.json
+kj architect "Add offline-first sync" --context "$(cat research.json)"
+```
+
+What happens: the architect designs against the actual modules and constraints research surfaced, not assumptions — far fewer "that won't work here" designs.
+
+### Design artifact for human review
+
+```bash
+kj architect --task-file specs/new-billing.md --json > design.json
+```
+
+What happens: a structured design to circulate or feed into `kj plan` as context before any HU is written.
+
+## How it works internally
+
+`kj architect` exists because **the coder is good at "make this work" and unreliable at "make this the right shape"**. Left to one prompt, an agent will produce *a* solution, rarely *the* solution with its alternatives weighed. Separating design as its own role forces the trade-off reasoning to happen explicitly and be inspectable before code calcifies around an unconsidered choice. That's why the output centres on trade-offs, not just a chosen design — a design without its rejected alternatives is an assertion, not an argument.
+
+The `--context` seam is the important architectural decision in the tool itself: architect and researcher are deliberately separate roles that compose, rather than one mega-role. Research is "what is true about this codebase", architecture is "what should we build given that" — different skills, different prompts, and keeping them separate means you can research once and explore several designs, or design against externally-supplied constraints. Inside `kj run` the pipeline wires them automatically; standalone, you wire them with a pipe, and seeing that seam makes the pipeline's structure legible.
+
+## Related
+
+- [`kj researcher`](./researcher/) — gather the constraints to feed architect via `--context`.
+- [`kj plan`](./plan/) — decompose the architected solution into HUs.
+- [`kj run`](./run/) — `--enable-architect` runs this inside the pipeline.
+- [Pipeline roles → `architect`](../pipeline-roles/#architect) — the role this command runs standalone.

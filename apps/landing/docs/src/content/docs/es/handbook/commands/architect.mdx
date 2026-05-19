@@ -1,0 +1,78 @@
+---
+title: kj architect
+description: Diseña la arquitectura de la solución para una task — capas, patrones, contratos — sin escribir código.
+---
+
+`kj architect` produce un **diseño** para una task: las capas, los patrones, las interfaces y contratos, los trade-offs — y para ahí. Es el rol architect standalone, para cuando el *cómo* merece una respuesta deliberada antes de escribir código.
+
+## Qué hace
+
+`kj architect` toma una task y devuelve una propuesta de arquitectura estructurada: cómo se descompone el cambio en capas/módulos, qué patrones aplican, los contratos de API/datos involucrados, y los trade-offs del enfoque elegido frente a alternativas. No escribe código y no modifica nada — el output es un documento de diseño (legible por humanos, o `--json`).
+
+Acepta `--context`, que es cómo compone con [`kj researcher`](./researcher/): investiga primero para reunir constraints y patrones existentes, pipea eso como contexto, y el architect diseña *contra la realidad* en vez de en el vacío. Dentro de `kj run`, esto es exactamente el paso `--enable-architect` (y empareja con `--enable-researcher` por la misma razón).
+
+## Cuándo usarlo
+
+- **Cambios estructurales no triviales** — `kj architect "introduce un event bus entre el importer y el indexer"`.
+- **Múltiples enfoques viables** — cuando quieres los trade-offs nombrados antes de comprometerte.
+- **Antes de planear una feature grande** — arquitecta la forma, luego [`kj plan`](./plan/) las HUs contra esa forma.
+- **Compuesto con research** — `kj researcher` → alimenta output vía `--context` → `kj architect`.
+- **Artefacto de design review** — genera un diseño para circular a humanos antes de implementar.
+
+## Cuándo NO usarlo
+
+- **Cambios mecánicos o pequeños** — un rename o un bug fix no tiene arquitectura que diseñar. [`kj code`](./code/) o [`kj run`](./run/).
+- **Vas a correr el pipeline completo igualmente** — usa `kj run --enable-architect`; una llamada separada solo ayuda si quieres el diseño como artefacto revisable primero.
+- **Los constraints son desconocidos** — arquitecturar sin conocer el codebase produce diseños plausibles-pero-erróneos. [`kj researcher`](./researcher/) primero.
+- **Dimensionar, no diseñar** — eso es [`kj triage`](./triage/).
+
+## Opciones
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | La task a diseñar. Requerida salvo `--task-file`. | — |
+| `--task-file <path>` | none | Task larga / fichero spec. | Sobrescribe el `[task]` inline. |
+| `--architect <name>` | config | Override del agente architect. | — |
+| `--architect-model <name>` | tier-driven | Pinea el modelo — el diseño se beneficia de uno fuerte. | — |
+| `--context <text>` | none | Alimenta output de researcher / constraints para que el diseño encaje en el codebase real. | El punto de composición previsto con `kj researcher`. |
+| `--json` | off | Tooling / pipear al contexto de `kj plan`. | — |
+
+## Ejemplos
+
+### Típico: diseñar antes de construir
+
+```bash
+kj architect "Añade sync offline-first al cliente móvil"
+```
+
+Qué pasa: devuelve diseño por capas (store local, motor de sync, resolución de conflictos), los patrones, los contratos, y trade-offs vs alternativas. Lo lees, luego planeas/corres.
+
+### Compuesto con research
+
+```bash
+kj researcher "Añade sync offline-first" --json > research.json
+kj architect "Añade sync offline-first" --context "$(cat research.json)"
+```
+
+Qué pasa: el architect diseña contra los módulos y constraints reales que research afloró, no asunciones — muchos menos diseños "eso no funcionará aquí".
+
+### Artefacto de diseño para revisión humana
+
+```bash
+kj architect --task-file specs/new-billing.md --json > design.json
+```
+
+Qué pasa: un diseño estructurado para circular o alimentar a `kj plan` como contexto antes de que se escriba ninguna HU.
+
+## Cómo funciona por dentro
+
+`kj architect` existe porque **el coder es bueno en "haz que esto funcione" y poco fiable en "haz que esto tenga la forma correcta"**. Dejado a un solo prompt, un agente producirá *una* solución, rara vez *la* solución con sus alternativas pesadas. Separar el diseño como su propio rol fuerza a que el razonamiento de trade-offs ocurra explícitamente y sea inspeccionable antes de que el código se calcifique alrededor de una elección no considerada. Por eso el output se centra en trade-offs, no solo un diseño elegido — un diseño sin sus alternativas rechazadas es una aserción, no un argumento.
+
+La costura `--context` es la decisión arquitectónica importante en la herramienta misma: architect y researcher son deliberadamente roles separados que componen, en vez de un mega-rol. Research es "qué es verdad sobre este codebase", arquitectura es "qué deberíamos construir dado eso" — habilidades distintas, prompts distintos, y mantenerlos separados significa que puedes investigar una vez y explorar varios diseños, o diseñar contra constraints suministrados externamente. Dentro de `kj run` el pipeline los cablea automáticamente; standalone, los cableas con un pipe, y ver esa costura hace legible la estructura del pipeline.
+
+## Relacionado
+
+- [`kj researcher`](./researcher/) — reúne los constraints para alimentar architect vía `--context`.
+- [`kj plan`](./plan/) — descompone la solución arquitecturada en HUs.
+- [`kj run`](./run/) — `--enable-architect` corre esto dentro del pipeline.
+- [Roles del pipeline → `architect`](../pipeline-roles/#architect) — el rol que este comando corre standalone.
