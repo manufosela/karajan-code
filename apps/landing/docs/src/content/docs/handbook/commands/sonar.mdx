@@ -1,0 +1,79 @@
+---
+title: kj sonar
+description: Manage the SonarQube container — start, stop, status, logs, open. The lifecycle Karajan handles so you don't write Docker commands.
+---
+
+`kj sonar` manages the **SonarQube container** Karajan uses for static analysis. SonarQube is a containerised server, not a binary, and Karajan owns its lifecycle so you never hand-write `docker run` for it. This is the command surface for that lifecycle.
+
+## What it does
+
+`kj sonar <subcommand>` controls the local SonarQube server (server + database containers) that [`kj scan`](./scan/), the `sonar` role in [`kj run`](./run/), and the Sonar collector in [`kj audit`](./audit/) all depend on. It wraps the container operations — bring up, tear down, health, logs, dashboard — behind subcommands so the rest of Karajan can just assume "Sonar is there or it isn't".
+
+Subcommands: `start` (bring the container up), `stop` (tear it down), `status` (running? healthy?), `logs` (tail container logs for debugging), `open` (open the SonarQube web dashboard in your browser). [`kj init`](./init/) brings Sonar up for you on first setup; `kj sonar` is for managing it afterwards. It requires a working Docker daemon — Sonar's hard prerequisite.
+
+## When to use
+
+- **Sonar-dependent step failed** — `kj sonar status` to check the container before blaming the pipeline.
+- **Container needs a restart** — `kj sonar stop` then `kj sonar start` (e.g. after the daily Anthropic-limit window where the user note in memory applies).
+- **Inspecting findings in the UI** — `kj sonar open` to browse the dashboard, not just the CLI summary.
+- **Debugging a scan** — `kj sonar logs` when `kj scan` behaves oddly.
+- **Freeing resources** — `kj sonar stop` when you won't audit/scan for a while (it's a heavyweight container).
+
+## When NOT to use
+
+- **You just want to scan** — [`kj scan`](./scan/) (it assumes Sonar is up; bring it up once with `kj sonar start`).
+- **No Docker** — `kj sonar` can't manage a container without a daemon. [`kj install-tools`](./install-tools/) reports the Docker install hint.
+- **First-time setup** — [`kj init`](./init/) already brings Sonar up; you don't need `kj sonar start` immediately after.
+- **Reasoning over findings** — [`kj audit`](./audit/) for LLM analysis; `kj sonar` only manages the server.
+
+## Subcommands
+
+| Subcommand | Effect |
+| --- | --- |
+| `start` | Bring the SonarQube container up (and its DB). Idempotent. |
+| `stop` | Tear the container down. Frees memory; scans unavailable until restarted. |
+| `status` | Report running/healthy state. The first thing to check on a Sonar failure. |
+| `logs` | Tail the container logs — for diagnosing scan/startup issues. |
+| `open` | Open the SonarQube web dashboard in the default browser. |
+
+`kj sonar` subcommands take no flags — the server's configuration (port, token) lives in `karajan.config.yml`, bootstrapped by [`kj init`](./init/).
+
+## Examples
+
+### Typical: check before blaming the pipeline
+
+```bash
+kj sonar status && kj scan
+```
+
+What happens: confirms the container is up and healthy, then scans. If `status` is red, you know the problem is Sonar, not your code or the reviewer.
+
+### Restart after the daily limit window
+
+```bash
+kj sonar stop && kj sonar start
+```
+
+What happens: a clean container cycle — the standard fix when Sonar gets into a bad state (the documented workaround for the "container being restarted" case `--no-sonar` exists for).
+
+### Debug a misbehaving scan
+
+```bash
+kj sonar logs
+```
+
+What happens: tails the SonarQube container logs so you can see why analysis failed (OOM, plugin error, DB connection) instead of guessing.
+
+## How it works internally
+
+`kj sonar` exists because **Sonar is the one integration that is genuinely stateful infrastructure**, not a stateless binary you invoke. OSV-Scanner and Semgrep are "run and forget"; SonarQube is a long-lived server with a database that has a lifecycle, health states, and resource cost. Pretending it's uniform with the other tools would leak Docker management into every command that touches Sonar. Instead Karajan centralises the lifecycle here and lets `kj scan` / `kj audit` / the `sonar` role assume a binary world ("up or not") — the messy container reality is contained in this one command.
+
+The no-flags design mirrors [`kj scan`](./scan/)'s reasoning: anything that changes how Sonar behaves (port, token, project key) is configuration that belongs in the versioned `karajan.config.yml`, set once by `kj init`, not in invocation-time flags that would drift per machine and make "why is Sonar different here?" unanswerable. `kj sonar` is deliberately just verbs on a lifecycle — start, stop, look, log, open — because that's the entire honest surface of "manage a container someone else configured".
+
+## Related
+
+- [`kj scan`](./scan/) — the deterministic scan that needs this container up.
+- [`kj audit`](./audit/) — its Sonar collector depends on this server.
+- [`kj init`](./init/) — brings Sonar up on first setup.
+- [`kj doctor`](./doctor/) — health-checks the Sonar container among everything else.
+- [External tools → SonarQube / Docker](../external-tools/#sonarqube) — what Sonar is and why Docker is its prerequisite.

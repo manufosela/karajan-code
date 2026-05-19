@@ -1,0 +1,86 @@
+---
+title: kj discover
+description: Interroga la task en sí buscando gaps, ambigüedades e información faltante antes de escribir código — con cinco modos de cuestionamiento.
+---
+
+`kj discover` apunta el análisis a **la task, no al codebase**. Pregunta: ¿está esta petición realmente especificada lo bastante bien para construirla? Aflora los gaps, ambigüedades y asunciones no declaradas — las preguntas que alguien debería haber respondido antes de que "implementa X" se entregara.
+
+## Qué hace
+
+`kj discover` toma una task y analiza *eso* (no el código) buscando qué falta o está sub-especificado: requisitos no declarados, términos ambiguos, asunciones implícitas, edge cases indefinidos, criterios de éxito que nadie escribió. El modo por defecto `gaps` produce una lista estructurada de gaps con un veredicto (ready / needs-validation). No escribe nada y no corre coder.
+
+Cinco **modos** cambian la lente de cuestionamiento:
+
+- `gaps` (default) — análisis genérico de información faltante.
+- `momtest` — preguntas estilo Mom Test (sondear evidencia real, no validación).
+- `wendel` — un framing de checklist de cambio de comportamiento.
+- `classify` — clasificación START / STOP / DIFFERENT de la petición.
+- `jtbd` — framing Jobs-to-be-Done de la necesidad subyacente.
+
+Es el rol discover de `kj run` (`--enable-discover`) standalone. Donde [`kj researcher`](./researcher/) explora la realidad en el código, `kj discover` interroga la petición antes de tocar la realidad.
+
+## Cuándo usarlo
+
+- **Tasks vagas o de segunda mano** — `kj discover "haz el dashboard mejor"` expone que "mejor" es indefinido.
+- **Spec de un no-developer** — aflora los requisitos implícitos antes de que se vuelvan código erróneo.
+- **Antes de planear una feature grande** — cierra gaps primero, para que [`kj plan`](./plan/) descomponga una task *completa*.
+- **Framing de producto** — `--mode jtbd` / `momtest` para interrogar la necesidad subyacente, no solo la feature declarada.
+- **Triar una petición** — `--mode classify` para decidir si esto es un START, un STOP, o algo DIFFERENT del todo.
+
+## Cuándo NO usarlo
+
+- **Tasks bien especificadas** — una spec precisa con criterios de aceptación no tiene gaps que encontrar; discover es latencia.
+- **Vas a correr el pipeline igualmente** — `kj run --enable-discover`; standalone solo ayuda para gatear *antes* de comprometerte a un run.
+- **Preguntas de codebase** — "¿qué patrón usa este proyecto?" es [`kj researcher`](./researcher/), no discover.
+- **Dimensionar** — "¿cómo de complejo es esto?" es [`kj triage`](./triage/).
+
+## Opciones
+
+| Flag | Default | Cuándo activarla | Interacción |
+| --- | --- | --- | --- |
+| `[task]` (arg) | — | La task a interrogar. Requerida salvo `--task-file`. | — |
+| `--task-file <path>` | none | Task larga / fichero spec. | Sobrescribe el `[task]` inline. |
+| `--mode <name>` | `gaps` | `momtest` / `wendel` / `classify` / `jtbd` — elige la lente que coincide con *por qué* cuestionas la task. | Cada modo cambia la forma del output, no solo el tono. |
+| `--discover <name>` | config | Override del agente discover. | — |
+| `--discover-model <name>` | tier-driven | Pinea el modelo. | — |
+| `--json` | off | Gating en CI / tooling. | — |
+
+## Ejemplos
+
+### Típico: expón los gaps
+
+```bash
+kj discover "Añade notificaciones a la app"
+```
+
+Qué pasa: devuelve las preguntas sin responder — ¿qué eventos? ¿qué canales (push/email/in-app)? ¿preferencias de usuario? — con un veredicto `needs-validation`. Las respondes, luego planeas.
+
+### Framing Jobs-to-be-Done
+
+```bash
+kj discover "Los usuarios quieren un dark mode" --mode jtbd
+```
+
+Qué pasa: reformula alrededor del job subyacente ("reducir fatiga ocular de noche" / "coincidir con el OS") — que puede cambiar *qué* construyes, no solo cómo.
+
+### Gate de CI sobre readiness de la task
+
+```bash
+verdict=$(kj discover --task-file task.md --json | jq -r .verdict)
+[ "$verdict" = ready ] || { echo "Task sub-especificada"; exit 1; }
+```
+
+Qué pasa: el pipeline rehúsa gastar un `kj run` en una task que discover marca como sub-especificada.
+
+## Cómo funciona por dentro
+
+`kj discover` codifica una verdad dura de la propia guía de [`kj run`](./run/): *el pipeline funciona tan bien como la descripción de la task; tasks vagas producen código vago*. La mayoría de los resultados "la IA escribió código malo" son en realidad "la task estaba sub-especificada y nadie lo notó hasta el diff". Discover mueve ese notar **antes** de que se gasten los tokens — el sitio más barato posible para cazar un requisito faltante es antes de que ningún agente haya actuado sobre su ausencia.
+
+Los cinco modos existen porque "¿qué falta de esta task?" no es una pregunta. Una lista genérica de gaps (`gaps`) es correcta para un ticket de ingeniería; pero una petición de feature a menudo necesita ser desafiada a nivel de *necesidad*, no de spec — de ahí `jtbd` y `momtest`, que deliberadamente rehúsan tomar la feature declarada al pie de la letra, y `classify`, que cuestiona si la task debería existir siquiera (START/STOP/DIFFERENT). Empaquetar estos en un modo forzaría un único estilo de interrogación sobre preguntas que necesitan distintos; separarlos hace el *tipo* de duda explícito y seleccionable.
+
+## Relacionado
+
+- [`kj researcher`](./researcher/) — el complemento: interroga el codebase, no la task.
+- [`kj triage`](./triage/) — dimensiona la task; discover chequea que esté lo bastante completa para dimensionar.
+- [`kj plan`](./plan/) — alimenta una task endurecida por discover para que la descomposición se construya sobre terreno sólido.
+- [Roles del pipeline → `discover`](../pipeline-roles/#discover) — el rol que este comando corre standalone.

@@ -1,0 +1,84 @@
+---
+title: kj board
+description: The HU Board — a local web dashboard of plan/HU progress. Start, stop, inspect, clean.
+---
+
+`kj board` runs the **HU Board**: a local web dashboard that visualises plans and their HUs — status, progress, per-HU re-run buttons. It's how you watch a multi-HU `kj run --plan` without tailing logs, and the surface for re-running a single failed HU with a click.
+
+## What it does
+
+`kj board [action]` manages a small local web server (default port 4000, bound to `127.0.0.1`) that reads the plans/sessions under `~/.karajan/` and renders them as a live board: each plan, its HUs, their status (pending / coding / reviewing / done / failed), and progress. The board auto-starts when `kj run` generates HUs, so you usually interact with it rather than launch it.
+
+The actions: `start` (default — boot/serve), `stop` (shut the server down), `status` (is it running, where), `open` (open the dashboard in your browser), `cleanup` (garbage-collect ephemeral / orphaned / stale-by-inactivity HU batches in one pass). The board polls for changes and includes a manual restart-detector so a stale tab notices a new server.
+
+`--bind 0.0.0.0` exposes it on the LAN — and Karajan auto-enforces token auth when you do, so a board on a shared network isn't open.
+
+## When to use
+
+- **Watching a `--plan` run** — `kj board open` while `kj run --plan PLN-007` works through HUs.
+- **Re-running one failed HU** — the per-HU ▶ button (equivalent to `kj run --plan … --hu HU-005`).
+- **Tidying accumulated batches** — `kj board cleanup` after dogfooding leaves ephemeral/orphan entries.
+- **Sharing progress on a LAN** — `kj board --bind 0.0.0.0` (token auth auto-on) so a teammate can watch.
+- **Checking it's up** — `kj board status` when a tab looks stale.
+
+## When NOT to use
+
+- **Headless CI** — a dashboard nobody opens is wasted; gate on `kj run` exit codes / `kj report` instead.
+- **Single-task `kj run`** — no plan, no HUs to board. The board's value is multi-HU plans.
+- **Inspecting a finished run's metrics** — that's [`kj report`](./maintenance/#kj-report) (timings, tokens), not the live board.
+- **Exposing publicly** — `--bind 0.0.0.0` is for trusted LANs with token auth, not the open internet.
+
+## Options & actions
+
+| Action | Effect |
+| --- | --- |
+| `start` (default) | Boot and serve the board. Idempotent — re-uses a running instance. |
+| `stop` | Shut the server down. |
+| `status` | Report whether it's running and on which URL. |
+| `open` | Open the dashboard in the default browser. |
+| `cleanup` | Garbage-collect ephemeral, orphaned, and >7d-inactive HU batches in one pass. |
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `--port <number>` | `4000` (or `hu_board.port` config) | Port already taken / running several boards. | — |
+| `--bind <host>` | `127.0.0.1` (or `hu_board.bind` config) | `0.0.0.0` to expose on LAN. | Token auth is **auto-enforced** when bind is non-loopback. |
+
+## Examples
+
+### Typical: watch a plan run
+
+```bash
+kj run --plan PLN-007 &
+kj board open
+```
+
+What happens: the board (auto-started by the run) opens in your browser; HUs flip pending → coding → reviewing → done live. Click ▶ on a failed HU to re-run just it.
+
+### Tidy up after dogfooding
+
+```bash
+kj board cleanup
+```
+
+What happens: one pass removes ephemeral batches, orphans whose project dir is gone, and batches with no activity for >7 days — keeping the board readable.
+
+### Share on the LAN
+
+```bash
+kj board start --bind 0.0.0.0 --port 4100
+```
+
+What happens: served on the LAN at :4100 with token auth automatically enforced — a teammate opens the URL with the token, nobody else gets in.
+
+## How it works internally
+
+The board is a **reader, not a source of truth**. It renders `~/.karajan/` state; it doesn't own it. That decoupling is the core design decision: `kj run` persists plan/HU/session state to disk regardless of whether the board is running, and the board is a disposable view over that. Kill it, restart it, run on a headless server with no board at all — the run is unaffected. This is also why `cleanup` is a board subcommand but operates on the underlying batches: the mess accumulates in the state, the board just makes it visible, so the broom lives where you noticed the dust.
+
+The auto-enforced token auth on non-loopback bind encodes a refusal to ship a footgun. A local dashboard is conveniently auth-free on `127.0.0.1`; the moment you `--bind 0.0.0.0` that same convenience becomes "anyone on the network can trigger HU re-runs". Rather than document a warning and hope, the tool makes the safe thing automatic — you cannot accidentally expose an unauthenticated board.
+
+## Related
+
+- [`kj run`](./run/) — generates the HUs the board renders; `--hu` is what the ▶ button calls.
+- [`kj plan`](./plan/) — the plans the board visualises.
+- [`kj report`](./maintenance/#kj-report) — post-run metrics; the board is live progress, report is the post-mortem.
+- [HU Board guide](../../guides/hu-board/) — the original walkthrough (the doc that predates this handbook).
