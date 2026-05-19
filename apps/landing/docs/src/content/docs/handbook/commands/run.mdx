@@ -1,0 +1,221 @@
+---
+title: kj run
+description: The full multi-agent pipeline — coder + reviewer + sonar by default, with 24 optional roles you can switch on per task.
+---
+
+`kj run` is **the** command. Everything else in Karajan supports it (planning, auditing, doctor) or is a subset of it (`kj code`, `kj review`, `kj scan`). Get this one right and you've got the system.
+
+## What it does
+
+`kj run` orchestrates a **multi-agent pipeline** that takes a task description as input and produces working code as output, going through any subset of 24 specialised roles (planner, coder, reviewer, sonar, tester, security…). You pick the AI agent backing each role (Claude, Codex, Gemini, Aider, OpenCode) — the pipeline shape doesn't change.
+
+The pipeline runs in three phases:
+
+- **Pre-loop** (once): intent detection → optional planning/research/architecture → skills loading → acceptance test synthesis. Sets up the context the iteration loop will use.
+- **Iteration loop** (1 to `--max-iterations` times): coder writes code → deterministic guards check the diff → sonar scans → TDD gate verifies tests fail first → reviewer evaluates. If reviewer rejects with structural issues, loop again with the feedback; if it rejects with style-only issues, Solomon (the arbiter) can override.
+- **Post-loop** (once, after approval): optional tester, security, performance, impeccable, and audit passes. Optional git commit / push / PR.
+
+The **default minimum** is intentionally lean: intent → skills → acceptance → coder → guards → sonar → tdd → reviewer → solomon → brain. Everything else is `--enable-X` opt-in or activated by `--mode=paranoid`. The reasoning is that adding a role costs tokens and time, and most tasks don't need researcher or architect every time.
+
+By the end, you get: code written, tests passing (if TDD or `--enable-tester`), a Sonar quality gate green, a reviewer that approved (possibly after iterations), and optionally a PR open against your base branch.
+
+## When to use
+
+- **Implementing a feature or fix** — the typical case: `kj run "add a logout button to the navbar"`.
+- **Executing an approved plan** — `kj run --plan PLN-001` runs every HU in the plan.
+- **Re-running a single HU** — `kj run --plan PLN-001 --hu HU-003` after a failure, instead of restarting the whole plan.
+- **CI-driven implementation** — `kj run "<task>" --yes --max-iterations 5 --auto-pr` in a GitHub Action that's reacting to an issue label.
+- **Paranoid mode for sensitive code** — `kj run "<task>" --mode paranoid` activates tester + security + perf + impeccable + planner + triage + hu-reviewer in one shot.
+
+## When NOT to use
+
+- **Doing exploration / one-shot prompts** — if you're just asking "how would you approach X?" use the underlying agent CLI directly. `kj run` is heavy: full guards, sonar, reviewer, possibly iteration.
+- **Reading-only analysis** — to evaluate code quality without modifying anything, use [`kj audit`](./audit/), not `kj run`.
+- **Running just the coder, no review** — use [`kj code`](./code/). Skips reviewer/sonar/iteration.
+- **Just wanting a Sonar scan** — use [`kj scan`](./scan/).
+- **Tasks you can't describe well** — `kj run` works as well as your task description. Vague tasks produce vague code; fix the task first.
+
+## The task argument
+
+`kj run` requires a task. Three ways to provide it:
+
+```bash
+kj run "Fix the login redirect on Safari"             # inline string
+kj run --task-file ./specs/login-redirect.md          # markdown file
+kj run --plan PLN-001                                 # execute all HUs in a plan
+```
+
+For a Planning Game integration, pass the card ID with `--pg-task KJC-TSK-0042` (still requires the task description coming from somewhere — usually the card body).
+
+## Options
+
+`kj run` has 64 flags. They group naturally — read just the section that matches what you're trying to do, not the whole table.
+
+### Agent selection
+
+Which AI does each role. Defaults come from your `karajan.config.yml` (`roles.<role>.provider`).
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--coder <name>` | `claude` (config) | Use a different agent for this run only: `--coder codex`. Useful for A/B testing or when Claude's API is rate-limited. |
+| `--reviewer <name>` | cross-provider of coder | Force a specific reviewer: `--reviewer gemini`. Default is "the other major provider" (claude↔codex) which gives two perspectives. |
+| `--planner <name>` | config | Only matters when `--enable-planner`. |
+| `--refactorer <name>` | config | Only matters when `--enable-refactorer`. |
+| `--coder-fallback <name>` | from `brain.fallback` config | What to switch to when the primary coder hits `QUOTA_EXHAUSTED_*` with `retryAfter > 12h`. Useful before known Anthropic limit periods. |
+| `--reviewer-fallback <name>` | from config | Same idea for the reviewer. |
+| `--coder-model <name>` | tier-driven | Pin a specific model: `--coder-model claude-opus-4-7`. Bypasses the triage tier picker. |
+| `--reviewer-model <name>` | tier-driven | Pin reviewer model. |
+| `--planner-model <name>` / `--refactorer-model <name>` | tier-driven | Pin per-role models. |
+| `--smart-models` / `--no-smart-models` | on if `--enable-triage` | Lets triage pick a cheaper model (haiku) for trivial tasks. Turn off when you want consistent model choice across the run. |
+
+### Pipeline toggles (which roles run)
+
+| Flag | Default | When to enable it |
+| --- | --- | --- |
+| `--enable-triage` | off | Codebase >10k LOC or task ambiguity — triage saves tokens by picking the right tier. |
+| `--enable-discover` | off | Codebase >20k LOC and the task touches code already implemented. Discover does the grep/Read pass once, the coder benefits in every iteration. See [discover →](./discover/). |
+| `--enable-researcher` | off | Decision-heavy tasks ("add caching" — what flavour?). See [researcher →](./researcher/). |
+| `--enable-architect` | off | Tasks with non-trivial architecture impact. Pairs naturally with `--enable-researcher`. |
+| `--enable-planner` | off | Long tasks that need to be split into HUs first. Implicit when `--plan` is passed. |
+| `--enable-hu-reviewer` | off | When the plan came from a spec the user wrote — runs review on the plan before coding. |
+| `--enable-refactorer` | off | Tasks where you expect the coder to produce code that needs cleanup. Costs an extra LLM round. |
+| `--enable-tester` | off | When you don't fully trust the TDD gate or want the test suite as a post-step. |
+| `--enable-security` | off | High-stakes tasks (auth, payment, file uploads). Adds an LLM pass focused on OWASP. |
+| `--enable-perf` | off | Frontend tasks where a regression matters. Activates Lighthouse if available. |
+| `--enable-impeccable` | off | "Final polish" pass for code that will be reviewed by senior humans. |
+| `--enable-ci` | off | Reacts to PR comments / labels during the run, useful for human-in-the-loop CI. |
+| `--enable-sonarcloud` / `--no-sonarcloud` | off | Use SonarCloud (hosted) alongside or instead of local Sonar. |
+| `--no-sonar` | sonar on | Disable Sonar for this run. Useful when SonarQube container is being restarted. |
+| `--no-auto-rebase` | auto-rebase on | Don't rebase the working branch onto base before starting. Use when you're certain the base is in sync. |
+| `--mode <name>` | `standard` | `paranoid` enables triage + planner + hu-reviewer + tester + security + perf + impeccable in one go. Use for code that ships to production critical paths. |
+| `--methodology <tdd\|standard>` | `tdd` | `tdd` requires tests to fail before coding; `standard` lets the coder write tests and code together. Pick based on team practice. |
+| `--auto-simplify` / `--no-auto-simplify` | auto-simplify on | Lets triage downgrade the pipeline for trivial tasks (e.g. skip reviewer for typo fixes). Disable to force the full pipeline. |
+| `--design` | off | Lets the `impeccable` role write design changes (not just suggest them). Use only when the task is a design pass. |
+| `--brain <on\|off>` | `on` | The Brain decisor (universal error recovery + smart routing). Only turn off when debugging routing decisions. |
+| `--enable-serena` | off | Activates the optional Serena MCP for extra exploration capability. Requires Serena installed. |
+
+### Iteration control
+
+How long Karajan keeps trying when the reviewer rejects.
+
+| Flag | Default | When to flip it |
+| --- | --- | --- |
+| `--max-iterations <n>` | `5` | Lower for spike work (`--max-iterations 1`). Higher for tough refactors where you're willing to spend more (`10+`). Higher than 10 rarely converges. |
+| `--max-iteration-minutes <n>` | `15` | Per-iteration wall time. Lower for cheap tasks. |
+| `--max-total-minutes <n>` | `90` | Whole-run wall time. The run aborts if exceeded regardless of iteration count. |
+| `--reviewer-retries <n>` | `2` | How many times to re-invoke the reviewer when it errors (network blip, etc.). |
+| `--checkpoint-interval <n>` | `5` (minutes) | How often Karajan pauses for the user's confirmation in interactive runs. Set higher in CI; ignored when `--yes`. |
+
+### Plan / HU selection
+
+| Flag | When |
+| --- | --- |
+| `--plan <planId>` | Execute an existing plan (every HU in order). Skips researcher/architect/planner — the plan already has the context. |
+| `--hu <huIds>` | Run only specific HUs from a plan: `--plan PLN-001 --hu HU-003,HU-005`. Requires `--plan`. The board uses this for the per-HU ▶ button. |
+| `--hu-file <path>` | YAML file with HU stories to certify before coding. Manual HU input without going through `kj plan`. |
+| `--task-type <type>` | Override the intent detector: `sw \| infra \| doc \| add-tests \| refactor`. Useful when the inferred type would skip stages you want (e.g. force `sw` for an infra-looking task). |
+
+### Git / CI integration
+
+| Flag | Default | When to enable |
+| --- | --- | --- |
+| `--auto-commit` | off | Karajan commits per iteration. Useful with `--auto-push` for visible CI progress. |
+| `--auto-push` | off | Push commits as they're made. Requires git remote + auth. |
+| `--auto-pr` | off | Open a PR against `--base-branch` when the run completes successfully. CI mode. |
+| `--base-branch <name>` | `main` | Override the PR target. |
+| `--base-ref <ref>` | (computed) | The commit ref the new branch is based off. Defaults to `origin/<base-branch>`. |
+| `--branch-prefix <prefix>` | `feat/KJC-` | Branch naming. |
+
+### Planning Game integration
+
+| Flag | Effect |
+| --- | --- |
+| `--pg-task <cardId>` | Link the run to a card; updates progress automatically. Requires `--pg-project` or config. |
+| `--pg-project <projectId>` | Target project for `--pg-task`. |
+
+### Role overrides
+
+| Flag | Effect |
+| --- | --- |
+| `--skip-role <role...>` | Force a role OFF regardless of triage: `--skip-role tester security`. |
+| `--force-role <role...>` | Force a role ON regardless of triage: `--force-role planner`. |
+| `--domain <text-or-path>` | Inject domain knowledge: inline text or path to `.md`. Picked up by the `domain-curator` role. |
+| `--skills-mode <mode>` | `auto \| regex \| semantic \| none`. `auto` is fine 99% of the time; `none` for tasks where skills make the prompt too noisy. |
+
+### Output
+
+| Flag | When |
+| --- | --- |
+| `-y, --yes` | Skip all confirmations — CI mode. |
+| `--dry-run` | Print what would be executed, don't actually run. |
+| `--json` | JSON output only, no styled console. For programmatic consumption. |
+| `-q, --quiet` | Stage status lines only, no raw agent output. Default. |
+| `-v, --verbose` | Full agent output (stream-json, raw lines). For debugging. |
+
+## Examples
+
+### Typical interactive run
+
+```bash
+kj run "Implement password-reset email flow"
+```
+
+Karajan prompts for confirmation of the cwd, then runs intent → skills → acceptance → coder → guards → sonar → tdd → reviewer (loop). When the reviewer approves, the run ends. You see stage transitions in the terminal; full logs in `~/.karajan/sessions/<id>/`.
+
+### Paranoid run for security-critical code
+
+```bash
+kj run "Add JWT refresh-token rotation to /api/auth/*" --mode paranoid --enable-perf
+```
+
+Adds triage, planner, hu-reviewer, tester, security, perf, impeccable on top of the default. Doubles the wall time, but every dimension gets scrutiny. The `--enable-perf` is redundant here (paranoid already enables it) — included for clarity in CI scripts.
+
+### CI / automation
+
+```bash
+kj run --task-file .github/tasks/migrate-to-pg17.md \
+       --yes \
+       --max-iterations 8 \
+       --max-total-minutes 180 \
+       --auto-commit --auto-push --auto-pr \
+       --base-branch main \
+       --json > run.json
+```
+
+Non-interactive, longer iteration budget, opens a PR at the end, machine-readable output. Run inside a GitHub Action; downstream steps read `run.json`.
+
+### Re-running a single failed HU
+
+```bash
+kj run --plan PLN-001 --hu HU-005
+```
+
+The plan already exists, HU-005 failed in a previous run, you've manually fixed whatever caused it. Re-runs just HU-005, leaves the rest of the plan untouched. The HU Board's per-HU ▶ button uses exactly this.
+
+### A/B testing two coders
+
+```bash
+kj run "Refactor src/payments/* for testability" --coder claude --max-iterations 3
+# inspect result, undo if needed
+kj undo
+kj run "Refactor src/payments/* for testability" --coder codex --max-iterations 3
+```
+
+Useful for picking a default. Pair with `kj report` to compare token spend and time.
+
+## How it works internally
+
+`kj run` lives in `src/orchestrator/flow-runner.js`, but most of the logic is in **drivers** under `src/orchestrator/drivers/`: `pre-loop.js`, `iteration-loop.js`, `post-loop.js`. The reason for this split is that the same drivers power three slightly different flows: the standard single-task pipeline, the `--plan` plan-execution flow (which loops over HUs), and the analysis-only flow for `taskType=audit/doc/infra` (which skips the coder loop entirely). Each driver is independently testable.
+
+The **iteration loop is the heart of the design**. The conventional way to drive an agent would be "ask the AI to write code, ship it." Karajan instead frames every iteration as a *negotiation*: the coder proposes, the deterministic guards veto on hard rules (filesystem leaks, credentials), Sonar adds external truth, the TDD gate enforces "tests fail first", the reviewer evaluates structurally, and Solomon arbitrates if coder and reviewer disagree on style versus structure. The Brain layer (universal error recovery) handles rate limits / quota exhaustion / network issues underneath — invisible until it needs to be visible. This stack is **why** a 5-iteration limit converges so often: each iteration has multiple independent signals telling the coder what to fix, rather than a single "try again" loop.
+
+The pre-loop and post-loop phases exist to **front-load expensive work**: research, architecture, planning all happen once with the full task context, not once per iteration. Without this split, a 5-iteration run would re-do the research five times. The opposite extreme — putting everything pre-loop — would mean you couldn't react to discoveries made during coding. The current shape (context once, code-review-loop, audit once) is the sweet spot.
+
+## Related
+
+- [Pipeline roles](../pipeline-roles/) — what each of the 24 roles does, when each activates, when it's overhead.
+- [`kj plan`](./plan/) — generate the plan that `--plan` will execute.
+- [`kj code`](./code/) — coder-only, no review, no iteration. The lightweight cousin.
+- [`kj review`](./review/) — reviewer-only on an existing diff.
+- [`kj audit`](./audit/) — read-only quality evaluation, no code changes.
+- [`kj report`](./maintenance/#kj-report) — post-mortem of a completed run (timings, tokens, decisions).
