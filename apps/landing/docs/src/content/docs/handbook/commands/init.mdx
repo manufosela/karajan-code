@@ -1,0 +1,80 @@
+---
+title: kj init
+description: One-time interactive setup — detects your agents, writes karajan.config.yml, wires Sonar and review rules. Run it once per machine or project.
+---
+
+`kj init` is the **first command you run**. It's a wizard that turns a bare machine (or a fresh checkout) into a working Karajan setup: it finds which AI CLIs you have, asks which one should back each role, and writes a config you can hand-edit forever after.
+
+## What it does
+
+`kj init` runs an interactive wizard. It first **detects available agents** — it probes for the Claude, Codex, Gemini, Aider and OpenCode CLIs on your `PATH` and reports versions. If only one is present it silently uses it for everything; if several are present it asks you to pick a default **coder** and **reviewer**, then walks the secondary roles (planner, researcher, architect, tester, security, solomon, refactorer, impeccable, perf, hu-reviewer) one at a time, each defaulting to inherit from coder or reviewer.
+
+It then handles environment plumbing: it detects your OS locale to set the report language, detects whether **RTK** (the token-saving proxy) is installed and offers to install it, and prepares the SonarQube integration (bootstrapping a token and bringing the container up if Docker is available). The result is written to `karajan.config.yml` plus the review-rule templates Karajan uses at run time.
+
+The wizard is **TTY-only**. With `--no-interactive` it skips every prompt and writes a sensible default config — the path CI and scripted provisioning take. With `--scaffold-ci` it additionally drops the Karajan CI Gateway workflow files into the repo so a GitHub Action can drive `kj run`.
+
+After `kj init` you have a config file, review rules, and (if Docker was present) a running Sonar. You typically run it **once per machine** for the global defaults, and optionally again inside a project if that project needs different role assignments.
+
+## When to use
+
+- **First install on a new machine** — `kj init`, answer the wizard, done.
+- **A project needs different defaults** — run `kj init` inside the repo to write a project-local config that overrides the global one.
+- **Provisioning a CI runner** — `kj init --no-interactive` writes defaults with zero prompts.
+- **Adopting Karajan into an existing repo with CI** — `kj init --scaffold-ci` also lays down the workflow files.
+- **You installed a new agent CLI** — re-run `kj init` to let it pick up Codex/Gemini/etc. and reassign roles.
+
+## When NOT to use
+
+- **Just changing one config value** — don't re-run the whole wizard; use [`kj config --edit`](./maintenance/#kj-config) or hand-edit `karajan.config.yml`.
+- **Diagnosing a broken setup** — `kj init` sets things up, it doesn't troubleshoot. Use [`kj doctor`](./doctor/) for "why isn't this working".
+- **Installing the external audit tools** — that's [`kj install-tools`](./install-tools/), not `kj init`. `init` wires config; it doesn't install semgrep/osv/lighthouse.
+- **Per-run overrides** — to change the coder for one task, pass `--coder` to [`kj run`](./run/); don't rewrite the config.
+
+## Options
+
+| Flag | Default | When to flip it | Interaction |
+| --- | --- | --- | --- |
+| `--no-interactive` | interactive (TTY) | CI / scripted provisioning — skip every prompt, write defaults. | Auto-applied anyway when stdin is not a TTY. |
+| `--scaffold-ci` | off | Adopting Karajan into a repo that should run it from GitHub Actions — drops the CI Gateway workflow files. | Independent of `--no-interactive`; combine for unattended CI bootstrap. |
+
+`kj init` is intentionally low-flag: its job is to ask questions interactively, not to take them as arguments. Everything it would ask is editable afterwards in `karajan.config.yml`.
+
+## Examples
+
+### Typical: first-time interactive setup
+
+```bash
+kj init
+```
+
+What happens: the wizard reports which agent CLIs it found, asks you to choose a coder and reviewer, walks the secondary roles, offers RTK install, and brings Sonar up if Docker is present. Writes `karajan.config.yml`. You're ready to `kj run`.
+
+### CI runner provisioning
+
+```bash
+kj init --no-interactive --scaffold-ci
+```
+
+What happens: no prompts. Writes a default config (single detected agent for all roles, or built-in defaults) and scaffolds the CI Gateway workflow files. Idempotent enough to run in a provisioning script.
+
+### Re-init after installing a second agent
+
+```bash
+npm i -g @openai/codex   # now you have claude AND codex
+kj init
+```
+
+What happens: the wizard now offers Codex as a choice for coder/reviewer. Pick Codex as reviewer to get a cross-provider review pair (the recommended default shape).
+
+## How it works internally
+
+`kj init` is deliberately a **wizard, not a config schema dump**. The reasoning: the single biggest barrier to a working multi-agent setup is "which agent for which role", and that question is only answerable once you know what's installed. So detection comes first and drives the questions — the wizard never offers an agent you don't have, and collapses to zero questions when there's only one. The role ordering (coder/reviewer first, then the long tail of opt-ins) is chosen so the critical decisions are never buried behind ten secondary prompts.
+
+Everything `kj init` writes is **plain `karajan.config.yml`**, hand-editable, and layered: a global config in your home dir, optionally overridden by a project-local one. This is why re-running `kj init` is safe and cheap — it's not a destructive bootstrap, it's "regenerate the answers to these questions". For one-value changes the wizard is the wrong tool precisely because the config is just a file; `kj config --edit` exists for that. The Sonar/RTK/locale steps are bundled into `init` rather than separate commands because they're all "things that must be true before the first `kj run`", and a new user shouldn't have to know they exist.
+
+## Related
+
+- [`kj doctor`](./doctor/) — verifies the setup `kj init` produced and auto-remediates gaps.
+- [`kj install-tools`](./install-tools/) — installs the external audit tools `init` does not.
+- [`kj config`](./maintenance/#kj-config) — inspect / edit the config `init` writes, without re-running the wizard.
+- [`kj run`](./run/) — the command everything `init` configures exists to serve.
