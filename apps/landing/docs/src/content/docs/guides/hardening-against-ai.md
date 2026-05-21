@@ -193,3 +193,7 @@ Reference: [`@geniova/git-hooks`](https://github.com/geniova-tech/git-hooks).
 > You can't prohibit what you haven't imagined. But you can deny access to what shouldn't be touched.
 
 The strong layers (kernel-enforced isolation + reliable backups) do the real work. Everything else is narrow adjustments. This applies whether you're orchestrating agents with Karajan, running a single AI assistant, or any combination — the defenses live at the OS and Git-host level, which is exactly why they work.
+
+## Next: actual files to drop on disk
+
+This page is the *why*. For the *how* — concrete config for git hooks, agent permissions (Claude / Codex / Gemini), and multi-account SSH — see [Recommended Setup](/guides/recommended-setup/).

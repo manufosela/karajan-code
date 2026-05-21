@@ -193,3 +193,7 @@ Implementación de referencia: [`@geniova/git-hooks`](https://github.com/geniova
 > No puedes prohibir lo que no has imaginado. Pero puedes negar acceso a lo que no debe tocarse.
 
 Las capas fuertes (aislamiento por kernel + backups fiables) hacen el trabajo de verdad. Lo demás son ajustes finos. Esto aplica orquestes agentes con Karajan, ejecutes una IA suelta, o cualquier combinación — las defensas viven a nivel SO y de Git host, y por eso funcionan.
+
+## Siguiente: los ficheros concretos para tu disco
+
+Esta página es el *por qué*. Para el *cómo* — config concreta de git hooks, permisos de agentes (Claude / Codex / Gemini) y SSH multi-cuenta — mira [Configuración Recomendada](/es/guides/recommended-setup/).
