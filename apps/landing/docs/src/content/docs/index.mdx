@@ -188,6 +188,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Planner self-fix loop (v2.14)" icon="random">
     The plan-reviewer used to be flag-only: it surfaced missing HUs, missing dependencies and scope overlaps, then left them for the user to apply by hand. v2.14 closes that loop. After the first review pass, the new `plan-fixer.js` module asks the planner to PATCH the plan (`additions` / `deps_to_add` / `deletions`), applies the patch in-process via `addHu` / `removeHu` / `blocked_by` mutations, and re-reviews. Loops up to 2 iterations or until the reviewer reports zero issues. Opt-out via `--no-plan-fixer` / `--quick`. Combined with three planner prompt fixes (scope respect, transversal one-to-many deps, explicit `reuse` marker), the four pathologies that the GRETA Plan 2 dogfooding kept surfacing are now closed at the source.
   </Card>
+  <Card title="Team guardrails — recommended setup" icon="seti:lock">
+    Drop-in config for a team that uses AI in its workflow: multi-account SSH (one key per identity), global git hooks (`commit-msg` blocking AI attribution, `pre-push` blocking direct push to `main`, `git-secrets` for credential scanning), per-agent permission policies (Claude Code, Codex, Codex rules, Gemini CLI), GitHub branch protection rulesets, PR / Issue templates and `CODEOWNERS` routing. Paste, adapt, deploy. [→ Read the guide](/docs/guides/recommended-setup/)
+  </Card>
 </CardGrid>
 
 ## Recent releases
