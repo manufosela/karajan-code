@@ -84,13 +84,15 @@ describe('tombstones — sync.* skip + cleanup', () => {
       id: batchId, session_id: batchId, project_id: projectId, stories,
     }));
   }
-  function writePlan(projectSlug, planId) {
+  function writePlan(projectSlug, planId, { updatedAt = null, projectDir = '/some/path' } = {}) {
     const dir = join(tmpDir, '.kj', 'plans', projectSlug);
     mkdirSync(dir, { recursive: true });
     const file = join(dir, `plan-${planId}.json`);
-    writeFileSync(file, JSON.stringify({
-      version: 2, planId, projectDir: '/some/path', hus: [{ id: 'hu_1', title: 't' }],
-    }));
+    const payload = {
+      version: 2, planId, projectDir, hus: [{ id: 'hu_1', title: 't' }],
+    };
+    if (updatedAt) payload.updatedAt = updatedAt;
+    writeFileSync(file, JSON.stringify(payload));
     return file;
   }
 
@@ -116,22 +118,35 @@ describe('tombstones — sync.* skip + cleanup', () => {
     expect(existsSync(planPath)).toBe(false);
   });
 
-  // KJC-BUG-0050: tombstone de proyecto NO debe bloquear nuevos planes.
-  // Cuando el usuario borra un proyecto desde el board (🗑️ Delete project)
-  // y luego lanza `kj plan` otra vez en el mismo projectDir, el plan
-  // nuevo (con planId distinto del que estaba al borrar) DEBE sobrevivir
-  // al sync. El tombstone del proyecto se reabsorbe.
-  // El `projectId` se deriva de `data.projectDir` con la misma regla que
-  // `deriveProjectIdFromDir` — `/some/path` → `some_path`.
-  it('syncPlanFile resurrects a tombstoned project when a NEW plan arrives', () => {
-    const planPath = writePlan('some_path', 'plan-NEW');
+  // KJC-BUG-0055 (supersedes KJC-BUG-0050): la resurrección de un proyecto
+  // tombstoned requiere que el plan sea MÁS NUEVO que el tombstone. Un plan
+  // con timestamp posterior al delete es "el usuario lanzó kj plan después
+  // de borrar"; ese sí revive. Un plan sin timestamp o anterior al delete
+  // es basura stale en disco y NO debe resucitar nada.
+  it('syncPlanFile resurrects a tombstoned project ONLY when plan.updatedAt > tombstone.deleted_at', () => {
     dbMod.addTombstone('project', 'some_path');
-    expect(dbMod.isTombstoned('project', 'some_path')).toBe(true);
+    const tomb = dbMod.getTombstone('project', 'some_path');
+    const newer = new Date(Date.parse(tomb.deleted_at) + 60_000).toISOString();
+    const planPath = writePlan('some_path', 'plan-NEW', { updatedAt: newer });
     syncMod.fullScan();
-    // El plan sobrevive en disco
     expect(existsSync(planPath)).toBe(true);
-    // El tombstone del proyecto se ha borrado
     expect(dbMod.isTombstoned('project', 'some_path')).toBe(false);
+  });
+
+  // Stale plan (older timestamp OR no timestamp) must NOT resurrect a
+  // tombstoned project — that was the regression in v2.13 dogfooding.
+  it.each([
+    ['older', () => new Date(Date.now() - 3_600_000).toISOString()],
+    ['absent', () => null],
+  ])('syncPlanFile does NOT resurrect when plan.updatedAt is %s', (_label, mkTs) => {
+    const opts = {};
+    const ts = mkTs();
+    if (ts) opts.updatedAt = ts;
+    const planPath = writePlan('some_path', `plan-${_label}`, opts);
+    dbMod.addTombstone('project', 'some_path');
+    syncMod.fullScan();
+    expect(existsSync(planPath)).toBe(false);
+    expect(dbMod.isTombstoned('project', 'some_path')).toBe(true);
   });
 
   // El tombstone del PLAN sigue respetándose aunque el proyecto NO esté tombstoned.
@@ -142,6 +157,22 @@ describe('tombstones — sync.* skip + cleanup', () => {
     expect(existsSync(planPath)).toBe(false);
     // El plan permanece tombstoned tras el sync.
     expect(dbMod.isTombstoned('plan', 'plan-dead')).toBe(true);
+  });
+
+  // KJC-BUG-0055: orphan hu-stories/<id>/ and sessions/<id>/ dirs with
+  // a tombstone (but no DB row — typical after a manual DB wipe) MUST
+  // be rm-rfed by fullScan before the per-file scan; otherwise they
+  // re-enter as ghost projects.
+  it('fullScan rm-rfs tombstoned hu-stories + sessions dirs at boot', () => {
+    writeStory('ghost-batch', 'ghost-proj');
+    const sessDir = join(tmpDir, 'sessions', 'ghost-sess');
+    mkdirSync(sessDir, { recursive: true });
+    writeFileSync(join(sessDir, 'session.json'), JSON.stringify({ id: 'ghost-sess' }));
+    dbMod.addTombstone('story', 'ghost-batch');
+    dbMod.addTombstone('session', 'ghost-sess');
+    syncMod.fullScan();
+    expect(existsSync(join(tmpDir, 'hu-stories', 'ghost-batch'))).toBe(false);
+    expect(existsSync(sessDir)).toBe(false);
   });
 });
 

@@ -626,6 +626,19 @@ export function isTombstoned(resourceType, resourceId) {
   ).get(resourceType, resourceId);
 }
 
+/**
+ * Read a single tombstone row (or null). Needed so callers can compare
+ * `deleted_at` against a resource's own timestamp before deciding whether
+ * to revive it (KJC-BUG-0055).
+ */
+export function getTombstone(resourceType, resourceId) {
+  const row = getDb().prepare(
+    'SELECT resource_type, resource_id, deleted_at, source, fs_paths FROM tombstones WHERE resource_type = ? AND resource_id = ?'
+  ).get(resourceType, resourceId);
+  if (!row) return null;
+  return { ...row, fs_paths: row.fs_paths ? JSON.parse(row.fs_paths) : [] };
+}
+
 export function removeTombstone(resourceType, resourceId) {
   return getDb().prepare(
     'DELETE FROM tombstones WHERE resource_type = ? AND resource_id = ?'

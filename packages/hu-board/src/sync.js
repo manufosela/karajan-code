@@ -10,6 +10,7 @@ import {
   insertContextRequest,
   getDb,
   isTombstoned,
+  getTombstone,
   removeTombstone,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
@@ -341,18 +342,29 @@ export function syncPlanFile(filePath) {
       : data.planId;
 
     if (skipIfTombstoned('plan', data.planId, filePath)) return;
-    // KJC-BUG-0050: el tombstone del PROYECTO no debe bloquear plans
-    // futuros. Cuando el usuario borra un proyecto del board (🗑️), el
-    // tombstone permanente impedía regenerar planes en el mismo
-    // projectDir — `kj plan` escribía el JSON y este sync lo borraba.
-    // Fix: si el proyecto está tombstoned pero el PLAN concreto NO lo
-    // está, asumimos que el usuario quiere resurrectarlo (creó un plan
-    // nuevo) y borramos el tombstone del proyecto. El tombstone-de-plan
-    // sigue respetándose: planes individuales que el usuario borró
-    // siguen muertos hasta que se cree un planId distinto.
-    if (isTombstoned('project', projectId)) {
-      console.log(`[sync] Project ${projectId} was tombstoned but a new plan ${data.planId} arrived — reviving (removing project tombstone).`);
-      removeTombstone('project', projectId);
+    // KJC-BUG-0055 (supersedes KJC-BUG-0050): gating por timestamp.
+    // El "fix" anterior quitaba el tombstone del proyecto en CUALQUIER
+    // llegada de plan — eso resucitaba proyectos borrados cuando un plan
+    // anterior reaparecía (DB nueva + plan-files viejos en disco) o
+    // cuando un fullScan posterior los re-encontraba. Comportamiento:
+    //   • plan.updatedAt/createdAt > tombstone.deleted_at → el usuario
+    //     ha generado el plan DESPUÉS de borrar el proyecto → revivir.
+    //   • plan.updatedAt/createdAt <= tombstone.deleted_at → plan stale
+    //     pre-existente al borrado → respetar el tombstone y borrar el
+    //     fichero en disco para que no vuelva a re-importarse.
+    const projectTomb = getTombstone('project', projectId);
+    if (projectTomb) {
+      const planTime = data.updatedAt || data.createdAt || null;
+      const planTs = planTime ? Date.parse(planTime) : NaN;
+      const tombTs = Date.parse(projectTomb.deleted_at);
+      if (Number.isFinite(planTs) && planTs > tombTs) {
+        console.log(`[sync] Project ${projectId} resucitado: plan ${data.planId} es más reciente (${planTime}) que el tombstone (${projectTomb.deleted_at}).`);
+        removeTombstone('project', projectId);
+      } else {
+        console.log(`[sync] Plan ${data.planId} ignorado: proyecto ${projectId} tombstoned (${projectTomb.deleted_at}); borrando ${filePath}.`);
+        try { rmSync(filePath, { force: true }); } catch { /* best effort */ }
+        return;
+      }
     }
     // Human-friendly project name resolution order (most-specific first):
     //   1. plan.name explicitly set by the user / planner ("Linux Assistant
@@ -477,6 +489,21 @@ export function fullScan() {
   db.exec('DELETE FROM stories');
   db.exec('DELETE FROM sessions');
   db.exec('DELETE FROM projects');
+
+  // KJC-BUG-0055: garbage-collect on-disk story/session artefacts whose
+  // ids carry an active tombstone. Without this, a tombstone is useless
+  // against a stray ~/.karajan/hu-stories/<id>/ that survived a manual
+  // DB wipe — the next pass would re-import it as a ghost project.
+  // (Plan dirs are NOT pre-purged here: a tombstoned project may hold a
+  // newer plan from a legit projectDir re-use; `syncPlanFile`'s
+  // timestamp gate decides per-file.)
+  for (const [type, root] of [['story', storiesDir], ['session', sessionsDir]]) {
+    if (!existsSync(root)) continue;
+    for (const name of readdirSync(root)) {
+      if (!isTombstoned(type, name)) continue;
+      try { rmSync(join(root, name), { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  }
 
   // Scan stories
   if (existsSync(storiesDir)) {
