@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.1] - 2026-05-22
+
+Patch release. Fixes **KJC-BUG-0055**: a project deleted from the HU Board no longer resurrects when running `kj plan` or restarting the board. Closes four independent leaks (#751).
+
+4 906/4 906 tests passing across 407 test files.
+
+### Fixed
+
+- **KJC-BUG-0055 — HU Board resurrection** (#751). A project deleted from the board (🗑️ button) reappeared on the next `kj plan` or board restart. Four independent leaks closed:
+  1. **`sync.js` — temporal gate**: the unconditional `removeTombstone('project', …)` added by KJC-BUG-0050 is replaced by a `plan.updatedAt > tombstone.deleted_at` comparison. A tombstoned project revives only when the plan is genuinely newer than the delete; stale plans on disk are ignored and removed.
+  2. **`ephemeral-cleaner.js` — tombstone + fs cleanup**: when wiping ephemeral projects at boot (`s_*`, `plan-*`, `tmp_*`, …) it now writes a tombstone and `rm -rf`'s `hu-stories/<id>/`, `sessions/<id>/` and `~/.kj/plans/<id>/`. Previously it only deleted the DB row, so the orphan directories revived the project on the next scan.
+  3. **`sync.js::fullScan` — boot GC**: sweeps orphan tombstoned directories at startup (the "manual DB wipe" case).
+  4. **`routes/api.js` `DELETE /api/projects/:id`**: honours `KJ_PLANS_DIR` instead of the hardcoded plans path.
+- New `getTombstone(type, id)` helper in `packages/hu-board/src/db.js`.
+
+### Internal
+
+- 5 new unit tests: 4 in `tombstones.test.js` (temporal gate revive / no-revive paths + fullScan GC) and 1 in `ephemeral-cleaner.test.js` (tombstone + fs removal on ephemeral cleanup).
+
 ## [2.17.0] - 2026-05-18
 
 Minor release. `kj audit` gains two new deterministic structural collectors (knip dead-exports + madge circular-deps) and the Sonar false-positive filter from v2.16 is generalised to apply across every collector. Engine pin bumped to Node ≥ 20.19 (knip 6.x requirement).
