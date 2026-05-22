@@ -14,9 +14,10 @@
  * Steps 2-4 must share a single on-disk write: we never ack the mutation to
  * the UI without persisting it, otherwise a reload would silently revert.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { writeJsonAtomicSync } from '../../../src/utils/atomic-write.js';
 import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +84,7 @@ function readPlan(filePath) {
 }
 
 function writePlan(filePath, plan) {
-  writeFileSync(filePath, JSON.stringify(plan, null, 2), 'utf-8');
+  writeJsonAtomicSync(filePath, plan);
 }
 
 /**
