@@ -61,20 +61,48 @@ export class TriageRole extends AgentRole {
   }
 
   handleParseNull(agentResult, provider) {
-    return {
-      ok: true,
-      result: { ...FALLBACK_RESULT, reasoning: "Unstructured output, using safe defaults.", provider, raw: agentResult.output },
-      summary: "Triage complete (fallback defaults)",
-      usage: agentResult.usage
-    };
+    return this.degradedTriageResult({
+      agentResult, provider,
+      reason: "parse-null",
+      reasoning: "Unstructured output, using safe defaults.",
+      message: "[triage] LLM output was unstructured — falling back to defaults; the pipeline may skip optional roles.",
+    });
   }
 
-  handleParseError(_err, agentResult, provider) {
+  handleParseError(err, agentResult, provider) {
+    return this.degradedTriageResult({
+      agentResult, provider,
+      reason: "parse-error",
+      reasoning: `Failed to parse triage output (${err?.message || "unknown error"}), using safe defaults.`,
+      message: `[triage] Could not parse LLM output — falling back to defaults: ${err?.message || "unknown"}.`,
+    });
+  }
+
+  // Triage degradation is what made a complex task quietly run as
+  // `level: "medium", roles: ["reviewer"]` — researcher / architect /
+  // security / tester silently skipped. The fallback is preserved so
+  // the pipeline still moves, but the user (and any board / kj-tail
+  // listener) now learns it happened. result.degraded = true lets
+  // downstream code react if it wants.
+  degradedTriageResult({ agentResult, provider, reason, reasoning, message }) {
+    this.logger?.warn?.(message);
+    try {
+      this.emitter?.emit?.("progress", {
+        type: "triage:degraded",
+        detail: { reason, provider, role: this.name },
+      });
+    } catch { /* a broken emitter must never break the pipeline */ }
     return {
       ok: true,
-      result: { ...FALLBACK_RESULT, reasoning: "Failed to parse triage output, using safe defaults.", provider, raw: agentResult.output },
-      summary: "Triage complete (fallback defaults)",
-      usage: agentResult.usage
+      result: {
+        ...FALLBACK_RESULT,
+        reasoning,
+        provider,
+        raw: agentResult.output,
+        degraded: true,
+      },
+      summary: "Triage degraded — falling back to safe defaults (see warn).",
+      usage: agentResult.usage,
     };
   }
 }

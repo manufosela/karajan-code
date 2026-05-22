@@ -337,4 +337,41 @@ describe("TriageRole", () => {
     expect(events[0].role).toBe("triage");
     expect(events[1].type).toBe("end");
   });
+
+  // Resilience audit, Phase 4: triage used to fall back to safe
+  // defaults SILENTLY ("Triage complete (fallback defaults)") on an
+  // unparseable LLM output, so a complex task got run as a "medium"
+  // pipeline with researcher/architect/security/tester skipped and
+  // no warning. Now the user always learns it happened.
+  describe("degraded triage (Phase 4 resilience)", () => {
+    it("warns and emits 'triage:degraded' when the LLM output is not parseable", async () => {
+      mockRunTask.mockResolvedValue({ ok: true, output: "this is not json" });
+      const events = [];
+      emitter.on("progress", (e) => events.push(e));
+
+      const role = new TriageRole({ config, logger, emitter, createAgentFn: mockCreateAgent });
+      await role.init({});
+      const output = await role.run("Task");
+
+      expect(logger.warn).toHaveBeenCalled();
+      expect(logger.warn.mock.calls.some(([m]) => /triage/i.test(String(m)))).toBe(true);
+      expect(events.some((e) => e.type === "triage:degraded")).toBe(true);
+      expect(output.result.degraded).toBe(true);
+      expect(output.summary).toMatch(/degraded/i);
+    });
+
+    it("does NOT warn on a clean parse (no false positives)", async () => {
+      mockRunTask.mockResolvedValue({
+        ok: true,
+        output: JSON.stringify({ level: "complex", roles: ["coder", "reviewer"], taskType: "sw" }),
+      });
+
+      const role = new TriageRole({ config, logger, emitter, createAgentFn: mockCreateAgent });
+      await role.init({});
+      const output = await role.run("Task");
+
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(output.result.degraded).toBeFalsy();
+    });
+  });
 });
