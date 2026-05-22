@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.17.1] - 2026-05-22
 
-Patch release. Fixes **KJC-BUG-0055**: a project deleted from the HU Board no longer resurrects when running `kj plan` or restarting the board. Closes four independent leaks (#751).
+Patch release bundling two HU Board fixes. **KJC-BUG-0055**: a deleted project no longer resurrects when running `kj plan` or restarting the board. **Silent board-start failure**: `kj board start` no longer fails without leaving a trace in the log.
 
-4 906/4 906 tests passing across 407 test files.
+4 909/4 909 tests passing across 408 test files.
 
 ### Fixed
 
@@ -21,10 +21,15 @@ Patch release. Fixes **KJC-BUG-0055**: a project deleted from the HU Board no lo
   3. **`sync.js::fullScan` — boot GC**: sweeps orphan tombstoned directories at startup (the "manual DB wipe" case).
   4. **`routes/api.js` `DELETE /api/projects/:id`**: honours `KJ_PLANS_DIR` instead of the hardcoded plans path.
 - New `getTombstone(type, id)` helper in `packages/hu-board/src/db.js`.
+- **Silent board-start failure** (#753). `kj board start` could exit `0` without writing a single line to `hu-board.log`. The daemon's entry-point guard compared `import.meta.url` against a hand-built `file://` + `process.argv[1]` string, which wrongly returned false on Windows (backslashes), linked / global installs (symlinks resolved on only one side) and paths with spaces — so `main()` never ran and the launcher reported a phantom success.
+  - `server.js`: `isDaemonEntryPoint()` trusts an explicit `KJ_BOARD_DAEMON=1` flag set by the launcher, with a normalised `pathToFileURL` + `realpathSync` comparison as fallback.
+  - `server.js`: `uncaughtException` / `unhandledRejection` handlers log the stack before exiting non-zero; `initDb()` reports an actionable message when the `better-sqlite3` native module fails to load.
+  - `board.js`: `waitForEarlyExit()` detects a daemon that dies on boot, so `kj board start` surfaces the real failure instead of reporting a phantom PID.
 
 ### Internal
 
-- 5 new unit tests: 4 in `tombstones.test.js` (temporal gate revive / no-revive paths + fullScan GC) and 1 in `ephemeral-cleaner.test.js` (tombstone + fs removal on ephemeral cleanup).
+- 5 new unit tests for KJC-BUG-0055: 4 in `tombstones.test.js` (temporal gate revive / no-revive paths + fullScan GC) and 1 in `ephemeral-cleaner.test.js` (tombstone + fs removal on ephemeral cleanup).
+- 5 new unit tests for the board-start fix: 3 in `tests/board/board-silent-start.test.js` (`waitForEarlyExit`) and 2 in `packages/hu-board/tests/server-daemon-guard.test.js` (`isDaemonEntryPoint`).
 
 ## [2.17.0] - 2026-05-18
 
