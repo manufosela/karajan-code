@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-05-23
+
+Minor release. Closes the **resilience audit** triggered by the public launch: 15 PRs across 5 phases hardening Karajan against the silent-failure family of bugs — *"the problem is not that something fails, the problem is failing without telling the user why."* A quota cap now hibernates and tells the user how to resume; subprocesses surface their errors; state writes are crash-safe; the orchestrator's decision layer no longer degrades silently.
+
+4 959/4 959 tests passing across 416 test files.
+
+### Added
+
+- **Resilience suite** `tests/resilience/` (#770) — index of every silent-failure mode caught by the audit and the test that pins each one, plus an end-to-end tripwire walking the whole quota → hibernate → resume flow.
+
+### Fixed — Phase 1: Quota hibernation end to end
+
+- **Session-limit classification** (#756) — `"You've hit your session limit · resets 10:10pm"` matched no rate-limit pattern and reached `UNKNOWN_FATAL`. `session limit` / `weekly limit` added; `parseCooldown` learns the 12-hour `resets 10:10pm` clock.
+- **Standby persistence** (#757) — `withBrainRecovery` only persisted with a `sessionState`, but no caller passed one. New `buildStandbyState()` builds it with an allowlisted env subset (never the full `process.env`).
+- **Orchestrator consumes `action:"hibernate"`** (#758) — no code path checked for it, so a hibernation was indistinguishable from a generic failure. The coder / refactorer stages now stop cleanly on a quota cap; the session is sealed `hibernated` (resumable), not `failed`.
+- **Resume hint** (#759) — a stopped `kj run` / `kj plan`'s last line is now the exact command (`kj standby resume <id>` for hibernation, `kj resume <id>` otherwise). `kj plan` no longer turns a quota cap into a thrown error.
+
+### Fixed — Phase 2: Don't lie
+
+- **`runCommand` ENOENT propagation** (#761) — execa with `reject:false` resolved on spawn failure with an empty stderr; a missing agent CLI failed `kj run` with no message. `enrichResult` now surfaces `shortMessage` / `code` and exposes `spawnError`.
+- **Hung-agent silence timeout** (#762) — `AgentRole.execute()` never forwarded `silenceTimeoutMs`, so a stalled coder (network wedged, prompt waiting on auth) hung `kj run` forever. Every role now propagates it from `config.session.max_agent_silence_minutes`.
+- **Atomic state writes** (#763) — every persistent state file (plans, sessions, standby, run registry, board mutations) was overwritten in place. New `writeJsonAtomic{,Sync}` (write-temp + rename) protects six call sites from torn writes on crash / SIGKILL / power loss.
+
+### Fixed — Phase 3: Don't lose or block
+
+- **Corrupt plan JSON surfaced** (#764) — a truncated plan file used to vanish silently from `kj plan list` / `kj plan load`. Now warns with the file path and renames it aside to `<name>.corrupt-<ts>`.
+- **Actionable YAML error** (#765) — a bad edit in `kj.config.yml` bricked every kj command (including `kj doctor`) with a `YAMLException` that didn't name the file. All three readers now throw `Invalid YAML in <path>: <detail>` with `code: "INVALID_YAML"`.
+- **HU zombie reconciler** (#766) — a killed `kj run --plan` left HUs in `coding` / `reviewing` / `running` in the plan JSON forever (the board-side reaper only runs inside the board). `injectLoadedPlan` now resets them to `pending` at load time, cross-checking `run-registry` so a live run owning the plan is not touched.
+- **Board SQLite hardening** (#767) — `busy_timeout = 5000` (no more `SQLITE_BUSY` crashes), `PRAGMA user_version` (refuses to open a DB written by a newer Karajan with renamed columns), and corruption recovery (moves a malformed DB aside and rebuilds the cache from disk).
+
+### Fixed — Phase 4: Don't degrade silently
+
+- **Triage no silent fallback** (#768) — `TriageRole` used to return `ok:true` with `"Triage complete (fallback defaults)"` on an unparseable LLM output, silently skipping researcher / architect / security / tester for a complex task. Now warns loudly via `logger.warn`.
+- **Verification-gate distinguishes git failure** (#769) — `countChangesSince` / `countUntrackedFiles` caught git errors and returned zeros, so a bad `baseRef` / corrupt repo / missing git was indistinguishable from "the coder did nothing". `verifyCoderOutput` now bails out on `gitError` with `retryStrategy: null` — no more wasted iterations blaming the agent for infra.
+
+### Internal
+
+- CI now exercises the `packages/hu-board` test suite on every PR (#755).
+
 ## [2.17.2] - 2026-05-22
 
 Patch release. Wires quota-exhaustion **hibernation end to end**: a `kj run` / `kj plan` that hits a provider session or usage cap now suspends, persists its state, and tells you how to resume it — instead of failing the task with an opaque `UNKNOWN_FATAL`.
