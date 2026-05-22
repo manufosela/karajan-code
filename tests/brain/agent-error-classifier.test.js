@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { classifyAgentError, ERROR_CLASS } from "../../src/brain/agent-error-classifier.js";
 
 // KJC-TSK-0411: clasificación rica de errores de agente para que Brain
@@ -139,5 +139,41 @@ describe("classifyAgentError — provider passthrough", () => {
   it("preserva el provider en la salida", () => {
     const r = classifyAgentError({ provider: "opencode", stderr: "429 rate limit", exitCode: 1 });
     expect(r.provider).toBe("opencode");
+  });
+});
+
+// Regression for the 2026-05-22 dogfooding: Claude Code's
+// "You've hit your session limit · resets <time>" reached UNKNOWN_FATAL
+// (abort) because the rate-limit regex lacked "session limit". It must
+// classify as a recoverable quota class so Brain hibernates.
+describe("classifyAgentError — Claude Code session limit", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-22T17:24:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("'hit your session limit · resets 10:10pm' → QUOTA_EXHAUSTED_DAILY, recoverable", () => {
+    const r = classifyAgentError({
+      provider: "claude",
+      stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
+      exitCode: 1,
+    });
+    expect(r.class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_DAILY);
+    expect(r.recoverable).toBe(true);
+    // > 1h until the 22:10 reset → Brain hibernates instead of aborting.
+    expect(r.retryAfter).toBeGreaterThan(60 * 60 * 1000);
+    expect(r.retryUntil).toBeTruthy();
+  });
+
+  it("is no longer misclassified as UNKNOWN_FATAL", () => {
+    const r = classifyAgentError({
+      provider: "claude",
+      stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
+      exitCode: 1,
+    });
+    expect(r.class).not.toBe(ERROR_CLASS.UNKNOWN_FATAL);
   });
 });
