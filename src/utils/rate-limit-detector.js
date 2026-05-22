@@ -39,6 +39,26 @@ export function parseCooldown(message) {
     }
   }
 
+  // 5. Claude Code session / weekly limit: "resets 10:10pm" / "resets 4am"
+  //    (12-hour clock, no date). Resolve to the next wall-clock occurrence
+  //    of that time in the machine's local timezone. Claude Code reports
+  //    the reset in the user's local TZ and kj runs on the same machine,
+  //    so the parenthesised "(Europe/Madrid)" hint is ignored on purpose.
+  const ampmMatch = /reset(?:s|ting)?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)\b/i.exec(
+    message
+  );
+  if (ampmMatch) {
+    let hour = Number.parseInt(ampmMatch[1], 10) % 12;
+    if (/pm/i.test(ampmMatch[3])) hour += 12;
+    const minute = ampmMatch[2] ? Number.parseInt(ampmMatch[2], 10) : 0;
+    if (hour < 24 && minute < 60) {
+      const target = new Date();
+      target.setHours(hour, minute, 0, 0);
+      if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+      return { cooldownUntil: target.toISOString(), cooldownMs: target.getTime() - Date.now() };
+    }
+  }
+
   // 2. Relative seconds: "retry after 120 seconds" / "retry in 120s" / "Retry-After: 120"
   const secMatch = /(?:retry[\s-]*after|retry\s+in|wait)\s*:?\s*(\d+)\s*(?:seconds?|secs?|s\b)/i.exec(
     message
@@ -69,6 +89,8 @@ const RATE_LIMIT_PATTERNS = [
   { pattern: /usage limit/i, agent: "claude" },
   { pattern: /plan's usage limit/i, agent: "claude" },
   { pattern: /Claude Pro usage limit/i, agent: "claude" },
+  { pattern: /session limit/i, agent: "claude" },
+  { pattern: /weekly limit/i, agent: "claude" },
 
   // OpenAI / Codex CLI
   { pattern: /exceeded your current quota/i, agent: "codex" },

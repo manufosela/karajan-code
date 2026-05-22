@@ -33,7 +33,11 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const AUTH_PATTERNS = /\b401\b|\b403\b|unauthorized|invalid\s+api\s+key|authentication\s+failed|expired\s+token/i;
 const SILENCED_PATTERNS = /killed\s+after\s+\d+\s*ms|silence\s*timeout|no\s+output\s+for\s+\d+/i;
-const RATE_LIMIT_PATTERNS = /usage\s+limit|rate\s*limit|too\s+many\s+requests|\b429\b|throttl|exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached|monthly\s+limit|daily\s+limit/i;
+// `session\s+limit` / `weekly\s+limit` cover Claude Code's usage caps
+// ("You've hit your session limit · resets 10:10pm"). Without them the
+// message fell through to UNKNOWN_FATAL and the run aborted instead of
+// hibernating until the reset.
+const RATE_LIMIT_PATTERNS = /usage\s+limit|rate\s*limit|too\s+many\s+requests|\b429\b|throttl|exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached|monthly\s+limit|weekly\s+limit|daily\s+limit|session\s+limit/i;
 const API_DOWN_PATTERNS = /\b50[0-4]\b|bad\s+gateway|service\s+unavailable|gateway\s+timeout|overloaded|internal\s+server\s+error/i;
 const NETWORK_PATTERNS = /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket\s+hang\s+up|fetch\s+failed|network\s+error/i;
 

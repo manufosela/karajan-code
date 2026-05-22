@@ -293,3 +293,45 @@ describe("parseCooldown", () => {
     expect(result.cooldownUntil).toBe("2026-03-07T11:00:00.000Z");
   });
 });
+
+describe("parseCooldown — 12-hour clock (Claude Code session limit)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-22T17:24:00"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("parses 'resets 10:10pm' to 22:10 the same day", () => {
+    const { cooldownUntil, cooldownMs } = parseCooldown(
+      "You've hit your session limit · resets 10:10pm (Europe/Madrid)"
+    );
+    const target = new Date(cooldownUntil);
+    expect(target.getHours()).toBe(22);
+    expect(target.getMinutes()).toBe(10);
+    expect(cooldownMs).toBeGreaterThan(0);
+  });
+
+  it("rolls over to the next day when the reset time already passed", () => {
+    vi.setSystemTime(new Date("2026-05-22T23:00:00"));
+    const { cooldownUntil } = parseCooldown("resets 10:10pm");
+    expect(new Date(cooldownUntil).getDate()).toBe(23);
+  });
+
+  it("handles the hour-only form 'resets 4am'", () => {
+    const { cooldownUntil } = parseCooldown("your limit resets 4am");
+    expect(new Date(cooldownUntil).getHours()).toBe(4);
+  });
+});
+
+describe("detectRateLimit — Claude Code session limit", () => {
+  it("detects 'hit your session limit' as a Claude rate limit", () => {
+    const result = detectRateLimit({
+      stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
+      stdout: "",
+    });
+    expect(result.isRateLimit).toBe(true);
+    expect(result.agent).toBe("claude");
+  });
+});
