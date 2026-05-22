@@ -74,6 +74,7 @@ import { runSecurityStage, runFinalAuditStage } from "./post-loop-stages.js";
  *   approved → "approved"
  *   paused   → "paused"
  *   cancelled → "cancelled"
+ *   hibernated → "hibernated"
  *   anything else → "failed"
  *
  * Idempotent: only writes when the current status is still "running"
@@ -95,6 +96,10 @@ export async function sealSessionStatusIfStillRunning(session, result) {
     if (result?.approved === true) target = "approved";
     else if (result?.paused === true) target = "paused";
     else if (result?.cancelled === true) target = "cancelled";
+    // A run hibernated on a provider quota cap is NOT a failure — it is
+    // suspended and resumable via `kj standby resume`. Sealing it as
+    // `failed` would let the HU-zombie reaper treat it as dead work.
+    else if (result?.hibernated === true) target = "hibernated";
     await markSessionStatus(session, target);
   } catch { /* non-blocking */ }
 }

@@ -18,6 +18,25 @@ import { stageRegistry } from "../../stages/stage-classes.js";
 import { runStage } from "../../stages/stage-executor.js";
 import { handleStandbyResult } from "../error-recovery.js";
 
+/**
+ * A coder/refactorer stage hit a provider quota cap and Brain Recovery
+ * hibernated the run. Turn it into a clean loop return carrying
+ * `hibernated:true` — the iteration loop and flow-runner read that to
+ * seal the session as `hibernated` (NOT `failed`) so it stays resumable.
+ */
+function hibernateReturn(stageResult, session) {
+  return {
+    action: "return",
+    result: {
+      hibernated: true,
+      sessionId: session?.id || null,
+      reason: "quota_exhausted",
+      standbyFile: stageResult.standbyFile || null,
+      recovery: stageResult.recovery || null,
+    },
+  };
+}
+
 export async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole, refactorerRole, pipelineFlags, config, logger, emitter, eventBase, session, plannedTask, trackBudget, i, brainCtx }) {
   // Coder via StageRegistry (TSK-0336). canRun = coderRequired !== false; in
   // analysis-only task types coderRequired is set to false by policy, so the
@@ -25,6 +44,7 @@ export async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole
   // runFlow.
   const coderCtx = { coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i, brainCtx, pipelineFlags };
   const coderResult = await runStage(stageRegistry.get("coder"), coderCtx);
+  if (coderResult?.action === "hibernate") return hibernateReturn(coderResult, session);
   if (coderResult?.action === "pause") return { action: "return", result: coderResult.result };
   const coderStandby = await handleStandbyResult({ stageResult: coderResult, session, emitter, eventBase, i, stage: "coder", logger, config });
   if (coderStandby.handled) {
@@ -35,6 +55,7 @@ export async function runCoderAndRefactorerStages({ coderRoleInstance, coderRole
 
   if (pipelineFlags.refactorerEnabled) {
     const refResult = await runRefactorerStage({ refactorerRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration: i });
+    if (refResult?.action === "hibernate") return hibernateReturn(refResult, session);
     if (refResult?.action === "pause") return { action: "return", result: refResult.result };
     const refStandby = await handleStandbyResult({ stageResult: refResult, session, emitter, eventBase, i, stage: "refactorer", logger, config });
     if (refStandby.handled) {

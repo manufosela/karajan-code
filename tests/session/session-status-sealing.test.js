@@ -37,6 +37,12 @@ describe("sealSessionStatusIfStillRunning (KJC-BUG-0037)", () => {
     expect(markSessionStatus).toHaveBeenCalledWith(session, "paused");
   });
 
+  it("seals as 'hibernated' when result.hibernated is true (not 'failed')", async () => {
+    const session = { id: "s1", status: "running" };
+    await sealSessionStatusIfStillRunning(session, { hibernated: true, reason: "quota_exhausted" });
+    expect(markSessionStatus).toHaveBeenCalledWith(session, "hibernated");
+  });
+
   it("seals as 'cancelled' when result.cancelled is true", async () => {
     const session = { id: "s1", status: "running" };
     await sealSessionStatusIfStillRunning(session, { cancelled: true });

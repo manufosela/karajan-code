@@ -141,7 +141,7 @@ export class AgentRole extends BaseRole {
       const recoveryNote = result.recovery?.class ? ` [${result.recovery.class}]` : "";
       return {
         ok: false,
-        result: { error: result.error || result.output || `${this.name} failed${recoveryNote}`, provider, recovery: result.recovery, action: result.action },
+        result: { error: result.error || result.output || `${this.name} failed${recoveryNote}`, provider, recovery: result.recovery, action: result.action, standbyFile: result.standbyFile || null },
         summary: `${this.name} failed${recoveryNote}: ${result.recovery?.message || result.error || "unknown error"}`,
         usage: result.usage
       };
