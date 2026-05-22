@@ -9,6 +9,33 @@ import path from "node:path";
 import os from "node:os";
 import { writeJsonAtomic } from "../utils/atomic-write.js";
 import { generatePlanId, normaliseAlias } from "./plan-id.js";
+
+/**
+ * A plan JSON file failed to parse — typically an interrupted write
+ * leaves it truncated. Previously every read site swallowed this with
+ * a silent catch and the plan vanished from `kj plan list` and
+ * `kj plan load` as if it had never existed.
+ *
+ * Now: warn loudly so the user knows their plan is corrupt, and rename
+ * the file to `<name>.corrupt-<ts>` so it stops blocking subsequent
+ * reads of the same alias / planId (without destroying evidence).
+ * Best-effort: if the rename itself fails (read-only FS, permissions),
+ * we log and move on — never escalate to a throw, that would block the
+ * caller from reading the rest of the directory.
+ */
+async function handleCorruptPlanFile(filePath, error) {
+  const corruptPath = `${filePath}.corrupt-${Date.now()}`;
+  // eslint-disable-next-line no-console
+  console.warn(`[plan-store] Corrupt plan JSON at ${filePath}: ${error.message}`);
+  try {
+    await fs.rename(filePath, corruptPath);
+    // eslint-disable-next-line no-console
+    console.warn(`[plan-store] Renamed to ${path.basename(corruptPath)} so it stops blocking subsequent reads.`);
+  } catch (renameErr) {
+    // eslint-disable-next-line no-console
+    console.warn(`[plan-store] Could not rename ${filePath}: ${renameErr.message}`);
+  }
+}
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
 // Per-process tmp dir for VITEST runs that forget to set KJ_HOME. We
@@ -120,11 +147,14 @@ async function resolveUniqueAlias(dir, ownPlanId, base) {
   const taken = new Set();
   for (const f of files) {
     if (!f.endsWith(".json")) continue;
+    const filePath = path.join(dir, f);
     try {
-      const record = JSON.parse(await fs.readFile(path.join(dir, f), "utf8"));
+      const record = JSON.parse(await fs.readFile(filePath, "utf8"));
       if (record.planId === ownPlanId) continue;
       if (record.alias) taken.add(record.alias);
-    } catch { /* skip corrupt */ }
+    } catch (err) {
+      if (err.code !== "ENOENT") await handleCorruptPlanFile(filePath, err);
+    }
   }
   if (!taken.has(base)) return base;
   for (let i = 2; i < 1000; i += 1) {
@@ -152,19 +182,28 @@ export async function loadPlan(projectDir, ref) {
     const plan = JSON.parse(data);
     if (!isPlanV2(plan)) return migratePlanV1toV2(plan);
     return plan;
-  } catch { /* fall through to alias scan */ }
+  } catch (err) {
+    // ENOENT is expected (caller may have passed an alias, not a planId)
+    // → fall through to the alias scan. Anything else means the file is
+    // there but unreadable / corrupt; surface it instead of silently
+    // hiding the plan.
+    if (err.code !== "ENOENT") await handleCorruptPlanFile(direct, err);
+  }
   // 2. Escaneo del dir por alias. Coste O(N) pero N suele ser <10.
   let files;
   try { files = await fs.readdir(dir); } catch { return null; }
   for (const f of files) {
     if (!f.endsWith(".json")) continue;
+    const filePath = path.join(dir, f);
     try {
-      const record = JSON.parse(await fs.readFile(path.join(dir, f), "utf8"));
+      const record = JSON.parse(await fs.readFile(filePath, "utf8"));
       if (record.alias === ref || record.planId === ref) {
         if (!isPlanV2(record)) return migratePlanV1toV2(record);
         return record;
       }
-    } catch { /* skip corrupt */ }
+    } catch (err) {
+      if (err.code !== "ENOENT") await handleCorruptPlanFile(filePath, err);
+    }
   }
   return null;
 }
@@ -198,8 +237,10 @@ export async function listPlans(projectDir) {
   const plans = [];
   for (const file of files) {
     if (!file.endsWith(".json")) continue;
+    if (file.includes(".corrupt-")) continue; // own renamed-aside files
+    const filePath = path.join(dir, file);
     try {
-      const data = await fs.readFile(path.join(dir, file), "utf8");
+      const data = await fs.readFile(filePath, "utf8");
       const record = JSON.parse(data);
       plans.push({
         planId: record.planId,
@@ -211,7 +252,9 @@ export async function listPlans(projectDir) {
         huCount: Array.isArray(record.hus) ? record.hus.length : 0,
         createdAt: record.createdAt
       });
-    } catch { /* skip corrupt */ }
+    } catch (err) {
+      if (err.code !== "ENOENT") await handleCorruptPlanFile(filePath, err);
+    }
   }
 
   plans.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
