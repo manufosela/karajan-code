@@ -89,3 +89,16 @@ jobs:
 
       - name: Run tests
         run: npx vitest run --reporter=default --reporter=github-actions
+
+      # The hu-board package ships its own package.json + vitest config,
+      # and the root vitest run excludes packages/** — so without these
+      # two steps its test suite never runs in CI. Regression cover for
+      # the 2026-05 dogfooding where a broken packages/hu-board change
+      # would have passed CI unnoticed.
+      - name: Install hu-board package dependencies
+        run: npm ci
+        working-directory: packages/hu-board
+
+      - name: Run hu-board package tests
+        run: npx vitest run --reporter=default --reporter=github-actions
+        working-directory: packages/hu-board
