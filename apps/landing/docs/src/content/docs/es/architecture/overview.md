@@ -102,25 +102,30 @@ src/
 │   ├── standby.js            #   Rate-limit standby with backoff
 │   └── pipeline-context.js   #   Shared pipeline state object
 │
-├── roles/                    # Role implementations (16 roles)
-│   ├── base-role.js          #   Abstract base (init, execute, report)
-│   ├── triage-role.js        #   Task complexity classifier
-│   ├── discover-role.js      #   Gap detection (Mom Test, Wendel, JTBD)
-│   ├── researcher-role.js    #   Codebase investigation
-│   ├── architect-role.js     #   Architecture design
-│   ├── planner-role.js       #   Implementation planning
-│   ├── hu-reviewer-role.js   #   User story certification (6 dimensions, 7 antipatterns)
-│   ├── coder-role.js         #   Code & test generation
-│   ├── refactorer-role.js    #   Code quality improvement
-│   ├── reviewer-role.js      #   Code review
-│   ├── tester-role.js        #   Test quality gate
-│   ├── security-role.js      #   OWASP security audit
-│   ├── impeccable-role.js    #   UI/UX audit (a11y, performance, theming)
-│   ├── audit-role.js         #   Read-only codebase health analysis (A-F scores)
-│   ├── solomon-role.js       #   Pipeline boss, conflict arbitration
-│   ├── sonar-role.js         #   SonarQube (non-AI)
-│   ├── commiter-role.js      #   Git automation
-│   └── index.js              #   Role registry
+├── roles/                       # Clases de rol — 2 clases base + 20 roles concretos. El pipeline de `kj run` orquesta **24 etapas** en total: 18 de estas clases + 6 etapas deterministas sin clase (intent, skills, acceptance, output-guard, perf-guard, tdd) que viven en el orquestador. Las otras 2 clases (`commiter`, `repairer`) son post-aprobación / auxiliares internas, no etapas independientes del pipeline. Ver handbook/pipeline-roles para el catálogo completo.
+│   ├── base-role.js             #   Clase base abstracta (init, execute, report) — NO es un rol del pipeline
+│   ├── agent-role.js            #   Clase base para roles respaldados por LLM — NO es un rol del pipeline
+│   ├── triage-role.js           #   Clasificador de complejidad
+│   ├── domain-curator-role.js   #   Síntesis de conocimiento de dominio de negocio
+│   ├── discover-role.js         #   Detección de gaps (Mom Test, Wendel, JTBD)
+│   ├── researcher-role.js       #   Investigación del codebase
+│   ├── architect-role.js        #   Diseño de arquitectura
+│   ├── planner-role.js          #   Planificación de implementación
+│   ├── hu-reviewer-role.js      #   Certificación de historias de usuario (6 dimensiones, 7 antipatrones)
+│   ├── coder-role.js            #   Generación de código y tests
+│   ├── refactorer-role.js       #   Mejora de claridad del código
+│   ├── sonar-role.js            #   Wrapper de SonarQube (no IA)
+│   ├── reviewer-role.js         #   Revisión de código
+│   ├── tester-role.js           #   Quality gate de tests
+│   ├── security-role.js         #   Auditoría de seguridad OWASP
+│   ├── impeccable-role.js       #   Auditoría UI/UX (a11y, rendimiento, theming)
+│   ├── perf-role.js             #   Quality gate WebPerf (Core Web Vitals)
+│   ├── audit-role.js            #   Análisis read-only de salud del codebase (puntuaciones A-F)
+│   ├── solomon-role.js          #   Pipeline boss, arbitraje de conflictos
+│   ├── karajan-brain-role.js    #   Orquestador IA central (routing, compresión, ejecución de acciones)
+│   ├── repairer-role.js         #   Repara tests de aceptación rotos en runtime
+│   ├── commiter-role.js         #   Automatización git (post-aprobación)
+│   └── index.js                 #   Registro de roles
 │
 ├── agents/                   # AI agent adapters (5 agents)
 │   ├── index.js              #   Agent registry (register, create)

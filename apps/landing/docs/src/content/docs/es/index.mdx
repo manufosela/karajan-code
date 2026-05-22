@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Orquestador de IA basado en roles con 16 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
+description: Orquestador de IA basado en roles con 24 roles, 5 agentes, guards deterministas, TDD, SonarQube y revision de codigo automatizada.
 template: splash
 hero:
-  tagline: "Orquestador de coding multiagente. 16 roles, 5 agentes, guards deterministas, TDD, SonarQube, revisión automatizada."
+  tagline: "Orquestador de coding multiagente. 24 roles, 5 agentes, guards deterministas, TDD, SonarQube, revisión automatizada."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — orquestador multiagente" width="400" height="400" />'
   actions:
@@ -120,7 +120,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
     Claude, Codex, Gemini, Aider y OpenCode. Combinalos — usa Claude como coder y Codex como reviewer, o cualquier combinacion. Extensible via plugins.
   </Card>
   <Card title="Pipeline Multi-Agente" icon="rocket">
-    16 roles configurables: discover, triage, domain-curator, researcher, architect, planner, coder, refactorer, sonar, impeccable, reviewer, tester, security, solomon, commiter, hu-reviewer. Auditoría obligatoria post-aprobación que certifica el código generado como limpio antes de completar.
+    24 roles configurables a lo largo de las fases pre-loop, iteración y post-loop — triage, planner, coder, reviewer, sonar, solomon, audit y más. Catálogo completo en [Roles del pipeline](/docs/es/handbook/pipeline-roles/). Auditoría obligatoria post-aprobación que certifica el código generado como limpio antes de completar.
   </Card>
   <Card title="Solomon — Juez IA (v2.0)" icon="seti:config">
     Refinado de jefe del pipeline a juez IA. Consultado solo en dilemas genuinos: seguridad-vs-deadline, gates de calidad en conflicto, loops estancados, evaluación de riesgos. Los issues de seguridad bypasean Solomon deterministicamente y vuelven directo al coder.

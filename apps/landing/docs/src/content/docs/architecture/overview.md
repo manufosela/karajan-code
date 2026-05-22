@@ -102,25 +102,30 @@ src/
 │   ├── standby.js            #   Rate-limit standby with backoff
 │   └── pipeline-context.js   #   Shared pipeline state object
 │
-├── roles/                    # Role implementations (16 roles)
-│   ├── base-role.js          #   Abstract base (init, execute, report)
-│   ├── triage-role.js        #   Task complexity classifier
-│   ├── discover-role.js      #   Gap detection (Mom Test, Wendel, JTBD)
-│   ├── researcher-role.js    #   Codebase investigation
-│   ├── architect-role.js     #   Architecture design
-│   ├── planner-role.js       #   Implementation planning
-│   ├── hu-reviewer-role.js   #   User story certification (6 dimensions, 7 antipatterns)
-│   ├── coder-role.js         #   Code & test generation
-│   ├── refactorer-role.js    #   Code quality improvement
-│   ├── reviewer-role.js      #   Code review
-│   ├── tester-role.js        #   Test quality gate
-│   ├── security-role.js      #   OWASP security audit
-│   ├── impeccable-role.js    #   UI/UX audit (a11y, performance, theming)
-│   ├── audit-role.js         #   Read-only codebase health analysis (A-F scores)
-│   ├── solomon-role.js       #   Pipeline boss, conflict arbitration
-│   ├── sonar-role.js         #   SonarQube (non-AI)
-│   ├── commiter-role.js      #   Git automation
-│   └── index.js              #   Role registry
+├── roles/                       # Role classes — 2 base classes + 20 concrete roles. The `kj run` pipeline orchestrates **24 stages** total: 18 of these classes + 6 deterministic stages without a class (intent, skills, acceptance, output-guard, perf-guard, tdd) that live in the orchestrator. The other 2 classes (`commiter`, `repairer`) are post-approval / internal helpers, not standalone pipeline stages. See handbook/pipeline-roles for the full catalogue.
+│   ├── base-role.js             #   Abstract base (init, execute, report) — NOT a pipeline role
+│   ├── agent-role.js            #   Base class for LLM-backed roles — NOT a pipeline role
+│   ├── triage-role.js           #   Task complexity classifier
+│   ├── domain-curator-role.js   #   Business-domain knowledge synthesis
+│   ├── discover-role.js         #   Gap detection (Mom Test, Wendel, JTBD)
+│   ├── researcher-role.js       #   Codebase investigation
+│   ├── architect-role.js        #   Architecture design
+│   ├── planner-role.js          #   Implementation planning
+│   ├── hu-reviewer-role.js      #   User story certification (6 dimensions, 7 antipatterns)
+│   ├── coder-role.js            #   Code & test generation
+│   ├── refactorer-role.js       #   Code quality improvement
+│   ├── sonar-role.js            #   SonarQube wrapper (non-AI)
+│   ├── reviewer-role.js         #   Code review
+│   ├── tester-role.js           #   Test quality gate
+│   ├── security-role.js         #   OWASP security audit
+│   ├── impeccable-role.js       #   UI/UX audit (a11y, performance, theming)
+│   ├── perf-role.js             #   WebPerf quality gate (Core Web Vitals)
+│   ├── audit-role.js            #   Read-only codebase health analysis (A-F scores)
+│   ├── solomon-role.js          #   Pipeline boss, conflict arbitration
+│   ├── karajan-brain-role.js    #   Central AI orchestrator (routing, compression, action execution)
+│   ├── repairer-role.js         #   Repairs broken acceptance tests at runtime
+│   ├── commiter-role.js         #   Git automation (post-approval)
+│   └── index.js                 #   Role registry
 │
 ├── agents/                   # AI agent adapters (5 agents)
 │   ├── index.js              #   Agent registry (register, create)

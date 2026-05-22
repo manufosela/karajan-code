@@ -5,7 +5,7 @@ description: Cómo funciona el pipeline multi-agente de Karajan Code.
 
 ## Visión General del Pipeline
 
-Karajan orquesta **16 roles especializados** a través de un pipeline de tres fases. Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider, OpenCode) lo ejecuta.
+Karajan orquesta **24 roles especializados** a través de un pipeline de tres fases (pre-loop · iteración · post-loop). Cada rol define *qué* hacer; tú eliges *qué agente de IA* (Claude, Codex, Gemini, Aider, OpenCode) lo ejecuta. La tabla siguiente cubre los roles respaldados por agente IA — para el catálogo completo incluyendo etapas deterministas (intent classifier, guards, TDD check, acceptance, skills, brain) ver [Roles del pipeline](/docs/es/handbook/pipeline-roles/).
 
 ```
 intent? → discover? → hu-reviewer? → triage → domain-curator? → researcher? → architect? → planner? → [coder → refactorer? → guards → TDD → sonar? → impeccable? → reviewer] → tester? → security? → audit? → commiter?
