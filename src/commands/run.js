@@ -7,6 +7,7 @@ import { withCliRunLog } from "../utils/cli-run-log.js";
 import { registerRun, unregisterRun } from "../utils/run-registry.js";
 import { printHeader } from "../utils/display/header.js";
 import { printEvent } from "../utils/display/event-handlers.js";
+import { printResumeHint } from "../utils/display/resume-hint.js";
 import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
 import { confirmCwd } from "../utils/cwd-confirm.js";
@@ -175,6 +176,10 @@ export async function runCommandHandler({ task, config, logger, flags }) {
 
     if (jsonMode) {
       console.log(JSON.stringify(result, null, 2));
+    } else {
+      // Last line printed: if the run stopped (hibernated / paused /
+      // failed), tell the user the exact command to resume it.
+      printResumeHint(result);
     }
     return { ok: !result?.paused && result?.approved !== false };
   });
