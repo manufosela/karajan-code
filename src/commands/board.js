@@ -88,6 +88,40 @@ function buildBoardUrl(port, projectSlug) {
   return projectSlug ? `${base}/p/${projectSlug}` : base;
 }
 
+/**
+ * After spawning the board daemon, watch for an early exit. Resolves to
+ * an error string when the child dies within the window — a broken
+ * native module, a crash on boot, or the silent entry-point mismatch
+ * that made the daemon exit 0 without a trace — and to `null` when it
+ * survives. This is what stops `startBoard` from reporting `ok` for a
+ * daemon that died milliseconds after spawn. The window is overridable
+ * via KJ_BOARD_START_WINDOW_MS (tests set it low to stay fast).
+ * @param {import('node:child_process').ChildProcess} child
+ * @param {string} logPath
+ * @returns {Promise<string|null>}
+ */
+export function waitForEarlyExit(child, logPath) {
+  const envWindow = Number(process.env.KJ_BOARD_START_WINDOW_MS);
+  const windowMs = Number.isFinite(envWindow) && envWindow >= 0 ? envWindow : 1500;
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const onExit = (code, signal) => {
+      const how = signal ? `signal ${signal}` : `exit code ${code}`;
+      finish(`HU Board daemon died on startup (${how}). See ${logPath} for the cause.`);
+    };
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      child.removeListener("exit", onExit);
+      resolve(value);
+    }
+    child.once("exit", onExit);
+    timer = setTimeout(() => finish(null), windowMs);
+  });
+}
+
 export async function startBoard(desiredPort = 4000, opts = {}) {
   const { projectSlug = null, bind = "127.0.0.1" } = opts;
   const existingPid = readPid();
@@ -141,8 +175,11 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
 
   // Use process.execPath (absolute path to current node binary) instead of "node".
   // Fixes ENOENT on nvm setups where `node` is not in the spawned process's PATH.
+  // KJ_BOARD_DAEMON=1 tells server.js to run main() regardless of how
+  // its entry-point path compares — the symlink/Windows/space-in-path
+  // mismatch that used to make the daemon exit 0 in total silence.
   const child = spawn(process.execPath, [serverPath], {
-    env: { ...process.env, PORT: String(port), BIND_HOST: bind },
+    env: { ...process.env, PORT: String(port), BIND_HOST: bind, KJ_BOARD_DAEMON: "1" },
     detached: true,
     stdio: ["ignore", logFd, logFd],
     cwd: BOARD_DIR
@@ -153,6 +190,14 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   child.on("error", () => { /* non-blocking — caller logs via tryAutoStartBoard catch */ });
   if (!child.pid) {
     throw new Error("Failed to spawn HU Board server");
+  }
+  // Don't report success blindly: a crash on boot (e.g. broken
+  // better-sqlite3, or the silent entry-point mismatch) used to be
+  // reported as ok:true, leaving the user with a dead board and a log
+  // showing only the start line. Catch the early exit here.
+  const failure = await waitForEarlyExit(child, logPath);
+  if (failure) {
+    throw new Error(failure);
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
   // Detach for real: `detached: true` only sets up the new session;
@@ -289,7 +334,18 @@ export function renderBoardBanner({ url, status, projectName }) {
 export async function boardCommand({ action = "start", port = 4000, bind = "127.0.0.1", logger }) {
   switch (action) {
     case "start": {
-      const result = await startBoard(port, { bind });
+      let result;
+      try {
+        result = await startBoard(port, { bind });
+      } catch (err) {
+        // The daemon died on boot (broken native module, crash) or no
+        // free port was found. Surface it cleanly — the whole point of
+        // this fix is that `kj board start` never reports a phantom
+        // success while leaving a dead board behind.
+        logger.error(`HU Board failed to start: ${err.message}`);
+        process.exitCode = 1;
+        return { ok: false, error: err.message };
+      }
       if (result.alreadyRunning) {
         logger.info(`HU Board already running (PID ${result.pid}) at ${result.url}`);
       } else {

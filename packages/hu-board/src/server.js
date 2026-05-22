@@ -2,8 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { writeFileSync, rmSync, mkdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
@@ -161,9 +161,20 @@ export function buildRateLimiter() {
  * Main entry point: initializes database, syncs data, and starts the server.
  */
 async function main() {
-  // Initialize SQLite
+  // Initialize SQLite. better-sqlite3 is a native module — when its
+  // prebuilt binary is missing or ABI-mismatched (Node was upgraded),
+  // initDb() throws. Surface an actionable message instead of a bare
+  // stack trace so the user knows exactly what to run.
   console.log('[server] Initializing database...');
-  initDb();
+  try {
+    initDb();
+  } catch (err) {
+    console.error('[server] FATAL: could not initialize the database.');
+    console.error('[server] The native module better-sqlite3 failed to load, or the DB file could not be opened.');
+    console.error('[server] Fix: run `npm rebuild better-sqlite3` (or reinstall karajan-code).');
+    console.error('[server] Original error:', err?.stack || String(err));
+    process.exit(1);
+  }
 
   // Full scan of existing files BEFORE the reaper runs. Otherwise
   // fullScan would read every session.json from disk and overwrite
@@ -380,12 +391,42 @@ async function main() {
   process.on('SIGTERM', shutdown);
 }
 
+/**
+ * Whether this module runs as the board daemon. The legacy check
+ * `import.meta.url === ` + "`file://${process.argv[1]}`" + ` silently
+ * broke the daemon on Windows (backslashes), linked / global installs
+ * (import.meta.url resolves symlinks, process.argv[1] does not) and
+ * paths with spaces (percent-encoding): main() never ran, the process
+ * exited 0 and nothing ever reached hu-board.log. The launcher now
+ * sets KJ_BOARD_DAEMON=1, which we trust first; the normalised URL
+ * comparison (symlinks resolved on both sides) is the fallback.
+ * Exported so tests can exercise it without spawning a process.
+ * @returns {boolean}
+ */
+export function isDaemonEntryPoint() {
+  if (process.env.KJ_BOARD_DAEMON === '1') return true;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
 // Only run main() when this file is the entry point. Tests import
 // the helpers above without spinning up the server.
-const isEntryPoint = import.meta.url === `file://${process.argv[1]}`;
-if (isEntryPoint) {
+if (isDaemonEntryPoint()) {
+  // A dying daemon must never die in silence: the launcher wires
+  // stderr to hu-board.log, so log the cause before exiting non-zero.
+  process.on('uncaughtException', (err) => {
+    console.error('[server] FATAL uncaught exception:', err?.stack || String(err));
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('[server] FATAL unhandled rejection:', reason?.stack || String(reason));
+    process.exit(1);
+  });
   main().catch((err) => {
-    console.error('[server] Fatal error:', err);
+    console.error('[server] Fatal error:', err?.stack || err);
     process.exit(1);
   });
 }
