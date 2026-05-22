@@ -11,6 +11,7 @@ import { applyReviewerFeedback, applyFixerPatch } from "../../plan/plan-fixer.js
 import { runStructuralPass } from "../../plan/plan-structural-pass.js";
 import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-router.js";
 import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
+import { buildStandbyState } from "../../brain/standby-store.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -64,11 +65,19 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   try {
     // KJC-TSK-0413: planner inicial pasa por Brain Recovery — clasifica
     // 401/429/5xx/SILENCED/etc y decide retry/standby/hibernate/abort.
+    // `kj plan` has no pipeline session, so synthesise a standby id
+    // (`plan_<stamp>`). If the planner hits a quota cap, withBrainRecovery
+    // persists it and `kj standby resume` re-spawns via the saved argv.
+    const plannerSessionState = buildStandbyState({
+      session: { id: `plan_${new Date().toISOString().replaceAll(/[:.]/g, "-")}` },
+      config,
+    });
     result = await withBrainRecovery({
       agent: planner,
       taskArgs: { prompt, role: "planner", silenceTimeoutMs, timeoutMs, onOutput: progress.onOutput },
       role: "planner",
       logger,
+      sessionState: plannerSessionState,
     });
     progress.finish(result.ok ? "done" : (result.action || "failed"));
   } catch (err) {

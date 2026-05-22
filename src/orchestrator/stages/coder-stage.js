@@ -18,6 +18,7 @@ import { runCoderWithFallback } from "../agent-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
+import { buildStandbyState } from "../../brain/standby-store.js";
 import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript, detectTranscriptCdLeaks } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
@@ -66,7 +67,10 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       // the plan, the rest are scoped to this HU. All four pass through
       // untouched when the caller omits them (legacy single-task runs).
       adrs, specSection, reviewerFindings, huId,
-      onOutput: coderStall.onOutput
+      onOutput: coderStall.onOutput,
+      // Lets Brain Recovery persist a standby snapshot if the coder's
+      // provider hits a quota cap mid-run (KJC hibernation wiring).
+      sessionState: buildStandbyState({ session, config, huId }),
     });
   } finally {
     coderStall.stop();

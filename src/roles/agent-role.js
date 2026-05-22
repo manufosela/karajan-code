@@ -130,6 +130,11 @@ export class AgentRole extends BaseRole {
       provider,
       emitter: this.emitter,
       logger: this.logger,
+      // KJC: sessionState lets withBrainRecovery persist a hibernating run
+      // to ~/.kj/standby/ so it can be resumed. Without it a quota-exhausted
+      // run had nothing to resume from. Caller (coder-stage etc.) passes it
+      // through the input object; extractInput forwards it via `...input`.
+      sessionState: extracted.sessionState || this.context?.sessionState || null,
     });
 
     if (!result.ok) {
