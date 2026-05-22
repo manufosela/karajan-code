@@ -152,6 +152,24 @@ export async function runCommand(command, args = [], options = {}) {
 function enrichResult(result, stdoutAccum, _stderrAccum) {
   if (result.timedOut) return result;
 
+  // execa with reject:false RESOLVES (does not throw) on a spawn
+  // failure — ENOENT (binary not in PATH), EACCES, etc. The result
+  // then carries exitCode null/undefined, an empty stderr, and the
+  // real cause only in `code` / `shortMessage`. Surface it: a missing
+  // agent CLI used to fail with a completely empty error message,
+  // leaving the user with "coder failed" and no idea what to install.
+  if (result.failed && result.exitCode == null && !result.signal) {
+    const reason = result.shortMessage || result.message
+      || `spawn failed${result.code ? ` (${result.code})` : ""}`;
+    return {
+      ...result,
+      exitCode: 1,
+      stdout: result.stdout || stdoutAccum,
+      stderr: result.stderr || reason,
+      spawnError: result.code || true,
+    };
+  }
+
   const killed = result.killed || !!result.signal;
   const signal = result.signal || null;
 
