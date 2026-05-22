@@ -32,11 +32,12 @@ describe("verification-gate", () => {
       expect(result.linesAdded).toBe(0);
     });
 
-    it("returns zeros on git error", () => {
+    it("surfaces git failures via `gitError` (no longer silently 0)", () => {
       execFileSync.mockImplementation(() => { throw new Error("not a git repo"); });
       const result = countChangesSince("HEAD~1");
       expect(result.filesChanged).toBe(0);
       expect(result.files).toEqual([]);
+      expect(result.gitError).toMatch(/not a git repo/);
     });
 
     it("includes projectDir scope in command (as a separate arg, post-`--`)", () => {
@@ -53,20 +54,23 @@ describe("verification-gate", () => {
   });
 
   describe("countUntrackedFiles", () => {
-    it("returns list of untracked files", () => {
+    it("returns { files: [...] } with the untracked files", () => {
       execFileSync.mockReturnValue("new.js\nnew-dir/file.ts\n");
-      const files = countUntrackedFiles();
-      expect(files).toEqual(["new.js", "new-dir/file.ts"]);
+      const result = countUntrackedFiles();
+      expect(result.files).toEqual(["new.js", "new-dir/file.ts"]);
+      expect(result.gitError).toBeUndefined();
     });
 
-    it("returns empty array on no untracked", () => {
+    it("returns { files: [] } when there are no untracked files", () => {
       execFileSync.mockReturnValue("");
-      expect(countUntrackedFiles()).toEqual([]);
+      expect(countUntrackedFiles()).toEqual({ files: [] });
     });
 
-    it("returns empty array on error", () => {
+    it("surfaces git failures via `gitError` (no longer empty-array silent)", () => {
       execFileSync.mockImplementation(() => { throw new Error("fail"); });
-      expect(countUntrackedFiles()).toEqual([]);
+      const result = countUntrackedFiles();
+      expect(result.files).toEqual([]);
+      expect(result.gitError).toMatch(/fail/);
     });
   });
 
@@ -106,6 +110,22 @@ describe("verification-gate", () => {
       expect(result.filesChanged).toBe(2);
       expect(result.files).toContain("src/existing.js");
       expect(result.files).toContain("new.js");
+    });
+
+    // Resilience audit, Phase 4: previously a git failure (bad
+    // baseRef, corrupt repo, git missing) was indistinguishable from
+    // "the coder did nothing", so the orchestrator wasted iterations
+    // retrying the agent with "rephrase the feedback with explicit
+    // file paths" when the real cause was infrastructure.
+    it("when git itself fails, returns gitError and a null retryStrategy (no agent blame)", () => {
+      execFileSync.mockImplementation(() => {
+        throw new Error("fatal: bad revision 'HEAD~1'");
+      });
+      const result = verifyCoderOutput({ baseRef: "HEAD~1" });
+      expect(result.passed).toBe(false);
+      expect(result.gitError).toMatch(/bad revision/);
+      expect(result.reason).toMatch(/Git verification failed/);
+      expect(result.retryStrategy).toBeNull();
     });
   });
 
