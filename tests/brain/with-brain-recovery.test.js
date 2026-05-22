@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { withBrainRecovery, DEFAULT_RECOVERY_POLICY } from "../../src/brain/with-brain-recovery.js";
 
 // KJC-TSK-0412: Brain decide retry/standby/hibernate/abort según clase.
@@ -67,6 +68,33 @@ describe("withBrainRecovery — QUOTA_EXHAUSTED_DAILY → hibernate", () => {
     // Debe haber emitido la señal de hibernate-request
     const hibernateEvent = emit.mock.calls.find(([_evt, payload]) => payload?.type === "brain:hibernate-request");
     expect(hibernateEvent).toBeTruthy();
+  });
+
+  it("con sessionState persiste el standby a disco y devuelve standbyFile", async () => {
+    const target = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+    const agent = makeAgent([
+      { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
+    ]);
+    const sessionState = {
+      sessionId: "s_test-hibernate", argv: ["run", "build a thing"], cwd: "/tmp/proj", env: {},
+    };
+    const r = await withBrainRecovery({ agent, taskArgs: {}, role: "coder", sessionState, sleepFn: noSleep });
+    expect(r.action).toBe("hibernate");
+    expect(r.standbyFile).toBeTruthy();
+    const persisted = JSON.parse(readFileSync(r.standbyFile, "utf-8"));
+    expect(persisted.sessionId).toBe("s_test-hibernate");
+    expect(persisted.cooldownUntil).toBe(target);
+    expect(persisted.argv).toEqual(["run", "build a thing"]);
+  });
+
+  it("sin sessionState NO persiste (standbyFile null) — regresión del bug original", async () => {
+    const target = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+    const agent = makeAgent([
+      { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
+    ]);
+    const r = await withBrainRecovery({ agent, taskArgs: {}, role: "coder", sleepFn: noSleep });
+    expect(r.action).toBe("hibernate");
+    expect(r.standbyFile ?? null).toBeNull();
   });
 });
 

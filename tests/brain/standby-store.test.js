@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   persistStandby, loadStandby, listPendingStandby,
   markStandbyDone, acquireStandbyLock, standbyDir, standbyDoneDir,
+  buildStandbyState,
 } from "../../src/brain/standby-store.js";
 
 // KJC-TSK-0414 PR 1: persistencia de sesiones hibernadas al disco.
@@ -110,5 +111,38 @@ describe("acquireStandbyLock", () => {
     const b = acquireStandbyLock("s6");
     expect(b.acquired).toBe(true);
     b.release();
+  });
+});
+
+describe("buildStandbyState", () => {
+  it("devuelve null cuando no hay session.id", () => {
+    expect(buildStandbyState({ session: {} })).toBeNull();
+    expect(buildStandbyState({})).toBeNull();
+  });
+
+  it("incluye sessionId, planId, huId, cwd y argv", () => {
+    const state = buildStandbyState({
+      session: { id: "s_x", plan_id: "plan-7" },
+      config: { projectDir: "/tmp/proj" },
+      huId: "hu_3",
+    });
+    expect(state.sessionId).toBe("s_x");
+    expect(state.planId).toBe("plan-7");
+    expect(state.huId).toBe("hu_3");
+    expect(state.cwd).toBe("/tmp/proj");
+    expect(Array.isArray(state.argv)).toBe(true);
+  });
+
+  it("solo copia env allowlisted + KJ_* — nunca secretos arbitrarios", () => {
+    process.env.KJ_CUSTOM_FLAG = "kj-value";
+    process.env.SECRET_API_KEY = "do-not-leak";
+    try {
+      const state = buildStandbyState({ session: { id: "s_x" } });
+      expect(state.env.KJ_CUSTOM_FLAG).toBe("kj-value");
+      expect(state.env).not.toHaveProperty("SECRET_API_KEY");
+    } finally {
+      delete process.env.KJ_CUSTOM_FLAG;
+      delete process.env.SECRET_API_KEY;
+    }
   });
 });

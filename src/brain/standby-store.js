@@ -60,6 +60,42 @@ export function persistStandby(state) {
   return file;
 }
 
+// Only these env vars are carried into the standby snapshot. NEVER
+// persist the whole `process.env` — that would leak API keys and other
+// secrets into ~/.kj/standby/*.json. `kj standby resume` re-spawns with
+// the live env merged on top, so the snapshot only needs what is needed
+// to relaunch from the right place.
+const STANDBY_ENV_ALLOWLIST = ["KJ_HOME", "HOME", "PATH"];
+
+/**
+ * Builds the `sessionState` object that `withBrainRecovery` persists when
+ * a run hibernates. Pulls the session id, the relaunch metadata and an
+ * allowlisted env subset so `kj standby resume` can re-spawn the command.
+ * @param {object} args
+ * @param {object} args.session    - the pipeline session ({ id, plan_id? })
+ * @param {object} [args.config]   - resolved config ({ projectDir?, plan? })
+ * @param {string|null} [args.huId]
+ * @returns {object|null} sessionState, or null when there is no session id
+ */
+export function buildStandbyState({ session, config = {}, huId = null } = {}) {
+  if (!session?.id) return null;
+  const env = {};
+  for (const key of STANDBY_ENV_ALLOWLIST) {
+    if (process.env[key] != null) env[key] = process.env[key];
+  }
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith("KJ_") && value != null) env[key] = value;
+  }
+  return {
+    sessionId: session.id,
+    planId: session.plan_id || config.plan || null,
+    huId: huId || null,
+    argv: process.argv.slice(2),
+    cwd: config.projectDir || process.cwd(),
+    env,
+  };
+}
+
 /**
  * @param {string} sessionId
  * @returns {object|null}
