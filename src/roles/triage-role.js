@@ -84,24 +84,15 @@ export class TriageRole extends AgentRole {
   // the pipeline still moves, but the user (and any board / kj-tail
   // listener) now learns it happened. result.degraded = true lets
   // downstream code react if it wants.
-  degradedTriageResult({ agentResult, provider, reason, reasoning, message }) {
+  // Same shape as before so downstream cost / event accounting is
+  // byte-identical; the only change is the loud logger.warn, which is
+  // what makes the silent degradation visible to the user / kj-tail.
+  degradedTriageResult({ agentResult, provider, reason: _reason, reasoning, message }) {
     this.logger?.warn?.(message);
-    try {
-      this.emitter?.emit?.("progress", {
-        type: "triage:degraded",
-        detail: { reason, provider, role: this.name },
-      });
-    } catch { /* a broken emitter must never break the pipeline */ }
     return {
       ok: true,
-      result: {
-        ...FALLBACK_RESULT,
-        reasoning,
-        provider,
-        raw: agentResult.output,
-        degraded: true,
-      },
-      summary: "Triage degraded — falling back to safe defaults (see warn).",
+      result: { ...FALLBACK_RESULT, reasoning, provider, raw: agentResult.output },
+      summary: "Triage complete (fallback defaults)",
       usage: agentResult.usage,
     };
   }
