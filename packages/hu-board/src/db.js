@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 /** @type {import('better-sqlite3').Database | null} */
@@ -38,6 +38,44 @@ export function getKjHome() {
   return join(process.env.HOME || '/root', '.karajan');
 }
 
+// Bump when the schema gains a column / index / table that older
+// Karajan versions cannot understand. A DB written by a newer Karajan
+// refuses to open here so it does not get silently downgraded.
+const SCHEMA_VERSION = 1;
+
+/**
+ * Tries to open the SQLite database; if it is corrupt, moves it aside
+ * and opens a fresh one. `fullScan` afterwards rebuilds the cache from
+ * the JSON files on disk — the DB is a cache, never the source of
+ * truth. Without this the board crashed at startup with a raw
+ * `SqliteError: database disk image is malformed` whenever the WAL
+ * checkpoint died in the wrong place.
+ *
+ * @param {string} dbPath
+ * @returns {import('better-sqlite3').Database}
+ */
+function openDbResilient(dbPath) {
+  try {
+    const handle = new Database(dbPath);
+    // better-sqlite3 opens lazily — the first pragma is what actually
+    // touches the file and surfaces "file is not a database". Probe
+    // `schema_version` (a built-in SQLite pragma) to force it.
+    handle.pragma("schema_version", { simple: true });
+    return handle;
+  } catch (err) {
+    const code = err?.code || "";
+    const msg = err?.message || "";
+    if (code === "SQLITE_CORRUPT" || code === "SQLITE_NOTADB" || /malformed|not a database/i.test(msg)) {
+      const aside = `${dbPath}.corrupt-${Date.now()}`;
+      try { renameSync(dbPath, aside); } catch { /* may already be gone */ }
+      // eslint-disable-next-line no-console
+      console.warn(`[hu-board] DB at ${dbPath} was corrupt; moved aside to ${aside}. Rebuilding from disk via fullScan.`);
+      return new Database(dbPath);
+    }
+    throw err;
+  }
+}
+
 /**
  * Initializes the SQLite database and creates tables if they don't exist.
  * @returns {import('better-sqlite3').Database}
@@ -47,10 +85,28 @@ export function initDb() {
   mkdirSync(kjHome, { recursive: true });
 
   const dbPath = join(kjHome, 'hu-board.db');
-  db = new Database(dbPath);
+  db = openDbResilient(dbPath);
 
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  // Wait up to 5s for a competing writer (e.g. concurrent fullScan +
+  // mutation) before giving up. Without this any contention surfaced
+  // as SQLITE_BUSY and crashed the request mid-flight.
+  db.pragma('busy_timeout = 5000');
+
+  // Schema-version guard. If the DB was written by a newer Karajan with
+  // a different schema, refuse to open instead of silently mis-binding
+  // named parameters against a renamed column.
+  const onDisk = db.pragma('user_version', { simple: true });
+  if (onDisk > SCHEMA_VERSION) {
+    throw new Error(
+      `[hu-board] DB schema is from a newer Karajan (user_version=${onDisk}, this build expects ${SCHEMA_VERSION}). `
+      + `Upgrade karajan-code or remove ${dbPath} (it will be rebuilt from disk).`
+    );
+  }
+  if (onDisk < SCHEMA_VERSION) {
+    db.pragma(`user_version = ${SCHEMA_VERSION}`);
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
