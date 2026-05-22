@@ -17,6 +17,19 @@ import { BaseRole } from "./base-role.js";
 import { createAgent as defaultCreateAgent } from "../agents/index.js";
 import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
+/**
+ * Silence timeout (ms) for an agent subprocess, from
+ * config.session.max_agent_silence_minutes. runCommand kills a child
+ * that produces no output for this long — without it a hung coder /
+ * reviewer leaves `kj run` waiting forever. Returns null when unset.
+ * @param {object} config
+ * @returns {number|null}
+ */
+export function resolveAgentSilenceTimeoutMs(config) {
+  const minutes = Number(config?.session?.max_agent_silence_minutes);
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60 * 1000) : null;
+}
+
 export class AgentRole extends BaseRole {
   constructor({ name, config, logger, emitter = null, createAgentFn = null }) {
     super({ name, config, logger, emitter });
@@ -116,6 +129,11 @@ export class AgentRole extends BaseRole {
 
     const runArgs = { prompt, role: this.name };
     if (onOutput) runArgs.onOutput = onOutput;
+    // Kill a hung agent: without a silence timeout a coder / reviewer
+    // that stalls with no output left `kj run` waiting indefinitely.
+    // PlannerRole set this itself; every other role was unprotected.
+    const silenceTimeoutMs = resolveAgentSilenceTimeoutMs(this.config);
+    if (silenceTimeoutMs) runArgs.silenceTimeoutMs = silenceTimeoutMs;
 
     // KJC-TSK-0413 step B: TODAS las roles que heredan de AgentRole pasan
     // por Brain Recovery aquí — cubre AuditRole, SecurityRole, HuReviewerRole,

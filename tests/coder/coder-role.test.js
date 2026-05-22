@@ -256,4 +256,29 @@ describe("CoderRole", () => {
 
     expect(output.result.provider).toBe("claude");
   });
+
+  // Resilience audit, Phase 2: a hung agent (no output) must be killed.
+  // AgentRole.execute() now forwards silenceTimeoutMs — previously only
+  // PlannerRole did, so a stalled coder left `kj run` waiting forever.
+  it("forwards silenceTimeoutMs to the agent when configured", async () => {
+    const cfg = {
+      roles: { coder: { provider: "claude", model: null } },
+      coder: "claude",
+      development: { methodology: "tdd" },
+      session: { max_agent_silence_minutes: 5 },
+    };
+    const role = new CoderRole({ config: cfg, logger, createAgentFn: mockCreateAgent });
+    await role.init({});
+    await role.run({ task: "Task" });
+
+    expect(mockRunTask.mock.calls[0][0].silenceTimeoutMs).toBe(5 * 60 * 1000);
+  });
+
+  it("omits silenceTimeoutMs when max_agent_silence_minutes is not set", async () => {
+    const role = new CoderRole({ config, logger, createAgentFn: mockCreateAgent });
+    await role.init({});
+    await role.run({ task: "Task" });
+
+    expect(mockRunTask.mock.calls[0][0].silenceTimeoutMs).toBeUndefined();
+  });
 });
