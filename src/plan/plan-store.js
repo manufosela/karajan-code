@@ -7,6 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { writeJsonAtomic } from "../utils/atomic-write.js";
 import { generatePlanId, normaliseAlias } from "./plan-id.js";
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
@@ -83,7 +84,7 @@ export async function savePlan(projectDir, planResult) {
     if (!planResult.alias && planResult.name) {
       planResult.alias = await resolveUniqueAlias(dir, planResult.planId, normaliseAlias(planResult.name));
     }
-    await fs.writeFile(filePath, JSON.stringify(planResult, null, 2), "utf8");
+    await writeJsonAtomic(filePath, planResult);
     return planResult.planId;
   }
 
@@ -100,7 +101,7 @@ export async function savePlan(projectDir, planResult) {
   };
 
   const filePath = path.join(dir, `${planId}.json`);
-  await fs.writeFile(filePath, JSON.stringify(record, null, 2), "utf8");
+  await writeJsonAtomic(filePath, record);
   return planId;
 }
 

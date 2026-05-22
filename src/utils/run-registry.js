@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { writeJsonAtomicSync } from "./atomic-write.js";
 
 /**
  * Directorio raíz donde viven los registros de run.
@@ -54,7 +55,7 @@ export function registerRun(info = {}) {
       source: info.source || "cli",
       startedAt: new Date().toISOString(),
     };
-    fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf8");
+    writeJsonAtomicSync(filePath, entry);
     return runId;
   } catch {
     return null;

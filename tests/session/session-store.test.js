@@ -10,14 +10,25 @@ vi.mock("../../src/utils/fs.js", () => ({
   exists: vi.fn()
 }));
 
+// saveSession now delegates to writeJsonAtomic (resilience audit,
+// Phase 2). Without mocking it the test would write a real tmp file
+// and fail with ENOENT because ensureDir above is a no-op.
+vi.mock("../../src/utils/atomic-write.js", () => ({
+  writeJsonAtomic: vi.fn().mockResolvedValue(undefined),
+  writeJsonAtomicSync: vi.fn(),
+}));
+
 // Dynamic import so mocks are set up first
 const { createSession, saveSession, loadSession, addCheckpoint, markSessionStatus, pauseSession, resumeSessionWithAnswer, loadMostRecentSession } = await import("../../src/session/store.js");
 const { exists } = await import("../../src/utils/fs.js");
+const { writeJsonAtomic } = await import("../../src/utils/atomic-write.js");
 
 describe("session-store", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(fs, "writeFile").mockResolvedValue(undefined);
+    writeJsonAtomic.mockClear();
+    writeJsonAtomic.mockResolvedValue(undefined);
   });
 
   // ── createSession ─────────────────────────────────────────────
@@ -57,10 +68,9 @@ describe("session-store", () => {
     it("writes session.json to disk", async () => {
       await createSession({ id: "s_disk-check" });
 
-      expect(fs.writeFile).toHaveBeenCalledWith(
+      expect(writeJsonAtomic).toHaveBeenCalledWith(
         "/tmp/test-sessions/s_disk-check/session.json",
-        expect.any(String),
-        "utf8"
+        expect.objectContaining({ id: "s_disk-check" })
       );
     });
 
@@ -82,10 +92,9 @@ describe("session-store", () => {
 
       await saveSession(session);
 
-      expect(fs.writeFile).toHaveBeenCalledWith(
+      expect(writeJsonAtomic).toHaveBeenCalledWith(
         "/tmp/test-sessions/s_save-test/session.json",
-        expect.any(String),
-        "utf8"
+        expect.objectContaining({ id: "s_save-test" })
       );
     });
 
@@ -99,15 +108,15 @@ describe("session-store", () => {
       expect(new Date(session.updated_at).toISOString()).toBe(session.updated_at);
     });
 
-    it("serializes session as pretty JSON", async () => {
+    it("hands the session object to writeJsonAtomic (pretty JSON is the helper's job)", async () => {
       const session = { id: "s_pretty", status: "running", checkpoints: [] };
 
       await saveSession(session);
 
-      const written = fs.writeFile.mock.calls[0][1];
-      expect(written).toContain("\n");
-      const parsed = JSON.parse(written);
-      expect(parsed.id).toBe("s_pretty");
+      expect(writeJsonAtomic).toHaveBeenCalledWith(
+        "/tmp/test-sessions/s_pretty/session.json",
+        expect.objectContaining({ id: "s_pretty", status: "running" })
+      );
     });
   });
 
@@ -171,7 +180,7 @@ describe("session-store", () => {
 
       await addCheckpoint(session, { info: "test" });
 
-      expect(fs.writeFile).toHaveBeenCalled();
+      expect(writeJsonAtomic).toHaveBeenCalled();
     });
   });
 
@@ -191,7 +200,7 @@ describe("session-store", () => {
 
       await markSessionStatus(session, "failed");
 
-      expect(fs.writeFile).toHaveBeenCalled();
+      expect(writeJsonAtomic).toHaveBeenCalled();
     });
   });
 

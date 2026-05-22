@@ -11,6 +11,14 @@ vi.mock("../../src/utils/fs.js", () => ({
   exists: vi.fn().mockResolvedValue(true)
 }));
 
+// saveSession now writes via writeJsonAtomic — mock it so the test
+// does not hit disk (ensureDir above is a no-op so the parent dir
+// does not exist; otherwise a real write fails with ENOENT).
+vi.mock("../../src/utils/atomic-write.js", () => ({
+  writeJsonAtomic: vi.fn().mockResolvedValue(undefined),
+  writeJsonAtomicSync: vi.fn(),
+}));
+
 describe("pauseSession", () => {
   beforeEach(() => {
     vi.restoreAllMocks();

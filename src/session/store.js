@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { ensureDir, exists } from "../utils/fs.js";
 import { getSessionRoot } from "../utils/paths.js";
+import { writeJsonAtomic } from "../utils/atomic-write.js";
 
 const SESSION_ROOT = getSessionRoot();
 
@@ -31,7 +32,7 @@ export async function saveSession(session) {
   const dir = path.join(SESSION_ROOT, session.id);
   await ensureDir(dir);
   session.updated_at = new Date().toISOString();
-  await fs.writeFile(path.join(dir, "session.json"), JSON.stringify(session, null, 2), "utf8");
+  await writeJsonAtomic(path.join(dir, "session.json"), session);
 }
 
 export async function loadSession(sessionId) {

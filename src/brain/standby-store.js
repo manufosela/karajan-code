@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { writeJsonAtomicSync } from "../utils/atomic-write.js";
 
 const FILENAME_RE = /^[a-zA-Z0-9._-]+\.json$/;
 
@@ -56,7 +57,7 @@ export function persistStandby(state) {
     createdAt: state.createdAt || new Date().toISOString(),
     persistedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(file, JSON.stringify(payload, null, 2), "utf-8");
+  writeJsonAtomicSync(file, payload);
   return file;
 }
 
