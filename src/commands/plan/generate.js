@@ -12,6 +12,7 @@ import { runStructuralPass } from "../../plan/plan-structural-pass.js";
 import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-router.js";
 import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
+import { printResumeHint } from "../../utils/display/resume-hint.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -62,16 +63,16 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // self-fix iter N por delante.
   const progress = createCliProgressReporter({ role: "planner:initial", quiet: Boolean(json) });
   let result;
+  // `kj plan` has no pipeline session, so synthesise a standby id
+  // (`plan_<stamp>`). If the planner hits a quota cap, withBrainRecovery
+  // persists it and `kj standby resume` re-spawns via the saved argv.
+  const plannerSessionState = buildStandbyState({
+    session: { id: `plan_${new Date().toISOString().replaceAll(/[:.]/g, "-")}` },
+    config,
+  });
   try {
     // KJC-TSK-0413: planner inicial pasa por Brain Recovery — clasifica
     // 401/429/5xx/SILENCED/etc y decide retry/standby/hibernate/abort.
-    // `kj plan` has no pipeline session, so synthesise a standby id
-    // (`plan_<stamp>`). If the planner hits a quota cap, withBrainRecovery
-    // persists it and `kj standby resume` re-spawns via the saved argv.
-    const plannerSessionState = buildStandbyState({
-      session: { id: `plan_${new Date().toISOString().replaceAll(/[:.]/g, "-")}` },
-      config,
-    });
     result = await withBrainRecovery({
       agent: planner,
       taskArgs: { prompt, role: "planner", silenceTimeoutMs, timeoutMs, onOutput: progress.onOutput },
@@ -85,6 +86,18 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     throw err;
   }
 
+  if (!result.ok && result.action === "hibernate") {
+    // Quota cap: Brain Recovery persisted a standby snapshot. Stop
+    // cleanly with a resume hint instead of throwing a generic error.
+    const hibResult = {
+      ok: false, hibernated: true,
+      sessionId: plannerSessionState?.sessionId || null,
+      standbyFile: result.standbyFile || null,
+    };
+    if (!json) printResumeHint(hibResult);
+    process.exitCode = 1;
+    return hibResult;
+  }
   if (!result.ok) throw new Error(result.error || result.output || "Planner failed");
 
   const parsed = parseMaybeJsonString(result.output);
