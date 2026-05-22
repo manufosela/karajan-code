@@ -79,6 +79,21 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
 
   if (!coderExecResult.ok) {
     const details = coderExecResult.result?.error || coderExecResult.summary || "unknown error";
+    // Quota cap → Brain Recovery already hibernated the run and persisted
+    // the standby snapshot. Stop the stage cleanly: no fallback, no
+    // Solomon. The caller turns this into a clean run halt; the HU is NOT
+    // marked failed — it resumes via `kj standby resume`.
+    if (coderExecResult.result?.action === "hibernate") {
+      emitProgress(emitter, makeEvent("coder:hibernate", { ...eventBase, stage: "coder" }, {
+        message: "Coder hibernated — provider quota exhausted, run can be resumed",
+        detail: { standbyFile: coderExecResult.result?.standbyFile || null }
+      }));
+      return {
+        action: "hibernate",
+        standbyFile: coderExecResult.result?.standbyFile || null,
+        recovery: coderExecResult.result?.recovery || null,
+      };
+    }
     const rateLimitCheck = detectRateLimit({
       stderr: coderExecResult.result?.error || "",
       stdout: coderExecResult.result?.output || ""
@@ -249,13 +264,28 @@ export async function runRefactorerStage({ refactorerRole, config, logger, emitt
   const refactorerStart = Date.now();
   let refResult;
   try {
-    refResult = await refRole.execute({ task: plannedTask, onOutput: refactorerStall.onOutput });
+    refResult = await refRole.execute({
+      task: plannedTask, onOutput: refactorerStall.onOutput,
+      sessionState: buildStandbyState({ session, config }),
+    });
   } finally {
     refactorerStall.stop();
   }
   trackBudget({ role: "refactorer", provider: refactorerRole.provider, model: refactorerRole.model, result: refResult.result, duration_ms: Date.now() - refactorerStart });
   if (!refResult.ok) {
     const details = refResult.result?.error || refResult.summary || "unknown error";
+    // Quota cap → hibernate cleanly, same as the coder stage above.
+    if (refResult.result?.action === "hibernate") {
+      emitProgress(emitter, makeEvent("refactorer:hibernate", { ...eventBase, stage: "refactorer" }, {
+        message: "Refactorer hibernated — provider quota exhausted, run can be resumed",
+        detail: { standbyFile: refResult.result?.standbyFile || null }
+      }));
+      return {
+        action: "hibernate",
+        standbyFile: refResult.result?.standbyFile || null,
+        recovery: refResult.result?.recovery || null,
+      };
+    }
     const rateLimitCheck = detectRateLimit({
       stderr: refResult.result?.error || "",
       stdout: refResult.result?.output || ""
