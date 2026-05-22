@@ -47,8 +47,16 @@ export function countChangesSince(baseRef, projectDir = null) {
     }
 
     return { files, filesChanged: files.length, linesAdded, linesDeleted };
-  } catch {
-    return { files: [], filesChanged: 0, linesAdded: 0, linesDeleted: 0 };
+  } catch (err) {
+    // Git itself failed (baseRef invalid, repo corrupt, git binary
+    // missing). Previously we returned `filesChanged: 0` silently —
+    // indistinguishable from "the coder did nothing". Surface the
+    // error so verifyCoderOutput stops blaming the agent for an
+    // infrastructure failure.
+    return {
+      files: [], filesChanged: 0, linesAdded: 0, linesDeleted: 0,
+      gitError: err?.stderr?.toString?.() || err?.message || String(err),
+    };
   }
 }
 
@@ -65,10 +73,13 @@ export function countUntrackedFiles(projectDir = null) {
       encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
     }).trim();
 
-    if (!output) return [];
-    return output.split("\n").filter(Boolean);
-  } catch {
-    return [];
+    if (!output) return { files: [] };
+    return { files: output.split("\n").filter(Boolean) };
+  } catch (err) {
+    return {
+      files: [],
+      gitError: err?.stderr?.toString?.() || err?.message || String(err),
+    };
   }
 }
 
@@ -87,11 +98,29 @@ export function verifyCoderOutput({ baseRef, projectDir = null, minFiles = 1, mi
   const tracked = countChangesSince(baseRef, projectDir);
   const untracked = countUntrackedFiles(projectDir);
 
-  const totalFiles = tracked.filesChanged + untracked.length;
-  const totalLines = tracked.linesAdded + tracked.linesDeleted;
-  const allFiles = [...tracked.files, ...untracked];
+  // Git infra failure (bad baseRef, corrupt repo, git missing) — not
+  // the coder's fault. Bail out with `gitError` so the caller can log
+  // it and skip the "retry with explicit file paths" feedback that
+  // would otherwise blame the agent.
+  const gitError = tracked.gitError || untracked.gitError;
+  if (gitError) {
+    return {
+      passed: false,
+      filesChanged: 0,
+      linesChanged: 0,
+      files: [],
+      reason: `Git verification failed: ${gitError}`,
+      retryStrategy: null,
+      gitError,
+    };
+  }
 
-  const passed = totalFiles >= minFiles && (untracked.length > 0 || totalLines >= minLines);
+  const untrackedFiles = untracked.files || [];
+  const totalFiles = tracked.filesChanged + untrackedFiles.length;
+  const totalLines = tracked.linesAdded + tracked.linesDeleted;
+  const allFiles = [...tracked.files, ...untrackedFiles];
+
+  const passed = totalFiles >= minFiles && (untrackedFiles.length > 0 || totalLines >= minLines);
 
   if (passed) {
     return {

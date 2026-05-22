@@ -209,8 +209,17 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       baseRef: session.session_start_sha,
       projectDir: config.projectDir || process.cwd()
     });
-    filesChanged = verif.filesChanged || 0;
-  } catch { /* ignore verification errors */ }
+    if (verif.gitError) {
+      // Git failed (bad baseRef, corrupt repo, git missing). Don't
+      // feed filesChanged=0 into stale detection — it would blame the
+      // coder for an infrastructure problem.
+      logger?.warn?.(`[verification-gate] Git failed, change count is unreliable: ${verif.gitError}`);
+    } else {
+      filesChanged = verif.filesChanged || 0;
+    }
+  } catch (err) {
+    logger?.warn?.(`[verification-gate] Skipped: ${err?.message || err}`);
+  }
 
   await addCheckpoint(session, { stage: "coder", iteration, note: "Coder applied changes", provider: coderRole.provider, model: coderRole.model || null, filesChanged });
   emitProgress(
