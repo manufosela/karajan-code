@@ -32,6 +32,7 @@ import {
   setLiveOutcomeUpdater, setPreLoopContext,
 } from "#session/mutators.js";
 import { emitProgress, makeEvent } from "#utils/events.js";
+import { listActiveRuns } from "../../../utils/run-registry.js";
 
 /**
  * @param {object} args
@@ -158,11 +159,10 @@ export async function injectLoadedPlan({ flags, updatedConfig, session, stageRes
  * @param {object} args.loadedPlan
  * @param {string} args.planId
  * @param {object} [args.logger]
- * @returns {Promise<number>}
+ * @returns {number}
  */
-export async function reconcilePlanHuZombies({ loadedPlan, planId, logger }) {
+export function reconcilePlanHuZombies({ loadedPlan, planId, logger }) {
   if (!Array.isArray(loadedPlan?.hus) || loadedPlan.hus.length === 0) return 0;
-  const { listActiveRuns } = await import("../../../utils/run-registry.js");
   const activeRuns = listActiveRuns({ planId });
   if (activeRuns.length > 0) return 0;
   const ZOMBIE_STATES = new Set(["coding", "reviewing", "running"]);
