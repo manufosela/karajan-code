@@ -13,7 +13,10 @@ import { join } from "node:path";
 // `unref()` was called on the returned child object.
 
 const unref = vi.fn();
-const child = { pid: 4242, on: vi.fn(), unref };
+// `once`/`removeListener` are needed by waitForEarlyExit; the mock
+// child never emits "exit", so the early-exit watcher just times out
+// (KJ_BOARD_START_WINDOW_MS keeps that near-instant in tests).
+const child = { pid: 4242, on: vi.fn(), once: vi.fn(), removeListener: vi.fn(), unref };
 const spawn = vi.fn(() => child);
 
 vi.mock("node:child_process", () => ({ spawn }));
@@ -52,7 +55,10 @@ let tmpHome;
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "kj-board-start-"));
   process.env.KJ_HOME = tmpHome;
+  process.env.KJ_BOARD_START_WINDOW_MS = "20";
   unref.mockReset();
+  child.once.mockReset();
+  child.removeListener.mockReset();
   spawn.mockClear();
   child.on.mockClear();
   // The module captures KJ_HOME at load time (`const PID_FILE = ...`),
@@ -64,6 +70,7 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(tmpHome, { recursive: true, force: true });
   delete process.env.KJ_HOME;
+  delete process.env.KJ_BOARD_START_WINDOW_MS;
 });
 
 describe("startBoard — detaches properly", () => {
