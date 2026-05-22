@@ -32,6 +32,7 @@ import {
   setLiveOutcomeUpdater, setPreLoopContext,
 } from "#session/mutators.js";
 import { emitProgress, makeEvent } from "#utils/events.js";
+import { listActiveRuns } from "../../../utils/run-registry.js";
 
 /**
  * @param {object} args
@@ -64,6 +65,19 @@ export async function injectLoadedPlan({ flags, updatedConfig, session, stageRes
       message: `Plan loaded: ${flags.plan}`,
       detail: { planId: flags.plan, task: loadedPlan.task, version: loadedPlan.version, huCount: loadedPlan.hus?.length || 0 }
     }));
+
+    // Zombie reconciliation: a previous run may have died mid-flight,
+    // leaving HUs stuck in coding/reviewing/running. The board-side
+    // reaper only runs inside the board; without this, a headless
+    // `kj run --plan` would refuse to pick those HUs up.
+    const reaped = await reconcilePlanHuZombies({ loadedPlan, planId: flags.plan, logger });
+    if (reaped > 0) {
+      await savePlanToDisk(projectDir, loadedPlan);
+      emitProgress(emitter, makeEvent("plan:zombies-reaped", { ...eventBase, stage: "plan" }, {
+        message: `Reset ${reaped} stale HU(s) from a previous run that did not finish`,
+        detail: { planId: flags.plan, count: reaped }
+      }));
+    }
     stageResults.researcher = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
     stageResults.architect = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
     stageResults.planner = { ok: true, summary: "Loaded from persisted plan", fromPlan: flags.plan };
@@ -120,6 +134,48 @@ export async function injectLoadedPlan({ flags, updatedConfig, session, stageRes
     logger.warn(`Plan loading failed: ${err.message} — falling back to normal pipeline`);
     return { handled: false, plannedTask: null };
   }
+}
+
+/**
+ * Reset HUs that look mid-execution but have no live run behind them.
+ *
+ * Resilience audit, Phase 3 (Hallazgo A1 / status-zombi). A previous
+ * `kj run --plan` flipped HUs to `coding`/`reviewing`/`running` in the
+ * plan JSON, then died (SIGKILL, terminal closed, OOM, crash). The
+ * board-side `hu-zombie-reaper` only queries SQLite and only runs
+ * inside the board process, so the plan JSON on disk kept stale
+ * in-flight statuses forever. The next `kj run --plan` then refused to
+ * pick those HUs up.
+ *
+ * Cross-check via `run-registry`: if there is a live run with our
+ * planId, do NOT touch — that run owns the in-flight HUs. Otherwise
+ * any in-flight status with no live owner is a zombie → reset to
+ * `pending` so it can run again.
+ *
+ * Mutates `loadedPlan.hus` in place. Returns the number of HUs reset
+ * so the caller can persist + emit a progress event.
+ *
+ * @param {object} args
+ * @param {object} args.loadedPlan
+ * @param {string} args.planId
+ * @param {object} [args.logger]
+ * @returns {number}
+ */
+export function reconcilePlanHuZombies({ loadedPlan, planId, logger }) {
+  if (!Array.isArray(loadedPlan?.hus) || loadedPlan.hus.length === 0) return 0;
+  const activeRuns = listActiveRuns({ planId });
+  if (activeRuns.length > 0) return 0;
+  const ZOMBIE_STATES = new Set(["coding", "reviewing", "running"]);
+  let reaped = 0;
+  for (const hu of loadedPlan.hus) {
+    if (ZOMBIE_STATES.has(hu.status)) {
+      const previous = hu.status;
+      hu.status = "pending";
+      reaped += 1;
+      logger?.warn?.(`[plan] HU ${hu.id || hu.hu_id || "?"} was '${previous}' but no live run owns the plan — reset to 'pending'.`);
+    }
+  }
+  return reaped;
 }
 
 /**
