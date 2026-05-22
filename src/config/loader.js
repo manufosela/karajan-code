@@ -28,6 +28,30 @@ import { safeParseConfig, formatConfigIssues } from "./schema.js";
 import { DEFAULTS } from "./defaults.js";
 import { resolveTestHarness } from "./test-harness.js";
 
+/**
+ * Parse a YAML config file with an actionable error message.
+ * Plain `yaml.load` throws `YAMLException: bad indentation ...` with NO
+ * file path, so a single bad edit bricked the entire CLI (including
+ * `kj doctor`, the one command meant to diagnose it). Wrapping every
+ * read site in the same prefix means the user always knows which file
+ * they need to fix.
+ * @param {string} raw - file contents
+ * @param {string} filePath - absolute path (for the error message)
+ * @returns {object}
+ */
+function parseYamlOrThrow(raw, filePath) {
+  try {
+    return yaml.load(raw, { json: true }) || {};
+  } catch (err) {
+    const detail = err?.message || String(err);
+    const e = new Error(`Invalid YAML in ${filePath}:\n  ${detail}`);
+    e.cause = err;
+    e.code = "INVALID_YAML";
+    e.path = filePath;
+    throw e;
+  }
+}
+
 export function mergeDeep(base, override) {
   const output = { ...base };
   for (const [key, value] of Object.entries(override || {})) {
@@ -56,7 +80,7 @@ export async function loadProjectConfig(projectDir = process.cwd()) {
     return null;
   }
   const raw = await fs.readFile(projectConfigPath, "utf8");
-  return yaml.load(raw, { json: true }) || {};
+  return parseYamlOrThrow(raw, projectConfigPath);
 }
 
 async function loadProjectPricingOverrides(projectDir = process.cwd()) {
@@ -66,7 +90,7 @@ async function loadProjectPricingOverrides(projectDir = process.cwd()) {
   }
 
   const raw = await fs.readFile(projectConfigPath, "utf8");
-  const parsed = yaml.load(raw, { json: true }) || {};
+  const parsed = parseYamlOrThrow(raw, projectConfigPath);
   const pricing = parsed?.budget?.pricing;
   if (!pricing || typeof pricing !== "object") {
     return null;
@@ -84,7 +108,7 @@ export async function loadConfig(projectDir) {
   const globalExists = await exists(configPath);
   if (globalExists) {
     const raw = await fs.readFile(configPath, "utf8");
-    globalConfig = yaml.load(raw, { json: true }) || {};
+    globalConfig = parseYamlOrThrow(raw, configPath);
   }
 
   // Load project config (.karajan/kj.config.yml)
