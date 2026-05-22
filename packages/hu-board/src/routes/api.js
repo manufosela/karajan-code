@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn as spawnChild } from 'node:child_process';
 import {
@@ -349,10 +350,17 @@ router.delete('/projects/:id', (req, res) => {
     const db = getDb();
     const storyIds = db.prepare('SELECT id FROM stories WHERE project_id = ?').all(id).map((r) => r.id);
     const sessionIds = db.prepare('SELECT id FROM sessions WHERE project_id = ?').all(id).map((r) => r.id);
+    // KJC-BUG-0055: honour KJ_PLANS_DIR (the env override the sync /
+    // cleanup-zombies layers already respect). Previously hardcoded to
+    // ~/.kj/plans relative to KJ_HOME's parent, which broke when the
+    // two homes were configured separately and left orphan plan dirs
+    // on disk after a 🗑️ delete.
+    const plansRoot = process.env.KJ_PLANS_DIR
+      || path.join(os.homedir(), '.kj', 'plans');
     const fsPaths = [
       ...storyIds.map((sid) => path.join(huStoriesDir(), sid)),
       ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
-      path.join(getKjHome(), '..', '.kj', 'plans', id),
+      path.join(plansRoot, id),
     ];
 
     const existed = deleteProject(id);

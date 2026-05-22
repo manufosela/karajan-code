@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
 import {
   classifyEphemeral,
   findEphemeralProjects,
@@ -205,5 +206,39 @@ describe("cleanupEphemeralProjects (integration with in-memory SQLite)", () => {
     const cleaned = cleanupEphemeralProjects({ db, now: () => NOW });
     expect(cleaned.map((c) => c.id).sort()).toEqual(["demo_c", "test_b", "tmp_a"]);
     expect(db.prepare("SELECT id FROM projects").all().map((r) => r.id)).toEqual(["real_d"]);
+  });
+
+  // KJC-BUG-0055: cleanup must tombstone + rm-rf the on-disk artefacts,
+  // not just drop DB rows. Without this, the very next chokidar `add`
+  // (or the next boot's fullScan) would re-import the surviving files
+  // as a ghost project.
+  it("tombstones the project + its children AND removes their fs paths", () => {
+    insertProject({ id: "tmp_zombie", last_activity: ago(48) });
+    insertStory("story_x", "tmp_zombie");
+    insertSession("sess_x", "tmp_zombie");
+
+    const tombstoneCalls = [];
+    const tombstone = (type, id, opts) => tombstoneCalls.push({ type, id, opts });
+    const removedPaths = [];
+    const realRm = fs.rmSync;
+    fs.rmSync = (p) => { removedPaths.push(p); };
+    try {
+      cleanupEphemeralProjects({
+        db,
+        now: () => NOW,
+        tombstone,
+        kjHome: () => "/fake/home",
+      });
+    } finally {
+      fs.rmSync = realRm;
+    }
+
+    expect(tombstoneCalls.map((c) => `${c.type}:${c.id}`).sort()).toEqual([
+      "project:tmp_zombie",
+      "session:sess_x",
+      "story:story_x",
+    ]);
+    expect(removedPaths).toContain("/fake/home/hu-stories/story_x");
+    expect(removedPaths).toContain("/fake/home/sessions/sess_x");
   });
 });

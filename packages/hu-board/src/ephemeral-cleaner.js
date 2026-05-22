@@ -25,11 +25,18 @@
  *   3. Override: when `is_test = 0` (user clicked "keep it"), the
  *      project is NEVER deleted, even if the heuristic would match.
  *
- * What "cleanup" means: DELETE the project row + cascade-delete
- * its stories and sessions (see `deleteProject` in db.js — this
- * module piggybacks on the same statement set, so the cleanup
- * cannot leave orphan rows behind).
+ * What "cleanup" means: DELETE the project row + cascade-delete its
+ * stories and sessions, ADD a project tombstone, and rm-rf the
+ * on-disk dirs (`hu-stories/<sid>/`, `sessions/<sid>/`,
+ * `~/.kj/plans/<projectId>/`). Without the tombstone + fs cleanup,
+ * the very next chokidar `add` event or `fullScan` would re-import
+ * those files as a brand-new project (KJC-BUG-0055).
  */
+
+import fs from "node:fs";
+import path from "node:path";
+import { homedir } from "node:os";
+import { addTombstone, getKjHome } from "./db.js";
 
 const DEFAULT_TTL_HOURS = 24;
 const EPHEMERAL_ID_PATTERNS = [
@@ -121,7 +128,21 @@ export function findEphemeralProjects(projects, opts = {}) {
  * @param {Function} [deps.now]   () => number, for tests
  * @returns {Array<{ id: string, reason: string, stories_deleted: number, sessions_deleted: number }>}
  */
-export function cleanupEphemeralProjects({ db, opts = {}, now = () => Date.now() }) {
+export function cleanupEphemeralProjects({
+  db,
+  opts = {},
+  now = () => Date.now(),
+  // Deps are injectable so the legacy in-memory tests (which never
+  // call `initDb()`) can pass no-op stubs and still verify the
+  // cascade-delete logic. Production callers omit them and get the
+  // real persistence + fs side-effects.
+  tombstone = (type, id, o) => {
+    try { addTombstone(type, id, o); } catch { /* DB not initialised (test) */ }
+  },
+  kjHome = () => {
+    try { return getKjHome(); } catch { return null; }
+  },
+} = {}) {
   if (!db) return [];
   const allProjects = db
     .prepare("SELECT id, last_activity, first_seen, is_test FROM projects")
@@ -135,20 +156,42 @@ export function cleanupEphemeralProjects({ db, opts = {}, now = () => Date.now()
   const delSessions = db.prepare("DELETE FROM sessions WHERE project_id = ?");
   const delProject = db.prepare("DELETE FROM projects WHERE id = ?");
 
+  const selStories = db.prepare("SELECT id FROM stories WHERE project_id = ?");
+  const selSessions = db.prepare("SELECT id FROM sessions WHERE project_id = ?");
+  const plansRoot = process.env.KJ_PLANS_DIR
+    || path.join(homedir(), ".kj", "plans");
+  const home = kjHome();
   const cleaned = [];
   for (const { project, reason } of candidates) {
-    const storiesN = countStories.get(project.id).n;
-    const sessionsN = countSessions.get(project.id).n;
+    const storyIds = selStories.all(project.id).map((r) => r.id);
+    const sessionIds = selSessions.all(project.id).map((r) => r.id);
+    const fsPaths = home
+      ? [
+          ...storyIds.map((sid) => path.join(home, "hu-stories", sid)),
+          ...sessionIds.map((sid) => path.join(home, "sessions", sid)),
+          path.join(plansRoot, project.id),
+        ]
+      : [];
     db.transaction(() => {
       delStories.run(project.id);
       delSessions.run(project.id);
       delProject.run(project.id);
     })();
+    // Tombstone the lot + best-effort rm-rf. If the fs op fails (perm
+    // error, file in use) we still keep the tombstone — that alone is
+    // enough to stop sync.js from re-importing on the next chokidar
+    // event, and `fullScan` will retry the rm-rf at next boot.
+    tombstone("project", project.id, { source: "ephemeral-cleaner", fsPaths });
+    for (const sid of storyIds) tombstone("story", sid, { source: "ephemeral-cleaner" });
+    for (const sid of sessionIds) tombstone("session", sid, { source: "ephemeral-cleaner" });
+    for (const p of fsPaths) {
+      try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
     cleaned.push({
       id: project.id,
       reason,
-      stories_deleted: storiesN,
-      sessions_deleted: sessionsN,
+      stories_deleted: storyIds.length,
+      sessions_deleted: sessionIds.length,
     });
   }
   return cleaned;
