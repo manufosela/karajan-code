@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.17.2] - 2026-05-22
+
+Patch release. Wires quota-exhaustion **hibernation end to end**: a `kj run` / `kj plan` that hits a provider session or usage cap now suspends, persists its state, and tells you how to resume it — instead of failing the task with an opaque `UNKNOWN_FATAL`.
+
+4 931/4 931 tests passing across 410 test files.
+
+### Fixed
+
+- **Claude Code session-limit classification** (#756). `"You've hit your session limit · resets 10:10pm"` matched no rate-limit pattern → `UNKNOWN_FATAL` → abort. `session limit` / `weekly limit` are now recognised, and `parseCooldown` learns the 12-hour `resets 10:10pm` clock so the Brain knows when the quota resets.
+- **Hibernation is now persisted** (#757). `withBrainRecovery` only writes `~/.kj/standby/<id>.json` when given a `sessionState`, but `agent-role.js` and `plan/generate.js` never passed one — so a hibernating run had nothing to resume from. New `buildStandbyState()` assembles it, carrying an allowlisted env subset (`KJ_*`, `HOME`, `PATH`) instead of the full `process.env`.
+- **The orchestrator now consumes `action:"hibernate"`** (#758). No code path checked for it, so a hibernation was treated as a generic failure and the HU was sealed `failed`. The coder and refactorer stages now stop cleanly on a quota cap (no fallback, no Solomon); the session is sealed `hibernated` (resumable), not `failed`.
+- **Stopped runs tell you how to resume** (#759). New `printResumeHint()` prints, as the last line of a halted `kj run` / `kj plan`, the exact command — `kj standby resume <id>` for a hibernation, `kj resume <id>` for any other stop. `kj plan` no longer turns a quota cap into a thrown error.
+
+### Internal
+
+- CI now runs the `packages/hu-board` test suite (~344 tests) on every PR — it was previously never exercised in CI (#755).
+
 ## [2.17.1] - 2026-05-22
 
 Patch release bundling two HU Board fixes. **KJC-BUG-0055**: a deleted project no longer resurrects when running `kj plan` or restarting the board. **Silent board-start failure**: `kj board start` no longer fails without leaving a trace in the log.
