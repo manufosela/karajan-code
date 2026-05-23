@@ -33,7 +33,7 @@ import { withBrainRecovery } from "../brain/with-brain-recovery.js";
  * @param {Array<{ id: string, title?: string, scope?: string }>} args.husNeedingTests
  * @returns {string}
  */
-export function buildSynthesizerPrompt({ task, husNeedingTests }) {
+export function buildSynthesizerPrompt({ task, husNeedingTests, stack = null, testFramework = null }) {
   const lines = [
     "You previously generated an implementation plan for the task below, but some HUs were left without acceptance_tests.",
     "Your ONLY job in this call is to fill that gap.",
@@ -59,12 +59,22 @@ export function buildSynthesizerPrompt({ task, husNeedingTests }) {
     "- Tests must be writable BEFORE the HU is implemented (they should fail until done).",
     "- Return ONLY the JSON — no prose, no markdown fences around it.",
     "",
-    "## Task",
-    task,
-    "",
-    "## HUs that need acceptance_tests",
-    "",
   ];
+  // Stack-aware hint: tell the LLM what test framework / language to
+  // emit shell commands for. Without this it defaulted to vitest /
+  // npm even on Python / Go / Rust projects (sesgo-de-stack audit).
+  if (stack || testFramework) {
+    lines.push("## Project Stack — generate shell tests for THIS stack, not generic JS");
+    if (stack?.language) lines.push(`- Language: **${stack.language}**`);
+    if (stack?.frameworks?.length) lines.push(`- Frameworks: ${stack.frameworks.join(", ")}`);
+    if (testFramework?.hasTests && testFramework?.framework) {
+      lines.push(`- Test framework already in use: **${testFramework.framework}** — use it for the shell commands.`);
+    } else if (stack?.language && stack.language !== "javascript" && stack.language !== "typescript") {
+      lines.push(`- Use the canonical test runner for ${stack.language} (pytest / go test / cargo test / rspec). Do NOT emit vitest, jest, or npm commands.`);
+    }
+    lines.push("");
+  }
+  lines.push("## Task", task, "", "## HUs that need acceptance_tests", "");
   for (const hu of husNeedingTests) {
     lines.push(`### ${hu.id}: ${hu.title || ""}`);
     lines.push(hu.scope ? `Scope: ${hu.scope}` : "(no scope)");
