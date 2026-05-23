@@ -49,7 +49,9 @@ function isModelCompatible(agent, model) {
 // Roles that inherit provider/model from the coder when not explicitly configured
 const CODER_INHERITED_ROLES = new Set([
   "planner", "refactorer", "solomon", "researcher", "tester", "security",
-  "impeccable", "triage", "discover", "architect", "audit", "hu_reviewer", "hu-reviewer"
+  "impeccable", "triage", "discover", "architect", "audit",
+  "hu_reviewer", "hu-reviewer",
+  "spec_reviewer", "spec-reviewer",
 ]);
 
 function resolveProvider(roleConfig, role, roles, legacyCoder, legacyReviewer) {
