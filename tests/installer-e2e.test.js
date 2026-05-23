@@ -178,6 +178,13 @@ describe("installer E2E: init → doctor", () => {
     fsPromises.stat.mockResolvedValue({ isDirectory: () => true });
     fsPromises.mkdir.mockResolvedValue(undefined);
 
+    // KJC-TSK-0420: dir-setup + config-loader now go through paths.js
+    // helpers. vi.resetAllMocks() wiped their mock return values, so
+    // restore them here next to the other resetAllMocks recovery.
+    const { getKarajanHome, getSessionRoot } = await import("../src/utils/paths.js");
+    getKarajanHome.mockReturnValue("/fake/.karajan");
+    getSessionRoot.mockReturnValue("/fake/.karajan/sessions");
+
     // Re-setup mocks introduced by commit 3 of KJC-TSK-0319
     const { isPortAvailable } = await import("../src/utils/port-check.js");
     isPortAvailable.mockResolvedValue(true);
