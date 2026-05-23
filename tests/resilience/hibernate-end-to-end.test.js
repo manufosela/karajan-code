@@ -13,7 +13,11 @@ import { printResumeHint } from "../../src/utils/display/resume-hint.js";
 // caught — not just by its own unit test, but as the end-to-end
 // degradation the user actually experiences.
 
-const SESSION_LIMIT_STDERR = "You've hit your session limit · resets 10:10pm (Europe/Madrid)";
+// Long ISO target (>12h ahead) so the helper exercises the
+// hibernate-and-exit branch (longer waits don't keep kj alive),
+// NOT the standby-in-process branch. Independent of wall-clock time.
+const FAR_FUTURE_TARGET = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+const QUOTA_STDERR_LONG = `usage limit reached, resets at ${FAR_FUTURE_TARGET}`;
 
 const noSleep = () => Promise.resolve();
 
@@ -21,15 +25,20 @@ function makeQuotaAgent() {
   return {
     provider: "claude",
     runTask: async () => ({
-      ok: false, error: SESSION_LIMIT_STDERR, output: "", exitCode: 1,
+      ok: false, error: QUOTA_STDERR_LONG, output: "", exitCode: 1,
     }),
   };
 }
 
 describe("resilience: quota exhaustion end to end", () => {
   it("classifies the Claude Code session limit as a recoverable quota cap", () => {
+    // The original user-reported message uses the 12-hour clock; parseCooldown
+    // must understand it. Resilience tripwire for #756 — independent of how
+    // long the wait will be (that's tested via the ISO path below).
     const cls = classifyAgentError({
-      provider: "claude", stderr: SESSION_LIMIT_STDERR, exitCode: 1,
+      provider: "claude",
+      stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
+      exitCode: 1,
     });
     expect(cls.class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_DAILY);
     expect(cls.recoverable).toBe(true);

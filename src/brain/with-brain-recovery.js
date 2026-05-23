@@ -7,7 +7,7 @@
 // puede ignorarlo (fallback a long standby capped) hasta que llegue 0414.
 
 import { classifyAgentError, ERROR_CLASS } from "./agent-error-classifier.js";
-import { persistStandby } from "./standby-store.js";
+import { persistStandby, markStandbyDone } from "./standby-store.js";
 
 const ONE_MIN = 60 * 1000;
 
@@ -20,6 +20,13 @@ export const DEFAULT_RECOVERY_POLICY = Object.freeze({
   // KJC-TSK-0415: threshold de fallback. Si retryAfter > esto Y el role
   // tiene fallback configurado → switch provider en vez de hibernar.
   fallbackWaitHoursDefault: DEFAULT_FALLBACK_WAIT_HOURS,
+  // Standby-in-process: when the cooldown is short enough we keep the
+  // process alive and `await sleepFn(retryAfter)`, then retry the
+  // agent. The user sees nothing terminal — kj just pauses. A SIGINT /
+  // SIGTERM during the wait prints `kj standby resume <id>` and exits
+  // cleanly. For waits longer than this the process exits straight
+  // away (a multi-day weekly cap is not worth keeping kj running).
+  standbyWaitHoursMax: DEFAULT_FALLBACK_WAIT_HOURS,
   classes: {
     [ERROR_CLASS.RATE_LIMIT_SHORT]: { mode: "standby", maxRetries: 3 },
     [ERROR_CLASS.QUOTA_EXHAUSTED_DAILY]: { mode: "hibernate", maxRetries: 1, fallbackEligible: true },
@@ -132,10 +139,15 @@ export async function withBrainRecovery({
       }
     }
 
-    // HIBERNATE: persistir + signal action=hibernate al caller.
-    // Si el caller pasó `sessionState` (TSK-0414 PR2), persistimos el JSON
-    // automáticamente en ~/.kj/standby/<sessionId>.json. Caller decide qué
-    // hacer con action=hibernate (típicamente exit 0 para liberar memoria).
+    // HIBERNATE: the cooldown is too long for a short standby. Persist
+    // the snapshot first so a SIGINT / SIGTERM during the wait leaves a
+    // recoverable session on disk. Then either:
+    //   (a) wait in-process until cooldownUntil and retry (the common
+    //       case — daily quotas reset in a few hours), or
+    //   (b) when the wait would exceed `standbyWaitHoursMax`, return
+    //       action="hibernate" so the caller exits and the user
+    //       resumes later with `kj standby resume <id>` (weekly /
+    //       monthly caps).
     if (classPolicy.mode === "hibernate" && cls.retryAfter && cls.retryAfter > policy.hibernateThresholdMs) {
       let standbyFile = null;
       if (sessionState && sessionState.sessionId) {
@@ -147,13 +159,58 @@ export async function withBrainRecovery({
             role, provider: effectiveProvider,
             classifierMessage: cls.message,
           });
-          logger?.info?.(`[brain] hibernated session ${sessionState.sessionId} → ${standbyFile} (resume at ${cls.retryUntil})`);
         } catch (err) {
           logger?.warn?.(`[brain] failed to persist standby: ${err.message}`);
         }
       }
-      emit(emitter, "brain:hibernate-request", eventBase, { role, class: cls.class, retryUntil: cls.retryUntil, retryAfter: cls.retryAfter, standbyFile });
-      return { ok: false, action: "hibernate", recovery: cls, standbyFile };
+
+      const maxWaitMs = (policy.standbyWaitHoursMax ?? DEFAULT_FALLBACK_WAIT_HOURS) * ONE_HOUR;
+      const tooLongToWait = cls.retryAfter > maxWaitMs;
+
+      if (tooLongToWait) {
+        logger?.info?.(`[brain] hibernated session ${sessionState?.sessionId ?? "(no id)"} → ${standbyFile} (resume at ${cls.retryUntil}; wait > ${Math.round(maxWaitMs/ONE_HOUR)}h, exiting)`);
+        emit(emitter, "brain:hibernate-request", eventBase, { role, class: cls.class, retryUntil: cls.retryUntil, retryAfter: cls.retryAfter, standbyFile });
+        return { ok: false, action: "hibernate", recovery: cls, standbyFile };
+      }
+
+      // Standby-in-process: keep kj alive, sleep until the cooldown,
+      // then retry. A SIGINT / SIGTERM during the wait prints the
+      // resume command and exits — the standby JSON is already on
+      // disk so the user can pick it up later.
+      const sid = sessionState?.sessionId ?? null;
+      const onSignal = (signal) => {
+        // eslint-disable-next-line no-console
+        console.log(`\n⏸  Standby interrupted (${signal}). Resume with:`);
+        // eslint-disable-next-line no-console
+        if (sid) console.log(`     kj standby resume ${sid}`);
+        // eslint-disable-next-line no-console
+        else console.log(`     kj standby list   (no session id was assigned)`);
+        process.exit(signal === "SIGINT" ? 130 : 143);
+      };
+      const detach = () => {
+        process.removeListener("SIGINT", onSignal);
+        process.removeListener("SIGTERM", onSignal);
+      };
+      process.once("SIGINT", onSignal);
+      process.once("SIGTERM", onSignal);
+
+      const hours = Math.round((cls.retryAfter / ONE_HOUR) * 10) / 10;
+      logger?.info?.(`[brain] ${role}: standby for ~${hours}h until ${cls.retryUntil} (Ctrl+C to detach; will resume with 'kj standby resume ${sid}').`);
+      emit(emitter, "brain:standby-wait", eventBase, { role, class: cls.class, waitMs: cls.retryAfter, retryUntil: cls.retryUntil, standbyFile });
+
+      try {
+        await sleepFn(cls.retryAfter);
+      } finally {
+        detach();
+      }
+
+      // Wait finished without an interrupt — mark the standby JSON
+      // done so it does not auto-resume from disk later.
+      if (sid) {
+        try { markStandbyDone(sid); } catch { /* ignore */ }
+      }
+      emit(emitter, "brain:standby-resumed", eventBase, { role, class: cls.class });
+      continue;
     }
 
     // STANDBY: espera hasta cooldownUntil (capado por longStandbyCapMs).
