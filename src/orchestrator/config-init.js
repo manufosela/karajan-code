@@ -26,17 +26,27 @@ import { exists, ensureDir } from "../utils/fs.js";
  * Called by the orchestrator before the pipeline starts.
  */
 export async function autoInit(projectDir, logger) {
-  // Ensure git repo exists — without git, diff/reviewer/commit won't work
-  const gitDir = path.join(projectDir, ".git");
-  if (!(await exists(gitDir))) {
-    // Audit follow-up: was execSync with constant strings. Inputs are
-    // hardcoded, so injection isn't possible, but the project standard
-    // since #555 is execFileSync everywhere. Migrated for consistency.
-    const { execFileSync } = await import("node:child_process");
+  // Ensure git repo exists — without git, diff/reviewer/commit won't work.
+  //
+  // KJC-BUG-0060: the previous guard `!exists(projectDir/.git)` was insufficient
+  // when projectDir is a subdirectory inside an existing repo (common in dogfooding
+  // scenarios where kj-linked runs from the karajan-code source tree). In that case
+  // `git commit --allow-empty` would resolve upward to the parent repo and land an
+  // empty "initial commit" on the user's main branch. Use `git rev-parse
+  // --is-inside-work-tree` instead — it follows the same upward traversal that git
+  // does naturally, so a subdir inside a repo correctly reports `true` and we don't
+  // touch anything. We also drop the `git commit --allow-empty -m "initial commit"`
+  // step: a root commit is not required for any downstream stage (diff, review,
+  // coder, sonar) and the empty-commit zombie history was the user-visible symptom.
+  const { execFileSync } = await import("node:child_process");
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: projectDir, stdio: "pipe" });
+    // Already inside a git work tree (own .git or parent's). Nothing to do.
+  } catch {
+    // Not inside any repo — create a fresh one. No empty seed commit.
     try {
       execFileSync("git", ["init"], { cwd: projectDir, stdio: "pipe" });
-      execFileSync("git", ["commit", "--allow-empty", "-m", "initial commit"], { cwd: projectDir, stdio: "pipe" });
-      logger.info("Initialized git repository with empty initial commit");
+      logger.info("Initialized git repository (no seed commit)");
     } catch (err) {
       logger.warn(`Failed to init git repo: ${err.message}`);
     }
