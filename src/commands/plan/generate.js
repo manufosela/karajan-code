@@ -13,6 +13,7 @@ import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-rou
 import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { printResumeHint } from "../../utils/display/resume-hint.js";
+import { runSpecReview } from "../../spec-review/run-spec-review.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -38,6 +39,17 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     } catch (err) {
       logger?.warn?.(`Auto-GC failed (non-blocking): ${err.message}`);
     }
+  }
+
+  // Spec-reviewer pre-planner audit (KJC-PCS-0048). Static import —
+  // role runs every invocation (modulo bypass); no lazy-load benefit.
+  const reviewResult = await runSpecReview({
+    spec: task, config, logger, flags,
+    askQuestion: json ? null : (typeof flags?.askQuestion === "function" ? flags.askQuestion : null),
+  });
+  if (!reviewResult.proceed) {
+    logger?.info?.("Aborted by user after spec review.");
+    return { ok: false, aborted: true, reason: "spec-review-cancelled" };
   }
 
   const plannerRole = resolveRole(config, "planner");

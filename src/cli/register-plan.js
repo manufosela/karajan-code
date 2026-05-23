@@ -40,6 +40,7 @@ export function registerPlan(program, { pkgVersion }) {
     // flags only if you explicitly want a fast / sketch plan.
     .option("--no-tests-synth", "Skip the tests-synthesizer pass that fills in missing acceptance_tests")
     .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
+    .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
     .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
     .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
     .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
