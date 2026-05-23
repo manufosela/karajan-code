@@ -150,4 +150,47 @@ describe("buildCoderPrompt", () => {
     expect(result).not.toContain("RTK");
     expect(result).not.toContain("Token Optimization");
   });
+
+  // Resilience audit followup — sesgo de stack: when the caller passes
+  // a detected stack, the prompt MUST tell the coder which framework to
+  // use, so it does not install vitest in a pure-Python repo.
+  describe("Project Stack section (stack-aware prompt)", () => {
+    it("emits 'Project Stack' + the detected language and test framework", async () => {
+      const result = await buildCoderPrompt({
+        task: "Add login",
+        stack: { language: "python", frameworks: ["fastapi"] },
+        testFramework: { hasTests: true, framework: "pytest", language: "python" },
+      });
+      expect(result).toContain("Project Stack");
+      expect(result).toContain("Language: **python**");
+      expect(result).toContain("fastapi");
+      expect(result).toContain("**pytest**");
+    });
+
+    it("warns against vitest / jest / npm install when language is non-JS and no framework yet", async () => {
+      const result = await buildCoderPrompt({
+        task: "Add login",
+        stack: { language: "python", frameworks: [] },
+        testFramework: { hasTests: false },
+      });
+      expect(result).toMatch(/pytest for python/);
+      expect(result).toMatch(/Do NOT use vitest \/ jest \/ `npm install` in a non-JS project/);
+    });
+
+    it("omits the Project Stack section when no stack is provided (back-compat)", async () => {
+      const result = await buildCoderPrompt({ task: "Add login" });
+      expect(result).not.toContain("Project Stack");
+    });
+
+    it("the 'install dependencies' guidance is no longer hardcoded to npm install", async () => {
+      const result = await buildCoderPrompt({
+        task: "Fix the bug",
+        reviewerFeedback: "missing null check",
+      });
+      // Either it mentions the family of package managers or it doesn't
+      // mention any (instead of saying just `npm install` as if every
+      // project were a JS project).
+      expect(result).toMatch(/pip install|cargo add|go get|package manager/);
+    });
+  });
 });
