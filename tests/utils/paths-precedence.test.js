@@ -12,7 +12,6 @@ import path from "node:path";
 import {
   resolveHome,
   getKarajanHome,
-  getKjHomeLegacy,
   __resetKjHomeWarningForTests,
 } from "../../src/utils/paths.js";
 
@@ -95,9 +94,10 @@ describe("resolveHome() precedence", () => {
     expect(kj).toBe(path.join(os.homedir(), ".kj"));
   });
 
-  it("getKarajanHome() and getKjHomeLegacy() expose the two stable defaults", () => {
+  it("getKarajanHome() exposes the canonical default", () => {
+    // PR 3 of KJC-PCS-0047 removed getKjHomeLegacy — every caller is
+    // now on the unified `.karajan` root.
     expect(getKarajanHome()).toBe(path.join(os.homedir(), ".karajan"));
-    expect(getKjHomeLegacy()).toBe(path.join(os.homedir(), ".kj"));
   });
 
   it("KARAJAN_HOME values are resolved to absolute paths", () => {

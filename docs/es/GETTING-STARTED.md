@@ -194,10 +194,24 @@ Cuando está activado, Brain:
 - Ejecuta acciones directas (npm install, actualizaciones de .gitignore)
 - Consulta a Solomon (juez IA) solo en dilemas genuinos
 
-## Dónde viven las sesiones
+## Dónde guarda Karajan sus datos
 
-- `.karajan/sessions/s_<timestamp>/` — estado de la sesión
-- `.reviews/session_<timestamp>/` — ficheros de journal (triage.md, plan.md, iterations.md, summary.md, ...)
+Todo lo que Karajan persiste entre ejecuciones vive ahora bajo una única raíz: **`~/.karajan/`**. (Hasta v2.18.x los planes y el estado de hibernación vivían bajo `~/.kj/`. A partir de v2.19 el layout queda unificado; el legacy `~/.kj/` se migra automáticamente en el siguiente comando `kj`, con backup tarball en `~/.karajan/backup/`.)
+
+| Ruta | Qué contiene |
+|------|--------------|
+| `~/.karajan/plans/<slug>/` | Outputs de `kj plan` persistidos (un subdir por proyecto) |
+| `~/.karajan/sessions/<id>/` | Sesiones de runs CLI activas y completadas |
+| `~/.karajan/hu-stories/<id>/` | Batches de HUs generados por la auto-descomposición |
+| `~/.karajan/standby/<id>.json` | Runs hibernados (recovery de cuota / rate-limit) |
+| `~/.karajan/runs/<id>.json` | Registro de runs activos (sincroniza CLI ↔ HU Board) |
+| `~/.karajan/worktrees/` | Worktrees git aislados |
+| `~/.karajan/kj.config.yml` | Config global (sobrescrita por proyecto en `<proyecto>/.karajan/kj.config.yml`) |
+| `~/.karajan/backup/` | Tarballs creados por el auto-migrator (puedes borrarlos cuando confirmes que no falta nada) |
+| `<proyecto>/.kj/run.log` | Log de run en tiempo real que sigue `kj-tail` |
+| `<proyecto>/.reviews/session_<id>/` | Journal por sesión (triage.md, plan.md, iterations.md, summary.md, …) |
+
+Para sobrescribir la raíz exporta `KARAJAN_HOME=/ruta`. La variable legacy `KJ_HOME` sigue respetada pero imprime un warning de deprecación.
 
 ## Visualización del pipeline
 

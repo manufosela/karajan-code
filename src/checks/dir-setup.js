@@ -62,6 +62,40 @@ export function createKarajanDirsCheck() {
   };
 }
 
+/**
+ * Detect a populated legacy `~/.kj/` left over from before
+ * KJC-PCS-0047 PR 3. The auto-migrator (src/utils/home-migration.js)
+ * moves its contents to `~/.karajan/` on the next `kj` invocation,
+ * so the fix is simply "run any kj command". Severity is `warn`
+ * (informational) because the legacy dir does not break anything —
+ * it just won't get read by the board until the migration runs.
+ * @internal Exported for dynamic import from tests.
+ */
+export function createLegacyKjHomeCheck() {
+  return {
+    name: "legacy-kj-home",
+    label: "legacy ~/.kj/ directory",
+    strategy: STRATEGY.MANUAL,
+    describe: "Detect unmigrated ~/.kj/ left over from pre-2.19 layout",
+    async detect() {
+      const legacy = path.join(os.homedir(), ".kj");
+      try {
+        const entries = await fs.readdir(legacy);
+        if (entries.length === 0) return { ok: true, severity: "info", detail: "Empty legacy ~/.kj/" };
+        const marker = path.join(os.homedir(), ".karajan", ".kj-migrated.json");
+        try { await fs.access(marker); return { ok: true, severity: "info", detail: "Already migrated" }; }
+        catch { /* no marker, still pending */ }
+        return {
+          ok: false,
+          severity: "warn",
+          detail: `~/.kj/ still has ${entries.length} entries; will be migrated on the next kj invocation`,
+          fix: "Run any kj command (e.g. `kj doctor`) — the migrator runs automatically",
+        };
+      } catch { return { ok: true, severity: "info", detail: "No legacy ~/.kj/" }; }
+    },
+  };
+}
+
 export function getDirSetupChecks() {
-  return [createKarajanDirsCheck()];
+  return [createKarajanDirsCheck(), createLegacyKjHomeCheck()];
 }

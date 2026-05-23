@@ -67,21 +67,12 @@ export function resolveHome({ defaultSegment = ".karajan" } = {}) {
 }
 
 /**
- * Canonical Karajan home (`~/.karajan` by default). Use this for any
- * NEW caller; legacy callers still on `~/.kj` should use
- * `getKjHomeLegacy()` until PR 3 unifies them.
+ * Canonical Karajan home (`~/.karajan` by default). Every helper that
+ * used to roll its own `getKjHome()` now goes through this one — see
+ * KJC-PCS-0047 PR 3 for the consolidation.
  */
 export function getKarajanHome() {
   return resolveHome({ defaultSegment: ".karajan" });
-}
-
-/**
- * Legacy `~/.kj` home — same precedence chain as `getKarajanHome()`
- * but defaults to `.kj` when no env var is set. Will be removed in
- * PR 3 when all callers migrate to the canonical home.
- */
-export function getKjHomeLegacy() {
-  return resolveHome({ defaultSegment: ".kj" });
 }
 
 // Test-only export. Tests that depend on observing the deprecation

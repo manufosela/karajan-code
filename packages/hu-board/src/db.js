@@ -197,7 +197,7 @@ export function initDb() {
   // error so adding one over time doesn't force a board DB nuke.
   //
   // plan_id:       lets the mutation endpoints locate the source-of-truth plan
-  //                JSON at ~/.kj/plans/<slug>/<planId>.json without a scan.
+  //                JSON at ~/.karajan/plans/<slug>/<planId>.json without a scan.
   // ac_count:      number of acceptance criteria, surfaced on the card.
   // test_count:    number of acceptance_tests, surfaced on the card.
   // blocked_by:    denormalised JSON array of HU ids this story waits on,
