@@ -40,10 +40,13 @@ const KJ_CLI = join(REPO_ROOT, 'src', 'cli.js');
  * `KJ_PLANS_DIR` (tests) then `KJ_HOME/plans` (power users) then
  * `~/.kj/plans/` (default) — same precedence as `sync.js::fullScan`.
  */
+// KJC-BUG-0059: write operations go to the canonical plans dir.
+// Read operations should iterate getHuBoardPlansDirs() instead, to
+// pick up plans the user has under the legacy ~/.kj/plans/ tree
+// while the auto-migrator has not yet fired.
+import { getHuBoardPlansDir } from './db.js';
 function plansRoot() {
-  if (process.env.KJ_PLANS_DIR) return process.env.KJ_PLANS_DIR;
-  if (process.env.KJ_HOME) return join(process.env.KJ_HOME, 'plans');
-  return join(homedir(), '.kj', 'plans');
+  return getHuBoardPlansDir();
 }
 
 /**

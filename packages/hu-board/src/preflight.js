@@ -30,6 +30,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { getHuBoardPlansDirs } from './db.js';
 
 function runQuiet(cmd, opts = {}) {
   try {
@@ -221,13 +222,13 @@ function checkConfigYml() {
 }
 
 function checkPlans(projectId) {
-  // Plans live at ~/.kj/plans/<projectId>/*.json (or
-  // $KJ_HOME/plans/<projectId>/*.json under VITEST or custom config).
-  // Mirror plan-mutations.js::plansRoot() so the path matches reality.
-  const dir = process.env.KJ_HOME
-    ? join(process.env.KJ_HOME, 'plans', projectId)
-    : join(process.env.HOME || '', '.kj', 'plans', projectId);
-  if (!existsSync(dir)) {
+  // KJC-BUG-0059 (v2.19.3): scan canonical + legacy roots, same as
+  // the preflight route. Pre-fix this hard-coded `~/.kj/plans/`
+  // missed every plan post-v2.19.0 → preflight reported "sin plans
+  // aún" even when the user had a valid plan on disk.
+  const dirs = getHuBoardPlansDirs().map((root) => join(root, projectId));
+  const dir = dirs.find((d) => existsSync(d));
+  if (!dir) {
     return {
       id: 'plans', label: 'Plans en disco', status: 'info',
       detail: 'sin plans aún',
