@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-05-23
+
+Patch release. Six follow-ups to v2.18.0, all triggered by direct user feedback after the public launch.
+
+4 971/4 971 tests passing across 416 test files.
+
+### Fixed
+
+- **`kj-tail` was silent after `kj resume`** (#772). `kj-tail` follows a fixed `<cwd>/.kj/run.log`; every CLI command opens that file via `withCliRunLog()` — except `kj resume`, which built its emitter by hand and skipped the wrapper. Resume now uses the same shape as `run.js` (`withCliRunLog` + `registerRun` + signal cleanup), so the resumed run writes `.kj/run.log` and the HU Board sees it as live.
+- **Standby waits in-process instead of exiting on a short cooldown** (#773). Previously every quota hibernation returned `action:"hibernate"` and the caller exited — so even a 4-hour wait forced the user to come back and run `kj standby resume` manually. Now `withBrainRecovery` always persists the standby first; if `retryAfter <= standbyWaitHoursMax` (default 12 h) it sleeps in-process and retries; SIGINT / SIGTERM during the wait prints `kj standby resume <id>` and exits cleanly. Longer waits (weekly / monthly caps) still exit, same as before.
+- **Closed KJC-BUG-0040 — binarios SEA fallaban desde v2.12.0** (#774). Not `esbuild + better-sqlite3` (that was fixed in v2.13). The real cause was a **race condition** between `gh release create` (release checklist step) and `softprops/action-gh-release@v2` (workflow): linux-x64 — always the fastest job — reached the upload step before GitHub indexed the release-by-tag, softprops created a duplicate draft, and the final `PATCH draft:false` failed with `422 already_exists`. Added a 60 s defensive poll for the release to be discoverable before invoking softprops, plus `make_latest:false` + `append_body:false` so the action can never mutate the human-created release. There are 4 orphan drafts in the repo (v2.7.4 / v2.10.0 / v2.11.0 / v2.18.0) — delete them with `gh release delete <tag>` after upgrading.
+- **Stack bias — Python repos received vitest** (#775 + #776 + #777). Karajan had multi-language stack detectors but never wired them to the coder, the auto-generator, the synthesizer or `auto-hu-batch`. So a pure-Python project got `npm install` + `npx vitest run` as acceptance_tests and the coder installed vitest to satisfy the contract. Three PRs fix the canal:
+  - **#775 (coder)** — `CoderRole.buildPrompt()` calls `detectProjectStack` + `detectTestFramework` and passes them to `buildCoderPrompt`, which emits a `## Project Stack` section. Relaxed three JS-only lines (httpOnly cookies, `console.log`/JSDoc, `npm install`).
+  - **#776 (auto-generator)** — HU templates per language (`python` / `go` / `rust` / `javascript`); `filterConflictingHints` is now symmetric (Python wins over stale vitest hints).
+  - **#777 (synthesizer + auto-hu-batch)** — `auto-hu-batch` calls `detectProjectStack` on the filesystem (overrides any text-based guess); `buildSynthesizerPrompt` accepts `stack`/`testFramework` so the LLM emits `pytest` / `go test` / `cargo test` shell commands instead of falling back to vitest.
+
 ## [2.18.0] - 2026-05-23
 
 Minor release. Closes the **resilience audit** triggered by the public launch: 15 PRs across 5 phases hardening Karajan against the silent-failure family of bugs — *"the problem is not that something fails, the problem is failing without telling the user why."* A quota cap now hibernates and tells the user how to resume; subprocesses surface their errors; state writes are crash-safe; the orchestrator's decision layer no longer degrades silently.
