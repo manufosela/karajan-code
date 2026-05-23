@@ -7,6 +7,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { STRATEGY } from "./types.js";
+import { getKarajanHome } from "../utils/paths.js";
 
 const REQUIRED_DIRS = [
   "", // ~/.karajan/
@@ -26,8 +27,9 @@ export function createKarajanDirsCheck() {
     strategy: STRATEGY.AUTO,
     describe: "Create missing ~/.karajan subdirectories",
     async detect() {
-      const home = os.homedir();
-      const root = path.join(home, ".karajan");
+      // KJC-TSK-0420: KARAJAN_HOME / KJ_HOME aware via getKarajanHome().
+      const root = getKarajanHome();
+      const home = os.homedir(); // still needed for path.relative() below
       const missing = [];
       for (const sub of REQUIRED_DIRS) {
         const full = sub ? path.join(root, sub) : root;
@@ -82,7 +84,7 @@ export function createLegacyKjHomeCheck() {
       try {
         const entries = await fs.readdir(legacy);
         if (entries.length === 0) return { ok: true, severity: "info", detail: "Empty legacy ~/.kj/" };
-        const marker = path.join(os.homedir(), ".karajan", ".kj-migrated.json");
+        const marker = path.join(getKarajanHome(), ".kj-migrated.json"); // KJC-TSK-0420
         try { await fs.access(marker); return { ok: true, severity: "info", detail: "Already migrated" }; }
         catch { /* no marker, still pending */ }
         return {

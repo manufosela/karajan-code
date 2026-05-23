@@ -62,4 +62,15 @@ describe("hu-board db.getKjHome — VITEST auto-isolation", () => {
     const { getKjHome } = await import("../src/db.js");
     expect(getKjHome()).toBe("/winner");
   });
+
+  it("KARAJAN_HOME has priority over KJ_HOME (KJC-TSK-0420)", async () => {
+    process.env.KARAJAN_HOME = "/canonical";
+    process.env.KJ_HOME = "/legacy";
+    try {
+      const { getKjHome } = await import("../src/db.js");
+      expect(getKjHome()).toBe("/canonical");
+    } finally {
+      delete process.env.KARAJAN_HOME;
+    }
+  });
 });

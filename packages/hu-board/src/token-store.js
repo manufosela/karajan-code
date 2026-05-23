@@ -18,13 +18,13 @@ import { dirname, join } from "node:path";
 const TOKEN_BYTES = 32;
 
 /**
- * Compute the on-disk token path. Mirrors the rest of the board's
- * paths convention (KJ_HOME first, fallback to ~/.karajan).
+ * Compute the on-disk token path. Delegates to db.js::getKjHome which
+ * (post-KJC-TSK-0420) honours KARAJAN_HOME > KJ_HOME > VITEST > default.
  * @returns {string}
  */
+import { getKjHome } from "./db.js";
 export function getTokenPath() {
-  const home = process.env.KJ_HOME || join(homedir(), ".karajan");
-  return join(home, "hu-board", "token");
+  return join(getKjHome(), "hu-board", "token");
 }
 
 /**

@@ -9,16 +9,14 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 import yaml from "js-yaml";
 import { runWebperfScan } from "../webperf/scanner.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 
-// Resolve home each call so tests that override $HOME for hermetic
-// tmp dirs work without re-importing the module.
-function defaultReportDir() {
-  return path.join(os.homedir(), ".karajan", "webperf");
-}
+// Delegated to src/utils/paths.js (KJC-TSK-0420) — respects
+// KARAJAN_HOME / KJ_HOME / VITEST tmp / default.
+import { getWebperfDir } from "../utils/paths.js";
+function defaultReportDir() { return getWebperfDir(); }
 
 /**
  * Slug a project directory the same way audit/basal-cost.js and

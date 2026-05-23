@@ -19,16 +19,16 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { writeJsonAtomicSync } from "./atomic-write.js";
+import { getRunsDir } from "./paths.js";
 
 /**
  * Directorio raíz donde viven los registros de run.
- * Honra `KJ_HOME` para tests y setups custom.
+ * Delega en `getRunsDir()` (KJC-TSK-0420) — respeta KARAJAN_HOME,
+ * KJ_HOME (con warning de deprecación), VITEST tmp y default.
  */
 export function runsDir() {
-  const home = process.env.KJ_HOME || path.join(os.homedir(), ".karajan");
-  return path.join(home, "runs");
+  return getRunsDir();
 }
 
 /**

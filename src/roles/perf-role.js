@@ -20,7 +20,6 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 import { BaseRole } from "./base-role.js";
 import { runWebperfScan } from "../webperf/scanner.js";
 
@@ -28,9 +27,10 @@ function projectSlug(projectDir) {
   return path.basename(projectDir || process.cwd()).replaceAll(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-function defaultPersistDir() {
-  return path.join(os.homedir(), ".karajan", "webperf");
-}
+// Delegated to src/utils/paths.js (KJC-TSK-0420) — respects
+// KARAJAN_HOME / KJ_HOME / VITEST tmp / default.
+import { getWebperfDir } from "../utils/paths.js";
+function defaultPersistDir() { return getWebperfDir(); }
 
 async function persistResult(result, projectDir) {
   if (!result?.ok) return null;

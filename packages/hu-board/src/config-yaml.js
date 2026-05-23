@@ -30,16 +30,16 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
+import { getKjHome } from './db.js';
 
 function configPath() {
   // Same path the parent uses (src/utils/paths.js::getKarajanHome).
-  // We can't import the parent helper from the hu-board package
-  // without inflating the module graph, so we duplicate the small
-  // path-resolution logic here. Keep them in lockstep.
-  if (process.env.KJ_HOME) return join(process.env.KJ_HOME, 'kj.config.yml');
-  return join(homedir(), '.karajan', 'kj.config.yml');
+  // KJC-TSK-0420: delegate to db.js::getKjHome — gives us KARAJAN_HOME
+  // priority + KJ_HOME fallback + VITEST guard from one place, instead
+  // of duplicating the precedence here.
+  return join(getKjHome(), 'kj.config.yml');
 }
 
 function backupPath() { return `${configPath()}.bak`; }
