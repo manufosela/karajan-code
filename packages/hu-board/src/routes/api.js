@@ -14,6 +14,7 @@ import {
   deleteStory,
   deleteSession,
   getKjHome,
+  getHuBoardRunsDir,
   getStoryRow,
   listPlanIdsForProject,
   updateStoryStatus,
@@ -865,7 +866,7 @@ router.get('/events', (req, res) => {
  */
 router.get('/plans/:planId/log', (req, res) => {
   try {
-    const runsDir = path.join(getKjHome(), 'hu-board-runs');
+    const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421
     const logPath = path.join(runsDir, `${req.params.planId}.log`);
     if (!fs.existsSync(logPath)) {
       return res.json({ exists: false, size: 0, content: '' });
@@ -1171,7 +1172,7 @@ router.post('/runs/:planId/stop', async (req, res) => {
 
 router.get('/runs/:commandId/log', (req, res) => {
   try {
-    const runsDir = path.join(getKjHome(), 'hu-board-runs');
+    const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421
     const logPath = path.join(runsDir, `${req.params.commandId}.log`);
     if (!fs.existsSync(logPath)) {
       return res.json({ exists: false, size: 0, content: '' });

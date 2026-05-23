@@ -38,6 +38,19 @@ export function getKjHome() {
   return join(process.env.HOME || '/root', '.karajan');
 }
 
+/**
+ * Canonical path to the HU Board's run-logs directory
+ * (`<karajan-home>/hu-board-runs/`). Centralised here so the four
+ * board callers (plan-mutations, command-runner, api.js GET routes
+ * for plan + commandId logs) and the garbage-collector all agree on
+ * the same string — KJC-TSK-0421.
+ *
+ * @returns {string}
+ */
+export function getHuBoardRunsDir() {
+  return join(getKjHome(), 'hu-board-runs');
+}
+
 // Bump when the schema gains a column / index / table that older
 // Karajan versions cannot understand. A DB written by a newer Karajan
 // refuses to open here so it does not get silently downgraded.

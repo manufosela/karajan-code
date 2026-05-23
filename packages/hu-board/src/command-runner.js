@@ -31,13 +31,9 @@ const REPO_ROOT = (() => {
 })();
 const KJ_CLI = join(REPO_ROOT, "src", "cli.js");
 
-/**
- * Resolve the runs directory the board already uses for plan logs.
- * Falls back to ~/.karajan/hu-board-runs/ when KJ_HOME is unset.
- */
-function runsDir() {
-  return join(process.env.KJ_HOME || join(homedir(), ".karajan"), "hu-board-runs");
-}
+// Path now lives in db.js::getHuBoardRunsDir() — KJC-TSK-0421
+// unification. The local helper is gone; callers import directly.
+import { getHuBoardRunsDir } from "./db.js";
 
 /**
  * Whitelist + argv builders. Each entry maps a logical command name
@@ -106,7 +102,7 @@ export function runKjCommand({ command, input = {} } = {}) {
     return { ok: false, error: `Bad input for "${command}": ${err.message}` };
   }
 
-  const dir = runsDir();
+  const dir = getHuBoardRunsDir();
   mkdirSync(dir, { recursive: true });
   const commandId = `cmd-${command}-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const logPath = join(dir, `${commandId}.log`);
