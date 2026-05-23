@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.19.3] - 2026-05-23
+
+Patch release. HU Board now reads + writes plans from the canonical home dir.
+
+### Fixed
+
+- **HU Board reported "Directorio del proyecto — no detectado" even when the run had a valid `projectDir`** (KJC-BUG-0059, PR #795). Five board call sites still hard-coded `~/.kj/plans/` as their plans root — leftover from the v2.19.0 home consolidation, which fixed `sync.js` but missed the rest. After the auto-migrator runs, plans land under `~/.karajan/plans/<slug>/`; the board kept looking under `~/.kj/plans/<slug>/` and silently found nothing. That meant: `GET /api/projects/:id/preflight` could not extract `projectDir` (the literal Aitor saw), `GET /api/projects/:id/plans-outcome` returned `plans: []` for every project, `DELETE /api/projects/:id` swept the wrong path leaving residue on disk, `DELETE /api/plans/:planId` failed silently, `preflight.checkPlans` reported "plans missing" wrongly, `plan-mutations.plansRoot` wrote new per-HU run logs to the legacy root splitting state across both, and `cleanup-zombies` never GC'd zombies under `~/.karajan/plans/`. **Fix**: three new exports in `packages/hu-board/src/db.js` — `getHuBoardPlansDir()` (canonical, or `KJ_PLANS_DIR` override), `getHuBoardLegacyPlansDir()` (legacy, null when override set), `getHuBoardPlansDirs()` ordered `[canonical, legacy?]` for read callers. Single-write callers (`plan-mutations`) use the canonical root; read / delete / GC iterate both so users mid-migration with plans still under `~/.kj/` don't regress. 29 hu-board test files / 349 tests still green. Reported by Aitor Martínez.
+
 ## [2.19.2] - 2026-05-23
 
 Patch release. SonarQube auto-recovery from 401.
