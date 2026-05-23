@@ -71,22 +71,27 @@ describe("withBrainRecovery — fallback switch", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("DAILY con retryAfter < maxWaitHours → NO switch, hiberna como antes", async () => {
+  it("DAILY con retryAfter < maxWaitHours → NO switch (cooldown corto = standby in-process)", async () => {
+    // Primary fails once with a daily quota, then succeeds when the
+    // standby-in-process wait wakes up and retries. The fallback agent
+    // must NEVER be called because the wait is below `maxWaitHours`.
     const primary = {
       provider: "claude",
-      runTask: vi.fn().mockResolvedValue(quotaDailyError()),
+      runTask: vi.fn()
+        .mockResolvedValueOnce(quotaDailyError())
+        .mockResolvedValueOnce({ ok: true, output: "primary recovered" }),
     };
     const fallbackAgent = {
       provider: "codex",
-      runTask: vi.fn().mockResolvedValue({ ok: true, output: "ok" }),
+      runTask: vi.fn().mockResolvedValue({ ok: true, output: "should not be called" }),
     };
-    // 5h cooldown, maxWaitHours=12 → NO switch
     const r = await withBrainRecovery({
       agent: primary, taskArgs: {}, role: "coder",
       fallback: { agent: fallbackAgent, provider: "codex", maxWaitHours: 12 },
       sleepFn: noSleep,
     });
-    expect(r.action).toBe("hibernate");
+    expect(r.ok).toBe(true);
+    expect(r.output).toBe("primary recovered");
     expect(fallbackAgent.runTask).not.toHaveBeenCalled();
   });
 

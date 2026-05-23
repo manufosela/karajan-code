@@ -53,8 +53,8 @@ describe("withBrainRecovery — RATE_LIMIT_SHORT → standby + retry", () => {
 });
 
 describe("withBrainRecovery — QUOTA_EXHAUSTED_DAILY → hibernate", () => {
-  it("quota con reset >1h → action='hibernate' inmediato (sin retry)", async () => {
-    const target = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+  it("quota con reset >12h → action='hibernate' inmediato (demasiado largo para esperar in-process)", async () => {
+    const target = new Date(Date.now() + 15 * 60 * 60 * 1000).toISOString();
     const agent = makeAgent([
       { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
     ]);
@@ -65,13 +65,12 @@ describe("withBrainRecovery — QUOTA_EXHAUSTED_DAILY → hibernate", () => {
     expect(r.action).toBe("hibernate");
     expect(r.recovery.class).toBe("QUOTA_EXHAUSTED_DAILY");
     expect(r.recovery.retryUntil).toBe(target);
-    // Debe haber emitido la señal de hibernate-request
     const hibernateEvent = emit.mock.calls.find(([_evt, payload]) => payload?.type === "brain:hibernate-request");
     expect(hibernateEvent).toBeTruthy();
   });
 
-  it("con sessionState persiste el standby a disco y devuelve standbyFile", async () => {
-    const target = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+  it("con sessionState (>12h) persiste el standby a disco y devuelve standbyFile", async () => {
+    const target = new Date(Date.now() + 15 * 60 * 60 * 1000).toISOString();
     const agent = makeAgent([
       { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
     ]);
@@ -88,13 +87,37 @@ describe("withBrainRecovery — QUOTA_EXHAUSTED_DAILY → hibernate", () => {
   });
 
   it("sin sessionState NO persiste (standbyFile null) — regresión del bug original", async () => {
-    const target = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+    const target = new Date(Date.now() + 15 * 60 * 60 * 1000).toISOString();
     const agent = makeAgent([
       { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
     ]);
     const r = await withBrainRecovery({ agent, taskArgs: {}, role: "coder", sleepFn: noSleep });
     expect(r.action).toBe("hibernate");
     expect(r.standbyFile ?? null).toBeNull();
+  });
+
+  // The user's request: short cooldowns (daily quota resets ~5h)
+  // should NOT exit kj — kj stays alive, waits, retries on its own.
+  // Only Ctrl+C during the wait should print the resume hint.
+  it("quota con reset corto (<=12h) → standby in-process + retry cuando despierta", async () => {
+    const target = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+    const agent = makeAgent([
+      { ok: false, error: `usage limit reached, resets at ${target}`, exitCode: 1 },
+      { ok: true, output: "second call succeeds after the wait" },
+    ]);
+    const emit = vi.fn();
+    const emitter = { emit };
+    const r = await withBrainRecovery({ agent, taskArgs: {}, role: "coder", emitter, sleepFn: noSleep });
+    expect(r.ok).toBe(true);
+    expect(r.output).toContain("second call succeeds");
+    expect(agent.runTask).toHaveBeenCalledTimes(2);
+    // Emitted the standby-wait + standby-resumed events, NOT hibernate-request.
+    const waitEvt = emit.mock.calls.find(([_e, p]) => p?.type === "brain:standby-wait");
+    const resumedEvt = emit.mock.calls.find(([_e, p]) => p?.type === "brain:standby-resumed");
+    const hibernateEvt = emit.mock.calls.find(([_e, p]) => p?.type === "brain:hibernate-request");
+    expect(waitEvt).toBeTruthy();
+    expect(resumedEvt).toBeTruthy();
+    expect(hibernateEvt).toBeFalsy();
   });
 });
 
