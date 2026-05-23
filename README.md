@@ -216,10 +216,12 @@ $ claude                         $ kj-tail
 ## The pipeline
 
 ```
-hu-reviewer? → triage → domain-curator? → discover? → architect? → planner? → coder → sonar? → impeccable? → reviewer → tester? → security? → solomon → commiter?
+pre-loop:  intent → hu-reviewer? → triage? → domain-curator? → discover? → skills? → researcher? → architect? → planner? → acceptance?
+iteration: coder → refactorer? → guard(output) → guard(perf) → sonar? → tdd → reviewer → solomon? → brain?   (loops 1..N)
+post-loop: tester? → security? → perf? → impeccable? → audit?
 ```
 
-**16 roles**, each executed by the AI agent you choose:
+**24 stages** across three phases: 18 AI-agent-backed roles (table below), 6 deterministic stages without an LLM call (`intent`, `skills`, `acceptance`, `guard(output)`, `guard(perf)`, `tdd`). Two extra classes (`commiter`, `repairer`) are post-approval / internal helpers, not standalone pipeline stages. Each AI role is executed by the agent you choose:
 
 | Role | What it does | Default |
 |------|-------------|---------|
@@ -238,7 +240,16 @@ hu-reviewer? → triage → domain-curator? → discover? → architect? → pla
 | **security** | OWASP security audit | **On** |
 | **solomon** | Pipeline boss: evaluates every rejection, overrides style-only blocks | **On** |
 | **commiter** | Git commit, push, and PR automation after approval | Off |
+| **researcher** | Investigates the codebase before planning (file map + signatures + related tests) | Off |
+| **perf** | WebPerf quality gate — Core Web Vitals (LCP, CLS, INP) via Lighthouse | Off |
+| **brain** | Central AI orchestrator: routing, feedback enrichment, output compression | **On** |
 | **audit** | Read-only codebase health analysis (5 dimensions, A-F scores) | Standalone |
+
+> **Deterministic stages (no class):** `intent` (task-type classifier — `sw` / `infra` / `doc` / `add-tests` / `refactor` / `audit`), `skills` (slash-command surface), `acceptance` (executable acceptance tests), `guard(output)` (destructive ops + credential leaks), `guard(perf)` (frontend anti-patterns), `tdd` (test-coverage check).
+>
+> **Internal helpers (have a class, not a standalone stage):** `commiter` (git automation post-approval), `repairer` (repairs broken acceptance tests at runtime, invoked by `acceptance` / `tdd`).
+>
+> Full per-stage reference: [Pipeline roles](https://karajan-code.web.app/docs/handbook/pipeline-roles/) (handbook).
 
 ## 5 AI agents supported
 
