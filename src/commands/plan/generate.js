@@ -13,6 +13,7 @@ import { recommendModelsForHu, complexityFromTaskType } from "../../hu/model-rou
 import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { printResumeHint } from "../../utils/display/resume-hint.js";
+import { runSpecReview } from "../../spec-review/run-spec-review.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -40,12 +41,8 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     }
   }
 
-  // Spec-reviewer pre-planner audit (KJC-PCS-0048). Runs BEFORE the
-  // planner — surfaces ambiguity / missing scope / missing AC and
-  // lets the user bail out cheap, before any planner tokens burn.
-  // Bypass with --skip-spec-review. In --json mode (no TTY assumed)
-  // we run the review but never block — findings go to stderr.
-  const { runSpecReview } = await import("../../spec-review/run-spec-review.js");
+  // Spec-reviewer pre-planner audit (KJC-PCS-0048). Static import —
+  // role runs every invocation (modulo bypass); no lazy-load benefit.
   const reviewResult = await runSpecReview({
     spec: task, config, logger, flags,
     askQuestion: json ? null : (typeof flags?.askQuestion === "function" ? flags.askQuestion : null),

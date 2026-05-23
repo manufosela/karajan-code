@@ -11,6 +11,7 @@ import { printResumeHint } from "../utils/display/resume-hint.js";
 import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
 import { confirmCwd } from "../utils/cwd-confirm.js";
+import { runSpecReview } from "../spec-review/run-spec-review.js";
 
 function createCliAskQuestion(opts = {}) {
   const { sessionId = null } = opts;
@@ -167,8 +168,8 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     // Spec-reviewer pre-pipeline audit (KJC-PCS-0048). Runs BEFORE
     // anything else — surfaces ambiguity / missing scope / missing AC
     // and lets the user bail out cheap, before any tokens burn.
-    // Bypass with --skip-spec-review.
-    const { runSpecReview } = await import("../spec-review/run-spec-review.js");
+    // Bypass with --skip-spec-review. Static import — the role runs
+    // on every kj invocation (modulo bypass), no lazy-load benefit.
     const reviewResult = await runSpecReview({ spec: task, config, logger, askQuestion, flags });
     if (!reviewResult.proceed) {
       logger.info("Aborted by user after spec review.");
