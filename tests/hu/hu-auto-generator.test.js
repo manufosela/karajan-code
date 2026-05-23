@@ -267,28 +267,20 @@ describe("generateHuBatch", () => {
       expect(setup.acceptance_tests.join("\n")).not.toMatch(/vitest/);
     });
 
-    it("explicit language overrides hint inference", () => {
-      const batch = generateHuBatch({
-        originalTask: "Greenfield",
-        subtasks: ["Do something"],
-        stackHints: ["vitest"],
-        isNewProject: true,
-        language: "python", // explicit caller wins
+    it("explicit language + symmetric filter: caller-provided language wins, stale vitest hints filtered", () => {
+      const a = generateHuBatch({
+        originalTask: "Greenfield", subtasks: ["Do something"],
+        stackHints: ["vitest"], isNewProject: true, language: "python",
       });
-      expect(batch.stories[0].acceptance_tests.join("\n")).toMatch(/python -m pytest/);
-    });
-
-    it("filterConflictingHints is symmetric — python wins over stale vitest hints", () => {
-      const batch = generateHuBatch({
+      expect(a.stories[0].acceptance_tests.join("\n")).toMatch(/python -m pytest/);
+      const b = generateHuBatch({
         originalTask: "Python project with stale gitignore",
         subtasks: ["Build it"],
-        stackHints: ["pytest", "fastapi", "vitest"], // "vitest" is leftover
+        stackHints: ["pytest", "fastapi", "vitest"],
         isNewProject: true,
       });
-      // python keywords arrive first → python wins; vitest is filtered out.
-      const setup = batch.stories[0];
-      expect(setup.title).toMatch(/python/i);
-      expect(setup.certified.text).not.toMatch(/vitest/);
+      expect(b.stories[0].title).toMatch(/python/i);
+      expect(b.stories[0].certified.text).not.toMatch(/vitest/);
     });
   });
 });
