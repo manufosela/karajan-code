@@ -1086,6 +1086,76 @@ Subsequent invocations: silent. Users with `KJ_HOME=...` in their shell rcfile a
 
 **Out of scope (backlog).** 38 direct `os.homedir()` calls in config / resolve-bin / devtools / webperf / leak-detector / postinstall bypass the unified resolver — they always write to `~/.karajan/` literally regardless of `KARAJAN_HOME` overrides. Tracked as [KJC-TSK-0420](https://planning-game.web.app); not blocking. Plus 4 code paths still build their own `~/.karajan/runs/` path; tracked as [KJC-TSK-0421](https://planning-game.web.app), pure DRY refactor.
 
+## Phase 73: Patch — kj board start packaging fix + home-consolidation housekeeping (v2.19.1)
+
+**v2.19.1** (patch, 2026-05-23) — 4 PRs (#789, #790, #791, #792 release). One **APPLICATION BLOCKER** fix plus the two follow-ups from the home-consolidation epic. v2.19.0 had shipped with a packaging bug that broke `kj board start` for every user on a fresh `npm install -g karajan-code`.
+
+**Headline fix — #791 (KJC-BUG-0056).** Reported by [@aitormf](https://github.com/aitormf). Two independent root causes combined to break the HU Board feature for every user installing from npm:
+
+1. **`packages/` not in the npm tarball.** The root `package.json::files` array listed `src/`, `bin/`, `templates/`, `scripts/` and a couple of docs — but NOT `packages/`. Confirmed via `npm pack --dry-run`: zero matches for `packages/hu-board/`. Even after `npm install -g karajan-code` completes successfully, the directory simply does not exist on disk and `kj board start` fails before `server.js` can be imported.
+
+2. **HU Board deps not at root.** Even when users copied `packages/hu-board/` manually (the fallback some tried), they got `Cannot find package 'helmet' imported from .../packages/hu-board/src/server.js` — because the five HU Board dependencies (`helmet`, `chokidar`, `better-sqlite3`, `express`, `express-rate-limit`) were declared in `packages/hu-board/package.json` but missing from root `dependencies`. `npm install -g karajan-code` only resolves root deps, not nested non-workspace sub-packages.
+
+Fix: add `packages/hu-board/{src,public,package.json}` to `files`; add the five HU Board deps to root `dependencies` at the exact versions the sub-package declares (so `npm dedupe` collapses to one copy resolvable by upward traversal from `server.js`); regenerate `package-lock.json`. Verified end-to-end: `npm pack` now ships 28 board files (vs 0 before); `node packages/hu-board/src/server.js` boots cleanly.
+
+**Internal — #790 (KJC-TSK-0420).** 38 direct `os.homedir()` callers routed through `src/utils/paths.js` helpers. `KARAJAN_HOME=/some/path kj <anything>` now redirects EVERY component to `/some/path/…` — not just plans / standby / sessions, but also webperf cache, run-registry, board prompt bridge, HU Board auth token, `hu-board.pid`, the board's config viewer, and the `kj doctor` dir-setup check. Three new helpers added (`getWebperfDir`, `getRunsDir`, `getPromptsDir`), and `packages/hu-board/src/db.js::getKjHome` gained `KARAJAN_HOME` priority. The legitimate non-Karajan callers (npm-global bin lookup, fs-leak detector, third-party app configs in `~/.claude.json` and `~/.codex/config.toml`) stay untouched.
+
+**Internal — #789 (KJC-TSK-0421).** 5 inline constructions of `~/.karajan/hu-board-runs/` (one in `garbage-collector.js`, four across the HU Board package) unified under one helper `getHuBoardRunsDir()` in `packages/hu-board/src/db.js`. Pure DRY — no semantic change. Closes the secondary deuda técnica from KJC-PCS-0047.
+
+## Phase 74: Patch — SonarQube 401 auto-recovery (v2.19.2)
+
+**v2.19.2** (patch, 2026-05-23) — 2 PRs (#793 fix, #794 release). Closes [KJC-BUG-0057](https://planning-game.web.app), the second bug Aitor reported on the same day as KJC-BUG-0056. The board fix in v2.19.1 unblocked `kj board start`, but `kj run` and `kj audit` were still failing for him with `SonarQube authentication failed (HTTP 401)` even though admin/admin worked in the Sonar UI.
+
+**Root cause.** `bootstrapSonarToken()` has lived in `src/sonar/token-bootstrap.js` since v2.10.2. It probes admin/admin against the Sonar host, rotates the default password if still in place (persisting the new one to `~/.karajan/sonar.admin-password`), revokes the existing `karajan-cli` token and generates a fresh `GLOBAL_ANALYSIS_TOKEN`. Solid plumbing. But it was **only invoked from `kj init`**. Every other code path that hit Sonar with a missing / stale / revoked / inconsistent-instance token just threw `SonarApiError` HTTP 401 with the hint "Regenerate with `kj init`" — putting the user in the loop for plumbing Karajan has the credentials to do itself.
+
+The user's feedback was unambiguous: *"Si karajan ve que no funciona sonar, que tiene el user/passw, que genere nuevo token, karajan debe tener capacidad de hacer esto y no tiene que hacerlo la IA, es algo programatico."*
+
+**Fix (#793).** New `src/sonar/token-recovery.js` exposing `recoverSonarToken(config, logger)`:
+
+1. **Per-process latch.** One Sonar run that 401s on N endpoints triggers ONE bootstrap attempt, not N.
+2. Calls `bootstrapSonarToken({ host: config.sonarqube.host })` — full v2.10.2 code path.
+3. **Mutates** `config.sonarqube.token` in place so the immediate retry uses the new token (no config reload).
+4. Persists to `~/.karajan/sonar-credentials.json` via `saveSonarToken` so future processes pick it up via the normal resolver chain instead of triggering recovery again.
+
+`src/sonar/api.js::sonarFetchOnce` gains a hidden `_retriedAfterRecovery` flag. On HTTP 401:
+
+- First call → `recoverSonarToken`, then recurse with `_retriedAfterRecovery=true`. If recovery succeeds, the retry uses the new token transparently and the caller never sees the 401.
+- Recovery fails → throw `SonarApiError` with a more actionable hint pointing at `~/.karajan/sonar-credentials.json` for saving admin credentials.
+- Retry still 401s → throw with a distinct hint about the Sonar instance being inconsistent.
+
+Programmatic. Zero LLM involvement. Reported by [@aitormf](https://github.com/aitormf).
+
+## Phase 74: HU Board canonical home dir (v2.19.3)
+
+**v2.19.3** (patch, 2026-05-23) — Closes KJC-BUG-0059. PR #795. Reported by [@aitormf](https://github.com/aitormf).
+
+The v2.19.0 home consolidation (Phase 72) renamed the canonical plans root from `~/.kj/plans/` to `~/.karajan/plans/` and shipped an auto-migrator that physically moved every existing plan. The migration itself worked — but five call sites under `packages/hu-board/` still had the legacy path baked in as a hard-coded default, surviving the consolidation because Phase 72 only touched `src/`. After the migrator ran (or after a user created any new plan post-v2.19.0), the plans lived under `~/.karajan/plans/<slug>/`; the board kept looking under `~/.kj/plans/<slug>/` and silently found nothing — so the board's UX collapsed even when the rest of `kj` worked perfectly.
+
+The user-visible symptoms were six:
+
+1. `GET /api/projects/:id/preflight` could not extract `projectDir` from any plan → the top card showed `Directorio del proyecto — no detectado` (the literal Aitor saw).
+2. `GET /api/projects/:id/plans-outcome` returned `plans: []` for every project that only had post-v2.19.0 plans.
+3. `DELETE /api/projects/:id` swept the wrong path, leaving residual `~/.karajan/plans/<slug>/` dirs on disk after a 🗑 delete.
+4. `DELETE /api/plans/:planId` scanned the wrong root → silently failed to remove the plan file.
+5. `packages/hu-board/src/preflight.js::checkPlans` found no plans even when valid plans existed.
+6. `packages/hu-board/src/plan-mutations.js::plansRoot` WROTE new per-HU run logs to the legacy root, splitting state across both dirs and never being GC'd by `cleanup-zombies.js` (which also scanned only the legacy root).
+
+The fix is two-layered, mirroring the resolver discipline established by Phase 72.
+
+**Layer 1 — three new exports in `packages/hu-board/src/db.js`:**
+
+- `getHuBoardPlansDir()` — canonical root (`~/.karajan/plans/`, or `KJ_PLANS_DIR` override).
+- `getHuBoardLegacyPlansDir()` — legacy root (`~/.kj/plans/`, null when `KJ_PLANS_DIR` is set so an explicit override cannot dual-scan).
+- `getHuBoardPlansDirs()` — ordered `[canonical, legacy?]` for read callers that need to iterate both during the migration window.
+
+**Layer 2 — callers split by intent.** Single-writer paths (`plan-mutations.js::plansRoot`) use the canonical resolver only. Every read / delete / GC path (the four `api.js` endpoints, `preflight.js::checkPlans`, `cleanup-zombies.js`) iterates `getHuBoardPlansDirs()` so users mid-migration with plans still under `~/.kj/` don't get a regression on top of the original bug.
+
+This keeps the board strictly future-canonical for new state (no more splitting writes across both roots) while remaining read-compatible with the legacy root until the auto-migrator from Phase 72 finishes moving everything. The legacy lookup will be removed once Karajan's telemetry indicates the migrator has run on > 99% of installs (tracked via the `.kj-migrated.json` marker file).
+
+29 hu-board test files / 349 tests stayed green through the fix — the existing suite already covered the relevant endpoints by mocking the env vars; the fix unblocked them too. No new tests were strictly required, but a future cohort of integration tests on the legacy-fallback path (planned for v2.20.0) will lock the behaviour in.
+
+LOC budget: +108 / -44, net +64. Inside the 200 hard limit. One PR, one bug card, one release — patch-sized fix for a patch-sized bug.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
