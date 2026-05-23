@@ -51,6 +51,9 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     logger?.info?.("Aborted by user after spec review.");
     return { ok: false, aborted: true, reason: "spec-review-cancelled" };
   }
+  if (reviewResult.refined && reviewResult.finalSpec) {
+    task = reviewResult.finalSpec; // downstream runs the refined spec
+  }
 
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);

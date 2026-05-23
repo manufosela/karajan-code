@@ -39,4 +39,28 @@ export function buildSpecReviewerPrompt({ spec, instructions } = {}) {
   return sections.join("\n");
 }
 
+/**
+ * Build the refine prompt — used when the user picks `[r]efine`. The
+ * agent must rewrite the spec to fix the listed findings, returning
+ * ONLY the rewritten spec (no JSON, no preamble, no fence). The refine
+ * loop will persist this verbatim as `spec-v2.md`.
+ */
+export function buildSpecRefinerPrompt({ originalSpec, findings, instructions } = {}) {
+  const sections = [SUBAGENT_PREAMBLE];
+  if (instructions) sections.push(instructions);
+  const findingsBlock = (findings || []).map((f, i) => {
+    const idx = i + 1;
+    return `${idx}. [${f.severity}/${f.category}] ${f.message}${f.suggestion ? `\n   Fix: ${f.suggestion}` : ""}`;
+  }).join("\n");
+  sections.push(
+    "You are now REWRITING the user's spec to fix the listed findings.",
+    "Return ONLY the rewritten spec — no JSON, no preamble, no markdown fences, no commentary.",
+    "Preserve the user's intent; do not invent new requirements or scope beyond the existing spec.",
+    "## Original spec", "```", String(originalSpec || "").trim(), "```",
+    "## Findings to address", findingsBlock || "(none — pass-through)",
+    "## Rewritten spec",
+  );
+  return sections.join("\n");
+}
+
 export { VALID_CATEGORIES };

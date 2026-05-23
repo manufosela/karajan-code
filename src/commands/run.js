@@ -176,10 +176,14 @@ export async function runCommandHandler({ task, config, logger, flags }) {
       cleanupRegistry();
       return { ok: false, aborted: true, reason: "spec-review-cancelled" };
     }
+    // If the user refined the spec via [r]efine, downstream runs the
+    // REFINED text (not the original) so the pipeline acts on what the
+    // user actually approved.
+    const effectiveTask = reviewResult.refined && reviewResult.finalSpec ? reviewResult.finalSpec : task;
 
     let result;
     try {
-      result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+      result = await runFlow({ task: effectiveTask, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
     } finally {
       // KJC-TSK-0396: limpia el registro pase lo que pase (éxito,
       // throw, o paused). Los handlers de SIGINT/SIGTERM/exit son
