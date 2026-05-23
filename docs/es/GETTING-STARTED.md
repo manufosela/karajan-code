@@ -74,7 +74,9 @@ Karajan auto-inicializa:
 1. Crea repo git + `.gitignore`
 2. Crea `.karajan/` con plantillas de roles
 3. Asigna automáticamente agentes de IA a roles según capacidad
-4. Ejecuta pipeline: triage → (auto-descomposición en HUs si es compleja) → coder → reviewer → tester → security → audit
+4. Ejecuta pipeline: **spec-reviewer** → triage → (auto-descomposición en HUs si es compleja) → coder → reviewer → tester → security → audit
+
+El **spec-reviewer** corre primero y audita tu tarea en busca de deficiencias (ambigüedades, falta de scope, falta de criterios de aceptación, …). Si la spec es limpia imprime una sola línea `✓ spec OK` y sigue en silencio. Si hay findings muestra un bloque coloreado en stderr y pregunta `[c]ontinue / [r]efine / [x]cancel?` — pulsa `r` para que el rol reescriba la spec en una v2 que puedes editar antes de que arranque el pipeline. Bypass con `--skip-spec-review`. Referencia completa: [../spec-reviewer.md](../spec-reviewer.md).
 
 Si triage detecta que la tarea es compleja, Karajan la descompone automáticamente en HUs atómicas (Historias de Usuario). Cada HU se ejecuta como sub-pipeline independiente con su propia rama, commit y PR. Cada HU también lleva tests de aceptación ejecutables que Brain lanza tras cada iteración del coder — todos pasan → aprobada, alguno falla → Brain diagnostica con el error exacto.
 

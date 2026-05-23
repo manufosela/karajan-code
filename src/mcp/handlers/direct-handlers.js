@@ -47,6 +47,9 @@ function applySessionOverrides(a, roleKeys) {
 }
 
 export async function handlePlanDirect(a, server, extra) {
+  // KJC-PCS-0048 PR 3b: same `specReviewMode: skip` → skipSpecReview
+  // mapping as kj_run. Default "auto" keeps the reviewer enabled.
+  if (a.specReviewMode === "skip") a.skipSpecReview = true;
   const { normalizePlanArgs } = await import("../tool-arg-normalizers.js");
   const options = normalizePlanArgs(a);
   const config = await buildConfig(options, "plan");

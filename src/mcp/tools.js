@@ -113,7 +113,8 @@ export const tools = [
         domain: { type: "string", description: "Domain knowledge: inline text describing the project domain, or absolute path to a .md file. Auto-saved to .karajan/domains/ for the curator." },
         brain: { type: "string", enum: ["on", "off"], description: "Brain decisor: on|off. Controls whether intent-driven routing overrides pipeline flags." },
         forceRole: { type: "array", items: { type: "string" }, description: "Force roles ON regardless of triage (e.g. [\"security\"])" },
-        skipRole: { type: "array", items: { type: "string" }, description: "Force roles OFF regardless of triage (e.g. [\"tester\"])" }
+        skipRole: { type: "array", items: { type: "string" }, description: "Force roles OFF regardless of triage (e.g. [\"tester\"])" },
+        specReviewMode: { type: "string", enum: ["auto", "skip"], description: "Pre-pipeline spec-reviewer behaviour (KJC-PCS-0048). `auto` (default): the role runs, findings stream to the client via progress events; the pipeline continues regardless. `skip`: bypass the reviewer entirely (mirrors the --skip-spec-review CLI flag)." }
       }
     }
   },
@@ -245,7 +246,8 @@ export const tools = [
         coder: { type: "string", description: "Legacy alias for planner" },
         coderModel: { type: "string", description: "Legacy alias for plannerModel" },
         projectDir: { type: "string", description: "Absolute path to the project directory" },
-        kjHome: { type: "string" }
+        kjHome: { type: "string" },
+        specReviewMode: { type: "string", enum: ["auto", "skip"], description: "Pre-planner spec-reviewer behaviour (KJC-PCS-0048). `auto` (default): runs the reviewer, findings stream as progress, planner continues. `skip`: bypass entirely." }
       }
     }
   },
