@@ -2,6 +2,8 @@ import { AgentRole } from "./agent-role.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { isHostAgent } from "../utils/agent-detect.js";
 import { HostAgent } from "../agents/host-agent.js";
+import { detectProjectStack } from "../utils/stack-detect.js";
+import { detectTestFramework } from "../utils/project-detect.js";
 
 export class CoderRole extends AgentRole {
   constructor(opts) {
@@ -54,6 +56,16 @@ export class CoderRole extends AgentRole {
   }
 
   async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests, adrs, specSection, reviewerFindings, huId }) {
+    const projectDir = this.config?.projectDir || null;
+    // KJC sesgo-de-stack: pasar stack/testFramework al prompt para que
+    // el coder no asuma JS/vitest en proyectos Python / Go / Rust /
+    // Ruby. audit-role.js y tester-role.js ya lo hacen así.
+    let stack = null;
+    let testFramework = null;
+    if (projectDir) {
+      try { stack = await detectProjectStack(projectDir); } catch { /* best-effort */ }
+      try { testFramework = await detectTestFramework(projectDir); } catch { /* best-effort */ }
+    }
     const prompt = await buildCoderPrompt({
       task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests,
       adrs, specSection, reviewerFindings, huId,
@@ -63,7 +75,8 @@ export class CoderRole extends AgentRole {
       rtkAvailable: Boolean(this.config?.rtk?.available),
       productContext: this.config?.productContext || null,
       domainContext: this.config?.domainContext || null,
-      projectDir: this.config?.projectDir || null,
+      projectDir,
+      stack, testFramework,
       provider: this._resolvedProvider || (typeof this.resolveProvider === "function" ? this.resolveProvider() : null)
     });
     return { prompt };

@@ -158,7 +158,28 @@ function renderReviewerFindingsSection(findings, huId) {
   ].join("\n");
 }
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
+// KJC sesgo-de-stack: Karajan used to default every prompt to JS/TS
+// (vitest, npm install, console.log, JSDoc, httpOnly cookies). When
+// the project is Python / Go / Rust / Ruby, that produced absurd
+// outputs (e.g. installing vitest in a pure-python repo to satisfy a
+// hardcoded `npx vitest run` acceptance test). When we know the
+// stack we tell the coder explicitly so it stops assuming.
+function buildStackSection({ stack, testFramework }) {
+  if (!stack && !testFramework) return null;
+  const lines = ["## Project Stack — match this, don't assume JavaScript"];
+  if (stack?.language) lines.push(`- Language: **${stack.language}**`);
+  if (stack?.frameworks?.length) lines.push(`- Frameworks: ${stack.frameworks.join(", ")}`);
+  if (testFramework?.hasTests && testFramework?.framework) {
+    lines.push(`- Test framework already in use: **${testFramework.framework}** (${testFramework.language || stack?.language || "unknown"}). Use it for new tests; do NOT add a JS test framework on top.`);
+  } else if (stack?.language && stack.language !== "javascript" && stack.language !== "typescript") {
+    lines.push(`- No test framework detected yet. Pick the canonical one for ${stack.language} (e.g. pytest for python, \`go test\` for go, \`cargo test\` for rust, rspec for ruby). Do NOT use vitest / jest / \`npm install\` in a non-JS project.`);
+  }
+  lines.push("");
+  lines.push("If an acceptance_test command on this HU points at a foreign framework (e.g. `npx vitest run` on a python project), REPLACE the command with the equivalent for the project's actual stack and use that to verify your work.");
+  return lines.join("\n");
+}
+
+export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null, stack = null, testFramework = null }) {
   const langInstruction = getLanguageInstruction(language);
   // KJC-BUG-0032 (PR-I): hard rule about file paths. Real bug: a HU
   // titled "Initialize project skeleton: create assistant/ directory…"
@@ -190,10 +211,12 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
     "Keep changes minimal and production-ready.",
     "Follow SOLID principles. Write small, focused functions (< 30 lines).",
     "Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.",
-    "Security: use httpOnly cookies for auth tokens, validate all input, parameterize queries, never expose secrets.",
-    "No console.log — use a structured logger. No 'any' types — use JSDoc annotations.",
+    "Security: validate all input, parameterize queries, never expose secrets. Use the auth pattern that matches the stack (e.g. httpOnly cookies for web sessions).",
+    "Use the project's standard logger and type system (no console.log when a structured logger exists; use the project's type idiom — TS types, JSDoc, Python type hints, Go interfaces…).",
     SUBPROCESS_CONSTRAINTS
   ];
+  const stackRule = buildStackSection({ stack, testFramework });
+  if (stackRule) sections.push(stackRule);
   if (projectDirRule) sections.push(projectDirRule);
 
   if (serenaEnabled) {
@@ -268,7 +291,7 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
       "1. Find the relevant file(s) in the project",
       "2. Make the specific code change needed to resolve the issue",
       "3. If tests are missing, write them",
-      "4. If dependencies are needed, install them (npm install)",
+      "4. If dependencies are needed, install them with the project's package manager (npm install / pip install / go get / cargo add — pick the one that matches the stack above)",
       "5. Do NOT skip any issue — all must be resolved"
     );
   }
