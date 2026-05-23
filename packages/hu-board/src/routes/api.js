@@ -15,6 +15,9 @@ import {
   deleteSession,
   getKjHome,
   getHuBoardRunsDir,
+  getHuBoardPlansDir,
+  getHuBoardLegacyPlansDir,
+  getHuBoardPlansDirs,
   getStoryRow,
   listPlanIdsForProject,
   updateStoryStatus,
@@ -192,22 +195,23 @@ router.get('/projects/:id/preflight', async (req, res) => {
   try {
     const projectId = req.params.id;
     let projectDir = null;
+    // KJC-BUG-0059 (v2.19.3): scan plans in BOTH the canonical
+    // ~/.karajan/plans/ AND the legacy ~/.kj/plans/ — the legacy
+    // fallback covers users who started the board before running any
+    // `kj` command on a fresh install (so the auto-migrator from
+    // v2.19.0 has not fired yet). Pre-fix, this endpoint hard-coded
+    // ~/.kj/plans/ as the default, missing every plan post-2.19.0
+    // → board card showed "directorio del proyecto: no detectado"
+    // even though the plan on disk had a valid projectDir.
     try {
-      // Plans live at ~/.kj/plans/<slug>/ when KJ_HOME is unset, or
-      // $KJ_HOME/plans/<slug>/ when set. db.js::getKjHome() returns
-      // the .karajan root, NOT the .kj root — they are sister dirs.
-      // Mirror plan-mutations.js::plansRoot() exactly.
-      const plansBase = process.env.KJ_HOME
-        ? path.join(process.env.KJ_HOME, 'plans')
-        : path.join(process.env.HOME || '', '.kj', 'plans');
-      const plansDir = path.join(plansBase, projectId);
-      if (fs.existsSync(plansDir)) {
-        const files = fs.readdirSync(plansDir).filter((f) => f.endsWith('.json'));
-        for (const f of files) {
+      outer: for (const root of getHuBoardPlansDirs()) {
+        const plansDir = path.join(root, projectId);
+        if (!fs.existsSync(plansDir)) continue;
+        for (const f of fs.readdirSync(plansDir).filter((x) => x.endsWith('.json'))) {
           try {
             const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
-            if (plan?.projectDir) { projectDir = plan.projectDir; break; }
-          } catch { /* try next */ }
+            if (plan?.projectDir) { projectDir = plan.projectDir; break outer; }
+          } catch { /* try next file */ }
         }
       }
     } catch { /* projectDir stays null → preflight will report it */ }
@@ -229,17 +233,17 @@ router.get('/projects/:id/preflight', async (req, res) => {
 router.get('/projects/:id/plans-outcome', (req, res) => {
   try {
     const projectId = req.params.id;
-    const plansBase = process.env.KJ_HOME
-      ? path.join(process.env.KJ_HOME, 'plans')
-      : path.join(process.env.HOME || '', '.kj', 'plans');
-    const plansDir = path.join(plansBase, projectId);
-    if (!fs.existsSync(plansDir)) return res.json({ projectId, plans: [] });
+    // KJC-BUG-0059 (v2.19.3): scan canonical + legacy roots so users
+    // who have not yet run the auto-migrator still see their plans.
     const out = [];
-    for (const f of fs.readdirSync(plansDir).filter(n => n.endsWith('.json'))) {
-      try {
-        const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
-        if (plan?.version !== 2) continue;
-        out.push({
+    for (const root of getHuBoardPlansDirs()) {
+      const plansDir = path.join(root, projectId);
+      if (!fs.existsSync(plansDir)) continue;
+      for (const f of fs.readdirSync(plansDir).filter(n => n.endsWith('.json'))) {
+        try {
+          const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
+          if (plan?.version !== 2) continue;
+          out.push({
           planId: plan.planId,
           name: plan.name || (plan.task ? plan.task.slice(0, 80) : plan.planId),
           status: plan.status || 'draft',
@@ -248,6 +252,7 @@ router.get('/projects/:id/plans-outcome', (req, res) => {
           huCount: Array.isArray(plan.hus) ? plan.hus.length : 0,
         });
       } catch { /* skip unreadable plan */ }
+      }
     }
     res.json({ projectId, plans: out });
   } catch (err) {
@@ -356,12 +361,13 @@ router.delete('/projects/:id', (req, res) => {
     // ~/.kj/plans relative to KJ_HOME's parent, which broke when the
     // two homes were configured separately and left orphan plan dirs
     // on disk after a 🗑️ delete.
-    const plansRoot = process.env.KJ_PLANS_DIR
-      || path.join(os.homedir(), '.kj', 'plans');
+    // KJC-BUG-0059 (v2.19.3): when removing a deleted project's
+    // residual plan dirs, sweep BOTH the canonical and legacy roots
+    // so the cleanup is consistent for users mid-migration.
     const fsPaths = [
       ...storyIds.map((sid) => path.join(huStoriesDir(), sid)),
       ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
-      path.join(plansRoot, id),
+      ...getHuBoardPlansDirs().map((root) => path.join(root, id)),
     ];
 
     const existed = deleteProject(id);
@@ -464,13 +470,18 @@ router.delete('/sessions/:id', (req, res) => {
 router.delete('/plans/:planId', (req, res) => {
   try {
     const planId = req.params.planId;
-    // Locate the plan file by scanning the plans dir for filename match.
-    const plansRoot = process.env.KJ_PLANS_DIR || path.join(getKjHome(), '..', '.kj', 'plans');
+    // Locate the plan file by scanning both canonical and legacy plans
+    // roots — KJC-BUG-0059 (v2.19.3). Pre-fix this hard-coded
+    // `getKjHome()/../.kj/plans` which silently misses plans saved by
+    // post-2.19.0 callers under `~/.karajan/plans/`.
     let foundPath = null;
     try {
-      for (const projSlug of fs.readdirSync(plansRoot)) {
-        const candidate = path.join(plansRoot, projSlug, `plan-${planId}.json`);
-        if (fs.existsSync(candidate)) { foundPath = candidate; break; }
+      outer: for (const plansRoot of getHuBoardPlansDirs()) {
+        if (!fs.existsSync(plansRoot)) continue;
+        for (const projSlug of fs.readdirSync(plansRoot)) {
+          const candidate = path.join(plansRoot, projSlug, `plan-${planId}.json`);
+          if (fs.existsSync(candidate)) { foundPath = candidate; break outer; }
+        }
       }
     } catch { /* plansRoot missing */ }
     addTombstone('plan', planId, { source: 'api', fsPaths: foundPath ? [foundPath] : [] });

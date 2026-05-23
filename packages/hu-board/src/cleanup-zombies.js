@@ -47,8 +47,12 @@ function isEphemeralId(id) {
   return EPHEMERAL_PREFIXES.some((p) => id.startsWith(p));
 }
 
-function plansRoot() {
-  return process.env.KJ_PLANS_DIR || path.join(homedir(), '.kj', 'plans');
+// KJC-BUG-0059 (v2.19.3): cleanup walks all known plan roots,
+// canonical first then legacy. Pre-fix hard-coded `~/.kj/plans/`
+// missed every plan post-v2.19.0 → zombies never garbage-collected.
+import { getHuBoardPlansDirs } from './db.js';
+function plansRoots() {
+  return getHuBoardPlansDirs();
 }
 
 function olderThanDays(isoStr, days) {
@@ -90,7 +94,7 @@ export function cleanupZombies(opts = {}) {
     const fsPaths = [
       ...storyIds.map((sid) => path.join(getKjHome(), 'hu-stories', sid)),
       ...sessionIds.map((sid) => path.join(getKjHome(), 'sessions', sid)),
-      path.join(plansRoot(), proj.id),
+      ...plansRoots().map((root) => path.join(root, proj.id)),
     ];
     deleteProject(proj.id);
     addTombstone('project', proj.id, { source: 'auto-cleanup', fsPaths });

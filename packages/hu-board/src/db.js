@@ -56,6 +56,51 @@ export function getHuBoardRunsDir() {
   return join(getKjHome(), 'hu-board-runs');
 }
 
+/**
+ * Canonical path to the plans directory the board scans
+ * (`<karajan-home>/plans/`). Respects `KJ_PLANS_DIR` as an absolute
+ * override, mirroring sync.js. KJC-BUG-0059 (v2.19.3): preflight
+ * endpoint used a hard-coded `~/.kj/plans/` legacy fallback that
+ * survived the v2.19.0 consolidation, causing the board to report
+ * "directorio del proyecto: no detectado" even when the plan on disk
+ * had a valid `projectDir`.
+ *
+ * @returns {string}
+ */
+export function getHuBoardPlansDir() {
+  return process.env.KJ_PLANS_DIR || join(getKjHome(), 'plans');
+}
+
+/**
+ * Legacy `~/.kj/plans/` directory — only returned when KJ_PLANS_DIR
+ * is unset (it would be the same path anyway when overridden).
+ * Callers iterate canonical + legacy so users who have not yet run
+ * the v2.19.0 auto-migrator still see their plans. KJC-BUG-0059.
+ *
+ * @returns {string|null}
+ */
+export function getHuBoardLegacyPlansDir() {
+  if (process.env.KJ_PLANS_DIR) return null;
+  return join(process.env.HOME || '/root', '.kj', 'plans');
+}
+
+/**
+ * Ordered list of every plans root the board should scan: canonical
+ * first (`~/.karajan/plans/`), legacy second when applicable
+ * (`~/.kj/plans/`). Honours `KJ_PLANS_DIR` as a single override,
+ * matching `sync.js`'s fullScan / startWatcher precedence so the
+ * preflight, plans-outcome, delete-project and delete-plan endpoints
+ * see the same set of files the watcher sees. KJC-BUG-0059.
+ *
+ * @returns {string[]}
+ */
+export function getHuBoardPlansDirs() {
+  const dirs = [getHuBoardPlansDir()];
+  const legacy = getHuBoardLegacyPlansDir();
+  if (legacy) dirs.push(legacy);
+  return dirs;
+}
+
 // Bump when the schema gains a column / index / table that older
 // Karajan versions cannot understand. A DB written by a newer Karajan
 // refuses to open here so it does not get silently downgraded.
