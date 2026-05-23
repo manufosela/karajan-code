@@ -66,6 +66,34 @@ jobs:
         if: runner.os == 'Windows'
         run: certutil -hashfile dist\kj-${{ matrix.target }}.exe SHA256 > dist\kj-${{ matrix.target }}.exe.sha256
 
+      # KJC-BUG-0040 root cause: the release-create from the human's
+      # release checklist (`gh release create`) and softprops fight for
+      # the same tag. linux-x64 is always the fastest job in the matrix
+      # so it reaches the upload step BEFORE GitHub has indexed the
+      # release-by-tag — softprops then creates a duplicate DRAFT, uploads
+      # there, and fails the final PATCH draft:false with 422 already_exists.
+      # Result: linux assets end up in an orphan draft, the human's
+      # release misses kj-linux-x64. Poll until the release is discoverable
+      # so softprops finds it and uploads to the right place. 60 s window
+      # is plenty for `gh release create` to land (typically <5 s).
+      - name: Wait for release to be discoverable by tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            if gh release view "${GITHUB_REF_NAME}" \
+                 --repo "${GITHUB_REPOSITORY}" \
+                 --json id >/dev/null 2>&1; then
+              echo "Release ${GITHUB_REF_NAME} is discoverable (attempt $i)."
+              exit 0
+            fi
+            echo "Waiting for release ${GITHUB_REF_NAME} to be discoverable... ($i/30)"
+            sleep 2
+          done
+          echo "::error::Release ${GITHUB_REF_NAME} not discoverable after 60 s. Was 'gh release create' run? Aborting to avoid creating a duplicate draft."
+          exit 1
+
       - name: Upload release assets (Linux/macOS)
         if: runner.os != 'Windows'
         uses: softprops/action-gh-release@v2
@@ -73,6 +101,10 @@ jobs:
           files: |
             dist/kj-${{ matrix.target }}
             dist/kj-${{ matrix.target }}.sha256
+          # Defensive: never mutate the human-created release's metadata.
+          # We are only uploading assets to an existing release.
+          make_latest: false
+          append_body: false
 
       - name: Upload release assets (Windows)
         if: runner.os == 'Windows'
@@ -81,3 +113,5 @@ jobs:
           files: |
             dist/kj-${{ matrix.target }}.exe
             dist/kj-${{ matrix.target }}.exe.sha256
+          make_latest: false
+          append_body: false
