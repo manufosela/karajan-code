@@ -2,8 +2,9 @@
 // audits the user's spec and returns structured findings. Does NOT execute.
 
 import { AgentRole } from "./agent-role.js";
-import { buildSpecReviewerPrompt, VALID_CATEGORIES } from "../prompts/spec-reviewer.js";
+import { buildSpecReviewerPrompt, buildSpecRefinerPrompt, VALID_CATEGORIES } from "../prompts/spec-reviewer.js";
 import { extractFirstJson } from "../utils/json-extract.js";
+import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
 const F_SEVS = new Set(["info", "warn", "fail"]);
 const T_SEVS = new Set(["ok", "info", "warn", "fail"]);
@@ -60,6 +61,30 @@ export class SpecReviewerRole extends AgentRole {
   // Parse failures degrade to a soft warning so the pipeline never blocks.
   handleParseNull(r, p) { return this.#degraded(r, p, "parse-null", "LLM output was unstructured"); }
   handleParseError(e, r, p) { return this.#degraded(r, p, "parse-error", e?.message || "unknown"); }
+
+  /**
+   * Refine mode (KJC-PCS-0048 PR 3). Bypasses the JSON-only `execute()`
+   * flow: returns the LLM output verbatim as the rewritten spec, so the
+   * refine loop can persist it as `spec-v2.md`.
+   * @returns {Promise<{ ok:boolean, refinedSpec?:string, error?:string, provider:string, usage?:object }>}
+   */
+  async refineSpec({ spec, findings }) {
+    if (!this._initialized) await this.init({ task: spec });
+    const provider = this.resolveProvider();
+    const agent = this.createAgentInstance(provider);
+    const prompt = buildSpecRefinerPrompt({ originalSpec: spec, findings, instructions: this.instructions });
+    const result = await withBrainRecovery({
+      agent: { runTask: (a) => agent.runTask(a), provider },
+      taskArgs: { prompt, role: this.name },
+      role: this.name, provider, emitter: this.emitter, logger: this.logger,
+    });
+    if (!result.ok) {
+      return { ok: false, error: result.error || "refine failed", provider, usage: result.usage };
+    }
+    const refinedSpec = String(result.output || "").replace(/^```[a-z]*\n?|```$/g, "").trim();
+    if (!refinedSpec) return { ok: false, error: "empty refined spec", provider, usage: result.usage };
+    return { ok: true, refinedSpec, provider, usage: result.usage };
+  }
 
   #degraded(agentResult, provider, reason, detail) {
     return {
