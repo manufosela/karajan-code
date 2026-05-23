@@ -527,13 +527,18 @@ export function fullScan() {
     }
   }
 
-  // Scan v2 plans (from kj plan → ~/.kj/plans/). Honours KJ_PLANS_DIR for
-  // test isolation; falls back to the default location in production.
-  const kjDir = process.env.KJ_PLANS_DIR || join(homedir(), '.kj', 'plans');
-  if (existsSync(kjDir)) {
-    const projectDirs = readdirSync(kjDir);
+  // Scan v2 plans (`kj plan` writes to `~/.karajan/plans/<slug>/` after
+  // KJC-PCS-0047 PR 3). `KJ_PLANS_DIR` keeps overriding for test
+  // isolation. A second pass picks up the legacy `~/.kj/plans/`
+  // location for users whose CLI hasn't yet run the migrator (e.g.
+  // the board was started before any `kj` command on a fresh upgrade).
+  const kjDir = process.env.KJ_PLANS_DIR || join(homedir(), '.karajan', 'plans');
+  const legacyKjDir = process.env.KJ_PLANS_DIR ? null : join(homedir(), '.kj', 'plans');
+  for (const root of [kjDir, legacyKjDir]) {
+    if (!root || !existsSync(root)) continue;
+    const projectDirs = readdirSync(root);
     for (const projDir of projectDirs) {
-      const projPath = join(kjDir, projDir);
+      const projPath = join(root, projDir);
       try {
         const files = readdirSync(projPath);
         for (const file of files) {
@@ -557,16 +562,21 @@ export function startWatcher() {
   const storiesGlob = join(kjHome, 'hu-stories', '*', 'batch.json');
   const sessionsGlob = join(kjHome, 'sessions', '*', 'session.json');
   const promptsGlob = join(kjHome, 'prompts', '*.json');
-  // Plans live under KJ_PLANS_DIR or ~/.kj/plans/, NOT under ~/.karajan/ —
-  // the two homes are separate (KJ runs off ~/.kj, the board off
-  // ~/.karajan). Without this glob, HU statuses flipped to coding / done
-  // by `kj run --plan` never reached the board until the user clicked
-  // the manual 🔄 sync — exactly the "silent, feels dead" UX we wanted
-  // to avoid.
-  const plansRoot = process.env.KJ_PLANS_DIR || join(homedir(), '.kj', 'plans');
+  // Plans live under KJ_PLANS_DIR or `~/.karajan/plans/` after
+  // KJC-PCS-0047 PR 3 consolidated the home directories. Without this
+  // glob, HU statuses flipped to coding/done by `kj run --plan` never
+  // reach the board until the user clicks 🔄 manually. The legacy
+  // `~/.kj/plans/` root is also watched so users running the board
+  // before their first post-upgrade `kj` command (the trigger of the
+  // auto-migrator) keep seeing live updates.
+  const plansRoot = process.env.KJ_PLANS_DIR || join(homedir(), '.karajan', 'plans');
+  const legacyPlansRoot = process.env.KJ_PLANS_DIR ? null : join(homedir(), '.kj', 'plans');
   const plansGlob = join(plansRoot, '*', 'plan-*.json');
+  const legacyPlansGlob = legacyPlansRoot ? join(legacyPlansRoot, '*', 'plan-*.json') : null;
 
-  const watcher = watch([storiesGlob, sessionsGlob, plansGlob, promptsGlob], {
+  const watchTargets = [storiesGlob, sessionsGlob, plansGlob, promptsGlob];
+  if (legacyPlansGlob) watchTargets.push(legacyPlansGlob);
+  const watcher = watch(watchTargets, {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
   });

@@ -38,13 +38,13 @@ async function handleCorruptPlanFile(filePath, error) {
 }
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
-// Delegates to the unified resolver in src/utils/paths.js. The
-// `defaultSegment: ".kj"` preserves the legacy default until PR 3
-// flips every caller to `.karajan/` simultaneously. The vitest
-// isolation, KARAJAN_HOME precedence and KJ_HOME deprecation
-// warning all live in the resolver — nothing else needs to know.
+// Delegates to the unified resolver in src/utils/paths.js. PR 3 of
+// KJC-PCS-0047 flipped the default from `.kj` to `.karajan` — plans
+// now live under `~/.karajan/plans/`. The migrator (src/utils/
+// home-migration.js) auto-moves legacy `~/.kj/plans/` content on the
+// next `kj` invocation, so existing users are not stranded.
 export function getKjHome() {
-  return resolveHome({ defaultSegment: ".kj" });
+  return resolveHome({ defaultSegment: ".karajan" });
 }
 
 /**

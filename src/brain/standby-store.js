@@ -19,10 +19,12 @@ import { resolveHome } from "../utils/paths.js";
 
 const FILENAME_RE = /^[a-zA-Z0-9._-]+\.json$/;
 
-// Delegates to the unified resolver. PR 1 keeps the legacy `.kj`
-// default; PR 3 will switch every caller to `.karajan/`.
+// Delegates to the unified resolver. PR 3 of KJC-PCS-0047 switched
+// the default to `.karajan` — hibernated sessions now persist under
+// `~/.karajan/standby/`, migrated automatically from the legacy
+// `~/.kj/standby/` on the next `kj` invocation.
 function getKjHome() {
-  return resolveHome({ defaultSegment: ".kj" });
+  return resolveHome({ defaultSegment: ".karajan" });
 }
 
 export function standbyDir() {

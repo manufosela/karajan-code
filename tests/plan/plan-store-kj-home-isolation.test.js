@@ -28,11 +28,14 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
     vi.resetModules();
   });
 
-  it("returns ~/.kj when KJ_HOME and VITEST are both unset", async () => {
+  it("returns ~/.karajan when KJ_HOME and VITEST are both unset", async () => {
+    // PR 3 of KJC-PCS-0047: default flipped from ~/.kj to ~/.karajan.
+    // Legacy ~/.kj/plans/ content is auto-migrated by src/utils/
+    // home-migration.js on the next kj invocation.
     delete process.env.KJ_HOME;
     delete process.env.VITEST;
     const { getKjHome } = await import("../../src/plan/plan-store.js");
-    expect(getKjHome()).toBe(path.join(os.homedir(), ".kj"));
+    expect(getKjHome()).toBe(path.join(os.homedir(), ".karajan"));
   });
 
   it("returns $KJ_HOME when set", async () => {
@@ -47,12 +50,10 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
     const { getKjHome } = await import("../../src/plan/plan-store.js");
     const home = getKjHome();
     expect(home.startsWith(os.tmpdir())).toBe(true);
-    expect(home).not.toBe(path.join(os.homedir(), ".kj"));
-    // PR 1 of ~/.kj/ → ~/.karajan/ consolidation: the vitest prefix
-    // is now unified as `karajan-vitest-<pid>-<rand>/<segment>` so
-    // every helper (plan-store with `.kj`, db.js with `.karajan`)
-    // shares one tmp root per process — see src/utils/paths.js.
-    expect(home).toMatch(/karajan-vitest-\d+-[a-z0-9]+\/\.kj$/);
+    expect(home).not.toBe(path.join(os.homedir(), ".karajan"));
+    // PR 3 of KJC-PCS-0047: default flipped to `.karajan`; VITEST
+    // root stays `karajan-vitest-<pid>-<rand>/<segment>`.
+    expect(home).toMatch(/karajan-vitest-\d+-[a-z0-9]+\/\.karajan$/);
   });
 
   it("memoises the tmp dir across calls within the same process", async () => {

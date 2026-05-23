@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`~/.kj/` consolidated into `~/.karajan/`** (KJC-PCS-0047, PRs #781 + #782 + this PR). Plans, hibernated standby state, run-registry entries and worktrees previously lived under `~/.kj/`; everything else lived under `~/.karajan/`. There was no ADR justifying the split, four divergent `getKjHome()` implementations had drifted, and new users could not find their plans. The HOME-level state is now unified under `~/.karajan/`. **The legacy `~/.kj/` directory is auto-migrated on the next `kj` invocation** (one-time, idempotent via `~/.karajan/.kj-migrated.json`). A tarball backup of the pre-migration tree lands at `~/.karajan/backup/kj-pre-migration-<ISO>.tar.gz` BEFORE anything moves — restore is one `tar -xzf` away. `plans/`, `standby/` and `worktrees/` are moved wholesale; `runs/` is merged with the canonical `~/.karajan/runs/` winning on file-name collision. The HU Board's plan watcher reads both the canonical and legacy locations until the next `kj` command triggers the migrator, so users who start the board first never see "missing plans".
+- **`KARAJAN_HOME` is the new canonical env var** for overriding the HOME-level Karajan root. `KJ_HOME` keeps working but emits a one-shot per-process `[warn] KJ_HOME is deprecated, rename to KARAJAN_HOME` the first time it is consulted. Precedence: `KARAJAN_HOME` > `KJ_HOME` (with warning) > VITEST tmp > `~/.karajan`.
+- **`kj doctor` reports unmigrated legacy `~/.kj/`** as a `warn`-severity check (`legacy-kj-home`) with the fix line `Run any kj command (e.g. kj doctor) — the migrator runs automatically`.
+
 ## [2.18.1] - 2026-05-23
 
 Patch release. Six follow-ups to v2.18.0, all triggered by direct user feedback after the public launch.

@@ -39,16 +39,15 @@ const FINAL_PLAN_STATUSES = new Set([
 const KNOWN_PLAN_STATUSES = new Set([...FINAL_PLAN_STATUSES, "draft", "running"]);
 const FINAL_SESSION_STATUSES = new Set(["approved", "failed", "stopped", "rejected", "completed"]);
 
-// Both helpers delegate to the unified resolver. PR 1 keeps the
-// legacy defaults; PR 3 will collapse both into `getKarajanHome()`
-// once every other caller has moved over.
-function getKjHome() {
-  return resolveHome({ defaultSegment: ".kj" });
-}
-
+// Post-PR-3 of KJC-PCS-0047 both helpers point at the canonical
+// `~/.karajan/` root. `getKjHome` is kept as an alias of
+// `getKarajanHome` so legacy callers inside the file continue to
+// compile during the consolidation; both names resolve to the same
+// directory now that the layout is unified.
 function getKarajanHome() {
   return resolveHome({ defaultSegment: ".karajan" });
 }
+const getKjHome = getKarajanHome;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
