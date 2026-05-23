@@ -12,6 +12,7 @@ import { registerSonar } from "./cli/register-sonar.js";
 import { registerStandby } from "./cli/register-standby.js";
 import { printUpdateNotice } from "./utils/update-check.js";
 import { printWelcomeScreen } from "./utils/welcome.js";
+import { migrateKjToKarajan } from "./utils/home-migration.js";
 
 const PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
 const PKG_VERSION = JSON.parse(readFileSync(PKG_PATH, "utf8")).version;
@@ -109,8 +110,10 @@ program.action(async (_opts, command) => {
 
 // One-shot ~/.kj/ → ~/.karajan/ consolidation. Idempotent via marker
 // file; failures non-blocking. See src/utils/home-migration.js.
+// Static import — the migrator runs on every kj invocation, no
+// lazy-load benefit + the architectural dynamic-imports budget would
+// otherwise grow by one for a permanent caller.
 try {
-  const { migrateKjToKarajan } = await import("./utils/home-migration.js");
   await migrateKjToKarajan();
 } catch (err) {
   // eslint-disable-next-line no-console
