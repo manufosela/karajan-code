@@ -1155,6 +1155,70 @@ Esto mantiene el board estrictamente future-canonical para estado nuevo (no más
 
 Budget de LOC: +108 / -44, net +64. Dentro del límite hard de 200. Una PR, una bug card, un release — fix patch-sized para un bug patch-sized.
 
+## Fase 76: kj resume continúa desde checkpoint + autoInit deja de hacer commits zombie (v2.19.4)
+
+**v2.19.4** (patch, 2026-05-24) — dos bugs cerrados en un solo release. PRs #797 y #798, ambos reportados durante el ciclo de v2.19.3.
+
+### KJC-BUG-0058 — `kj resume` re-ejecutaba researcher + architect + planner (PR #798)
+
+Reportado por Aitor Martínez con screenshot: una sesión pausada durante Sonar, al reanudar con `kj resume <sessionId>`, mostraba `[researcher] Read ...` en el terminal segundos después. Todo el pipeline pre-loop — HU-reviewer → intent → discover → triage → domainCurator → researcher → architect → planner — re-ejecutaba desde cero. Las stages caras de LLM volvían a correr. El value-prop de resume ("continúa donde paraste") quedaba vacío.
+
+Causa raíz de dos capas. **Capa uno**: `resumeFlow` en `src/orchestrator/flow-runner.js:280` cargaba la sesión y llamaba a `runFlow` sin pasar ninguna señal sobre qué stages estaban ya hechas. **Capa dos**: `runFlow` → `initFlowContext` (init-context.js:175) inicializaba `ctx.stageResults = {}` incondicionalmente; `runPreLoopStages` (pre-loop.js:62) re-ejecutaba cada stage. La sesión SÍ mantenía outputs de pre-loop en `ctx.stageResults` durante el run — pero nada los volcaba a `session.json`. El estado nunca cruzaba la frontera de proceso.
+
+El fix es de dos capas, espejando el bug.
+
+**Capa uno — persistencia.** Dos nuevos mutators en `src/session/mutators.js`:
+
+- `setStageResult(session, name, result)` — puebla `session.stage_results[name]` y añade `name` a `session.stages_completed[]`. Idempotente en el array.
+- `setStageBundle(session, name, bundle)` — añade `session.stage_bundles[name]` para cross-stage context que el stageResult solo no puede cargar. `researchContext` de researcher, `architectContext` de architect y `plannedTask` de planner son requeridos por stages downstream y viven SOLO en memoria hasta que el bundle los persiste. `setStageBundle` además llama a `setStageResult` para que los readers legacy y el resumeSkip path sigan funcionando a través de un único entry point.
+
+**Capa dos — driver.** Dos closures dentro de `runPreLoopStages`:
+
+- `persistStage(name, result)` — escribe `stageResults[name]`, llama a `setStageResult`, llama a `saveSession`. Captura errores de save y loguea `warn` — un FS flaky no debería abortar un run largo.
+- `resumeSkip(name)` — devuelve true cuando `stageResults[name]` ya está poblado (rehydratado de la sesión cargada), emite evento de progreso `stage:skipped` y una línea de log.
+
+Sitios cacheables envueltos: huReviewer (dos entry points — primera stage y auto-activación post-triage), intent, discover, domainCurator, researcher, architect, planner. Researcher / architect / planner llaman además a `setStageBundle` para que resume pueda replay de su context cross-stage.
+
+**Triage NO se skipea en resume.** Produce `roleOverrides` que stages downstream y el Brain decisor necesitan; re-ejecutarla es el path seguro y es la stage pre-loop más barata. Las stages caras que custodia (researcher, architect, planner) SÍ se skipean si están completas.
+
+El entry point de la rehydratación es una línea en `init-context.js`:
+
+```js
+ctx.stageResults = { ...(ctx.session?.stage_results || {}) };
+```
+
+Ese spread es lo que permite a `resumeSkip` detectar stages completadas sin un nuevo flag enhebrándose por toda la cadena.
+
+Budget de LOC: +197 / -43, net +154. Dentro de 200 hard / 150 ideal. 10 ficheros de test / 57 tests de orchestrator siguieron verdes; nuevo test `tests/orchestrator/resume-skip-stages.test.js` pin del contract.
+
+### KJC-BUG-0060 — `autoInit()` commiteaba vacíos en main del usuario (PR #797)
+
+Reportado por mjfosela durante el propio release de v2.19.3: tras `git checkout main`, `git status` mostraba `[adelante 27]` ante origin/main. Cada uno de los 27 commits titulado `initial commit`, autor `manufosela@gmail.com` (su `user.email` local de karajan-code, no su global `mjfosela@gmail.com`), tree apuntando al **mismo árbol que su parent** — completamente vacíos. El reflog acumulaba **2 495 SHAs** del mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (el push o CI los habrían rechazado), runtime impact cero, pero en cada release la historia local parecía pérdida de sync.
+
+Causa raíz: `src/orchestrator/config-init.js::autoInit()` guardaba con `!(await exists(projectDir/.git))`, que falla por dos vías.
+
+1. **Dogfooding kj sobre karajan-code mismo** (kj-linked apunta al source tree). Cuando `kj run` se invoca desde cualquier subdir del repo, `initFlowContext` (drivers/init-context.js:42) pasa ese subdir como `projectDir`. El subdir no tenía `.git/` propio → `exists()` devolvía false → el siguiente `git init` reinicializaba el `.git/` del *padre* (idempotente, inofensivo), y el `git commit --allow-empty` resolvía hacia arriba al repo padre y aterrizaba commit vacío en `main`.
+2. **Race FS transitoria.** EACCES / ENOENT durante un scan concurrente de `.karajan/` flipearían `exists()` a falso negativo y dispararían el mismo bug.
+
+Fix: cambio el FS probe estático por la upward-traversal del propio git.
+
+```js
+try {
+  execFileSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: projectDir, stdio: "pipe" });
+  // ya dentro de un work tree — propio o de un padre — bail out
+} catch {
+  execFileSync("git", ["init"], { cwd: projectDir, stdio: "pipe" });
+  // YA NO `git commit --allow-empty`
+}
+```
+
+Dos cambios en un solo fix.
+
+1. `rev-parse --is-inside-work-tree` hace la misma búsqueda hacia arriba que git usaría para el commit; el guard no puede discrepar con la operación que custodia. Los FS probes false-positive son irrelevantes; si git dice que estamos dentro de un work tree, ningún commit cae en el sitio equivocado de todos modos.
+2. El seed commit vacío se elimina. Ninguna stage downstream (diff, review, coder, sonar) necesita un root commit; los 2 495 zombies nunca rompieron nada. El seed era decorativo y resultó ser el síntoma user-visible real.
+
+Budget de LOC: +117 / -9, net +108. Dentro de 200 hard / 150 ideal. 9 ficheros de test / 54 tests de orchestrator siguieron verdes; nuevo test `tests/orchestrator/config-init-autoinit.test.js` pin de los tres escenarios de aceptación (subdir de repo, dir limpio, repo propio).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
