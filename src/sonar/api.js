@@ -3,6 +3,7 @@ import { withRetry } from "../utils/retry.js";
 import { resolveSonarProjectKey } from "./project-key.js";
 import { resolveSonarToken } from "./config-resolver.js";
 import { filterFalsePositives } from "./issue-filter.js";
+import { recoverSonarToken } from "./token-recovery.js";
 
 class SonarApiError extends Error {
   constructor(message, { url, httpStatus, hint } = {}) {
@@ -25,7 +26,7 @@ function parseHttpResponse(stdout) {
   return { httpCode, body };
 }
 
-async function sonarFetchOnce(config, urlPath) {
+async function sonarFetchOnce(config, urlPath, { _retriedAfterRecovery = false, logger = null } = {}) {
   const token = tokenFromConfig(config);
   const url = `${config.sonarqube.host}${urlPath}`;
   const res = await runCommand("curl", ["-s", "-w", "\n%{http_code}", "-u", `${token}:`, url]);
@@ -42,9 +43,22 @@ async function sonarFetchOnce(config, urlPath) {
   const { httpCode, body } = parseHttpResponse(res.stdout);
 
   if (httpCode === 401) {
+    // KJC-BUG-0057 (v2.19.2): try to bootstrap a fresh token via the Sonar
+    // REST API and retry ONCE. If recovery still fails — or this was already
+    // the retry — surface the actionable error like before.
+    if (!_retriedAfterRecovery) {
+      const recovery = await recoverSonarToken(config, logger);
+      if (recovery.ok) {
+        return sonarFetchOnce(config, urlPath, { _retriedAfterRecovery: true, logger });
+      }
+      throw new SonarApiError(
+        `SonarQube authentication failed (HTTP 401) and auto-recovery failed: ${recovery.reason}. Regenerate the token manually with 'kj init' or save admin user/password in ~/.karajan/sonar-credentials.json.`,
+        { url, httpStatus: 401, hint: "Run 'kj init' to regenerate the SonarQube token, or save admin credentials in ~/.karajan/sonar-credentials.json so Karajan can re-bootstrap automatically." }
+      );
+    }
     throw new SonarApiError(
-      `SonarQube authentication failed (HTTP 401). Token may be invalid or expired. Regenerate with 'kj init'.`,
-      { url, httpStatus: 401, hint: "Run 'kj init' to regenerate the SonarQube token." }
+      `SonarQube authentication failed (HTTP 401) even after auto-recovery. The newly generated token is also being rejected — the Sonar instance may be in an inconsistent state.`,
+      { url, httpStatus: 401, hint: "Inspect the Sonar UI directly; consider 'kj sonar restart'." }
     );
   }
 
