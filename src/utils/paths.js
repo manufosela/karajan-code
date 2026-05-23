@@ -89,3 +89,18 @@ export function getSessionRoot() {
 export function getSonarComposePath() {
   return path.join(getKarajanHome(), "docker-compose.sonar.yml");
 }
+
+/** Webperf cache: `<karajan-home>/webperf/` — KJC-TSK-0420. */
+export function getWebperfDir() {
+  return path.join(getKarajanHome(), "webperf");
+}
+
+/** Run-registry: `<karajan-home>/runs/` — KJC-TSK-0420. */
+export function getRunsDir() {
+  return path.join(getKarajanHome(), "runs");
+}
+
+/** Board prompt bridge: `<karajan-home>/prompts/` — KJC-TSK-0420. */
+export function getPromptsDir() {
+  return path.join(getKarajanHome(), "prompts");
+}

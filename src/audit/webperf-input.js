@@ -28,15 +28,12 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { evaluateCwv, CWV_THRESHOLDS } from "../webperf/cwv-gate.js";
+import { getWebperfDir } from "../utils/paths.js";
 
-// Resolve per call — `os.homedir()` reads $HOME each time, so test
-// suites that override $HOME for hermetic tmp dirs work without
-// special re-imports.
-function webperfHome() {
-  return path.join(os.homedir(), ".karajan", "webperf");
-}
+// Delegated to src/utils/paths.js (KJC-TSK-0420) — respects
+// KARAJAN_HOME / KJ_HOME (with deprecation warning) / VITEST tmp.
+function webperfHome() { return getWebperfDir(); }
 
 function projectSlug(projectDir) {
   return path.basename(projectDir || process.cwd()).replaceAll(/[^a-zA-Z0-9_-]/g, "_");

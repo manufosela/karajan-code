@@ -33,18 +33,25 @@ const failingScan = {
   ],
 };
 
-let tmpHome, tmpProject, originalHome;
+let tmpHome, tmpProject, originalHome, originalKarajanHome;
 
 beforeEach(async () => {
   tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "kj-perf-role-"));
   tmpProject = path.join(tmpHome, "my-app");
   await fs.mkdir(tmpProject, { recursive: true });
+  // KJC-TSK-0420: perf-role::defaultPersistDir() now resolves via
+  // src/utils/paths.js, which respects KARAJAN_HOME with priority over
+  // the VITEST tmp dir. Set both for hermetic test isolation.
   originalHome = process.env.HOME;
+  originalKarajanHome = process.env.KARAJAN_HOME;
   process.env.HOME = tmpHome;
+  process.env.KARAJAN_HOME = path.join(tmpHome, ".karajan");
 });
 
 afterEach(async () => {
   process.env.HOME = originalHome;
+  if (originalKarajanHome === undefined) delete process.env.KARAJAN_HOME;
+  else process.env.KARAJAN_HOME = originalKarajanHome;
   await fs.rm(tmpHome, { recursive: true, force: true });
 });
 

@@ -125,14 +125,13 @@ export function appendZombieCheckpoint(existingJson, reason, isoTimestamp) {
 }
 
 /**
- * Default location of the on-disk session JSON files.
- * Honours $KJ_HOME so tests and per-user setups can point elsewhere.
- *
+ * Default location of the on-disk session JSON files. Delegates to
+ * db.js::getKjHome (KJC-TSK-0420): KARAJAN_HOME > KJ_HOME > VITEST > default.
  * @returns {string}
  */
+import { getKjHome } from "./db.js";
 export function getSessionsDir() {
-  const home = process.env.KJ_HOME || path.join(os.homedir(), ".karajan");
-  return path.join(home, "sessions");
+  return path.join(getKjHome(), "sessions");
 }
 
 /**

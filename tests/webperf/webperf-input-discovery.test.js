@@ -45,10 +45,13 @@ describe("collectWebPerfInput — persisted scan discovery (KJC-TSK-0149 wiring)
   });
 
   it("falls back to ~/.karajan/webperf/<slug>/last.json discovery via projectDir", () => {
-    // Point HOME at our tmp so the fallback path lands inside it.
-    const originalHome = os.homedir();
+    // KJC-TSK-0420: webperf-input now resolves via paths.js which
+    // honours KARAJAN_HOME with priority over the VITEST tmp dir;
+    // set KARAJAN_HOME so the fallback path lands inside our tmp.
     const originalEnv = process.env.HOME;
+    const originalKarajanHome = process.env.KARAJAN_HOME;
     process.env.HOME = tmpDir;
+    process.env.KARAJAN_HOME = path.join(tmpDir, ".karajan");
     try {
       const projectDir = path.join(tmpDir, "my-project");
       fs.mkdirSync(projectDir, { recursive: true });
@@ -66,8 +69,8 @@ describe("collectWebPerfInput — persisted scan discovery (KJC-TSK-0149 wiring)
       expect(r.url).toBe("http://localhost:3000");
     } finally {
       process.env.HOME = originalEnv;
-      // Sanity assertion the homedir override was effective during the test
-      void originalHome;
+      if (originalKarajanHome === undefined) delete process.env.KARAJAN_HOME;
+      else process.env.KARAJAN_HOME = originalKarajanHome;
     }
   });
 

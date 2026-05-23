@@ -33,6 +33,11 @@ function vitestTmpKjHome() {
  * @returns {string}
  */
 export function getKjHome() {
+  // KJC-TSK-0420: same precedence chain as src/utils/paths.js::resolveHome():
+  // KARAJAN_HOME (canonical) > KJ_HOME (legacy) > VITEST tmp > ~/.karajan.
+  // Kept inline rather than cross-workspace imported so the hu-board package
+  // does not gain a new src/ dep; the precedence behaviour is the same.
+  if (process.env.KARAJAN_HOME) return process.env.KARAJAN_HOME;
   if (process.env.KJ_HOME) return process.env.KJ_HOME;
   if (process.env.VITEST) return vitestTmpKjHome();
   return join(process.env.HOME || '/root', '.karajan');

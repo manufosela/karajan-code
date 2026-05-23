@@ -27,7 +27,10 @@ import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/p
  * Now the server writes its own PID on every start so both the CLI
  * launch and the in-place restart keep the file accurate.
  */
-const PID_FILE = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-board.pid');
+// KJC-TSK-0420: delegate to db.js::getKjHome so KARAJAN_HOME / KJ_HOME /
+// VITEST all share one precedence chain.
+import { getKjHome } from './db.js';
+const PID_FILE = join(getKjHome(), 'hu-board.pid');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, '..', 'public');

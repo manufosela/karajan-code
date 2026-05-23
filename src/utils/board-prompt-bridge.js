@@ -28,16 +28,15 @@
 
 import { mkdir, writeFile, readFile, unlink, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 
 const POLL_INTERVAL_MS = 500;
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;          // 30 min
 
-function getPromptsDir() {
-  const home = process.env.KJ_HOME || join(homedir(), ".karajan");
-  return join(home, "prompts");
-}
+// Delegated to src/utils/paths.js so KARAJAN_HOME, KJ_HOME (with
+// deprecation warning), VITEST tmp and the default all share one
+// precedence chain — KJC-TSK-0420.
+import { getPromptsDir } from "./paths.js";
 
 function exists(path) {
   return stat(path).then(() => true, () => false);

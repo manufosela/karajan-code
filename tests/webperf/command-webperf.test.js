@@ -42,7 +42,7 @@ const failingScan = {
   ],
 };
 
-let tmpHome, tmpProject, originalHome;
+let tmpHome, tmpProject, originalHome, originalKarajanHome;
 let consoleSpy;
 
 beforeEach(async () => {
@@ -51,14 +51,20 @@ beforeEach(async () => {
   tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "kj-webperf-cmd-"));
   tmpProject = path.join(tmpHome, "my-project");
   await fs.mkdir(tmpProject, { recursive: true });
+  // KJC-TSK-0420: defaultReportDir() now goes through paths.js which
+  // honours KARAJAN_HOME with priority over the VITEST tmp dir.
   originalHome = process.env.HOME;
+  originalKarajanHome = process.env.KARAJAN_HOME;
   process.env.HOME = tmpHome;
+  process.env.KARAJAN_HOME = path.join(tmpHome, ".karajan");
   consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 afterEach(async () => {
   consoleSpy.mockRestore();
   process.env.HOME = originalHome;
+  if (originalKarajanHome === undefined) delete process.env.KARAJAN_HOME;
+  else process.env.KARAJAN_HOME = originalKarajanHome;
   await fs.rm(tmpHome, { recursive: true, force: true });
 });
 
