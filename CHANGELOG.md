@@ -9,7 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` and audits the user's spec for deficiencies that would otherwise cause the pipeline to spend tokens on the wrong work (KJC-PCS-0048, PRs #785 + #786 + #787 + #788). The role classifies findings across seven categories — `ambiguity`, `missing_scope`, `missing_ac`, `contradiction`, `stack`, `assumptions`, `out_of_scope` — with per-finding severity (`info` / `warn` / `fail`) and a top-level severity that is the worst of any finding (`ok` if none). On a clean spec the run prints a single `✓ spec OK` line and continues; on findings the user gets a coloured, category-grouped block on stderr plus an interactive `[c]ontinue / [r]efine / [x]cancel` prompt. **Refine** asks the role for a rewritten v2 of the spec, persists both versions to `<projectDir>/.reviews/spec-review-<ISO>/spec-v1.md` + `spec-v2.md` (and mirrors v2 next to `--task-file` if supplied), opens `$EDITOR` on v2, and uses a SHA-256 hash diff to decide whether to re-review (user modified v2) or proceed with v2 as the effective spec (user accepted untouched). Capped at 5 refine iterations. Defaults to **on**; bypass per-invocation with `--skip-spec-review` on the CLI or `specReviewMode: "skip"` on the MCP tools `kj_run` and `kj_plan`. Provider configurable via `roles.spec_reviewer.provider` / `roles.spec_reviewer.model` in `kj.config.yml` (inherits from `coder` by default). Trust-the-worse semantic guards against agents that under-report severity. Degrades to a single soft warning on a non-JSON LLM output instead of throwing. Safe upgrade from 2.19.x.
+- **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
+
+## [2.19.1] - 2026-05-23
+
+Patch release. **APPLICATION BLOCKER** fix for the HU Board.
+
+### Fixed
+
+- **`kj board start` failed with `ERR_MODULE_NOT_FOUND` on every fresh `npm install -g karajan-code`** (KJC-BUG-0056, PR #791). Two independent bugs combined to break the documented HU Board feature for every user installing from npm: (1) the root `package.json::files` array did not include `packages/`, so `npm pack` was shipping a tarball with no HU Board code at all — confirmed via `npm pack --dry-run`. (2) Even after copying `packages/hu-board/` manually (the fallback some users tried), the board crashed at startup with `Cannot find package 'helmet' imported from .../packages/hu-board/src/server.js` because the five HU Board dependencies (`helmet`, `chokidar`, `better-sqlite3`, `express`, `express-rate-limit`) were declared in `packages/hu-board/package.json` but NOT in the root `dependencies`, so `npm install -g karajan-code` never pulled them. **Fix**: add `packages/hu-board/{src,public,package.json}` to `files`; add the five HU Board deps to root `dependencies` at the exact versions the sub-package declares (so `npm dedupe` collapses to one copy resolvable by upward traversal from `server.js`); regenerate `package-lock.json`. Verified end-to-end: `npm pack --dry-run` now ships 12 board files; `node packages/hu-board/src/server.js` boots cleanly. Reported by Aitor Martínez.
+
+### Internal
+
+- **38 direct `os.homedir()` callers routed through the unified resolver** (KJC-TSK-0420, PR #790). `KARAJAN_HOME=/some/path kj <anything>` now redirects EVERY component to `/some/path/…` — not just plans / standby / sessions, but also the webperf cache, run-registry, board prompt bridge, HU Board auth token, the `hu-board.pid` file, the `kj.config.yml` read by the board's config viewer, and the `kj doctor` dir-setup check. Three new helpers in `src/utils/paths.js` (`getWebperfDir`, `getRunsDir`, `getPromptsDir`) and a `KARAJAN_HOME` priority added to `packages/hu-board/src/db.js::getKjHome`. The legitimate non-Karajan callers (`os.homedir()` for `~/.claude.json`, `~/.codex/config.toml`, npm-global bin lookups, the fs-leak detector) stay untouched.
+- **5 inline constructions of `~/.karajan/hu-board-runs/` unified under `getHuBoardRunsDir()`** (KJC-TSK-0421, PR #789). Pure DRY refactor; no behaviour change.
+
+## [2.19.0] - 2026-05-23
+
+Minor release. Closes [KJC-PCS-0047](https://planning-game.web.app) — the **home-directory consolidation** epic. Three back-to-back PRs (#781, #782, #783) unify the HOME-level state of Karajan into a single `~/.karajan/` root, with a one-shot auto-migrator that moves legacy `~/.kj/` content on the next `kj` invocation (idempotent, tarball-backed). and audits the user's spec for deficiencies that would otherwise cause the pipeline to spend tokens on the wrong work (KJC-PCS-0048, PRs #785 + #786 + #787 + #788). The role classifies findings across seven categories — `ambiguity`, `missing_scope`, `missing_ac`, `contradiction`, `stack`, `assumptions`, `out_of_scope` — with per-finding severity (`info` / `warn` / `fail`) and a top-level severity that is the worst of any finding (`ok` if none). On a clean spec the run prints a single `✓ spec OK` line and continues; on findings the user gets a coloured, category-grouped block on stderr plus an interactive `[c]ontinue / [r]efine / [x]cancel` prompt. **Refine** asks the role for a rewritten v2 of the spec, persists both versions to `<projectDir>/.reviews/spec-review-<ISO>/spec-v1.md` + `spec-v2.md` (and mirrors v2 next to `--task-file` if supplied), opens `$EDITOR` on v2, and uses a SHA-256 hash diff to decide whether to re-review (user modified v2) or proceed with v2 as the effective spec (user accepted untouched). Capped at 5 refine iterations. Defaults to **on**; bypass per-invocation with `--skip-spec-review` on the CLI or `specReviewMode: "skip"` on the MCP tools `kj_run` and `kj_plan`. Provider configurable via `roles.spec_reviewer.provider` / `roles.spec_reviewer.model` in `kj.config.yml` (inherits from `coder` by default). Trust-the-worse semantic guards against agents that under-report severity. Degrades to a single soft warning on a non-JSON LLM output instead of throwing. Safe upgrade from 2.19.x.
 
 ## [2.19.0] - 2026-05-23
 
@@ -18,6 +35,8 @@ Minor release. Closes [KJC-PCS-0047](https://planning-game.web.app) — the **ho
 4 984/4 984 tests passing across 418 test files.
 
 Safe upgrade from 2.18.x.
+
+> ⚠️ **Note**: v2.19.0 shipped with a packaging bug that broke `kj board start` for fresh installs. Use **v2.19.1 or later**.
 
 ### Changed
 
