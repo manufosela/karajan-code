@@ -160,4 +160,41 @@ describe("synthesizeMissingTests", () => {
     expect(args.timeoutMs).toBe(12345);
     expect(args.role).toBe("planner");
   });
+
+  // Sesgo-de-stack PR 3/3: synthesizer used to emit `npx vitest run`
+  // as the fallback shell command for any project. Now the caller can
+  // pass stack/testFramework so the prompt tells the LLM what runner
+  // to use (pytest, go test, cargo test, ...).
+  describe("stack-aware prompt", () => {
+    it("emits the Project Stack section when a stack is provided", () => {
+      const prompt = buildSynthesizerPrompt({
+        task: "Build it",
+        husNeedingTests: [{ id: "hu1", title: "x" }],
+        stack: { language: "python", frameworks: ["fastapi"] },
+        testFramework: { hasTests: true, framework: "pytest" },
+      });
+      expect(prompt).toContain("Project Stack");
+      expect(prompt).toContain("**python**");
+      expect(prompt).toContain("**pytest**");
+    });
+
+    it("warns against vitest/jest/npm on a non-JS stack with no framework yet", () => {
+      const prompt = buildSynthesizerPrompt({
+        task: "Build it",
+        husNeedingTests: [{ id: "hu1", title: "x" }],
+        stack: { language: "rust" },
+        testFramework: { hasTests: false },
+      });
+      expect(prompt).toMatch(/cargo test/);
+      expect(prompt).toMatch(/Do NOT emit vitest, jest/);
+    });
+
+    it("omits the Project Stack section when none is passed (back-compat)", () => {
+      const prompt = buildSynthesizerPrompt({
+        task: "Build it",
+        husNeedingTests: [{ id: "hu1", title: "x" }],
+      });
+      expect(prompt).not.toContain("Project Stack");
+    });
+  });
 });

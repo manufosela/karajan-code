@@ -16,6 +16,7 @@
  */
 
 import { emitProgress, makeEvent } from "#utils/events.js";
+import { detectProjectStack } from "#utils/stack-detect.js";
 
 export async function maybeGenerateAutoHuBatch({
   flags, stageResults, task, logger, emitter, eventBase, projectDir, session,
@@ -40,19 +41,38 @@ export async function maybeGenerateAutoHuBatch({
     isNewProject = relevant.length === 0;
   } catch { /* ignore */ }
 
-  // Extract stack hints from planner + architect output
+  // Stack hints from planner + architect text. Now multi-ecosystem
+  // (was 13/16 JS keywords — Python/Go/Rust barely existed). Combined
+  // with `detectProjectStack(projectDir)` below to override the text
+  // heuristic with the actual filesystem reality when available.
   const stackHints = [];
   const combined = `${stageResults.planner?.plan || ""} ${stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : ""} ${task}`.toLowerCase();
-  const stackKeywords = ["express", "vite", "vitest", "jest", "next", "astro", "react", "vue", "svelte", "fastapi", "django", "spring", "gin", "nestjs", "monorepo", "workspaces"];
+  const stackKeywords = [
+    "express", "vite", "vitest", "jest", "next", "astro", "react", "vue", "svelte", "nestjs", "monorepo", "workspaces",
+    "pytest", "flask", "fastapi", "django", "numpy", "pandas",
+    "gin", "fiber", "go",
+    "cargo", "rust",
+    "spring",
+  ];
   for (const kw of stackKeywords) {
     if (combined.includes(kw)) stackHints.push(kw);
   }
+
+  // Filesystem trumps text. detectProjectStack inspects package.json /
+  // pyproject.toml / go.mod / Cargo.toml, so a pure-python repo gets
+  // `language: "python"` regardless of what the task text says.
+  let detectedLanguage = null;
+  try {
+    const fsStack = await detectProjectStack(projectDir);
+    if (fsStack?.language) detectedLanguage = fsStack.language;
+  } catch { /* best-effort */ }
 
   const batch = generateHuBatch({
     originalTask: task,
     subtasks,
     stackHints,
     isNewProject,
+    language: detectedLanguage,
     researcherContext: stageResults.researcher?.summary || null,
     architectContext: stageResults.architect?.architecture ? JSON.stringify(stageResults.architect.architecture) : null
   });
