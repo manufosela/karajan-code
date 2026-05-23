@@ -172,7 +172,13 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
     })
   );
 
-  ctx.stageResults = {};
+  // KJC-BUG-0058: on `kj resume`, rehydrate stage results from the loaded
+  // session so completed pre-loop stages (researcher, architect, planner…)
+  // are skipped instead of re-executed. `setStageResult` mirrors writes
+  // into both `stage_results` (full payload) and `stages_completed` (flat
+  // array) — copying `stage_results` here is sufficient because
+  // `runPreLoopStages` only checks membership in `stageResults`.
+  ctx.stageResults = { ...(ctx.session?.stage_results || {}) };
   ctx.sonarState = { issuesInitial: null, issuesFinal: null };
 
   const preLoopResult = await runPreLoopStages({ config, logger, emitter, eventBase: ctx.eventBase, session: ctx.session, flags, pipelineFlags: ctx.pipelineFlags, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults: ctx.stageResults, brainCtx: ctx.brainCtx });

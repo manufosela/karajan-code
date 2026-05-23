@@ -34,6 +34,7 @@ import { refineSkillsSemantically, resolveSkillsMode } from "../../skills/semant
 import { saveSession } from "../../session/store.js";
 import {
   setPreflight, setAutoInstalledSkills, setSkillsRecommended,
+  setStageResult, setStageBundle,
 } from "../../session/mutators.js";
 import {
   runResearcherStage, runArchitectStage, runPlannerStage,
@@ -60,18 +61,42 @@ import { tryCiComment } from "../ci-integration.js";
 import { getIntegration } from "../integrations.js";
 
 export async function runPreLoopStages({ config, logger, emitter, eventBase, session, flags, pipelineFlags, coderRole, trackBudget, task, askQuestion, pgTaskId, pgProject, stageResults, brainCtx }) {
+  // KJC-BUG-0058: on `kj resume` `stageResults` is rehydrated from
+  // `session.stage_results`. Persist after every successful pre-loop stage
+  // and skip the work when the slot is already populated. Cost: one
+  // `await saveSession` per stage; equivalent to the writes the post-loop
+  // path already makes for security / acceptance results.
+  const persistStage = async (name, result) => {
+    if (!result) return;
+    stageResults[name] = result;
+    setStageResult(session, name, result);
+    try { await saveSession(session); } catch (err) {
+      logger.warn(`Could not persist '${name}' stage result: ${err.message}`);
+    }
+  };
+  const resumeSkip = (name) => {
+    if (!stageResults[name]) return false;
+    logger.info(`[resume] skipping pre-loop stage '${name}' — completed in previous session`);
+    emitProgress(emitter, makeEvent("stage:skipped", { ...eventBase, stage: name }, {
+      status: "ok",
+      message: `Stage '${name}' skipped — already completed on previous run`,
+      detail: { cached: true }
+    }));
+    return true;
+  };
+
   // --- HU Reviewer (first stage, before everything else, opt-in) ---
   const huFile = flags.huFile || null;
   if (flags.enableHuReviewer !== undefined) pipelineFlags.huReviewerEnabled = Boolean(flags.enableHuReviewer);
-  if (pipelineFlags.huReviewerEnabled && huFile) {
+  if (pipelineFlags.huReviewerEnabled && huFile && !resumeSkip("huReviewer")) {
     const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile, askQuestion, pgStories: null });
-    stageResults.huReviewer = huResult.stageResult;
+    await persistStage("huReviewer", huResult.stageResult);
   }
 
   // --- Intent classifier (deterministic pre-triage, opt-in) ---
-  if (config.guards?.intent?.enabled) {
+  if (config.guards?.intent?.enabled && !resumeSkip("intent")) {
     const intentResult = classifyIntent(task, config);
-    stageResults.intent = intentResult;
+    await persistStage("intent", intentResult);
     if (intentResult.classified) {
       emitProgress(emitter, makeEvent("intent:classified", { ...eventBase, stage: "intent" }, {
         message: `Intent classified: ${intentResult.taskType} (${intentResult.level}) — ${intentResult.message}`,
@@ -82,21 +107,21 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
   // --- Discover (pre-triage, opt-in) ---
   if (flags.enableDiscover !== undefined) pipelineFlags.discoverEnabled = Boolean(flags.enableDiscover);
-  if (pipelineFlags.discoverEnabled) {
+  if (pipelineFlags.discoverEnabled && !resumeSkip("discover")) {
     const discoverResult = await runDiscoverStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
-    stageResults.discover = discoverResult.stageResult;
+    await persistStage("discover", discoverResult.stageResult);
   }
 
   // --- Triage (always on) — routed through StageRegistry (TSK-0336) ---
-  // canRun here is `pipelineFlags.triageEnabled !== false`; triageEnabled is
-  // never set to false in production, so behavior matches the previous
-  // unconditional call. If a caller ever flips it off, runStage returns null
-  // and we skip apply+persist with reasonable defaults (no overrides, no
-  // stageResult).
+  // KJC-BUG-0058: NOT skipped on resume. Triage is cheap and emits
+  // `roleOverrides` that downstream stages depend on (Brain decisor + the
+  // pipelineFlags). Re-running it on resume is the safe path; the heavy
+  // stages it gates (researcher, architect, planner) ARE skipped if
+  // already complete.
   const triageCtx = { config, logger, emitter, eventBase, session, coderRole, trackBudget, pipelineFlags };
   const triageResult = await runStage(stageRegistry.get("triage"), triageCtx) ?? { roleOverrides: null, stageResult: null };
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
-  stageResults.triage = triageResult.stageResult;
+  await persistStage("triage", triageResult.stageResult);
 
   // --- Brain decisor (opt-in, intent-driven routing) ---
   //
@@ -188,13 +213,13 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
   // --- Domain Curator (after triage + skill auto-install, before planning phases) ---
   const domainHints = triageResult.stageResult?.domainHints || [];
-  if (domainHints.length > 0 || config.projectDir) {
+  if ((domainHints.length > 0 || config.projectDir) && !resumeSkip("domainCurator")) {
     try {
       const { domainContext, stageResult: dcStageResult } = await runDomainCuratorStage({
         config, logger, emitter, eventBase, session, trackBudget,
         domainHints, askQuestion
       });
-      stageResults.domainCurator = dcStageResult;
+      await persistStage("domainCurator", dcStageResult);
       if (domainContext) {
         config = { ...config, domainContext };
       }
@@ -213,7 +238,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
       pgStories = getIntegration("tracker")?.buildHuStoriesFromCard?.(session.pg_card) ?? null;
     }
     const huResult = await runHuReviewerStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget, huFile: null, askQuestion, pgStories });
-    stageResults.huReviewer = huResult.stageResult;
+    await persistStage("huReviewer", huResult.stageResult);
   }
 
   // --- Auto-simplify pipeline for simple tasks (before explicit flag overrides) ---
@@ -291,7 +316,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
 
   // --- Researcher → Planner ---
-  const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx });
+  const { plannedTask } = await runPlanningPhases({ config: updatedConfig, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx, persistStage, resumeSkip });
 
   // --- Update .gitignore with stack-specific entries based on planner/architect output ---
   const projectDir = updatedConfig.projectDir || process.cwd();
@@ -377,7 +402,7 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
 
   return { plannedTask, updatedConfig };
 }
-async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx }) {
+async function runPlanningPhases({ config, logger, emitter, eventBase, session, stageResults, pipelineFlags, coderRole, trackBudget, task, askQuestion, brainCtx, persistStage, resumeSkip }) {
   let researchContext = null;
   let plannedTask = task;
 
@@ -386,41 +411,62 @@ async function runPlanningPhases({ config, logger, emitter, eventBase, session, 
     ? (await import("../brain-coordinator.js")).processRoleOutput
     : null;
 
+  // KJC-BUG-0058: on resume, rehydrate cross-stage context from session.
+  // researchContext / architectContext / plannedTask live ONLY in memory
+  // after their owning stage runs; without these the post-loop coder
+  // would lose context even though we skipped the upstream LLM call.
+  const bundles = session?.stage_bundles || {};
+
   if (pipelineFlags.researcherEnabled) {
-    const researcherResult = await runResearcherStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
-    researchContext = researcherResult.researchContext;
-    stageResults.researcher = researcherResult.stageResult;
-    if (brainCompress) brainCompress(brainCtx, { roleName: "researcher", output: researcherResult.stageResult, iteration: 0 });
+    if (resumeSkip("researcher")) {
+      researchContext = bundles.researcher?.researchContext || null;
+    } else {
+      const researcherResult = await runResearcherStage({ config, logger, emitter, eventBase, session, coderRole, trackBudget });
+      researchContext = researcherResult.researchContext;
+      setStageBundle(session, "researcher", { stageResult: researcherResult.stageResult, researchContext });
+      await persistStage("researcher", researcherResult.stageResult);
+      if (brainCompress) brainCompress(brainCtx, { roleName: "researcher", output: researcherResult.stageResult, iteration: 0 });
+    }
   }
 
   // --- Architect (between researcher and planner) ---
   let architectContext = null;
   if (pipelineFlags.architectEnabled) {
-    const architectResult = await runArchitectStage({
-      config, logger, emitter, eventBase, session, coderRole, trackBudget,
-      researchContext,
-      discoverResult: stageResults.discover || null,
-      triageLevel: stageResults.triage?.level || null,
-      askQuestion
-    });
-    architectContext = architectResult.architectContext;
-    stageResults.architect = architectResult.stageResult;
-    if (brainCompress) brainCompress(brainCtx, { roleName: "architect", output: architectResult.stageResult, iteration: 0 });
+    if (resumeSkip("architect")) {
+      architectContext = bundles.architect?.architectContext || null;
+    } else {
+      const architectResult = await runArchitectStage({
+        config, logger, emitter, eventBase, session, coderRole, trackBudget,
+        researchContext,
+        discoverResult: stageResults.discover || null,
+        triageLevel: stageResults.triage?.level || null,
+        askQuestion
+      });
+      architectContext = architectResult.architectContext;
+      setStageBundle(session, "architect", { stageResult: architectResult.stageResult, architectContext });
+      await persistStage("architect", architectResult.stageResult);
+      if (brainCompress) brainCompress(brainCtx, { roleName: "architect", output: architectResult.stageResult, iteration: 0 });
+    }
   }
 
   const triageDecomposition = stageResults.triage?.shouldDecompose ? stageResults.triage.subtasks : null;
   if (pipelineFlags.plannerEnabled) {
-    const plannerRole = resolveRole(config, "planner");
-    const plannerResult = await runPlannerStage({ config, logger, emitter, eventBase, session, plannerRole, researchContext, architectContext, triageDecomposition, trackBudget });
-    plannedTask = plannerResult.plannedTask;
-    stageResults.planner = plannerResult.stageResult;
-    if (brainCompress) brainCompress(brainCtx, { roleName: "planner", output: plannerResult.stageResult, iteration: 0 });
+    if (resumeSkip("planner")) {
+      plannedTask = bundles.planner?.plannedTask || task;
+    } else {
+      const plannerRole = resolveRole(config, "planner");
+      const plannerResult = await runPlannerStage({ config, logger, emitter, eventBase, session, plannerRole, researchContext, architectContext, triageDecomposition, trackBudget });
+      plannedTask = plannerResult.plannedTask;
+      setStageBundle(session, "planner", { stageResult: plannerResult.stageResult, plannedTask });
+      await persistStage("planner", plannerResult.stageResult);
+      if (brainCompress) brainCompress(brainCtx, { roleName: "planner", output: plannerResult.stageResult, iteration: 0 });
 
-    await tryCiComment({
-      config, session, logger,
-      agent: "Planner",
-      body: `Plan: ${plannerResult.stageResult?.summary || plannedTask}`
-    });
+      await tryCiComment({
+        config, session, logger,
+        agent: "Planner",
+        body: `Plan: ${plannerResult.stageResult?.summary || plannedTask}`
+      });
+    }
   }
 
   return { plannedTask };

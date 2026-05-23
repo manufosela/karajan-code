@@ -138,6 +138,37 @@ export function setStatus(session, status) {
   session.status = status;
 }
 
+// --- Stage results (KJC-BUG-0058: resume must skip completed stages) ------
+
+/**
+ * Persist a pre-loop stage result on the session, plus mirror its name in
+ * a flat `stages_completed` array used by `resumeFlow` to know what to skip.
+ *
+ * Both shapes are kept in sync so callers can read either: the rich
+ * `stage_results[name]` for the full payload, or the cheap
+ * `stages_completed` for a fast membership check.
+ */
+export function setStageResult(session, name, result) {
+  if (!session.stage_results) session.stage_results = {};
+  session.stage_results[name] = result;
+  if (!Array.isArray(session.stages_completed)) session.stages_completed = [];
+  if (!session.stages_completed.includes(name)) session.stages_completed.push(name);
+}
+
+/**
+ * Stage *bundles* capture cross-stage context that a stage exports beyond
+ * its stageResult (e.g. researcher → researchContext, architect →
+ * architectContext, planner → plannedTask). Resume needs these to feed
+ * downstream stages without re-running the upstream one. The bundle is
+ * always shaped `{ stageResult, ...extras }` and `setStageBundle` mirrors
+ * the stageResult into `stage_results[name]` so legacy readers keep working.
+ */
+export function setStageBundle(session, name, bundle) {
+  if (!session.stage_bundles) session.stage_bundles = {};
+  session.stage_bundles[name] = bundle;
+  setStageResult(session, name, bundle?.stageResult ?? bundle);
+}
+
 // --- Alternative agent (rate-limit recovery) ------------------------------
 
 export function setAlternativeAgent(session, stage, provider) {
