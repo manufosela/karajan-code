@@ -14,15 +14,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { writeJsonAtomicSync } from "../utils/atomic-write.js";
+import { resolveHome } from "../utils/paths.js";
 
 const FILENAME_RE = /^[a-zA-Z0-9._-]+\.json$/;
 
+// Delegates to the unified resolver. PR 1 keeps the legacy `.kj`
+// default; PR 3 will switch every caller to `.karajan/`.
 function getKjHome() {
-  if (process.env.KJ_HOME) return process.env.KJ_HOME;
-  if (process.env.VITEST) return path.join(os.tmpdir(), `kj-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`, ".kj");
-  return path.join(os.homedir(), ".kj");
+  return resolveHome({ defaultSegment: ".kj" });
 }
 
 export function standbyDir() {

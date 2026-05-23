@@ -48,9 +48,11 @@ describe("plan-store getKjHome — VITEST auto-isolation", () => {
     const home = getKjHome();
     expect(home.startsWith(os.tmpdir())).toBe(true);
     expect(home).not.toBe(path.join(os.homedir(), ".kj"));
-    // Trailing `.kj` segment preserves semantic parity with the
-    // default `~/.kj` so existing path assertions still match.
-    expect(home).toMatch(/kj-vitest-\d+-[a-z0-9]+\/\.kj$/);
+    // PR 1 of ~/.kj/ → ~/.karajan/ consolidation: the vitest prefix
+    // is now unified as `karajan-vitest-<pid>-<rand>/<segment>` so
+    // every helper (plan-store with `.kj`, db.js with `.karajan`)
+    // shares one tmp root per process — see src/utils/paths.js.
+    expect(home).toMatch(/karajan-vitest-\d+-[a-z0-9]+\/\.kj$/);
   });
 
   it("memoises the tmp dir across calls within the same process", async () => {

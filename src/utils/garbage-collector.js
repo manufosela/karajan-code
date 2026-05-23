@@ -30,7 +30,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
+import { resolveHome } from "./paths.js";
 
 const FINAL_PLAN_STATUSES = new Set([
   // Terminal plan states the user explicitly opted into — retention applies.
@@ -39,12 +39,15 @@ const FINAL_PLAN_STATUSES = new Set([
 const KNOWN_PLAN_STATUSES = new Set([...FINAL_PLAN_STATUSES, "draft", "running"]);
 const FINAL_SESSION_STATUSES = new Set(["approved", "failed", "stopped", "rejected", "completed"]);
 
+// Both helpers delegate to the unified resolver. PR 1 keeps the
+// legacy defaults; PR 3 will collapse both into `getKarajanHome()`
+// once every other caller has moved over.
 function getKjHome() {
-  return process.env.KJ_HOME || path.join(os.homedir(), ".kj");
+  return resolveHome({ defaultSegment: ".kj" });
 }
 
 function getKarajanHome() {
-  return process.env.KARAJAN_HOME || path.join(os.homedir(), ".karajan");
+  return resolveHome({ defaultSegment: ".karajan" });
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
