@@ -20,6 +20,7 @@ import { homedir } from 'node:os';
 import { writeJsonAtomicSync } from '../../../src/utils/atomic-write.js';
 import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';
+import { getHuBoardRunsDir } from './db.js';
 import { fileURLToPath } from 'node:url';
 import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
 import { validateBlockedByChange } from '../../../src/plan/plan-validation.js';
@@ -377,7 +378,7 @@ export function runPlan({ planId, projectId, taskOverride, huIds = null } = {}) 
     huFlag = huIds.join(',');
   }
 
-  const runsDir = join(process.env.KJ_HOME || join(homedir(), '.karajan'), 'hu-board-runs');
+  const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421 — centralised in db.js
   mkdirSync(runsDir, { recursive: true });
   // PR4: when running a single HU, suffix the log with the HU id so
   // a subsequent full-plan run doesn't overwrite the per-HU log.
