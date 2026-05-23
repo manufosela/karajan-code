@@ -113,6 +113,11 @@ function collectRequiredProviders(config) {
 }
 
 export async function handleRunDirect(a, server, extra) {
+  // KJC-PCS-0048 PR 3b: respect specReviewMode without changing the
+  // existing handler contract. "skip" maps to the same flag the CLI
+  // honours; "auto" (default) leaves the reviewer enabled but the
+  // non-TTY runSpecReview path never blocks the pipeline.
+  if (a.specReviewMode === "skip") a.skipSpecReview = true;
   const config = await buildConfig(a);
   await assertNotOnBaseBranch(config, { allowForRun: true });
   const logger = createLogger(config.output.log_level, "mcp");

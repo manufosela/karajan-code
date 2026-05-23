@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` and audits the user's spec for deficiencies that would otherwise cause the pipeline to spend tokens on the wrong work (KJC-PCS-0048, PRs #785 + #786 + #787 + #788). The role classifies findings across seven categories — `ambiguity`, `missing_scope`, `missing_ac`, `contradiction`, `stack`, `assumptions`, `out_of_scope` — with per-finding severity (`info` / `warn` / `fail`) and a top-level severity that is the worst of any finding (`ok` if none). On a clean spec the run prints a single `✓ spec OK` line and continues; on findings the user gets a coloured, category-grouped block on stderr plus an interactive `[c]ontinue / [r]efine / [x]cancel` prompt. **Refine** asks the role for a rewritten v2 of the spec, persists both versions to `<projectDir>/.reviews/spec-review-<ISO>/spec-v1.md` + `spec-v2.md` (and mirrors v2 next to `--task-file` if supplied), opens `$EDITOR` on v2, and uses a SHA-256 hash diff to decide whether to re-review (user modified v2) or proceed with v2 as the effective spec (user accepted untouched). Capped at 5 refine iterations. Defaults to **on**; bypass per-invocation with `--skip-spec-review` on the CLI or `specReviewMode: "skip"` on the MCP tools `kj_run` and `kj_plan`. Provider configurable via `roles.spec_reviewer.provider` / `roles.spec_reviewer.model` in `kj.config.yml` (inherits from `coder` by default). Trust-the-worse semantic guards against agents that under-report severity. Degrades to a single soft warning on a non-JSON LLM output instead of throwing. Safe upgrade from 2.19.x.
+
 ## [2.19.0] - 2026-05-23
 
 Minor release. Closes [KJC-PCS-0047](https://planning-game.web.app) — the **home-directory consolidation** epic. Three back-to-back PRs (#781, #782, #783) unify the HOME-level state of Karajan into a single `~/.karajan/` root, with a one-shot auto-migrator that moves legacy `~/.kj/` content on the next `kj` invocation (idempotent, tarball-backed).
