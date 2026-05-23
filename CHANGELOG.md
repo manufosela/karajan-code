@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.19.2] - 2026-05-23
+
+Patch release. SonarQube auto-recovery from 401.
+
+### Fixed
+
+- **Sonar 401 now triggers automatic token re-bootstrap instead of failing the run** (KJC-BUG-0057, PR #793). Until v2.19.1, when the configured Sonar token was missing / stale / revoked / pointing at a recreated Sonar instance, `kj run` / `kj audit` threw `SonarQube authentication failed (HTTP 401)` with the hint "Regenerate with `kj init`" — putting the user in the loop for plumbing that Karajan can do itself. **Fix**: `src/sonar/api.js::sonarFetchOnce` now invokes the new `src/sonar/token-recovery.js::recoverSonarToken()` on the first 401 of a process. Recovery reuses `bootstrapSonarToken()` (already shipped in v2.10.2) — it probes admin/admin against the Sonar host, rotates the default password if still in place, revokes the existing `karajan-cli` token, generates a fresh `GLOBAL_ANALYSIS_TOKEN`, mutates `config.sonarqube.token` in place AND mirrors the new token to `~/.karajan/sonar-credentials.json` so future processes pick it up via the normal resolver chain instead of triggering recovery again. The original request retries once with the new token; the user never sees the 401 when recovery succeeds. Per-process latch ensures one Sonar run that 401s on N endpoints triggers ONE bootstrap, not N. If recovery itself fails (e.g. admin password was customised manually), the user gets a more actionable error — pointing at `~/.karajan/sonar-credentials.json` for saving admin user/password — instead of a generic "kj init" hint. Programmatic, zero LLM involvement. Reported by Aitor Martínez.
+
 ## [2.19.1] - 2026-05-23
 
 Patch release. **APPLICATION BLOCKER** fix for the HU Board.
