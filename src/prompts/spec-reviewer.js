@@ -53,8 +53,8 @@ export function buildSpecRefinerPrompt({ originalSpec, findings, instructions } 
     return `${idx}. [${f.severity}/${f.category}] ${f.message}${f.suggestion ? `\n   Fix: ${f.suggestion}` : ""}`;
   }).join("\n");
   sections.push(
-    "You are now REWRITING the user's spec to fix the listed findings.",
-    "Return ONLY the rewritten spec — no JSON, no preamble, no markdown fences, no commentary.",
+    "Your task: produce a rewritten version of the user's spec that addresses every finding listed below.",
+    "Output the rewritten spec verbatim — no JSON, no preamble, no markdown fences, no commentary.",
     "Preserve the user's intent; do not invent new requirements or scope beyond the existing spec.",
     "## Original spec", "```", String(originalSpec || "").trim(), "```",
     "## Findings to address", findingsBlock || "(none — pass-through)",
