@@ -4,6 +4,12 @@ import path from "node:path";
 import os from "node:os";
 import { handleClean } from "../../src/mcp/handlers/management-handlers.js";
 
+// PR 1 of ~/.kj/ → ~/.karajan/ consolidation: KARAJAN_HOME (or the
+// deprecated KJ_HOME) now resolves to a SINGLE root containing every
+// Karajan subdir, so the test only needs one tmp dir for plans/
+// sessions/ hu-board.db. Aliases `tmpKj` / `tmpKarajan` kept for
+// minimal diff against the rest of the test body.
+let tmpRoot;
 let tmpKj;
 let tmpKarajan;
 let saved;
@@ -14,18 +20,18 @@ async function write(p, content = "x") {
 }
 
 beforeEach(async () => {
-  tmpKj = await fs.mkdtemp(path.join(os.tmpdir(), "kj-mcp-clean-"));
-  tmpKarajan = await fs.mkdtemp(path.join(os.tmpdir(), "karajan-mcp-clean-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "karajan-mcp-clean-"));
+  tmpKj = tmpRoot;
+  tmpKarajan = tmpRoot;
   saved = { KJ: process.env.KJ_HOME, KARAJAN: process.env.KARAJAN_HOME };
-  process.env.KJ_HOME = tmpKj;
-  process.env.KARAJAN_HOME = tmpKarajan;
+  delete process.env.KJ_HOME;
+  process.env.KARAJAN_HOME = tmpRoot;
 });
 
 afterEach(async () => {
   if (saved.KJ === undefined) delete process.env.KJ_HOME; else process.env.KJ_HOME = saved.KJ;
   if (saved.KARAJAN === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = saved.KARAJAN;
-  await fs.rm(tmpKj, { recursive: true, force: true });
-  await fs.rm(tmpKarajan, { recursive: true, force: true });
+  await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 
 describe("MCP handleClean", () => {

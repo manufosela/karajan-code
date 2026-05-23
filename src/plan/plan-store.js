@@ -6,8 +6,8 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
 import { writeJsonAtomic } from "../utils/atomic-write.js";
+import { resolveHome } from "../utils/paths.js";
 import { generatePlanId, normaliseAlias } from "./plan-id.js";
 
 /**
@@ -38,33 +38,13 @@ async function handleCorruptPlanFile(filePath, error) {
 }
 import { isPlanV2, migratePlanV1toV2 } from "./plan-schema.js";
 
-// Per-process tmp dir for VITEST runs that forget to set KJ_HOME. We
-// memoise across calls so every helper in the same test process sees
-// the same root (mirrors what setting KJ_HOME explicitly would do)
-// without racing. The trailing `.kj` segment keeps semantic parity
-// with non-VITEST defaults so existing path assertions don't break.
-let _vitestKjHome = null;
-function vitestTmpKjHome() {
-  if (_vitestKjHome) return _vitestKjHome;
-  _vitestKjHome = path.join(
-    os.tmpdir(),
-    `kj-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
-    ".kj"
-  );
-  return _vitestKjHome;
-}
-
+// Delegates to the unified resolver in src/utils/paths.js. The
+// `defaultSegment: ".kj"` preserves the legacy default until PR 3
+// flips every caller to `.karajan/` simultaneously. The vitest
+// isolation, KARAJAN_HOME precedence and KJ_HOME deprecation
+// warning all live in the resolver — nothing else needs to know.
 export function getKjHome() {
-  if (process.env.KJ_HOME) return process.env.KJ_HOME;
-  // VITEST guard — without this, a test that calls savePlan() drops
-  // fixture files into the developer's real `~/.kj/plans/` and the
-  // running HU Board's chokidar watcher ingests them as "real" plans
-  // (observed: 49 fake "Add auth" plans contaminating the user's
-  // board). Auto-isolate to a per-process tmp dir so accidental
-  // writes can't leak. Tests that NEED to assert against a known
-  // path should still set KJ_HOME explicitly.
-  if (process.env.VITEST) return vitestTmpKjHome();
-  return path.join(os.homedir(), ".kj");
+  return resolveHome({ defaultSegment: ".kj" });
 }
 
 /**

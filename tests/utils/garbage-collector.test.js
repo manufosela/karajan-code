@@ -8,15 +8,18 @@ import {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-let tmpKj;
-let tmpKarajan;
+// PR 1 of the ~/.kj/ → ~/.karajan/ consolidation: KARAJAN_HOME (or
+// the deprecated KJ_HOME) now resolves to a SINGLE root that holds
+// every Karajan subdir — plans/, sessions/, hu-stories/, standby/,
+// audits/, hu-board-runs/ — so the test only needs one tmp dir.
+let tmpRoot;
 let savedKJ;
 let savedKARAJAN;
 
 async function mkdirp(p) { await fs.mkdir(p, { recursive: true }); }
 
 async function writePlan(projectSlug, planId, { status = "draft", mtime, projectDir } = {}) {
-  const dir = path.join(tmpKj, "plans", projectSlug);
+  const dir = path.join(tmpRoot, "plans", projectSlug);
   await mkdirp(dir);
   const filePath = path.join(dir, `${planId}.json`);
   const payload = { planId, status, version: 2 };
@@ -27,7 +30,7 @@ async function writePlan(projectSlug, planId, { status = "draft", mtime, project
 }
 
 async function writeSession(id, { status = "approved", mtime } = {}) {
-  const dir = path.join(tmpKarajan, "sessions", id);
+  const dir = path.join(tmpRoot, "sessions", id);
   await mkdirp(dir);
   const file = path.join(dir, "session.json");
   await fs.writeFile(file, JSON.stringify({ id, status }));
@@ -39,7 +42,7 @@ async function writeSession(id, { status = "approved", mtime } = {}) {
 }
 
 async function writeHuBatch(id, { mtime } = {}) {
-  const dir = path.join(tmpKarajan, "hu-stories", id);
+  const dir = path.join(tmpRoot, "hu-stories", id);
   await mkdirp(dir);
   const file = path.join(dir, "batch.json");
   await fs.writeFile(file, JSON.stringify({ session_id: id }));
@@ -51,19 +54,17 @@ async function writeHuBatch(id, { mtime } = {}) {
 }
 
 beforeEach(async () => {
-  tmpKj = await fs.mkdtemp(path.join(os.tmpdir(), "kj-gc-"));
-  tmpKarajan = await fs.mkdtemp(path.join(os.tmpdir(), "karajan-gc-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "karajan-gc-"));
   savedKJ = process.env.KJ_HOME;
   savedKARAJAN = process.env.KARAJAN_HOME;
-  process.env.KJ_HOME = tmpKj;
-  process.env.KARAJAN_HOME = tmpKarajan;
+  delete process.env.KJ_HOME;
+  process.env.KARAJAN_HOME = tmpRoot;
 });
 
 afterEach(async () => {
   if (savedKJ === undefined) delete process.env.KJ_HOME; else process.env.KJ_HOME = savedKJ;
   if (savedKARAJAN === undefined) delete process.env.KARAJAN_HOME; else process.env.KARAJAN_HOME = savedKARAJAN;
-  await fs.rm(tmpKj, { recursive: true, force: true });
-  await fs.rm(tmpKarajan, { recursive: true, force: true });
+  await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 
 describe("garbage-collector — plans", () => {
@@ -204,7 +205,7 @@ describe("garbage-collector — HU story batches", () => {
 // KJC-TSK-0414 PR3: GC para standby/done, audits, hu-board-runs.
 describe("garbage-collector — KJC-TSK-0414 categorías nuevas", () => {
   async function writeStandbyDone(id, { mtime } = {}) {
-    const dir = path.join(tmpKj, "standby", "done");
+    const dir = path.join(tmpRoot, "standby", "done");
     await mkdirp(dir);
     const file = path.join(dir, `${id}.json`);
     await fs.writeFile(file, "{}");
@@ -212,14 +213,14 @@ describe("garbage-collector — KJC-TSK-0414 categorías nuevas", () => {
     return file;
   }
   async function writeAudit(name, { mtime } = {}) {
-    const dir = path.join(tmpKarajan, "audits", name);
+    const dir = path.join(tmpRoot, "audits", name);
     await mkdirp(dir);
     await fs.writeFile(path.join(dir, "report.md"), "x");
     if (mtime) await fs.utimes(dir, mtime, mtime);
     return dir;
   }
   async function writeHuBoardRun(name, { mtime } = {}) {
-    const dir = path.join(tmpKarajan, "hu-board-runs", name);
+    const dir = path.join(tmpRoot, "hu-board-runs", name);
     await mkdirp(dir);
     await fs.writeFile(path.join(dir, "run.log"), "x");
     if (mtime) await fs.utimes(dir, mtime, mtime);
@@ -254,7 +255,7 @@ describe("garbage-collector — KJC-TSK-0414 categorías nuevas", () => {
   });
 
   it("standby/<id>.json (pendiente, NO done) NUNCA se toca", async () => {
-    const pendingDir = path.join(tmpKj, "standby");
+    const pendingDir = path.join(tmpRoot, "standby");
     await mkdirp(pendingDir);
     const pending = path.join(pendingDir, "active.json");
     await fs.writeFile(pending, JSON.stringify({ sessionId: "active", cooldownUntil: "2099-01-01T00:00:00Z" }));
@@ -297,9 +298,8 @@ describe("garbage-collector — summary + autoGC", () => {
     expect(line).toMatch(/\d+ KiB/);
   });
 
-  it("never throws on missing ~/.kj/ or ~/.karajan/", async () => {
-    await fs.rm(tmpKj, { recursive: true, force: true });
-    await fs.rm(tmpKarajan, { recursive: true, force: true });
+  it("never throws on missing ~/.karajan/", async () => {
+    await fs.rm(tmpRoot, { recursive: true, force: true });
 
     const result = await runManualGC({ dryRun: false });
 
@@ -310,23 +310,23 @@ describe("garbage-collector — summary + autoGC", () => {
 
 describe("garbage-collector — nukeBoardDb", () => {
   it("removes hu-board.db / db-wal / db-shm / pid when dryRun=false", async () => {
-    await fs.writeFile(path.join(tmpKarajan, "hu-board.db"), "fakedb");
-    await fs.writeFile(path.join(tmpKarajan, "hu-board.db-wal"), "fakewal");
-    await fs.writeFile(path.join(tmpKarajan, "hu-board.db-shm"), "fakeshm");
+    await fs.writeFile(path.join(tmpRoot, "hu-board.db"), "fakedb");
+    await fs.writeFile(path.join(tmpRoot, "hu-board.db-wal"), "fakewal");
+    await fs.writeFile(path.join(tmpRoot, "hu-board.db-shm"), "fakeshm");
 
     const result = await nukeBoardDb({ dryRun: false });
 
     expect(result.removed.length).toBe(3);
-    await expect(fs.stat(path.join(tmpKarajan, "hu-board.db"))).rejects.toThrow();
+    await expect(fs.stat(path.join(tmpRoot, "hu-board.db"))).rejects.toThrow();
   });
 
   it("dry-run reports but doesn't touch files", async () => {
-    await fs.writeFile(path.join(tmpKarajan, "hu-board.db"), "fakedb");
+    await fs.writeFile(path.join(tmpRoot, "hu-board.db"), "fakedb");
 
     const result = await nukeBoardDb({ dryRun: true });
 
     expect(result.removed.length).toBe(1);
-    const stat = await fs.stat(path.join(tmpKarajan, "hu-board.db"));
+    const stat = await fs.stat(path.join(tmpRoot, "hu-board.db"));
     expect(stat.isFile()).toBe(true);
   });
 
