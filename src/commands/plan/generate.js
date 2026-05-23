@@ -40,6 +40,21 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     }
   }
 
+  // Spec-reviewer pre-planner audit (KJC-PCS-0048). Runs BEFORE the
+  // planner — surfaces ambiguity / missing scope / missing AC and
+  // lets the user bail out cheap, before any planner tokens burn.
+  // Bypass with --skip-spec-review. In --json mode (no TTY assumed)
+  // we run the review but never block — findings go to stderr.
+  const { runSpecReview } = await import("../../spec-review/run-spec-review.js");
+  const reviewResult = await runSpecReview({
+    spec: task, config, logger, flags,
+    askQuestion: json ? null : (typeof flags?.askQuestion === "function" ? flags.askQuestion : null),
+  });
+  if (!reviewResult.proceed) {
+    logger?.info?.("Aborted by user after spec review.");
+    return { ok: false, aborted: true, reason: "spec-review-cancelled" };
+  }
+
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);
   runLog.logText(`[planner] provider=${plannerRole.provider}`);

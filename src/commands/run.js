@@ -163,6 +163,19 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     }
 
     const askQuestion = createCliAskQuestion();
+
+    // Spec-reviewer pre-pipeline audit (KJC-PCS-0048). Runs BEFORE
+    // anything else — surfaces ambiguity / missing scope / missing AC
+    // and lets the user bail out cheap, before any tokens burn.
+    // Bypass with --skip-spec-review.
+    const { runSpecReview } = await import("../spec-review/run-spec-review.js");
+    const reviewResult = await runSpecReview({ spec: task, config, logger, askQuestion, flags });
+    if (!reviewResult.proceed) {
+      logger.info("Aborted by user after spec review.");
+      cleanupRegistry();
+      return { ok: false, aborted: true, reason: "spec-review-cancelled" };
+    }
+
     let result;
     try {
       result = await runFlow({ task: task, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
