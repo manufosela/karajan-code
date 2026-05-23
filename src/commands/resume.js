@@ -3,6 +3,8 @@ import readline from "node:readline";
 import { resumeFlow } from "../orchestrator.js";
 import { createActivityLog } from "../activity-log.js";
 import { printEvent } from "../utils/display/event-handlers.js";
+import { withCliRunLog } from "../utils/cli-run-log.js";
+import { registerRun, unregisterRun } from "../utils/run-registry.js";
 
 function createCliAskQuestion(opts = {}) {
   const { sessionId = null } = opts;
@@ -51,36 +53,55 @@ export async function resumeCommand({ sessionId, answer, config, logger, flags }
   const jsonMode = flags?.json;
   const quietMode = config.output?.quiet !== false;
 
-  const emitter = new EventEmitter();
-  let activityLog = null;
+  // Same wrapper as every other CLI command — without it `.kj/run.log`
+  // is never opened during the resume and `kj-tail` stays silent
+  // (every line of the resumed run goes only to the per-session
+  // activity log + the local console). Also registers the run so the
+  // HU Board shows it as live and can offer its Stop button.
+  return withCliRunLog("resume", { projectDir: config?.projectDir, logger }, async ({ forwardProgress }) => {
+    const runId = registerRun({
+      pid: process.pid,
+      planId: flags?.plan || null,
+      huIds: null,
+      projectDir: config?.projectDir || process.cwd(),
+      source: "cli-resume",
+    });
+    const cleanupRegistry = () => { if (runId) unregisterRun(runId); };
+    process.once("exit", cleanupRegistry);
+    process.once("SIGTERM", () => { cleanupRegistry(); process.exit(143); });
+    process.once("SIGINT", () => { cleanupRegistry(); process.exit(130); });
 
-  emitter.on("progress", (event) => {
-    if (!activityLog && event.sessionId) {
-      activityLog = createActivityLog(event.sessionId);
-      logger.onLog((entry) => activityLog.write(entry));
-    }
+    const emitter = new EventEmitter();
+    let activityLog = null;
+    forwardProgress(emitter);
 
-    if (activityLog) {
-      activityLog.writeEvent(event);
-    }
+    emitter.on("progress", (event) => {
+      if (!activityLog && event.sessionId) {
+        activityLog = createActivityLog(event.sessionId);
+        logger.onLog((entry) => activityLog.write(entry));
+      }
+      if (activityLog) {
+        activityLog.writeEvent(event);
+      }
+      if (!jsonMode) {
+        printEvent(event, { quiet: quietMode });
+      }
+    });
 
-    if (!jsonMode) {
-      printEvent(event, { quiet: quietMode });
+    const askQuestion = createCliAskQuestion();
+    const result = await resumeFlow({
+      sessionId,
+      answer: answer || null,
+      config,
+      logger,
+      flags: flags || {},
+      emitter,
+      askQuestion
+    });
+
+    if (jsonMode || !answer) {
+      console.log(JSON.stringify(result, null, 2));
     }
+    return result;
   });
-
-  const askQuestion = createCliAskQuestion();
-  const result = await resumeFlow({
-    sessionId,
-    answer: answer || null,
-    config,
-    logger,
-    flags: flags || {},
-    emitter,
-    askQuestion
-  });
-
-  if (jsonMode || !answer) {
-    console.log(JSON.stringify(result, null, 2));
-  }
 }
