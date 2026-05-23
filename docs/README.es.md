@@ -141,10 +141,12 @@ kj-tail --help           # Todas las opciones
 ## El pipeline
 
 ```
-hu-reviewer? → triage → domain-curator? → discover? → architect? → planner? → coder → sonar? → impeccable? → reviewer → tester? → security? → solomon → commiter?
+pre-loop:  intent → hu-reviewer? → triage? → domain-curator? → discover? → skills? → researcher? → architect? → planner? → acceptance?
+iteration: coder → refactorer? → guard(output) → guard(perf) → sonar? → tdd → reviewer → solomon? → brain?   (bucle 1..N)
+post-loop: tester? → security? → perf? → impeccable? → audit?
 ```
 
-**16 roles**, cada uno ejecutado por el agente de IA que elijas:
+**24 etapas** repartidas en tres fases: 18 roles respaldados por agente IA (tabla abajo), 6 etapas deterministas sin llamada al LLM (`intent`, `skills`, `acceptance`, `guard(output)`, `guard(perf)`, `tdd`). Dos clases extra (`commiter`, `repairer`) son post-aprobación / auxiliares internas, no etapas independientes del pipeline. Cada rol IA es ejecutado por el agente que tú elijas:
 
 | Rol | Que hace | Por defecto |
 |-----|----------|-------------|
@@ -163,7 +165,16 @@ hu-reviewer? → triage → domain-curator? → discover? → architect? → pla
 | **security** | Auditoria de seguridad OWASP | **On** |
 | **solomon** | Jefe del pipeline: evalua cada rechazo, anula bloqueos solo de estilo | **On** |
 | **commiter** | Automatizacion de git commit, push y PR tras aprobacion | Off |
+| **researcher** | Investiga el codebase antes de planificar (mapa de ficheros + signatures + tests relacionados) | Off |
+| **perf** | Quality gate WebPerf — Core Web Vitals (LCP, CLS, INP) via Lighthouse | Off |
+| **brain** | Orquestador IA central: routing, enriquecimiento de feedback, compresión de salidas | **On** |
 | **audit** | Analisis de salud del codebase solo-lectura (5 dimensiones, scores A-F) | Standalone |
+
+> **Etapas deterministas (sin clase):** `intent` (clasificador de tipo de tarea — `sw` / `infra` / `doc` / `add-tests` / `refactor` / `audit`), `skills` (superficie de slash-commands), `acceptance` (tests de aceptación ejecutables), `guard(output)` (operaciones destructivas + fugas de credenciales), `guard(perf)` (anti-patrones frontend), `tdd` (verificación de cobertura).
+>
+> **Auxiliares internas (tienen clase, no etapa independiente):** `commiter` (automatización git post-aprobación), `repairer` (repara tests de aceptación rotos en runtime, invocado por `acceptance` / `tdd`).
+>
+> Referencia completa por etapa: [Roles del pipeline](https://karajan-code.web.app/docs/es/handbook/pipeline-roles/) (handbook).
 
 ## 5 agentes de IA soportados
 
