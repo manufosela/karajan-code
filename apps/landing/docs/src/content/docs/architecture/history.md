@@ -1068,6 +1068,24 @@ Full suite **4 358 tests across 373 files** — 53 new tests added for this cycl
 
 Con esto, `kj audit` queda con **5 collectors deterministas** (sonar, osv, semgrep, madge, knip), todos pasando por el mismo FP filter, todos con flag `--no-*` para desactivarlos puntualmente, y todos con stack gating que los hace no-op en proyectos donde no aplican.
 
+## Phase 72: Home directory consolidation — ~/.kj/ into ~/.karajan/ (v2.19.0)
+
+**v2.19.0** (minor, 2026-05-23) — 3 PRs (#781, #782, #783) closing the [KJC-PCS-0047 epic](https://planning-game.web.app). The HOME-level state of Karajan was split between two directories without an ADR: `~/.kj/` held plans, hibernated standby state, run-registry entries and worktrees; `~/.karajan/` held sessions, hu-stories, config, webperf, domains and roles. Four divergent `getKjHome()` implementations had drifted across `src/plan/plan-store.js`, `src/brain/standby-store.js`, `src/utils/garbage-collector.js` and `packages/hu-board/src/db.js` (the last one was already on `.karajan/` but kept the legacy name). New users could not find their plans; teams could not predict where state lived.
+
+**PR #781 — unify the resolver.** New `src/utils/paths.js::resolveHome({ defaultSegment })` is the single source of truth. Precedence: `KARAJAN_HOME` > `KJ_HOME` (with a one-shot per-process `[warn] KJ_HOME is deprecated, rename to KARAJAN_HOME`) > VITEST tmp > `~/<defaultSegment>`. The VITEST root is unified as `karajan-vitest-<pid>-<rand>/<segment>` so plan-store (`.kj`) and db.js (`.karajan`) can share one tmp prefix per test run. Three modules drop their own `getKjHome()` (~30 LOC removed each) and import the resolver. Defaults intentionally NOT changed in this PR — only mechanism. +156 LOC net, 8 new precedence tests pass.
+
+**PR #782 — auto-migrator + CLI hook.** New `src/utils/home-migration.js::migrateKjToKarajan()` runs on every `kj` invocation. Idempotent via `~/.karajan/.kj-migrated.json`. Tarball backup at `~/.karajan/backup/kj-pre-migration-<ISO>.tar.gz` BEFORE moving — restore is one `tar -xzf` away. `plans/`, `standby/` and `worktrees/` are moved wholesale; `runs/` is merged with `.karajan/` winning on file-name conflict (it is the canonical runs root used by 4 production code paths). Cross-device safe (`fs.rename` falls back to `fs.cp + fs.rm` on `EXDEV` for overlay mounts, docker volumes, NFS). VITEST guard so tests setting `KJ_HOME` never migrate against the developer's real HOME. Hook in `src/cli.js` is static-imported (the migrator runs on every invocation — no lazy-load benefit, plus the architectural dynamic-imports budget would otherwise grow by one for a permanent caller). +182 LOC net, 5 migration scenarios tested.
+
+**PR #783 — flip every default to `~/.karajan/`.** Plan-store, standby-store and garbage-collector now resolve their segment to `.karajan`. The legacy `getKjHomeLegacy()` is removed (no callers left). The HU Board's `sync.js` `fullScan()` and `startWatcher()` read BOTH `~/.karajan/plans/` and `~/.kj/plans/` so users who start the board before any post-upgrade `kj` command — the trigger of the auto-migrator — still see live updates. New `kj doctor` check `legacy-kj-home` reports unmigrated `~/.kj/` as `warn` severity with the fix line `Run any kj command (e.g. kj doctor) — the migrator runs automatically`. +37 LOC counted (docs excluded), +71 LOC raw.
+
+**User experience.** The first `kj <anything>` after upgrading prints one stderr line:
+
+> `[warn] Migrated 12 plans + 3 standby from /home/user/.kj to /home/user/.karajan (backup: /home/user/.karajan/backup/kj-pre-migration-2026-05-24T....tar.gz)`
+
+Subsequent invocations: silent. Users with `KJ_HOME=...` in their shell rcfile also see once per process: `[warn] KJ_HOME is deprecated, rename to KARAJAN_HOME`. `kj doctor` lists `legacy ~/.kj/ directory` as a check; before migration → `warn` with the fix line, after → `info` (silent).
+
+**Out of scope (backlog).** 38 direct `os.homedir()` calls in config / resolve-bin / devtools / webperf / leak-detector / postinstall bypass the unified resolver — they always write to `~/.karajan/` literally regardless of `KARAJAN_HOME` overrides. Tracked as [KJC-TSK-0420](https://planning-game.web.app); not blocking. Plus 4 code paths still build their own `~/.karajan/runs/` path; tracked as [KJC-TSK-0421](https://planning-game.web.app), pure DRY refactor.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
