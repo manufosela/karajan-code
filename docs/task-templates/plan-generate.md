@@ -15,7 +15,7 @@ kj plan generate --task-file <path>.task.md -y 2>&1 | tee outputs/plan-raw.log
 - `-y` salta el prompt del project name (usa el default).
 - `tee` captura el output del planner por si quieres inspeccionar progreso.
 
-El plan resultante se guarda en `~/.kj/plans/<projectSlug>/plan-<id>.json` (la ruta exacta sale en stdout al final).
+El plan resultante se guarda en `~/.karajan/plans/<projectSlug>/plan-<id>.json` (la ruta exacta sale en stdout al final). Si vienes de antes de v2.19.0, la ruta legacy `~/.kj/plans/` también se honra hasta que el auto-migrator de v2.19.0 termine de mover su contenido a `~/.karajan/`.
 
 ## Plantilla
 
@@ -134,7 +134,7 @@ Tras la generación habrá **findings advisory** del reviewer. Esperable. El pla
 Tras la generación, inspecciona:
 
 ```bash
-PLAN=~/.kj/plans/<projectSlug>/plan-<id>.json
+PLAN=~/.karajan/plans/<projectSlug>/plan-<id>.json
 
 # Total de HUs
 jq '.hus | length' $PLAN

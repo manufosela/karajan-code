@@ -2,7 +2,7 @@
 
 Esta guía explica **cómo escribir un `*.task.md`** para que `kj plan generate` (y, por extensión, `kj architect`, `kj researcher`, `kj run`) produzca planes/análisis de la mayor calidad posible.
 
-El planner de Karajan tiene **6 patologías conocidas** que el prompt v2.14.1+ ya intenta evitar. Pero el LLM no es infalible: si tu task file **no le da las señales correctas**, las patologías reaparecen. Este documento te dice qué señales emitir.
+El planner de Karajan tiene **6 patologías conocidas** que el prompt v2.14.1+ ya intenta evitar y **2 convenciones de forma** que activan funcionalidad adicional (`spec_section` + `acceptance_tests`). Pero el LLM no es infalible: si tu task file **no le da las señales correctas**, las patologías reaparecen o la funcionalidad se queda sin activar. Este documento te dice qué señales emitir.
 
 > **Nota**: lo que aquí se explica vale para el planner. Si solo usas `kj run` (single-task, no plan), basta con un task description corto en lenguaje natural — esto solo aplica cuando vas a descomponer en múltiples HUs.
 
@@ -18,6 +18,9 @@ El planner de Karajan tiene **6 patologías conocidas** que el prompt v2.14.1+ y
 | `Guardarraíl AVISA-no-BLOQUEA` o `async, no precondiciona` | Los guardarraíles **NO** aparecen como `blocked_by` de las HUs que observan |
 | `Depende: HU-X` / `Después de Y` / `Requires Z` | `blocked_by` populado correctamente |
 | `Sin deps` / silencio | `blocked_by: []` (NO se inventan deps) |
+| `## 1.`, `### 2.1`, `§5` (headings numerados en el task) | Cada HU lleva `spec_section: "1"` / `"2.1"` / `"5"` — REQUIRED si hay SPEC estructurado |
+| Sin secciones numeradas | `spec_section: null` permitido — no se exige |
+| (siempre) | Cada step lleva 2-4 `acceptance_tests` mix gherkin + shell, pre-implementación |
 
 ## 1. Épicas con `### Épica NOMBRE`
 
@@ -160,6 +163,64 @@ El plan-fixer (P4) intenta resolverlos automáticamente. **Si tras 1-2 iteracion
 - 15-25%: planeable, requiere ediciones manuales.
 - > 25%: probablemente el task file está incompleto o ambiguo — revisa.
 
+## 8. Secciones numeradas → `spec_section` automático
+
+**Por qué importa**: si tu task file tiene encabezados numerados (`## 1.`, `### 2.1`, `§5 Initial Scope`), el planner detecta que es un **SPEC estructurado** y exige que cada HU declare a qué sección pertenece via el campo `spec_section`. Sin esto, los findings del reviewer no pueden mapear ofertas a la sección del SPEC que las origina y la trazabilidad se pierde.
+
+**Patrón en el task file**:
+
+```markdown
+## 1. Auth
+### 1.1 Login con OAuth Google
+### 1.2 Logout idempotente
+
+## 2. Profile
+### 2.1 Edición de avatar
+### 2.2 Borrado de cuenta GDPR
+```
+
+Lo que el planner emitirá:
+
+```json
+{
+  "id": "AUTH-LOGIN",
+  "description": "[AUTH] Login con OAuth Google",
+  "spec_section": "1.1",
+  "dependencies": [],
+  "reuse": []
+}
+```
+
+**Reglas**:
+- Cuando hay secciones numeradas: `spec_section` REQUIRED en cada step. NUNCA `null`, NUNCA omitido, NUNCA una paráfrasis libre.
+- Si un step cubre varias secciones, usa la más específica (`"2.1"` antes que `"2"`).
+- Si un step no mapea a ninguna sección detectada, el step está mal — refactoriza el SPEC para que cubra el caso o quita el step.
+- Sin secciones numeradas: `spec_section` queda opcional (`null` permitido).
+
+**Frases que activan la detección**: `## N.`, `### N.M`, `§N`, `## Section N — title`.
+
+## 9. `acceptance_tests` por step — gherkin + shell mix
+
+**Por qué importa**: cada HU emitida por el planner lleva 2-4 acceptance tests escritos ANTES de implementar el step (test-first). Estos tests son la línea entre "step en progreso" y "step done" — el sub-pipeline los ejecuta tras cada iteración del coder.
+
+**Shape obligatorio en cada step**:
+
+```json
+"acceptance_tests": [
+  { "type": "gherkin", "content": "Given a logged-in user\nWhen they click logout\nThen the session cookie is cleared" },
+  { "type": "shell",   "content": "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/logout | grep -q '^204$'" }
+]
+```
+
+**Reglas**:
+- Mínimo 2, máximo 4 tests por step. Si necesitas más, el step probablemente abarca demasiado — pártelo.
+- Mix de `gherkin` (comportamiento observable, lo lee humano + agente) y `shell` (comando concreto que exit 0 al pasar el test, lo ejecuta el sub-pipeline).
+- Cubrir al menos un happy path y un edge case / failure mode.
+- **Prohibido** el placeholder genérico `"npx vitest run"`: cada test debe afirmar algo específico al step, no "todos los tests del repo deben pasar".
+- Los tests son **pre-implementación**: deben fallar hasta que el step se complete, pasar después.
+
+**Cómo se enchufan en el sub-pipeline**: Brain lanza los `shell` tests tras cada iteración del coder; todos pasan → step `certified`; alguno falla → diagnostica con el error exacto y vuelve al coder con feedback.
+
 ## Tabla de antipatrones (NO HACER)
 
 | Antipatrón | Por qué falla | Hacer en su lugar |
@@ -180,6 +241,8 @@ El plan-fixer (P4) intenta resolverlos automáticamente. **Si tras 1-2 iteracion
 - [ ] ¿Los guardarraíles/cron/listeners mencionan **AVISA-no-BLOQUEA** o **async**?
 - [ ] ¿Las dependencias entre HUs están en prosa (`Depende: X`, `requires Y`)?
 - [ ] ¿Está el bloque `## Reglas no negociables` para constraints transversales?
+- [ ] Si el task tiene headings numerados (`## 1.`, `### 2.1`, `§5`), ¿esperas ver `spec_section` populado en cada HU del plan? (REQUIRED en ese caso — el planner lo exige).
+- [ ] ¿Has dejado espacio para que el planner emita 2-4 `acceptance_tests` por step (mix gherkin + shell)? No tienes que escribirlos tú — los compone el planner — pero saber que existen evita sorpresas al inspeccionar el plan generado.
 
 ## Documentos relacionados
 
