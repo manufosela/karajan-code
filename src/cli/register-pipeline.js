@@ -1,4 +1,5 @@
 import { initCommand } from "../commands/init.js";
+import { ollamaStartCommand, ollamaStopCommand, ollamaStatusCommand, ollamaPullCommand } from "../commands/ollama.js";
 import { configCommand } from "../commands/config.js";
 import { codeCommand } from "../commands/code.js";
 import { reviewCommand } from "../commands/review.js";
@@ -237,4 +238,19 @@ export function registerPipeline(program, { pkgVersion }) {
     .action(async (flags) => {
       await reportCommand(flags);
     });
+
+  // KJC-TSK-0437 — `kj ollama [start|stop|status|pull]`
+  const ollama = program.command("ollama").description("Manage the RAG embedder container (Ollama-in-Docker)");
+  ollama.command("start").description("Start Ollama container").action(async () => {
+    await withConfig(pkgVersion, "ollama:start", {}, async ({ config, logger }) => ollamaStartCommand({ config, logger }));
+  });
+  ollama.command("stop").description("Stop Ollama container").action(async () => {
+    await withConfig(pkgVersion, "ollama:stop", {}, async ({ config, logger }) => ollamaStopCommand({ config, logger }));
+  });
+  ollama.command("status").description("Report Ollama reachability + container").action(async () => {
+    await withConfig(pkgVersion, "ollama:status", {}, async ({ config, logger }) => ollamaStatusCommand({ config, logger }));
+  });
+  ollama.command("pull <model>").description("Pull a model into the Ollama container").action(async (model) => {
+    await withConfig(pkgVersion, "ollama:pull", {}, async ({ config, logger }) => ollamaPullCommand({ model, config, logger }));
+  });
 }

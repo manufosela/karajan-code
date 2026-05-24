@@ -18,6 +18,7 @@ import { getSystemChecks } from "../checks/system.js";
 import { getConfigFileChecks } from "../checks/config-files.js";
 import { getBinaryChecks } from "../checks/binaries.js";
 import { getSonarChecks } from "../checks/sonar.js";
+import { getOllamaChecks } from "../checks/ollama.js";
 import { getCiChecks } from "../checks/ci.js";
 import { getRtkChecks } from "../checks/rtk.js";
 import { getNodeChecks } from "../checks/node.js";
@@ -52,6 +53,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getConfigFileChecks(),
     ...getBinaryChecks(),
     ...getSonarChecks(),
+    ...getOllamaChecks(),
     ...getPortChecks(),
     ...getTokenChecks(config),
     ...getMcpHealthChecks(),
