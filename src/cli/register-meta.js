@@ -3,6 +3,7 @@ import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
+import { ragIndexCommand, ragQueryCommand } from "../commands/rag.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
@@ -95,6 +96,27 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
         await onboardCommand({ config, logger, flags });
+      });
+    });
+
+  const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
+  rag.command("index")
+    .description("Index plans + onboarding (and optionally project sources) into the local vector store")
+    .option("--with-sources", "Also index the projectDir's JS/TS files")
+    .option("--json", "Output the totals as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rag-index", flags, async ({ config, logger }) => {
+        await ragIndexCommand({ config, logger, flags });
+      });
+    });
+  rag.command("query <text>")
+    .description("Run a semantic query against the indexed RAG corpus")
+    .option("--scope <scope>", "plans | code | onboarding | all (default: all)", "all")
+    .option("--top-k <n>", "Number of hits to return (default: 5)", "5")
+    .option("--json", "Output the hits as JSON")
+    .action(async (text, flags) => {
+      await withConfig(pkgVersion, "rag-query", flags, async ({ config, logger }) => {
+        await ragQueryCommand({ text, config, logger, flags });
       });
     });
 
