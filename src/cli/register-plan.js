@@ -43,6 +43,7 @@ export function registerPlan(program, { pkgVersion }) {
     .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
     .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
     .option("--no-preflight-hu", "Skip auto-injection of [PREFLIGHT-000] HU at the top of the generated plan")
+    .option("--use-onboarding", "Inject the cached Architecture Brief (~/.karajan/onboarding/<slug>.md) into the planner context")
     .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
     .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
     .action(async (task, flags) => {
@@ -102,6 +103,7 @@ export function registerPlan(program, { pkgVersion }) {
             yes: Boolean(flags.yes),
             interactive: flags.interactive,
             preflightHu: flags.preflightHu !== false, // KJC-TSK-0397
+            useOnboarding: Boolean(flags.useOnboarding), // KJC-TSK-0384 PR 3
           },
         });
       });
