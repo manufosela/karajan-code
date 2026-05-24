@@ -55,6 +55,25 @@ describe("kj rag commands — KJC-PCS-0049 Step 6", () => {
     expect(noopLogger.warn).toHaveBeenCalledWith(expect.stringMatching(/No chunks indexed/));
   });
 
+  // KJC-BUG-0061 follow-up: CLI `--json` on empty store must emit the
+  // same `{ hits, empty, topK, scope }` shape as the MCP handler so the
+  // `/kj-rag-query` skill from Camino B has a deterministic recovery
+  // signal. Previously it emitted just `[]`, indistinguishable from a
+  // populated store returning zero hits.
+  it("ragQueryCommand --json on empty store emits {hits:[], empty:true, topK, scope}", async () => {
+    const { ragQueryCommand } = await import("../../src/commands/rag.js");
+    const chunks = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (s) => { chunks.push(String(s)); return true; };
+    try {
+      await ragQueryCommand({ text: "x", config: { rag: { embedder: { dim: 8 } } }, logger: noopLogger, flags: { json: true, topK: 7, scope: "plans" } });
+    } finally {
+      process.stdout.write = origWrite;
+    }
+    const out = JSON.parse(chunks.join("").trim());
+    expect(out).toEqual({ hits: [], empty: true, topK: 7, scope: "plans" });
+  });
+
   it("ragQueryCommand returns hits after indexing", async () => {
     const { ragIndexCommand, ragQueryCommand } = await import("../../src/commands/rag.js");
     const slug = "p2";

@@ -41,13 +41,19 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   if (!text) throw new Error("kj rag query: text argument required");
   const db = openDb(config);
   try {
-    if (countChunks(db) === 0) {
-      logger.warn("[rag] No chunks indexed yet. Run 'kj rag index' first.");
-      if (flags.json) process.stdout.write("[]\n");
-      return [];
-    }
     const topK = Math.max(1, Number(flags.topK) || 5);
     const scope = flags.scope || "all";
+    // KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
+    // handler. The MCP tool responds `{ hits: [], empty: true, topK, scope }`
+    // so agents (and the `/kj-rag-query` skill from Camino B) have a
+    // deterministic recovery signal. The CLI was emitting just `[]`, which
+    // is indistinguishable from "query returned zero hits over a populated
+    // store" and forced consumers to parse stderr.
+    if (countChunks(db) === 0) {
+      logger.warn("[rag] No chunks indexed yet. Run 'kj rag index' first.");
+      if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope })}\n`);
+      return [];
+    }
     const hits = await query(db, makeEmbedder(config), text, { topK, scope });
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(hits)}\n`);
