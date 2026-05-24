@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 387+ Tests Automatizados" icon="approve-check">
-    458 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP y el paquete completo del HU Board. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 400+ Tests Automatizados" icon="approve-check">
+    465 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP, el paquete completo del HU Board, y el subsystem Project RAG. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -279,7 +279,7 @@ Cluster **HU Board polish + UX papercuts** — 5 cards cerradas. Dos features ne
 
 **KJC-TSK-0385 (PR #800)** — docs refresh. `docs/task-templates/spec-conventions.md` gana dos secciones: la **Sección 8** documenta que headings numerados (`## 1.`, `### 2.1`, `§5`) en un task file activan el campo `spec_section` REQUIRED en cada step emitido — sin esto, usuarios veían findings 'missing spec_section' en planes por lo demás buenos sin entender la regla de activación. La **Sección 9** documenta la shape `acceptance_tests` por step: 2-4 tests, mix de `gherkin` (comportamiento observable) y `shell` (comandos concretos que exit 0 en éxito), pre-implementación, nunca el placeholder `npx vitest run`. La tabla quick-reference del top y el checklist pre-generate fueron actualizados. Más `docs/task-templates/plan-generate.md` flippea sus dos paths obsoletos `~/.kj/plans/` a `~/.karajan/plans/` (post-consolidación home v2.19.0).
 
-### v2.21.0 — Minor (actual)
+### v2.21.0 — Minor
 
 **Rol Onboarder brownfield.** Karajan ships un path dedicado para bootstrap un Architecture Brief desde cualquier codebase existente, y el planner puede consumir ese brief como context automático. Cierra KJC-TSK-0384 en tres PRs.
 
@@ -298,3 +298,34 @@ kj plan generate task.md \
 ```
 
 **Qué viene después** — La épica **Project RAG** (KJC-PCS-0049) arranca en v2.22.0: vector store (`better-sqlite3` + `sqlite-vec`), embedder Ollama, indexer (chokidar watcher), retriever + ranking, comandos CLI (`kj rag <query>` / `kj rag index`), tool MCP (`kj_rag_query`) y panel búsqueda HU Board. El Onboarder es su prerequisito — el brief alimenta la primera pasada del indexer con la estructura del proyecto ya digerida. ~1200 LOC estimadas en 8 PRs.
+
+### v2.22.0 — Minor (actual)
+
+**MVP de Project RAG** (KJC-PCS-0049, seis PRs). Karajan indexa sus planes + briefs de onboarding (y opcionalmente los sources del proyecto) en un vector store local y deja consultarlos semánticamente desde la CLI. End-to-end desde terminal en v2.22.0; el tool MCP + panel HU Board aterrizan en v2.23.0.
+
+Los seis PRs mapean uno-a-uno sobre las capas arquitectónicas — los módulos son pequeños, single-responsibility, y la cadena es reemplazable pieza por pieza.
+
+| Step | PR | Módulo | LOC | Qué hace |
+|---|---|---|---|---|
+| 1 | #808 | `src/rag/vec-store.js` | 197 | `openVecStore` / `insertChunk` / `searchSimilar` / `deleteChunksBySource` sobre `better-sqlite3` + nueva dep `sqlite-vec ^0.1.9`. DB en `~/.karajan/rag.db` (override `KJ_RAG_DB`). Apertura idempotente. |
+| 2 | #809 | `src/rag/embedder.js` | 160 | `OllamaEmbedder.embed/embedBatch` contra el servidor Ollama local. Defaults `localhost:11434` + `nomic-embed-text` (dim 768). `OllamaEmbedderError` ante dim mismatch — un drift silencioso de dimensión corrompería el vec store con el tiempo. Cero deps nuevas (`fetch` global). |
+| 3 | #810 | `src/rag/chunker.js` | 191 | Tres chunkers puros: `chunkMarkdown` preserva `headingPath` (para que el retriever muestre 'de `# Plan` › `## Auth`'), `chunkPlan` emite un chunk por HU con `hu_id` + `title`, `chunkSource` splittea JS/TS por symbol top-level via regex. Splitter en ventana compartido para secciones grandes (limit 800, overlap 100). |
+| 4 | #811 | `src/rag/indexer.js` | 194 | `indexFile(path, { db, embedder })` dispatcha por extension + path → chunker → embed → `insertChunk`. **Idempotente** (llama `deleteChunksBySource` primero). Fallo del embedder en un chunk = `warn` + continúa, el loop nunca aborta. `indexProject(projectDir, { withSources })` walks plans + brief de onboarding; sources gated tras `--with-sources`. |
+| 5 | #812 | `src/rag/retriever.js` | 105 | `query(db, embedder, text, { topK, scope, kindBoost })` over-fetchea `topK * 2` (clampeado a 50) para dar margen al rerank, aplica kind boosts (plan +0.05, onboarding +0.03, code 0) que rompen ties sin reordenar a través de gaps grandes de distancia. |
+| 6 | #813 | `src/commands/rag.js` + `src/cli/register-meta.js` | 160 | `kj rag index [--with-sources] [--json]` + `kj rag query <text> [--scope plans\|code\|onboarding\|all] [--top-k N] [--json]`. Bail-out con hint claro `Run kj rag index first` si el store está vacío. Los hits se imprimen como bloques de tres líneas con el label de metadata más específico (`hu_id` > `symbol` > `headingPath`). |
+
+Workflow end-to-end:
+
+```bash
+cd ~/tu-proyecto
+kj onboard                       # Architecture Brief en ~/.karajan/onboarding/<slug>.md
+kj plan generate task.md -y      # Plans en ~/.karajan/plans/<slug>/plan-*.json
+kj rag index                     # Sembrar el vec store
+kj rag query "¿cómo manejé auth en el módulo X?"
+```
+
+La cadena compone con el Onboarder de v2.21.0: el brief siembra al indexer con la estructura del proyecto (stack, hot files, ADRs), así que las queries semánticas encuentran el plan o HU correcto sin re-walkear el repo cada vez.
+
+**El binario SEA stubea RAG y HU Board de la misma forma.** `src/rag/*` + `src/commands/rag.js` se unen a `packages/hu-board/src/*` en la lista de módulos que `scripts/esbuild-sea.config.mjs` reescribe a build time — ambos subsystems dependen de `better-sqlite3` (native node-gyp, sin entry JS) y romperían la build SEA. Usuarios standalone reciben un error accionable apuntando a `npm install -g karajan-code`.
+
+**Viene en v2.23.0** — Tool MCP `kj_rag_query` para que otros agentes (Claude Desktop, el propio pipeline de Karajan) puedan hacer las mismas preguntas; panel de búsqueda HU Board con el retriever wireado a la misma UI que el kanban; chokidar watcher para re-indexing en vivo en lugar de on-demand; chunker AST-aware (tree-sitter o @babel/parser); scoring híbrido BM25 + cosine.
