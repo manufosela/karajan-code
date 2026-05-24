@@ -345,6 +345,18 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.20.0 released** — Minor. **HU Board polish + UX papercuts** cluster: 5 cards closed across two net-new features, two PG housekeeping syncs for work that had already landed, and one docs refresh.
+>
+> KJC-TSK-0397 (PR #801): **`kj plan generate` now prepends a `[PREFLIGHT-000]` HU to every plan** and gates every functional HU on it. The HU's acceptance tests are stack-aware shell commands — Node gets `node --version` + `npm install` + conditional `npm test` / `npm run lint`; Python gets `python --version` + `pip install -r requirements.txt` (or `poetry install`) + `pytest --collect-only`; Firebase projects get `firebase projects:list`; GCP projects get `gcloud auth list`; everyone gets `git status --porcelain`. Idempotent: a plan that already has a HU titled `PREFLIGHT-000` / "verificar entorno" is left untouched. Opt out per-invocation with `--no-preflight-hu`. The point: Karajan owns the plumbing, the user no longer has to remember to add a 'verify env' step to every task file.
+>
+> KJC-TSK-0395 (PR #802): **`kj init` learns a config scope wizard plus `--global` / `--local` flags**. The wizard now asks where the config should land — `~/.karajan/kj.config.yml` (global) or `./.karajan/kj.config.yml` (local override). `loadConfig` refuses to load a project that has a local config without a global counterpart with an actionable message — the override-on-top-of-base invariant. Use case: a repo with `coder=claude`, another with `coder=opencode`, without editing YAML by hand.
+>
+> KJC-TSK-0396 (PG sync, originally PRs #702 + #703): **HU Board `⏹ Stop` button** aborts every `kj run` associated with a plan via SIGTERM → SIGKILL escalation, resets running HUs to pending. Already shipped in v2.10.x; today's release closes the PG card with the canonical commits as evidence.
+>
+> KJC-TSK-0377 (PG sync, originally PR #683): **auto-cleanup ampliado** to also catch `s_*`, `plan-*`, `auto-tmp_*`, `auto-test_*` prefixes during the boot ephemeral-project sweep. Already shipped in v2.12.x.
+>
+> KJC-TSK-0385 (PR #800): **`docs/task-templates/spec-conventions.md` gains Section 8 (`spec_section` REQUIRED when numbered SPEC headings present) and Section 9 (`acceptance_tests` shape, 2-4 tests, gherkin + shell mix)**. Plus `plan-generate.md` switches two stale `~/.kj/plans/` paths to `~/.karajan/plans/`.
+>
 > **v2.19.4 released** — Patch. **`kj resume` now continues from where it stopped** + **autoInit no longer commits zombies on the user's main**. Two bugs closed in one release.
 >
 > KJC-BUG-0058 (PR #798, reported by [@aitormf](https://github.com/aitormf)): a session that stopped during Sonar would re-run the full pre-loop on `kj resume <id>` — HU-reviewer, intent, discover, triage, domainCurator, **researcher, architect, planner** all from scratch — doubling token cost and breaking the value-prop of the command. Root cause: `resumeFlow` (flow-runner.js:280) called `runFlow` without rehydrating stage state, and the session never persisted stage outputs in the first place. **Fix**: two new mutators in `src/session/mutators.js` (`setStageResult` mirrors into `stage_results[name]` + `stages_completed[]`; `setStageBundle` adds `stage_bundles[name]` for cross-stage context like `researchContext`, `architectContext`, `plannedTask`). Two closures inside `runPreLoopStages` (`persistStage` + `resumeSkip`) wrap every cacheable stage. `init-context.js` rehydrates `ctx.stageResults` from the loaded session before invoking the pre-loop. Triage is *not* skipped on resume — it produces `roleOverrides` the Brain decisor depends on and is cheap to re-run.
