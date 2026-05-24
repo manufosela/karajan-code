@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.20.0] - 2026-05-24
+
+Minor release. **HU Board polish + UX papercuts** cluster: 5 cards closed (2 net-new features, 2 housekeeping PG syncs for work that had already landed quietly, 1 doc refresh).
+
+### Added
+
+- **`kj plan generate` now prepends a `[PREFLIGHT-000]` HU to every plan** and gates all functional HUs on it via `blocked_by` (KJC-TSK-0397, PR #801). The HU's acceptance tests are stack-aware shell commands — `git status --porcelain`, `node --version` + `npm install` + conditional `npm test`/`npm run lint` for Node, `python --version` + `pip install -r requirements.txt` (or `poetry install`) + `pytest --collect-only` for Python, plus `firebase projects:list` when `firebase.json` exists and `gcloud auth list` when `.gcloudignore` exists. Idempotent: a plan that already has a HU titled `PREFLIGHT-000` / "verificar entorno" is left untouched. Opt out per-invocation with `--no-preflight-hu`. New module `src/plan/preflight-hu.js` (102 LOC) + 6 acceptance tests.
+- **`kj init` learns a config scope wizard plus `--global` / `--local` flags** (KJC-TSK-0395, PR #802). In an interactive TTY without flags, the wizard now asks whether the config should land at `~/.karajan/kj.config.yml` (global, applies to all projects) or `./.karajan/kj.config.yml` (local override, project-scoped). `--global` and `--local` skip the prompt for CI scripts; passing both throws `Cannot pass both --global and --local`. Non-interactive without flags stays on global for legacy CI compatibility. `loadConfig` (src/config/loader.js) now refuses to load a project that has a local config without a global counterpart — the override-only-on-top-of-base invariant — with an actionable message pointing at `kj init --global` to create the base. New exported function `resolveConfigScope({ flags, interactive })` for unit testing without spinning up the rest of `initCommand`.
+
+### Synced to PG
+
+These were already implemented in main but their cards were stuck in "To Do" until today's PG housekeeping pass:
+
+- **HU Board `⏹ Stop` button** (KJC-TSK-0396, originally PRs #702 + #703): aborts every `kj run` associated with a plan via SIGTERM → SIGKILL escalation (5 s timeout), resets running HUs to pending, available only when at least one HU is in `coding`/`reviewing`. Frontend delegate handler + backend `POST /api/runs/:planId/stop` + persistent run-tracker registry for terminal↔board bidirectionality.
+- **HU Board auto-cleanup ampliado** (KJC-TSK-0377, originally PR #683): the ephemeral-project sweep now also catches `s_*`, `plan-*`, `auto-tmp_*`, `auto-test_*` prefixes alongside the original `tmp_*` / `test_*` / `demo_*` / `kj-test-*` set. Projects with `is_test=2` (📌 keep) stay exempt. Home-style `home_<path>` projects with real git repos are never swept.
+
+### Docs
+
+- `docs/task-templates/spec-conventions.md` adds two sections (KJC-TSK-0385, PR #800): **Section 8** documents that numbered headings (`## 1.`, `### 2.1`, `§5`) activate the `spec_section` REQUIRED field on every step. **Section 9** documents the `acceptance_tests` shape: 2-4 tests per step, mix of `gherkin` and `shell`, pre-implementation, never the placeholder `npx vitest run`. The top quick-reference table + the pre-generate checklist were updated to reference both. Plus `docs/task-templates/plan-generate.md` switches its two stale `~/.kj/plans/` example paths to `~/.karajan/plans/` (post-v2.19.0 home consolidation).
+
 ## [2.19.4] - 2026-05-24
 
 Patch release. `kj resume` continúa donde paró y `autoInit` ya no produce commits zombie en el repo del usuario.
