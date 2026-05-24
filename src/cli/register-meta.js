@@ -2,6 +2,7 @@ import { discoverCommand } from "../commands/discover.js";
 import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
+import { onboardCommand } from "../commands/onboard.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
@@ -83,6 +84,17 @@ export function registerMeta(program, { pkgVersion }) {
         const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         await architectCommand({ task: resolvedTask, config, logger, context: flags.context, json: flags.json });
+      });
+    });
+
+  program
+    .command("onboard")
+    .description("Analyze an existing codebase (brownfield) and produce an Architecture Brief")
+    .option("--no-synth", "Skip the LLM synthesis step, dump raw collectors only")
+    .option("--output <path>", "Override the default ~/.karajan/onboarding/<slug>.md target")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
+        await onboardCommand({ config, logger, flags });
       });
     });
 
