@@ -10,6 +10,24 @@ import { searchSimilar } from "./vec-store.js";
 // between equidistant chunks but won't reorder by big distance gaps.
 const DEFAULT_KIND_BOOST = { plan: 0.05, onboarding: 0.03, code: 0 };
 
+// KJC-TSK-0440 — asymmetric source/test boost. v2.26 smoke caught a
+// systematic bias: queries in natural language ("how does X work") return
+// tests/X.test.js ahead of src/X.js because tests carry more descriptive
+// prose. When the query itself does NOT mention test-flavoured terms,
+// give code chunks +0.05 — but only chunks whose source path is NOT a
+// test file. Tests keep the baseline boost.
+const SOURCE_BOOST_NON_TEST = 0.05;
+const TEST_TERMS_RE = /\b(test|tests|spec|specs|expect|describe|it\(|jest|vitest|mocha)\b/i;
+const TEST_PATH_RE = /[\\/](tests?|specs?|__tests__)[\\/]|\.test\.[jt]sx?$|\.spec\.[jt]sx?$/i;
+
+function shouldBoostSources(queryText) {
+  return !TEST_TERMS_RE.test(queryText);
+}
+
+function isTestPath(source) {
+  return TEST_PATH_RE.test(source || "");
+}
+
 /**
  * Run a natural-language query against the indexed RAG corpus. Returns
  * the top-K chunks ranked by adjusted distance (lower = closer).
@@ -42,9 +60,18 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   // cosine distance (smaller = closer); subtracting the boost makes
   // higher-priority kinds appear "closer" without altering the source
   // truth in the DB.
-  const reranked = raw.map((r) => ({
-    ...r,
-    score: r.distance - (kindBoost[r.kind] || 0),
-  })).sort((a, b) => a.score - b.score).slice(0, topK);
+  // KJC-TSK-0440 — apply the source-vs-test asymmetric boost only when
+  // the query itself is not test-flavoured. Test-flavoured queries keep
+  // the symmetric baseline so e.g. "vitest mock setup" still surfaces
+  // test files.
+  const boostSources = shouldBoostSources(text);
+  const reranked = raw.map((r) => {
+    const kindB = kindBoost[r.kind] || 0;
+    const sourceB = (boostSources && r.kind === "code" && !isTestPath(r.source)) ? SOURCE_BOOST_NON_TEST : 0;
+    return { ...r, score: r.distance - kindB - sourceB };
+  }).sort((a, b) => a.score - b.score).slice(0, topK);
   return reranked;
 }
+
+// Exported for tests.
+export { shouldBoostSources, isTestPath };
