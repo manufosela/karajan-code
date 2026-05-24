@@ -75,4 +75,19 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(totals.files).toBe(1); // only src/main.js
     expect(countChunks(db, { kind: "code" })).toBeGreaterThan(0);
   });
+
+  // KJC-BUG-0062: `.kj/worktrees/HU-*/` and `tests/_diet/` are scratch
+  // sandboxes (per-HU git worktrees and the test-diet audit harness).
+  // They contain duplicates of src/ that contaminate retrieval scores.
+  it("indexProject --with-sources skips .kj/ worktrees and _diet sandboxes", async () => {
+    const projectDir = join(root, "p3");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    mkdirSync(join(projectDir, ".kj", "worktrees", "HU-001", "src"), { recursive: true });
+    mkdirSync(join(projectDir, "tests", "_diet"), { recursive: true });
+    writeFileSync(join(projectDir, "src", "main.js"), "export function alpha() { return 1; }");
+    writeFileSync(join(projectDir, ".kj", "worktrees", "HU-001", "src", "dup.js"), "export function dup() {}");
+    writeFileSync(join(projectDir, "tests", "_diet", "noise.js"), "export function noise() {}");
+    const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-2"), logger: noopLogger, withSources: true });
+    expect(totals.files).toBe(1); // only src/main.js
+  });
 });
