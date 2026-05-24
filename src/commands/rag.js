@@ -2,7 +2,7 @@
 //   kj rag index [--project <slug>] [--with-sources]
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
-import { openVecStore, countChunks } from "../rag/vec-store.js";
+import { openVecStore, countChunks, projectSlug } from "../rag/vec-store.js";
 import { OllamaEmbedder } from "../rag/embedder.js";
 import { indexProject } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
@@ -47,7 +47,6 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // (basename normalised); `--project all` disables the filter, `--project
     // <slug>` overrides. Pre-v2.27 chunks with NULL slug are only visible
     // when no filter is in effect.
-    const { projectSlug } = await import("../rag/vec-store.js");
     const detected = projectSlug(config?.projectDir || process.cwd());
     const project = flags.project === "all" ? null : (flags.project || detected || null);
     // KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
