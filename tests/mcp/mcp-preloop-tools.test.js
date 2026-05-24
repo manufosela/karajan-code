@@ -95,9 +95,10 @@ describe("kj_architect handler validation", () => {
 });
 
 describe("MCP tools count", () => {
-  it("has 25 tools registered", () => {
+  it("has 27 tools registered", () => {
     // Expected surface grows as the CLI gains MCP-exposed commands.
     // Post-v2.7.5: +kj_clean (garbage collector dogfood fallout).
-    expect(tools).toHaveLength(25);
+    // Post-v2.23.0: +kj_rag_query, +kj_rag_index (Project RAG epic Step 7).
+    expect(tools).toHaveLength(27);
   });
 });

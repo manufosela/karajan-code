@@ -1,12 +1,21 @@
-// KJC-PCS-0049 Step 7 — MCP handlers wrapping the RAG CLI commands so
-// agents can call kj_rag_query / kj_rag_index as plain MCP tools.
-import { ragQueryCommand, ragIndexCommand } from "../../commands/rag.js";
+// KJC-PCS-0049 Step 7 — MCP handlers calling src/rag/* directly. Imports
+// from src/commands/* are forbidden by the layer-boundaries test
+// (MCP and CLI are peer layers); we hit the pure rag/* modules instead.
 import { countChunks, openVecStore } from "../../rag/vec-store.js";
+import { OllamaEmbedder } from "../../rag/embedder.js";
+import { indexProject } from "../../rag/indexer.js";
+import { query } from "../../rag/retriever.js";
+import { getKarajanHome } from "../../utils/paths.js";
 import { resolveProjectDir, buildConfig, responseText, failPayload } from "../shared-helpers.js";
 
 const silentLogger = {
   info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, setContext: () => {},
 };
+
+function makeEmbedder(config) {
+  const cfg = config?.rag?.embedder || {};
+  return new OllamaEmbedder({ url: cfg.url, model: cfg.model, dim: cfg.dim });
+}
 
 export async function handleRagQuery(args, server) {
   const text = args?.text;
@@ -18,13 +27,12 @@ export async function handleRagQuery(args, server) {
     const config = await buildConfig({ ...args, projectDir }, "rag-query");
     const topK = Number(args?.topK) || 5;
     const scope = args?.scope || "all";
-    const hits = await ragQueryCommand({
-      text, config, logger: silentLogger, flags: { topK, scope, json: true },
-    });
     const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
-    const empty = countChunks(db) === 0;
-    db.close();
-    return responseText({ hits, empty, topK, scope });
+    try {
+      if (countChunks(db) === 0) return responseText({ hits: [], empty: true, topK, scope });
+      const hits = await query(db, makeEmbedder(config), text, { topK, scope });
+      return responseText({ hits, empty: false, topK, scope });
+    } finally { db.close(); }
   } catch (err) {
     return failPayload(`kj_rag_query failed: ${err.message}`);
   }
@@ -34,11 +42,15 @@ export async function handleRagIndex(args, server) {
   try {
     const projectDir = await resolveProjectDir(server, args?.projectDir);
     const config = await buildConfig({ ...args, projectDir }, "rag-index");
-    const totals = await ragIndexCommand({
-      config, logger: silentLogger,
-      flags: { withSources: Boolean(args?.withSources), json: true },
-    });
-    return responseText(totals);
+    const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
+    try {
+      const totals = await indexProject(projectDir, {
+        db, embedder: makeEmbedder(config),
+        karajanHome: getKarajanHome(), logger: silentLogger,
+        withSources: Boolean(args?.withSources),
+      });
+      return responseText(totals);
+    } finally { db.close(); }
   } catch (err) {
     return failPayload(`kj_rag_index failed: ${err.message}`);
   }
