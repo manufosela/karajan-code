@@ -40,6 +40,7 @@ import {
   runResearcherStage, runArchitectStage, runPlannerStage,
   runDiscoverStage, runHuReviewerStage,
 } from "../pre-loop-stages.js";
+import { runRagContextStage } from "../stages/rag-context-stage.js";
 // TSK-0336: triage goes through the StageRegistry / StageExecutor contract
 // so canRun / execute / onFailure are actually exercised in production.
 // The registry is a singleton with TriageStage / CoderStage / ReviewerStage
@@ -122,6 +123,20 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   const triageResult = await runStage(stageRegistry.get("triage"), triageCtx) ?? { roleOverrides: null, stageResult: null };
   applyTriageOverrides(pipelineFlags, triageResult.roleOverrides);
   await persistStage("triage", triageResult.stageResult);
+
+  // --- RAG preload (KJC-PCS-0049 Camino C, opt-in) ---
+  // Runs only when config.rag.preload.enabled === true. Queries the local
+  // vector store with the task description, prepends the top-K chunks to
+  // the task as a markdown block so researcher/architect/planner/coder
+  // all see prior context without having to call kj_rag_query themselves.
+  // Empty store / network / etc. degrade to no-op via the stage itself.
+  if (!resumeSkip("ragPreload")) {
+    const ragRes = await runRagContextStage({ config, logger, emitter, eventBase, task });
+    if (!ragRes.skipped && ragRes.contextBlock) {
+      task = `${task}\n\n${ragRes.contextBlock}`;
+      await persistStage("ragPreload", { hits: ragRes.hits.length, scope: config?.rag?.preload?.scope || "all" });
+    }
+  }
 
   // --- Brain decisor (opt-in, intent-driven routing) ---
   //
