@@ -11,6 +11,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.22.0] - 2026-05-24
+
+Minor release. **Project RAG epic (KJC-PCS-0049) MVP** ships in six PRs: Karajan now indexes plans + onboarding briefs (and optionally project sources) into a local vector store and lets you query them semantically from the CLI.
+
+### Added
+
+- **`kj rag` command group** (KJC-TSK-0428, PR #813). Two subcommands:
+  - `kj rag index [--with-sources] [--json]` — runs `indexer.indexProject()` on the current project: every `~/.karajan/plans/<slug>/plan-*.json` + `~/.karajan/onboarding/<slug>.md` is chunked, embedded and persisted. With `--with-sources` also walks `.js/.ts/.tsx/.jsx` (skipping `node_modules`, `.git`, `dist`).
+  - `kj rag query <text> [--scope plans|code|onboarding|all] [--top-k N] [--json]` — embeds the query, fetches top-K nearest, reranks by kind (plan +0.05, onboarding +0.03, code 0), prints each hit with its most-specific label.
+- **Vector store on better-sqlite3 + sqlite-vec** (KJC-TSK-0423, PR #808). `~/.karajan/rag.db` (override via `KJ_RAG_DB`). New dep `sqlite-vec ^0.1.9`.
+- **Ollama embedder adapter** (KJC-TSK-0424, PR #809). `OllamaEmbedder.embed/embedBatch` against the local Ollama endpoint. Defaults `localhost:11434` + `nomic-embed-text` + dim 768. Zero new deps.
+- **Three chunkers** (KJC-TSK-0425, PR #810). `chunkMarkdown` (heading hierarchy), `chunkPlan` (one chunk per HU), `chunkSource` (JS/TS export-symbol via regex). Shared windowed splitter for oversized sections.
+- **Indexer** (KJC-TSK-0426, PR #811). `indexFile` + `indexProject`. Idempotent — calls `deleteChunksBySource` before re-indexing. Embedder failures = `warn` + continue.
+- **Retriever** (KJC-TSK-0427, PR #812). `query(db, embedder, text, { topK, scope, kindBoost })` — over-fetches `topK*2`, applies kind boosts, returns ranked hits with metadata.
+
+### SEA binary
+
+`src/rag/*` + `src/commands/rag.js` join `packages/hu-board/src/*` in the list of modules the SEA bundle stubs out (`scripts/esbuild-sea.config.mjs::ragStubPlugin`). The standalone binary points users at `npm install -g karajan-code` for RAG.
+
+### End-to-end workflow
+
+```bash
+cd ~/your-project
+kj onboard                       # Architecture Brief at ~/.karajan/onboarding/<slug>.md
+kj plan generate task.md -y      # Plans at ~/.karajan/plans/<slug>/plan-*.json
+kj rag index                     # Seed the vec store
+kj rag query "how did I handle auth in module X?"
+```
+
+### Out of scope (v2.23.0+)
+
+MCP tool `kj_rag_query`, HU Board search panel, chokidar watcher for live re-indexing, AST-aware source chunker, BM25 + cosine hybrid scoring.
+
 ## [2.21.0] - 2026-05-24
 
 Minor release. **Brownfield Onboarder role**: Karajan now ships a dedicated path to bootstrap an Architecture Brief from any existing codebase, and the planner can consume that brief as automatic context. Closes KJC-TSK-0384 in three PRs.
