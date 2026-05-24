@@ -345,6 +345,22 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.21.0 released** — Minor. **Brownfield Onboarder role**. Karajan now ships a dedicated path to analyze any existing codebase and produce a Markdown Architecture Brief that the planner can consume as automatic context. Closes KJC-TSK-0384 (3 PRs).
+>
+> KJC-TSK-0384 (PRs #804 + #805 + #806): **`kj onboard`** runs five deterministic collectors over a project root — directory walk (ignoring `node_modules` / `.git` / `dist` / `build`), git log (commits, branches, hot files via `--name-only` over the last 200 commits), 18 well-known config patterns + `package.json` scripts, ADR-style filenames under `docs/adr/`, `docs/adrs/`, `docs/architecture/`, plus a one-shot bundle. Then optionally synthesises a Markdown Architecture Brief via the new OnboarderRole. Output lands at `~/.karajan/onboarding/<slug>.md`. Flags: `--no-synth` (skip the LLM call, dump the raw collectors — useful for CI), `--output <path>` (override default target). Greenfield projects produce `# Project is greenfield` instead of erroring.
+>
+> **New `--use-onboarding` flag on `kj plan generate`**: reads the cached Architecture Brief and prepends it to the planner context under a `## Architecture Brief (from kj onboard)` heading. Silent on cache miss without the flag; loud `warn` when the flag is set but no cache exists, so a missed `kj onboard` invocation surfaces immediately.
+>
+> Workflow:
+>
+> ```bash
+> kj onboard                            # produces ~/.karajan/onboarding/<slug>.md once
+> kj plan generate task.md \
+>     --use-onboarding                  # next plan uses it as context
+> ```
+>
+> **What's next** — The **Project RAG** epic (KJC-PCS-0049) starts in v2.22.0: vector store + Ollama embedder + indexer + retriever + CLI / MCP / HU Board consumers. Onboarder is its prerequisite (the brief feeds the indexer's first pass).
+>
 > **v2.20.0 released** — Minor. **HU Board polish + UX papercuts** cluster: 5 cards closed across two net-new features, two PG housekeeping syncs for work that had already landed, and one docs refresh.
 >
 > KJC-TSK-0397 (PR #801): **`kj plan generate` now prepends a `[PREFLIGHT-000]` HU to every plan** and gates every functional HU on it. The HU's acceptance tests are stack-aware shell commands — Node gets `node --version` + `npm install` + conditional `npm test` / `npm run lint`; Python gets `python --version` + `pip install -r requirements.txt` (or `poetry install`) + `pytest --collect-only`; Firebase projects get `firebase projects:list`; GCP projects get `gcloud auth list`; everyone gets `git status --porcelain`. Idempotent: a plan that already has a HU titled `PREFLIGHT-000` / "verificar entorno" is left untouched. Opt out per-invocation with `--no-preflight-hu`. The point: Karajan owns the plumbing, the user no longer has to remember to add a 'verify env' step to every task file.
