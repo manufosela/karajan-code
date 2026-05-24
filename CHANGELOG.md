@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.26.0] - 2026-05-24
+
+Minor release. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box.
+
+Closes the friction caught in the v2.25.0 smoke test: RAG required a manually installed Ollama, which made the feature invisible to new users. From v2.26.0, `kj init` provisions Ollama in Docker, pulls `nomic-embed-text`, and wires the embedder into the config — same opt-out shape as SonarQube.
+
+### Added
+
+- **Ollama-in-Docker manager** (KJC-TSK-0435, PR #825). `src/rag/ollama-manager.js` mirrors `src/sonar/manager.js`: `normalizeOllamaConfig`, `buildComposeTemplate`, `ensureComposeFile`, `isOllamaReachable`, `waitForOllamaReady`, `findAvailableOllamaPort`, `ollamaUp` / `ollamaDown`. `ollamaUp` short-circuits when the host is already reachable (returns `reusedHost`) and refuses when `external=true` and unreachable.
+- **Capability check + auto-pull + `kj init` bootstrap** (KJC-TSK-0436, PR #828). `src/rag/ollama-capability.js` checks Docker availability + free RAM (>= 4 GB default). `kj init` runs `bootstrapOllama()` after installing skills: skip on `--no-ollama`, skip with warning on capability fail, otherwise `ollamaUp()` + `waitForOllamaReady()` + `pullOllamaModel('nomic-embed-text')`.
+- **`kj doctor` Ollama check + `kj ollama` subcommand** (KJC-TSK-0437, PR #827). New `src/checks/ollama.js` and `src/commands/ollama.js`. `kj ollama [start|stop|status|pull <model>]` lets the user manage the container without touching docker compose.
+
+### CLI flags
+
+`kj init --no-ollama` — skip the RAG embedder bootstrap.
+
+### Behaviour matrix
+
+| Scenario | What happens |
+|---|---|
+| `kj init` on Linux with Docker + 8 GB free | Container starts, model pulls, RAG ready |
+| `kj init` on Windows without Docker | Warn `docker:not-installed`, init continues |
+| `kj init --no-ollama` | Skip with one-line log |
+| Host with Ollama on :11434 already | Reuses external instance |
+| `kj doctor`, `rag.preload.enabled=true`, container down | `warn` + fix hint `kj ollama start` |
+
+### Bug fix bundled
+
+- **KJC-BUG-0061** (PR #824): smoke test of v2.25.0 caught two latent bugs in `kj onboard` and a CLI/MCP empty-store contract mismatch. Fixed and shipped between v2.25.0 and v2.26.0.
+
 ## [2.25.0] - 2026-05-24
 
 Minor release. **RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan: Skills hosts can now invoke RAG without MCP, and the pre-loop retrieval stage only fires when triage signals make it worthwhile.
