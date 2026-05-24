@@ -39,6 +39,7 @@ import {
   handleScan, handleBoard, handleUndo, handleClean
 } from "./handlers/management-handlers.js";
 import { handleHu, handleSkills, handleSuggest } from "./handlers/hu-handlers.js";
+import { handleRagQuery, handleRagIndex } from "./handlers/rag-handler.js";
 
 export async function handleToolCall(name, args, server, extra) {
   const a = asObject(args);
@@ -68,6 +69,8 @@ export async function handleToolCall(name, args, server, extra) {
     kj_skills:      (a) => handleSkills(a),
     kj_undo:        (a, server) => handleUndo(a, server),
     kj_clean:       (a) => handleClean(a),
+    kj_rag_query:   (a, server) => handleRagQuery(a, server),
+    kj_rag_index:   (a, server) => handleRagIndex(a, server),
   }[name];
   if (handler) {
     return handler(a, server, extra);
