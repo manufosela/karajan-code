@@ -544,7 +544,7 @@ async function installSkills(logger, interactive) {
 
   if (installed > 0) {
     logger.info(`Installed ${installed} Karajan skill(s) in .claude/commands/`);
-    logger.info("Available as slash commands: /kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar");
+    logger.info("Available as slash commands: /kj-run, /kj-code, /kj-review, /kj-test, /kj-security, /kj-discover, /kj-architect, /kj-sonar, /kj-rag-query");
   } else {
     logger.info("All skills already installed.");
   }
