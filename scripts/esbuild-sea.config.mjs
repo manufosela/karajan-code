@@ -165,6 +165,9 @@ const ragStubPlugin = {
           ollamaUp: notAvailable, ollamaDown: notAvailable, ensureComposeFile: notAvailable,
           isOllamaReachable: notAvailable, findAvailableOllamaPort: notAvailable,
           waitForOllamaReady: notAvailable, buildComposeTemplate: notAvailable, normalizeOllamaConfig: notAvailable,
+          // KJC-TSK-0436 — Ollama capability check + model pull.
+          checkDockerAvailable: notAvailable, checkRamCapacity: notAvailable,
+          checkOllamaCapability: notAvailable, pullOllamaModel: notAvailable,
           default: notAvailable,
         };
       `,

@@ -25,6 +25,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--scaffold-ci", "Scaffold Karajan CI Gateway workflow files")
     .option("--global", "Save config to ~/.karajan/kj.config.yml (skip the scope wizard)")
     .option("--local", "Save config to ./.karajan/kj.config.yml (skip the scope wizard)")
+    .option("--no-ollama", "Skip the RAG embedder bootstrap (Ollama-in-Docker). Useful on modest hardware or when an external embedder will be wired manually")
     .action(async (flags) => {
       await withConfig(pkgVersion, "init", flags, async ({ config: _config, logger }) => {
         await initCommand({ logger, flags });

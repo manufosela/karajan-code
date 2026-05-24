@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { getConfigPath, getProjectConfigPath, loadConfig, writeConfig } from "../config.js";
 import { sonarUp, checkVmMaxMapCount } from "../sonar/manager.js";
+import { ollamaUp, waitForOllamaReady, normalizeOllamaConfig } from "../rag/ollama-manager.js";
+import { checkOllamaCapability, pullOllamaModel } from "../rag/ollama-capability.js";
 import { exists, ensureDir } from "../utils/fs.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
@@ -500,6 +502,50 @@ async function scaffoldCiGateway(config, flags, logger) {
   logger.info("  4. Push the workflow files and enable 'kj run --enable-ci'");
 }
 
+// KJC-TSK-0436 — RAG embedder bootstrap. Default-on, opt-out with
+// `--no-ollama`. Skipped automatically when the host can't run it
+// (no Docker, daemon down, < 4 GB free RAM) — a one-line warning
+// tells the user how to wire an external embedder instead.
+async function bootstrapOllama({ flags, config, logger, interactive }) {
+  // Commander maps `--no-ollama` to `flags.ollama=false`.
+  const skip = flags?.noOllama === true || flags?.ollama === false;
+  if (skip) {
+    logger.info("Ollama bootstrap skipped (--no-ollama). RAG embedder will be unavailable until you configure one.");
+    return;
+  }
+  const cap = await checkOllamaCapability();
+  if (!cap.capable) {
+    logger.warn(`Ollama bootstrap skipped: ${cap.reasons.join("; ")}.`);
+    logger.warn("  Wire an external embedder via `config.rag.embedder` or rerun `kj init` after fixing the cause.");
+    return;
+  }
+  const result = await ollamaUp(config?.rag?.embedder || null);
+  if (result.exitCode !== 0) {
+    logger.warn(`Ollama bootstrap failed: ${result.stderr || result.stdout}`);
+    return;
+  }
+  if (result.reusedHost) {
+    logger.info(`Reusing existing Ollama at ${result.reusedHost}.`);
+  } else {
+    logger.info("Ollama container started. Waiting for /api/tags...");
+    const ollamaCfg = normalizeOllamaConfig(config?.rag?.embedder || {});
+    const ready = await waitForOllamaReady(ollamaCfg.host, ollamaCfg.timeouts.readyMs);
+    if (!ready) {
+      logger.warn(`Ollama did not become ready within ${ollamaCfg.timeouts.readyMs} ms. Continuing — pull the model manually with \`kj ollama pull nomic-embed-text\`.`);
+      return;
+    }
+  }
+  const model = config?.rag?.embedder?.model || "nomic-embed-text";
+  logger.info(`Pulling embedder model ${model} (first run downloads ~270 MB)...`);
+  const pull = await pullOllamaModel(model, { containerName: config?.rag?.embedder?.container_name });
+  if (pull.exitCode === 0) {
+    logger.info(`  -> ${model} ready. RAG embedder available.`);
+    if (interactive) logger.info("  -> Enable pre-loop retrieval with `yq -i '.rag.preload.enabled = true' " + getConfigPath() + "`");
+  } else {
+    logger.warn(`Model pull failed: ${pull.stderr || pull.stdout}. Retry with \`kj ollama pull ${model}\`.`);
+  }
+}
+
 async function installSkills(logger, interactive) {
   const projectDir = process.cwd();
   const commandsDir = path.join(projectDir, ".claude", "commands");
@@ -636,6 +682,7 @@ export async function initCommand({ logger, flags = {} }) {
   await ensureCoderRules(coderRulesPath, logger);
   await ensureGitignoreEntries(process.cwd(), logger);
   await installSkills(logger, interactive);
+  await bootstrapOllama({ flags, config, logger, interactive });
 
   // Auto-detect project stack and preconfigure
   const stack = await detectProjectStack(process.cwd());
