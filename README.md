@@ -345,7 +345,7 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
-> **v2.26.0 released** — Minor. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box. `kj init` now provisions the embedder automatically (or skips with a clear reason on modest hardware / `--no-ollama`); `kj doctor` surfaces health; `kj ollama [start|stop|status|pull]` manages lifecycle without docker compose.
+> **v2.26.0 released** — Minor. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box. `kj init` now provisions the embedder automatically (or skips with a clear reason on modest hardware / `--no-ollama`); `kj doctor` surfaces health; `kj ollama [start|stop|status|pull]` manages lifecycle without docker compose. See [docs/RAG.md](docs/RAG.md) for the full RAG guide ([español](docs/es/RAG.md)).
 >
 > Capability check (RAM + Docker) means the bootstrap never breaks init: on Windows without Docker Desktop, on hosts under 4 GB free, or with `--no-ollama`, the wizard logs a one-liner and continues. Where Ollama is already running on `:11434`, `kj init` reuses the external instance instead of spawning a second container.
 >
