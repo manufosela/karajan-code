@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.25.0] - 2026-05-24
+
+Minor release. **RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan: Skills hosts can now invoke RAG without MCP, and the pre-loop retrieval stage only fires when triage signals make it worthwhile.
+
+### Added
+
+- **`/kj-rag-query` slash command** (KJC-TSK-0433, PR #821). New `templates/skills/kj-rag-query.md` template. `kj init` ships it to `.claude/commands/` so hosts that load Karajan via Skills (Claude Code without MCP, Cursor without MCP) can reach the RAG retriever through `/kj-rag-query <text> [--scope <s>] [--top-k <n>]`. Thin wrapper over the existing `kj rag query` CLI: passthrough flags, empty-store hint without blocking the conversation, render chunks as background context (not raw JSON).
+- **Brain decisor heuristic for pre-loop retrieval** (KJC-TSK-0434, PR #822). New module `src/orchestrator/stages/rag-preload-decisor.js`. Pure function `shouldPreloadRag({triage, task, config}) → {pull, reason}`. Wired in `pre-loop.js` before `runRagContextStage`. Policy `config.rag.preload.policy`: `always` (back-compat with v2.24.0), `never` (benchmarking), `auto` (default). In auto mode, pulls when triage decomposes, level is complex/high/epic, task body ≥ 200 chars, or `config.rag.preload.brownfield` is set. Otherwise persists `ragPreload: { skipped: true, reason: 'auto:low-value' }` so resume + audit see why retrieval was skipped.
+
+### Toggle
+
+`config.rag.preload.enabled` still defaults to `false` (opt-in). `config.rag.preload.policy` defaults to `auto`. Existing v2.24.0 setups behave unchanged unless they explicitly set `policy=auto`.
+
+### Out of scope (v2.26.0+)
+
+chokidar watcher (live re-indexing), AST source chunker (tree-sitter or `@babel/parser`), BM25 + cosine hybrid scoring.
+
 ## [2.24.0] - 2026-05-24
 
 Minor release. **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). After v2.23.0 taught the agents that `kj_rag_query` exists, Karajan now injects prior context for them automatically.
