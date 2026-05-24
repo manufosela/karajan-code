@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 400+ Automated Tests" icon="approve-check">
-    465 test files covering every pipeline role, guard, config option, MCP tool, the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 410+ Automated Tests" icon="approve-check">
+    467 test files covering every pipeline role, guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -299,7 +299,7 @@ kj plan generate task.md \
 
 **What's next** — The **Project RAG** epic (KJC-PCS-0049) starts in v2.22.0: vector store (`better-sqlite3` + `sqlite-vec`), Ollama embedder, indexer (chokidar watcher), retriever + ranking, CLI commands (`kj rag <query>` / `kj rag index`), MCP tool (`kj_rag_query`), and HU Board search panel. The Onboarder is its prerequisite — the brief feeds the indexer's first pass with the project structure already digested. ~1200 LOC estimated across 8 PRs.
 
-### v2.22.0 — Minor (current)
+### v2.22.0 — Minor
 
 **Project RAG MVP** (KJC-PCS-0049, six PRs). Karajan indexes its plans + onboarding briefs (and optionally the project's source files) into a local vector store and lets you query them semantically from the CLI. End-to-end from terminal in v2.22.0; MCP tool + HU Board search panel land in v2.23.0.
 
@@ -329,3 +329,40 @@ The chain composes with the Onboarder from v2.21.0: the brief seeds the indexer 
 **SEA binary stubs RAG and HU Board alike.** `src/rag/*` + `src/commands/rag.js` join `packages/hu-board/src/*` in the list of modules `scripts/esbuild-sea.config.mjs` rewrites at bundle time — both subsystems depend on `better-sqlite3` (native node-gyp, no JS entry point) and would break the SEA build. Standalone-binary users get an actionable error pointing at `npm install -g karajan-code`.
 
 **Coming in v2.23.0** — MCP tool `kj_rag_query` so other agents (Claude Desktop, the Karajan pipeline itself) can ask the same questions; HU Board search panel with the retriever wired into the same UI as the kanban; chokidar watcher for live re-indexing instead of on-demand; AST-aware source chunker (tree-sitter or @babel/parser); BM25 + cosine hybrid scoring.
+
+### v2.23.0 — Minor (current)
+
+**RAG exposed to agents and humans alike** (KJC-PCS-0049 Steps 7+8+Camino A). After v2.22.0's CLI MVP, the corpus stops being a humans-only feature. Three PRs land three new consumers:
+
+| Consumer | PR | Module | How |
+|---|---|---|---|
+| **MCP agents** (Claude Desktop, Cursor, Claude Code, Karajan's own roles) | #815 | `src/mcp/handlers/rag-handler.js` + `src/mcp/tools.js` | New `kj_rag_query` + `kj_rag_index` tools. Tool count 25 → 27. Same shape as the CLI. Empty store responds `empty: true` so the agent has a deterministic recovery signal. |
+| **Browser users** | #816 | `packages/hu-board/src/routes/api.js` + `public/app.js` | New `POST /api/rag/query` endpoint + a panel between the preflight card and the kanban — input + scope dropdown (All / Plans / Onboarding / Code) + Search button + results pane. Hits render as bordered cards with kind + label + score + source + truncated text. |
+| **Pipeline roles** (coder, researcher, architect, planner, spec-reviewer) | #817 | `templates/roles/*.md` | Tailored 'Prior context (RAG, opt-in)' section per role. The agents now KNOW the tool exists, what topK / scope to use, and that an empty store means proceed-without-retrieval, not block-and-ask. |
+
+The unifying contract across all three: **opt-in retrieval**. When the corpus is empty (greenfield project, brand-new install, `kj rag index` not run yet), every consumer degrades to no-retrieval instead of bailing or pestering the human.
+
+End-to-end workflow:
+
+```bash
+kj onboard                              # one-time per project — Architecture Brief
+kj rag index                            # one-time per project — seed the corpus
+kj plan generate task.md --use-onboarding
+# From here on:
+# - Coder calls kj_rag_query before reaching for unfamiliar APIs.
+# - Planner queries for prior plans that might already expose a reuse marker.
+# - Researcher avoids re-walking the repo when the corpus already has the signal.
+# - Architect aligns with prior patterns.
+# - Spec-reviewer surfaces scope_overlap findings against approved HUs.
+# Humans get the same retriever in the HU Board search panel.
+```
+
+**Per-role guidance** (verbatim from the role templates):
+
+- **coder** — `topK: 3, scope: 'all'`. Use cases: 'how the project handled a similar concern before (auth, error model, retry policy, naming convention…)'. Hard cap: one query per concern, not per file.
+- **researcher** — `topK: 5, scope: 'plans'`. Before re-walking the repo. Quote retrieved evidence as bullets under `affects`; do NOT paste raw chunks.
+- **architect** — `topK: 3, scope: 'all'`. When a design decision touches an area the project already shaped.
+- **planner** — `topK: 5, scope: 'plans'`. Before emitting `blocked_by` / `dependencies` / `reuse`. If a prior plan produced the utility the new one needs, mark `reuse: [<hu-id>]` instead of re-implementing — closes the loop with KJC-BUG-0044 (P3).
+- **spec-reviewer** — `topK: 3, scope: 'all'`. If retrieved chunks describe overlapping HUs already approved, surface as `kind: 'scope_overlap'` referencing the prior HU id.
+
+**Coming in v2.24.0+** — **Camino B** (`/kj-rag-query` slash command for hosts in Skills mode without MCP), **Camino C** (automatic pre-loop stage that pre-fetches retrieval and prepends it to the coder/researcher/architect prompt without the agent having to ask — transparent + automatic), **Camino D** (Brain decisor heuristic for when retrieval is worth the tokens). Plus chokidar watcher for live re-indexing, AST-aware source chunker, BM25 + cosine hybrid scoring.

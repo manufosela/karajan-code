@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 400+ Tests Automatizados" icon="approve-check">
-    465 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP, el paquete completo del HU Board, y el subsystem Project RAG. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 410+ Tests Automatizados" icon="approve-check">
+    467 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board y el subsystem Project RAG. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -299,7 +299,7 @@ kj plan generate task.md \
 
 **Qué viene después** — La épica **Project RAG** (KJC-PCS-0049) arranca en v2.22.0: vector store (`better-sqlite3` + `sqlite-vec`), embedder Ollama, indexer (chokidar watcher), retriever + ranking, comandos CLI (`kj rag <query>` / `kj rag index`), tool MCP (`kj_rag_query`) y panel búsqueda HU Board. El Onboarder es su prerequisito — el brief alimenta la primera pasada del indexer con la estructura del proyecto ya digerida. ~1200 LOC estimadas en 8 PRs.
 
-### v2.22.0 — Minor (actual)
+### v2.22.0 — Minor
 
 **MVP de Project RAG** (KJC-PCS-0049, seis PRs). Karajan indexa sus planes + briefs de onboarding (y opcionalmente los sources del proyecto) en un vector store local y deja consultarlos semánticamente desde la CLI. End-to-end desde terminal en v2.22.0; el tool MCP + panel HU Board aterrizan en v2.23.0.
 
@@ -329,3 +329,40 @@ La cadena compone con el Onboarder de v2.21.0: el brief siembra al indexer con l
 **El binario SEA stubea RAG y HU Board de la misma forma.** `src/rag/*` + `src/commands/rag.js` se unen a `packages/hu-board/src/*` en la lista de módulos que `scripts/esbuild-sea.config.mjs` reescribe a build time — ambos subsystems dependen de `better-sqlite3` (native node-gyp, sin entry JS) y romperían la build SEA. Usuarios standalone reciben un error accionable apuntando a `npm install -g karajan-code`.
 
 **Viene en v2.23.0** — Tool MCP `kj_rag_query` para que otros agentes (Claude Desktop, el propio pipeline de Karajan) puedan hacer las mismas preguntas; panel de búsqueda HU Board con el retriever wireado a la misma UI que el kanban; chokidar watcher para re-indexing en vivo en lugar de on-demand; chunker AST-aware (tree-sitter o @babel/parser); scoring híbrido BM25 + cosine.
+
+### v2.23.0 — Minor (actual)
+
+**RAG expuesto a agentes y humanos por igual** (KJC-PCS-0049 Steps 7+8+Camino A). Tras el MVP CLI de v2.22.0, el corpus deja de ser una feature solo-para-humanos. Tres PRs traen tres consumidores nuevos:
+
+| Consumidor | PR | Módulo | Cómo |
+|---|---|---|---|
+| **Agentes MCP** (Claude Desktop, Cursor, Claude Code, los propios roles de Karajan) | #815 | `src/mcp/handlers/rag-handler.js` + `src/mcp/tools.js` | Nuevos tools `kj_rag_query` + `kj_rag_index`. Tool count 25 → 27. Misma shape que la CLI. Store vacío responde `empty: true` para que el agente tenga señal determinista de recovery. |
+| **Usuarios de navegador** | #816 | `packages/hu-board/src/routes/api.js` + `public/app.js` | Nuevo endpoint `POST /api/rag/query` + panel entre la preflight card y el kanban — input + dropdown de scope (All / Plans / Onboarding / Code) + botón Search + pane de resultados. Los hits se renderizan como cards con borde, kind + label + score + source + texto truncado. |
+| **Roles del pipeline** (coder, researcher, architect, planner, spec-reviewer) | #817 | `templates/roles/*.md` | Sección 'Prior context (RAG, opt-in)' personalizada por rol. Los agentes SABEN ahora que el tool existe, qué topK / scope usar, y que un store vacío significa proceder-sin-retrieval, no bloquear-y-preguntar. |
+
+El contract unificador a través de los tres: **retrieval opt-in**. Cuando el corpus está vacío (proyecto greenfield, instalación recién hecha, `kj rag index` sin correr aún), cada consumidor degrada a sin-retrieval en lugar de bailar o molestar al humano.
+
+Workflow end-to-end:
+
+```bash
+kj onboard                              # una vez por proyecto — Architecture Brief
+kj rag index                            # una vez por proyecto — siembra el corpus
+kj plan generate task.md --use-onboarding
+# A partir de aquí:
+# - Coder llama kj_rag_query antes de tocar APIs poco familiares.
+# - Planner pregunta por planes pasados que puedan exponer un marker de reuse.
+# - Researcher evita re-walkear el repo cuando el corpus ya tiene la señal.
+# - Architect alinea con patrones previos.
+# - Spec-reviewer surface findings de scope_overlap contra HUs aprobadas.
+# Los humanos tienen el mismo retriever en el panel de búsqueda del HU Board.
+```
+
+**Guía por rol** (literal de los templates):
+
+- **coder** — `topK: 3, scope: 'all'`. Casos de uso: 'cómo el proyecto manejó una concern similar antes (auth, error model, retry policy, naming convention…)'. Cap fuerte: una query por concern, no por fichero.
+- **researcher** — `topK: 5, scope: 'plans'`. Antes de re-walkear el repo. Cita evidence retrievada como bullets bajo `affects`; NO pegues chunks raw.
+- **architect** — `topK: 3, scope: 'all'`. Cuando una decisión de diseño toca un area que el proyecto ya formó.
+- **planner** — `topK: 5, scope: 'plans'`. Antes de emitir `blocked_by` / `dependencies` / `reuse`. Si un plan previo produjo la utility que el nuevo necesita, marca `reuse: [<hu-id>]` en lugar de re-implementar — cierra el loop con KJC-BUG-0044 (P3).
+- **spec-reviewer** — `topK: 3, scope: 'all'`. Si chunks retrievadas describen HUs ya aprobadas que solapan, surface como `kind: 'scope_overlap'` referenciando el id de la HU previa.
+
+**Viene en v2.24.0+** — **Camino B** (slash command `/kj-rag-query` para hosts en modo Skills sin MCP), **Camino C** (pre-loop stage automática que pre-fetcha retrieval y la prepende al prompt del coder/researcher/architect sin que el agente tenga que pedirla — transparente + automático), **Camino D** (heurística Brain decisor para cuando retrieval merece la pena en tokens). Más chokidar watcher para re-indexing en vivo, chunker AST-aware, scoring híbrido BM25 + cosine.
