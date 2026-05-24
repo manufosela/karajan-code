@@ -139,6 +139,36 @@ const huBoardStubPlugin = {
   },
 };
 
+// Same reasoning as the HU Board stub: src/rag/* + src/commands/rag.js
+// depend on better-sqlite3 + sqlite-vec, native modules that esbuild
+// cannot bundle. The SEA binary stubs them out and tells the user to
+// install via npm to get RAG. KJC-PCS-0049 / Step 6.
+const ragStubPlugin = {
+  name: "rag-stub",
+  setup(build) {
+    build.onResolve({ filter: /[\\/](rag[\\/][^\\/]+|commands[\\/]rag)\.js$/ }, (args) => ({
+      path: args.path, namespace: "rag-stub",
+    }));
+    build.onLoad({ filter: /.*/, namespace: "rag-stub" }, () => ({
+      contents: `
+        const NOT_AVAILABLE = "The RAG subsystem is not available in this standalone binary.\\n" +
+          "Install karajan-code from npm to get \\\`kj rag\\\`:\\n" +
+          "  npm install -g karajan-code\\n";
+        function notAvailable() { throw new Error(NOT_AVAILABLE); }
+        module.exports = {
+          __esModule: false,
+          ragIndexCommand: notAvailable, ragQueryCommand: notAvailable,
+          openVecStore: notAvailable, OllamaEmbedder: notAvailable,
+          indexFile: notAvailable, indexProject: notAvailable,
+          query: notAvailable, chunkMarkdown: notAvailable, chunkPlan: notAvailable, chunkSource: notAvailable,
+          default: notAvailable,
+        };
+      `,
+      loader: "js",
+    }));
+  },
+};
+
 /** @type {import('esbuild').BuildOptions} */
 export const seaBuildOptions = {
   entryPoints: ["src/cli.js"],
@@ -169,6 +199,6 @@ export const seaBuildOptions = {
   // throws → collector returns available:false. npm installs get knip
   // resolved normally from node_modules.
   external: ["better-sqlite3", "madge", "knip", "oxc-parser", "oxc-resolver"],
-  plugins: [seaTransformPlugin, huBoardStubPlugin],
+  plugins: [seaTransformPlugin, huBoardStubPlugin, ragStubPlugin],
   logLevel: "info",
 };
