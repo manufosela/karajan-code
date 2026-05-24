@@ -590,6 +590,18 @@ async function renderBoard() {
           Comprobando estado del proyecto…
         </div>
       </div>
+      <div id="rag-panel" class="rag-panel" style="margin:8px 0;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+        <input id="rag-query" type="text" placeholder="🔍 RAG search: ask anything about this project's plans / onboarding / code…"
+               style="flex:1;min-width:260px;padding:6px 10px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);" />
+        <select id="rag-scope" style="padding:6px 10px;font-size:0.85rem;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">
+          <option value="all">All</option><option value="plans">Plans</option><option value="onboarding">Onboarding</option><option value="code">Code</option>
+        </select>
+        <button id="rag-search-btn" class="control-btn"
+                style="padding:6px 12px;font-size:0.85rem;background:var(--color-blue,#3b82f6);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;">
+          Search
+        </button>
+        <div id="rag-results" style="flex-basis:100%;font-size:0.8rem;color:var(--text-muted);"></div>
+      </div>
       <div id="plan-rollup-banner"></div>
       <div class="kanban">
         ${visibleColumns.map((c) => renderKanbanColumn(c.title, c.cls, c.rows)).join('')}
@@ -694,6 +706,39 @@ async function renderBoard() {
         }
       });
     }
+
+    // RAG search panel (KJC-PCS-0049 Step 8) — input + scope + render hits.
+    const ragInput = document.getElementById('rag-query');
+    const ragScope = document.getElementById('rag-scope');
+    const ragBtn = document.getElementById('rag-search-btn');
+    const ragResults = document.getElementById('rag-results');
+    async function runRagSearch() {
+      const text = ragInput?.value?.trim();
+      if (!text) return;
+      ragResults.innerHTML = '<em>Searching…</em>';
+      try {
+        const res = await fetch('/api/rag/query', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, topK: 5, scope: ragScope?.value || 'all' }),
+        });
+        const body = await res.json();
+        if (!res.ok) { ragResults.innerHTML = `<span style="color:var(--color-red);">Error: ${esc(body.error || res.status)}</span>`; return; }
+        if (body.empty) { ragResults.innerHTML = '<em>No chunks indexed yet. Run <code>kj rag index</code> in this project\'s terminal first.</em>'; return; }
+        if (body.hits.length === 0) { ragResults.innerHTML = '<em>No hits.</em>'; return; }
+        ragResults.innerHTML = body.hits.map((h) => {
+          const label = h.metadata?.hu_id || h.metadata?.symbol || h.metadata?.headingPath?.join(' > ') || 'block';
+          const snippet = h.text.length > 240 ? `${esc(h.text.slice(0, 240))}…` : esc(h.text);
+          return `<div style="border-left:3px solid var(--color-blue,#3b82f6);padding:6px 10px;margin:6px 0;background:var(--bg-primary);">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">[${esc(h.kind)} · ${esc(label)} · score=${h.score.toFixed(4)}] ${esc(h.source)}</div>
+            <div style="font-size:0.85rem;white-space:pre-wrap;">${snippet}</div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        ragResults.innerHTML = `<span style="color:var(--color-red);">Error: ${esc(err.message)}</span>`;
+      }
+    }
+    ragBtn?.addEventListener('click', runRagSearch);
+    ragInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') runRagSearch(); });
   } catch (err) {
     app.innerHTML = `<div class="empty-state"><div class="empty-state__title">Error loading board</div><div class="empty-state__text">${esc(err.message)}</div></div>`;
   }
