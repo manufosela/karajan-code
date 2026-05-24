@@ -105,7 +105,12 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
   if (withSources) {
-    const SKIP = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next"]);
+    // KJC-BUG-0062: `.kj/worktrees/HU-*/` contains git worktrees Karajan spawns
+    // per HU during `kj run`; they hold complete copies of `src/` that
+    // duplicate every chunk and contaminate retrieval scores. `_diet` is the
+    // tests/_diet/ sandbox used by the test-diet audit harness — never user
+    // code. Skip both.
+    const SKIP = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet"]);
     const sources = await listFiles(projectDir, (p) => /\.(js|mjs|cjs|ts|tsx|jsx)$/.test(p) && !p.split("/").some((seg) => SKIP.has(seg)));
     for (const s of sources) {
       const r = await indexFile(s, { db, embedder, logger });
