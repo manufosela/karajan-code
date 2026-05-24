@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.23.0] - 2026-05-24
+
+Minor release. **RAG exposed to agents and humans alike**: closes Steps 7 + 8 + Camino A of the Project RAG epic (KJC-PCS-0049).
+
+### Added
+
+- **`kj_rag_query` + `kj_rag_index` MCP tools** (KJC-TSK-0429, PR #815). Tool count 25 → 27. Empty store responds `empty: true`.
+- **HU Board RAG search panel + `/api/rag/query` endpoint** (KJC-TSK-0430, PR #816). Input + scope dropdown + Search button + results pane between preflight and kanban.
+- **Role templates teach agents about the tool** (KJC-TSK-0431, PR #817). `templates/roles/{coder,researcher,architect,planner,spec-reviewer}.md` gain tailored 'Prior context (RAG, opt-in)' sections.
+
+### Workflow
+
+```bash
+kj onboard                              # one-time per project
+kj rag index                            # one-time per project
+kj plan generate task.md --use-onboarding
+# Agents call kj_rag_query via MCP, humans use the Board panel.
+```
+
+### Out of scope (v2.24.0+)
+
+Camino B (slash command for Skills hosts), Camino C (pre-loop stage with automatic retrieval), Camino D (Brain decisor for when to retrieve), chokidar watcher, AST source chunker, BM25 hybrid scoring.
+
 ## [2.22.0] - 2026-05-24
 
 Minor release. **Project RAG epic (KJC-PCS-0049) MVP** ships in six PRs: Karajan now indexes plans + onboarding briefs (and optionally project sources) into a local vector store and lets you query them semantically from the CLI.
