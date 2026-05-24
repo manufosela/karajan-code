@@ -345,6 +345,29 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.22.0 released** — Minor. **Project RAG MVP** (KJC-PCS-0049). Karajan now indexes its plans + onboarding briefs (and optionally project sources) into a local vector store and lets you query them semantically from the CLI. Six PRs.
+>
+> | Step | PR | Module |
+> |---|---|---|
+> | 1 | #808 | Vector store on `better-sqlite3` + `sqlite-vec` at `~/.karajan/rag.db` |
+> | 2 | #809 | Ollama embedder adapter (`nomic-embed-text`, dim 768, `localhost:11434`) |
+> | 3 | #810 | Three chunkers: markdown heading hierarchy, plan JSON per-HU, JS/TS export-symbol |
+> | 4 | #811 | Indexer (`indexFile` + `indexProject`), idempotent, embedder failures = warn + continue |
+> | 5 | #812 | Retriever + ranking, kind boost breaks ties (plan +0.05, onboarding +0.03, code 0) |
+> | 6 | #813 | `kj rag` CLI: `index [--with-sources]` + `query <text> [--scope] [--top-k]` |
+>
+> ```bash
+> cd ~/your-project
+> kj onboard                       # Architecture Brief
+> kj plan generate task.md -y      # Plans
+> kj rag index                     # Seed the vec store
+> kj rag query "how did I handle auth in module X?"
+> ```
+>
+> **Coming in v2.23.0**: MCP tool `kj_rag_query` (other agents query the RAG), HU Board search panel, chokidar watcher for live re-indexing, AST-aware source chunker, BM25 + cosine hybrid scoring.
+>
+> The SEA binary stubs out `src/rag/*` + `src/commands/rag.js` (same pattern as the HU Board) — `kj rag` requires `npm install -g karajan-code`.
+>
 > **v2.21.0 released** — Minor. **Brownfield Onboarder role**. Karajan now ships a dedicated path to analyze any existing codebase and produce a Markdown Architecture Brief that the planner can consume as automatic context. Closes KJC-TSK-0384 (3 PRs).
 >
 > KJC-TSK-0384 (PRs #804 + #805 + #806): **`kj onboard`** runs five deterministic collectors over a project root — directory walk (ignoring `node_modules` / `.git` / `dist` / `build`), git log (commits, branches, hot files via `--name-only` over the last 200 commits), 18 well-known config patterns + `package.json` scripts, ADR-style filenames under `docs/adr/`, `docs/adrs/`, `docs/architecture/`, plus a one-shot bundle. Then optionally synthesises a Markdown Architecture Brief via the new OnboarderRole. Output lands at `~/.karajan/onboarding/<slug>.md`. Flags: `--no-synth` (skip the LLM call, dump the raw collectors — useful for CI), `--output <path>` (override default target). Greenfield projects produce `# Project is greenfield` instead of erroring.
