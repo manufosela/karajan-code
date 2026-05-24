@@ -76,7 +76,9 @@ vi.mock("../src/utils/fs.js", () => ({
 
 vi.mock("../src/utils/paths.js", () => ({
   getKarajanHome: vi.fn().mockReturnValue("/fake/.karajan"),
-  getSessionRoot: vi.fn().mockReturnValue("/fake/.karajan/sessions")
+  getSessionRoot: vi.fn().mockReturnValue("/fake/.karajan/sessions"),
+  getSonarComposePath: vi.fn().mockReturnValue("/fake/.karajan/docker-compose.sonar.yml"),
+  getOllamaComposePath: vi.fn().mockReturnValue("/fake/.karajan/docker-compose.ollama.yml")
 }));
 
 vi.mock("../src/config.js", async (importOriginal) => {
@@ -91,6 +93,17 @@ vi.mock("../src/config.js", async (importOriginal) => {
     loadConfig: vi.fn()
   };
 });
+
+vi.mock("../src/rag/ollama-manager.js", () => ({
+  ollamaUp: async () => ({ exitCode: 1, stdout: "", stderr: "mocked-skip" }),
+  waitForOllamaReady: async () => false,
+  normalizeOllamaConfig: () => ({ host: "http://localhost:11434", timeouts: { readyMs: 1000 } }),
+  isOllamaReachable: async () => false,
+}));
+vi.mock("../src/rag/ollama-capability.js", () => ({
+  checkOllamaCapability: async () => ({ capable: false, reasons: ["docker:not-installed"] }),
+  pullOllamaModel: async () => ({ exitCode: 0 }),
+}));
 
 vi.mock("../src/sonar/manager.js", () => ({
   sonarUp: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
