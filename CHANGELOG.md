@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.21.0] - 2026-05-24
+
+Minor release. **Brownfield Onboarder role**: Karajan now ships a dedicated path to bootstrap an Architecture Brief from any existing codebase, and the planner can consume that brief as automatic context. Closes KJC-TSK-0384 in three PRs.
+
+### Added
+
+- **New `kj onboard` command + OnboarderRole** (KJC-TSK-0384, PRs #804 + #805). Runs five deterministic collectors over a project root — `collectTree` (directory walk ignoring `node_modules` / `.git` / `dist` / `build` / etc.), `collectGitHistory` (commits, branches, hot files via `--name-only` over the last 200 commits), `collectConfigs` (presence of 18 well-known config patterns + package.json scripts), `collectAdrs` (ADR-style filenames under `docs/adr/`, `docs/adrs/`, `docs/architecture/`), and `collectAll` as the one-shot bundle — and then optionally synthesises a Markdown Architecture Brief via the OnboarderRole. Output lands at `~/.karajan/onboarding/<slug>.md`. Flags: `--no-synth` (skip the LLM call and dump the raw collectors bundle, useful for CI / token-cost-sensitive contexts) and `--output <path>` (override default target). Greenfield projects produce `# Project is greenfield` instead of erroring. The collectors are stack-aware via `detectProjectStack`; adding a stack to the brief is one branch in `composePreflightTests`-style code.
+- **New `--use-onboarding` flag on `kj plan generate`** (PR #806). When set, reads the cached Architecture Brief via `readCachedBrief(projectDir)` and prepends it to the planner's context under a `## Architecture Brief (from kj onboard)` heading. Silent on cache miss without the flag; loud `warn` when the flag is set but no cache exists, so a missed `kj onboard` invocation surfaces immediately. The brief flows into the planner alongside any explicit `--context` the user passes; both compose.
+
+### Workflow
+
+```bash
+kj onboard                            # produces ~/.karajan/onboarding/<slug>.md
+kj plan generate task.md \
+    --use-onboarding                  # next plan reads the brief as context
+```
+
+### Out of scope
+
+- The Project RAG epic (KJC-PCS-0049) starts in v2.22.0 — vector store, Ollama embedder, indexer, retriever, CLI / MCP / HU Board consumers. Onboarder is the prerequisite (its `onboarding_context.json` feeds the indexer), so closing it cleanly here unblocks the next minor.
+
+### Tests
+
+5 387+ tests / 458+ test files passing on Node 20 and Node 22 CI.
+
 ## [2.20.0] - 2026-05-24
 
 Minor release. **HU Board polish + UX papercuts** cluster: 5 cards closed (2 net-new features, 2 housekeeping PG syncs for work that had already landed quietly, 1 doc refresh).
