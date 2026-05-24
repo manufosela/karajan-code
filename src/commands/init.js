@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { getConfigPath, loadConfig, writeConfig } from "../config.js";
+import { getConfigPath, getProjectConfigPath, loadConfig, writeConfig } from "../config.js";
 import { sonarUp, checkVmMaxMapCount } from "../sonar/manager.js";
 import { exists, ensureDir } from "../utils/fs.js";
 import { getKarajanHome } from "../utils/paths.js";
@@ -579,19 +579,50 @@ async function ensureGitignoreEntries(projectDir, logger) {
   logger.info(`Added to .gitignore: ${missing.map(e => e.pattern).join(", ")}`);
 }
 
+/**
+ * KJC-TSK-0395: decide where the config is written based on the flags
+ * and (when interactive) a wizard prompt. Returns { configPath, scope }.
+ * Throws when both --global and --local are passed (mutually exclusive).
+ */
+export async function resolveConfigScope({ flags, interactive }) {
+  if (flags?.global && flags?.local) {
+    throw new Error("Cannot pass both --global and --local — pick one scope for the config.");
+  }
+  if (flags?.global) return { configPath: getConfigPath(), scope: "global" };
+  if (flags?.local) return { configPath: getProjectConfigPath(process.cwd()), scope: "local" };
+  if (interactive) {
+    const wizard = createWizard();
+    try {
+      const choice = await wizard.select(
+        "Where do you want to save the config? (default: global)",
+        [
+          { value: "global", label: `Global (${getConfigPath()} — applies to all projects)` },
+          { value: "local",  label: `Local  (${getProjectConfigPath(process.cwd())} — overrides global for this project only)` },
+        ]
+      );
+      return { configPath: choice === "local" ? getProjectConfigPath(process.cwd()) : getConfigPath(), scope: choice };
+    } finally {
+      wizard.close();
+    }
+  }
+  // Non-interactive + no flags → legacy behaviour: global. Keeps CI scripts working.
+  return { configPath: getConfigPath(), scope: "global" };
+}
+
 export async function initCommand({ logger, flags = {} }) {
   const karajanHome = getKarajanHome();
   await ensureDir(karajanHome);
   logger.info(`Ensured ${karajanHome} exists`);
 
-  const configPath = getConfigPath();
+  const interactive = flags.noInteractive !== true && isTTY();
+  const { configPath, scope } = await resolveConfigScope({ flags, interactive });
+  logger.info(`Config scope: ${scope} → ${configPath}`);
   const karajanDir = path.join(process.cwd(), ".karajan");
   await ensureDir(karajanDir);
   const reviewRulesPath = path.resolve(karajanDir, "review-rules.md");
   const coderRulesPath = path.resolve(karajanDir, "coder-rules.md");
 
   const { config, exists: configExists } = await loadConfig();
-  const interactive = flags.noInteractive !== true && isTTY();
 
   // Auto-detect language from OS locale for non-interactive mode
   if (!interactive && !configExists) {
