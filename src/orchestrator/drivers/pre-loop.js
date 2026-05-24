@@ -41,6 +41,7 @@ import {
   runDiscoverStage, runHuReviewerStage,
 } from "../pre-loop-stages.js";
 import { runRagContextStage } from "../stages/rag-context-stage.js";
+import { shouldPreloadRag } from "../stages/rag-preload-decisor.js";
 // TSK-0336: triage goes through the StageRegistry / StageExecutor contract
 // so canRun / execute / onFailure are actually exercised in production.
 // The registry is a singleton with TriageStage / CoderStage / ReviewerStage
@@ -131,10 +132,24 @@ export async function runPreLoopStages({ config, logger, emitter, eventBase, ses
   // all see prior context without having to call kj_rag_query themselves.
   // Empty store / network / etc. degrade to no-op via the stage itself.
   if (!resumeSkip("ragPreload")) {
-    const ragRes = await runRagContextStage({ config, logger, emitter, eventBase, task });
-    if (!ragRes.skipped && ragRes.contextBlock) {
-      task = `${task}\n\n${ragRes.contextBlock}`;
-      await persistStage("ragPreload", { hits: ragRes.hits.length, scope: config?.rag?.preload?.scope || "all" });
+    // KJC-TSK-0434 (Camino D): Brain decisor heuristic — skip retrieval
+    // when triage + task shape say it would be low-value. Defaults to
+    // policy=auto; `always`/`never` are escape hatches.
+    const decision = shouldPreloadRag({ triage: triageResult.stageResult, task, config });
+    if (!decision.pull) {
+      await persistStage("ragPreload", { skipped: true, reason: decision.reason });
+    } else {
+      const ragRes = await runRagContextStage({ config, logger, emitter, eventBase, task });
+      if (!ragRes.skipped && ragRes.contextBlock) {
+        task = `${task}\n\n${ragRes.contextBlock}`;
+        await persistStage("ragPreload", {
+          hits: ragRes.hits.length,
+          scope: config?.rag?.preload?.scope || "all",
+          decisor: decision.reason,
+        });
+      } else {
+        await persistStage("ragPreload", { skipped: true, reason: ragRes.reason, decisor: decision.reason });
+      }
     }
   }
 
