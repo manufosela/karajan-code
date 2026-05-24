@@ -345,6 +345,31 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.24.0 released** — Minor. **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). After v2.23.0 taught the agents that `kj_rag_query` exists, Karajan now injects prior context for them automatically: a new pre-loop stage queries the vec store with the task description and prepends the top-K chunks to the task before any LLM call.
+>
+> Opt-in: `config.rag.preload.enabled = false` by default. Five guards before the retrieval fires (`disabled`, `no-task`, empty corpus, no hits, error). The stage never throws — best-effort enrichment, opt-out by default, opt-back-out on failure. When all guards pass, the task receives an extra block:
+>
+> ```markdown
+> ## Prior context from RAG (auto-retrieved, top N)
+>
+> ### [plan · AUTH-1] /path/to/plan.json
+>
+> <chunk text, truncated 600 chars>
+> ```
+>
+> Because `task` flows through `runPlanningPhases` to researcher / architect / planner via parameter passing, **one mutation feeds six consumers** — no per-stage prompt wrapper, no fan-out through `pipelineFlags`. Triage runs first because its `roleOverrides` gate the rest of the pipeline; the RAG stage runs right after, before `domainCurator`.
+>
+> Workflow:
+>
+> ```bash
+> kj onboard
+> kj rag index
+> yq -i '.rag.preload.enabled = true' ~/.karajan/kj.config.yml
+> kj run task.md  # researcher/architect/planner/coder all see prior context
+> ```
+>
+> **Coming in v2.25.0+**: Camino B (`/kj-rag-query` slash command for Skills hosts), Camino D (Brain decisor heuristic deciding **when** to pre-fetch based on task complexity — refinement on top of C), chokidar watcher for live re-indexing, AST source chunker, BM25 + cosine hybrid scoring.
+>
 > **v2.23.0 released** — Minor. **RAG exposed to agents and humans alike** (KJC-PCS-0049, Steps 7+8+Camino A). After v2.22.0's CLI MVP, the corpus is now reachable from three more places.
 >
 > 1. **MCP tools** `kj_rag_query` + `kj_rag_index` (PR #815). Any MCP-connected agent — Claude Desktop, Cursor, Claude Code, Karajan's own roles — can call them. Tool count 25 → 27. Empty store responds `empty: true` so agents have a deterministic recovery signal.
