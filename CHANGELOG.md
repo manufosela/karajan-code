@@ -11,6 +11,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.24.0] - 2026-05-24
+
+Minor release. **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). After v2.23.0 taught the agents that `kj_rag_query` exists, Karajan now injects prior context for them automatically.
+
+### Added
+
+- **`runRagContextStage` pre-loop stage** (KJC-TSK-0432, PR #819). New module `src/orchestrator/stages/rag-context-stage.js`. Runs between triage and domainCurator. Five guards before retrieval fires: `disabled`, `no-task`, empty corpus, no hits, error. All five degrade silently except `empty` (info log pointing at `kj rag index`). The stage never throws. When all guards pass, mutates the `task` parameter prepending `## Prior context from RAG` block with top-K chunks. One mutation feeds researcher/architect/planner/coder via the existing parameter chain.
+
+### Toggle
+
+`config.rag.preload.enabled = false` by default (opt-in). `config.rag.preload.topK` (5) + `config.rag.preload.scope` (`all`).
+
+### Compatibility with Camino A (v2.23.0)
+
+Role templates from PR #817 already tell agents that `kj_rag_query` exists for on-demand queries. Camino C complements: agent gets context automatically at start; agent can still call the tool for follow-ups.
+
+### Out of scope (v2.25.0+)
+
+Camino B (Skills slash command), Camino D (Brain decisor for when to pre-fetch), chokidar watcher, AST source chunker, BM25 hybrid scoring.
+
+### Workflow
+
+```bash
+kj onboard
+kj rag index
+yq -i '.rag.preload.enabled = true' ~/.karajan/kj.config.yml
+kj run task.md  # researcher/architect/planner/coder see prior context automatically
+```
+
 ## [2.23.0] - 2026-05-24
 
 Minor release. **RAG exposed to agents and humans alike**: closes Steps 7 + 8 + Camino A of the Project RAG epic (KJC-PCS-0049).
