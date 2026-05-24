@@ -42,6 +42,7 @@ export function registerPlan(program, { pkgVersion }) {
     .option("--no-plan-review", "Skip the high-level plan reviewer pass (gaps / deps / overlap / order)")
     .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
     .option("--quick", "Sketch mode — skip every quality pass after the initial planner call")
+    .option("--no-preflight-hu", "Skip auto-injection of [PREFLIGHT-000] HU at the top of the generated plan")
     .option("-y, --yes", "Skip the project-name prompt (use the auto-derived default).")
     .option("--no-interactive", "Force non-interactive mode (no prompts, use defaults).")
     .action(async (task, flags) => {

@@ -414,6 +414,16 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     }
   }
 
+  // KJC-TSK-0397: inject a [PREFLIGHT-000] HU at the top of the plan so
+  // every functional HU gates on a clean environment (deps + build + tests
+  // + lint + git clean, plus cloud auth when applicable). Idempotent: a
+  // plan that already has a preflight HU is left untouched. Disable with
+  // `--no-preflight-hu`.
+  if (flags.preflightHu !== false) {
+    const { prependPreflightHu } = await import("../../plan/preflight-hu.js");
+    await prependPreflightHu(plan, projectDir);
+  }
+
   const planId = await savePlan(projectDir, plan);
   const { plansDir } = await import("../../plan/plan-store.js");
   const path = await import("node:path");
