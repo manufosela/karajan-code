@@ -345,6 +345,24 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.23.0 released** — Minor. **RAG exposed to agents and humans alike** (KJC-PCS-0049, Steps 7+8+Camino A). After v2.22.0's CLI MVP, the corpus is now reachable from three more places.
+>
+> 1. **MCP tools** `kj_rag_query` + `kj_rag_index` (PR #815). Any MCP-connected agent — Claude Desktop, Cursor, Claude Code, Karajan's own roles — can call them. Tool count 25 → 27. Empty store responds `empty: true` so agents have a deterministic recovery signal.
+> 2. **HU Board RAG panel** (PR #816). New input + scope dropdown (All / Plans / Onboarding / Code) + Search button + results pane between the preflight panel and the kanban. `POST /api/rag/query` backs it.
+> 3. **Role templates teach agents about the tool** (PR #817). `templates/roles/{coder,researcher,architect,planner,spec-reviewer}.md` each gain a tailored 'Prior context (RAG, opt-in)' section. Shared rule: when the store is empty, proceed without retrieval — do NOT block, do NOT ask the human to seed.
+>
+> Workflow:
+>
+> ```bash
+> kj onboard
+> kj rag index
+> kj plan generate task.md --use-onboarding
+> # From here on, every agent invocation can call kj_rag_query via MCP.
+> # Humans get the panel on the Board.
+> ```
+>
+> **Coming in v2.24.0+**: Camino B (`/kj-rag-query` slash command for hosts in Skills mode without MCP), Camino C (automatic pre-loop stage that pre-fetches retrieval and prepends it to the coder/researcher/architect prompt without the agent having to ask), Camino D (Brain decisor heuristic for when retrieval is worth the tokens), chokidar watcher for live re-indexing, AST-aware source chunker, BM25 + cosine hybrid scoring.
+>
 > **v2.22.0 released** — Minor. **Project RAG MVP** (KJC-PCS-0049). Karajan now indexes its plans + onboarding briefs (and optionally project sources) into a local vector store and lets you query them semantically from the CLI. Six PRs.
 >
 > | Step | PR | Module |
