@@ -345,6 +345,14 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.25.0 released** — Minor. **RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan. Skills hosts can now invoke RAG via `/kj-rag-query` without MCP, and the pre-loop retrieval stage from v2.24.0 only fires when triage signals make it worthwhile.
+>
+> Camino B — `/kj-rag-query <text> [--scope <s>] [--top-k <n>]` slash command shipped by `kj init` to `.claude/commands/`. Thin wrapper over `kj rag query`; passes flags through, surfaces `empty:true` as a one-line hint, renders hits as background context rather than raw JSON. For Claude Code / Cursor instances loaded without MCP.
+>
+> Camino D — Brain decisor heuristic in `src/orchestrator/stages/rag-preload-decisor.js`. New `config.rag.preload.policy`: `always` (v2.24.0 behaviour, kept for back-compat), `never` (benchmarking), `auto` (default). In `auto` mode, retrieval fires when triage decomposes, level ∈ {complex, high, epic}, task body ≥ 200 chars, or `config.rag.preload.brownfield` is set. Otherwise the stage persists `{ skipped: true, reason: 'auto:low-value' }` and the pipeline pays no retrieval cost on trivial tasks.
+>
+> **Coming in v2.26.0+**: chokidar watcher for live re-indexing, AST source chunker (tree-sitter / `@babel/parser`), BM25 + cosine hybrid scoring.
+>
 > **v2.24.0 released** — Minor. **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). After v2.23.0 taught the agents that `kj_rag_query` exists, Karajan now injects prior context for them automatically: a new pre-loop stage queries the vec store with the task description and prepends the top-K chunks to the task before any LLM call.
 >
 > Opt-in: `config.rag.preload.enabled = false` by default. Five guards before the retrieval fires (`disabled`, `no-task`, empty corpus, no hits, error). The stage never throws — best-effort enrichment, opt-out by default, opt-back-out on failure. When all guards pass, the task receives an extra block:
