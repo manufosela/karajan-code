@@ -101,6 +101,11 @@ export function registerPlan(program, { pkgVersion }) {
             quick: Boolean(flags.quick),
             yes: Boolean(flags.yes),
             interactive: flags.interactive,
+            // KJC-TSK-0397: forward `--no-preflight-hu` to the planGenerate
+            // pipeline. Without this entry the explicit whitelist drops the
+            // flag silently and PREFLIGHT-000 ends up injected on every plan
+            // even when the user (or an e2e test) opted out.
+            preflightHu: flags.preflightHu !== false,
           },
         });
       });
