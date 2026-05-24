@@ -161,6 +161,10 @@ const ragStubPlugin = {
           openVecStore: notAvailable, OllamaEmbedder: notAvailable,
           indexFile: notAvailable, indexProject: notAvailable,
           query: notAvailable, chunkMarkdown: notAvailable, chunkPlan: notAvailable, chunkSource: notAvailable,
+          // KJC-TSK-0435 — Ollama Docker manager.
+          ollamaUp: notAvailable, ollamaDown: notAvailable, ensureComposeFile: notAvailable,
+          isOllamaReachable: notAvailable, findAvailableOllamaPort: notAvailable,
+          waitForOllamaReady: notAvailable, buildComposeTemplate: notAvailable, normalizeOllamaConfig: notAvailable,
           default: notAvailable,
         };
       `,
