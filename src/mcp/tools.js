@@ -403,5 +403,30 @@ export const tools = [
         huDays: { type: "number", description: "Keep HU story batches for this many days. Default: 14." }
       }
     }
+  },
+  {
+    name: "kj_rag_query",
+    description: "Run a semantic search across the indexed Karajan plans, onboarding briefs and (optionally) project source code. Returns the top-K nearest chunks with their metadata so the agent can quote prior decisions, locate where a concept was last implemented, or pull architectural context without re-walking the repo. The store is empty until `kj_rag_index` (or `kj rag index` CLI) has been run at least once on this project; in that case the response carries `empty: true`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The natural-language query." },
+        topK: { type: "number", description: "Max number of hits to return. Default: 5." },
+        scope: { type: "string", description: "Filter by chunk kind: 'plans' | 'code' | 'onboarding' | 'all' (default)." },
+        projectDir: { type: "string", description: "Absolute path to the project directory" }
+      },
+      required: ["text"]
+    }
+  },
+  {
+    name: "kj_rag_index",
+    description: "(Re)index this project's Karajan-managed assets — every plan-*.json under ~/.karajan/plans/<slug>/ plus the onboarding brief at ~/.karajan/onboarding/<slug>.md — into the local vector store. Idempotent: a re-run replaces the chunks for each source, never appends duplicates. Pass `withSources: true` to also index the project's JS/TS files (skips node_modules / .git / dist / etc.). Required as a one-time bootstrap before kj_rag_query returns anything; safe to re-run after every `kj plan generate`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        withSources: { type: "boolean", description: "Also index .js/.ts files under projectDir. Default false." },
+        projectDir: { type: "string", description: "Absolute path to the project directory" }
+      }
+    }
   }
 ];
