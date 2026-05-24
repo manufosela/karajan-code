@@ -55,3 +55,7 @@ Karajan projects MAY enforce a CI gate that fails any PR whose net delta exceeds
 - The gate counts the SUM of every changed file, not per-file. Tests count too. 5 files × 40 LOC = 200 = on the limit.
 - Excluded from the count: lockfiles, snapshots, `dist/`, `node_modules/`, generated `tests/_diet/`, `public/docs/`. Source + tests count.
 - Token-economy: oversized PRs get rejected at CI and the work is redone — partitioning upfront saves the round-trip.
+
+## Prior context (RAG, opt-in)
+
+Before emitting blocked_by graphs, dependencies, or reuse markers, query the local RAG corpus via the `kj_rag_query` MCP tool with `{ text, topK: 5, scope: "plans" }` to see how previous plans wired similar HUs. If a prior plan already produced the utility/spike the new plan would need, mark `reuse: ["<that-hu-id>"]` instead of re-implementing. When `empty: true`, the corpus has not been indexed — proceed without retrieval; do NOT block on it.

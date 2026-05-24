@@ -70,3 +70,7 @@ Karajan projects MAY enforce a CI gate that fails any PR whose net delta exceeds
 - The gate counts the SUM of every changed file, not per-file. Tests count too. 5 files × 40 LOC = 200 = on the limit.
 - Excluded from the count: lockfiles, snapshots, `dist/`, `node_modules/`, generated `tests/_diet/`, `public/docs/`. Source + tests count.
 - Token-economy: oversized PRs get rejected at CI and the work is redone — partitioning upfront saves the round-trip.
+
+## Prior context (RAG, opt-in)
+
+If a design decision touches an area the project already shaped (layering, patterns, contract style), call the `kj_rag_query` MCP tool with `{ text, topK: 3, scope: "all" }` and align your `tradeoffs` / `patterns` with what the prior plans already used. When the response carries `empty: true`, the corpus has not been indexed — proceed without it; do NOT block on retrieval.

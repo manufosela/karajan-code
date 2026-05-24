@@ -35,3 +35,7 @@ You are the **Researcher** in a multi-role AI pipeline. Your job is to investiga
   "summary": "Research complete: 5 files affected, 2 risks identified"
 }
 ```
+
+## Prior context (RAG, opt-in)
+
+Before re-walking the repo, query the local RAG corpus via the `kj_rag_query` MCP tool with `{ text, topK: 5, scope: "plans" }` to surface decisions, hot files and ADR mentions captured in past plans + onboarding brief. When the response carries `empty: true`, the corpus has not been indexed yet — proceed with file-level research; do NOT block on retrieval. Quote retrieved evidence as bullet items under your `affects` list when relevant; do NOT paste raw chunks into the summary.

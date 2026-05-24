@@ -110,3 +110,7 @@ Return a JSON object:
   "summary": "Human-readable summary of changes"
 }
 ```
+
+## Prior context (RAG, opt-in)
+
+If you need to know how the project handled a similar concern before (auth, error model, retry policy, naming convention…), call the `kj_rag_query` MCP tool with `{ text, topK: 3, scope: "all" }`. It returns the closest chunks from prior plans + onboarding brief + indexed sources. When the response carries `empty: true`, the corpus has not been indexed yet — proceed without it; do NOT block on retrieval, and do NOT ask the human to run `kj rag index`. Use sparingly: one query per concern, not per file.
