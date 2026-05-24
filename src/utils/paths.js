@@ -90,6 +90,11 @@ export function getSonarComposePath() {
   return path.join(getKarajanHome(), "docker-compose.sonar.yml");
 }
 
+/** Ollama RAG embedder compose: `<karajan-home>/docker-compose.ollama.yml` — KJC-TSK-0435. */
+export function getOllamaComposePath() {
+  return path.join(getKarajanHome(), "docker-compose.ollama.yml");
+}
+
 /** Webperf cache: `<karajan-home>/webperf/` — KJC-TSK-0420. */
 export function getWebperfDir() {
   return path.join(getKarajanHome(), "webperf");
