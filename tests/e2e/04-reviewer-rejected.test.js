@@ -81,7 +81,7 @@ describe("e2e/04 — reviewer rejected → HU fails (no ReferenceError)", () => 
     }));
 
     const gen = runKj(
-      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake"],
+      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake", "--no-preflight-hu"],
       { cwd: proj.projectDir, fakeAgent: true, fixtureDir, timeoutMs: 60_000 }
     );
     expect(gen.exitCode, `gen stderr: ${gen.stderr}`).toBe(0);

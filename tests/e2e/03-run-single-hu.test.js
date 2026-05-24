@@ -65,7 +65,7 @@ describe("e2e/03 — kj run --plan --hu <huId> single HU", () => {
       JSON.stringify({ planner: { output: planner } }));
 
     const gen = runKj(
-      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake"],
+      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake", "--no-preflight-hu"],
       { cwd: proj.projectDir, fakeAgent: true, fixtureDir, timeoutMs: 60_000 }
     );
     expect(gen.exitCode, `gen stderr: ${gen.stderr}`).toBe(0);

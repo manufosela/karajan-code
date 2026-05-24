@@ -14,6 +14,7 @@ import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { printResumeHint } from "../../utils/display/resume-hint.js";
 import { runSpecReview } from "../../spec-review/run-spec-review.js";
+import { prependPreflightHu } from "../../plan/preflight-hu.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -420,7 +421,6 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   // plan that already has a preflight HU is left untouched. Disable with
   // `--no-preflight-hu`.
   if (flags.preflightHu !== false) {
-    const { prependPreflightHu } = await import("../../plan/preflight-hu.js");
     await prependPreflightHu(plan, projectDir);
   }
 
