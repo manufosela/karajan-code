@@ -56,7 +56,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 414+ Tests Automatizados" icon="approve-check">
+  <Card title="5 436+ Tests Automatizados" icon="approve-check">
     468 ficheros de test cubriendo cada rol (incl. el nuevo rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board y el subsystem Project RAG. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
@@ -367,7 +367,7 @@ kj plan generate task.md --use-onboarding
 
 **Viene en v2.24.0+** — **Camino B** (slash command `/kj-rag-query` para hosts en modo Skills sin MCP), **Camino C** (pre-loop stage automática que pre-fetcha retrieval y la prepende al prompt del coder/researcher/architect sin que el agente tenga que pedirla — transparente + automático), **Camino D** (heurística Brain decisor para cuando retrieval merece la pena en tokens). Más chokidar watcher para re-indexing en vivo, chunker AST-aware, scoring híbrido BM25 + cosine.
 
-### v2.24.0 — Minor (actual)
+### v2.24.0 — Minor
 
 **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). La cuarta capa de integración RAG tras v2.22.0 (CLI), v2.23.0 (MCP + Board + role instructions). Donde Camino A enseñó a los agentes que `kj_rag_query` existe para queries on-demand, **Camino C hace que Karajan inyecte el context por ellos automáticamente** — transparente, sin llamada MCP por parte del agente.
 
@@ -431,4 +431,40 @@ kj run task.md
 # kj_rag_query para preguntas follow-up.
 ```
 
-**Viene en v2.25.0+** — **Camino B** (slash command `/kj-rag-query` para hosts Skills sin MCP), **Camino D** (heurística Brain decisor que decide **cuándo** pre-fetchear — refinamiento sobre C, ej. skipear en tasks triviales, fetchear con topK=10 en plans complejos multi-HU), **chokidar watcher** para re-indexing en vivo sin `kj rag index` on-demand, **chunker AST-aware** (tree-sitter o @babel/parser) reemplazando el regex de export-symbol, **scoring híbrido BM25 + cosine** para mejor precisión en queries keyword-heavy.
+**Viene en v2.26.0+** — **chokidar watcher** para re-indexing en vivo sin `kj rag index` on-demand, **chunker AST-aware** (tree-sitter o @babel/parser) reemplazando el regex de export-symbol, **scoring híbrido BM25 + cosine** para mejor precisión en queries keyword-heavy.
+
+### v2.25.0 — Minor (actual)
+
+**RAG Camino B + Camino D** (KJC-PCS-0049). Cierra el plan de superficies de consumo arrancado en v2.22.0. El retriever ya se alcanza desde todos los contextos de host relevantes, y el pre-loop stage de v2.24.0 sólo paga su coste cuando triage indica que la recuperación merece la pena.
+
+**Camino B — slash command `/kj-rag-query` para hosts Skills**. Nuevo `templates/skills/kj-rag-query.md`. `kj init` lo despliega a `.claude/commands/` para que los hosts que cargan Karajan vía Skills — Claude Code sin MCP, Cursor sin MCP — alcancen el retriever RAG con un slash command en vez de necesitar la herramienta MCP `kj_rag_query`. Wrapper delgado sobre el CLI existente:
+
+```
+/kj-rag-query <texto> [--scope <all|plans|onboarding|code>] [--top-k <n>]
+```
+
+El skill delega la validación de flags al CLI (fuente única de verdad), surface el store vacío como hint de una línea sin bloquear la conversación, y renderiza los hits como bloques `[score] source — snippet` en lugar de JSON crudo.
+
+**Camino D — heurística Brain decisor para retrieval pre-loop**. Nuevo módulo `src/orchestrator/stages/rag-preload-decisor.js`. Función pura `shouldPreloadRag({ triage, task, config }) → { pull, reason }` cableada en `pre-loop.js` antes de `runRagContextStage` (v2.24.0). Añade una nueva clave de configuración:
+
+```yaml
+rag:
+  preload:
+    enabled: true
+    policy: auto       # auto | always | never  (default: auto)
+    brownfield: false  # señal explícita — siempre pulls cuando true
+```
+
+- `always` — pull en cada run (back-compat con v2.24.0).
+- `never` — nunca pulls (benchmarking, debugging).
+- `auto` (default) — heurística. Pulls cuando **cualquiera** de:
+  - `triage.shouldDecompose === true` (run multi-HU; el contexto previo beneficia a researcher/architect/planner)
+  - `triage.level ∈ {complex, high, epic}`
+  - `task.length >= 200` chars (un brief largo suele indicar scope no-trivial)
+  - `config.rag.preload.brownfield === true`
+
+Si no, el stage persiste `ragPreload: { skipped: true, reason: 'auto:low-value' }` y el pipeline no paga retrieval en tasks triviales. El motivo del decisor también se persiste junto al conteo de hits cuando retrieval **sí** dispara — `resume` y `audit` pueden ver exactamente por qué retrieval corrió (o no) en cualquier sesión pasada.
+
+**Por qué los dos a la vez**: B y D son superficies independientes — uno extiende alcance, el otro refina coste. Se publican juntos para que el arco RAG v2.22.0 → v2.25.0 cierre en un solo release en vez de gotear en varios minors.
+
+**Viene en v2.26.0+** — chokidar watcher (re-indexing en vivo), chunker AST de fuentes, scoring híbrido BM25 + cosine.

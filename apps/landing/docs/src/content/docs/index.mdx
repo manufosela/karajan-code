@@ -56,7 +56,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 414+ Automated Tests" icon="approve-check">
+  <Card title="5 436+ Automated Tests" icon="approve-check">
     468 test files covering every pipeline role (incl. the new rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
@@ -367,7 +367,7 @@ kj plan generate task.md --use-onboarding
 
 **Coming in v2.24.0+** — **Camino B** (`/kj-rag-query` slash command for hosts in Skills mode without MCP), **Camino C** (automatic pre-loop stage that pre-fetches retrieval and prepends it to the coder/researcher/architect prompt without the agent having to ask — transparent + automatic), **Camino D** (Brain decisor heuristic for when retrieval is worth the tokens). Plus chokidar watcher for live re-indexing, AST-aware source chunker, BM25 + cosine hybrid scoring.
 
-### v2.24.0 — Minor (current)
+### v2.24.0 — Minor
 
 **RAG Camino C — pre-loop auto-retrieval** (KJC-PCS-0049). The fourth layer of RAG integration after v2.22.0 (CLI), v2.23.0 (MCP + Board + role instructions). Where Camino A taught the agents that `kj_rag_query` exists for on-demand queries, **Camino C makes Karajan inject the context for them automatically** — transparent, no MCP call from the agent required.
 
@@ -431,4 +431,40 @@ kj run task.md
 # kj_rag_query for follow-up questions.
 ```
 
-**Coming in v2.25.0+** — **Camino B** (`/kj-rag-query` slash command for Skills hosts without MCP), **Camino D** (Brain decisor heuristic that decides **when** to pre-fetch — refinement on top of C, e.g. skip for trivial tasks, fetch with topK=10 for complex multi-HU plans), **chokidar watcher** for live re-indexing without on-demand `kj rag index`, **AST-aware source chunker** (tree-sitter or @babel/parser) to replace the export-symbol regex, **BM25 + cosine hybrid scoring** for better precision on keyword-heavy queries.
+**Coming in v2.26.0+** — **chokidar watcher** for live re-indexing without on-demand `kj rag index`, **AST-aware source chunker** (tree-sitter or @babel/parser) to replace the export-symbol regex, **BM25 + cosine hybrid scoring** for better precision on keyword-heavy queries.
+
+### v2.25.0 — Minor (current)
+
+**RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan started in v2.22.0. The retriever is now reachable from every relevant host context, and the pre-loop stage from v2.24.0 only pays its cost when triage signals make retrieval worthwhile.
+
+**Camino B — `/kj-rag-query` slash command for Skills hosts**. New `templates/skills/kj-rag-query.md`. `kj init` ships it to `.claude/commands/` so hosts that load Karajan via the Skills mechanism — Claude Code without MCP, Cursor without MCP — can reach the RAG retriever through a slash command instead of needing the `kj_rag_query` MCP tool. Thin wrapper over the existing CLI:
+
+```
+/kj-rag-query <text> [--scope <all|plans|onboarding|code>] [--top-k <n>]
+```
+
+The skill defers flag validation to the CLI (single source of truth), surfaces empty-store as a one-line hint without blocking the conversation, and renders hits as `[score] source — snippet` blocks rather than raw JSON.
+
+**Camino D — Brain decisor heuristic for pre-loop retrieval**. New module `src/orchestrator/stages/rag-preload-decisor.js`. Pure function `shouldPreloadRag({ triage, task, config }) → { pull, reason }` wired in `pre-loop.js` before `runRagContextStage` (v2.24.0). Adds a new config knob:
+
+```yaml
+rag:
+  preload:
+    enabled: true
+    policy: auto       # auto | always | never  (default: auto)
+    brownfield: false  # explicit signal — always pulls when true
+```
+
+- `always` — pull every run (back-compat with v2.24.0 default behaviour).
+- `never` — never pull (benchmarking, debugging).
+- `auto` (default) — heuristic. Pulls when **any** of:
+  - `triage.shouldDecompose === true` (multi-HU run, prior context benefits researcher/architect/planner)
+  - `triage.level ∈ {complex, high, epic}`
+  - `task.length >= 200` chars (long brief usually = non-trivial scope)
+  - `config.rag.preload.brownfield === true`
+
+Otherwise the stage persists `ragPreload: { skipped: true, reason: 'auto:low-value' }` and the pipeline pays no retrieval cost on trivial tasks. The decisor reason is also persisted alongside hit counts when retrieval **does** fire — `resume` and `audit` can see exactly why retrieval ran (or didn't) on any past session.
+
+**Why both at once**: B and D are independent surfaces — one extends reach, the other refines cost. Shipped together so the v2.22.0 → v2.25.0 RAG arc closes in a single release rather than dribbling across several minors.
+
+**Coming in v2.26.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring.
