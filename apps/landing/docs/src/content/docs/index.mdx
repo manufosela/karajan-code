@@ -56,7 +56,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 436+ Automated Tests" icon="approve-check">
+  <Card title="5 558+ Automated Tests" icon="approve-check">
     468 test files covering every pipeline role (incl. the new rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
@@ -431,9 +431,9 @@ kj run task.md
 # kj_rag_query for follow-up questions.
 ```
 
-**Coming in v2.26.0+** — **chokidar watcher** for live re-indexing without on-demand `kj rag index`, **AST-aware source chunker** (tree-sitter or @babel/parser) to replace the export-symbol regex, **BM25 + cosine hybrid scoring** for better precision on keyword-heavy queries.
+**Coming in v2.27.0+** — **chokidar watcher** for live re-indexing without on-demand `kj rag index`, **AST-aware source chunker** (tree-sitter or @babel/parser) to replace the export-symbol regex, **BM25 + cosine hybrid scoring** for better precision on keyword-heavy queries, **OpenAI / Voyage embedder adapters** for users who cannot run a local Docker.
 
-### v2.25.0 — Minor (current)
+### v2.25.0 — Minor
 
 **RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan started in v2.22.0. The retriever is now reachable from every relevant host context, and the pre-loop stage from v2.24.0 only pays its cost when triage signals make retrieval worthwhile.
 
@@ -467,4 +467,37 @@ Otherwise the stage persists `ragPreload: { skipped: true, reason: 'auto:low-val
 
 **Why both at once**: B and D are independent surfaces — one extends reach, the other refines cost. Shipped together so the v2.22.0 → v2.25.0 RAG arc closes in a single release rather than dribbling across several minors.
 
-**Coming in v2.26.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring.
+**Coming in v2.27.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters.
+
+### v2.26.0 — Minor (current)
+
+**RAG Auto-Bootstrap** (KJC-PCS-0049). Closes the friction caught in the v2.25.0 dogfooding: the RAG feature was technically complete but invisible to new users — they had to install Ollama manually before any of `kj rag index`, `kj rag query`, the MCP tool or pre-loop auto-retrieval would do anything. From v2.26.0 onwards, the embedder is just there.
+
+**`kj init` provisions Ollama in Docker**. Three integrated steps:
+
+1. **Capability check** — `src/rag/ollama-capability.js` validates Docker daemon reachability and >= 4 GB free RAM. Returns an aggregated `{ capable, reasons[] }`.
+2. **Bootstrap** — when capable, `ollamaUp()` writes `~/.karajan/docker-compose.ollama.yml` and starts the `kj-ollama` container, then `waitForOllamaReady()` polls `/api/tags` until healthy.
+3. **Model pull** — `docker exec kj-ollama ollama pull nomic-embed-text` populates the embedder model (~270 MB on first run; cached afterwards in the `kj_ollama_data` volume).
+
+Never crashes init: Windows without Docker Desktop, Linux under 4 GB free, or explicit `--no-ollama` opt-out all degrade to a one-line warning and continue. Hosts with Ollama already running on `:11434` are detected via the discover-before-spawn pattern (same as SonarQube): the existing instance is reused, no second container.
+
+**`kj doctor` surfaces Ollama state**:
+
+| `rag.preload.enabled` | Container | Doctor reports |
+|---|---|---|
+| `false` (default) | irrelevant | `info: Disabled in config` — quiet on greenfield |
+| `true` | reachable | `info: Reachable at <host>` |
+| `true` | unreachable | `warn` with fix hint `kj ollama start` |
+
+**`kj ollama` subcommand** for lifecycle without docker compose:
+
+```
+kj ollama start         # provision + start (idempotent)
+kj ollama stop          # docker compose stop
+kj ollama status        # host + container + reachable
+kj ollama pull <model>  # docker exec ... ollama pull <m>
+```
+
+**Bug fix bundled** — the same v2.25.0 smoke test that surfaced the bootstrap gap also caught **KJC-BUG-0061**: `kj onboard --no-synth` was silently ignored because Commander maps `--no-synth` to `flags.synth=false`, not `flags.noSynth=true`; the synth branch invoked `OnboarderRole.run()` without `init()`, breaking the command outright; and `kj rag query --json` on empty store emitted `[]` instead of the `{ hits, empty, topK, scope }` shape the MCP handler returns, which broke the contract the `/kj-rag-query` skill from v2.25.0 promised to Skills hosts. All three fixed in PR #824 and shipped with v2.26.0.
+
+**Coming in v2.27.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters for users without local Docker.
