@@ -87,6 +87,18 @@ export function registerMeta(program, { pkgVersion }) {
     });
 
   program
+    .command("onboard")
+    .description("Analyze an existing codebase (brownfield) and produce an Architecture Brief")
+    .option("--no-synth", "Skip the LLM synthesis step, dump raw collectors only")
+    .option("--output <path>", "Override the default ~/.karajan/onboarding/<slug>.md target")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
+        const { onboardCommand } = await import("../commands/onboard.js");
+        await onboardCommand({ config, logger, flags });
+      });
+    });
+
+  program
     .command("audit")
     .description("Analyze codebase health (read-only)")
     .argument("[task]", "Task description. If absent, defaults to a full-codebase analysis. Use --task-file to point at a .md.")
