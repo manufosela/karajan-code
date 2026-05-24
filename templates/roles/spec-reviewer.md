@@ -36,3 +36,7 @@ is the WORST of any finding, or `ok` if findings is empty.
 
 Direct, accionable. No moralising. `suggestion` must be concrete (a paste-able
 sentence), not vague advice.
+
+## Prior context (RAG, opt-in)
+
+When evaluating whether the spec duplicates a prior plan's scope or contradicts an ADR, call the `kj_rag_query` MCP tool with `{ text, topK: 3, scope: "all" }` using a phrase from the spec as the query. If retrieved chunks describe overlapping HUs already approved, surface the conflict via a finding with `kind: "scope_overlap"` and reference the prior HU id. When `empty: true`, the corpus has not been indexed — proceed without retrieval; do NOT block on it.
