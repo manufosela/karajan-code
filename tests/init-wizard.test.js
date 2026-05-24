@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("../src/config.js", () => ({
   getConfigPath: vi.fn().mockReturnValue("/fake/.karajan/kj.config.yml"),
+  getProjectConfigPath: vi.fn().mockReturnValue("/fake/project/.karajan/kj.config.yml"),
   loadConfig: vi.fn(),
   writeConfig: vi.fn()
 }));
@@ -136,6 +137,7 @@ describe("initCommand", () => {
       ask: vi.fn().mockResolvedValue(""),  // branch_prefix only asked if auto_commit
       confirm: vi.fn().mockResolvedValue(false),
       select: vi.fn()
+        .mockResolvedValueOnce("global")       // KJC-TSK-0395: config scope
         .mockResolvedValueOnce("codex")        // coder
         .mockResolvedValueOnce("claude")       // reviewer
         // KJC-TSK-0367: 10 per-role selects (planner, researcher,
@@ -162,8 +164,8 @@ describe("initCommand", () => {
     await initCommand({ logger, flags: {} });
 
     expect(detectAvailableAgents).toHaveBeenCalled();
-    // 2 (agents) + 10 (per-role) + 3 (methodology/pipelineLang/huLang) = 15
-    expect(mockWizard.select).toHaveBeenCalledTimes(15);
+    // 1 (KJC-TSK-0395 scope) + 2 (agents) + 10 (per-role) + 3 (methodology/pipelineLang/huLang) = 16
+    expect(mockWizard.select).toHaveBeenCalledTimes(16);
     expect(writeConfig).toHaveBeenCalled();
     const writtenConfig = writeConfig.mock.calls[0][1];
     expect(writtenConfig.coder).toBe("codex");
