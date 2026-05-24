@@ -1220,6 +1220,63 @@ Two changes in one fix.
 
 LOC budget: +117 / -9, net +108. Inside 200 hard / 150 ideal. 9 orchestrator test files / 54 tests stayed green; new test `tests/orchestrator/config-init-autoinit.test.js` pins the three acceptance scenarios (subdir of repo, clean dir, own repo).
 
+## Phase 76: HU Board polish + UX papercuts cluster (v2.20.0)
+
+**v2.20.0** (minor, 2026-05-24) — five cards in the HU Board polish cluster: two net-new features (`PREFLIGHT-000` HU auto-inject + `kj init` scope wizard), two PG housekeeping syncs for work that had already landed (Stop button + auto-cleanup ampliado), one docs refresh.
+
+The unifying theme: **stop making the user remember Karajan's plumbing**. Every card here moves a responsibility that was sitting on the user's mental stack into Karajan itself. Don't make the user add a `Verify env` step to every task.md — inject it. Don't make the user edit YAML to switch coder providers per project — give them a scope flag. Don't make the user kill PIDs by hand from a terminal when the board could do it. Don't make them rediscover SPEC conventions by dogfooding — document them.
+
+### KJC-TSK-0397 — `[PREFLIGHT-000]` HU auto-inject (PR #801)
+
+Every `kj plan generate` now ends with a `prependPreflightHu(plan, projectDir)` call that mutates the plan in place before `savePlan`. The new HU sits at `plan.hus[0]` with id `PREFLIGHT-000`, task_type `infra`, blocked_by `[]`. Every other HU gets `PREFLIGHT-000` appended to its `blocked_by` (idempotent — already-present ids are not duplicated). The HU's `acceptance_tests` are pure shell, stack-aware:
+
+- Always: `git status --porcelain | (! grep -q .)` — the working tree must be clean.
+- Node / TypeScript: `node --version` matches `v2[0-9]` or higher; `npm install --no-audit --no-fund`; conditional `npm test` and `npm run lint` only if those scripts exist.
+- Python: `python --version` matches `Python 3.(1[0-9]|[2-9][0-9])`; `pip install -r requirements.txt` when present or `poetry install` / `pip install -e .` for pyproject; `pytest --collect-only || true` so the collect phase doesn't gate on a freshly-init'd repo with no tests yet.
+- Firebase project (detected by `firebase.json`): `firebase projects:list`.
+- GCP project (detected by `.gcloudignore`): `gcloud auth list --filter=status:ACTIVE` non-empty.
+
+The idempotence is a contract, not a nicety. The same plan flows through structural-pass + plan-fixer + spec-reviewer before `savePlan`, and any of those can pass it through `prependPreflightHu` more than once. Same for users who manually declare `[PREFLIGHT-000]` in their task.md — `hasPreflightHu(plan)` does a conservative pattern match on id and on title substrings (`preflight-000`, `verificar entorno`, `preflight check`) so the user's own HU is respected.
+
+The flag `--no-preflight-hu` opts out per invocation. The flag default is "on" — the *feature* default is preflight gating. Six CI tests + four e2e tests that pre-dated the feature were updated to pass `--no-preflight-hu` (they assert on plan shapes that don't include `PREFLIGHT-000`); the new contract has its own 6 acceptance tests in `tests/plan/preflight-hu.test.js`.
+
+LOC: +197 / -4 (preflight-hu.js 102 lines + test 84 lines + glue elsewhere), net +197 — just under the 200 hard limit.
+
+### KJC-TSK-0395 — `kj init` scope wizard + `--global` / `--local` (PR #802)
+
+Until v2.20.0, `kj init` always wrote to `~/.karajan/kj.config.yml`. There was no scope concept at the CLI level even though `loadConfig` had honoured `<project>/.karajan/kj.config.yml` as an override layer for a while. Result: power users who wanted `coder=claude` for one repo and `coder=opencode` for another had to edit YAML by hand.
+
+`resolveConfigScope({ flags, interactive })` resolves the destination path: `--global` → `getConfigPath()`; `--local` → `getProjectConfigPath(process.cwd())`; both → throw `Cannot pass both --global and --local`; interactive + no flags → `wizard.select(...)` with both options described in human text; non-interactive + no flags → global (legacy CI default). The function is exported so unit tests can drive it without spinning up the rest of `initCommand`.
+
+The interesting half is in `loadConfig`. Before v2.20.0, a project config without a global counterpart silently behaved like a global config — but without the merged defaults (`DEFAULTS < global < project`), so several fields the user expected to inherit from the global baseline came out as `undefined`. Almost always a copy-paste error (the user dragged a `.karajan/` dir from another repo). The new `loadConfig` refuses with an actionable message pointing at `kj init --global` first.
+
+That one fix turns the implicit "you can technically do this but it'll break" into the explicit "you can't do this; here's what to do instead". The fix surfaces the mistake at the first `kj` invocation instead of waiting until the third command burns tokens against a half-resolved config.
+
+LOC: +120 / -5, net +115. Inside 200/150. Five new acceptance tests in `tests/commands/init-scope.test.js`; existing `tests/init-wizard.test.js` needed three lines updated (mock now exports `getProjectConfigPath`, mockResolvedValueOnce queue prepends `global`, expected select count 15 → 16).
+
+### KJC-TSK-0396 (PG sync) — HU Board `⏹ Stop` button
+
+The button itself was first shipped in v2.10.x (PRs #702 + #703). What today's release adds is closure of the PG card with the canonical commits as evidence. The wiring deserves recording here because it's the only board endpoint that crosses the process boundary:
+
+- Frontend: when at least one HU is in `coding`/`reviewing`, the section header renders a red ⏹ Stop button next to the running badge. Click → `showConfirm` (destructive style) → `POST /api/runs/:planId/stop` per unique `plan_id` in the running set → `POST /api/sync` → re-render. The button uses the same delegate-on-document pattern as the ▶ Run button, with `data-plan-id` + `data-pids` so a HU-launched run and a plan-launched run both surface the same way.
+- Backend: `/runs/:planId/stop` queries `getActiveRuns(planId)` (cross-process registry persisted under `~/.karajan/hu-board-runs/`), sends `SIGTERM` to every tracked PID, sleeps `req.body.timeoutMs ?? 5000` ms, sends `SIGKILL` to any still alive. Then UNCONDITIONALLY resets `stories.status` from `coding|reviewing|running` to `pending` for that `plan_id` so a manually-killed run (Ctrl+C in the launching terminal) still leaves the board in a consistent state. Response shape: `{ stopped, killed, errors, hu_reset_count }`.
+- Cross-process registry: `packages/hu-board/src/run-tracker.js` persists `{ pid, planId, startedAt }` so the board's Stop button can kill runs the user launched in their terminal (and vice versa, future work).
+
+### KJC-TSK-0377 (PG sync) — auto-cleanup ampliado
+
+`packages/hu-board/src/ephemeral-cleaner.js` originally targeted four prefixes: `tmp_*`, `test_*`, `demo_*`, `kj-test-*`. PR #683 (v2.12.x) added `auto-tmp_*`, `auto-test_*` (covering auto-batch projects), `s_*` (stray session-id placeholders created by sync handlers when a `kj run` lands without a `projectDir`), and `plan-*` (the same case for plan-id placeholders). Plus `is_test = 2` semantics: 1 means "user marked as ephemeral", 2 means "user explicitly marked as keep", null means "fall back to prefix detection".
+
+The architectural value of this card is the **exemption hierarchy**: prefix detection is the default rule, but `is_test = 1/2` is a per-row override. That keeps the cleaner from getting in the way of users who deliberately have a `test_<project>` repo they want to keep.
+
+### KJC-TSK-0385 — docs/task-templates/spec-conventions.md refresh (PR #800)
+
+Two sections added documenting what was previously implicit in the planner prompt:
+
+- **Section 8** — Numbered headings in a task file (`## 1.`, `### 2.1`, `§5`) activate the `spec_section` REQUIRED field on every emitted step. The activation is detected by `detectSpecSections(task)`; once it fires, the planner refuses to leave `spec_section` null. Users were seeing 'missing spec_section' findings without understanding the activation rule.
+- **Section 9** — Every step ships with 2-4 `acceptance_tests`, mix of `gherkin` (observable behaviour) and `shell` (concrete commands exit 0 on success), pre-implementation, no `npx vitest run` placeholder. The planner composes them; the sub-pipeline runs the shell ones after each coder iteration. The gap was between "I see acceptance_tests in my plan" and "I understand what they are for".
+
+Plus a `~/.kj/plans/` → `~/.karajan/plans/` path fix in two places in `plan-generate.md` (post-v2.19.0 home consolidation).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
