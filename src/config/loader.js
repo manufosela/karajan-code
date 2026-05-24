@@ -114,6 +114,18 @@ export async function loadConfig(projectDir) {
   // Load project config (.karajan/kj.config.yml)
   const projectConfig = await loadProjectConfig(projectDir);
 
+  // KJC-TSK-0395: enforce the local-overrides-global hierarchy. A project
+  // config with no global counterpart is almost always user error (copied
+  // a .karajan dir from another repo, edited the wrong file, etc.) and
+  // would silently behave like a global config without the defaults
+  // people expect. Refuse with an actionable message.
+  if (projectConfig && !globalExists) {
+    throw new Error(
+      `Local config found at ${getProjectConfigPath(projectDir)} but no global config exists.\n` +
+      "Local configs are merged ON TOP of the global one — run `kj init --global` first to create the base."
+    );
+  }
+
   // Merge: DEFAULTS < global < project
   let merged = mergeDeep(DEFAULTS, globalConfig);
   if (projectConfig) {
