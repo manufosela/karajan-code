@@ -1276,6 +1276,65 @@ Dos secciones añadidas documentando lo que antes era implícito en el prompt de
 
 Más un fix de path `~/.kj/plans/` → `~/.karajan/plans/` en dos sitios de `plan-generate.md` (post-consolidación home v2.19.0).
 
+## Fase 78: Rol Onboarder brownfield (v2.21.0)
+
+**v2.21.0** (minor, 2026-05-24) — cierra KJC-TSK-0384 en tres PRs. El Onboarder es el puente entre un codebase *existente* y el pipeline de Karajan: digiere lo que el proyecto YA es para que el planner / researcher / coder escriban tareas que encajan, en lugar de escribir tareas que el proyecto no fue construido para absorber.
+
+La unión arquitectónica que abre importa más que el UX win inmediato. El Onboarder es el **prerequisito de la épica Project RAG** (KJC-PCS-0049, arranca en v2.22.0). RAG necesita una señal per-proyecto de "qué vive dónde" antes de indexar inteligentemente; el Architecture Brief es esa señal en su primera forma, machine-readable lo suficiente como para que el indexer se sembré con él.
+
+### PR 1 — collectors deterministas
+
+`src/onboarder/collectors/index.js` expone cinco extractores puros, JSON-serialisables, fail-soft. El contract: toma un `projectDir`, devuelve un JSON value. Sin excepciones en la superficie pública — cada collector captura sus propios fallos I/O y devuelve `null` / `[]` para el slot, así que el `Promise.all` de `collectAll` nunca falla parcialmente. Misma disciplina que el `composePreflightTests` del HU preflight (KJC-TSK-0397): el synthesis step downstream debe poder asumir que el bundle es estructuralmente válido aunque la mitad del proyecto falte.
+
+| Collector | Devuelve | Modo de fallo |
+|---|---|---|
+| `collectTree(projectDir, { maxDepth = 2 })` | `[{ path, kind, bytes, children? }]` ignorando `node_modules` / `.git` / `dist` / etc. | Subdir ilegible → saltado, walk continúa |
+| `collectGitHistory(projectDir, { maxHotFiles = 10 })` | `{ commitCount, branches, hotFiles, headSha }` o `null` en non-git | Resultado entero `null` en greenfield |
+| `collectConfigs(projectDir)` | `{ present: string[], scripts: object? }` | package.json ausente → `scripts: null`, otros configs fuera de `present` |
+| `collectAdrs(projectDir)` | Rutas relativas matching `adr-N`, `NNNN-*.md`, `architecture*.md` bajo `docs/adr*` y `docs/architecture/` | `[]` cuando no matchea nada |
+| `collectAll(projectDir)` | Bundle con cada collector + timestamp ISO `collectedAt` | Slots independientes; nada aborta |
+
+La heurística de hot files es deliberadamente barata: top N por appearance count en `git log --name-only --pretty=format: -n 200`. No es la señal más refinada — un megacommit reciente puede sesgarla — pero suficiente para que el synthesis step pregunte "dónde ocurre el trabajo aquí?" sin un segundo LLM round-trip.
+
+### PR 2 — OnboarderRole + comando `kj onboard`
+
+`src/roles/onboarder-role.js` es la subclase más fina de `AgentRole` del codebase. Deriva el prompt a `templates/roles/onboarder.md` (que vive en la cohorte de AI-rule files y cuenta contra el LOC budget por la two-cohort rule). El parser del rol desempaqueta un bloque markdown con fence si el agente emitió uno, sino trim del raw output; `handleParseNull` devuelve soft-success con cualquier raw output que existiese, así que un proyecto greenfield nunca propaga error hacia arriba.
+
+`src/commands/onboard.js` orquesta el pipeline:
+
+```text
+collectAll(projectDir)
+  → si flags.noSynth: escribe el bundle raw dentro de un JSON fence, listo.
+  → else: OnboarderRole.run({ bundle }) → escribe el Brief markdown parseado.
+```
+
+El target de output es `~/.karajan/onboarding/<slug>.md` donde `<slug>` es un basename sanitised de `projectDir`. La función `briefPath(projectDir)` está exportada precisamente porque PR 3 necesita el mismo slug rule para leer la cache determinísticamente — writer y reader comparten una source of truth.
+
+El flag `--no-synth` merece su propio párrafo. Hace dump del bundle raw de collectors sin invocar ningún LLM, útil para dos contextos: runs CI que quieren el snapshot estructural sin pagar el synthesis cost, y cualquier consumer que prefiera leer el JSON directamente (un futuro RAG indexer, por ejemplo).
+
+### PR 3 — `kj plan generate --use-onboarding`
+
+El más pequeño de los tres PRs (net +84 LOC) pero el que cierra el loop. `src/onboarder/cache.js::readCachedBrief(projectDir)` devuelve `{ found, path, content? }`, nunca throw. `kj plan generate` lee el brief cuando el flag está set y lo prepende al planner context bajo un heading `## Architecture Brief (from kj onboard)`. El prepend compone — cualquier `--context` explícito que el usuario pase queda en su sitio, justo debajo del brief.
+
+La semántica de errores es intencional. Sin el flag → sin lectura de cache, sin log line. Con el flag y cache miss → `warn` log para que el usuario note la invocación olvidada de `kj onboard`; planning procede anyway sin el brief. Con el flag y cache presente → el brief fluye, una línea de `runLog` registra el path de inyección. Loud donde importa; silent donde no.
+
+El nuevo flag `useOnboarding` se forwardea por el whitelist explícito en `src/cli/register-plan.js`, espejando la lección aprendida de KJC-TSK-0397: un flag droppeado del whitelist surface como "la feature no funciona" con cero error — nunca confíes en el forward implícito.
+
+### Qué viene después
+
+La épica **Project RAG** (KJC-PCS-0049) abre en v2.22.0. Ocho PRs planeadas:
+
+1. Vector store sobre `better-sqlite3` + `sqlite-vec` (`~/.karajan/rag.db`).
+2. Adapter embedder para el endpoint Ollama local existente (`nomic-embed-text` o `mxbai-embed-large`).
+3. Chunker (markdown semantic para planes, AST-aware para código).
+4. Indexer (chokidar watcher sobre `~/.karajan/plans/` + `projectDir`).
+5. Retriever + ranking.
+6. CLI: `kj rag <query> [--scope plans|code|all]` + `kj rag index --project <id>`.
+7. Tool MCP: `kj_rag_query` para otros agentes.
+8. Panel búsqueda HU Board.
+
+El `onboarding/<slug>.md` del Onboarder es la señal seed para la primera pasada del indexer — ya sabe QUÉ es el proyecto, así que el indexer puede elegir estrategias de chunking (por lenguaje) y pesos (hot files primero) sin re-escanear.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

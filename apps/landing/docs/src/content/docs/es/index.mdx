@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 374+ Tests Automatizados" icon="approve-check">
-    455 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP y el paquete completo del HU Board. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 387+ Tests Automatizados" icon="approve-check">
+    458 ficheros de test cubriendo cada rol, guard, opción de config, herramienta MCP y el paquete completo del HU Board. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -265,7 +265,7 @@ KJC-BUG-0058 (PR #798, reportado por [@aitormf](https://github.com/aitormf)) —
 
 KJC-BUG-0060 (PR #797, reportado por mjfosela durante el release de v2.19.3) — `git checkout main` reportaba `[adelante 27]` ante origin/main tras ejecutar kj sobre el propio repo karajan-code (kj-linked). Cada commit titulado `initial commit`, autor `manufosela@gmail.com` (el git user.email local de karajan-code, no el global `mjfosela@gmail.com`), tree idéntico a su parent = **commits completamente vacíos**. El reflog acumulaba **2 495 SHAs** con el mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (push / CI los habrían rechazado), runtime impact cero, pero ensuciaba historia local y en cada release parecía pérdida de sync. Causa raíz: `src/orchestrator/config-init.js::autoInit()` guardaba con `!(await exists(projectDir/.git))`, falla por dos vías: (a) dogfooding kj sobre karajan-code desde un subdir → `exists()` devuelve false → `git init` reinicializa el `.git/` del *padre* (idempotente, inocuo) → `git commit --allow-empty` resuelve hacia arriba y aterriza commit vacío en main del padre; (b) race FS transitoria (EACCES/ENOENT) flippea `exists()` a falso negativo. **Fix**: cambio el FS probe estático por `git rev-parse --is-inside-work-tree`, que hace la misma upward-traversal que git haría para el commit — el guard no puede discrepar con la operación que custodia. Drop del `git commit --allow-empty -m "initial commit"` que seguía al `git init`: ningún stage downstream necesita root commit; los 2 495 zombies nunca rompieron nada, el seed era decorativo y era el síntoma user-visible.
 
-### v2.20.0 — Minor (actual)
+### v2.20.0 — Minor
 
 Cluster **HU Board polish + UX papercuts** — 5 cards cerradas. Dos features net-new, dos PG housekeeping syncs de trabajo que ya había aterrizado en minors previos sin cerrar PG, y un docs refresh.
 
@@ -278,3 +278,23 @@ Cluster **HU Board polish + UX papercuts** — 5 cards cerradas. Dos features ne
 **KJC-TSK-0377 (PG sync, originalmente PR #683)** — auto-cleanup ampliado. El boot sweep del HU Board para proyectos efímeros ya barría `tmp_*` / `test_*` / `demo_*` / `kj-test-*`; el sync de hoy confirma que el mismo sweep también maneja `s_*` (proyectos placeholder con session-id), `plan-*` (placeholder con plan-id), `auto-tmp_*` y `auto-test_*`. Proyectos con `is_test = 2` (📌 keep) quedan exentos sin importar el prefijo; los proyectos home-style `home_<path>` con repo git real nunca se barren. Ya shipped en v2.12.x.
 
 **KJC-TSK-0385 (PR #800)** — docs refresh. `docs/task-templates/spec-conventions.md` gana dos secciones: la **Sección 8** documenta que headings numerados (`## 1.`, `### 2.1`, `§5`) en un task file activan el campo `spec_section` REQUIRED en cada step emitido — sin esto, usuarios veían findings 'missing spec_section' en planes por lo demás buenos sin entender la regla de activación. La **Sección 9** documenta la shape `acceptance_tests` por step: 2-4 tests, mix de `gherkin` (comportamiento observable) y `shell` (comandos concretos que exit 0 en éxito), pre-implementación, nunca el placeholder `npx vitest run`. La tabla quick-reference del top y el checklist pre-generate fueron actualizados. Más `docs/task-templates/plan-generate.md` flippea sus dos paths obsoletos `~/.kj/plans/` a `~/.karajan/plans/` (post-consolidación home v2.19.0).
+
+### v2.21.0 — Minor (actual)
+
+**Rol Onboarder brownfield.** Karajan ships un path dedicado para bootstrap un Architecture Brief desde cualquier codebase existente, y el planner puede consumir ese brief como context automático. Cierra KJC-TSK-0384 en tres PRs.
+
+**KJC-TSK-0384 (PRs #804 + #805 + #806)** — Tres capas de trabajo.
+
+*Capa 1 (PR #804) — collectors deterministas.* Nuevo módulo `src/onboarder/collectors/index.js` expone cinco extractores puros, fail-soft. `collectTree` walks el project root ignorando `node_modules` / `.git` / `dist` / `build` / `coverage` / `.karajan` / `.next` / `__pycache__`. `collectGitHistory` devuelve null en greenfield, o `{ commitCount, branches, hotFiles, headSha }` en un repo real — hot files = top N por appearance count en los últimos 200 commits del `--name-only` output. `collectConfigs` chequea presencia de 18 patrones conocidos de config y lee `package.json::scripts`. `collectAdrs` escanea `docs/adr/`, `docs/adrs/`, `docs/architecture/` buscando ADR-style filenames. `collectAll` es el Promise.all bundle. Cada slot independiente; ningún collector aborta a los otros. 0 LLM calls, output JSON-serialisable.
+
+*Capa 2 (PR #805) — comando `kj onboard` + OnboarderRole.* Nuevo comando CLI corre `collectAll` → opcional `OnboarderRole.run` → escribe `~/.karajan/onboarding/<slug>.md`. El rol es una subclase delgada de `AgentRole`: `extractInput` acepta `{ bundle }` o un string `projectDir`; `parseOutput` desempaqueta un bloque markdown con fences si lo hay o hace trim del raw output; `handleParseNull` devuelve soft-success para que greenfield nunca errore. Las instrucciones del rol viven en `templates/roles/onboarder.md`. Flags: `--no-synth` (salta la llamada LLM completamente y escribe el bundle raw dentro de un fence JSON — útil para CI / contextos sensibles al coste de tokens), `--output <path>` (override del target default).
+
+*Capa 3 (PR #806) — `kj plan generate --use-onboarding`.* Nuevo `src/onboarder/cache.js::readCachedBrief(projectDir)` lee el brief cacheado determinísticamente usando el mismo `briefPath()` slug rule que usa el writer. `kj plan generate` gana el flag `--use-onboarding`; cuando está set, el brief se prepende al context del planner bajo un heading `## Architecture Brief (from kj onboard)`. Silent en cache miss sin el flag; loud `warn` cuando el flag está set pero no hay cache, para que una invocación olvidada de `kj onboard` surface inmediatamente. El brief compone con cualquier `--context` explícito que el usuario pase.
+
+```bash
+kj onboard                            # produce ~/.karajan/onboarding/<slug>.md una vez
+kj plan generate task.md \
+    --use-onboarding                  # el siguiente plan lee el brief como context
+```
+
+**Qué viene después** — La épica **Project RAG** (KJC-PCS-0049) arranca en v2.22.0: vector store (`better-sqlite3` + `sqlite-vec`), embedder Ollama, indexer (chokidar watcher), retriever + ranking, comandos CLI (`kj rag <query>` / `kj rag index`), tool MCP (`kj_rag_query`) y panel búsqueda HU Board. El Onboarder es su prerequisito — el brief alimenta la primera pasada del indexer con la estructura del proyecto ya digerida. ~1200 LOC estimadas en 8 PRs.

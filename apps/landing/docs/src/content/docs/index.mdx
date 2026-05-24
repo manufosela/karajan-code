@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 374+ Automated Tests" icon="approve-check">
-    455 test files covering every pipeline role, guard, config option, MCP tool, and the full HU Board package. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 387+ Automated Tests" icon="approve-check">
+    458 test files covering every pipeline role, guard, config option, MCP tool, and the full HU Board package. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -265,7 +265,7 @@ KJC-BUG-0058 (PR #798, reported by [@aitormf](https://github.com/aitormf)) — a
 
 KJC-BUG-0060 (PR #797, reported by mjfosela during the v2.19.3 release) — `git checkout main` reported `[ahead 27]` of origin/main after running kj on the karajan-code repo itself (kj-linked). Every commit was titled `initial commit`, authored by `manufosela@gmail.com` (the karajan-code-local git user.email, not the global `mjfosela@gmail.com`), and pointed to the **exact same tree as its parent** — completely empty. The reflog held **2 495 such SHAs** accumulated since April 2026. None ever reached origin/main (push / CI would have rejected them) so runtime impact was zero, but local history was noisy and on every release it looked like a sync loss. Root cause: `src/orchestrator/config-init.js::autoInit()` guarded with `!(await exists(projectDir/.git))`, which fails two ways: (a) dogfooding kj on karajan-code from a subdirectory → `exists()` returns false → `git init` reinitializes the *parent's* `.git/` (idempotent, harmless) → `git commit --allow-empty` then resolves upward and lands an empty commit on the parent's main; (b) transient FS hicks (EACCES/ENOENT) flip `exists()` to a false negative. **Fix**: switch the static FS probe for `git rev-parse --is-inside-work-tree`, which performs the same upward search git would use for the commit itself — guard cannot disagree with the operation it guards. And drop the `git commit --allow-empty -m "initial commit"` step entirely: no downstream stage needs a root commit; the 2 495 zombies never broke anything, the seed was decorative and turned out to be the actual user-visible symptom.
 
-### v2.20.0 — Minor (current)
+### v2.20.0 — Minor
 
 **HU Board polish + UX papercuts** cluster — 5 cards closed. Two net-new features, two PG housekeeping syncs for work that had already landed quietly in earlier minors, one docs refresh.
 
@@ -278,3 +278,23 @@ KJC-BUG-0060 (PR #797, reported by mjfosela during the v2.19.3 release) — `git
 **KJC-TSK-0377 (PG sync, originally PR #683)** — auto-cleanup ampliado. The HU Board's boot ephemeral-project sweep already culled `tmp_*` / `test_*` / `demo_*` / `kj-test-*` projects; today's sync confirms the same sweep also handles `s_*` (stray session-id projects), `plan-*` (stray plan-id projects), `auto-tmp_*` and `auto-test_*`. Projects with `is_test = 2` (📌 keep) stay exempt regardless of prefix; home-style `home_<path>` projects with real git repos are never swept. Already shipped in v2.12.x.
 
 **KJC-TSK-0385 (PR #800)** — docs refresh. `docs/task-templates/spec-conventions.md` gains two sections: **Section 8** documents that numbered headings (`## 1.`, `### 2.1`, `§5`) in a task file activate the `spec_section` REQUIRED field on every emitted step — without this, users saw 'missing spec_section' findings on otherwise good plans and didn't understand the activation rule. **Section 9** documents the `acceptance_tests` shape per step: 2-4 tests, mix of `gherkin` (observable behaviour) and `shell` (concrete commands that exit 0 on success), pre-implementation, never the placeholder `npx vitest run`. The top quick-reference table and the pre-generate checklist were updated. Plus `docs/task-templates/plan-generate.md` flips its two stale `~/.kj/plans/` example paths to `~/.karajan/plans/` (post-v2.19.0 home consolidation).
+
+### v2.21.0 — Minor (current)
+
+**Brownfield Onboarder role.** Karajan ships a dedicated path to bootstrap an Architecture Brief from any existing codebase, and the planner can consume that brief as automatic context. Closes KJC-TSK-0384 in three PRs.
+
+**KJC-TSK-0384 (PRs #804 + #805 + #806)** — Three layers of work.
+
+*Layer 1 (PR #804) — deterministic collectors.* New module `src/onboarder/collectors/index.js` exposes five pure, fail-soft extractors. `collectTree` walks the project root ignoring `node_modules` / `.git` / `dist` / `build` / `coverage` / `.karajan` / `.next` / `__pycache__`. `collectGitHistory` returns null on greenfield, or `{ commitCount, branches, hotFiles, headSha }` on a real repo — hot files are top N by appearance count in the last 200 commits' `--name-only` output. `collectConfigs` probes presence of 18 well-known config patterns (package.json, pyproject.toml, Cargo.toml, go.mod, tsconfig, eslint, vitest/jest, firebase/gcloud/Docker, CI workflows, Makefile) and reads `package.json::scripts`. `collectAdrs` scans `docs/adr/`, `docs/adrs/`, `docs/architecture/` for ADR-style filenames. `collectAll` is the Promise.all bundle. Every slot is independent; no collector aborts the others. 0 LLM calls, JSON-serialisable output.
+
+*Layer 2 (PR #805) — `kj onboard` command + OnboarderRole.* New CLI command runs `collectAll` → optional `OnboarderRole.run` → writes `~/.karajan/onboarding/<slug>.md`. The role itself is a thin `AgentRole` subclass: `extractInput` accepts both `{ bundle }` and a string `projectDir`; `parseOutput` unwraps a fenced markdown block if the agent emitted one or trims the raw output; `handleParseNull` returns a soft-success so greenfield never errors. The role instructions live in `templates/roles/onboarder.md` (Markdown output, sections-as-needed). Flags: `--no-synth` (skip the LLM call entirely and write the raw bundle inside a JSON fence — useful for CI / token-cost-sensitive contexts), `--output <path>` (override default target).
+
+*Layer 3 (PR #806) — `kj plan generate --use-onboarding`.* New `src/onboarder/cache.js::readCachedBrief(projectDir)` reads the cached brief deterministically using the same `briefPath()` slug rule the writer uses. `kj plan generate` gains the `--use-onboarding` flag; when set, the brief is prepended to the planner's context under a `## Architecture Brief (from kj onboard)` heading. Silent on cache miss without the flag; loud `warn` when the flag is set but no cache exists, so a missed `kj onboard` invocation surfaces immediately. The brief composes with any explicit `--context` the user passes.
+
+```bash
+kj onboard                            # produces ~/.karajan/onboarding/<slug>.md once
+kj plan generate task.md \
+    --use-onboarding                  # next plan reads the brief as context
+```
+
+**What's next** — The **Project RAG** epic (KJC-PCS-0049) starts in v2.22.0: vector store (`better-sqlite3` + `sqlite-vec`), Ollama embedder, indexer (chokidar watcher), retriever + ranking, CLI commands (`kj rag <query>` / `kj rag index`), MCP tool (`kj_rag_query`), and HU Board search panel. The Onboarder is its prerequisite — the brief feeds the indexer's first pass with the project structure already digested. ~1200 LOC estimated across 8 PRs.
