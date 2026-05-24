@@ -61,7 +61,7 @@ describe("e2e/01 — kj plan generate", () => {
     );
 
     const r = runKj(
-      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake"],
+      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake", "--no-preflight-hu"],
       { cwd: proj.projectDir, fakeAgent: true, fixtureDir, timeoutMs: 60_000 }
     );
     if (r.exitCode !== 0) {

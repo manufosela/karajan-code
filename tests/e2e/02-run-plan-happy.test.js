@@ -74,7 +74,7 @@ describe("e2e/02 — kj run --plan happy path", () => {
 
     // 1) Generate the plan.
     const gen = runKj(
-      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake"],
+      ["plan", "generate", "--task-file", "SPEC.md", "-y", "--planner", "fake", "--no-preflight-hu"],
       { cwd: proj.projectDir, fakeAgent: true, fixtureDir, timeoutMs: 60_000 }
     );
     expect(gen.exitCode, `gen stderr: ${gen.stderr}`).toBe(0);

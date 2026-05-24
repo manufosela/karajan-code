@@ -14,6 +14,7 @@ import { withBrainRecovery } from "../../brain/with-brain-recovery.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
 import { printResumeHint } from "../../utils/display/resume-hint.js";
 import { runSpecReview } from "../../spec-review/run-spec-review.js";
+import { prependPreflightHu } from "../../plan/preflight-hu.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -412,6 +413,15 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       const byKind = fixes.reduce((a, f) => ({ ...a, [f.kind]: (a[f.kind] || 0) + 1 }), {});
       runLog.logText(`[planner] structural pass: ${fixes.length} fix(es) — ${JSON.stringify(byKind)}`);
     }
+  }
+
+  // KJC-TSK-0397: inject a [PREFLIGHT-000] HU at the top of the plan so
+  // every functional HU gates on a clean environment (deps + build + tests
+  // + lint + git clean, plus cloud auth when applicable). Idempotent: a
+  // plan that already has a preflight HU is left untouched. Disable with
+  // `--no-preflight-hu`.
+  if (flags.preflightHu !== false) {
+    await prependPreflightHu(plan, projectDir);
   }
 
   const planId = await savePlan(projectDir, plan);

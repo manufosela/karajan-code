@@ -85,7 +85,7 @@ describe("KJC-BUG-0041 — planGenerate must NOT chain HUs by order", () => {
       },
       logger: noopLogger,
       json: true,
-      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true, preflightHu: false },
     });
 
     const plan = loadOnlyPlan();
@@ -106,7 +106,7 @@ describe("KJC-BUG-0041 — planGenerate must NOT chain HUs by order", () => {
       },
       logger: noopLogger,
       json: true,
-      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true, preflightHu: false },
     });
 
     const plan = loadOnlyPlan();
@@ -149,7 +149,7 @@ describe("KJC-TSK-0382 follow-up — planner-emitted dependencies map to blocked
       },
       logger: noopLogger,
       json: true,
-      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true, preflightHu: false },
     });
 
     const plan = loadOnlyPlan();
@@ -180,7 +180,7 @@ describe("KJC-TSK-0382 follow-up — planner-emitted dependencies map to blocked
       config: { roles: { planner: { provider: "claude" } }, session: { max_iteration_minutes: 10 }, projectDir: tmpHome },
       logger: noopLogger,
       json: true,
-      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true },
+      flags: { yes: true, interactive: false, "no-tests-synth": true, "no-plan-review": true, preflightHu: false },
     });
 
     const plan = loadOnlyPlan();
