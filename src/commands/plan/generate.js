@@ -15,6 +15,7 @@ import { buildStandbyState } from "../../brain/standby-store.js";
 import { printResumeHint } from "../../utils/display/resume-hint.js";
 import { runSpecReview } from "../../spec-review/run-spec-review.js";
 import { prependPreflightHu } from "../../plan/preflight-hu.js";
+import { readCachedBrief } from "../../onboarder/cache.js";
 import { formatPlan, formatHuTable } from "./_shared.js";
 
 /**
@@ -56,12 +57,29 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
     task = reviewResult.finalSpec; // downstream runs the refined spec
   }
 
+  // KJC-TSK-0384 PR 3: --use-onboarding folds the cached Architecture Brief
+  // from `kj onboard` into the planner's context. Silent when no brief is
+  // cached so users without one don't see noise; loud warn when they passed
+  // the flag explicitly but the cache is empty so the missed wiring surfaces.
+  let resolvedContext = context;
+  if (flags?.useOnboarding) {
+    const brief = await readCachedBrief(config?.projectDir || process.cwd());
+    if (brief.found) {
+      resolvedContext = [
+        resolvedContext, brief.content ? `## Architecture Brief (from kj onboard)\n\n${brief.content}` : null,
+      ].filter(Boolean).join("\n\n");
+      runLog.logText(`[planner] onboarding brief injected from ${brief.path}`);
+    } else {
+      logger?.warn?.(`--use-onboarding passed but no brief at ${brief.path}. Run 'kj onboard' first.`);
+    }
+  }
+
   const plannerRole = resolveRole(config, "planner");
   await assertAgentsAvailable([plannerRole.provider]);
   runLog.logText(`[planner] provider=${plannerRole.provider}`);
 
   const planner = createAgent(plannerRole.provider, config, logger);
-  const prompt = buildPlannerPrompt({ task, context });
+  const prompt = buildPlannerPrompt({ task, context: resolvedContext });
   const silenceTimeoutMs = Number(config?.session?.max_agent_silence_minutes) > 0
     ? Math.round(Number(config.session.max_agent_silence_minutes) * 60 * 1000)
     : undefined;
