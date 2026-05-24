@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  openVecStore, insertChunk, searchSimilar, deleteChunksBySource, countChunks, dbPath,
+  openVecStore, insertChunk, searchSimilar, deleteChunksBySource, countChunks, dbPath, projectSlug,
 } from "../../src/rag/vec-store.js";
 
 // Synthetic one-hot embeddings → predictable cosine ordering.
@@ -80,5 +80,40 @@ describe("vec-store — KJC-PCS-0049 Step 1", () => {
     process.env.KJ_RAG_DB = "/tmp/x.db";
     try { expect(dbPath()).toBe("/tmp/x.db"); }
     finally { if (prev === undefined) delete process.env.KJ_RAG_DB; else process.env.KJ_RAG_DB = prev; }
+  });
+
+  // KJC-TSK-0438 — project isolation
+  it("projectSlug normalises projectDir into a stable slug", () => {
+    expect(projectSlug("/home/x/karajan-code")).toBe("karajan-code");
+    expect(projectSlug("/home/x/My Project/")).toBe("my-project");
+    expect(projectSlug("")).toBeNull();
+    expect(projectSlug(null)).toBeNull();
+  });
+
+  it("insertChunk persists project_slug and searchSimilar filters by it", () => {
+    insertChunk(db, { source: "/proja/a", kind: "code", text: "alpha", embedding: oneHot(0), project: "proja" });
+    insertChunk(db, { source: "/projb/a", kind: "code", text: "beta", embedding: oneHot(0), project: "projb" });
+    insertChunk(db, { source: "/legacy/a", kind: "code", text: "legacy", embedding: oneHot(0) /* no project */ });
+    const onlyA = searchSimilar(db, oneHot(0), 5, { project: "proja" });
+    expect(onlyA.length).toBe(1);
+    expect(onlyA[0].text).toBe("alpha");
+    const noFilter = searchSimilar(db, oneHot(0), 5);
+    expect(noFilter.length).toBe(3); // pre-migration chunks still queryable
+  });
+
+  it("openVecStore migrates old DBs without project_slug column", () => {
+    // Recreate without ALTER (simulate v2.26 schema)
+    db.close();
+    rmSync(dbFile, { force: true });
+    const legacy = openVecStore({ dim: 8, path: dbFile });
+    // Drop the column to simulate older schema, re-open should re-add it
+    legacy.exec("CREATE TABLE temp_chunks AS SELECT id, source, kind, text, metadata, created_at FROM chunks");
+    legacy.exec("DROP TABLE chunks");
+    legacy.exec("ALTER TABLE temp_chunks RENAME TO chunks");
+    legacy.close();
+    const migrated = openVecStore({ dim: 8, path: dbFile });
+    const cols = migrated.prepare("PRAGMA table_info(chunks)").all().map((c) => c.name);
+    expect(cols).toContain("project_slug");
+    migrated.close();
   });
 });

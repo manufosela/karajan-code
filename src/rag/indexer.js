@@ -41,7 +41,7 @@ function chunksFor(path, kind) {
  * fresh batch is written, so a second call against the same file
  * leaves the store with exactly the latest chunks (no duplicates).
  */
-export async function indexFile(path, { db, embedder, logger = console } = {}) {
+export async function indexFile(path, { db, embedder, logger = console, project = null } = {}) {
   if (!existsSync(path)) { logger.warn?.(`[rag-indexer] file not found: ${path}`); return { indexed: 0, failed: 0 }; }
   const kind = detectKind(path);
   if (!kind) { logger.warn?.(`[rag-indexer] unknown kind: ${path}`); return { indexed: 0, failed: 0 }; }
@@ -53,7 +53,7 @@ export async function indexFile(path, { db, embedder, logger = console } = {}) {
   for (const ch of chunks) {
     try {
       const embedding = await embedder.embed(ch.text);
-      insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding });
+      insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding, project });
       indexed += 1;
     } catch (err) {
       failed += 1;
@@ -95,13 +95,13 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
   if (existsSync(planRoot)) {
     const plans = await listFiles(planRoot, (p) => /plan-.*\.json$/.test(p));
     for (const p of plans) {
-      const r = await indexFile(p, { db, embedder, logger });
+      const r = await indexFile(p, { db, embedder, logger, project: slug });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }
   const onboarding = join(karajanHome, ONBOARDING_DIR, `${slug}.md`);
   if (existsSync(onboarding)) {
-    const r = await indexFile(onboarding, { db, embedder, logger });
+    const r = await indexFile(onboarding, { db, embedder, logger, project: slug });
     totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
   }
   if (withSources) {
@@ -113,7 +113,7 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     const SKIP = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet"]);
     const sources = await listFiles(projectDir, (p) => /\.(js|mjs|cjs|ts|tsx|jsx)$/.test(p) && !p.split("/").some((seg) => SKIP.has(seg)));
     for (const s of sources) {
-      const r = await indexFile(s, { db, embedder, logger });
+      const r = await indexFile(s, { db, embedder, logger, project: slug });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
     }
   }

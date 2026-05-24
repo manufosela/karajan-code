@@ -113,6 +113,7 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Run a semantic query against the indexed RAG corpus")
     .option("--scope <scope>", "plans | code | onboarding | all (default: all)", "all")
     .option("--top-k <n>", "Number of hits to return (default: 5)", "5")
+    .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project. Default: cwd basename")
     .option("--json", "Output the hits as JSON")
     .action(async (text, flags) => {
       await withConfig(pkgVersion, "rag-query", flags, async ({ config, logger }) => {
