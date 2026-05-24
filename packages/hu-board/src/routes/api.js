@@ -1279,4 +1279,31 @@ router.post('/sync', (_req, res) => {
   }
 });
 
+/**
+ * POST /api/rag/query - Semantic search over the indexed RAG corpus
+ * (KJC-PCS-0049 Step 8). Body: { text, topK?, scope? }. Response:
+ * { hits: [...], empty, topK, scope }. Empty store carries empty=true
+ * so the UI can show an actionable hint instead of just empty results.
+ */
+router.post('/rag/query', async (req, res) => {
+  const { text, topK = 5, scope = 'all' } = req.body || {};
+  if (typeof text !== 'string' || text.length === 0) {
+    return res.status(400).json({ error: "'text' is required (non-empty string)" });
+  }
+  try {
+    const { openVecStore, countChunks } = await import('../../../../src/rag/vec-store.js');
+    const { OllamaEmbedder } = await import('../../../../src/rag/embedder.js');
+    const { query } = await import('../../../../src/rag/retriever.js');
+    const db = openVecStore({ dim: 768 });
+    try {
+      if (countChunks(db) === 0) return res.json({ hits: [], empty: true, topK, scope });
+      const embedder = new OllamaEmbedder({});
+      const hits = await query(db, embedder, text, { topK: Number(topK), scope });
+      res.json({ hits, empty: false, topK, scope });
+    } finally { db.close(); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
