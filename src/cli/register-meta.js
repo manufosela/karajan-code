@@ -2,6 +2,7 @@ import { discoverCommand } from "../commands/discover.js";
 import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
+import { onboardCommand } from "../commands/onboard.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
@@ -93,7 +94,6 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--output <path>", "Override the default ~/.karajan/onboarding/<slug>.md target")
     .action(async (flags) => {
       await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
-        const { onboardCommand } = await import("../commands/onboard.js");
         await onboardCommand({ config, logger, flags });
       });
     });
