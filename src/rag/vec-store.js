@@ -45,6 +45,14 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     CREATE INDEX IF NOT EXISTS chunks_by_source ON chunks(source);
     CREATE INDEX IF NOT EXISTS chunks_by_kind ON chunks(kind);
   `);
+  // KJC-TSK-0438 — Project isolation. project_slug = basename of projectDir
+  // normalized; chunks indexed before the migration carry NULL and remain
+  // queryable when `--project all` (or no slug detected at query time).
+  const cols = db.prepare("PRAGMA table_info(chunks)").all().map((c) => c.name);
+  if (!cols.includes("project_slug")) {
+    db.exec("ALTER TABLE chunks ADD COLUMN project_slug TEXT;");
+    db.exec("CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);");
+  }
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[${dim}]);`);
   return db;
 }
@@ -54,13 +62,13 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
  * because the virtual table rowid is set explicitly to the freshly
  * minted chunks.id. Returns that id.
  */
-export function insertChunk(db, { source, kind, text, metadata = null, embedding }) {
+export function insertChunk(db, { source, kind, text, metadata = null, embedding, project = null }) {
   if (!Array.isArray(embedding) && !ArrayBuffer.isView(embedding)) {
     throw new Error("insertChunk: embedding must be an array or typed array of floats");
   }
   const meta = metadata == null ? null : (typeof metadata === "string" ? metadata : JSON.stringify(metadata));
-  const ins = db.prepare("INSERT INTO chunks (source, kind, text, metadata) VALUES (?, ?, ?, ?)");
-  const info = ins.run(source, kind, text, meta);
+  const ins = db.prepare("INSERT INTO chunks (source, kind, text, metadata, project_slug) VALUES (?, ?, ?, ?, ?)");
+  const info = ins.run(source, kind, text, meta, project);
   // sqlite-vec's vec0 virtual table requires the rowid to arrive as a BigInt
   // even for values that comfortably fit in a Number. Better-sqlite3 returns
   // lastInsertRowid as BigInt only when safeIntegers mode is on; force it.
@@ -75,20 +83,34 @@ export function insertChunk(db, { source, kind, text, metadata = null, embedding
  * text, metadata, distance }]` for the topK best matches; lower
  * distance = closer. Returns `[]` when the store is empty.
  */
-export function searchSimilar(db, embedding, topK = 5, { kind = null } = {}) {
+export function searchSimilar(db, embedding, topK = 5, { kind = null, project = null } = {}) {
   const buf = embedding instanceof Float32Array ? embedding : Float32Array.from(embedding);
   const kindClause = kind ? "AND c.kind = ?" : "";
+  const projectClause = project ? "AND c.project_slug = ?" : "";
   const sql = `
-    SELECT c.id, c.source, c.kind, c.text, c.metadata, v.distance
+    SELECT c.id, c.source, c.kind, c.text, c.metadata, c.project_slug, v.distance
     FROM vec_chunks v
     JOIN chunks c ON c.id = v.rowid
-    WHERE v.embedding MATCH ? AND k = ? ${kindClause}
+    WHERE v.embedding MATCH ? AND k = ? ${kindClause} ${projectClause}
     ORDER BY v.distance
   `;
   const params = [Buffer.from(buf.buffer), topK];
   if (kind) params.push(kind);
+  if (project) params.push(project);
   const rows = db.prepare(sql).all(...params);
   return rows.map((r) => ({ ...r, metadata: r.metadata ? safeParse(r.metadata) : null }));
+}
+
+/**
+ * Normalize a projectDir into a stable slug used for project isolation.
+ * Basename → lowercased → non-alphanumeric stripped to dashes.
+ * KJC-TSK-0438.
+ */
+export function projectSlug(projectDir) {
+  if (!projectDir) return null;
+  const base = String(projectDir).replace(/\/+$/, "").split("/").pop();
+  if (!base) return null;
+  return base.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function safeParse(s) { try { return JSON.parse(s); } catch { return s; } }

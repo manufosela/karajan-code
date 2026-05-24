@@ -25,7 +25,7 @@ const DEFAULT_KIND_BOOST = { plan: 0.05, onboarding: 0.03, code: 0 };
  * @param {'plans'|'code'|'onboarding'|'all'} [opts.scope='all']
  * @param {Object} [opts.kindBoost]
  */
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST } = {}) {
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
   const queryEmbedding = await embedder.embed(text);
   // Over-fetch (topK * 2) so the rerank step has room to reshuffle
@@ -33,7 +33,10 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   // avoid loading the entire store on tiny topK calls.
   const fetchK = Math.min(50, topK * 2);
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
-  const raw = searchSimilar(db, queryEmbedding, fetchK, { kind: scopeKind });
+  // KJC-TSK-0438 — `project` filters by chunks.project_slug. null means
+  // no filter (pre-v2.27 behaviour). Caller's CLI defaults this to the
+  // basename of cwd; pass "all" through commands/rag.js to disable.
+  const raw = searchSimilar(db, queryEmbedding, fetchK, { kind: scopeKind, project });
   if (raw.length === 0) return [];
   // Adjust each chunk's distance by its kind boost. The vec store returns
   // cosine distance (smaller = closer); subtracting the boost makes

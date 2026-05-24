@@ -168,6 +168,8 @@ const ragStubPlugin = {
           // KJC-TSK-0436 — Ollama capability check + model pull.
           checkDockerAvailable: notAvailable, checkRamCapacity: notAvailable,
           checkOllamaCapability: notAvailable, pullOllamaModel: notAvailable,
+          // KJC-TSK-0438 — RAG project isolation.
+          projectSlug: notAvailable,
           default: notAvailable,
         };
       `,
