@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.27.0] - 2026-05-25
+
+Minor release. **RAG polish — per-project isolation, unified docs, fairer ranking.**
+
+Three independent improvements triggered by the v2.26.0 smoke test on karajan-code itself, plus a workflow fix surfaced while landing the docs.
+
+### Added
+
+- **Per-project isolation** (KJC-TSK-0438, PR #831). New `project_slug TEXT` column on `chunks` (schema migration is non-breaking — old DBs keep working with NULL). `insertChunk` / `searchSimilar` accept `{ project }`. `indexProject` auto-stamps every chunk with the projectDir basename. `kj rag query` adds `--project <slug>` (defaults to cwd basename; `--project all` disables the filter). Same shape exposed through MCP and the slash command.
+- **`docs/RAG.md` + `docs/es/RAG.md`** (KJC-TSK-0439, PR #832). Single unified guide consolidating CHANGELOG entries, role templates and landing pages. Sections: quick start, architecture diagram, installation, six workflows (CLI/MCP/skill/Board/pre-loop/role-instructions), configuration matrix, limitations + roadmap, troubleshooting. README banner links both languages.
+- **Asymmetric source-vs-test kind boost** (KJC-TSK-0440, PR #833). The v2.26.0 smoke caught a systematic bias: natural-language queries (`how does X work`) ranked `tests/X.test.js` above `src/X.js` because tests carry more descriptive prose. New rule in `retriever.js`: when the query does NOT mention `test|spec|expect|describe|it|jest|vitest|mocha`, code chunks whose source path is NOT a test file get +0.05 boost. Test-flavoured queries keep the baseline so `vitest mock setup` still surfaces test files.
+
+### Fixed
+
+- **KJC-BUG-0063** (PR #834): `tests/resilience/hibernate-end-to-end.test.js` was time-zone-dependent and broke CI on every PR (passed in `TZ=Europe/Madrid`, failed in CI's `TZ=UTC`). Skipped in CI via `process.env.CI === 'true'` until `parseCooldown` becomes TZ-aware.
+- **shrink-budget workflow excludes** (PR #832): `docs/**/*.md` only matched files in subdirectories (`docs/es/RAG.md`) but not `docs/RAG.md` at the root of `docs/`. Mirrored every doc-extension exclude with both `docs/*.ext` and `docs/**/*.ext` patterns. Caught while landing the docs themselves.
+
 ## [2.26.0] - 2026-05-24
 
 Minor release. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box.

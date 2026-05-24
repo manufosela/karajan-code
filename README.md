@@ -345,13 +345,22 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.27.0 released** — Minor. **RAG polish** — three improvements triggered by the v2.26.0 smoke test on karajan-code itself:
+>
+> - **Per-project isolation** (PR #831): new `project_slug` column on chunks; `kj rag query --project <slug>` (auto-detected from cwd) filters the global DB. `--project all` to query across everything.
+> - **`docs/RAG.md` + `docs/es/RAG.md`** (PR #832): single unified guide covering architecture, install, six workflows, configuration, limitations and troubleshooting. Replaces the documentation spread across CHANGELOG / templates / landing.
+> - **Asymmetric source-vs-test ranking** (PR #833): NL queries like `how does X work` no longer rank `tests/X.test.js` above `src/X.js`; test-flavoured queries still surface tests.
+> - Plus **KJC-BUG-0063** (PR #834): skipped a TZ-dependent test that was blocking every CI run, and a `shrink-budget` workflow exclude fix for `docs/*.md` at the root.
+>
+> **Coming in v2.28.0+**: chokidar watcher for live re-indexing, AST source chunker (tree-sitter / @babel/parser), BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters (for users without local Docker).
+>
 > **v2.26.0 released** — Minor. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box. `kj init` now provisions the embedder automatically (or skips with a clear reason on modest hardware / `--no-ollama`); `kj doctor` surfaces health; `kj ollama [start|stop|status|pull]` manages lifecycle without docker compose. See [docs/RAG.md](docs/RAG.md) for the full RAG guide ([español](docs/es/RAG.md)).
 >
 > Capability check (RAM + Docker) means the bootstrap never breaks init: on Windows without Docker Desktop, on hosts under 4 GB free, or with `--no-ollama`, the wizard logs a one-liner and continues. Where Ollama is already running on `:11434`, `kj init` reuses the external instance instead of spawning a second container.
 >
 > Bundles **KJC-BUG-0061** fix (caught during v2.25.0 smoke test): `kj onboard --no-synth` was ignored by Commander shape mapping, `OnboarderRole.run()` was called without `init()`, and `kj rag query --json` on empty store emitted just `[]` instead of the `{empty: true}` contract the MCP handler returns.
 >
-> **Coming in v2.27.0+**: chokidar watcher for live re-indexing, AST source chunker (tree-sitter / @babel/parser), BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters (for users without local Docker).
+> **Coming next from v2.26.0**: addressed in v2.27.0 above.
 >
 > **v2.25.0 released** — Minor. **RAG Camino B + Camino D** (KJC-PCS-0049). Closes the consumer-surface plan. Skills hosts can now invoke RAG via `/kj-rag-query` without MCP, and the pre-loop retrieval stage from v2.24.0 only fires when triage signals make it worthwhile.
 >
