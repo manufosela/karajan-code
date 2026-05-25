@@ -173,9 +173,11 @@ const ragStubPlugin = {
           // KJC-TSK-0441 — RAG chokidar watcher.
           startWatcher: notAvailable, readPidFile: notAvailable, clearPidFile: notAvailable,
           isPidAlive: notAvailable, writePidFile: notAvailable,
-          // KJC-TSK-0442 — RAG embedders cloud + factory.
+          // KJC-TSK-0442 / KJC-TSK-0446 — RAG embedders cloud + factory.
           makeEmbedder: notAvailable, OpenAIEmbedder: notAvailable, VoyageEmbedder: notAvailable,
           OpenAIEmbedderError: notAvailable, VoyageEmbedderError: notAvailable, PROVIDERS: notAvailable,
+          CohereEmbedder: notAvailable, CohereEmbedderError: notAvailable,
+          MistralEmbedder: notAvailable, MistralEmbedderError: notAvailable,
           default: notAvailable,
         };
       `,

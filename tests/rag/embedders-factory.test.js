@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeEmbedder } from "../../src/rag/embedders/factory.js";
 import { OpenAIEmbedder, OpenAIEmbedderError } from "../../src/rag/embedders/openai.js";
 import { VoyageEmbedder, VoyageEmbedderError } from "../../src/rag/embedders/voyage.js";
+import { CohereEmbedder, CohereEmbedderError } from "../../src/rag/embedders/cohere.js";
+import { MistralEmbedder, MistralEmbedderError } from "../../src/rag/embedders/mistral.js";
 import { OllamaEmbedder } from "../../src/rag/embedder.js";
 
 describe("rag/embedders factory (KJC-TSK-0442)", () => {
@@ -21,6 +23,18 @@ describe("rag/embedders factory (KJC-TSK-0442)", () => {
   it("selects Voyage provider when configured", () => {
     const e = makeEmbedder({ rag: { embedder: { provider: "voyage", api_key: "pa-test" } } });
     expect(e).toBeInstanceOf(VoyageEmbedder);
+    expect(e.dim).toBe(1024);
+  });
+
+  it("selects Cohere provider when configured", () => {
+    const e = makeEmbedder({ rag: { embedder: { provider: "cohere", api_key: "co-test" } } });
+    expect(e).toBeInstanceOf(CohereEmbedder);
+    expect(e.dim).toBe(1024);
+  });
+
+  it("selects Mistral provider when configured", () => {
+    const e = makeEmbedder({ rag: { embedder: { provider: "mistral", api_key: "ms-test" } } });
+    expect(e).toBeInstanceOf(MistralEmbedder);
     expect(e.dim).toBe(1024);
   });
 
@@ -83,5 +97,49 @@ describe("VoyageEmbedder (KJC-TSK-0442)", () => {
     const body = JSON.parse(fetchFn.mock.calls[0][1].body);
     expect(body.input_type).toBe("document");
     expect(body.input).toEqual(["auth flow"]);
+  });
+});
+
+describe("CohereEmbedder (KJC-TSK-0446)", () => {
+  it("rejects without api key", () => {
+    const prev = process.env.KJ_COHERE_KEY;
+    delete process.env.KJ_COHERE_KEY;
+    try { expect(() => new CohereEmbedder({})).toThrow(CohereEmbedderError); }
+    finally { if (prev !== undefined) process.env.KJ_COHERE_KEY = prev; }
+  });
+
+  it("POSTs with embedding_types=float + extracts embeddings.float[0]", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ embeddings: { float: [new Array(1024).fill(0.3)] } }) });
+    const e = new CohereEmbedder({ apiKey: "co-test", fetchFn });
+    const v = await e.embed("login flow");
+    expect(v).toBeInstanceOf(Float32Array);
+    expect(v.length).toBe(1024);
+    const body = JSON.parse(fetchFn.mock.calls[0][1].body);
+    expect(body.embedding_types).toEqual(["float"]);
+    expect(body.input_type).toBe("search_document");
+  });
+
+  it("falls back to legacy embeddings[0] shape", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ embeddings: [new Array(1024).fill(0.4)] }) });
+    const e = new CohereEmbedder({ apiKey: "k", fetchFn });
+    const v = await e.embed("x");
+    expect(v.length).toBe(1024);
+  });
+});
+
+describe("MistralEmbedder (KJC-TSK-0446)", () => {
+  it("rejects without api key", () => {
+    const prev = process.env.KJ_MISTRAL_KEY;
+    delete process.env.KJ_MISTRAL_KEY;
+    try { expect(() => new MistralEmbedder({})).toThrow(MistralEmbedderError); }
+    finally { if (prev !== undefined) process.env.KJ_MISTRAL_KEY = prev; }
+  });
+
+  it("POSTs to api.mistral.ai + returns Float32Array", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [{ embedding: new Array(1024).fill(0.5) }] }) });
+    const e = new MistralEmbedder({ apiKey: "ms-test", fetchFn });
+    const v = await e.embed("router config");
+    expect(v.length).toBe(1024);
+    expect(fetchFn.mock.calls[0][0]).toBe("https://api.mistral.ai/v1/embeddings");
   });
 });
