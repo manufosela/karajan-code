@@ -106,7 +106,7 @@ export function insertChunk(db, { source, kind, text, metadata = null, embedding
  * text, metadata, distance }]` for the topK best matches; lower
  * distance = closer. Returns `[]` when the store is empty.
  */
-export function searchSimilar(db, embedding, topK = 5, { kind = null, project = null } = {}) {
+export function searchSimilar(db, embedding, topK = 5, { kind = null, project = null, whereSql = "", whereParams = [] } = {}) {
   const buf = embedding instanceof Float32Array ? embedding : Float32Array.from(embedding);
   const kindClause = kind ? "AND c.kind = ?" : "";
   const projectClause = project ? "AND c.project_slug = ?" : "";
@@ -114,12 +114,13 @@ export function searchSimilar(db, embedding, topK = 5, { kind = null, project = 
     SELECT c.id, c.source, c.kind, c.text, c.metadata, c.project_slug, v.distance
     FROM vec_chunks v
     JOIN chunks c ON c.id = v.rowid
-    WHERE v.embedding MATCH ? AND k = ? ${kindClause} ${projectClause}
+    WHERE v.embedding MATCH ? AND k = ? ${kindClause} ${projectClause}${whereSql}
     ORDER BY v.distance
   `;
   const params = [Buffer.from(buf.buffer), topK];
   if (kind) params.push(kind);
   if (project) params.push(project);
+  if (whereParams.length) params.push(...whereParams);
   const rows = db.prepare(sql).all(...params);
   return rows.map((r) => ({ ...r, metadata: r.metadata ? safeParse(r.metadata) : null }));
 }
@@ -163,7 +164,7 @@ export function countChunks(db, { kind = null } = {}) {
  * relevance (lower bm25 = better in SQLite FTS5). `query` is sanitized for
  * the FTS5 grammar: special chars are stripped, words split on whitespace.
  */
-export function searchBM25(db, queryText, topK = 10, { kind = null, project = null } = {}) {
+export function searchBM25(db, queryText, topK = 10, { kind = null, project = null, whereSql = "", whereParams = [] } = {}) {
   const cleaned = String(queryText || "").replace(/["'()]/g, " ").split(/\s+/).filter(Boolean).join(" OR ");
   if (!cleaned) return [];
   const kindClause = kind ? "AND c.kind = ?" : "";
@@ -171,12 +172,13 @@ export function searchBM25(db, queryText, topK = 10, { kind = null, project = nu
   const sql = `
     SELECT c.id, c.source, c.kind, c.text, c.metadata, c.project_slug, bm25(chunks_fts) AS bm25
     FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid
-    WHERE chunks_fts MATCH ? ${kindClause} ${projectClause}
+    WHERE chunks_fts MATCH ? ${kindClause} ${projectClause}${whereSql}
     ORDER BY bm25 LIMIT ?
   `;
   const params = [cleaned];
   if (kind) params.push(kind);
   if (project) params.push(project);
+  if (whereParams.length) params.push(...whereParams);
   params.push(topK);
   try {
     const rows = db.prepare(sql).all(...params);
