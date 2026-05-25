@@ -7,6 +7,7 @@ import { OpenAIEmbedder } from "./openai.js";
 import { VoyageEmbedder } from "./voyage.js";
 import { CohereEmbedder } from "./cohere.js";
 import { MistralEmbedder } from "./mistral.js";
+import { ONNXEmbedder } from "./onnx.js";
 
 const PROVIDERS = {
   ollama: { cls: OllamaEmbedder, dim: 768 },
@@ -14,6 +15,7 @@ const PROVIDERS = {
   voyage: { cls: VoyageEmbedder, dim: 1024 },
   cohere: { cls: CohereEmbedder, dim: 1024 },
   mistral: { cls: MistralEmbedder, dim: 1024 },
+  onnx: { cls: ONNXEmbedder, dim: 384 },
 };
 
 export function makeEmbedder(config = {}) {
