@@ -345,6 +345,13 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.30.0 released** — Minor. **Writable config UI on HU Board** — settings modal with grouped sections, atomic-write backend, and a global vs per-project scope toggle. No more hand-editing the YAML.
+>
+> - **Pipeline role toggles** (PR #854): 8 nuevos booleanos en el modal (`planner`, `researcher`, `architect`, `tester`, `security`, `refactorer`, `impeccable`, `brain`) reflejan los defaults reales de `src/config/defaults.js`.
+> - **RAG controls** (PR #855): `rag.preload.{enabled,topK,scope}` + `rag.embedder.provider` editables sin abrir el archivo. El dropdown del provider lista los 6 embedders (ollama / openai / voyage / cohere / mistral / onnx).
+> - **Grouped sections** (PR #856): los campos se agrupan por categoría (Agentes y modelos, Roles del pipeline, RAG, Tiempos de sesión, Calidad) con iconos y orden determinista. Campos nuevos sin categoría caen en "Otros" — defensivo.
+> - **Scope toggle global vs per-project** (PR #857): pill toggle en el header del modal. Switchea entre `~/.karajan/kj.config.yml` (global, default) y `<projectDir>/.karajan/kj.config.yml` (override del proyecto, se crea al guardar). Atomic-write + `.bak` aplican a ambos.
+>
 > **v2.29.0 released** — Minor. **RAG quality lift** — dashboard + three new providers + metadata filter + rerank.
 >
 > - **Retrieval dashboard on HU Board** (PR #843): nuevo `/rag.html` con embedder activo, tamaño de DB, last-index, chunks por kind, chunks por proyecto. Primera pieza del config UI que llega completo en v2.30.

@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.30.0] - 2026-05-26
+
+Minor release. **Writable config UI on HU Board** — the kj.config.yml is no longer an editor-only file. The board now exposes a settings modal with grouped sections, an atomic-write backend, and a scope toggle between global (`~/.karajan/`) and per-project (`<projectDir>/.karajan/`) configs.
+
+Four PRs land the UI end-to-end (PR1 pipeline toggles, PR2 RAG controls, PR3 grouped modal sections, PR4 scope toggle). Old hand-editing of YAML keeps working — the modal only writes the whitelisted fields and preserves everything else verbatim.
+
+### Added
+
+- **PR #854 (KJC-TSK-0450) — pipeline role toggles in writable config UI**. Eight new boolean fields exposed on the board modal (`pipeline.planner.enabled`, `researcher`, `architect`, `tester`, `security`, `refactorer`, `impeccable`, `brain`). Mirrors the source-of-truth defaults in `src/config/defaults.js`.
+- **PR #855 (KJC-TSK-0451) — RAG controls in writable config UI**. Four new fields: `rag.preload.enabled` (boolean), `rag.preload.topK` (1–20), `rag.preload.scope` (all/code/plans/onboarding), `rag.embedder.provider` (ollama/openai/voyage/cohere/mistral/onnx). The provider dropdown matches the six embedders shipped through v2.28.0–v2.29.0.
+- **PR #856 (KJC-TSK-0452) — grouped sections in config modal**. Fields are now categorised (Agentes y modelos, Roles del pipeline, RAG, Tiempos de sesión, Calidad) with icons and deterministic order. Backend exports a `CATEGORIES` array so the front renders sections without hard-coding. Unknown categories fall back to "Otros" (defensive — new fields never get dropped from the UI).
+- **PR #857 (KJC-TSK-0453) — config scope toggle (global vs per-project)**. New `SCOPES = ['global', 'project']` export. Two-pill toggle in the modal header lets the user switch between `~/.karajan/kj.config.yml` (global, default) and `<projectDir>/.karajan/kj.config.yml` (per-project override). The project file is created on demand on first save. `KJ_PROJECT_DIR || cwd()` resolution matches the journal-parser pattern. Atomic-write + `.bak` discipline applies to both scopes.
+
+### Tests
+
+5 216 / 5 216 passing in CI across 457 test files (+25 new tests across the 4 PRs, +1 new file `tests/board/config-yaml-scope.test.js`).
+
+### Internal
+
+- Single source of truth for editable fields: `packages/hu-board/src/config-yaml.js::EDITABLE_FIELDS` (UI metadata) + `CATEGORIES` (grouping) + `SCOPES` (target file). The front (`packages/hu-board/public/app.js`) iterates the backend metadata — no field is duplicated client-side.
+
 ## [2.29.0] - 2026-05-25
 
 Minor release. **RAG quality lift** — retrieval dashboard, three new embedder providers, metadata filtering, cross-encoder rerank.
