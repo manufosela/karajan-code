@@ -3272,10 +3272,14 @@ function handleRoute() {
 // row. `select` → <select>, `boolean` → <input type=checkbox>,
 // `number` → <input type=number min/max>. Help text under each
 // label as a small grey paragraph.
-async function showConfigEditor() {
+async function showConfigEditor(scope = 'global') {
+  // v2.30.0 PR4 — scope toggle. 'global' edita ~/.karajan/kj.config.yml
+  // (afecta a todos los proyectos); 'project' edita
+  // <projectDir>/.karajan/kj.config.yml (sólo el repo actual). El backend
+  // resuelve <projectDir> desde KJ_PROJECT_DIR || cwd.
   let cfg;
   try {
-    const r = await fetch('/api/config');
+    const r = await fetch(`/api/config?scope=${encodeURIComponent(scope)}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     cfg = await r.json();
   } catch (err) {
@@ -3341,11 +3345,28 @@ async function showConfigEditor() {
   }
   const sectionsHtml = allCats.map(renderSection).join('');
 
+  // PR4 — toggle global / proyecto. Cambiarlo recarga el modal contra el
+  // otro fichero. Visual: dos pills mutuamente excluyentes.
+  const pill = (id, value, label, active) => `
+    <button data-scope="${value}" id="${id}" type="button"
+      style="padding:4px 10px;border-radius:999px;border:1px solid var(--border);
+      background:${active ? 'var(--color-blue)' : 'var(--bg-primary)'};
+      color:${active ? '#fff' : 'var(--text)'};font-size:0.75rem;cursor:pointer;">
+      ${esc(label)}
+    </button>`;
+  const scopeToggle = `
+    <div style="display:flex;align-items:center;gap:4px;margin-left:auto;" role="radiogroup" aria-label="Ámbito de configuración">
+      ${pill('cfg-scope-global',  'global',  'Global',         scope === 'global')}
+      ${pill('cfg-scope-project', 'project', 'Este proyecto',  scope === 'project')}
+    </div>`;
   dlg.innerHTML = `
     <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;">
       <span style="font-size:1.2rem;">⚙</span>
       <span>Configuración de Karajan</span>
-      <span style="margin-left:auto;font-family:var(--font-mono,monospace);font-size:0.75rem;color:var(--text-muted);">${esc(cfg.path || '')}</span>
+      ${scopeToggle}
+    </div>
+    <div style="padding:6px 18px 0;font-family:var(--font-mono,monospace);font-size:0.7rem;color:var(--text-muted);">
+      ${esc(cfg.path || '')}${cfg.exists === false ? ' · (aún no existe, se creará al guardar)' : ''}
     </div>
     <div style="padding:14px 18px;max-height:65vh;overflow:auto;">
       ${sectionsHtml}
@@ -3360,6 +3381,15 @@ async function showConfigEditor() {
     </div>
   `;
   if (typeof dlg.showModal === 'function' && !dlg.open) dlg.showModal();
+  // PR4 — al cambiar de pill, recargar el modal con el otro scope.
+  for (const btn of dlg.querySelectorAll('[data-scope]')) {
+    btn.addEventListener('click', () => {
+      const next = btn.getAttribute('data-scope');
+      if (next === scope) return;
+      try { dlg.close(); } catch { /* ignore */ }
+      showConfigEditor(next);
+    }, { once: true });
+  }
   dlg.querySelector('#config-cancel')?.addEventListener('click', () => { try { dlg.close(); } catch { /* ignore */ } }, { once: true });
   dlg.querySelector('#config-save')?.addEventListener('click', async () => {
     // Build the patch from the form, comparing against initial values
@@ -3382,7 +3412,7 @@ async function showConfigEditor() {
       const r = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch }),
+        body: JSON.stringify({ patch, scope }),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
