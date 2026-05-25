@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import chokidar from "chokidar";
 import { openVecStore, deleteChunksBySource, projectSlug } from "./vec-store.js";
-import { OllamaEmbedder } from "./embedder.js";
+import { makeEmbedder } from "./embedders/factory.js";
 import { indexFile } from "./indexer.js";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -25,8 +25,7 @@ export function startWatcher({ projectDir, config, logger = console, debounceMs 
   const slug = projectSlug(projectDir);
   const dim = config?.rag?.embedder?.dim || 768;
   const db = openVecStore({ dim });
-  const cfg = config?.rag?.embedder || {};
-  const embedder = new OllamaEmbedder({ url: cfg.url, model: cfg.model, dim });
+  const embedder = makeEmbedder(config);
   const paths = [join(getKarajanHome(), "onboarding"), join(getKarajanHome(), "plans")];
   if (withSources) paths.push(projectDir);
   const watcher = chokidar.watch(paths, { ignoreInitial: true, persistent: true });
