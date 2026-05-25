@@ -3306,6 +3306,41 @@ async function showConfigEditor() {
       </div>
     `;
   };
+
+  // v2.30.0 — agrupa los campos por `f.category`. El backend declara
+  // las categorías ordenadas en `cfg.categories`; cualquier campo sin
+  // categoría cae a "Otros" (defensivo, no se pierde si olvidamos
+  // etiquetar uno nuevo). Mantiene el orden interno del whitelist
+  // dentro de cada sección.
+  const cats = Array.isArray(cfg.categories) && cfg.categories.length > 0
+    ? cfg.categories
+    : [{ id: 'misc', label: 'Otros', icon: '⚙', order: 999 }];
+  const byCat = new Map(cats.map((c) => [c.id, []]));
+  byCat.set('misc', byCat.get('misc') || []);
+  for (const f of cfg.fields) {
+    const id = byCat.has(f.category) ? f.category : 'misc';
+    if (!byCat.has(id)) byCat.set(id, []);
+    byCat.get(id).push(f);
+  }
+  const renderSection = (cat) => {
+    const fields = byCat.get(cat.id) || [];
+    if (fields.length === 0) return '';
+    return `
+      <section style="margin-bottom:22px;">
+        <h3 style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border);font-size:0.95rem;font-weight:700;color:var(--text);">
+          <span aria-hidden="true">${esc(cat.icon || '⚙')}</span>
+          <span>${esc(cat.label)}</span>
+        </h3>
+        ${fields.map(renderField).join('')}
+      </section>
+    `;
+  };
+  const allCats = [...cats];
+  if ((byCat.get('misc') || []).length > 0 && !allCats.some((c) => c.id === 'misc')) {
+    allCats.push({ id: 'misc', label: 'Otros', icon: '⚙', order: 999 });
+  }
+  const sectionsHtml = allCats.map(renderSection).join('');
+
   dlg.innerHTML = `
     <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:700;display:flex;align-items:center;gap:10px;">
       <span style="font-size:1.2rem;">⚙</span>
@@ -3313,7 +3348,7 @@ async function showConfigEditor() {
       <span style="margin-left:auto;font-family:var(--font-mono,monospace);font-size:0.75rem;color:var(--text-muted);">${esc(cfg.path || '')}</span>
     </div>
     <div style="padding:14px 18px;max-height:65vh;overflow:auto;">
-      ${cfg.fields.map(renderField).join('')}
+      ${sectionsHtml}
       <p style="margin:14px 0 0;font-size:0.75rem;color:var(--text-muted);">
         Los cambios se guardan en <code>kj.config.yml</code> de forma atómica (con copia de seguridad <code>.bak</code>).
         El próximo <code>kj run</code> los aplicará — no hace falta reiniciar el board.

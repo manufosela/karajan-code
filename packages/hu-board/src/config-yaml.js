@@ -45,10 +45,25 @@ function configPath() {
 function backupPath() { return `${configPath()}.bak`; }
 
 /**
+ * v2.30.0 — Categorías para agrupar los campos en el modal. El backend
+ * sólo declara la metadata (id, label, icon, order). El front (app.js)
+ * itera sobre EDITABLE_FIELDS, agrupa por `f.category` y dibuja un
+ * <h3> por sección. Si un campo nuevo no declara categoría, cae en
+ * "Otros" (defensivo: no se pierde aunque se nos olvide etiquetarlo).
+ */
+export const CATEGORIES = [
+  { id: 'agents',   label: 'Agentes y modelos',        icon: '🤖', order: 1 },
+  { id: 'pipeline', label: 'Roles del pipeline',       icon: '🔌', order: 2 },
+  { id: 'rag',      label: 'RAG (búsqueda de contexto)', icon: '📚', order: 3 },
+  { id: 'session',  label: 'Tiempos de sesión',        icon: '⏱',  order: 4 },
+  { id: 'quality',  label: 'Calidad',                  icon: '✅', order: 5 },
+];
+
+/**
  * Whitelist of fields the board's modal exposes. Everything else
  * stays untouched in the yml. Each entry says where in the yml the
  * field lives (`path`) and how to render it for the UI (`type`,
- * `label`, `options` for selects).
+ * `label`, `options` for selects, `category` for grouping).
  *
  * The path is a dotted notation we resolve manually (so we never
  * need to take a runtime dep on lodash for `_.get`/`_.set`).
@@ -57,6 +72,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'coder',
     path: 'coder',
+    category: 'agents',
     type: 'select',
     label: 'Agente para el rol "coder"',
     help: 'Quién escribe el código. Claude es el más fiable, Codex es más rápido.',
@@ -66,6 +82,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'reviewer',
     path: 'reviewer',
+    category: 'agents',
     type: 'select',
     label: 'Agente para el rol "reviewer"',
     help: 'Quién revisa el código del coder. Conviene que sea un agente distinto al coder para detectar errores.',
@@ -75,6 +92,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'modelMode',
     path: '_modelMode_virtual',
+    category: 'agents',
     type: 'select',
     label: 'Estrategia de modelos',
     help: 'Auto = Karajan elige el modelo según la complejidad (haiku/sonnet/opus). Sonnet siempre = barato, ideal para pruebas. Opus siempre = caro, máxima calidad.',
@@ -86,6 +104,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'maxIterationMinutes',
     path: 'session.max_iteration_minutes',
+    category: 'session',
     type: 'number',
     label: 'Tope de minutos por iteración',
     help: 'Si una iteración (coder + reviewer) supera este tiempo, Karajan la corta y Solomon decide qué hacer.',
@@ -96,6 +115,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'maxTotalMinutes',
     path: 'session.max_total_minutes',
+    category: 'session',
     type: 'number',
     label: 'Tope de minutos total por sesión',
     help: 'Tope absoluto del wall-clock de la sesión. Si se llega aquí, Karajan para aunque queden HUs.',
@@ -106,6 +126,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'sonarEnabled',
     path: 'sonarqube.enabled',
+    category: 'quality',
     type: 'boolean',
     label: 'Activar análisis SonarQube',
     help: 'Pasa el código por SonarQube y bloquea si el quality gate falla. Requiere SonarQube corriendo.',
@@ -118,6 +139,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'plannerEnabled',
     path: 'pipeline.planner.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol planner',
     help: 'Genera un plan de implementación antes de codificar. Útil en tareas con >2 archivos o devPoints ≥ 3.',
@@ -126,6 +148,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'researcherEnabled',
     path: 'pipeline.researcher.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol researcher',
     help: 'Investiga la codebase antes del coder (lectura de archivos clave, patrones existentes).',
@@ -134,6 +157,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'architectEnabled',
     path: 'pipeline.architect.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol architect',
     help: 'Diseña la arquitectura (capas, patrones, contratos) antes de codificar. Recomendado en cambios estructurales.',
@@ -142,6 +166,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'testerEnabled',
     path: 'pipeline.tester.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol tester',
     help: 'Genera tests automáticos durante o después del coder. Refuerza la calidad.',
@@ -150,6 +175,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'securityEnabled',
     path: 'pipeline.security.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol security',
     help: 'Audita el código contra OWASP-style issues, secret leaks, dependencias vulnerables.',
@@ -158,6 +184,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'refactorerEnabled',
     path: 'pipeline.refactorer.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol refactorer',
     help: 'Pasa una iteración de limpieza tras el coder (extract function, rename, etc.).',
@@ -166,6 +193,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'impeccableEnabled',
     path: 'pipeline.impeccable.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar rol impeccable',
     help: 'Auditoría UI/UX automática (Lighthouse, a11y, contraste). Solo útil en frontend.',
@@ -174,6 +202,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'brainEnabled',
     path: 'pipeline.brain.enabled',
+    category: 'pipeline',
     type: 'boolean',
     label: 'Activar Karajan Brain (v2)',
     help: 'Orquestador IA central: enriquece feedback, comprime outputs y verifica cambios reales. Opt-in.',
@@ -187,6 +216,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'ragPreloadEnabled',
     path: 'rag.preload.enabled',
+    category: 'rag',
     type: 'boolean',
     label: 'Activar pre-carga RAG en el pipeline',
     help: 'Si está activo, antes de cada iteración se inyecta contexto del vector store en el prompt del coder.',
@@ -195,6 +225,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'ragPreloadTopK',
     path: 'rag.preload.topK',
+    category: 'rag',
     type: 'number',
     label: 'Nº de chunks a pre-cargar (topK)',
     help: 'Cuántos fragmentos del vector store se inyectan como contexto. 3-5 funciona bien; subir gasta tokens.',
@@ -205,6 +236,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'ragPreloadScope',
     path: 'rag.preload.scope',
+    category: 'rag',
     type: 'select',
     label: 'Scope de la pre-carga RAG',
     help: '"all" mezcla todo. "code" solo busca en el código indexado, "plans" en planes previos, "onboarding" en el brief del proyecto.',
@@ -214,6 +246,7 @@ export const EDITABLE_FIELDS = [
   {
     key: 'ragEmbedderProvider',
     path: 'rag.embedder.provider',
+    category: 'rag',
     type: 'select',
     label: 'Proveedor de embeddings RAG',
     help: 'Ollama local es gratis. OpenAI/Voyage/Cohere/Mistral son cloud (requieren API key). ONNX corre 100% local con @huggingface/transformers.',
@@ -331,7 +364,11 @@ export function readConfig() {
     if (value === undefined) value = f.default;
     return { ...f, value };
   });
-  return { path: p, exists, fields, raw: parsed };
+  // v2.30.0 — also expose CATEGORIES so the modal can render grouped
+  // sections without re-importing the constant client-side. Ordered
+  // by `order` for deterministic UI.
+  const categories = [...CATEGORIES].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  return { path: p, exists, fields, categories, raw: parsed };
 }
 
 /**
