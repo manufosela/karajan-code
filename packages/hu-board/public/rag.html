@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karajan RAG · Retrieval Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo"><div><div class="header__title">Karajan RAG</div><div class="header__subtitle">retrieval-quality dashboard</div></div></div>
+    <nav class="header__nav">
+      <a class="nav-btn" href="/">← Board</a>
+      <button class="nav-btn active">RAG</button>
+      <div class="header__controls"><button class="control-btn" id="rag-refresh" title="Reload stats">🔄</button></div>
+    </nav>
+  </header>
+  <main class="main" id="rag-app"><div class="loading"><div class="loading__spinner"></div><p>Loading…</p></div></main>
+  <script src="/rag.js"></script>
+</body>
+</html>
