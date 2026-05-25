@@ -916,3 +916,17 @@ body.scoped-mode .nav-btn[data-view="dashboard"],
 body.scoped-mode .header__nav a[href="/pipeline.html"] {
   display: none;
 }
+
+/* KJC-TSK-0445 — RAG dashboard */
+.rag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; padding: 1rem; }
+.rag-card { background: var(--bg-secondary, #1e1e2e); border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.rag-card--wide { grid-column: 1 / -1; }
+.rag-card--error { color: #f87171; background: #2a1414; }
+.rag-card h3 { margin: 0 0 .75rem; font-size: .9rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary, #94a3b8); }
+.rag-stat-big { font-size: 2rem; font-weight: 700; margin: 0; color: var(--text-primary, #f8fafc); }
+.rag-stat-sub { margin: .25rem 0 0; font-size: .85rem; color: var(--text-secondary, #94a3b8); }
+.rag-empty { color: var(--text-secondary, #94a3b8); font-style: italic; }
+.rag-bar { display: grid; grid-template-columns: 140px 1fr 60px; align-items: center; gap: .5rem; margin: .35rem 0; font-size: .85rem; }
+.rag-bar__label { color: var(--text-secondary, #cbd5e1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rag-bar__fill { display: block; height: 14px; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 3px; }
+.rag-bar__value { text-align: right; color: var(--text-primary, #f8fafc); font-variant-numeric: tabular-nums; }
