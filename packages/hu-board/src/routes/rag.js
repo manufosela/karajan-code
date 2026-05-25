@@ -9,7 +9,7 @@ import { dbPath } from "../../../../src/rag/vec-store.js";
 import { readConfig } from "../config-yaml.js";
 
 const router = Router();
-const DIMS = { ollama: 768, openai: 1536, voyage: 1024, cohere: 1024, mistral: 1024 };
+const DIMS = { ollama: 768, openai: 1536, voyage: 1024, cohere: 1024, mistral: 1024, onnx: 384 };
 
 function embedder() {
   try {

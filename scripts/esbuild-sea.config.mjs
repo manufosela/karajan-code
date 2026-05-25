@@ -178,6 +178,7 @@ const ragStubPlugin = {
           OpenAIEmbedderError: notAvailable, VoyageEmbedderError: notAvailable, PROVIDERS: notAvailable,
           CohereEmbedder: notAvailable, CohereEmbedderError: notAvailable,
           MistralEmbedder: notAvailable, MistralEmbedderError: notAvailable,
+          ONNXEmbedder: notAvailable, ONNXEmbedderError: notAvailable,
           default: notAvailable,
         };
       `,
