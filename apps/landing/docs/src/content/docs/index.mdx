@@ -56,7 +56,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 670+ Automated Tests" icon="approve-check">
+  <Card title="5 720+ Automated Tests" icon="approve-check">
     468 test files covering every pipeline role (incl. the new rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
@@ -502,7 +502,7 @@ kj ollama pull <model>  # docker exec ... ollama pull <m>
 
 **Coming in v2.28.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters for users without local Docker.
 
-### v2.27.0 — Minor (current)
+### v2.27.0 — Minor
 
 **RAG polish** (KJC-PCS-0049). Three independent improvements triggered by the v2.26.0 smoke test on karajan-code itself, plus a CI workflow exclude fix surfaced while landing the docs.
 
@@ -514,4 +514,37 @@ kj ollama pull <model>  # docker exec ... ollama pull <m>
 
 **KJC-BUG-0063 (bundled)** — `tests/resilience/hibernate-end-to-end.test.js` was TZ-dependent and broke every CI run on every PR (`TZ=Europe/Madrid` passed, `TZ=UTC` failed). Skipped in CI via `process.env.CI === 'true'` until `parseCooldown` becomes TZ-aware. Local runs unaffected (4/4 still pass).
 
-**Coming in v2.28.0+** — chokidar watcher (live re-indexing), AST source chunker (tree-sitter / @babel/parser), BM25 + cosine hybrid scoring, OpenAI / Voyage embedder adapters for users without local Docker.
+**Coming in v2.29.0+** — extended cloud embedder providers (Cohere, Anthropic via OAuth), per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board.
+
+### v2.28.0 — Minor (current)
+
+**RAG advanced** (KJC-PCS-0049). The four roadmap items announced in v2.27.0 shipped together, plus a real fix for the v2.27.0 workaround:
+
+**Live re-index — `kj watch`** (PR #836). New `kj watch [start|stop|status]` daemon backed by chokidar. Vigila `~/.karajan/onboarding/`, `~/.karajan/plans/` y (opt) projectDir sources; cada change/add/unlink dispara reindex incremental tras 1 s de debounce. Borrar archivo limpia sus chunks. PID file `~/.karajan/watcher.pid` arbitra un solo daemon. Fin del manual `kj rag index` tras cada edit del código.
+
+**Cloud embedders — OpenAI + Voyage** (PR #841). Para usuarios sin Docker local. Nueva factoría `src/rag/embedders/factory.js` resuelve provider desde `config.rag.embedder.provider`:
+
+```yaml
+rag:
+  embedder:
+    provider: openai           # ollama | openai | voyage (default: ollama)
+    api_key: ${KJ_OPENAI_KEY}  # KJ_OPENAI_KEY / KJ_VOYAGE_KEY — Karajan-scoped env vars
+    model: text-embedding-3-small
+    dim: 1536
+```
+
+Voyage es la recomendación de Anthropic (no tienen first-party embedder); `voyage-code-3` está tuneado para código. Las env vars son `KJ_*` (Karajan-scoped) — Karajan nunca lee `OPENAI_API_KEY` directamente, preservando el architecture invariant.
+
+**BM25 + cosine hybrid** (PR #838). SQLite FTS5 virtual table `chunks_fts` (contentless mirror + triggers sync). Nueva función `searchBM25(db, queryText, topK)` + `fuseHits()` que normaliza ambos scores a `[0,1]` y linear-combina via alpha:
+
+```text
+distance = α · norm(cosine_distance) + (1−α) · norm(bm25)
+```
+
+CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid` (default) cubre ambos casos; `keyword` skipea la llamada al embedder cuando la query es exact-symbol. Resuelve el ranking pobre de queries como `projectSlug` o `runRagContextStage`.
+
+**AST source chunker** (PR #839). `src/rag/chunker-ast.js` con `@babel/parser` (plugins: typescript, jsx, decorators-legacy, classProperties, topLevelAwait). Cada top-level declaration entera en un chunk; JSDoc + comments leading se foldean. Reemplaza el regex chunker para JS/TS/JSX. Funciones largas ya NO se parten mid-statement.
+
+**KJC-BUG-0064 (bundled)** (PR #840). `parseCooldown` ahora TZ-aware via `Intl.DateTimeFormat`. Cuando el stderr de Claude Code contiene `(Continent/City)`, resuelve el wall-clock target en esa TZ específica en lugar de la TZ local del host. Deshace el skip-en-CI workaround shipped en v2.27.0 (KJC-BUG-0063). Tests pasan en TZ=UTC, Europe/Madrid, Asia/Tokyo, America/Los_Angeles.
+
+**Coming in v2.29.0+** — extended cloud providers (Cohere, Anthropic via OAuth), per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board.
