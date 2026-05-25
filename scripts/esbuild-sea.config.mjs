@@ -170,6 +170,9 @@ const ragStubPlugin = {
           checkOllamaCapability: notAvailable, pullOllamaModel: notAvailable,
           // KJC-TSK-0438 — RAG project isolation.
           projectSlug: notAvailable,
+          // KJC-TSK-0441 — RAG chokidar watcher.
+          startWatcher: notAvailable, readPidFile: notAvailable, clearPidFile: notAvailable,
+          isPidAlive: notAvailable, writePidFile: notAvailable,
           default: notAvailable,
         };
       `,

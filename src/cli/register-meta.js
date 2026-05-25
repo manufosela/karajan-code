@@ -4,6 +4,7 @@ import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { ragIndexCommand, ragQueryCommand } from "../commands/rag.js";
+import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
 import { boardCommand } from "../commands/board.js";
@@ -120,6 +121,18 @@ export function registerMeta(program, { pkgVersion }) {
         await ragQueryCommand({ text, config, logger, flags });
       });
     });
+
+  // KJC-TSK-0441 — `kj watch [start|stop|status]` for live RAG re-index.
+  const watch = program.command("watch").description("Live RAG re-index daemon");
+  watch.command("start").description("Start the watcher daemon").option("--foreground", "Run in foreground (do not detach)").option("--with-sources", "Watch project source files too").action(async (flags) => {
+    await withConfig(pkgVersion, "watch:start", flags, async ({ config, logger }) => watchStartCommand({ config, logger, flags }));
+  });
+  watch.command("stop").description("Stop the watcher daemon").action(async () => {
+    await withConfig(pkgVersion, "watch:stop", {}, async ({ logger }) => watchStopCommand({ logger }));
+  });
+  watch.command("status").description("Report watcher daemon state").action(async () => {
+    await withConfig(pkgVersion, "watch:status", {}, async ({ logger }) => watchStatusCommand({ logger }));
+  });
 
   program
     .command("audit")
