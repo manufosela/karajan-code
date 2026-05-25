@@ -69,6 +69,7 @@
     "src/**/*.js": "eslint --max-warnings=999"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.3",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "better-sqlite3": "^11.0.0",
     "chokidar": "^4.0.0",
