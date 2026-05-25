@@ -75,7 +75,16 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // only needed when the lighthouse check actually runs (i.e. when the
 // user has the binary or wants the install hint) — deferring it keeps
 // non-frontend doctor runs from paying the cost.
-const DYNAMIC_IMPORT_BUDGET = 162;
+//
+// 2026-05-25 (KJC-TSK-0447 v2.29 ONNX embedder): bumped 162 → 164 for two
+// dynamic imports inside `src/rag/embedders/onnx.js`: it tries
+// `@huggingface/transformers` first, then falls back to legacy
+// `@xenova/transformers`, and gracefully errors if neither is installed.
+// Both packages are optional peer deps (combined ~500 MB with WASM + ONNX
+// runtime) so a static import would force every install to pay that cost
+// even for users who never opt into provider: onnx. Static imports are
+// not an option here by design.
+const DYNAMIC_IMPORT_BUDGET = 164;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
