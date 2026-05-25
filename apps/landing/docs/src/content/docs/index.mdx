@@ -56,7 +56,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 558+ Automated Tests" icon="approve-check">
+  <Card title="5 670+ Automated Tests" icon="approve-check">
     468 test files covering every pipeline role (incl. the new rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
@@ -469,7 +469,7 @@ Otherwise the stage persists `ragPreload: { skipped: true, reason: 'auto:low-val
 
 **Coming in v2.27.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters.
 
-### v2.26.0 — Minor (current)
+### v2.26.0 — Minor
 
 **RAG Auto-Bootstrap** (KJC-PCS-0049). Closes the friction caught in the v2.25.0 dogfooding: the RAG feature was technically complete but invisible to new users — they had to install Ollama manually before any of `kj rag index`, `kj rag query`, the MCP tool or pre-loop auto-retrieval would do anything. From v2.26.0 onwards, the embedder is just there.
 
@@ -500,4 +500,18 @@ kj ollama pull <model>  # docker exec ... ollama pull <m>
 
 **Bug fix bundled** — the same v2.25.0 smoke test that surfaced the bootstrap gap also caught **KJC-BUG-0061**: `kj onboard --no-synth` was silently ignored because Commander maps `--no-synth` to `flags.synth=false`, not `flags.noSynth=true`; the synth branch invoked `OnboarderRole.run()` without `init()`, breaking the command outright; and `kj rag query --json` on empty store emitted `[]` instead of the `{ hits, empty, topK, scope }` shape the MCP handler returns, which broke the contract the `/kj-rag-query` skill from v2.25.0 promised to Skills hosts. All three fixed in PR #824 and shipped with v2.26.0.
 
-**Coming in v2.27.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters for users without local Docker.
+**Coming in v2.28.0+** — chokidar watcher (live re-indexing), AST source chunker, BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters for users without local Docker.
+
+### v2.27.0 — Minor (current)
+
+**RAG polish** (KJC-PCS-0049). Three independent improvements triggered by the v2.26.0 smoke test on karajan-code itself, plus a CI workflow exclude fix surfaced while landing the docs.
+
+**Per-project isolation** — `~/.karajan/rag.db` is a single SQLite shared across every indexed project. The v2.26.0 smoke caught chunks from a sandbox mixing into queries against karajan-code, so the schema gained a `project_slug TEXT` column on `chunks` (migration is non-breaking — pre-v2.27 DBs keep working with NULL slugs). `indexProject` auto-stamps every chunk with the projectDir basename normalized; `kj rag query --project <slug>` filters retrieval; `--project all` disables the filter; default is the cwd basename. Same flag honoured by the MCP tool and the `/kj-rag-query` slash command.
+
+**docs/RAG.md unified** — the v2.26.0 release exposed that RAG documentation was scattered across CHANGELOG entries, README banner, role templates and landing. New unified guide at `docs/RAG.md` (EN) + `docs/es/RAG.md` (ES) covering: quick start, architecture diagram, installation (auto-bootstrap + fallback paths), six workflows (CLI, MCP, slash command, HU Board, pre-loop, role instructions — Caminos A→D mapped explicitly), configuration matrix, limitations + their v2.28.0+ roadmap items, troubleshooting. README banner now links both languages. Bonus fix: `docs/**/*.md` only matched files in subdirectories — `docs/RAG.md` at the root was slipping past `shrink-budget`. Workflow patched to mirror every doc-extension exclude with both `docs/*.ext` and `docs/**/*.ext` patterns.
+
+**Asymmetric source-vs-test ranking** — the v2.26.0 smoke caught a systematic ranking bias: natural-language queries (`how does X work`) ranked `tests/X.test.js` above `src/X.js` because tests carry more descriptive prose and cosine-only similarity rewarded that. New rule in `retriever.js`: when the query does NOT mention test-flavoured terms (`test|spec|expect|describe|it|jest|vitest|mocha`), code chunks whose source path is NOT a test file get +0.05 boost on top of the kind boost. Test-flavoured queries keep the baseline so `vitest mock setup` still surfaces test files. Helpers `shouldBoostSources` and `isTestPath` exported for tests.
+
+**KJC-BUG-0063 (bundled)** — `tests/resilience/hibernate-end-to-end.test.js` was TZ-dependent and broke every CI run on every PR (`TZ=Europe/Madrid` passed, `TZ=UTC` failed). Skipped in CI via `process.env.CI === 'true'` until `parseCooldown` becomes TZ-aware. Local runs unaffected (4/4 still pass).
+
+**Coming in v2.28.0+** — chokidar watcher (live re-indexing), AST source chunker (tree-sitter / @babel/parser), BM25 + cosine hybrid scoring, OpenAI / Voyage embedder adapters for users without local Docker.
