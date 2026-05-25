@@ -179,6 +179,8 @@ const ragStubPlugin = {
           CohereEmbedder: notAvailable, CohereEmbedderError: notAvailable,
           MistralEmbedder: notAvailable, MistralEmbedderError: notAvailable,
           ONNXEmbedder: notAvailable, ONNXEmbedderError: notAvailable,
+          // KJC-TSK-0448 — RAG --where metadata filter.
+          parseWhere: notAvailable, buildWhereSql: notAvailable,
           default: notAvailable,
         };
       `,
