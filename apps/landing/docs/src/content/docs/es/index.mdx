@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 720+ Tests Automatizados" icon="approve-check">
-    468 ficheros de test cubriendo cada rol (incl. el nuevo rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board y el subsystem Project RAG. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 200+ Tests Automatizados" icon="approve-check">
+    456 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (ahora con modal de settings editable), el subsystem Project RAG con modo hybrid + rerank, y el dashboard de retrieval. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -500,4 +500,38 @@ kj ollama pull <model>  # docker exec ... ollama pull <m>
 
 **Bug fix bundled** — el mismo smoke test de v2.25.0 que descubrió el gap de bootstrap también cazó **KJC-BUG-0061**: `kj onboard --no-synth` silenciosamente ignorado (Commander mapea `--no-synth` a `flags.synth=false`, no `flags.noSynth=true`); el branch synth invocaba `OnboarderRole.run()` sin `init()`, rompiendo el comando directamente; y `kj rag query --json` en store vacío emitía `[]` en vez del shape `{ hits, empty, topK, scope }` que el handler MCP devuelve, rompiendo el contrato que el skill `/kj-rag-query` de v2.25.0 prometía a los hosts Skills. Los tres arreglados en PR #824 y embarcados con v2.26.0.
 
-**Viene en v2.27.0+** — chokidar watcher (re-indexing en vivo), chunker AST de fuentes, scoring híbrido BM25 + cosine, adapters OpenAI/Voyage para usuarios sin Docker local.
+### v2.29.0 — Minor
+
+**Pasada de calidad del RAG** (KJC-PCS-0049 continuación). Cinco PRs aterrizan la siguiente capa del track RAG: visibilidad, más providers, queries más finas, mejor ranking final.
+
+**Dashboard de retrieval en el HU Board** (PR #843). Nueva página standalone en `/rag.html`, enlazada desde la nav principal. Muestra total de chunks, tamaño de DB, último indexado, embedder activo + dim, conteos por kind (code / plan / onboarding) y por proyecto (top 20). Backend `GET /api/rag/stats` lee la `rag.db` local read-only y la sección embedder del `kj.config.yml`. Estado vacío cuando la DB no está inicializada. Primera pieza del roadmap config-UI v2.30 — el board crecerá controles editables (toggles de roles, swap de embedder, alpha/mode/rerank) sobre la misma superficie.
+
+**Cohere + Mistral embedder adapters** (PR #848). `embed-multilingual-v3.0` (1024 dim, fuerte multilingüe) y `mistral-embed` (1024 dim, EU-hosted para usuarios sensibles a GDPR). `KJ_COHERE_KEY` / `KJ_MISTRAL_KEY` Karajan-scoped. El slot original "Anthropic via OAuth" se descarta — Anthropic no tiene endpoint de embeddings; Cohere + Mistral cubren ese hueco con servicios first-party.
+
+**Embedder local ONNX** (PR #??). Sexto provider, totalmente local: sin Docker, sin API key, sin servicio externo. Cargado dinámicamente vía `@huggingface/transformers` (legacy `@xenova/transformers` respetado como fallback). Default `Xenova/all-MiniLM-L6-v2` (384 dim, ~80 MB cacheados primera vez). Opción de mayor calidad `Xenova/jina-embeddings-v2-base-en` (768 dim) seleccionable vía `KJ_ONNX_EMBED_MODEL`. Ambos paquetes transformers son **peer deps opcionales** — no se instalan automáticamente (combined ~500 MB con WASM + ONNX runtime); el adapter lanza hint de instalación útil si faltan. Pieza clave para el zero-config init de v2.31: default sensato con cero infraestructura.
+
+**Filtro `--where` de metadata por chunk** (PR #??). Nuevo flag CLI con gramática `KEY=VALUE AND KEY=VALUE` (AND case-insensitive, strings entre comillas para valores con espacios):
+
+```bash
+kj rag query 'login flow' --where 'symbol=loadConfig'
+kj rag query 'auth'       --where 'hu_id=HU-003 AND kind=plan'
+kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
+```
+
+`kind` casuística contra la columna; cualquier otra key va por SQLite `json_extract(c.metadata, '$.<key>') = ?`, así cualquier metadata que el chunker emita (`symbol`, `hu_id`, `headingPath`, `file`, …) es queryable sin cambios de schema. El filtro aplica uniformemente a ambos lados (semantic y BM25) del retriever híbrido.
+
+**Rerank cross-encoder** (PR #??). Flag opt-in `--rerank` re-puntúa los topK supervivientes con un cross-encoder (query, passage). Default `Xenova/ms-marco-MiniLM-L-6-v2` (estándar de facto de sentence-transformers, ~80 MB cacheados primera vez). Los cross-encoders son más lentos que los bi-encoders (encodean el par junto en lugar de cachear el passage), pero materialmente más precisos para el ranking final — Karajan lo corre solo sobre los supervivientes post-fusion + post-boost, así la latencia se mantiene acotada. Encaja después de los boosts kind+source, actuando como una palanca de calidad de grano más fino.
+
+### v2.30.0 — Minor (actual)
+
+**UI de config editable en el HU Board** (KJC-PCS-0042). Cuatro PRs aterrizan el modal de settings end-to-end: los teaser de v2.29 (toggle de roles, swap de embedder, alpha/mode/rerank) se vuelven editables sin abrir nunca `kj.config.yml`.
+
+**Toggles de roles del pipeline** (PR #854, KJC-TSK-0450). Modal con sección "Pipeline roles" donde activas/desactivas roles individuales (researcher, architect, refactorer, security, audit, rag-context). El backend persiste vía la whitelist `EDITABLE_FIELDS` de `config-yaml.js` con escritura atómica (tmp + rename) y backup `.bak`. La estructura YAML del usuario se preserva — sin reformateo, sin pérdida de comentarios.
+
+**Controles de RAG** (PR #855, KJC-TSK-0451). Sliders + selects para `rag.search.{mode,alpha,rerank}`. `mode` ∈ \{hybrid, semantic, bm25\}. `alpha` 0-1 (peso semantic vs lexical en hybrid). `rerank` toggle. Live preview del payload antes de guardar.
+
+**Secciones agrupadas en el modal de config** (PR #856, KJC-TSK-0452). Reorganización visual: Pipeline / RAG / Coder / Reviewer / Brain en bloques colapsables. Reduce scroll, mejora la legibilidad cuando el config crece.
+
+**Toggle de scope: global vs per-proyecto** (PR #857, KJC-TSK-0453). Nuevo switch en cada sección eligiendo dónde escribir: `'global'` → `~/.karajan/kj.config.yml`, `'project'` → `<projectDir>/.karajan/kj.config.yml`. Resolución `projectDir` vía `process.env.KJ_PROJECT_DIR || process.cwd()`. El config del proyecto sobrescribe el global cuando ambos existen.
+
+**Viene en v2.31.0+** — zero-config init (wizard reducido a una pregunta crítica, defaults inteligentes para todo lo demás) sobre la base de un `~/.karajan/kj.config.yml` que ahora se puede editar desde el board sin abrir un editor.

@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 720+ Automated Tests" icon="approve-check">
-    468 test files covering every pipeline role (incl. the new rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package, and the Project RAG subsystem. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 200+ Automated Tests" icon="approve-check">
+    456 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (now with writable settings modal), the Project RAG subsystem with hybrid mode + rerank, and the retrieval dashboard. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -514,9 +514,45 @@ kj ollama pull <model>  # docker exec ... ollama pull <m>
 
 **KJC-BUG-0063 (bundled)** — `tests/resilience/hibernate-end-to-end.test.js` was TZ-dependent and broke every CI run on every PR (`TZ=Europe/Madrid` passed, `TZ=UTC` failed). Skipped in CI via `process.env.CI === 'true'` until `parseCooldown` becomes TZ-aware. Local runs unaffected (4/4 still pass).
 
-**Coming in v2.29.0+** — extended cloud embedder providers (Cohere, Anthropic via OAuth), per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board.
+### v2.29.0 — Minor
 
-### v2.28.0 — Minor (current)
+**RAG quality lift** (KJC-PCS-0049 continued). Five PRs land the next layer of the RAG track: visibility, more providers, finer queries, better final ranking.
+
+**Retrieval dashboard on HU Board** (PR #843). New standalone page at `/rag.html`, linked from the main nav. Shows total chunks, DB size, last-index timestamp, active embedder provider + dim, chunk counts grouped by kind (code / plan / onboarding) and project (top 20). Backend `GET /api/rag/stats` reads the local `rag.db` read-only and the embedder block from `kj.config.yml`. Empty-state when the DB has not been initialized. This is the first piece of the v2.30 config-UI roadmap — the board surface will grow writable controls (role toggles, embedder swap, alpha/mode/rerank) on top of the same shape.
+
+**Cohere + Mistral embedder adapters** (PR #848). `embed-multilingual-v3.0` (1024 dim, strong multilingual) and `mistral-embed` (1024 dim, EU-hosted for GDPR-conscious users). `KJ_COHERE_KEY` / `KJ_MISTRAL_KEY` Karajan-scoped env vars. The original "Anthropic via OAuth" roadmap slot is dropped — Anthropic has no embeddings API; Cohere + Mistral cover that gap with first-party services.
+
+**ONNX local embedder** (PR #??). Sixth provider, fully local: no Docker, no API key, no external service. Loaded dynamically via `@huggingface/transformers` (legacy `@xenova/transformers` honoured as fallback). Default `Xenova/all-MiniLM-L6-v2` (384 dim, ~80 MB cached on first use). Higher-quality option `Xenova/jina-embeddings-v2-base-en` (768 dim) selectable via `KJ_ONNX_EMBED_MODEL`. Both transformers packages are **optional peer deps** — not auto-installed (combined ~500 MB with WASM + ONNX runtime); the adapter throws a helpful install hint on missing dep. This is the missing piece for v2.31 zero-config init: a sensible default with zero infrastructure.
+
+**Per-chunk metadata `--where` filter** (PR #??). New CLI flag with `KEY=VALUE AND KEY=VALUE` grammar (case-insensitive AND, quoted strings for values with spaces):
+
+```bash
+kj rag query 'login flow' --where 'symbol=loadConfig'
+kj rag query 'auth'       --where 'hu_id=HU-003 AND kind=plan'
+kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
+```
+
+`kind` special-cases to the column; every other key routes through SQLite `json_extract(c.metadata, '$.<key>') = ?`, so anything the chunker emits as metadata (`symbol`, `hu_id`, `headingPath`, `file`, …) is queryable without schema changes. The filter applies uniformly to both semantic and BM25 sides of the hybrid retriever.
+
+**Cross-encoder rerank** (PR #??). Opt-in `--rerank` flag re-scores the topK survivors with a (query, passage) cross-encoder. Default `Xenova/ms-marco-MiniLM-L-6-v2` (sentence-transformers de-facto standard, ~80 MB cached on first use). Cross-encoders are slower than bi-encoders (jointly encode the pair instead of caching the passage), but materially more precise for final ranking — Karajan runs it only on the post-fusion, post-boost survivors so latency stays bounded. Plugs in after the kind+source boosts, acting as a finer-grained quality lever.
+
+**Coming in v2.30.0+** — writable config UI on the HU Board (toggle roles, switch coder/reviewer, adjust alpha/mode/rerank without re-editing `kj.config.yml`), then v2.31 zero-config init (reduce the wizard to one critical question, smart defaults for everything).
+
+### v2.30.0 — Minor (current)
+
+**Writable config UI on HU Board** (KJC-PCS-0042). Four PRs land the settings modal end-to-end. The `kj.config.yml` is no longer an editor-only file — toggle roles, switch coder/reviewer, swap embedder provider, adjust topK/scope without leaving the board. Hand-editing of YAML keeps working: the modal writes only whitelisted fields and preserves everything else verbatim. Atomic-write + `.bak` discipline applies.
+
+**Pipeline role toggles** (PR #854, KJC-TSK-0450). Eight new boolean fields exposed on the board modal: `pipeline.planner.enabled`, `researcher`, `architect`, `tester`, `security`, `refactorer`, `impeccable`, `brain`. Mirrors the source-of-truth defaults in `src/config/defaults.js`. Brain stays opt-in (false default); the rest reflect Karajan's recommended baseline.
+
+**RAG controls** (PR #855, KJC-TSK-0451). Four new fields close the "I want to swap embedder without `vim`" gap: `rag.preload.enabled` (boolean), `rag.preload.topK` (1–20), `rag.preload.scope` (all / code / plans / onboarding), `rag.embedder.provider` (ollama / openai / voyage / cohere / mistral / onnx — matches the six adapters shipped through v2.28.0–v2.29.0).
+
+**Grouped sections in config modal** (PR #856, KJC-TSK-0452). Fields are now categorised: **Agentes y modelos**, **Roles del pipeline**, **RAG**, **Tiempos de sesión**, **Calidad**. Each section has an icon and a deterministic order. Backend exports a `CATEGORIES` array so the front renders sections without hard-coding. Unknown categories fall back to "Otros" — defensive: a new field always renders, even if someone forgets to label it.
+
+**Scope toggle: global vs per-project** (PR #857, KJC-TSK-0453). A two-pill toggle in the modal header switches between `~/.karajan/kj.config.yml` (global, default — same path the rest of Karajan uses) and `<projectDir>/.karajan/kj.config.yml` (per-project override; created on demand on first save). Resolution uses `KJ_PROJECT_DIR || cwd()`, the same pattern as `journal-parser.js`. Unknown scopes are rejected on both read (throws) and write (no disk touch).
+
+**Coming in v2.31.0+** — zero-config init: reduce the wizard to one critical question, smart defaults for everything else. The writable UI of v2.30 makes that defensible — users can change defaults later from the board.
+
+### v2.28.0 — Minor
 
 **RAG advanced** (KJC-PCS-0049). The four roadmap items announced in v2.27.0 shipped together, plus a real fix for the v2.27.0 workaround:
 
@@ -547,4 +583,4 @@ CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid
 
 **KJC-BUG-0064 (bundled)** (PR #840). `parseCooldown` ahora TZ-aware via `Intl.DateTimeFormat`. Cuando el stderr de Claude Code contiene `(Continent/City)`, resuelve el wall-clock target en esa TZ específica en lugar de la TZ local del host. Deshace el skip-en-CI workaround shipped en v2.27.0 (KJC-BUG-0063). Tests pasan en TZ=UTC, Europe/Madrid, Asia/Tokyo, America/Los_Angeles.
 
-**Coming in v2.29.0+** — extended cloud providers (Cohere, Anthropic via OAuth), per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board.
+**Coming in v2.29.0+** — extended cloud providers, per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board. (All landed in v2.29.0.)
