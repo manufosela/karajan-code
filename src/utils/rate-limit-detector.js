@@ -39,23 +39,21 @@ export function parseCooldown(message) {
     }
   }
 
-  // 5. Claude Code session / weekly limit: "resets 10:10pm" / "resets 4am"
-  //    (12-hour clock, no date). Resolve to the next wall-clock occurrence
-  //    of that time in the machine's local timezone. Claude Code reports
-  //    the reset in the user's local TZ and kj runs on the same machine,
-  //    so the parenthesised "(Europe/Madrid)" hint is ignored on purpose.
-  const ampmMatch = /reset(?:s|ting)?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)\b/i.exec(
-    message
-  );
+  // 5. Claude Code session / weekly limit: "resets 10:10pm (Europe/Madrid)" / "resets 4am"
+  //    KJC-BUG-0064: prefer the parenthesised IANA TZ when present so the
+  //    same stderr resolves to the same instant regardless of where kj runs
+  //    (CI in TZ=UTC was misclassifying Madrid 10:10pm as already past).
+  //    No TZ literal → fall back to the host's local TZ.
+  const ampmMatch = /reset(?:s|ting)?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)\b/i.exec(message);
   if (ampmMatch) {
     let hour = Number.parseInt(ampmMatch[1], 10) % 12;
     if (/pm/i.test(ampmMatch[3])) hour += 12;
     const minute = ampmMatch[2] ? Number.parseInt(ampmMatch[2], 10) : 0;
     if (hour < 24 && minute < 60) {
-      const target = new Date();
-      target.setHours(hour, minute, 0, 0);
-      if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
-      return { cooldownUntil: target.toISOString(), cooldownMs: target.getTime() - Date.now() };
+      const tzMatch = /\(([A-Za-z]+\/[A-Za-z_/+\-0-9]+)\)/.exec(message);
+      const tz = tzMatch ? tzMatch[1] : null;
+      const target = tz ? nextOccurrenceInTZ(hour, minute, tz) : nextOccurrenceLocal(hour, minute);
+      if (target) return { cooldownUntil: target.toISOString(), cooldownMs: Math.max(0, target.getTime() - Date.now()) };
     }
   }
 
@@ -82,6 +80,50 @@ export function parseCooldown(message) {
   }
 
   return { cooldownUntil: null, cooldownMs: null };
+}
+
+// KJC-BUG-0064 — TZ-aware "next occurrence of hour:minute" resolver.
+// Walks today + tomorrow in the given IANA TZ; returns the first instant
+// > now. Uses Intl.DateTimeFormat as the source of truth so it works on
+// any host TZ (CI runs UTC, dev runs Europe/Madrid, etc.).
+function nextOccurrenceInTZ(hour, minute, tz) {
+  try {
+    const now = new Date();
+    for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+      const probe = new Date(now.getTime() + dayOffset * 86400000);
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+      }).formatToParts(probe).reduce((acc, p) => (p.type !== "literal" ? { ...acc, [p.type]: p.value } : acc), {});
+      if (!parts.year) return null;
+      const candidate = zonedTimeToUTC(Number(parts.year), Number(parts.month), Number(parts.day), hour, minute, tz);
+      if (candidate && candidate.getTime() > now.getTime()) return candidate;
+    }
+    return null;
+  } catch { return null; }
+}
+
+// Converts a wall-clock date + time in `tz` to a UTC Date.
+// Strategy: interpret year/month/day/hour/minute as naive UTC, see what
+// wall-clock that maps to in `tz`, derive the offset (tz - UTC at that
+// moment) and subtract it from the naive value to land on the true UTC.
+// One step suffices except at DST transitions (within ±1h, acceptable
+// for cooldown timing).
+function zonedTimeToUTC(year, month, day, hour, minute, tz) {
+  const naiveUTC = Date.UTC(year, month - 1, day, hour, minute);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date(naiveUTC)).reduce((acc, p) => (p.type !== "literal" ? { ...acc, [p.type]: p.value } : acc), {});
+  const wallInTZ = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour) % 24, Number(parts.minute));
+  const tzOffset = wallInTZ - naiveUTC; // positive when tz is ahead of UTC
+  return new Date(naiveUTC - tzOffset);
+}
+
+function nextOccurrenceLocal(hour, minute) {
+  const target = new Date();
+  target.setHours(hour, minute, 0, 0);
+  if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+  return target;
 }
 
 const RATE_LIMIT_PATTERNS = [

@@ -31,12 +31,10 @@ function makeQuotaAgent() {
 }
 
 describe("resilience: quota exhaustion end to end", () => {
-  // KJC-BUG-0063: the "10:10pm (Europe/Madrid)" string is parsed against the
-  // local TZ. CI runs TZ=UTC, where 10:10pm Madrid is in the past → classify
-  // returns RATE_LIMIT_SHORT instead of QUOTA_EXHAUSTED_DAILY. Skip in CI
-  // until parseCooldown becomes TZ-aware. Tracked separately.
-  const isCI = process.env.CI === "true" || process.env.CI === "1";
-  (isCI ? it.skip : it)("classifies the Claude Code session limit as a recoverable quota cap", () => {
+  // KJC-BUG-0064: parseCooldown is now TZ-aware — picks up the (Europe/Madrid)
+  // literal in the stderr and resolves via Intl.DateTimeFormat. Test passes on
+  // any host TZ; the v2.27.0 skip-in-CI workaround is gone.
+  it("classifies the Claude Code session limit as a recoverable quota cap", () => {
     // The original user-reported message uses the 12-hour clock; parseCooldown
     // must understand it. Resilience tripwire for #756 — independent of how
     // long the wait will be (that's tested via the ISO path below).

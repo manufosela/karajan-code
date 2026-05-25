@@ -303,13 +303,16 @@ describe("parseCooldown — 12-hour clock (Claude Code session limit)", () => {
     vi.useRealTimers();
   });
 
-  it("parses 'resets 10:10pm' to 22:10 the same day", () => {
+  it("parses 'resets 10:10pm (Europe/Madrid)' to 22:10 Madrid wall-clock (TZ-aware)", () => {
+    // KJC-BUG-0064 — verify the Madrid wall-clock regardless of host TZ.
     const { cooldownUntil, cooldownMs } = parseCooldown(
       "You've hit your session limit · resets 10:10pm (Europe/Madrid)"
     );
-    const target = new Date(cooldownUntil);
-    expect(target.getHours()).toBe(22);
-    expect(target.getMinutes()).toBe(10);
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(new Date(cooldownUntil)).reduce((a, p) => (p.type !== "literal" ? { ...a, [p.type]: p.value } : a), {});
+    expect(parts.hour).toBe("22");
+    expect(parts.minute).toBe("10");
     expect(cooldownMs).toBeGreaterThan(0);
   });
 
