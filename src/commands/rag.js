@@ -55,7 +55,9 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
       if (flags.json) process.stdout.write(`${JSON.stringify({ hits: [], empty: true, topK, scope })}\n`);
       return [];
     }
-    const hits = await query(db, makeEmbedder(config), text, { topK, scope, project });
+    const mode = flags.mode || "hybrid";
+    const alpha = Math.max(0, Math.min(1, Number(flags.alpha) || 0.6));
+    const hits = await query(db, makeEmbedder(config), text, { topK, scope, project, mode, alpha });
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(hits)}\n`);
     } else {

@@ -54,6 +54,29 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     db.exec("CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);");
   }
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[${dim}]);`);
+  // KJC-TSK-0443 — FTS5 keyword index for BM25 hybrid scoring. content='chunks'
+  // makes it a contentless mirror linked by id (no double storage); triggers
+  // sync the FTS5 rows on insert/update/delete. Rebuilds idempotently when
+  // the FTS5 table exists but is empty (e.g. created post-migration on a
+  // DB with pre-v2.28 chunks).
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(text, content='chunks', content_rowid='id');
+    CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+      INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+      INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+      INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+      INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+    END;
+  `);
+  const ftsCount = db.prepare("SELECT COUNT(*) AS n FROM chunks_fts").get().n;
+  const chunksCount = db.prepare("SELECT COUNT(*) AS n FROM chunks").get().n;
+  if (ftsCount === 0 && chunksCount > 0) {
+    db.exec("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild');");
+  }
   return db;
 }
 
@@ -132,4 +155,31 @@ export function deleteChunksBySource(db, source) {
 export function countChunks(db, { kind = null } = {}) {
   if (kind) return db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE kind = ?").get(kind).n;
   return db.prepare("SELECT COUNT(*) AS n FROM chunks").get().n;
+}
+
+/**
+ * KJC-TSK-0443 — BM25 keyword search over chunks_fts. Returns
+ * [{ id, source, kind, text, metadata, project_slug, bm25 }] ordered by
+ * relevance (lower bm25 = better in SQLite FTS5). `query` is sanitized for
+ * the FTS5 grammar: special chars are stripped, words split on whitespace.
+ */
+export function searchBM25(db, queryText, topK = 10, { kind = null, project = null } = {}) {
+  const cleaned = String(queryText || "").replace(/["'()]/g, " ").split(/\s+/).filter(Boolean).join(" OR ");
+  if (!cleaned) return [];
+  const kindClause = kind ? "AND c.kind = ?" : "";
+  const projectClause = project ? "AND c.project_slug = ?" : "";
+  const sql = `
+    SELECT c.id, c.source, c.kind, c.text, c.metadata, c.project_slug, bm25(chunks_fts) AS bm25
+    FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid
+    WHERE chunks_fts MATCH ? ${kindClause} ${projectClause}
+    ORDER BY bm25 LIMIT ?
+  `;
+  const params = [cleaned];
+  if (kind) params.push(kind);
+  if (project) params.push(project);
+  params.push(topK);
+  try {
+    const rows = db.prepare(sql).all(...params);
+    return rows.map((r) => ({ ...r, metadata: r.metadata ? safeParse(r.metadata) : null }));
+  } catch { return []; }
 }
