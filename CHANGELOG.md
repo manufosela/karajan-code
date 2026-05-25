@@ -11,6 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.29.0] - 2026-05-25
+
+Minor release. **RAG quality lift** — retrieval dashboard, three new embedder providers, metadata filtering, cross-encoder rerank.
+
+Five PRs land the next layer of the RAG track. The dashboard is also the first piece of the v2.30 config-UI roadmap (writable settings on the HU Board).
+
+### Added
+
+- **PR #843 (KJC-TSK-0445) — retrieval-quality dashboard on HU Board**. New `/rag.html` page with active embedder, DB size, last-index timestamp, chunks per kind, chunks per project (top 20). Backend `GET /api/rag/stats` reads the local rag.db read-only and embedder config from kj.config.yml. Empty-state when the DB isn't initialized. Linked from main nav.
+- **PR #848 (KJC-TSK-0446) — Cohere + Mistral embedder adapters**. `embed-multilingual-v3.0` (1024 dim, strong multilingual) and `mistral-embed` (1024 dim, EU-hosted). KJ_COHERE_KEY / KJ_MISTRAL_KEY scoped env vars. Replaces the "Anthropic via OAuth" roadmap slot — Anthropic has no embeddings endpoint. Shared `_cloud-base.js` keeps the Bearer auth + dim validation single-source.
+- **PR #?? (KJC-TSK-0447) — ONNX local embedder via `@huggingface/transformers`**. Sixth provider, fully local: no Docker, no API key, no external service after the first model download. Default `Xenova/all-MiniLM-L6-v2` (384 dim, ~80 MB cached). Higher-quality option `Xenova/jina-embeddings-v2-base-en` (768 dim). The transformers package is an optional peer dep (not auto-installed; helpful error on missing). Unlocks v2.31 zero-config init.
+- **PR #?? (KJC-TSK-0448) — metadata `--where` filter for `kj rag query`**. New CLI flag with `KEY=VALUE AND KEY=VALUE` grammar. `kind` filters the column; every other key (symbol, hu_id, headingPath, file, …) goes through SQLite `json_extract` so any metadata the chunker emits is queryable without schema changes. Examples: `--where symbol=loadConfig`, `--where 'hu_id=HU-003 AND kind=plan'`.
+- **PR #?? (KJC-TSK-0449) — cross-encoder rerank stage**. Opt-in `--rerank` flag re-scores the topK survivors with a (query, passage) cross-encoder. Default `Xenova/ms-marco-MiniLM-L-6-v2` (~80 MB cached on first use). Runs only on post-fusion candidates so latency is bounded. Plugs in after the kind+source boosts, acting as a finer-grained quality lever.
+
+### Tests
+
+5 757 / 5 757 passing across 396 test files (+87 new tests across the 5 PRs, +7 files).
+
+### Internal
+
+- Embedder factory now wires six providers (ollama / openai / voyage / cohere / mistral / onnx) from a single PROVIDERS table.
+- SEA stub registry updated with every new export so the standalone binary keeps printing the friendly "not available" message instead of crashing.
+
 ## [2.28.0] - 2026-05-25
 
 Minor release. **RAG advanced** — live re-index + cloud embedders + hybrid scoring + AST chunker.

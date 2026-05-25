@@ -345,6 +345,14 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.29.0 released** — Minor. **RAG quality lift** — dashboard + three new providers + metadata filter + rerank.
+>
+> - **Retrieval dashboard on HU Board** (PR #843): nuevo `/rag.html` con embedder activo, tamaño de DB, last-index, chunks por kind, chunks por proyecto. Primera pieza del config UI que llega completo en v2.30.
+> - **Cohere + Mistral embedders** (PR #848): `embed-multilingual-v3.0` (multi-idioma) y `mistral-embed` (EU-hosted, útil para GDPR). `KJ_COHERE_KEY` / `KJ_MISTRAL_KEY` Karajan-scoped.
+> - **ONNX local embedder** (PR #??): `@huggingface/transformers` corriendo en Node — sin Docker, sin API key, sin Ollama. Default `Xenova/all-MiniLM-L6-v2` (384 dim). Es la base para el zero-config init de v2.31.
+> - **Metadata `--where` filter** (PR #??): `kj rag query 'auth' --where 'symbol=loadConfig AND kind=plan'`. Gramática mínima KEY=VALUE AND KEY=VALUE; cualquier metadata que emite el chunker es queryable sin schema changes.
+> - **Cross-encoder rerank** (PR #??): opt-in `--rerank` re-ordena los topK con un cross-encoder (`Xenova/ms-marco-MiniLM-L-6-v2`). Latencia acotada, calidad final notablemente mejor.
+>
 > **v2.28.0 released** — Minor. **RAG advanced** — live re-index + cloud embedders + hybrid scoring + AST chunker, plus a real fix for the v2.27.0 chapuza.
 >
 > - **`kj watch`** (PR #836): chokidar daemon que re-indexa los archivos del proyecto tras cada edit (1s debounce). Fin del `kj rag index` manual.
@@ -360,7 +368,7 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 > - **Asymmetric source-vs-test ranking** (PR #833): NL queries like `how does X work` no longer rank `tests/X.test.js` above `src/X.js`; test-flavoured queries still surface tests.
 > - Plus **KJC-BUG-0063** (PR #834): skipped a TZ-dependent test that was blocking every CI run, and a `shrink-budget` workflow exclude fix for `docs/*.md` at the root.
 >
-> **Coming in v2.28.0+**: chokidar watcher for live re-indexing, AST source chunker (tree-sitter / @babel/parser), BM25 + cosine hybrid scoring, OpenAI/Voyage embedder adapters (for users without local Docker).
+> **Coming in v2.30.0+**: writable config UI on the HU Board (toggle roles, switch coder/reviewer, adjust alpha/mode/rerank without re-editing the YAML), then v2.31 zero-config init (reduce the wizard to one critical question, smart defaults for everything).
 >
 > **v2.26.0 released** — Minor. **RAG Auto-Bootstrap** — Ollama runs in Docker out of the box. `kj init` now provisions the embedder automatically (or skips with a clear reason on modest hardware / `--no-ollama`); `kj doctor` surfaces health; `kj ollama [start|stop|status|pull]` manages lifecycle without docker compose. See [docs/RAG.md](docs/RAG.md) for the full RAG guide ([español](docs/es/RAG.md)).
 >
