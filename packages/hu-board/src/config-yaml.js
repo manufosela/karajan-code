@@ -179,6 +179,47 @@ export const EDITABLE_FIELDS = [
     help: 'Orquestador IA central: enriquece feedback, comprime outputs y verifica cambios reales. Opt-in.',
     default: false,
   },
+  // v2.30.0 — RAG controls. Sólo se exponen las claves que el código
+  // realmente lee hoy (rag.preload.* en rag-context-stage.js y
+  // rag.embedder.provider en embedders/factory.js). mode/alpha/rerank
+  // se controlan vía flags CLI; cuando se cableen en config se añadirán
+  // aquí (ver task #99).
+  {
+    key: 'ragPreloadEnabled',
+    path: 'rag.preload.enabled',
+    type: 'boolean',
+    label: 'Activar pre-carga RAG en el pipeline',
+    help: 'Si está activo, antes de cada iteración se inyecta contexto del vector store en el prompt del coder.',
+    default: false,
+  },
+  {
+    key: 'ragPreloadTopK',
+    path: 'rag.preload.topK',
+    type: 'number',
+    label: 'Nº de chunks a pre-cargar (topK)',
+    help: 'Cuántos fragmentos del vector store se inyectan como contexto. 3-5 funciona bien; subir gasta tokens.',
+    min: 1,
+    max: 20,
+    default: 5,
+  },
+  {
+    key: 'ragPreloadScope',
+    path: 'rag.preload.scope',
+    type: 'select',
+    label: 'Scope de la pre-carga RAG',
+    help: '"all" mezcla todo. "code" solo busca en el código indexado, "plans" en planes previos, "onboarding" en el brief del proyecto.',
+    options: ['all', 'code', 'plans', 'onboarding'],
+    default: 'all',
+  },
+  {
+    key: 'ragEmbedderProvider',
+    path: 'rag.embedder.provider',
+    type: 'select',
+    label: 'Proveedor de embeddings RAG',
+    help: 'Ollama local es gratis. OpenAI/Voyage/Cohere/Mistral son cloud (requieren API key). ONNX corre 100% local con @huggingface/transformers.',
+    options: ['ollama', 'openai', 'voyage', 'cohere', 'mistral', 'onnx'],
+    default: 'ollama',
+  },
 ];
 
 const ROLES_FOR_MODEL_MODE = [
