@@ -345,6 +345,14 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.28.0 released** — Minor. **RAG advanced** — live re-index + cloud embedders + hybrid scoring + AST chunker, plus a real fix for the v2.27.0 chapuza.
+>
+> - **`kj watch`** (PR #836): chokidar daemon que re-indexa los archivos del proyecto tras cada edit (1s debounce). Fin del `kj rag index` manual.
+> - **OpenAI + Voyage embedders** (PR #841): para usuarios sin Docker local. `config.rag.embedder.provider: openai | voyage` + `KJ_OPENAI_KEY` / `KJ_VOYAGE_KEY` env vars (Karajan-scoped — preserva el architecture invariant).
+> - **BM25 hybrid scoring** (PR #838): SQLite FTS5 + cosine fusion. `kj rag query --mode hybrid|semantic|keyword`. Queries con símbolos exactos rankean correctamente.
+> - **AST source chunker** (PR #839): `@babel/parser`. Cada top-level declaration entera en un chunk; TypeScript + JSX + decorators soportados.
+> - **KJC-BUG-0064** (PR #840): `parseCooldown` TZ-aware via `Intl.DateTimeFormat`. Deshace el skip-in-CI workaround de v2.27.0 — tests pasan en cualquier TZ.
+>
 > **v2.27.0 released** — Minor. **RAG polish** — three improvements triggered by the v2.26.0 smoke test on karajan-code itself:
 >
 > - **Per-project isolation** (PR #831): new `project_slug` column on chunks; `kj rag query --project <slug>` (auto-detected from cwd) filters the global DB. `--project all` to query across everything.

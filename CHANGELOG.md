@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.28.0] - 2026-05-25
+
+Minor release. **RAG advanced** — live re-index + cloud embedders + hybrid scoring + AST chunker.
+
+Five PRs landed plus a real fix for the chapuza shipped in v2.27.0:
+
+- **PR #836 (KJC-TSK-0441) — chokidar watcher**. New `kj watch [start|stop|status]` daemon vigilando `~/.karajan/onboarding/`, `~/.karajan/plans/` y (opt) projectDir sources. Re-indexa el archivo afectado tras 1 s de debounce. `unlink` limpia los chunks. Single-daemon arbitrate via PID file `~/.karajan/watcher.pid`. Resuelve la fricción del manual `kj rag index` tras cada edit.
+- **PR #841 (KJC-TSK-0442) — OpenAI + Voyage embedder adapters**. Nuevos `src/rag/embedders/{openai,voyage,_cloud-base,factory}.js`. Desbloquea RAG para usuarios sin Docker local. `config.rag.embedder.provider: ollama | openai | voyage` (default ollama). Env vars Karajan-scoped: `KJ_OPENAI_KEY`, `KJ_VOYAGE_KEY` (preserva architecture invariant — Karajan nunca lee `OPENAI_API_KEY` directamente).
+- **PR #838 (KJC-TSK-0443) — BM25 + cosine hybrid scoring**. SQLite FTS5 virtual table `chunks_fts` (contentless + triggers). Nueva función `searchBM25()` + `fuseHits()` que normaliza ambos scores a `[0,1]` y linear-combina via alpha. CLI: `--mode hybrid|semantic|keyword` (default hybrid, alpha=0.6). Hace que queries con símbolos exactos rankeen correctamente.
+- **PR #839 (KJC-TSK-0444) — AST source chunker (@babel/parser)**. Reemplaza el regex chunker para JS/TS/JSX. Cada top-level declaration es un chunk; JSDoc + comments leading se foldean. Plugins: typescript, jsx, decorators-legacy, classProperties, topLevelAwait. Fallback a regex chunker si parseo falla.
+
+### Fixed
+
+- **KJC-BUG-0064 (PR #840)** — `parseCooldown` ahora TZ-aware. Cuando el stderr contiene `(Continent/City)`, resuelve el wall-clock target en esa TZ específica via `Intl.DateTimeFormat`. Deshace el workaround skip-in-CI shipped en v2.27.0 (KJC-BUG-0063). Tests pasan en TZ=UTC, Europe/Madrid, Asia/Tokyo, America/Los_Angeles.
+
 ## [2.27.0] - 2026-05-25
 
 Minor release. **RAG polish — per-project isolation, unified docs, fairer ranking.**
