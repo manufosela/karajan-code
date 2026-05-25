@@ -1,5 +1,6 @@
 // KJC-PCS-0049 Step 5 — Retriever for the RAG pipeline.
 import { searchSimilar, searchBM25 } from "./vec-store.js";
+import { parseWhere, buildWhereSql } from "./where-parser.js";
 
 const DEFAULT_KIND_BOOST = { plan: 0.05, onboarding: 0.03, code: 0 };
 
@@ -39,14 +40,21 @@ function fuseHits(semantic, keyword, alpha, mode) {
   return list;
 }
 
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6 } = {}) {
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
   const fetchK = Math.min(50, topK * 2);
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
+  // KJC-TSK-0448 — metadata filter. `where` is a string like "symbol=Foo AND
+  // hu_id=HU-003"; we parse once and reuse the SQL fragment across both
+  // semantic and keyword searches.
+  const parsed = parseWhere(where);
+  if (!parsed.ok) throw new Error(`query: ${parsed.error}`);
+  const { sql: whereSql, params: whereParams } = buildWhereSql(parsed.clauses);
+  const opts = { kind: scopeKind, project, whereSql, whereParams };
   const wantSemantic = mode !== "keyword";
   const wantKeyword = mode !== "semantic";
-  const semanticHits = wantSemantic ? searchSimilar(db, await embedder.embed(text), fetchK, { kind: scopeKind, project }) : [];
-  const keywordHits = wantKeyword ? searchBM25(db, text, fetchK, { kind: scopeKind, project }) : [];
+  const semanticHits = wantSemantic ? searchSimilar(db, await embedder.embed(text), fetchK, opts) : [];
+  const keywordHits = wantKeyword ? searchBM25(db, text, fetchK, opts) : [];
   const raw = fuseHits(semanticHits, keywordHits, alpha, mode);
   if (raw.length === 0) return [];
   const boostSources = shouldBoostSources(text);
