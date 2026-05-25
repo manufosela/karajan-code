@@ -34,7 +34,29 @@ import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
 import { getKjHome } from './db.js';
 
-function configPath() {
+/**
+ * v2.30.0 PR4 — scope resolver.
+ *
+ *   'global'  → ~/.karajan/kj.config.yml (mismo path que el resto de
+ *               Karajan; afecta a todos los proyectos).
+ *   'project' → <projectDir>/.karajan/kj.config.yml (override por
+ *               proyecto; cuando existe, el loader del padre lo prefiere
+ *               sobre el global).
+ *
+ * projectDir se resuelve desde `KJ_PROJECT_DIR` (ya usado por
+ * journal-parser.js) con fallback a `process.cwd()` — el board se
+ * arranca desde el repo del usuario, así que cwd es el proyecto.
+ */
+export const SCOPES = ['global', 'project'];
+
+function getProjectDir() {
+  return process.env.KJ_PROJECT_DIR || process.cwd();
+}
+
+function configPath(scope = 'global') {
+  if (scope === 'project') {
+    return join(getProjectDir(), '.karajan', 'kj.config.yml');
+  }
   // Same path the parent uses (src/utils/paths.js::getKarajanHome).
   // KJC-TSK-0420: delegate to db.js::getKjHome — gives us KARAJAN_HOME
   // priority + KJ_HOME fallback + VITEST guard from one place, instead
@@ -42,7 +64,7 @@ function configPath() {
   return join(getKjHome(), 'kj.config.yml');
 }
 
-function backupPath() { return `${configPath()}.bak`; }
+function backupPath(scope = 'global') { return `${configPath(scope)}.bak`; }
 
 /**
  * v2.30.0 — Categorías para agrupar los campos en el modal. El backend
@@ -345,8 +367,13 @@ function applyModelMode(parsed, mode) {
  *
  * Returns sane defaults when the file doesn't exist yet.
  */
-export function readConfig() {
-  const p = configPath();
+export function readConfig({ scope = 'global' } = {}) {
+  // PR4 — accept scope. Default 'global' preserves the previous behavior;
+  // 'project' reads <projectDir>/.karajan/kj.config.yml.
+  if (!SCOPES.includes(scope)) {
+    throw new Error(`Scope inválido: ${scope}. Permitidos: ${SCOPES.join(', ')}`);
+  }
+  const p = configPath(scope);
   let parsed = {};
   let exists = false;
   if (existsSync(p)) {
@@ -368,7 +395,7 @@ export function readConfig() {
   // sections without re-importing the constant client-side. Ordered
   // by `order` for deterministic UI.
   const categories = [...CATEGORIES].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-  return { path: p, exists, fields, categories, raw: parsed };
+  return { path: p, scope, exists, fields, categories, raw: parsed };
 }
 
 /**
@@ -378,16 +405,20 @@ export function readConfig() {
  *
  * @returns {{ path: string, written: boolean, applied: object[], errors: string[] }}
  */
-export function writeConfigPatch(patch) {
+export function writeConfigPatch(patch, { scope = 'global' } = {}) {
+  // PR4 — same shape as readConfig: scope decides target file.
+  if (!SCOPES.includes(scope)) {
+    return { path: '', scope, written: false, applied: [], errors: [`Scope inválido: ${scope}. Permitidos: ${SCOPES.join(', ')}`] };
+  }
   if (!patch || typeof patch !== 'object') {
-    return { path: configPath(), written: false, applied: [], errors: ['patch debe ser un objeto'] };
+    return { path: configPath(scope), scope, written: false, applied: [], errors: ['patch debe ser un objeto'] };
   }
   // Read current state (or empty if file doesn't exist yet).
-  const p = configPath();
+  const p = configPath(scope);
   let parsed = {};
   if (existsSync(p)) {
     try { parsed = yaml.load(readFileSync(p, 'utf8'), { json: true }) || {}; }
-    catch (err) { return { path: p, written: false, applied: [], errors: [`No se pudo parsear el yml actual: ${err.message}`] }; }
+    catch (err) { return { path: p, scope, written: false, applied: [], errors: [`No se pudo parsear el yml actual: ${err.message}`] }; }
   }
   const errors = [];
   const applied = [];
@@ -414,18 +445,18 @@ export function writeConfigPatch(patch) {
     else setDeep(parsed, field.path, field.type === 'number' ? Number(val) : val);
     applied.push({ key, value: val });
   }
-  if (errors.length > 0) return { path: p, written: false, applied, errors };
+  if (errors.length > 0) return { path: p, scope, written: false, applied, errors };
 
   // Write atomically: serialize → write to .tmp → rename. Backup the
   // existing file first so the user can recover.
   const dir = dirname(p);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  if (existsSync(p)) { try { copyFileSync(p, backupPath()); } catch { /* best-effort */ } }
+  if (existsSync(p)) { try { copyFileSync(p, backupPath(scope)); } catch { /* best-effort */ } }
   const dump = yaml.dump(parsed, { lineWidth: 120 });
   // mkstemp would be nicer but we want to stay in the same dir for
   // a guaranteed-atomic rename across the same filesystem.
   const tmpFile = join(dir, `.kj.config.yml.${process.pid}.${Date.now()}.tmp`);
   writeFileSync(tmpFile, dump, 'utf8');
   renameSync(tmpFile, p);
-  return { path: p, written: true, applied, errors: [] };
+  return { path: p, scope, written: true, applied, errors: [] };
 }

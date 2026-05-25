@@ -1031,29 +1031,41 @@ router.post('/projects/:id/run', (req, res) => {
 });
 
 /**
- * GET /api/config — read the editable subset of ~/.karajan/kj.config.yml.
+ * GET /api/config — read the editable subset of the kj.config.yml.
  * Powers the board's settings modal; non-editable keys in the yml are
  * left untouched on PUT (see writeConfigPatch's whitelist semantics).
+ *
+ * v2.30.0 PR4 — supports `?scope=global|project`:
+ *   - `global` (default): reads ~/.karajan/kj.config.yml.
+ *   - `project`: reads <projectDir>/.karajan/kj.config.yml.
+ * Unknown scopes are 400'd. Response includes the resolved `scope` and
+ * `path` so the UI can show which file backs the current view.
  */
-router.get('/config', (_req, res) => {
+router.get('/config', (req, res) => {
   try {
-    const data = readConfig();
+    const scope = req.query?.scope || 'global';
+    const data = readConfig({ scope });
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
 /**
- * PUT /api/config — apply a patch to the yml. Body is `{ patch: { key: value } }`
- * with the keys defined in EDITABLE_FIELDS. Unknown keys are 400'd; type
- * errors are 400'd; validation errors are 400'd. Writes are atomic
- * (tmp + rename) and a `.bak` is kept of the previous content.
+ * PUT /api/config — apply a patch to the yml. Body is
+ * `{ patch: { key: value }, scope?: 'global'|'project' }` with the keys
+ * defined in EDITABLE_FIELDS. Unknown keys are 400'd; type errors are
+ * 400'd; validation errors are 400'd. Writes are atomic (tmp + rename)
+ * and a `.bak` is kept of the previous content.
+ *
+ * v2.30.0 PR4 — `scope` decides which file is patched. Default 'global'
+ * preserves the previous behavior.
  */
 router.put('/config', (req, res) => {
   try {
     const patch = req.body?.patch;
-    const result = writeConfigPatch(patch);
+    const scope = req.body?.scope || 'global';
+    const result = writeConfigPatch(patch, { scope });
     if (!result.written) {
       return res.status(400).json({ error: 'No se pudo guardar la configuración', details: result });
     }
