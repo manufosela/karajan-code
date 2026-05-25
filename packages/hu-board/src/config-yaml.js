@@ -111,6 +111,74 @@ export const EDITABLE_FIELDS = [
     help: 'Pasa el código por SonarQube y bloquea si el quality gate falla. Requiere SonarQube corriendo.',
     default: false,
   },
+  // v2.30.0 — pipeline role toggles. Cada uno controla si una etapa
+  // del pipeline se ejecuta. Brain está OFF por defecto porque sigue
+  // siendo opt-in (v2 feature); el resto reflejan los defaults de
+  // src/config/defaults.js.
+  {
+    key: 'plannerEnabled',
+    path: 'pipeline.planner.enabled',
+    type: 'boolean',
+    label: 'Activar rol planner',
+    help: 'Genera un plan de implementación antes de codificar. Útil en tareas con >2 archivos o devPoints ≥ 3.',
+    default: true,
+  },
+  {
+    key: 'researcherEnabled',
+    path: 'pipeline.researcher.enabled',
+    type: 'boolean',
+    label: 'Activar rol researcher',
+    help: 'Investiga la codebase antes del coder (lectura de archivos clave, patrones existentes).',
+    default: true,
+  },
+  {
+    key: 'architectEnabled',
+    path: 'pipeline.architect.enabled',
+    type: 'boolean',
+    label: 'Activar rol architect',
+    help: 'Diseña la arquitectura (capas, patrones, contratos) antes de codificar. Recomendado en cambios estructurales.',
+    default: true,
+  },
+  {
+    key: 'testerEnabled',
+    path: 'pipeline.tester.enabled',
+    type: 'boolean',
+    label: 'Activar rol tester',
+    help: 'Genera tests automáticos durante o después del coder. Refuerza la calidad.',
+    default: true,
+  },
+  {
+    key: 'securityEnabled',
+    path: 'pipeline.security.enabled',
+    type: 'boolean',
+    label: 'Activar rol security',
+    help: 'Audita el código contra OWASP-style issues, secret leaks, dependencias vulnerables.',
+    default: true,
+  },
+  {
+    key: 'refactorerEnabled',
+    path: 'pipeline.refactorer.enabled',
+    type: 'boolean',
+    label: 'Activar rol refactorer',
+    help: 'Pasa una iteración de limpieza tras el coder (extract function, rename, etc.).',
+    default: false,
+  },
+  {
+    key: 'impeccableEnabled',
+    path: 'pipeline.impeccable.enabled',
+    type: 'boolean',
+    label: 'Activar rol impeccable',
+    help: 'Auditoría UI/UX automática (Lighthouse, a11y, contraste). Solo útil en frontend.',
+    default: false,
+  },
+  {
+    key: 'brainEnabled',
+    path: 'pipeline.brain.enabled',
+    type: 'boolean',
+    label: 'Activar Karajan Brain (v2)',
+    help: 'Orquestador IA central: enriquece feedback, comprime outputs y verifica cambios reales. Opt-in.',
+    default: false,
+  },
 ];
 
 const ROLES_FOR_MODEL_MODE = [
