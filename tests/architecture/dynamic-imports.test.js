@@ -84,7 +84,12 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // runtime) so a static import would force every install to pay that cost
 // even for users who never opt into provider: onnx. Static imports are
 // not an option here by design.
-const DYNAMIC_IMPORT_BUDGET = 164;
+//
+// 2026-05-25 (KJC-TSK-0449 v2.29 cross-encoder rerank): bumped 164 → 166
+// for the same pattern inside `src/rag/rerank.js`. Same rationale —
+// transformers is an optional peer dep, opt-in `--rerank` flag, must
+// gracefully error on missing package.
+const DYNAMIC_IMPORT_BUDGET = 166;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

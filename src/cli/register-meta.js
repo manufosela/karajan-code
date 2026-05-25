@@ -118,6 +118,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--mode <mode>", "hybrid (default) | semantic (cosine only) | keyword (BM25 only)", "hybrid")
     .option("--alpha <n>", "Hybrid weight for semantic component (0..1). Default 0.6", "0.6")
     .option("--where <clause>", "Metadata filter, e.g. 'symbol=loadConfig' or 'hu_id=HU-003 AND kind=plan'")
+    .option("--rerank", "Apply cross-encoder rerank to top-K (needs @huggingface/transformers, slower but more precise)")
+    .option("--rerank-model <name>", "Cross-encoder model id. Default: Xenova/ms-marco-MiniLM-L-6-v2")
     .option("--json", "Output the hits as JSON")
     .action(async (text, flags) => {
       await withConfig(pkgVersion, "rag-query", flags, async ({ config, logger }) => {
