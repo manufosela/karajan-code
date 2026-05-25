@@ -8,8 +8,9 @@ export class VoyageEmbedderError extends Error {
 }
 
 export class VoyageEmbedder {
-  constructor({ url = DEFAULTS.url, apiKey = process.env.VOYAGE_API_KEY, model = process.env.KJ_VOYAGE_EMBED_MODEL || DEFAULTS.model, dim = DEFAULTS.dim, timeoutMs = DEFAULTS.timeoutMs, fetchFn = globalThis.fetch } = {}) {
-    if (!apiKey) throw new VoyageEmbedderError("Voyage embedder requires an api_key (config.rag.embedder.api_key or VOYAGE_API_KEY env)");
+  constructor({ url = DEFAULTS.url, apiKey = process.env.KJ_VOYAGE_KEY, model = process.env.KJ_VOYAGE_EMBED_MODEL || DEFAULTS.model, dim = DEFAULTS.dim, timeoutMs = DEFAULTS.timeoutMs, fetchFn = globalThis.fetch } = {}) {
+    // Same invariant as OpenAIEmbedder: Karajan-scoped env var.
+    if (!apiKey) throw new VoyageEmbedderError("Voyage embedder requires an api_key (config.rag.embedder.api_key or KJ_VOYAGE_KEY env)");
     Object.assign(this, { url, apiKey, model, dim, timeoutMs, fetch: fetchFn });
   }
   async embed(text) { return cloudEmbed(this, text, VoyageEmbedderError, { provider: "Voyage", body: { model: this.model, input: [text], input_type: "document" }, extract: (b) => b?.data?.[0]?.embedding }); }

@@ -8,8 +8,13 @@ export class OpenAIEmbedderError extends Error {
 }
 
 export class OpenAIEmbedder {
-  constructor({ url = DEFAULTS.url, apiKey = process.env.OPENAI_API_KEY, model = process.env.KJ_OPENAI_EMBED_MODEL || DEFAULTS.model, dim = DEFAULTS.dim, timeoutMs = DEFAULTS.timeoutMs, fetchFn = globalThis.fetch } = {}) {
-    if (!apiKey) throw new OpenAIEmbedderError("OpenAI embedder requires an api_key (config.rag.embedder.api_key or OPENAI_API_KEY env)");
+  constructor({ url = DEFAULTS.url, apiKey = process.env.KJ_OPENAI_KEY, model = process.env.KJ_OPENAI_EMBED_MODEL || DEFAULTS.model, dim = DEFAULTS.dim, timeoutMs = DEFAULTS.timeoutMs, fetchFn = globalThis.fetch } = {}) {
+    // KJC architecture invariant: Karajan does not read provider API keys
+    // (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.) — those belong to the CLI
+    // agents Karajan spawns. RAG embedders are the one exception: they
+    // call the OpenAI endpoint directly, but use a Karajan-scoped env var
+    // (KJ_OPENAI_KEY) so the invariant stays clean.
+    if (!apiKey) throw new OpenAIEmbedderError("OpenAI embedder requires an api_key (config.rag.embedder.api_key or KJ_OPENAI_KEY env)");
     Object.assign(this, { url, apiKey, model, dim, timeoutMs, fetch: fetchFn });
   }
   async embed(text) { return cloudEmbed(this, text, OpenAIEmbedderError, { provider: "OpenAI", body: { model: this.model, input: text }, extract: (b) => b?.data?.[0]?.embedding }); }

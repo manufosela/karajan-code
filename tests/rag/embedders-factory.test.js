@@ -36,10 +36,10 @@ describe("rag/embedders factory (KJC-TSK-0442)", () => {
 
 describe("OpenAIEmbedder (KJC-TSK-0442)", () => {
   it("rejects construction without an api key", () => {
-    const prev = process.env.OPENAI_API_KEY;
-    delete process.env.OPENAI_API_KEY;
+    const prev = process.env.KJ_OPENAI_KEY;
+    delete process.env.KJ_OPENAI_KEY;
     try { expect(() => new OpenAIEmbedder({})).toThrow(OpenAIEmbedderError); }
-    finally { if (prev !== undefined) process.env.OPENAI_API_KEY = prev; }
+    finally { if (prev !== undefined) process.env.KJ_OPENAI_KEY = prev; }
   });
 
   it("POSTs to /v1/embeddings with Bearer auth + returns Float32Array", async () => {
@@ -69,10 +69,10 @@ describe("OpenAIEmbedder (KJC-TSK-0442)", () => {
 
 describe("VoyageEmbedder (KJC-TSK-0442)", () => {
   it("rejects without api key", () => {
-    const prev = process.env.VOYAGE_API_KEY;
-    delete process.env.VOYAGE_API_KEY;
+    const prev = process.env.KJ_VOYAGE_KEY;
+    delete process.env.KJ_VOYAGE_KEY;
     try { expect(() => new VoyageEmbedder({})).toThrow(VoyageEmbedderError); }
-    finally { if (prev !== undefined) process.env.VOYAGE_API_KEY = prev; }
+    finally { if (prev !== undefined) process.env.KJ_VOYAGE_KEY = prev; }
   });
 
   it("POSTs with input_type=document + returns Float32Array", async () => {
