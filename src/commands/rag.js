@@ -3,15 +3,10 @@
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
 import { openVecStore, countChunks, projectSlug } from "../rag/vec-store.js";
-import { OllamaEmbedder } from "../rag/embedder.js";
+import { makeEmbedder } from "../rag/embedders/factory.js";
 import { indexProject } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
 import { getKarajanHome } from "../utils/paths.js";
-
-function makeEmbedder(config) {
-  const cfg = config?.rag?.embedder || {};
-  return new OllamaEmbedder({ url: cfg.url, model: cfg.model, dim: cfg.dim });
-}
 
 function openDb(config) {
   return openVecStore({ dim: config?.rag?.embedder?.dim || 768 });

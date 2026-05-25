@@ -2,7 +2,7 @@
 // from src/commands/* are forbidden by the layer-boundaries test
 // (MCP and CLI are peer layers); we hit the pure rag/* modules instead.
 import { countChunks, openVecStore } from "../../rag/vec-store.js";
-import { OllamaEmbedder } from "../../rag/embedder.js";
+import { makeEmbedder } from "../../rag/embedders/factory.js";
 import { indexProject } from "../../rag/indexer.js";
 import { query } from "../../rag/retriever.js";
 import { getKarajanHome } from "../../utils/paths.js";
@@ -11,11 +11,6 @@ import { resolveProjectDir, buildConfig, responseText, failPayload } from "../sh
 const silentLogger = {
   info: () => {}, warn: () => {}, error: () => {}, debug: () => {}, setContext: () => {},
 };
-
-function makeEmbedder(config) {
-  const cfg = config?.rag?.embedder || {};
-  return new OllamaEmbedder({ url: cfg.url, model: cfg.model, dim: cfg.dim });
-}
 
 export async function handleRagQuery(args, server) {
   const text = args?.text;
