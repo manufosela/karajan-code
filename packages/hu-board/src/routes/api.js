@@ -1292,12 +1292,12 @@ router.post('/rag/query', async (req, res) => {
   }
   try {
     const { openVecStore, countChunks } = await import('../../../../src/rag/vec-store.js');
-    const { OllamaEmbedder } = await import('../../../../src/rag/embedder.js');
+    const { makeEmbedder } = await import('../../../../src/rag/embedders/factory.js');
     const { query } = await import('../../../../src/rag/retriever.js');
     const db = openVecStore({ dim: 768 });
     try {
       if (countChunks(db) === 0) return res.json({ hits: [], empty: true, topK, scope });
-      const embedder = new OllamaEmbedder({});
+      const embedder = makeEmbedder({});
       const hits = await query(db, embedder, text, { topK: Number(topK), scope });
       res.json({ hits, empty: false, topK, scope });
     } finally { db.close(); }

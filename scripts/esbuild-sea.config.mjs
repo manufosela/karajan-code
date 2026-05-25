@@ -146,7 +146,7 @@ const huBoardStubPlugin = {
 const ragStubPlugin = {
   name: "rag-stub",
   setup(build) {
-    build.onResolve({ filter: /[\\/](rag[\\/][^\\/]+|commands[\\/]rag)\.js$/ }, (args) => ({
+    build.onResolve({ filter: /[\\/](rag[\\/].+|commands[\\/](rag|watch))\.js$/ }, (args) => ({
       path: args.path, namespace: "rag-stub",
     }));
     build.onLoad({ filter: /.*/, namespace: "rag-stub" }, () => ({
@@ -173,6 +173,9 @@ const ragStubPlugin = {
           // KJC-TSK-0441 — RAG chokidar watcher.
           startWatcher: notAvailable, readPidFile: notAvailable, clearPidFile: notAvailable,
           isPidAlive: notAvailable, writePidFile: notAvailable,
+          // KJC-TSK-0442 — RAG embedders cloud + factory.
+          makeEmbedder: notAvailable, OpenAIEmbedder: notAvailable, VoyageEmbedder: notAvailable,
+          OpenAIEmbedderError: notAvailable, VoyageEmbedderError: notAvailable, PROVIDERS: notAvailable,
           default: notAvailable,
         };
       `,
