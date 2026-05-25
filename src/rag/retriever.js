@@ -1,6 +1,7 @@
 // KJC-PCS-0049 Step 5 — Retriever for the RAG pipeline.
 import { searchSimilar, searchBM25 } from "./vec-store.js";
 import { parseWhere, buildWhereSql } from "./where-parser.js";
+import { rerank } from "./rerank.js";
 
 const DEFAULT_KIND_BOOST = { plan: 0.05, onboarding: 0.03, code: 0 };
 
@@ -40,7 +41,7 @@ function fuseHits(semantic, keyword, alpha, mode) {
   return list;
 }
 
-export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null } = {}) {
+export async function query(db, embedder, text, { topK = 5, scope = "all", kindBoost = DEFAULT_KIND_BOOST, project = null, mode = "hybrid", alpha = 0.6, where = null, rerankOpts = null } = {}) {
   if (!text || typeof text !== "string") throw new Error("query: text must be a non-empty string");
   const fetchK = Math.min(50, topK * 2);
   const scopeKind = scope === "plans" ? "plan" : scope === "code" ? "code" : scope === "onboarding" ? "onboarding" : null;
@@ -63,6 +64,11 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
     const sourceB = (boostSources && r.kind === "code" && !isTestPath(r.source)) ? SOURCE_BOOST_NON_TEST : 0;
     return { ...r, score: r.distance - kindB - sourceB };
   }).sort((a, b) => a.score - b.score).slice(0, topK);
+  // KJC-TSK-0449 — optional cross-encoder rerank. When `rerankOpts` is set,
+  // we re-score the topK survivors with a (query, passage) cross-encoder;
+  // the kind+source boost has already been applied, so the rerank acts as
+  // a finer-grained quality lever on top.
+  if (rerankOpts) return await rerank(text, reranked, rerankOpts);
   return reranked;
 }
 

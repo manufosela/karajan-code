@@ -181,6 +181,8 @@ const ragStubPlugin = {
           ONNXEmbedder: notAvailable, ONNXEmbedderError: notAvailable,
           // KJC-TSK-0448 — RAG --where metadata filter.
           parseWhere: notAvailable, buildWhereSql: notAvailable,
+          // KJC-TSK-0449 — RAG cross-encoder rerank.
+          rerank: notAvailable, RerankError: notAvailable, _resetPipeline: notAvailable,
           default: notAvailable,
         };
       `,
