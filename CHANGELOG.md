@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
+## [2.31.0] - 2026-05-26
+
+Minor release. **Team-shared HU Board** — landing the full KJC-PRP-0002 prerequisite: plans can now opt-in their HUs into a `.karajan-shared/` cohort that the board surfaces with a `shared` badge, lets multiple machines work the same plan without trampling each other, and tracks who owns each HU.
+
+Seven PRs ship the feature end-to-end (PR1a loader fallback, PR1b `kj plan share`, PR2 board scanner, PR3 `kj plan unshare` + UI badge, PR4 `share --only/--exclude` HU filter, PR5 conflict policy, PR6 per-HU assignee).
+
+### Added
+
+- **PR #859 (KJC-PRP-0002 PR1a) — `loadPlan` fallback to `.karajan-shared/`**. The loader now resolves a plan id by trying the local `~/.karajan/plans/<project>/` first, then `<projectDir>/.karajan-shared/plans/<project>/`. Shared plans become first-class citizens for every code path that reads a plan (board sync, `kj plan show`, MCP).
+- **PR #860 (KJC-PRP-0002 PR1b) — `kj plan share` command**. New subcommand copies a local plan into `.karajan-shared/plans/<project>/`, marking it as team-shared. Idempotent — re-running on an already-shared plan updates the copy with the local edits.
+- **PR #861 (KJC-PRP-0002 PR2) — board scans `.karajan-shared/`**. `syncDb` and the file watcher now walk both `~/.karajan/plans/` and every detected `.karajan-shared/plans/` under the active project roots. Shared HUs flow into the same `stories` table tagged with `is_shared = 1`.
+- **PR #862 (KJC-PRP-0002 PR3) — `kj plan unshare` + shared badge**. Mirror of PR1b: removes the shared copy and reverts the plan to local-only. The HU Board renders a small `shared` pill next to plan titles whose `project.is_shared = 1`.
+- **PR #863 (KJC-PRP-0002 PR4) — `kj plan share --only/--exclude` HU filter**. Selective sharing: `--only HU-001,HU-003` shares just those HUs; `--exclude HU-005` shares everything else. Lets users keep WIP HUs private without splitting the plan file.
+- **PR #864 (KJC-PRP-0002 PR5) — `sharedConflictPolicy` escape hatch**. New config field `hu_board.sharedConflictPolicy: prompt | local-wins | shared-wins` (default `prompt`). When two machines edit the same shared HU, the chosen policy decides without manual intervention. Logged in `~/.karajan/board-conflicts.log`.
+- **PR #865 (KJC-PRP-0002 PR6) — per-HU `assignee` field**. Optional free-form handle (`@manufosela`, `dev_016`, `becaria`…) stored on every HU. Surfaced in the board modal **only** for shared projects, editable inline. Backed by an idempotent sqlite migration on `stories.assignee`.
+
+### Tests
+
+5 237 / 5 237 passing in CI across 461 test files (+21 new tests across the 7 PRs, +4 new files).
+
+### Internal
+
+- `EDITABLE_HU_FIELDS` whitelist in `packages/hu-board/src/routes/api.js` now includes `assignee` — PATCH `/api/stories/:id` routes through `setHuFields` → `updateHu` → `writePlan` → `syncPlanFile` end-to-end.
+- Frontend caches a per-project `is_shared` flag at `resolveProjectMeta` time, so the "Asignado a" section is conditional without an extra round-trip.
+
 ## [2.30.0] - 2026-05-26
 
 Minor release. **Writable config UI on HU Board** — the kj.config.yml is no longer an editor-only file. The board now exposes a settings modal with grouped sections, an atomic-write backend, and a scope toggle between global (`~/.karajan/`) and per-project (`<projectDir>/.karajan/`) configs.

@@ -345,6 +345,14 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.31.0 released** — Minor. **Team-shared HU Board** — the full KJC-PRP-0002: opt-in HUs into a `.karajan-shared/` cohort, the board surfaces them with a `shared` badge, and per-HU `assignee` lets multiple machines work the same plan without trampling each other.
+>
+> - **`kj plan share` / `kj plan unshare`** (PRs #860, #862): mueve plans entre `~/.karajan/plans/` (local) y `<projectDir>/.karajan-shared/plans/` (compartido). Idempotente. El loader probará ambos automáticamente.
+> - **`share --only HU-001,HU-003` / `--exclude HU-005`** (PR #863): selective sharing — comparte solo lo que quieres, deja los WIP privados sin partir el plan.
+> - **Board scanner + `shared` badge** (PRs #861, #862): el watcher recorre los dos roots, mete las HUs compartidas en la misma tabla con `is_shared = 1`, y el modal pinta un pill `shared` junto al título del plan.
+> - **`sharedConflictPolicy` escape hatch** (PR #864): `prompt | local-wins | shared-wins` en kj.config.yml. Cuando dos máquinas editan la misma HU compartida, la política decide sin intervención. Log en `~/.karajan/board-conflicts.log`.
+> - **Per-HU `assignee`** (PR #865): handle libre (`@manufosela`, `dev_016`, `becaria`…) por HU. Visible y editable en el modal **solo** en proyectos shared. Migración sqlite idempotente.
+>
 > **v2.30.0 released** — Minor. **Writable config UI on HU Board** — settings modal with grouped sections, atomic-write backend, and a global vs per-project scope toggle. No more hand-editing the YAML.
 >
 > - **Pipeline role toggles** (PR #854): 8 nuevos booleanos en el modal (`planner`, `researcher`, `architect`, `tester`, `security`, `refactorer`, `impeccable`, `brain`) reflejan los defaults reales de `src/config/defaults.js`.
