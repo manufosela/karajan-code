@@ -10,6 +10,7 @@ import {
   planMigrateResultCommand,
   planFixCommand,
   planShareCommand,
+  planUnshareCommand,
 } from "../commands/plan.js";
 import { parseCanvasMarkdown } from "../canvas/parse-md.js";
 import { validateCanvas } from "../canvas/validate.js";
@@ -151,6 +152,18 @@ export function registerPlan(program, { pkgVersion }) {
     .action(async (planId, flags) => {
       await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
         await planShareCommand({ config, planId, logger });
+      });
+    });
+
+  // KJC-PRP-0002 / v2.31.0 PR3: inverse of `kj plan share`. Removes the plan
+  // from `.karajan-shared/plans/` but keeps the per-user copy intact, so the
+  // dev still has the plan locally while the team stops seeing it.
+  plan.command("unshare")
+    .description("Remove a plan from <projectDir>/.karajan-shared/ (keeps local copy)")
+    .argument("<planId>")
+    .action(async (planId, flags) => {
+      await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
+        await planUnshareCommand({ config, planId, logger });
       });
     });
 

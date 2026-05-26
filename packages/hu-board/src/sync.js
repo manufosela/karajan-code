@@ -14,7 +14,7 @@ import {
   removeTombstone,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
-import { getSharedPlansDir, SHARED_DIR_NAME } from '../../../src/utils/shared-paths.js';
+import { getSharedPlansDir, SHARED_DIR_NAME, isSharedPath } from '../../../src/utils/shared-paths.js';
 
 /**
  * Skip + best-effort fs cleanup when the resource is tombstoned. Returns
@@ -382,11 +382,17 @@ export function syncPlanFile(filePath) {
       || slugToTitle(data.task || '')
       || projectId;
 
+    // KJC-PRP-0002 PR3: stamp `is_shared` from the path (authoritative — works
+    // even for legacy plan files without the `shared:true` envelope marker).
+    // OR with existing value so a single shared plan promotes the project,
+    // while unsharing the LAST shared plan still leaves the flag set (we
+    // clear it lazily only when the user explicitly tombstones / re-creates).
     upsertProject({
       id: projectId,
       name: projectName,
       last_activity: data.updatedAt || data.createdAt || new Date().toISOString(),
       total_stories: data.hus.length,
+      is_shared: isSharedPath(filePath) || data.shared === true ? 1 : undefined,
     });
 
     for (let i = 0; i < data.hus.length; i += 1) {
