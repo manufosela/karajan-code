@@ -313,6 +313,11 @@ export function initDb() {
   // The UI surfaces this as a toggle on each project card.
   try { db.exec('ALTER TABLE projects ADD COLUMN is_test INTEGER'); } catch { /* already migrated */ }
 
+  // is_shared (KJC-PRP-0002 PR3): 1 when at least one plan of the project came
+  // from `<projectDir>/.karajan-shared/plans/`. Surfaced as a 🔗 badge on the
+  // board so the user can tell at a glance which projects are team-tracked.
+  try { db.exec('ALTER TABLE projects ADD COLUMN is_shared INTEGER'); } catch { /* already migrated */ }
+
   return db;
 }
 
@@ -330,13 +335,17 @@ export function getDb() {
  * @param {{ id: string, name?: string, first_seen?: string, last_activity?: string, total_stories?: number }} project
  */
 export function upsertProject(project) {
+  // is_shared (KJC-PRP-0002 PR3) is set by sync when a plan came from
+  // `.karajan-shared/`. COALESCE with the existing column keeps the badge
+  // once it's been promoted — a second non-shared plan won't unset it.
   const stmt = getDb().prepare(`
-    INSERT INTO projects (id, name, first_seen, last_activity, total_stories)
-    VALUES (@id, @name, @first_seen, @last_activity, @total_stories)
+    INSERT INTO projects (id, name, first_seen, last_activity, total_stories, is_shared)
+    VALUES (@id, @name, @first_seen, @last_activity, @total_stories, @is_shared)
     ON CONFLICT(id) DO UPDATE SET
       name = COALESCE(@name, name),
       last_activity = COALESCE(@last_activity, last_activity),
-      total_stories = COALESCE(@total_stories, total_stories)
+      total_stories = COALESCE(@total_stories, total_stories),
+      is_shared = COALESCE(@is_shared, is_shared)
   `);
   stmt.run({
     id: project.id,
@@ -344,6 +353,7 @@ export function upsertProject(project) {
     first_seen: project.first_seen || new Date().toISOString(),
     last_activity: project.last_activity || new Date().toISOString(),
     total_stories: project.total_stories || 0,
+    is_shared: project.is_shared ?? null,
   });
 }
 

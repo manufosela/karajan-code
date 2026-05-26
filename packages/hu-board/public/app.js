@@ -452,7 +452,7 @@ async function renderDashboard() {
               <button class="project-card__delete" title="Delete project (cascade)" data-project-id="${esc(p.id)}" data-project-name="${esc(p.name || p.id)}">🗑️</button>
               <button class="project-card__is-test" title="${esc(isTestTitle(p))}" data-project-id="${esc(p.id)}" data-is-test="${p.is_test === null || p.is_test === undefined ? '' : p.is_test}">${isTestIcon(p)}</button>
               <div class="project-card__body" onclick="selectProject('${esc(p.id)}')">
-                <div class="project-card__name">${esc(p.name || p.id)}</div>
+                <div class="project-card__name">${p.is_shared === 1 ? '<span class="project-card__shared-badge" title="Team-shared via .karajan-shared/">🔗</span> ' : ''}${esc(p.name || p.id)}</div>
                 <div class="project-card__stats">
                   <div class="project-card__stat">
                     <div class="project-card__stat-value">${p.story_count || 0}</div>

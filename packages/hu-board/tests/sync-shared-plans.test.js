@@ -72,6 +72,9 @@ describe('HU Board sync — .karajan-shared/plans/ scan (KJC-PRP-0002 PR2)', () 
       sync.fullScan();
       const proj = findProject(db, 'CwdProj');
       expect(proj).toBeTruthy();
+      // KJC-PRP-0002 PR3: the project is stamped is_shared=1 because the plan
+      // came from `.karajan-shared/plans/`. UI uses this for the 🔗 badge.
+      expect(proj.is_shared).toBe(1);
       const stories = db.getStoriesByProject(proj.id);
       expect(stories.length).toBe(1);
       expect(stories[0].title).toBe('Login');

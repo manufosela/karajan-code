@@ -13,4 +13,5 @@ export {
   planMigrateResultCommand,
   planFixCommand,
   planShareCommand,
+  planUnshareCommand,
 } from "./plan/index.js";

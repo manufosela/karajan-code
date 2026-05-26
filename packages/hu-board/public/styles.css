@@ -770,6 +770,15 @@ a:hover {
   margin-bottom: 8px;
 }
 
+/* KJC-PRP-0002 PR3: 🔗 badge for projects with a plan in .karajan-shared/. */
+.project-card__shared-badge {
+  display: inline-block;
+  font-size: 0.85em;
+  margin-right: 4px;
+  cursor: help;
+  vertical-align: baseline;
+}
+
 .project-card__stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
