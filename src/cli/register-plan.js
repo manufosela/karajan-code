@@ -149,9 +149,11 @@ export function registerPlan(program, { pkgVersion }) {
   plan.command("share")
     .description("Promote a local plan to <projectDir>/.karajan-shared/ so the team can see it")
     .argument("<planId>")
+    .option("--only <ids>", "Comma-separated HU IDs to include (share a subset)")
+    .option("--exclude <ids>", "Comma-separated HU IDs to omit from the shared copy")
     .action(async (planId, flags) => {
       await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
-        await planShareCommand({ config, planId, logger });
+        await planShareCommand({ config, planId, logger, only: flags.only, exclude: flags.exclude });
       });
     });
 
