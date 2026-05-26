@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { writeJsonAtomic } from "../utils/atomic-write.js";
 import { resolveHome } from "../utils/paths.js";
+import { getSharedPlansDir } from "../utils/shared-paths.js";
 import { generatePlanId, normaliseAlias } from "./plan-id.js";
 
 /**
@@ -154,7 +155,15 @@ async function resolveUniqueAlias(dir, ownPlanId, base) {
  */
 export async function loadPlan(projectDir, ref) {
   if (!ref) return null;
-  const dir = plansDir(projectDir);
+  // Local plans take precedence — if a teammate's shared copy and your
+  // working copy share a planId, your local edits win until you re-share.
+  const local = await loadPlanFromDir(plansDir(projectDir), ref);
+  if (local) return local;
+  // Fallback: shared plans committed by a teammate. KJC-PRP-0002 PR1.
+  return loadPlanFromDir(getSharedPlansDir(projectDir), ref);
+}
+
+async function loadPlanFromDir(dir, ref) {
   // 1. Match exacto por planId.json (camino caliente).
   const direct = path.join(dir, `${ref}.json`);
   try {
