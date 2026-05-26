@@ -37,6 +37,32 @@ jobs:
       - name: Lint (node --check — parse-time syntax)
         run: npm run lint:syntax
 
+  # Prettier check — blocks PRs whose formatting drifts from the repo's
+  # .prettierrc.json. Added in KJC-TSK-0464 (2026-05-26) to close the
+  # ai-harness-scorecard "Formatter Enforcement" FAIL. Scope is
+  # intentionally small (workflows + root config) per .prettierignore;
+  # additional directories are folded in by future PRs to keep each
+  # change under the shrink-budget LOC cap.
+  format:
+    name: Format (Prettier --check)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format (Prettier --check)
+        run: npm run format:check
+
   # ESLint runs on the same Node matrix as syntax (20/22). Pre-2026-04-30
   # this used to mention "Node 18 users still get parse-time guarantees" —
   # no longer relevant now that engines.node = >=20.10.0.

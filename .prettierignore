@@ -1,0 +1,50 @@
+# KJC-TSK-0464 — start small. Prettier only enforces on a curated subset
+# of the repo (new workflows, root config JSON, .prettierrc/.prettierignore).
+# The bulk of the existing tree is excluded to avoid a mass-reformat PR
+# that would blow the 200-LOC shrink-budget gate. Future PRs can shrink
+# this list progressively, one directory at a time.
+
+# Build artifacts and vendored output
+dist/
+build/
+coverage/
+node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+
+# Lockfiles — never auto-format
+package-lock.json
+**/package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Karajan runtime state
+.kj/
+.karajan/
+.karajan-shared/
+sessions/
+**/__pycache__/
+
+# Existing source not yet under prettier (deferred)
+src/
+tests/
+templates/
+packages/hu-board/src/
+packages/hu-board/public/
+packages/hu-board/tests/
+scripts/
+bin/
+
+# Human-facing docs — markdown formatting is curated by hand, not by tool
+docs/
+*.md
+**/*.md
+**/*.mdx
+
+# Snapshots and fixtures
+**/*.snap
+**/__snapshots__/
+**/_diet/
+**/fixtures/
