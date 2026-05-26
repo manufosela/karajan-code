@@ -14,7 +14,7 @@
 
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -54,14 +54,22 @@ describe("SEA bundle (KJC-BUG-0040)", () => {
   });
 
   it("emits the stub message (not a stack trace) when `board cleanup` is invoked", () => {
+    // The child node process inherits process.env.VITEST, which routes
+    // KARAJAN_HOME to a fresh tmp dir without a global kj.config.yml. The
+    // repo's .karajan/kj.config.yml then trips loadConfig's local-without-
+    // global guard. Pre-seed an empty global config for the child.
+    const childHome = mkdtempSync(join(tmpdir(), "kj-sea-home-"));
+    writeFileSync(join(childHome, "kj.config.yml"), "");
+    const env = { ...process.env, KARAJAN_HOME: childHome };
     let stdout = "";
     let stderr = "";
     try {
-      stdout = execFileSync("node", [bundlePath, "board", "cleanup"], { encoding: "utf8" });
+      stdout = execFileSync("node", [bundlePath, "board", "cleanup"], { encoding: "utf8", env });
     } catch (err) {
       stdout = String(err.stdout || "");
       stderr = String(err.stderr || "");
     }
+    rmSync(childHome, { recursive: true, force: true });
     const combined = `${stdout}\n${stderr}`;
     expect(combined).toContain("The HU Board is not available in this standalone binary");
     expect(combined).toContain("npm install -g karajan-code");

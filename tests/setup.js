@@ -17,11 +17,27 @@
  *    `config.preflight.extended: true` or override the global.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+import { getKarajanHome } from "../src/utils/paths.js";
+
 process.env.ANTHROPIC_API_KEY ??= "sk-test-anthropic";
 process.env.OPENAI_API_KEY ??= "sk-test-openai";
 process.env.GEMINI_API_KEY ??= "sk-test-gemini";
 process.env.GOOGLE_API_KEY ??= "sk-test-google";
 process.env.OPENCODE_API_KEY ??= "sk-test-opencode";
+
+// loadConfig refuses local config without a global counterpart (KJC-TSK-0395).
+// Under Vitest, KARAJAN_HOME is auto-isolated to a tmp dir per worker but the
+// cwd is still the karajan-code repo, which ships a real `.karajan/kj.config.yml`.
+// Pre-seed an empty global config so loadConfig is happy in tests that exercise
+// it (i18n.test.js, board.test.js, sea-build.test.js).
+const _home = getKarajanHome();
+fs.mkdirSync(_home, { recursive: true });
+const _globalCfg = path.join(_home, "kj.config.yml");
+if (!fs.existsSync(_globalCfg)) {
+  fs.writeFileSync(_globalCfg, "");
+}
 
 globalThis.__KJ_DEFAULT_PREFLIGHT_EXTENDED = false;
 

@@ -18,7 +18,19 @@ export default defineConfig({
   test: {
     exclude: ["node_modules/**", "packages/**", ".claude/**", ".kj/**", "demo/**"],
     setupFiles: ["./tests/setup.js"],
-    testTimeout: 30000,
+    // 120s default. Orchestrator integration tests (runflow-*, reviewer-*,
+    // kj-run-smoke, subloop-limits) wire up multi-stage pipelines and can
+    // take 60-90s under host contention even though each test passes in
+    // ~5-15s in isolation. Use forks (not threads) because several config
+    // tests call process.chdir(), which throws inside worker_threads.
+    testTimeout: 120000,
+    pool: "forks",
+    poolOptions: {
+      forks: {
+        maxForks: 6,
+        minForks: 1,
+      },
+    },
     // Audit recommendation #7: per-directory coverage thresholds for the
     // areas the audit flagged as "large surfaces with no same-name test
     // file". Coverage isn't a CI gate yet (would block PRs unrelated to
