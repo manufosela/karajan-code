@@ -79,6 +79,11 @@ export const CATEGORIES = [
   { id: 'rag',      label: 'RAG (búsqueda de contexto)', icon: '📚', order: 3 },
   { id: 'session',  label: 'Tiempos de sesión',        icon: '⏱',  order: 4 },
   { id: 'quality',  label: 'Calidad',                  icon: '✅', order: 5 },
+  // KJC-PRP-0002 PR5: team-shared HU board controls. Today only carries
+  // the conflict-resolution policy when a planId lives in both
+  // ~/.karajan/plans/ (per-user) and <projectDir>/.karajan-shared/plans/
+  // (team-committed). Will grow as more board-level multi-user knobs land.
+  { id: 'huBoard',  label: 'HU Board (equipo)',        icon: '🔗', order: 6 },
 ];
 
 /**
@@ -274,6 +279,22 @@ export const EDITABLE_FIELDS = [
     help: 'Ollama local es gratis. OpenAI/Voyage/Cohere/Mistral son cloud (requieren API key). ONNX corre 100% local con @huggingface/transformers.',
     options: ['ollama', 'openai', 'voyage', 'cohere', 'mistral', 'onnx'],
     default: 'ollama',
+  },
+  // KJC-PRP-0002 PR5: when the board scans plans, it visits both
+  // ~/.karajan/plans/<slug>/ (per-user cache) and .karajan-shared/plans/
+  // (team copy). If a planId lives in both, the second pass overwrites
+  // the first. Before this knob the order was hard-coded shared-wins
+  // (per-user → shared) — fine in a team but unsafe for a solo dev who
+  // forgets a stale `.karajan-shared/` exists in the repo.
+  {
+    key: 'huBoardSharedConflictPolicy',
+    path: 'huBoard.sharedConflictPolicy',
+    category: 'huBoard',
+    type: 'select',
+    label: 'Política ante plan compartido y local',
+    help: '"shared-wins" (recomendado en equipo): la copia en .karajan-shared/ pisa la local. "local-wins" (solo dev individual): tu copia en ~/.karajan/plans/ pisa la compartida — útil si todavía estás iterando antes de publicarla.',
+    options: ['shared-wins', 'local-wins'],
+    default: 'shared-wins',
   },
 ];
 

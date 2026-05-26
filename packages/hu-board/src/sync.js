@@ -15,6 +15,35 @@ import {
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
 import { getSharedPlansDir, SHARED_DIR_NAME, isSharedPath } from '../../../src/utils/shared-paths.js';
+import { readConfig } from './config-yaml.js';
+
+/**
+ * KJC-PRP-0002 PR5: resolve the conflict policy that decides who wins
+ * when the same planId is present in both the per-user cache
+ * (~/.karajan/plans/<slug>/) and the shared dir (.karajan-shared/plans/).
+ *
+ * Implementation is "order of last write": `syncPlanFile` upserts by
+ * planId, so whichever scan runs second overwrites whatever the first
+ * one wrote. We just swap the visit order based on policy.
+ *
+ *   shared-wins (default) → per-user first, shared second
+ *   local-wins            → shared first, per-user second
+ *
+ * Reads from kj.config.yml live; absent / malformed config falls back to
+ * the safe team default. Project scope wins over global scope (same
+ * precedence the rest of the config UI honours).
+ */
+function getSharedConflictPolicy() {
+  const pluck = (cfg) => cfg?.raw?.huBoard?.sharedConflictPolicy;
+  const valid = (v) => v === 'local-wins' || v === 'shared-wins';
+  try {
+    const projectCfg = readConfig({ scope: 'project' });
+    if (valid(pluck(projectCfg))) return pluck(projectCfg);
+    const globalCfg = readConfig({ scope: 'global' });
+    if (valid(pluck(globalCfg))) return pluck(globalCfg);
+  } catch { /* swallow — config UI handles surfacing errors */ }
+  return 'shared-wins';
+}
 
 /**
  * Skip + best-effort fs cleanup when the resource is tombstoned. Returns
@@ -534,37 +563,38 @@ export function fullScan() {
     }
   }
 
-  // Scan v2 plans (`kj plan` writes to `~/.karajan/plans/<slug>/` after
-  // KJC-PCS-0047 PR 3). `KJ_PLANS_DIR` keeps overriding for test
-  // isolation. A second pass picks up the legacy `~/.kj/plans/`
-  // location for users whose CLI hasn't yet run the migrator (e.g.
-  // the board was started before any `kj` command on a fresh upgrade).
-  const kjDir = process.env.KJ_PLANS_DIR || join(homedir(), '.karajan', 'plans');
-  const legacyKjDir = process.env.KJ_PLANS_DIR ? null : join(homedir(), '.kj', 'plans');
-  for (const root of [kjDir, legacyKjDir]) {
-    if (!root || !existsSync(root)) continue;
-    const projectDirs = readdirSync(root);
-    for (const projDir of projectDirs) {
-      const projPath = join(root, projDir);
-      try {
-        const files = readdirSync(projPath);
-        for (const file of files) {
-          if (file.startsWith('plan-') && file.endsWith('.json')) {
-            syncPlanFile(join(projPath, file));
+  // KJC-PRP-0002 PR5: order plans scans by conflict policy. `syncPlanFile`
+  // upserts by planId, so whichever pass runs LAST wins. Default
+  // shared-wins matches what teams expect (the committed copy is canonical);
+  // local-wins is the escape hatch for a solo dev still iterating before
+  // publishing. Same projectDir scan, only the order changes.
+  const scanPerUserPlans = () => {
+    const kjDir = process.env.KJ_PLANS_DIR || join(homedir(), '.karajan', 'plans');
+    const legacyKjDir = process.env.KJ_PLANS_DIR ? null : join(homedir(), '.kj', 'plans');
+    for (const root of [kjDir, legacyKjDir]) {
+      if (!root || !existsSync(root)) continue;
+      const projectDirs = readdirSync(root);
+      for (const projDir of projectDirs) {
+        const projPath = join(root, projDir);
+        try {
+          const files = readdirSync(projPath);
+          for (const file of files) {
+            if (file.startsWith('plan-') && file.endsWith('.json')) {
+              syncPlanFile(join(projPath, file));
+            }
           }
-        }
-      } catch { /* skip */ }
+        } catch { /* skip */ }
+      }
     }
-  }
+  };
 
-  // KJC-PRP-0002 PR2: team-shared plans live under <projectDir>/.karajan-shared/plans/
-  // (committed to git so teammates pulling the repo see the same HUs without
-  // having to re-run `kj plan generate`). The board reads them on top of the
-  // per-user `~/.karajan/plans/` cache. If both exist for the same planId,
-  // `syncPlanFile`'s upsert uses planId as key — last write wins, which is
-  // fine because both copies share the same content modulo the `shared:true`
-  // marker stamped by `kj plan share`.
-  scanSharedPlans();
+  if (getSharedConflictPolicy() === 'local-wins') {
+    scanSharedPlans();
+    scanPerUserPlans();
+  } else {
+    scanPerUserPlans();
+    scanSharedPlans();
+  }
 
   console.log('[sync] Full scan completed');
 }
