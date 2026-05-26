@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 200+ Tests Automatizados" icon="approve-check">
-    456 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (ahora con modal de settings editable), el subsystem Project RAG con modo hybrid + rerank, y el dashboard de retrieval. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 230+ Tests Automatizados" icon="approve-check">
+    460 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (modal de settings editable + badge de plan compartido + assignee por HU), el subsystem Project RAG con modo hybrid + rerank, el dashboard de retrieval y el flujo del HU cohort compartido en equipo. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -190,6 +190,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   </Card>
   <Card title="Guardrails de equipo — config recomendada" icon="seti:lock">
     Config copy-paste para un equipo que delega trabajo a IA: SSH multi-cuenta (una clave por identidad), git hooks globales (`commit-msg` que bloquea atribución a IA, `pre-push` que bloquea push directo a `main`, `git-secrets` para escaneo de credenciales), permisos por agente (Claude Code, Codex con `*.rules`, Gemini CLI), rulesets de branch protection en GitHub, plantillas de PR / Issue y routing por `CODEOWNERS`. Pega, adapta, despliega. [→ Leer la guía](/docs/es/guides/recommended-setup/)
+  </Card>
+  <Card title="HU Board compartido en equipo (v2.31)" icon="seti:plan">
+    Varias máquinas, un solo plan. `kj plan share <planId>` opta el plan al cohort `.karajan-shared/`: el loader fusiona las HUs compartidas con el plan local, el board escanea el cohort y las marca con badge `shared`, y un nuevo campo `assignee` por HU permite que cada runner reclame su parte sin pisarse con los demás. Filtros `--only` / `--exclude`, round-trip `kj plan unshare`, y el escape hatch `sharedConflictPolicy` (`local-wins` / `shared-wins` / `error`) cubren los edge cases de conflicto. Siete PRs (#859–#865) cierran el prerequisito de team-shared (KJC-PRP-0002).
   </Card>
 </CardGrid>
 
@@ -522,7 +525,7 @@ kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
 
 **Rerank cross-encoder** (PR #??). Flag opt-in `--rerank` re-puntúa los topK supervivientes con un cross-encoder (query, passage). Default `Xenova/ms-marco-MiniLM-L-6-v2` (estándar de facto de sentence-transformers, ~80 MB cacheados primera vez). Los cross-encoders son más lentos que los bi-encoders (encodean el par junto en lugar de cachear el passage), pero materialmente más precisos para el ranking final — Karajan lo corre solo sobre los supervivientes post-fusion + post-boost, así la latencia se mantiene acotada. Encaja después de los boosts kind+source, actuando como una palanca de calidad de grano más fino.
 
-### v2.30.0 — Minor (actual)
+### v2.30.0 — Minor
 
 **UI de config editable en el HU Board** (KJC-PCS-0042). Cuatro PRs aterrizan el modal de settings end-to-end: los teaser de v2.29 (toggle de roles, swap de embedder, alpha/mode/rerank) se vuelven editables sin abrir nunca `kj.config.yml`.
 
@@ -535,3 +538,17 @@ kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
 **Toggle de scope: global vs per-proyecto** (PR #857, KJC-TSK-0453). Nuevo switch en cada sección eligiendo dónde escribir: `'global'` → `~/.karajan/kj.config.yml`, `'project'` → `<projectDir>/.karajan/kj.config.yml`. Resolución `projectDir` vía `process.env.KJ_PROJECT_DIR || process.cwd()`. El config del proyecto sobrescribe el global cuando ambos existen.
 
 **Viene en v2.31.0+** — zero-config init (wizard reducido a una pregunta crítica, defaults inteligentes para todo lo demás) sobre la base de un `~/.karajan/kj.config.yml` que ahora se puede editar desde el board sin abrir un editor.
+
+### v2.31.0 — Minor (actual)
+
+**HU Board compartido en equipo** (KJC-PRP-0002). Siete PRs (#859–#865) cierran el cohort multi-máquina end-to-end. Un plan ya no vive solo en `~/.karajan/plans/<planId>/`: opt-in con `kj plan share <planId>` lo copia al `.karajan-shared/plans/<planId>/`, donde toda máquina que corra Karajan sobre el mismo proyecto puede verlo y reclamar partes del mismo plan.
+
+**Merge en loader + scan del board** (PR1 / PR2). `loadPlan()` fusiona las HUs compartidas con el plan del proyecto, deduplica por `id`. El scanner del HU Board lee también `.karajan-shared/` junto al cohort local, marca `is_shared = 1` en los chunks que vienen de allí, y la API lo expone como un badge `shared` — visible de un vistazo, sin desplegar menús.
+
+**Round-trip unshare + assignee** (PR3 / PR6). `kj plan unshare` revierte el share atómicamente (se borra la copia compartida; la local se queda). El nuevo campo `assignee` por HU es parte de `EDITABLE_HU_FIELDS`, así dos runners pueden repartirse el cohort sin sobreescribirse.
+
+**Share selectivo + política de conflictos** (PR4 / PR5). `--only id1,id2` y `--exclude id3,id4` filtran qué HUs salen del cohort local. Cuando la misma HU existe en local y en shared (ediciones concurrentes en máquinas distintas), `sharedConflictPolicy` decide: `local-wins` (default), `shared-wins`, o `error` (rechaza cargar y fuerza resolución manual).
+
+**Cache en el frontend** (PR2). `projectIsSharedCache` memoiza el lookup por proyecto para que la UI del board no machaque la API en cada render de HU.
+
+Esto cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — la última pieza antes de que la reescritura del Brain en v3.0 pueda apoyarse en un substrato multi-runner estable.

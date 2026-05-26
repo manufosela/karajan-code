@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 200+ Automated Tests" icon="approve-check">
-    456 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (now with writable settings modal), the Project RAG subsystem with hybrid mode + rerank, and the retrieval dashboard. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 230+ Automated Tests" icon="approve-check">
+    460 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, and the team-shared HU cohort workflow. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -190,6 +190,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Team guardrails — recommended setup" icon="seti:lock">
     Drop-in config for a team that uses AI in its workflow: multi-account SSH (one key per identity), global git hooks (`commit-msg` blocking AI attribution, `pre-push` blocking direct push to `main`, `git-secrets` for credential scanning), per-agent permission policies (Claude Code, Codex, Codex rules, Gemini CLI), GitHub branch protection rulesets, PR / Issue templates and `CODEOWNERS` routing. Paste, adapt, deploy. [→ Read the guide](/docs/guides/recommended-setup/)
+  </Card>
+  <Card title="Team-shared HU Board (v2.31)" icon="seti:plan">
+    Multiple machines, one plan. `kj plan share <planId>` opts a plan into the `.karajan-shared/` cohort: the loader merges shared HUs into the per-project plan, the board scans the cohort and surfaces them with a `shared` badge, and a new per-HU `assignee` field lets each runner claim its slice without trampling the others. Selective `--only` / `--exclude` filters, `kj plan unshare` round-trip, and a `sharedConflictPolicy` escape hatch (`local-wins` / `shared-wins` / `error`) cover the conflict edge cases. Seven PRs (#859–#865) close the team-shared prerequisite (KJC-PRP-0002).
   </Card>
 </CardGrid>
 
@@ -538,7 +541,7 @@ kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
 
 **Coming in v2.30.0+** — writable config UI on the HU Board (toggle roles, switch coder/reviewer, adjust alpha/mode/rerank without re-editing `kj.config.yml`), then v2.31 zero-config init (reduce the wizard to one critical question, smart defaults for everything).
 
-### v2.30.0 — Minor (current)
+### v2.30.0 — Minor
 
 **Writable config UI on HU Board** (KJC-PCS-0042). Four PRs land the settings modal end-to-end. The `kj.config.yml` is no longer an editor-only file — toggle roles, switch coder/reviewer, swap embedder provider, adjust topK/scope without leaving the board. Hand-editing of YAML keeps working: the modal writes only whitelisted fields and preserves everything else verbatim. Atomic-write + `.bak` discipline applies.
 
@@ -584,3 +587,17 @@ CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid
 **KJC-BUG-0064 (bundled)** (PR #840). `parseCooldown` ahora TZ-aware via `Intl.DateTimeFormat`. Cuando el stderr de Claude Code contiene `(Continent/City)`, resuelve el wall-clock target en esa TZ específica en lugar de la TZ local del host. Deshace el skip-en-CI workaround shipped en v2.27.0 (KJC-BUG-0063). Tests pasan en TZ=UTC, Europe/Madrid, Asia/Tokyo, America/Los_Angeles.
 
 **Coming in v2.29.0+** — extended cloud providers, per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board. (All landed in v2.29.0.)
+
+### v2.31.0 — Minor (current)
+
+**Team-shared HU Board** (KJC-PRP-0002). Seven PRs (#859–#865) land the multi-machine HU cohort end-to-end. A plan no longer lives only in `~/.karajan/plans/<planId>/`: opting it in with `kj plan share <planId>` copies it into `.karajan-shared/plans/<planId>/`, where every machine running Karajan on the same project can see and claim slices of the same plan.
+
+**Loader merge + board scan** (PR1 / PR2). `loadPlan()` merges shared HUs into the per-project plan, deduping by `id`. The HU Board scanner picks up `.karajan-shared/` next to the local cohort, sets `is_shared = 1` on the chunks it reads from there, and the API surfaces it as a `shared` badge — visible at a glance, no menu dive.
+
+**Unshare round-trip + assignee** (PR3 / PR6). `kj plan unshare` reverses the share atomically (the shared copy is removed; the local copy stays). The new per-HU `assignee` field is part of `EDITABLE_HU_FIELDS`, so two runners can split work on the same cohort without overwriting each other.
+
+**Selective share + conflict policy** (PR4 / PR5). `--only id1,id2` and `--exclude id3,id4` filter which HUs leave the local cohort. When the same HU exists in both local and shared (concurrent edits across machines), `sharedConflictPolicy` decides: `local-wins` (default), `shared-wins`, or `error` (refuse to load, force human resolution).
+
+**Frontend cache** (PR2). `projectIsSharedCache` memoizes the shared-or-not lookup per project so the board UI doesn't hammer the API on every HU row render.
+
+This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last piece before the v3.0 Brain rewrite can rely on a stable multi-runner substrate.

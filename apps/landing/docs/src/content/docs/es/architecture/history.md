@@ -1395,6 +1395,24 @@ La Fase 81 hizo observable el retriever; la Fase 82 hace **editable toda la conf
 
 **Qué cambia para los usuarios**. Antes de v2.30.0: cambiar un toggle de rol o un embedder significaba abrir el YAML a mano, esperando no romper la indentación. Después de v2.30.0: abrir el board, click en settings, flip al toggle, elegir el scope. El atomic write + `.bak` lo hace seguro; la whitelist lo deja sandboxed. **Viene en v2.31.0+**: zero-config init wizard reducido a una pregunta crítica con defaults inteligentes — ahora que la config es editable desde el board, init puede shippar un `~/.karajan/kj.config.yml` mínimo y dejar que el usuario rellene el resto visualmente en vez de por prompts.
 
+## Fase 83: HU Board compartido en equipo (v2.31.0)
+
+La Fase 82 cerró la historia de edición per-máquina; la Fase 83 cierra la historia **multi-máquina**. El HU Board ahora modela un cohort: un plan puede vivir en `~/.karajan/plans/<planId>/` (solo local) o en `.karajan-shared/plans/<planId>/` (compartido entre todas las máquinas que corren Karajan sobre el mismo proyecto). Siete PRs (#859–#865) aterrizan el flujo end-to-end y cierran el prerequisito de larga data KJC-PRP-0002.
+
+**KJC-TSK-0456 / KJC-TSK-0457 — Merge en loader + badge en scanner (PR #859 / PR #860)**. `loadPlan()` lee tanto el plan local como el cohort compartido y fusiona HUs por `id`. El scanner del board hace un sibling scan sobre `.karajan-shared/`, marca `is_shared = 1` en cada chunk que viene de allí, y la respuesta de `/api/plans/:id/hus` expone un booleano `shared`. El frontend renderiza un badge `shared` junto al id de la HU — la pertenencia al cohort es visible sin abrir el fichero del plan.
+
+**KJC-TSK-0458 — CLI `kj plan share <planId>` (PR #861)**. Comando nuevo. Copia el directorio del plan desde `~/.karajan/plans/` a `<projectDir>/.karajan-shared/plans/` atómicamente (escribe a `.tmp`, `rename`). Rechaza sobreescribir un plan ya compartido salvo con `--force`. El comportamiento por defecto comparte el plan entero; los filtros opcionales `--only id1,id2` / `--exclude id3,id4` llegan en PR4.
+
+**KJC-TSK-0459 — `kj plan unshare` + cableado del badge `shared` (PR #862)**. `kj plan unshare <planId>` elimina la copia compartida; la local sigue intacta. El badge del board sigue al cohort en vivo — haces unshare un plan y el badge desaparece en el siguiente scan, sin reiniciar el server. Un nuevo `projectIsSharedCache` memoiza el lookup per-proyecto para que la UI no machaque la API en cada render de HU.
+
+**KJC-TSK-0460 — Filtros `--only` / `--exclude` (PR #863)**. El comando share gana filtrado selectivo. `--only` acepta una lista comma-separated de HU ids; solo esos se copian al cohort. `--exclude` es el inverso. Mutuamente excluyentes, con validación de que cada id existe en el plan. Permite que un runner comparta *partes* de un plan mientras mantiene el resto local.
+
+**KJC-TSK-0461 — Config `sharedConflictPolicy` (PR #864)**. Cuando el mismo id de HU existe tanto en el cohort local como en el compartido (ediciones concurrentes en distintas máquinas), `sharedConflictPolicy` decide qué hace `loadPlan()`: `'local-wins'` (default, fast path), `'shared-wins'` (el cohort es la source of truth), o `'error'` (rechaza cargar y fuerza resolución manual). Configurable en `kj.config.yml` bajo `huBoard.sharedConflictPolicy`.
+
+**KJC-TSK-0462 — Campo `assignee` por HU (PR #865)**. Nuevo field en la whitelist `EDITABLE_HU_FIELDS`. String libre (un nombre, un id de máquina, un email) para que dos runners trabajando sobre el mismo cohort puedan reclamar su parte. Persiste vía el mismo atomic-write path que los demás fields editables de HU.
+
+**Qué desbloquea**. v2.31.0 cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — el último item del roadmap antes de que la reescritura del Brain en v3.0 pueda apoyarse en un substrato multi-runner estable. Varias máquinas ahora pueden compartir un plan, ver progreso de las demás en el mismo board, y reclamar trabajo no-superpuesto vía `assignee`, sin pisarse.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

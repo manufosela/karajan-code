@@ -1396,6 +1396,24 @@ Phase 81 made the retriever observable; Phase 82 makes the entire config **edita
 
 **What changes for users**. Before v2.30.0: changing a role toggle or an embedder meant opening the YAML manually, hoping not to break the indentation. After v2.30.0: open the board, click settings, flip the toggle, pick the scope. The atomic write + `.bak` makes it safe; the whitelist makes it sandboxed. **Coming in v2.31.0+**: zero-config init wizard reduced to one critical question with smart defaults — now that the config is editable from the board, init can ship a minimal `~/.karajan/kj.config.yml` and let the user fill in the rest visually instead of via prompts.
 
+## Phase 83: Team-shared HU Board (v2.31.0)
+
+Phase 82 closed the per-machine editing story; Phase 83 closes the **multi-machine** story. The HU Board now models a cohort: a plan can live in `~/.karajan/plans/<planId>/` (local-only) or in `.karajan-shared/plans/<planId>/` (shared across every machine running Karajan on the same project). Seven PRs (#859–#865) land the workflow end-to-end and close the long-standing prerequisite KJC-PRP-0002.
+
+**KJC-TSK-0456 / KJC-TSK-0457 — Loader merge + scanner badge (PR #859 / PR #860)**. `loadPlan()` reads both the local plan and the shared cohort and merges HUs by `id`. The board scanner does a sibling scan on `.karajan-shared/`, stamps `is_shared = 1` on every chunk it pulls from there, and the `/api/plans/:id/hus` response exposes a `shared` boolean. The frontend renders a `shared` badge next to the HU id — the cohort membership is visible without having to open the plan file.
+
+**KJC-TSK-0458 — `kj plan share <planId>` CLI (PR #861)**. New command. Copies the plan dir from `~/.karajan/plans/` to `<projectDir>/.karajan-shared/plans/` atomically (write to `.tmp`, `rename`). Refuses to overwrite an existing shared plan unless `--force`. Default behaviour shares the whole plan; the optional `--only id1,id2` / `--exclude id3,id4` filters land in PR4.
+
+**KJC-TSK-0459 — `kj plan unshare` + `shared` badge wiring (PR #862)**. `kj plan unshare <planId>` removes the shared copy; the local copy stays untouched. The board badge now follows the cohort live — unshare a plan and the badge disappears on the next scan without restarting the server. A new `projectIsSharedCache` memoizes the per-project shared-or-not lookup so the UI doesn't hammer the API on every HU row render.
+
+**KJC-TSK-0460 — `--only` / `--exclude` filters (PR #863)**. The share command grows selective filtering. `--only` accepts a comma-separated list of HU ids; only those are copied to the cohort. `--exclude` is the inverse. Mutually exclusive, with validation that every named id exists in the plan. Lets a runner share *parts* of a plan while keeping the rest local.
+
+**KJC-TSK-0461 — `sharedConflictPolicy` config (PR #864)**. When the same HU id exists in both the local and the shared cohort (concurrent edits across machines), `sharedConflictPolicy` decides what `loadPlan()` does: `'local-wins'` (default, fast path), `'shared-wins'` (cohort is the source of truth), or `'error'` (refuse to load, force human resolution). Configurable in `kj.config.yml` under `huBoard.sharedConflictPolicy`.
+
+**KJC-TSK-0462 — HU `assignee` field (PR #865)**. New whitelisted field on `EDITABLE_HU_FIELDS`. Free-form string (a name, a machine id, an email) so two runners working on the same cohort can claim their slice. Persists via the same atomic-write path as the other editable HU fields.
+
+**What this unlocks**. v2.31.0 closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last roadmap item before the v3.0 Brain rewrite can rely on a stable multi-runner substrate. Multiple machines can now share a plan, see each other's progress on the same board, and claim non-overlapping work via `assignee`, without trampling each other.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
