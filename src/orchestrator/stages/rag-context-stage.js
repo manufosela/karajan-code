@@ -11,7 +11,24 @@ import { query } from "../../rag/retriever.js";
 
 const DEFAULT_TOP_K = 5;
 const DEFAULT_SCOPE = "all";
+const DEFAULT_SEARCH_MODE = "hybrid";
+const DEFAULT_SEARCH_ALPHA = 0.6;
 const MAX_CHUNK_CHARS = 600;
+
+// KJC-TSK-0463 — pull search-time knobs from config so the HU Board
+// modal (rag.search.{mode,alpha,rerank}) actually steers retrieval at
+// pipeline time. Returns the args object query() expects; unset fields
+// fall back to the retriever's own defaults.
+export function resolveSearchOpts(config) {
+  const s = config?.rag?.search ?? {};
+  const out = {
+    mode: typeof s.mode === "string" ? s.mode : DEFAULT_SEARCH_MODE,
+    alpha: Number.isFinite(s.alpha) ? s.alpha : DEFAULT_SEARCH_ALPHA,
+  };
+  if (s.rerank && typeof s.rerank === "object") out.rerankOpts = s.rerank;
+  else if (s.rerank === true) out.rerankOpts = {};
+  return out;
+}
 
 /**
  * Runs the RAG preload stage. Returns:
@@ -36,7 +53,8 @@ export async function runRagContextStage({ config, logger, emitter, eventBase, t
       const topK = preload.topK || DEFAULT_TOP_K;
       const scope = preload.scope || DEFAULT_SCOPE;
       const embedder = makeEmbedder(config);
-      const hits = await query(db, embedder, task, { topK, scope });
+      const searchOpts = resolveSearchOpts(config);
+      const hits = await query(db, embedder, task, { topK, scope, ...searchOpts });
       if (hits.length === 0) return { skipped: true, reason: "no-hits" };
       const lines = hits.map((h) => {
         const label = h.metadata?.hu_id || h.metadata?.symbol || h.metadata?.headingPath?.join(" > ") || "block";
@@ -46,7 +64,7 @@ export async function runRagContextStage({ config, logger, emitter, eventBase, t
       const contextBlock = `## Prior context from RAG (auto-retrieved, top ${hits.length})\n\n${lines.join("\n\n")}`;
       emitProgress(emitter, makeEvent("rag-preload:hits", { ...eventBase, stage: "rag-preload" }, {
         message: `RAG preload: injected ${hits.length} chunk(s) into the task context`,
-        detail: { topK, scope, hits: hits.length },
+        detail: { topK, scope, hits: hits.length, mode: searchOpts.mode, alpha: searchOpts.alpha, rerank: Boolean(searchOpts.rerankOpts) },
       }));
       return { skipped: false, contextBlock, hits };
     } finally {

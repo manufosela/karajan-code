@@ -79,6 +79,9 @@ describe("config-yaml — categories metadata (v2.30.0)", () => {
       "ragPreloadTopK",
       "ragPreloadScope",
       "ragEmbedderProvider",
+      "ragSearchMode",
+      "ragSearchAlpha",
+      "ragSearchRerank",
     ]);
   });
 
