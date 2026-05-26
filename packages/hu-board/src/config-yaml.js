@@ -235,11 +235,10 @@ export const EDITABLE_FIELDS = [
     help: 'Orquestador IA central: enriquece feedback, comprime outputs y verifica cambios reales. Opt-in.',
     default: false,
   },
-  // v2.30.0 — RAG controls. Sólo se exponen las claves que el código
-  // realmente lee hoy (rag.preload.* en rag-context-stage.js y
-  // rag.embedder.provider en embedders/factory.js). mode/alpha/rerank
-  // se controlan vía flags CLI; cuando se cableen en config se añadirán
-  // aquí (ver task #99).
+  // v2.30.0 — RAG controls. Cubren los tres ejes que afectan al
+  // retrieval en tiempo de pipeline: pre-carga (rag.preload.*),
+  // proveedor de embeddings (rag.embedder.provider) y parámetros de
+  // búsqueda (rag.search.*, cableados al stage en KJC-TSK-0463).
   {
     key: 'ragPreloadEnabled',
     path: 'rag.preload.enabled',
@@ -279,6 +278,39 @@ export const EDITABLE_FIELDS = [
     help: 'Ollama local es gratis. OpenAI/Voyage/Cohere/Mistral son cloud (requieren API key). ONNX corre 100% local con @huggingface/transformers.',
     options: ['ollama', 'openai', 'voyage', 'cohere', 'mistral', 'onnx'],
     default: 'ollama',
+  },
+  // KJC-TSK-0463 — search-time knobs ahora cableados al stage.
+  // mode/alpha controlan el fuse semantic vs keyword; rerank activa el
+  // cross-encoder opcional (más calidad, más latencia).
+  {
+    key: 'ragSearchMode',
+    path: 'rag.search.mode',
+    category: 'rag',
+    type: 'select',
+    label: 'Modo de búsqueda RAG',
+    help: '"hybrid" mezcla semántico + BM25 (recomendado). "semantic" sólo embeddings. "keyword" sólo BM25 (útil si los embeddings están desafinados).',
+    options: ['hybrid', 'semantic', 'keyword'],
+    default: 'hybrid',
+  },
+  {
+    key: 'ragSearchAlpha',
+    path: 'rag.search.alpha',
+    category: 'rag',
+    type: 'number',
+    label: 'Alpha del modo hybrid (0-1)',
+    help: 'Peso del scoring semántico vs keyword en modo hybrid. 1.0 = sólo semántico, 0.0 = sólo BM25, 0.6 (default) = inclinado a semántico.',
+    min: 0,
+    max: 1,
+    default: 0.6,
+  },
+  {
+    key: 'ragSearchRerank',
+    path: 'rag.search.rerank',
+    category: 'rag',
+    type: 'boolean',
+    label: 'Activar rerank cross-encoder',
+    help: 'Re-puntúa los topK supervivientes con un cross-encoder. Mejora calidad pero añade latencia y requiere modelo extra. Opt-in.',
+    default: false,
   },
   // KJC-PRP-0002 PR5: when the board scans plans, it visits both
   // ~/.karajan/plans/<slug>/ (per-user cache) and .karajan-shared/plans/
