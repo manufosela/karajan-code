@@ -1,4 +1,4 @@
-const DNI_LETTERS = 'TRWAGMYFPDXBNJZSQVHLCKE';
+const DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE";
 const DNI_REGEX = /^(\d{8})([A-Za-z])$/;
 
 /**
@@ -7,13 +7,13 @@ const DNI_REGEX = /^(\d{8})([A-Za-z])$/;
  * @returns {{ valid: boolean, error: string|null }}
  */
 export function validateDNI(input) {
-  if (typeof input !== 'string') {
-    return { valid: false, error: 'Formato inválido: se esperan 8 dígitos y una letra' };
+  if (typeof input !== "string") {
+    return { valid: false, error: "Formato inválido: se esperan 8 dígitos y una letra" };
   }
 
   const match = input.match(DNI_REGEX);
   if (!match) {
-    return { valid: false, error: 'Formato inválido: se esperan 8 dígitos y una letra' };
+    return { valid: false, error: "Formato inválido: se esperan 8 dígitos y una letra" };
   }
 
   const digits = parseInt(match[1], 10);
@@ -21,7 +21,10 @@ export function validateDNI(input) {
   const expectedLetter = DNI_LETTERS[digits % 23];
 
   if (letter !== expectedLetter) {
-    return { valid: false, error: `Letra inválida: se esperaba '${expectedLetter}', se recibió '${letter}'` };
+    return {
+      valid: false,
+      error: `Letra inválida: se esperaba '${expectedLetter}', se recibió '${letter}'`,
+    };
   }
 
   return { valid: true, error: null };

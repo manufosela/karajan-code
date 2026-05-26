@@ -77,11 +77,14 @@ export default [
     rules: {
       // --- Hard fail (the bug-killers) -------------------------------
       "no-undef": "error",
-      "import-x/no-unresolved": ["error", {
-        // Node built-ins like "node:fs" are fine even though no JS
-        // file lives behind them.
-        ignore: ["^node:"],
-      }],
+      "import-x/no-unresolved": [
+        "error",
+        {
+          // Node built-ins like "node:fs" are fine even though no JS
+          // file lives behind them.
+          ignore: ["^node:"],
+        },
+      ],
       "import-x/named": "error",
 
       // --- Soft signals (warn, not error) ----------------------------
@@ -89,11 +92,14 @@ export default [
       // 2026-04-30 cleanup pass that closed 57 warnings across 30
       // files. With src/ at 0 warnings, the next no-unused-vars
       // regression should fail CI, not silently accumulate.
-      "no-unused-vars": ["error", {
-        argsIgnorePattern: "^_",
-        varsIgnorePattern: "^_",
-        caughtErrors: "none",
-      }],
+      "no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrors: "none",
+        },
+      ],
       // Same ratchet rationale: these were warnings while the cleanup
       // backlog existed; the same PR closed them all, so they're now
       // hard errors. A regression is louder than a "warn".
@@ -116,13 +122,16 @@ export default [
       // The selector matches both reads (`globalThis.__KJ_FOO`) and
       // writes (`globalThis.__KJ_FOO = ...`), which is what we want —
       // production code shouldn't touch these at all.
-      "no-restricted-syntax": ["error", {
-        selector: "MemberExpression[object.name='globalThis'][property.name=/^__KJ_/]",
-        message:
-          "globalThis.__KJ_* is a test-only override surface. " +
-          "Read/write it only from src/config/test-harness.js, then expose " +
-          "the value through a typed config getter that the rest of src/ uses.",
-      }],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='globalThis'][property.name=/^__KJ_/]",
+          message:
+            "globalThis.__KJ_* is a test-only override surface. " +
+            "Read/write it only from src/config/test-harness.js, then expose " +
+            "the value through a typed config getter that the rest of src/ uses.",
+        },
+      ],
     },
   },
   {
@@ -185,9 +194,12 @@ export default [
     rules: {
       // --- Hard fail (the bug-killers) -------------------------------
       "no-undef": "error",
-      "import-x/no-unresolved": ["error", {
-        ignore: ["^node:"],
-      }],
+      "import-x/no-unresolved": [
+        "error",
+        {
+          ignore: ["^node:"],
+        },
+      ],
       "import-x/named": "error",
 
       // --- Soft signals (warn, not error) ----------------------------

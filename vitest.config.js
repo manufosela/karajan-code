@@ -12,17 +12,11 @@ const basicReporterPath = fileURLToPath(
 export default defineConfig({
   resolve: {
     alias: {
-      basic: basicReporterPath
-    }
+      basic: basicReporterPath,
+    },
   },
   test: {
-    exclude: [
-      "node_modules/**",
-      "packages/**",
-      ".claude/**",
-      ".kj/**",
-      "demo/**"
-    ],
+    exclude: ["node_modules/**", "packages/**", ".claude/**", ".kj/**", "demo/**"],
     setupFiles: ["./tests/setup.js"],
     testTimeout: 30000,
     // Audit recommendation #7: per-directory coverage thresholds for the
@@ -39,8 +33,8 @@ export default defineConfig({
       include: ["src/**/*.js"],
       exclude: [
         "src/**/*.test.js",
-        "src/cli.js",                  // the CLI entry — exercised by e2e
-        "src/mcp/server.js",           // long-running process, hard to unit
+        "src/cli.js", // the CLI entry — exercised by e2e
+        "src/mcp/server.js", // long-running process, hard to unit
       ],
       thresholds: {
         // Per-glob targets reflect the audit's prioritisation:
@@ -56,5 +50,5 @@ export default defineConfig({
         functions: 40,
       },
     },
-  }
+  },
 });

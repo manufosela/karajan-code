@@ -30,11 +30,5 @@
     "src/brain/solomon-consult.js",
     "src/session/journal/**/*.js"
   ],
-  "exclude": [
-    "node_modules",
-    "packages",
-    "dist",
-    "coverage",
-    "tests"
-  ]
+  "exclude": ["node_modules", "packages", "dist", "coverage", "tests"]
 }

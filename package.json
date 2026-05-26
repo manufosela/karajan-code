@@ -58,6 +58,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "lint:syntax": "((command -v rg >/dev/null 2>&1 && rg --files src tests | rg '\\.js$') || find src tests -type f -name '*.js') | while IFS= read -r f; do node --check \"$f\"; done",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write .",
     "typecheck": "npx -p typescript@5 tsc --noEmit -p tsconfig.json",
     "validate": "npm run lint && npm run lint:syntax && npm test",
     "mcp": "node src/mcp/server.js"
@@ -93,6 +95,7 @@
     "globals": "^17.5.0",
     "lint-staged": "^16.4.0",
     "postject": "^1.0.0-alpha.6",
+    "prettier": "^3.4.2",
     "simple-git-hooks": "^2.13.1",
     "vitest": "^4.0.0"
   }
