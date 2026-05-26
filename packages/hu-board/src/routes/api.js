@@ -557,7 +557,11 @@ const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'blocked
 // KJC-TSK-0406: coder_model y reviewer_model son editables desde el
 // modal del board. Independientes — el usuario puede subir el reviewer
 // y bajar el coder sin afectar al resto del plan.
-const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by', 'coder_model', 'reviewer_model', 'coder_provider', 'reviewer_provider'];
+// KJC-PRP-0002 PR6: `assignee` is editable from the board modal when the
+// project is team-shared. The whitelist itself is project-agnostic — the
+// modal hides the input on non-shared projects, but accepting the field
+// here doesn't hurt (sync just stores it).
+const EDITABLE_HU_FIELDS = ['title', 'scope', 'task_type', 'acceptance_criteria', 'acceptance_tests', 'blocked_by', 'coder_model', 'reviewer_model', 'coder_provider', 'reviewer_provider', 'assignee'];
 
 router.patch('/stories/:id', (req, res) => {
   try {

@@ -504,6 +504,10 @@ export function syncPlanFile(filePath) {
         reviewer_model: hu.reviewer_model || null,
         coder_provider: hu.coder_provider || null,
         reviewer_provider: hu.reviewer_provider || null,
+        // KJC-PRP-0002 PR6: optional handle of the owner of this HU
+        // (free-form string). Only surfaced in UI when project is_shared,
+        // but stored unconditionally so values survive share/unshare flips.
+        assignee: typeof hu.assignee === 'string' && hu.assignee.trim() ? hu.assignee.trim() : null,
       });
     }
 

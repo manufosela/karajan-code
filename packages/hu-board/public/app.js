@@ -193,6 +193,10 @@ async function triggerSync() {
 
 const projectInitialsCache = {};
 const projectNameCache = {};
+// KJC-PRP-0002 PR6: cache project.is_shared so the HU modal can gate the
+// "Asignado a" field without re-fetching /api/projects/:id each open.
+// 0/1 mirror what sqlite stores; undefined = not yet hydrated.
+const projectIsSharedCache = {};
 
 /**
  * Humanise a slug-ish project id so the board can show
@@ -251,11 +255,13 @@ async function resolveProjectMeta(projectId) {
     const initials = deriveInitialsFromName(rawName);
     projectInitialsCache[projectId] = initials;
     projectNameCache[projectId] = rawName;
+    projectIsSharedCache[projectId] = project.is_shared === 1 ? 1 : 0;
     return { initials, name: rawName };
   } catch {
     const fallbackName = humaniseProjectName(projectId);
     projectInitialsCache[projectId] = deriveInitialsFromName(fallbackName);
     projectNameCache[projectId] = fallbackName;
+    projectIsSharedCache[projectId] = 0;
     return { initials: projectInitialsCache[projectId], name: fallbackName };
   }
 }
@@ -1668,6 +1674,31 @@ window.saveHuModels = async function saveHuModels(storyId) {
   }
 };
 
+// KJC-PRP-0002 PR6: persist `hu.assignee` (free-form handle of whoever owns
+// this HU on a team-shared board). Empty string → null so the API knows to
+// clear, not store "". The modal only renders the input when the project is
+// `is_shared = 1`, so non-team boards never trigger this path.
+window.saveHuAssignee = async function saveHuAssignee(storyId) {
+  const input = document.getElementById('hu-assignee');
+  const value = input?.value?.trim() || null;
+  try {
+    const res = await fetch(`/api/stories/${encodeURIComponent(storyId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignee: value }),
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+      await showError(msg, { title: 'No se pudo guardar el asignado' });
+      return;
+    }
+    await fetch('/api/sync', { method: 'POST' }).catch(() => {});
+    await renderBoard();
+  } catch (err) {
+    await showError(err.message || String(err), { title: 'Fallo guardando asignado' });
+  }
+};
+
 // KJC-TSK-0408: deshace los cambios de una HU restaurando el snapshot
 // git tomado pre-run. ATENCIÓN: es destructivo (git reset --hard) —
 // confirmamos siempre antes de invocar.
@@ -2431,6 +2462,27 @@ async function showStoryDetail(storyId) {
               </button>
               <span style="color:var(--text-muted);font-size:0.75rem">vacío → re-asignar automáticamente</span>
             </div>
+          ` : ''}
+        </div>
+      ` : ''}
+
+      ${projectIsSharedCache[story.project_id] === 1 ? `
+        <!-- KJC-PRP-0002 PR6: per-HU assignee — only surfaced when the
+             project is team-shared. Free-form string; no entity table. -->
+        <div class="modal__section">
+          <div class="modal__section-title">Asignado a</div>
+          <div class="modal__field-value" style="font-family:monospace">${esc(story.assignee || '—')}</div>
+          ${canEdit ? `
+            <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+              <input id="hu-assignee" type="text" placeholder="@manu, dev_016, becaria…"
+                     value="${esc(story.assignee || '')}"
+                     style="flex:1;padding:4px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:0.8rem">
+              <button onclick="saveHuAssignee('${esc(story.id)}')" class="control-btn"
+                      style="padding:4px 10px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:0.8rem">
+                💾 Save
+              </button>
+            </div>
+            <div style="margin-top:4px;color:var(--text-muted);font-size:0.75rem">vacío → sin asignar</div>
           ` : ''}
         </div>
       ` : ''}
