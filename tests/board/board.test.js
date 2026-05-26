@@ -53,6 +53,9 @@ describe("config defaults include hu_board", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-cfg-test-"));
     const prevKjHome = process.env.KJ_HOME;
     process.env.KJ_HOME = tmpDir;
+    // loadConfig refuses local config without a global counterpart
+    // (KJC-TSK-0395). Pre-seed an empty global config.
+    fs.writeFileSync(path.join(tmpDir, "kj.config.yml"), "");
     try {
       const { loadConfig } = await import("../../src/config.js");
       const { config } = await loadConfig();
