@@ -14,6 +14,7 @@ import {
   removeTombstone,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
+import { getSharedPlansDir, SHARED_DIR_NAME } from '../../../src/utils/shared-paths.js';
 
 /**
  * Skip + best-effort fs cleanup when the resource is tombstoned. Returns
@@ -550,7 +551,46 @@ export function fullScan() {
     }
   }
 
+  // KJC-PRP-0002 PR2: team-shared plans live under <projectDir>/.karajan-shared/plans/
+  // (committed to git so teammates pulling the repo see the same HUs without
+  // having to re-run `kj plan generate`). The board reads them on top of the
+  // per-user `~/.karajan/plans/` cache. If both exist for the same planId,
+  // `syncPlanFile`'s upsert uses planId as key — last write wins, which is
+  // fine because both copies share the same content modulo the `shared:true`
+  // marker stamped by `kj plan share`.
+  scanSharedPlans();
+
   console.log('[sync] Full scan completed');
+}
+
+/**
+ * Scans `<projectDir>/.karajan-shared/plans/` for every known projectDir
+ * and feeds each plan into `syncPlanFile`. Discovery sources:
+ *   1. `process.cwd()` — covers the canonical case of running `kj board start`
+ *      from a project root with a freshly cloned `.karajan-shared/` and zero
+ *      local plans yet.
+ *   2. `KJ_SHARED_PROJECT_DIRS` env var (colon-separated paths) — escape
+ *      hatch for users running the board outside the project root or
+ *      tracking several repos with one board instance.
+ */
+function scanSharedPlans() {
+  const dirs = new Set([process.cwd()]);
+  const extra = process.env.KJ_SHARED_PROJECT_DIRS;
+  if (extra) {
+    for (const p of extra.split(':')) if (p) dirs.add(p);
+  }
+  for (const projectDir of dirs) {
+    const sharedDir = getSharedPlansDir(projectDir);
+    if (!existsSync(sharedDir)) continue;
+    try {
+      const files = readdirSync(sharedDir);
+      for (const file of files) {
+        if (file.startsWith('plan-') && file.endsWith('.json')) {
+          syncPlanFile(join(sharedDir, file));
+        }
+      }
+    } catch { /* skip */ }
+  }
 }
 
 /**
@@ -576,6 +616,17 @@ export function startWatcher() {
 
   const watchTargets = [storiesGlob, sessionsGlob, plansGlob, promptsGlob];
   if (legacyPlansGlob) watchTargets.push(legacyPlansGlob);
+  // KJC-PRP-0002 PR2: live-watch shared plans for the board's cwd + any
+  // dir listed in KJ_SHARED_PROJECT_DIRS. Without this, `kj plan share`
+  // updates would only land via the next fullScan / manual 🔄.
+  const sharedDirs = new Set([process.cwd()]);
+  const extraShared = process.env.KJ_SHARED_PROJECT_DIRS;
+  if (extraShared) {
+    for (const p of extraShared.split(':')) if (p) sharedDirs.add(p);
+  }
+  for (const d of sharedDirs) {
+    watchTargets.push(join(d, SHARED_DIR_NAME, 'plans', 'plan-*.json'));
+  }
   const watcher = watch(watchTargets, {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 500, pollInterval: 100 },
@@ -585,6 +636,9 @@ export function startWatcher() {
     if (p.includes('hu-stories')) syncStoryFile(p);
     else if (p.includes('sessions')) syncSessionFile(p);
     else if (p.includes(`${plansRoot}${plansRoot.endsWith('/') ? '' : '/'}`) || p.includes('/plans/')) {
+      // Catches both per-user `~/.karajan/plans/<slug>/plan-*.json` and
+      // team-shared `<projectDir>/.karajan-shared/plans/plan-*.json` — the
+      // path-segment match `/plans/` is the same for both.
       syncPlanFile(p);
     } else if (p.includes('/prompts/')) {
       // Prompt files are RPC packets the runner writes when it needs
