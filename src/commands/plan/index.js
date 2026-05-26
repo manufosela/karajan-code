@@ -9,3 +9,4 @@ export { planAddHuCommand } from "./add-hu.js";
 export { planRemoveHuCommand } from "./remove-hu.js";
 export { planMigrateResultCommand } from "./migrate-result.js";
 export { planFixCommand } from "./fix.js";
+export { planShareCommand } from "./share.js";

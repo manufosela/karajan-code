@@ -9,6 +9,7 @@ import {
   planRemoveHuCommand,
   planMigrateResultCommand,
   planFixCommand,
+  planShareCommand,
 } from "../commands/plan.js";
 import { parseCanvasMarkdown } from "../canvas/parse-md.js";
 import { validateCanvas } from "../canvas/validate.js";
@@ -139,6 +140,19 @@ export function registerPlan(program, { pkgVersion }) {
       await planDeleteCommand({ config, planId });
     });
   });
+
+  // KJC-PRP-0002 / v2.31.0 PR1: promote a local plan into the project's
+  // `.karajan-shared/plans/` so teammates picking up the repo (or the same
+  // dev on another machine) see it in their HU Board without re-running
+  // the planner. The shared dir is meant to be committed to git.
+  plan.command("share")
+    .description("Promote a local plan to <projectDir>/.karajan-shared/ so the team can see it")
+    .argument("<planId>")
+    .action(async (planId, flags) => {
+      await withConfig(pkgVersion, "plan", flags, async ({ config, logger }) => {
+        await planShareCommand({ config, planId, logger });
+      });
+    });
 
   plan.command("add-hu").description("Add HU to plan").argument("<planId>")
     .option("--title <text>", "HU title")
