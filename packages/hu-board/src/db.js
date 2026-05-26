@@ -304,6 +304,12 @@ export function initDb() {
   try { db.exec('ALTER TABLE stories ADD COLUMN reviewer_model TEXT'); } catch { /* already migrated */ }
   try { db.exec('ALTER TABLE stories ADD COLUMN coder_provider TEXT'); } catch { /* already migrated */ }
   try { db.exec('ALTER TABLE stories ADD COLUMN reviewer_provider TEXT'); } catch { /* already migrated */ }
+  // KJC-PRP-0002 PR6: free-form handle of the human (or dev_XXX AI) who
+  // owns this HU on a team-shared board. NULL = unassigned. Only surfaced
+  // in the UI when the parent project is `is_shared = 1`, but stored
+  // unconditionally so solo devs who later promote a plan don't lose
+  // values they typed pre-share.
+  try { db.exec('ALTER TABLE stories ADD COLUMN assignee TEXT'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
@@ -370,7 +376,7 @@ export function upsertStory(story) {
       antipatterns, ac_format, acceptance_criteria,
       created_at, updated_at, certified_at, plan_id,
       ac_count, test_count, blocked_by, acceptance_tests, plan_order, spec_section, outcome, result,
-      coder_model, reviewer_model, coder_provider, reviewer_provider
+      coder_model, reviewer_model, coder_provider, reviewer_provider, assignee
     ) VALUES (
       @id, @project_id, @session_id, @status, @title, @original_text,
       @certified_as, @certified_want, @certified_so_that,
@@ -378,7 +384,7 @@ export function upsertStory(story) {
       @antipatterns, @ac_format, @acceptance_criteria,
       @created_at, @updated_at, @certified_at, @plan_id,
       @ac_count, @test_count, @blocked_by, @acceptance_tests, @plan_order, @spec_section, @outcome, @result,
-      @coder_model, @reviewer_model, @coder_provider, @reviewer_provider
+      @coder_model, @reviewer_model, @coder_provider, @reviewer_provider, @assignee
     )
     ON CONFLICT(id) DO UPDATE SET
       status = @status,
@@ -411,7 +417,8 @@ export function upsertStory(story) {
       coder_model = COALESCE(@coder_model, coder_model),
       reviewer_model = COALESCE(@reviewer_model, reviewer_model),
       coder_provider = COALESCE(@coder_provider, coder_provider),
-      reviewer_provider = COALESCE(@reviewer_provider, reviewer_provider)
+      reviewer_provider = COALESCE(@reviewer_provider, reviewer_provider),
+      assignee = COALESCE(@assignee, assignee)
   `);
   stmt.run({
     id: story.id,
@@ -449,6 +456,7 @@ export function upsertStory(story) {
     reviewer_model: story.reviewer_model || null,
     coder_provider: story.coder_provider || null,
     reviewer_provider: story.reviewer_provider || null,
+    assignee: story.assignee || null,
   });
 }
 

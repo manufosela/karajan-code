@@ -68,6 +68,12 @@ export function addHu(plan, huData) {
     coder_provider: huData.coder_provider ?? null,
     reviewer_model: huData.reviewer_model ?? null,
     reviewer_provider: huData.reviewer_provider ?? null,
+    // KJC-PRP-0002 PR6: optional handle of the human (or AI dev_XXX) who
+    // owns this HU in a team-shared board. null = unassigned. Free-form
+    // string — the board prints it as-is; no entity table is enforced
+    // because team rosters are out of scope (and would force every solo
+    // dev to register themselves).
+    assignee: huData.assignee ?? null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -106,7 +112,7 @@ export function updateHu(plan, huId, patch) {
   // KJC-TSK-0405: coder_model y reviewer_model son override per-HU del
   // routing automático del triage. Independientes — el usuario puede
   // subir el reviewer sin tocar el coder, o viceversa.
-  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result", "short_id", "coder_model", "reviewer_model", "coder_provider", "reviewer_provider"];
+  const allowed = ["title", "task_type", "scope", "acceptance_criteria", "acceptance_tests", "blocked_by", "reuse", "spec_section", "result", "short_id", "coder_model", "reviewer_model", "coder_provider", "reviewer_provider", "assignee"];
   for (const key of allowed) {
     if (patch[key] !== undefined) hu[key] = patch[key];
   }
