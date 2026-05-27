@@ -92,7 +92,7 @@ describe("e2e/07 — kj audit on a smelly tmp repo", () => {
 
     const r = runKj(
       ["audit", "--agent-readiness", "--json", "--path", proj.projectDir],
-      { cwd: proj.projectDir, timeoutMs: 60_000 }
+      { cwd: proj.projectDir, timeoutMs: 120_000 }
     );
 
     expect(r.exitCode, `audit stderr: ${r.stderr}`).toBe(0);
@@ -108,5 +108,5 @@ describe("e2e/07 — kj audit on a smelly tmp repo", () => {
 
     // And the entire stdout must parse without any preprocessing.
     expect(() => JSON.parse(r.stdout)).not.toThrow();
-  }, 90_000);
+  }, 180_000);
 });

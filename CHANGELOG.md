@@ -27,6 +27,7 @@ Minor release. **AI Harness Scorecard hardening (KJC-PCS-0051)** — Plan A clos
 
 - **PR #869 (KJC-BUG-0065) — 42 failing tests on `main` repaired**. Tests broken by drift across multiple modules restored to green. The whole hardening sprint sits on top of a clean `main` again.
 - **PR #871 (KJC-BUG-0066) — `await openEditor` in spec-reviewer refine-loop**. `src/spec-review/refine-loop.js` was firing the editor without awaiting it; under `--task-file` mode the SHA hash diff read the v2 contents before the user finished editing, falsely reporting `hashChanged: false`. The async call is now awaited end-to-end.
+- **KJC-BUG-0067 — `tests/e2e/07-kj-audit.test.js` second `it` flaky on Node 20.x runners**. The "logger banner contamination" pin was timing out at 60s on Node 20.x GHA runners (Node 22.x stayed under 30s). Aligned the `runKj` `timeoutMs` (60 000 → 120 000) and vitest test timeout (90 000 → 180 000) with the heavier e2e tests in the same file.
 
 ### Tests
 
