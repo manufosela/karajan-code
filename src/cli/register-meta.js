@@ -115,15 +115,25 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--scope <scope>", "plans | code | onboarding | all (default: all)", "all")
     .option("--top-k <n>", "Number of hits to return (default: 5)", "5")
     .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project. Default: cwd basename")
-    .option("--mode <mode>", "hybrid (default) | semantic (cosine only) | keyword (BM25 only)", "hybrid")
+    // KJC-BUG-0070 — the global `--mode` flag maps to `review_mode` in
+    // src/config/overrides.js. We expose the rag-specific knob under
+    // `--rag-mode` to avoid the collision (which crashed the command on
+    // first call). Internally we rebind to `flags.mode` so the handler
+    // in src/commands/rag.js stays untouched.
+    .option("--rag-mode <mode>", "hybrid (default) | semantic (cosine only) | keyword (BM25 only)", "hybrid")
     .option("--alpha <n>", "Hybrid weight for semantic component (0..1). Default 0.6", "0.6")
     .option("--where <clause>", "Metadata filter, e.g. 'symbol=loadConfig' or 'hu_id=HU-003 AND kind=plan'")
     .option("--rerank", "Apply cross-encoder rerank to top-K (needs @huggingface/transformers, slower but more precise)")
     .option("--rerank-model <name>", "Cross-encoder model id. Default: Xenova/ms-marco-MiniLM-L-6-v2")
     .option("--json", "Output the hits as JSON")
     .action(async (text, flags) => {
+      // Stash the rag-specific mode and remove it from the flags object so
+      // applyScalarAndBooleanOverrides cannot see a `flags.mode` and write
+      // out.review_mode = "hybrid" — that would fail the schema validator.
+      const ragMode = flags.ragMode;
+      delete flags.ragMode;
       await withConfig(pkgVersion, "rag-query", flags, async ({ config, logger }) => {
-        await ragQueryCommand({ text, config, logger, flags });
+        await ragQueryCommand({ text, config, logger, flags: { ...flags, mode: ragMode } });
       });
     });
 
