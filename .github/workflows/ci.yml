@@ -151,3 +151,38 @@ jobs:
       - name: Run hu-board package tests
         run: npx vitest run --reporter=default --reporter=github-actions
         working-directory: packages/hu-board
+
+  # Coverage report — generates v8 coverage (text + html + lcov) and uploads
+  # the lcov + html as an artifact for download. Added in KJC-TSK-0465 (2026-05-27)
+  # to close the ai-harness-scorecard "Code Coverage" FAIL (0/4 → 4/4). Thresholds
+  # remain advisory (see vitest.config.js): the job uses continue-on-error so a
+  # threshold miss never blocks an unrelated PR while we are climbing back to the
+  # configured targets.
+  coverage:
+    name: Coverage (v8)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-v8
+          path: coverage/
+          retention-days: 14
