@@ -28,10 +28,12 @@ Minor release. **AI Harness Scorecard hardening (KJC-PCS-0051)** — Plan A clos
 - **PR #869 (KJC-BUG-0065) — 42 failing tests on `main` repaired**. Tests broken by drift across multiple modules restored to green. The whole hardening sprint sits on top of a clean `main` again.
 - **PR #871 (KJC-BUG-0066) — `await openEditor` in spec-reviewer refine-loop**. `src/spec-review/refine-loop.js` was firing the editor without awaiting it; under `--task-file` mode the SHA hash diff read the v2 contents before the user finished editing, falsely reporting `hashChanged: false`. The async call is now awaited end-to-end.
 - **KJC-BUG-0067 — `tests/e2e/07-kj-audit.test.js` second `it` flaky on Node 20.x runners**. The "logger banner contamination" pin was timing out at 60s on Node 20.x GHA runners (Node 22.x stayed under 30s). Aligned the `runKj` `timeoutMs` (60 000 → 120 000) and vitest test timeout (90 000 → 180 000) with the heavier e2e tests in the same file.
+- **KJC-BUG-0068 — RAG dashboard 500 on legacy `rag.db` schema**. `GET /api/rag/stats` was crashing with `no such column: project_slug` when the local DB predated KJC-TSK-0438 (v2.27.0). The readonly handler cannot run the `ALTER TABLE` migration, so the dashboard at `/rag.html` stayed permanently broken for any user with a pre-v2.27 DB. Fixed defensively: detect the column via `PRAGMA table_info` and return `by_project=[]` + `schema_legacy=true` when absent. Regression test added.
+- **KJC-BUG-0069 — HU Board Settings modal: alpha spinbutton invalid (`stepMismatch`)**. The "Alpha del modo hybrid (0-1)" field arrived without an explicit `step`, so HTML5 applied `step=1` by default and refused the schema's `0.6` default with `validity.stepMismatch=true`, breaking save. Fix lives in two layers so future fractional defaults Just Work: declared `step: 'any'` in the `ragSearchAlpha` schema (`config-yaml.js`) and propagated `f.step` through the number-input template in the renderer (`public/app.js`).
 
 ### Tests
 
-5 237 / 5 237 passing in CI across 461 test files.
+5 238 / 5 238 passing in CI across 461 test files.
 
 ## [2.31.0] - 2026-05-26
 

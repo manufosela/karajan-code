@@ -3352,7 +3352,10 @@ async function showConfigEditor(scope = 'global') {
         <span style="font-size:0.85rem;color:var(--text-muted);">${f.value ? 'activado' : 'desactivado'}</span>
       </label>`;
     } else if (f.type === 'number') {
-      input = `<input type="number" id="${id}" data-key="${esc(f.key)}" value="${esc(String(f.value))}"${f.min != null ? ` min="${f.min}"` : ''}${f.max != null ? ` max="${f.max}"` : ''} style="width:120px;padding:6px 8px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">`;
+      // KJC-BUG-0069 — honour the schema's `step` (e.g. 'any' for floats like
+      // rag.search.alpha=0.6). HTML5 number inputs default to step=1, which
+      // marks any fractional value as stepMismatch and refuses to commit.
+      input = `<input type="number" id="${id}" data-key="${esc(f.key)}" value="${esc(String(f.value))}"${f.min != null ? ` min="${f.min}"` : ''}${f.max != null ? ` max="${f.max}"` : ''}${f.step != null ? ` step="${esc(String(f.step))}"` : ''} style="width:120px;padding:6px 8px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);">`;
     }
     return `
       <div style="margin-bottom:14px;">
