@@ -41,7 +41,8 @@ export default defineConfig({
     // strict for a project this size; we want directory-level signal.
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
+      // lcov added for CI artifact + Codecov-compatible tooling (KJC-TSK-0465).
+      reporter: ["text", "html", "lcov"],
       include: ["src/**/*.js"],
       exclude: [
         "src/**/*.test.js",
