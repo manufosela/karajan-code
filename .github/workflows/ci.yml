@@ -37,6 +37,29 @@ jobs:
       - name: Lint (node --check — parse-time syntax)
         run: npm run lint:syntax
 
+  # Conventional Commits enforcement on PR head. Closes the
+  # ai-harness-scorecard "Mechanical Constraints / Conventional Commits"
+  # FAIL by adding CI-side enforcement on top of the local pre-commit hook
+  # (KJC-TSK-0466, 2026-05-27). wagoid/commitlint-github-action handles
+  # checkout depth, fetches the PR commit range, and runs commitlint with
+  # the config in .commitlintrc.json.
+  commitlint:
+    name: Commit messages (Conventional Commits)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Lint PR commits
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+          failOnWarnings: false
+
   # Prettier check — blocks PRs whose formatting drifts from the repo's
   # .prettierrc.json. Added in KJC-TSK-0464 (2026-05-26) to close the
   # ai-harness-scorecard "Formatter Enforcement" FAIL. Scope is
