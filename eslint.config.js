@@ -50,6 +50,7 @@
 
 import js from "@eslint/js";
 import importX from "eslint-plugin-import-x";
+import security from "eslint-plugin-security";
 import globals from "globals";
 
 export default [
@@ -73,6 +74,7 @@ export default [
     },
     plugins: {
       "import-x": importX,
+      security,
     },
     rules: {
       // --- Hard fail (the bug-killers) -------------------------------
@@ -86,6 +88,23 @@ export default [
         },
       ],
       "import-x/named": "error",
+
+      // --- Unsafe code policy (KJC-TSK-0468) -------------------------
+      // High-signal rules from eslint-plugin-security. The "noisy"
+      // members of the recommended preset (`detect-object-injection`,
+      // `detect-non-literal-fs-filename`, `detect-child-process`) are
+      // intentionally NOT enabled — they flag a huge percentage of
+      // legitimate orchestrator code (fs ops on user paths, execa
+      // calls). The rules below catch concrete dynamic-code-execution
+      // and crypto smells without false-positive churn.
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-new-func": "error",
+      "security/detect-eval-with-expression": "error",
+      "security/detect-non-literal-require": "error",
+      "security/detect-pseudoRandomBytes": "error",
+      "security/detect-disable-mustache-escape": "error",
+      "security/detect-non-literal-regexp": "warn",
 
       // --- Soft signals (warn, not error) ----------------------------
       // Audit rec #8: ratchet from "warn" to "error" after the
