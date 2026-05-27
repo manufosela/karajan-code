@@ -50,7 +50,7 @@ export async function runRefinePass({ spec, findings, role, projectDir, taskFile
   } catch (err) { return { ok: false, error: `persist failed: ${err.message}`, hashChanged: false }; }
 
   const before = sha256(refineRes.refinedSpec);
-  openEditor(v2Path, { logger, openEditorFn });
+  await openEditor(v2Path, { logger, openEditorFn });
   let after;
   try { after = await _fs.readFile(v2Path, "utf8"); }
   catch (err) { return { ok: false, error: `read v2 failed: ${err.message}`, hashChanged: false }; }
