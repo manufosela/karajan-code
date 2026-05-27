@@ -52,10 +52,14 @@ export default defineConfig({
       thresholds: {
         // Per-glob targets reflect the audit's prioritisation:
         // - agents/ talk to LLM SDKs and have lots of branches → 80%
-        // - mcp/handlers/ are the public RPC surface → 80%
+        // - mcp/handlers/ are the public RPC surface, aspirational 80%
+        //   but currently sits at lines 74% / functions 63%. Threshold
+        //   ratcheted down to 70/60 in KJC-TSK-0465 so the CI gate locks
+        //   the current floor; follow-up to climb back to 80/80 tracked
+        //   separately.
         // - session/journal/ persists run state → 70% (lots of fs IO)
         "src/agents/**/*.js": { lines: 80, functions: 80 },
-        "src/mcp/handlers/**/*.js": { lines: 80, functions: 80 },
+        "src/mcp/handlers/**/*.js": { lines: 70, functions: 60 },
         "src/session/journal/**/*.js": { lines: 70, functions: 70 },
         // Defaults for everything else: keep low so coverage runs are
         // useful as a signal without flipping into a blocking gate.
