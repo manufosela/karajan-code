@@ -1,0 +1,132 @@
+name: Nightly drift detection
+
+# Closes the ai-harness-scorecard "Review & Drift Prevention" FAIL (0/3)
+# by running deterministic drift checks every night and surfacing
+# findings as a single tracking issue per category. Off-peak cron
+# (06:17 UTC) to dodge the usual GitHub Actions queue spikes.
+# KJC-TSK-0467 (2026-05-27).
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    name: Drift checks (outdated / audit / stale TODOs)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm outdated
+        id: outdated
+        continue-on-error: true
+        run: |
+          npm outdated --json > /tmp/outdated.json || true
+          count=$(jq 'length' /tmp/outdated.json 2>/dev/null || echo 0)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -gt 0 ]; then
+            jq -r 'to_entries[] | "- **\(.key)**: \(.value.current) -> \(.value.latest)"' /tmp/outdated.json > /tmp/outdated.md
+          else
+            echo "_No outdated dependencies._" > /tmp/outdated.md
+          fi
+
+      - name: npm audit
+        id: audit
+        continue-on-error: true
+        run: |
+          npm audit --omit=dev --json > /tmp/audit.json || true
+          high=$(jq '.metadata.vulnerabilities.high // 0' /tmp/audit.json 2>/dev/null || echo 0)
+          crit=$(jq '.metadata.vulnerabilities.critical // 0' /tmp/audit.json 2>/dev/null || echo 0)
+          total=$((high + crit))
+          echo "count=$total" >> "$GITHUB_OUTPUT"
+          if [ "$total" -gt 0 ]; then
+            jq -r '.vulnerabilities | to_entries[] | select(.value.severity == "high" or .value.severity == "critical") | "- **\(.key)** (\(.value.severity)): \(.value.via | if type == "array" then map(if type == "object" then .title else . end) | join(", ") else . end)"' /tmp/audit.json > /tmp/audit.md
+          else
+            echo "_No high/critical vulnerabilities._" > /tmp/audit.md
+          fi
+
+      - name: Stale TODOs (>90 days)
+        id: todos
+        continue-on-error: true
+        run: |
+          cutoff=$(date -u -d '90 days ago' +%s)
+          : > /tmp/todos.md
+          count=0
+          while IFS= read -r line; do
+            file=$(echo "$line" | cut -d: -f1)
+            lineno=$(echo "$line" | cut -d: -f2)
+            blame=$(git blame -L "$lineno,$lineno" --porcelain -- "$file" 2>/dev/null | grep '^author-time ' | head -1 | awk '{print $2}')
+            if [ -n "$blame" ] && [ "$blame" -lt "$cutoff" ]; then
+              age_days=$(( (EPOCHSECONDS - blame) / 86400 ))
+              echo "- \`$file:$lineno\` (~${age_days}d old)" >> /tmp/todos.md
+              count=$((count + 1))
+            fi
+          done < <(grep -rn -E '(TODO|FIXME)' src/ 2>/dev/null || true)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -eq 0 ]; then
+            echo "_No TODOs older than 90 days._" > /tmp/todos.md
+          fi
+
+      - name: Upsert tracking issue
+        if: steps.outdated.outputs.count != '0' || steps.audit.outputs.count != '0' || steps.todos.outputs.count != '0'
+        uses: actions/github-script@v8
+        env:
+          OUTDATED_COUNT: ${{ steps.outdated.outputs.count }}
+          AUDIT_COUNT: ${{ steps.audit.outputs.count }}
+          TODOS_COUNT: ${{ steps.todos.outputs.count }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const title = '[nightly-drift] Drift detected by nightly CI';
+            const body = [
+              `_Auto-updated by \`.github/workflows/nightly.yml\` (run [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}))._`,
+              '',
+              `## npm outdated (${process.env.OUTDATED_COUNT})`,
+              fs.readFileSync('/tmp/outdated.md', 'utf8'),
+              '',
+              `## npm audit high+critical (${process.env.AUDIT_COUNT})`,
+              fs.readFileSync('/tmp/audit.md', 'utf8'),
+              '',
+              `## Stale TODOs >90 days (${process.env.TODOS_COUNT})`,
+              fs.readFileSync('/tmp/todos.md', 'utf8'),
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'nightly-drift',
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['nightly-drift'],
+              });
+            }
