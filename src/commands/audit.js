@@ -12,7 +12,8 @@ import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
 import { formatDeterministicSummary } from "../audit/deterministic-summary.js";
 import { runHarnessSection, formatHarnessSection, harnessSummaryForJson } from "../audit/harness-section.js";
-import { persistAuditRun } from "../audit/audit-history.js";
+import { persistAuditRun, openAuditHistoryDb, getLatestPreviousRun, getRecentScores } from "../audit/audit-history.js";
+import { computeHistoryDiff, formatHistoryDiff, formatTrendSparkline } from "../audit/audit-history-display.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -193,6 +194,28 @@ async function buildReportHeader(projectDir, invocation) {
   return lines.join("\n");
 }
 
+function composeHistoryBlock({ diffMd, trendMd }) {
+  const parts = [];
+  if (diffMd) parts.push(diffMd);
+  if (trendMd) parts.push(trendMd);
+  return parts.length ? `\n\n## Harness Score History\n${parts.join("\n\n")}` : "";
+}
+
+// KJC-TSK-0473 — Resolve diff vs previous run + optional trend sparkline.
+// Errors silenced: history is a nice-to-have; a broken db must not break audit.
+function loadAuditHistoryContext(projectDir, currentHarness, { showTrend = false } = {}) {
+  let db;
+  try {
+    db = openAuditHistoryDb(projectDir);
+    if (!db) return { diff: null, diffMd: "", trendMd: "" };
+    const previous = currentHarness?.score != null ? getLatestPreviousRun(db, new Date().toISOString()) : null;
+    const diff = currentHarness?.score != null ? computeHistoryDiff(currentHarness, previous) : null;
+    const trendMd = showTrend ? formatTrendSparkline(getRecentScores(db, 10)) : "";
+    return { diff, diffMd: formatHistoryDiff(diff), trendMd };
+  } catch { return { diff: null, diffMd: "", trendMd: "" }; }
+  finally { try { db?.close(); } catch { /* noop */ } }
+}
+
 function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }) {
   const parts = ["kj audit"];
   if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
@@ -207,7 +230,7 @@ function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHar
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, reportFile = null, deterministicOnly = false, yes = false, trend = false, promptFn = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -288,18 +311,21 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       // Deterministic-only path. Produce the report from what we already
       // have, persist it (md or json), and exit. Zero tokens spent.
       const harnessJson = harnessSummaryForJson(harnessSummary);
+      const currentHarness = harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null;
+      const history = loadAuditHistoryContext(config?.projectDir || process.cwd(), currentHarness, { showTrend: trend });
+      const historyMd = composeHistoryBlock(history);
       const stdoutContent = json
-        ? JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, mode: "deterministic-only" }, null, 2)
-        : (deterministicOnly ? `${deterministicMd}\n${harnessMd}` : harnessMd); // deterministicMd already printed above when interactive
+        ? JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2)
+        : (deterministicOnly ? `${deterministicMd}\n${harnessMd}${historyMd}` : `${harnessMd}${historyMd}`);
       if (json || deterministicOnly || harnessMd) console.log(stdoutContent);
 
       if (reportPath) {
         let payload;
         if (reportPath.endsWith(".json")) {
-          payload = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, mode: "deterministic-only" }, null, 2);
+          payload = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2);
         } else {
           const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
-          payload = `${header}${deterministicMd}\n${harnessMd}`;
+          payload = `${header}${deterministicMd}\n${harnessMd}${historyMd}`;
         }
         await fs.writeFile(reportPath, payload, "utf8");
         runLog.logText(`[audit] report written (deterministic-only) → ${reportPath}`);
@@ -333,18 +359,21 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     }
 
     const harnessJson = harnessSummaryForJson(harnessSummary);
+    const currentHarness = harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null;
+    const history = loadAuditHistoryContext(config?.projectDir || process.cwd(), currentHarness, { showTrend: trend });
+    const historyMd = composeHistoryBlock(history);
     let stdoutContent;
     if (json) {
       const jsonPayload = parsed
-        ? { ...parsed, harnessScore: harnessJson, usage: usage || undefined }
-        : { ...roleResult, harnessScore: harnessJson, usage: usage || undefined };
+        ? { ...parsed, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined }
+        : { ...roleResult, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined };
       stdoutContent = JSON.stringify(jsonPayload, null, 2);
     } else if (parsed?.summary?.overallHealth) {
-      stdoutContent = `${formatAudit(parsed, usage)}\n${harnessMd}`;
+      stdoutContent = `${formatAudit(parsed, usage)}\n${harnessMd}${historyMd}`;
     } else if (parsed?.raw) {
-      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "") + `\n${harnessMd}`;
+      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "") + `\n${harnessMd}${historyMd}`;
     } else {
-      stdoutContent = `${roleResult.summary || "Audit complete."}\n${harnessMd}`;
+      stdoutContent = `${roleResult.summary || "Audit complete."}\n${harnessMd}${historyMd}`;
     }
     console.log(stdoutContent);
 
@@ -352,8 +381,8 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       let payload;
       if (reportPath.endsWith(".json")) {
         const jsonPayload = parsed
-          ? { ...parsed, harnessScore: harnessJson, usage: usage || undefined }
-          : { ...roleResult, harnessScore: harnessJson, usage: usage || undefined };
+          ? { ...parsed, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined }
+          : { ...roleResult, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined };
         payload = JSON.stringify(jsonPayload, null, 2);
       } else {
         const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
