@@ -345,6 +345,13 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.33.0 released** — Minor. **AI Harness Scorecard golden metric (KJC-PCS-0051, Plan B)** — every `kj audit` now boots a Docker one-shot of `addyosmani/ai-harness-scorecard`, gets a deterministic 0–100 score + A–F grade, persists it to a per-project `audit-history.db`, and on the next run renders the delta vs the previous baseline plus an optional Unicode-bar trend sparkline. One golden number for "how AI-friendly is this repo today vs last week," zero LLM tokens spent.
+>
+> - **Harness Docker one-shot** (PR #877, KJC-TSK-0470): `src/audit/harness-runner.js` runs `docker run --rm -v <repo>:/repo addyosmani/ai-harness-scorecard analyze`, parses the verdict, auto-skips on missing Docker. `--no-harness` opts out.
+> - **`kj audit` integrates the score** (PR #878, KJC-TSK-0471): new harness-section renderer; JSON output gains `harnessScore`; runs during the deterministic phase so `--deterministic-only` users get it too.
+> - **Per-project audit history** (PR #879, KJC-TSK-0472): `.karajan/audit-history.db` (better-sqlite3 + WAL + `PRAGMA user_version=1`) persists every run. SEA bundle stubbed (degrades gracefully); npm install unlocks history.
+> - **Diff + trend sparkline** (PR #880, KJC-TSK-0473): `src/audit/audit-history-display.js` (pure module, safe in SEA) computes overall delta + per-category deltas + biggest improvement/regression + stale-baseline flag (>30 days). New `--trend` flag prints a `▁▂▃▄▅▆▇█` sparkline over the last N runs.
+>
 > **v2.32.0 released** — Minor. **AI Harness Scorecard hardening (KJC-PCS-0051)** — Plan A closes five FAILs from the external scorecard audit in one sprint: Prettier `--check`, Coverage v8 reports, Conventional Commits enforcement, nightly drift detection, and an unsafe-code lint policy. Plus two bug fixes shipped alongside.
 >
 > - **Prettier `--check` CI job** (PR #868, KJC-TSK-0464): new `format` job blocks PRs whose formatting drifts from `.prettierrc.json`. Scope narrow at first (`.github/workflows/`, root config); future PRs fold in more dirs under the shrink-budget cap.
