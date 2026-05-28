@@ -18,8 +18,13 @@ jobs:
           node-version: 20
 
       - name: Get PR diff
+        # KJC-BUG-0072 — never interpolate ${{ github.* }} directly inside a
+        # `run:` block. Fork PRs can choose `base_ref` and craft injection.
+        # Pin to env and reference via "$BASE_REF" instead.
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git diff origin/${{ github.base_ref }}...HEAD \
+          git diff "origin/${BASE_REF}...HEAD" \
             -- ':!src/utils/injection-guard.js' \
             ':!tests/**' \
             ':!.github/workflows/*.yml' \
@@ -32,8 +37,9 @@ jobs:
       - name: Get PR metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr view ${{ github.event.pull_request.number }} --json title,body --jq '.title + "\n" + .body' > /tmp/pr-meta.txt 2>/dev/null || echo "" > /tmp/pr-meta.txt
+          gh pr view "$PR_NUMBER" --json title,body --jq '.title + "\n" + .body' > /tmp/pr-meta.txt 2>/dev/null || echo "" > /tmp/pr-meta.txt
 
       - name: Scan for injection patterns
         run: |
