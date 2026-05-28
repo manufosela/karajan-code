@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 230+ Automated Tests" icon="approve-check">
-    460 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, and the team-shared HU cohort workflow. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 237+ Automated Tests" icon="approve-check">
+    461 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, and the team-shared HU cohort workflow. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -193,6 +193,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Team-shared HU Board (v2.31)" icon="seti:plan">
     Multiple machines, one plan. `kj plan share <planId>` opts a plan into the `.karajan-shared/` cohort: the loader merges shared HUs into the per-project plan, the board scans the cohort and surfaces them with a `shared` badge, and a new per-HU `assignee` field lets each runner claim its slice without trampling the others. Selective `--only` / `--exclude` filters, `kj plan unshare` round-trip, and a `sharedConflictPolicy` escape hatch (`local-wins` / `shared-wins` / `error`) cover the conflict edge cases. Seven PRs (#859–#865) close the team-shared prerequisite (KJC-PRP-0002).
+  </Card>
+  <Card title="AI Harness Scorecard hardening (v2.32)" icon="approve-check">
+    Plan A of KJC-PCS-0051 closes five FAILs from the external scorecard audit in a single sprint. **Prettier `--check`** (PR #868) blocks PRs whose formatting drifts. **Coverage v8** (PR #870) emits `text + html + lcov` and uploads `coverage/` as a CI artifact with per-glob thresholds enforced when opted in. **Conventional Commits** (PR #872) gates PR commit messages with `wagoid/commitlint-github-action@v6` on top of the local pre-commit hook. **Nightly drift workflow** (PR #873) re-runs the full CI suite at 04:17 UTC daily and auto-files a tracking issue on red. **`eslint-plugin-security`** (PR #874) hard-bans `eval`, `new Function`, dynamic `require`, `pseudoRandomBytes` and `mustache`-escape disabling. Plus two bug fixes shipped alongside.
   </Card>
 </CardGrid>
 
@@ -588,7 +591,7 @@ CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid
 
 **Coming in v2.29.0+** — extended cloud providers, per-chunk metadata search, rerank with cross-encoder, retrieval-quality dashboard on the HU Board. (All landed in v2.29.0.)
 
-### v2.31.0 — Minor (current)
+### v2.31.0 — Minor
 
 **Team-shared HU Board** (KJC-PRP-0002). Seven PRs (#859–#865) land the multi-machine HU cohort end-to-end. A plan no longer lives only in `~/.karajan/plans/<planId>/`: opting it in with `kj plan share <planId>` copies it into `.karajan-shared/plans/<planId>/`, where every machine running Karajan on the same project can see and claim slices of the same plan.
 
@@ -601,3 +604,19 @@ CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid
 **Frontend cache** (PR2). `projectIsSharedCache` memoizes the shared-or-not lookup per project so the board UI doesn't hammer the API on every HU row render.
 
 This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last piece before the v3.0 Brain rewrite can rely on a stable multi-runner substrate.
+
+### v2.32.0 — Minor (current)
+
+**AI Harness Scorecard hardening** (KJC-PCS-0051). Plan A closes five FAILs from the external scorecard audit in a single sprint, plus two bug fixes shipped alongside.
+
+**Prettier `--check` CI gate** (PR #868, KJC-TSK-0464). A new `format` job blocks PRs whose formatting drifts from `.prettierrc.json`. Scope intentionally narrow at first (`.github/workflows/`, root config) per `.prettierignore`; future PRs fold in additional directories under the shrink-budget cap.
+
+**Coverage v8 + CI artifact** (PR #870, KJC-TSK-0465). `vitest.config.js` now emits `text + html + lcov` via `@vitest/coverage-v8`. The new `coverage` job runs `npm run test:coverage` and uploads `coverage/` as a downloadable artifact (14-day retention). Per-glob thresholds enforced when the user opts in; `src/mcp/handlers/**` floor ratcheted to `70/60` (was 80/80) to lock the current state — follow-up tracked to climb back.
+
+**Conventional Commits on PR head** (PR #872, KJC-TSK-0466). `wagoid/commitlint-github-action@v6` checks every PR commit against `.commitlintrc.json`. CI-side enforcement on top of the existing pre-commit local hook — bypassing husky no longer escapes the gate.
+
+**Nightly drift workflow** (PR #873, KJC-TSK-0467). New `.github/workflows/nightly.yml` re-runs the full CI suite (lint + syntax + tests + format) every night at 04:17 UTC against `main`. Failures auto-file or update a tracking issue tagged `drift` via `actions/github-script@v8`, so a flaky dep or upstream regression surfaces within 24 h instead of on the next unrelated PR.
+
+**`eslint-plugin-security` policy** (PR #874, KJC-TSK-0468). `eslint.config.js` hard-bans `eval`, `new Function`, `Function`-style implied evals, dynamic `require`, `pseudoRandomBytes` and `mustache`-escape disabling; flags `detect-non-literal-regexp` as warn (14 acceptable warnings noted for follow-up). High-signal members of the recommended preset are intentionally NOT enabled (`detect-object-injection`, `detect-non-literal-fs-filename`, `detect-child-process`) to avoid false-positive churn on legitimate orchestrator code.
+
+**Bug fixes shipped alongside.** PR #869 (KJC-BUG-0065) repaired 42 failing tests on `main` so the hardening sprint sits on a clean base. PR #871 (KJC-BUG-0066) added the missing `await` to `openEditor` in the spec-reviewer refine-loop, eliminating a race where the SHA hash diff read the v2 contents before the user finished editing.

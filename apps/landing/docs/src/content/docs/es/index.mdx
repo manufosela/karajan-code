@@ -56,8 +56,8 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Auditoría de Salud del Codebase" icon="magnifier">
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
-  <Card title="5 230+ Tests Automatizados" icon="approve-check">
-    460 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (modal de settings editable + badge de plan compartido + assignee por HU), el subsystem Project RAG con modo hybrid + rerank, el dashboard de retrieval y el flujo del HU cohort compartido en equipo. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`.
+  <Card title="5 237+ Tests Automatizados" icon="approve-check">
+    461 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (modal de settings editable + badge de plan compartido + assignee por HU), el subsystem Project RAG con modo hybrid + rerank, el dashboard de retrieval y el flujo del HU cohort compartido en equipo. Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8** (`text + html + lcov`) viaja como artefacto de CI desde v2.32 — ver KJC-TSK-0465.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -193,6 +193,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   </Card>
   <Card title="HU Board compartido en equipo (v2.31)" icon="seti:plan">
     Varias máquinas, un solo plan. `kj plan share <planId>` opta el plan al cohort `.karajan-shared/`: el loader fusiona las HUs compartidas con el plan local, el board escanea el cohort y las marca con badge `shared`, y un nuevo campo `assignee` por HU permite que cada runner reclame su parte sin pisarse con los demás. Filtros `--only` / `--exclude`, round-trip `kj plan unshare`, y el escape hatch `sharedConflictPolicy` (`local-wins` / `shared-wins` / `error`) cubren los edge cases de conflicto. Siete PRs (#859–#865) cierran el prerequisito de team-shared (KJC-PRP-0002).
+  </Card>
+  <Card title="AI Harness Scorecard hardening (v2.32)" icon="approve-check">
+    El Plan A de KJC-PCS-0051 cierra cinco FAILs del scorecard externo en un mismo sprint. **Prettier `--check`** (PR #868) bloquea PRs cuyo formato se desvía. **Coverage v8** (PR #870) emite `text + html + lcov` y sube `coverage/` como artefacto de CI con thresholds por glob al ejecutar opt-in. **Conventional Commits** (PR #872) verifica los mensajes de cada commit del PR con `wagoid/commitlint-github-action@v6`, encima del hook pre-commit local. **Nightly drift workflow** (PR #873) re-corre todo el CI cada noche a las 04:17 UTC y abre/actualiza un issue de tracking si algo se rompe. **`eslint-plugin-security`** (PR #874) bloquea `eval`, `new Function`, dynamic `require`, `pseudoRandomBytes` y la desactivación del escape de mustache. Más dos bug fixes que viajan junto a la release.
   </Card>
 </CardGrid>
 
@@ -539,7 +542,7 @@ kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
 
 **Viene en v2.31.0+** — zero-config init (wizard reducido a una pregunta crítica, defaults inteligentes para todo lo demás) sobre la base de un `~/.karajan/kj.config.yml` que ahora se puede editar desde el board sin abrir un editor.
 
-### v2.31.0 — Minor (actual)
+### v2.31.0 — Minor
 
 **HU Board compartido en equipo** (KJC-PRP-0002). Siete PRs (#859–#865) cierran el cohort multi-máquina end-to-end. Un plan ya no vive solo en `~/.karajan/plans/<planId>/`: opt-in con `kj plan share <planId>` lo copia al `.karajan-shared/plans/<planId>/`, donde toda máquina que corra Karajan sobre el mismo proyecto puede verlo y reclamar partes del mismo plan.
 
@@ -552,3 +555,19 @@ kj rag query 'router'     --where 'kind=code AND symbol=createRouter'
 **Cache en el frontend** (PR2). `projectIsSharedCache` memoiza el lookup por proyecto para que la UI del board no machaque la API en cada render de HU.
 
 Esto cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — la última pieza antes de que la reescritura del Brain en v3.0 pueda apoyarse en un substrato multi-runner estable.
+
+### v2.32.0 — Minor (actual)
+
+**AI Harness Scorecard hardening** (KJC-PCS-0051). El Plan A cierra cinco FAILs del scorecard externo en un mismo sprint, más dos bug fixes que viajan junto a la release.
+
+**Prettier `--check` en CI** (PR #868, KJC-TSK-0464). Un nuevo job `format` bloquea PRs cuyo formato se desvía de `.prettierrc.json`. Scope intencionalmente acotado al inicio (`.github/workflows/`, raíz) según `.prettierignore`; futuras PRs amplían el alcance bajo el shrink-budget.
+
+**Coverage v8 + artefacto CI** (PR #870, KJC-TSK-0465). `vitest.config.js` ahora emite `text + html + lcov` vía `@vitest/coverage-v8`. El nuevo job `coverage` corre `npm run test:coverage` y sube `coverage/` como artefacto descargable (retención 14 días). Thresholds por glob enforced cuando el usuario opta in; el suelo de `src/mcp/handlers/**` rebajado a `70/60` (era 80/80) para anclar el estado actual — follow-up trackeado para volver a subir.
+
+**Conventional Commits en el head del PR** (PR #872, KJC-TSK-0466). `wagoid/commitlint-github-action@v6` valida cada mensaje de commit del PR contra `.commitlintrc.json`. Enforcement en CI sobre el hook pre-commit local existente — saltarse husky ya no esquiva la puerta.
+
+**Nightly drift workflow** (PR #873, KJC-TSK-0467). Nuevo `.github/workflows/nightly.yml` re-corre todo el CI (lint + syntax + tests + format) cada noche a las 04:17 UTC contra `main`. Los fallos auto-abren o actualizan un issue de tracking etiquetado `drift` vía `actions/github-script@v8`, así una dep flaky o una regresión upstream aflora en menos de 24 h en vez de en el siguiente PR no relacionado.
+
+**Política `eslint-plugin-security`** (PR #874, KJC-TSK-0468). `eslint.config.js` bloquea `eval`, `new Function`, implied evals tipo `Function`, `require` dinámico, `pseudoRandomBytes` y la desactivación del escape de mustache como errores duros; marca `detect-non-literal-regexp` como warn (14 warnings aceptados, listados para follow-up). Las reglas ruidosas del preset recomendado están intencionalmente NO habilitadas (`detect-object-injection`, `detect-non-literal-fs-filename`, `detect-child-process`) para evitar falsos positivos en código legítimo del orchestrator.
+
+**Bug fixes junto a la release.** PR #869 (KJC-BUG-0065) reparó 42 tests rotos en `main` para que el sprint de hardening salga de una base limpia. PR #871 (KJC-BUG-0066) añadió el `await` que faltaba en `openEditor` del refine-loop del spec-reviewer, eliminando una race donde el diff de hash SHA leía el contenido v2 antes de que el usuario terminase de editar.

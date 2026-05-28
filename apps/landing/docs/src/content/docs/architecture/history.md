@@ -1414,6 +1414,24 @@ Phase 82 closed the per-machine editing story; Phase 83 closes the **multi-machi
 
 **What this unlocks**. v2.31.0 closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last roadmap item before the v3.0 Brain rewrite can rely on a stable multi-runner substrate. Multiple machines can now share a plan, see each other's progress on the same board, and claim non-overlapping work via `assignee`, without trampling each other.
 
+## Phase 84: AI Harness Scorecard hardening (v2.32.0)
+
+Phase 83 closed the multi-runner substrate; Phase 84 closes the **engineering rigor** gap. KJC-PCS-0051 ("AI Harness Scorecard hardening") runs the dogfood suite against the same internal scorecard Karajan uses on customer projects — five FAILs on a "Plan A" punch list (formatter gate, coverage reporters, commit lint, nightly drift detector, security linter) plus two collateral bug fixes. All five quick-wins ship in v2.32.0.
+
+**KJC-TSK-0464 — Prettier `--check` CI job (PR #868)**. The repo had `prettier` in dev deps but no CI gate enforcing the format. Phase 84 adds a curated-scope `prettier --check` job to `.github/workflows/quality.yml` that fails the build on any unformatted file under `src/`, `tests/`, `packages/`, `scripts/` (excluding the snapshot/fixture directories). Catches drift at PR time, not at release time.
+
+**KJC-TSK-0465 — Coverage v8 + artifact upload (PR #870)**. The Vitest config grows a `@vitest/coverage-v8` reporter trio: `text` (console summary on every `npm test`), `html` (drill-down report under `coverage/`), `lcov` (machine-readable, picked up by CI). The CI job uploads the `coverage/` directory as a GitHub Actions artifact retained 7 days, so every PR carries a downloadable coverage report. Per-package threshold ratchet stays opt-in — the artifact is the ground truth, not a hard gate.
+
+**KJC-TSK-0466 — `commitlint` GitHub Action (PR #872)**. `wagoid/commitlint-github-action@v6` runs on every PR and re-runs the same Conventional Commits rules the local pre-commit hook enforces. The CLI hook is easy to skip with `--no-verify`; the CI gate is not. The Action reads `commitlint.config.mjs` from the repo root, so no rule duplication.
+
+**KJC-TSK-0467 — Nightly drift detector (PR #873)**. New scheduled workflow `.github/workflows/nightly-drift.yml` runs at 03:00 UTC against `main`, executes `npm outdated --json` + `npm audit --json --omit=dev`, and posts a comment to a tracking issue when either surface changes. Uses `actions/github-script@v8` (the v7 syntax was deprecated upstream). The issue stays open as a rolling log — drift is visible without polluting the PR queue.
+
+**KJC-TSK-0468 — `eslint-plugin-security` (PR #874)**. Adds `eslint-plugin-security@4.0.0` with a curated rule set in `eslint.config.js`: `detect-eval-with-expression`, `detect-non-literal-require`, `detect-unsafe-regex`, `detect-buffer-noassert`, `detect-child-process`, `detect-pseudoRandomBytes`. The full plugin would have lit up hundreds of false positives; the curated subset stays useful. Net new findings: 14 `detect-non-literal-regexp` warnings tracked as follow-up, none on the security-critical paths.
+
+**KJC-BUG-0065 / KJC-BUG-0066 (PR #869 / PR #871)**. The two collateral fixes. BUG-0065 repaired 42 tests that had been failing on `main` after a refactor of the journal stage helpers — the tests targeted the old signature and were caught by the coverage v8 baseline run for TSK-0465. BUG-0066 fixed a missing `await` on `openEditor` in the spec-review refine loop — without it the editor process disowned and the loop continued before the user could save, eating the refined spec.
+
+**What changes for engineers**. Before v2.32.0: the project's own CI was *softer* than the gates Karajan applied to user projects via `kj audit` — formatter unchecked, commit messages enforced only locally, no nightly visibility on dep drift, security linting on the roadmap. After v2.32.0: the same scorecard Karajan grades you on, Karajan now grades itself on. The next FAILs on the punch list (climbing `src/mcp/handlers/**` coverage back to 80/80, resolving the 14 `detect-non-literal-regexp` warnings) are tracked as standalone tasks, not release blockers.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

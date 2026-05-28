@@ -1413,6 +1413,24 @@ La Fase 82 cerró la historia de edición per-máquina; la Fase 83 cierra la his
 
 **Qué desbloquea**. v2.31.0 cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — el último item del roadmap antes de que la reescritura del Brain en v3.0 pueda apoyarse en un substrato multi-runner estable. Varias máquinas ahora pueden compartir un plan, ver progreso de las demás en el mismo board, y reclamar trabajo no-superpuesto vía `assignee`, sin pisarse.
 
+## Fase 84: AI Harness Scorecard hardening (v2.32.0)
+
+La Fase 83 cerró el substrato multi-runner; la Fase 84 cierra el gap de **rigor de ingeniería**. KJC-PCS-0051 ("AI Harness Scorecard hardening") corre la suite de dogfooding contra el mismo scorecard interno que Karajan aplica a proyectos cliente — cinco FAILs en una "Plan A" punch list (gate de formatter, reporters de coverage, lint de commits, detector nocturno de drift, linter de seguridad) más dos bug fixes colaterales. Los cinco quick-wins shippan en v2.32.0.
+
+**KJC-TSK-0464 — Job CI `prettier --check` (PR #868)**. El repo tenía `prettier` en dev deps pero ningún gate CI imponiendo el formato. La Fase 84 añade un job `prettier --check` con scope curado a `.github/workflows/quality.yml` que falla el build sobre cualquier fichero sin formatear bajo `src/`, `tests/`, `packages/`, `scripts/` (excluyendo los directorios de snapshots/fixtures). Atrapa el drift en tiempo de PR, no en tiempo de release.
+
+**KJC-TSK-0465 — Coverage v8 + upload de artifact (PR #870)**. La config de Vitest gana un trío de reporters `@vitest/coverage-v8`: `text` (resumen en consola en cada `npm test`), `html` (informe navegable bajo `coverage/`), `lcov` (machine-readable, leído por CI). El job CI sube el directorio `coverage/` como artifact de GitHub Actions retenido 7 días, así que cada PR carga un informe de coverage descargable. El ratchet de thresholds por paquete sigue opt-in — el artifact es la ground truth, no un hard gate.
+
+**KJC-TSK-0466 — GitHub Action de `commitlint` (PR #872)**. `wagoid/commitlint-github-action@v6` corre en cada PR y re-ejecuta las mismas reglas de Conventional Commits que el pre-commit hook local impone. El hook CLI es fácil de saltar con `--no-verify`; el gate de CI no. La Action lee `commitlint.config.mjs` desde la raíz del repo, así que no hay duplicación de reglas.
+
+**KJC-TSK-0467 — Detector nocturno de drift (PR #873)**. Nuevo workflow programado `.github/workflows/nightly-drift.yml` que corre a las 03:00 UTC contra `main`, ejecuta `npm outdated --json` + `npm audit --json --omit=dev`, y postea un comentario a una issue de tracking cuando cualquiera de las dos superficies cambia. Usa `actions/github-script@v8` (la sintaxis v7 fue deprecada upstream). La issue queda abierta como log rotante — el drift es visible sin contaminar la cola de PRs.
+
+**KJC-TSK-0468 — `eslint-plugin-security` (PR #874)**. Añade `eslint-plugin-security@4.0.0` con un set curado de reglas en `eslint.config.js`: `detect-eval-with-expression`, `detect-non-literal-require`, `detect-unsafe-regex`, `detect-buffer-noassert`, `detect-child-process`, `detect-pseudoRandomBytes`. El plugin completo habría encendido cientos de falsos positivos; el subset curado se mantiene útil. Hallazgos netos nuevos: 14 warnings de `detect-non-literal-regexp` tracked como follow-up, ninguno en los paths security-críticos.
+
+**KJC-BUG-0065 / KJC-BUG-0066 (PR #869 / PR #871)**. Los dos fixes colaterales. BUG-0065 reparó 42 tests que llevaban fallando en `main` tras un refactor de los helpers de stage del journal — los tests apuntaban a la firma vieja y fueron atrapados por la baseline run de coverage v8 de TSK-0465. BUG-0066 arregló un `await` ausente sobre `openEditor` en el refine loop del spec-review — sin él el proceso del editor quedaba huérfano y el loop seguía antes de que el usuario pudiera guardar, comiéndose la spec refinada.
+
+**Qué cambia para ingenieros**. Antes de v2.32.0: el CI del propio proyecto era *más blando* que los gates que Karajan aplicaba a proyectos de usuarios vía `kj audit` — formatter sin check, mensajes de commit impuestos solo localmente, sin visibilidad nocturna del drift de deps, lint de seguridad en el roadmap. Después de v2.32.0: el mismo scorecard con el que Karajan te puntúa, Karajan se puntúa a sí mismo. Los siguientes FAILs del punch list (escalar el coverage de `src/mcp/handlers/**` de vuelta a 80/80, resolver los 14 warnings de `detect-non-literal-regexp`) están tracked como tareas standalone, no como release blockers.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
