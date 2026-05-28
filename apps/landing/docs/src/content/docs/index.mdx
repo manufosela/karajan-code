@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 237+ Automated Tests" icon="approve-check">
-    461 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, and the team-shared HU cohort workflow. Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+  <Card title="5 250+ Automated Tests" icon="approve-check">
+    466 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, the team-shared HU cohort workflow, and the new `audit-history-display` suite (12 tests). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -196,6 +196,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="AI Harness Scorecard hardening (v2.32)" icon="approve-check">
     Plan A of KJC-PCS-0051 closes five FAILs from the external scorecard audit in a single sprint. **Prettier `--check`** (PR #868) blocks PRs whose formatting drifts. **Coverage v8** (PR #870) emits `text + html + lcov` and uploads `coverage/` as a CI artifact with per-glob thresholds enforced when opted in. **Conventional Commits** (PR #872) gates PR commit messages with `wagoid/commitlint-github-action@v6` on top of the local pre-commit hook. **Nightly drift workflow** (PR #873) re-runs the full CI suite at 04:17 UTC daily and auto-files a tracking issue on red. **`eslint-plugin-security`** (PR #874) hard-bans `eval`, `new Function`, dynamic `require`, `pseudoRandomBytes` and `mustache`-escape disabling. Plus two bug fixes shipped alongside.
+  </Card>
+  <Card title="AI Harness Scorecard golden metric (v2.33)" icon="approve-check">
+    Plan B of KJC-PCS-0051 turns `kj audit` into a quality measurement loop with a single golden number. **Docker bootstrap** (PR #877, KJC-TSK-0470) auto-pulls `addyosmani/ai-harness-scorecard` and runs a one-shot scan in ~10 s. **Audit integration** (PR #878, KJC-TSK-0471) splices the deterministic 0–100 score and A–F grade into the audit report headline. **History DB** (PR #879, KJC-TSK-0472) persists every run to a per-project `audit-history.db` (SQLite + WAL, `PRAGMA user_version=1`). **Diff + trend sparkline** (PR #880, KJC-TSK-0473) renders the delta vs the previous baseline plus a Unicode-bar trend over the last N runs. One golden number for "how AI-friendly is this repo today vs last week," zero LLM tokens spent.
   </Card>
 </CardGrid>
 
@@ -605,7 +608,7 @@ CLI: `kj rag query "<text>" --mode hybrid|semantic|keyword --alpha 0.6`. `hybrid
 
 This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last piece before the v3.0 Brain rewrite can rely on a stable multi-runner substrate.
 
-### v2.32.0 — Minor (current)
+### v2.32.0 — Minor
 
 **AI Harness Scorecard hardening** (KJC-PCS-0051). Plan A closes five FAILs from the external scorecard audit in a single sprint, plus two bug fixes shipped alongside.
 
@@ -620,3 +623,17 @@ This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last pi
 **`eslint-plugin-security` policy** (PR #874, KJC-TSK-0468). `eslint.config.js` hard-bans `eval`, `new Function`, `Function`-style implied evals, dynamic `require`, `pseudoRandomBytes` and `mustache`-escape disabling; flags `detect-non-literal-regexp` as warn (14 acceptable warnings noted for follow-up). High-signal members of the recommended preset are intentionally NOT enabled (`detect-object-injection`, `detect-non-literal-fs-filename`, `detect-child-process`) to avoid false-positive churn on legitimate orchestrator code.
 
 **Bug fixes shipped alongside.** PR #869 (KJC-BUG-0065) repaired 42 failing tests on `main` so the hardening sprint sits on a clean base. PR #871 (KJC-BUG-0066) added the missing `await` to `openEditor` in the spec-reviewer refine-loop, eliminating a race where the SHA hash diff read the v2 contents before the user finished editing.
+
+### v2.33.0 — Minor (current)
+
+**AI Harness Scorecard golden metric** (KJC-PCS-0051, Plan B). Plan B turns `kj audit` into a measurable quality loop. Every run now produces one deterministic number and an A–F grade for "how AI-friendly is this repo today vs last week," with zero LLM tokens spent on the metric itself.
+
+**Docker bootstrap of `ai-harness-scorecard`** (PR #877, KJC-TSK-0470). `kj audit` now auto-pulls `addyosmani/ai-harness-scorecard` on first use (~10 s warm) and runs a one-shot scan against the cwd. The bootstrap follows the same default-on-with-`--no-*` pattern as Ollama in v2.26.0 — `--no-harness` opts out for air-gapped environments.
+
+**Audit report integration** (PR #878, KJC-TSK-0471). The harness score (0–100) and grade (A–F) splice into the audit report headline alongside the deterministic findings. CLI/MCP parity preserved; the JSON payload exposes `harness.score`, `harness.grade`, `harness.checks[]` for downstream tooling.
+
+**Per-project history DB** (PR #879, KJC-TSK-0472). Every audit run persists to `.karajan/audit-history.db` (SQLite + WAL, `PRAGMA user_version=1`). Schema captures `run_id`, `started_at`, `score`, `grade`, `checks_json`, `commit_sha`. The DB is per-project (gitignored by default) and survives across releases via versioned migrations.
+
+**Diff vs baseline + trend sparkline** (PR #880, KJC-TSK-0473). The audit report now shows the delta vs the previous baseline (`Δ +7 vs run #12 from 2026-05-21`) and an optional Unicode-bar trend sparkline (`▁▂▃▄▅▆▇█`) over the last N runs. Edge cases covered: first run (no diff), stale baseline (>30 days old), missing commit SHA. 12 new tests in `tests/audit/audit-history-display.test.js` cover firstRun, diff, biggest delta, stale baseline, and sparkline edge cases.
+
+5 250+ tests passing across 466 files. The four PRs (#877–#880) close KJC-PCS-0051 in its entirety — Plan A (v2.32) fixed the FAILs flagged by the external scorecard audit; Plan B (v2.33) makes the scorecard a first-class signal inside Karajan's own audit.
