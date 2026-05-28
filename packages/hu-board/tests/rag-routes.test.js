@@ -49,4 +49,22 @@ describe("GET /api/rag/stats", () => {
     expect(byProj).toEqual({ "proj-a": 2, "proj-b": 1, "(no slug)": 1 });
     expect(res.body.db_size_bytes).toBeGreaterThan(0);
   });
+
+  // KJC-BUG-0068 — Legacy rag.db (pre-KJC-TSK-0438) lacks the `project_slug`
+  // column. The readonly handler can't run the migration, so it used to crash
+  // with HTTP 500 "no such column: project_slug". Now it must respond 200
+  // with `by_project=[]` and `schema_legacy=true` so the dashboard renders.
+  it("falls back gracefully when chunks lacks project_slug (legacy DB)", async () => {
+    const Database = (await import("better-sqlite3")).default;
+    const db = new Database(process.env.KJ_RAG_DB);
+    db.exec("CREATE TABLE chunks (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT, kind TEXT, text TEXT, metadata TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+    db.prepare("INSERT INTO chunks (source, kind, text) VALUES (?, ?, ?)").run("legacy.js", "code", "x");
+    db.close();
+    const res = await request(app).get("/api/rag/stats");
+    expect(res.status).toBe(200);
+    expect(res.body.initialized).toBe(true);
+    expect(res.body.schema_legacy).toBe(true);
+    expect(res.body.by_project).toEqual([]);
+    expect(res.body.total_chunks).toBe(1);
+  });
 });

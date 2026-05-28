@@ -20,8 +20,12 @@ jobs:
           fetch-depth: 0
 
       - name: Check PR diff for AI attribution
+        # KJC-BUG-0072 — never interpolate ${{ github.* }} directly inside a
+        # `run:` block on pull_request workflows. Pin to env vars instead.
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD \
+          DIFF=$(git diff "origin/${BASE_REF}...HEAD" \
             -- ':!*.png' ':!*.jpg' ':!*.svg' ':!*.ico' \
                ':!*.lock' ':!package-lock.json' ':!yarn.lock' \
                ':!*.min.js' ':!*.min.css' \
@@ -54,8 +58,11 @@ jobs:
           echo "AI attribution guard: clean"
 
       - name: Check commit messages
+        # KJC-BUG-0072 — same hardening as the diff scan: env-pin the ref.
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          COMMITS=$(git log --format='%s%n%b' origin/${{ github.base_ref }}...HEAD)
+          COMMITS=$(git log --format='%s%n%b' "origin/${BASE_REF}...HEAD")
 
           COAUTH='Co-Authored-By:.*\b(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)\b'
           ATTR='(Generated|Created|Written|Built|Authored) (by|with|using) .*(Claude|Anthropic|OpenAI|ChatGPT|Copilot|Gemini|Cursor|Windsurf|Codeium)'

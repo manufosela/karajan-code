@@ -301,6 +301,9 @@ export const EDITABLE_FIELDS = [
     help: 'Peso del scoring semántico vs keyword en modo hybrid. 1.0 = sólo semántico, 0.0 = sólo BM25, 0.6 (default) = inclinado a semántico.',
     min: 0,
     max: 1,
+    // KJC-BUG-0069 — number input defaults to step=1 (HTML5), so any
+    // non-integer default fails validity. Allow any fractional value here.
+    step: 'any',
     default: 0.6,
   },
   {

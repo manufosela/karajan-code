@@ -345,6 +345,15 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 
 ## Recent releases
 
+> **v2.32.0 released** — Minor. **AI Harness Scorecard hardening (KJC-PCS-0051)** — Plan A closes five FAILs from the external scorecard audit in one sprint: Prettier `--check`, Coverage v8 reports, Conventional Commits enforcement, nightly drift detection, and an unsafe-code lint policy. Plus two bug fixes shipped alongside.
+>
+> - **Prettier `--check` CI job** (PR #868, KJC-TSK-0464): new `format` job blocks PRs whose formatting drifts from `.prettierrc.json`. Scope narrow at first (`.github/workflows/`, root config); future PRs fold in more dirs under the shrink-budget cap.
+> - **Coverage v8 + CI artifact** (PR #870, KJC-TSK-0465): `vitest.config.js` emits `text + html + lcov` via `@vitest/coverage-v8`. New `coverage` job uploads `coverage/` (14-day retention). Per-glob thresholds enforced when the user opts in; `src/mcp/handlers/**` floor ratcheted to `70/60` to lock the current state — follow-up tracked to climb back to 80/80.
+> - **Conventional Commits on PR head** (PR #872, KJC-TSK-0466): `wagoid/commitlint-github-action@v6` checks every PR commit against `.commitlintrc.json`. CI-side enforcement on top of the pre-commit local hook — bypassing husky no longer escapes the gate.
+> - **Nightly drift workflow** (PR #873, KJC-TSK-0467): new `.github/workflows/nightly.yml` runs the full CI suite every night at 04:17 UTC against `main`. Failures auto-file/update a tracking issue tagged `drift` via `actions/github-script@v8`, so a flaky dep or upstream regression surfaces within 24 h instead of on the next unrelated PR.
+> - **`eslint-plugin-security` policy** (PR #874, KJC-TSK-0468): `eslint.config.js` now blocks `eval`, `new Function`, dynamic `require`, `pseudoRandomBytes` and `mustache`-escape disabling as hard errors; flags `detect-non-literal-regexp` as warn. Noisy members of the recommended preset are intentionally NOT enabled.
+> - **42 tests on `main` repaired** (PR #869, KJC-BUG-0065) and **`await openEditor` race in spec-reviewer refine-loop fixed** (PR #871, KJC-BUG-0066). The hardening sprint sits on a clean `main` again.
+>
 > **v2.31.0 released** — Minor. **Team-shared HU Board** — the full KJC-PRP-0002: opt-in HUs into a `.karajan-shared/` cohort, the board surfaces them with a `shared` badge, and per-HU `assignee` lets multiple machines work the same plan without trampling each other.
 >
 > - **`kj plan share` / `kj plan unshare`** (PRs #860, #862): mueve plans entre `~/.karajan/plans/` (local) y `<projectDir>/.karajan-shared/plans/` (compartido). Idempotente. El loader probará ambos automáticamente.
