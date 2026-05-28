@@ -42,6 +42,13 @@ vi.mock("../../src/utils/cli-run-log.js", () => ({
   }),
 }));
 
+// Harness stage runs Docker; stub it out so CLI tests stay hermetic.
+vi.mock("../../src/audit/harness-section.js", () => ({
+  runHarnessSection: vi.fn(async () => ({ ok: true, skipped: true, reason: "disabled" })),
+  formatHarnessSection: vi.fn(() => ""),
+  harnessSummaryForJson: vi.fn(() => null),
+}));
+
 function makeConfig(overrides = {}) {
   return {
     roles: { audit: { provider: "claude" } },

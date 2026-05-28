@@ -30,6 +30,11 @@ vi.mock("../../src/utils/cli-run-log.js", () => ({
     return fn({ runLog, forwardProgress: vi.fn() });
   }),
 }));
+vi.mock("../../src/audit/harness-section.js", () => ({
+  runHarnessSection: vi.fn(async () => ({ ok: true, skipped: true, reason: "disabled" })),
+  formatHarnessSection: vi.fn(() => ""),
+  harnessSummaryForJson: vi.fn(() => null),
+}));
 
 const sampleDeterministicCtx = {
   projectDir: "/tmp/x",

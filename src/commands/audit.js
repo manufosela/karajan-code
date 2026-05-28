@@ -11,6 +11,7 @@ import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
 import { formatDeterministicSummary } from "../audit/deterministic-summary.js";
+import { runHarnessSection, formatHarnessSection, harnessSummaryForJson } from "../audit/harness-section.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -191,20 +192,21 @@ async function buildReportHeader(projectDir, invocation) {
   return lines.join("\n");
 }
 
-function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }) {
+function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }) {
   const parts = ["kj audit"];
   if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
   if (dimensions && dimensions !== "all") parts.push(`--dimensions=${dimensions}`);
   if (noSonar) parts.push("--no-sonar");
   if (noOsv) parts.push("--no-osv");
   if (noSemgrep) parts.push("--no-semgrep");
+  if (noHarness) parts.push("--no-harness");
   if (deterministicOnly) parts.push("--deterministic-only");
   if (yes) parts.push("--yes");
   if (json) parts.push("--json");
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, reportFile = null, deterministicOnly = false, yes = false, promptFn = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -247,6 +249,27 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     const deterministicCtx = await role.collectDeterministic(roleInput);
     const deterministicMd = formatDeterministicSummary(deterministicCtx);
 
+    // KJC-TSK-0471 — Harness Scorecard (Docker one-shot, golden metric).
+    // Runs after the deterministic phase, before the LLM. Auto-skipped on
+    // --no-harness or if `runHarnessSection` surfaces an error (graceful
+    // degradation: a missing Docker daemon must not break `kj audit`).
+    let harnessSummary = null;
+    if (!noHarness) {
+      try {
+        harnessSummary = await runHarnessSection({
+          projectDir: config?.projectDir || process.cwd(),
+          harnessConfig: config?.audit?.harness || null,
+        });
+        if (harnessSummary?.ok && !harnessSummary.skipped) {
+          runLog.logText(`[audit] harness score=${harnessSummary.score}/100 grade=${harnessSummary.grade}`);
+        }
+      } catch (e) {
+        harnessSummary = { ok: false, error: e?.message || String(e) };
+        runLog.logText(`[audit] harness skipped: ${harnessSummary.error}`);
+      }
+    }
+    const harnessMd = formatHarnessSection(harnessSummary);
+
     // --json suppresses the interactive flow regardless: it would mangle
     // a script's stdout. JSON consumers always get the full audit unless
     // they explicitly pass deterministicOnly.
@@ -263,18 +286,19 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     if (!runLlm) {
       // Deterministic-only path. Produce the report from what we already
       // have, persist it (md or json), and exit. Zero tokens spent.
+      const harnessJson = harnessSummaryForJson(harnessSummary);
       const stdoutContent = json
-        ? JSON.stringify({ deterministic: deterministicCtx, mode: "deterministic-only" }, null, 2)
-        : (deterministicOnly ? deterministicMd : ""); // already printed above when interactive
-      if (json || deterministicOnly) console.log(stdoutContent);
+        ? JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, mode: "deterministic-only" }, null, 2)
+        : (deterministicOnly ? `${deterministicMd}\n${harnessMd}` : harnessMd); // deterministicMd already printed above when interactive
+      if (json || deterministicOnly || harnessMd) console.log(stdoutContent);
 
       if (reportPath) {
         let payload;
         if (reportPath.endsWith(".json")) {
-          payload = JSON.stringify({ deterministic: deterministicCtx, mode: "deterministic-only" }, null, 2);
+          payload = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, mode: "deterministic-only" }, null, 2);
         } else {
-          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }));
-          payload = header + deterministicMd + "\n";
+          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
+          payload = `${header}${deterministicMd}\n${harnessMd}`;
         }
         await fs.writeFile(reportPath, payload, "utf8");
         runLog.logText(`[audit] report written (deterministic-only) → ${reportPath}`);
@@ -306,18 +330,19 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       runLog.logText(`[audit] usage tokens=${usage.total_tokens} cost=$${(usage.cost_usd ?? 0).toFixed(4)} duration=${(usage.durationMs / 1000).toFixed(1)}s`);
     }
 
+    const harnessJson = harnessSummaryForJson(harnessSummary);
     let stdoutContent;
     if (json) {
       const jsonPayload = parsed
-        ? { ...parsed, usage: usage || undefined }
-        : { ...roleResult, usage: usage || undefined };
+        ? { ...parsed, harnessScore: harnessJson, usage: usage || undefined }
+        : { ...roleResult, harnessScore: harnessJson, usage: usage || undefined };
       stdoutContent = JSON.stringify(jsonPayload, null, 2);
     } else if (parsed?.summary?.overallHealth) {
-      stdoutContent = formatAudit(parsed, usage);
+      stdoutContent = `${formatAudit(parsed, usage)}\n${harnessMd}`;
     } else if (parsed?.raw) {
-      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "");
+      stdoutContent = parsed.raw + (usage ? `\n\n${formatUsageSummary(usage) || ""}` : "") + `\n${harnessMd}`;
     } else {
-      stdoutContent = roleResult.summary || "Audit complete.";
+      stdoutContent = `${roleResult.summary || "Audit complete."}\n${harnessMd}`;
     }
     console.log(stdoutContent);
 
@@ -325,11 +350,11 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       let payload;
       if (reportPath.endsWith(".json")) {
         const jsonPayload = parsed
-          ? { ...parsed, usage: usage || undefined }
-          : { ...roleResult, usage: usage || undefined };
+          ? { ...parsed, harnessScore: harnessJson, usage: usage || undefined }
+          : { ...roleResult, harnessScore: harnessJson, usage: usage || undefined };
         payload = JSON.stringify(jsonPayload, null, 2);
       } else {
-        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, json, deterministicOnly, yes }));
+        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
         payload = header + stdoutContent + "\n";
       }
       await fs.writeFile(reportPath, payload, "utf8");
