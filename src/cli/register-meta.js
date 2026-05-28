@@ -161,7 +161,8 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--no-sonar", "Skip the SonarQube findings collector (faster, less context). Sonar findings are also skipped automatically when SonarQube is unreachable.")
     .option("--no-osv", "Skip the OSV-Scanner vulnerability collector. Findings are also skipped automatically when osv-scanner is not installed.")
     .option("--no-semgrep", "Skip the Semgrep SAST collector. Findings are also skipped automatically when semgrep is not installed (install via 'pipx install semgrep' or 'brew install semgrep').")
-    .option("--no-harness", "Skip the AI Harness Scorecard stage (Docker one-shot). Auto-skipped when Docker is unavailable; the run also persists scorecard.json + scorecard-report.md under .karajan/audit-runs/<ts>/ for trend tracking (KJC-TSK-0472).")
+    .option("--no-harness", "Skip the AI Harness Scorecard stage (Docker one-shot). Auto-skipped when Docker is unavailable. Each run is also persisted to .karajan/audit-history.db (KJC-TSK-0472) for diff/trend tracking.")
+    .option("--trend", "Append a sparkline of the harness score across the last 10 runs (uses .karajan/audit-history.db). KJC-TSK-0473.")
     .option("--report-file <path>", "Write the audit report to disk in addition to stdout. <path> may be a file (extension drives format: .md or .json) or a directory (creates audit-<ISO>.<md|json> inside). $KJ_AUDIT_REPORT_DIR env var is used as default directory if no --report-file is given.")
     .option("--deterministic-only", "Skip the LLM analysis entirely. Print/persist only the deterministic findings (basalCost, sonar, stack, growth-delta, webperf). Zero tokens spent. Compatible with --report-file and --json.")
     .option("-y, --yes", "Auto-confirm the 'Continue with LLM analysis?' prompt. Useful in scripts that want the full audit non-interactively. CI/non-TTY paths already auto-confirm without this flag.")
@@ -187,6 +188,7 @@ export function registerMeta(program, { pkgVersion }) {
           reportFile: flags.reportFile || null,
           deterministicOnly: Boolean(flags.deterministicOnly),
           yes: Boolean(flags.yes),
+          trend: Boolean(flags.trend),
         });
       });
     });

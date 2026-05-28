@@ -64,6 +64,17 @@ export function listRecentRuns(db, limit = 10) {
   return db.prepare(`SELECT run_id, timestamp, git_sha, score, grade FROM audits ORDER BY timestamp DESC LIMIT ?`).all(limit);
 }
 
+// KJC-TSK-0473 — Fetch previous run (excluding current) for diff rendering.
+export function getLatestPreviousRun(db, currentTimestamp) {
+  return db.prepare(`SELECT run_id, timestamp, git_sha, score, grade, categories_json FROM audits WHERE timestamp < ? AND score IS NOT NULL ORDER BY timestamp DESC LIMIT 1`).get(currentTimestamp || new Date().toISOString()) || null;
+}
+
+// KJC-TSK-0473 — Score timeline (ASC) for sparkline rendering.
+export function getRecentScores(db, limit = 10) {
+  const rows = db.prepare(`SELECT timestamp, score FROM audits WHERE score IS NOT NULL ORDER BY timestamp DESC LIMIT ?`).all(limit);
+  return rows.reverse();
+}
+
 export function countRuns(db) {
   return db.prepare(`SELECT COUNT(*) AS n FROM audits`).get().n;
 }

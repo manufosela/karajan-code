@@ -196,7 +196,7 @@ const auditHistoryStubPlugin = {
   name: "audit-history-stub",
   setup(b) {
     b.onResolve({ filter: /[\\/]audit[\\/]audit-history\.js$/ }, (a) => ({ path: a.path, namespace: "ahs" }));
-    b.onLoad({ filter: /.*/, namespace: "ahs" }, () => ({ contents: "module.exports = { __esModule: false, persistAuditRun: () => ({ ok: false, error: 'history disabled in SEA' }), getAuditHistoryDbPath: () => null, openAuditHistoryDb: () => null, recordAuditRun: () => null, listRecentRuns: () => [], countRuns: () => 0, pruneOldRuns: () => 0 };", loader: "js" }));
+    b.onLoad({ filter: /.*/, namespace: "ahs" }, () => ({ contents: "module.exports = { __esModule: false, persistAuditRun: () => ({ ok: false, error: 'history disabled in SEA' }), getAuditHistoryDbPath: () => null, openAuditHistoryDb: () => null, recordAuditRun: () => null, listRecentRuns: () => [], countRuns: () => 0, pruneOldRuns: () => 0, getLatestPreviousRun: () => null, getRecentScores: () => [] };", loader: "js" }));
   },
 };
 
