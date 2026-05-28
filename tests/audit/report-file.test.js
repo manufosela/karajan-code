@@ -88,8 +88,7 @@ describe("kj audit --report-file (KJC-TSK-0362)", () => {
     const result = await auditCommand({ task: "audit", config: makeConfig(), logger: noopLogger });
 
     expect(result.reportPath).toBeUndefined();
-    // Nothing written to tmpDir
-    const files = await fs.readdir(tmpDir);
+    const files = (await fs.readdir(tmpDir)).filter((f) => f !== ".karajan"); // .karajan/audit-history.db expected (TSK-0472)
     expect(files).toHaveLength(0);
   });
 
