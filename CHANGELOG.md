@@ -11,7 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
 
-## [2.32.0] - 2026-05-27
+## [2.33.0] - 2026-05-28
+
+Minor release. **AI Harness Scorecard golden metric (KJC-PCS-0051, Plan B)** — the four cards close the loop opened in v2.32.0 (Plan A hardening): every `kj audit` now boots a Docker one-shot of `addyosmani/ai-harness-scorecard`, gets a deterministic 0–100 score + A–F grade, persists it to a per-project `audit-history.db`, and on the next run renders the delta vs the previous baseline plus an optional Unicode-bar trend sparkline. Karajan finally has a single golden metric for "how AI-friendly is this repo today vs last week," with zero LLM tokens spent.
+
+### Added
+
+- **PR #877 (KJC-TSK-0470) — Bootstrap `ai-harness-scorecard` Docker one-shot**. New `src/audit/harness-runner.js` runs `docker run --rm -v <repo>:/repo addyosmani/ai-harness-scorecard analyze` with a 5-minute timeout, parses the JSON verdict, and surfaces it as a structured object. Auto-skipped (graceful degradation) when Docker is unreachable. CLI flag `--no-harness` opts out. Image is pulled lazily on first use; subsequent runs are cached.
+- **PR #878 (KJC-TSK-0471) — `kj audit` integrates harness score**. New `src/audit/harness-section.js` renders the harness result as a Markdown section (overall score + per-category breakdown + grade badge), woven into both the deterministic-only path and the post-LLM report path of `kj audit`. JSON output gets a `harnessScore` field. Two-phase audit honored: the harness runs during the deterministic phase, so `--deterministic-only` users get it too.
+- **PR #879 (KJC-TSK-0472) — Persistent per-project audit history**. New `src/audit/audit-history.js` opens `.karajan/audit-history.db` (better-sqlite3, WAL mode, `PRAGMA user_version=1`) per project root and persists every audit run's harness score, grade, category breakdown, git SHA and ISO timestamp. SEA bundle is patched with `auditHistoryStubPlugin` (same pattern as the existing rag-stub + hu-board-stub) so the standalone binary degrades gracefully — `npm install -g karajan-code` is the install path that unlocks history.
+- **PR #880 (KJC-TSK-0473) — Diff vs previous run + trend sparkline**. New `src/audit/audit-history-display.js` (pure module, no native deps, safe in the SEA bundle) exposes `computeHistoryDiff` (overall delta + per-category deltas + biggest improvement/regression + stale-baseline flag at >30 days) and `formatTrendSparkline` (Unicode block bars `▁▂▃▄▅▆▇█` over the last N runs). The history block is appended to every `kj audit` report (Markdown + JSON), and the optional `--trend` flag prints the sparkline. First-run baselines render a friendly "no baseline yet" line instead of an error.
+
+
 
 Minor release. **AI Harness Scorecard hardening (KJC-PCS-0051)** — Plan A closes five FAILs from the external scorecard audit in a single sprint: Prettier check, Coverage v8 reports, Conventional Commits enforcement, nightly drift detection, and unsafe-code lint policy. Two bug fixes ship alongside: 42 broken tests on `main` restored and a `spec-reviewer` refine-loop async bug.
 
