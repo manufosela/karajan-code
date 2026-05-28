@@ -12,6 +12,7 @@ import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
 import { formatDeterministicSummary } from "../audit/deterministic-summary.js";
 import { runHarnessSection, formatHarnessSection, harnessSummaryForJson } from "../audit/harness-section.js";
+import { persistAuditRun } from "../audit/audit-history.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -304,6 +305,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
         runLog.logText(`[audit] report written (deterministic-only) → ${reportPath}`);
         logger.info(`Audit report written: ${reportPath}`);
       }
+      persistAuditRun(config?.projectDir || process.cwd(), { runId: new Date().toISOString(), timestamp: new Date().toISOString(), gitSha: null, harness: harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null, rawReportPath: reportPath });
       logger.info("Audit completed (deterministic-only).");
       return { ok: true, mode: "deterministic-only", reportPath: reportPath || undefined };
     }
@@ -362,6 +364,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       logger.info(`Audit report written: ${reportPath}`);
     }
 
+    persistAuditRun(config?.projectDir || process.cwd(), { runId: new Date().toISOString(), timestamp: new Date().toISOString(), gitSha: null, harness: harnessSummary?.ok && !harnessSummary.skipped ? harnessSummary : null, rawReportPath: reportPath });
     logger.info("Audit completed.");
     return { ok: true, reportPath: reportPath || undefined };
   });
