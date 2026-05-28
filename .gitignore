@@ -27,6 +27,9 @@ tests/e2e/karajan-code.tgz
 .env
 audits/
 
+# AI Engineering runtime state (events ndjson, lock files) — local only
+.ai-engineering/
+
 # IDE / language-server local config (lives only on the maintainer's machine)
 .serena/
 
