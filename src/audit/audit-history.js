@@ -1,6 +1,4 @@
-// KJC-TSK-0472 — Per-project audit history (sqlite).
-// Persists every `kj audit` run under <projectDir>/.karajan/audit-history.db.
-// Filesystem-first: no external service, metadata + pointer to raw report.
+// KJC-TSK-0472 — Per-project audit history (sqlite at .karajan/audit-history.db).
 import path from "node:path";
 import fs from "node:fs";
 import Database from "better-sqlite3";
@@ -47,8 +45,7 @@ function migrate(db) {
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
 }
 
-// `harness` may be null when --no-harness or docker offline: row still
-// inserted with NULL score/grade so the timeline stays complete.
+// `harness` may be null (--no-harness / docker offline): row still inserted with NULL score.
 export function recordAuditRun(db, { runId, timestamp, gitSha, harness, rawReportPath }) {
   const categories = harness?.categories ? JSON.stringify(harness.categories) : null;
   const checks = Array.isArray(harness?.checks) ? harness.checks : [];
@@ -74,18 +71,12 @@ export function countRuns(db) {
 export function pruneOldRuns(db, keep = 50) {
   const ids = db.prepare(`SELECT run_id FROM audits ORDER BY timestamp DESC LIMIT -1 OFFSET ?`).all(keep).map((r) => r.run_id);
   if (ids.length === 0) return 0;
-  const placeholders = ids.map(() => "?").join(",");
-  const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM findings WHERE run_id IN (${placeholders})`).run(...ids);
-    db.prepare(`DELETE FROM audits WHERE run_id IN (${placeholders})`).run(...ids);
-  });
-  tx();
+  const ph = ids.map(() => "?").join(",");
+  db.transaction(() => { db.prepare(`DELETE FROM findings WHERE run_id IN (${ph})`).run(...ids); db.prepare(`DELETE FROM audits WHERE run_id IN (${ph})`).run(...ids); })();
   return ids.length;
 }
 
-// High-level helper used by `kj audit`: opens, inserts, surfaces a prune
-// hint above 100 runs, closes. Errors are returned via `ok` so a broken db
-// never breaks the audit.
+// High-level helper used by `kj audit`. Errors returned via `ok` so a broken db never breaks the audit.
 export function persistAuditRun(projectDir, payload) {
   try {
     const db = openAuditHistoryDb(projectDir);

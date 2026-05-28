@@ -191,6 +191,15 @@ const ragStubPlugin = {
   },
 };
 
+// KJC-TSK-0472 — audit-history sqlite stub (same reasoning as rag/hu-board stubs).
+const auditHistoryStubPlugin = {
+  name: "audit-history-stub",
+  setup(b) {
+    b.onResolve({ filter: /[\\/]audit[\\/]audit-history\.js$/ }, (a) => ({ path: a.path, namespace: "ahs" }));
+    b.onLoad({ filter: /.*/, namespace: "ahs" }, () => ({ contents: "module.exports = { __esModule: false, persistAuditRun: () => ({ ok: false, error: 'history disabled in SEA' }), getAuditHistoryDbPath: () => null, openAuditHistoryDb: () => null, recordAuditRun: () => null, listRecentRuns: () => [], countRuns: () => 0, pruneOldRuns: () => 0 };", loader: "js" }));
+  },
+};
+
 /** @type {import('esbuild').BuildOptions} */
 export const seaBuildOptions = {
   entryPoints: ["src/cli.js"],
@@ -221,6 +230,6 @@ export const seaBuildOptions = {
   // throws → collector returns available:false. npm installs get knip
   // resolved normally from node_modules.
   external: ["better-sqlite3", "madge", "knip", "oxc-parser", "oxc-resolver"],
-  plugins: [seaTransformPlugin, huBoardStubPlugin, ragStubPlugin],
+  plugins: [seaTransformPlugin, huBoardStubPlugin, ragStubPlugin, auditHistoryStubPlugin],
   logLevel: "info",
 };
