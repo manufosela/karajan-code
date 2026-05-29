@@ -104,6 +104,7 @@ export function registerMeta(program, { pkgVersion }) {
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")
     .option("--with-sources", "Also index the projectDir's JS/TS files")
+    .option("--since <ref>", "Only re-index files changed since <ref> ('auto' uses the last indexed commit; falls back to full index if unset). KJC-TSK-0455.")
     .option("--json", "Output the totals as JSON")
     .action(async (flags) => {
       await withConfig(pkgVersion, "rag-index", flags, async ({ config, logger }) => {
