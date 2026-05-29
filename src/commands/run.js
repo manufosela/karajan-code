@@ -12,6 +12,7 @@ import { resolveRole } from "../config.js";
 import { parseCardId } from "../planning-game/adapter.js";
 import { confirmCwd } from "../utils/cwd-confirm.js";
 import { runSpecReview } from "../spec-review/run-spec-review.js";
+import { maybeAutoUpdate } from "../rag/auto-update.js";
 
 function createCliAskQuestion(opts = {}) {
   const { sessionId = null } = opts;
@@ -83,6 +84,13 @@ export async function runCommandHandler({ task, config, logger, flags }) {
       return { ok: false, aborted: true };
     }
   }
+
+  // KJC-TSK-0455 — Pre-run drift check. Default ON; opt out with
+  // --no-rag-update (flag) or config.rag.autoUpdate.onRun=false. If the
+  // local index is behind HEAD we re-embed the delta before the agents
+  // start reading from the RAG store; on any failure we log and move on
+  // so a broken vector store never blocks a run.
+  await maybeAutoUpdate({ projectDir, config, logger, flags });
 
   // Best-effort session cleanup before starting
   try {

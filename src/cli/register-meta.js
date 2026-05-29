@@ -3,7 +3,7 @@ import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
-import { ragIndexCommand, ragQueryCommand } from "../commands/rag.js";
+import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand } from "../commands/rag.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
@@ -109,6 +109,14 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "rag-index", flags, async ({ config, logger }) => {
         await ragIndexCommand({ config, logger, flags });
+      });
+    });
+  rag.command("install-hooks")
+    .description("Install the post-merge git hook so the RAG index auto-refreshes after pulls/merges (KJC-TSK-0455)")
+    .option("--json", "Output the result as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rag-install-hooks", flags, async ({ config, logger }) => {
+        await ragInstallHooksCommand({ config, logger, flags });
       });
     });
   rag.command("query <text>")
