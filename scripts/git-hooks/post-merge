@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# KJC-TSK-0455 — Auto-refresh the local RAG index after a merge so retrieval
+# never serves stale code. Installed by `kj rag install-hooks`. The marker
+# in this comment is how the installer tells kj-managed hooks from user hooks.
+set -euo pipefail
+if ! command -v kj >/dev/null 2>&1; then exit 0; fi
+kj rag index --since auto >/dev/null 2>&1 || true

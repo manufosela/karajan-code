@@ -6,6 +6,7 @@ import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIn
 import { makeEmbedder } from "../rag/embedders/factory.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
+import { installPostMergeHook } from "../rag/auto-update.js";
 import { getKarajanHome } from "../utils/paths.js";
 
 function openDb(config) {
@@ -54,6 +55,18 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
   } finally {
     db.close();
   }
+}
+
+// KJC-TSK-0455 — `kj rag install-hooks` wires the post-merge hook so the
+// local index keeps up after `git pull` / merges. Opt-in to keep us from
+// silently writing under `.git/hooks/`; pre-run drift check covers users
+// who never run it.
+export async function ragInstallHooksCommand({ config, logger, flags = {} }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const res = installPostMergeHook({ projectDir, logger });
+  if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+  else if (res.installed) logger.info(`[rag] installed post-merge hook at ${res.target}`);
+  return res;
 }
 
 export async function ragQueryCommand({ text, config, logger, flags = {} }) {

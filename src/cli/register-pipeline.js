@@ -110,6 +110,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--skip-role <role...>", "Force one or more roles OFF regardless of triage (e.g. --skip-role tester security)")
     .option("--force-role <role...>", "Force one or more roles ON regardless of triage")
     .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
+    .option("--no-rag-update", "Skip the pre-run RAG drift check (KJC-TSK-0455). Same as config.rag.autoUpdate.onRun=false.")
     .option("--dry-run", "Show what would be executed without running anything")
     .option("--json", "Output JSON only (no styled display)")
     .option("-q, --quiet", "Show only stage status lines, suppress raw agent output (default)")

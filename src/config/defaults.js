@@ -189,6 +189,13 @@ const DEFAULTS = {
     devtools_mcp: false,
     thresholds: { lcp: 2500, cls: 0.1, inp: 200 }
   },
+  rag: {
+    // KJC-TSK-0455 — Auto-refresh the local RAG index. `onRun` runs a
+    // delta re-index before every `kj run`; `onCommit` is consulted by
+    // `kj rag install-hooks` to decide whether to install the post-merge
+    // hook. Both default ON; flip to false to opt out without uninstalling.
+    autoUpdate: { onCommit: true, onRun: true }
+  },
   telemetry: true,
   guards: {
     output: {
