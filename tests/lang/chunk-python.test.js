@@ -1,10 +1,11 @@
-// KJC-PCS-0052 PR-B — Python chunker. Cubre las dos primeras acceptance
-// criteria del card (top-level def/class → chunks con symbol; fallback
-// windowing cuando no hay markers) y verifica el dispatch desde el
-// chunker general por adapter.
-import { describe, expect, it } from "vitest";
+// KJC-PCS-0052 PR-B + PR-B.2.1 — Python chunker. PR-B cubrió el camino
+// regex (sigue verificado aquí intacto para garantizar backward-compat).
+// PR-B.2.1 añade el camino tree-sitter detrás de `await preparePython()`:
+// decoradores y `def` multilínea ya quedan correctamente asociados al
+// nombre del símbolo sin depender de la heurística regex.
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { chunkPython } from "../../src/lang/chunk-python.js";
+import { chunkPython, preparePython } from "../../src/lang/chunk-python.js";
 import { chunkSource } from "../../src/rag/chunker.js";
 
 describe("chunkPython — KJC-PCS-0052 PR-B", () => {
@@ -59,5 +60,26 @@ describe("chunkSource adapter dispatch — KJC-PCS-0052 PR-B", () => {
     const chunks = chunkSource(text, { path: "/tmp/x.js" });
     expect(chunks[0].metadata.symbol).toBe("alpha");
     expect(chunks[0].metadata.language).toBeUndefined();
+  });
+});
+
+describe("chunkPython AST — KJC-PCS-0052 PR-B.2.1", () => {
+  beforeAll(async () => {
+    await preparePython();
+  });
+
+  it("captures decorated top-level def (regex would miss the @decorator gap)", () => {
+    const text = "import functools\n\n@functools.cache\ndef alpha(x):\n    return x\n\n@staticmethod\nclass Beta:\n    pass\n";
+    const chunks = chunkPython(text, { path: "d.py" });
+    expect(chunks.map((c) => c.metadata.symbol)).toEqual(["alpha", "Beta"]);
+    expect(chunks[0].text).toContain("@functools.cache");
+    expect(chunks[1].text).toContain("@staticmethod");
+  });
+
+  it("handles multiline def signatures without splitting the symbol off the body", () => {
+    const text = "def alpha(\n    first,\n    second,\n    third,\n):\n    return first + second + third\n\ndef beta():\n    return 0\n";
+    const chunks = chunkPython(text, { path: "m.py" });
+    expect(chunks.map((c) => c.metadata.symbol)).toEqual(["alpha", "beta"]);
+    expect(chunks[0].text).toContain("first + second + third");
   });
 });
