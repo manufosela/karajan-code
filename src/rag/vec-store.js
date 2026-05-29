@@ -53,6 +53,18 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     db.exec("ALTER TABLE chunks ADD COLUMN project_slug TEXT;");
     db.exec("CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);");
   }
+  // KJC-TSK-0455 — Auto-update by commit diff. Per-project metadata tracks
+  // the last commit whose changes were reflected in the index, so subsequent
+  // `kj rag index --since auto` invocations (and the post-merge hook / pre-run
+  // drift check landed in PR2) only re-embed the actual delta instead of the
+  // whole project.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS vec_store_meta (
+      project_slug TEXT PRIMARY KEY,
+      last_indexed_commit TEXT,
+      last_indexed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(embedding float[${dim}]);`);
   // KJC-TSK-0443 — FTS5 keyword index for BM25 hybrid scoring. content='chunks'
   // makes it a contentless mirror linked by id (no double storage); triggers
@@ -151,6 +163,25 @@ export function deleteChunksBySource(db, source) {
   db.prepare(`DELETE FROM vec_chunks WHERE rowid IN (${placeholders})`).run(...ids);
   db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...ids);
   return ids.length;
+}
+
+// KJC-TSK-0455 — Per-project commit watermark for `kj rag index --since auto`
+// and the post-merge / pre-run drift hooks landing in PR2.
+export function getLastIndexedCommit(db, projectSlug) {
+  if (!projectSlug) return null;
+  const row = db.prepare("SELECT last_indexed_commit FROM vec_store_meta WHERE project_slug = ?").get(projectSlug);
+  return row?.last_indexed_commit ?? null;
+}
+
+export function setLastIndexedCommit(db, projectSlug, commit) {
+  if (!projectSlug || !commit) return;
+  db.prepare(`
+    INSERT INTO vec_store_meta (project_slug, last_indexed_commit, last_indexed_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(project_slug) DO UPDATE SET
+      last_indexed_commit = excluded.last_indexed_commit,
+      last_indexed_at = excluded.last_indexed_at
+  `).run(projectSlug, commit);
 }
 
 export function countChunks(db, { kind = null } = {}) {

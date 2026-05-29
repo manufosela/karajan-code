@@ -2,9 +2,9 @@
 //   kj rag index [--project <slug>] [--with-sources]
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
-import { openVecStore, countChunks, projectSlug } from "../rag/vec-store.js";
+import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
 import { makeEmbedder } from "../rag/embedders/factory.js";
-import { indexProject } from "../rag/indexer.js";
+import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -16,15 +16,39 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
   const db = openDb(config);
   try {
-    const totals = await indexProject(projectDir, {
-      db, embedder: makeEmbedder(config),
-      karajanHome: getKarajanHome(), logger,
-      withSources: Boolean(flags.withSources),
-    });
+    const slug = projectSlug(projectDir);
+    const embedder = makeEmbedder(config);
+    const sinceFlag = flags.since;
+    // KJC-TSK-0455 — `--since auto` resolves to the last commit we indexed;
+    // an explicit ref is honoured as-is. Without a baseline (first-time
+    // index) we fall back to a full reindex with a friendly warning so the
+    // hook in PR2 stays a no-op-friendly entrypoint.
+    let since = null;
+    if (sinceFlag) {
+      since = sinceFlag === "auto" ? getLastIndexedCommit(db, slug) : sinceFlag;
+      if (!since) logger.warn?.("[rag] --since auto: no previous index recorded; running full index");
+    }
+    let totals;
+    if (since) {
+      try {
+        totals = await indexProjectDelta(projectDir, { db, embedder, since, logger });
+      } catch (err) {
+        logger.warn?.(`[rag] delta index failed (${err.message}); falling back to full index`);
+        totals = null;
+      }
+    }
+    if (!totals) {
+      totals = await indexProject(projectDir, {
+        db, embedder,
+        karajanHome: getKarajanHome(), logger,
+        withSources: Boolean(flags.withSources),
+      });
+    }
+    if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(totals)}\n`);
     } else {
-      logger.info(`[rag] indexed ${totals.indexed} chunk(s) across ${totals.files} file(s) (${totals.failed} failed)`);
+      logger.info(`[rag] indexed ${totals.indexed} chunk(s) across ${totals.files} file(s) (${totals.failed} failed${totals.deleted ? `, ${totals.deleted} chunks deleted` : ""})`);
     }
     return totals;
   } finally {
