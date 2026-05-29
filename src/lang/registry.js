@@ -62,3 +62,15 @@ export function getAllCodeExtensions() {
   for (const a of REGISTRY) for (const e of a.extensions) out.add(e.toLowerCase());
   return [...out];
 }
+
+/**
+ * KJC-PCS-0052 PR-B — devuelve el adapter cuya `extensions` cubre el
+ * path, o `null` si ninguno matchea. Lo consume el chunker para delegar
+ * a un chunker específico por lenguaje (p.ej. Python).
+ */
+export function adapterForPath(path) {
+  if (!path) return null;
+  const ext = extname(path).toLowerCase();
+  for (const a of REGISTRY) if (a.extensions.includes(ext)) return a;
+  return null;
+}

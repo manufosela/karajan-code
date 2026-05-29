@@ -92,13 +92,17 @@ export function chunkPlan(plan, { path = "<plan>", limit = DEFAULT_CHUNK_LIMIT }
 // ---------- source chunker (export-symbol granularity) ------------
 
 import { chunkSourceAST } from "./chunker-ast.js";
+import { adapterForPath } from "../lang/registry.js";
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|class|const|let)\s+(\w+)/gm;
 
-// KJC-TSK-0444 — try AST chunker first (top-level declarations as whole
-// units, JSDoc folded in); fall back to the export-regex if @babel/parser
-// can't parse the file (returns null).
+// KJC-TSK-0444 + KJC-PCS-0052 PR-B — dispatch por adapter cuando el path
+// coincide con un lenguaje registrado que aporta su propio `chunkSource`
+// (p.ej. Python regex top-level). Si no, mantiene el camino JS histórico:
+// AST de @babel/parser primero, fallback a export-regex.
 export function chunkSource(text, opts = {}) {
+  const ad = adapterForPath(opts.path);
+  if (ad?.chunkSource) return ad.chunkSource(text, opts);
   const ast = chunkSourceAST(text, opts);
   if (ast) return ast;
   return chunkSourceRegex(text, opts);
