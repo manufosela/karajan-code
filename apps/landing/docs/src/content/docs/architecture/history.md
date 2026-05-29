@@ -1194,7 +1194,7 @@ LOC budget: +197 / -43, net +154. Inside the 200 hard / 150 ideal budget. 10 orc
 
 ### KJC-BUG-0060 — `autoInit()` committed empty commits on user's main (PR #797)
 
-Reported by mjfosela during the v2.19.3 release itself: after `git checkout main`, `git status` showed `[ahead 27]` of origin/main. Every one of the 27 commits was titled `initial commit`, authored by `manufosela@gmail.com` (his karajan-code-local `user.email`, not his global `mjfosela@gmail.com`), and pointed to **the exact same tree as its parent** — completely empty. The reflog held **2 495 such SHAs** accumulated since April 2026. None had ever reached origin/main (the push or CI would have rejected them) so runtime impact was zero, but on every release the local history looked like a sync loss.
+Reported during the v2.19.3 release itself: after `git checkout main`, `git status` showed `[ahead 27]` of origin/main. Every one of the 27 commits was titled `initial commit`, authored by the karajan-code-local `user.email` (which diverges from the global one), and pointed to **the exact same tree as its parent** — completely empty. The reflog held **2 495 such SHAs** accumulated since April 2026. None had ever reached origin/main (the push or CI would have rejected them) so runtime impact was zero, but on every release the local history looked like a sync loss.
 
 Root cause: `src/orchestrator/config-init.js::autoInit()` guarded with `!(await exists(projectDir/.git))`, which fails two ways.
 

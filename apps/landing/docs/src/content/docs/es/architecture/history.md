@@ -1193,7 +1193,7 @@ Budget de LOC: +197 / -43, net +154. Dentro de 200 hard / 150 ideal. 10 ficheros
 
 ### KJC-BUG-0060 — `autoInit()` commiteaba vacíos en main del usuario (PR #797)
 
-Reportado por mjfosela durante el propio release de v2.19.3: tras `git checkout main`, `git status` mostraba `[adelante 27]` ante origin/main. Cada uno de los 27 commits titulado `initial commit`, autor `manufosela@gmail.com` (su `user.email` local de karajan-code, no su global `mjfosela@gmail.com`), tree apuntando al **mismo árbol que su parent** — completamente vacíos. El reflog acumulaba **2 495 SHAs** del mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (el push o CI los habrían rechazado), runtime impact cero, pero en cada release la historia local parecía pérdida de sync.
+Reportado durante el propio release de v2.19.3: tras `git checkout main`, `git status` mostraba `[adelante 27]` ante origin/main. Cada uno de los 27 commits titulado `initial commit`, autor el `user.email` local de karajan-code (que diverge del global), tree apuntando al **mismo árbol que su parent** — completamente vacíos. El reflog acumulaba **2 495 SHAs** del mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (el push o CI los habrían rechazado), runtime impact cero, pero en cada release la historia local parecía pérdida de sync.
 
 Causa raíz: `src/orchestrator/config-init.js::autoInit()` guardaba con `!(await exists(projectDir/.git))`, que falla por dos vías.
 
