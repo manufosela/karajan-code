@@ -76,6 +76,22 @@ describe("indexer — KJC-PCS-0049 Step 4", () => {
     expect(countChunks(db, { kind: "code" })).toBeGreaterThan(0);
   });
 
+  // KJC-PCS-0052 PR-A — un repo Python (detectado por pyproject.toml) indexa
+  // .py via el language adapter registry, y NO recoge node_modules (que en un
+  // repo Python no debería existir, pero el matcher cumple igual). Cero
+  // regresión en repos JS: el test JS-only de arriba sigue verde sin tocar.
+  it("indexProject --with-sources indexes .py files in a Python project (manifest detected)", async () => {
+    const projectDir = join(root, "py-proj");
+    mkdirSync(join(projectDir, "src"), { recursive: true });
+    mkdirSync(join(projectDir, "__pycache__"), { recursive: true });
+    writeFileSync(join(projectDir, "pyproject.toml"), "[project]\nname='demo'\n");
+    writeFileSync(join(projectDir, "src", "app.py"), "def alpha():\n    return 1\n");
+    writeFileSync(join(projectDir, "__pycache__", "app.cpython-311.pyc"), "x");
+    const totals = await indexProject(projectDir, { db, embedder: fakeEmbedder(), karajanHome: join(root, "missing-py"), logger: noopLogger, withSources: true });
+    expect(totals.files).toBe(1); // only src/app.py — __pycache__ skipped
+    expect(countChunks(db, { kind: "code" })).toBeGreaterThan(0);
+  });
+
   // KJC-BUG-0062: `.kj/worktrees/HU-*/` and `tests/_diet/` are scratch
   // sandboxes (per-HU git worktrees and the test-diet audit harness).
   // They contain duplicates of src/ that contaminate retrieval scores.

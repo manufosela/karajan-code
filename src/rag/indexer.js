@@ -11,10 +11,13 @@ import { execa } from "execa";
 
 import { chunkMarkdown, chunkPlan, chunkSource } from "./chunker.js";
 import { insertChunk, deleteChunksBySource } from "./vec-store.js";
+import { detectAdaptersForProject, buildMatchers, getAllCodeExtensions } from "../lang/registry.js";
 
-const CODE_EXT_RE = /\.(js|mjs|cjs|ts|tsx|jsx)$/;
-const SKIP_SEGMENTS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet"]);
-
+// KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
+// (CODE_EXT_RE + SKIP_SEGMENTS). Ahora vienen del registry de adapters,
+// que se consulta una vez por proceso para el conjunto global y por
+// projectDir cuando hace falta filtrar el walk.
+const ALL_CODE_EXTENSIONS = new Set(getAllCodeExtensions());
 const ONBOARDING_DIR = "onboarding", PLANS_DIR = "plans";
 
 function detectKind(path) {
@@ -22,7 +25,7 @@ function detectKind(path) {
   const base = path.split("/").pop() || "";
   if (ext === ".json" && (/^plan-.+\.json$/i.test(base) || path.includes(`/${PLANS_DIR}/`))) return "plan";
   if (ext === ".md") return path.includes(`/${ONBOARDING_DIR}/`) ? "onboarding" : "plan";
-  if ([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"].includes(ext)) return "code";
+  if (ALL_CODE_EXTENSIONS.has(ext)) return "code";
   return null;
 }
 
@@ -113,8 +116,9 @@ export async function indexProject(projectDir, { db, embedder, karajanHome, logg
     // per HU during `kj run`; they hold complete copies of `src/` that
     // duplicate every chunk and contaminate retrieval scores. `_diet` is the
     // tests/_diet/ sandbox used by the test-diet audit harness — never user
-    // code. Skip both.
-    const sources = await listFiles(projectDir, (p) => CODE_EXT_RE.test(p) && !p.split("/").some((seg) => SKIP_SEGMENTS.has(seg)));
+    // code. Both viven en COMMON_SKIP_SEGMENTS dentro del registry.
+    const matchers = buildMatchers(detectAdaptersForProject(projectDir));
+    const sources = await listFiles(projectDir, (p) => matchers.isCodeFile(p) && !matchers.shouldSkip(p));
     for (const s of sources) {
       const r = await indexFile(s, { db, embedder, logger, project: slug });
       totals.indexed += r.indexed; totals.failed += r.failed; totals.files += 1;
@@ -145,9 +149,10 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
     else if (s === "D") { ops.push({ kind: "del", p: parts[++i] }); }
     else { ops.push({ kind: "idx", p: parts[++i] }); }
   }
+  const matchers = buildMatchers(detectAdaptersForProject(projectDir));
   for (const { kind, p } of ops) {
-    if (p.split("/").some((seg) => SKIP_SEGMENTS.has(seg))) continue;
-    if (!CODE_EXT_RE.test(p)) continue;
+    if (matchers.shouldSkip(p)) continue;
+    if (!matchers.isCodeFile(p)) continue;
     const abs = isAbsolute(p) ? p : join(projectDir, p);
     if (kind === "del") {
       totals.deleted += deleteChunksBySource(db, abs);
