@@ -7,13 +7,14 @@ import { extname, join } from "node:path";
 
 import { JS_ADAPTER } from "./js.js";
 import { PYTHON_ADAPTER } from "./python.js";
+import { RUST_ADAPTER } from "./rust.js";
 
 // Segmentos siempre excluidos del walk, independientes de stack: VCS,
 // outputs de build, scratch de Karajan, sandbox del audit. Lo que viva
 // aquí jamás se indexa.
 const COMMON_SKIP_SEGMENTS = [".git", "dist", "build", "coverage", ".karajan", ".kj", "_diet"];
 
-const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER];
+const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER];
 
 export function getAdapters() {
   return REGISTRY.slice();

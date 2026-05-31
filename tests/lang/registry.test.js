@@ -22,14 +22,22 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["js", "python"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["js", "python", "rust"]);
   });
 
-  it("getAllCodeExtensions includes both JS and Python", () => {
+  it("getAllCodeExtensions includes JS, Python and Rust", () => {
     const exts = getAllCodeExtensions();
     expect(exts).toContain(".js");
     expect(exts).toContain(".ts");
     expect(exts).toContain(".py");
+    expect(exts).toContain(".rs");
+  });
+
+  it("detects Rust via Cargo.toml", () => {
+    const root = mkRoot();
+    writeFileSync(join(root, "Cargo.toml"), "[package]\nname='x'\n");
+    const adapters = detectAdaptersForProject(root);
+    expect(adapters.map((a) => a.id)).toEqual(["rust"]);
   });
 
   it("detects JS via package.json", () => {

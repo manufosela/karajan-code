@@ -16,3 +16,4 @@ Re-extract with:
     npm pack @vscode/tree-sitter-wasm
     tar -xzf vscode-tree-sitter-wasm-*.tgz
     cp package/wasm/tree-sitter-python.wasm vendor/tree-sitter-grammars/python.wasm
+    cp package/wasm/tree-sitter-rust.wasm   vendor/tree-sitter-grammars/rust.wasm
