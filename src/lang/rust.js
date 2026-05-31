@@ -2,7 +2,7 @@
 // y skip segments evitan que el indexer recorra builds. chunk-rust usa
 // AST (tree-sitter) cuando el caller hizo `await prepareRust()` y cae a
 // regex en otro caso (mismo patrón que PYTHON_ADAPTER).
-import { chunkRust } from "./chunk-rust.js";
+import { chunkRust, prepareRust } from "./chunk-rust.js";
 
 export const RUST_ADAPTER = {
   id: "rust",
@@ -10,4 +10,5 @@ export const RUST_ADAPTER = {
   skipSegments: ["target", ".cargo"],
   manifests: ["Cargo.toml", "Cargo.lock"],
   chunkSource: chunkRust,
+  prepare: prepareRust,
 };

@@ -75,6 +75,20 @@ function chunkLabel(ch) {
   return ch.metadata?.hu_id || ch.metadata?.symbol || ch.metadata?.headingPath?.join(" > ") || "block";
 }
 
+// KJC-PCS-0052 PR-B.2.4 — Activa el camino AST en chunkers cuyo adapter
+// expone `prepare()` (Python, Rust). Promise.allSettled aísla cada grammar:
+// si uno falla (red, wasm corrupto), el resto se carga y los .py/.rs sin
+// AST listo caen al fallback regex en chunkSource. JS no tiene `prepare`
+// porque chunker-ast.js usa @babel/parser síncrono (ya cargado).
+export async function prepareAdapters(adapters, { logger = console } = {}) {
+  const tasks = adapters.filter((a) => typeof a.prepare === "function");
+  if (tasks.length === 0) return;
+  const results = await Promise.allSettled(tasks.map((a) => a.prepare()));
+  results.forEach((r, i) => {
+    if (r.status === "rejected") logger.warn?.(`[rag-indexer] adapter ${tasks[i].id} prepare failed: ${r.reason?.message || r.reason}`);
+  });
+}
+
 async function listFiles(dir, predicate) {
   const out = [];
   async function walk(d) {
@@ -98,6 +112,7 @@ async function listFiles(dir, predicate) {
 export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false } = {}) {
   const totals = { indexed: 0, failed: 0, files: 0 };
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
+  await prepareAdapters(detectAdaptersForProject(projectDir), { logger });
   const planRoot = join(karajanHome, PLANS_DIR, slug);
   if (existsSync(planRoot)) {
     const plans = await listFiles(planRoot, (p) => /plan-.*\.json$/.test(p));
@@ -149,7 +164,9 @@ export async function indexProjectDelta(projectDir, { db, embedder, since, logge
     else if (s === "D") { ops.push({ kind: "del", p: parts[++i] }); }
     else { ops.push({ kind: "idx", p: parts[++i] }); }
   }
-  const matchers = buildMatchers(detectAdaptersForProject(projectDir));
+  const adapters = detectAdaptersForProject(projectDir);
+  await prepareAdapters(adapters, { logger });
+  const matchers = buildMatchers(adapters);
   for (const { kind, p } of ops) {
     if (matchers.shouldSkip(p)) continue;
     if (!matchers.isCodeFile(p)) continue;
