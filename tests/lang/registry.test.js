@@ -25,6 +25,13 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     expect(a.map((x) => x.id).sort()).toEqual(["js", "python", "rust"]);
   });
 
+  it("only Python and Rust adapters expose prepare() (JS uses sync @babel)", () => {
+    const byId = Object.fromEntries(getAdapters().map((a) => [a.id, a]));
+    expect(typeof byId.python.prepare).toBe("function");
+    expect(typeof byId.rust.prepare).toBe("function");
+    expect(byId.js.prepare).toBeUndefined();
+  });
+
   it("getAllCodeExtensions includes JS, Python and Rust", () => {
     const exts = getAllCodeExtensions();
     expect(exts).toContain(".js");
