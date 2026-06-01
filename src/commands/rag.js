@@ -7,6 +7,7 @@ import { makeEmbedder } from "../rag/embedders/factory.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook } from "../rag/auto-update.js";
+import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 
 function openDb(config) {
@@ -108,6 +109,42 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
       }
     }
     return hits;
+  } finally {
+    db.close();
+  }
+}
+
+// KJC-TSK-0483 — `kj rag eval`. Runs the retriever against a golden query
+// set and reports recall@5, recall@10 and MRR per query and aggregated.
+// Exit code != 0 when `--min-recall` is set and the aggregated recall@5
+// falls below the threshold — lets CI fail noisily on retrieval regressions.
+const DEFAULT_GOLDEN = "tests/rag/golden-queries.json";
+export async function ragEvalCommand({ config, logger, flags = {} }) {
+  const db = openDb(config);
+  try {
+    const goldenPath = flags.golden || DEFAULT_GOLDEN;
+    const queries = loadGoldenQueries(goldenPath);
+    const topK = Math.max(1, Number(flags.topK) || 10);
+    const detected = projectSlug(config?.projectDir || process.cwd());
+    const project = flags.project === "all" ? null : (flags.project || detected || null);
+    const embedder = makeEmbedder(config);
+    const runQuery = async (text, k) => query(db, embedder, text, { topK: k, scope: "all", project });
+    const report = await runEval(queries, runQuery, { topK, ks: [5, 10] });
+    if (flags.json) {
+      process.stdout.write(`${JSON.stringify(report)}\n`);
+    } else {
+      logger.info(`[rag-eval] ${report.aggregate.n} queries · recall@5=${report.aggregate.recall["@5"].toFixed(3)} · recall@10=${report.aggregate.recall["@10"].toFixed(3)} · MRR=${report.aggregate.mrr.toFixed(3)}`);
+      for (const r of report.results) {
+        const rank = r.firstRank == null ? "—" : `#${r.firstRank}`;
+        logger.info(`  [${rank}] ${r.query}`);
+      }
+    }
+    const minRecall = Number(flags.minRecall);
+    if (Number.isFinite(minRecall) && report.aggregate.recall["@5"] < minRecall) {
+      logger.error?.(`[rag-eval] recall@5=${report.aggregate.recall["@5"].toFixed(3)} below --min-recall=${minRecall}`);
+      process.exitCode = 1;
+    }
+    return report;
   } finally {
     db.close();
   }
