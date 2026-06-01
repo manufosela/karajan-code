@@ -3,7 +3,7 @@ import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
-import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand } from "../commands/rag.js";
+import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
@@ -143,6 +143,20 @@ export function registerMeta(program, { pkgVersion }) {
       delete flags.ragMode;
       await withConfig(pkgVersion, "rag-query", flags, async ({ config, logger }) => {
         await ragQueryCommand({ text, config, logger, flags: { ...flags, mode: ragMode } });
+      });
+    });
+  // KJC-TSK-0483 — `kj rag eval` runs the golden-query harness and reports
+  // recall@5/recall@10/MRR. `--min-recall` turns it into a CI gate.
+  rag.command("eval")
+    .description("Score the retriever against a golden query set (recall@k + MRR)")
+    .option("--golden <path>", "Path to golden queries JSON (default: tests/rag/golden-queries.json)")
+    .option("--top-k <n>", "Number of hits to retrieve per query (default: 10)", "10")
+    .option("--min-recall <n>", "Fail (exit 1) if aggregated recall@5 falls below this threshold")
+    .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project.")
+    .option("--json", "Emit the full report as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "rag-eval", flags, async ({ config, logger }) => {
+        await ragEvalCommand({ config, logger, flags });
       });
     });
 

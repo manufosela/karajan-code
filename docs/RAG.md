@@ -236,12 +236,35 @@ Project isolation is enforced by stamping each row with the projectDir basename.
 Two tiers:
 
 - **Pipeline tests** — `tests/rag/*.test.js` covers the chunkers, embedder factory, retriever ranking, hybrid scoring, watcher and CLI. Pre-merge gate ensures green CI before any change to `src/rag/` lands.
-- **Retrieval quality** — `kj rag eval` (KJC-TSK-0483, in progress) runs a frozen set of golden queries against the current index and reports `recall@k` and MRR vs. a stored baseline. Used to detect regressions when changing chunkers, embedders or alpha. The retrieval-quality dashboard in the HU Board surfaces the same metric live per query.
+- **Retrieval quality** — `kj rag eval` (KJC-TSK-0483) runs a frozen set of golden queries against the current index and reports `recall@k` and MRR. Used to detect regressions when changing chunkers, embedders or alpha. The retrieval-quality dashboard in the HU Board surfaces the same metric live per query. See [Retrieval quality baseline](#retrieval-quality-baseline) below for the harness and current numbers.
 
 Known gaps:
 
 - **Content-hash dedup** is not on by default — KJC-TSK-0484. Re-indexing identical bodies wastes embeddings; a SHA-256 column + skip-on-match is on backlog.
 - **Near-duplicate clustering** (cosine > 0.97 between chunks) is exploratory under the same card.
+
+## Retrieval quality baseline
+
+`kj rag eval` is the regression gate for the retriever. It loads a JSON file of golden queries — each with `query`, `expected_sources` (path suffixes) and optional `expected_symbols` — runs the current retriever against every entry, and reports `recall@5`, `recall@10` and MRR per query and aggregated.
+
+```bash
+# Default: tests/rag/golden-queries.json, topK=10, scope=all
+kj rag eval
+
+# Custom golden set + JSON for CI consumption
+kj rag eval --golden ./my-golden.json --json > eval-report.json
+
+# CI gate: fail (exit 1) if aggregated recall@5 drops below 0.7
+kj rag eval --min-recall 0.7
+```
+
+`--project all` queries across every indexed project; the default detects the cwd slug, matching the rest of the `kj rag` family.
+
+The harness is decoupled from the retriever: `runEval(queries, runQuery, { topK, ks })` in `src/rag/eval.js` is pure and takes the retriever as a callback, so unit tests cover the math (`scoreQuery` for binary recall@k + reciprocal rank, `aggregate` for the mean over queries) with a stub. `tests/rag/golden-queries.json` ships 20 entries covering the public surface of `src/rag/` (vec-store, retriever, indexer, chunker, every embedder, watcher, where-parser, ollama-manager).
+
+A query "hits" when any expected source is a path-suffix of the chunk's `source`, or the chunk's `metadata.symbol` is listed in `expected_symbols`. `recall@k` is binary (1 if any expected match lands in the top-k, 0 otherwise); MRR is the mean of `1 / firstRelevantRank` across queries.
+
+Baseline numbers depend on the embedder and the indexed corpus. Re-run `kj rag eval` after any change to chunkers, embedders, hybrid `alpha`, BM25 weights or the metadata schema and check that aggregated recall@5 does not regress. The intended use in CI is a single `kj rag eval --min-recall <threshold>` step after `kj rag index`.
 
 ## Troubleshooting
 
