@@ -22,22 +22,31 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["js", "python", "rust"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["go", "js", "python", "rust"]);
   });
 
-  it("only Python and Rust adapters expose prepare() (JS uses sync @babel)", () => {
+  it("only Python, Rust and Go adapters expose prepare() (JS uses sync @babel)", () => {
     const byId = Object.fromEntries(getAdapters().map((a) => [a.id, a]));
     expect(typeof byId.python.prepare).toBe("function");
     expect(typeof byId.rust.prepare).toBe("function");
+    expect(typeof byId.go.prepare).toBe("function");
     expect(byId.js.prepare).toBeUndefined();
   });
 
-  it("getAllCodeExtensions includes JS, Python and Rust", () => {
+  it("getAllCodeExtensions includes JS, Python, Rust and Go", () => {
     const exts = getAllCodeExtensions();
     expect(exts).toContain(".js");
     expect(exts).toContain(".ts");
     expect(exts).toContain(".py");
     expect(exts).toContain(".rs");
+    expect(exts).toContain(".go");
+  });
+
+  it("detects Go via go.mod", () => {
+    const root = mkRoot();
+    writeFileSync(join(root, "go.mod"), "module example.com/x\n");
+    const adapters = detectAdaptersForProject(root);
+    expect(adapters.map((a) => a.id)).toEqual(["go"]);
   });
 
   it("detects Rust via Cargo.toml", () => {
