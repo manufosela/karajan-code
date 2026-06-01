@@ -7,10 +7,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { extname, isAbsolute, join, relative } from "node:path";
+import { createHash } from "node:crypto";
 import { execa } from "execa";
 
 import { chunkMarkdown, chunkPlan, chunkSource } from "./chunker.js";
-import { insertChunk, deleteChunksBySource } from "./vec-store.js";
+import { insertChunk, deleteChunksBySource, findChunkByHash } from "./vec-store.js";
 import { detectAdaptersForProject, buildMatchers, getAllCodeExtensions } from "../lang/registry.js";
 
 // KJC-PCS-0052 PR-A — antes vivían dos consts hard-coded para JS aquí
@@ -53,22 +54,30 @@ export async function indexFile(path, { db, embedder, logger = console, project 
   const kind = detectKind(path);
   if (!kind) { logger.warn?.(`[rag-indexer] unknown kind: ${path}`); return { indexed: 0, failed: 0 }; }
   const chunks = chunksFor(path, kind);
-  if (!chunks.length) return { indexed: 0, failed: 0 };
+  if (!chunks.length) return { indexed: 0, failed: 0, skipped: 0 };
   deleteChunksBySource(db, path);
   let indexed = 0;
   let failed = 0;
+  let skipped = 0;
   for (const ch of chunks) {
+    // KJC-TSK-0484 — Skip re-embedding identical bodies for the same project.
+    // The chunks row is still rewritten under the new source so deletions of
+    // an alias don't orphan a row whose owner was the dedup target.
+    const contentHash = createHash("sha256").update(ch.text).digest("hex");
     try {
+      const dup = findChunkByHash(db, contentHash, project);
+      if (dup) { skipped += 1; continue; }
       const embedding = await embedder.embed(ch.text);
-      insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding, project });
+      insertChunk(db, { source: path, kind: ch.metadata.kind || kind, text: ch.text, metadata: ch.metadata, embedding, project, contentHash });
       indexed += 1;
     } catch (err) {
       failed += 1;
       logger.warn?.(`[rag-indexer] embed failed for ${path} (${chunkLabel(ch)}): ${err.message}`);
     }
   }
-  logger.info?.(`[rag-indexer] ${relative(process.cwd(), path)} → ${indexed} chunk(s) (${failed} failed)`);
-  return { indexed, failed };
+  const note = skipped ? `, ${skipped} dedup` : "";
+  logger.info?.(`[rag-indexer] ${relative(process.cwd(), path)} → ${indexed} chunk(s) (${failed} failed${note})`);
+  return { indexed, failed, skipped };
 }
 
 function chunkLabel(ch) {

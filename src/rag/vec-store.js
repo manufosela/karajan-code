@@ -53,6 +53,14 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     db.exec("ALTER TABLE chunks ADD COLUMN project_slug TEXT;");
     db.exec("CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);");
   }
+  // KJC-TSK-0484 — Content-hash dedup. SHA-256 of the chunk text lets the
+  // indexer skip embedding bodies it has already seen for the same project.
+  // Older rows keep NULL; the lookup ignores NULLs so they neither dedup
+  // nor get deduped until they are re-indexed and stamped.
+  if (!cols.includes("content_hash")) {
+    db.exec("ALTER TABLE chunks ADD COLUMN content_hash TEXT;");
+    db.exec("CREATE INDEX IF NOT EXISTS chunks_by_hash ON chunks(content_hash, project_slug);");
+  }
   // KJC-TSK-0455 — Auto-update by commit diff. Per-project metadata tracks
   // the last commit whose changes were reflected in the index, so subsequent
   // `kj rag index --since auto` invocations (and the post-merge hook / pre-run
@@ -97,13 +105,13 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
  * because the virtual table rowid is set explicitly to the freshly
  * minted chunks.id. Returns that id.
  */
-export function insertChunk(db, { source, kind, text, metadata = null, embedding, project = null }) {
+export function insertChunk(db, { source, kind, text, metadata = null, embedding, project = null, contentHash = null }) {
   if (!Array.isArray(embedding) && !ArrayBuffer.isView(embedding)) {
     throw new Error("insertChunk: embedding must be an array or typed array of floats");
   }
   const meta = metadata == null ? null : (typeof metadata === "string" ? metadata : JSON.stringify(metadata));
-  const ins = db.prepare("INSERT INTO chunks (source, kind, text, metadata, project_slug) VALUES (?, ?, ?, ?, ?)");
-  const info = ins.run(source, kind, text, meta, project);
+  const ins = db.prepare("INSERT INTO chunks (source, kind, text, metadata, project_slug, content_hash) VALUES (?, ?, ?, ?, ?, ?)");
+  const info = ins.run(source, kind, text, meta, project, contentHash);
   // sqlite-vec's vec0 virtual table requires the rowid to arrive as a BigInt
   // even for values that comfortably fit in a Number. Better-sqlite3 returns
   // lastInsertRowid as BigInt only when safeIntegers mode is on; force it.
@@ -182,6 +190,18 @@ export function setLastIndexedCommit(db, projectSlug, commit) {
       last_indexed_commit = excluded.last_indexed_commit,
       last_indexed_at = excluded.last_indexed_at
   `).run(projectSlug, commit);
+}
+
+// KJC-TSK-0484 — Lookup an already-indexed chunk by content_hash. Scoped to a
+// project so two repos with the same boilerplate file don't cross-pollute.
+// Returns `{ id, source }` or null. Pass `project=null` to match NULL slugs.
+export function findChunkByHash(db, hash, project = null) {
+  if (!hash) return null;
+  const sql = project
+    ? "SELECT id, source FROM chunks WHERE content_hash = ? AND project_slug = ? LIMIT 1"
+    : "SELECT id, source FROM chunks WHERE content_hash = ? AND project_slug IS NULL LIMIT 1";
+  const row = project ? db.prepare(sql).get(hash, project) : db.prepare(sql).get(hash);
+  return row || null;
 }
 
 export function countChunks(db, { kind = null } = {}) {
