@@ -22,24 +22,35 @@ describe("language registry — KJC-PCS-0052 PR-A", () => {
     const a = getAdapters();
     const b = getAdapters();
     expect(a).not.toBe(b);
-    expect(a.map((x) => x.id).sort()).toEqual(["go", "js", "python", "rust"]);
+    expect(a.map((x) => x.id).sort()).toEqual(["go", "java", "js", "python", "rust"]);
   });
 
-  it("only Python, Rust and Go adapters expose prepare() (JS uses sync @babel)", () => {
+  it("only Python, Rust, Go and Java adapters expose prepare() (JS uses sync @babel)", () => {
     const byId = Object.fromEntries(getAdapters().map((a) => [a.id, a]));
     expect(typeof byId.python.prepare).toBe("function");
     expect(typeof byId.rust.prepare).toBe("function");
     expect(typeof byId.go.prepare).toBe("function");
+    expect(typeof byId.java.prepare).toBe("function");
     expect(byId.js.prepare).toBeUndefined();
   });
 
-  it("getAllCodeExtensions includes JS, Python, Rust and Go", () => {
+  it("getAllCodeExtensions includes JS, Python, Rust, Go and Java", () => {
     const exts = getAllCodeExtensions();
     expect(exts).toContain(".js");
     expect(exts).toContain(".ts");
     expect(exts).toContain(".py");
     expect(exts).toContain(".rs");
     expect(exts).toContain(".go");
+    expect(exts).toContain(".java");
+  });
+
+  it("detects Java via pom.xml and build.gradle.kts", () => {
+    const r1 = mkRoot();
+    writeFileSync(join(r1, "pom.xml"), "<project/>");
+    expect(detectAdaptersForProject(r1).map((a) => a.id)).toEqual(["java"]);
+    const r2 = mkRoot();
+    writeFileSync(join(r2, "build.gradle.kts"), "plugins { java }\n");
+    expect(detectAdaptersForProject(r2).map((a) => a.id)).toEqual(["java"]);
   });
 
   it("detects Go via go.mod", () => {
