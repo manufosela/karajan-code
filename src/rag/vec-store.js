@@ -192,6 +192,21 @@ export function setLastIndexedCommit(db, projectSlug, commit) {
   `).run(projectSlug, commit);
 }
 
+// KJC-TSK-0484 PR-B — Bulk fetch embeddings for an explicit set of chunk ids.
+// Returns Map<id, Float32Array>. Used by MMR diversification in retriever.js.
+export function getEmbeddingsByIds(db, ids) {
+  const out = new Map();
+  if (!ids?.length) return out;
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = db.prepare(`SELECT rowid AS id, embedding FROM vec_chunks WHERE rowid IN (${placeholders})`).all(...ids);
+  for (const row of rows) {
+    if (!row.embedding) continue;
+    const buf = Buffer.isBuffer(row.embedding) ? row.embedding : Buffer.from(row.embedding);
+    out.set(Number(row.id), new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4));
+  }
+  return out;
+}
+
 // KJC-TSK-0484 — Lookup an already-indexed chunk by content_hash. Scoped to a
 // project so two repos with the same boilerplate file don't cross-pollute.
 // Returns `{ id, source }` or null. Pass `project=null` to match NULL slugs.
