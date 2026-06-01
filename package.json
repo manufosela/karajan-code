@@ -72,6 +72,9 @@
   "lint-staged": {
     "src/**/*.js": "eslint --max-warnings=999"
   },
+  "overrides": {
+    "fast-uri": "^3.1.2"
+  },
   "dependencies": {
     "@babel/parser": "^7.29.3",
     "@modelcontextprotocol/sdk": "^1.26.0",
