@@ -7,6 +7,8 @@ import { readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { detectProjectStack } from "../../utils/stack-detect.js";
+import { sniffManifests } from "../../utils/manifest-sniff.js";
+import { detectFrameworksMultiLang } from "./framework-multilang.js";
 
 const IGNORED_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", "__pycache__"]);
 
@@ -100,16 +102,31 @@ export async function collectAdrs(projectDir) {
   return found;
 }
 
+// Read a manifest file as raw text (best-effort) for framework dep matching.
+function readManifestRaw(projectDir) {
+  return (m) => {
+    try { return readFileSync(join(projectDir, m.manifest), "utf8"); }
+    catch { return ""; }
+  };
+}
+
 // One-shot bundle: every slot is independent; missing slots → null/[].
+// KJC-TSK-0477: manifests (multi-stack) + frameworksMultiLang (Python/Rust/Go)
+// se añaden de forma aditiva para que el brief pueda incluir secciones
+// condicionales sin romper consumidores existentes.
 export async function collectAll(projectDir) {
-  const [stack, tree, adrs] = await Promise.all([
+  const [stack, tree, adrs, manifests] = await Promise.all([
     detectProjectStack(projectDir).catch(() => null),
     collectTree(projectDir).catch(() => []),
     collectAdrs(projectDir).catch(() => []),
+    sniffManifests(projectDir).catch(() => []),
   ]);
+  const frameworksMultiLang = detectFrameworksMultiLang(projectDir, manifests, { readManifest: readManifestRaw(projectDir) });
   return {
     projectDir,
     stack,
+    manifests,
+    frameworksMultiLang,
     tree,
     git: collectGitHistory(projectDir),
     configs: collectConfigs(projectDir),
