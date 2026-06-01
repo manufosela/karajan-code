@@ -56,8 +56,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 250+ Automated Tests" icon="approve-check">
-    466 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with hybrid mode + rerank, the retrieval dashboard, the team-shared HU cohort workflow, and the new `audit-history-display` suite (12 tests). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+  <Card title="5 368+ Automated Tests" icon="approve-check">
+    482 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, and the `audit-history-display` suite (12 tests). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -199,6 +199,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="AI Harness Scorecard golden metric (v2.33)" icon="approve-check">
     Plan B of KJC-PCS-0051 turns `kj audit` into a quality measurement loop with a single golden number. **Docker bootstrap** (PR #877, KJC-TSK-0470) auto-pulls `addyosmani/ai-harness-scorecard` and runs a one-shot scan in ~10 s. **Audit integration** (PR #878, KJC-TSK-0471) splices the deterministic 0–100 score and A–F grade into the audit report headline. **History DB** (PR #879, KJC-TSK-0472) persists every run to a per-project `audit-history.db` (SQLite + WAL, `PRAGMA user_version=1`). **Diff + trend sparkline** (PR #880, KJC-TSK-0473) renders the delta vs the previous baseline plus a Unicode-bar trend over the last N runs. One golden number for "how AI-friendly is this repo today vs last week," zero LLM tokens spent.
+  </Card>
+  <Card title="Multi-language RAG + Quality & Observability (v2.34)" icon="seti:folder">
+    Two epics close in one window. **KJC-PCS-0052 Multi-language RAG** adds first-class AST chunkers for **Python, Rust, Go and Java** via vendored `web-tree-sitter` WASM grammars (SEA-safe), wires a language adapter registry, extends the watcher and `kj onboard` / `kj audit` to multi-stack repos, and ships `kj rag index --since <ref>` for incremental git-diff-based reindex with a post-merge hook + pre-run drift check. **KJC-PCS-0053 RAG Quality & Observability** introduces a golden-query harness (`kj rag eval`) with **recall@k + MRR** scoring, content-hash sha256 dedup that skips re-embed on unchanged chunks, **MMR diversification** in the retriever (λ=0.5), and a deep-dive expansion of `docs/RAG.md`. Seventeen PRs.
   </Card>
 </CardGrid>
 
@@ -624,7 +627,7 @@ This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last pi
 
 **Bug fixes shipped alongside.** PR #869 (KJC-BUG-0065) repaired 42 failing tests on `main` so the hardening sprint sits on a clean base. PR #871 (KJC-BUG-0066) added the missing `await` to `openEditor` in the spec-reviewer refine-loop, eliminating a race where the SHA hash diff read the v2 contents before the user finished editing.
 
-### v2.33.0 — Minor (current)
+### v2.33.0 — Minor
 
 **AI Harness Scorecard golden metric** (KJC-PCS-0051, Plan B). Plan B turns `kj audit` into a measurable quality loop. Every run now produces one deterministic number and an A–F grade for "how AI-friendly is this repo today vs last week," with zero LLM tokens spent on the metric itself.
 
@@ -637,3 +640,21 @@ This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last pi
 **Diff vs baseline + trend sparkline** (PR #880, KJC-TSK-0473). The audit report now shows the delta vs the previous baseline (`Δ +7 vs run #12 from 2026-05-21`) and an optional Unicode-bar trend sparkline (`▁▂▃▄▅▆▇█`) over the last N runs. Edge cases covered: first run (no diff), stale baseline (>30 days old), missing commit SHA. 12 new tests in `tests/audit/audit-history-display.test.js` cover firstRun, diff, biggest delta, stale baseline, and sparkline edge cases.
 
 5 250+ tests passing across 466 files. The four PRs (#877–#880) close KJC-PCS-0051 in its entirety — Plan A (v2.32) fixed the FAILs flagged by the external scorecard audit; Plan B (v2.33) makes the scorecard a first-class signal inside Karajan's own audit.
+
+### v2.34.0 — Minor (current)
+
+**Multi-language RAG + Quality & Observability.** Two epics close in one window: **KJC-PCS-0052** brings the Project RAG out of the JS/TS island and into Python, Rust, Go and Java; **KJC-PCS-0053** turns retrieval quality from a vibe into a measured signal. Seventeen PRs.
+
+**web-tree-sitter AST chunkers for Python, Rust, Go and Java** (KJC-TSK-0478, 0479, 0481, 0486). Grammars are vendored as WASM under `vendor/tree-sitter-grammars/` so SEA binaries keep working without runtime downloads. A language adapter registry (`src/lang/registry.js` → `adapterForPath(file)`) routes each file to its chunker; the indexer wires `preparePython` / `prepareRust` / `prepareGo` / `prepareJava` alongside the existing JS/TS path.
+
+**Multi-stack collectors and onboarder** (KJC-PCS-0052 PR-C, PR-D). `kj audit` now recognises Python (pyproject/poetry/requirements), Rust (Cargo.toml), Go (go.mod), and Java (pom.xml/build.gradle) projects and adapts its checks; `kj onboard` mirrors the multi-stack detection so the first-run experience matches what the rest of the pipeline sees.
+
+**Incremental reindex by git diff** (KJC-TSK-0455). New `vec_store_meta` table tracks `last_indexed_commit`; `kj rag index --since <ref>` reindexes only files changed since that ref. A post-merge git hook and a pre-run drift check (`HEAD != last_indexed_commit`) keep the index in sync without manual intervention.
+
+**Golden-query harness with recall@k + MRR** (KJC-TSK-0483). New `kj rag eval` runs a curated set of golden queries against the current index and reports **recall@k** (binary) and **MRR** (pure mean reciprocal rank) — finally a number that says "did the change to chunker / embedder / hybrid weight make things better or worse?" instead of vibes.
+
+**Content-hash dedup + MMR diversification** (KJC-TSK-0484). The indexer fingerprints each chunk with sha256 and skips re-embed when the hash matches the stored row; on the retrieve side, an **MMR** pass (λ=0.5) diversifies the top-k so the LLM receives spread instead of N copies of the same paragraph.
+
+**`docs/RAG.md` deep-dive expansion** (KJC-TSK-0485). The RAG reference doubles in scope: per-stack chunker behaviour, hybrid weighting, eval workflow, hash-skip semantics, MMR tuning, multi-stack quirks.
+
+5 368 / 5 368 tests passing across 482 test files. PRs #882, #883, #884, #885, #886, #888, #889, #890, #891, #892, #893, #894, #895, #896, #898, #899, #900, #901 close epics KJC-PCS-0052 and KJC-PCS-0053 in full.
