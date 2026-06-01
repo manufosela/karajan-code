@@ -87,6 +87,27 @@ kj sonar start
 ```
 Karajan will use these credentials to auto-generate a token on each run.
 
+### `kj scan` fails on Apple Silicon (ARM64)
+
+**Cause**: `sonarsource/sonar-scanner-cli` ships only `linux/amd64`. Under Rosetta/QEMU emulation the embedded JS/TS plugin crashes the WebSocket bridge with `IllegalStateException: WebSocket connection closed abnormally`.
+
+**Fix**: Install `sonar-scanner` natively and let Karajan auto-detect it:
+
+```bash
+# macOS
+brew install sonar-scanner
+```
+
+On `arm64` hosts, Karajan now auto-prefers a native `sonar-scanner` on PATH and falls back to Docker if missing. To force one mode explicitly:
+
+```yaml
+sonarqube:
+  scanner:
+    command: native   # or "docker" to keep the container
+```
+
+`command` also accepts an absolute path (e.g. `/opt/homebrew/bin/sonar-scanner`).
+
 ### Quality gate fails repeatedly
 
 **Cause**: SonarQube detects blocking issues that the coder cannot resolve.

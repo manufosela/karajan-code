@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { runCommand } from "../utils/process.js";
 import { sonarUp } from "./manager.js";
 import { resolveSonarProjectKey } from "./project-key.js";
@@ -9,6 +10,32 @@ import {
   resolveSonarToken as resolveToken,
   resolveSonarCredentials,
 } from "./config-resolver.js";
+
+export async function findNativeSonarScanner() {
+  const which = await runCommand("sh", ["-c", "command -v sonar-scanner"]);
+  if (which.exitCode === 0) {
+    const bin = String(which.stdout || "").trim();
+    if (bin) return bin;
+  }
+  return null;
+}
+
+export async function pickSonarScanner(scannerConfig = {}, deps = {}) {
+  const find = deps.findNativeSonarScanner || findNativeSonarScanner;
+  const arch = deps.arch || os.arch();
+  const forced = String(scannerConfig.command || "").trim().toLowerCase();
+  if (forced === "docker") return { type: "docker" };
+  if (forced === "native" || forced === "sonar-scanner" || forced.endsWith("/sonar-scanner")) {
+    const bin = (forced === "native" || forced === "sonar-scanner") ? await find() : forced;
+    if (bin) return { type: "native", bin };
+    return { type: "docker", reason: "native sonar-scanner not found on PATH" };
+  }
+  if (arch === "arm64") {
+    const bin = await find();
+    if (bin) return { type: "native", bin, reason: "ARM64 host — preferring native binary" };
+  }
+  return { type: "docker" };
+}
 
 export function buildScannerOpts(projectKey, scanner = {}) {
   const opts = [`-Dsonar.projectKey=${projectKey}`];
@@ -236,31 +263,39 @@ export async function runSonarScan(config, projectKey = null) {
     ...coverage.scannerPatch
   });
 
-  const args = [
-    "run",
-    "--rm",
-    "-v",
-    `${process.cwd()}:/usr/src`,
-    ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
-    ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
-    "-e", "SONAR_HOST_URL",
-    "-e", "SONAR_TOKEN",
-    "-e", "SONAR_SCANNER_OPTS",
-    "sonarsource/sonar-scanner-cli"
-  ];
-
-  // Pass secrets via process env, not CLI args — invisible in `ps aux`
+  const pick = await pickSonarScanner(sonarConfig.scanner);
   const env = {
     ...process.env,
-    SONAR_HOST_URL: host,
+    SONAR_HOST_URL: pick.type === "native" ? rawHost : host,
     SONAR_TOKEN: token || "",
     SONAR_SCANNER_OPTS: buildScannerOpts(effectiveProjectKey, scannerConfig)
   };
 
-  const result = await runCommand("docker", args, { timeout: scannerTimeout, env });
+  let cmd, args;
+  if (pick.type === "native") {
+    cmd = pick.bin;
+    args = [];
+  } else {
+    cmd = "docker";
+    args = [
+      "run",
+      "--rm",
+      "-v",
+      `${process.cwd()}:/usr/src`,
+      ...(isLocalHost ? ["--add-host", "host.docker.internal:host-gateway"] : []),
+      ...(isLocalHost || isExternalSonar ? [] : ["--network", sonarNetwork]),
+      "-e", "SONAR_HOST_URL",
+      "-e", "SONAR_TOKEN",
+      "-e", "SONAR_SCANNER_OPTS",
+      "sonarsource/sonar-scanner-cli"
+    ];
+  }
+
+  const result = await runCommand(cmd, args, { timeout: scannerTimeout, env });
   return {
     ok: result.exitCode === 0,
     projectKey: effectiveProjectKey,
+    scanner: pick.type,
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode
