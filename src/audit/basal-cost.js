@@ -3,6 +3,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getKarajanHome } from "../utils/paths.js";
+import { sniffManifests, summariseStack } from "../utils/manifest-sniff.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -59,16 +60,16 @@ async function countLines(filePath) {
   }
 }
 
-async function countDependencies(projectDir) {
-  const pkgPath = path.join(projectDir, "package.json");
-  try {
-    const pkg = JSON.parse(await fs.readFile(pkgPath, "utf8"));
-    const deps = Object.keys(pkg.dependencies || {});
-    const devDeps = Object.keys(pkg.devDependencies || {});
-    return { dependencies: deps.length, devDependencies: devDeps.length, total: deps.length + devDeps.length };
-  } catch {
-    return { dependencies: 0, devDependencies: 0, total: 0 };
+function countDependenciesFromStack(stack) {
+  // Suma deps + devDeps de TODOS los manifests detectados (multi-stack).
+  // Si no hay manifests, devuelve ceros — coherente con repos sin paquete.
+  let deps = 0;
+  let devDeps = 0;
+  for (const m of stack.manifests) {
+    deps += m.deps;
+    devDeps += m.devDeps;
   }
+  return { dependencies: deps, devDependencies: devDeps, total: deps + devDeps };
 }
 
 function runDepcheck(projectDir) {
@@ -231,8 +232,11 @@ export async function measureBasalCost(projectDir) {
     totalLines += await countLines(f);
   }
 
-  const depInfo = await countDependencies(projectDir);
-  const depcheck = await runDepcheck(projectDir);
+  const stack = summariseStack(await sniffManifests(projectDir));
+  const depInfo = countDependenciesFromStack(stack);
+  // depcheck solo aplica a Node; en stacks puros no-Node lo saltamos.
+  const hasNode = stack.manifests.some((m) => m.stack === "node");
+  const depcheck = hasNode ? await runDepcheck(projectDir) : { unused: [], note: "depcheck skipped (no package.json)" };
   const deadExports = await findDeadExports(sourceFiles);
 
   return {
@@ -240,7 +244,8 @@ export async function measureBasalCost(projectDir) {
     totalFiles: sourceFiles.length,
     dependencies: depInfo,
     unusedDependencies: depcheck,
-    deadExports
+    deadExports,
+    stack
   };
 }
 
