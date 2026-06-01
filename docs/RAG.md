@@ -160,23 +160,88 @@ rag:
 
 Skipped runs persist `ragPreload: { skipped: true, reason: 'auto:low-value' }` so `kj resume` and `kj audit` can see why retrieval was skipped.
 
-## Limitations
+## Internals — the six questions
 
-### Single shared DB
+### 1. Chunking
 
-`~/.karajan/rag.db` is **global** across all your projects. Use `--project <slug>` (CLI/MCP) or set `KJ_RAG_DB=/per-project/path.db` to keep corpora separate. Since v2.27.0, the indexer auto-stamps every chunk with the projectDir basename; queries default to that slug.
+Each consumer (plan, markdown, source) has its own chunker, all routed through `src/rag/chunker.js → chunkSource`. The source chunker delegates to a per-language adapter looked up by extension (`src/lang/registry.js → adapterForPath`).
 
-### Cosine-only ranking
+| Language | Strategy | File |
+|---|---|---|
+| JS / TS | `@babel/parser` AST + leading JSDoc + `export <symbol>` fallback | `src/rag/chunker.js` |
+| Python  | tree-sitter `function_definition` / `class_definition` + regex fallback | `src/lang/chunk-python.js` |
+| Rust    | tree-sitter `function_item` / `struct_item` / `enum_item` / `impl_item` + regex fallback | `src/lang/chunk-rust.js` |
+| Go      | tree-sitter `function_declaration` / `method_declaration` / `type_declaration` + regex fallback | `src/lang/chunk-go.js` |
+| Java    | tree-sitter 2-level walker (class/interface/enum/record → method/constructor) + regex fallback | `src/lang/chunk-java.js` |
+| Markdown / plans | Heading-based split | `src/rag/chunker.js` |
 
-Pure semantic similarity is biased: long descriptive prose (often in tests) outranks terse source files for natural-language queries. Mitigated since v2.27.0 by an asymmetric kind-boost (code +0.05 when query doesn't mention test/spec/expect). For exact-symbol queries (`projectSlug`, `runRagContextStage`), BM25 hybrid is on the v2.28.0+ roadmap.
+Common contract: every chunk emits `{ text, metadata: { source, kind, symbol, language } }`. Oversize bodies are passed through `windowText(text, limit=800, overlap=100)` so embeddings stay under the model context. When no top-level symbol is found (e.g. comment-only file), the whole text is windowed with `symbol: null`.
 
-### No live watcher
+The AST path is opt-in per index run — the indexer calls `prepareAdapters()` (`src/rag/indexer.js`) once before walking, which awaits every `adapter.prepare()` (cached after first load via `src/lang/tree-sitter-loader.js`). Grammars are vendored under `vendor/tree-sitter-grammars/*.wasm` so SEA binaries stay self-contained.
 
-Re-run `kj rag index` after editing files. Chokidar watcher with debounced re-index is on the v2.28.0+ roadmap.
+### 2. Embedder
 
-### Source chunker is regex-based
+`createEmbedderFromConfig(config)` (`src/rag/embedder-factory.js`) returns one of six adapters, all implementing `{ embed(text), dim }`:
 
-`chunkSource` splits by `export <symbol>` lines + sliding window. Function bodies past the symbol line may be split mid-statement. AST-aware chunking (tree-sitter or `@babel/parser`) is on the v2.28.0+ roadmap.
+| Provider | Default model | Dim | Notes |
+|---|---|---|---|
+| Ollama (default) | `nomic-embed-text` | 768 | Local, no API key. Auto-pulled by `kj init` |
+| OpenAI | `text-embedding-3-small` | 1536 | `OPENAI_API_KEY` |
+| Voyage AI | `voyage-3-lite` | 512 | `VOYAGE_API_KEY` — code-specialized variants available |
+| Cohere | `embed-multilingual-v3.0` | 1024 | `COHERE_API_KEY` |
+| Mistral | `mistral-embed` | 1024 | `MISTRAL_API_KEY` |
+| ONNX local | `Xenova/all-MiniLM-L6-v2` | 384 | `@xenova/transformers`, no Docker, slowest |
+
+Decisions:
+- **Ollama default** — zero cost, runs in `kj-ollama` Docker container, works offline. The price is ~270 MB model download once and ~2 GB RAM while indexing.
+- **No code-specialized default** — Voyage/Cohere have code-tuned variants but they're paid and the cross-language quality gap on small corpora doesn't justify the cost gate. Users wanting it can flip `rag.embedder.provider`.
+- **No Matryoshka truncation** — sqlite-vec stores the full dim; truncated re-ranking is on backlog for very large corpora where storage matters.
+
+Switching providers requires a re-index (`kj rag index` after editing `rag.embedder.provider/model`) — dimensions and embedding spaces are not interchangeable.
+
+### 3. Search
+
+Two-stage retrieval over `~/.karajan/rag.db` (sqlite + `sqlite-vec` extension):
+
+1. **Vector recall** — exact cosine via `vec_distance_cosine`, over-fetched (`topK × 3`) to leave headroom for re-ranking. Exact (not ANN) is fine up to ~100K chunks; ANN switch is on backlog.
+2. **Hybrid rerank** — when `rag.search.mode = hybrid` (default since v2.28.0), the same query is run against an FTS5 BM25 index and scores are normalised + blended:
+   `final = alpha * cosine + (1 - alpha) * bm25`, with `alpha = 0.7` by default.
+3. **Kind boost** — asymmetric: `code +0.05` when the query has no test/spec/expect tokens; `test +0.05` otherwise. Pulls relevant source up over verbose test prose for natural-language queries.
+4. **Optional cross-encoder rerank** — `rag.search.rerank = true` re-scores top-N with a local cross-encoder (`Xenova/ms-marco-MiniLM-L-6-v2`). Adds ~80 ms / 5 hits but lifts precision@5 on ambiguous queries.
+5. **Metadata filter** — `--where "kind='code' AND language='java'"` is parsed into a parameterised SQL WHERE clause applied before the vector search.
+
+Tweak from the HU Board config panel or `~/.karajan/kj.config.yml`. Both knobs (`alpha`, `mode`, `rerank`) are wired to the pre-loop stage and the CLI.
+
+### 4. Update strategy
+
+Re-indexing is **incremental** and tracked by commit SHA stamped in the `vec_store_meta` table:
+
+| Trigger | How | Since |
+|---|---|---|
+| Manual | `kj rag index [--with-sources]` | v2.22.0 |
+| Live watcher | `kj watch` — chokidar debounced re-index per changed file | v2.28.0 |
+| Post-merge git hook | `kj rag index --since <last-indexed-sha>` after `git merge`/`git pull` | v2.31.0 |
+| Pre-run drift check | Compares `HEAD` to last indexed SHA before every `kj run`; emits a hint if drift > N files | v2.31.0 |
+
+`--since <sha>` walks `git diff --name-only <sha>...HEAD` and re-indexes only changed paths, calling `deleteChunksForSource` first to avoid duplicates. Idempotent.
+
+### 5. What gets embedded
+
+Only the `text` field of each chunk is embedded. Everything else (`source`, `kind`, `symbol`, `language`, `commit`, `project`) lives in queryable columns and is exposed to the `--where` filter. No PII heuristics — the indexer trusts the project tree; secrets that leak into the corpus leak into the embeddings. Run `kj audit` to flag obvious secret files before indexing if you don't trust the tree.
+
+Project isolation is enforced by stamping each row with the projectDir basename. Queries default to the cwd's slug; `--project all` opts out, `--project <slug>` targets another.
+
+### 6. Validation
+
+Two tiers:
+
+- **Pipeline tests** — `tests/rag/*.test.js` covers the chunkers, embedder factory, retriever ranking, hybrid scoring, watcher and CLI. Pre-merge gate ensures green CI before any change to `src/rag/` lands.
+- **Retrieval quality** — `kj rag eval` (KJC-TSK-0483, in progress) runs a frozen set of golden queries against the current index and reports `recall@k` and MRR vs. a stored baseline. Used to detect regressions when changing chunkers, embedders or alpha. The retrieval-quality dashboard in the HU Board surfaces the same metric live per query.
+
+Known gaps:
+
+- **Content-hash dedup** is not on by default — KJC-TSK-0484. Re-indexing identical bodies wastes embeddings; a SHA-256 column + skip-on-match is on backlog.
+- **Near-duplicate clustering** (cosine > 0.97 between chunks) is exploratory under the same card.
 
 ## Troubleshooting
 
