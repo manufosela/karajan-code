@@ -1,0 +1,22 @@
+[
+  { "query": "openVecStore initialise sqlite-vec database", "expected_sources": ["src/rag/vec-store.js"], "expected_symbols": ["openVecStore"] },
+  { "query": "insertChunk persist embedding and metadata", "expected_sources": ["src/rag/vec-store.js"], "expected_symbols": ["insertChunk"] },
+  { "query": "BM25 keyword search FTS5", "expected_sources": ["src/rag/vec-store.js"], "expected_symbols": ["searchBM25"] },
+  { "query": "findChunkByHash dedup lookup", "expected_sources": ["src/rag/vec-store.js"], "expected_symbols": ["findChunkByHash"] },
+  { "query": "MMR diversification rerank candidates", "expected_sources": ["src/rag/retriever.js"], "expected_symbols": ["mmrRerank"] },
+  { "query": "cosine similarity helper between embeddings", "expected_sources": ["src/rag/retriever.js"], "expected_symbols": ["cosineSim"] },
+  { "query": "hybrid semantic + keyword score fusion", "expected_sources": ["src/rag/retriever.js"], "expected_symbols": ["fuseHits"] },
+  { "query": "index a single file content hash skip", "expected_sources": ["src/rag/indexer.js"], "expected_symbols": ["indexFile"] },
+  { "query": "walk project sources and embed everything", "expected_sources": ["src/rag/indexer.js"], "expected_symbols": ["indexProject"] },
+  { "query": "delta re-index files changed since git ref", "expected_sources": ["src/rag/indexer.js"], "expected_symbols": ["indexProjectDelta"] },
+  { "query": "chunkSource split JavaScript file into AST chunks", "expected_sources": ["src/rag/chunker.js", "src/rag/chunker-ast.js"], "expected_symbols": ["chunkSource"] },
+  { "query": "chunkMarkdown plan headings split", "expected_sources": ["src/rag/chunker.js"], "expected_symbols": ["chunkMarkdown"] },
+  { "query": "Ollama embedder local HTTP adapter", "expected_sources": ["src/rag/embedder.js", "src/rag/embedders/factory.js"] },
+  { "query": "Voyage cloud embedder", "expected_sources": ["src/rag/embedders/voyage.js"] },
+  { "query": "OpenAI cloud embedder adapter", "expected_sources": ["src/rag/embedders/openai.js"] },
+  { "query": "cross-encoder rerank top results", "expected_sources": ["src/rag/rerank.js"], "expected_symbols": ["rerank"] },
+  { "query": "chokidar watcher live re-index daemon", "expected_sources": ["src/rag/watcher.js"] },
+  { "query": "kj rag query CLI command implementation", "expected_sources": ["src/commands/rag.js"], "expected_symbols": ["ragQueryCommand"] },
+  { "query": "where clause parser metadata filter", "expected_sources": ["src/rag/where-parser.js"], "expected_symbols": ["parseWhere", "buildWhereSql"] },
+  { "query": "Ollama Docker manager auto-bootstrap", "expected_sources": ["src/rag/ollama-manager.js"] }
+]
