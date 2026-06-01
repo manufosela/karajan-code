@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { extname, join } from "node:path";
 
 import { GO_ADAPTER } from "./go.js";
+import { JAVA_ADAPTER } from "./java.js";
 import { JS_ADAPTER } from "./js.js";
 import { PYTHON_ADAPTER } from "./python.js";
 import { RUST_ADAPTER } from "./rust.js";
@@ -15,7 +16,7 @@ import { RUST_ADAPTER } from "./rust.js";
 // aquí jamás se indexa.
 const COMMON_SKIP_SEGMENTS = [".git", "dist", "build", "coverage", ".karajan", ".kj", "_diet"];
 
-const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER, GO_ADAPTER];
+const REGISTRY = [JS_ADAPTER, PYTHON_ADAPTER, RUST_ADAPTER, GO_ADAPTER, JAVA_ADAPTER];
 
 export function getAdapters() {
   return REGISTRY.slice();

@@ -18,3 +18,4 @@ Re-extract with:
     cp package/wasm/tree-sitter-python.wasm vendor/tree-sitter-grammars/python.wasm
     cp package/wasm/tree-sitter-rust.wasm   vendor/tree-sitter-grammars/rust.wasm
     cp package/wasm/tree-sitter-go.wasm     vendor/tree-sitter-grammars/go.wasm
+    cp package/wasm/tree-sitter-java.wasm   vendor/tree-sitter-grammars/java.wasm
