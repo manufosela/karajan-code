@@ -1,23 +1,25 @@
 // KJC-TSK-0441 (RAG v2.28.0 PR1) — chokidar watcher. Live re-index of plans
 // + onboarding + (opt) sources, debounced. PID file arbitrates a single daemon.
+// KJC-TSK-0482 — source matcher derivado del registry (multi-lang: JS/Py/Rust/Go/Java).
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import chokidar from "chokidar";
 import { openVecStore, deleteChunksBySource, projectSlug } from "./vec-store.js";
 import { makeEmbedder } from "./embedders/factory.js";
 import { indexFile } from "./indexer.js";
 import { getKarajanHome } from "../utils/paths.js";
+import { getAllCodeExtensions } from "../lang/registry.js";
 
 const PIDFILE = () => join(getKarajanHome(), "watcher.pid");
 const DEFAULT_DEBOUNCE_MS = 1000;
 const SKIP_SEGMENTS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".karajan", ".next", ".kj", "_diet"]);
-const SOURCE_RE = /\.(js|mjs|cjs|ts|tsx|jsx)$/;
+const SOURCE_EXTS = new Set(getAllCodeExtensions().map((e) => e.toLowerCase()));
 
-function isWatchable(path) {
+export function isWatchable(path) {
   if (path.includes("/.karajan/onboarding/")) return /\.md$/.test(path);
   if (path.includes("/.karajan/plans/")) return /\.json$/.test(path);
   if (path.split("/").some((seg) => SKIP_SEGMENTS.has(seg))) return false;
-  return SOURCE_RE.test(path);
+  return SOURCE_EXTS.has(extname(path).toLowerCase());
 }
 
 export function startWatcher({ projectDir, config, logger = console, debounceMs = DEFAULT_DEBOUNCE_MS, withSources = false } = {}) {
