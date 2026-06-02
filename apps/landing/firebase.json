@@ -12,6 +12,16 @@
         "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
       }
     ],
-    "cleanUrls": true
+    "cleanUrls": true,
+    "rewrites": [
+      { "source": "/api/telemetry", "function": "telemetry" }
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }
