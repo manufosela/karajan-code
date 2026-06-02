@@ -1,0 +1,224 @@
+---
+title: Tutorial · REST API (Node)
+description: Bootstrapea una REST API Node + Express desde cero y entrega tu primer endpoint con Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Backend" variant="note" /> · Tiempo estimado: ~15 min · Iteraciones Karajan: 2–3
+
+Este tutorial te lleva desde un directorio vacío hasta un endpoint mergeado en un pequeño proyecto **REST API Node + Express**. Incluye el loop de tests exacto que Karajan usa para gatear merges (supertest + Vitest), para que lo puedas re-ejecutar sobre un repo real cambiando el bootstrap por `cd <tu-repo>`.
+
+## Prerrequisitos
+
+Deberías haber completado el [setup común](/docs/es/examples/howto/): `npm install -g karajan-code`, `kj init` dentro del proyecto y un `kj doctor` verde. Si `kj doctor` está rojo, arréglalo antes — `kj run` se negará a arrancar.
+
+## Tutorial
+
+<Steps>
+
+1. **Bootstrapea el proyecto.**
+
+   ```bash
+   mkdir hello-api && cd hello-api
+   npm init -y
+   npm install express
+   npm install --save-dev vitest supertest
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Edita `package.json` para cablear el runner de tests:
+
+   ```json
+   {
+     "type": "module",
+     "scripts": {
+       "test": "vitest run",
+       "start": "node src/server.js"
+     }
+   }
+   ```
+
+   Crea un esqueleto mínimo en `src/app.js` (sin rutas todavía) para que Karajan tenga algo que extender:
+
+   ```js
+   import express from "express";
+
+   export function createApp() {
+     const app = express();
+     app.use(express.json());
+     return app;
+   }
+   ```
+
+   <Aside type="tip" title="Por qué un factory">
+   `createApp()` devolviendo una app nueva por test aísla el estado HTTP entre casos. Reusar un singleton causa tests flaky cuando un caso muta una ruta o middleware. El reviewer está calibrado para marcar el patrón singleton.
+   </Aside>
+
+2. **Inicializa Karajan en el repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` crea `.karajan/` y escribe la configuración del orquestador; `kj doctor` confirma que los CLIs de los agentes, Docker, Ollama y los puertos están sanos.
+
+3. **Describe el endpoint en lenguaje natural.**
+
+   Sin fichero de spec. Sin JSON. Solo la tarea como se la dirías a un compañero:
+
+   ```bash
+   kj run "Añade un endpoint GET /greet?name=<name> a src/app.js que \
+   devuelva JSON { greeting: 'Hello, <name>!' }. Si 'name' falta, \
+   devuelve 400 con { error: 'name is required' }. Añade tests Vitest \
+   usando supertest cubriendo ambos casos." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="Qué pasa por debajo">
+   Con `--methodology tdd`, Karajan escribe primero los tests que fallan (camino feliz + caso 400), luego la implementación, luego re-ejecuta la suite. El reviewer (Codex por defecto, Claude como fallback) revisa el diff buscando buenas prácticas REST: status codes, content-type JSON, sin estado global. Si lo rechaza, Karajan vuelve a llamar al coder — hasta `--max-iterations`.
+   </Aside>
+
+4. **Mira el run en el HU Board.**
+
+   Abre [http://localhost:4000](http://localhost:4000) en otra pestaña mientras el pipeline corre. Verás, en tiempo real:
+
+   - Cada rol activándose (planner → coder → tester → reviewer).
+   - El prompt y la respuesta exactos de cada llamada al agente.
+   - El diff tras cada iteración.
+   - Los traces HTTP de supertest.
+   - El veredicto del reviewer.
+
+   También puedes hacer tail del mismo trace en el terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspecciona el resultado.**
+
+   ```bash
+   git status
+   git diff --stat
+   npm test
+   ```
+
+   Salida esperada de `npm test`:
+
+   ```
+   ✓ tests/greet.test.js (2)
+     ✓ returns 200 + greeting JSON for a valid name (19ms)
+     ✓ returns 400 + error when name is missing (6ms)
+
+   Test Files  1 passed (1)
+        Tests  2 passed (2)
+   ```
+
+   Comprueba en vivo:
+
+   ```bash
+   npm start &
+   curl -s "http://localhost:3000/greet?name=world"
+   # {"greeting":"Hello, world!"}
+   ```
+
+6. **Mergea.**
+
+   Karajan no hace push ni merge por ti por defecto — esa decisión es tuya. Cuando estés contento con el diff:
+
+   ```bash
+   git checkout -b feat/greet-endpoint
+   git add -A && git commit -m "feat(api): add GET /greet endpoint"
+   git push -u origin feat/greet-endpoint
+   gh pr create --fill
+   ```
+
+   O, si quieres que Karajan abra la PR por ti, añade `--auto-commit --auto-pr` a la invocación `kj run`.
+
+</Steps>
+
+## Errores posibles y cómo resolverlos
+
+<Aside type="caution" title="`ECONNREFUSED` en supertest">
+Pasaste una URL hardcoded `http://localhost:3000` a supertest en lugar del factory `app`. Usa `request(createApp())` — supertest bindea a un puerto efímero y evita la red real. El reviewer lo marcará en la iteración 2.
+</Aside>
+
+<Aside type="caution" title="El reviewer rechaza con `singleton app reused across tests`">
+Exportaste la instancia de la app en lugar del factory `createApp`. Envuelve el export en una función para que cada test reciba una app nueva. El reviewer es consistente en esto.
+</Aside>
+
+<Aside type="caution" title="`kj run` sale con `no coder configured`">
+Ejecuta `kj doctor` y sigue las instrucciones de instalación del CLI del agente. La causa más común es tener Claude instalado pero sin sesión iniciada (`claude login`).
+</Aside>
+
+<Aside type="caution" title="El pipeline se queda en `coder:hibernate`">
+Has tocado techo de cuota. Karajan persiste la sesión a `~/.karajan/standby/<sessionId>.json`; resúmela con `kj standby list` y luego `kj standby resume <sessionId> --force` cuando se resetee la cuota.
+</Aside>
+
+## Variantes
+
+<Tabs>
+<TabItem label="Con MCP">
+
+El mismo run lanzado vía MCP desde cualquier cliente MCP-capable (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añade GET /greet?name=<name> con 200 camino feliz + 400 sin nombre. Tests con supertest.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Quality gate más estricto">
+
+Añade `--mode strict` y los collectors deterministas de seguridad:
+
+```bash
+kj run "<tarea>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+Esto cablea los collectors OSV-Scanner y Semgrep en el audit (Semgrep trae reglas específicas para Express: SSRF, open redirect, `eval`), y gatea el merge contra el quality gate de Sonar además del veredicto del reviewer.
+
+</TabItem>
+<TabItem label="Con spec OpenAPI">
+
+Si mantienes una spec OpenAPI 3, apúntale Karajan para que el planner la use como contrato:
+
+```bash
+kj run "<tarea>" \
+  --spec-file ./openapi.yaml \
+  --methodology tdd \
+  --max-iterations 5
+```
+
+El planner lee la spec, el coder implementa contra los schemas, y el reviewer comprueba la conformidad de shape de request/response.
+
+</TabItem>
+</Tabs>
+
+## Siguientes pasos
+
+<Card title="Otros stacks" icon="seti:folder">
+Misma receta, distinto bootstrap: [Node CLI](/docs/es/examples/howto/node-cli/) · [Python](/docs/es/examples/howto/python/) · [Web Component](/docs/es/examples/howto/web-component/) · [Java](/docs/es/examples/howto/java/) · [Go](/docs/es/examples/howto/go/) · [Rust](/docs/es/examples/howto/rust/)
+</Card>
+
+<Card title="Volver al índice" icon="open-book">
+[Índice How-To](/docs/es/examples/howto/) · setup + troubleshooting
+</Card>
