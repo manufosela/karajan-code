@@ -19,6 +19,7 @@ import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
 import { buildStandbyState } from "../../brain/standby-store.js";
+import { applyQuotaSimulation } from "../../utils/quota-simulator.js";
 import { snapshotHomeTopLevel, detectNewHomeEntries, formatLeakMessage, verifyLeaksAgainstTranscript, detectTranscriptCdLeaks } from "../fs-leak-detector.js";
 
 export async function runCoderStage({ coderRoleInstance, coderRole, config, logger, emitter, eventBase, session, plannedTask, trackBudget, iteration, brainCtx, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null }) {
@@ -76,6 +77,7 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
     coderStall.stop();
   }
   trackBudget({ role: "coder", provider: coderRole.provider, model: coderRole.model, result: coderExecResult.result, duration_ms: Date.now() - coderStart });
+  applyQuotaSimulation(coderExecResult, { iteration, agent: coderRole.provider });
 
   if (!coderExecResult.ok) {
     const details = coderExecResult.result?.error || coderExecResult.summary || "unknown error";
@@ -281,6 +283,7 @@ export async function runRefactorerStage({ refactorerRole, config, logger, emitt
     refactorerStall.stop();
   }
   trackBudget({ role: "refactorer", provider: refactorerRole.provider, model: refactorerRole.model, result: refResult.result, duration_ms: Date.now() - refactorerStart });
+  applyQuotaSimulation(refResult, { iteration, agent: refactorerRole.provider });
   if (!refResult.ok) {
     const details = refResult.result?.error || refResult.summary || "unknown error";
     // Quota cap → hibernate cleanly, same as the coder stage above.
