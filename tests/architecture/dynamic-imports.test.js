@@ -89,7 +89,13 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // for the same pattern inside `src/rag/rerank.js`. Same rationale —
 // transformers is an optional peer dep, opt-in `--rerank` flag, must
 // gracefully error on missing package.
-const DYNAMIC_IMPORT_BUDGET = 166;
+//
+// 2026-06-02 (KJC-TSK-0492 PR3 `kj rag mcp` subcommand): bumped 166 → 167.
+// `src/commands/rag-mcp.js` dynamic-imports `bin/kj-rag-mcp.js` at action
+// time. Static import is not an option: the binary attaches a
+// StdioServerTransport at top level, so a static import would launch the
+// MCP server on every `kj` invocation, not only `kj rag mcp`.
+const DYNAMIC_IMPORT_BUDGET = 167;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
