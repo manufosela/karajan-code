@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { sendTelemetryEvent, isTelemetryEnabled } from "../src/utils/telemetry.js";
+import { sendTelemetryEvent, isTelemetryEnabled, buildTelemetryPayload, TELEMETRY_ENDPOINT } from "../src/utils/telemetry.js";
 
 describe("telemetry", () => {
   let originalFetch;
@@ -128,6 +128,41 @@ describe("telemetry", () => {
 
       const opts = global.fetch.mock.calls[0][1];
       expect(opts.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  describe("buildTelemetryPayload (KJC-TSK-0496)", () => {
+    it("exports the canonical endpoint", () => {
+      expect(TELEMETRY_ENDPOINT).toBe("https://karajan-code.web.app/api/telemetry");
+    });
+
+    it("produces the same shape sendTelemetryEvent posts", () => {
+      const payload = buildTelemetryPayload("cli_command", { version: "2.0.0", command: "run" });
+      expect(payload.event).toBe("cli_command");
+      expect(payload.v).toBe("2.0.0");
+      expect(payload.os).toBe(process.platform);
+      expect(payload.node).toBe(process.version);
+      expect(typeof payload.ts).toBe("number");
+      expect(payload.command).toBe("run");
+    });
+
+    it("defaults v to 'unknown' when version missing", () => {
+      const payload = buildTelemetryPayload("install", {});
+      expect(payload.v).toBe("unknown");
+    });
+
+    it("never includes a raw `version` key (it is folded into `v`)", () => {
+      const payload = buildTelemetryPayload("install", { version: "3.0.0" });
+      expect(payload).not.toHaveProperty("version");
+      expect(payload.v).toBe("3.0.0");
+    });
+
+    it("is pure: matches the body actually sent", async () => {
+      const preview = buildTelemetryPayload("test_event", { version: "1.0.0", extra: 1 });
+      await sendTelemetryEvent("test_event", { version: "1.0.0", extra: 1 }, { telemetry: true });
+      const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+      // ts will differ by a few ms; everything else must be identical.
+      expect({ ...preview, ts: 0 }).toEqual({ ...body, ts: 0 });
     });
   });
 });
