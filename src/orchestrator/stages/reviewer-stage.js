@@ -13,6 +13,7 @@ import { runReviewerWithFallback } from "../reviewer-fallback.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { detectRateLimit } from "../../utils/rate-limit-detector.js";
 import { createStallDetector } from "../../utils/stall-detector.js";
+import { applyQuotaSimulation } from "../../utils/quota-simulator.js";
 
 function categorizeIssues(issues) {
   const categories = { security: 0, correctness: 0, tests: 0, style: 0, other: 0 };
@@ -267,6 +268,16 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
     reviewerExec = { execResult: { ok: false, error: err.message }, attempts: [{ reviewer: reviewerRole.provider, result: { ok: false, error: err.message } }] };
   } finally {
     reviewerStall.stop();
+  }
+
+  if (applyQuotaSimulation(reviewerExec.execResult, { iteration, agent: reviewerRole.provider })) {
+    // Reviewer wraps the agent call: detectRateLimit reads `lastAttempt.result.error`,
+    // so propagate the synthetic line into the most recent attempt too.
+    const last = reviewerExec.attempts?.at(-1);
+    if (last) {
+      if (!last.result || typeof last.result !== "object") last.result = {};
+      last.result.error = reviewerExec.execResult.result.error;
+    }
   }
 
   if (!reviewerExec.execResult?.ok) {
