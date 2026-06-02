@@ -266,6 +266,36 @@ A query "hits" when any expected source is a path-suffix of the chunk's `source`
 
 Baseline numbers depend on the embedder and the indexed corpus. Re-run `kj rag eval` after any change to chunkers, embedders, hybrid `alpha`, BM25 weights or the metadata schema and check that aggregated recall@5 does not regress. The intended use in CI is a single `kj rag eval --min-recall <threshold>` step after `kj rag index`.
 
+## Use from external IDEs
+
+The `karajan-mcp` server exposes all 27 Karajan tools to MCP-aware clients (Claude Code, Codex, Cursor, Windsurf, etc.). For agents that only need semantic search over a Karajan-indexed project — without the full 27-tool orchestrator surface — ship the lighter `kj-rag-mcp` binary instead. It exposes only `kj_rag_query` and `kj_rag_index` and re-uses the same handlers as `karajan-mcp`, so behaviour stays in sync.
+
+Use `kj-rag-mcp` when:
+
+- You are working in a project that has already been indexed (`kj rag index` ran at least once)
+- You want the agent to consult the vector store before answering, but you do not want it to be able to launch the pipeline, edit files via `kj_run`, or reach any of the orchestration tools
+- You are mixing Karajan with another orchestrator (Cursor's built-in agent, Continue's pipeline, etc.) and only need Karajan's retrieval layer
+
+### Cursor (`.cursor/mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "kj-rag": {
+      "command": "kj-rag-mcp"
+    }
+  }
+}
+```
+
+### Windsurf / Continue / Zed
+
+Any MCP client that accepts a stdio command works the same way — point it at `kj-rag-mcp` (installed by `npm install -g karajan-code`). The binary auto-detects the project from the current working directory; override with the `projectDir` argument on each call if the IDE launches the server from a different cwd.
+
+### What the agent gets
+
+`tools/list` returns exactly two tools, `kj_rag_query` (required: `text`; optional: `topK`, `scope`, `projectDir`) and `kj_rag_index` (optional: `withSources`, `projectDir`). No `kj_run`, no `kj_review`, no shell side-effects beyond the local vector store.
+
 ## Troubleshooting
 
 ### `kj rag index` returns 0 chunks
