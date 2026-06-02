@@ -1,4 +1,30 @@
-const TELEMETRY_ENDPOINT = "https://karajan-code.web.app/api/telemetry";
+export const TELEMETRY_ENDPOINT = "https://karajan-code.web.app/api/telemetry";
+
+/**
+ * Build the exact JSON payload that would be POSTed for an event.
+ * Pure function: deterministic given (eventName, data) — exposed so
+ * `kj telemetry preview` can render the literal bytes the backend
+ * receives without performing any network call.
+ *
+ * The `data.version` field is folded into `v`; the rest of the
+ * event-specific keys ride through `...data` after the common ones,
+ * matching the order sent over the wire.
+ *
+ * @param {string} eventName
+ * @param {object} [data]
+ * @returns {object}
+ */
+export function buildTelemetryPayload(eventName, data = {}) {
+  const { version, ...rest } = data;
+  return {
+    event: eventName,
+    v: version || "unknown",
+    os: process.platform,
+    node: process.version,
+    ts: Date.now(),
+    ...rest
+  };
+}
 
 /**
  * Send an anonymous telemetry event. Non-blocking, fire-and-forget.
@@ -12,14 +38,7 @@ export async function sendTelemetryEvent(eventName, data, config) {
   if (!isTelemetryEnabled(config)) return;
 
   try {
-    const payload = {
-      event: eventName,
-      v: data.version || "unknown",
-      os: process.platform,
-      node: process.version,
-      ts: Date.now(),
-      ...data
-    };
+    const payload = buildTelemetryPayload(eventName, data);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
     try {

@@ -370,7 +370,7 @@ Three event types, anonymous, no userID / email / IP collected by Karajan itself
 | Event | When | Payload |
 |---|---|---|
 | `install` | first `kj init` | `version`, `os`, `node`, `ts` |
-| `cli_command` | each `kj <subcommand>` | `version`, `os`, `node`, `ts`, `command`, `duration_ms`, `exit_code` |
+| `cli_command` | each `kj <subcommand>` | `version`, `os`, `node`, `ts`, `command` |
 | `pipeline_complete` | end of `kj run` | `version`, `os`, `node`, `ts`, `mode`, `agent`, `duration_s`, `success`, `taskType` |
 
 Endpoint: `https://karajan-code.web.app/api/telemetry` (POST, 3 s timeout, fire-and-forget).

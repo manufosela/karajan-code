@@ -270,18 +270,24 @@ async function askTelemetry(wizard, config, logger) {
     es: {
       question: "¿Quieres ayudar a mejorar Karajan enviando telemetría anónima al proyecto?",
       detail: "  (versión, OS, comandos, duración del pipeline — sin código, sin tareas, sin datos personales)",
+      previewIntro: "  Ejemplo del payload exacto que se enviaría al ejecutar `kj run` (puedes inspeccionar más con `kj telemetry preview`):",
       enabled: "  -> Telemetría: activada (¡gracias!)",
       disabled: "  -> Telemetría: desactivada",
     },
     en: {
       question: "Help improve Karajan by sending anonymous telemetry to the project?",
       detail: "  (version, OS, commands, pipeline duration — no code, no tasks, no personal data)",
+      previewIntro: "  Example of the exact payload that would be sent when you run `kj run` (inspect more with `kj telemetry preview`):",
       enabled: "  -> Telemetry: enabled (thank you!)",
       disabled: "  -> Telemetry: disabled",
     },
   };
   const t = prompts[locale] || prompts.en;
   logger.info(t.detail);
+  const { buildTelemetryPayload } = await import("../utils/telemetry.js");
+  const example = buildTelemetryPayload("cli_command", { version: "x.y.z", command: "run" });
+  logger.info(t.previewIntro);
+  logger.info(`    ${JSON.stringify(example)}`);
   const enabled = await wizard.confirm(t.question, false);
   config.telemetry = enabled;
   logger.info(enabled ? t.enabled : t.disabled);

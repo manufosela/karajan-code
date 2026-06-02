@@ -13,6 +13,7 @@ import { webperfCommand } from "../commands/webperf.js";
 import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
+import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { withConfig } from "./_shared.js";
 
 /**
@@ -318,6 +319,27 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "sync", flags, async ({ config, logger }) => {
         await syncCommand({ config, logger, planId: flags.plan, json: flags.json });
+      });
+    });
+
+  // KJC-TSK-0496 — surface the exact telemetry payload without sending it,
+  // and report whether telemetry is currently enabled. Read-only inspection
+  // commands so users can audit the contract without grepping the source.
+  const telemetry = program.command("telemetry").description("Inspect what Karajan telemetry sends and whether it's enabled (never opens a socket)");
+  telemetry.command("preview")
+    .description("Print the exact JSON payload for every event type (install, cli_command, pipeline_complete) — no network call")
+    .option("--json", "Emit the full preview as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "telemetry:preview", flags, async ({ config, logger }) => {
+        await telemetryPreviewCommand({ config, logger, version: pkgVersion, json: Boolean(flags.json) });
+      });
+    });
+  telemetry.command("status")
+    .description("Report whether telemetry is enabled and where the endpoint lives")
+    .option("--json", "Emit the status as JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "telemetry:status", flags, async ({ config, logger }) => {
+        await telemetryStatusCommand({ config, logger, json: Boolean(flags.json) });
       });
     });
 
