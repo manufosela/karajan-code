@@ -12,6 +12,7 @@ import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
+import { buildTelemetryPayload, sendTelemetryEvent } from "../utils/telemetry.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -284,7 +285,6 @@ async function askTelemetry(wizard, config, logger) {
   };
   const t = prompts[locale] || prompts.en;
   logger.info(t.detail);
-  const { buildTelemetryPayload } = await import("../utils/telemetry.js");
   const example = buildTelemetryPayload("cli_command", { version: "x.y.z", command: "run" });
   logger.info(t.previewIntro);
   logger.info(`    ${JSON.stringify(example)}`);
@@ -776,7 +776,6 @@ export async function initCommand({ logger, flags = {} }) {
   await writeInitConfig(configPath, config);
 
   // Telemetry: anonymous install event (non-blocking)
-  const { sendTelemetryEvent } = await import("../utils/telemetry.js");
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   try {
