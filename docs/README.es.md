@@ -111,7 +111,7 @@ Este es el caso de uso principal. Karajan corre como servidor MCP dentro de Clau
 Tu → Claude Code → kj_run (via MCP) → triage → coder → sonar → reviewer → tester → security
 ```
 
-El servidor MCP se auto-registra durante `npm install`. Tu agente de IA ve 23 herramientas (`kj_run`, `kj_code`, `kj_review`, `kj_hu`, etc.) y las usa segun necesite.
+El servidor MCP se auto-registra durante `npm install`. Tu agente de IA ve 27 herramientas (`kj_run`, `kj_code`, `kj_review`, `kj_hu`, etc.) y las usa segun necesite.
 
 **El problema**: cuando Karajan corre dentro de un agente de IA, pierdes visibilidad. El agente te muestra el resultado final, pero no las etapas del pipeline, iteraciones o decisiones de Solomon en tiempo real.
 
@@ -188,7 +188,7 @@ post-loop: tester? → security? → perf? → impeccable? → audit?
 
 Mezcla y combina. Usa Claude como coder y Codex como reviewer. Karajan auto-detecta agentes instalados durante `kj init`.
 
-## Servidor MCP (23 herramientas)
+## Servidor MCP (27 herramientas)
 
 Tras `npm install -g karajan-code`, el servidor MCP se auto-registra en Claude y Codex. Config manual si es necesario:
 
@@ -200,7 +200,7 @@ Tras `npm install -g karajan-code`, el servidor MCP se auto-registra en Claude y
 # command = "karajan-mcp"
 ```
 
-**23 herramientas** disponibles: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_impeccable`, `kj_hu`, `kj_skills`, `kj_suggest`.
+**27 herramientas** disponibles: `kj_run`, `kj_code`, `kj_review`, `kj_plan`, `kj_board`, `kj_audit`, `kj_scan`, `kj_doctor`, `kj_config`, `kj_report`, `kj_resume`, `kj_roles`, `kj_agents`, `kj_preflight`, `kj_status`, `kj_init`, `kj_discover`, `kj_triage`, `kj_researcher`, `kj_architect`, `kj_hu`, `kj_skills`, `kj_suggest`, `kj_undo`, `kj_clean`, `kj_rag_query`, `kj_rag_index`.
 
 Usa `kj-tail` en un terminal separado para ver lo que el pipeline esta haciendo en tiempo real (ver [Tres formas de usar Karajan](#tres-formas-de-usar-karajan)).
 
@@ -254,7 +254,7 @@ No es nostalgia ni cabezoneria. Es que llevo usando JavaScript desde 1997, cuand
 git clone https://github.com/manufosela/karajan-code.git
 cd karajan-code
 npm install
-npm test              # Ejecutar ~2599 tests con Vitest
+npm test              # Ejecutar ~5 368 tests en 482 ficheros con Vitest
 npm run validate      # Lint + test
 ```
 
