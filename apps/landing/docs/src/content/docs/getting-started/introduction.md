@@ -375,7 +375,7 @@ Karajan offers two ways to work:
 
 **Skills mode** — 8 slash commands (`/kj-code`, `/kj-review`, `/kj-run`, etc.) installed directly in Claude Code. Each command includes built-in guardrails. No MCP server needed — ideal for single-agent workflows. Install with `kj init`.
 
-**Orchestrator mode** — Full MCP server with 23 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
+**Orchestrator mode** — Full MCP server with 27 tools. Multi-agent pipeline with subprocess orchestration, session management, budget tracking, and rate-limit resilience. Ideal for complex tasks and CI/CD integration.
 
 Both modes can coexist. Use skills for quick tasks and the orchestrator when you need multiple agents or full pipeline control. See the [Skills Guide](/docs/guides/skills/) for details.
 

@@ -1,6 +1,6 @@
 ---
 title: MCP Tools Reference
-description: Complete parameter reference for all 23 Karajan Code MCP tools.
+description: Complete parameter reference for all 27 Karajan Code MCP tools.
 ---
 
 ## kj_run

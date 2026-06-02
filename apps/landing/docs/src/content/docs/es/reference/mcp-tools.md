@@ -1,6 +1,6 @@
 ---
 title: Referencia de Herramientas MCP
-description: Referencia completa de parámetros de las 23 herramientas MCP de Karajan Code.
+description: Referencia completa de parámetros de las 27 herramientas MCP de Karajan Code.
 ---
 
 ## kj_run

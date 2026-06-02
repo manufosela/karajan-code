@@ -160,9 +160,9 @@ src/
 │   ├── init.js, doctor.js, config.js, report.js, board.js
 │   ├── roles.js, agents.js, scan.js, sonar.js
 │
-├── mcp/                      # MCP server (23 tools)
+├── mcp/                      # MCP server (27 tools)
 │   ├── server.js             #   Stdio transport entry point
-│   ├── tools.js              #   Tool schemas (23 tools)
+│   ├── tools.js              #   Tool schemas (27 tools)
 │   ├── server-handlers.js    #   Tool handlers
 │   ├── handlers/             #   Handler sub-modules (split from server-handlers)
 │   │   ├── run.js            #     kj_run handler
