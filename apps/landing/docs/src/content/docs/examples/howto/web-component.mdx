@@ -1,0 +1,227 @@
+---
+title: How-To · Web Component
+description: Bootstrap a vanilla Custom Element from zero and ship your first feature with Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Vanilla" variant="note" /> · Estimated time: ~12 min · Karajan iterations: 1–2
+
+This walkthrough takes you from an empty directory to a merged feature on a small **vanilla Web Component** project — a Custom Element you can embed in any HTML page without React / Vue / Svelte. Perfect for design systems, embeds, and demo pages.
+
+## Prerequisites
+
+You should already have done the [common setup](/docs/examples/howto/): `npm install -g karajan-code`, `kj init` inside the project, and a green `kj doctor`. If `kj doctor` is red, fix that first — `kj run` will refuse to start otherwise.
+
+## Walkthrough
+
+<Steps>
+
+1. **Bootstrap the project.**
+
+   ```bash
+   mkdir hello-wc && cd hello-wc
+   npm init -y
+   npm install --save-dev vitest @vitest/browser playwright
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Edit `package.json` so the test runner is wired up:
+
+   ```json
+   {
+     "type": "module",
+     "scripts": {
+       "test": "vitest run --browser=chromium"
+     }
+   }
+   ```
+
+   Add a minimal `vitest.config.js` for the browser runner:
+
+   ```js
+   import { defineConfig } from "vitest/config";
+
+   export default defineConfig({
+     test: {
+       browser: { enabled: true, name: "chromium", provider: "playwright" }
+     }
+   });
+   ```
+
+   <Aside type="tip" title="Why Vitest browser mode">
+   Custom Elements need a real DOM. Jest with jsdom misses subtle quirks (Shadow DOM slot distribution, `connectedCallback` timing). Vitest's browser mode runs the test in a headless Chromium and the reviewer is calibrated to that signal.
+   </Aside>
+
+2. **Initialize Karajan in the repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` creates `.karajan/` and writes the orchestrator config; `kj doctor` confirms the agent CLIs, Docker, Ollama, ports, and now also that Playwright's Chromium download is present.
+
+3. **Describe the feature in natural language.**
+
+   No spec file. No JSON. Just the task as you'd describe it to a colleague:
+
+   ```bash
+   kj run "Create a 'hello-badge' Custom Element in src/hello-badge.js \
+   that takes a 'name' attribute and renders 'Hello, <name>!' inside a \
+   Shadow DOM with one CSS variable --hello-bg for the background color. \
+   Add a Vitest test that mounts the element, sets name='world' and \
+   asserts the rendered text." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="What's happening under the hood">
+   With `--methodology tdd`, Karajan writes the failing test first, then the implementation, then re-runs the suite. The reviewer (Codex by default, Claude as fallback) checks the diff for Custom Element best practices: lifecycle callbacks, `attributeChangedCallback`, Shadow DOM encapsulation. If the reviewer rejects, Karajan loops the coder again — up to `--max-iterations`.
+   </Aside>
+
+4. **Watch the run on the HU Board.**
+
+   Open [http://localhost:4000](http://localhost:4000) in another tab while the pipeline runs. You'll see, in real time:
+
+   - Each role activating (planner → coder → tester → reviewer).
+   - The exact prompt + response of every agent call.
+   - The diff after each iteration.
+   - The headless Chromium test output.
+   - The reviewer verdict.
+
+   You can also tail the same trace in the terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspect the result.**
+
+   ```bash
+   git status
+   git diff --stat
+   npm test
+   ```
+
+   Expected output of `npm test`:
+
+   ```
+   ✓ tests/hello-badge.test.js (1)
+     ✓ renders the name attribute in shadow DOM (87ms)
+
+   Test Files  1 passed (1)
+        Tests  1 passed (1)
+   ```
+
+   Sanity-check visually by opening a quick `index.html`:
+
+   ```html
+   <!DOCTYPE html>
+   <script type="module" src="./src/hello-badge.js"></script>
+   <hello-badge name="world" style="--hello-bg: #fdd"></hello-badge>
+   ```
+
+6. **Merge.**
+
+   Karajan does not push or merge for you by default — that's your call. When you're happy with the diff:
+
+   ```bash
+   git checkout -b feat/hello-badge
+   git add -A && git commit -m "feat(wc): add <hello-badge> custom element"
+   git push -u origin feat/hello-badge
+   gh pr create --fill
+   ```
+
+   Or, if you want Karajan to also open the PR for you, add `--auto-commit --auto-pr` to the `kj run` invocation.
+
+</Steps>
+
+## Possible errors and how to clear them
+
+<Aside type="caution" title="`Failed to launch browser: Executable doesn't exist`">
+Playwright didn't download Chromium. Run `npx playwright install chromium` once. Karajan will detect the missing executable in iteration 1 and try to install it — but you save a loop by doing it manually.
+</Aside>
+
+<Aside type="caution" title="Reviewer rejects with `customElements.define collision`">
+You re-imported the module from a test file and the same tag name was registered twice. The fix is a single guard: `if (!customElements.get("hello-badge")) customElements.define(...)`. The coder will add it in iteration 2 if you let it run.
+</Aside>
+
+<Aside type="caution" title="`kj run` exits with `no coder configured`">
+Run `kj doctor` and follow the agent-CLI install instructions. The most common cause is having Claude installed but without a logged-in session (`claude login`).
+</Aside>
+
+<Aside type="caution" title="Pipeline stalls at `coder:hibernate`">
+You hit a quota cap. Karajan persists the session to `~/.karajan/standby/<sessionId>.json`; resume it with `kj standby list` then `kj standby resume <sessionId> --force` after the cap resets.
+</Aside>
+
+## Variants
+
+<Tabs>
+<TabItem label="With MCP">
+
+The same run launched via the MCP from any MCP-capable client (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Create a 'hello-badge' Custom Element with a 'name' attribute and a --hello-bg CSS variable. Add a Vitest browser test.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="With Lit (sugar)">
+
+If you prefer [Lit](https://lit.dev) for templating + reactive properties:
+
+```bash
+npm install lit
+```
+
+Then run with an explicit hint:
+
+```bash
+kj run "Create a Lit-based 'hello-badge' element with a reactive \
+'name' property…" \
+  --methodology tdd \
+  --max-iterations 5
+```
+
+The coder picks up the Lit dependency and writes the element using `LitElement` + `@property`.
+
+</TabItem>
+<TabItem label="Design system style gate">
+
+For a design-system context, add a token-validation pass:
+
+```bash
+kj run "<task>" \
+  --mode strict \
+  --enable-security \
+  --methodology tdd
+```
+
+This wires the OSV-Scanner and Semgrep collectors into the audit and gates the merge on accessibility checks (Lighthouse a11y if available).
+
+</TabItem>
+</Tabs>
+
+## Next steps
+
+<Card title="Other stacks" icon="seti:folder">
+Same recipe, different bootstrap: [Node CLI](/docs/examples/howto/node-cli/) · [Python](/docs/examples/howto/python/) · [REST API (Node)](/docs/examples/howto/rest-api-node/) · [Java](/docs/examples/howto/java/) · [Go](/docs/examples/howto/go/) · [Rust](/docs/examples/howto/rust/)
+</Card>
+
+<Card title="Back to the index" icon="open-book">
+[How-To index](/docs/examples/howto/) · setup + troubleshooting
+</Card>
