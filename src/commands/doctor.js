@@ -29,6 +29,7 @@ import { getMcpHealthChecks } from "../checks/mcp-health.js";
 import { getSkillsChecks } from "../checks/skills.js";
 import { getDirSetupChecks } from "../checks/dir-setup.js";
 import { getProjectChecks } from "../checks/project-checks.js";
+import { getHardwareChecks } from "../checks/hardware.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
@@ -50,6 +51,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
   return [
     ...getSystemChecks(),
     ...getNodeChecks(),
+    ...getHardwareChecks(),
     ...getDirSetupChecks(),
     ...getConfigFileChecks(),
     ...getBinaryChecks(),
