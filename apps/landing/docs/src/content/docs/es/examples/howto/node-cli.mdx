@@ -1,0 +1,200 @@
+---
+title: Tutorial · Node CLI
+description: Bootstrapea un CLI Node desde cero y entrega tu primera feature con Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Recomendado" variant="success" /> · Tiempo estimado: ~10 min · Iteraciones Karajan: 1–2
+
+Este tutorial te lleva desde un directorio vacío hasta una feature mergeada en un pequeño proyecto **CLI Node**. La receta es deliberadamente mínima para que la puedas re-ejecutar sobre un repo real cambiando el bootstrap por `cd <tu-repo>`.
+
+## Prerrequisitos
+
+Deberías haber completado el [setup común](/docs/es/examples/howto/): `npm install -g karajan-code`, `kj init` dentro del proyecto y un `kj doctor` verde. Si `kj doctor` está rojo, arréglalo antes — `kj run` se negará a arrancar.
+
+## Tutorial
+
+<Steps>
+
+1. **Bootstrapea el proyecto.**
+
+   ```bash
+   mkdir hello-cli && cd hello-cli
+   npm init -y
+   npm install --save-dev vitest
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Edita `package.json` para cablear el runner de tests:
+
+   ```json
+   {
+     "type": "module",
+     "scripts": {
+       "test": "vitest run"
+     }
+   }
+   ```
+
+   <Aside type="tip" title="Por qué ESM + Vitest">
+   El coder y el reviewer de Karajan están entrenados sobre Node moderno (ESM, top-level await, imports `node:`). Quedarse en ESM evita el ida-y-vuelta donde el reviewer marca `require()`.
+   </Aside>
+
+2. **Inicializa Karajan en el repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` crea `.karajan/` y escribe la configuración del orquestador; `kj doctor` confirma que los CLIs de los agentes, Docker, Ollama y los puertos están sanos.
+
+3. **Describe la feature en lenguaje natural.**
+
+   Sin fichero de spec. Sin JSON. Solo la tarea como se la dirías a un compañero:
+
+   ```bash
+   kj run "Añade un comando 'greet <name>' a bin/cli.js que imprima \
+   'Hello, <name>!'. Añade un test Vitest que ejecute el CLI vía execa \
+   y verifique stdout para el nombre 'world'." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="Qué pasa por debajo">
+   Con `--methodology tdd`, Karajan escribe primero el test que falla, luego la implementación, luego re-ejecuta la suite. El reviewer (Codex por defecto, Claude como fallback) revisa el diff. Si lo rechaza, Karajan vuelve a llamar al coder — hasta `--max-iterations`.
+   </Aside>
+
+4. **Mira el run en el HU Board.**
+
+   Abre [http://localhost:4000](http://localhost:4000) en otra pestaña mientras el pipeline corre. Verás, en tiempo real:
+
+   - Cada rol activándose (planner → coder → tester → reviewer).
+   - El prompt y la respuesta exactos de cada llamada al agente.
+   - El diff tras cada iteración.
+   - El veredicto del reviewer.
+
+   También puedes hacer tail del mismo trace en el terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspecciona el resultado.**
+
+   ```bash
+   git status
+   git diff --stat
+   npm test
+   ```
+
+   Salida esperada de `npm test`:
+
+   ```
+   ✓ tests/cli.test.js (1)
+     ✓ greets the given name (42ms)
+
+   Test Files  1 passed (1)
+        Tests  1 passed (1)
+   ```
+
+6. **Mergea.**
+
+   Karajan no hace push ni merge por ti por defecto — esa decisión es tuya. Cuando estés contento con el diff:
+
+   ```bash
+   git checkout -b feat/greet-command
+   git add -A && git commit -m "feat(cli): add greet <name> command"
+   git push -u origin feat/greet-command
+   gh pr create --fill
+   ```
+
+   O, si quieres que Karajan abra la PR por ti, añade `--auto-commit --auto-pr` a la invocación `kj run`.
+
+</Steps>
+
+## Errores posibles y cómo resolverlos
+
+<Aside type="caution" title="`vitest: command not found`">
+Te has saltado el paso `npm install --save-dev vitest`. Karajan detectará la dev-dep faltante en la iteración 1 y la añadirá — pero si la quieres antes del run, instálala manualmente.
+</Aside>
+
+<Aside type="caution" title="El reviewer rechaza con `requires CommonJS`">
+No estás en `"type": "module"`. O lo configuras, o aceptas que el coder reescriba los imports a `require()` — el reviewer es consistente en cualquier caso.
+</Aside>
+
+<Aside type="caution" title="`kj run` sale con `no coder configured`">
+Ejecuta `kj doctor` y sigue las instrucciones de instalación del CLI del agente. La causa más común es tener Claude instalado pero sin sesión iniciada (`claude login`).
+</Aside>
+
+<Aside type="caution" title="El pipeline se queda en `coder:hibernate`">
+Has tocado techo de cuota. Karajan persiste la sesión a `~/.karajan/standby/<sessionId>.json`; resúmela con `kj standby list` y luego `kj standby resume <sessionId> --force` cuando se resetee la cuota.
+</Aside>
+
+## Variantes
+
+<Tabs>
+<TabItem label="Con MCP">
+
+El mismo run lanzado vía MCP desde cualquier cliente MCP-capable (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añade un comando 'greet <name>' a bin/cli.js que imprima 'Hello, <name>!'. Añade un test Vitest.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Quality gate más estricto">
+
+Añade `--mode strict` y los collectors deterministas de seguridad:
+
+```bash
+kj run "<tarea>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+Esto cablea los collectors OSV-Scanner y Semgrep en el audit, y gatea el merge contra el quality gate de Sonar además del veredicto del reviewer.
+
+</TabItem>
+<TabItem label="Solo modelo local">
+
+Para runs air-gapped o con presupuesto ajustado, cambia el coder a **OpenCode** con un modelo local:
+
+```bash
+kj run "<tarea>" \
+  --coder opencode \
+  --coder-model gemma-local/coder \
+  --reviewer claude \
+  --max-iterations 8
+```
+
+`--max-iterations` sube porque los modelos locales tienden a necesitar una vuelta extra o dos.
+
+</TabItem>
+</Tabs>
+
+## Siguientes pasos
+
+<Card title="Otros stacks" icon="seti:folder">
+Misma receta, distinto bootstrap: [Python](/docs/es/examples/howto/python/) · [Web Component](/docs/es/examples/howto/web-component/) · [REST API (Node)](/docs/es/examples/howto/rest-api-node/) · [Java](/docs/es/examples/howto/java/) · [Go](/docs/es/examples/howto/go/) · [Rust](/docs/es/examples/howto/rust/)
+</Card>
+
+<Card title="Volver al índice" icon="open-book">
+[Índice How-To](/docs/es/examples/howto/) · setup + troubleshooting
+</Card>
