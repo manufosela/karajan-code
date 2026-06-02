@@ -1,0 +1,217 @@
+---
+title: How-To · Go
+description: Bootstrap a Go CLI module with the standard testing toolchain and ship your first feature with Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Backend" variant="note" /> · Estimated time: ~12 min · Karajan iterations: 1–2
+
+This walkthrough takes you from an empty directory to a merged feature on a small **Go module** using the standard library plus `go test`. It also covers the [Cobra](https://github.com/spf13/cobra) variant if you want a real CLI binary on top.
+
+## Prerequisites
+
+You should already have done the [common setup](/docs/examples/howto/): `npm install -g karajan-code`, `kj init` inside the project, and a green `kj doctor`. If `kj doctor` is red, fix that first — `kj run` will refuse to start otherwise.
+
+You'll also need Go 1.22+ (`go version`).
+
+## Walkthrough
+
+<Steps>
+
+1. **Bootstrap the project.**
+
+   ```bash
+   mkdir hello-go && cd hello-go
+   go mod init dev.kj/hello
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Create a minimal `greeter.go` skeleton so Karajan has something to extend:
+
+   ```go
+   package hello
+
+   // Greet returns the greeting for the given name.
+   // Implementation pending — Karajan fills this in.
+   func Greet(name string) string {
+       return ""
+   }
+   ```
+
+   <Aside type="tip" title="Why a single package">
+   Starting with one package and growing later is the idiomatic Go path. Karajan's reviewer flags premature splitting into `internal/`, `pkg/`, `cmd/` for trivial modules and asks you to defer it until there's a real reason. It is calibrated to standard library style: small, flat, explicit.
+   </Aside>
+
+2. **Initialize Karajan in the repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` creates `.karajan/` and writes the orchestrator config; `kj doctor` confirms the agent CLIs, Docker, Ollama, ports, and detects the Go toolchain.
+
+3. **Describe the feature in natural language.**
+
+   No spec file. No JSON. Just the task as you'd describe it to a colleague:
+
+   ```bash
+   kj run "Implement Greet(name string) in greeter.go so it returns \
+   'Hello, <name>!'. If name is empty, return 'Hello, stranger!'. \
+   Add a table-driven test in greeter_test.go covering both cases \
+   plus a unicode name." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="What's happening under the hood">
+   With `--methodology tdd`, Karajan writes the failing table-driven test first, then the implementation, then runs `go test ./...`. The reviewer (Codex by default, Claude as fallback) checks the diff for idiomatic Go: zero-value handling, table-driven tests, no unnecessary `fmt.Sprintf`. If the reviewer rejects, Karajan loops the coder again — up to `--max-iterations`. The tester adapter detects `go.mod` automatically.
+   </Aside>
+
+4. **Watch the run on the HU Board.**
+
+   Open [http://localhost:4000](http://localhost:4000) in another tab while the pipeline runs. You'll see, in real time:
+
+   - Each role activating (planner → coder → tester → reviewer).
+   - The exact prompt + response of every agent call.
+   - The diff after each iteration.
+   - `go test` output line by line.
+   - The reviewer verdict.
+
+   You can also tail the same trace in the terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspect the result.**
+
+   ```bash
+   git status
+   git diff --stat
+   go test ./...
+   ```
+
+   Expected output of `go test ./...`:
+
+   ```
+   ok      dev.kj/hello    0.002s
+   ```
+
+   With verbose mode you'll see the table-driven cases:
+
+   ```bash
+   go test -v ./...
+   # === RUN   TestGreet
+   # === RUN   TestGreet/named
+   # === RUN   TestGreet/empty
+   # === RUN   TestGreet/unicode
+   # --- PASS: TestGreet (0.00s)
+   ```
+
+6. **Merge.**
+
+   Karajan does not push or merge for you by default — that's your call. When you're happy with the diff:
+
+   ```bash
+   git checkout -b feat/greeter
+   git add -A && git commit -m "feat: add Greet(name)"
+   git push -u origin feat/greeter
+   gh pr create --fill
+   ```
+
+   Or, if you want Karajan to also open the PR for you, add `--auto-commit --auto-pr` to the `kj run` invocation.
+
+</Steps>
+
+## Possible errors and how to clear them
+
+<Aside type="caution" title="`go: command not found`">
+Install Go (`brew install go` on macOS, `apt install golang` or download from go.dev). The Karajan doctor flags missing toolchains but won't install Go for you.
+</Aside>
+
+<Aside type="caution" title="Reviewer rejects with `non-table-driven test`">
+You wrote separate `TestGreetNamed`, `TestGreetEmpty` functions. Idiomatic Go is one table-driven `TestGreet` with subtests via `t.Run(tc.name, ...)`. The coder rewrites it in iteration 2.
+</Aside>
+
+<Aside type="caution" title="`kj run` exits with `no coder configured`">
+Run `kj doctor` and follow the agent-CLI install instructions. The most common cause is having Claude installed but without a logged-in session (`claude login`).
+</Aside>
+
+<Aside type="caution" title="Pipeline stalls at `coder:hibernate`">
+You hit a quota cap. Karajan persists the session to `~/.karajan/standby/<sessionId>.json`; resume it with `kj standby list` then `kj standby resume <sessionId> --force` after the cap resets.
+</Aside>
+
+## Variants
+
+<Tabs>
+<TabItem label="Cobra CLI binary">
+
+If you want a real CLI binary instead of a library:
+
+```bash
+go get github.com/spf13/cobra@latest
+```
+
+Then run with an explicit hint:
+
+```bash
+kj run "Wrap Greet(name) in a 'hello-go greet --name=<name>' command \
+using Cobra. Add an integration test that runs the binary and \
+captures stdout." \
+  --methodology tdd \
+  --max-iterations 5
+```
+
+The coder scaffolds `cmd/root.go` + `cmd/greet.go` and writes an `exec.Command`-based test. Build with `go build -o hello-go ./...`.
+
+</TabItem>
+<TabItem label="With MCP">
+
+The same run launched via the MCP from any MCP-capable client (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Implement Greet(name string) returning 'Hello, <name>!' (or 'Hello, stranger!' if empty). Table-driven test.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Stricter quality gate">
+
+Add `--mode strict` and the deterministic security collectors:
+
+```bash
+kj run "<task>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+This wires the OSV-Scanner and Semgrep collectors into the audit (Go ruleset enabled), and gates the merge on the Sonar quality gate as well as the reviewer verdict. Sonar's Go analyser catches common pitfalls: shadowed errors, leaked goroutines, missing `defer` close.
+
+</TabItem>
+</Tabs>
+
+## Next steps
+
+<Card title="Other stacks" icon="seti:folder">
+Same recipe, different bootstrap: [Node CLI](/docs/examples/howto/node-cli/) · [Python](/docs/examples/howto/python/) · [Web Component](/docs/examples/howto/web-component/) · [REST API (Node)](/docs/examples/howto/rest-api-node/) · [Java](/docs/examples/howto/java/) · [Rust](/docs/examples/howto/rust/)
+</Card>
+
+<Card title="Back to the index" icon="open-book">
+[How-To index](/docs/examples/howto/) · setup + troubleshooting
+</Card>
