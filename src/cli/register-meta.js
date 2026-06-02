@@ -4,6 +4,7 @@ import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
+import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
 import { resumeCommand } from "../commands/resume.js";
@@ -158,6 +159,16 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "rag-eval", flags, async ({ config, logger }) => {
         await ragEvalCommand({ config, logger, flags });
       });
+    });
+
+  // KJC-TSK-0492 PR3 — `kj rag mcp` exposes the kj-rag-mcp binary under the
+  // familiar `kj rag <subcommand>` surface so users discover it without
+  // grepping bin/. The action dynamic-imports the binary, which takes over
+  // stdio for MCP transport; the CLI process never returns.
+  rag.command("mcp")
+    .description("Start the standalone RAG MCP server (kj_rag_query + kj_rag_index only). Same as running `kj-rag-mcp` directly")
+    .action(async () => {
+      await ragMcpCommand();
     });
 
   // KJC-TSK-0441 — `kj watch [start|stop|status]` for live RAG re-index.
