@@ -8,6 +8,7 @@ import { collectOsvFindings } from "../audit/osv-findings.js";
 import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
 import { collectCircularDeps } from "../audit/circular-deps.js";
 import { collectDeadExports } from "../audit/dead-exports.js";
+import { collectInjectionFindings } from "../audit/injection-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -51,6 +52,7 @@ export class AuditRole extends AgentRole {
     const noSemgrep = typeof input === "object" ? Boolean(input?.noSemgrep) : false;
     const noMadge = typeof input === "object" ? Boolean(input?.noMadge) : false;
     const noKnip = typeof input === "object" ? Boolean(input?.noKnip) : false;
+    const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
@@ -61,6 +63,7 @@ export class AuditRole extends AgentRole {
     let semgrepFindings = null;
     let circularDeps = null;
     let deadExports = null;
+    let injectionFindings = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -108,7 +111,12 @@ export class AuditRole extends AgentRole {
         deadExports = await collectDeadExports(projectDir, stack, this.config, this.logger);
       } catch { /* knip is best-effort */ }
     }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports };
+    if (!noInjectionScan) {
+      try {
+        injectionFindings = await collectInjectionFindings(projectDir, this.logger);
+      } catch { /* injection scan is best-effort (KJC-TSK-0498) */ }
+    }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings };
   }
 
   /**
