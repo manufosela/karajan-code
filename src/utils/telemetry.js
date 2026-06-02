@@ -48,12 +48,15 @@ export async function sendTelemetryEvent(eventName, data, config) {
 }
 
 /**
- * Check if telemetry is enabled (opt-out model).
- * Returns false only when the user explicitly sets telemetry: false.
+ * Check if telemetry is enabled (opt-in model).
+ *
+ * Returns true ONLY when the user explicitly answered "yes" in the
+ * `kj init` wizard and we persisted `telemetry: true` to their config.
+ * Anything else — undefined, null, missing key, false — disables sending.
  *
  * @param {object} [config] - Karajan config
  * @returns {boolean}
  */
 export function isTelemetryEnabled(config) {
-  return config?.telemetry !== false;
+  return config?.telemetry === true;
 }

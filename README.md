@@ -351,13 +351,36 @@ npm run validate      # Lint + test
 
 Issues and pull requests welcome. If something doesn't work as documented, [open an issue](https://github.com/manufosela/karajan-code/issues). That's the most useful contribution at this stage.
 
-## Telemetry
+## Privacy & telemetry
 
-Karajan collects anonymous usage statistics to improve the tool:
-version, OS, command used, pipeline duration and success rate.
-No code, task descriptions, or personal data is ever sent.
+**Telemetry is OFF by default.** The `kj init` wizard asks once, in your OS
+language, with a plain-text "yes / no" prompt:
 
-Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
+> *Help improve Karajan by sending anonymous telemetry to the project?*
+> *(version, OS, commands, pipeline duration — no code, no tasks, no personal data)*
+
+Answer "yes" once and `telemetry: true` is persisted to `~/.karajan/kj.config.yml`.
+Anything else — undefined, missing key, `false`, fresh install with no wizard run —
+keeps it off. There is no hidden default-on path.
+
+### What gets sent (when enabled)
+
+Three event types, anonymous, no userID / email / IP collected by Karajan itself:
+
+| Event | When | Payload |
+|---|---|---|
+| `install` | first `kj init` | `version`, `os`, `node`, `ts` |
+| `cli_command` | each `kj <subcommand>` | `version`, `os`, `node`, `ts`, `command`, `duration_ms`, `exit_code` |
+| `pipeline_complete` | end of `kj run` | `version`, `os`, `node`, `ts`, `mode`, `agent`, `duration_s`, `success`, `taskType` |
+
+Endpoint: `https://karajan-code.web.app/api/telemetry` (POST, 3 s timeout, fire-and-forget).
+Implementation: [`src/utils/telemetry.js`](src/utils/telemetry.js).
+
+### Flip it later
+
+Open `~/.karajan/kj.config.yml`, set `telemetry: true` (opt in) or `telemetry: false` (opt out),
+save. Or re-run `kj init` and answer the prompt again. Set `KJ_DEBUG=1` to see telemetry
+errors on stderr (otherwise failures are silent — telemetry never blocks the pipeline).
 
 ## Recent releases
 

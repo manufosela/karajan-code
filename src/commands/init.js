@@ -256,6 +256,37 @@ async function askBoardSecurity(wizard, config, logger) {
   logger.info(`  -> HU Board port: ${config.hu_board.port}`);
 }
 
+/**
+ * Explicit, opt-in telemetry consent. We do NOT inherit a "Karajan-installed
+ * users want to help" assumption — silence and missing config keys both mean
+ * "no". The prompt is rendered in the OS locale (EN/ES today; falls back to
+ * EN for everything else) so users see it in their own language even before
+ * they've set `config.language`. See src/utils/telemetry.js and the
+ * "Privacy & Telemetry" section of README.md for what gets sent.
+ */
+async function askTelemetry(wizard, config, logger) {
+  const locale = detectOsLocale();
+  const prompts = {
+    es: {
+      question: "¿Quieres ayudar a mejorar Karajan enviando telemetría anónima al proyecto?",
+      detail: "  (versión, OS, comandos, duración del pipeline — sin código, sin tareas, sin datos personales)",
+      enabled: "  -> Telemetría: activada (¡gracias!)",
+      disabled: "  -> Telemetría: desactivada",
+    },
+    en: {
+      question: "Help improve Karajan by sending anonymous telemetry to the project?",
+      detail: "  (version, OS, commands, pipeline duration — no code, no tasks, no personal data)",
+      enabled: "  -> Telemetry: enabled (thank you!)",
+      disabled: "  -> Telemetry: disabled",
+    },
+  };
+  const t = prompts[locale] || prompts.en;
+  logger.info(t.detail);
+  const enabled = await wizard.confirm(t.question, false);
+  config.telemetry = enabled;
+  logger.info(enabled ? t.enabled : t.disabled);
+}
+
 async function runWizard(config, logger) {
   const agents = await detectAvailableAgents();
   const available = agents.filter((a) => a.available);
@@ -317,6 +348,10 @@ async function runWizard(config, logger) {
       logger.info("HU Board security:");
       await askBoardSecurity(wizard, config, logger);
     }
+
+    logger.info("");
+    logger.info("Privacy:");
+    await askTelemetry(wizard, config, logger);
 
     logger.info("");
   } finally {

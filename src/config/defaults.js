@@ -196,7 +196,10 @@ const DEFAULTS = {
     // hook. Both default ON; flip to false to opt out without uninstalling.
     autoUpdate: { onCommit: true, onRun: true }
   },
-  telemetry: true,
+  // Opt-in. Set by the `kj init` wizard (explicit consent prompt in the OS
+  // locale). When the key is absent or false, no events are sent. See
+  // src/utils/telemetry.js and the Privacy & Telemetry section of README.md.
+  telemetry: false,
   guards: {
     output: {
       enabled: true,
