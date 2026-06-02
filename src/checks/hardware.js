@@ -4,12 +4,14 @@
 
 import os from "node:os";
 import { statfs } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { STRATEGY } from "./types.js";
 
 const RAM_WARN_GB = 4;
 const RAM_RECOMMENDED_GB = 8;
 const DISK_WARN_GB = 5;
 const DISK_RECOMMENDED_GB = 20;
+const GPU_DETECT_TIMEOUT_MS = 1500;
 
 const bytesToGb = (bytes) => Math.round((bytes / 1024 ** 3) * 10) / 10;
 const info = (detail, extra) => ({ ok: true, severity: "info", detail, extra });
@@ -79,8 +81,70 @@ function createDiskCheck() {
   };
 }
 
-export function getHardwareChecks() {
-  return [createRamCheck(), createCpuCheck(), createDiskCheck()];
+function runGpuCommand(cmd, args) {
+  return new Promise((resolve) => {
+    let stdout = "";
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    try {
+      const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "ignore"] });
+      const timer = setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch { /* noop */ }
+        finish(null);
+      }, GPU_DETECT_TIMEOUT_MS);
+      child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
+      child.on("error", () => { clearTimeout(timer); finish(null); });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        finish(code === 0 ? stdout : null);
+      });
+    } catch {
+      finish(null);
+    }
+  });
 }
 
-export const __test = { RAM_WARN_GB, RAM_RECOMMENDED_GB, DISK_WARN_GB, DISK_RECOMMENDED_GB, bytesToGb };
+async function detectGpu() {
+  const platform = process.platform;
+  if (platform === "linux" || platform === "win32") {
+    const out = await runGpuCommand("nvidia-smi", ["--query-gpu=name", "--format=csv,noheader"]);
+    const model = out?.split("\n").map((l) => l.trim()).find(Boolean);
+    if (model) return { vendor: "NVIDIA", model };
+    return null;
+  }
+  if (platform === "darwin") {
+    const out = await runGpuCommand("system_profiler", ["SPDisplaysDataType"]);
+    if (!out) return null;
+    const match = out.match(/Chipset Model:\s*(.+)/);
+    if (!match) return null;
+    const model = match[1].trim();
+    const vendor = /Apple/i.test(model) ? "Apple" : /AMD|Radeon/i.test(model) ? "AMD" : /Intel/i.test(model) ? "Intel" : "GPU";
+    return { vendor, model };
+  }
+  return null;
+}
+
+function createGpuCheck() {
+  return {
+    name: "hw-gpu",
+    label: "GPU",
+    strategy: STRATEGY.NONE,
+    async detect() {
+      const gpu = await detectGpu();
+      if (!gpu) {
+        return info("No discrete GPU detected (CPU-only)", { detected: false });
+      }
+      return info(`${gpu.vendor} ${gpu.model}`, { detected: true, vendor: gpu.vendor, model: gpu.model });
+    },
+  };
+}
+
+export function getHardwareChecks() {
+  return [createRamCheck(), createCpuCheck(), createDiskCheck(), createGpuCheck()];
+}
+
+export const __test = { RAM_WARN_GB, RAM_RECOMMENDED_GB, DISK_WARN_GB, DISK_RECOMMENDED_GB, GPU_DETECT_TIMEOUT_MS, bytesToGb, detectGpu };

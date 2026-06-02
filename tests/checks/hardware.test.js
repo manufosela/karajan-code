@@ -1,11 +1,26 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import os from "node:os";
+import { EventEmitter } from "node:events";
 
 const statfsMock = vi.fn();
+const spawnMock = vi.fn();
 vi.mock("node:fs/promises", () => ({ statfs: (...a) => statfsMock(...a) }));
+vi.mock("node:child_process", () => ({ spawn: (...a) => spawnMock(...a) }));
 
 const { getHardwareChecks, __test } = await import("../../src/checks/hardware.js");
 const { RAM_WARN_GB, RAM_RECOMMENDED_GB, DISK_WARN_GB, bytesToGb } = __test;
+
+function fakeChild({ stdout = "", exitCode = 0, error } = {}) {
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.kill = () => {};
+  setImmediate(() => {
+    if (error) { child.emit("error", error); return; }
+    if (stdout) child.stdout.emit("data", stdout);
+    child.emit("close", exitCode);
+  });
+  return child;
+}
 
 const byName = () => Object.fromEntries(getHardwareChecks().map((c) => [c.name, c]));
 const GB = 1024 ** 3;
@@ -14,6 +29,7 @@ describe("checks/hardware", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     statfsMock.mockReset();
+    spawnMock.mockReset();
   });
 
   it("bytesToGb rounds to one decimal", () => {
@@ -69,7 +85,34 @@ describe("checks/hardware", () => {
     expect(r.detail).toMatch(/Cannot read/i);
   });
 
-  it("getHardwareChecks returns the three advisory checks", () => {
-    expect(getHardwareChecks().map((c) => c.name).sort()).toEqual(["hw-cpu", "hw-disk", "hw-ram"]);
+  it("hw-gpu reports vendor and model when nvidia-smi succeeds", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+    spawnMock.mockImplementation(() => fakeChild({ stdout: "NVIDIA RTX 3050 Ti\n", exitCode: 0 }));
+    const r = await byName()["hw-gpu"].detect({ config: {} });
+    expect(r.ok).toBe(true);
+    expect(r.extra.detected).toBe(true);
+    expect(r.extra.vendor).toBe("NVIDIA");
+    expect(r.detail).toMatch(/NVIDIA RTX 3050 Ti/);
+  });
+
+  it("hw-gpu falls back gracefully when no GPU is detected", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+    spawnMock.mockImplementation(() => fakeChild({ stdout: "", exitCode: 127 }));
+    const r = await byName()["hw-gpu"].detect({ config: {} });
+    expect(r.ok).toBe(true);
+    expect(r.extra.detected).toBe(false);
+    expect(r.detail).toMatch(/No discrete GPU/i);
+  });
+
+  it("hw-gpu does not throw when spawn fails", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+    spawnMock.mockImplementation(() => fakeChild({ error: new Error("ENOENT") }));
+    const r = await byName()["hw-gpu"].detect({ config: {} });
+    expect(r.ok).toBe(true);
+    expect(r.extra.detected).toBe(false);
+  });
+
+  it("getHardwareChecks returns the four advisory checks", () => {
+    expect(getHardwareChecks().map((c) => c.name).sort()).toEqual(["hw-cpu", "hw-disk", "hw-gpu", "hw-ram"]);
   });
 });
