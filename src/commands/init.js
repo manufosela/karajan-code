@@ -12,6 +12,7 @@ import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
 import { getInstallCommand } from "../utils/os-detect.js";
 import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
+import { buildTelemetryPayload, sendTelemetryEvent } from "../utils/telemetry.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -270,18 +271,23 @@ async function askTelemetry(wizard, config, logger) {
     es: {
       question: "¿Quieres ayudar a mejorar Karajan enviando telemetría anónima al proyecto?",
       detail: "  (versión, OS, comandos, duración del pipeline — sin código, sin tareas, sin datos personales)",
+      previewIntro: "  Ejemplo del payload exacto que se enviaría al ejecutar `kj run` (puedes inspeccionar más con `kj telemetry preview`):",
       enabled: "  -> Telemetría: activada (¡gracias!)",
       disabled: "  -> Telemetría: desactivada",
     },
     en: {
       question: "Help improve Karajan by sending anonymous telemetry to the project?",
       detail: "  (version, OS, commands, pipeline duration — no code, no tasks, no personal data)",
+      previewIntro: "  Example of the exact payload that would be sent when you run `kj run` (inspect more with `kj telemetry preview`):",
       enabled: "  -> Telemetry: enabled (thank you!)",
       disabled: "  -> Telemetry: disabled",
     },
   };
   const t = prompts[locale] || prompts.en;
   logger.info(t.detail);
+  const example = buildTelemetryPayload("cli_command", { version: "x.y.z", command: "run" });
+  logger.info(t.previewIntro);
+  logger.info(`    ${JSON.stringify(example)}`);
   const enabled = await wizard.confirm(t.question, false);
   config.telemetry = enabled;
   logger.info(enabled ? t.enabled : t.disabled);
@@ -770,7 +776,6 @@ export async function initCommand({ logger, flags = {} }) {
   await writeInitConfig(configPath, config);
 
   // Telemetry: anonymous install event (non-blocking)
-  const { sendTelemetryEvent } = await import("../utils/telemetry.js");
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   try {
