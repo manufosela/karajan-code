@@ -14,6 +14,7 @@ import { groupVulnerabilitiesBySeverity } from "./osv-findings.js";
 import { groupFindingsBySeverity as groupSemgrepBySeverity } from "./semgrep-findings.js";
 import { groupCyclesBySeverity } from "./circular-deps.js";
 import { groupDeadExportsBySeverity } from "./dead-exports.js";
+import { groupInjectionBySeverity } from "./injection-findings.js";
 
 const MAX_SAMPLE_DEAD_EXPORTS = 10;
 const MAX_SAMPLE_SONAR_PER_SEVERITY = 5;
@@ -21,6 +22,7 @@ const MAX_SAMPLE_OSV_PER_SEVERITY = 5;
 const MAX_SAMPLE_SEMGREP_PER_SEVERITY = 5;
 const MAX_SAMPLE_CYCLES_PER_SEVERITY = 5;
 const MAX_SAMPLE_KNIP_PER_SEVERITY = 5;
+const MAX_SAMPLE_INJECTION_PER_SEVERITY = 5;
 
 /**
  * @param {{basalCost?: object, growthDelta?: object, stack?: object, sonarFindings?: object, webperf?: object, osvFindings?: object}} ctx
@@ -38,9 +40,27 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.semgrepFindings) lines.push(...formatSemgrepBlock(ctx.semgrepFindings));
   if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
   if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
+  if (ctx.injectionFindings) lines.push(...formatInjectionBlock(ctx.injectionFindings));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+function formatInjectionBlock(inj) {
+  if (!inj.available) return ["### Prompt-injection scan", `- Status: not available — ${inj.reason || "scan failed"}`, ""];
+  const lines = ["### Prompt-injection scan (specs / domain / onboarding)", `- Files scanned: ${inj.scanned ?? 0}`, `- Findings: ${inj.total ?? 0}`];
+  if ((inj.total ?? 0) > 0) {
+    for (const [severity, items] of Object.entries(groupInjectionBySeverity(inj.findings || []))) {
+      if (items.length === 0) continue;
+      lines.push(`  - ${severity} (${items.length}):`);
+      for (const f of items.slice(0, MAX_SAMPLE_INJECTION_PER_SEVERITY)) {
+        lines.push(`    - ${f.file || "(unknown)"}${f.line ? `:${f.line}` : ""} [${f.type}] ${f.pattern}`);
+      }
+      if (items.length > MAX_SAMPLE_INJECTION_PER_SEVERITY) lines.push(`    - ... and ${items.length - MAX_SAMPLE_INJECTION_PER_SEVERITY} more in ${severity}`);
+    }
+  }
+  lines.push("");
+  return lines;
 }
 
 function formatCircularDepsBlock(circularDeps) {
