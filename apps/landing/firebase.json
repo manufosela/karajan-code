@@ -14,7 +14,10 @@
     ],
     "cleanUrls": true,
     "rewrites": [
-      { "source": "/api/telemetry", "function": "telemetry" }
+      {
+        "source": "/api/telemetry",
+        "function": { "functionId": "telemetry", "region": "us-central1", "pinTag": true }
+      }
     ]
   },
   "functions": {
