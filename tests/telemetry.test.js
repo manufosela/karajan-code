@@ -14,25 +14,31 @@ describe("telemetry", () => {
     vi.restoreAllMocks();
   });
 
-  describe("isTelemetryEnabled", () => {
-    it("returns true when config is undefined", () => {
-      expect(isTelemetryEnabled(undefined)).toBe(true);
+  describe("isTelemetryEnabled (opt-in)", () => {
+    it("returns false when config is undefined", () => {
+      expect(isTelemetryEnabled(undefined)).toBe(false);
     });
 
-    it("returns true when config is null", () => {
-      expect(isTelemetryEnabled(null)).toBe(true);
+    it("returns false when config is null", () => {
+      expect(isTelemetryEnabled(null)).toBe(false);
     });
 
-    it("returns true when config has no telemetry key", () => {
-      expect(isTelemetryEnabled({})).toBe(true);
+    it("returns false when config has no telemetry key", () => {
+      expect(isTelemetryEnabled({})).toBe(false);
     });
 
-    it("returns true when telemetry is true", () => {
+    it("returns true only when telemetry is explicitly true", () => {
       expect(isTelemetryEnabled({ telemetry: true })).toBe(true);
     });
 
     it("returns false when telemetry is false", () => {
       expect(isTelemetryEnabled({ telemetry: false })).toBe(false);
+    });
+
+    it("returns false for truthy-but-not-strict-true values", () => {
+      // Guards against accidental `telemetry: 1` / `"true"` in YAML configs.
+      expect(isTelemetryEnabled({ telemetry: 1 })).toBe(false);
+      expect(isTelemetryEnabled({ telemetry: "true" })).toBe(false);
     });
   });
 
@@ -54,10 +60,16 @@ describe("telemetry", () => {
       expect(typeof body.ts).toBe("number");
     });
 
-    it("sends when config is undefined (opt-in by default)", async () => {
+    it("does NOT send when config is undefined (opt-in default)", async () => {
       await sendTelemetryEvent("test_event", { version: "1.0.0" });
 
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("does NOT send when config lacks the telemetry key", async () => {
+      await sendTelemetryEvent("test_event", { version: "1.0.0" }, {});
+
+      expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it("skips when telemetry is false", async () => {
