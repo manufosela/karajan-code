@@ -203,6 +203,9 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="RAG multi-lenguaje + Quality & Observability (v2.34)" icon="seti:folder">
     Dos épicas cierran en la misma ventana. **KJC-PCS-0052 RAG multi-lenguaje** añade chunkers AST de primera clase para **Python, Rust, Go y Java** vía gramáticas `web-tree-sitter` WASM vendidas en el repo (SEA-safe), cablea un registry de adaptadores de lenguaje, extiende el watcher y `kj onboard` / `kj audit` a repos multi-stack, y embarca `kj rag index --since <ref>` para reindex incremental por git-diff con hook post-merge + check de drift pre-run. **KJC-PCS-0053 Quality & Observability** estrena un harness de golden queries (`kj rag eval`) con scoring **recall@k + MRR**, dedup por content-hash sha256 que se salta el re-embed cuando el chunk no ha cambiado, **diversificación MMR** en el retriever (λ=0.5) y una expansión deep-dive de `docs/RAG.md`. Diecisiete PRs.
   </Card>
+  <Card title="Guía paso a paso: entrega tu primera feature" icon="rocket">
+    Una nueva guía interactiva paso a paso que te lleva desde una máquina limpia hasta una PR mergeada. El **setup común** (`kj init`, `kj doctor`) anticipa los papercuts habituales — Docker daemon caído, sin CLI de agente, puerto `:4000` ocupado, Ollama no arrancado — y un **selector de stack** te enruta a una receta focalizada para **Node CLI**, **Python**, **Web Component**, **REST API (Node)**, **Java**, **Go** o **Rust**. Cada página por stack es autocontenida: bootstrapea el proyecto desde cero, lanza Karajan sobre él, observa la traza en el HU Board, mergea. [Empezar el tutorial →](/docs/es/examples/howto/)
+  </Card>
 </CardGrid>
 
 ## Releases recientes

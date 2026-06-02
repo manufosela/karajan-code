@@ -1,0 +1,161 @@
+---
+title: Guía paso a paso
+description: Guía interactiva paso a paso para entregar tu primera feature con Karajan Code en varios stacks.
+---
+
+import { Steps, Tabs, TabItem, Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+Esta guía te lleva desde una máquina limpia hasta una PR mergeada con Karajan, y anticipa los errores más comunes que te puedes encontrar por el camino.
+
+La receta es la misma en cualquier stack: describes el cambio en lenguaje natural, Karajan lo planifica, lo programa, lo revisa y lo testea. Lo que cambia es cómo se arranca el proyecto y cómo se invoca la suite de tests — por eso cada página por stack muestra ejemplos concretos.
+
+<Aside type="tip" title="Lo que tendrás al final">
+Un flujo reproducible que puedes volver a ejecutar en cualquier proyecto: `kj init` → `kj doctor` → `kj run "<tarea>"` → revisar el diff → merge.
+</Aside>
+
+## Setup común
+
+Antes de elegir stack, prepara Karajan en tu máquina. Estos tres pasos son agnósticos al stack — sirven igual para un CLI en Node, un script Python, un servicio Java o cualquier otra cosa.
+
+<Steps>
+
+1. **Instala Karajan globalmente.**
+
+   ```bash
+   npm install -g karajan-code
+   kj --version    # 2.32.0 (o más nuevo)
+   ```
+
+   <Aside type="caution" title="`kj: command not found` tras la instalación">
+   Asegúrate de que el bin global de npm está en tu `PATH`: `echo $(npm prefix -g)/bin`. Si usas `nvm`, el bin global se mueve con la versión activa de Node — reinstala después de `nvm use <versión>`.
+   </Aside>
+
+2. **Inicializa el proyecto.**
+
+   Dentro del repo donde quieras usar Karajan:
+
+   ```bash
+   cd ~/projects/mi-app
+   kj init
+   ```
+
+   Esto crea `.karajan/` (board local, planes, RAG) y escribe la configuración del orquestador. Se ejecuta una vez por repo — repetirlo es seguro e idempotente.
+
+3. **Ejecuta el doctor.**
+
+   ```bash
+   kj doctor
+   ```
+
+   `kj doctor` revisa cada dependencia externa que Karajan necesita: Docker, los CLIs de los agentes (Claude / Codex / Gemini / OpenCode), Ollama para embeddings, los puertos `4000` / `11434`, tus tokens de autenticación y los MCP locales. Auto-arregla lo que puede e imprime instrucciones concretas para el resto.
+
+   <Aside type="danger" title="Fallos comunes del doctor y cómo resolverlos">
+   - **`docker daemon not reachable`** → arranca Docker Desktop, o `sudo systemctl start docker` en Linux.
+   - **`claude CLI not found`** → `npm install -g @anthropic-ai/claude-code` y vuelve a hacer `claude login`.
+   - **`ollama: connection refused`** → `docker compose -f ~/.karajan/docker/ollama.yml up -d`. Karajan también se ofrece a arrancarlo la primera vez.
+   - **`port 4000 already in use`** → es el HU Board. Detén el proceso conflictivo o lanza `kj board --port 4100`.
+   - **`no agent token configured`** → exporta `ANTHROPIC_API_KEY` (o el equivalente para tu coder) antes de `kj run`.
+   </Aside>
+
+</Steps>
+
+## Elige tu stack
+
+Cada página debajo es una receta autocontenida: bootstrapea un proyecto desde cero, lanza Karajan sobre él para añadir una feature, observa el output y mergea. Todas usan la misma invocación `kj run` — solo cambia el proyecto que las rodea.
+
+<Tabs>
+<TabItem label="Node CLI (Recomendado)">
+
+El camino más rápido. Node + npm ya están en tu máquina, el propio CLI de Karajan es Node, y los agentes están entrenados en profundidad en este stack.
+
+[Empezar el tutorial de Node CLI →](/docs/es/examples/howto/node-cli/)
+
+</TabItem>
+<TabItem label="Python">
+
+Úsalo cuando tu equipo es Python-first o la feature que entregas vive en un codebase de datos / ML.
+
+[Empezar el tutorial de Python →](/docs/es/examples/howto/python/)
+
+</TabItem>
+<TabItem label="Web Component">
+
+Un Custom Element vanilla (sin React / Vue / Svelte) — ideal para design systems, embebibles y demos.
+
+[Empezar el tutorial de Web Component →](/docs/es/examples/howto/web-component/)
+
+</TabItem>
+<TabItem label="REST API (Node)">
+
+Node + Express + Vitest, de punta a punta. Incluye el loop de tests que Karajan usa para gatear merges.
+
+[Empezar el tutorial de REST API →](/docs/es/examples/howto/rest-api-node/)
+
+</TabItem>
+<TabItem label="Java">
+
+Proyecto JVM con Gradle / Maven. Muestra cómo cablear `kj run` contra un loop `./gradlew test`.
+
+[Empezar el tutorial de Java →](/docs/es/examples/howto/java/)
+
+</TabItem>
+<TabItem label="Go">
+
+Módulo Go con `go test`. Toolchain mínima, feedback rápido.
+
+[Empezar el tutorial de Go →](/docs/es/examples/howto/go/)
+
+</TabItem>
+<TabItem label="Rust">
+
+Proyecto `cargo`. Muestra cómo manejar ciclos de build largos dentro del presupuesto de iteración de Karajan.
+
+[Empezar el tutorial de Rust →](/docs/es/examples/howto/rust/)
+
+</TabItem>
+</Tabs>
+
+## Qué hacer cuando algo falla
+
+<Steps>
+
+1. **Vuelve a ejecutar `kj doctor --verbose`.** Detecta ~90% de la deriva de configuración antes de llegar al pipeline.
+
+2. **Mira el HU Board.** Abre [http://localhost:4000](http://localhost:4000) — cada run aparece ahí con su traza en vivo, iteraciones y los prompts exactos del agente.
+
+3. **Tail del log del run actual.**
+
+   ```bash
+   kj tail
+   ```
+
+   Filtra por rol con `kj tail --role coder` (o `reviewer`, `tester`, `solomon`).
+
+4. **Inspecciona la última sesión.**
+
+   ```bash
+   kj report --last
+   ```
+
+   Imprime el presupuesto, la iteración final, el veredicto del reviewer y la ruta a `summary.md`.
+
+5. **¿Sigues atascado?** Abre la card que falla en el HU Board, copia su `sessionId` y ejecuta `kj_audit` (vía MCP) o `kj audit --session <id>` (vía CLI) para un informe determinista.
+
+</Steps>
+
+## Siguientes pasos
+
+<CardGrid>
+  <Card title="Referencia del pipeline" icon="setting">
+    Roles, stages, presupuestos y la matriz completa de flags. Ver [docs del pipeline](/docs/es/architecture/pipeline/).
+  </Card>
+  <Card title="HU Board" icon="laptop">
+    El dashboard local en `:4000`. Ver [docs del HU Board](/docs/es/architecture/hu-board/).
+  </Card>
+  <Card title="Integración MCP" icon="puzzle">
+    Usa Karajan desde Cursor, Claude Desktop o cualquier cliente MCP. Ver [guía MCP](/docs/es/usage/mcp/).
+  </Card>
+  <Card title="Ejemplo: arreglar un bug" icon="error">
+    Un walkthrough focalizado del flujo `kj run "Fix ..."`. Ver [Arreglar un bug](/docs/es/examples/fix-a-bug/).
+  </Card>
+</CardGrid>

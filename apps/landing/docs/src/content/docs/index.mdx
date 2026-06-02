@@ -203,6 +203,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Multi-language RAG + Quality & Observability (v2.34)" icon="seti:folder">
     Two epics close in one window. **KJC-PCS-0052 Multi-language RAG** adds first-class AST chunkers for **Python, Rust, Go and Java** via vendored `web-tree-sitter` WASM grammars (SEA-safe), wires a language adapter registry, extends the watcher and `kj onboard` / `kj audit` to multi-stack repos, and ships `kj rag index --since <ref>` for incremental git-diff-based reindex with a post-merge hook + pre-run drift check. **KJC-PCS-0053 RAG Quality & Observability** introduces a golden-query harness (`kj rag eval`) with **recall@k + MRR** scoring, content-hash sha256 dedup that skips re-embed on unchanged chunks, **MMR diversification** in the retriever (λ=0.5), and a deep-dive expansion of `docs/RAG.md`. Seventeen PRs.
   </Card>
+  <Card title="How-To: ship your first feature" icon="rocket">
+    A new step-by-step interactive guide that walks you from a clean machine to a merged PR. **Common setup** (`kj init`, `kj doctor`) anticipates the usual papercuts — missing Docker daemon, no agent CLI, busy port `:4000`, Ollama not running — and a **stack picker** routes you to a focused recipe for **Node CLI**, **Python**, **Web Component**, **REST API (Node)**, **Java**, **Go** or **Rust**. Each stack page is self-contained: bootstrap the project from zero, run Karajan on it, observe the trace on the HU Board, merge. [Start the walkthrough →](/docs/examples/howto/)
+  </Card>
 </CardGrid>
 
 ## Recent releases
