@@ -49,7 +49,8 @@
   "bin": {
     "kj": "bin/kj.js",
     "kj-tail": "bin/kj-tail",
-    "karajan-mcp": "bin/karajan-mcp.js"
+    "karajan-mcp": "bin/karajan-mcp.js",
+    "kj-rag-mcp": "bin/kj-rag-mcp.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
