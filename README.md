@@ -60,7 +60,6 @@ While Genkit, Mastra, LangChain and Vercel AI SDK call `/v1/messages`, Karajan o
 | Calls provider HTTP API (`/v1/messages`, etc.) | ❌ Delegates to CLIs | ✅ |
 | Orchestrates existing AI CLIs (claude, codex, gemini, aider, opencode) as subprocesses | ✅ | ❌ |
 | Depends on cloud infrastructure | ❌ Fully local | ⚠️ Varies |
-| Vanilla JS (no TypeScript required) | ✅ | ⚠️ TS-first |
 | Token billing | **Uses your existing CLI subscriptions** | Pay per API call |
 
 Two technical facts worth keeping straight:
@@ -105,28 +104,39 @@ docker run --rm -v $(pwd):/workspace karajan-code kj --version
 ```
 
 **Python**:
+
+The Python wrapper is a thin shim over the `kj` binary, useful when your stack lives in `pyproject.toml` / `requirements.txt` and you want to invoke Karajan from a venv.
+
 ```bash
-cd wrappers/python && pip install .
+# Option A — once published to PyPI (recommended)
+pip install karajan-code
+
+# Option B — install from the cloned repo (dev)
+git clone https://github.com/manufosela/karajan-code.git
+cd karajan-code/wrappers/python
+pip install .
 ```
+
+Both options expect the `kj` binary to be on your `PATH` (via one of the methods above) — the Python wrapper does not vendor it.
 
 That's it. `kj init` auto-detects your installed agents and installs RTK for token optimization.
 
 ### Optional scanners for `kj audit` + `kj webperf`
 
-Karajan auto-skips any scanner that isn't installed. Add the ones that match your projects:
+None of these are required. Karajan auto-skips any scanner that isn't installed, so the pipeline runs fine with zero of them. Add the ones that match your projects to get more signal:
 
-| Tool | Install | What you get |
-|------|---------|--------------|
-| **SonarQube** | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | Code quality + security rules with line-precision in `kj audit` |
-| **OSV-Scanner** | `go install github.com/google/osv-scanner@latest` | Dependency CVE coverage broader than `npm audit` |
-| **Semgrep** | `pipx install semgrep` | SAST: XSS, SQLi, taint flow, secrets — equivalent to `snyk code`, free for OSS |
-| **Lighthouse** | `npm install -g lighthouse` | Core Web Vitals + opportunities for `kj webperf` (auto-feeds `kj audit`) |
+| Tool | Scope | Install | Installable from `kj init`? | What you get |
+|------|-------|---------|-----------------------------|--------------|
+| **SonarQube** | Any stack | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | ✅ Yes (wizard configures Docker container + token) | Code quality + security rules with line-precision in `kj audit` |
+| **OSV-Scanner** | Any stack | `go install github.com/google/osv-scanner@latest` | ❌ No (install manually) | Dependency CVE coverage broader than `npm audit` |
+| **Semgrep** | Any stack | `pipx install semgrep` | ❌ No (install manually) | SAST: XSS, SQLi, taint flow, secrets — equivalent to `snyk code`, free for OSS |
+| **Lighthouse** | **Frontend only** | `npm install -g lighthouse` | ❌ No (install manually) | Core Web Vitals + opportunities for `kj webperf` (auto-feeds `kj audit`) |
 
 Skip any per-run with `--no-sonar`, `--no-osv`, `--no-semgrep`. See [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md#optional-scanners--kj-audit--kj-webperf) for full table.
 
-## Three ways to use Karajan
+## Two ways to use Karajan
 
-Karajan installs **three commands**: `kj`, `kj-tail`, and `karajan-mcp`.
+Karajan installs **three commands**: `kj` (the CLI), `karajan-mcp` (the MCP server) and `kj-tail` (a monitoring companion). There are two *ways to use it* — CLI or MCP — and `kj-tail` is the monitor you keep open in a second terminal while either mode is running.
 
 ### 1. CLI: direct from terminal
 
@@ -168,9 +178,9 @@ The MCP server auto-registers during `npm install`. Your AI agent sees 27 tools 
 
 **The problem**: when Karajan runs inside an AI agent, you lose visibility. The agent shows you the final result, but not the pipeline stages, iterations, or Solomon decisions happening in real time.
 
-### 3. kj-tail: monitor from a separate terminal
+### Companion: `kj-tail` (monitor from a separate terminal)
 
-**This is the companion tool.** Open a second terminal in the **same project directory** where your AI agent is working, and run:
+`kj-tail` is **not a third way to run Karajan** — it's a read-only monitor for whichever of the two ways above you're using. Open a second terminal in the **same project directory** where the pipeline is running, and run:
 
 ```bash
 kj-tail
@@ -221,7 +231,13 @@ iteration: coder → refactorer? → guard(output) → guard(perf) → sonar? �
 post-loop: tester? → security? → perf? → impeccable? → audit?
 ```
 
-**24 stages** across three phases: 18 AI-agent-backed roles (table below), 6 deterministic stages without an LLM call (`intent`, `skills`, `acceptance`, `guard(output)`, `guard(perf)`, `tdd`). Two extra classes (`commiter`, `repairer`) are post-approval / internal helpers, not standalone pipeline stages. Each AI role is executed by the agent you choose:
+**24 stages max** across three phases: 18 AI-agent-backed roles (table below), 6 deterministic stages without an LLM call (`intent`, `skills`, `acceptance`, `guard(output)`, `guard(perf)`, `tdd`). Two extra classes (`commiter`, `repairer`) are post-approval / internal helpers, not standalone pipeline stages.
+
+> **Karajan is multi-language.** The 24 figure is the upper bound for a frontend project. On a **backend / library / CLI** task, three stages are skipped automatically because they have nothing to assess: `impeccable` (UI/UX audit), `perf` (Core Web Vitals via Lighthouse) and `guard(perf)` (frontend anti-pattern check). That leaves a typical pipeline at **~21 stages** for backend / systems / CLI / data work, with the same triage rules trimming further on trivial tasks. Stage selection is auto-detected from the repo (presence of frontend frameworks, `index.html`, `package.json` browser fields, etc.) — no flag required.
+>
+> The **minimum useful pipeline** on a `trivial` task is roughly: `intent → triage → coder → guard(output) → tdd → reviewer → brain` (~7 stages). Triage decides.
+
+Each AI role is executed by the agent you choose:
 
 | Role | What it does | Default |
 |------|-------------|---------|
@@ -308,20 +324,20 @@ Karajan auto-detects and auto-configures everything it can:
 
 No per-project configuration required. If you want to customize, config is layered: session > project > global.
 
-## Why vanilla JavaScript?
-
-Not nostalgia, not stubbornness. I've been using JavaScript since 1997, when Brendan Eich created it in a week and changed the lives of everyone building for the web. I know its guts, its bugs, its quirks. And I know that whoever truly understands JS turns those bugs into features. TypeScript exists so that developers used to strongly-typed languages don't panic when they see JS. I respect that. But I don't need it. Tests are my type safety. JSDoc and a good IDE are my intellisense. And not having a compiler between the code and me is what lets me ship 57 releases in 45 days without fear.
-
-[Why vanilla JavaScript: the long version](docs/why-vanilla-js.md)
-
 ## Recommended companions
 
-| Tool | Why |
-|------|-----|
-| [**RTK**](https://github.com/rtk-ai/rtk) | Reduces token consumption by 60-90% on Bash command outputs |
-| [**Planning Game MCP**](https://github.com/manufosela/planning-game-xp-mcp) | Agile project management (tasks, sprints, estimation), XP-native |
-| [**GitHub MCP**](https://github.com/github/github-mcp-server) | Create PRs, manage issues directly from the agent |
-| [**Chrome DevTools MCP**](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Verify UI changes visually after frontend modifications |
+None of these are required. Karajan runs fine on its own. They're tools that, when present, Karajan can take advantage of — or that help *you* work better around Karajan.
+
+| Tool | Invoked by | Why |
+|------|-----------|-----|
+| [**RTK**](https://github.com/rtk-ai/rtk) | Karajan (auto, on Bash outputs) | Reduces token consumption by 60-90% on Bash command outputs |
+| [**QMD**](https://github.com/manufosela/qmd) | You (CLI / MCP), complementary to RAG | Semantic search engine over Markdown corpora — works alongside `kj rag query` when you want a richer index over your own docs |
+| [**GitHub MCP**](https://github.com/github/github-mcp-server) | Your AI agent (via MCP) | Create PRs, manage issues directly from the agent |
+| [**Chrome DevTools MCP**](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Your AI agent (via MCP) | Verify UI changes visually after frontend modifications |
+
+## Why vanilla JavaScript?
+
+Tests are the type safety; JSDoc + a good IDE are the intellisense; no compiler in the loop is what makes shipping fast. The long version is anecdotal and lives in [docs/why-vanilla-js.md](docs/why-vanilla-js.md).
 
 ## Contributing
 
@@ -533,7 +549,7 @@ Opt out: set `telemetry: false` in `~/.karajan/kj.config.yml`
 >
 > KJC-BUG-0058 (PR #798, reported by [@aitormf](https://github.com/aitormf)): a session that stopped during Sonar would re-run the full pre-loop on `kj resume <id>` — HU-reviewer, intent, discover, triage, domainCurator, **researcher, architect, planner** all from scratch — doubling token cost and breaking the value-prop of the command. Root cause: `resumeFlow` (flow-runner.js:280) called `runFlow` without rehydrating stage state, and the session never persisted stage outputs in the first place. **Fix**: two new mutators in `src/session/mutators.js` (`setStageResult` mirrors into `stage_results[name]` + `stages_completed[]`; `setStageBundle` adds `stage_bundles[name]` for cross-stage context like `researchContext`, `architectContext`, `plannedTask`). Two closures inside `runPreLoopStages` (`persistStage` + `resumeSkip`) wrap every cacheable stage. `init-context.js` rehydrates `ctx.stageResults` from the loaded session before invoking the pre-loop. Triage is *not* skipped on resume — it produces `roleOverrides` the Brain decisor depends on and is cheap to re-run.
 >
-> KJC-BUG-0060 (PR #797, reported by mjfosela during the v2.19.3 release): `git checkout main` reported `[ahead 27]` of origin/main. Every commit was titled `initial commit`, authored by `manufosela@gmail.com`, and had the **exact same tree as its parent** — completely empty. The reflog held **2 495 such SHAs** accumulated since April 2026. None ever reached origin/main (gh push / CI would have rejected them) so runtime impact was zero, but the local history was noisy and on every release it looked like a sync loss. Root cause: `src/orchestrator/config-init.js::autoInit()` guarded with `!(await exists(projectDir/.git))`, which fails two ways: (a) dogfooding kj on karajan-code itself from a subdir → `exists()` returns false → `git init` re-initializes the *parent's* `.git/` (idempotent, harmless) → `git commit --allow-empty` then resolves upward and lands an empty commit on the parent's main; (b) transient FS hicks (EACCES/ENOENT) flip `exists()` to a false negative. **Fix**: switch the static FS probe for `git rev-parse --is-inside-work-tree`, which performs the same upward search git would use for the commit itself — guard cannot disagree with the operation it guards. And drop the `git commit --allow-empty -m "initial commit"` step entirely: no downstream stage needs a root commit; the 2 495 zombies never broke anything, the seed was decorative and turned out to be the actual user-visible symptom.
+> KJC-BUG-0060 (PR #797, reported by @manufosela during the v2.19.3 release): `git checkout main` reported `[ahead 27]` of origin/main. Every commit was titled `initial commit`, authored by the local git identity, and had the **exact same tree as its parent** — completely empty. The reflog held **2 495 such SHAs** accumulated since April 2026. None ever reached origin/main (gh push / CI would have rejected them) so runtime impact was zero, but the local history was noisy and on every release it looked like a sync loss. Root cause: `src/orchestrator/config-init.js::autoInit()` guarded with `!(await exists(projectDir/.git))`, which fails two ways: (a) dogfooding kj on karajan-code itself from a subdir → `exists()` returns false → `git init` re-initializes the *parent's* `.git/` (idempotent, harmless) → `git commit --allow-empty` then resolves upward and lands an empty commit on the parent's main; (b) transient FS hicks (EACCES/ENOENT) flip `exists()` to a false negative. **Fix**: switch the static FS probe for `git rev-parse --is-inside-work-tree`, which performs the same upward search git would use for the commit itself — guard cannot disagree with the operation it guards. And drop the `git commit --allow-empty -m "initial commit"` step entirely: no downstream stage needs a root commit; the 2 495 zombies never broke anything, the seed was decorative and turned out to be the actual user-visible symptom.
 >
 > **If your `kj resume` re-runs researcher/architect, or your `git status` shows mysterious `[ahead N]` after dogfooding kj on a kj-linked source tree, upgrade to v2.19.4.**
 >
@@ -593,5 +609,6 @@ Built by [@manufosela](https://github.com/manufosela). Head of Engineering at Ge
 
 ### Contributors
 
-- [@aitormf](https://github.com/aitormf) — OpenCode agent (5th built-in agent)
+- [@aitormf](https://github.com/aitormf) — OpenCode agent (5th built-in agent), early-bug reporter on resume/standby flow
+- [@jorgecasar](https://github.com/jorgecasar) — Model registry, display refactor, valibot config proposals; multiple issue triages
 - [@reiaguilera](https://github.com/reiaguilera) — Beta testing, feature proposals, and quality feedback
