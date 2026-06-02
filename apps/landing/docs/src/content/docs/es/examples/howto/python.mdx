@@ -1,0 +1,206 @@
+---
+title: Tutorial · Python
+description: Bootstrapea un proyecto Python desde cero y entrega tu primera feature con Karajan Code.
+---
+
+import { Steps, Tabs, TabItem, Card, Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="Python" variant="note" /> · Tiempo estimado: ~12 min · Iteraciones Karajan: 1–3
+
+Este tutorial te lleva desde un directorio vacío hasta una feature mergeada en un pequeño proyecto **Python** (CLI / librería / script de datos). La receta es deliberadamente mínima para que la puedas re-ejecutar sobre un repo real cambiando el bootstrap por `cd <tu-repo>`.
+
+## Prerrequisitos
+
+Deberías haber completado el [setup común](/docs/es/examples/howto/): `npm install -g karajan-code`, `kj init` dentro del proyecto y un `kj doctor` verde. Si `kj doctor` está rojo, arréglalo antes — `kj run` se negará a arrancar.
+
+También necesitas Python 3.10+ en el `PATH` (`python --version`). En macOS recomendamos [pyenv](https://github.com/pyenv/pyenv); en Linux usa el paquete de la distro; en Windows usa el instalador oficial con la opción "Add to PATH" marcada.
+
+## Tutorial
+
+<Steps>
+
+1. **Bootstrapea el proyecto.**
+
+   ```bash
+   mkdir hello-py && cd hello-py
+   python -m venv .venv
+   source .venv/bin/activate    # Windows: .venv\Scripts\activate
+   pip install --upgrade pip
+   pip install pytest
+   git init -b main && git add -A && git commit -m "chore: scaffold"
+   ```
+
+   Crea un `pyproject.toml` mínimo para que el tester de Karajan sepa cómo invocar pytest:
+
+   ```toml
+   [project]
+   name = "hello-py"
+   version = "0.0.1"
+   requires-python = ">=3.10"
+
+   [tool.pytest.ini_options]
+   testpaths = ["tests"]
+   ```
+
+   <Aside type="tip" title="Por qué un venv">
+   Karajan ejecuta `pytest` desde tu entorno de shell. Si te saltas el venv, los errores de paquete faltante aparecerán durante la iteración — desperdiciando una vuelta. El venv fija todo a este proyecto.
+   </Aside>
+
+2. **Inicializa Karajan en el repo.**
+
+   ```bash
+   kj init
+   kj doctor
+   ```
+
+   `kj init` crea `.karajan/` y escribe la configuración del orquestador; `kj doctor` confirma que los CLIs de los agentes, Docker, Ollama y los puertos están sanos. `kj doctor` también detecta tu versión de Python y la registra en el perfil del proyecto.
+
+3. **Describe la feature en lenguaje natural.**
+
+   Sin fichero de spec. Sin JSON. Solo la tarea como se la dirías a un compañero:
+
+   ```bash
+   kj run "Añade una función 'greet(name)' en src/hello.py que devuelva \
+   'Hello, <name>!'. Añade un test pytest en tests/test_hello.py que importe \
+   la función y verifique la salida para el nombre 'world'." \
+     --methodology tdd \
+     --coder claude \
+     --reviewer codex \
+     --reviewer-fallback claude \
+     --max-iterations 5
+   ```
+
+   <Aside type="note" title="Qué pasa por debajo">
+   Con `--methodology tdd`, Karajan escribe primero el test que falla, luego la implementación, luego re-ejecuta la suite. El reviewer (Codex por defecto, Claude como fallback) revisa el diff. Si lo rechaza, Karajan vuelve a llamar al coder — hasta `--max-iterations`.
+   </Aside>
+
+4. **Mira el run en el HU Board.**
+
+   Abre [http://localhost:4000](http://localhost:4000) en otra pestaña mientras el pipeline corre. Verás, en tiempo real:
+
+   - Cada rol activándose (planner → coder → tester → reviewer).
+   - El prompt y la respuesta exactos de cada llamada al agente.
+   - El diff tras cada iteración.
+   - La salida de pytest línea a línea.
+   - El veredicto del reviewer.
+
+   También puedes hacer tail del mismo trace en el terminal:
+
+   ```bash
+   kj tail
+   ```
+
+5. **Inspecciona el resultado.**
+
+   ```bash
+   git status
+   git diff --stat
+   pytest
+   ```
+
+   Salida esperada de `pytest`:
+
+   ```
+   ============================= test session starts ==============================
+   collected 1 item
+
+   tests/test_hello.py .                                                    [100%]
+
+   ============================== 1 passed in 0.02s ===============================
+   ```
+
+6. **Mergea.**
+
+   Karajan no hace push ni merge por ti por defecto — esa decisión es tuya. Cuando estés contento con el diff:
+
+   ```bash
+   git checkout -b feat/greet-function
+   git add -A && git commit -m "feat: add greet(name) function"
+   git push -u origin feat/greet-function
+   gh pr create --fill
+   ```
+
+   O, si quieres que Karajan abra la PR por ti, añade `--auto-commit --auto-pr` a la invocación `kj run`.
+
+</Steps>
+
+## Errores posibles y cómo resolverlos
+
+<Aside type="caution" title="`pytest: command not found`">
+Te has olvidado de activar el venv o de hacer `pip install pytest`. Activa (`source .venv/bin/activate`) y reinstala. Karajan detectará la herramienta faltante en la iteración 1 e intentará instalarla — pero te ahorras una vuelta haciéndolo a mano.
+</Aside>
+
+<Aside type="caution" title="`ModuleNotFoundError: No module named 'src'`">
+Pytest no encuentra el paquete `src/`. O añades un `src/__init__.py` vacío, o pones `pythonpath = ["src"]` bajo `[tool.pytest.ini_options]` en `pyproject.toml`. El coder lo arreglará en la iteración 2 si lo dejas — pero explícito es mejor.
+</Aside>
+
+<Aside type="caution" title="`kj run` sale con `no coder configured`">
+Ejecuta `kj doctor` y sigue las instrucciones de instalación del CLI del agente. La causa más común es tener Claude instalado pero sin sesión iniciada (`claude login`).
+</Aside>
+
+<Aside type="caution" title="El pipeline se queda en `coder:hibernate`">
+Has tocado techo de cuota. Karajan persiste la sesión a `~/.karajan/standby/<sessionId>.json`; resúmela con `kj standby list` y luego `kj standby resume <sessionId> --force` cuando se resetee la cuota.
+</Aside>
+
+## Variantes
+
+<Tabs>
+<TabItem label="Con MCP">
+
+El mismo run lanzado vía MCP desde cualquier cliente MCP-capable (Cursor, Claude Desktop, Codex):
+
+```json
+{
+  "tool": "kj_run",
+  "params": {
+    "task": "Añade una función 'greet(name)' en src/hello.py que devuelva 'Hello, <name>!'. Añade un test pytest.",
+    "methodology": "tdd",
+    "coder": "claude",
+    "reviewer": "codex",
+    "reviewerFallback": "claude",
+    "maxIterations": 5
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Quality gate más estricto">
+
+Añade `--mode strict` y los collectors deterministas de seguridad:
+
+```bash
+kj run "<tarea>" \
+  --mode strict \
+  --enable-security \
+  --enable-sonarcloud \
+  --methodology tdd
+```
+
+Esto cablea los collectors OSV-Scanner y Semgrep en el audit, y gatea el merge contra el quality gate de Sonar además del veredicto del reviewer. Semgrep trae un ruleset de Python de fábrica.
+
+</TabItem>
+<TabItem label="Codebase de datos / ML">
+
+Para un proyecto con muchos notebooks o data-heavy, sube las iteraciones:
+
+```bash
+kj run "<tarea>" \
+  --coder claude \
+  --reviewer codex \
+  --max-iterations 8
+```
+
+`--max-iterations` sube porque los loops de validación de datos (numpy / pandas / fixtures de pytest) tienden a necesitar una pasada extra.
+
+</TabItem>
+</Tabs>
+
+## Siguientes pasos
+
+<Card title="Otros stacks" icon="seti:folder">
+Misma receta, distinto bootstrap: [Node CLI](/docs/es/examples/howto/node-cli/) · [Web Component](/docs/es/examples/howto/web-component/) · [REST API (Node)](/docs/es/examples/howto/rest-api-node/) · [Java](/docs/es/examples/howto/java/) · [Go](/docs/es/examples/howto/go/) · [Rust](/docs/es/examples/howto/rust/)
+</Card>
+
+<Card title="Volver al índice" icon="open-book">
+[Índice How-To](/docs/es/examples/howto/) · setup + troubleshooting
+</Card>
