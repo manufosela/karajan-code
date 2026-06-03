@@ -1457,6 +1457,18 @@ Dos épicas paralelas — **KJC-PCS-0052** y **KJC-PCS-0053** — cierran en la 
 
 **Qué cambia para ingenieros**. Antes de v2.34.0: RAG funcionaba muy bien en JS/TS, era una caja negra en otros lenguajes y los cambios de calidad del retrieval se medían ojeando los resultados. Después de v2.34.0: cualquier codebase Python, Rust, Go o Java obtiene la misma calidad de chunker que JS/TS ya tenía; cualquier cambio en el pipeline de retrieval se puede A/B-testar con un único comando (`kj rag eval`) y produce un delta concreto de recall@k / MRR; el índice se mantiene barato de actualizar (hash-skip en el re-embed, `--since` para reindex incremental, hook post-merge para automatización). Los diecisiete PRs (#882, #883, #884, #885, #886, #888, #889, #890, #891, #892, #893, #894, #895, #896, #898, #899, #900) cierran ambas épicas por completo.
 
+## Fase 87: v3.0.0 — movida de runtime a Node 22+ (v3.0.0)
+
+La Fase 87 marca el **primer major** de la línea v3. La historia es corta y poco glamurosa a propósito: **Node 20 llegó a end-of-life el 2026-04-30**, y tres dependency majors que dependen de Node 22 se acumulaban en la cola (`lint-staged 17` necesita Node 22, `commander 15` necesita Node 22.12, `better-sqlite3 12.10` retira los prebuilds de Node 20). En lugar de publicar cuatro minors escalonados que cada uno parchea un constraint, v3.0.0 corta un único major que mete la movida de runtime junto con los dep majors que dependen de ella.
+
+**Sin cambios en API pública.** `kj run`, `kj plan`, herramientas MCP, plantillas de rol, RAG, HU Board, audit, telemetría — todo idéntico a v2.34.0. El cambio breaking es exactamente una línea de `package.json`: `engines.node` pasa de `>=20.10` a `>=22.22.1`. Los adopters que ya están en Node 22 instalan con `npm install -g karajan-code@3` y no notan nada; los que siguen en Node 20 bumpean su runtime primero.
+
+**¿Por qué un major?** Semver. Cambiar la versión mínima de Node es un breaking change para los downstream consumers — punto. La sección `Why a major?` del CHANGELOG deletrea el razonamiento para que los adopters entiendan que el bump de runtime es el breaking change, no ninguna superficie de CLI. La alternativa — cuatro minors escalonados durante un mes, cada uno marcado "soft-breaking, sube Node cuando puedas" — habría repartido el mismo dolor por cuatro ventanas de release sin ganancia.
+
+**Empaquetado en v3.0.0**: PR #918 (KJC-TSK-0500, `engines.node` 20.10 → 22.22.1), PR #920 (KJC-TSK-0491, `lint-staged` 16 → 17), PR #922 (KJC-TSK-0490, `commander` 14 → 15), PR #923 (KJC-TSK-0488, `better-sqlite3` 11 → 12.10), y PR #926 (KJC-TSK-0202, sección de footprint & hardware requirements en el README para que los adopters puedan dimensionar su máquina antes de instalar). 5 368 / 5 368 tests pasando across 487 test files — misma superficie que v2.34.0, mismo verde.
+
+**La migración es un único comando.** `nvm install 22.22.1 && nvm use 22.22.1 && npm install -g karajan-code@3 && kj doctor`. El `~/.karajan/` existente (sesiones, planes, índice RAG, audit history, DB del HU Board) es forward-compatible — nada que migrar a mano. v3.0.0 es una release de bump de runtime + deps, no de features; el próximo minor (v3.1.0) es cuando el trabajo del Brain rewrite se retoma.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

@@ -1458,6 +1458,18 @@ Two parallel epics — **KJC-PCS-0052** and **KJC-PCS-0053** — close in the sa
 
 **What changes for engineers**. Before v2.34.0: RAG worked great on JS/TS, was a black box on other languages, and retrieval quality changes were measured by eyeballing query results. After v2.34.0: any Python, Rust, Go, or Java codebase gets the same chunker quality JS/TS already had; any change to the retrieval pipeline can be A/B-tested with a single command (`kj rag eval`) and produces a concrete recall@k / MRR delta; the index stays cheap to keep current (hash-skip on re-embed, `--since` for incremental reindex, post-merge hook for automation). The seventeen PRs (#882, #883, #884, #885, #886, #888, #889, #890, #891, #892, #893, #894, #895, #896, #898, #899, #900) close both epics in full.
 
+## Phase 87: v3.0.0 — Node 22+ runtime move (v3.0.0)
+
+Phase 87 marks the **first major** of the v3 line. The story is short and unglamorous on purpose: **Node 20 hit end-of-life on 2026-04-30**, and three dependency majors that depend on Node 22 were stacking up in the queue (`lint-staged 17` needs Node 22, `commander 15` needs Node 22.12, `better-sqlite3 12.10` removes Node 20 prebuilds). Rather than ship four staggered minors each papering over one constraint, v3.0.0 cuts a single major that bundles the runtime move with the dep majors that depend on it.
+
+**No public API changes.** `kj run`, `kj plan`, MCP tools, role templates, RAG, HU Board, audit, telemetry — all identical to v2.34.0. The breaking change is exactly one line of `package.json`: `engines.node` moves from `>=20.10` to `>=22.22.1`. Adopters already on Node 22 install with `npm install -g karajan-code@3` and notice nothing different; adopters still on Node 20 bump their runtime first.
+
+**Why a major?** Semver. Changing the minimum Node version is a breaking change for downstream consumers — period. The CHANGELOG's `Why a major?` section spells out the rationale so adopters understand the runtime bump is the breaking change, not any CLI surface. The alternative — four staggered minors over a month, each marked "soft-breaking, please upgrade Node when convenient" — would have spread the same pain across four release windows for no gain.
+
+**Bundled in v3.0.0**: PR #918 (KJC-TSK-0500, `engines.node` 20.10 → 22.22.1), PR #920 (KJC-TSK-0491, `lint-staged` 16 → 17), PR #922 (KJC-TSK-0490, `commander` 14 → 15), PR #923 (KJC-TSK-0488, `better-sqlite3` 11 → 12.10), and PR #926 (KJC-TSK-0202, README footprint & hardware requirements section so adopters can size their machine before they install). 5 368 / 5 368 tests passing across 487 test files — same surface as v2.34.0, same green.
+
+**Migration is one command.** `nvm install 22.22.1 && nvm use 22.22.1 && npm install -g karajan-code@3 && kj doctor`. Existing `~/.karajan/` (sessions, plans, RAG index, audit history, HU Board DB) is forward-compatible — nothing to migrate by hand. v3.0.0 is a runtime + deps bump release, not a feature release; the next minor (v3.1.0) is when the Brain rewrite work resumes.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

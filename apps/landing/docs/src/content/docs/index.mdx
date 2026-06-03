@@ -57,7 +57,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
   <Card title="5 368+ Automated Tests" icon="approve-check">
-    482 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, and the `audit-history-display` suite (12 tests). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+    487 test files covering every pipeline role (incl. rag-context-stage), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, and the `audit-history-display` suite (12 tests). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -644,7 +644,7 @@ This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last pi
 
 5 250+ tests passing across 466 files. The four PRs (#877–#880) close KJC-PCS-0051 in its entirety — Plan A (v2.32) fixed the FAILs flagged by the external scorecard audit; Plan B (v2.33) makes the scorecard a first-class signal inside Karajan's own audit.
 
-### v2.34.0 — Minor (current)
+### v2.34.0 — Minor
 
 **Multi-language RAG + Quality & Observability.** Two epics close in one window: **KJC-PCS-0052** brings the Project RAG out of the JS/TS island and into Python, Rust, Go and Java; **KJC-PCS-0053** turns retrieval quality from a vibe into a measured signal. Seventeen PRs.
 
@@ -661,3 +661,11 @@ This closes the team-shared HU Board prerequisite (KJC-PRP-0002) — the last pi
 **`docs/RAG.md` deep-dive expansion** (KJC-TSK-0485). The RAG reference doubles in scope: per-stack chunker behaviour, hybrid weighting, eval workflow, hash-skip semantics, MMR tuning, multi-stack quirks.
 
 5 368 / 5 368 tests passing across 482 test files. PRs #882, #883, #884, #885, #886, #888, #889, #890, #891, #892, #893, #894, #895, #896, #898, #899, #900, #901 close epics KJC-PCS-0052 and KJC-PCS-0053 in full.
+
+### v3.0.0 — Major (current)
+
+**Node 22+ required.** The first major of the v3 line. Single major that bundles the Node 20 → 22 runtime move with three dependency majors that depend on it (`lint-staged 17`, `commander 15`, `better-sqlite3 12.10`). **No public API changes** — `kj run`, `kj plan`, MCP tools, role templates, RAG, HU Board, audit, telemetry: all identical to v2.34.0. The breaking change is one line of `package.json` (`engines.node` 20.10 → 22.22.1). Adopters already on Node 22: `npm install -g karajan-code@3` and you notice nothing. Adopters on Node 20: bump the runtime first.
+
+**Why a major?** Semver. Changing the minimum Node version is a breaking change for downstream consumers — full stop. The CHANGELOG's `Why a major?` section spells out the rationale so adopters understand the runtime bump is the breaking change, not any CLI surface.
+
+**Bundled**: PR #918 (KJC-TSK-0500, `engines.node` 20.10 → 22.22.1), PR #920 (KJC-TSK-0491, `lint-staged` 16 → 17), PR #922 (KJC-TSK-0490, `commander` 14 → 15), PR #923 (KJC-TSK-0488, `better-sqlite3` 11 → 12.10), PR #926 (KJC-TSK-0202, README footprint & hardware requirements section). 5 368 / 5 368 tests passing across 487 test files. Existing `~/.karajan/` is forward-compatible — nothing to migrate by hand.

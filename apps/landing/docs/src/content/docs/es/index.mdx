@@ -57,7 +57,7 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
     Análisis de solo lectura en 5 dimensiones: seguridad, calidad de código (SOLID/DRY/KISS/YAGNI), rendimiento, arquitectura y testing. Genera un informe de salud con puntuaciones A/B/C/D/F por dimensión y recomendaciones priorizadas sin modificar ningún fichero.
   </Card>
   <Card title="5 368+ Tests Automatizados" icon="approve-check">
-    482 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (modal de settings editable + badge de plan compartido + assignee por HU), el subsystem Project RAG con chunkers AST multi-lenguaje (Python, Rust, Go, Java), modo hybrid + rerank + diversificación MMR, harness de recall@k / MRR con golden queries, el dashboard de retrieval, el flujo del HU cohort compartido en equipo y la suite `audit-history-display` (12 tests). Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8** (`text + html + lcov`) viaja como artefacto de CI desde v2.32 — ver KJC-TSK-0465.
+    487 ficheros de test cubriendo cada rol (incl. rag-context-stage), guard, opción de config, herramienta MCP (27 total), el paquete completo del HU Board (modal de settings editable + badge de plan compartido + assignee por HU), el subsystem Project RAG con chunkers AST multi-lenguaje (Python, Rust, Go, Java), modo hybrid + rerank + diversificación MMR, harness de recall@k / MRR con golden queries, el dashboard de retrieval, el flujo del HU cohort compartido en equipo y la suite `audit-history-display` (12 tests). Suite completa en unos 60 s con Vitest. Los tests de subsistemas opt-in (brain, ci, sonar, hu-board, webperf) llevan la etiqueta `[opt-in: <feature>]` y se pueden saltar con `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8** (`text + html + lcov`) viaja como artefacto de CI desde v2.32 — ver KJC-TSK-0465.
   </Card>
   <Card title="Pipeline Zero-Config" icon="setting">
     Auto-detecta TDD según el framework de tests del proyecto. Gestiona automáticamente el ciclo de vida Docker de SonarQube y la generación de config. Omite sonar/TDD para tareas de infra y doc automáticamente. Las tareas simples ejecutan un flujo ligero (solo coder), las complejas el pipeline completo — automáticamente según el triage.
@@ -595,7 +595,7 @@ Esto cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — la últim
 
 5 250+ tests pasando en 466 ficheros. Los cuatro PRs (#877–#880) cierran KJC-PCS-0051 entera — el Plan A (v2.32) arregló los FAILs señalados por el audit externo del scorecard; el Plan B (v2.33) hace del scorecard una señal de primera clase dentro del propio audit de Karajan.
 
-### v2.34.0 — Minor (actual)
+### v2.34.0 — Minor
 
 **RAG multi-lenguaje + Quality & Observability.** Dos épicas cierran en la misma ventana: **KJC-PCS-0052** saca el Project RAG de la isla JS/TS y lo lleva a Python, Rust, Go y Java; **KJC-PCS-0053** convierte la calidad del retrieval de un vibe en una señal medida. Diecisiete PRs.
 
@@ -612,3 +612,11 @@ Esto cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — la últim
 **Expansión deep-dive de `docs/RAG.md`** (KJC-TSK-0485). La referencia RAG dobla su scope: comportamiento de chunker per-stack, pesos hybrid, workflow de eval, semántica del hash-skip, tuning de MMR, particularidades multi-stack.
 
 5 368 / 5 368 tests pasando en 482 ficheros de test. Los PRs #882, #883, #884, #885, #886, #888, #889, #890, #891, #892, #893, #894, #895, #896, #898, #899, #900, #901 cierran las épicas KJC-PCS-0052 y KJC-PCS-0053 por completo.
+
+### v3.0.0 — Major (actual)
+
+**Requiere Node 22+.** El primer major de la línea v3. Un único major que mete la movida de runtime Node 20 → 22 junto con tres dependency majors que dependen de ella (`lint-staged 17`, `commander 15`, `better-sqlite3 12.10`). **Sin cambios en API pública** — `kj run`, `kj plan`, herramientas MCP, plantillas de rol, RAG, HU Board, audit, telemetría: todo idéntico a v2.34.0. El cambio breaking es una línea de `package.json` (`engines.node` 20.10 → 22.22.1). Adopters que ya están en Node 22: `npm install -g karajan-code@3` y no notas nada. Adopters en Node 20: sube el runtime primero.
+
+**¿Por qué un major?** Semver. Cambiar la versión mínima de Node es un breaking change para los downstream consumers — punto. La sección `Why a major?` del CHANGELOG deletrea el razonamiento para que los adopters entiendan que el bump de runtime es el breaking change, no ninguna superficie de CLI.
+
+**Empaquetado**: PR #918 (KJC-TSK-0500, `engines.node` 20.10 → 22.22.1), PR #920 (KJC-TSK-0491, `lint-staged` 16 → 17), PR #922 (KJC-TSK-0490, `commander` 14 → 15), PR #923 (KJC-TSK-0488, `better-sqlite3` 11 → 12.10), PR #926 (KJC-TSK-0202, sección footprint & hardware requirements en el README). 5 368 / 5 368 tests pasando across 487 test files. El `~/.karajan/` existente es forward-compatible — nada que migrar a mano.
