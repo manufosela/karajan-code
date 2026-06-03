@@ -18,6 +18,10 @@ export default defineConfig({
   test: {
     exclude: ["node_modules/**", "packages/**", ".claude/**", ".kj/**", "demo/**"],
     setupFiles: ["./tests/setup.js"],
+    // KJC-BUG-0075: mtime-based purge of stale `karajan-vitest-*` tmp dirs
+    // (>24 h) as a safety net for SIGKILL'd / crashed forks that miss the
+    // per-process `process.on("exit")` cleanup.
+    globalSetup: ["./tests/global-setup.js"],
     // 120s default. Orchestrator integration tests (runflow-*, reviewer-*,
     // kj-run-smoke, subloop-limits) wire up multi-stage pipelines and can
     // take 60-90s under host contention even though each test passes in

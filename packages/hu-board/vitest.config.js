@@ -9,6 +9,10 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.js"],
     testTimeout: 15000,
+    // KJC-BUG-0075: same mtime-based purge as the root config — also
+    // applies to the hu-board sub-package, which previously leaked its
+    // own `karajan-vitest-*` tmp dirs from db.js::vitestTmpKjHome().
+    globalSetup: ["../../tests/global-setup.js"],
     // Isolate sync.js from the developer's real ~/.kj/plans/ so tests
     // don't drown in real data. tests can still override KJ_PLANS_DIR
     // for scenarios that need to seed plans.
