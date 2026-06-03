@@ -2,7 +2,7 @@
 
 ## Requisitos previos
 
-- Node.js ≥ 20.10
+- Node.js ≥ 22.22 (Karajan v3.0.0 elimina soporte de Node 20 — ver CHANGELOG para notas de migración)
 - Git
 - Al menos una CLI de IA instalada: `claude`, `codex`, `gemini`, `aider` u `opencode`
 - (Opcional) Docker para SonarQube local
