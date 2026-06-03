@@ -20,6 +20,7 @@
 
 import { runManualGC, summarizeGC, nukeBoardDb } from "../utils/garbage-collector.js";
 import { collectRepoCandidates } from "../utils/repo-cleaner.js";
+import { collectVectorStoreOrphans } from "../utils/vector-store-orphans.js";
 
 /**
  * @param {Object} opts
@@ -28,6 +29,8 @@ import { collectRepoCandidates } from "../utils/repo-cleaner.js";
  * @param {boolean} [opts.repo=false]          - also report repo-level candidates (branches, dist, *.tmp, *.bak)
  * @param {number}  [opts.repoDays=7]          - age threshold for repo artifacts (default 7d)
  * @param {string}  [opts.repoBase="origin/main"]
+ * @param {boolean} [opts.vectorStores=false]  - also report orphan RAG vector-store entries
+ * @param {string[]} [opts.projectRoots]       - directories scanned to resolve slugs (default: ~/ws_*, ~/projects, ~/code)
  * @param {number}  [opts.planDays=30]
  * @param {number}  [opts.draftDays=60]
  * @param {number}  [opts.sessionDays=7]
@@ -84,6 +87,7 @@ export async function cleanCommand(opts = {}) {
   }
 
   if (opts.repo) await printRepoReport(opts);
+  if (opts.vectorStores) await printVectorStoreReport(opts);
 
   return { ok: true, removed: result.removed.length, bytesFreed: result.bytesFreed };
 }
@@ -109,4 +113,33 @@ async function printRepoReport(opts) {
     for (const e of errors) console.log(`  - ${e.stage}: ${e.error}`);
   }
   console.log("[clean:repo] read-only — commands are printed, never executed.");
+}
+
+async function printVectorStoreReport(opts) {
+  const { rows, orphans, errors } = await collectVectorStoreOrphans({
+    projectRoots: opts.projectRoots,
+  });
+  console.log("");
+  if (errors.length && !rows.length) {
+    console.log("[clean:rag] could not read rag.db — RAG may not be initialised yet.");
+    for (const e of errors) console.log(`  - ${e.stage}: ${e.error}`);
+    return;
+  }
+  console.log(`[clean:rag] ${rows.length} project_slug(s) indexed in rag.db:`);
+  for (const r of rows) {
+    const tag = r.orphan ? " ORPHAN" : "";
+    const when = r.lastAt || "n/a";
+    console.log(`  - ${r.slug.padEnd(28)} chunks=${String(r.chunkCount).padStart(5)}  last=${when}${tag}`);
+  }
+  if (!orphans.length) {
+    console.log("[clean:rag] no orphans — every indexed slug resolves to a live project directory.");
+    return;
+  }
+  console.log("");
+  console.log(`[clean:rag] ${orphans.length} orphan(s) — review and run to purge:`);
+  for (const o of orphans) {
+    console.log(`  - ${o.slug}`);
+    console.log(`                $ ${o.command}`);
+  }
+  console.log("[clean:rag] read-only — commands are printed, never executed.");
 }
