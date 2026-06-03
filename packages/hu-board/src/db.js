@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
-import { join } from 'node:path';
-import { mkdirSync, renameSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 /** @type {import('better-sqlite3').Database | null} */
@@ -23,6 +23,19 @@ function vitestTmpKjHome() {
     `karajan-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`,
     '.karajan'
   );
+  // KJC-BUG-0075: clean up on clean exit so /tmp doesn't accumulate one
+  // dir per fork × run. We rm the *parent* (the `karajan-vitest-<pid>-<rand>`
+  // wrapper), not the `.karajan` segment, so the whole tmp tree goes.
+  // Only fires on graceful exit; SIGKILL leaks are caught by the
+  // global-setup mtime purge at the start of the next run.
+  const parent = dirname(_vitestKjHome);
+  process.on('exit', () => {
+    try {
+      rmSync(parent, { recursive: true, force: true });
+    } catch {
+      // best-effort: never crash a test process on cleanup failure
+    }
+  });
   return _vitestKjHome;
 }
 

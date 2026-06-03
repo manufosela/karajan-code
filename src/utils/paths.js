@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -12,6 +13,17 @@ function vitestRoot() {
     os.tmpdir(),
     `karajan-vitest-${process.pid}-${Math.random().toString(36).slice(2, 10)}`
   );
+  // KJC-BUG-0075: clean up on clean exit so /tmp doesn't accumulate one
+  // dir per fork × run. `process.on('exit')` runs synchronously and only
+  // for graceful exits — SIGKILL leaks survive but are caught by the
+  // global-setup mtime purge at the start of the next run.
+  process.on("exit", () => {
+    try {
+      fs.rmSync(_vitestRoot, { recursive: true, force: true });
+    } catch {
+      // best-effort: never crash a test process on cleanup failure
+    }
+  });
   return _vitestRoot;
 }
 
