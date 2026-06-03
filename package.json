@@ -24,7 +24,7 @@
     "cli"
   ],
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.22.1"
   },
   "imports": {
     "#utils/*": "./src/utils/*",

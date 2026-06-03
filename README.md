@@ -13,7 +13,7 @@
   <a href="https://www.npmjs.com/package/karajan-code"><img src="https://img.shields.io/npm/dw/karajan-code.svg" alt="npm downloads"></a>
   <a href="https://github.com/manufosela/karajan-code/actions"><img src="https://github.com/manufosela/karajan-code/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg" alt="Node.js"></a>
   <a href="https://github.com/manufosela/homebrew-tap"><img src="https://img.shields.io/badge/homebrew-tap-orange.svg" alt="Homebrew"></a>
 </p>
 
@@ -22,6 +22,8 @@
 </p>
 
 ---
+
+> **⚠ v3.0.0 — BREAKING:** Node 22+ required. Karajan v3 drops Node 20 (EOL 2026-04-30) and aligns with the Active LTS line. Three deps forced the bump: `lint-staged 17`, `commander 15`, and `better-sqlite3 12.10+` (Node 20 prebuilds gone). Migration: `nvm install 22 && nvm use 22`. No public API changes if you were already on Node 22. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 

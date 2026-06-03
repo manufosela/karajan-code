@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js ≥ 20.10
+- Node.js ≥ 22.22 (Karajan v3.0.0 dropped Node 20 — see CHANGELOG for migration notes)
 - Git
 - At least one AI CLI installed: `claude`, `codex`, `gemini`, `aider`, or `opencode`
 - (Optional) Docker for local SonarQube

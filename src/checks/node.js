@@ -1,18 +1,17 @@
 /**
- * Node.js runtime version check. Requires Node >= 18 — the LTS baseline that
- * ships every runtime feature Karajan needs: ESM support, `fetch` (built-in),
- * `structuredClone` (17+), `AbortSignal.timeout` (17.3+), and
- * `Array.prototype.findLast` / `findLastIndex` (18+). Nothing in the runtime
- * code path uses Node 20+ APIs (no `Promise.withResolvers`, no
- * `Object.groupBy`, no `Set.prototype.union/intersection`, no
- * `Array.prototype.toSorted`). Strategy: manual — we cannot auto-upgrade the
- * runtime. Users on older Node get a clear upgrade instruction with nvm + brew
- * hints instead of a silent runtime crash.
+ * Node.js runtime version check. Requires Node >= 22 — the Active LTS
+ * baseline since Karajan v3.0.0 (KJC-TSK-0500, 2026-06-03). Node 20 was
+ * dropped because (a) Node 20 reaches EOL on 2026-04-30 and (b) three
+ * dependencies forced the bump: lint-staged 17 needs ≥22.22.1, commander
+ * 15 needs ≥22.12.0, and better-sqlite3 v12.10+ dropped Node 20 prebuilds.
+ * Strategy: manual — we cannot auto-upgrade the runtime. Users on older
+ * Node get a clear upgrade instruction with nvm + brew hints instead of a
+ * silent runtime crash.
  */
 
 import { STRATEGY } from "./types.js";
 
-export const MIN_NODE_MAJOR = 18;
+export const MIN_NODE_MAJOR = 22;
 
 /**
  * Accepts a version string in the form "v20.12.1" or "20.12.1" and returns

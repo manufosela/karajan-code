@@ -10,16 +10,17 @@ permissions:
   contents: read
 
 jobs:
-  # node --check runs on 20/22 to catch parse-time syntax/import bugs.
-  # Node 18 was dropped 2026-04-30 (audit cleanup): Node 18 LTS hit EOL on
-  # 2025-04-30 and engines.node is now >=20.10.0.
+  # node --check catches parse-time syntax/import bugs. Node 20 was dropped
+  # in v3.0.0 (KJC-TSK-0500, 2026-06-03) when engines.node moved to >=22.22.1
+  # — Node 20 reaches EOL on 2026-04-30 and three deps (lint-staged 17,
+  # commander 15, better-sqlite3 12.10+) required the bump.
   syntax:
     name: Syntax (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
@@ -86,16 +87,15 @@ jobs:
       - name: Format (Prettier --check)
         run: npm run format:check
 
-  # ESLint runs on the same Node matrix as syntax (20/22). Pre-2026-04-30
-  # this used to mention "Node 18 users still get parse-time guarantees" —
-  # no longer relevant now that engines.node = >=20.10.0.
+  # ESLint runs on the same Node matrix as syntax (22/24). engines.node
+  # is now >=22.22.1 (v3.0.0, KJC-TSK-0500).
   lint:
     name: Lint (ESLint, Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
@@ -113,15 +113,14 @@ jobs:
       - name: Lint (ESLint — no-undef + import resolution)
         run: npm run lint
 
-  # Tests run on Node 20/22 — the engine floor is now also >=20.10.0
-  # so this matrix matches the supported runtime range.
+  # Tests run on Node 22/24 — engines.node floor is now >=22.22.1 (v3.0.0).
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
