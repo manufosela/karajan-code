@@ -136,6 +136,46 @@ None of these are required. Karajan auto-skips any scanner that isn't installed,
 
 Skip any per-run with `--no-sonar`, `--no-osv`, `--no-semgrep`. See [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md#optional-scanners--kj-audit--kj-webperf) for full table.
 
+## Footprint & hardware requirements
+
+Karajan ships as **layers you opt into**. The base CLI is tiny (~5 MB). Heavier pieces — Ollama for local RAG, SonarQube for static analysis, the `qmd` model cache for global semantic search — are only pulled if you ask for them. None of them are pulled during `npm install`.
+
+### What lives where
+
+| Layer | Size | When you pay it | Notes |
+| --- | --- | --- | --- |
+| `karajan-code` npm tarball | 5.2 MB / 555 files | Always | The CLI itself |
+| `node_modules/` (global) | ~208 MB | After `npm install -g karajan-code` | Standard for any Node global; SEA binary skips it |
+| `~/.karajan/` (state) | ~40 MB typical | After first `kj run` | Sessions, plans, audit history, HU board DB. `kj clean` prunes it |
+| Ollama Docker image | 6.55 GB | If you use the **local** RAG embedder (default since v2.26) | Auto-pulled in the background on first `kj rag index` (~5 min) |
+| Ollama embedding model | ~260 MB | First `kj rag index` | `nomic-embed-text` by default; lives inside the Ollama container |
+| SonarQube Docker image | 1.47 GB | If you enable Sonar in `kj init` | Optional; `kj audit` runs fine without it |
+| `qmd` model cache | ~2.2 GB | If you use `qmd query` for global semantic search | Local LLMs for query expansion + rerank; entirely off-box otherwise |
+
+### Three install profiles
+
+| Profile | Disk | What's enabled | Trade-off |
+| --- | --- | --- | --- |
+| **Minimum** | ~250 MB | `kj`, audits, reviews, RAG with **cloud embedder** (OpenAI / Voyage / Cohere / Mistral) | Needs an API key; no offline RAG |
+| **Recommended** | ~8.5 GB | + Ollama (local RAG, no API key) + SonarQube | Offline-capable; needs Docker running |
+| **Full house** | ~11 GB | + `qmd` (semantic search across personal docs/memory) | All features local; biggest footprint |
+
+### Hardware
+
+| Profile | CPU | RAM | Free disk | Notes |
+| --- | --- | --- | --- | --- |
+| **Minimum** | 2 cores | 4 GB | 1 GB | Cloud embedder only; pipeline peaks ~1 GB RAM |
+| **Recommended** | 4–8 cores | 8–12 GB | 10–15 GB | Docker + Ollama running in background |
+| **Ideal** | 16+ cores | 32+ GB | 50+ GB | Multiple Docker stacks, large repos, big audit history |
+
+### Operational notes
+
+- **No GPU required.** Embeddings are CPU-only by default; cloud embedders push the compute off-box entirely.
+- **Pipeline RAM peak**: 1–2 GB per `kj run` (one orchestrator + one coder + one reviewer subprocess at a time).
+- **SQLite is in-process.** No separate DB daemon. `~/.karajan/` is a folder, not a service.
+- **First-run Ollama pull**: ~5 min in the background; you can keep working — `kj` falls back to a cloud embedder if Ollama isn't ready yet.
+- **Runtime**: Node.js ≥ 22.22.1 (Active LTS). v3.0.0 dropped Node 20 support. Use `kj doctor` to verify your environment.
+
 ## Two ways to use Karajan
 
 Karajan installs **three commands**: `kj` (the CLI), `karajan-mcp` (the MCP server) and `kj-tail` (a monitoring companion). There are two *ways to use it* — CLI or MCP — and `kj-tail` is the monitor you keep open in a second terminal while either mode is running.
