@@ -7,9 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [3.0.0] - 2026-06-03
 
-- **`spec-reviewer` role** runs BEFORE every `kj run` / `kj plan` (KJC-PCS-0048). See full description below — it remains queued for the next minor release (v2.20.0).
+**BREAKING — Node 22+ required.** Karajan v3 drops Node 20 (EOL 2026-04-30) and aligns
+with the Active LTS line. Three dependency majors forced the bump: `lint-staged 17`
+requires Node 22, `commander 15` requires Node 22.12, and `better-sqlite3 12.10` removes
+prebuilt binaries for Node 20. Rather than ship four staggered minors each papering over
+one constraint, we cut a single major that bundles the runtime move with the dep majors
+that depend on it.
+
+This release contains **no public API changes**. If you were already on Node 22.22.1+ and
+your `~/.karajan/` works, your usage is identical. `kj run`, `kj plan`, MCP tools, role
+templates, RAG, HU Board, audit, telemetry: all unchanged.
+
+### Migration
+
+```bash
+nvm install 22.22.1 && nvm use 22.22.1
+npm install -g karajan-code@3
+kj doctor                     # verifies runtime + HW + tooling
+```
+
+If `nvm` is not available: install Node 22 LTS from <https://nodejs.org> and re-run
+`npm install -g karajan-code`. Existing `~/.karajan/` (sessions, plans, RAG index,
+audit history, HU board DB) is forward-compatible — nothing to migrate by hand.
+
+### Changed
+
+- **PR #918 (KJC-TSK-0500) — `engines.node` 20.10 → 22.22.1**. Drops Node 20 from
+  the support matrix. CI matrix narrowed to Node 22.x + Node 24.x. Postinstall + doctor
+  print a friendly hard-fail message on Node < 22.22.1 instead of a confusing native-module
+  crash. Updates the install hint in the README banner and `docs/GETTING-STARTED.md`.
+- **PR #920 (KJC-TSK-0491) — `lint-staged` 16 → 17**. New major requires Node 22+
+  (matches v3 engines bump). No behaviour change for the `lint-staged` config Karajan
+  ships under `.husky/`. Local pre-commit hook output is unchanged.
+- **PR #922 (KJC-TSK-0490) — `commander` 14 → 15**. New major requires Node 22.12.
+  CLI surface (`kj …` parsing, `--help` output, sub-commands) is unchanged. `kj rag`,
+  `kj plan`, `kj run`, `kj audit`, `kj doctor`, `kj telemetry` all confirmed against
+  the integration suite.
+- **PR #923 (KJC-TSK-0488) — `better-sqlite3` 11 → 12 (12.10.0)**. Drops Node 20
+  prebuilds upstream; adds Node 26 prebuilds; SQLite 3.53.1. Both root and
+  `packages/hu-board/` lockfiles updated so the HU Board DB (`board.db`) and the RAG
+  vec store (`vec.db`) load the same native binding.
+
+### Documentation
+
+- **PR #926 (KJC-TSK-0202) — Footprint & hardware requirements section in README**.
+  Three sub-tables (per-layer sizes, three install profiles, HW targets) plus operational
+  notes so adopters know what they sign up for before installing: kj npm ~5.2 MB,
+  `~/.karajan/` ~40 MB, Ollama Docker 6.55 GB (opt-in), SonarQube 1.47 GB (opt-in),
+  qmd cache ~2.2 GB (opt-in). Three profiles: Minimum ~250 MB / Recommended ~8.5 GB /
+  Full ~11 GB. Cross-linked from `docs/GETTING-STARTED.md` (EN + ES).
+
+### Why a major?
+
+Semver: changing the minimum Node version is a breaking change for downstream
+consumers, period. Even though no public API is removed, an install on Node 20 used
+to work and now hard-fails. The three dep majors riding along (commander, lint-staged,
+better-sqlite3) each individually qualify under their own semver as well. Cutting one
+v3.0.0 surfaces the runtime move once instead of four times.
 
 ## [2.34.0] - 2026-06-01
 
