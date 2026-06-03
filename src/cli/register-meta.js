@@ -357,14 +357,16 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--repo-base <ref>", "Base ref to detect merged branches (default: origin/main)")
     .option("--vector-stores", "Also report orphan RAG vector-store entries in ~/.karajan/rag.db")
     .option("--project-roots <list>", "Colon-separated directories to scan for live projects (default: ~/ws_*, ~/projects, ~/code)")
+    .option("--all", "Shortcut for --repo --vector-stores (full read-only cleanup audit)")
     .action(async (flags) => {
+      const allOn = Boolean(flags.all);
       await cleanCommand({
         yes: Boolean(flags.yes),
         nuke: Boolean(flags.nuke),
-        repo: Boolean(flags.repo),
+        repo: Boolean(flags.repo) || allOn,
         repoDays: flags.repoDays ? Number(flags.repoDays) : undefined,
         repoBase: flags.repoBase || undefined,
-        vectorStores: Boolean(flags.vectorStores),
+        vectorStores: Boolean(flags.vectorStores) || allOn,
         projectRoots: flags.projectRoots ? flags.projectRoots.split(":").filter(Boolean) : undefined,
         planDays: flags.planDays ? Number(flags.planDays) : undefined,
         draftDays: flags.draftDays ? Number(flags.draftDays) : undefined,
