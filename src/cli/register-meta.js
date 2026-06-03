@@ -352,10 +352,16 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--draft-days <n>", "Keep draft plans for N days (default: 60)")
     .option("--session-days <n>", "Keep finalised sessions for N days (default: 7)")
     .option("--hu-days <n>", "Keep HU story batches for N days (default: 14)")
+    .option("--repo", "Also report repo-level candidates (merged branches, dist/, coverage/, *.tmp, *.bak)")
+    .option("--repo-days <n>", "Age threshold for repo artifacts in days (default: 7)")
+    .option("--repo-base <ref>", "Base ref to detect merged branches (default: origin/main)")
     .action(async (flags) => {
       await cleanCommand({
         yes: Boolean(flags.yes),
         nuke: Boolean(flags.nuke),
+        repo: Boolean(flags.repo),
+        repoDays: flags.repoDays ? Number(flags.repoDays) : undefined,
+        repoBase: flags.repoBase || undefined,
         planDays: flags.planDays ? Number(flags.planDays) : undefined,
         draftDays: flags.draftDays ? Number(flags.draftDays) : undefined,
         sessionDays: flags.sessionDays ? Number(flags.sessionDays) : undefined,

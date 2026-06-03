@@ -19,11 +19,15 @@
  */
 
 import { runManualGC, summarizeGC, nukeBoardDb } from "../utils/garbage-collector.js";
+import { collectRepoCandidates } from "../utils/repo-cleaner.js";
 
 /**
  * @param {Object} opts
  * @param {boolean} [opts.yes=false]           - when false, dry-run only
  * @param {boolean} [opts.nuke=false]          - retention=0 for every bucket + wipe board DB
+ * @param {boolean} [opts.repo=false]          - also report repo-level candidates (branches, dist, *.tmp, *.bak)
+ * @param {number}  [opts.repoDays=7]          - age threshold for repo artifacts (default 7d)
+ * @param {string}  [opts.repoBase="origin/main"]
  * @param {number}  [opts.planDays=30]
  * @param {number}  [opts.draftDays=60]
  * @param {number}  [opts.sessionDays=7]
@@ -79,5 +83,30 @@ export async function cleanCommand(opts = {}) {
     console.log(summarizeGC(result));
   }
 
+  if (opts.repo) await printRepoReport(opts);
+
   return { ok: true, removed: result.removed.length, bytesFreed: result.bytesFreed };
+}
+
+async function printRepoReport(opts) {
+  const { candidates, errors } = await collectRepoCandidates({
+    maxAgeDays: opts.repoDays ?? 7,
+    mergedTo: opts.repoBase ?? "origin/main",
+  });
+  console.log("");
+  if (!candidates.length) {
+    console.log("[clean:repo] no repo-level candidates — branches/dist/tmp are tidy.");
+    return;
+  }
+  console.log(`[clean:repo] ${candidates.length} candidate(s) — review and run the command to remove:`);
+  for (const c of candidates) {
+    console.log(`  - ${c.kind.padEnd(11)} ${c.target}`);
+    console.log(`                ${c.reason}`);
+    console.log(`                $ ${c.command}`);
+  }
+  if (errors.length) {
+    console.log(`[clean:repo] ${errors.length} non-blocking error(s):`);
+    for (const e of errors) console.log(`  - ${e.stage}: ${e.error}`);
+  }
+  console.log("[clean:repo] read-only — commands are printed, never executed.");
 }
