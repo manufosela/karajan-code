@@ -215,6 +215,8 @@ Everything Karajan keeps across runs now lives under a single home root: **`~/.k
 
 Override the root by exporting `KARAJAN_HOME=/some/path` (legacy `KJ_HOME` still honoured, with a deprecation warning).
 
+> **Footprint & HW**: typical `~/.karajan/` weight is ~40 MB after a few weeks of use. For the full sizing table (npm tarball, Docker images, Ollama models, qmd cache) and HW requirements per install profile, see the [Footprint & hardware requirements section in README](../README.md#footprint--hardware-requirements).
+
 ## Pipeline visualization
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architecture diagram and component documentation.

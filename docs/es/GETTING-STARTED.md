@@ -215,6 +215,8 @@ Todo lo que Karajan persiste entre ejecuciones vive ahora bajo una única raíz:
 
 Para sobrescribir la raíz exporta `KARAJAN_HOME=/ruta`. La variable legacy `KJ_HOME` sigue respetada pero imprime un warning de deprecación.
 
+> **Footprint & HW**: el peso típico de `~/.karajan/` es ~40 MB tras varias semanas de uso. Para la tabla completa de tamaños (tarball npm, imágenes Docker, modelos de Ollama, caché de qmd) y los requisitos de hardware por perfil de instalación, consulta la sección [Footprint & hardware requirements en el README](../../README.md#footprint--hardware-requirements).
+
 ## Visualización del pipeline
 
 Consulta [ARCHITECTURE.md](../ARCHITECTURE.md) para el diagrama completo de arquitectura y la documentación de componentes.
