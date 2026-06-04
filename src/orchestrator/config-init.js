@@ -229,6 +229,7 @@ export function resolvePipelineFlags(config) {
     securityEnabled: Boolean(config.pipeline?.security?.enabled),
     impeccableEnabled: Boolean(config.pipeline?.impeccable?.enabled),
     perfEnabled: Boolean(config.pipeline?.perf?.enabled),
+    toolJudgeEnabled: Boolean(config.pipeline?.tool_judge?.enabled),
     reviewerEnabled: config.pipeline?.reviewer?.enabled !== false,
     discoverEnabled: Boolean(config.pipeline?.discover?.enabled),
     architectEnabled: Boolean(config.pipeline?.architect?.enabled),

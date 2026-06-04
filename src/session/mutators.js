@@ -109,6 +109,10 @@ export function setSonarSummary(session, text) {
   session.last_sonar_summary = text;
 }
 
+export function setCoderTranscript(session, text) {
+  session.last_coder_transcript = text;
+}
+
 export function setSonarIssueSignature(session, sig) {
   session.last_sonar_issue_signature = sig;
 }

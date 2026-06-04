@@ -8,7 +8,7 @@ import { CoderRole } from "../../roles/coder-role.js";
 import { RefactorerRole } from "../../roles/refactorer-role.js";
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import {
-  setReviewerFeedback, incrementRetryCount, resetRetryCount,
+  setReviewerFeedback, setCoderTranscript, incrementRetryCount, resetRetryCount,
 } from "../../session/mutators.js";
 import { generateDiff, getUntrackedFiles } from "../../review/diff-generator.js";
 import { evaluateTddPolicy } from "../../review/tdd-policy.js";
@@ -222,6 +222,12 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
   } catch (err) {
     logger?.warn?.(`[verification-gate] Skipped: ${err?.message || err}`);
   }
+
+  // KJC-TSK-0375 PR3: stash the coder's raw transcript on the session so
+  // the optional tool-judge stage can extract structured tool calls later
+  // without re-invoking the coder. Cleared between iterations by the coder
+  // overwriting it; ignored when the tool-judge flag is off.
+  setCoderTranscript(session, coderTranscript);
 
   await addCheckpoint(session, { stage: "coder", iteration, note: "Coder applied changes", provider: coderRole.provider, model: coderRole.model || null, filesChanged });
   emitProgress(
