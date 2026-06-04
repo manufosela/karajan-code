@@ -97,39 +97,41 @@ afterEach(() => {
 });
 
 describe('PATCH /api/stories/:id', () => {
-  it('certifies a pending HU and writes the new status to the plan JSON', async () => {
+  it('marks a pending HU as done and writes the new status to the plan JSON', async () => {
+    // KJC-TSK-0394 PR6: la API ya sólo acepta {pending, running, done}.
+    // `done` es el equivalente canónico del legacy `certified`.
     const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
     const res = await request(app)
       .patch(`/api/stories/${encodeURIComponent(storyId)}`)
-      .send({ status: 'certified' });
+      .send({ status: 'done' });
 
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('certified');
+    expect(res.body.status).toBe('done');
 
     const diskPlan = readPlanFromDisk();
     const hu = diskPlan.hus.find((h) => h.id === `${PLAN_ID}_001`);
-    expect(hu.status).toBe('certified');
+    expect(hu.status).toBe('done');
   });
 
-  it('auto-advances plan.status to ready when every HU ends up certified', async () => {
+  it('auto-advances plan.status to ready when every HU ends up done', async () => {
     for (const n of ['001', '002', '003']) {
       await request(app)
         .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_${n}`)}`)
-        .send({ status: 'certified' });
+        .send({ status: 'done' });
     }
     const diskPlan = readPlanFromDisk();
     expect(diskPlan.status).toBe('ready');
   });
 
-  it('rolls plan.status back to draft when a certified HU is downgraded', async () => {
+  it('rolls plan.status back to draft when a done HU is downgraded to pending', async () => {
     // First make the plan ready...
     for (const n of ['001', '002', '003']) {
       await request(app)
         .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_${n}`)}`)
-        .send({ status: 'certified' });
+        .send({ status: 'done' });
     }
     expect(readPlanFromDisk().status).toBe('ready');
-    // ...then uncertify one.
+    // ...then revert one back to pending.
     const res = await request(app)
       .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_002`)}`)
       .send({ status: 'pending' });
@@ -149,7 +151,7 @@ describe('PATCH /api/stories/:id', () => {
   it('returns 404 for an unknown story id', async () => {
     const res = await request(app)
       .patch('/api/stories/nope')
-      .send({ status: 'certified' });
+      .send({ status: 'done' });
     expect(res.status).toBe(404);
   });
 
@@ -179,34 +181,28 @@ describe('PATCH /api/stories/:id', () => {
     expect(hu.result).toBe('fail');
   });
 
-  // KJC-TSK-0403: 'failed' eliminado del dropdown — el orquestador
-  // estampa result=fail dejando status=pending. Setearlo a mano ya no
-  // tiene sentido. Set permitido: pending/certified/done/blocked/needs_context.
-  it.each(['certified', 'done', 'blocked', 'needs_context'])(
-    'PATCH stories acepta cambiar a "%s" manualmente',
-    async (target) => {
-      const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
-      const res = await request(app)
-        .patch(`/api/stories/${encodeURIComponent(storyId)}`)
-        .send({ status: target });
-      expect(res.status).toBe(200);
-      const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
-      expect(hu.status).toBe(target);
-    },
-  );
-
-  // KJC-TSK-0403: 'failed' explícitamente RECHAZADO.
-  it('PATCH stories RECHAZA status="failed" con 400 (KJC-TSK-0403)', async () => {
+  // KJC-TSK-0394 PR6: PATCH sólo acepta canónicos {pending, running, done}.
+  // Status legacy (certified, failed, blocked, needs_context, coding,
+  // reviewing) devuelven 400 con `suggestion` — cobertura específica de
+  // ese mapping vive en api.test.js. Aquí sólo confirmamos que el happy
+  // path con `done` (el reemplazo canónico del legacy `certified`) llega
+  // al plan-mutations runtime y escribe el plan-on-disk.
+  it('PATCH stories acepta cambiar a "done" manualmente', async () => {
     const storyId = `${PROJECT_ID}::${PLAN_ID}_001`;
     const res = await request(app)
       .patch(`/api/stories/${encodeURIComponent(storyId)}`)
-      .send({ status: 'failed' });
-    expect(res.status).toBe(400);
+      .send({ status: 'done' });
+    expect(res.status).toBe(200);
+    const hu = readPlanFromDisk().hus.find((h) => h.id === `${PLAN_ID}_001`);
+    expect(hu.status).toBe('done');
   });
 
-  // NO se permite settear lifecycle del orquestador (genera zombies).
-  it.each(['coding', 'reviewing', 'running'])(
-    'PATCH stories RECHAZA status del orquestador "%s" con 400',
+  // KJC-TSK-0394 PR6: `running` SÍ es canónico — el endpoint lo acepta
+  // (útil para programas externos), aunque el dropdown del modal no lo
+  // ofrezca (lifecycle del orquestador). 'coding' y 'reviewing' siguen
+  // rechazados porque son etiquetas legacy ya no representables.
+  it.each(['coding', 'reviewing'])(
+    'PATCH stories RECHAZA status legacy del orquestador "%s" con 400',
     async (target) => {
       const res = await request(app)
         .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_001`)}`)
@@ -451,12 +447,12 @@ describe('PATCH /api/stories/:id - field edits (title, scope, task_type, accepta
   it('allows combining a status change with field edits in one PATCH', async () => {
     const res = await request(app)
       .patch(`/api/stories/${encodeURIComponent(storyId)}`)
-      .send({ title: 'combined edit', status: 'certified' });
+      .send({ title: 'combined edit', status: 'done' });
     expect(res.status).toBe(200);
     const plan = readPlanFromDisk();
     const hu = plan.hus.find((h) => h.id === `${PLAN_ID}_001`);
     expect(hu.title).toBe('combined edit');
-    expect(hu.status).toBe('certified');
+    expect(hu.status).toBe('done');
   });
 
   it('ignores unknown fields', async () => {
@@ -551,11 +547,11 @@ describe('POST /api/runs/:planId/stop + GET /api/runs/:planId/active', () => {
   });
 
   it('POST /stop resetea HUs en coding/reviewing del plan a pending', async () => {
-    // Pasamos la HU 001 a coding manualmente vía API para tener algo
+    // Pasamos la HU 001 a done manualmente vía API para tener algo
     // que resetear. Esto NO necesita un run real, solo el reset de DB.
     await request(app)
       .patch(`/api/stories/${encodeURIComponent(`${PROJECT_ID}::${PLAN_ID}_001`)}`)
-      .send({ status: 'certified' });
+      .send({ status: 'done' });
     // Ahora simulamos que estaba coding (bypass API porque no acepta coding):
     dbMod.getDb().prepare(
       "UPDATE stories SET status = 'coding' WHERE id = ?"

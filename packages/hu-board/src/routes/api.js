@@ -545,15 +545,27 @@ router.post('/tombstones/:type/:id/restore', (req, res) => {
  * rewritten before we ack, then re-synced into SQLite, so a reload
  * renders the committed state.
  */
-// Status que el USUARIO puede setear manualmente vía el dropdown del
-// modal. NO incluimos coding/reviewing/running — esos son lifecycle
-// del orquestador (settearlos a mano genera zombies). Tampoco
-// incluimos los canonicales (`running`) por la misma razón. `failed`
-// y `blocked` son útiles para que el usuario marque manualmente HUs
-// que no quiere correr ahora.
-// KJC-TSK-0403: 'failed' eliminado — el orquestador estampa result=fail
-// dejando status=pending. Setearlo a mano vía PATCH ya no tiene sentido.
-const ALLOWED_STORY_STATUSES = new Set(['pending', 'certified', 'done', 'blocked', 'needs_context']);
+// KJC-TSK-0394 PR6 (AC 6): el PATCH endpoint sólo acepta el modelo
+// canónico {pending, running, done}. Status legacy (`certified`,
+// `coding`, `reviewing`, `failed`, `blocked`, `needs_context`) siguen
+// vivos en plans existentes y los traduce la UI con canonicalStatus(),
+// pero NO pueden ser seteados por escrituras nuevas — devolvemos 400
+// con `suggestion` apuntando al mapping correcto. `running` queda fuera
+// del dropdown del modal (lifecycle del orquestador), pero el endpoint
+// lo acepta por si un programa externo lo necesita.
+const ALLOWED_STORY_STATUSES = new Set(['pending', 'running', 'done']);
+// Mapping canónico para la sugerencia del 400 cuando el caller manda
+// un valor legacy. Mantenemos la regla viva en src/plan/plan-schema.js
+// (mapLegacyStatusToResult) — esta tabla es sólo el subset accionable
+// desde el endpoint (status + result).
+const LEGACY_STATUS_SUGGESTION = {
+  certified: { status: 'done', result: 'pass' },
+  failed: { status: 'pending', result: 'fail' },
+  coding: { status: 'running', result: null },
+  reviewing: { status: 'running', result: null },
+  blocked: { status: 'pending', result: null },
+  needs_context: { status: 'pending', result: null },
+};
 // KJC-TSK-0406: coder_model y reviewer_model son editables desde el
 // modal del board. Independientes — el usuario puede subir el reviewer
 // y bajar el coder sin afectar al resto del plan.
@@ -579,8 +591,14 @@ router.patch('/stories/:id', (req, res) => {
       });
     }
     if (hasStatus && !ALLOWED_STORY_STATUSES.has(body.status)) {
+      // KJC-TSK-0394 PR6 (AC 6): si el caller manda un status legacy,
+      // devolvemos un 400 con `suggestion` apuntando al mapping canónico.
+      // Una herramienta externa puede leer el body, aplicar el mapeo y
+      // re-intentar — sin tener que descubrir la tabla por ensayo y error.
+      const suggestion = LEGACY_STATUS_SUGGESTION[body.status] || null;
       return res.status(400).json({
         error: `status must be one of: ${[...ALLOWED_STORY_STATUSES].join(', ')}`,
+        suggestion,
       });
     }
 
