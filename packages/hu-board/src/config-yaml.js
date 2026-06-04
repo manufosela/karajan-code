@@ -349,11 +349,19 @@ function getDeep(obj, path) {
   return cur;
 }
 
+// KJC-BUG-0076: never walk into Object.prototype via crafted YAML keys
+// (`__proto__.x`, `constructor.prototype.y`, `prototype.z`). Silent skip
+// over a poisoned segment — the rest of the path is untouched.
+const UNSAFE_KEY_RE = /^(?:__proto__|constructor|prototype)$/;
+
 function setDeep(obj, path, value) {
+  if (typeof path !== 'string') return;
   const parts = path.split('.');
   const last = parts.pop();
+  if (UNSAFE_KEY_RE.test(last)) return;
   let cur = obj;
   for (const p of parts) {
+    if (UNSAFE_KEY_RE.test(p)) return;
     if (cur[p] == null || typeof cur[p] !== 'object') cur[p] = {};
     cur = cur[p];
   }
@@ -361,10 +369,13 @@ function setDeep(obj, path, value) {
 }
 
 function deleteDeep(obj, path) {
+  if (typeof path !== 'string') return;
   const parts = path.split('.');
   const last = parts.pop();
+  if (UNSAFE_KEY_RE.test(last)) return;
   let cur = obj;
   for (const p of parts) {
+    if (UNSAFE_KEY_RE.test(p)) return;
     if (cur == null || typeof cur !== 'object') return;
     cur = cur[p];
   }
@@ -516,3 +527,6 @@ export function writeConfigPatch(patch, { scope = 'global' } = {}) {
   renameSync(tmpFile, p);
   return { path: p, scope, written: true, applied, errors: [] };
 }
+
+// Exposed for prototype-pollution regression tests (KJC-BUG-0076).
+export const __pollutionInternals = { setDeep, deleteDeep };

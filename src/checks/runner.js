@@ -249,8 +249,15 @@ function summarize(reports) {
  *
  * @example setDotPath({}, "git.auto_pr", false) // → { git: { auto_pr: false } }
  */
+// KJC-BUG-0076: prototype-pollution guard. dot-paths come from check
+// remediation outputs (internal but LLM-generated), so a malformed
+// `__proto__.x` would mutate Object.prototype. Skip the whole write
+// when any segment matches a forbidden key.
+const UNSAFE_DOT_KEY_RE = /^(?:__proto__|constructor|prototype)$/;
+
 function setDotPath(target, dotPath, value) {
   const parts = String(dotPath).split(".");
+  if (parts.some((p) => UNSAFE_DOT_KEY_RE.test(p))) return;
   let cursor = target;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i];
@@ -314,3 +321,6 @@ export function toLegacyShape(runReport) {
     fix: c.fix ?? null,
   }));
 }
+
+// Exposed for prototype-pollution regression tests (KJC-BUG-0076).
+export const __pollutionInternals = { setDotPath };
