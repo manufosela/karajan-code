@@ -35,15 +35,6 @@ let selectedProject = scopedProjectSlug || '';
 /** @type {number | null} Auto-refresh interval ID */
 let refreshInterval = null;
 
-// Format helpers (formatHHMM, shortTask, formatSessionLabel) live in
-// /utils/formatters.js — loaded as a classic script before this file by
-// index.html. KJC-TSK-0501 (step 1/8) moved them out of here so they're
-// reusable from future split modules. packages/hu-board/src/format.js
-// still owns the Node-side duplicates for tests.
-
-// API layer (api / triggerSync), standby banner polling and server-restart
-// detector (pollServerVersion / window.forceRefresh) live in
-// utils/api.js (KJC-TSK-0501 step 3/8).
 
 // ---- Human-friendly story IDs ----
 //
@@ -61,8 +52,6 @@ const projectNameCache = {};
 // 0/1 mirror what sqlite stores; undefined = not yet hydrated.
 const projectIsSharedCache = {};
 
-// humaniseProjectName + deriveInitialsFromName moved to utils/formatters.js
-// (KJC-TSK-0501 step 1/8).
 
 /**
  * Fetch-and-cache a project's metadata. Populates initialsCache and
@@ -100,17 +89,7 @@ async function resolveProjectInitials(projectId) {
   return meta.initials;
 }
 
-// shortStoryId + timeAgo + formatDuration + scoreClass + qualityBar + esc
-// + EPHEMERAL_HEURISTIC_RE + isTestIcon + isTestTitle + truncate moved to
-// utils/formatters.js (KJC-TSK-0501 step 1/8).
 
-// ---- Render Functions ----
-
-// renderDashboard moved to utils/dashboard-view.js (KJC-TSK-0501 step 6/8).
-
-// renderBoard moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// DAG view (renderGraph + helpers + constants) moved to utils/graph-view.js (KJC-TSK-0501 step 6/8).
 
 /**
  * "Pick a project" view shown by the Board tab when nothing is
@@ -125,19 +104,6 @@ async function resolveProjectInitials(projectId) {
  * Forcing a project pick before the kanban is the cheapest way to
  * keep every other UI invariant honest.
  */
-// renderProjectPicker moved to utils/project-picker-view.js (KJC-TSK-0501 step 7/8).
-
-// renderKanbanColumn moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// renderStoryCard moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// computeEffectiveResult moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// renderResultBadge moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// renderOutcomeChip moved to utils/board-view.js (KJC-TSK-0501 step 5/8).
-
-// renderSessions + renderSessionCard moved to utils/sessions-view.js (KJC-TSK-0501 step 4/8).
 
 /**
  * Renders an empty state component.
@@ -187,35 +153,7 @@ let lastLaunchedPlanId = null;
 // re-opens whichever was most recently launched.
 let lastOpenedLog = null;     // { id, label, tailUrl(offset) }
 
-// Preflight + runProject moved to utils/run-launcher.js (KJC-TSK-0501 step 8f/8).
-// renderPreflightPanel moved to utils/preflight-view.js (KJC-TSK-0501 step 7/8).
 
-// HU action handlers (runSingleHuFromCard, changeHuStatusFromModal,
-// saveHuModels, saveHuAssignee, undoHuChanges, resetHuToPending) moved
-// to utils/hu-actions.js (KJC-TSK-0501 step 8a/8).
-
-// renameProjectModal + showOutcomeModal moved to utils/project-actions.js
-// (KJC-TSK-0501 step 8b/8).
-
-// renderPlanRollup moved to utils/plan-rollup-view.js (KJC-TSK-0501 step 7/8).
-
-// Run log viewer (openLogViewer, openGenericLogPanel, winBtnStyle,
-// logPollTimer, logViewerState) moved to utils/log-panel.js
-// (KJC-TSK-0501 step 7/8). ANSI helpers live in utils/formatters.js.
-
-// ---- Detail Modals ----
-
-/**
- * Shows the story detail modal.
- * @param {string} storyId
- */
-// showStoryDetail moved to utils/story-detail-view.js (KJC-TSK-0501 step 7/8).
-
-// renderStoryEditForm + saveStoryEdits moved to utils/story-edit-form.js (KJC-TSK-0501 step 8c/8).
-
-// showSessionDetail moved to utils/sessions-view.js (KJC-TSK-0501 step 4/8).
-
-// closeModal + native dialog helpers (ensureDialog/showError/showConfirm/showHelp) live in utils/modals.js (KJC-TSK-0501 step 2/8).
 
 // ---- Navigation ----
 
@@ -319,24 +257,3 @@ function handleRoute() {
   render();
 }
 
-// showCommandLauncher moved to utils/command-launcher.js (KJC-TSK-0501 step 8e/8).
-// showConfigEditor moved to utils/config-editor.js (KJC-TSK-0501 step 8d/8).
-
-
-// openCommandLogViewer moved to utils/command-launcher.js (KJC-TSK-0501 step 8e/8).
-
-// Initialization (event listeners, window globals, boot sequence,
-// 60s safety-net interval) moved to utils/init-listeners.js
-// (KJC-TSK-0501 step 8h/8).
-
-// Server-push updates (subscribeToServerEvents, refreshCurrentView,
-// smartRefresh, patchBoardIncremental, sseSource/sseRefreshTimer state)
-// moved to utils/server-push.js (KJC-TSK-0501 step 8g/8).
-
-// Prompt modal (activePromptId / showPromptModal / closePromptModalIfMatches) lives in utils/modals.js (KJC-TSK-0501 step 2/8).
-
-// cssEscape moved to utils/formatters.js (KJC-TSK-0501 step 1/8).
-
-
-// Server-restart detector + window.forceRefresh moved to utils/api.js
-// (KJC-TSK-0501 step 3/8).
