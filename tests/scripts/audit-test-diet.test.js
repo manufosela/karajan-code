@@ -46,11 +46,17 @@ describe("auditTestDiet — semantic categories", () => {
     expect(dep.confidence).toBe("low");
   });
 
-  it("flags subsumed-candidate when a narrower test imports a subset", async () => {
+  it("flags subsumed-candidate only when it() names actually overlap", async () => {
     await write("src/big.js", `export const a = 1;\nexport const b = 2;\nexport const c = 3;\n`);
-    await write("tests/narrow.test.js", `import { a } from "../src/big.js";\nimport { it, expect } from "vitest";\nit("a", () => { expect(a).toBe(1); });\n`);
-    await write("tests/broad.test.js", `import { a, b, c } from "../src/big.js";\nimport { it, expect } from "vitest";\nit("all", () => { expect(a + b + c).toBe(6); });\n`);
-    const sub = auditTestDiet(root).findings.find((f) => f.category === "subsumed-candidate" && f.path.endsWith("narrow.test.js"));
-    expect(sub.detail).toMatch(/broad\.test\.js/);
+    // Real subsumption: narrow's it() names are a subset of broad's.
+    await write("tests/narrow.test.js", `import { a } from "../src/big.js";\nimport { it, expect } from "vitest";\nit("a is 1", () => { expect(a).toBe(1); });\n`);
+    await write("tests/broad.test.js", `import { a, b, c } from "../src/big.js";\nimport { it, expect } from "vitest";\nit("a is 1", () => { expect(a).toBe(1); });\nit("b is 2", () => { expect(b).toBe(2); });\nit("sum", () => { expect(a+b+c).toBe(6); });\n`);
+    // Same imports, disjoint it() names → must NOT be flagged.
+    await write("src/dual.js", `export const x = 1;\nexport const y = 2;\n`);
+    await write("tests/dual-tracker.test.js", `import { x } from "../src/dual.js";\nimport { it, expect } from "vitest";\nit("tracker records", () => { expect(x).toBe(1); });\n`);
+    await write("tests/dual-helpers.test.js", `import { x, y } from "../src/dual.js";\nimport { it, expect } from "vitest";\nit("helper does math", () => { expect(x+y).toBe(3); });\n`);
+    const findings = auditTestDiet(root).findings.filter((f) => f.category === "subsumed-candidate");
+    expect(findings.find((f) => f.path.endsWith("narrow.test.js"))).toBeTruthy();
+    expect(findings.find((f) => f.path.endsWith("dual-tracker.test.js"))).toBeUndefined();
   });
 });

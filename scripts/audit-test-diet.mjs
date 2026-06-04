@@ -53,6 +53,12 @@ export function resolveSrcImport(testFile, specifier, rootDir) {
   return null;
 }
 
+export function extractItNames(source) {
+  const names = new Set();
+  for (const m of source.matchAll(/\b(?:it|test)(?:\.(?:only|skip|todo))?\s*\(\s*['"`]([^'"`]+)['"`]/g)) names.add(m[1]);
+  return names;
+}
+
 export function extractExports(source) {
   const names = new Set();
   for (const m of source.matchAll(/export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g)) names.add(m[1]);
@@ -84,14 +90,14 @@ export function auditFile(testFile, rootDir) {
     }
     srcImports.push({ resolved: relative(rootDir, resolved), named: imp.named });
   }
-  return { path: rel, srcImports, findings };
+  return { path: rel, srcImports, findings, itNames: extractItNames(source) };
 }
 
 export function findSubsumed(perFile) {
   const bySrc = new Map();
   for (const f of perFile) for (const imp of f.srcImports) {
     if (!bySrc.has(imp.resolved)) bySrc.set(imp.resolved, []);
-    bySrc.get(imp.resolved).push({ path: f.path, named: new Set(imp.named) });
+    bySrc.get(imp.resolved).push({ path: f.path, named: new Set(imp.named), itNames: f.itNames });
   }
   const out = [];
   for (const [src, consumers] of bySrc) {
@@ -99,9 +105,14 @@ export function findSubsumed(perFile) {
     const sorted = [...consumers].sort((a, b) => a.named.size - b.named.size);
     const narrow = sorted[0]; const broad = sorted[sorted.length - 1];
     if (narrow.path === broad.path || narrow.named.size === 0 || broad.named.size === 0) continue;
-    if (narrow.named.size < broad.named.size && [...narrow.named].every((n) => broad.named.has(n))) {
-      out.push({ category: "subsumed-candidate", confidence: "low", path: narrow.path, detail: `subset of imports from ${src}, also covered by ${broad.path}` });
-    }
+    if (!(narrow.named.size < broad.named.size && [...narrow.named].every((n) => broad.named.has(n)))) continue;
+    // Require ≥50% of narrow's it() names to also appear in broad's. Imports
+    // alone are a false-positive trap: two tests can share helpers and assert
+    // on disjoint behavior (e.g. tests/budget.test.js vs tests/utils/budget.test.js).
+    if (narrow.itNames.size === 0) continue;
+    const overlap = [...narrow.itNames].filter((n) => broad.itNames.has(n)).length;
+    if (overlap / narrow.itNames.size < 0.5) continue;
+    out.push({ category: "subsumed-candidate", confidence: "low", path: narrow.path, detail: `${overlap}/${narrow.itNames.size} it() names also in ${broad.path}; subset of imports from ${src}` });
   }
   return out;
 }
