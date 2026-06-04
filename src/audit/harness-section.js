@@ -22,7 +22,7 @@ export async function runHarnessSection({ projectDir, harnessConfig = null, runA
   const cfg = normalizeHarnessConfig(harnessConfig || {});
   if (!cfg.enabled) return { ok: true, skipped: true, reason: "disabled" };
   const res = await runAssess(projectDir, cfg);
-  if (!res.ok) return { ok: false, error: res.error };
+  if (!res.ok) return { ok: false, error: res.error, reason: res.reason, hint: res.hint, image: cfg.image };
   const outDir = path.join(projectDir, ".karajan", "audit-runs", ts());
   await fs.mkdir(outDir, { recursive: true });
   const scorecardPath = path.join(outDir, "scorecard.json");
@@ -39,7 +39,11 @@ export async function runHarnessSection({ projectDir, harnessConfig = null, runA
 
 export function formatHarnessSection(summary) {
   if (!summary || summary.skipped) return "";
-  if (!summary.ok) return `## Harness Scorecard\n\n_skipped: ${summary.error}_\n`;
+  if (!summary.ok) {
+    const reason = summary.reason ? ` (${summary.reason})` : "";
+    const hint = summary.hint ? `\n\n${summary.hint}\n` : "";
+    return `## Harness Scorecard\n\n_skipped${reason}: ${summary.error}_${hint}\n`;
+  }
   const lines = [
     `## Harness Health Score: ${summary.score}/100 (${summary.grade})`,
     "",
