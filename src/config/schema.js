@@ -115,6 +115,8 @@ const PipelineMap = v.optional(v.looseObject({
 const Development = v.optional(v.looseObject({
   methodology: v.optional(Methodology),
   require_test_changes: v.optional(v.boolean()),
+  // KJC-TSK-0398: opt-in flag; module lands in PR1, integration in PR3.
+  require_red_then_green: v.optional(v.boolean()),
   test_file_patterns: v.optional(v.array(v.string())),
   source_file_extensions: v.optional(v.array(v.string())),
 }));
