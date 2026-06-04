@@ -70,6 +70,11 @@ const DEFAULTS = {
   development: {
     methodology: "tdd",
     require_test_changes: true,
+    // KJC-TSK-0398: opt-in red-then-green gate. When true, the pipeline
+    // stashes source files and re-runs the test suite to confirm the new
+    // tests actually fail without the implementation. Off by default to
+    // preserve current iteration latency.
+    require_red_then_green: false,
     test_file_patterns: ["/tests/", "/__tests__/", ".test.", ".spec."],
     source_file_extensions: [".js", ".jsx", ".ts", ".tsx", ".py", ".go", ".java", ".rb", ".php", ".cs"]
   },
