@@ -65,7 +65,8 @@
     "format:fix": "prettier --write .",
     "typecheck": "npx -p typescript@5 tsc --noEmit -p tsconfig.json",
     "validate": "npm run lint && npm run lint:syntax && npm test",
-    "mcp": "node src/mcp/server.js"
+    "mcp": "node src/mcp/server.js",
+    "audit:test-diet": "node scripts/audit-test-diet.mjs"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
