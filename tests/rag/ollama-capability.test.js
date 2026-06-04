@@ -25,8 +25,11 @@ describe("ollama-capability — KJC-TSK-0436", () => {
   });
 
   it("checkRamCapacity passes when free RAM >= minBytes", () => {
-    const free = os.freemem();
-    expect(checkRamCapacity(free - 1)).toMatchObject({ ok: true });
+    // KJC-BUG-0078: anchor minBytes to a deterministic floor (1 byte) instead
+    // of `os.freemem() - 1`. The old form re-sampled `os.freemem()` inside
+    // checkRamCapacity, so any GC pressure between the two reads made
+    // actual < expected and the test flaked during full-suite runs.
+    expect(checkRamCapacity(1)).toMatchObject({ ok: true });
   });
   it("checkRamCapacity fails with reason when below minBytes", () => {
     const r = checkRamCapacity(os.totalmem() * 10);
