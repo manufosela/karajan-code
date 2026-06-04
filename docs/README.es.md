@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="../README.md">Read in English</a> · <a href="https://karajancode.com">Documentacion</a>
+  <a href="../README.md">Read in English</a> · <a href="https://karajancode.com">Documentacion</a> · <a href="https://planning-game-xp.web.app/public/?project=Karajan%20Code">Roadmap publico</a>
 </p>
 
 ---
