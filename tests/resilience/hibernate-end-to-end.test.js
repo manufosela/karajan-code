@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { classifyAgentError, ERROR_CLASS } from "../../src/brain/agent-error-classifier.js";
 import { withBrainRecovery } from "../../src/brain/with-brain-recovery.js";
@@ -35,17 +35,26 @@ describe("resilience: quota exhaustion end to end", () => {
   // literal in the stderr and resolves via Intl.DateTimeFormat. Test passes on
   // any host TZ; the v2.27.0 skip-in-CI workaround is gone.
   it("classifies the Claude Code session limit as a recoverable quota cap", () => {
-    // The original user-reported message uses the 12-hour clock; parseCooldown
-    // must understand it. Resilience tripwire for #756 — independent of how
-    // long the wait will be (that's tested via the ISO path below).
-    const cls = classifyAgentError({
-      provider: "claude",
-      stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
-      exitCode: 1,
-    });
-    expect(cls.class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_DAILY);
-    expect(cls.recoverable).toBe(true);
-    expect(cls.retryAfter).toBeGreaterThan(0);
+    // KJC-BUG-0079: the classifier splits RATE_LIMIT_SHORT vs
+    // QUOTA_EXHAUSTED_DAILY at the 1h threshold. With a literal "10:10pm
+    // Madrid" in the stderr, a CI run between 19:10-21:10 UTC resolves
+    // the cooldown to <1h and the assertion below flips. Pin "now" to a
+    // morning hour so the gap to 22:10 Madrid is always >12h, regardless
+    // of the host TZ.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T06:00:00Z"));
+    try {
+      const cls = classifyAgentError({
+        provider: "claude",
+        stderr: "You've hit your session limit · resets 10:10pm (Europe/Madrid)",
+        exitCode: 1,
+      });
+      expect(cls.class).toBe(ERROR_CLASS.QUOTA_EXHAUSTED_DAILY);
+      expect(cls.recoverable).toBe(true);
+      expect(cls.retryAfter).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("withBrainRecovery with sessionState persists a standby snapshot to disk", async () => {
