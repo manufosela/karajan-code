@@ -263,6 +263,84 @@ describe('PATCH /api/projects/:id/is-test', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// PATCH /api/stories/:id — KJC-TSK-0394 PR6 (AC 6).
+//
+// El endpoint sólo acepta el modelo canónico {pending, running, done}.
+// Status legacy (`certified`, `failed`, `coding`, `reviewing`, `blocked`,
+// `needs_context`) devuelven 400 con `suggestion` apuntando al mapping
+// canónico {status, result} — herramientas externas pueden leerlo,
+// aplicar el mapeo, y re-intentar sin descubrir la tabla por ensayo.
+// Status desconocido también devuelve 400, con `suggestion: null`.
+// ---------------------------------------------------------------------------
+describe('PATCH /api/stories/:id — canonical status guard (KJC-TSK-0394 AC 6)', () => {
+  it('returns 400 + suggestion when status is legacy "certified"', async () => {
+    seed();
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'certified' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/status must be one of/);
+    expect(res.body.suggestion).toEqual({ status: 'done', result: 'pass' });
+  });
+
+  it('returns 400 + suggestion when status is legacy "failed"', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'failed' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toEqual({ status: 'pending', result: 'fail' });
+  });
+
+  it('returns 400 + suggestion when status is legacy "coding"', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'coding' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toEqual({ status: 'running', result: null });
+  });
+
+  it('returns 400 + suggestion when status is legacy "reviewing"', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'reviewing' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toEqual({ status: 'running', result: null });
+  });
+
+  it('returns 400 + suggestion when status is legacy "blocked"', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'blocked' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toEqual({ status: 'pending', result: null });
+  });
+
+  it('returns 400 + suggestion when status is legacy "needs_context"', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'needs_context' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toEqual({ status: 'pending', result: null });
+  });
+
+  it('returns 400 + suggestion:null when status is unknown', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({ status: 'banana' });
+    expect(res.status).toBe(400);
+    expect(res.body.suggestion).toBeNull();
+  });
+
+  it('returns 400 when body has neither status nor editable field', async () => {
+    const res = await request(app)
+      .patch('/api/stories/story-1')
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Body must include status/);
+  });
+});
+
 // KJC-TSK-0414 PR4
 describe('GET /api/standby', () => {
   it('lista vacía cuando no hay sesiones hibernadas', async () => {

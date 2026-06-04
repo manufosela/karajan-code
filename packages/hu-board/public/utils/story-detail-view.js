@@ -59,9 +59,13 @@ async function showStoryDetail(storyId) {
     // reviewing/running (esos los pone el orquestador; setearlos a
     // mano genera zombies en el reaper).
     const canChangeStatus = !!story.plan_id;
-    // KJC-TSK-0403: 'failed' eliminado del dropdown — result=fail vive en
-    // la HU via outcome.blockers, no como status manual.
-    const userSettableStatuses = ['pending', 'certified', 'done', 'blocked', 'needs_context'];
+    // KJC-TSK-0394 PR6 (AC 6): dropdown alineado con el modelo canónico
+    // que acepta el endpoint. `running` queda fuera porque settearlo a
+    // mano genera zombies (lifecycle del orquestador). Los status legacy
+    // (`certified`, `blocked`, `needs_context`) ya no se ofrecen — los
+    // plans en disco siguen vivos pero la UI sólo emite escrituras
+    // canónicas. Reset → pending y Run → running cubren el flujo.
+    const userSettableStatuses = ['pending', 'done'];
 
     content.innerHTML = `
       <div class="modal__header">
