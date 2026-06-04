@@ -44,6 +44,21 @@ describe("audit/harness-section — KJC-TSK-0471", () => {
     expect(await runHarnessSection({ projectDir: tmp })).toMatchObject({ ok: false, error: "boom" });
   });
 
+  it("propagates reason + hint + image from runHarnessAssess — KJC-BUG-0077", async () => {
+    runHarnessAssess.mockResolvedValueOnce({
+      ok: false, error: "pull access denied", reason: "image_inaccessible",
+      hint: "Image `img:latest` is not accessible. Run `kj audit --no-harness` to skip.",
+    });
+    const r = await runHarnessSection({ projectDir: tmp });
+    expect(r).toMatchObject({
+      ok: false,
+      error: "pull access denied",
+      reason: "image_inaccessible",
+      hint: expect.stringMatching(/--no-harness/),
+      image: "img:latest",
+    });
+  });
+
   it("formatHarnessSection renders header + 5-row category table", () => {
     const md = formatHarnessSection({
       ok: true, score: 78, grade: "B",
@@ -70,6 +85,15 @@ describe("audit/harness-section — KJC-TSK-0471", () => {
 
   it("formatHarnessSection notes the failure when ok=false", () => {
     expect(formatHarnessSection({ ok: false, error: "docker offline" })).toMatch(/skipped: docker offline/);
+  });
+
+  it("formatHarnessSection renders reason + hint when present — KJC-BUG-0077", () => {
+    const md = formatHarnessSection({
+      ok: false, error: "pull access denied", reason: "image_inaccessible",
+      hint: "Run `kj audit --no-harness` to skip.",
+    });
+    expect(md).toMatch(/skipped \(image_inaccessible\): pull access denied/);
+    expect(md).toMatch(/--no-harness/);
   });
 
   it("formatHarnessSection returns empty when skipped", () => {

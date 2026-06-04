@@ -6,6 +6,7 @@ import { runCommand } from "../../src/utils/process.js";
 import {
   normalizeHarnessConfig, isDockerAvailable, isHarnessImagePresent,
   ensureHarnessImage, runHarnessAssess,
+  classifyDockerFailure, hintForReason,
 } from "../../src/audit/harness-scorecard.js";
 
 const IMG = "markmishaev76/ai-harness-scorecard:latest";
@@ -41,11 +42,56 @@ describe("audit/harness-scorecard — KJC-TSK-0470", () => {
   });
 
   it("runHarnessAssess mounts repo read-only, parses JSON, surfaces failures", async () => {
-    mockExit([0, JSON.stringify({ overall_score: 78, grade: "B" })]);
+    // success path: docker version + docker images -q (cache hit) + docker run
+    mockExit([0, "25"], [0, "sha256:abc\n"], [0, JSON.stringify({ overall_score: 78, grade: "B" })]);
     const ok = await runHarnessAssess("/tmp/repo", {});
     expect(ok).toMatchObject({ ok: true, score: 78, grade: "B" });
-    expect(runCommand.mock.calls[0][1]).toEqual(expect.arrayContaining(["run", "--rm", "-v", "/tmp/repo:/repo:ro"]));
-    mockExit([2, "", "boom"]);
-    expect(await runHarnessAssess("/tmp/repo", {})).toMatchObject({ ok: false, error: expect.stringMatching(/boom/) });
+    expect(runCommand.mock.calls.at(-1)[1]).toEqual(expect.arrayContaining(["run", "--rm", "-v", "/tmp/repo:/repo:ro"]));
+    // failure path during assess: surface stderr + classified reason
+    mockExit([0, "25"], [0, "sha256:abc\n"], [2, "", "boom"]);
+    expect(await runHarnessAssess("/tmp/repo", {})).toMatchObject({ ok: false, error: expect.stringMatching(/boom/), reason: "unknown" });
+  });
+
+  it("classifyDockerFailure maps known stderr patterns + falls back to unknown — KJC-BUG-0077", () => {
+    expect(classifyDockerFailure("Error response from daemon: pull access denied for foo/bar")).toBe("image_inaccessible");
+    expect(classifyDockerFailure("repository does not exist or may require 'docker login'")).toBe("image_inaccessible");
+    expect(classifyDockerFailure("denied: requested access to the resource is denied")).toBe("image_inaccessible");
+    expect(classifyDockerFailure("unauthorized: authentication required")).toBe("auth_required");
+    expect(classifyDockerFailure("dial tcp: lookup registry-1.docker.io: no such host")).toBe("network_error");
+    expect(classifyDockerFailure("net/http: TLS handshake timeout")).toBe("network_error");
+    expect(classifyDockerFailure("something totally unexpected")).toBe("unknown");
+    expect(classifyDockerFailure()).toBe("unknown");
+  });
+
+  it("hintForReason returns actionable suggestion per reason — KJC-BUG-0077", () => {
+    expect(hintForReason("image_inaccessible", IMG)).toMatch(/--no-harness/);
+    expect(hintForReason("image_inaccessible", IMG)).toContain(IMG);
+    expect(hintForReason("auth_required", IMG)).toMatch(/docker login/);
+    expect(hintForReason("network_error", IMG)).toMatch(/Network/i);
+    expect(hintForReason("docker_missing", IMG)).toMatch(/Install Docker/);
+    expect(hintForReason("invalid_json", IMG)).toBeNull();
+    expect(hintForReason("unknown", IMG)).toBeNull();
+  });
+
+  it("runHarnessAssess surfaces docker_missing with hint — KJC-BUG-0077", async () => {
+    mockExit([1, "", "no daemon"]);
+    const r = await runHarnessAssess("/tmp/repo", {});
+    expect(r).toMatchObject({ ok: false, reason: "docker_missing", hint: expect.stringMatching(/Install Docker/) });
+  });
+
+  it("runHarnessAssess surfaces image_inaccessible with hint when pull denied — KJC-BUG-0077", async () => {
+    // docker version OK, image not cached, pull denied
+    mockExit(
+      [0, "25"],
+      [0, ""],
+      [1, "", "Error response from daemon: pull access denied for markmishaev76/ai-harness-scorecard"],
+    );
+    const r = await runHarnessAssess("/tmp/repo", {});
+    expect(r).toMatchObject({
+      ok: false,
+      reason: "image_inaccessible",
+      error: expect.stringMatching(/pull access denied/),
+      hint: expect.stringMatching(/--no-harness/),
+    });
   });
 });
