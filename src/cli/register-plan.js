@@ -93,7 +93,16 @@ export function registerPlan(program, { pkgVersion }) {
           // Norms + Safeguards ride along under explicit headings the
           // coder prompt can grep for.
           const taskFromCanvas = canvasToTask(validation.canvas);
-          await planGenerateCommand({ task: taskFromCanvas, config, logger, flags });
+          // KJC-TSK-0348: remember WHERE the Canvas lived on disk so
+          // `kj sync --apply` later knows which file to patch.
+          let sourceCanvasPath = null;
+          if (typeof flags?.taskFile === "string" && flags.taskFile.length > 0) {
+            const path = await import("node:path");
+            sourceCanvasPath = path.isAbsolute(flags.taskFile)
+              ? flags.taskFile
+              : path.resolve(config.projectDir || process.cwd(), flags.taskFile);
+          }
+          await planGenerateCommand({ task: taskFromCanvas, config, logger, flags, sourceCanvasPath });
           return;
         }
         await planGenerateCommand({
