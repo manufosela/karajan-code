@@ -459,5 +459,5 @@ export async function runTddCheckStage({ config, logger, emitter, eventBase, ses
     return handleTddFailure({ tddEval, config, logger, emitter, eventBase, session, iteration, askQuestion, task, brainCtx });
   }
 
-  return { action: "ok" };
+  return { action: "ok", sourceFiles: tddEval.sourceFiles, testFiles: tddEval.testFiles };
 }
