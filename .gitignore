@@ -26,6 +26,7 @@ review-rules.md
 tests/e2e/karajan-code.tgz
 .env
 audits/
+audit/
 
 # AI Engineering runtime state (events ndjson, lock files) — local only
 .ai-engineering/
