@@ -20,6 +20,7 @@ import {
 import { runImpeccableStage } from "../../post-loop-stages.js";
 import { runPerfStage } from "../../stages/perf-stage.js";
 import { runTddDisciplineStage } from "../../stages/tdd-discipline-stage.js";
+import { runToolJudgeStage } from "../../stages/tool-judge-stage.js";
 import { tryCiComment } from "../../ci-integration.js";
 
 export async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
@@ -93,6 +94,17 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
       stageResults.perf = perfResult.stageResult;
     }
     if (perfResult.action === "continue") return { action: "continue" };
+  }
+
+  // KJC-TSK-0375 PR3: opt-in tool-call quality judge. Non-blocking.
+  if (pipelineFlags?.toolJudgeEnabled) {
+    const judgeResult = await runToolJudgeStage({
+      config, logger, emitter, eventBase, session, coderRole, trackBudget,
+      iteration: i, task,
+    });
+    if (judgeResult.stageResult) {
+      stageResults.toolJudge = judgeResult.stageResult;
+    }
   }
 
   return { action: "ok" };
