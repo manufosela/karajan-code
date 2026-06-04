@@ -19,12 +19,23 @@ import {
 } from "../../iteration-stages.js";
 import { runImpeccableStage } from "../../post-loop-stages.js";
 import { runPerfStage } from "../../stages/perf-stage.js";
+import { runTddDisciplineStage } from "../../stages/tdd-discipline-stage.js";
 import { tryCiComment } from "../../ci-integration.js";
 
 export async function runQualityGateStages({ config, logger, emitter, eventBase, session, trackBudget, i, askQuestion, repeatDetector, budgetSummary, sonarState, task, stageResults, coderRole, pipelineFlags, brainCtx }) {
   const tddResult = await runTddCheckStage({ config, logger, emitter, eventBase, session, trackBudget, iteration: i, askQuestion, task, brainCtx });
   if (tddResult.action === "pause") return { action: "return", result: tddResult.result };
   if (tddResult.action === "continue") return { action: "continue" };
+
+  // KJC-TSK-0398 PR3: opt-in red-then-green check.
+  if (config.development?.require_red_then_green) {
+    const disc = await runTddDisciplineStage({
+      config, logger, emitter, eventBase,
+      sourceFiles: tddResult.sourceFiles || [],
+      testFiles: tddResult.testFiles || [],
+    });
+    if (disc.action === "continue") return { action: "continue" };
+  }
 
   // Sonar runs for code tasks per policy. Since v2.7.4 it is NOT
   // toggleable via config — that's intrinsic to Karajan. The taskType
