@@ -313,12 +313,13 @@ export function registerMeta(program, { pkgVersion }) {
 
   program
     .command("sync")
-    .description("Detect drift between code and the latest plan. Read-only report (issue #540 MVP).")
+    .description("Detect drift between code and the latest plan. Read-only by default; --apply writes a patch back to the Canvas.")
     .option("--plan <planId>", "Sync against a specific plan instead of the latest")
     .option("--json", "Emit machine-readable JSON instead of human output")
+    .option("--apply", "Write the drift report into the source Canvas (creates a .bak backup)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "sync", flags, async ({ config, logger }) => {
-        await syncCommand({ config, logger, planId: flags.plan, json: flags.json });
+        await syncCommand({ config, logger, planId: flags.plan, json: flags.json, apply: Boolean(flags.apply) });
       });
     });
 

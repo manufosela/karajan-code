@@ -21,14 +21,14 @@ import { formatPlan, formatHuTable } from "./_shared.js";
 /**
  * kj plan "task" — generate plan + HUs
  */
-export async function planGenerateCommand({ task, config, logger, json, context, flags = {} }) {
+export async function planGenerateCommand({ task, config, logger, json, context, flags = {}, sourceCanvasPath = null }) {
   const { withCliRunLog } = await import("../../utils/cli-run-log.js");
   return withCliRunLog("plan", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
-    return planGenerateImpl({ task, config, logger, json, context, runLog, flags });
+    return planGenerateImpl({ task, config, logger, json, context, runLog, flags, sourceCanvasPath });
   });
 }
 
-async function planGenerateImpl({ task, config, logger, json, context, runLog, flags = {} }) {
+async function planGenerateImpl({ task, config, logger, json, context, runLog, flags = {}, sourceCanvasPath = null }) {
   // Auto-GC: prune orphan plans (project dir gone) + old finalised plans/
   // sessions/HU batches before we start. Silent unless something was
   // removed; one-liner summary on stderr in that case so --json stays
@@ -164,6 +164,12 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
   plan.approach = parsed?.approach || (typeof parsed === "string" ? parsed : (typeof result.output === "string" ? result.output : null));
   plan.risks = parsed?.risks || [];
   plan.outOfScope = parsed?.outOfScope || [];
+  // KJC-TSK-0348: persist the SPEC.canvas.md path so `kj sync --apply`
+  // can later locate it and append drift notes. Only set when the plan
+  // actually came from a Canvas SPEC; flat-task plans stay unstamped.
+  if (typeof sourceCanvasPath === "string" && sourceCanvasPath.length > 0) {
+    plan.sourceCanvasPath = sourceCanvasPath;
+  }
 
   // Convert planner steps → HUs, carrying the structured acceptance_tests
   // the LLM was asked to emit. If the LLM fell back to legacy behaviour
