@@ -122,6 +122,29 @@ export function waitForEarlyExit(child, logPath) {
   });
 }
 
+// KJC-BUG-0080: waitForEarlyExit only catches an exit, not a hung
+// daemon that survived the window without ever bind()ing the port.
+// Poll /api/dashboard until it answers or the readiness budget runs
+// out, so we never announce "HU Board started" for an unreachable
+// server. Overridable with KJ_BOARD_READY_TIMEOUT_MS (tests set it
+// low to stay fast).
+export async function waitForBoardReachable(port, totalTimeoutMs) {
+  const envTimeout = Number(process.env.KJ_BOARD_READY_TIMEOUT_MS);
+  const budget = Number.isFinite(envTimeout) && envTimeout >= 0
+    ? envTimeout
+    : (Number.isFinite(totalTimeoutMs) ? totalTimeoutMs : 5000);
+  const intervalMs = budget <= 200 ? Math.max(10, Math.floor(budget / 5)) : 200;
+  const deadline = Date.now() + budget;
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    const probeTimeout = Math.min(750, Math.max(50, remaining));
+    if (await isBoardReachable(port, probeTimeout)) return true;
+    const wait = Math.min(intervalMs, deadline - Date.now());
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  }
+  return false;
+}
+
 export async function startBoard(desiredPort = 4000, opts = {}) {
   const { projectSlug = null, bind = "127.0.0.1" } = opts;
   const existingPid = readPid();
@@ -198,6 +221,17 @@ export async function startBoard(desiredPort = 4000, opts = {}) {
   const failure = await waitForEarlyExit(child, logPath);
   if (failure) {
     throw new Error(failure);
+  }
+  // KJC-BUG-0080: even after a clean window, the server may have
+  // failed to bind (e.g. port race vs the parent's findAvailablePort)
+  // or be still booting. Probe /api/dashboard before announcing
+  // success — without this the CLI used to print "HU Board started
+  // at http://localhost:4000" while :4000 actually returned nothing.
+  const reachable = await waitForBoardReachable(port);
+  if (!reachable) {
+    throw new Error(
+      `HU Board daemon spawned (PID ${child.pid}) but did not answer on http://localhost:${port} in time. See ${logPath} for the cause.`
+    );
   }
   fs.writeFileSync(PID_FILE, String(child.pid));
   // Detach for real: `detached: true` only sets up the new session;

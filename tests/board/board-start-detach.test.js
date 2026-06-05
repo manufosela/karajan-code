@@ -31,18 +31,29 @@ vi.mock("node:net", () => ({
     }),
   },
 }));
-// startBoard now HTTP-probes the configured port (`isBoardReachable`)
-// before spawning, as a fallback for stale/missing PID files. Stub
-// `node:http` so the probe immediately fails (i.e. "no board there"),
-// letting the spawn path proceed deterministically.
+// startBoard HTTP-probes the configured port twice: once as a
+// pre-spawn fallback (stale PID file) and once as a post-spawn
+// readiness check (KJC-BUG-0080). Mock state lets us simulate
+// "no board there" before spawn and "board answered" after spawn.
+let httpCallIdx = 0;
+let httpAlwaysFail = false;
 vi.mock("node:http", () => {
   return {
     default: {
-      request: () => {
+      request: (_opts, cb) => {
+        const idx = httpCallIdx++;
         const handlers = {};
         return {
-          on: (ev, cb) => { handlers[ev] = cb; },
-          end: () => { setImmediate(() => handlers.error?.(new Error("ECONNREFUSED"))); },
+          on: (ev, h) => { handlers[ev] = h; },
+          end: () => {
+            setImmediate(() => {
+              if (httpAlwaysFail || idx === 0) {
+                handlers.error?.(new Error("ECONNREFUSED"));
+              } else {
+                cb?.({ statusCode: 200, resume() {} });
+              }
+            });
+          },
           destroy: () => {},
         };
       },
@@ -56,6 +67,9 @@ beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), "kj-board-start-"));
   process.env.KJ_HOME = tmpHome;
   process.env.KJ_BOARD_START_WINDOW_MS = "20";
+  process.env.KJ_BOARD_READY_TIMEOUT_MS = "200";
+  httpCallIdx = 0;
+  httpAlwaysFail = false;
   unref.mockReset();
   child.once.mockReset();
   child.removeListener.mockReset();
@@ -71,6 +85,7 @@ afterEach(() => {
   rmSync(tmpHome, { recursive: true, force: true });
   delete process.env.KJ_HOME;
   delete process.env.KJ_BOARD_START_WINDOW_MS;
+  delete process.env.KJ_BOARD_READY_TIMEOUT_MS;
 });
 
 describe("startBoard — detaches properly", () => {
@@ -105,5 +120,21 @@ describe("startBoard — detaches properly", () => {
     const pidPath = join(tmpHome, "hu-board.pid");
     expect(existsSync(pidPath)).toBe(true);
     expect(readFileSync(pidPath, "utf-8")).toBe("4242");
+  });
+
+  // KJC-BUG-0080 regression: the daemon survives the early-exit
+  // window but never answers HTTP — pre-fix the CLI happily printed
+  // "HU Board started at http://localhost:4000" while the port was
+  // dead. Now startBoard throws and the PID file stays unwritten so
+  // the next kj run knows the previous attempt failed.
+  it("throws when the daemon never answers /api/dashboard within the readiness budget", async () => {
+    httpAlwaysFail = true;
+    process.env.KJ_BOARD_READY_TIMEOUT_MS = "50";
+    const { startBoard } = await import("../../src/commands/board.js");
+    await expect(startBoard(4000)).rejects.toThrow(
+      /did not answer on http:\/\/localhost:4000/
+    );
+    const pidPath = join(tmpHome, "hu-board.pid");
+    expect(existsSync(pidPath)).toBe(false);
   });
 });
