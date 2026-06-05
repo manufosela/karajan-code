@@ -65,6 +65,14 @@ vi.mock("../src/utils/rtk-install.js", () => ({
   installRtk: vi.fn().mockResolvedValue({ ok: true, version: "rtk 0.31.0", error: null })
 }));
 
+vi.mock("../src/utils/squeezr-detect.js", () => ({
+  detectSqueezr: vi.fn().mockResolvedValue({ available: true, version: "squeezr 1.46.3" })
+}));
+
+vi.mock("../src/utils/squeezr-install.js", () => ({
+  installSqueezr: vi.fn().mockResolvedValue({ ok: true, version: "squeezr 1.46.3", error: null })
+}));
+
 describe("initCommand", () => {
   let initCommand;
   let loadConfig, writeConfig;
@@ -87,6 +95,12 @@ describe("initCommand", () => {
     detectRtk.mockResolvedValue({ available: true, version: "rtk 0.31.0" });
     const { installRtk } = await import("../src/utils/rtk-install.js");
     installRtk.mockResolvedValue({ ok: true, version: "rtk 0.31.0", error: null });
+
+    // Re-set Squeezr mocks after resetAllMocks clears them
+    const { detectSqueezr } = await import("../src/utils/squeezr-detect.js");
+    detectSqueezr.mockResolvedValue({ available: true, version: "squeezr 1.46.3" });
+    const { installSqueezr } = await import("../src/utils/squeezr-install.js");
+    installSqueezr.mockResolvedValue({ ok: true, version: "squeezr 1.46.3", error: null });
   });
 
   it("runs non-interactive mode when --no-interactive is set", async () => {
