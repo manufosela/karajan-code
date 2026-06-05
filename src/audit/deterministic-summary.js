@@ -41,9 +41,26 @@ export function formatDeterministicSummary(ctx) {
   if (ctx.circularDeps) lines.push(...formatCircularDepsBlock(ctx.circularDeps));
   if (ctx.deadExports) lines.push(...formatDeadExportsBlock(ctx.deadExports));
   if (ctx.injectionFindings) lines.push(...formatInjectionBlock(ctx.injectionFindings));
+  if (ctx.aiSlop) lines.push(...formatAiSlopBlock(ctx.aiSlop));
   if (ctx.webperf) lines.push(...formatWebperfBlock(ctx.webperf));
 
   return lines.join("\n");
+}
+
+function formatAiSlopBlock(slop) {
+  if (!slop.available) return ["### AI-slop tells (deterministic)", `- Status: not available — ${slop.reason || "scan failed"}`, ""];
+  const lines = ["### AI-slop tells (deterministic)", `- Files scanned: ${slop.filesScanned ?? 0}`, `- Score: ${slop.score}/100 (100 = clean)`, `- Findings: ${slop.total ?? 0}`];
+  if ((slop.total ?? 0) > 0) {
+    for (const [cat, n] of Object.entries(slop.byCategory || {})) {
+      if (n > 0) lines.push(`  - ${cat}: ${n}`);
+    }
+    if (Array.isArray(slop.worst) && slop.worst.length > 0) {
+      lines.push("  - Worst offenders:");
+      for (const f of slop.worst) lines.push(`    - ${f.path}:${f.line} [${f.category}] ${f.snippet}`);
+    }
+  }
+  lines.push("");
+  return lines;
 }
 
 function formatInjectionBlock(inj) {
@@ -278,5 +295,6 @@ export function deterministicContextHasFindings(ctx) {
   if (ctx.circularDeps?.available && (ctx.circularDeps.total ?? 0) > 0) return true;
   if (ctx.deadExports?.available && (ctx.deadExports.total ?? 0) > 0) return true;
   if (ctx.growthDelta && (Math.abs(ctx.growthDelta.lines || 0) > 100 || Math.abs(ctx.growthDelta.deps || 0) > 0)) return true;
+  if (ctx.aiSlop?.available && (ctx.aiSlop.total ?? 0) > 0) return true;
   return false;
 }

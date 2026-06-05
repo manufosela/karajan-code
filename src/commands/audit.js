@@ -216,7 +216,7 @@ function loadAuditHistoryContext(projectDir, currentHarness, { showTrend = false
   finally { try { db?.close(); } catch { /* noop */ } }
 }
 
-function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }) {
+function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes }) {
   const parts = ["kj audit"];
   if (task && task !== "Analyze the full codebase") parts.push(JSON.stringify(task));
   if (dimensions && dimensions !== "all") parts.push(`--dimensions=${dimensions}`);
@@ -224,13 +224,14 @@ function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHar
   if (noOsv) parts.push("--no-osv");
   if (noSemgrep) parts.push("--no-semgrep");
   if (noHarness) parts.push("--no-harness");
+  if (noAiSlop) parts.push("--no-ai-slop");
   if (deterministicOnly) parts.push("--deterministic-only");
   if (yes) parts.push("--yes");
   if (json) parts.push("--json");
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, reportFile = null, deterministicOnly = false, yes = false, trend = false, promptFn = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, noAiSlop = false, reportFile = null, deterministicOnly = false, yes = false, trend = false, promptFn = null }) {
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -269,6 +270,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       noSonar,
       noOsv,
       noSemgrep,
+      noAiSlop,
     };
     const deterministicCtx = await role.collectDeterministic(roleInput);
     const deterministicMd = formatDeterministicSummary(deterministicCtx);
@@ -324,7 +326,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
         if (reportPath.endsWith(".json")) {
           payload = JSON.stringify({ deterministic: deterministicCtx, harnessScore: harnessJson, harnessScoreDiff: history.diff, mode: "deterministic-only" }, null, 2);
         } else {
-          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
+          const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes }));
           payload = `${header}${deterministicMd}\n${harnessMd}${historyMd}`;
         }
         await fs.writeFile(reportPath, payload, "utf8");
@@ -385,7 +387,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
           : { ...roleResult, harnessScore: harnessJson, harnessScoreDiff: history.diff, usage: usage || undefined };
         payload = JSON.stringify(jsonPayload, null, 2);
       } else {
-        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, json, deterministicOnly, yes }));
+        const header = await buildReportHeader(config?.projectDir, describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHarness, noAiSlop, json, deterministicOnly, yes }));
         payload = header + stdoutContent + "\n";
       }
       await fs.writeFile(reportPath, payload, "utf8");

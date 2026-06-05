@@ -217,8 +217,8 @@ describe("commands/audit — CLI/MCP parity (KJC-TSK-0357)", () => {
     // (MCP clients toggle the same control via the AuditRole input
     // directly when they want it). Strip both before comparing the
     // structural shape that drives the prompt.
-    const { onOutput: _cliOnOutput, noSonar: _cliNoSonar, noOsv: _cliNoOsv, noSemgrep: _cliNoSemgrep, ...cliCore } = cliArgs;
-    const { onOutput: _mcpOnOutput, noSonar: _mcpNoSonar, noOsv: _mcpNoOsv, noSemgrep: _mcpNoSemgrep, ...mcpCore } = mcpArgs;
+    const { onOutput: _cliOnOutput, noSonar: _cliNoSonar, noOsv: _cliNoOsv, noSemgrep: _cliNoSemgrep, noAiSlop: _cliNoAiSlop, ...cliCore } = cliArgs;
+    const { onOutput: _mcpOnOutput, noSonar: _mcpNoSonar, noOsv: _mcpNoOsv, noSemgrep: _mcpNoSemgrep, noAiSlop: _mcpNoAiSlop, ...mcpCore } = mcpArgs;
     expect(cliCore).toEqual(mcpCore);
   });
 });
