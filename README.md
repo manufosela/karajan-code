@@ -670,7 +670,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full version history.
 
 ---
 
-Built by [@manufosela](https://github.com/manufosela). Head of Engineering at Geniova Technologies, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.liderazgoafectivo.com). 90+ npm packages published.
+Built by [@manufosela](https://github.com/manufosela). Engineering Lead, co-organizer of NodeJS Madrid, author of [Liderazgo Afectivo](https://www.liderazgoafectivo.com). 100+ npm packages published.
 
 ### Contributors
 
