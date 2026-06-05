@@ -121,7 +121,7 @@ pip install .
 
 Both options expect the `kj` binary to be on your `PATH` (via one of the methods above) — the Python wrapper does not vendor it.
 
-That's it. `kj init` auto-detects your installed agents and installs RTK for token optimization.
+That's it. `kj init` auto-detects your installed agents and installs the bundled integrations (RTK + Squeezr) for token optimization.
 
 ### Optional scanners for `kj audit` + `kj webperf`
 
@@ -366,13 +366,21 @@ Karajan auto-detects and auto-configures everything it can:
 
 No per-project configuration required. If you want to customize, config is layered: session > project > global.
 
+## Bundled integrations
+
+These ship with Karajan and `kj init` installs them as part of setup. They're token-efficiency layers the pipeline depends on — not nice-to-haves.
+
+| Tool | Invoked by | Why |
+|------|-----------|-----|
+| [**RTK**](https://github.com/rtk-ai/rtk) | Karajan (auto, on Bash outputs) | Reduces token consumption by 60-90% on Bash command outputs |
+| [**Squeezr**](https://www.npmjs.com/package/squeezr-ai) | Karajan (auto, on agent tool outputs) | Compresses verbose tool results before they reach the agent context |
+
 ## Recommended companions
 
 None of these are required. Karajan runs fine on its own. They're tools that, when present, Karajan can take advantage of — or that help *you* work better around Karajan.
 
 | Tool | Invoked by | Why |
 |------|-----------|-----|
-| [**RTK**](https://github.com/rtk-ai/rtk) | Karajan (auto, on Bash outputs) | Reduces token consumption by 60-90% on Bash command outputs |
 | [**QMD**](https://github.com/manufosela/qmd) | You (CLI / MCP), complementary to RAG | Semantic search engine over Markdown corpora — works alongside `kj rag query` when you want a richer index over your own docs |
 | [**GitHub MCP**](https://github.com/github/github-mcp-server) | Your AI agent (via MCP) | Create PRs, manage issues directly from the agent |
 | [**Chrome DevTools MCP**](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Your AI agent (via MCP) | Verify UI changes visually after frontend modifications |

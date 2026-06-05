@@ -65,6 +65,15 @@ describe("os-detect", () => {
       expect(cmd).toBe("npm install -g @anthropic-ai/claude-code");
     });
 
+    it("returns correct squeezr command on every platform", async () => {
+      for (const platform of ["linux", "darwin", "win32"]) {
+        vi.resetModules();
+        os.platform.mockReturnValue(platform);
+        ({ getInstallCommand } = await import("../src/utils/os-detect.js"));
+        expect(getInstallCommand("squeezr")).toBe("npm install -g squeezr-ai");
+      }
+    });
+
     it("returns correct codex command", () => {
       const cmd = getInstallCommand("codex");
       expect(cmd).toBe("npm install -g @openai/codex");

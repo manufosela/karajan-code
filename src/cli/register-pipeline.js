@@ -27,6 +27,8 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--global", "Save config to ~/.karajan/kj.config.yml (skip the scope wizard)")
     .option("--local", "Save config to ./.karajan/kj.config.yml (skip the scope wizard)")
     .option("--no-ollama", "Skip the RAG embedder bootstrap (Ollama-in-Docker). Useful on modest hardware or when an external embedder will be wired manually")
+    .option("--no-rtk", "Skip the RTK auto-install (token savings on Bash outputs). Karajan still runs but burns more tokens")
+    .option("--no-squeezr", "Skip the Squeezr auto-install (context compression). Karajan still runs but burns more tokens")
     .action(async (flags) => {
       await withConfig(pkgVersion, "init", flags, async ({ config: _config, logger }) => {
         await initCommand({ logger, flags });

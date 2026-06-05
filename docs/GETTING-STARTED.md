@@ -6,7 +6,7 @@
 - Git
 - At least one AI CLI installed: `claude`, `codex`, `gemini`, `aider`, or `opencode`
 - (Optional) Docker for local SonarQube
-- (Optional) RTK for token savings: `cargo install rtk`
+- RTK + Squeezr (token efficiency) — `kj init` installs both automatically. Opt out with `--no-rtk` / `--no-squeezr` if you don't want them.
 
 ### Optional scanners — `kj audit` + `kj webperf`
 
