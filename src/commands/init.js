@@ -15,6 +15,8 @@ import { detectOsLocale, SUPPORTED_LANGUAGES } from "../utils/locale.js";
 import { buildTelemetryPayload, sendTelemetryEvent } from "../utils/telemetry.js";
 import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
+import { detectSqueezr } from "../utils/squeezr-detect.js";
+import { installSqueezr } from "../utils/squeezr-install.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
@@ -763,6 +765,18 @@ export async function initCommand({ logger, flags = {} }) {
     if (!installResult.ok) {
       logger.warn("RTK is optional but recommended for 60-90% token savings.");
       logger.warn(`  Manual install: ${getInstallCommand("rtk")}`);
+    }
+  }
+
+  // Check Squeezr availability — auto-install if missing
+  const squeezr = await detectSqueezr();
+  if (squeezr.available) {
+    logger.info(`Squeezr ${squeezr.version || ""} detected.`);
+  } else {
+    const installResult = await installSqueezr(logger);
+    if (!installResult.ok) {
+      logger.warn("Squeezr is optional but recommended for context compression.");
+      logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
     }
   }
 

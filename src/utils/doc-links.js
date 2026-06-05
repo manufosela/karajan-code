@@ -15,6 +15,7 @@ const ERROR_DOCS = {
   config_missing: `${BASE_URL}/getting-started/quick-start/`,
   branch_error: `${BASE_URL}/guides/pipeline/#git-workflow`,
   rtk_install: `${BASE_URL}/guides/configuration/#rtk`,
+  squeezr_install: `${BASE_URL}/guides/configuration/#squeezr`,
 };
 
 export function docLink(errorType) {
