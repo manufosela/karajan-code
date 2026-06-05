@@ -1470,6 +1470,22 @@ Phase 87 marks the **first major** of the v3 line. The story is short and unglam
 
 **Migration is one command.** `nvm install 22.22.1 && nvm use 22.22.1 && npm install -g karajan-code@3 && kj doctor`. Existing `~/.karajan/` (sessions, plans, RAG index, audit history, HU Board DB) is forward-compatible — nothing to migrate by hand. v3.0.0 is a runtime + deps bump release, not a feature release; the next minor (v3.1.0) is when the Brain rewrite work resumes.
 
+## Phase 88: v3.1.0 — Quality gates + housekeeping + auditor (v3.1.0)
+
+Phase 88 is the **first minor on the v3 line**. No breaking changes; drop-in upgrade from v3.0.0. The release bundles five tracks landed since v3.0.0 — two new quality gates in the pipeline, three new housekeeping commands, a semantic test-diet auditor, the HU Board structural refactor, and a batch of security + flake fixes.
+
+**Quality gates.** The pipeline gets two new stages. **Tool-correctness judge** (KJC-TSK-0375) is a role + stage shipped across three PRs (#964 role/prompt, #965 tool-call extractor from agent transcripts, #966 stage wired into quality-gates) that scores whether the coder used the right tools for the job. **TDD-discipline** (KJC-TSK-0398) is shipped across three PRs (#957 module + config flag, #958 surgical stash helper, #959 pipeline wiring) and verifies tests were written before the implementation via a surgical stash + diff inspection of the working tree.
+
+**Housekeeping.** Three new flags in `kj clean` (KJC-TSK-0499) — `--repo` (stale branches, dist, tmp candidates, PR #930), `--vector-stores` (orphan RAG indexes, PR #931) and the `--all` paraguas (PR #932 + `docs/CLEANUP.md`). **`kj sync --apply`** (KJC-TSK-0348, PR #967) closes the SPDD loop by writing the canvas drift patch with backup.
+
+**Semantic test-diet auditor** (KJC-TSK-0345, PRs #968 + #969). New `scripts/audit-test-diet.mjs` + `npm run audit:test-diet` complements the existing LOC-bucket auditor with five loss-of-meaning categories: empty-no-expect, skipped-pending, imports-orphan, deprecated-export, subsumed-candidate. The subsumed-candidate rule requires ≥50% `it()` name overlap on top of the import subset — purely import-based subsumption produced a false positive on `tests/budget.test.js` (refined out in PR #969). Used to verify the 498-test suite has 0 findings — the suite is clean.
+
+**HU Board.** Canonical statuses on the API (KJC-TSK-0394, PR #962, legacy values trigger a suggestion) + a 17-PR structural refactor (KJC-TSK-0501, PRs #936–#954) splitting `packages/hu-board/public/app.js` into `utils/` modules: formatters, modals, api, sessions-view, board-view, dashboard/graph views, story detail + project picker, preflight + log panel + plan rollup, HU action handlers, project actions modal, story edit form, config editor, command launcher, preflight + run launcher, server-push updates, initialization listeners.
+
+**Fixes**: prototype-pollution guards in `setDeep` / `setDotPath` (KJC-BUG-0076, PR #933), harness-scorecard Docker classification (KJC-BUG-0077, PR #935), `ollama-capability` freemem flake (KJC-BUG-0078, PR #939), hibernate e2e clock pin (KJC-BUG-0079, PR #963), vitest tmp dirs cleanup (KJC-BUG-0075, PR #929).
+
+**Stats**: 498 test files, 5 400+ tests passing. 39 commits since v3.0.0. PRs #928–#969 + release #970.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
