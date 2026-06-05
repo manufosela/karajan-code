@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { enableSonarStageForSuite } from "./_fixtures/sonar-stage.js";
 
 vi.mock("../src/utils/agent-detect.js", () => ({
   checkBinary: vi.fn()
@@ -82,11 +83,9 @@ describe("preflight-checks", () => {
   // This file legitimately exercises the Sonar preflight (auto-start,
   // reachability, token auth). Opt out of the global test override
   // (tests/setup.js disables sonar by default for non-sonar tests).
-  const prevSonarDisabled = globalThis.__KJ_DISABLE_SONAR_STAGE;
-  afterEach(() => { globalThis.__KJ_DISABLE_SONAR_STAGE = prevSonarDisabled; });
+  enableSonarStageForSuite();
 
   beforeEach(async () => {
-    globalThis.__KJ_DISABLE_SONAR_STAGE = false;
     vi.resetAllMocks();
     delete process.env.KJ_SONAR_TOKEN;
     delete process.env.SONAR_TOKEN;

@@ -1,6 +1,7 @@
-import { afterAll, describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
 import { REVIEW_OK, REVIEW_REJECTED, makeConfig as makeBaseConfig, noopLogger } from "./fixtures/orchestrator-mocks.js";
+import { enableSonarStageForSuite } from "./_fixtures/sonar-stage.js";
 
 function makeConfig(sessionOverrides = {}) {
   return makeBaseConfig({
@@ -146,11 +147,9 @@ describe("configurable sub-loop limits", () => {
   let runFlow;
   // Sonar sub-loop tests genuinely exercise the sonar stage. Opt out of
   // the global test override (tests/setup.js disables it by default).
-  const prevSonarDisabled = globalThis.__KJ_DISABLE_SONAR_STAGE;
-  afterAll(() => { globalThis.__KJ_DISABLE_SONAR_STAGE = prevSonarDisabled; });
+  enableSonarStageForSuite();
 
   beforeEach(async () => {
-    globalThis.__KJ_DISABLE_SONAR_STAGE = false;
     vi.resetAllMocks();
 
     const { createAgent } = await import("../src/agents/index.js");
