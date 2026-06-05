@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 // AuditRole.collectDeterministic() + executeWithDeterministic() drive
 // auditCommand post KJC-TSK-0364 (two-phase). The legacy execute()
@@ -56,9 +57,7 @@ function makeConfig(overrides = {}) {
   };
 }
 
-const noopLogger = {
-  info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn(),
-};
+const noopLogger = createNoopLoggerWithContext();
 
 const successResult = {
   ok: true,
