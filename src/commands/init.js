@@ -775,7 +775,7 @@ export async function initCommand({ logger, flags = {} }) {
   } else {
     const installResult = await installSqueezr(logger);
     if (!installResult.ok) {
-      logger.warn("Squeezr is optional but recommended for context compression.");
+      logger.warn("Squeezr is required for context compression — install before running kj.");
       logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
     }
   }
