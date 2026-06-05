@@ -3,8 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { PerfRole } from "../../src/roles/perf-role.js";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 
 const passingScan = {
   ok: true,

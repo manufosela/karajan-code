@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 const emitter = { emit: vi.fn() };
 
 let tmpHome, tmpProject, originalHome;

@@ -14,6 +14,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 function loadOnlyPlan() {
   const root = join(process.env.KJ_HOME, "plans");
@@ -37,9 +38,7 @@ vi.mock("../../src/prompts/planner.js", () => ({
   buildPlannerPrompt: vi.fn().mockReturnValue("planner prompt"),
 }));
 
-const noopLogger = {
-  info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn(),
-};
+const noopLogger = createNoopLoggerWithContext();
 
 const sixSteps = JSON.stringify({
   approach: "Build the foundation in six independent slices",

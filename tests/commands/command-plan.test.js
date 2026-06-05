@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 vi.mock("../../src/agents/index.js", () => ({
   createAgent: vi.fn()
@@ -26,9 +27,7 @@ function makeConfig(overrides = {}) {
   };
 }
 
-const noopLogger = {
-  info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn()
-};
+const noopLogger = createNoopLoggerWithContext();
 
 const validPlan = JSON.stringify({
   approach: "Use modular design",
