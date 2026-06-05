@@ -23,7 +23,7 @@
 
 ---
 
-> **⚠ v3.0.0 — BREAKING:** Node 22+ required. Karajan v3 drops Node 20 (EOL 2026-04-30) and aligns with the Active LTS line. Three deps forced the bump: `lint-staged 17`, `commander 15`, and `better-sqlite3 12.10+` (Node 20 prebuilds gone). Migration: `nvm install 22 && nvm use 22`. No public API changes if you were already on Node 22. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.1.0 released** — first minor on v3. Bundles tool-correctness judge and TDD-discipline as new quality gates, `kj clean --all/--vector-stores/--repo` for housekeeping, `kj sync --apply` closing the SPDD loop, semantic test-diet auditor (498 test files, 0 loss-of-meaning findings), HU Board structural refactor (17 PRs), and a batch of security + flake fixes. No breaking changes; drop-in upgrade from v3.0.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
