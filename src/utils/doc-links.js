@@ -16,6 +16,7 @@ const ERROR_DOCS = {
   branch_error: `${BASE_URL}/guides/pipeline/#git-workflow`,
   rtk_install: `${BASE_URL}/guides/configuration/#rtk`,
   squeezr_install: `${BASE_URL}/guides/configuration/#squeezr`,
+  qmd_install: `${BASE_URL}/guides/configuration/#qmd`,
 };
 
 export function docLink(errorType) {
