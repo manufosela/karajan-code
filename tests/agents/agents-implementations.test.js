@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { baseAgentConfig } from "../_fixtures/agents.js";
 
 vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
@@ -8,11 +9,7 @@ vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/local/bin/${name}`)
 }));
 
-const baseConfig = {
-  roles: { coder: {}, reviewer: {} },
-  coder_options: {},
-  reviewer_options: {}
-};
+const baseConfig = baseAgentConfig();
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 describe("Agent implementations", () => {
