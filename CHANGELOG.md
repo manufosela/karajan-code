@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-05
+
+First minor on the v3 line. Bundles five tracks of work landed since v3.0.0:
+quality gates (tool-correctness judge, TDD-discipline), housekeeping (`kj clean`,
+`kj sync --apply`), HU Board structural refactor, semantic test-diet auditor,
+and a batch of security/test-stability fixes. **No breaking changes** — drop-in
+upgrade from 3.0.0.
+
+### Added
+
+- **Tool-correctness judge** (KJC-TSK-0375) — new role + stage wired into
+  quality-gates. Extracts tool calls from agent transcripts and judges whether
+  the coder used the right tools for the job. Three PRs: role/prompt (#964),
+  tool-call extractor (#965), stage wiring (#966).
+- **TDD-discipline gate** (KJC-TSK-0398) — pipeline stage that verifies tests
+  were written before the implementation (surgical stash + diff inspection).
+  Module (#957), stash helper (#958), pipeline wiring (#959).
+- **`kj clean` family** (KJC-TSK-0499) — three new flags: `--repo` (stale
+  branches, dist, tmp candidates, #930), `--vector-stores` (orphan RAG indexes,
+  #931), `--all` paraguas with `docs/CLEANUP.md` (#932).
+- **`kj sync --apply`** (KJC-TSK-0348) — canvas drift patch writer with backup;
+  closes the SPDD sync loop (#967).
+- **Semantic test-diet auditor** (KJC-TSK-0345) — `scripts/audit-test-diet.mjs`
+  + `npm run audit:test-diet`. Five loss-of-meaning categories: empty-no-expect,
+  skipped-pending, imports-orphan, deprecated-export, subsumed-candidate. Used
+  to verify the 498-test suite has 0 findings (#968, #969).
+- **HU Board canonical statuses** (KJC-TSK-0394) — API now only accepts
+  canonical status names; legacy values trigger a suggestion (#962).
+- **Public Planning Game link** in EN+ES READMEs (#934).
+
+### Fixed
+
+- **Prototype-pollution guards** in `setDeep`/`setDotPath` (KJC-BUG-0076, #933).
+- **Harness scorecard** misclassified Docker failures (KJC-BUG-0077, #935).
+- **ollama-capability** freemem assertion flake (KJC-BUG-0078, #939).
+- **hibernate e2e** clock pin for quota test (KJC-BUG-0079, #963).
+- **vitest tmp dirs** now cleaned on exit (KJC-BUG-0075, #929).
+
+### Refactor
+
+- **HU Board structural split** (KJC-TSK-0501) — `packages/hu-board/public/app.js`
+  decomposed into `utils/` modules: formatters, modals, api, sessions-view,
+  board-view, dashboard/graph views, story detail + project picker, preflight
+  + log panel + plan rollup, HU action handlers, project actions modal, story
+  edit form, config editor, command launcher, preflight + run launcher,
+  server-push updates, initialization listeners, pointer-comment prune. 17 PRs
+  (#936–#954).
+
+### Documentation
+
+- **`kj doctor` redesign spike** — system/project split + atomic plan
+  (KJC-TSK-0416, #960).
+- **ai-trash fase 1 informe técnico** (KJC-TSK-0386, #956).
+- **README author + npm package count** (#928).
+
+### Stats
+
+- 498 test files, 5300+ tests passing.
+- 39 commits, 0 breaking changes.
+
 ## [3.0.0] - 2026-06-03
 
 **BREAKING — Node 22+ required.** Karajan v3 drops Node 20 (EOL 2026-04-30) and aligns
