@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 // Mocks must be declared before imports of code-under-test that triggers
 // the mocked modules. We import formatAudit/formatUsageSummary lazily
@@ -140,7 +141,7 @@ describe("formatAudit appends LLM Usage section when usage is provided", () => {
 // Integration via auditCommand path: confirm the section lands in stdout
 // + the JSON output + the markdown report-file. AuditRole is mocked at
 // the top of the file so this section just exercises auditCommand.
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 const exampleUsage = {
   available: true, provider: "claude", model: "claude-sonnet-4-6",
   tokens_in: 1234, tokens_out: 567, total_tokens: 1801, cost_usd: 0.0123, durationMs: 5500,
