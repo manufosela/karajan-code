@@ -197,6 +197,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--no-osv", "Skip the OSV-Scanner vulnerability collector. Findings are also skipped automatically when osv-scanner is not installed.")
     .option("--no-semgrep", "Skip the Semgrep SAST collector. Findings are also skipped automatically when semgrep is not installed (install via 'pipx install semgrep' or 'brew install semgrep').")
     .option("--no-harness", "Skip the AI Harness Scorecard stage (Docker one-shot). Auto-skipped when Docker is unavailable. Each run is also persisted to .karajan/audit-history.db (KJC-TSK-0472) for diff/trend tracking.")
+    .option("--no-ai-slop", "Skip the AI-slop tells collector (deterministic regex scan for tautologic comments, banner separators, boilerplate docstrings, magic fallbacks, redundant JSDoc). KJC-TSK-0503.")
     .option("--trend", "Append a sparkline of the harness score across the last 10 runs (uses .karajan/audit-history.db). KJC-TSK-0473.")
     .option("--report-file <path>", "Write the audit report to disk in addition to stdout. <path> may be a file (extension drives format: .md or .json) or a directory (creates audit-<ISO>.<md|json> inside). $KJ_AUDIT_REPORT_DIR env var is used as default directory if no --report-file is given.")
     .option("--deterministic-only", "Skip the LLM analysis entirely. Print/persist only the deterministic findings (basalCost, sonar, stack, growth-delta, webperf). Zero tokens spent. Compatible with --report-file and --json.")
@@ -220,6 +221,7 @@ export function registerMeta(program, { pkgVersion }) {
           noOsv: flags.osv === false,
           noSemgrep: flags.semgrep === false,
           noHarness: flags.harness === false,
+          noAiSlop: flags.aiSlop === false,
           reportFile: flags.reportFile || null,
           deterministicOnly: Boolean(flags.deterministicOnly),
           yes: Boolean(flags.yes),

@@ -9,6 +9,7 @@ import { collectSemgrepFindings } from "../audit/semgrep-findings.js";
 import { collectCircularDeps } from "../audit/circular-deps.js";
 import { collectDeadExports } from "../audit/dead-exports.js";
 import { collectInjectionFindings } from "../audit/injection-findings.js";
+import { collectAiSlop } from "../audit/ai-slop-findings.js";
 
 function parseDimensions(dimensionsStr) {
   if (!dimensionsStr || dimensionsStr === "all") return null;
@@ -53,6 +54,7 @@ export class AuditRole extends AgentRole {
     const noMadge = typeof input === "object" ? Boolean(input?.noMadge) : false;
     const noKnip = typeof input === "object" ? Boolean(input?.noKnip) : false;
     const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
+    const noAiSlop = typeof input === "object" ? Boolean(input?.noAiSlop) : false;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
@@ -64,6 +66,7 @@ export class AuditRole extends AgentRole {
     let circularDeps = null;
     let deadExports = null;
     let injectionFindings = null;
+    let aiSlop = null;
     try {
       basalCost = await measureBasalCost(projectDir);
       const previous = await loadPreviousAudit(projectDir);
@@ -116,7 +119,14 @@ export class AuditRole extends AgentRole {
         injectionFindings = await collectInjectionFindings(projectDir, this.logger);
       } catch { /* injection scan is best-effort (KJC-TSK-0498) */ }
     }
-    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings };
+    // AI-slop tells (KJC-TSK-0503). Deterministic, offline, regex-based.
+    // Local equivalent of Deslopify-style review. Best-effort.
+    if (!noAiSlop) {
+      try {
+        aiSlop = await collectAiSlop(projectDir);
+      } catch { /* ai-slop scan is best-effort */ }
+    }
+    return { projectDir, basalCost, growthDelta, stack, sonarFindings, webperf, osvFindings, semgrepFindings, circularDeps, deadExports, injectionFindings, aiSlop };
   }
 
   /**
