@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createNoopLogger } from "../_fixtures/loggers.js";
+import { baseAgentConfig } from "../_fixtures/agents.js";
 
 vi.mock("../../src/utils/process.js", () => ({
   runCommand: vi.fn()
@@ -9,11 +10,7 @@ vi.mock("../../src/agents/resolve-bin.js", () => ({
   resolveBin: vi.fn((name) => `/usr/local/bin/${name}`)
 }));
 
-const baseConfig = {
-  roles: { coder: {}, reviewer: {} },
-  coder_options: {},
-  reviewer_options: {}
-};
+const baseConfig = baseAgentConfig();
 const logger = createNoopLogger();
 
 describe("GeminiAgent", () => {
