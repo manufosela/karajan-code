@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DiscoverRole } from "../src/roles/discover-role.js";
-
-function makeLogger() {
-  return { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
-}
+import { createNoopLoggerWithContext as makeLogger } from "./_fixtures/loggers.js";
 
 function makeConfig(overrides = {}) {
   return {

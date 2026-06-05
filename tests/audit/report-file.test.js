@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 // Reuse the same AuditRole mocking strategy as tests/command-audit.test.js
 // so this file can drive auditCommand through the report-file branch
@@ -39,7 +40,7 @@ vi.mock("../../src/audit/harness-section.js", () => ({
   harnessSummaryForJson: vi.fn(() => null),
 }));
 
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 
 const successResult = {
   ok: true,

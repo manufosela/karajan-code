@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnboarderRole } from "../../src/roles/onboarder-role.js";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 
 describe("OnboarderRole — KJC-TSK-0384 PR 2", () => {
   const role = new OnboarderRole({});

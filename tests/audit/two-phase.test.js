@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { formatDeterministicSummary, deterministicContextHasFindings } from "../../src/audit/deterministic-summary.js";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
 // Two-phase audit (deterministic first, ask before LLM) — KJC-TSK-0364.
 
@@ -57,7 +58,7 @@ const successResult = {
   usage: { available: true, provider: "claude", model: "claude-sonnet-4-6", tokens_in: 1000, tokens_out: 200, total_tokens: 1200, cost_usd: 0.005, durationMs: 4500 },
 };
 
-const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const noopLogger = createNoopLoggerWithContext();
 
 let tmpDir;
 let consoleSpy;
