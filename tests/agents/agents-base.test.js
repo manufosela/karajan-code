@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BaseAgent } from "../../src/agents/base-agent.js";
+import { createNoopLogger } from "../_fixtures/loggers.js";
 
 describe("BaseAgent", () => {
   const config = {
@@ -10,7 +11,7 @@ describe("BaseAgent", () => {
     coder_options: { auto_approve: true, model: "fallback-coder-model" },
     reviewer_options: { model: "fallback-reviewer-model" }
   };
-  const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+  const logger = createNoopLogger();
 
   it("stores name, config, and logger", () => {
     const agent = new BaseAgent("test", config, logger);

@@ -5,9 +5,10 @@ import { CodexAgent } from "../../src/agents/codex-agent.js";
 import { GeminiAgent } from "../../src/agents/gemini-agent.js";
 import { AiderAgent } from "../../src/agents/aider-agent.js";
 import { BaseAgent } from "../../src/agents/base-agent.js";
+import { createNoopLogger } from "../_fixtures/loggers.js";
 
 const config = { session: { max_iteration_minutes: 5 } };
-const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+const logger = createNoopLogger();
 
 describe("agents/index createAgent", () => {
   it("creates ClaudeAgent for 'claude'", () => {
