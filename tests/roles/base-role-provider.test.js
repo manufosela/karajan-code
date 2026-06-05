@@ -4,8 +4,9 @@ import path from "node:path";
 import os from "node:os";
 import { BaseRole } from "../../src/roles/base-role.js";
 import { AgentRole } from "../../src/roles/agent-role.js";
+import { createNoopLoggerWithContext } from "../_fixtures/loggers.js";
 
-const silentLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+const silentLogger = createNoopLoggerWithContext();
 
 async function mkTmpProject() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "kj-role-prov-"));
@@ -66,7 +67,7 @@ describe("Role instantiation resolves per-provider templates", () => {
     await fs.mkdir(roleDir, { recursive: true });
     await fs.writeFile(path.join(roleDir, "default.md"), "DEFAULT");
 
-    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), setContext: vi.fn() };
+    const logger = createNoopLoggerWithContext();
     const role = new AgentRole({
       name: "coder",
       config: { projectDir: dir, roles: { coder: { provider: "gemini" } } },
