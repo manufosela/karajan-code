@@ -121,7 +121,7 @@ pip install .
 
 Both options expect the `kj` binary to be on your `PATH` (via one of the methods above) — the Python wrapper does not vendor it.
 
-That's it. `kj init` auto-detects your installed agents and installs RTK for token optimization.
+That's it. `kj init` auto-detects your installed agents and installs the bundled integrations (RTK + Squeezr) for token optimization.
 
 ### Optional scanners for `kj audit` + `kj webperf`
 
