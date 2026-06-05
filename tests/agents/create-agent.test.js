@@ -6,9 +6,10 @@ import { GeminiAgent } from "../../src/agents/gemini-agent.js";
 import { AiderAgent } from "../../src/agents/aider-agent.js";
 import { OpenCodeAgent } from "../../src/agents/opencode-agent.js";
 import { BaseAgent } from "../../src/agents/base-agent.js";
+import { createNoopLogger } from "../_fixtures/loggers.js";
 
 const config = { roles: {}, coder_options: {}, reviewer_options: {} };
-const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+const logger = createNoopLogger();
 
 describe("createAgent factory", () => {
   // merged-from: 5 per-agent instance tests collapsed into a single it.each

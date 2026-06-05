@@ -22,9 +22,10 @@ import {
   getAgentMeta
 } from "../../src/agents/index.js";
 import { BaseAgent } from "../../src/agents/base-agent.js";
+import { createNoopLogger } from "../_fixtures/loggers.js";
 
 const config = { roles: {}, coder_options: {}, reviewer_options: {} };
-const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+const logger = createNoopLogger();
 
 describe("integration: src/agents/index.js external contract", () => {
   it("exposes the documented public functions", () => {

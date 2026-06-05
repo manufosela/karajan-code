@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createNoopLogger } from "../_fixtures/loggers.js";
 
 vi.mock("../../src/utils/process.js", () => ({ runCommand: vi.fn() }));
 vi.mock("../../src/agents/resolve-bin.js", () => ({
@@ -6,7 +7,7 @@ vi.mock("../../src/agents/resolve-bin.js", () => ({
 }));
 
 const baseConfig = { roles: { coder: {}, reviewer: {} }, coder_options: {}, reviewer_options: {} };
-const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+const logger = createNoopLogger();
 
 describe("CodexAgent", () => {
   let runCommand;
