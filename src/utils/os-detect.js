@@ -16,6 +16,11 @@ const INSTALL_COMMANDS = {
     linux: "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh && rtk init --global",
     windows: "Download from https://github.com/rtk-ai/rtk/releases and add to PATH"
   },
+  squeezr: {
+    macos: "npm install -g squeezr-ai",
+    linux: "npm install -g squeezr-ai",
+    windows: "npm install -g squeezr-ai"
+  },
   claude: {
     macos: "npm install -g @anthropic-ai/claude-code",
     linux: "npm install -g @anthropic-ai/claude-code",
