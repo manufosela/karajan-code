@@ -756,27 +756,37 @@ export async function initCommand({ logger, flags = {} }) {
     logger.info("No project stack detected — using default configuration.");
   }
 
-  // Check RTK availability — auto-install if missing
-  const rtk = await detectRtk();
-  if (rtk.available) {
-    logger.info(`RTK ${rtk.version || ""} detected.`);
+  // Check RTK availability — auto-install if missing (opt-out: --no-rtk)
+  const skipRtk = flags?.noRtk === true || flags?.rtk === false;
+  if (skipRtk) {
+    logger.info("RTK setup skipped (--no-rtk). Bash outputs will not be token-optimized.");
   } else {
-    const installResult = await installRtk(logger);
-    if (!installResult.ok) {
-      logger.warn("RTK is optional but recommended for 60-90% token savings.");
-      logger.warn(`  Manual install: ${getInstallCommand("rtk")}`);
+    const rtk = await detectRtk();
+    if (rtk.available) {
+      logger.info(`RTK ${rtk.version || ""} detected.`);
+    } else {
+      const installResult = await installRtk(logger);
+      if (!installResult.ok) {
+        logger.warn("RTK install failed — Bash outputs will not be token-optimized.");
+        logger.warn(`  Manual install: ${getInstallCommand("rtk")}`);
+      }
     }
   }
 
-  // Check Squeezr availability — auto-install if missing
-  const squeezr = await detectSqueezr();
-  if (squeezr.available) {
-    logger.info(`Squeezr ${squeezr.version || ""} detected.`);
+  // Check Squeezr availability — auto-install if missing (opt-out: --no-squeezr)
+  const skipSqueezr = flags?.noSqueezr === true || flags?.squeezr === false;
+  if (skipSqueezr) {
+    logger.info("Squeezr setup skipped (--no-squeezr). Tool outputs will not be compressed.");
   } else {
-    const installResult = await installSqueezr(logger);
-    if (!installResult.ok) {
-      logger.warn("Squeezr is required for context compression — install before running kj.");
-      logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
+    const squeezr = await detectSqueezr();
+    if (squeezr.available) {
+      logger.info(`Squeezr ${squeezr.version || ""} detected.`);
+    } else {
+      const installResult = await installSqueezr(logger);
+      if (!installResult.ok) {
+        logger.warn("Squeezr install failed — tool outputs will not be compressed.");
+        logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
+      }
     }
   }
 
