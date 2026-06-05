@@ -21,6 +21,11 @@ const INSTALL_COMMANDS = {
     linux: "npm install -g squeezr-ai",
     windows: "npm install -g squeezr-ai"
   },
+  qmd: {
+    macos: "npm install -g @tobilu/qmd",
+    linux: "npm install -g @tobilu/qmd",
+    windows: "npm install -g @tobilu/qmd"
+  },
   claude: {
     macos: "npm install -g @anthropic-ai/claude-code",
     linux: "npm install -g @anthropic-ai/claude-code",
