@@ -29,3 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `<root>/log.jsonl` with `$HOME` redaction on path-shaped fields,
   `ensureSecureDir` (chmod 0o700), `lockdownFile` (chmod 0o600), and
   `assertOwnedByCurrentUser` to detect a hijacked root directory.
+- Filesystem snapshotter (`src/snapshot.js`, KJC-TSK-0388 commit 4):
+  `snapshotFile` copies the source into `<root>/store/<ulid>/<basename>`
+  with 0o600 mode, returns a manifest-ready entry, and audits the event.
+  `restoreSnapshot` refuses to clobber an existing path. `purgeSnapshot`
+  removes the snapshot dir and audits the eviction. Directories are out
+  of scope for the MVP — file-only.
