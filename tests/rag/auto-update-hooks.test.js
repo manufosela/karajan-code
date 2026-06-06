@@ -33,6 +33,18 @@ describe("installPostMergeHook — KJC-TSK-0455", () => {
     expect(statSync(r.target).mode & 0o111).toBeTruthy();
   });
 
+  it("includes the QMD reindex block (KJC-TSK-0507) gated on indexable paths", async () => {
+    await execa("git", ["-C", projectDir, "init", "-q"]);
+    const r = installPostMergeHook({ projectDir, logger: noopLogger });
+    const body = readFileSync(r.target, "utf8");
+    expect(body).toMatch(/KJC-TSK-0507/);
+    expect(body).toMatch(/command -v qmd/);
+    expect(body).toMatch(/qmd update/);
+    expect(body).toMatch(/docs\/\|\\\.reviews\/\|\\\.karajan\/plans\//);
+    expect(body).toMatch(/\(qmd update[^\n]*\) &/);
+    expect(body).toMatch(/git diff-tree -r --name-only ORIG_HEAD HEAD/);
+  });
+
   it("leaves a pre-existing user hook untouched", async () => {
     await execa("git", ["-C", projectDir, "init", "-q"]);
     const hooks = join(projectDir, ".git", "hooks");

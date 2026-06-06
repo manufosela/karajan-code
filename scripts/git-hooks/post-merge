@@ -3,5 +3,16 @@
 # never serves stale code. Installed by `kj rag install-hooks`. The marker
 # in this comment is how the installer tells kj-managed hooks from user hooks.
 set -euo pipefail
-if ! command -v kj >/dev/null 2>&1; then exit 0; fi
-kj rag index --since auto >/dev/null 2>&1 || true
+if command -v kj >/dev/null 2>&1; then
+  kj rag index --since auto >/dev/null 2>&1 || true
+fi
+
+# KJC-TSK-0507 — Refresh the per-project QMD semantic wiki when the merge
+# touched indexable folders (docs/, .reviews/, .karajan/plans/). Background
+# so it never blocks the user's `git pull` / `git merge`.
+if command -v qmd >/dev/null 2>&1; then
+  if git diff-tree -r --name-only ORIG_HEAD HEAD 2>/dev/null \
+      | grep -qE '^(docs/|\.reviews/|\.karajan/plans/)'; then
+    (qmd update >/dev/null 2>&1 || true) &
+  fi
+fi
