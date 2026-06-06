@@ -35,3 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `restoreSnapshot` refuses to clobber an existing path. `purgeSnapshot`
   removes the snapshot dir and audits the eviction. Directories are out
   of scope for the MVP — file-only.
+- `kj-trash` CLI surface (`src/cli.js` + bin, KJC-TSK-0388 commit 5):
+  subcommands `list` (id/age/bytes/source table), `inspect <id>` (JSON
+  payload), and `restore <id> [--to PATH]` (atomic restore + manifest
+  drop). Root defaults to `~/.ai-trash` (override via `AI_TRASH_ROOT`)
+  and is hardened with `ensureSecureDir` + `assertOwnedByCurrentUser`.
+  `empty`/`purge` land in commit 6.
