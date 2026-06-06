@@ -26,6 +26,9 @@
   "engines": {
     "node": ">=22.22.1"
   },
+  "workspaces": [
+    "packages/ai-trash"
+  ],
   "imports": {
     "#utils/*": "./src/utils/*",
     "#session/*": "./src/session/*",

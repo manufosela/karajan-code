@@ -1,0 +1,43 @@
+{
+  "name": "@karajan/ai-trash",
+  "version": "0.0.0",
+  "description": "AI-proof trash: intercept destructive ops from an AI shell and snapshot them to an unreachable bin before execution",
+  "type": "module",
+  "license": "AGPL-3.0",
+  "author": "Manu Fosela",
+  "homepage": "https://github.com/manufosela/karajan-code/tree/main/packages/ai-trash#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/ai-trash"
+  },
+  "bugs": {
+    "url": "https://github.com/manufosela/karajan-code/issues"
+  },
+  "keywords": [
+    "ai",
+    "trash",
+    "undo",
+    "snapshot",
+    "safety",
+    "claude-code",
+    "cursor",
+    "aider"
+  ],
+  "engines": {
+    "node": ">=22.22.1"
+  },
+  "bin": {
+    "kj-trash": "bin/kj-trash.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "private": false
+}
