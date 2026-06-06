@@ -17,6 +17,9 @@ import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectSqueezr } from "../utils/squeezr-detect.js";
 import { installSqueezr } from "../utils/squeezr-install.js";
+import { detectQmd } from "../utils/qmd-detect.js";
+import { installQmd } from "../utils/qmd-install.js";
+import { registerQmdCollections } from "../utils/qmd-collection.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
@@ -787,6 +790,28 @@ export async function initCommand({ logger, flags = {} }) {
         logger.warn("Squeezr install failed — tool outputs will not be compressed.");
         logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
       }
+    }
+  }
+
+  // Check QMD availability — auto-install if missing and register project
+  // collections (docs/, .reviews/, .karajan/plans/). Opt-out: --no-qmd.
+  const skipQmd = flags?.noQmd === true || flags?.qmd === false;
+  if (skipQmd) {
+    logger.info("QMD setup skipped (--no-qmd). Semantic wiki indexing disabled.");
+  } else {
+    const qmd = await detectQmd();
+    if (qmd.available) {
+      logger.info(`QMD ${qmd.version || ""} detected.`);
+    } else {
+      const installResult = await installQmd(logger);
+      if (!installResult.ok) {
+        logger.warn("QMD install failed — semantic wiki unavailable.");
+        logger.warn(`  Manual install: ${getInstallCommand("qmd")}`);
+      }
+    }
+    const recheck = await detectQmd();
+    if (recheck.available) {
+      await registerQmdCollections(process.cwd(), logger);
     }
   }
 
