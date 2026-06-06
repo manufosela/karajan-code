@@ -27,7 +27,6 @@
     "node": ">=22.22.1"
   },
   "workspaces": [
-    "packages/hu-board",
     "packages/ai-trash"
   ],
   "imports": {
