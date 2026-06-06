@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karajan Wiki · QMD semantic search</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header__logo"><div><div class="header__title">Karajan Wiki</div><div class="header__subtitle">QMD semantic search</div></div></div>
+    <nav class="header__nav">
+      <a class="nav-btn" href="/">← Board</a>
+      <a class="nav-btn" href="/rag.html">RAG</a>
+      <button class="nav-btn active">Wiki</button>
+    </nav>
+  </header>
+  <main class="main" id="wiki-app">
+    <section class="wiki-search">
+      <form id="wiki-form" class="wiki-form" autocomplete="off">
+        <input id="wiki-q" type="search" placeholder="Search the project wiki…" aria-label="Query" required>
+        <input id="wiki-collection" type="text" placeholder="collection (optional)" aria-label="Collection">
+        <label class="wiki-fast"><input id="wiki-fast" type="checkbox"> fast (no rerank)</label>
+        <button type="submit" class="control-btn" id="wiki-go">Search</button>
+      </form>
+      <p class="wiki-hint">QMD runs locally — 0 tokens, ~60s with rerank, ~5s in fast mode.</p>
+    </section>
+    <section id="wiki-results" class="wiki-results"></section>
+  </main>
+  <script src="/wiki.js"></script>
+</body>
+</html>
