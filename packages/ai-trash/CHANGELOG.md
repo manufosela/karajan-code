@@ -24,3 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   gate), `addEntry`/`listEntries`/`removeEntry` CRUD, TTL drop via
   `expireBefore`, and byte-budget LRU eviction via `enforceLruQuota`.
   Real filesystem snapshots still land in commit 4.
+- Audit log + permission helpers (`src/logger.js` + `src/permissions.js`,
+  KJC-TSK-0388 commit 3): append-only JSONL audit log under
+  `<root>/log.jsonl` with `$HOME` redaction on path-shaped fields,
+  `ensureSecureDir` (chmod 0o700), `lockdownFile` (chmod 0o600), and
+  `assertOwnedByCurrentUser` to detect a hijacked root directory.
