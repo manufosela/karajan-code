@@ -939,3 +939,18 @@ body.scoped-mode .header__nav a[href="/pipeline.html"] {
 .rag-bar__label { color: var(--text-secondary, #cbd5e1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rag-bar__fill { display: block; height: 14px; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 3px; }
 .rag-bar__value { text-align: right; color: var(--text-primary, #f8fafc); font-variant-numeric: tabular-nums; }
+
+/* KJC-TSK-0508 — Wiki panel (QMD semantic search) */
+.wiki-search { padding: 1rem; }
+.wiki-form { display: grid; grid-template-columns: 1fr 220px auto auto; gap: .5rem; align-items: center; }
+.wiki-form input[type="search"], .wiki-form input[type="text"] { padding: .5rem .75rem; border-radius: 6px; border: 1px solid var(--border, #334155); background: var(--bg-secondary, #1e1e2e); color: var(--text-primary, #f8fafc); font-size: .9rem; }
+.wiki-fast { display: flex; align-items: center; gap: .35rem; font-size: .85rem; color: var(--text-secondary, #94a3b8); }
+.wiki-hint { margin: .5rem 0 0; font-size: .8rem; color: var(--text-secondary, #94a3b8); font-style: italic; }
+.wiki-results { display: grid; gap: .75rem; padding: 0 1rem 1rem; }
+.wiki-hit { background: var(--bg-secondary, #1e1e2e); border-radius: 8px; padding: .9rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.wiki-hit__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .4rem; }
+.wiki-hit__src { font-family: ui-monospace, monospace; font-size: .85rem; color: #a78bfa; }
+.wiki-hit__score { font-size: .75rem; color: var(--text-secondary, #94a3b8); font-variant-numeric: tabular-nums; }
+.wiki-hit__snip { margin: 0; font-family: ui-monospace, monospace; font-size: .82rem; line-height: 1.45; color: var(--text-primary, #f8fafc); white-space: pre-wrap; word-break: break-word; }
+.wiki-code { background: #0f172a; color: #e2e8f0; padding: .5rem .75rem; border-radius: 6px; font-family: ui-monospace, monospace; font-size: .85rem; margin: .5rem 0; }
+@media (max-width: 720px) { .wiki-form { grid-template-columns: 1fr; } }
