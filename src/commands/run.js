@@ -14,19 +14,33 @@ import { confirmCwd } from "../utils/cwd-confirm.js";
 import { runSpecReview } from "../spec-review/run-spec-review.js";
 import { maybeAutoUpdate } from "../rag/auto-update.js";
 
-function createCliAskQuestion(opts = {}) {
-  const { sessionId = null } = opts;
+export function createCliAskQuestion(opts = {}) {
+  const { sessionId = null, flags = {} } = opts;
   return async (question, context) => {
-    // Two paths:
+    // Three paths:
     //   - Interactive TTY: prompt via readline (the developer's terminal).
-    //   - No TTY (board's \u25b6 Run plan with stdio=ignore, CI, etc.): publish
+    //   - No TTY + --yes (CI / scripted / desatendido): KJC-BUG-0081 \u2014 never
+    //     route to the HU Board bridge in this case; the caller explicitly
+    //     asked NOT to be prompted. Print the unanswered question + context
+    //     to stderr and stop the session so the run fails fast and loud
+    //     instead of hanging on a modal nobody is watching.
+    //   - No TTY without --yes (board's \u25b6 Run plan with stdio=ignore): publish
     //     the prompt through the file-based bridge so the HU Board can
     //     surface it as a modal. The runner blocks on the bridge until
-    //     the user answers (or times out / kills the run). Pre-v2.7.5
-    //     this path just bailed; now the question actually gets answered.
+    //     the user answers (or times out / kills the run).
     const stdinReadable = process.stdin && process.stdin.readable !== false;
     const isInteractive = Boolean(process.stdin?.isTTY) && stdinReadable;
     if (!isInteractive) {
+      if (flags?.yes) {
+        process.stderr.write(
+          `\n[non-interactive --yes] Pipeline asked a question that cannot be auto-answered:\n`
+          + `  \u2753 ${question}\n`
+          + (context?.detail ? `  Context: ${JSON.stringify(context.detail)}\n` : "")
+          + `  Stopping the session. Re-run without --yes (TTY or HU Board) to answer it,\n`
+          + `  or pass --skip-spec-review / a more complete spec so the question never appears.\n`
+        );
+        return null;
+      }
       const { askThroughBoard } = await import("../utils/board-prompt-bridge.js");
       console.log(`\n\u2753 ${question}`);
       if (context?.detail) {
@@ -171,7 +185,7 @@ export async function runCommandHandler({ task, config, logger, flags }) {
       printHeader({ task: task, config });
     }
 
-    const askQuestion = createCliAskQuestion();
+    const askQuestion = createCliAskQuestion({ flags });
 
     // Spec-reviewer pre-pipeline audit (KJC-PCS-0048). Runs BEFORE
     // anything else — surfaces ambiguity / missing scope / missing AC
