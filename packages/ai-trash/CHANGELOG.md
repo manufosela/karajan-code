@@ -40,4 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   payload), and `restore <id> [--to PATH]` (atomic restore + manifest
   drop). Root defaults to `~/.ai-trash` (override via `AI_TRASH_ROOT`)
   and is hardened with `ensureSecureDir` + `assertOwnedByCurrentUser`.
-  `empty`/`purge` land in commit 6.
+- `kj-trash empty` and `kj-trash purge <id>` (KJC-TSK-0388 commit 6):
+  `purge` removes a single snapshot (store dir + manifest entry);
+  `empty` drops every snapshot by default, with `--older-than-days N`
+  (TTL sweep via `expireBefore`) and `--max-bytes N` (LRU eviction via
+  `enforceLruQuota`) filters. Each removal is audited.
