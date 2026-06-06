@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-// @karajan/ai-trash — bin entry (skeleton)
-// Subcommands (list/inspect/restore/empty/purge) land in KJC-TSK-0388 commits 5+6.
-// Until then this stub exits non-zero so callers don't mistake an unfinished
-// package for a working safety net.
+import { runCli } from "../src/cli.js";
 
-process.stderr.write(
-  "kj-trash: not implemented yet (KJC-TSK-0388 commits 5+6).\n"
-  + "  See packages/ai-trash/README.md for the roadmap.\n"
+runCli(process.argv.slice(2)).then(
+  (code) => process.exit(code ?? 0),
+  (err) => {
+    process.stderr.write(`kj-trash: ${err?.message ?? err}\n`);
+    process.exit(1);
+  }
 );
-process.exit(70);
