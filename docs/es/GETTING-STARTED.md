@@ -7,6 +7,7 @@
 - Al menos una CLI de IA instalada: `claude`, `codex`, `gemini`, `aider` u `opencode`
 - (Opcional) Docker para SonarQube local
 - RTK + Squeezr (eficiencia de tokens) — `kj init` los instala automáticamente. Para no usarlos, `--no-rtk` / `--no-squeezr`.
+- QMD (wiki semántica por proyecto) — `kj init` registra `docs/`, `.reviews/` y `.karajan/plans/` como colecciones indexadas, y `kj qmd query "..."` consulta contra el proyecto activo. El índice RAG sirve al **agente**; QMD te sirve a **ti**. Para no usarlo, `--no-qmd`.
 
 ### Scanners opcionales — `kj audit` + `kj webperf`
 
