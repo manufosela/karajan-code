@@ -23,6 +23,7 @@ import { getHarnessScorecardChecks } from "../checks/harness-scorecard.js";
 import { getCiChecks } from "../checks/ci.js";
 import { getRtkChecks } from "../checks/rtk.js";
 import { getSqueezrChecks } from "../checks/squeezr.js";
+import { getQmdChecks } from "../checks/qmd.js";
 import { getNodeChecks } from "../checks/node.js";
 import { getPortChecks } from "../checks/ports.js";
 import { getTokenChecks } from "../checks/tokens.js";
@@ -66,6 +67,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getCiChecks(),
     ...getRtkChecks(),
     ...getSqueezrChecks(),
+    ...getQmdChecks(),
     ...getProjectChecks({ projectDir }),
   ];
 }
