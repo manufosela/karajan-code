@@ -19,3 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   two back-to-back snapshots keep a stable order. No runtime dep — fewer
   transitive surfaces under the trash store. `decodeTimeFromUlid` rebuilds
   the timestamp for diagnostics.
+- Manifest record-keeping primitives (`src/manifest.js`, KJC-TSK-0388
+  commit 2b): atomic load/save (tmp + rename, `0o600` mode, schemaVersion
+  gate), `addEntry`/`listEntries`/`removeEntry` CRUD, TTL drop via
+  `expireBefore`, and byte-budget LRU eviction via `enforceLruQuota`.
+  Real filesystem snapshots still land in commit 4.
