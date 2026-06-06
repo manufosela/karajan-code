@@ -4,6 +4,7 @@ import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
+import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
 import { watchStartCommand, watchStopCommand, watchStatusCommand } from "../commands/watch.js";
 import { auditCommand } from "../commands/audit.js";
@@ -170,6 +171,24 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Start the standalone RAG MCP server (kj_rag_query + kj_rag_index only). Same as running `kj-rag-mcp` directly")
     .action(async () => {
       await ragMcpCommand();
+    });
+
+  // KJC-TSK-0509 — `kj qmd query` is a thin wrapper around the upstream
+  // `qmd` binary that auto-resolves the project's collection (rag = agent
+  // context; qmd = human wiki). One subcommand for now; index/add live in
+  // `kj init` and `kj rag install-hooks` (post-merge reindex).
+  const qmd = program.command("qmd").description("Semantic search over the per-project QMD wiki (docs/, .reviews/, .karajan/plans/)");
+  qmd.command("query <text>")
+    .description("Run a qmd query against the wiki collection of the current project")
+    .option("--collection <name>", "Override the auto-resolved <slug>-<suffix> collection name")
+    .option("--scope <name>", "docs (default) | reviews | plans", "docs")
+    .option("--top-k <n>", "Number of hits to return (1..50, default 10)", "10")
+    .option("--fast", "Skip the LLM reranker (faster, slightly noisier hits)")
+    .option("--json", "Emit the raw JSON array for piping to jq")
+    .action(async (text, flags) => {
+      await withConfig(pkgVersion, "qmd-query", flags, async ({ config, logger }) => {
+        await qmdQueryCommand({ text, config, logger, flags });
+      });
     });
 
   // KJC-TSK-0441 — `kj watch [start|stop|status]` for live RAG re-index.
