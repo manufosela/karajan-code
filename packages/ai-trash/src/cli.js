@@ -1,7 +1,13 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { loadManifest, saveManifest, removeEntry } from "./manifest.js";
-import { restoreSnapshot } from "./snapshot.js";
+import {
+  loadManifest,
+  saveManifest,
+  removeEntry,
+  expireBefore,
+  enforceLruQuota,
+} from "./manifest.js";
+import { restoreSnapshot, purgeSnapshot } from "./snapshot.js";
 import { ensureSecureDir, assertOwnedByCurrentUser } from "./permissions.js";
 
 export const DEFAULT_ROOT = process.env.AI_TRASH_ROOT || join(homedir(), ".ai-trash");
@@ -76,11 +82,51 @@ async function cmdRestore(root, id, target, out, err) {
   return 0;
 }
 
+async function cmdPurge(root, id, out, err) {
+  await ensureRoot(root);
+  const m = await loadManifest(root);
+  const entry = m.entries.find((e) => e.id === id);
+  if (!entry) {
+    err.write(`kj-trash: no entry with id ${id}\n`);
+    return 1;
+  }
+  await purgeSnapshot(root, entry);
+  removeEntry(m, id);
+  await saveManifest(root, m);
+  out.write(`kj-trash: purged ${id}\n`);
+  return 0;
+}
+
+async function cmdEmpty(root, flags, out) {
+  await ensureRoot(root);
+  const m = await loadManifest(root);
+  let dropped = [];
+  if (flags["older-than-days"]) {
+    const days = Number(flags["older-than-days"]);
+    if (!Number.isFinite(days) || days < 0) throw new Error("--older-than-days must be >= 0");
+    dropped = expireBefore(m, Date.now() - days * 86400 * 1000);
+  } else if (flags["max-bytes"]) {
+    const max = Number(flags["max-bytes"]);
+    if (!Number.isFinite(max) || max < 0) throw new Error("--max-bytes must be >= 0");
+    dropped = enforceLruQuota(m, max);
+  } else {
+    dropped = m.entries.slice();
+    m.entries = [];
+  }
+  for (const e of dropped) await purgeSnapshot(root, e);
+  await saveManifest(root, m);
+  out.write(`kj-trash: emptied ${dropped.length} snapshot(s)\n`);
+  return 0;
+}
+
 const HELP =
   "usage: kj-trash <command> [args]\n" +
   "  list                       list snapshots oldest-first\n" +
   "  inspect <id>               print snapshot metadata as JSON\n" +
   "  restore <id> [--to PATH]   restore a snapshot (default: original path)\n" +
+  "  purge <id>                 delete a single snapshot\n" +
+  "  empty [--older-than-days N | --max-bytes N]\n" +
+  "                             drop all (or filtered) snapshots\n" +
   "env: AI_TRASH_ROOT (default ~/.ai-trash)\n";
 
 export async function runCli(argv, io = {}) {
@@ -98,6 +144,11 @@ export async function runCli(argv, io = {}) {
     case "restore":
       if (!arg1) { err.write("kj-trash: restore requires <id>\n"); return 2; }
       return cmdRestore(root, arg1, typeof flags.to === "string" ? flags.to : undefined, out, err);
+    case "purge":
+      if (!arg1) { err.write("kj-trash: purge requires <id>\n"); return 2; }
+      return cmdPurge(root, arg1, out, err);
+    case "empty":
+      return cmdEmpty(root, flags, out);
     case "help":
     case "--help":
     case undefined:
