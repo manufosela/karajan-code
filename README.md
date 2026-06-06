@@ -121,7 +121,7 @@ pip install .
 
 Both options expect the `kj` binary to be on your `PATH` (via one of the methods above) — the Python wrapper does not vendor it.
 
-That's it. `kj init` auto-detects your installed agents and installs the bundled integrations (RTK + Squeezr) for token optimization.
+That's it. `kj init` auto-detects your installed agents and installs the bundled integrations (RTK + Squeezr for token optimization; QMD for the per-project semantic wiki).
 
 ### Optional scanners for `kj audit` + `kj webperf`
 
@@ -374,6 +374,7 @@ These ship with Karajan and `kj init` installs them as part of setup. They're to
 |------|-----------|-----|
 | [**RTK**](https://github.com/rtk-ai/rtk) | Karajan (auto, on Bash outputs) | Reduces token consumption by 60-90% on Bash command outputs |
 | [**Squeezr**](https://www.npmjs.com/package/squeezr-ai) | Karajan (auto, on agent tool outputs) | Compresses verbose tool results before they reach the agent context |
+| [**QMD**](https://github.com/manufosela/qmd) | Karajan (`kj init` auto-registers `docs/`, `.reviews/`, `.karajan/plans/`); you (via `kj qmd query`) | Per-project semantic wiki for **humans**. Complements the **agent-facing** RAG index — `kj rag query` is what the pipeline reads; `kj qmd query` is what you read |
 
 ## Recommended companions
 
@@ -381,7 +382,6 @@ None of these are required. Karajan runs fine on its own. They're tools that, wh
 
 | Tool | Invoked by | Why |
 |------|-----------|-----|
-| [**QMD**](https://github.com/manufosela/qmd) | You (CLI / MCP), complementary to RAG | Semantic search engine over Markdown corpora — works alongside `kj rag query` when you want a richer index over your own docs |
 | [**GitHub MCP**](https://github.com/github/github-mcp-server) | Your AI agent (via MCP) | Create PRs, manage issues directly from the agent |
 | [**Chrome DevTools MCP**](https://github.com/ChromeDevTools/chrome-devtools-mcp) | Your AI agent (via MCP) | Verify UI changes visually after frontend modifications |
 
