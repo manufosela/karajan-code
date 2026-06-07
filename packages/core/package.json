@@ -10,7 +10,9 @@
   "exports": {
     "./atomic-write": "./src/atomic-write.js",
     "./shared-paths": "./src/shared-paths.js",
-    "./port-check": "./src/port-check.js"
+    "./port-check": "./src/port-check.js",
+    "./paths": "./src/paths.js",
+    "./run-registry": "./src/run-registry.js"
   },
   "scripts": {
     "test": "vitest run"

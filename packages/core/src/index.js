@@ -6,3 +6,5 @@
 export * from "./atomic-write.js";
 export * from "./shared-paths.js";
 export * from "./port-check.js";
+export * from "./paths.js";
+export * from "./run-registry.js";
