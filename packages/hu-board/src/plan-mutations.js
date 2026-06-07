@@ -22,7 +22,7 @@ import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';
 import { getHuBoardRunsDir } from './db.js';
 import { fileURLToPath } from 'node:url';
-import { updateHuStatus, certifyAllHus, updateHu } from '../../../src/plan/plan-hu-ops.js';
+import { updateHuStatus, certifyAllHus, updateHu } from '@karajan/core/plan-hu-ops';
 import { validateBlockedByChange } from '../../../src/plan/plan-validation.js';
 import { syncPlanFile } from './sync.js';
 import { getDb } from './db.js';

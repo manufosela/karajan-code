@@ -13,7 +13,9 @@
     "./port-check": "./src/port-check.js",
     "./paths": "./src/paths.js",
     "./run-registry": "./src/run-registry.js",
-    "./vec-store": "./src/vec-store.js"
+    "./vec-store": "./src/vec-store.js",
+    "./plan-id": "./src/plan-id.js",
+    "./plan-hu-ops": "./src/plan-hu-ops.js"
   },
   "scripts": {
     "test": "vitest run"
