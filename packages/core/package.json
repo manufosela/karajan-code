@@ -1,0 +1,19 @@
+{
+  "name": "@karajan/core",
+  "version": "0.1.0",
+  "description": "Shared modules for Karajan Code CLI and @karajan/hu-board (atomic-write, paths, RAG store, plan ops, process runner).",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.22.1"
+  },
+  "exports": {
+    "./atomic-write": "./src/atomic-write.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.0"
+  }
+}
