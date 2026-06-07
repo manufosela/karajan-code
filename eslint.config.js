@@ -175,6 +175,11 @@ export default [
       "src/utils/update-check.js",
       "src/utils/display/**/*.js",
       "src/utils/logger.js",
+      // Shared CLI prompt helper used by run.js + resume.js (KJC-BUG-0081
+      // round 2). Same UX surface as src/commands/**/*.js — was inlined
+      // there until the duplicate copy in resume.js shipped without the
+      // --yes guard. Lives in utils/ now for DRY, keeps the same allow.
+      "src/utils/cli-ask-question.js",
       // The orchestrator drivers below print user-facing run banners
       // (board URL, plan summary). They're terminal output, not log
       // lines that would benefit from a structured logger.
