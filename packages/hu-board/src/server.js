@@ -238,7 +238,7 @@ async function main() {
   //   - cooldownUntil > now  → re-programa setTimeout que dispara en cooldown
   // Idempotente (lockfile per session). Cero polling.
   try {
-    const { reconcileAll } = await import('../../../src/brain/standby-scheduler.js');
+    const { reconcileAll } = await import('@karajan/core/standby-scheduler');
     const { spawn } = await import('node:child_process');
     const { join, dirname } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
