@@ -9,3 +9,5 @@ export * from "./port-check.js";
 export * from "./paths.js";
 export * from "./run-registry.js";
 export * from "./vec-store.js";
+export * from "./plan-id.js";
+export * from "./plan-hu-ops.js";
