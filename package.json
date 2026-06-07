@@ -27,7 +27,8 @@
     "node": ">=22.22.1"
   },
   "workspaces": [
-    "packages/ai-trash"
+    "packages/ai-trash",
+    "packages/core"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
