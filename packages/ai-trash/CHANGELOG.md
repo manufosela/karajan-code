@@ -45,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `empty` drops every snapshot by default, with `--older-than-days N`
   (TTL sweep via `expireBefore`) and `--max-bytes N` (LRU eviction via
   `enforceLruQuota`) filters. Each removal is audited.
+- Destructive-command parser (`src/destructive-parser.js`,
+  KJC-TSK-0390 commit 1): pure classifier the upcoming PreToolUse hook
+  feeds Bash commands into. Recognises `rm` / `rm -rf`, `truncate`,
+  `> file` redirect clobbers, `mv`/`cp` overwrite candidates, and the
+  destructive corners of `git` (`reset --hard`, `clean -f`,
+  `branch -D`, `push --force`, `checkout -- <path>`). Conservative by
+  design: anything not proven safe is reported as destructive so the
+  hook fails closed.
 - End-to-end smoke (`tests/e2e.test.js`, KJC-TSK-0388 commit 7): drives the
   full pipeline against a sandbox root — programmatic `snapshotFile`, then
   `runCli` through `list` → `inspect` → `restore --to` → re-snapshot →
