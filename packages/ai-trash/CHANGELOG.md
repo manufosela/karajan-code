@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the `kj-trash hook` command under `hooks.PreToolUse[matcher=Bash]`.
   Preserves unrelated keys and any other PreToolUse matchers / hook
   entries the user already has. Second run is a no-op.
+- `kj doctor` + `kj init` integration (KJC-TSK-0391): doctor surfaces a
+  WARN when `kj-trash` is missing on PATH; init auto-registers the hook
+  via `kj-trash install --claude-code` when the binary is present
+  (opt-out: `--no-ai-trash`). Default-on, paridad RTK/Squeezr.
 - Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
   subcommand, KJC-TSK-0390 commit 2): reads the JSON payload on stdin,
   classifies the Bash command, snapshots existing target paths, and
