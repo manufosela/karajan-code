@@ -28,7 +28,8 @@
   },
   "workspaces": [
     "packages/ai-trash",
-    "packages/core"
+    "packages/core",
+    "packages/hu-board"
   ],
   "imports": {
     "#utils/*": "./src/utils/*",
