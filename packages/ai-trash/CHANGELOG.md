@@ -69,6 +69,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   not a git repo, the hook allows with a no-op audit entry (the git
   command would fail anyway). All other bundle errors keep fail-closed
   behaviour so Claude never destroys refs without a recovery copy.
+- `restoreGitBundle` + `kj-trash restore` dispatch for git bundles
+  (`src/git-snapshot.js` + `src/cli.js`, KJC-TSK-0389 commit 3):
+  `restoreGitBundle(rootDir, entry, targetRepo)` runs
+  `git fetch <bundle> +refs/heads/*:refs/remotes/restore/*` against
+  the target repo so the pre-op refs land under `restore/*` without
+  clobbering the working tree, and audits a `snapshot.restore-bundle`
+  event. `kj-trash restore <id>` now inspects `entry.type` and calls
+  the bundle restore for `git-bundle` entries while keeping the file
+  flow untouched. Bundle entries stay in the manifest so the same
+  bundle can be re-fetched repeatedly.
 - Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
   subcommand, KJC-TSK-0390 commit 2): reads the JSON payload on stdin,
   classifies the Bash command, snapshots existing target paths, and

@@ -85,3 +85,44 @@ export async function snapshotGitBundle(rootDir, repoDir, options = {}) {
   });
   return entry;
 }
+
+/**
+ * Replay a `git-bundle` snapshot into a target repository. Runs
+ * `git fetch <bundlePath> +refs/heads/*:refs/remotes/restore/*` so the
+ * pre-op refs land under `restore/*` and can be inspected, checked out,
+ * or `reset --hard`-ed back without clobbering anything in the current
+ * working tree. Leaves the manifest entry intact so repeated fetches
+ * remain possible (the bundle is not deleted).
+ *
+ * @param {string} rootDir - ai-trash root (for audit).
+ * @param {object} entry - manifest entry with type `git-bundle`.
+ * @param {string} [targetRepo] - destination repo (default: entry.sourcePath).
+ * @returns {Promise<{ repo: string, refspec: string, refCount: number }>}
+ */
+export async function restoreGitBundle(rootDir, entry, targetRepo) {
+  if (entry?.type !== "git-bundle") {
+    throw new Error(`ai-trash: not a git-bundle entry: ${entry?.id ?? "<missing>"}`);
+  }
+  const repo = targetRepo ?? entry.sourcePath;
+  const insideRepo = await runGit(["rev-parse", "--is-inside-work-tree"], repo);
+  if (insideRepo.code !== 0 || insideRepo.stdout.trim() !== "true") {
+    throw new Error(`ai-trash: restore target is not a git repo: ${repo}`);
+  }
+  try {
+    await fs.stat(entry.snapshotPath);
+  } catch {
+    throw new Error(`ai-trash: bundle missing on disk: ${entry.snapshotPath}`);
+  }
+  const refspec = "+refs/heads/*:refs/remotes/restore/*";
+  const fetched = await runGit(["fetch", entry.snapshotPath, refspec], repo);
+  if (fetched.code !== 0) {
+    throw new Error(`ai-trash: git fetch failed: ${fetched.stderr.trim()}`);
+  }
+  await appendLogEntry(rootDir, "snapshot.restore-bundle", {
+    id: entry.id,
+    bundlePath: entry.snapshotPath,
+    targetRepo: repo,
+    refCount: entry.refs?.length ?? 0,
+  });
+  return { repo, refspec, refCount: entry.refs?.length ?? 0 };
+}

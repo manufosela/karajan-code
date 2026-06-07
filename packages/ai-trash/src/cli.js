@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import process from "node:process";
 import {
   loadManifest,
   saveManifest,
@@ -8,6 +9,7 @@ import {
   enforceLruQuota,
 } from "./manifest.js";
 import { restoreSnapshot, purgeSnapshot } from "./snapshot.js";
+import { restoreGitBundle } from "./git-snapshot.js";
 import { ensureSecureDir, assertOwnedByCurrentUser } from "./permissions.js";
 import { runHook } from "./hook.js";
 import { installClaudeCodeHook, DEFAULT_SETTINGS_PATH } from "./install.js";
@@ -52,7 +54,9 @@ async function cmdList(root, out) {
   const now = Date.now();
   out.write("ID                          AGE   BYTES  SOURCE\n");
   for (const e of m.entries) {
-    out.write(`${e.id}  ${shortAge(now - e.createdAt).padStart(4)}  ${String(e.sizeBytes).padStart(5)}  ${e.sourcePath}\n`);
+    out.write(
+      `${e.id}  ${shortAge(now - e.createdAt).padStart(4)}  ${String(e.sizeBytes).padStart(5)}  ${e.sourcePath}\n`
+    );
   }
   return 0;
 }
@@ -76,6 +80,13 @@ async function cmdRestore(root, id, target, out, err) {
   if (!entry) {
     err.write(`kj-trash: no entry with id ${id}\n`);
     return 1;
+  }
+  if (entry.type === "git-bundle") {
+    const res = await restoreGitBundle(root, entry, target);
+    out.write(
+      `kj-trash: fetched bundle ${id} -> ${res.repo} (${res.refCount} ref(s) at refs/remotes/restore/*)\n`
+    );
+    return 0;
   }
   const written = await restoreSnapshot(root, entry, target);
   removeEntry(m, id);
@@ -144,20 +155,32 @@ export async function runCli(argv, io = {}) {
     case "list":
       return cmdList(root, out);
     case "inspect":
-      if (!arg1) { err.write("kj-trash: inspect requires <id>\n"); return 2; }
+      if (!arg1) {
+        err.write("kj-trash: inspect requires <id>\n");
+        return 2;
+      }
       return cmdInspect(root, arg1, out, err);
     case "restore":
-      if (!arg1) { err.write("kj-trash: restore requires <id>\n"); return 2; }
+      if (!arg1) {
+        err.write("kj-trash: restore requires <id>\n");
+        return 2;
+      }
       return cmdRestore(root, arg1, typeof flags.to === "string" ? flags.to : undefined, out, err);
     case "purge":
-      if (!arg1) { err.write("kj-trash: purge requires <id>\n"); return 2; }
+      if (!arg1) {
+        err.write("kj-trash: purge requires <id>\n");
+        return 2;
+      }
       return cmdPurge(root, arg1, out, err);
     case "empty":
       return cmdEmpty(root, flags, out);
     case "hook":
       return runHook({ root, stdin: io.stdin ?? process.stdin, stdout: out });
     case "install": {
-      if (!flags["claude-code"]) { err.write("kj-trash: install requires --claude-code\n"); return 2; }
+      if (!flags["claude-code"]) {
+        err.write("kj-trash: install requires --claude-code\n");
+        return 2;
+      }
       const path = typeof flags.settings === "string" ? flags.settings : DEFAULT_SETTINGS_PATH;
       const res = await installClaudeCodeHook({ path });
       out.write(`kj-trash: ${res.mutated ? "installed" : "already installed"} -> ${res.path}\n`);
