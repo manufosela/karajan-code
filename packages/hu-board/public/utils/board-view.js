@@ -372,6 +372,10 @@ function renderStoryCard(story) {
             ${story.quality_total}/60 ${qualityBar(story.quality_total)}
           </span>
         ` : ''}
+        ${(() => {
+          const c = formatCost(story.cost_usd);
+          return c ? `<span class="story-card__cost" title="${esc(c.tooltip)}">💵 ${esc(c.label)}</span>` : '';
+        })()}
       </div>
       ${missingTestContract ? `
         <div class="story-card__meta" style="margin-top:4px;font-size:0.75rem;color:var(--color-yellow,#eab308);font-weight:600" title="This HU has no acceptance_tests declared — Run plan will reject it until you add at least one.">
