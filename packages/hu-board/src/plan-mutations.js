@@ -230,7 +230,7 @@ export async function revertHuFromSnapshot({ planId, huId, projectId }) {
   const projectDir = plan.projectDir;
   if (!projectDir) return { ok: false, error: 'plan sin projectDir' };
 
-  const { restoreHuSnapshot } = await import('../../../src/git/hu-snapshot.js');
+  const { restoreHuSnapshot } = await import('@karajan/core/hu-snapshot');
   const restore = await restoreHuSnapshot({ projectDir, huId });
   if (!restore.ok) return { ok: false, error: `restore falló: ${restore.error}` };
 

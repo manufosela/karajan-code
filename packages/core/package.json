@@ -17,7 +17,8 @@
     "./plan-id": "./src/plan-id.js",
     "./plan-hu-ops": "./src/plan-hu-ops.js",
     "./plan-validation": "./src/plan-validation.js",
-    "./process": "./src/process.js"
+    "./process": "./src/process.js",
+    "./hu-snapshot": "./src/hu-snapshot.js"
   },
   "scripts": {
     "test": "vitest run"
