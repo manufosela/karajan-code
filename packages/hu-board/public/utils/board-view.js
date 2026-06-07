@@ -35,7 +35,11 @@ async function renderBoard() {
       return;
     }
 
-    const stories = await api(`/api/projects/${encodeURIComponent(selectedProject)}/stories`);
+    const [stories, projectCost] = await Promise.all([
+      api(`/api/projects/${encodeURIComponent(selectedProject)}/stories`),
+      api(`/api/projects/${encodeURIComponent(selectedProject)}/cost`).catch(() => null),
+    ]);
+    const costSummary = projectCost ? formatProjectCostSummary(projectCost) : null;
 
     // Pre-resolve project initials + name for every distinct project_id in
     // the fetched stories so `renderStoryCard` is synchronous and the header
@@ -96,6 +100,7 @@ async function renderBoard() {
                   onclick="event.stopPropagation(); window.renameProjectModal('${esc(selectedProject)}', '${esc(projectDisplayName.replace(/'/g, '&#39;'))}');">✎</button>
         ` : ''}
         <span class="section-header__count">${stories.length} stories</span>
+        ${costSummary ? `<span class="section-header__cost" title="${esc(costSummary.tooltip)}">💵 ${esc(costSummary.label)}</span>` : ''}
         ${isRunning ? `
           <button id="running-badge-btn" class="section-header__badge"
                 style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;border:none;cursor:pointer;"

@@ -87,6 +87,58 @@ export function formatCost(costUsd) {
   };
 }
 
+/**
+ * Format the aggregated project-level cost chip rendered in the board
+ * header. Cost G (KJC-TSK-0518). Consumes the shape returned by
+ * `GET /api/projects/:id/cost` (Cost E):
+ *   { totalUsd, byPlan: [{planId, totalUsd, huCount}, …],
+ *     unknownModelTokens: { tokensIn, tokensOut, models }, currency }
+ *
+ * Returns `{ label, tooltip }` where:
+ *   - `label` is the compact "Total: $X.XX" shown in the header.
+ *   - `tooltip` is a multi-line string with full precision, the
+ *     per-plan breakdown, and a note when some tokens used a model we
+ *     don't price (they aren't included in the total — surfacing the
+ *     skip is more honest than silently swallowing it).
+ *
+ * Returns `null` when there is nothing to show (no input, or no
+ * measured cost yet and no plans). The chip is then hidden — same
+ * reasoning as `formatCost`: "$0.00" with no data is misleading.
+ *
+ * @param {{totalUsd:number, byPlan?:Array, unknownModelTokens?:object}|null|undefined} cost
+ * @returns {{ label: string, tooltip: string } | null}
+ */
+export function formatProjectCostSummary(cost) {
+  if (!cost || typeof cost !== "object") return null;
+  const total = Number(cost.totalUsd);
+  if (!Number.isFinite(total)) return null;
+  const byPlan = Array.isArray(cost.byPlan) ? cost.byPlan : [];
+  if (total === 0 && byPlan.length === 0) return null;
+
+  const lines = [`Total: $${total.toFixed(4)}`];
+  if (byPlan.length > 0) {
+    lines.push("By plan:");
+    for (const p of byPlan) {
+      const planTotal = Number(p?.totalUsd);
+      if (!Number.isFinite(planTotal)) continue;
+      const huCount = Number.isFinite(p?.huCount) ? p.huCount : 0;
+      const planLabel = p?.planId || "unassigned";
+      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})`);
+    }
+  }
+  const unk = cost.unknownModelTokens;
+  if (unk && Number.isFinite(unk.tokensIn) && Number.isFinite(unk.tokensOut)) {
+    const unkTotal = unk.tokensIn + unk.tokensOut;
+    if (unkTotal > 0) {
+      lines.push(`(${unkTotal} tokens with unknown pricing not included)`);
+    }
+  }
+  return {
+    label: `Total: $${total.toFixed(2)}`,
+    tooltip: lines.join("\n"),
+  };
+}
+
 export function formatSessionLabel(session) {
   if (!session || !session.id) {
     return { title: "(no session)", subtitle: "", idChip: "" };
