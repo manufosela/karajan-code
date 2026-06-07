@@ -19,6 +19,8 @@ here.
 | `@karajan/core/atomic-write` | `writeJsonAtomic`, `writeJsonAtomicSync` |
 | `@karajan/core/shared-paths` | `SHARED_DIR_NAME`, `getSharedRoot`, `getSharedPlansDir`, `getSharedHuStoriesDir`, `isSharedPath` |
 | `@karajan/core/port-check` | `isPortAvailable`, `findAvailablePort` |
+| `@karajan/core/paths` | `resolveHome`, `getKarajanHome`, `getSessionRoot`, `getSonarComposePath`, `getOllamaComposePath`, `getWebperfDir`, `getRunsDir`, `getPromptsDir`, `__resetKjHomeWarningForTests` |
+| `@karajan/core/run-registry` | `runsDir`, `registerRun`, `unregisterRun`, `listActiveRuns` |
 
 The root export (`@karajan/core`) re-exports everything via the barrel
 in `src/index.js`, but prefer the subpath form so the bundler can
@@ -26,5 +28,5 @@ tree-shake unused modules.
 
 ## Status
 
-KJC-TSK-0511 PR1 — skeleton + first extraction (`atomic-write`). See the
-task card for the full roadmap.
+KJC-TSK-0511 PR3 — `paths` + `run-registry` extracted. See the task card
+for the full roadmap.
