@@ -45,6 +45,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `empty` drops every snapshot by default, with `--older-than-days N`
   (TTL sweep via `expireBefore`) and `--max-bytes N` (LRU eviction via
   `enforceLruQuota`) filters. Each removal is audited.
+- Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
+  subcommand, KJC-TSK-0390 commit 2): reads the JSON payload Claude
+  Code writes on stdin, classifies the Bash command via the
+  destructive-parser, and snapshots any existing target paths before
+  replying `{ permissionDecision: "allow", permissionDecisionReason }`.
+  Fail-closed: if `snapshotFile` (or root permissions hardening) throws,
+  the hook replies `"deny"` so Claude never runs a destructive op
+  without a recovery copy. Audited via `hook.allow` / `hook.deny`
+  entries in the JSONL log.
 - Destructive-command parser (`src/destructive-parser.js`,
   KJC-TSK-0390 commit 1): pure classifier the upcoming PreToolUse hook
   feeds Bash commands into. Recognises `rm` / `rm -rf`, `truncate`,
