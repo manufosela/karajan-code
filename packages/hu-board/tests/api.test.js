@@ -365,3 +365,55 @@ describe('GET /api/standby', () => {
     expect(res.body.sessions[0].planId).toBe('p1');
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/projects/:id/cost (KJC-TSK-0516, Cost E)
+// ---------------------------------------------------------------------------
+describe('GET /api/projects/:id/cost', () => {
+  it('aggregates totalUsd and groups by plan_id', async () => {
+    dbMod.upsertProject({ id: 'proj-cost', name: 'Cost Project' });
+    dbMod.upsertStory({ id: 'st-c1', project_id: 'proj-cost', plan_id: 'plan-A' });
+    dbMod.upsertStory({ id: 'st-c2', project_id: 'proj-cost', plan_id: 'plan-A' });
+    dbMod.upsertStory({ id: 'st-c3', project_id: 'proj-cost', plan_id: 'plan-B' });
+    dbMod.setStoryCost('st-c1', 1.25);
+    dbMod.setStoryCost('st-c2', 0.75);
+    dbMod.setStoryCost('st-c3', 0.5);
+
+    const res = await request(app).get('/api/projects/proj-cost/cost');
+    expect(res.status).toBe(200);
+    expect(res.body.currency).toBe('USD');
+    expect(res.body.totalUsd).toBe(2.5);
+    expect(res.body.byPlan).toHaveLength(2);
+    // sorted by totalUsd desc → plan-A (2.0) before plan-B (0.5)
+    expect(res.body.byPlan[0]).toEqual({ planId: 'plan-A', totalUsd: 2, huCount: 2 });
+    expect(res.body.byPlan[1]).toEqual({ planId: 'plan-B', totalUsd: 0.5, huCount: 1 });
+    expect(res.body.unknownModelTokens).toEqual({ tokensIn: 0, tokensOut: 0, models: [] });
+  });
+
+  it('returns totalUsd=0 and empty byPlan when no story has cost', async () => {
+    dbMod.upsertProject({ id: 'proj-cost-empty', name: 'Empty' });
+    dbMod.upsertStory({ id: 'st-e1', project_id: 'proj-cost-empty', plan_id: 'plan-X' });
+
+    const res = await request(app).get('/api/projects/proj-cost-empty/cost');
+    expect(res.status).toBe(200);
+    expect(res.body.totalUsd).toBe(0);
+    expect(res.body.byPlan).toEqual([]);
+  });
+
+  it('groups stories with NULL plan_id under "unassigned"', async () => {
+    dbMod.upsertProject({ id: 'proj-cost-na', name: 'NoPlan' });
+    dbMod.upsertStory({ id: 'st-na1', project_id: 'proj-cost-na' });
+    dbMod.setStoryCost('st-na1', 0.1);
+
+    const res = await request(app).get('/api/projects/proj-cost-na/cost');
+    expect(res.status).toBe(200);
+    expect(res.body.byPlan[0].planId).toBe('unassigned');
+    expect(res.body.byPlan[0].huCount).toBe(1);
+  });
+
+  it('returns 404 for unknown project', async () => {
+    const res = await request(app).get('/api/projects/nonexistent/cost');
+    expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty('error');
+  });
+});

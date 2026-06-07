@@ -630,6 +630,53 @@ export function getStoriesByProject(projectId) {
 }
 
 /**
+ * Aggregate $ cost for a project (KJC-TSK-0516, Cost E).
+ * Sums stories.cost_usd, groups by plan_id ('unassigned' for NULL).
+ * Returns null if project does not exist; otherwise an object with
+ * totalUsd=0 and byPlan=[] when no stories carry cost_usd yet.
+ * @param {string} projectId
+ * @returns {{ totalUsd:number, byPlan:Array<{planId:string,totalUsd:number,huCount:number}>, unknownModelTokens:object, currency:string } | null}
+ */
+export function getProjectCost(projectId) {
+  const project = getDb()
+    .prepare('SELECT id FROM projects WHERE id = ?')
+    .get(projectId);
+  if (!project) return null;
+
+  const rows = getDb()
+    .prepare(
+      `SELECT plan_id, cost_usd FROM stories
+       WHERE project_id = ? AND cost_usd IS NOT NULL`
+    )
+    .all(projectId);
+
+  const round4 = (n) => Math.round(n * 10000) / 10000;
+  const byPlanMap = new Map();
+  let totalUsd = 0;
+  for (const r of rows) {
+    const planId = r.plan_id || 'unassigned';
+    const cost = Number(r.cost_usd);
+    if (!Number.isFinite(cost)) continue;
+    totalUsd += cost;
+    const cur = byPlanMap.get(planId) || { planId, totalUsd: 0, huCount: 0 };
+    cur.totalUsd += cost;
+    cur.huCount += 1;
+    byPlanMap.set(planId, cur);
+  }
+
+  const byPlan = Array.from(byPlanMap.values())
+    .map((p) => ({ planId: p.planId, totalUsd: round4(p.totalUsd), huCount: p.huCount }))
+    .sort((a, b) => b.totalUsd - a.totalUsd);
+
+  return {
+    totalUsd: round4(totalUsd),
+    byPlan,
+    unknownModelTokens: { tokensIn: 0, tokensOut: 0, models: [] },
+    currency: 'USD',
+  };
+}
+
+/**
  * Returns full story detail including context requests.
  * @param {string} storyId
  * @returns {object | null}

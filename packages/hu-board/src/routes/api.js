@@ -22,6 +22,7 @@ import {
   listPlanIdsForProject,
   updateStoryStatus,
   setProjectIsTest,
+  getProjectCost,
 } from '../db.js';
 import { fullScan } from '../sync.js';
 import { setHuStatus, setHuFields, markPlanReady, runPlan, renameProject, revertHuFromSnapshot } from '../plan-mutations.js';
@@ -280,6 +281,20 @@ router.get('/stories/:id', (req, res) => {
     const story = getStoryDetail(req.params.id);
     if (!story) return res.status(404).json({ error: 'Story not found' });
     res.json(story);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/projects/:id/cost - Aggregated $ cost for a project (KJC-TSK-0516).
+ * Sums stories.cost_usd, groups by plan_id, returns 404 if project missing.
+ */
+router.get('/projects/:id/cost', (req, res) => {
+  try {
+    const cost = getProjectCost(req.params.id);
+    if (!cost) return res.status(404).json({ error: 'Project not found' });
+    res.json(cost);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
