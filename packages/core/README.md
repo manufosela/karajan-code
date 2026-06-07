@@ -17,6 +17,8 @@ here.
 | Subpath | Module |
 | --- | --- |
 | `@karajan/core/atomic-write` | `writeJsonAtomic`, `writeJsonAtomicSync` |
+| `@karajan/core/shared-paths` | `SHARED_DIR_NAME`, `getSharedRoot`, `getSharedPlansDir`, `getSharedHuStoriesDir`, `isSharedPath` |
+| `@karajan/core/port-check` | `isPortAvailable`, `findAvailablePort` |
 
 The root export (`@karajan/core`) re-exports everything via the barrel
 in `src/index.js`, but prefer the subpath form so the bundler can

@@ -17,7 +17,7 @@ import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
-import { findAvailablePort as findAvailablePortBase } from '../../../src/utils/port-check.js';
+import { findAvailablePort as findAvailablePortBase } from '@karajan/core/port-check';
 
 /**
  * Path to the PID file the CLI's `kj board start` / `kj board stop`
