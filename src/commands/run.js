@@ -1,5 +1,4 @@
 import { EventEmitter } from "node:events";
-import readline from "node:readline";
 import { runFlow } from "../orchestrator.js";
 import { assertAgentsAvailable } from "../agents/availability.js";
 import { createActivityLog } from "../activity-log.js";
@@ -14,68 +13,11 @@ import { confirmCwd } from "../utils/cwd-confirm.js";
 import { runSpecReview } from "../spec-review/run-spec-review.js";
 import { maybeAutoUpdate } from "../rag/auto-update.js";
 
-export function createCliAskQuestion(opts = {}) {
-  const { sessionId = null, flags = {} } = opts;
-  return async (question, context) => {
-    // Three paths:
-    //   - Interactive TTY: prompt via readline (the developer's terminal).
-    //   - No TTY + --yes (CI / scripted / desatendido): KJC-BUG-0081 \u2014 never
-    //     route to the HU Board bridge in this case; the caller explicitly
-    //     asked NOT to be prompted. Print the unanswered question + context
-    //     to stderr and stop the session so the run fails fast and loud
-    //     instead of hanging on a modal nobody is watching.
-    //   - No TTY without --yes (board's \u25b6 Run plan with stdio=ignore): publish
-    //     the prompt through the file-based bridge so the HU Board can
-    //     surface it as a modal. The runner blocks on the bridge until
-    //     the user answers (or times out / kills the run).
-    const stdinReadable = process.stdin && process.stdin.readable !== false;
-    const isInteractive = Boolean(process.stdin?.isTTY) && stdinReadable;
-    if (!isInteractive) {
-      if (flags?.yes) {
-        process.stderr.write(
-          `\n[non-interactive --yes] Pipeline asked a question that cannot be auto-answered:\n`
-          + `  \u2753 ${question}\n`
-          + (context?.detail ? `  Context: ${JSON.stringify(context.detail)}\n` : "")
-          + `  Stopping the session. Re-run without --yes (TTY or HU Board) to answer it,\n`
-          + `  or pass --skip-spec-review / a more complete spec so the question never appears.\n`
-        );
-        return null;
-      }
-      const { askThroughBoard } = await import("../utils/board-prompt-bridge.js");
-      console.log(`\n\u2753 ${question}`);
-      if (context?.detail) {
-        console.log(`   Context: ${JSON.stringify(context.detail, null, 2)}`);
-      }
-      console.log(
-        "\n[non-interactive] Routing the prompt to the HU Board.\n"
-        + "  Open http://localhost:4000 \u2014 a modal will appear asking for your answer.\n"
-        + "  This process is now waiting; closing the board does NOT cancel the run."
-      );
-      try {
-        return await askThroughBoard({ sessionId, question, context });
-      } catch (err) {
-        console.log(`\n[prompt-bridge] ${err.message} \u2014 stopping the session.`);
-        return null;
-      }
-    }
-
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise((resolve) => {
-      console.log(`\n\u2753 ${question}`);
-      if (context?.detail) {
-        console.log(`   Context: ${JSON.stringify(context.detail, null, 2)}`);
-      }
-      rl.question("\n> Your response (or 'stop' to exit): ", (answer) => {
-        rl.close();
-        if (answer.trim().toLowerCase() === "stop") {
-          resolve(null);
-        } else {
-          resolve(answer.trim());
-        }
-      });
-    });
-  };
-}
+// Re-export the shared helper so existing imports (tests, MCP wrappers)
+// keep working. KJC-BUG-0081 round 2 split the body into utils/ because
+// resume.js also needs the same contract.
+import { createCliAskQuestion } from "../utils/cli-ask-question.js";
+export { createCliAskQuestion };
 
 export async function runCommandHandler({ task, config, logger, flags }) {
   // PR-F (cwd confirmation): when launching from an interactive
