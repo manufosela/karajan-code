@@ -18,7 +18,9 @@
     "./plan-hu-ops": "./src/plan-hu-ops.js",
     "./plan-validation": "./src/plan-validation.js",
     "./process": "./src/process.js",
-    "./hu-snapshot": "./src/hu-snapshot.js"
+    "./hu-snapshot": "./src/hu-snapshot.js",
+    "./standby-store": "./src/standby-store.js",
+    "./standby-scheduler": "./src/standby-scheduler.js"
   },
   "scripts": {
     "test": "vitest run"

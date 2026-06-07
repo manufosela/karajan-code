@@ -27,6 +27,8 @@ here.
 | `@karajan/core/plan-validation` | `validateBlockedByChange` |
 | `@karajan/core/process` | `runCommand` (execa wrapper with output streaming, silence/total timeouts, ENOENT enrichment) |
 | `@karajan/core/hu-snapshot` | `snapshotRefForHu`, `createHuSnapshot`, `hasHuSnapshot`, `restoreHuSnapshot`, `removeHuSnapshot` |
+| `@karajan/core/standby-store` | `persistStandby`, `loadStandby`, `listPendingStandby`, `markStandbyDone`, `acquireStandbyLock`, `buildStandbyState`, `standbyDir`, `standbyDoneDir` |
+| `@karajan/core/standby-scheduler` | `scheduleResume`, `cancelScheduled`, `reconcileAll`, `acquireStandbyLock`, `markStandbyDone`, `_resetScheduledForTests` |
 
 The root export (`@karajan/core`) re-exports everything via the barrel
 in `src/index.js`, but prefer the subpath form so the bundler can
@@ -34,7 +36,7 @@ tree-shake unused modules.
 
 ## Status
 
-KJC-TSK-0511 PR6 — `plan-validation` + `process` extracted. With this
-PR `@karajan/hu-board` no longer reaches into `../../../src` from any
-static import (dynamic `await import(...)` from `brain/`, `rag/`, and
-`git/hu-snapshot` remain pending for a follow-up).
+KJC-TSK-0511 PR8 — `standby-store` + `standby-scheduler` extracted.
+With this PR `@karajan/hu-board` no longer reaches into `../../../src`
+from any static **or dynamic** import. PR9 will re-add
+`packages/hu-board` to the root `workspaces` array.
