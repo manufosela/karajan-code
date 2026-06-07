@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatHHMM, shortTask, formatSessionLabel } from "../src/format.js";
+import { formatHHMM, shortTask, formatSessionLabel, formatCost } from "../src/format.js";
 
 describe("formatHHMM", () => {
   it("formats an ISO timestamp as HH:MM (24h, server-local)", () => {
@@ -118,5 +118,58 @@ describe("formatSessionLabel", () => {
   it("idChip always preserves the raw session id (kj resume needs it)", () => {
     const id = "s_2026-05-07T08-35-58-010Z";
     expect(formatSessionLabel({ id, project_name: "p", task: "t", created_at: "2026-05-07T08:35:00Z" }).idChip).toBe(id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCost — Cost F (KJC-TSK-0517)
+//
+// The HU card shows two precisions for the same cost: a compact "$X.XX"
+// label and a 4-decimal tooltip. The helper returns both atomically so
+// the rendering code can't accidentally show one without the other.
+// Null/undefined/NaN must return null so the badge is hidden — rendering
+// "$0.00" for an unmeasured HU would be misleading.
+// ---------------------------------------------------------------------------
+describe("formatCost", () => {
+  it("returns 2-decimal label and 4-decimal tooltip for a valid cost", () => {
+    expect(formatCost(0.0234)).toEqual({
+      label: "$0.02",
+      tooltip: "Estimated cost: $0.0234",
+    });
+  });
+
+  it("rounds the visible label but keeps full precision in tooltip", () => {
+    expect(formatCost(1.2356)).toEqual({
+      label: "$1.24",
+      tooltip: "Estimated cost: $1.2356",
+    });
+  });
+
+  it("returns null when cost is null (no badge → no false $0.00)", () => {
+    expect(formatCost(null)).toBeNull();
+  });
+
+  it("returns null when cost is undefined", () => {
+    expect(formatCost(undefined)).toBeNull();
+  });
+
+  it("returns null for NaN / Infinity", () => {
+    expect(formatCost(NaN)).toBeNull();
+    expect(formatCost(Infinity)).toBeNull();
+    expect(formatCost(-Infinity)).toBeNull();
+  });
+
+  it("renders $0.00 / $0.0000 only when cost is genuinely 0 (free run)", () => {
+    expect(formatCost(0)).toEqual({
+      label: "$0.00",
+      tooltip: "Estimated cost: $0.0000",
+    });
+  });
+
+  it("accepts numeric strings (SQLite REAL → JS sometimes ships as string)", () => {
+    expect(formatCost("0.5")).toEqual({
+      label: "$0.50",
+      tooltip: "Estimated cost: $0.5000",
+    });
   });
 });

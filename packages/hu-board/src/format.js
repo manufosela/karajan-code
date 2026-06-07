@@ -60,6 +60,33 @@ export function shortTask(text, max = MAX_TASK_CHARS) {
  *           created_at?: string|null }} session
  * @returns {{ title: string, subtitle: string, idChip: string }}
  */
+/**
+ * Format a per-HU cost (USD) for the card badge. Cost F (KJC-TSK-0517).
+ *
+ * Two outputs in one call so the UI can render both at once:
+ *   - `label`: 2-decimal "$X.XX" shown on the card (compact).
+ *   - `tooltip`: 4-decimal "Estimated cost: $X.XXXX" shown on hover
+ *     (matches the precision aggregated by Cost B/C/D, see
+ *     `packages/core/src/cost/index.js`).
+ *
+ * Returns `null` for null/undefined/non-finite inputs so the caller
+ * skips the badge entirely (rendering "$0.00" for an unknown cost
+ * would be misleading — there is a real difference between "we know it
+ * was free" and "we haven't measured it yet").
+ *
+ * @param {number|null|undefined} costUsd
+ * @returns {{ label: string, tooltip: string } | null}
+ */
+export function formatCost(costUsd) {
+  if (costUsd === null || costUsd === undefined) return null;
+  const n = Number(costUsd);
+  if (!Number.isFinite(n)) return null;
+  return {
+    label: `$${n.toFixed(2)}`,
+    tooltip: `Estimated cost: $${n.toFixed(4)}`,
+  };
+}
+
 export function formatSessionLabel(session) {
   if (!session || !session.id) {
     return { title: "(no session)", subtitle: "", idChip: "" };

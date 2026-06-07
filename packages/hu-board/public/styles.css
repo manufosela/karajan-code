@@ -341,6 +341,12 @@ a:hover {
 .story-card__score--ok { color: var(--color-yellow); }
 .story-card__score--bad { color: var(--color-red); }
 
+.story-card__cost {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .quality-bar {
   display: inline-flex;
   gap: 1px;

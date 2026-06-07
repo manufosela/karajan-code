@@ -45,6 +45,16 @@ function formatSessionLabel(session) {
   };
 }
 
+function formatCost(costUsd) {
+  if (costUsd === null || costUsd === undefined) return null;
+  const n = Number(costUsd);
+  if (!Number.isFinite(n)) return null;
+  return {
+    label: `$${n.toFixed(2)}`,
+    tooltip: `Estimated cost: $${n.toFixed(4)}`,
+  };
+}
+
 function humaniseProjectName(id) {
   if (!id || typeof id !== 'string') return id || '';
   const tail = id.split(/[/_]/).filter(Boolean).pop() || id;
