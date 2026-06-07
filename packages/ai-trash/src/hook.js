@@ -12,13 +12,7 @@ import { ensureSecureDir, assertOwnedByCurrentUser } from "./permissions.js";
 import { appendLogEntry } from "./logger.js";
 
 function reply(decision, reason) {
-  return {
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: decision,
-      permissionDecisionReason: reason,
-    },
-  };
+  return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: decision, permissionDecisionReason: reason } };
 }
 
 async function readJsonStdin(stdin) {
@@ -70,22 +64,13 @@ export async function handleHookPayload(payload, { root, stdin, stdout }) {
       for (const s of snapshots) m.entries.push(s);
       await saveManifest(root, m);
     }
-    await appendLogEntry(root, "hook.allow", {
-      kind: verdict.kind, command, cwd: data.cwd ?? null,
-      snapshotCount: snapshots.length,
-      sessionId: data.session_id ?? null,
-    });
-    const reason = snapshots.length
+    await appendLogEntry(root, "hook.allow", { kind: verdict.kind, command, cwd: data.cwd ?? null, snapshotCount: snapshots.length, sessionId: data.session_id ?? null });
+    return reply("allow", snapshots.length
       ? `ai-trash: snapshotted ${snapshots.length} path(s) before ${verdict.kind}`
-      : `ai-trash: ${verdict.kind} (no existing paths to snapshot)`;
-    return reply("allow", reason);
+      : `ai-trash: ${verdict.kind} (no existing paths to snapshot)`);
   } catch (err) {
-    try {
-      await appendLogEntry(root, "hook.deny", {
-        kind: verdict.kind, command, error: err.message,
-        sessionId: data.session_id ?? null,
-      });
-    } catch { /* root unwritable; deny is still the right answer */ }
+    try { await appendLogEntry(root, "hook.deny", { kind: verdict.kind, command, error: err.message, sessionId: data.session_id ?? null }); }
+    catch { /* root unwritable; deny is still the right answer */ }
     return reply("deny", `ai-trash: snapshot failed (${err.message}); blocking ${verdict.kind}`);
   }
 }
