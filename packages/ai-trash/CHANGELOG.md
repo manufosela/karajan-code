@@ -61,6 +61,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `snapshot.git-bundle` audit event. The end-to-end test proves a hard
   reset can recover the lost HEAD via `git fetch <bundle>`. Hook
   integration lands in commit 2.
+- Hook wires git destructive ops to `snapshotGitBundle` (KJC-TSK-0389
+  commit 2, `src/hook.js`): when the destructive-parser flags a
+  `git-*` kind (`reset --hard`, `clean -f`, `branch -D`,
+  `push --force`, `checkout -- .`), the PreToolUse hook now captures a
+  full bundle of the cwd repo before letting the op run. If the cwd is
+  not a git repo, the hook allows with a no-op audit entry (the git
+  command would fail anyway). All other bundle errors keep fail-closed
+  behaviour so Claude never destroys refs without a recovery copy.
 - Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
   subcommand, KJC-TSK-0390 commit 2): reads the JSON payload on stdin,
   classifies the Bash command, snapshots existing target paths, and
