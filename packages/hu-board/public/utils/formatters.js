@@ -55,6 +55,37 @@ function formatCost(costUsd) {
   };
 }
 
+function formatProjectCostSummary(cost) {
+  if (!cost || typeof cost !== "object") return null;
+  const total = Number(cost.totalUsd);
+  if (!Number.isFinite(total)) return null;
+  const byPlan = Array.isArray(cost.byPlan) ? cost.byPlan : [];
+  if (total === 0 && byPlan.length === 0) return null;
+
+  const lines = [`Total: $${total.toFixed(4)}`];
+  if (byPlan.length > 0) {
+    lines.push("By plan:");
+    for (const p of byPlan) {
+      const planTotal = Number(p?.totalUsd);
+      if (!Number.isFinite(planTotal)) continue;
+      const huCount = Number.isFinite(p?.huCount) ? p.huCount : 0;
+      const planLabel = p?.planId || "unassigned";
+      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})`);
+    }
+  }
+  const unk = cost.unknownModelTokens;
+  if (unk && Number.isFinite(unk.tokensIn) && Number.isFinite(unk.tokensOut)) {
+    const unkTotal = unk.tokensIn + unk.tokensOut;
+    if (unkTotal > 0) {
+      lines.push(`(${unkTotal} tokens with unknown pricing not included)`);
+    }
+  }
+  return {
+    label: `Total: $${total.toFixed(2)}`,
+    tooltip: lines.join("\n"),
+  };
+}
+
 function humaniseProjectName(id) {
   if (!id || typeof id !== 'string') return id || '';
   const tail = id.split(/[/_]/).filter(Boolean).pop() || id;

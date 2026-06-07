@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatHHMM, shortTask, formatSessionLabel, formatCost } from "../src/format.js";
+import { formatHHMM, shortTask, formatSessionLabel, formatCost, formatProjectCostSummary } from "../src/format.js";
 
 describe("formatHHMM", () => {
   it("formats an ISO timestamp as HH:MM (24h, server-local)", () => {
@@ -171,5 +171,106 @@ describe("formatCost", () => {
       label: "$0.50",
       tooltip: "Estimated cost: $0.5000",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatProjectCostSummary — Cost G (KJC-TSK-0518)
+//
+// Consumes the shape returned by GET /api/projects/:id/cost (Cost E):
+//   { totalUsd, byPlan: [...], unknownModelTokens: {...}, currency }
+// Returns null when there's nothing to show (no input, or 0 total with no
+// plans). Same "no $0.00 for unmeasured" design as formatCost — rendering
+// a misleading zero is worse than hiding the chip.
+// ---------------------------------------------------------------------------
+describe("formatProjectCostSummary", () => {
+  it("returns label + multi-line tooltip with byPlan breakdown", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 1.5432,
+      byPlan: [
+        { planId: "plan-alpha", totalUsd: 1.0, huCount: 3 },
+        { planId: "plan-beta", totalUsd: 0.5432, huCount: 1 },
+      ],
+    });
+    expect(out.label).toBe("Total: $1.54");
+    expect(out.tooltip).toBe(
+      [
+        "Total: $1.5432",
+        "By plan:",
+        "  plan-alpha: $1.00 (3 HUs)",
+        "  plan-beta: $0.54 (1 HU)",
+      ].join("\n")
+    );
+  });
+
+  it("returns null when input is null/undefined/non-object", () => {
+    expect(formatProjectCostSummary(null)).toBeNull();
+    expect(formatProjectCostSummary(undefined)).toBeNull();
+    expect(formatProjectCostSummary("oops")).toBeNull();
+  });
+
+  it("returns null when totalUsd is not finite", () => {
+    expect(formatProjectCostSummary({ totalUsd: NaN })).toBeNull();
+    expect(formatProjectCostSummary({ totalUsd: "not a number" })).toBeNull();
+  });
+
+  it("returns null when total is 0 and there are no plans (nothing to show)", () => {
+    expect(formatProjectCostSummary({ totalUsd: 0, byPlan: [] })).toBeNull();
+    expect(formatProjectCostSummary({ totalUsd: 0 })).toBeNull();
+  });
+
+  it("renders a tooltip with no breakdown when byPlan is empty but total > 0", () => {
+    const out = formatProjectCostSummary({ totalUsd: 0.25, byPlan: [] });
+    expect(out.label).toBe("Total: $0.25");
+    expect(out.tooltip).toBe("Total: $0.2500");
+  });
+
+  it("appends the 'unknown pricing' note when unknownModelTokens > 0", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 0.5,
+      byPlan: [],
+      unknownModelTokens: { tokensIn: 1200, tokensOut: 800, models: ["mystery-v1"] },
+    });
+    expect(out.tooltip).toBe(
+      ["Total: $0.5000", "(2000 tokens with unknown pricing not included)"].join("\n")
+    );
+  });
+
+  it("skips the unknown-tokens line when the count is 0", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 0.5,
+      byPlan: [],
+      unknownModelTokens: { tokensIn: 0, tokensOut: 0 },
+    });
+    expect(out.tooltip).toBe("Total: $0.5000");
+  });
+
+  it("falls back to 'unassigned' when a plan has no planId", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 0.1,
+      byPlan: [{ planId: null, totalUsd: 0.1, huCount: 1 }],
+    });
+    expect(out.tooltip).toContain("  unassigned: $0.10 (1 HU)");
+  });
+
+  it("uses singular HU when huCount is exactly 1", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 0.1,
+      byPlan: [{ planId: "p1", totalUsd: 0.1, huCount: 1 }],
+    });
+    expect(out.tooltip).toContain("(1 HU)");
+    expect(out.tooltip).not.toContain("(1 HUs)");
+  });
+
+  it("skips per-plan rows whose totalUsd isn't finite", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 0.5,
+      byPlan: [
+        { planId: "ok", totalUsd: 0.5, huCount: 2 },
+        { planId: "broken", totalUsd: "garbage", huCount: 1 },
+      ],
+    });
+    expect(out.tooltip).toContain("  ok: $0.50 (2 HUs)");
+    expect(out.tooltip).not.toContain("broken");
   });
 });

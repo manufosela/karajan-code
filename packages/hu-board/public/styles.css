@@ -244,6 +244,17 @@ a:hover {
   font-family: var(--font-mono);
 }
 
+.section-header__cost {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary, transparent);
+  cursor: help;
+}
+
 /* ---- Kanban Board ---- */
 .kanban {
   display: grid;
