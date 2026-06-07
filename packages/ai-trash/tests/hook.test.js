@@ -1,12 +1,31 @@
 // PreToolUse hook handler tests (KJC-TSK-0390 commit 2).
-import { mkdtemp, readFile, writeFile, lstat } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, lstat, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import process from "node:process";
 import { describe, it, expect } from "vitest";
 
 import { handleHookPayload } from "../src/hook.js";
 import { loadManifest } from "../src/manifest.js";
 import { readLog } from "../src/logger.js";
+
+function git(args, cwd) {
+  const res = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (res.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${res.stderr}`);
+  return res.stdout.trim();
+}
+
+async function makeGitRepo() {
+  const dir = await mkdtemp(join(tmpdir(), "ai-trash-hook-repo-"));
+  git(["init", "-q", "-b", "main"], dir);
+  git(["config", "user.email", "test@example.invalid"], dir);
+  git(["config", "user.name", "Test"], dir);
+  await writeFile(join(dir, "README"), "v1");
+  git(["add", "README"], dir);
+  git(["commit", "-q", "-m", "initial"], dir);
+  return dir;
+}
 
 async function makeRoot() {
   return mkdtemp(join(tmpdir(), "ai-trash-hook-"));
@@ -26,15 +45,22 @@ function payload(command, extras = {}) {
 describe("PreToolUse hook — pass-through cases", () => {
   it("allows non-PreToolUse events untouched", async () => {
     const root = await makeRoot();
-    const res = await handleHookPayload(payload("rm a", { hook_event_name: "PostToolUse" }), { root });
+    const res = await handleHookPayload(payload("rm a", { hook_event_name: "PostToolUse" }), {
+      root,
+    });
     expect(res.hookSpecificOutput.permissionDecision).toBe("allow");
   });
 
   it("allows non-Bash tools untouched", async () => {
     const root = await makeRoot();
-    const res = await handleHookPayload({
-      hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: "x" },
-    }, { root });
+    const res = await handleHookPayload(
+      {
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: "x" },
+      },
+      { root }
+    );
     expect(res.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(res.hookSpecificOutput.permissionDecisionReason).toMatch(/not handled/);
   });
@@ -63,14 +89,35 @@ describe("PreToolUse hook — destructive snapshotting", () => {
     expect(await readFile(m.entries[0].snapshotPath, "utf8")).toBe("irreplaceable");
   });
 
-  it("allows the op even when the destructive command has no paths to snapshot (git reset --hard)", async () => {
+  it("allows git destructive ops when cwd is not a git repo (no bundle taken)", async () => {
     const root = await makeRoot();
-    const res = await handleHookPayload(payload("git reset --hard HEAD~3"), { root });
+    const notRepo = await mkdtemp(join(tmpdir(), "ai-trash-hook-notrepo-"));
+    const res = await handleHookPayload(payload("git reset --hard HEAD~3", { cwd: notRepo }), {
+      root,
+    });
     expect(res.hookSpecificOutput.permissionDecision).toBe("allow");
-    expect(res.hookSpecificOutput.permissionDecisionReason).toMatch(/no existing paths/);
+    expect(res.hookSpecificOutput.permissionDecisionReason).toMatch(/not a git repo/);
     const log = await readLog(root);
     expect(log.at(-1).event).toBe("hook.allow");
     expect(log.at(-1).kind).toBe("git-reset-hard");
+    expect(log.at(-1).snapshotCount).toBe(0);
+  });
+
+  it("snapshots a git bundle before git reset --hard when cwd is a repo", async () => {
+    const root = await makeRoot();
+    const repo = await makeGitRepo();
+    const res = await handleHookPayload(payload("git reset --hard HEAD~1", { cwd: repo }), {
+      root,
+    });
+    expect(res.hookSpecificOutput.permissionDecision).toBe("allow");
+    expect(res.hookSpecificOutput.permissionDecisionReason).toMatch(/git bundle/);
+    const m = await loadManifest(root);
+    expect(m.entries).toHaveLength(1);
+    expect(m.entries[0].type).toBe("git-bundle");
+    const info = await stat(m.entries[0].snapshotPath);
+    expect(info.size).toBeGreaterThan(0);
+    const log = await readLog(root);
+    expect(log.some((e) => e.event === "snapshot.git-bundle")).toBe(true);
   });
 
   it("skips non-existent paths without failing the hook", async () => {
