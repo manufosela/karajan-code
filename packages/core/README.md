@@ -24,6 +24,8 @@ here.
 | `@karajan/core/vec-store` | `dbPath`, `openVecStore`, `insertChunk`, `searchSimilar`, `searchBM25`, `projectSlug`, `deleteChunksBySource`, `findChunkByHash`, `getEmbeddingsByIds`, `getLastIndexedCommit`, `setLastIndexedCommit`, `countChunks` |
 | `@karajan/core/plan-id` | `generatePlanId`, `generateHuId`, `normaliseAlias` |
 | `@karajan/core/plan-hu-ops` | `addHu`, `removeHu`, `updateHu`, `updateHuStatus`, `setHuOutcome`, `setPlanOutcome`, `autoCertifyPendingHus`, `assertPlanRunnable`, `computePlanOutcome`, `certifyAllHus`, `reorderHus` |
+| `@karajan/core/plan-validation` | `validateBlockedByChange` |
+| `@karajan/core/process` | `runCommand` (execa wrapper with output streaming, silence/total timeouts, ENOENT enrichment) |
 
 The root export (`@karajan/core`) re-exports everything via the barrel
 in `src/index.js`, but prefer the subpath form so the bundler can
@@ -31,6 +33,7 @@ tree-shake unused modules.
 
 ## Status
 
-KJC-TSK-0511 PR5 — `plan-id` + `plan-hu-ops` extracted (HU CRUD on v2
-plans, plus globally-unique plan/HU id generation). See the task card
-for the full roadmap.
+KJC-TSK-0511 PR6 — `plan-validation` + `process` extracted. With this
+PR `@karajan/hu-board` no longer reaches into `../../../src` from any
+static import (dynamic `await import(...)` from `brain/`, `rag/`, and
+`git/hu-snapshot` remain pending for a follow-up).

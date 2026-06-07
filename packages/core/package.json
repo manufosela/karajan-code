@@ -15,13 +15,16 @@
     "./run-registry": "./src/run-registry.js",
     "./vec-store": "./src/vec-store.js",
     "./plan-id": "./src/plan-id.js",
-    "./plan-hu-ops": "./src/plan-hu-ops.js"
+    "./plan-hu-ops": "./src/plan-hu-ops.js",
+    "./plan-validation": "./src/plan-validation.js",
+    "./process": "./src/process.js"
   },
   "scripts": {
     "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
+    "execa": "^9.6.0",
     "sqlite-vec": "^0.1.9"
   },
   "devDependencies": {
