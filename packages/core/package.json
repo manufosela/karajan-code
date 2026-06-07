@@ -12,10 +12,15 @@
     "./shared-paths": "./src/shared-paths.js",
     "./port-check": "./src/port-check.js",
     "./paths": "./src/paths.js",
-    "./run-registry": "./src/run-registry.js"
+    "./run-registry": "./src/run-registry.js",
+    "./vec-store": "./src/vec-store.js"
   },
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "sqlite-vec": "^0.1.9"
   },
   "devDependencies": {
     "vitest": "^4.0.0"

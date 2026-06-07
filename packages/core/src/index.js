@@ -8,3 +8,4 @@ export * from "./shared-paths.js";
 export * from "./port-check.js";
 export * from "./paths.js";
 export * from "./run-registry.js";
+export * from "./vec-store.js";

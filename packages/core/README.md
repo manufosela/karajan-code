@@ -21,6 +21,7 @@ here.
 | `@karajan/core/port-check` | `isPortAvailable`, `findAvailablePort` |
 | `@karajan/core/paths` | `resolveHome`, `getKarajanHome`, `getSessionRoot`, `getSonarComposePath`, `getOllamaComposePath`, `getWebperfDir`, `getRunsDir`, `getPromptsDir`, `__resetKjHomeWarningForTests` |
 | `@karajan/core/run-registry` | `runsDir`, `registerRun`, `unregisterRun`, `listActiveRuns` |
+| `@karajan/core/vec-store` | `dbPath`, `openVecStore`, `insertChunk`, `searchSimilar`, `searchBM25`, `projectSlug`, `deleteChunksBySource`, `findChunkByHash`, `getEmbeddingsByIds`, `getLastIndexedCommit`, `setLastIndexedCommit`, `countChunks` |
 
 The root export (`@karajan/core`) re-exports everything via the barrel
 in `src/index.js`, but prefer the subpath form so the bundler can
@@ -28,5 +29,5 @@ tree-shake unused modules.
 
 ## Status
 
-KJC-TSK-0511 PR3 — `paths` + `run-registry` extracted. See the task card
-for the full roadmap.
+KJC-TSK-0511 PR4 — `vec-store` extracted (with `better-sqlite3` +
+`sqlite-vec` deps). See the task card for the full roadmap.
