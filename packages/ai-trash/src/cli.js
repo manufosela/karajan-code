@@ -10,6 +10,7 @@ import {
 import { restoreSnapshot, purgeSnapshot } from "./snapshot.js";
 import { ensureSecureDir, assertOwnedByCurrentUser } from "./permissions.js";
 import { runHook } from "./hook.js";
+import { installClaudeCodeHook, DEFAULT_SETTINGS_PATH } from "./install.js";
 
 export const DEFAULT_ROOT = process.env.AI_TRASH_ROOT || join(homedir(), ".ai-trash");
 
@@ -130,6 +131,7 @@ const HELP =
   "                             drop all (or filtered) snapshots\n" +
   "  hook                       Claude Code PreToolUse handler (reads JSON\n" +
   "                             on stdin, writes decision JSON on stdout)\n" +
+  "  install --claude-code      patch ~/.claude/settings.json (idempotent)\n" +
   "env: AI_TRASH_ROOT (default ~/.ai-trash)\n";
 
 export async function runCli(argv, io = {}) {
@@ -154,6 +156,13 @@ export async function runCli(argv, io = {}) {
       return cmdEmpty(root, flags, out);
     case "hook":
       return runHook({ root, stdin: io.stdin ?? process.stdin, stdout: out });
+    case "install": {
+      if (!flags["claude-code"]) { err.write("kj-trash: install requires --claude-code\n"); return 2; }
+      const path = typeof flags.settings === "string" ? flags.settings : DEFAULT_SETTINGS_PATH;
+      const res = await installClaudeCodeHook({ path });
+      out.write(`kj-trash: ${res.mutated ? "installed" : "already installed"} -> ${res.path}\n`);
+      return 0;
+    }
     case "help":
     case "--help":
     case undefined:

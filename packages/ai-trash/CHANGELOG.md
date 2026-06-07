@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `empty` drops every snapshot by default, with `--older-than-days N`
   (TTL sweep via `expireBefore`) and `--max-bytes N` (LRU eviction via
   `enforceLruQuota`) filters. Each removal is audited.
+- `kj-trash install --claude-code` (`src/install.js`, KJC-TSK-0390
+  commit 3): idempotently patches `~/.claude/settings.json` to register
+  the `kj-trash hook` command under `hooks.PreToolUse[matcher=Bash]`.
+  Preserves unrelated keys and any other PreToolUse matchers / hook
+  entries the user already has. Second run is a no-op.
 - Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
   subcommand, KJC-TSK-0390 commit 2): reads the JSON payload on stdin,
   classifies the Bash command, snapshots existing target paths, and
