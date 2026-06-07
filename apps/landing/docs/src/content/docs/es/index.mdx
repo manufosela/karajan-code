@@ -628,7 +628,7 @@ Esto cierra el prerequisito de team-shared HU Board (KJC-PRP-0002) — la últim
 
 **Empaquetado**: PR #918 (KJC-TSK-0500, `engines.node` 20.10 → 22.22.1), PR #920 (KJC-TSK-0491, `lint-staged` 16 → 17), PR #922 (KJC-TSK-0490, `commander` 14 → 15), PR #923 (KJC-TSK-0488, `better-sqlite3` 11 → 12.10), PR #926 (KJC-TSK-0202, sección footprint & hardware requirements en el README). 5 368 / 5 368 tests pasando across 487 test files. El `~/.karajan/` existente es forward-compatible — nada que migrar a mano.
 
-### v3.1.0 — Quality gates + housekeeping + auditor (actual)
+### v3.1.0 — Quality gates + housekeeping + auditor
 
 Primer minor de la línea v3. **Sin breaking changes** — drop-in upgrade desde v3.0.0. Empaqueta cinco frentes que aterrizaron desde v3.0.0.
 
@@ -643,3 +643,13 @@ Primer minor de la línea v3. **Sin breaking changes** — drop-in upgrade desde
 **Fixes**: guards contra prototype pollution en `setDeep` / `setDotPath` (KJC-BUG-0076), clasificación Docker del harness-scorecard (KJC-BUG-0077), flake del freemem de `ollama-capability` (KJC-BUG-0078), pin de clock en e2e de hibernate (KJC-BUG-0079), limpieza de tmp dirs en vitest (KJC-BUG-0075).
 
 498 ficheros de test. 39 commits desde v3.0.0. PRs #928–#969 + release #970.
+
+### v3.2.0 — Seguimiento de coste end-to-end (actual)
+
+Cierra la épica **Cost** (KJC-PCS-0055). Cada `kj run` registra ahora el gasto en USD por HU y el HU Board lo expone. **Sin breaking changes** — drop-in upgrade desde v3.1.0.
+
+**Cost A–G**. Siete piezas aterrizan juntas: un registro versionado **model-pricing.json** (KJC-TSK-0512), un **agregador de coste** determinista que reduce las entries del BudgetTracker en `{totalUsd, byModel, byProvider, unknownModelTokens}` (KJC-TSK-0513), una **migración idempotente** de `board.db` añadiendo `cost_usd REAL` en `stories` (KJC-TSK-0514), un **hook del orquestador** que captura el cursor del BudgetTracker al arrancar la HU y lo trocea al cerrarla, aislando el gasto por HU del total de la sesión (KJC-TSK-0515, PR #1031), un endpoint **`/api/projects/:id/cost`** con desglose por plan + tokens de modelo desconocido (KJC-TSK-0516), un **badge `$0.02` por card** con tooltip a 4 decimales (KJC-TSK-0517), y un **chip de cabecera por proyecto** con totales por plan (KJC-TSK-0518, PR #1030).
+
+**Null vs 0**. Preservado de punta a punta: las HUs sin medir no renderizan nada, las runs gratuitas reales muestran `$0.00`. El badge nunca miente.
+
+**¿Por qué un minor?** Feature aditiva, sin breaking changes ni en API ni en CLI.

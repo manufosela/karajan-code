@@ -1486,6 +1486,28 @@ Phase 88 is the **first minor on the v3 line**. No breaking changes; drop-in upg
 
 **Stats**: 498 test files, 5 400+ tests passing. 39 commits since v3.0.0. PRs #928–#969 + release #970.
 
+## Phase 89: v3.2.0 — Cost tracking end-to-end (v3.2.0)
+
+Closes the **Cost** epic (KJC-PCS-0055) — seven slices Cost A through Cost G land in one release, completing the loop from token spend to user-facing UI.
+
+**Cost A — pricing registry** (KJC-TSK-0512). `model-pricing.json` ships input/output USD-per-token for Claude, GPT, Gemini, and local models. Exact-match lookup with prefix fallback; versioned so adopters can audit the rates that produced their bill.
+
+**Cost B — aggregator** (KJC-TSK-0513). `aggregateRunCost()` reduces a `BudgetTracker` entry list into `{totalUsd, byModel, byProvider, unknownModelTokens}`. Unknown-model tokens are surfaced separately instead of silently dropped, so the user can spot pricing-table gaps instead of trusting a low total.
+
+**Cost C — schema** (KJC-TSK-0514). Idempotent migration adds `cost_usd REAL` on `stories`. The semantic is sharp: NULL = unmeasured, 0 = real free run. Anything that flattens both into "$0.00" lies.
+
+**Cost D — orchestrator hook** (KJC-TSK-0515, PR #1031). The session `BudgetTracker` is cumulative across all HUs, so a naive read would stamp every HU with the running total. Instead, `runSingleHu` snapshots `entries.length` at start and slices on exit; `setLiveOutcomeUpdater` then lazy-imports `hu-board/db.js` and writes the slice's sum via `setStoryCost`. Lazy import keeps the pre-loop free of board deps.
+
+**Cost E — API** (KJC-TSK-0516). `GET /api/projects/:id/cost` returns `{totalUsd, byPlan, unknownModelTokens, currency}` for a project. Aggregates across plans, exposes unknown-model leakage so the UI can show the "$X (Y tokens with unknown pricing not included)" disclaimer.
+
+**Cost F — card badge** (KJC-TSK-0517). `formatCost(cost_usd)` returns `{label: "$0.02", tooltip: "Estimated cost: $0.0234"}` — two precisions atomically, so the renderer can't accidentally show one without the other. Null input returns null → badge hides → no misleading "$0.00".
+
+**Cost G — header chip** (KJC-TSK-0518, PR #1030). `formatProjectCostSummary` builds a `Total: $1.54` chip with a multi-line `By plan: ...` tooltip including HU counts. Same null-safety as F.
+
+**Why a minor**. Additive only; no API or CLI surface change. The `cost_usd` column is new but downstream readers either handle NULL (board UI, ours) or ignore the column entirely (older readers).
+
+**Stats**: 187 LOC for Cost D alone (well under the 200-budget cap). Cost A–G shipped as separate PRs to keep each slice reviewable in isolation.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

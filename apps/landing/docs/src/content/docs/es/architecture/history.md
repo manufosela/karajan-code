@@ -1485,6 +1485,28 @@ La Fase 88 es el **primer minor de la línea v3**. Sin breaking changes; drop-in
 
 **Stats**: 498 ficheros de test, 5 400+ tests pasando. 39 commits desde v3.0.0. PRs #928–#969 + release #970.
 
+## Fase 89: v3.2.0 — Seguimiento de coste end-to-end (v3.2.0)
+
+Cierra la épica **Cost** (KJC-PCS-0055) — las siete piezas Cost A a Cost G aterrizan en una release, cerrando el bucle desde el gasto en tokens hasta la UI.
+
+**Cost A — registro de pricing** (KJC-TSK-0512). `model-pricing.json` lleva USD-por-token de input/output para Claude, GPT, Gemini y modelos locales. Lookup exacto con fallback por prefijo; versionado para que los adopters puedan auditar los rates que produjeron su factura.
+
+**Cost B — agregador** (KJC-TSK-0513). `aggregateRunCost()` reduce una lista de entries del `BudgetTracker` en `{totalUsd, byModel, byProvider, unknownModelTokens}`. Los tokens de modelo desconocido salen a parte en vez de ser ignorados, así el usuario detecta huecos en la tabla de pricing en vez de fiarse de un total bajo.
+
+**Cost C — schema** (KJC-TSK-0514). Migración idempotente añade `cost_usd REAL` en `stories`. La semántica es nítida: NULL = sin medir, 0 = ejecución gratis real. Cualquier cosa que aplaste ambos en "$0.00" miente.
+
+**Cost D — hook del orquestador** (KJC-TSK-0515, PR #1031). El `BudgetTracker` de la sesión es acumulativo entre todas las HUs, así que una lectura ingenua estamparía cada HU con el total acumulado. En su lugar, `runSingleHu` captura `entries.length` al arrancar y trocea al salir; `setLiveOutcomeUpdater` luego hace lazy-import de `hu-board/db.js` y escribe la suma del slice vía `setStoryCost`. El lazy import mantiene el pre-loop libre de deps del board.
+
+**Cost E — API** (KJC-TSK-0516). `GET /api/projects/:id/cost` devuelve `{totalUsd, byPlan, unknownModelTokens, currency}` para un proyecto. Agrega entre planes, expone leakage de modelo desconocido para que la UI pueda mostrar el disclaimer "$X (Y tokens con pricing desconocido no incluidos)".
+
+**Cost F — badge de card** (KJC-TSK-0517). `formatCost(cost_usd)` devuelve `{label: "$0.02", tooltip: "Estimated cost: $0.0234"}` — dos precisiones atómicas, para que el renderer no pueda mostrar una sin la otra por accidente. Input null devuelve null → badge se oculta → sin "$0.00" engañoso.
+
+**Cost G — chip de cabecera** (KJC-TSK-0518, PR #1030). `formatProjectCostSummary` construye un chip `Total: $1.54` con un tooltip multilínea `By plan: ...` con conteo de HUs. La misma null-safety que F.
+
+**¿Por qué un minor?** Solo aditivo; sin cambios en API ni en superficie CLI. La columna `cost_usd` es nueva pero los lectores downstream o manejan NULL (UI del board, la nuestra) o ignoran la columna completamente (lectores antiguos).
+
+**Stats**: 187 LOC solo para Cost D (bastante por debajo del cap de 200 del budget). Cost A–G envíados como PRs separados para mantener cada slice revisable de forma aislada.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API
