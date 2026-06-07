@@ -21,7 +21,8 @@
     "./hu-snapshot": "./src/hu-snapshot.js",
     "./standby-store": "./src/standby-store.js",
     "./standby-scheduler": "./src/standby-scheduler.js",
-    "./pricing": "./src/pricing/index.js"
+    "./pricing": "./src/pricing/index.js",
+    "./cost": "./src/cost/index.js"
   },
   "scripts": {
     "test": "vitest run"
