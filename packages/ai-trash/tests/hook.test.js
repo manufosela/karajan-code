@@ -1,7 +1,4 @@
-// PreToolUse hook handler tests (KJC-TSK-0390 commit 2). Drives
-// handleHookPayload with synthetic payloads and asserts the response
-// shape, snapshot side-effects, audit entries, and fail-closed behaviour.
-
+// PreToolUse hook handler tests (KJC-TSK-0390 commit 2).
 import { mkdtemp, readFile, writeFile, lstat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -90,9 +87,7 @@ describe("PreToolUse hook — fail-closed", () => {
     const dir = await mkdtemp(join(tmpdir(), "ai-trash-hook-src-"));
     const file = join(dir, "x.txt");
     await writeFile(file, "data");
-    // Point root at a path that ensureSecureDir cannot create (parent does not exist
-    // and the file segment in the middle of the path makes mkdir -p fail).
-    const bogusRoot = join(file, "nested", "root");
+    const bogusRoot = join(file, "nested", "root"); // file-as-dir → mkdir -p fails
     const res = await handleHookPayload(payload(`rm ${file}`), { root: bogusRoot });
     expect(res.hookSpecificOutput.permissionDecision).toBe("deny");
     expect(res.hookSpecificOutput.permissionDecisionReason).toMatch(/snapshot failed/);
