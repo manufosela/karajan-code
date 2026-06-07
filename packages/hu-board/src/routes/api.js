@@ -1325,7 +1325,7 @@ router.post('/rag/query', async (req, res) => {
     return res.status(400).json({ error: "'text' is required (non-empty string)" });
   }
   try {
-    const { openVecStore, countChunks } = await import('../../../../src/rag/vec-store.js');
+    const { openVecStore, countChunks } = await import('@karajan/core/vec-store');
     const { makeEmbedder } = await import('../../../../src/rag/embedders/factory.js');
     const { query } = await import('../../../../src/rag/retriever.js');
     const db = openVecStore({ dim: 768 });
