@@ -638,4 +638,118 @@ describe("hu-sub-pipeline", () => {
       expect(statusCalls[2][2]).toBe("failed");
     });
   });
+
+  // -------------------------------------------------------------------
+  // Cost D (KJC-TSK-0515): the sub-pipeline must slice BudgetTracker
+  // entries per HU so each card's outcome carries `cost_usd` with the
+  // spend of THAT HU (not the cumulative session total). Without the
+  // per-HU cursor, every HU after the first would inherit prior HUs'
+  // cost — a board-level bug only visible at runtime.
+  // -------------------------------------------------------------------
+  describe("runHuSubPipeline — Cost D: per-HU cost_usd in outcome", () => {
+    it("stamps outcome.cost_usd from the slice of BudgetTracker entries recorded during the HU", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "First" }, original: { text: "First" }, blocked_by: [] },
+        { id: "HU-002", status: "certified", certified: { text: "Second" }, original: { text: "Second" }, blocked_by: ["HU-001"] }
+      ];
+      const batch = { session_id: "hu-s_cost", stories: [...stories] };
+      loadHuBatchMock.mockResolvedValue(batch);
+
+      // Simulated BudgetTracker — its `record` happens inside
+      // runIterationFn (the coder/reviewer push entries during their
+      // calls). We mimic that here so the test mirrors production.
+      const budgetTracker = { entries: [] };
+      let huCounter = 0;
+      const runIterationFn = vi.fn(async () => {
+        huCounter += 1;
+        budgetTracker.entries.push({ role: "coder", cost_usd: huCounter === 1 ? 0.10 : 0.30 });
+        budgetTracker.entries.push({ role: "reviewer", cost_usd: huCounter === 1 ? 0.05 : 0.20 });
+        return { approved: true };
+      });
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 2, total: 2, stories, batchSessionId: "hu-s_cost" },
+        runIterationFn,
+        emitter, eventBase, logger,
+        onOutcome,
+        budgetTracker
+      });
+
+      expect(outcomes).toHaveLength(2);
+      // First HU billed 0.10 + 0.05 = 0.15.
+      expect(outcomes[0].huId).toBe("HU-001");
+      expect(outcomes[0].outcome.cost_usd).toBeCloseTo(0.15, 6);
+      // Second HU billed only its own slice: 0.30 + 0.20 = 0.50.
+      // If the cursor were missing, this would be 0.65 (accumulated).
+      expect(outcomes[1].huId).toBe("HU-002");
+      expect(outcomes[1].outcome.cost_usd).toBeCloseTo(0.50, 6);
+    });
+
+    it("stamps outcome.cost_usd = null when no tracker entries were produced for the HU", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "x" }, original: { text: "x" }, blocked_by: [] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_no", stories: [...stories] });
+      const budgetTracker = { entries: [] }; // empty, no entries added
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 1, total: 1, stories, batchSessionId: "hu-s_no" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome, budgetTracker
+      });
+
+      expect(outcomes[0].outcome.cost_usd).toBeNull();
+    });
+
+    it("stamps outcome.cost_usd = null when no tracker is passed (legacy callers)", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "x" }, original: { text: "x" }, blocked_by: [] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_legacy", stories: [...stories] });
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 1, total: 1, stories, batchSessionId: "hu-s_legacy" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome
+        // no budgetTracker — verifies null-safety
+      });
+
+      expect(outcomes[0].outcome.cost_usd).toBeNull();
+    });
+
+    it("still stamps cost_usd on a failed HU so the board can show 'we spent X before failing'", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "fail" }, original: { text: "fail" }, blocked_by: [] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_fail", stories: [...stories] });
+      const budgetTracker = { entries: [] };
+      const runIterationFn = vi.fn(async () => {
+        budgetTracker.entries.push({ role: "coder", cost_usd: 0.42 });
+        return { approved: false, reason: "review_rejected" };
+      });
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 1, total: 1, stories, batchSessionId: "hu-s_fail" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome, budgetTracker
+      });
+
+      expect(outcomes[0].outcome.status).toBe("failed");
+      expect(outcomes[0].outcome.cost_usd).toBeCloseTo(0.42, 6);
+    });
+  });
 });

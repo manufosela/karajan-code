@@ -302,10 +302,26 @@ function wirePlanCallbacks({ session, loadedPlan, projectDir, syncResultsToPlan,
   // PR3: per-HU outcome. Stamped once per HU at runSingleHu's exit
   // so the board can show the 📄 indicator as soon as each HU
   // finishes (iterations / duration / commits / blockers / summary).
+  //
+  // Cost D (KJC-TSK-0515): the outcome may carry `cost_usd` (USD
+  // spent on this HU). When present and finite, also persist it to
+  // board.db so the per-card badge (Cost F) and the project total
+  // chip (Cost G) have data to show — without this write, the
+  // `cost_usd` column would always stay NULL and the UI would render
+  // nothing. Lazy-import to keep the pre-loop phase free of board
+  // deps until we actually need them.
   setLiveOutcomeUpdater(session, async (huId, outcome) => {
     try {
       if (!setHuOutcomeFn(loadedPlan, huId, outcome)) return;
       await savePlanToDisk(projectDir, loadedPlan);
+      if (outcome && Number.isFinite(outcome.cost_usd)) {
+        try {
+          const { setStoryCost } = await import("../../../../packages/hu-board/src/db.js");
+          setStoryCost(huId, outcome.cost_usd);
+        } catch (err) {
+          logger?.warn?.(`Cost write failed for ${huId}: ${err.message}`);
+        }
+      }
     } catch (err) {
       logger?.warn?.(`Live outcome update failed for ${huId}: ${err.message}`);
     }

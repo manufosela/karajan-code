@@ -360,7 +360,11 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
     onStatusChange: ctx.session?._liveStatusUpdater || null,
     // PR3 (per-HU outcome): same pattern, but for the rich
     // outcome blob written ONCE per HU at the end of runSingleHu.
-    onOutcome: ctx.session?._liveOutcomeUpdater || null
+    onOutcome: ctx.session?._liveOutcomeUpdater || null,
+    // Cost D (KJC-TSK-0515): the sub-pipeline slices BudgetTracker
+    // entries per HU and stamps `outcome.cost_usd` so the board can
+    // show per-HU spend. Without this the tracker is invisible to it.
+    budgetTracker: ctx.budgetTracker || null
   });
 
   emitProgress(emitter, makeEvent("hu:sub-pipeline:end", { ...ctx.eventBase, stage: "hu-sub-pipeline" }, {
