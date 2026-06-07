@@ -329,3 +329,53 @@ describe('getDashboardStats', () => {
     expect(stats.total_projects).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// cost_usd column + setStoryCost (KJC-TSK-0514 — Cost C)
+// ---------------------------------------------------------------------------
+describe('cost_usd persistence', () => {
+  it('migrates stories table with a nullable cost_usd column', async () => {
+    const { getDb } = await freshDb();
+    const cols = getDb().prepare("PRAGMA table_info(stories)").all();
+    const costCol = cols.find((c) => c.name === 'cost_usd');
+    expect(costCol).toBeTruthy();
+    expect(costCol.type.toUpperCase()).toBe('REAL');
+    expect(costCol.notnull).toBe(0);
+  });
+
+  it('defaults cost_usd to NULL on insert', async () => {
+    const { getDb, upsertStory } = await freshDb();
+    upsertStory({ id: 's-new', project_id: 'p1' });
+    const row = getDb().prepare('SELECT cost_usd FROM stories WHERE id = ?').get('s-new');
+    expect(row.cost_usd).toBeNull();
+  });
+
+  it('setStoryCost writes a finite USD value and round-trips', async () => {
+    const { getDb, upsertStory, setStoryCost } = await freshDb();
+    upsertStory({ id: 's-cost', project_id: 'p1' });
+    expect(setStoryCost('s-cost', 22.5)).toBe(true);
+    const row = getDb().prepare('SELECT cost_usd FROM stories WHERE id = ?').get('s-cost');
+    expect(row.cost_usd).toBe(22.5);
+  });
+
+  it('setStoryCost(null) clears the cell back to NULL', async () => {
+    const { getDb, upsertStory, setStoryCost } = await freshDb();
+    upsertStory({ id: 's-clear', project_id: 'p1' });
+    setStoryCost('s-clear', 1.23);
+    setStoryCost('s-clear', null);
+    const row = getDb().prepare('SELECT cost_usd FROM stories WHERE id = ?').get('s-clear');
+    expect(row.cost_usd).toBeNull();
+  });
+
+  it('setStoryCost rejects NaN/Infinity instead of silently NULL-ing', async () => {
+    const { upsertStory, setStoryCost } = await freshDb();
+    upsertStory({ id: 's-bad', project_id: 'p1' });
+    expect(() => setStoryCost('s-bad', NaN)).toThrow(/finite number/);
+    expect(() => setStoryCost('s-bad', Infinity)).toThrow(/finite number/);
+  });
+
+  it('setStoryCost returns false when the story does not exist', async () => {
+    const { setStoryCost } = await freshDb();
+    expect(setStoryCost('does-not-exist', 5)).toBe(false);
+  });
+});
