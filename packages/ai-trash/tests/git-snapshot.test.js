@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, it, expect } from "vitest";
 
-import { snapshotGitBundle } from "../src/git-snapshot.js";
+import { snapshotGitBundle, restoreGitBundle } from "../src/git-snapshot.js";
 import { readLog } from "../src/logger.js";
 import { FILE_MODE } from "../src/permissions.js";
 
@@ -76,5 +76,43 @@ describe("snapshotGitBundle", () => {
     const root = await tmpRoot();
     const notRepo = await mkdtemp(join(tmpdir(), "ai-trash-notrepo-"));
     await expect(snapshotGitBundle(root, notRepo)).rejects.toThrow(/not a git repo/);
+  });
+});
+
+describe("restoreGitBundle", () => {
+  it("fetches the bundle refs into refs/remotes/restore/* on the target repo", async () => {
+    const root = await tmpRoot();
+    const repo = await makeRepo();
+    const headBefore = git(["rev-parse", "HEAD"], repo);
+    const entry = await snapshotGitBundle(root, repo, { command: "git reset --hard HEAD~1" });
+
+    await writeFile(join(repo, "README"), "v2");
+    git(["add", "README"], repo);
+    git(["commit", "-q", "-m", "second"], repo);
+    git(["reset", "--hard", "HEAD~1"], repo);
+
+    const res = await restoreGitBundle(root, entry, repo);
+    expect(res.repo).toBe(repo);
+    expect(res.refspec).toBe("+refs/heads/*:refs/remotes/restore/*");
+    expect(res.refCount).toBeGreaterThan(0);
+    expect(git(["rev-parse", "refs/remotes/restore/main"], repo)).toBe(headBefore);
+
+    const log = await readLog(root);
+    expect(log.some((e) => e.event === "snapshot.restore-bundle")).toBe(true);
+  });
+
+  it("rejects non-git-bundle entries", async () => {
+    const root = await tmpRoot();
+    await expect(restoreGitBundle(root, { id: "X", type: "file" })).rejects.toThrow(
+      /not a git-bundle/
+    );
+  });
+
+  it("rejects when the target is not a git repo", async () => {
+    const root = await tmpRoot();
+    const repo = await makeRepo();
+    const entry = await snapshotGitBundle(root, repo);
+    const notRepo = await mkdtemp(join(tmpdir(), "ai-trash-restore-notrepo-"));
+    await expect(restoreGitBundle(root, entry, notRepo)).rejects.toThrow(/not a git repo/);
   });
 });
