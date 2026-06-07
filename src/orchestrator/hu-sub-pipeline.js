@@ -75,6 +75,37 @@ function buildHuTask(story) {
 }
 
 /**
+ * Sum the cost_usd of a slice of BudgetTracker entries. Returns null
+ * (not 0) when the slice is empty or contains no usable cost data —
+ * the board uses null as "unmeasured" and renders no badge, while 0
+ * means "really free run". Mixing the two would silently hide free
+ * runs and falsely show "$0.00" for runs with no telemetry.
+ *
+ * Cost D (KJC-TSK-0515): the orchestrator calls this once per HU at
+ * runSingleHu exit, passing the slice of entries recorded during that
+ * HU (snapshotted via the entries.length cursor before the iteration
+ * starts). The resulting number flows through buildHuOutcome →
+ * notifyOutcome → setStoryCost in inject-loaded-plan.js.
+ *
+ * @param {Array<{cost_usd?: number}>} entries
+ * @returns {number|null}
+ */
+function sumCostUsd(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return null;
+  let total = 0;
+  let hasAny = false;
+  for (const e of entries) {
+    const n = Number(e?.cost_usd);
+    if (Number.isFinite(n)) {
+      total += n;
+      hasAny = true;
+    }
+  }
+  if (!hasAny) return null;
+  return Math.round(total * 1e6) / 1e6;
+}
+
+/**
  * Build the per-HU outcome blob from whatever metadata the iteration
  * loop returned. Tolerant by design — most fields are optional and we
  * default to safe values so the board can render something useful
@@ -90,9 +121,11 @@ function buildHuTask(story) {
  * @param {object} args.iterResult — whatever runIterationFn returned
  * @param {string} args.status — HU_STATUS.* terminal value
  * @param {number} args.startedAt — Date.now() when runSingleHu started
+ * @param {Array} [args.huBudgetEntries] — slice of BudgetTracker
+ *   entries recorded during this HU. Cost D (KJC-TSK-0515).
  * @returns {object}
  */
-function buildHuOutcome({ story: _story, iterResult, status, startedAt }) {
+function buildHuOutcome({ story: _story, iterResult, status, startedAt, huBudgetEntries }) {
   const r = iterResult || {};
   const git = r.git || {};
   // Iterations are tracked in the standard pipeline as
@@ -123,6 +156,7 @@ function buildHuOutcome({ story: _story, iterResult, status, startedAt }) {
     pr_url: r.pr_url || r.prUrl || git.pr_url || null,
     blockers,
     summary,
+    cost_usd: sumCostUsd(huBudgetEntries),
     finishedAt: new Date().toISOString(),
   };
 }
@@ -134,7 +168,7 @@ function buildHuOutcome({ story: _story, iterResult, status, startedAt }) {
  * @param {object} params
  * @returns {Promise<{huId: string, approved: boolean, result?: object, error?: string, blockedDependents?: string[]}>}
  */
-async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null, onOutcome = null }) {
+async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null, onOutcome = null, budgetTracker = null }) {
   // PR1 (live HU status): every saveHuBatch should also notify the
   // plan JSON so the board reflects state in real time. Defined as a
   // local helper so we don't repeat the try/null-check boilerplate.
@@ -157,6 +191,16 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
   // outcome (wall-clock per HU is what the user needs in the board,
   // not internal stage timings).
   const huStartedAt = Date.now();
+  // Cost D (KJC-TSK-0515): snapshot the budget cursor so we can slice
+  // out only the entries this HU produced. BudgetTracker is session-
+  // scoped (it accumulates across all HUs of the run), so without this
+  // cursor every HU after the first would inherit the previous ones'
+  // cost too. Null-safe — older callers without a tracker still work.
+  const huBudgetStartIdx = budgetTracker?.entries?.length ?? 0;
+  const sliceHuBudget = () => {
+    if (!budgetTracker?.entries) return [];
+    return budgetTracker.entries.slice(huBudgetStartIdx);
+  };
   const story = batch.stories.find(s => s.id === storyId);
 
   // --- Lazy refinement ---
@@ -226,7 +270,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       await saveHuBatch(batchSessionId, batch);
       await notifyStatus(story.id, HU_STATUS.DONE);
       // PR3: build + persist the per-HU outcome.
-      const okOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.DONE, startedAt: huStartedAt });
+      const okOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.DONE, startedAt: huStartedAt, huBudgetEntries: sliceHuBudget() });
       await notifyOutcome(story.id, okOutcome);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → done`,
@@ -242,7 +286,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
       updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
       await saveHuBatch(batchSessionId, batch);
       await notifyStatus(story.id, HU_STATUS.FAILED);
-      const failOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.FAILED, startedAt: huStartedAt });
+      const failOutcome = buildHuOutcome({ story, iterResult, status: HU_STATUS.FAILED, startedAt: huStartedAt, huBudgetEntries: sliceHuBudget() });
       await notifyOutcome(story.id, failOutcome);
       emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
         message: `HU ${story.id} status → failed`,
@@ -259,7 +303,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
     updateStoryStatus(batch, story.id, HU_STATUS.FAILED);
     await saveHuBatch(batchSessionId, batch);
     await notifyStatus(story.id, HU_STATUS.FAILED);
-    const errOutcome = buildHuOutcome({ story, iterResult: { error: err.message }, status: HU_STATUS.FAILED, startedAt: huStartedAt });
+    const errOutcome = buildHuOutcome({ story, iterResult: { error: err.message }, status: HU_STATUS.FAILED, startedAt: huStartedAt, huBudgetEntries: sliceHuBudget() });
     await notifyOutcome(story.id, errOutcome);
     emitProgress(emitter, makeEvent("hu:status-change", { ...eventBase, stage: "hu-sub-pipeline" }, {
       message: `HU ${story.id} status → failed`,
@@ -287,7 +331,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
  * @param {object} params.logger - Logger instance
  * @returns {Promise<{approved: boolean, results: object[], blockedIds: string[]}>}
  */
-export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null, onStatusChange = null, onOutcome = null }) {
+export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitter, eventBase, logger, config = null, onStatusChange = null, onOutcome = null, budgetTracker = null }) {
   const batchSessionId = huReviewerResult.batchSessionId;
   let batch;
   try {
@@ -404,7 +448,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
       // Single HU: run as before, no worktree needed
       const singleResult = await runSingleHu({
         storyId: runnableIds[0], batch, batchSessionId, runIterationFn,
-        emitter, eventBase, logger, config, results, onStatusChange, onOutcome
+        emitter, eventBase, logger, config, results, onStatusChange, onOutcome, budgetTracker
       });
       results.push(singleResult);
       if (!singleResult.approved) {
@@ -443,7 +487,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
           storyId, batch, batchSessionId, runIterationFn,
           emitter, eventBase, logger, config, results,
           worktreePath: worktrees.get(storyId),
-          onStatusChange, onOutcome
+          onStatusChange, onOutcome, budgetTracker
         });
       });
 
