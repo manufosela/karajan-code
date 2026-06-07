@@ -9,6 +9,7 @@ import {
 } from "./manifest.js";
 import { restoreSnapshot, purgeSnapshot } from "./snapshot.js";
 import { ensureSecureDir, assertOwnedByCurrentUser } from "./permissions.js";
+import { runHook } from "./hook.js";
 
 export const DEFAULT_ROOT = process.env.AI_TRASH_ROOT || join(homedir(), ".ai-trash");
 
@@ -127,6 +128,8 @@ const HELP =
   "  purge <id>                 delete a single snapshot\n" +
   "  empty [--older-than-days N | --max-bytes N]\n" +
   "                             drop all (or filtered) snapshots\n" +
+  "  hook                       Claude Code PreToolUse handler (reads JSON\n" +
+  "                             on stdin, writes decision JSON on stdout)\n" +
   "env: AI_TRASH_ROOT (default ~/.ai-trash)\n";
 
 export async function runCli(argv, io = {}) {
@@ -149,6 +152,8 @@ export async function runCli(argv, io = {}) {
       return cmdPurge(root, arg1, out, err);
     case "empty":
       return cmdEmpty(root, flags, out);
+    case "hook":
+      return runHook({ root, stdin: io.stdin ?? process.stdin, stdout: out });
     case "help":
     case "--help":
     case undefined:
