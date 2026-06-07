@@ -54,6 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   WARN when `kj-trash` is missing on PATH; init auto-registers the hook
   via `kj-trash install --claude-code` when the binary is present
   (opt-out: `--no-ai-trash`). Default-on, paridad RTK/Squeezr.
+- `snapshotGitBundle` primitive (`src/git-snapshot.js`, KJC-TSK-0389
+  commit 1): runs `git bundle create --all` against a repo dir, captures
+  refs via `git show-ref --head`, persists the bundle to
+  `<root>/store/<ulid>/repo.bundle` with mode `0o600`, and emits a
+  `snapshot.git-bundle` audit event. The end-to-end test proves a hard
+  reset can recover the lost HEAD via `git fetch <bundle>`. Hook
+  integration lands in commit 2.
 - Claude Code PreToolUse hook (`src/hook.js` + `kj-trash hook`
   subcommand, KJC-TSK-0390 commit 2): reads the JSON payload on stdin,
   classifies the Bash command, snapshots existing target paths, and
