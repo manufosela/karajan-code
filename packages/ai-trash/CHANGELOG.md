@@ -45,3 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `empty` drops every snapshot by default, with `--older-than-days N`
   (TTL sweep via `expireBefore`) and `--max-bytes N` (LRU eviction via
   `enforceLruQuota`) filters. Each removal is audited.
+- End-to-end smoke (`tests/e2e.test.js`, KJC-TSK-0388 commit 7): drives the
+  full pipeline against a sandbox root — programmatic `snapshotFile`, then
+  `runCli` through `list` → `inspect` → `restore --to` → re-snapshot →
+  `empty`, asserting filesystem side-effects on each hop and that the JSONL
+  audit log captured the four expected events
+  (`snapshot.create`, `snapshot.restore`, `snapshot.create`, `snapshot.purge`)
+  with no unredacted `$HOME`-prefixed paths leaking through.
