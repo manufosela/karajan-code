@@ -323,6 +323,11 @@ export function initDb() {
   // unconditionally so solo devs who later promote a plan don't lose
   // values they typed pre-share.
   try { db.exec('ALTER TABLE stories ADD COLUMN assignee TEXT'); } catch { /* already migrated */ }
+  // KJC-TSK-0514 (Cost C): persisted USD cost of running this HU. NULL
+  // until the orchestrator (Cost D) calls setStoryCost on HU close. UI
+  // renders "—" while NULL. Stored as REAL so the SQL aggregations in
+  // Cost E (/api/projects/:id/cost) can SUM directly without parsing.
+  try { db.exec('ALTER TABLE stories ADD COLUMN cost_usd REAL'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
@@ -496,6 +501,32 @@ export function updateStoryStatus(storyId, status) {
   const res = getDb()
     .prepare('UPDATE stories SET status = ?, updated_at = ? WHERE id = ?')
     .run(status, new Date().toISOString(), storyId);
+  return res.changes > 0;
+}
+
+/**
+ * Persist the USD cost of a HU. Called by the orchestrator (Cost D) once
+ * the HU finishes — the value comes from `aggregateRunCost(events).totalUsd`
+ * (Cost B). `null` clears the cell so the UI renders "—" again. Other
+ * numeric inputs are coerced via `Number`; non-finite values reject with
+ * an explicit throw so callers don't silently NULL-out real cost rows.
+ *
+ * @param {string} storyId
+ * @param {number|null} costUsd
+ * @returns {boolean} true when the row existed and was updated
+ */
+export function setStoryCost(storyId, costUsd) {
+  let value = null;
+  if (costUsd !== null && costUsd !== undefined) {
+    const n = Number(costUsd);
+    if (!Number.isFinite(n)) {
+      throw new Error(`setStoryCost: costUsd must be a finite number or null (got ${costUsd})`);
+    }
+    value = n;
+  }
+  const res = getDb()
+    .prepare('UPDATE stories SET cost_usd = ?, updated_at = ? WHERE id = ?')
+    .run(value, new Date().toISOString(), storyId);
   return res.changes > 0;
 }
 
