@@ -8,7 +8,9 @@
     "node": ">=22.22.1"
   },
   "exports": {
-    "./atomic-write": "./src/atomic-write.js"
+    "./atomic-write": "./src/atomic-write.js",
+    "./shared-paths": "./src/shared-paths.js",
+    "./port-check": "./src/port-check.js"
   },
   "scripts": {
     "test": "vitest run"
