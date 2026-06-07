@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kj doctor` and `kj init` ai-trash integration (KJC-TSK-0391). Doctor
+  surfaces a WARN when `kj-trash` is missing on PATH (destructive ops
+  unprotected). Init now auto-registers the Claude Code PreToolUse hook via
+  `kj-trash install --claude-code` when the binary is present; opt-out via
+  `--no-ai-trash`. Follows the RTK/Squeezr default-on pattern.
+
 ## [3.1.0] - 2026-06-05
 
 First minor on the v3 line. Bundles five tracks of work landed since v3.0.0:

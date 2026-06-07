@@ -17,6 +17,7 @@ import { detectRtk } from "../utils/rtk-detect.js";
 import { installRtk } from "../utils/rtk-install.js";
 import { detectSqueezr } from "../utils/squeezr-detect.js";
 import { installSqueezr } from "../utils/squeezr-install.js";
+import { detectAiTrash, installAiTrashHook } from "../utils/ai-trash.js";
 import { detectQmd } from "../utils/qmd-detect.js";
 import { installQmd } from "../utils/qmd-install.js";
 import { registerQmdCollections } from "../utils/qmd-collection.js";
@@ -790,6 +791,21 @@ export async function initCommand({ logger, flags = {} }) {
         logger.warn("Squeezr install failed — tool outputs will not be compressed.");
         logger.warn(`  Manual install: ${getInstallCommand("squeezr")}`);
       }
+    }
+  }
+
+  // Check ai-trash availability — register PreToolUse hook if binary present
+  // (opt-out: --no-ai-trash). The binary itself ships with karajan-code.
+  const skipAiTrash = flags?.noAiTrash === true || flags?.aiTrash === false;
+  if (skipAiTrash) {
+    logger.info("ai-trash setup skipped (--no-ai-trash). Destructive ops will run unprotected.");
+  } else {
+    const aiTrash = await detectAiTrash();
+    if (aiTrash.available) {
+      await installAiTrashHook(logger);
+    } else {
+      logger.warn("ai-trash kj-trash binary not found — destructive ops unprotected.");
+      logger.warn("  Reinstall karajan-code so kj-trash is on PATH.");
     }
   }
 
