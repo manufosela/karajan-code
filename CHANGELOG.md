@@ -7,13 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-06-07
+
+Cost tracking end-to-end (epic KJC-PCS-0055 closed). Every HU run now
+records its USD spend; the HU Board surfaces it as a per-card badge and a
+project total chip. **No breaking changes** — `cost_usd` is additive and
+null-safe (badge hides when unmeasured, never "$0.00" by mistake).
+
 ### Added
 
+- **Cost A — model pricing registry** (KJC-TSK-0512) — `model-pricing.json`
+  with input/output USD-per-token for Claude, GPT, Gemini, local models.
+  Versioned, lookup is exact-match then prefix fallback.
+- **Cost B — cost aggregator** (KJC-TSK-0513) — `aggregateRunCost()` reduces
+  a list of `BudgetTracker` entries into `{totalUsd, byModel, byProvider,
+  unknownModelTokens}`. Unknown models surface their token counts so the
+  user knows what's missing pricing.
+- **Cost C — board.db schema** (KJC-TSK-0514) — idempotent migration adds
+  `cost_usd REAL` column on `stories`. NULL = unmeasured, 0 = free run.
+- **Cost D — orchestrator → board write** (KJC-TSK-0515) — per-HU cost is
+  sliced from the session `BudgetTracker` via cursor snapshot (entries at
+  HU-start vs at HU-end) and persisted to `board.db` through
+  `setLiveOutcomeUpdater`. Lazy import of hu-board keeps the pre-loop free
+  of board deps until needed.
+- **Cost E — `/api/projects/:id/cost`** (KJC-TSK-0516) — returns `{totalUsd,
+  byPlan, unknownModelTokens, currency}` for a project. Aggregates across
+  all plans, isolates unknown-model token leakage.
+- **Cost F — HU card badge** (KJC-TSK-0517) — `formatCost(cost_usd)` renders
+  `$0.02` label + `Estimated cost: $0.0234` tooltip. Hidden when null.
+- **Cost G — project total chip** (KJC-TSK-0518) — `formatProjectCostSummary`
+  builds a header chip with per-plan breakdown. Hidden when nothing to show.
 - `kj doctor` and `kj init` ai-trash integration (KJC-TSK-0391). Doctor
   surfaces a WARN when `kj-trash` is missing on PATH (destructive ops
   unprotected). Init now auto-registers the Claude Code PreToolUse hook via
   `kj-trash install --claude-code` when the binary is present; opt-out via
   `--no-ai-trash`. Follows the RTK/Squeezr default-on pattern.
+
+### Notes
+
+- Null vs 0 semantic preserved end-to-end: `BudgetTracker` empty → outcome
+  null → board.db NULL → UI hides badge. A measured free run still renders
+  `$0.00`.
+- `BudgetTracker` is session-scoped; the cursor-snapshot pattern
+  (`entries.slice(huBudgetStartIdx)`) isolates per-HU spend without losing
+  cumulative totals.
 
 ## [3.1.0] - 2026-06-05
 

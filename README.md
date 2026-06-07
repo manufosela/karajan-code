@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.1.0 released** — first minor on v3. Bundles tool-correctness judge and TDD-discipline as new quality gates, `kj clean --all/--vector-stores/--repo` for housekeeping, `kj sync --apply` closing the SPDD loop, semantic test-diet auditor (498 test files, 0 loss-of-meaning findings), HU Board structural refactor (17 PRs), and a batch of security + flake fixes. No breaking changes; drop-in upgrade from v3.0.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.2.0 released** — Cost tracking end-to-end (epic KJC-PCS-0055 closed). Every `kj run` now records per-HU USD spend via the `BudgetTracker` cursor-snapshot pattern, persists it to `board.db.cost_usd`, and the HU Board surfaces both a per-card badge (`$0.02`) and a project-wide chip with per-plan breakdown. Null-safe: unmeasured HUs hide the badge instead of misleading "$0.00". Drop-in upgrade from v3.1.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
