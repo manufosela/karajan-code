@@ -385,8 +385,16 @@ describe('GET /api/projects/:id/cost', () => {
     expect(res.body.totalUsd).toBe(2.5);
     expect(res.body.byPlan).toHaveLength(2);
     // sorted by totalUsd desc → plan-A (2.0) before plan-B (0.5)
-    expect(res.body.byPlan[0]).toEqual({ planId: 'plan-A', totalUsd: 2, huCount: 2 });
-    expect(res.body.byPlan[1]).toEqual({ planId: 'plan-B', totalUsd: 0.5, huCount: 1 });
+    // cachedTokens/tokensIn/cachedRatioPct are Φ0-G fields: with no setStoryCachedTokens
+    // calls in this test the sums are 0 and the ratio is null (tokens_in == 0).
+    expect(res.body.byPlan[0]).toEqual({
+      planId: 'plan-A', totalUsd: 2, huCount: 2,
+      cachedTokens: 0, tokensIn: 0, cachedRatioPct: null,
+    });
+    expect(res.body.byPlan[1]).toEqual({
+      planId: 'plan-B', totalUsd: 0.5, huCount: 1,
+      cachedTokens: 0, tokensIn: 0, cachedRatioPct: null,
+    });
     expect(res.body.unknownModelTokens).toEqual({ tokensIn: 0, tokensOut: 0, models: [] });
   });
 
