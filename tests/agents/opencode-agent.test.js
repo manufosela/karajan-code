@@ -130,4 +130,43 @@ describe("OpenCodeAgent", () => {
       expect(opts.timeout).toBe(50000);
     });
   });
+
+  // Φ0-D — OpenCode often runs against LiteLLM-backed providers; when
+  // `--format json` (reviewTask) is on, the CLI emits a JSON document
+  // whose `usage` block carries `prompt_tokens_details.cached_tokens`.
+  describe("cached_tokens extraction (LiteLLM passthrough via --format json)", () => {
+    it.each([
+      ["root usage with cached_tokens",
+        `{"result":"ok","usage":{"prompt_tokens":2200,"completion_tokens":380,"prompt_tokens_details":{"cached_tokens":1700}}}`,
+        { tokens_in: 2200, tokens_out: 380, cached_tokens: 1700 }],
+      ["nested under result wrapper",
+        `{"result":{"text":"done","usage":{"prompt_tokens":900,"completion_tokens":150,"prompt_tokens_details":{"cached_tokens":600}}}}`,
+        { tokens_in: 900, tokens_out: 150, cached_tokens: 600 }],
+      ["array payload — usage on one element",
+        `[{"type":"chunk"},{"type":"final","usage":{"prompt_tokens":400,"completion_tokens":80}}]`,
+        { tokens_in: 400, tokens_out: 80, cached_tokens: 0 }],
+      ["line-delimited JSON in mixed output",
+        `pre\n{"usage":{"prompt_tokens":300,"completion_tokens":60,"prompt_tokens_details":{"cached_tokens":250}}}\npost`,
+        { tokens_in: 300, tokens_out: 60, cached_tokens: 250 }]
+    ])("%s", async (_n, stdout, expected) => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout, stderr: "" });
+      const result = await new OpenCodeAgent("opencode", baseConfig, logger).reviewTask({ prompt: "r", role: "reviewer" });
+      expect(result.tokens_in).toBe(expected.tokens_in);
+      expect(result.tokens_out).toBe(expected.tokens_out);
+      expect(result.cached_tokens).toBe(expected.cached_tokens);
+    });
+
+    it("leaves usage fields undefined when stdout is plain text (unmeasured)", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "plain output\n", stderr: "" });
+      const result = await new OpenCodeAgent("opencode", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.tokens_in).toBeUndefined();
+      expect(result.cached_tokens).toBeUndefined();
+    });
+
+    it("ignores malformed JSON and stays unmeasured", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: '{"usage": not-valid}', stderr: "" });
+      const result = await new OpenCodeAgent("opencode", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.cached_tokens).toBeUndefined();
+    });
+  });
 });

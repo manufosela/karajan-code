@@ -102,4 +102,39 @@ describe("AiderAgent", () => {
     expect(opts.silenceTimeoutMs).toBe(25000);
     expect(opts.timeout).toBe(80000);
   });
+
+  // Φ0-D — Aider passes through to providers via LiteLLM; when the
+  // underlying API returns OpenAI-style `usage` with `prompt_tokens_details
+  // .cached_tokens`, we surface it. We also parse aider's native footer
+  // (`Tokens: <sent> sent, <received> received[, <cached> cache hit]`).
+  describe("cached_tokens extraction (LiteLLM passthrough + native footer)", () => {
+    it.each([
+      ["OpenAI usage JSON with cached_tokens",
+        `pre\n{"usage":{"prompt_tokens":1800,"completion_tokens":420,"prompt_tokens_details":{"cached_tokens":1200}}}\n`,
+        { tokens_in: 1800, tokens_out: 420, cached_tokens: 1200 }],
+      ["native footer with commas + cache hit",
+        `Tokens: 4,096 sent, 1,234 received, 2,048 cache hit.\nCost: $0.05\n`,
+        { tokens_in: 4096, tokens_out: 1234, cached_tokens: 2048 }],
+      ["native footer with k suffix, no cache",
+        `Tokens: 4.2k sent, 1.0k received.\n`,
+        { tokens_in: 4200, tokens_out: 1000, cached_tokens: 0 }],
+      ["JSON malformed → fallback to native footer",
+        `not-json {usage: broken\nTokens: 500 sent, 200 received\n`,
+        { tokens_in: 500, tokens_out: 200, cached_tokens: 0 }]
+    ])("%s", async (_n, stdout, expected) => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout, stderr: "" });
+      const result = await new AiderAgent("aider", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.tokens_in).toBe(expected.tokens_in);
+      expect(result.tokens_out).toBe(expected.tokens_out);
+      expect(result.cached_tokens).toBe(expected.cached_tokens);
+    });
+
+    it("leaves usage fields undefined when no footer/JSON present (unmeasured)", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "changes applied\n", stderr: "" });
+      const result = await new AiderAgent("aider", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.tokens_in).toBeUndefined();
+      expect(result.tokens_out).toBeUndefined();
+      expect(result.cached_tokens).toBeUndefined();
+    });
+  });
 });
