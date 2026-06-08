@@ -328,6 +328,13 @@ export function initDb() {
   // renders "—" while NULL. Stored as REAL so the SQL aggregations in
   // Cost E (/api/projects/:id/cost) can SUM directly without parsing.
   try { db.exec('ALTER TABLE stories ADD COLUMN cost_usd REAL'); } catch { /* already migrated */ }
+  // KJC-TSK-0525 (Φ0-G): persisted cached/input tokens per HU so the
+  // board can render the "🎯 N% cached" badge without re-parsing the
+  // session summary. NULL = unmeasured (older runs, cold runs without
+  // cache support). INTEGER because providers report token counts as
+  // ints. Ratio is computed at read time as cached_tokens / tokens_in.
+  try { db.exec('ALTER TABLE stories ADD COLUMN cached_tokens INTEGER'); } catch { /* already migrated */ }
+  try { db.exec('ALTER TABLE stories ADD COLUMN tokens_in INTEGER'); } catch { /* already migrated */ }
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_stories_plan ON stories(plan_id)'); } catch { /* ignore */ }
 
   // is_test (KJC-TSK-0371 — board polish #3): per-project flag that
@@ -531,6 +538,35 @@ export function setStoryCost(storyId, costUsd) {
 }
 
 /**
+ * Persist cached/input tokens for a HU (KJC-TSK-0525, Φ0-G). Called by
+ * the orchestrator alongside `setStoryCost` once the HU finishes. Both
+ * values come from `BudgetTracker.since(huCursor)` (Φ0-E). Pass `null`
+ * to clear either cell. Non-finite numbers throw so callers don't
+ * silently null-out real telemetry.
+ *
+ * @param {string} storyId
+ * @param {number|null} cachedTokens
+ * @param {number|null} tokensIn
+ * @returns {boolean} true when the row existed and was updated
+ */
+export function setStoryCachedTokens(storyId, cachedTokens, tokensIn) {
+  const coerce = (v, name) => {
+    if (v === null || v === undefined) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new Error(`setStoryCachedTokens: ${name} must be a non-negative finite number or null (got ${v})`);
+    }
+    return Math.round(n);
+  };
+  const cached = coerce(cachedTokens, 'cachedTokens');
+  const tin = coerce(tokensIn, 'tokensIn');
+  const res = getDb()
+    .prepare('UPDATE stories SET cached_tokens = ?, tokens_in = ?, updated_at = ? WHERE id = ?')
+    .run(cached, tin, new Date().toISOString(), storyId);
+  return res.changes > 0;
+}
+
+/**
  * List every distinct `plan_id` stamped on the stories of a given project.
  * Used by "mark plan ready" so the board can act on each plan of a project
  * without making the user pick one.
@@ -643,9 +679,13 @@ export function getProjectCost(projectId) {
     .get(projectId);
   if (!project) return null;
 
+  // Φ0-G: cached_tokens / tokens_in are nullable independently of
+  // cost_usd, so we read all three columns but keep cost as the
+  // primary filter (a row with only cache telemetry but no $ should
+  // not appear in the per-plan totals — cost rules the byPlan list).
   const rows = getDb()
     .prepare(
-      `SELECT plan_id, cost_usd FROM stories
+      `SELECT plan_id, cost_usd, cached_tokens, tokens_in FROM stories
        WHERE project_id = ? AND cost_usd IS NOT NULL`
     )
     .all(projectId);
@@ -653,24 +693,43 @@ export function getProjectCost(projectId) {
   const round4 = (n) => Math.round(n * 10000) / 10000;
   const byPlanMap = new Map();
   let totalUsd = 0;
+  let totalCached = 0;
+  let totalTokensIn = 0;
   for (const r of rows) {
     const planId = r.plan_id || 'unassigned';
     const cost = Number(r.cost_usd);
     if (!Number.isFinite(cost)) continue;
     totalUsd += cost;
-    const cur = byPlanMap.get(planId) || { planId, totalUsd: 0, huCount: 0 };
+    const cached = Number(r.cached_tokens);
+    const tin = Number(r.tokens_in);
+    if (Number.isFinite(cached) && cached >= 0) totalCached += cached;
+    if (Number.isFinite(tin) && tin >= 0) totalTokensIn += tin;
+    const cur = byPlanMap.get(planId) || { planId, totalUsd: 0, huCount: 0, cachedTokens: 0, tokensIn: 0 };
     cur.totalUsd += cost;
     cur.huCount += 1;
+    if (Number.isFinite(cached) && cached >= 0) cur.cachedTokens += cached;
+    if (Number.isFinite(tin) && tin >= 0) cur.tokensIn += tin;
     byPlanMap.set(planId, cur);
   }
 
+  const ratio = (cached, tin) => tin > 0 ? Math.round((cached / tin) * 1000) / 10 : null;
   const byPlan = Array.from(byPlanMap.values())
-    .map((p) => ({ planId: p.planId, totalUsd: round4(p.totalUsd), huCount: p.huCount }))
+    .map((p) => ({
+      planId: p.planId,
+      totalUsd: round4(p.totalUsd),
+      huCount: p.huCount,
+      cachedTokens: p.cachedTokens,
+      tokensIn: p.tokensIn,
+      cachedRatioPct: ratio(p.cachedTokens, p.tokensIn),
+    }))
     .sort((a, b) => b.totalUsd - a.totalUsd);
 
   return {
     totalUsd: round4(totalUsd),
     byPlan,
+    cachedTokens: totalCached,
+    tokensIn: totalTokensIn,
+    cachedRatioPct: ratio(totalCached, totalTokensIn),
     unknownModelTokens: { tokensIn: 0, tokensOut: 0, models: [] },
     currency: 'USD',
   };
