@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatHHMM, shortTask, formatSessionLabel, formatCost, formatProjectCostSummary } from "../src/format.js";
+import { formatHHMM, shortTask, formatSessionLabel, formatCost, formatProjectCostSummary, formatCacheRatio } from "../src/format.js";
 
 describe("formatHHMM", () => {
   it("formats an ISO timestamp as HH:MM (24h, server-local)", () => {
@@ -272,5 +272,74 @@ describe("formatProjectCostSummary", () => {
     });
     expect(out.tooltip).toContain("  ok: $0.50 (2 HUs)");
     expect(out.tooltip).not.toContain("broken");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatCacheRatio — Φ0-G (KJC-TSK-0525)
+// ---------------------------------------------------------------------------
+// Per-HU and per-plan cache-hit ratio badge. Returns null when there is
+// no signal to show (so the UI hides the badge instead of rendering
+// "0%" with no data — same stance as formatCost).
+describe("formatCacheRatio", () => {
+  it("returns a 1-decimal % label and full-numerator tooltip", () => {
+    expect(formatCacheRatio(234, 1000)).toEqual({
+      label: "🎯 23.4%",
+      tooltip: "Cache hits: 234 / 1,000 input tokens (23.4%)",
+    });
+  });
+
+  it("rounds to 1 decimal so narrow runs do not appear as 0%", () => {
+    expect(formatCacheRatio(7, 1200).label).toBe("🎯 0.6%");
+  });
+
+  it("returns null when tokens_in is 0 (ratio is undefined, not zero)", () => {
+    expect(formatCacheRatio(0, 0)).toBeNull();
+    expect(formatCacheRatio(50, 0)).toBeNull();
+  });
+
+  it("returns null on null/undefined/non-finite inputs", () => {
+    expect(formatCacheRatio(null, 100)).toBeNull();
+    expect(formatCacheRatio(100, null)).toBeNull();
+    expect(formatCacheRatio(undefined, undefined)).toBeNull();
+    expect(formatCacheRatio(NaN, 100)).toBeNull();
+    expect(formatCacheRatio(100, Infinity)).toBeNull();
+  });
+
+  it("returns null on negative cached counter (corrupted telemetry)", () => {
+    expect(formatCacheRatio(-1, 100)).toBeNull();
+  });
+
+  it("renders 100% when every input token was cached", () => {
+    expect(formatCacheRatio(500, 500)).toEqual({
+      label: "🎯 100%",
+      tooltip: "Cache hits: 500 / 500 input tokens (100%)",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatProjectCostSummary — Φ0-G additions
+// ---------------------------------------------------------------------------
+describe("formatProjectCostSummary — Φ0-G cache lines", () => {
+  it("appends a Cache line when the project carries cached/in counters", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 1, byPlan: [],
+      cachedTokens: 350, tokensIn: 1000,
+    });
+    expect(out.tooltip).toContain("Cache: 350 / 1,000 input tokens (35%)");
+  });
+
+  it("appends 🎯 N% suffix to each plan that carries a cachedRatioPct", () => {
+    const out = formatProjectCostSummary({
+      totalUsd: 2,
+      byPlan: [
+        { planId: "p1", totalUsd: 1.5, huCount: 2, cachedRatioPct: 42 },
+        { planId: "p2", totalUsd: 0.5, huCount: 1, cachedRatioPct: null },
+      ],
+    });
+    expect(out.tooltip).toContain("  p1: $1.50 (2 HUs) 🎯 42%");
+    expect(out.tooltip).toContain("  p2: $0.50 (1 HU)");
+    expect(out.tooltip).not.toContain("p2: $0.50 (1 HU) 🎯");
   });
 });

@@ -40,6 +40,9 @@ async function renderBoard() {
       api(`/api/projects/${encodeURIComponent(selectedProject)}/cost`).catch(() => null),
     ]);
     const costSummary = projectCost ? formatProjectCostSummary(projectCost) : null;
+    // Φ0-G (KJC-TSK-0525): aggregated cache-hit badge at the project
+    // header, rendered alongside the project cost chip.
+    const cacheSummary = projectCost ? formatCacheRatio(projectCost.cachedTokens, projectCost.tokensIn) : null;
 
     // Pre-resolve project initials + name for every distinct project_id in
     // the fetched stories so `renderStoryCard` is synchronous and the header
@@ -101,6 +104,7 @@ async function renderBoard() {
         ` : ''}
         <span class="section-header__count">${stories.length} stories</span>
         ${costSummary ? `<span class="section-header__cost" title="${esc(costSummary.tooltip)}">💵 ${esc(costSummary.label)}</span>` : ''}
+        ${cacheSummary ? `<span class="section-header__cache" title="${esc(cacheSummary.tooltip)}">${esc(cacheSummary.label)}</span>` : ''}
         ${isRunning ? `
           <button id="running-badge-btn" class="section-header__badge"
                 style="margin-left:auto;padding:4px 10px;font-size:0.8rem;background:var(--color-yellow,#eab308);color:#000;border-radius:var(--radius-sm);font-weight:600;border:none;cursor:pointer;"
@@ -380,6 +384,13 @@ function renderStoryCard(story) {
         ${(() => {
           const c = formatCost(story.cost_usd);
           return c ? `<span class="story-card__cost" title="${esc(c.tooltip)}">💵 ${esc(c.label)}</span>` : '';
+        })()}
+        ${(() => {
+          // Φ0-G (KJC-TSK-0525): per-HU cache hit badge. Rendered next to
+          // the cost so users can correlate "this run cost $X and 73% of
+          // input was served from cache" in one glance.
+          const r = formatCacheRatio(story.cached_tokens, story.tokens_in);
+          return r ? `<span class="story-card__cache" title="${esc(r.tooltip)}">${esc(r.label)}</span>` : '';
         })()}
       </div>
       ${missingTestContract ? `
