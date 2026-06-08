@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { sendTelemetryEvent, isTelemetryEnabled, buildTelemetryPayload, TELEMETRY_ENDPOINT } from "../src/utils/telemetry.js";
+import { sendTelemetryEvent, isTelemetryEnabled, buildTelemetryPayload, TELEMETRY_ENDPOINT, computeCachedPct } from "../src/utils/telemetry.js";
 
 describe("telemetry", () => {
   let originalFetch;
@@ -163,6 +163,92 @@ describe("telemetry", () => {
       const body = JSON.parse(global.fetch.mock.calls[0][1].body);
       // ts will differ by a few ms; everything else must be identical.
       expect({ ...preview, ts: 0 }).toEqual({ ...body, ts: 0 });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Φ0-H (KJC-TSK-0526): cached_pct_{coder,reviewer,total} aggregator.
+  // The fleet's pipeline_complete event needs per-role cache-hit ratios so we
+  // can see how much the provider-level caches are buying in real runs, not
+  // just locally. Provider-agnostic — works whether the run used Anthropic,
+  // OpenAI/Codex, Gemini, aider or opencode (BudgetTracker normalises).
+  // -------------------------------------------------------------------------
+  describe("computeCachedPct (KJC-TSK-0526)", () => {
+    it("returns nulls when summary is missing/invalid (no signal)", () => {
+      expect(computeCachedPct(null)).toEqual({
+        cached_pct_coder: null, cached_pct_reviewer: null, cached_pct_total: null,
+      });
+      expect(computeCachedPct(undefined)).toEqual({
+        cached_pct_coder: null, cached_pct_reviewer: null, cached_pct_total: null,
+      });
+      expect(computeCachedPct("nope")).toEqual({
+        cached_pct_coder: null, cached_pct_reviewer: null, cached_pct_total: null,
+      });
+    });
+
+    it("computes per-role 1-decimal ratios and total", () => {
+      const out = computeCachedPct({
+        breakdown_by_role: {
+          coder: { tokens_in: 1000, cached_tokens: 350 },
+          reviewer: { tokens_in: 500, cached_tokens: 50 },
+        },
+      });
+      expect(out.cached_pct_coder).toBe(35);
+      expect(out.cached_pct_reviewer).toBe(10);
+      // total = (350+50) / (1000+500) = 400/1500 ≈ 26.7
+      expect(out.cached_pct_total).toBe(26.7);
+    });
+
+    it("returns null for a role with tokens_in=0 (ratio undefined, not 0)", () => {
+      const out = computeCachedPct({
+        breakdown_by_role: {
+          coder: { tokens_in: 0, cached_tokens: 0 },
+          reviewer: { tokens_in: 200, cached_tokens: 50 },
+        },
+      });
+      expect(out.cached_pct_coder).toBeNull();
+      expect(out.cached_pct_reviewer).toBe(25);
+      expect(out.cached_pct_total).toBe(25);
+    });
+
+    it("returns null per absent role rather than 0", () => {
+      const out = computeCachedPct({
+        breakdown_by_role: {
+          coder: { tokens_in: 100, cached_tokens: 30 },
+        },
+      });
+      expect(out.cached_pct_coder).toBe(30);
+      expect(out.cached_pct_reviewer).toBeNull();
+      expect(out.cached_pct_total).toBe(30);
+    });
+
+    it("does not send when telemetry is off (caller is responsible — no payload by side effect)", async () => {
+      // The function itself is pure; verify the gating happens upstream
+      // via sendTelemetryEvent with telemetry=false (existing pattern).
+      await sendTelemetryEvent("pipeline_complete", {
+        version: "1.0.0",
+        cached_pct_coder: 35,
+        cached_pct_reviewer: 10,
+        cached_pct_total: 26.7,
+      }, { telemetry: false });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("includes the three cached_pct_* fields in the wire payload when present", async () => {
+      await sendTelemetryEvent("pipeline_complete", {
+        version: "1.0.0",
+        mode: "standard",
+        agent: "claude",
+        duration_s: 42,
+        success: true,
+        cached_pct_coder: 35,
+        cached_pct_reviewer: 10,
+        cached_pct_total: 26.7,
+      }, { telemetry: true });
+      const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+      expect(body.cached_pct_coder).toBe(35);
+      expect(body.cached_pct_reviewer).toBe(10);
+      expect(body.cached_pct_total).toBe(26.7);
     });
   });
 });
