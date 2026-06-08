@@ -106,6 +106,31 @@ function sumCostUsd(entries) {
 }
 
 /**
+ * Sum an integer token-counter field across a slice of BudgetTracker
+ * entries (Φ0-G, KJC-TSK-0525). Same null-vs-0 semantics as sumCostUsd:
+ * returns null when nothing measurable was recorded so the board can
+ * distinguish "unmeasured" from "really zero".
+ *
+ * @param {Array<object>} entries
+ * @param {string} field — entry key to sum, e.g. "cached_tokens"
+ * @returns {number|null}
+ */
+function sumTokenField(entries, field) {
+  if (!Array.isArray(entries) || entries.length === 0) return null;
+  let total = 0;
+  let hasAny = false;
+  for (const e of entries) {
+    const n = Number(e?.[field]);
+    if (Number.isFinite(n) && n >= 0) {
+      total += n;
+      hasAny = true;
+    }
+  }
+  if (!hasAny) return null;
+  return Math.round(total);
+}
+
+/**
  * Build the per-HU outcome blob from whatever metadata the iteration
  * loop returned. Tolerant by design — most fields are optional and we
  * default to safe values so the board can render something useful
@@ -157,6 +182,11 @@ function buildHuOutcome({ story: _story, iterResult, status, startedAt, huBudget
     blockers,
     summary,
     cost_usd: sumCostUsd(huBudgetEntries),
+    // Φ0-G (KJC-TSK-0525): cached/input tokens drive the "🎯 N% cached"
+    // board badge. Null when nothing measurable was recorded so the UI
+    // can hide the chip on cold runs or providers without cache.
+    cached_tokens: sumTokenField(huBudgetEntries, 'cached_tokens'),
+    tokens_in: sumTokenField(huBudgetEntries, 'tokens_in'),
     finishedAt: new Date().toISOString(),
   };
 }

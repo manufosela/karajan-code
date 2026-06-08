@@ -316,8 +316,19 @@ function wirePlanCallbacks({ session, loadedPlan, projectDir, syncResultsToPlan,
       await savePlanToDisk(projectDir, loadedPlan);
       if (outcome && Number.isFinite(outcome.cost_usd)) {
         try {
-          const { setStoryCost } = await import("../../../../packages/hu-board/src/db.js");
+          const { setStoryCost, setStoryCachedTokens } = await import("../../../../packages/hu-board/src/db.js");
           setStoryCost(huId, outcome.cost_usd);
+          // Φ0-G (KJC-TSK-0525): cached/in tokens travel in the same
+          // outcome blob as cost. Write them together so the board
+          // can render the "🎯 N% cached" badge on the same render.
+          // Either may be null (older runs, no cache) — setter handles it.
+          if (Number.isFinite(outcome.cached_tokens) || Number.isFinite(outcome.tokens_in)) {
+            setStoryCachedTokens(
+              huId,
+              Number.isFinite(outcome.cached_tokens) ? outcome.cached_tokens : null,
+              Number.isFinite(outcome.tokens_in) ? outcome.tokens_in : null,
+            );
+          }
         } catch (err) {
           logger?.warn?.(`Cost write failed for ${huId}: ${err.message}`);
         }
