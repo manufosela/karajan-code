@@ -213,12 +213,12 @@ describe("ClaudeAgent", () => {
     it.each([
       ["runTask", "coder", { type: "result", result: "done", total_cost_usd: 0.117, usage: usage(3000, 4000),
         modelUsage: { "claude-opus-4-6[1m]": { inputTokens: 3000, outputTokens: 4000, costUSD: 0.117 } } },
-        { tokens_in: 3000, tokens_out: 4000, cost_usd: 0.117, model: "claude-opus-4-6[1m]" }],
+        { tokens_in: 3000, tokens_out: 4000, cost_usd: 0.117, model: "claude-opus-4-6[1m]", cached_tokens: 0 }],
       ["reviewTask", "reviewer", { type: "result", result: "review", total_cost_usd: 0.03, usage: usage(500, 800),
         modelUsage: { haiku: { inputTokens: 500, outputTokens: 800, costUSD: 0.03 } } },
-        { tokens_in: 500, tokens_out: 800, cost_usd: 0.03, model: "haiku" }],
+        { tokens_in: 500, tokens_out: 800, cost_usd: 0.03, model: "haiku", cached_tokens: 0 }],
       ["runTask", "coder", { type: "result", result: "done", total_cost_usd: 0.01, usage: usage(100, 200) },
-        { tokens_in: 100, tokens_out: 200, cost_usd: 0.01, model: null }]
+        { tokens_in: 100, tokens_out: 200, cost_usd: 0.01, model: null, cached_tokens: 0 }]
     ])("%s extracts tokens/cost/model", async (method, role, ndjson, exp) => {
       runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: JSON.stringify(ndjson) });
       const result = await new ClaudeAgent("claude", baseConfig, logger)[method]({ prompt: "t", role });
@@ -226,6 +226,27 @@ describe("ClaudeAgent", () => {
       expect(result.tokens_out).toBe(exp.tokens_out);
       expect(result.cost_usd).toBe(exp.cost_usd);
       expect(result.model).toBe(exp.model);
+      expect(result.cached_tokens).toBe(exp.cached_tokens);
+    });
+
+    // Φ0-A — Phase 0 cache metrics: Anthropic exposes both cache_read_input_tokens
+    // (served from automatic prompt cache) and cache_creation_input_tokens (just
+    // written to cache). cached_tokens aggregates both — the total volume of
+    // input that touched the caching machinery this call.
+    it.each([
+      ["cache read only", { input_tokens: 200, output_tokens: 100, cache_read_input_tokens: 1500 }, 1500],
+      ["cache creation only", { input_tokens: 200, output_tokens: 100, cache_creation_input_tokens: 800 }, 800],
+      ["read + creation mixed", {
+        input_tokens: 200, output_tokens: 100,
+        cache_read_input_tokens: 1500, cache_creation_input_tokens: 800
+      }, 2300]
+    ])("extracts cached_tokens: %s", async (_name, usageObj, expectedCached) => {
+      const ndjson = { type: "result", result: "ok", total_cost_usd: 0.05, usage: usageObj };
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "", stderr: JSON.stringify(ndjson) });
+      const result = await new ClaudeAgent("claude", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.cached_tokens).toBe(expectedCached);
+      expect(result.tokens_in).toBe(200);
+      expect(result.tokens_out).toBe(100);
     });
   });
 
