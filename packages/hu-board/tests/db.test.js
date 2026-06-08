@@ -379,3 +379,128 @@ describe('cost_usd persistence', () => {
     expect(setStoryCost('does-not-exist', 5)).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// cached_tokens + tokens_in columns + setStoryCachedTokens (KJC-TSK-0525 — Φ0-G)
+// ---------------------------------------------------------------------------
+describe('cached_tokens / tokens_in persistence (Φ0-G)', () => {
+  it('migrates stories table with nullable cached_tokens / tokens_in columns', async () => {
+    const { getDb } = await freshDb();
+    const cols = getDb().prepare("PRAGMA table_info(stories)").all();
+    const cached = cols.find((c) => c.name === 'cached_tokens');
+    const tin = cols.find((c) => c.name === 'tokens_in');
+    expect(cached).toBeTruthy();
+    expect(cached.type.toUpperCase()).toBe('INTEGER');
+    expect(cached.notnull).toBe(0);
+    expect(tin).toBeTruthy();
+    expect(tin.type.toUpperCase()).toBe('INTEGER');
+    expect(tin.notnull).toBe(0);
+  });
+
+  it('defaults cached_tokens / tokens_in to NULL on insert', async () => {
+    const { getDb, upsertStory } = await freshDb();
+    upsertStory({ id: 's-cache', project_id: 'p1' });
+    const row = getDb().prepare('SELECT cached_tokens, tokens_in FROM stories WHERE id = ?').get('s-cache');
+    expect(row.cached_tokens).toBeNull();
+    expect(row.tokens_in).toBeNull();
+  });
+
+  it('setStoryCachedTokens writes integers and round-trips', async () => {
+    const { getDb, upsertStory, setStoryCachedTokens } = await freshDb();
+    upsertStory({ id: 's-w', project_id: 'p1' });
+    expect(setStoryCachedTokens('s-w', 14000, 20000)).toBe(true);
+    const row = getDb().prepare('SELECT cached_tokens, tokens_in FROM stories WHERE id = ?').get('s-w');
+    expect(row.cached_tokens).toBe(14000);
+    expect(row.tokens_in).toBe(20000);
+  });
+
+  it('setStoryCachedTokens rounds non-integer inputs to nearest integer', async () => {
+    const { getDb, upsertStory, setStoryCachedTokens } = await freshDb();
+    upsertStory({ id: 's-r', project_id: 'p1' });
+    setStoryCachedTokens('s-r', 14000.6, 20000.4);
+    const row = getDb().prepare('SELECT cached_tokens, tokens_in FROM stories WHERE id = ?').get('s-r');
+    expect(row.cached_tokens).toBe(14001);
+    expect(row.tokens_in).toBe(20000);
+  });
+
+  it('setStoryCachedTokens accepts null on either field independently', async () => {
+    const { getDb, upsertStory, setStoryCachedTokens } = await freshDb();
+    upsertStory({ id: 's-n', project_id: 'p1' });
+    setStoryCachedTokens('s-n', 1234, null);
+    const row = getDb().prepare('SELECT cached_tokens, tokens_in FROM stories WHERE id = ?').get('s-n');
+    expect(row.cached_tokens).toBe(1234);
+    expect(row.tokens_in).toBeNull();
+  });
+
+  it('setStoryCachedTokens rejects NaN / negative / Infinity', async () => {
+    const { upsertStory, setStoryCachedTokens } = await freshDb();
+    upsertStory({ id: 's-bad', project_id: 'p1' });
+    expect(() => setStoryCachedTokens('s-bad', NaN, 1)).toThrow(/non-negative finite/);
+    expect(() => setStoryCachedTokens('s-bad', -1, 1)).toThrow(/non-negative finite/);
+    expect(() => setStoryCachedTokens('s-bad', 1, Infinity)).toThrow(/non-negative finite/);
+  });
+
+  it('setStoryCachedTokens returns false when the story does not exist', async () => {
+    const { setStoryCachedTokens } = await freshDb();
+    expect(setStoryCachedTokens('does-not-exist', 100, 200)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getProjectCost — cached/in aggregates (KJC-TSK-0525 — Φ0-G)
+// ---------------------------------------------------------------------------
+describe('getProjectCost — cached/in aggregates (Φ0-G)', () => {
+  it('aggregates cachedTokens / tokensIn at project level and computes ratio', async () => {
+    const { upsertProject, upsertStory, setStoryCost, setStoryCachedTokens, getProjectCost } = await freshDb();
+    upsertProject({ id: 'p1' });
+    upsertStory({ id: 'hu-a', project_id: 'p1', plan_id: 'plan-1' });
+    upsertStory({ id: 'hu-b', project_id: 'p1', plan_id: 'plan-1' });
+    setStoryCost('hu-a', 0.25);
+    setStoryCost('hu-b', 0.17);
+    setStoryCachedTokens('hu-a', 14000, 20000);
+    setStoryCachedTokens('hu-b', 4000, 18000);
+
+    const cost = getProjectCost('p1');
+    expect(cost.totalUsd).toBeCloseTo(0.42, 4);
+    expect(cost.cachedTokens).toBe(18000);
+    expect(cost.tokensIn).toBe(38000);
+    // 18000/38000 = 0.4736842... → 47.4%
+    expect(cost.cachedRatioPct).toBe(47.4);
+
+    expect(cost.byPlan).toHaveLength(1);
+    const plan = cost.byPlan[0];
+    expect(plan.planId).toBe('plan-1');
+    expect(plan.cachedTokens).toBe(18000);
+    expect(plan.tokensIn).toBe(38000);
+    expect(plan.cachedRatioPct).toBe(47.4);
+  });
+
+  it('returns cachedRatioPct=null when tokensIn is zero (cold run, no telemetry)', async () => {
+    const { upsertProject, upsertStory, setStoryCost, getProjectCost } = await freshDb();
+    upsertProject({ id: 'p1' });
+    upsertStory({ id: 'hu-x', project_id: 'p1' });
+    setStoryCost('hu-x', 0.10);
+
+    const cost = getProjectCost('p1');
+    expect(cost.cachedTokens).toBe(0);
+    expect(cost.tokensIn).toBe(0);
+    expect(cost.cachedRatioPct).toBeNull();
+    expect(cost.byPlan[0].cachedRatioPct).toBeNull();
+  });
+
+  it('tolerates rows with cost but no cache telemetry (mixed legacy + new)', async () => {
+    const { upsertProject, upsertStory, setStoryCost, setStoryCachedTokens, getProjectCost } = await freshDb();
+    upsertProject({ id: 'p1' });
+    upsertStory({ id: 'legacy', project_id: 'p1', plan_id: 'plan-1' });
+    upsertStory({ id: 'modern', project_id: 'p1', plan_id: 'plan-1' });
+    setStoryCost('legacy', 0.50);   // no cache telemetry — pre-Φ0-G row
+    setStoryCost('modern', 0.30);
+    setStoryCachedTokens('modern', 5000, 10000);
+
+    const cost = getProjectCost('p1');
+    expect(cost.totalUsd).toBeCloseTo(0.80, 4);
+    expect(cost.cachedTokens).toBe(5000);
+    expect(cost.tokensIn).toBe(10000);
+    expect(cost.cachedRatioPct).toBe(50);
+  });
+});
