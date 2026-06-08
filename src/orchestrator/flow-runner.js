@@ -263,15 +263,23 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
 
     // --- Telemetry: anonymous pipeline_complete event (non-blocking) ---
     try {
-      const { sendTelemetryEvent } = await import("../utils/telemetry.js");
+      const { sendTelemetryEvent, computeCachedPct } = await import("../utils/telemetry.js");
       const durationS = Math.round((Date.now() - ctx.startedAt) / 1000);
       const sessionStatus = ctx.session?.status || "unknown";
+      // Φ0-H (KJC-TSK-0526): aggregate cache-hit ratios per role so we
+      // can see on the fleet how much each provider's cache is buying.
+      let cachedPct = { cached_pct_coder: null, cached_pct_reviewer: null, cached_pct_total: null };
+      try {
+        const budgetSummary = ctx.budgetTracker?.summary?.();
+        if (budgetSummary) cachedPct = computeCachedPct(budgetSummary);
+      } catch { /* non-blocking — telemetry must never break runs */ }
       sendTelemetryEvent("pipeline_complete", {
         mode: config.review_mode,
         agent: ctx.coderRole?.provider || config.coder,
         duration_s: durationS,
         success: sessionStatus === "approved",
-        taskType: ctx.session?.resolved_policies?.taskType || null
+        taskType: ctx.session?.resolved_policies?.taskType || null,
+        ...cachedPct
       }, config).catch(() => {});
     } catch { /* non-blocking */ }
   }
