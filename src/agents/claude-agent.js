@@ -68,8 +68,16 @@ function collectAssistantText(obj) {
 /**
  * Extract usage metrics from stream-json/json NDJSON output.
  * Looks for the "result" line which contains total_cost_usd,
- * usage.input_tokens/output_tokens, and modelUsage.
- * Returns an object with tokens_in, tokens_out, cost_usd, model or null if not found.
+ * usage.input_tokens/output_tokens, cache_read_input_tokens,
+ * cache_creation_input_tokens, and modelUsage.
+ *
+ * `cached_tokens` aggregates both cache_read_input_tokens (tokens served
+ * from Anthropic's automatic prompt cache) and cache_creation_input_tokens
+ * (tokens just written to the cache during this call). The sum represents
+ * the total volume of input that benefited from prompt-caching machinery.
+ *
+ * Returns an object with tokens_in, tokens_out, cached_tokens, cost_usd,
+ * model or null if not found.
  */
 function extractUsageFromStreamJson(raw) {
   const events = parseClaudeEvents(raw);
@@ -79,11 +87,14 @@ function extractUsageFromStreamJson(raw) {
 
     const tokens_in = obj.usage?.input_tokens ?? 0;
     const tokens_out = obj.usage?.output_tokens ?? 0;
+    const cache_read = obj.usage?.cache_read_input_tokens ?? 0;
+    const cache_creation = obj.usage?.cache_creation_input_tokens ?? 0;
+    const cached_tokens = cache_read + cache_creation;
     const cost_usd = obj.total_cost_usd ?? undefined;
     const modelUsage = obj.modelUsage;
     const model = modelUsage ? Object.keys(modelUsage)[0] || null : null;
 
-    return { tokens_in, tokens_out, cost_usd, model };
+    return { tokens_in, tokens_out, cached_tokens, cost_usd, model };
   }
   return null;
 }
