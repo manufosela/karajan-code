@@ -118,4 +118,47 @@ describe("GeminiAgent", () => {
     expect(opts.silenceTimeoutMs).toBe(15000);
     expect(opts.timeout).toBe(90000);
   });
+
+  // Φ0-C — Phase 0 cache metrics for Gemini context-caching API.
+  // Gemini surfaces `usageMetadata.cachedContentTokenCount` whenever
+  // the response uses a cached context (https://ai.google.dev/api/caching).
+  // The CLI exposes this via --output-format json (today: reviewTask
+  // only). Plain runTask currently leaves cached_tokens undefined =
+  // unmeasured.
+  describe("cached_tokens extraction from gemini usageMetadata", () => {
+    it.each([
+      ["with cachedContentTokenCount",
+        `{"response":"ok","usageMetadata":{"promptTokenCount":1500,"candidatesTokenCount":400,"cachedContentTokenCount":1200,"totalTokenCount":1900}}`,
+        { tokens_in: 1500, tokens_out: 400, cached_tokens: 1200 }],
+      ["usageMetadata without cachedContentTokenCount",
+        `{"response":"ok","usageMetadata":{"promptTokenCount":800,"candidatesTokenCount":200,"totalTokenCount":1000}}`,
+        { tokens_in: 800, tokens_out: 200, cached_tokens: 0 }],
+      ["snake_case usage_metadata variant",
+        `{"usage_metadata":{"promptTokenCount":300,"candidatesTokenCount":150,"cachedContentTokenCount":250}}`,
+        { tokens_in: 300, tokens_out: 150, cached_tokens: 250 }],
+      ["nested under response wrapper",
+        `{"response":{"usageMetadata":{"promptTokenCount":600,"candidatesTokenCount":120,"cachedContentTokenCount":500}}}`,
+        { tokens_in: 600, tokens_out: 120, cached_tokens: 500 }]
+    ])("%s", async (_n, stdout, expected) => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout, stderr: "" });
+      const result = await new GeminiAgent("gemini", baseConfig, logger).reviewTask({ prompt: "r", role: "reviewer" });
+      expect(result.tokens_in).toBe(expected.tokens_in);
+      expect(result.tokens_out).toBe(expected.tokens_out);
+      expect(result.cached_tokens).toBe(expected.cached_tokens);
+    });
+
+    it("leaves cached_tokens undefined when stdout has no usageMetadata (unmeasured)", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "plain response text\n", stderr: "" });
+      const result = await new GeminiAgent("gemini", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.tokens_in).toBeUndefined();
+      expect(result.tokens_out).toBeUndefined();
+      expect(result.cached_tokens).toBeUndefined();
+    });
+
+    it("ignores malformed JSON in stdout and stays unmeasured", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: '{"usageMetadata": not-valid json}', stderr: "" });
+      const result = await new GeminiAgent("gemini", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.cached_tokens).toBeUndefined();
+    });
+  });
 });
