@@ -18,7 +18,7 @@ import path from "node:path";
  * @property {"APPROVED"|"REJECTED"|"PAUSED"|"FAILED"|string} result
  * @property {number} iterations
  * @property {number} durationMs
- * @property {{ total_cost_usd?: number, total_tokens?: number, breakdown_by_role?: Object }} [budget]
+ * @property {{ total_cost_usd?: number, total_tokens?: number, total_cached_tokens?: number, breakdown_by_role?: Object }} [budget]
  * @property {Record<string, { ok?: boolean, summary?: string }>} [stages]
  * @property {Array<{ hash?: string, message?: string, date?: string, author?: string }>} [commits]
  * @property {string[]} [files]                    - names of other journal files in the same dir
@@ -108,6 +108,55 @@ function renderBreakdownByRole(breakdown) {
 }
 
 /**
+ * Render the Cache hits section (Φ0-F, KJC-TSK-0524). Shows how many input
+ * tokens were served from provider-side prompt caches, per role, plus a
+ * conservative dollar savings estimate.
+ *
+ * Savings formula: cached tokens are billed at ~10% of the input rate (the
+ * Anthropic/OpenAI convention). Per role:
+ *   savings_usd ≈ cost_usd * (cached_tokens / tokens_in) * 0.9
+ * The estimate is approximate (output tokens also contribute to cost_usd)
+ * and labelled with `~$` so users don't read it as exact.
+ *
+ * Returns:
+ *   - null when no budget data is available
+ *   - "cold run" placeholder when cached == 0 across all roles
+ *   - Markdown table sorted by cached tokens desc when there is cache activity
+ */
+function renderCacheHits(budget) {
+  if (!budget) return null;
+  const totalCached = Number(budget.total_cached_tokens ?? 0);
+  const breakdown = budget.breakdown_by_role || {};
+  const entries = Object.entries(breakdown)
+    .map(([role, m]) => ({
+      role,
+      cached: Number(m?.cached_tokens || 0),
+      tokens_in: Number(m?.tokens_in || 0),
+      cost: Number(m?.total_cost_usd || 0),
+    }))
+    .filter((e) => e.cached > 0);
+
+  if (totalCached === 0 && entries.length === 0) {
+    return "_Cache hits: 0 tokens (cold run)._";
+  }
+
+  const rows = entries
+    .sort((a, b) => b.cached - a.cached)
+    .map((e) => {
+      const ratio = e.tokens_in > 0 ? (e.cached / e.tokens_in) * 100 : 0;
+      const savings = e.tokens_in > 0 ? e.cost * (e.cached / e.tokens_in) * 0.9 : 0;
+      return `| \`${esc(e.role)}\` | ${e.cached.toLocaleString("en-US")} | ${ratio.toFixed(1)}% | ~$${savings.toFixed(4)} |`;
+    });
+  const header = "| Role | Cached tokens | Ratio (cached/in) | Est. savings |\n|---|---|---|---|";
+  return [
+    `**Total cached**: ${totalCached.toLocaleString("en-US")} tokens`,
+    "",
+    header,
+    ...rows,
+  ].join("\n");
+}
+
+/**
  * Render the Skills section: which process skills (addyosmani) were resolved
  * for the task, which OpenSkills were installed, and which skills would have
  * helped but couldn't be installed (graceful-degradation path).
@@ -190,6 +239,11 @@ export function buildSummaryMarkdown(input) {
   const breakdown = renderBreakdownByRole(input.budget?.breakdown_by_role);
   if (breakdown) {
     sections.push("", "## Budget breakdown (by role)", "", breakdown);
+  }
+
+  const cacheHitsSection = renderCacheHits(input.budget);
+  if (cacheHitsSection) {
+    sections.push("", "## Cache hits", "", cacheHitsSection);
   }
 
   const skillsSection = renderSkills(input.skills);
