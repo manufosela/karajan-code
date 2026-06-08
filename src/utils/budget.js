@@ -26,6 +26,13 @@ export function extractUsageMetrics(result, defaultModel = null) {
     usage?.output_tokens ??
     usage?.completion_tokens ??
     0;
+  const cached_tokens =
+    result?.cached_tokens ??
+    usage?.cached_tokens ??
+    usage?.cache_read_input_tokens ??
+    usage?.prompt_tokens_details?.cached_tokens ??
+    usage?.cachedContentTokenCount ??
+    0;
   const cost_usd =
     result?.cost_usd ??
     usage?.cost_usd ??
@@ -58,7 +65,7 @@ export function extractUsageMetrics(result, defaultModel = null) {
     }
   }
 
-  return { tokens_in: finalTokensIn, tokens_out: finalTokensOut, cost_usd, model, estimated };
+  return { tokens_in: finalTokensIn, tokens_out: finalTokensOut, cached_tokens, cost_usd, model, estimated };
 }
 
 function toSafeNumber(value) {
@@ -79,9 +86,10 @@ function normalizeLimit(limit) {
 }
 
 function addToBreakdown(map, key, entry) {
-  const current = map[key] || { tokens_in: 0, tokens_out: 0, total_tokens: 0, total_cost_usd: 0, count: 0 };
+  const current = map[key] || { tokens_in: 0, tokens_out: 0, cached_tokens: 0, total_tokens: 0, total_cost_usd: 0, count: 0 };
   current.tokens_in += entry.tokens_in;
   current.tokens_out += entry.tokens_out;
+  current.cached_tokens += entry.cached_tokens || 0;
   current.total_tokens += entry.tokens_in + entry.tokens_out;
   current.total_cost_usd = roundUsd(current.total_cost_usd + entry.cost_usd);
   current.count += 1;
@@ -94,9 +102,10 @@ export class BudgetTracker {
     this.pricing = mergePricing(DEFAULT_MODEL_PRICING, options.pricing || {});
   }
 
-  record({ role, provider, model, tokens_in, tokens_out, cost_usd, duration_ms, stage_index, estimated } = {}) {
+  record({ role, provider, model, tokens_in, tokens_out, cached_tokens, cost_usd, duration_ms, stage_index, estimated } = {}) {
     const safeTokensIn = toSafeNumber(tokens_in);
     const safeTokensOut = toSafeNumber(tokens_out);
+    const safeCached = toSafeNumber(cached_tokens);
     const hasExplicitCost = cost_usd !== undefined && cost_usd !== null && cost_usd !== "";
     const modelName = model || provider || null;
     const computedCost = calculateUsageCostUsd({
@@ -113,6 +122,7 @@ export class BudgetTracker {
       timestamp: new Date().toISOString(),
       tokens_in: safeTokensIn,
       tokens_out: safeTokensOut,
+      cached_tokens: safeCached,
       cost_usd: roundUsd(hasExplicitCost ? cost_usd : computedCost)
     };
     if (duration_ms !== undefined && duration_ms !== null) {
@@ -129,19 +139,36 @@ export class BudgetTracker {
   }
 
   total() {
+    return this._aggregate(this.entries);
+  }
+
+  _aggregate(entries) {
     let tokensIn = 0;
     let tokensOut = 0;
+    let cached = 0;
     let totalCost = 0;
-    for (const entry of this.entries) {
+    for (const entry of entries) {
       tokensIn += entry.tokens_in;
       tokensOut += entry.tokens_out;
+      cached += entry.cached_tokens || 0;
       totalCost = roundUsd(totalCost + entry.cost_usd);
     }
-    return {
-      tokens_in: tokensIn,
-      tokens_out: tokensOut,
-      cost_usd: totalCost
-    };
+    return { tokens_in: tokensIn, tokens_out: tokensOut, cached_tokens: cached, cost_usd: totalCost };
+  }
+
+  /**
+   * Snapshot cursor (Φ0-E). Returns an opaque marker pointing at the current
+   * end of the entries log. Pair with `since(cursor)` to compute per-HU deltas
+   * without resetting global accumulators (per-HU isolation).
+   */
+  cursor() {
+    return this.entries.length;
+  }
+
+  since(cursor = 0) {
+    const start = Number.isFinite(cursor) && cursor >= 0 ? Math.min(cursor, this.entries.length) : 0;
+    const slice = this.entries.slice(start);
+    return { ...this._aggregate(slice), count: slice.length };
   }
 
   remaining(limit) {
@@ -171,6 +198,7 @@ export class BudgetTracker {
     const hasEstimates = this.entries.some(e => e.estimated);
     const result = {
       total_tokens: totals.tokens_in + totals.tokens_out,
+      total_cached_tokens: totals.cached_tokens,
       total_cost_usd: totals.cost_usd,
       breakdown_by_role: byRole,
       entries: [...this.entries],
@@ -191,6 +219,7 @@ export class BudgetTracker {
         duration_ms: entry.duration_ms ?? null,
         tokens_in: entry.tokens_in,
         tokens_out: entry.tokens_out,
+        cached_tokens: entry.cached_tokens || 0,
         cost_usd: entry.cost_usd
       };
       if (entry.estimated) item.estimated = true;

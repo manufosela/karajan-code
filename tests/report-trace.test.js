@@ -20,6 +20,7 @@ describe("BudgetTracker trace()", () => {
       duration_ms: 1200,
       tokens_in: 100,
       tokens_out: 50,
+      cached_tokens: 0,
       cost_usd: 0.1
     });
     expect(trace[1].index).toBe(1);

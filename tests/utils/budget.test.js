@@ -124,6 +124,78 @@ describe("extractUsageMetrics", () => {
   });
 });
 
+// Φ0-E — `cached_tokens` is the cross-provider normalized metric. The agent
+// extractors (claude/codex/gemini/aider/opencode) already surface a top-level
+// `result.cached_tokens`, but extractUsageMetrics also accepts the raw shapes
+// from each provider (Anthropic `cache_read_input_tokens`, OpenAI
+// `prompt_tokens_details.cached_tokens`, Gemini `cachedContentTokenCount`).
+describe("extractUsageMetrics — cached_tokens (Φ0-E)", () => {
+  it.each([
+    ["top-level result.cached_tokens",        { tokens_in: 1, tokens_out: 1, cached_tokens: 1200 }, 1200],
+    ["nested usage.cached_tokens",            { usage: { input_tokens: 1, output_tokens: 1, cached_tokens: 800 } }, 800],
+    ["Anthropic cache_read_input_tokens",     { usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 600 } }, 600],
+    ["OpenAI prompt_tokens_details.cached",   { usage: { prompt_tokens: 1, completion_tokens: 1, prompt_tokens_details: { cached_tokens: 400 } } }, 400],
+    ["Gemini cachedContentTokenCount",        { usage: { input_tokens: 1, output_tokens: 1, cachedContentTokenCount: 250 } }, 250],
+    ["missing → 0 (measured zero, not undefined)", { tokens_in: 1, tokens_out: 1 }, 0]
+  ])("%s", (_n, result, expected) => {
+    expect(extractUsageMetrics(result).cached_tokens).toBe(expected);
+  });
+});
+
+describe("BudgetTracker — cached_tokens accumulation (Φ0-E)", () => {
+  it("totals + summary surface cached_tokens across entries", () => {
+    const tracker = new BudgetTracker();
+    tracker.record({ role: "coder",    provider: "claude", tokens_in: 1000, tokens_out: 200, cached_tokens: 700, cost_usd: 0.01 });
+    tracker.record({ role: "reviewer", provider: "codex",  tokens_in: 500,  tokens_out: 100, cached_tokens: 300, cost_usd: 0.02 });
+
+    expect(tracker.total().cached_tokens).toBe(1000);
+    const s = tracker.summary();
+    expect(s.total_cached_tokens).toBe(1000);
+    expect(s.breakdown_by_role.coder.cached_tokens).toBe(700);
+    expect(s.breakdown_by_role.reviewer.cached_tokens).toBe(300);
+    expect(tracker.trace()[0].cached_tokens).toBe(700);
+  });
+
+  it("treats undefined cached_tokens as 0 (preserves unmeasured semantics)", () => {
+    const tracker = new BudgetTracker();
+    tracker.record({ role: "coder", provider: "claude", tokens_in: 100, tokens_out: 50 });
+    expect(tracker.total().cached_tokens).toBe(0);
+    expect(tracker.entries[0].cached_tokens).toBe(0);
+  });
+});
+
+describe("BudgetTracker.cursor() + since() — per-HU isolation (Φ0-E)", () => {
+  it("cursor()=0 on empty tracker, since(0) returns zeroed delta", () => {
+    const tracker = new BudgetTracker();
+    expect(tracker.cursor()).toBe(0);
+    expect(tracker.since(0)).toEqual({ tokens_in: 0, tokens_out: 0, cached_tokens: 0, cost_usd: 0, count: 0 });
+  });
+
+  it("isolates per-HU deltas: cursor at HU2 start, since() returns only HU2 entries", () => {
+    const tracker = new BudgetTracker();
+    // HU1
+    tracker.record({ role: "coder", provider: "claude", tokens_in: 100, tokens_out: 50, cached_tokens: 70, cost_usd: 0.01 });
+    tracker.record({ role: "reviewer", provider: "codex", tokens_in: 80, tokens_out: 20, cached_tokens: 40, cost_usd: 0.02 });
+    const hu2Start = tracker.cursor();
+    expect(hu2Start).toBe(2);
+    // HU2
+    tracker.record({ role: "coder", provider: "claude", tokens_in: 200, tokens_out: 100, cached_tokens: 150, cost_usd: 0.03 });
+    tracker.record({ role: "reviewer", provider: "codex", tokens_in: 60, tokens_out: 30, cached_tokens: 50, cost_usd: 0.04 });
+
+    const delta = tracker.since(hu2Start);
+    expect(delta).toEqual({ tokens_in: 260, tokens_out: 130, cached_tokens: 200, cost_usd: 0.07, count: 2 });
+    // Global totals remain accumulated across both HUs.
+    expect(tracker.total().cached_tokens).toBe(310);
+  });
+
+  it("clamps out-of-range cursor (>length) and rejects negatives", () => {
+    const tracker = new BudgetTracker();
+    tracker.record({ role: "coder", provider: "claude", tokens_in: 10, tokens_out: 5, cached_tokens: 3 });
+    expect(tracker.since(99).count).toBe(0);
+    expect(tracker.since(-1).count).toBe(1);
+  });
+});
+
 describe("BudgetTracker with estimated data", () => {
   it("marks entries as estimated when estimation is used", () => {
     const tracker = new BudgetTracker();
