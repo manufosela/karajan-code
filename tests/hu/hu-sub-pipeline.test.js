@@ -752,4 +752,90 @@ describe("hu-sub-pipeline", () => {
       expect(outcomes[0].outcome.cost_usd).toBeCloseTo(0.42, 6);
     });
   });
+
+  describe("runHuSubPipeline — Φ0-G: per-HU cached_tokens / tokens_in in outcome", () => {
+    it("stamps outcome.cached_tokens and tokens_in from the slice of BudgetTracker entries", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "First" }, original: { text: "First" }, blocked_by: [] },
+        { id: "HU-002", status: "certified", certified: { text: "Second" }, original: { text: "Second" }, blocked_by: ["HU-001"] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_cache", stories: [...stories] });
+
+      const budgetTracker = { entries: [] };
+      let huCounter = 0;
+      const runIterationFn = vi.fn(async () => {
+        huCounter += 1;
+        if (huCounter === 1) {
+          budgetTracker.entries.push({ role: "coder", cost_usd: 0.10, cached_tokens: 8000, tokens_in: 12000 });
+          budgetTracker.entries.push({ role: "reviewer", cost_usd: 0.05, cached_tokens: 6000, tokens_in: 8000 });
+        } else {
+          budgetTracker.entries.push({ role: "coder", cost_usd: 0.30, cached_tokens: 3000, tokens_in: 15000 });
+        }
+        return { approved: true };
+      });
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 2, total: 2, stories, batchSessionId: "hu-s_cache" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome, budgetTracker
+      });
+
+      expect(outcomes).toHaveLength(2);
+      // HU-001: cached = 8000+6000 = 14000, in = 12000+8000 = 20000
+      expect(outcomes[0].outcome.cached_tokens).toBe(14000);
+      expect(outcomes[0].outcome.tokens_in).toBe(20000);
+      // HU-002: only its own slice — not accumulated
+      expect(outcomes[1].outcome.cached_tokens).toBe(3000);
+      expect(outcomes[1].outcome.tokens_in).toBe(15000);
+    });
+
+    it("stamps cached_tokens / tokens_in = null when no tracker entries were produced", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "x" }, original: { text: "x" }, blocked_by: [] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_nocache", stories: [...stories] });
+      const budgetTracker = { entries: [] };
+      const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 1, total: 1, stories, batchSessionId: "hu-s_nocache" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome, budgetTracker
+      });
+
+      expect(outcomes[0].outcome.cached_tokens).toBeNull();
+      expect(outcomes[0].outcome.tokens_in).toBeNull();
+    });
+
+    it("returns null for cached_tokens / tokens_in when tracker entries only carry cost (no cache telemetry)", async () => {
+      const stories = [
+        { id: "HU-001", status: "certified", certified: { text: "x" }, original: { text: "x" }, blocked_by: [] }
+      ];
+      loadHuBatchMock.mockResolvedValue({ session_id: "hu-s_costonly", stories: [...stories] });
+      const budgetTracker = { entries: [] };
+      const runIterationFn = vi.fn(async () => {
+        budgetTracker.entries.push({ role: "coder", cost_usd: 0.42 }); // no cache fields
+        return { approved: true };
+      });
+
+      const outcomes = [];
+      const onOutcome = vi.fn(async (huId, outcome) => { outcomes.push({ huId, outcome }); });
+
+      await runHuSubPipeline({
+        huReviewerResult: { ok: true, certified: 1, total: 1, stories, batchSessionId: "hu-s_costonly" },
+        runIterationFn, emitter, eventBase, logger,
+        onOutcome, budgetTracker
+      });
+
+      expect(outcomes[0].outcome.cost_usd).toBeCloseTo(0.42, 6);
+      expect(outcomes[0].outcome.cached_tokens).toBeNull();
+      expect(outcomes[0].outcome.tokens_in).toBeNull();
+    });
+  });
 });
