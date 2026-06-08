@@ -2,18 +2,55 @@ import { BaseAgent } from "./base-agent.js";
 import { resolveBin } from "./resolve-bin.js";
 
 /**
- * Extract token usage from Codex CLI stdout.
- * Codex prints "tokens used\n<number>" at the end, where number may have comma separators.
- * Returns { tokens_out } with the total token count, or null if not found.
- * Since Codex doesn't split input/output, we assign the total to tokens_out
- * as a conservative estimate for cost calculation.
+ * Try to extract an OpenAI-style `usage` JSON block from codex stdout.
+ *
+ * OpenAI's Chat Completions API exposes prompt-cache hits via
+ * `usage.prompt_tokens_details.cached_tokens` (since Aug 2024). Codex
+ * CLI doesn't surface this in its default footer, but newer flags or a
+ * wrapper may emit a JSON `usage` line. We scan stdout line-by-line and
+ * accept the first parseable object that carries `prompt_tokens`.
+ *
+ * Returns `{tokens_in, tokens_out, cached_tokens}` or null when absent.
+ */
+function extractJsonUsage(stdout) {
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{")) continue;
+    let obj;
+    try { obj = JSON.parse(trimmed); } catch { continue; }
+    const usage = obj?.usage ?? (typeof obj?.prompt_tokens === "number" ? obj : null);
+    if (!usage || typeof usage.prompt_tokens !== "number") continue;
+    return {
+      tokens_in: usage.prompt_tokens,
+      tokens_out: usage.completion_tokens ?? 0,
+      cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? 0
+    };
+  }
+  return null;
+}
+
+/**
+ * Extract token usage from Codex CLI stdout. Two shapes are supported:
+ *
+ *   1. OpenAI-style JSON `usage` block (preferred):
+ *      `{"usage":{"prompt_tokens":N,"completion_tokens":M,
+ *                 "prompt_tokens_details":{"cached_tokens":C}}}`
+ *      → `{tokens_in:N, tokens_out:M, cached_tokens:C}`.
+ *
+ *   2. Legacy "tokens used\n<number>" footer (codex's default total,
+ *      no cache visibility) → `{tokens_in:0, tokens_out, cached_tokens:0}`.
+ *
+ * Returns null when neither shape is found.
  */
 function extractCodexTokens(stdout) {
-  const match = (stdout || "").match(/tokens?\s+used\s*\n\s*([\d,]+)/i);
+  if (!stdout) return null;
+  const json = extractJsonUsage(stdout);
+  if (json) return json;
+  const match = stdout.match(/tokens?\s+used\s*\n\s*([\d,]+)/i);
   if (!match) return null;
   const total = Number(match[1].replaceAll(/,/g, ""));
   if (!Number.isFinite(total) || total <= 0) return null;
-  return { tokens_in: 0, tokens_out: total };
+  return { tokens_in: 0, tokens_out: total, cached_tokens: 0 };
 }
 
 export class CodexAgent extends BaseAgent {
