@@ -181,4 +181,36 @@ describe("CodexAgent", () => {
       expect(result.tokens_out).toBe(expected.tokens_out);
     });
   });
+
+  // Φ0-B — Phase 0 cache metrics: OpenAI Chat Completions API exposes
+  // `usage.prompt_tokens_details.cached_tokens` for prompt-cache hits.
+  // We parse this when present, fall back to 0 when missing, and stay
+  // robust against malformed JSON lines mixed in stdout.
+  describe("cached_tokens extraction from OpenAI usage JSON", () => {
+    it.each([
+      ["with cached_tokens", `pre\n{"usage":{"prompt_tokens":2000,"completion_tokens":300,"prompt_tokens_details":{"cached_tokens":1500}}}\npost`,
+        { tokens_in: 2000, tokens_out: 300, cached_tokens: 1500 }],
+      ["usage without prompt_tokens_details", `{"usage":{"prompt_tokens":500,"completion_tokens":120}}`,
+        { tokens_in: 500, tokens_out: 120, cached_tokens: 0 }],
+      ["bare object (no `usage` wrapper)", `{"prompt_tokens":100,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":40}}`,
+        { tokens_in: 100, tokens_out: 50, cached_tokens: 40 }],
+      ["malformed JSON falls back to legacy regex",
+        `not-json {"usage": broken\ntokens used\n4,096\n`,
+        { tokens_in: 0, tokens_out: 4096, cached_tokens: 0 }]
+    ])("%s", async (_n, stdout, expected) => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout, stderr: "" });
+      const result = await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+
+      expect(result.ok).toBe(true);
+      expect(result.tokens_in).toBe(expected.tokens_in);
+      expect(result.tokens_out).toBe(expected.tokens_out);
+      expect(result.cached_tokens).toBe(expected.cached_tokens);
+    });
+
+    it("returns undefined cached_tokens when no usage data at all", async () => {
+      runCommand.mockResolvedValue({ exitCode: 0, stdout: "just regular output", stderr: "" });
+      const result = await new CodexAgent("codex", baseConfig, logger).runTask({ prompt: "t", role: "coder" });
+      expect(result.cached_tokens).toBeUndefined();
+    });
+  });
 });
