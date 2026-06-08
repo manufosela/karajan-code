@@ -130,6 +130,54 @@ describe("session/journal/summary-writer — buildSummaryMarkdown", () => {
     expect(md).not.toContain(longSummary);
   });
 
+  // Φ0-F — KJC-TSK-0524. The Cache hits section reads the new
+  // total_cached_tokens / breakdown_by_role.<role>.cached_tokens fields
+  // introduced in Φ0-E (KJC-TSK-0523, BudgetTracker cursor-snapshot).
+  describe("Cache hits section (Φ0-F, KJC-TSK-0524)", () => {
+    it("renders a table with cached tokens, ratio, and estimated savings", () => {
+      const md = buildSummaryMarkdown(sample({
+        budget: {
+          total_cost_usd: 0.42,
+          total_tokens: 54321,
+          total_cached_tokens: 18000,
+          breakdown_by_role: {
+            coder:    { tokens_in: 20000, total_tokens: 30000, cached_tokens: 14000, total_cost_usd: 0.25 },
+            reviewer: { tokens_in: 18000, total_tokens: 24321, cached_tokens: 4000,  total_cost_usd: 0.17 },
+          },
+        },
+      }));
+      expect(md).toContain("## Cache hits");
+      expect(md).toContain("**Total cached**: 18,000 tokens");
+      expect(md).toContain("| Role | Cached tokens | Ratio (cached/in) | Est. savings |");
+      // coder first (more cached); 14000/20000 = 70.0%, savings ≈ 0.25 * 0.7 * 0.9 = 0.1575
+      expect(md).toMatch(/\| `coder` \| 14,000 \| 70\.0% \| ~\$0\.1575 \|/);
+      // reviewer: 4000/18000 ≈ 22.2%, savings ≈ 0.17 * (4000/18000) * 0.9 ≈ 0.034
+      expect(md).toMatch(/\| `reviewer` \| 4,000 \| 22\.2% \| ~\$0\.034\d \|/);
+    });
+
+    it("renders 'cold run' placeholder when no role has cached tokens", () => {
+      const md = buildSummaryMarkdown(sample({
+        budget: {
+          total_cost_usd: 0.42,
+          total_tokens: 54321,
+          total_cached_tokens: 0,
+          breakdown_by_role: {
+            coder:    { tokens_in: 20000, total_tokens: 30000, cached_tokens: 0, total_cost_usd: 0.25 },
+            reviewer: { tokens_in: 18000, total_tokens: 24321, cached_tokens: 0, total_cost_usd: 0.17 },
+          },
+        },
+      }));
+      expect(md).toContain("## Cache hits");
+      expect(md).toContain("_Cache hits: 0 tokens (cold run)._");
+      expect(md).not.toContain("Total cached");
+    });
+
+    it("omits the Cache hits section when budget itself is absent", () => {
+      const md = buildSummaryMarkdown(sample({ budget: undefined }));
+      expect(md).not.toContain("## Cache hits");
+    });
+  });
+
   // regression-for: TSK-0327
   describe("Skills section (KJC-TSK-0327)", () => {
     it("omits the Skills section entirely when no skills activity happened", () => {
