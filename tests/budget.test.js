@@ -10,6 +10,7 @@ describe("BudgetTracker", () => {
     expect(tracker.total()).toEqual({
       tokens_in: 140,
       tokens_out: 310,
+      cached_tokens: 0,
       cost_usd: 0.6
     });
   });
@@ -21,6 +22,7 @@ describe("BudgetTracker", () => {
     expect(tracker.total()).toEqual({
       tokens_in: 0,
       tokens_out: 0,
+      cached_tokens: 0,
       cost_usd: 0
     });
     expect(tracker.summary().entries).toHaveLength(1);
@@ -57,6 +59,7 @@ describe("BudgetTracker", () => {
     expect(tracker.total()).toEqual({
       tokens_in: 2000000,
       tokens_out: 1000000,
+      cached_tokens: 0,
       cost_usd: 7
     });
   });
