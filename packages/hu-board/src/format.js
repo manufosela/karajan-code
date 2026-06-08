@@ -88,6 +88,42 @@ export function formatCost(costUsd) {
 }
 
 /**
+ * Φ0-G (KJC-TSK-0525): per-HU and per-plan cached-tokens badge.
+ *
+ * Returns `{ label, tooltip }` for "🎯 23%" with a tooltip showing the
+ * exact numerator/denominator. Same "don't render 0% when there is no
+ * data" stance as formatCost — returns null when:
+ *   - either arg is null/undefined/non-finite,
+ *   - tokens_in is 0 (no input → ratio undefined, not zero),
+ *   - cached is negative (would only happen from corrupted telemetry).
+ *
+ * The badge intentionally shows 1 decimal to keep narrow runs (e.g.
+ * a 73-token cache out of 1 200) readable without rounding to 0%.
+ *
+ * @param {number|null|undefined} cachedTokens
+ * @param {number|null|undefined} tokensIn
+ * @returns {{ label: string, tooltip: string } | null}
+ */
+export function formatCacheRatio(cachedTokens, tokensIn) {
+  // Reject null/undefined explicitly — Number(null) coerces to 0,
+  // which would otherwise render an honest-looking "🎯 0%" badge for
+  // runs where we simply have no telemetry. Same stance as formatCost.
+  if (cachedTokens === null || cachedTokens === undefined) return null;
+  if (tokensIn === null || tokensIn === undefined) return null;
+  const c = Number(cachedTokens);
+  const t = Number(tokensIn);
+  if (!Number.isFinite(c) || !Number.isFinite(t)) return null;
+  if (t <= 0 || c < 0) return null;
+  const pct = Math.round((c / t) * 1000) / 10;
+  const num = c.toLocaleString("en-US");
+  const den = t.toLocaleString("en-US");
+  return {
+    label: `🎯 ${pct}%`,
+    tooltip: `Cache hits: ${num} / ${den} input tokens (${pct}%)`,
+  };
+}
+
+/**
  * Format the aggregated project-level cost chip rendered in the board
  * header. Cost G (KJC-TSK-0518). Consumes the shape returned by
  * `GET /api/projects/:id/cost` (Cost E):
@@ -116,6 +152,11 @@ export function formatProjectCostSummary(cost) {
   if (total === 0 && byPlan.length === 0) return null;
 
   const lines = [`Total: $${total.toFixed(4)}`];
+  // Φ0-G (KJC-TSK-0525): when the API includes project-level cache
+  // counters, show the aggregate cached% line right under the total
+  // so users can see at a glance how much was served from cache.
+  const projCache = formatCacheRatio(cost.cachedTokens, cost.tokensIn);
+  if (projCache) lines.push(`Cache: ${projCache.tooltip.split(": ")[1]}`);
   if (byPlan.length > 0) {
     lines.push("By plan:");
     for (const p of byPlan) {
@@ -123,7 +164,11 @@ export function formatProjectCostSummary(cost) {
       if (!Number.isFinite(planTotal)) continue;
       const huCount = Number.isFinite(p?.huCount) ? p.huCount : 0;
       const planLabel = p?.planId || "unassigned";
-      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})`);
+      const cachePct = p?.cachedRatioPct;
+      const cacheSuffix = (cachePct !== null && cachePct !== undefined && Number.isFinite(Number(cachePct)))
+        ? ` 🎯 ${cachePct}%`
+        : "";
+      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})${cacheSuffix}`);
     }
   }
   const unk = cost.unknownModelTokens;

@@ -55,6 +55,26 @@ function formatCost(costUsd) {
   };
 }
 
+// Φ0-G (KJC-TSK-0525): mirror of formatCacheRatio in src/format.js.
+// Kept duplicated because this file is a classic script loaded into
+// the browser, while src/format.js uses ES modules and is consumed by
+// Node tests. See KJC-TSK-0501 header notes above.
+function formatCacheRatio(cachedTokens, tokensIn) {
+  if (cachedTokens === null || cachedTokens === undefined) return null;
+  if (tokensIn === null || tokensIn === undefined) return null;
+  const c = Number(cachedTokens);
+  const t = Number(tokensIn);
+  if (!Number.isFinite(c) || !Number.isFinite(t)) return null;
+  if (t <= 0 || c < 0) return null;
+  const pct = Math.round((c / t) * 1000) / 10;
+  const num = c.toLocaleString("en-US");
+  const den = t.toLocaleString("en-US");
+  return {
+    label: `🎯 ${pct}%`,
+    tooltip: `Cache hits: ${num} / ${den} input tokens (${pct}%)`,
+  };
+}
+
 function formatProjectCostSummary(cost) {
   if (!cost || typeof cost !== "object") return null;
   const total = Number(cost.totalUsd);
@@ -63,6 +83,9 @@ function formatProjectCostSummary(cost) {
   if (total === 0 && byPlan.length === 0) return null;
 
   const lines = [`Total: $${total.toFixed(4)}`];
+  // Φ0-G (KJC-TSK-0525): aggregate cache hits line + per-plan suffix.
+  const projCache = formatCacheRatio(cost.cachedTokens, cost.tokensIn);
+  if (projCache) lines.push(`Cache: ${projCache.tooltip.split(": ")[1]}`);
   if (byPlan.length > 0) {
     lines.push("By plan:");
     for (const p of byPlan) {
@@ -70,7 +93,11 @@ function formatProjectCostSummary(cost) {
       if (!Number.isFinite(planTotal)) continue;
       const huCount = Number.isFinite(p?.huCount) ? p.huCount : 0;
       const planLabel = p?.planId || "unassigned";
-      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})`);
+      const cachePct = p?.cachedRatioPct;
+      const cacheSuffix = (cachePct !== null && cachePct !== undefined && Number.isFinite(Number(cachePct)))
+        ? ` 🎯 ${cachePct}%`
+        : "";
+      lines.push(`  ${planLabel}: $${planTotal.toFixed(2)} (${huCount} HU${huCount === 1 ? "" : "s"})${cacheSuffix}`);
     }
   }
   const unk = cost.unknownModelTokens;
