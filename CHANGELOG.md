@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-06-09
+
+Cross-provider cache observability (epic KJC-PCS-0056 / Phase 0 closed).
+Karajan now measures, persists and surfaces provider-level prompt-cache hits
+end-to-end across Anthropic, OpenAI/Codex, Gemini, aider and opencode. The
+same `cached_tokens` field flows from agent → BudgetTracker → summary.md →
+`board.db` → HU Board UI badge `🎯 N%` → telemetry `pipeline_complete`.
+**No breaking changes** — every new field is null-safe (badge hides when
+unmeasured rather than showing a misleading `🎯 0%`).
+
+### Added
+
+- **Φ0-A — claude cache_read/creation tokens passthrough** (KJC-TSK-0519,
+  v3.2.x backport on main) — extracts `usage.cache_read_input_tokens` and
+  `usage.cache_creation_input_tokens` from the Anthropic response into the
+  unified BudgetTracker `cached_tokens` slot.
+- **Φ0-B — codex cache_tokens passthrough** (KJC-TSK-0520) — reads
+  `usage.prompt_tokens_details.cached_tokens` from the OpenAI/Codex wire
+  format. Covered by `tests/agents/codex-cache-passthrough.test.js`.
+- **Φ0-C — gemini cachedContentTokenCount via usageMetadata** (KJC-TSK-0521)
+  — extracts Google's native cache field. Project-level system-prompt cache
+  is already warm in cold runs, observed at 87.9% on real data.
+- **Φ0-D — aider+opencode passthrough via LiteLLM** (KJC-TSK-0522) — both
+  CLIs route through LiteLLM, which normalises `usage.cached_tokens` so
+  Karajan reads a single shape regardless of upstream provider.
+- **Φ0-E — BudgetTracker cursor-snapshot cached accumulation** (KJC-TSK-0523)
+  — `computeUsage()` collapses all five provider fields into one
+  `cached_tokens` value and `summary()` exposes per-role `cached_tokens` /
+  `tokens_in` in `breakdown_by_role`.
+- **Φ0-F — summary.md `## Cache hits` section** (KJC-TSK-0524) — per-role
+  table with cached tokens, ratio, and estimated savings. Renders
+  `_Cache hits: 0 tokens (cold run)._` instead of an empty table when no
+  cache fired.
+- **Φ0-G — HU Board cached % badge** (KJC-TSK-0525) — three PRs:
+  `cached_tokens`/`tokens_in` columns on `stories` (board.db migration),
+  orchestrator propagation to HU outcome, and `formatCacheRatio()` rendering
+  `🎯 N%` on card + project header with hover tooltip. Hidden when no
+  signal (same stance as Cost F).
+- **Φ0-H — telemetry `cached_pct_{coder,reviewer,total}`** (KJC-TSK-0526) —
+  `computeCachedPct(summary)` aggregates from `BudgetTracker.summary()` and
+  is folded into the opt-in `pipeline_complete` event. Per-role nulls
+  preserved so the backend can distinguish "no cache" from "no signal".
+
+### Notes
+
+- **Real data collected** (2026-06-09, local sandbox):
+  - Claude cold→hot: 47.2% → 94.3% cache_pct ($0.6141 → $0.1452,
+    **76.4% cost savings** on a single HU).
+  - Gemini cold→hot: 87.9% → 96.8% cache_pct.
+  - Codex: shape verified via unit tests; live E2E blocked by its own
+    bubblewrap kernel-namespace permission on this host (OS issue, not
+    Karajan).
+- Provider-agnostic by design: `BudgetTracker` never branches on which
+  provider produced the run; the 5 paths converge on one normalised field.
+- Telemetry remains opt-in (`telemetry: true` in `.karajanrc`); the new
+  cache fields ride the existing endpoint.
+
 ## [3.2.0] - 2026-06-07
 
 Cost tracking end-to-end (epic KJC-PCS-0055 closed). Every HU run now
