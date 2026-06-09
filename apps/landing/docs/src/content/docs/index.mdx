@@ -60,8 +60,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 400+ Automated Tests" icon="approve-check">
-    498 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, and the new semantic test-diet auditor (KJC-TSK-0345). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+  <Card title="5 500+ Automated Tests" icon="approve-check">
+    511 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), and the new **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -212,6 +212,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Quality gates + housekeeping (v3.1)" icon="approve-check">
     First minor on the v3 line. Two new quality gates land in the pipeline: **tool-correctness judge** (KJC-TSK-0375) extracts tool calls from the coder's transcript and scores whether the right tools were used for the job; **TDD-discipline** (KJC-TSK-0398) verifies tests were written before the implementation via a surgical stash + diff inspection. Three new housekeeping commands: **`kj clean --repo`** (stale branches, dist, tmp), **`kj clean --vector-stores`** (orphan RAG indexes) and an **`--all`** paraguas with `docs/CLEANUP.md`. **`kj sync --apply`** closes the SPDD loop by writing the canvas drift patch with backup. A new **semantic test-diet auditor** verifies the 498-test suite has 0 loss-of-meaning findings (`npm run audit:test-diet`). HU Board structural refactor (17 PRs) + canonical statuses API. **No breaking changes** — drop-in upgrade from v3.0.0.
+  </Card>
+  <Card title="Cross-provider cache observability (v3.3)" icon="approve-check">
+    The **Phase 0** epic (KJC-PCS-0056) closes the cache-metrics blind spot end-to-end across **Anthropic, OpenAI/Codex, Gemini, aider and opencode**. Provider-specific cache fields (`cache_read_input_tokens`, `prompt_tokens_details.cached_tokens`, `cachedContentTokenCount`, `cached_tokens`) are normalized in `BudgetTracker`, surfaced as a `🎯 N%` badge on the HU Board, persisted in `board.db` and emitted in `pipeline_complete` telemetry. **Real data on a Karajan repo**: cold→hot Claude run dropped from 47.2% to 94.3% cache_pct and from $0.6141 to $0.1452 (−76.4%). Null-safe: badge hides when unmeasured. Drop-in upgrade from v3.2.0.
   </Card>
 </CardGrid>
 
@@ -693,12 +696,37 @@ First minor on the v3 line. **No breaking changes** — drop-in upgrade from v3.
 
 498 test files. 39 commits since v3.0.0. PRs #928–#969 + release #970.
 
-### v3.2.0 — Cost tracking end-to-end (current)
+### v3.2.0 — Cost tracking end-to-end
 
 Closes the **Cost** epic (KJC-PCS-0055). Every `kj run` now records per-HU USD spend and the HU Board surfaces it. **No breaking changes** — drop-in upgrade from v3.1.0.
 
 **Cost A–G**. Seven slices land together: a versioned **model-pricing.json** registry (KJC-TSK-0512), a deterministic **cost aggregator** that reduces BudgetTracker entries into `{totalUsd, byModel, byProvider, unknownModelTokens}` (KJC-TSK-0513), an idempotent **`board.db` migration** adding `cost_usd REAL` on `stories` (KJC-TSK-0514), an **orchestrator hook** that snapshots the BudgetTracker cursor at HU-start and slices on exit so per-HU spend is isolated from the session total (KJC-TSK-0515, PR #1031), a **`/api/projects/:id/cost`** endpoint with per-plan breakdown + unknown-model token surfacing (KJC-TSK-0516), a **per-card `$0.02` badge** with 4-decimal tooltip (KJC-TSK-0517), and a **project header chip** with per-plan totals (KJC-TSK-0518, PR #1030).
 
 **Null vs 0**. Preserved end-to-end: unmeasured HUs render *nothing*, real free runs render `$0.00`. The badge never lies.
+
+**Why a minor**. Additive feature, no breaking changes to API or CLI surface.
+
+### v3.3.0 — Cross-provider cache observability (current)
+
+Closes the **Phase 0** epic (KJC-PCS-0056). Karajan now measures provider-level prompt-cache hits end-to-end across **Anthropic, OpenAI/Codex, Gemini, aider and opencode**. The same `cached_tokens` field flows from the agent through `BudgetTracker` into `summary.md`, `board.db`, the HU Board badge `🎯 N%` and the `pipeline_complete` telemetry event. **No breaking changes** — drop-in upgrade from v3.2.0.
+
+**Φ0-A..D — provider passthrough**. Four slices normalise five different field names into one: Claude `usage.cache_read_input_tokens` + `cache_creation_input_tokens` (KJC-TSK-0519), Codex `usage.prompt_tokens_details.cached_tokens` (KJC-TSK-0520), Gemini `usage.cachedContentTokenCount` via `usageMetadata` (KJC-TSK-0521), aider + opencode via LiteLLM's normalised `usage.cached_tokens` (KJC-TSK-0522). Provider-agnostic by design — `BudgetTracker` never branches on which CLI produced the run.
+
+**Φ0-E — cursor-snapshot accumulation** (KJC-TSK-0523). `computeUsage()` collapses the five provider fields into one `cached_tokens` slot, and `summary()` exposes per-role `cached_tokens` / `tokens_in` in `breakdown_by_role`.
+
+**Φ0-F — `summary.md` cache hits section** (KJC-TSK-0524). Per-role table with cached tokens, ratio and estimated savings. Renders `_Cache hits: 0 tokens (cold run)._` instead of an empty table when no cache fired.
+
+**Φ0-G — HU Board badge** (KJC-TSK-0525). Three PRs: `cached_tokens`/`tokens_in` columns on `stories`, orchestrator propagation to the HU outcome, and `formatCacheRatio()` rendering `🎯 N%` on each card + project header with a hover tooltip. Hidden when no signal — same null-safety stance as Cost F.
+
+**Φ0-H — telemetry** (KJC-TSK-0526). `computeCachedPct(summary)` aggregates per role and folds `cached_pct_{coder,reviewer,total}` into the opt-in `pipeline_complete` event. Per-role `null` preserved so the backend distinguishes "no cache" from "no signal".
+
+**Real data measured (2026-06-09, local sandbox)**:
+
+| Provider | Cold cache_pct | Hot cache_pct | Cold cost | Hot cost | Savings |
+|---|---|---|---|---|---|
+| Claude (Anthropic) | 47.2% | 94.3% | $0.6141 | $0.1452 | **76.4%** |
+| Gemini (Google) | 87.9% | 96.8% | n/d (free tier) | n/d | — |
+
+Codex shape is verified by unit tests (Φ0-B); live E2E was blocked by codex-cli's own bubblewrap kernel-namespace permission on this host (OS issue, not Karajan).
 
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.

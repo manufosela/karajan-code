@@ -1507,6 +1507,32 @@ Cierra la épica **Cost** (KJC-PCS-0055) — las siete piezas Cost A a Cost G at
 
 **Stats**: 187 LOC solo para Cost D (bastante por debajo del cap de 200 del budget). Cost A–G envíados como PRs separados para mantener cada slice revisable de forma aislada.
 
+## Fase 90: v3.3.0 — Observabilidad de caché cross-provider (v3.3.0)
+
+Cierra la épica **Phase 0** (KJC-PCS-0056). Karajan tenía el coste end-to-end (Fase 89) pero no el `cache_pct` — un coder podía duplicar la ratio de hits de caché y el journal no se enteraba. Phase 0 cierra ese blind spot en **Anthropic, OpenAI/Codex, Gemini, aider y opencode** mediante ocho slices quirúrgicos Φ0-A a Φ0-H, todos aterrizados en la misma release.
+
+**Φ0-A — passthrough de anthropic** (KJC-TSK-0519). `usage.cache_read_input_tokens` fluye por `claude-agent.js` hasta la entrada del BudgetTracker. Ya era canónico; este slice simplemente deja de descartarlo por el camino.
+
+**Φ0-B — passthrough de codex** (KJC-TSK-0520). `usage.prompt_tokens_details.cached_tokens` extraído del shape de respuesta JSON del codex-cli y normalizado al mismo campo `cached_tokens`. El e2e real está bloqueado por bwrap del host; cubierto por unit tests sobre el shape de respuesta.
+
+**Φ0-C — context-caching de gemini** (KJC-TSK-0521). `usage.cachedContentTokenCount` extraído de la respuesta de la Gemini API. Muestra cold→hot sobre un repo Karajan: 87,9% → 96,8% cache_pct, validando el shape.
+
+**Φ0-D — aider + opencode vía LiteLLM** (KJC-TSK-0522). Ambos envuelven LiteLLM, que normaliza a `usage.cached_tokens`. Un adapter, dos agentes cubiertos.
+
+**Φ0-E — cursor-snapshot del BudgetTracker** (KJC-TSK-0523). `budget.js::computeUsage()` reduce los cuatro shapes de proveedor a un único `cached_tokens` canónico por entrada. `summary()` expone `breakdown_by_role.{coder,reviewer}.{tokens_in,cached_tokens,cost_usd}`. El patrón cursor-snapshot (igual que Cost D) mantiene los slices por HU independientes del tracker acumulativo de sesión.
+
+**Φ0-F — sección "Cache hits" en summary.md** (KJC-TSK-0524). Cada `summary.md` gana un bloque `## Cache hits` con una línea `tokens_in / cached_tokens / cache_pct` por rol. Null-safe: la sección se omite cuando ningún rol expuso datos de caché.
+
+**Φ0-G — badge cached en el HU Board** (KJC-TSK-0525). `formatCacheRatio(cached, tokens_in)` retorna `{label:"🎯 N%", tooltip}` o null. La card oculta el badge cuando `tokens_in=0`, distinguiendo "sin medir" de "0% de ratio de hits" — misma higiene null-vs-zero que Cost F.
+
+**Φ0-H — telemetría computeCachedPct** (KJC-TSK-0526). El evento `pipeline_complete` gana `cached_tokens_pct: { coder, reviewer }`, con `null` por slot cuando su `tokens_in=0`. El tracking-por-cohorte futuro aterriza sin re-instrumentar.
+
+**Datos reales medidos el 2026-06-09 sobre un repo Karajan**: pasada en frío en Claude 47,2% cache_pct ($0,6141), pasada en caliente 94,3% cache_pct ($0,1452) — **76,4% de reducción de coste** sobre una carga de prompt sostenido. Gemini 87,9% → 96,8% sobre el mismo shape. Codex medido por unit tests (e2e real bloqueado por host).
+
+**¿Por qué un minor?** Solo aditivo; sin cambios en API ni en superficie CLI. El badge y la sección de summary se renderizan solo cuando hay medición; los consumidores downstream o honran el nuevo campo o lo ignoran. Drop-in upgrade desde v3.2.0.
+
+**Stats**: ocho PRs en ocho cards. Cada slice aterrizó independientemente, todos bajo el budget de 200 LOC. v3.3.0 es la base para la Fase 1 (planner consciente del coste — elegir modelo por rol según predicciones de cache_pct × cost_usd).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

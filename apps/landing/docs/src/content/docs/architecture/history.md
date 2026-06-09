@@ -1508,6 +1508,32 @@ Closes the **Cost** epic (KJC-PCS-0055) — seven slices Cost A through Cost G l
 
 **Stats**: 187 LOC for Cost D alone (well under the 200-budget cap). Cost A–G shipped as separate PRs to keep each slice reviewable in isolation.
 
+## Phase 90: v3.3.0 — Cross-provider cache observability (v3.3.0)
+
+Closes the **Phase 0** epic (KJC-PCS-0056). Karajan had cost end-to-end (Phase 89) but not cache_pct — a coder could double the cache hit ratio and the journal would not notice. Phase 0 closes that blind spot across **Anthropic, OpenAI/Codex, Gemini, aider and opencode** in eight surgical slices Φ0-A through Φ0-H, all landing in one release.
+
+**Φ0-A — anthropic passthrough** (KJC-TSK-0519). `usage.cache_read_input_tokens` flows through `claude-agent.js` into the BudgetTracker entry. Already canonical; this slice just stops dropping it on the way through.
+
+**Φ0-B — codex passthrough** (KJC-TSK-0520). `usage.prompt_tokens_details.cached_tokens` extracted from the codex-cli JSON response shape and normalized to the same `cached_tokens` field. Live e2e is blocked by host bwrap; covered by unit tests on the response shape.
+
+**Φ0-C — gemini context-caching** (KJC-TSK-0521). `usage.cachedContentTokenCount` extracted from the Gemini API response. Cold→hot Gemini sample on a Karajan repo shows 87.9% → 96.8% cache_pct, validating the shape.
+
+**Φ0-D — aider + opencode via LiteLLM** (KJC-TSK-0522). Both wrap LiteLLM, which normalizes to `usage.cached_tokens`. One adapter, two agents covered.
+
+**Φ0-E — BudgetTracker cursor-snapshot** (KJC-TSK-0523). `budget.js::computeUsage()` reduces the four provider shapes into a single canonical `cached_tokens` per entry. `summary()` exposes `breakdown_by_role.{coder,reviewer}.{tokens_in,cached_tokens,cost_usd}`. The cursor-snapshot pattern (same as Cost D) keeps per-HU slices independent of the cumulative session tracker.
+
+**Φ0-F — summary.md "Cache hits" section** (KJC-TSK-0524). Each run's `summary.md` gains a `## Cache hits` block with a `tokens_in / cached_tokens / cache_pct` line per role. Null-safe: section omitted when no role surfaced cache data.
+
+**Φ0-G — HU Board cached badge** (KJC-TSK-0525). `formatCacheRatio(cached, tokens_in)` returns `{label:"🎯 N%", tooltip}` or null. The card hides the badge when `tokens_in=0`, distinguishing "unmeasured" from "0% hit ratio" — same null-vs-zero hygiene as Cost F.
+
+**Φ0-H — telemetry computeCachedPct** (KJC-TSK-0526). `pipeline_complete` event gains `cached_tokens_pct: { coder, reviewer }`, with `null` per slot when its `tokens_in=0`. Future tracking-by-cohort lands without re-instrumenting.
+
+**Real data measured 2026-06-09 on a Karajan repo**: cold Claude run 47.2% cache_pct ($0.6141), hot run 94.3% cache_pct ($0.1452) — **76.4% cost reduction** on a sustained-prompt workload. Gemini 87.9% → 96.8% on the same shape. Codex measured by unit tests (live e2e host-blocked).
+
+**Why a minor**. Additive only; no API or CLI surface change. The badge and summary section render only when measured; downstream consumers either honour the new field or ignore it. Drop-in upgrade from v3.2.0.
+
+**Stats**: eight PRs across eight cards. Each slice landed independently, all under the 200-LOC budget. v3.3.0 is the foundation for Phase 1 (cost-aware planner — choose a model per role based on cache_pct × cost_usd predictions).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
