@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.2.0 released** — Cost tracking end-to-end (epic KJC-PCS-0055 closed). Every `kj run` now records per-HU USD spend via the `BudgetTracker` cursor-snapshot pattern, persists it to `board.db.cost_usd`, and the HU Board surfaces both a per-card badge (`$0.02`) and a project-wide chip with per-plan breakdown. Null-safe: unmeasured HUs hide the badge instead of misleading "$0.00". Drop-in upgrade from v3.1.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.3.0 released** — Cross-provider cache observability (epic KJC-PCS-0056 / Phase 0 closed). Every `kj run` now measures provider-level prompt-cache hits end-to-end across Anthropic, OpenAI/Codex, Gemini, aider and opencode — same `cached_tokens` field flows from agent → BudgetTracker → `summary.md` → `board.db` → HU Board badge `🎯 N%` → telemetry `pipeline_complete`. Real data: Claude cold→hot 47.2% → 94.3% cache_pct (**76.4% cost savings on a single HU**), Gemini 87.9% → 96.8%. Null-safe: badge hides when unmeasured. Drop-in upgrade from v3.2.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
