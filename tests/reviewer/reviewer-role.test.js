@@ -112,6 +112,34 @@ describe("ReviewerRole", () => {
     expect(prompt).toContain("No console.log");
   });
 
+  // Φ1-E (KJC-PCS-0057): the inline builder forwards stable/volatile
+  // buckets so ClaudeAgent can system-split them (Φ1-D); the diff is
+  // the final volatile section so it never breaks the stable prefix.
+  it("forwards stable/volatile buckets with task+diff last", async () => {
+    const fakeAgent = {
+      reviewTask: vi.fn().mockResolvedValue({
+        ok: true,
+        output: JSON.stringify({ approved: true, blocking_issues: [], summary: "OK", confidence: 1 })
+      })
+    };
+    const role = new ReviewerRole({
+      config: {},
+      logger,
+      createAgentFn: vi.fn().mockReturnValue(fakeAgent)
+    });
+    await role.init({ task: "Task" });
+    await role.run({ task: "Task A", diff: "+line1", reviewRules: "No console.log" });
+    await role.run({ task: "Task B", diff: "+line2", reviewRules: "No console.log" });
+
+    const first = fakeAgent.reviewTask.mock.calls[0][0];
+    const second = fakeAgent.reviewTask.mock.calls[1][0];
+    expect(first.stablePrompt).toContain("Review rules:\nNo console.log");
+    expect(first.stablePrompt).toBe(second.stablePrompt);
+    expect(first.volatilePrompt).toContain("Task context:\nTask A");
+    expect(first.volatilePrompt.endsWith("Git diff:\n+line1")).toBe(true);
+    expect(first.prompt).toBe(`${first.stablePrompt}\n\n${first.volatilePrompt}`);
+  });
+
   it("emits role:start and role:end events", async () => {
     const events = [];
     emitter.on(ROLE_EVENTS.START, (e) => events.push({ type: "start", ...e }));

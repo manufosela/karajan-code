@@ -1,5 +1,22 @@
 import { describe, it, expect } from "vitest";
-import { buildArchitectPrompt, parseArchitectOutput, VALID_VERDICTS } from "../src/prompts/architect.js";
+import { buildArchitectPrompt, buildArchitectPromptLayout, parseArchitectOutput, VALID_VERDICTS } from "../src/prompts/architect.js";
+
+describe("buildArchitectPromptLayout (Φ1 — prefix caching)", () => {
+  it("keeps the stable block byte-identical across different tasks", async () => {
+    const base = { instructions: "Arch rules", productContext: "A CLI tool" };
+    const a = await buildArchitectPromptLayout({ ...base, task: "Design auth" });
+    const b = await buildArchitectPromptLayout({ ...base, task: "Design billing", researchContext: "notes" });
+
+    expect(a.stable).toBe(b.stable);
+    expect(a.volatile).not.toBe(b.volatile);
+  });
+
+  it("renders the task as the final volatile section", async () => {
+    const prompt = await buildArchitectPrompt({ task: "Design auth", researchContext: "prior findings" });
+    expect(prompt.endsWith("## Task\nDesign auth")).toBe(true);
+    expect(prompt.indexOf("## Research Context")).toBeLessThan(prompt.indexOf("## Task"));
+  });
+});
 
 describe("buildArchitectPrompt", () => {
   it("returns a string containing the task", async () => {
