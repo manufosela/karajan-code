@@ -1,6 +1,7 @@
 import { buildRtkInstructions } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 import { getLanguageInstruction } from "../utils/locale.js";
+import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -24,51 +25,45 @@ const SERENA_INSTRUCTIONS = [
   "Fall back to reading files only when Serena tools are not sufficient."
 ].join("\n");
 
-export async function buildReviewerPrompt({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
+/**
+ * Build the reviewer prompt as a { stable, volatile } layout (Φ1,
+ * KJC-PCS-0057). The stable block (preamble, mode, scope rules, JSON
+ * schema, serena/rtk, contexts, review rules, skills) is identical
+ * across reviews of the same project, so prefix-caching providers hit
+ * on it; the per-review content (task context + git diff, up to 12 KB
+ * and always different) goes last.
+ */
+export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
   const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
 
   const langInstruction = getLanguageInstruction(language);
-  const sections = [
-    serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
-    ...(langInstruction ? [langInstruction] : []),
-    `You are a code reviewer in ${mode} mode.`,
-    "CRITICAL SCOPE RULE: Only review changes that are part of the diff below. Do NOT flag issues in unchanged code, missing features planned for future tasks, or improvements outside the scope of this task. If the diff is correct for what the task asks, approve it — even if the broader codebase has other issues.",
-    "Only block approval for issues IN THE DIFF that are bugs, security vulnerabilities, or clear violations of the review rules.",
-    "Return only one valid JSON object and nothing else.",
-    "JSON schema:",
-    '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}'
-  ];
-
-  if (serenaEnabled) {
-    sections.push(SERENA_INSTRUCTIONS);
-  }
-
   const rtkSnippet = buildRtkInstructions({ rtkAvailable });
-  if (rtkSnippet) {
-    sections.push(rtkSnippet);
-  }
-
-  if (productContext) {
-    sections.push(`## Product Context\n${productContext}`);
-  }
-
-  if (domainContext) {
-    sections.push(`## Domain Context\n${domainContext}`);
-  }
-
-  sections.push(
-    `Task context:\n${task}`,
-    `Review rules:\n${reviewRules}`,
-    `Git diff:\n${truncatedDiff}`
-  );
-
+  let skillSection = null;
   if (projectDir) {
     const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills, { provider, role: "reviewer" });
-    if (skillSection) {
-      sections.push(skillSection);
-    }
+    skillSection = buildSkillSection(skills, { provider, role: "reviewer" });
   }
 
-  return sections.join("\n\n");
+  return buildPromptLayout([
+    section(serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE, STABLE),
+    section(langInstruction, STABLE),
+    section(`You are a code reviewer in ${mode} mode.`, STABLE),
+    section("CRITICAL SCOPE RULE: Only review changes that are part of the diff below. Do NOT flag issues in unchanged code, missing features planned for future tasks, or improvements outside the scope of this task. If the diff is correct for what the task asks, approve it — even if the broader codebase has other issues.", STABLE),
+    section("Only block approval for issues IN THE DIFF that are bugs, security vulnerabilities, or clear violations of the review rules.", STABLE),
+    section("Return only one valid JSON object and nothing else.", STABLE),
+    section("JSON schema:", STABLE),
+    section('{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}', STABLE),
+    section(serenaEnabled ? SERENA_INSTRUCTIONS : null, STABLE),
+    section(rtkSnippet, STABLE),
+    section(productContext ? `## Product Context\n${productContext}` : null, STABLE),
+    section(domainContext ? `## Domain Context\n${domainContext}` : null, STABLE),
+    section(`Review rules:\n${reviewRules}`, STABLE),
+    section(skillSection, STABLE),
+    section(`Task context:\n${task}`, VOLATILE),
+    section(`Git diff:\n${truncatedDiff}`, VOLATILE),
+  ]);
+}
+
+export async function buildReviewerPrompt(options) {
+  return joinLayout(await buildReviewerPromptLayout(options));
 }

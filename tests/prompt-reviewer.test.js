@@ -1,5 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { buildReviewerPrompt } from "../src/prompts/reviewer.js";
+import { buildReviewerPrompt, buildReviewerPromptLayout } from "../src/prompts/reviewer.js";
+
+describe("buildReviewerPromptLayout (Φ1 — prefix caching)", () => {
+  const baseArgs = {
+    reviewRules: "Check for security issues",
+    mode: "standard",
+    productContext: "A CLI tool",
+  };
+
+  it("keeps the stable block byte-identical across different task and diff", async () => {
+    const a = await buildReviewerPromptLayout({ ...baseArgs, task: "Add login", diff: "+a" });
+    const b = await buildReviewerPromptLayout({ ...baseArgs, task: "Fix logout", diff: "+b" });
+
+    expect(a.stable).toBe(b.stable);
+    expect(a.volatile).not.toBe(b.volatile);
+  });
+
+  it("puts review rules and contexts in the stable block, task + diff last", async () => {
+    const layout = await buildReviewerPromptLayout({ ...baseArgs, task: "Add login", diff: "+x" });
+
+    expect(layout.stable).toContain("Review rules:\nCheck for security issues");
+    expect(layout.stable).toContain("## Product Context");
+    expect(layout.volatile).toContain("Task context:\nAdd login");
+    expect(layout.volatile).toContain("Git diff:\n+x");
+    expect(layout.volatile.indexOf("Task context:")).toBeLessThan(layout.volatile.indexOf("Git diff:"));
+  });
+
+  it("buildReviewerPrompt renders the git diff as the final section", async () => {
+    const full = await buildReviewerPrompt({ ...baseArgs, task: "Add login", diff: "+final" });
+    expect(full.endsWith("Git diff:\n+final")).toBe(true);
+  });
+});
 
 describe("buildReviewerPrompt", () => {
   const baseArgs = {
