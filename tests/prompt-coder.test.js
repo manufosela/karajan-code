@@ -1,5 +1,74 @@
 import { describe, expect, it } from "vitest";
-import { buildCoderPrompt } from "../src/prompts/coder.js";
+import { buildCoderPrompt, buildCoderPromptLayout } from "../src/prompts/coder.js";
+
+describe("buildCoderPromptLayout (Φ1 — prefix caching)", () => {
+  const baseConfig = {
+    coderRules: "Always use arrow functions",
+    methodology: "tdd",
+    productContext: "A CLI tool",
+  };
+
+  it("keeps the stable block byte-identical across different tasks and feedback", async () => {
+    const a = await buildCoderPromptLayout({ ...baseConfig, task: "Add login" });
+    const b = await buildCoderPromptLayout({
+      ...baseConfig,
+      task: "Fix logout",
+      reviewerFeedback: "Missing validation",
+      sonarSummary: "2 issues",
+    });
+
+    expect(a.stable).toBe(b.stable);
+    expect(a.volatile).not.toBe(b.volatile);
+  });
+
+  it("puts every per-HU section in the volatile block, after all stable content", async () => {
+    const layout = await buildCoderPromptLayout({
+      ...baseConfig,
+      task: "Add login",
+      plan: "1. do it",
+      sonarSummary: "1 issue",
+      reviewerFeedback: "fix this",
+    });
+
+    expect(layout.stable).toContain("Coder rules (MUST follow)");
+    expect(layout.stable).toContain("Default development policy: TDD");
+    expect(layout.stable).toContain("## Product Context");
+    expect(layout.volatile).toContain("Task:\nAdd login");
+    expect(layout.volatile).toContain("Implementation Plan");
+    expect(layout.volatile).toContain("Sonar summary");
+    expect(layout.volatile).toContain("YOU MUST FIX THESE");
+  });
+
+  it("preserves the legacy relative order inside the volatile block", async () => {
+    const layout = await buildCoderPromptLayout({
+      task: "Add login",
+      plan: "1. do it",
+      acceptanceTests: ["npm test"],
+      sonarSummary: "1 issue",
+      reviewerFeedback: "fix this",
+      deferredContext: "deferred notes",
+    });
+    const v = layout.volatile;
+    const order = [
+      v.indexOf("Task:\nAdd login"),
+      v.indexOf("Implementation Plan"),
+      v.indexOf("Acceptance Tests"),
+      v.indexOf("Sonar summary"),
+      v.indexOf("YOU MUST FIX THESE"),
+      v.indexOf("deferred notes"),
+    ];
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+  });
+
+  it("buildCoderPrompt renders stable prefix first, volatile tail last", async () => {
+    const full = await buildCoderPrompt({ ...baseConfig, task: "Add login" });
+    const layout = await buildCoderPromptLayout({ ...baseConfig, task: "Add login" });
+
+    expect(full.startsWith(layout.stable)).toBe(true);
+    expect(full.endsWith(layout.volatile)).toBe(true);
+  });
+});
 
 describe("buildCoderPrompt", () => {
   it("includes task and default TDD instructions", async () => {

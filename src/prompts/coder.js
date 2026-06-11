@@ -1,6 +1,7 @@
 import { buildRtkInstructions } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 import { getLanguageInstruction } from "../utils/locale.js";
+import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -179,7 +180,16 @@ function buildStackSection({ stack, testFramework }) {
   return lines.join("\n");
 }
 
-export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null, stack = null, testFramework = null }) {
+/**
+ * Build the coder prompt as a { stable, volatile } layout (Φ1, KJC-PCS-0057).
+ *
+ * stable: identical across iterations of the same HU and across HUs of the
+ * same plan — rendered FIRST so prefix-caching providers hit on it, and
+ * available separately so ClaudeAgent can ship it via --append-system-prompt.
+ * volatile: per-HU/iteration content, rendered LAST preserving the relative
+ * order the legacy prompt used (ADRs → SPEC → findings → tests → … → feedback).
+ */
+export async function buildCoderPromptLayout({ task, reviewerFeedback = null, sonarSummary = null, coderRules = null, methodology = "tdd", serenaEnabled = false, rtkAvailable = false, deferredContext = null, productContext = null, domainContext = null, plan = null, projectDir = null, language = "en", provider = null, acceptanceTests = null, adrs = null, specSection = null, reviewerFindings = null, huId = null, stack = null, testFramework = null }) {
   const langInstruction = getLanguageInstruction(language);
   // KJC-BUG-0032 (PR-I): hard rule about file paths. Real bug: a HU
   // titled "Initialize project skeleton: create assistant/ directory…"
@@ -203,110 +213,75 @@ export async function buildCoderPrompt({ task, reviewerFeedback = null, sonarSum
       ].join("\n")
     : null;
 
-  const sections = [
-    serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE,
-    ...(langInstruction ? [langInstruction] : []),
-    `Task:\n${task}`,
-    "Implement directly in the repository.",
-    "Keep changes minimal and production-ready.",
-    "Follow SOLID principles. Write small, focused functions (< 30 lines).",
-    "Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.",
-    "Security: validate all input, parameterize queries, never expose secrets. Use the auth pattern that matches the stack (e.g. httpOnly cookies for web sessions).",
-    "Use the project's standard logger and type system (no console.log when a structured logger exists; use the project's type idiom — TS types, JSDoc, Python type hints, Go interfaces…).",
-    SUBPROCESS_CONSTRAINTS
-  ];
   const stackRule = buildStackSection({ stack, testFramework });
-  if (stackRule) sections.push(stackRule);
-  if (projectDirRule) sections.push(projectDirRule);
-
-  if (serenaEnabled) {
-    sections.push(SERENA_INSTRUCTIONS);
-  }
-
   const rtkSnippet = buildRtkInstructions({ rtkAvailable });
-  if (rtkSnippet) {
-    sections.push(rtkSnippet);
+  let skillSection = null;
+  if (projectDir) {
+    const skills = await loadAvailableSkills(projectDir);
+    skillSection = buildSkillSection(skills, { provider });
   }
 
-  if (productContext) {
-    sections.push(`## Product Context\n${productContext}`);
-  }
-
-  if (domainContext) {
-    sections.push(`## Domain Context\n${domainContext}`);
-  }
-
-  if (plan) {
-    sections.push(`## Implementation Plan (from planner)\nFollow these steps:\n${plan}`);
-  }
-
-  // PR F context injections — order matters:
+  // Volatile sections keep the legacy relative order — order matters:
   //   1. ADRs first (they constrain HOW you implement),
   //   2. SPEC reference (what section we're satisfying),
   //   3. Reviewer findings about THIS HU (warnings the coder needs
   //      to consider while writing code),
   //   4. Acceptance tests (the gate the implementation must pass).
-  // All four sit BEFORE coder rules / TDD policy so the policy
-  // frames them, not the other way around.
-  const adrSection = renderAdrSection(adrs);
-  if (adrSection) sections.push(adrSection);
+  const reviewerFeedbackSection = reviewerFeedback
+    ? [
+        `## Reviewer blocking feedback — YOU MUST FIX THESE BEFORE PROCEEDING`,
+        reviewerFeedback,
+        "",
+        "For each issue above:",
+        "1. Find the relevant file(s) in the project",
+        "2. Make the specific code change needed to resolve the issue",
+        "3. If tests are missing, write them",
+        "4. If dependencies are needed, install them with the project's package manager (npm install / pip install / go get / cargo add — pick the one that matches the stack above)",
+        "5. Do NOT skip any issue — all must be resolved"
+      ].join("\n\n")
+    : null;
 
-  const specSectionLine = renderSpecSectionLine(specSection);
-  if (specSectionLine) sections.push(specSectionLine);
+  return buildPromptLayout([
+    section(serenaEnabled ? SUBAGENT_PREAMBLE_SERENA : SUBAGENT_PREAMBLE, STABLE),
+    section(langInstruction, STABLE),
+    section("Implement directly in the repository.", STABLE),
+    section("Keep changes minimal and production-ready.", STABLE),
+    section("Follow SOLID principles. Write small, focused functions (< 30 lines).", STABLE),
+    section("Make atomic commits: 1 logical change = 1 commit. Keep PRs small and reviewable.", STABLE),
+    section("Security: validate all input, parameterize queries, never expose secrets. Use the auth pattern that matches the stack (e.g. httpOnly cookies for web sessions).", STABLE),
+    section("Use the project's standard logger and type system (no console.log when a structured logger exists; use the project's type idiom — TS types, JSDoc, Python type hints, Go interfaces…).", STABLE),
+    section(SUBPROCESS_CONSTRAINTS, STABLE),
+    section(stackRule, STABLE),
+    section(projectDirRule, STABLE),
+    section(serenaEnabled ? SERENA_INSTRUCTIONS : null, STABLE),
+    section(rtkSnippet, STABLE),
+    section(productContext ? `## Product Context\n${productContext}` : null, STABLE),
+    section(domainContext ? `## Domain Context\n${domainContext}` : null, STABLE),
+    section(coderRules ? `Coder rules (MUST follow):\n${coderRules}` : null, STABLE),
+    section(
+      methodology === "tdd"
+        ? [
+            "Default development policy: TDD.",
+            "1) Add or update failing tests first.",
+            "2) Implement minimal code to make tests pass.",
+            "3) Refactor safely while keeping tests green."
+          ].join("\n")
+        : null,
+      STABLE
+    ),
+    section(skillSection, STABLE),
+    section(`Task:\n${task}`, VOLATILE),
+    section(plan ? `## Implementation Plan (from planner)\nFollow these steps:\n${plan}` : null, VOLATILE),
+    section(renderAdrSection(adrs) || null, VOLATILE),
+    section(renderSpecSectionLine(specSection) || null, VOLATILE),
+    section(renderReviewerFindingsSection(reviewerFindings, huId) || null, VOLATILE),
+    section(renderAcceptanceTestsSection(acceptanceTests) || null, VOLATILE),
+    section(sonarSummary ? `Sonar summary:\n${sonarSummary}` : null, VOLATILE),
+    section(reviewerFeedbackSection, VOLATILE),
+    section(deferredContext, VOLATILE),
+  ]);
+}
 
-  const reviewerSection = renderReviewerFindingsSection(reviewerFindings, huId);
-  if (reviewerSection) sections.push(reviewerSection);
-
-  // Tests-first contract: the gate the implementation must pass.
-  const testsSection = renderAcceptanceTestsSection(acceptanceTests);
-  if (testsSection) {
-    sections.push(testsSection);
-  }
-
-  if (coderRules) {
-    sections.push(`Coder rules (MUST follow):\n${coderRules}`);
-  }
-
-  if (methodology === "tdd") {
-    sections.push(
-      [
-        "Default development policy: TDD.",
-        "1) Add or update failing tests first.",
-        "2) Implement minimal code to make tests pass.",
-        "3) Refactor safely while keeping tests green."
-      ].join("\n")
-    );
-  }
-
-  if (sonarSummary) {
-    sections.push(`Sonar summary:\n${sonarSummary}`);
-  }
-
-  if (reviewerFeedback) {
-    sections.push(
-      `## Reviewer blocking feedback — YOU MUST FIX THESE BEFORE PROCEEDING`,
-      reviewerFeedback,
-      "",
-      "For each issue above:",
-      "1. Find the relevant file(s) in the project",
-      "2. Make the specific code change needed to resolve the issue",
-      "3. If tests are missing, write them",
-      "4. If dependencies are needed, install them with the project's package manager (npm install / pip install / go get / cargo add — pick the one that matches the stack above)",
-      "5. Do NOT skip any issue — all must be resolved"
-    );
-  }
-
-  if (deferredContext) {
-    sections.push(deferredContext);
-  }
-
-  if (projectDir) {
-    const skills = await loadAvailableSkills(projectDir);
-    const skillSection = buildSkillSection(skills, { provider });
-    if (skillSection) {
-      sections.push(skillSection);
-    }
-  }
-
-  return sections.join("\n\n");
+export async function buildCoderPrompt(options) {
+  return joinLayout(await buildCoderPromptLayout(options));
 }
