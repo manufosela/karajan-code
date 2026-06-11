@@ -1,6 +1,7 @@
 import { AgentRole } from "./agent-role.js";
 import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 import { extractFirstJson } from "../utils/json-extract.js";
+import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "../prompts/prompt-layout.js";
 
 const MAX_DIFF_LENGTH = 12000;
 
@@ -32,30 +33,26 @@ export class ReviewerRole extends AgentRole {
     };
   }
 
+  // Φ1-E (KJC-PCS-0057): stable block (preamble, instructions, mode,
+  // schema, contexts, rtk, review rules) first; task + diff — different
+  // on every review — last. The buckets ride along so ClaudeAgent can
+  // ship the stable block via --append-system-prompt (Φ1-D).
   async buildPrompt({ task, diff, reviewRules }) {
-    const sections = [SUBAGENT_PREAMBLE];
-    if (this.instructions) sections.push(this.instructions);
-    sections.push(
-      `You are a code reviewer in ${this.config?.review_mode || "standard"} mode.`,
-      "Return only one valid JSON object and nothing else.",
-      "JSON schema:",
-      '{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}',
-      `Task context:\n${task}`
-    );
-
-    const pc = this.config?.productContext;
-    if (pc) sections.push(`## Product Context\n${pc}`);
-    const dc = this.config?.domainContext;
-    if (dc) sections.push(`## Domain Context\n${dc}`);
-
-    const rtkSnippet = buildRtkInstructions({
-      rtkAvailable: Boolean(this.config?.rtk?.available)
-    });
-    if (rtkSnippet) sections.push(rtkSnippet);
-    if (reviewRules) sections.push(`Review rules:\n${reviewRules}`);
-    sections.push(`Git diff:\n${truncateDiff(diff)}`);
-
-    return { prompt: sections.join("\n\n") };
+    const layout = buildPromptLayout([
+      section(SUBAGENT_PREAMBLE, STABLE),
+      section(this.instructions, STABLE),
+      section(`You are a code reviewer in ${this.config?.review_mode || "standard"} mode.`, STABLE),
+      section("Return only one valid JSON object and nothing else.", STABLE),
+      section("JSON schema:", STABLE),
+      section('{"approved":boolean,"blocking_issues":[{"id":string,"severity":"critical|high|medium|low","file":string,"line":number,"description":string,"suggested_fix":string}],"non_blocking_suggestions":[string],"summary":string,"confidence":number}', STABLE),
+      section(this.config?.productContext ? `## Product Context\n${this.config.productContext}` : null, STABLE),
+      section(this.config?.domainContext ? `## Domain Context\n${this.config.domainContext}` : null, STABLE),
+      section(buildRtkInstructions({ rtkAvailable: Boolean(this.config?.rtk?.available) }), STABLE),
+      section(reviewRules ? `Review rules:\n${reviewRules}` : null, STABLE),
+      section(`Task context:\n${task}`, VOLATILE),
+      section(`Git diff:\n${truncateDiff(diff)}`, VOLATILE),
+    ]);
+    return { prompt: joinLayout(layout), stablePrompt: layout.stable, volatilePrompt: layout.volatile };
   }
 
   parseOutput(raw) {

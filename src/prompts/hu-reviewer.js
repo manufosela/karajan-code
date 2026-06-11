@@ -1,5 +1,6 @@
 import { extractFirstJson } from "../utils/json-extract.js";
 import { getLanguageInstruction } from "../utils/locale.js";
+import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -22,38 +23,31 @@ const DIMENSION_KEYS = [
  * @param {{stories: Array<{id: string, text: string}>, instructions: string|null, context?: string|null}} params
  * @returns {string} The assembled prompt.
  */
-export function buildHuReviewerPrompt({ stories, instructions, context = null, productContext = null, domainContext = null, hu_language = "en" }) {
+/**
+ * Build the HU-reviewer prompt as a { stable, volatile } layout (Φ1,
+ * KJC-PCS-0057): preamble, instructions, JSON schema and contexts are
+ * identical across batches on the same project; the stories under
+ * evaluation and the per-batch additional context go last.
+ */
+export function buildHuReviewerPromptLayout({ stories, instructions, context = null, productContext = null, domainContext = null, hu_language = "en" }) {
   const langInstruction = getLanguageInstruction(hu_language);
-  const sections = [SUBAGENT_PREAMBLE, ...(langInstruction ? [langInstruction] : [])];
 
-  if (instructions) {
-    sections.push(instructions);
-  }
+  return buildPromptLayout([
+    section(SUBAGENT_PREAMBLE, STABLE),
+    section(langInstruction, STABLE),
+    section(instructions, STABLE),
+    section("Return a single valid JSON object and nothing else.", STABLE),
+    section(`JSON schema: {"evaluations":[{"story_id":string,"scores":{"D1_jtbd_context":number,"D2_user_specificity":number,"D3_behavior_change":number,"D4_control_zone":number,"D5_time_constraints":number,"D6_survivable_experiment":number},"total":number,"antipatterns_detected":[string],"verdict":"certified|needs_rewrite|needs_context","evaluation_notes":string,"rewritten":object|null,"certified_hu":object|null,"context_needed":object|null}],"batch_summary":{"total":number,"certified":number,"needs_rewrite":number,"needs_context":number,"consolidated_questions":string}}`, STABLE),
+    section(productContext ? `## Product Context\n${productContext}` : null, STABLE),
+    section(domainContext ? `## Domain Context\n${domainContext}` : null, STABLE),
+    section("## Stories to Evaluate", VOLATILE),
+    ...stories.map((story) => section(`### ${story.id}\n${story.text}`, VOLATILE)),
+    section(context ? `## Additional Context\n${context}` : null, VOLATILE),
+  ]);
+}
 
-  sections.push("## Stories to Evaluate");
-
-  for (const story of stories) {
-    sections.push(`### ${story.id}\n${story.text}`);
-  }
-
-  sections.push(
-    "Return a single valid JSON object and nothing else.",
-    `JSON schema: {"evaluations":[{"story_id":string,"scores":{"D1_jtbd_context":number,"D2_user_specificity":number,"D3_behavior_change":number,"D4_control_zone":number,"D5_time_constraints":number,"D6_survivable_experiment":number},"total":number,"antipatterns_detected":[string],"verdict":"certified|needs_rewrite|needs_context","evaluation_notes":string,"rewritten":object|null,"certified_hu":object|null,"context_needed":object|null}],"batch_summary":{"total":number,"certified":number,"needs_rewrite":number,"needs_context":number,"consolidated_questions":string}}`
-  );
-
-  if (productContext) {
-    sections.push(`## Product Context\n${productContext}`);
-  }
-
-  if (domainContext) {
-    sections.push(`## Domain Context\n${domainContext}`);
-  }
-
-  if (context) {
-    sections.push(`## Additional Context\n${context}`);
-  }
-
-  return sections.join("\n\n");
+export function buildHuReviewerPrompt(options) {
+  return joinLayout(buildHuReviewerPromptLayout(options));
 }
 
 /**
