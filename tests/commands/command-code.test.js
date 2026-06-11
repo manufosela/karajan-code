@@ -16,7 +16,8 @@ vi.mock("../../src/config.js", () => ({
 }));
 
 vi.mock("../../src/prompts/coder.js", () => ({
-  buildCoderPrompt: vi.fn().mockReturnValue("coder prompt")
+  buildCoderPrompt: vi.fn().mockReturnValue("coder prompt"),
+  buildCoderPromptLayout: async () => ({ stable: "coder prompt", volatile: "" })
 }));
 
 vi.mock("node:fs/promises", () => ({

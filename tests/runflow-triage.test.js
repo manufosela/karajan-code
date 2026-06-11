@@ -130,7 +130,8 @@ vi.mock("../src/review/parser.js", () => ({ parseJsonOutput: vi.fn((s) => JSON.p
 vi.mock("../src/review/tdd-policy.js", () => ({
   evaluateTddPolicy: vi.fn().mockReturnValue({ ok: true, reason: "pass", sourceFiles: ["a.js"], testFiles: ["a.test.js"], message: "OK" })
 }));
-vi.mock("../src/prompts/coder.js", () => ({ buildCoderPrompt: vi.fn().mockReturnValue("coder prompt") }));
+vi.mock("../src/prompts/coder.js", () => ({ buildCoderPrompt: vi.fn().mockReturnValue("coder prompt"),
+  buildCoderPromptLayout: async () => ({ stable: "coder prompt", volatile: "" }) }));
 vi.mock("../src/prompts/reviewer.js", () => ({ buildReviewerPrompt: vi.fn().mockReturnValue("reviewer prompt") }));
 vi.mock("../src/review/profiles.js", () => ({ resolveReviewProfile: vi.fn().mockResolvedValue({ rules: "rules" }) }));
 vi.mock("../src/git/automation.js", () => ({

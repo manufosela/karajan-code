@@ -31,7 +31,8 @@ vi.mock("../../src/prompts/planner.js", () => ({
 }));
 
 vi.mock("../../src/prompts/coder.js", () => ({
-  buildCoderPrompt: vi.fn(async () => "code prompt")
+  buildCoderPrompt: vi.fn(async () => "code prompt"),
+  buildCoderPromptLayout: async () => ({ stable: "code prompt", volatile: "" })
 }));
 
 vi.mock("../../src/prompts/reviewer.js", () => ({
