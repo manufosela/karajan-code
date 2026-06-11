@@ -321,6 +321,21 @@ const ALLOWED_TOOLS = [
   "Read", "Write", "Edit", "Bash", "Glob", "Grep"
 ];
 
+/**
+ * Base CLI args for a task (Φ1-D, KJC-PCS-0057). When the role provides the
+ * prompt split in stable/volatile buckets, the stable block travels via
+ * --append-system-prompt — the CLI places cache breakpoints on the system
+ * block, so Anthropic's prompt cache hits on it across iterations — and only
+ * the volatile block goes in the -p message. Without the split, legacy
+ * single-prompt behavior is unchanged.
+ */
+function buildPromptArgs(task) {
+  if (task.stablePrompt && task.volatilePrompt) {
+    return ["-p", task.volatilePrompt, "--append-system-prompt", task.stablePrompt, "--allowedTools", ...ALLOWED_TOOLS];
+  }
+  return ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS];
+}
+
 export class ClaudeAgent extends BaseAgent {
   async runTask(task) {
     const role = task.role || "coder";
@@ -345,7 +360,7 @@ export class ClaudeAgent extends BaseAgent {
   }
 
   async _runTaskExec(task, model, _role) {
-    const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS];
+    const args = buildPromptArgs(task);
     if (model) args.push("--model", model);
 
     // Use stream-json when onOutput is provided to get real-time feedback
@@ -373,7 +388,7 @@ export class ClaudeAgent extends BaseAgent {
   }
 
   async _reviewTaskExec(task, model) {
-    const args = ["-p", task.prompt, "--allowedTools", ...ALLOWED_TOOLS, "--output-format", "stream-json", "--verbose"];
+    const args = [...buildPromptArgs(task), "--output-format", "stream-json", "--verbose"];
     if (model) args.push("--model", model);
     const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({
       onOutput: task.onOutput,
