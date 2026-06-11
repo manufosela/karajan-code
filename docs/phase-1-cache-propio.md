@@ -1,6 +1,6 @@
 # Phase 1 — Cache propio: análisis técnico
 
-> Estado: ANÁLISIS (pre-implementación). Continúa Phase 0 (KJC-PCS-0056, cerrada en v3.3.0).
+> Estado: IMPLEMENTADA Y MEDIDA (Φ1-A..G, PRs #1044–#1049). Continúa Phase 0 (KJC-PCS-0056, cerrada en v3.3.0).
 > Fecha: 2026-06-11 · Autor: equipo Karajan
 
 ## 1. Contexto y objetivo
@@ -149,3 +149,45 @@ Orden de dependencias: A → (B,C,E en paralelo) → D → F → G → H.
 - Codex: baseline medido + prefijo estable ≥ 1024 tokens verificado por test.
 - Golden tasks: 3/3 sin regresión estructural.
 - Prefix-stability test: bloque stable byte-idéntico inter-iteración e inter-HU.
+
+## 10. Resultados (medición real 2026-06-11, Φ1-G)
+
+Protocolo: proyecto scratch (`/tmp/kj-phase1-measure`, git + bare origin local),
+misma task pequeña (slugify + tests node:test + README), `kj run --coder claude
+--reviewer claude`, cold = dir reseteado tras >6 min sin llamadas a la API
+(TTL Anthropic 5 min), hot = re-run inmediato. Sesiones
+`s_2026-06-11T07-54-44-721Z` (cold) y `s_2026-06-11T08-10-27-908Z` (hot).
+
+| Métrica (rol coder, Claude) | Baseline v3.3.0 | Phase 1 cold | Phase 1 hot |
+|---|---|---|---|
+| Cached tokens | — | 1 058 694 | 1 287 936 |
+| Tokens in (no cacheados) | — | 4 211 | 4 046 |
+| `cache_pct` = cached/(cached+in) | 47.2 % / 94.3 % | **99.60 %** | **99.69 %** |
+| Coste coder | $0.6141 (cold) | **$0.1447** | $0.1983 |
+| Resultado del run | — | APPROVED + audit CERTIFIED | APPROVED + audit CERTIFIED |
+
+Lectura: con el bloque estable viajando por `--append-system-prompt` (Φ1-D),
+los breakpoints del system block convierten prácticamente todo el contexto
+repetido en cache hits — la distinción cold/hot casi desaparece (99.60 % vs
+99.69 %) y el coste del coder en frío cae un **76 %** vs baseline. Targets de
+la sección 9 superados con margen.
+
+Evidencia de no-regresión de calidad: ambos runs APPROVED con quality gate
+Sonar OK (cold), audit final CERTIFIED, acceptance tests (`node --test`)
+verdes, y la suite prefix-stability (Φ1-F) congelando el contrato en CI. El
+harness e2e de golden tasks sigue siendo mock-only (limitación pre-existente
+a Phase 1, no una regresión).
+
+### Incidencias de entorno detectadas durante la medición (bugs a abrir)
+
+1. `sonarqube.enabled: false` en config de proyecto NO desactiva el
+   sonar-stage, y el flag `--no-sonar` de `kj run` tampoco. El stage corre
+   siempre.
+2. Cuando el run termina por error de stage (sonar_repeat, gh pr create
+   fallido), el post-loop NO escribe `summary.md` → se pierde la sección
+   Cache hits y todo el journal de la sesión (solo queda triage.md).
+3. El rol `audit` (claude) no reporta `cached_tokens` — la tabla Cache hits
+   solo lista al coder aunque el audit consume ~10k tokens por run.
+4. Codex live sigue bloqueado por bwrap del host (igual que en Φ0): baseline
+   OpenAI pendiente; verificado por test que el prefijo estable supera el
+   mínimo de 1024 tokens de su prefix caching.
