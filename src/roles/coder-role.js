@@ -1,5 +1,6 @@
 import { AgentRole } from "./agent-role.js";
-import { buildCoderPrompt } from "../prompts/coder.js";
+import { buildCoderPromptLayout } from "../prompts/coder.js";
+import { joinLayout } from "../prompts/prompt-layout.js";
 import { isHostAgent } from "../utils/agent-detect.js";
 import { HostAgent } from "../agents/host-agent.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
@@ -66,7 +67,7 @@ export class CoderRole extends AgentRole {
       try { stack = await detectProjectStack(projectDir); } catch { /* best-effort */ }
       try { testFramework = await detectTestFramework(projectDir); } catch { /* best-effort */ }
     }
-    const prompt = await buildCoderPrompt({
+    const layout = await buildCoderPromptLayout({
       task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests,
       adrs, specSection, reviewerFindings, huId,
       coderRules: this.instructions,
@@ -79,7 +80,9 @@ export class CoderRole extends AgentRole {
       stack, testFramework,
       provider: this._resolvedProvider || (typeof this.resolveProvider === "function" ? this.resolveProvider() : null)
     });
-    return { prompt };
+    // Φ1-D: prompt is the joined layout (identical for every agent);
+    // the buckets ride along so ClaudeAgent can system-split them.
+    return { prompt: joinLayout(layout), stablePrompt: layout.stable, volatilePrompt: layout.volatile };
   }
 
   buildSuccessResult(parsed, provider, agentResult) {

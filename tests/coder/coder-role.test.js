@@ -59,6 +59,34 @@ describe("CoderRole", () => {
     expect(callArgs.role).toBe("coder");
   });
 
+  // Φ1-D (KJC-PCS-0057): the role forwards the stable/volatile buckets so
+  // ClaudeAgent can ship the stable block via --append-system-prompt; the
+  // joined prompt stays identical for every other agent.
+  it("forwards stablePrompt and volatilePrompt buckets alongside the joined prompt", async () => {
+    const role = new CoderRole({ config, logger, createAgentFn: mockCreateAgent });
+    await role.init({});
+    await role.run({ task: "Add login feature" });
+
+    const callArgs = mockRunTask.mock.calls[0][0];
+    expect(callArgs.stablePrompt).toBeTruthy();
+    expect(callArgs.volatilePrompt).toBeTruthy();
+    expect(callArgs.stablePrompt).toContain("Karajan sub-agent");
+    expect(callArgs.volatilePrompt).toContain("Task:\nAdd login feature");
+    expect(callArgs.prompt).toBe(`${callArgs.stablePrompt}\n\n${callArgs.volatilePrompt}`);
+  });
+
+  it("keeps the stable bucket byte-identical across iterations with different feedback", async () => {
+    const role = new CoderRole({ config, logger, createAgentFn: mockCreateAgent });
+    await role.init({});
+    await role.run({ task: "Add login feature" });
+    await role.run({ task: "Add login feature", reviewerFeedback: "fix the null check" });
+
+    const first = mockRunTask.mock.calls[0][0];
+    const second = mockRunTask.mock.calls[1][0];
+    expect(first.stablePrompt).toBe(second.stablePrompt);
+    expect(first.volatilePrompt).not.toBe(second.volatilePrompt);
+  });
+
   it("includes reviewer feedback in prompt when provided", async () => {
     const role = new CoderRole({ config, logger, createAgentFn: mockCreateAgent });
     await role.init({});

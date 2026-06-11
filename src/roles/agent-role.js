@@ -123,12 +123,20 @@ export class AgentRole extends BaseRole {
     const agent = this.createAgentInstance(provider);
 
     const promptResult = await this.buildPrompt(extracted);
-    const { prompt, onOutput } = typeof promptResult === "string"
+    const { prompt, onOutput, stablePrompt, volatilePrompt } = typeof promptResult === "string"
       ? { prompt: promptResult, onOutput: extracted.onOutput }
       : { onOutput: extracted.onOutput, ...promptResult };
 
     const runArgs = { prompt, role: this.name };
     if (onOutput) runArgs.onOutput = onOutput;
+    // Φ1-D (KJC-PCS-0057): roles that build their prompt as a
+    // stable/volatile layout forward both buckets so cache-aware agents
+    // (ClaudeAgent) can ship the stable block as system prompt. Agents
+    // that don't know the fields keep reading `prompt` as before.
+    if (stablePrompt && volatilePrompt) {
+      runArgs.stablePrompt = stablePrompt;
+      runArgs.volatilePrompt = volatilePrompt;
+    }
     // Kill a hung agent: without a silence timeout a coder / reviewer
     // that stalls with no output left `kj run` waiting indefinitely.
     // PlannerRole set this itself; every other role was unprotected.

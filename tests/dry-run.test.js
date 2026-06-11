@@ -34,7 +34,8 @@ vi.mock("../src/review/tdd-policy.js", () => ({
 }));
 
 vi.mock("../src/prompts/coder.js", () => ({
-  buildCoderPrompt: vi.fn().mockReturnValue("coder prompt content")
+  buildCoderPrompt: vi.fn().mockReturnValue("coder prompt content"),
+  buildCoderPromptLayout: async () => ({ stable: "coder prompt content", volatile: "" })
 }));
 
 vi.mock("../src/prompts/reviewer.js", () => ({

@@ -83,6 +83,37 @@ describe("ClaudeAgent", () => {
     });
   });
 
+  // Φ1-D (KJC-PCS-0057): stable/volatile system-prompt split.
+  describe("buildPromptArgs — system-prompt split", () => {
+    it.each([
+      ["runTask",    (a, t) => a.runTask({ ...t, role: "coder" })],
+      ["reviewTask", (a, t) => a.reviewTask({ ...t, role: "reviewer" })]
+    ])("%s with stablePrompt+volatilePrompt sends -p volatile and --append-system-prompt stable", async (_n, call) => {
+      await call(new ClaudeAgent("claude", baseConfig, logger), {
+        prompt: "joined full prompt",
+        stablePrompt: "STABLE RULES",
+        volatilePrompt: "VOLATILE TASK"
+      });
+
+      const args = runCommand.mock.calls[0][1];
+      expect(args[args.indexOf("-p") + 1]).toBe("VOLATILE TASK");
+      expect(args[args.indexOf("--append-system-prompt") + 1]).toBe("STABLE RULES");
+      expect(args).not.toContain("joined full prompt");
+    });
+
+    it.each([
+      ["only stablePrompt",   { prompt: "full", stablePrompt: "S" }],
+      ["only volatilePrompt", { prompt: "full", volatilePrompt: "V" }],
+      ["neither",             { prompt: "full" }]
+    ])("falls back to -p prompt when %s is provided", async (_n, task) => {
+      await new ClaudeAgent("claude", baseConfig, logger).runTask({ ...task, role: "coder" });
+
+      const args = runCommand.mock.calls[0][1];
+      expect(args[args.indexOf("-p") + 1]).toBe("full");
+      expect(args).not.toContain("--append-system-prompt");
+    });
+  });
+
   // merged-from: 4 buildArgs tests (-p prompt, json default, stream-json+verbose).
   describe("buildArgs — -p flag and output format", () => {
     it("includes -p with the task prompt", async () => {
