@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-06-11
+
+Cache propio cross-provider (epic KJC-PCS-0057 / Phase 1 closed). Los prompts de Karajan se reestructuran para maximizar el prompt-caching automático de cada provider: la medición real con Claude pasa de 47.2 % a 99.6 % de cache_pct en frío y el coste del coder cae un 76 %.
+
+### Added
+
+- `src/prompts/prompt-layout.js`: helper `buildPromptLayout`/`section`/`joinLayout` que separa cada prompt en bloque estable (idéntico entre iteraciones y HUs) y bloque volátil, con etiquetado explícito y sin fallbacks silenciosos (KJC-TSK-0527, #1044).
+- Coder prompt cache-friendly: `buildCoderPromptLayout()` con secciones estables delante y volátiles al final preservando el orden relativo legacy (KJC-TSK-0528, #1045).
+- Reviewer prompt cache-friendly: review rules y skills en el bloque estable; task + git diff (hasta 12 KB) como cola volátil (KJC-TSK-0529, #1046).
+- Claude system-prompt split: con `stablePrompt`/`volatilePrompt` el agente envía `-p <volatile> --append-system-prompt <stable>` — el CLI cachea el system block con breakpoints y Anthropic sirve el contenido estable desde cache en cada iteración (KJC-TSK-0530, #1047).
+- Architect, HU-reviewer y el builder inline de ReviewerRole migrados al layout estable; el split de Claude aplica también a todas las reviews del loop (KJC-TSK-0531, #1048).
+- Suite de regresión prefix-stability: LCP inter-iteración e inter-HU = 100 % del bloque estable, mínimo de 1024 tokens del prefix caching de OpenAI verificado, y marcadores volátiles que nunca se cuelan en el bloque estable (KJC-TSK-0532, #1049).
+- `docs/phase-1-cache-propio.md`: análisis completo de la fase + resultados de la medición real (KJC-TSK-0533, #1050).
+
+### Measured
+
+- Claude coder cold: cache_pct 47.2 % → **99.60 %**; coste $0.6141 → **$0.1447** (−76 %). Hot: 94.3 % → 99.69 %. Ambos runs APPROVED + audit CERTIFIED (2026-06-11).
+- Incidencias de entorno registradas durante la medición: KJC-BUG-0083 (sonar no desactivable por config/flag), KJC-BUG-0084 (summary.md no se escribe en runs fallidos), KJC-BUG-0085 (rol audit sin cached_tokens).
+
+5 624 tests en 514 ficheros.
+
 ## [3.3.0] - 2026-06-09
 
 Cross-provider cache observability (epic KJC-PCS-0056 / Phase 0 closed).

@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.3.0 released** — Cross-provider cache observability (epic KJC-PCS-0056 / Phase 0 closed). Every `kj run` now measures provider-level prompt-cache hits end-to-end across Anthropic, OpenAI/Codex, Gemini, aider and opencode — same `cached_tokens` field flows from agent → BudgetTracker → `summary.md` → `board.db` → HU Board badge `🎯 N%` → telemetry `pipeline_complete`. Real data: Claude cold→hot 47.2% → 94.3% cache_pct (**76.4% cost savings on a single HU**), Gemini 87.9% → 96.8%. Null-safe: badge hides when unmeasured. Drop-in upgrade from v3.2.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.4.0 released** — Cache-friendly prompts (epic KJC-PCS-0057 / Phase 1 closed). Every Karajan prompt is now split into a stable block (identical across iterations and HUs, rendered first so automatic prefix caching hits on it) and a volatile tail; on Claude the stable block ships via `--append-system-prompt` so the CLI's cache breakpoints serve it from cache on every call. Real data: cold-run cache_pct jumps **47.2% → 99.6%** and coder cost drops **76%** ($0.61 → $0.14 per HU). A prefix-stability regression suite freezes the contract in CI. Drop-in upgrade from v3.3.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
