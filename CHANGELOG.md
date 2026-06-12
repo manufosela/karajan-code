@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-06-12
+
+Hardening post-v3.4.0: los 3 bugs de observabilidad detectados durante la medición de Phase 1 + el top accionable del `kj audit` ejecutado con claude-fable-5.
+
+### Fixed
+
+- El session journal (summary.md con Cache hits, budget y commits) se escribe en TODOS los finales de run — sonar_repeat, stage error, throw — vía el writer único `session/journal/write-all.js` llamado desde el `finally` del flow-runner; antes solo el camino aprobado lo escribía y los runs fallidos perdían el post-mortem (KJC-BUG-0084, #1055).
+- El rol audit propaga `cached_tokens` al BudgetTracker, a la tabla Cache hits y al informe de `kj audit` (línea "Cached tokens"); era el rol más caro de la sesión y reportaba 0 (KJC-BUG-0085, #1054).
+- Preflight fail-fast `sonar-project-key`: cuando el remote git no es parseable y no hay `sonarqube.project_key`, el run aborta ANTES de la primera iteración con mensaje accionable en vez de quemar tokens y morir en `sonar_repeat`. Sonar sigue siendo obligatorio para tareas de código — contrato v2.7.4 intacto (KJC-BUG-0083, #1056).
+
+### Changed
+
+- `stripRuntimeOnlyKeys` sin `void _drop` — único CRITICAL S3735 del quality gate fuera (KJC-TSK-0535, #1053).
+- Util compartido `escapeRegExp()` aplicado en toda interpolación de variables en `new RegExp()` — cierra los hallazgos detect-non-literal-regexp de Semgrep (KJC-TSK-0536, #1057).
+- 23 dead exports podados (knip a 0) + `docs/audit-false-positives.md` documenta por qué las 6 deps raíz marcadas como "no usadas" son imprescindibles para el tarball npm (KJC-TSK-0537, #1058).
+- 4 CRITICALs S2871 (sorts sin comparador) + 4 regex S5843 descompuestos (c71/c36/c31/c22) + cluster de ternarios/templates anidados extraído (KJC-TSK-0538, #1059).
+- HU Board `api.js`: 0 llamadas fs síncronas en handlers (fs/promises + FileHandle) y cache mtime de plan JSON en los escaneos — el event loop deja de bloquearse y los polls no re-parsean todos los planes (KJC-TSK-0539, #1060).
+
+5 638 tests en 517 ficheros.
+
 ## [3.4.0] - 2026-06-11
 
 Cache propio cross-provider (epic KJC-PCS-0057 / Phase 1 closed). Los prompts de Karajan se reestructuran para maximizar el prompt-caching automático de cada provider: la medición real con Claude pasa de 47.2 % a 99.6 % de cache_pct en frío y el coste del coder cae un 76 %.
