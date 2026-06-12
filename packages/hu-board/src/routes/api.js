@@ -1,5 +1,26 @@
 import { Router } from 'express';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+
+/** Async existence probe (KJC-TSK-0539 — no sync fs in handlers). */
+const pathExists = (p) => fsp.access(p).then(() => true, () => false);
+
+/**
+ * mtime-keyed cache for parsed plan JSON (KJC-TSK-0539). The plan scans
+ * used to re-read and re-parse every plan file on EVERY request; with N
+ * plans and the board polling, that was O(N) parses per poll. The cache
+ * serves the parsed object while the file's mtime is unchanged and
+ * re-reads transparently when kj writes the plan.
+ */
+const planFileCache = new Map();
+export async function readPlanCached(p) {
+  const { mtimeMs } = await fsp.stat(p);
+  const hit = planFileCache.get(p);
+  if (hit && hit.mtimeMs === mtimeMs) return hit.plan;
+  const plan = JSON.parse(await fsp.readFile(p, 'utf8'));
+  planFileCache.set(p, { mtimeMs, plan });
+  return plan;
+}
 import os from 'node:os';
 import path from 'node:path';
 import { spawn as spawnChild } from 'node:child_process';
@@ -74,10 +95,10 @@ function huStoriesDir() {
 /**
  * Best-effort removal of the hu-stories/<id>/ directory.
  */
-function removeBatchDir(batchId) {
+async function removeBatchDir(batchId) {
   try {
     const dir = path.join(huStoriesDir(), batchId);
-    fs.rmSync(dir, { recursive: true, force: true });
+    await fsp.rm(dir, { recursive: true, force: true });
     return true;
   } catch {
     return false;
@@ -207,10 +228,10 @@ router.get('/projects/:id/preflight', async (req, res) => {
     try {
       outer: for (const root of getHuBoardPlansDirs()) {
         const plansDir = path.join(root, projectId);
-        if (!fs.existsSync(plansDir)) continue;
-        for (const f of fs.readdirSync(plansDir).filter((x) => x.endsWith('.json'))) {
+        if (!(await pathExists(plansDir))) continue;
+        for (const f of (await fsp.readdir(plansDir)).filter((x) => x.endsWith('.json'))) {
           try {
-            const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
+            const plan = await readPlanCached(path.join(plansDir, f));
             if (plan?.projectDir) { projectDir = plan.projectDir; break outer; }
           } catch { /* try next file */ }
         }
@@ -231,7 +252,7 @@ router.get('/projects/:id/preflight', async (req, res) => {
  * failed · 15 min" banner. Plans that haven't finished yet have a
  * null outcome — the front handles that by hiding the banner.
  */
-router.get('/projects/:id/plans-outcome', (req, res) => {
+router.get('/projects/:id/plans-outcome', async (req, res) => {
   try {
     const projectId = req.params.id;
     // KJC-BUG-0059 (v2.19.3): scan canonical + legacy roots so users
@@ -239,10 +260,10 @@ router.get('/projects/:id/plans-outcome', (req, res) => {
     const out = [];
     for (const root of getHuBoardPlansDirs()) {
       const plansDir = path.join(root, projectId);
-      if (!fs.existsSync(plansDir)) continue;
-      for (const f of fs.readdirSync(plansDir).filter(n => n.endsWith('.json'))) {
+      if (!(await pathExists(plansDir))) continue;
+      for (const f of (await fsp.readdir(plansDir)).filter(n => n.endsWith('.json'))) {
         try {
-          const plan = JSON.parse(fs.readFileSync(path.join(plansDir, f), 'utf8'));
+          const plan = await readPlanCached(path.join(plansDir, f));
           if (plan?.version !== 2) continue;
           out.push({
           planId: plan.planId,
@@ -363,7 +384,7 @@ router.get('/sessions', (_req, res) => {
  * Also removes the hu-stories/<id>/ directory from disk so the next sync
  * does not re-import it.
  */
-router.delete('/projects/:id', (req, res) => {
+router.delete('/projects/:id', async (req, res) => {
   try {
     const id = req.params.id;
     // Gather filesystem paths to remove BEFORE deleting DB rows so we
@@ -397,7 +418,7 @@ router.delete('/projects/:id', (req, res) => {
     // Best-effort fs cleanup; failure does NOT undo the tombstones.
     let pathsRemoved = 0;
     for (const p of fsPaths) {
-      try { fs.rmSync(p, { recursive: true, force: true }); pathsRemoved++; } catch { /* */ }
+      try { await fsp.rm(p, { recursive: true, force: true }); pathsRemoved++; } catch { /* */ }
     }
     res.json({ deleted: true, pathsRemoved, tombstoned: 1 + storyIds.length + sessionIds.length });
   } catch (err) {
@@ -411,7 +432,7 @@ router.delete('/projects/:id', (req, res) => {
  * prompt id so a stale chokidar event can't recreate it, and emits a
  * `prompt:resolved` event so all open boards close the modal.
  */
-router.delete('/prompts/:promptId', (req, res) => {
+router.delete('/prompts/:promptId', async (req, res) => {
   try {
     const promptId = req.params.promptId;
     const dir = promptsDir();
@@ -419,7 +440,7 @@ router.delete('/prompts/:promptId', (req, res) => {
     const answer = path.join(dir, `${promptId}.answer.json`);
     let removed = 0;
     for (const p of [main, answer]) {
-      try { fs.unlinkSync(p); removed++; } catch { /* missing is fine */ }
+      try { await fsp.unlink(p); removed++; } catch { /* missing is fine */ }
     }
     addTombstone('prompt', promptId, { source: 'api', fsPaths: [main, answer] });
     // Re-use the same event the runner emits when answered, so any open
@@ -439,7 +460,7 @@ router.delete('/prompts/:promptId', (req, res) => {
  * it. Pre-tombstones this endpoint was a DB-only soft hide that the next
  * chokidar event undid silently.
  */
-router.delete('/stories/:id', (req, res) => {
+router.delete('/stories/:id', async (req, res) => {
   try {
     const id = req.params.id;
     const dir = path.join(huStoriesDir(), id);
@@ -447,7 +468,7 @@ router.delete('/stories/:id', (req, res) => {
     if (!ok) return res.status(404).json({ error: 'Story not found' });
     addTombstone('story', id, { source: 'api', fsPaths: [dir] });
     let dirRemoved = false;
-    try { fs.rmSync(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
+    try { await fsp.rm(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
     res.json({ deleted: true, dirRemoved });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -459,7 +480,7 @@ router.delete('/stories/:id', (req, res) => {
  *
  * Tombstones + removes `~/.karajan/sessions/<id>/` (KJC-TSK-0380).
  */
-router.delete('/sessions/:id', (req, res) => {
+router.delete('/sessions/:id', async (req, res) => {
   try {
     const id = req.params.id;
     const dir = path.join(getKjHome(), 'sessions', id);
@@ -467,7 +488,7 @@ router.delete('/sessions/:id', (req, res) => {
     if (!ok) return res.status(404).json({ error: 'Session not found' });
     addTombstone('session', id, { source: 'api', fsPaths: [dir] });
     let dirRemoved = false;
-    try { fs.rmSync(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
+    try { await fsp.rm(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
     res.json({ deleted: true, dirRemoved });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -482,7 +503,7 @@ router.delete('/sessions/:id', (req, res) => {
  * delete the project: a project can have multiple plans, deleting one
  * plan only removes that plan's HUs from the board.
  */
-router.delete('/plans/:planId', (req, res) => {
+router.delete('/plans/:planId', async (req, res) => {
   try {
     const planId = req.params.planId;
     // Locate the plan file by scanning both canonical and legacy plans
@@ -492,15 +513,15 @@ router.delete('/plans/:planId', (req, res) => {
     let foundPath = null;
     try {
       outer: for (const plansRoot of getHuBoardPlansDirs()) {
-        if (!fs.existsSync(plansRoot)) continue;
-        for (const projSlug of fs.readdirSync(plansRoot)) {
+        if (!(await pathExists(plansRoot))) continue;
+        for (const projSlug of await fsp.readdir(plansRoot)) {
           const candidate = path.join(plansRoot, projSlug, `plan-${planId}.json`);
-          if (fs.existsSync(candidate)) { foundPath = candidate; break outer; }
+          if (await pathExists(candidate)) { foundPath = candidate; break outer; }
         }
       }
     } catch { /* plansRoot missing */ }
     addTombstone('plan', planId, { source: 'api', fsPaths: foundPath ? [foundPath] : [] });
-    if (foundPath) { try { fs.unlinkSync(foundPath); } catch { /* */ } }
+    if (foundPath) { try { await fsp.unlink(foundPath); } catch { /* */ } }
     res.json({ deleted: true, fileRemoved: !!foundPath });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -770,11 +791,11 @@ function promptsDir() {
 // Solomon escalation; anything older is a crashed runner.
 const PROMPT_ZOMBIE_TTL_MS = 30 * 60 * 1000;
 
-router.get('/prompts', (_req, res) => {
+router.get('/prompts', async (_req, res) => {
   try {
     const dir = promptsDir();
-    if (!fs.existsSync(dir)) return res.json([]);
-    const entries = fs.readdirSync(dir);
+    if (!(await pathExists(dir))) return res.json([]);
+    const entries = await fsp.readdir(dir);
     const result = [];
     const now = Date.now();
     for (const name of entries) {
@@ -784,21 +805,21 @@ router.get('/prompts', (_req, res) => {
       const answerPath = path.join(dir, `${promptId}.answer.json`);
       // KJC-TSK-0380 — skip tombstoned prompts and clean their files.
       if (isTombstonedFn('prompt', promptId)) {
-        try { fs.unlinkSync(mainPath); } catch { /* */ }
-        try { fs.unlinkSync(answerPath); } catch { /* */ }
+        try { await fsp.unlink(mainPath); } catch { /* */ }
+        try { await fsp.unlink(answerPath); } catch { /* */ }
         continue;
       }
       let parsed;
       try {
-        parsed = JSON.parse(fs.readFileSync(mainPath, 'utf-8'));
+        parsed = JSON.parse(await fsp.readFile(mainPath, 'utf-8'));
       } catch { continue; /* malformed — skip */ }
       // KJC-BUG-0038: zombie detection. Prefer parsed.createdAt; fall back
       // to mtime if the runner skipped the timestamp (older formats).
       const createdMs = Date.parse(parsed?.createdAt || '');
-      const ageRef = Number.isFinite(createdMs) ? createdMs : safeMtime(mainPath);
+      const ageRef = Number.isFinite(createdMs) ? createdMs : await safeMtime(mainPath);
       if (ageRef && (now - ageRef) > PROMPT_ZOMBIE_TTL_MS) {
-        try { fs.unlinkSync(mainPath); } catch { /* */ }
-        try { fs.unlinkSync(answerPath); } catch { /* */ }
+        try { await fsp.unlink(mainPath); } catch { /* */ }
+        try { await fsp.unlink(answerPath); } catch { /* */ }
         addTombstone('prompt', promptId, { source: 'zombie-ttl', fsPaths: [mainPath, answerPath] });
         continue;
       }
@@ -811,8 +832,8 @@ router.get('/prompts', (_req, res) => {
   }
 });
 
-function safeMtime(p) {
-  try { return fs.statSync(p).mtimeMs; } catch { return 0; }
+async function safeMtime(p) {
+  try { return (await fsp.stat(p)).mtimeMs; } catch { return 0; }
 }
 
 /**
@@ -821,20 +842,20 @@ function safeMtime(p) {
  * it, deletes both files, and resolves askQuestion. An answer of
  * "stop" tells the runner to abort the session.
  */
-router.post('/prompts/:promptId/answer', (req, res) => {
+router.post('/prompts/:promptId/answer', async (req, res) => {
   try {
     const { answer } = req.body || {};
     if (typeof answer !== 'string') {
       return res.status(400).json({ error: 'Body must contain an "answer" string' });
     }
     const dir = promptsDir();
-    fs.mkdirSync(dir, { recursive: true });
+    await fsp.mkdir(dir, { recursive: true });
     const promptPath = path.join(dir, `${req.params.promptId}.json`);
-    if (!fs.existsSync(promptPath)) {
+    if (!(await pathExists(promptPath))) {
       return res.status(404).json({ error: `Prompt not found: ${req.params.promptId}` });
     }
     const answerPath = path.join(dir, `${req.params.promptId}.answer.json`);
-    fs.writeFileSync(
+    await fsp.writeFile(
       answerPath,
       JSON.stringify({ answer, answeredAt: new Date().toISOString() }, null, 2),
       'utf-8'
@@ -912,14 +933,14 @@ router.get('/events', (req, res) => {
  * Path is the same one that `runPlan` wrote to:
  *   ~/.karajan/hu-board-runs/<planId>.log (honours KJ_HOME in tests).
  */
-router.get('/plans/:planId/log', (req, res) => {
+router.get('/plans/:planId/log', async (req, res) => {
   try {
     const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421
     const logPath = path.join(runsDir, `${req.params.planId}.log`);
-    if (!fs.existsSync(logPath)) {
+    if (!(await pathExists(logPath))) {
       return res.json({ exists: false, size: 0, content: '' });
     }
-    const stat = fs.statSync(logPath);
+    const stat = await fsp.stat(logPath);
     const offset = Math.max(0, Math.min(stat.size, Number(req.query.offset) || 0));
     // Cap per-request read to 1 MiB so a huge log can't blow up the
     // response. The client will keep polling and catch up.
@@ -927,13 +948,13 @@ router.get('/plans/:planId/log', (req, res) => {
     const length = Math.min(MAX_READ, stat.size - offset);
     let content = '';
     if (length > 0) {
-      const fd = fs.openSync(logPath, 'r');
+      const fh = await fsp.open(logPath, 'r');
       try {
         const buf = Buffer.alloc(length);
-        fs.readSync(fd, buf, 0, length, offset);
+        await fh.read(buf, 0, length, offset);
         content = buf.toString('utf-8');
       } finally {
-        fs.closeSync(fd);
+        await fh.close();
       }
     }
     res.json({ exists: true, size: stat.size, content });
@@ -1230,26 +1251,26 @@ router.post('/runs/:planId/stop', async (req, res) => {
   }
 });
 
-router.get('/runs/:commandId/log', (req, res) => {
+router.get('/runs/:commandId/log', async (req, res) => {
   try {
     const runsDir = getHuBoardRunsDir(); // KJC-TSK-0421
     const logPath = path.join(runsDir, `${req.params.commandId}.log`);
-    if (!fs.existsSync(logPath)) {
+    if (!(await pathExists(logPath))) {
       return res.json({ exists: false, size: 0, content: '' });
     }
-    const stat = fs.statSync(logPath);
+    const stat = await fsp.stat(logPath);
     const offset = Math.max(0, Math.min(stat.size, Number(req.query.offset) || 0));
     const MAX_READ = 1024 * 1024;
     const length = Math.min(MAX_READ, stat.size - offset);
     let content = '';
     if (length > 0) {
-      const fd = fs.openSync(logPath, 'r');
+      const fh = await fsp.open(logPath, 'r');
       try {
         const buf = Buffer.alloc(length);
-        fs.readSync(fd, buf, 0, length, offset);
+        await fh.read(buf, 0, length, offset);
         content = buf.toString('utf-8');
       } finally {
-        fs.closeSync(fd);
+        await fh.close();
       }
     }
     res.json({ exists: true, size: stat.size, content });
