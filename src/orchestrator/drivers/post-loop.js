@@ -34,7 +34,6 @@ import { emitProgress, makeEvent } from "../../utils/events.js";
 import { runTesterStage, runSecurityStage, runFinalAuditStage } from "../post-loop-stages.js";
 import { invokeSolomon } from "../solomon-escalation.js";
 import { tryCiComment } from "../ci-integration.js";
-import { writeIterationsJournal } from "../session-journal.js";
 import { getIntegration } from "../integrations.js";
 
 export async function handlePostLoopStages({ config, session, emitter, eventBase, coderRole, trackBudget, i, task, stageResults, ciEnabled: _ciEnabled, testerEnabled, securityEnabled, askQuestion, logger, brainCtx }) {
@@ -129,103 +128,56 @@ export async function finalizeApprovedSession({ config, gitCtx, task, logger, se
   if (rtkSavings) setRtkSavings(session, rtkSavings);
   await saveSession(session);
 
-  // --- Journal: write final files ---
+  // --- Journal: write final files (shared writer, KJC-BUG-0084) ---
   const journalDir = session._journalDir;
   if (journalDir) {
+    // 2026-05-07 dogfooding: gitResult.commits only carries the post-loop
+    // commit (scaffold). Compute the full range from session_start_sha so
+    // every commit the run produced shows up in execution order.
+    let allCommits;
+    try { allCommits = (await listCommitsBetween(session.head_at_start || session.session_start_sha)) || []; }
+    catch { allCommits = gitResult?.commits || []; }
+    const summaryCommits = allCommits.length > 0 ? allCommits : (gitResult?.commits || []);
+
+    // KJC-TSK-0376 — plan adherence metric (deepeval-inspired). When the
+    // run executed against a known plan (`kj run --plan <id>`), score how
+    // faithfully the coder followed it. Pure offline; safe-by-default
+    // (try/catch swallows missing helper or unreadable plan).
+    let planAdherence = null;
     try {
-      await writeIterationsJournal(journalDir, session._journalIterations || []);
-      // decisions.md: writes only when Solomon was invoked (AC of KJC-TSK-0287).
-      // Pulls structured data from session.solomonRulings + session.brainDecisions.
-      const { writeDecisionsJournal: writeDecisionsJournalV2 } =
-        await import("../../session/journal/decisions-writer.js");
-      const decisionsResult = await writeDecisionsJournalV2(session, { journalDir, logger });
-      // KJC-TSK-0288: use the new tree-writer with directory grouping
-      const { writeTreeJournal: writeTreeJournalV2 } =
-        await import("../../session/journal/tree-writer.js");
-      const treeResult = await writeTreeJournalV2(journalDir, session.session_start_sha, { logger });
-
-      const journalFiles = [...(session._journalFiles || [])];
-      if (session._journalIterations?.length) journalFiles.push("iterations.md");
-      if (decisionsResult.written) journalFiles.push("decisions.md");
-      if (treeResult.written) journalFiles.push("tree.txt");
-
-      // KJC-TSK-0289: use the richer summary writer (stages table, budget
-      // breakdown, brain/solomon counts, typed links to other journal files).
-      const { writeSummaryJournal: writeSummaryJournalV2 } =
-        await import("../../session/journal/summary-writer.js");
-      const startedAt = session._startedAt ? new Date(session._startedAt).toISOString() : undefined;
-      // 2026-05-07 dogfooding: gitResult.commits only carries the post-loop
-      // commit (scaffold), not the coder's own commit. The summary's
-      // "Commits" section was therefore misleading — it claimed the run
-      // produced one chore commit when in fact the coder had also written
-      // a docs/feat commit. Compute the full range from session_start_sha
-      // so every commit between then and HEAD shows up in execution order.
-      // try/catch (instead of `.catch(...)`) so we tolerate both promise
-      // rejection AND a sync return of undefined — the latter happens
-      // when a test mocks listCommitsBetween with a plain vi.fn() that
-      // resetAllMocks has stripped of its mockResolvedValue.
-      let allCommits = [];
-      try { allCommits = (await listCommitsBetween(session.head_at_start || session.session_start_sha)) || []; }
-      catch { allCommits = gitResult?.commits || []; }
-      const summaryCommits = allCommits.length > 0 ? allCommits : (gitResult?.commits || []);
-
-      // KJC-TSK-0376 — plan adherence metric (deepeval-inspired). When the
-      // run executed against a known plan (`kj run --plan <id>`), score how
-      // faithfully the coder followed it. Pure offline; safe-by-default
-      // (try/catch swallows missing helper or unreadable plan).
-      let planAdherence = null;
-      try {
-        const planId = session._planRef?.planId
-          || stageResults?.huReviewer?.planId
-          || null;
-        if (planId) {
-          const projectDir = config?.projectDir
-            || session.config_snapshot?.projectDir
-            || process.cwd();
-          const plan = await loadPlan(projectDir, planId).catch(() => null);
-          if (plan && Array.isArray(plan.hus) && plan.hus.length > 0) {
-            const filesChanged = await listFilesChangedSince(
-              session.head_at_start || session.session_start_sha,
-            ).catch(() => []);
-            planAdherence = computePlanAdherenceScore({
-              commits: summaryCommits,
-              plan,
-              filesChanged,
-            });
-          }
+      const planId = session._planRef?.planId
+        || stageResults?.huReviewer?.planId
+        || null;
+      if (planId) {
+        const projectDir = config?.projectDir
+          || session.config_snapshot?.projectDir
+          || process.cwd();
+        const plan = await loadPlan(projectDir, planId).catch(() => null);
+        if (plan && Array.isArray(plan.hus) && plan.hus.length > 0) {
+          const filesChanged = await listFilesChangedSince(
+            session.head_at_start || session.session_start_sha,
+          ).catch(() => []);
+          planAdherence = computePlanAdherenceScore({
+            commits: summaryCommits,
+            plan,
+            filesChanged,
+          });
         }
-      } catch (err) {
-        logger?.warn?.(`Plan adherence calculation skipped: ${err.message}`);
       }
-
-      await writeSummaryJournalV2(journalDir, {
-        task: session.task,
-        result: "APPROVED",
-        sessionId: session.id,
-        iterations: i,
-        durationMs: Date.now() - (session._startedAt || Date.now()),
-        budget: budgetSummary(),
-        stages: stageResults,
-        commits: summaryCommits,
-        files: journalFiles,
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        brainDecisions: Array.isArray(session.brainDecisions) ? session.brainDecisions.length : 0,
-        solomonInvocations: Array.isArray(session.solomonRulings) ? session.solomonRulings.length : 0,
-        // KJC-TSK-0327: surface skill-source decisions in the summary so the
-        // post-mortem shows which process skills (addyosmani) and stack skills
-        // (OpenSkills) actually shaped the role prompts.
-        skills: {
-          addyosmani: session.addyosmaniSkills,
-          installed: session.autoInstalledSkills,
-          recommended: session.skillsRecommended,
-        },
-        planAdherence,
-      }, { logger });
-      logger.info(`Session journal written to ${journalDir}`);
     } catch (err) {
-      logger.warn(`Journal write failed (non-blocking): ${err.message}`);
+      logger?.warn?.(`Plan adherence calculation skipped: ${err.message}`);
     }
+
+    const { writeSessionJournal } = await import("../../session/journal/write-all.js");
+    await writeSessionJournal({
+      session, logger,
+      result: "APPROVED",
+      iterations: i,
+      budget: budgetSummary(),
+      stages: stageResults,
+      commits: summaryCommits,
+      planAdherence,
+    });
   }
 
   // Mirror the same enriched commit list into the session:end event so the
