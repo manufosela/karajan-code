@@ -49,13 +49,10 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     const stackLines = ["## Project Stack"];
     if (stack.language) stackLines.push(`- Language: ${stack.language}`);
     if (stack.frameworks?.length) stackLines.push(`- Frameworks: ${stack.frameworks.join(", ")}`);
-    const tier = stack.isFullstack
-      ? "fullstack (frontend + backend)"
-      : stack.isFrontend
-        ? "frontend-only"
-        : stack.isBackend
-          ? "backend-only"
-          : "unknown";
+    let tier = "unknown";
+    if (stack.isFullstack) tier = "fullstack (frontend + backend)";
+    else if (stack.isFrontend) tier = "frontend-only";
+    else if (stack.isBackend) tier = "backend-only";
     stackLines.push(`- Tier: ${tier}`);
     if (stack.isFullstack) {
       stackLines.push("Apply BOTH backend heuristics (queries, sync I/O, caching) AND frontend heuristics (bundle size, lazy loading, render-blocking) where each layer applies.");
@@ -241,7 +238,8 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
         lines.push(`### ${severity} (${issues.length})`);
         const slice = issues.slice(0, Math.max(0, remaining));
         for (const issue of slice) {
-          const loc = issue.component ? `${issue.component}${issue.line ? `:${issue.line}` : ""}` : "";
+          const lineSuffix = issue.line ? `:${issue.line}` : "";
+          const loc = issue.component ? `${issue.component}${lineSuffix}` : "";
           const rule = issue.rule ? ` [${issue.rule}]` : "";
           lines.push(`  - ${loc}${rule} ${issue.message || ""}`.trim());
         }
@@ -332,8 +330,10 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
       lines.push(`### ${severity} (${findings.length})`);
       const slice = findings.slice(0, Math.max(0, remaining));
       for (const f of slice) {
-        const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "";
-        const cwe = f.cwe ? ` (${Array.isArray(f.cwe) ? f.cwe.join(", ") : f.cwe})` : "";
+        const lineSuffix = f.line ? `:${f.line}` : "";
+        const loc = f.file ? `${f.file}${lineSuffix}` : "";
+        const cweText = Array.isArray(f.cwe) ? f.cwe.join(", ") : f.cwe;
+        const cwe = f.cwe ? ` (${cweText})` : "";
         lines.push(`  - ${loc} [${f.rule}]${cwe}: ${f.message || ""}`.trim());
       }
       if (findings.length > slice.length) {
@@ -355,7 +355,8 @@ export function buildAuditPrompt({ task, instructions, dimensions = null, contex
     lines.push(`- Unused files: ${(deadExports.files || []).length}`);
     const allItems = [...(deadExports.exports || []), ...(deadExports.files || [])].slice(0, 40);
     for (const item of allItems) {
-      const loc = `${item.path}${item.line ? `:${item.line}` : ""}`;
+      const lineSuffix = item.line ? `:${item.line}` : "";
+      const loc = `${item.path}${lineSuffix}`;
       const name = item.name ? ` \`${item.name}\`` : "";
       lines.push(`  - [${item.severity}] ${loc} [${item.rule}]${name}`);
     }

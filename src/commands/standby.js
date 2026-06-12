@@ -49,7 +49,10 @@ export async function standbyListCommand({ json } = {}) {
     const ms = new Date(s.cooldownUntil).getTime() - now;
     const status = ms <= 0 ? "✓ lista para resume" : `⏳ resume en ${formatCountdown(ms)}`;
     console.log(`  ${s.sessionId}  · ${s.reason || "?"}  · ${status}`);
-    if (s.planId) console.log(`    plan: ${s.planId}${s.huId ? `, HU: ${s.huId}` : ""}`);
+    if (s.planId) {
+      const huSuffix = s.huId ? `, HU: ${s.huId}` : "";
+      console.log(`    plan: ${s.planId}${huSuffix}`);
+    }
   }
 }
 
