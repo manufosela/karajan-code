@@ -16,6 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { escapeRegExp } from "../utils/escape-regexp.js";
 
 const PAGE_BYTE_LIMIT = 32 * 1024; // ≈ 8K tokens, the typical agent budget per fetch
 
@@ -65,7 +66,7 @@ const CHECKS = [
       if (!found) return { ok: false, hint: "Add robots.txt with `User-agent: GPTBot|ClaudeBot|PerplexityBot\\nAllow: /` blocks.", details: {} };
       const text = safeRead(path.join(rootDir, found));
       const aiBots = ["GPTBot", "ClaudeBot", "PerplexityBot", "anthropic-ai", "Google-Extended"];
-      const allowed = aiBots.filter((bot) => new RegExp(`User-agent:\\s*${bot}[\\s\\S]*?Allow:\\s*/`, "i").test(text));
+      const allowed = aiBots.filter((bot) => new RegExp(`User-agent:\\s*${escapeRegExp(bot)}[\\s\\S]*?Allow:\\s*/`, "i").test(text));
       const ok = allowed.length > 0;
       return ok
         ? { ok: true, hint: null, details: { found, allowed } }

@@ -97,7 +97,7 @@ export async function detectTestFramework(cwd = process.cwd()) {
     try {
       if (marker.glob) {
         const entries = await fs.readdir(cwd);
-        const ext = marker.file.replace("*", "");
+        const ext = marker.file.replaceAll("*", "");
         if (entries.some((e) => e.endsWith(ext))) {
           return { hasTests: true, framework: marker.framework, language: marker.language };
         }

@@ -21,6 +21,7 @@
 
 import { runCommand } from "../utils/process.js";
 import { isSonarReachable } from "./manager.js";
+import { escapeRegExp } from "../utils/escape-regexp.js";
 
 /**
  * @typedef {Object} DiscoveredSonar
@@ -48,7 +49,7 @@ import { isSonarReachable } from "./manager.js";
 export function extractHostPort(portsStr, internalPort = 9000) {
   if (!portsStr) return null;
   const re = new RegExp(
-    `(?:0\\.0\\.0\\.0|127\\.0\\.0\\.1|::|\\[::\\]):(\\d+)\\s*->\\s*${internalPort}\\/tcp`,
+    `(?:0\\.0\\.0\\.0|127\\.0\\.0\\.1|::|\\[::\\]):(\\d+)\\s*->\\s*${escapeRegExp(internalPort)}\\/tcp`,
     "g"
   );
   const matches = [...portsStr.matchAll(re)];

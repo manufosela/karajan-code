@@ -9,6 +9,7 @@
  */
 
 import { runCommand } from "./process.js";
+import { escapeRegExp } from "./escape-regexp.js";
 
 /**
  * @typedef {Object} PortOccupant
@@ -74,7 +75,7 @@ async function detectWindows(port) {
     if (netstat.exitCode !== 0) return null;
     const line = netstat.stdout
       .split(/\r?\n/)
-      .find((l) => l.match(new RegExp(`:${port}\\s+.*LISTENING`)));
+      .find((l) => l.match(new RegExp(`:${escapeRegExp(port)}\\s+.*LISTENING`)));
     if (!line) return null;
     const parts = line.trim().split(/\s+/);
     const pid = Number(parts[parts.length - 1]) || null;
