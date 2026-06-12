@@ -179,8 +179,8 @@ export function buildDecision({ triage, task: _task, config = {}, overrides = {}
     solomonReason = "triage returned no level";
   }
 
-  const rolesOn = Array.from(roles).sort();
-  const rolesOff = Array.from(VALID_ROLES).filter((r) => !roles.has(r)).sort();
+  const rolesOn = Array.from(roles).sort((a, b) => a.localeCompare(b));
+  const rolesOff = Array.from(VALID_ROLES).filter((r) => !roles.has(r)).sort((a, b) => a.localeCompare(b));
 
   const rationale = buildRationale({ level, taskType, rolesOn, appliedOverrides, triage });
 

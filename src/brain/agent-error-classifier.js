@@ -37,7 +37,14 @@ const SILENCED_PATTERNS = /killed\s+after\s+\d+\s*ms|silence\s*timeout|no\s+outp
 // ("You've hit your session limit · resets 10:10pm"). Without them the
 // message fell through to UNKNOWN_FATAL and the run aborted instead of
 // hibernating until the reset.
-const RATE_LIMIT_PATTERNS = /usage\s+limit|rate\s*limit|too\s+many\s+requests|\b429\b|throttl|exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached|monthly\s+limit|weekly\s+limit|daily\s+limit|session\s+limit/i;
+// Decomposed by family (S5843, complexity 36 → 3 named groups). The
+// union of tokens is identical to the original single alternation.
+const RATE_LIMIT_GROUPS = [
+  /rate\s*limit|too\s+many\s+requests|\b429\b|throttl/i,
+  /exceeded\s+your\s+current\s+quota|resource\s+exhausted|quota\s+exceeded|token\s+limit\s+reached/i,
+  /usage\s+limit|monthly\s+limit|weekly\s+limit|daily\s+limit|session\s+limit/i,
+];
+const RATE_LIMIT_PATTERNS = { test: (text) => RATE_LIMIT_GROUPS.some((re) => re.test(text)) };
 const API_DOWN_PATTERNS = /\b50[0-4]\b|bad\s+gateway|service\s+unavailable|gateway\s+timeout|overloaded|internal\s+server\s+error/i;
 const NETWORK_PATTERNS = /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket\s+hang\s+up|fetch\s+failed|network\s+error/i;
 

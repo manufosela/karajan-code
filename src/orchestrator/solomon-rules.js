@@ -70,7 +70,18 @@ export function evaluateRules(context, rulesConfig = {}) {
     const styleKeywords = /\b(naming|name|rename|style|format|formatting|indent|spacing|camelCase|snake_case|convention|cosmetic|readability|comment|jsdoc|documentation|whitespace|semicolon|quotes|trailing)\b/i;
     // Anti-style: if any of these match, the issue is NOT style — it's a real correctness/security concern.
     // Fixes KJC-BUG-0026 (Solomon approving legitimate security blockers misclassified as "style").
-    const securityKeywords = /\b(sql\s*injection|xss|csrf|ssrf|rce|injection|vulnerab|exploit|sanitiz|escape\b|encod\b|cors|auth|authn|authz|password|secret|credential|token|api[-_\s]*key|private[-_\s]*key|hash|cipher|crypto|encrypt|decrypt|tls|ssl|certificate|leak|sensitive|pii|privacy|insecure|unsafe|race[-_\s]*condition|deadlock|memory[-_\s]*leak|null[-_\s]*deref|uaf|overflow|traversal|prototype[-_\s]*pollution|deserializ|eval\b|exec\b|spawn|shell|command[-_\s]*injection)\b/i;
+    // Decomposed by concern (S5843, complexity 71 → 7 named groups).
+    // The union of tokens is byte-identical to the original alternation.
+    const SECURITY_KEYWORD_GROUPS = [
+      /\b(sql\s*injection|xss|csrf|ssrf|rce|injection|vulnerab|exploit)\b/i,
+      /\b(sanitiz|escape\b|encod\b|cors|traversal|prototype[-_\s]*pollution|deserializ)\b/i,
+      /\b(auth|authn|authz|password|secret|credential|token|api[-_\s]*key|private[-_\s]*key)\b/i,
+      /\b(hash|cipher|crypto|encrypt|decrypt|tls|ssl|certificate)\b/i,
+      /\b(leak|sensitive|pii|privacy|insecure|unsafe)\b/i,
+      /\b(race[-_\s]*condition|deadlock|memory[-_\s]*leak|null[-_\s]*deref|uaf|overflow)\b/i,
+      /\b(eval\b|exec\b|spawn|shell|command[-_\s]*injection)\b/i,
+    ];
+    const securityKeywords = { test: (text) => SECURITY_KEYWORD_GROUPS.some((re) => re.test(text)) };
     const securityCategories = new Set(["security", "correctness", "bug", "vulnerability"]);
     const styleSeverities = new Set(["low", "minor"]);
     const blockingSeverities = new Set(["critical", "high", "blocker", "major"]);
