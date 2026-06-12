@@ -11,7 +11,7 @@
 
 import { checkBinary } from "../utils/agent-detect.js";
 import { isSonarReachable, sonarUp } from "../sonar/manager.js";
-import { resolveSonarProjectKey } from "../sonar/project-key.js";
+import { resolveSonarProjectKey, canResolveSonarProjectKey } from "../sonar/project-key.js";
 import { runCommand } from "../utils/process.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
@@ -145,6 +145,13 @@ async function checkSonarAuth(config) {
  * for code tasks (v2.7.4 contract); this only moves the failure earlier.
  */
 async function checkSonarProjectKey(config) {
+  // No remote at all (fresh local project): the SonarStage already skips
+  // cleanly via canResolveSonarProjectKey, so preflight must not block.
+  // The hard-fail case is the inconsistent one: a remote EXISTS but the
+  // resolver cannot parse it — that's what looped into sonar_repeat.
+  if (!(await canResolveSonarProjectKey(config))) {
+    return { name: "sonar-project-key", ok: true, detail: "No git remote — Sonar stage will skip cleanly" };
+  }
   try {
     const key = await resolveSonarProjectKey(config);
     return { name: "sonar-project-key", ok: true, detail: `Project key resolved: ${key}` };

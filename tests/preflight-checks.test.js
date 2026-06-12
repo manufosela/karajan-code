@@ -241,6 +241,7 @@ describe("preflight-checks", () => {
   // to derive a project key, instead of dying in sonar_repeat after burning
   // coder iterations. Sonar stays mandatory (v2.7.4 contract).
   it("hard fails when no project key is derivable (unparseable remote, no explicit key)", async () => {
+    delete process.env.KJ_SONAR_PROJECT_KEY; // set globally in tests/setup.js
     runCommand.mockImplementation((_cmd, args) => {
       if (args?.includes?.("remote.origin.url")) {
         // Local-path bare remote — exactly the Φ1-G measurement scenario.
@@ -262,6 +263,7 @@ describe("preflight-checks", () => {
   });
 
   it("passes the project-key check with a parseable SSH remote and no explicit key", async () => {
+    delete process.env.KJ_SONAR_PROJECT_KEY; // set globally in tests/setup.js
     runCommand.mockImplementation((_cmd, args) => {
       if (args?.includes?.("remote.origin.url")) {
         return Promise.resolve({ exitCode: 0, stdout: "git@github.com:owner/repo.git", stderr: "" });
