@@ -60,8 +60,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 500+ Automated Tests" icon="approve-check">
-    511 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), and the new **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+  <Card title="5 600+ Automated Tests" icon="approve-check">
+    514 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), the **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge), and the new **cache-friendly prompt layout** (Phase 1 — stable/volatile buckets, claude system-split, prefix-stability regression suite). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -215,6 +215,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Cross-provider cache observability (v3.3)" icon="approve-check">
     The **Phase 0** epic (KJC-PCS-0056) closes the cache-metrics blind spot end-to-end across **Anthropic, OpenAI/Codex, Gemini, aider and opencode**. Provider-specific cache fields (`cache_read_input_tokens`, `prompt_tokens_details.cached_tokens`, `cachedContentTokenCount`, `cached_tokens`) are normalized in `BudgetTracker`, surfaced as a `🎯 N%` badge on the HU Board, persisted in `board.db` and emitted in `pipeline_complete` telemetry. **Real data on a Karajan repo**: cold→hot Claude run dropped from 47.2% to 94.3% cache_pct and from $0.6141 to $0.1452 (−76.4%). Null-safe: badge hides when unmeasured. Drop-in upgrade from v3.2.0.
+  </Card>
+  <Card title="Cache-friendly prompts (v3.4)" icon="rocket">
+    The **Phase 1** epic (KJC-PCS-0057) restructures every Karajan prompt into a **stable block** (identical across iterations and HUs, rendered first so automatic prefix caching hits on it) and a **volatile tail**. On Claude the stable block ships via `--append-system-prompt`, so the CLI's cache breakpoints serve it from cache on every call. **Measured**: cold-run cache_pct jumps from 47.2% to **99.60%** and coder cost drops **76%** ($0.61 → $0.14 per HU). A prefix-stability regression suite freezes the contract in CI. Drop-in upgrade from v3.3.0.
   </Card>
 </CardGrid>
 
@@ -706,7 +709,7 @@ Closes the **Cost** epic (KJC-PCS-0055). Every `kj run` now records per-HU USD s
 
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.
 
-### v3.3.0 — Cross-provider cache observability (current)
+### v3.3.0 — Cross-provider cache observability
 
 Closes the **Phase 0** epic (KJC-PCS-0056). Karajan now measures provider-level prompt-cache hits end-to-end across **Anthropic, OpenAI/Codex, Gemini, aider and opencode**. The same `cached_tokens` field flows from the agent through `BudgetTracker` into `summary.md`, `board.db`, the HU Board badge `🎯 N%` and the `pipeline_complete` telemetry event. **No breaking changes** — drop-in upgrade from v3.2.0.
 
@@ -728,5 +731,22 @@ Closes the **Phase 0** epic (KJC-PCS-0056). Karajan now measures provider-level 
 | Gemini (Google) | 87.9% | 96.8% | n/d (free tier) | n/d | — |
 
 Codex shape is verified by unit tests (Φ0-B); live E2E was blocked by codex-cli's own bubblewrap kernel-namespace permission on this host (OS issue, not Karajan).
+
+**Why a minor**. Additive feature, no breaking changes to API or CLI surface.
+
+### v3.4.0 — Cache-friendly prompts (current)
+
+Closes the **Phase 1** epic (KJC-PCS-0057). Every Karajan prompt is now split into a **stable block** — identical across iterations of the same HU and across HUs of the same plan, rendered first — and a **volatile tail** (task, plan, acceptance tests, reviewer feedback, git diff). Providers with automatic prefix caching (OpenAI, Gemini, LiteLLM-routed) hit on the literal stable prefix; on Claude the stable block ships via `--append-system-prompt`, where the CLI places cache breakpoints. **No breaking changes** — drop-in upgrade from v3.3.0.
+
+**Φ1-A..F — six slices**: `prompt-layout.js` stable/volatile buckets with explicit tagging (KJC-TSK-0527), coder prompt migration preserving the legacy volatile ordering (KJC-TSK-0528), reviewer prompt with the up-to-12KB git diff as final section (KJC-TSK-0529), ClaudeAgent system-prompt split with implicit rollback when no buckets are provided (KJC-TSK-0530), architect/HU-reviewer/ReviewerRole migrations (KJC-TSK-0531), and a prefix-stability regression suite asserting byte-identical stable blocks plus OpenAI's 1024-token caching floor (KJC-TSK-0532).
+
+**Real data measured (2026-06-11)**:
+
+| Metric (coder, Claude) | v3.3.0 baseline | v3.4.0 cold | v3.4.0 hot |
+|---|---|---|---|
+| cache_pct | 47.2% / 94.3% | **99.60%** | **99.69%** |
+| Coder cost per HU | $0.6141 (cold) | **$0.1447** | $0.1983 |
+
+Both measurement runs finished APPROVED with the final audit CERTIFIED. The cold/hot distinction nearly disappears: the stable prompt content is served from cache even on the first run of the day.
 
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.

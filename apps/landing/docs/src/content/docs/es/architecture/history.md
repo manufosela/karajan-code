@@ -1533,6 +1533,14 @@ Cierra la épica **Phase 0** (KJC-PCS-0056). Karajan tenía el coste end-to-end 
 
 **Stats**: ocho PRs en ocho cards. Cada slice aterrizó independientemente, todos bajo el budget de 200 LOC. v3.3.0 es la base para la Fase 1 (planner consciente del coste — elegir modelo por rol según predicciones de cache_pct × cost_usd).
 
+## Fase 91: v3.4.0 — Prompts cache-friendly (v3.4.0)
+
+La Phase 1 del roadmap de caché (épica KJC-PCS-0057) actúa sobre lo que la Phase 0 midió. Cada prompt builder emite ahora un layout `{ stable, volatile }` vía `src/prompts/prompt-layout.js`: el bloque estable (preámbulo, reglas, constraints, skills, contexts) es byte-idéntico entre iteraciones de la misma HU y entre HUs del mismo plan, y se renderiza primero; la cola volátil (task, plan, acceptance tests, feedback del reviewer, git diff) conserva su orden relativo legacy.
+
+Dos palancas según familia de provider: los CLIs de OpenAI/Gemini/LiteLLM cachean automáticamente sobre el prefijo literal de tokens, así que el reorden solo ya los activa; Anthropic cachea sobre breakpoints que su CLI coloca en el system block, así que `ClaudeAgent` envía el bucket estable vía `--append-system-prompt` y solo la cola volátil en `-p`. Rollback implícito: los roles que no proveen buckets mantienen el comportamiento single-prompt legacy.
+
+Medido en runs reales (2026-06-11): coder Claude cold cache_pct 47.2% → 99.60%, hot 94.3% → 99.69%, coste del coder por HU $0.6141 → $0.1447 (−76%). Ambos runs APPROVED con el audit final CERTIFIED. Una suite de regresión prefix-stability (asserts de longest-common-prefix + el mínimo de 1024 tokens de OpenAI + marcadores anti-fuga de volátil) congela el contrato en CI. Seis slices, PRs #1044–#1050.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

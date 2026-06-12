@@ -1534,6 +1534,14 @@ Closes the **Phase 0** epic (KJC-PCS-0056). Karajan had cost end-to-end (Phase 8
 
 **Stats**: eight PRs across eight cards. Each slice landed independently, all under the 200-LOC budget. v3.3.0 is the foundation for Phase 1 (cost-aware planner — choose a model per role based on cache_pct × cost_usd predictions).
 
+## Phase 91: v3.4.0 — Cache-friendly prompts (v3.4.0)
+
+Phase 1 of the cache roadmap (epic KJC-PCS-0057) acts on what Phase 0 measured. Every prompt builder now emits a `{ stable, volatile }` layout via `src/prompts/prompt-layout.js`: the stable block (preamble, rules, constraints, skills, contexts) is byte-identical across iterations of the same HU and across HUs of the same plan, and renders first; the volatile tail (task, plan, acceptance tests, reviewer feedback, git diff) keeps its legacy relative ordering.
+
+Two levers per provider family: OpenAI/Gemini/LiteLLM-routed CLIs cache automatically on the literal token prefix, so the reorder alone activates them; Anthropic caches on CLI-placed breakpoints in the system block, so `ClaudeAgent` ships the stable bucket via `--append-system-prompt` and only the volatile tail in `-p`. Implicit rollback: roles that do not provide buckets keep the legacy single-prompt behavior.
+
+Measured on real runs (2026-06-11): Claude coder cold cache_pct 47.2% → 99.60%, hot 94.3% → 99.69%, coder cost per HU $0.6141 → $0.1447 (−76%). Both runs APPROVED with the final audit CERTIFIED. A prefix-stability regression suite (longest-common-prefix assertions + OpenAI's 1024-token floor + volatile-leak markers) freezes the contract in CI. Six slices, PRs #1044–#1050.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
