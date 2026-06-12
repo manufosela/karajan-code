@@ -72,6 +72,10 @@ export async function collectSemgrepFindings(projectDir, logger = null) {
   return { available: true, ...parseSemgrepOutput(parsed, projectDir) };
 }
 
+function relativizeSemgrepPath(p, projectDir) {
+  return p.startsWith(projectDir + "/") ? p.slice(projectDir.length + 1) : p;
+}
+
 /**
  * Convert semgrep's JSON shape into the flat findings list the prompt
  * builder consumes. Semgrep emits results[] with rule id, severity,
@@ -86,7 +90,7 @@ export function parseSemgrepOutput(raw, projectDir = "") {
   const findings = [];
   for (const r of results) {
     const file = r.path && projectDir
-      ? r.path.startsWith(projectDir + "/") ? r.path.slice(projectDir.length + 1) : r.path
+      ? relativizeSemgrepPath(r.path, projectDir)
       : r.path || "";
     findings.push({
       rule: r.check_id || "(unknown)",

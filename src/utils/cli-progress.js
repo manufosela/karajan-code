@@ -157,8 +157,10 @@ export function createCliProgressReporter(opts = {}) {
   //   - `  "foo": 123`           propiedad numérica
   //   - `  "foo": {`             apertura de objeto en valor
   //   - `  },` / `  ],` / `  }` / `  ]`  cierre con o sin coma
-  const JSON_SCRAP_RE =
-    /^\s*(?:"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*.+|[}\]][,]?)\s*$/;
+  // Split in two named patterns (S5843): property line vs closer line.
+  const JSON_PROP_LINE_RE = /^\s*"[^"\\]*(?:\\.[^"\\]*)*"\s*:\s*.+$/;
+  const JSON_CLOSER_LINE_RE = /^\s*[}\]],?\s*$/;
+  const JSON_SCRAP_RE = { test: (l) => JSON_PROP_LINE_RE.test(l) || JSON_CLOSER_LINE_RE.test(l) };
   const onOutput = (event) => {
     if (!event || typeof event !== "object") return;
     const raw = typeof event.line === "string" ? event.line : "";

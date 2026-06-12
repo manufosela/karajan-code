@@ -156,11 +156,16 @@ export function detectTranscriptCdLeaks(transcript, projectDir) {
   const projectDirAbs = projectDir ? path.resolve(projectDir) : null;
   const homeDir = os.homedir();
   // Capture cd target + the next ~200 chars of the same line for write-cmd lookup.
-  const cdRegex = /\bcd\s+(~\/[^\s&|;`'"\n]+|\$HOME\/[^\s&|;`'"\n]+|\/[^\s&|;`'"\n]+)([^\n]{0,200})/g;
+  // Two-step (S5843, complexity 31): capture ANY cd target with one simple
+  // class, then filter to the absolute/home-rooted shapes the original
+  // single alternation required (~/, $HOME/, /).
+  const cdRegex = /\bcd\s+([^\s&|;`'"\n]+)([^\n]{0,200})/g;
+  const absoluteTargetRe = /^(?:~\/|\$HOME\/|\/)/;
   const writeCmdRegex = /\b(mkdir|touch|cp|mv|git\s+init|(?:pnpm|npm|yarn)\s+(?:init|create)|npx\s+create|cat\s*>|echo\s+[^|]*>|>>?\s*\S)/i;
   const leaks = new Set();
   let match;
   while ((match = cdRegex.exec(transcript)) !== null) {
+    if (!absoluteTargetRe.test(match[1])) continue;
     const original = match[1];
     let target = original;
     const rest = match[2] || "";

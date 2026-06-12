@@ -38,7 +38,8 @@ function promptContinueWithLlm({ promptFn = null } = {}) {
 function formatFindings(findings) {
   const lines = [];
   for (const f of findings) {
-    const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "";
+    const lineSuffix = f.line ? `:${f.line}` : "";
+    const loc = f.file ? `${f.file}${lineSuffix}` : "";
     const rule = f.rule ? ` [${f.rule}]` : "";
     lines.push(`  - [${f.severity.toUpperCase()}] ${loc}${rule}`);
     lines.push(`    ${f.description}`);
@@ -116,7 +117,8 @@ function formatAudit(parsed, usage = null) {
 function formatUsageSummary(usage) {
   if (!usage) return null;
   const lines = ["## LLM Usage"];
-  lines.push(`- Provider: ${usage.provider}${usage.model ? ` (${usage.model})` : ""}`);
+  const modelSuffix = usage.model ? ` (${usage.model})` : "";
+  lines.push(`- Provider: ${usage.provider}${modelSuffix}`);
   if (typeof usage.durationMs === "number") {
     lines.push(`- Duration: ${(usage.durationMs / 1000).toFixed(1)}s`);
   }

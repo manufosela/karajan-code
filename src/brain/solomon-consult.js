@@ -161,8 +161,8 @@ export function applyRulingToDecision(decision, ruling, logger) {
 
   return {
     ...decision,
-    rolesOn: Array.from(rolesOn).sort(),
-    rolesOff: Array.from(rolesOff).sort(),
+    rolesOn: Array.from(rolesOn).sort((a, b) => a.localeCompare(b)),
+    rolesOff: Array.from(rolesOff).sort((a, b) => a.localeCompare(b)),
     appliedOverrides: [...decision.appliedOverrides, ...applied],
     confidence: applied.length > 0 ? "high" : decision.confidence,
     consultSolomon: false,

@@ -71,7 +71,8 @@ function formatInjectionBlock(inj) {
       if (items.length === 0) continue;
       lines.push(`  - ${severity} (${items.length}):`);
       for (const f of items.slice(0, MAX_SAMPLE_INJECTION_PER_SEVERITY)) {
-        lines.push(`    - ${f.file || "(unknown)"}${f.line ? `:${f.line}` : ""} [${f.type}] ${f.pattern}`);
+        const lineSuffix = f.line ? `:${f.line}` : "";
+        lines.push(`    - ${f.file || "(unknown)"}${lineSuffix} [${f.type}] ${f.pattern}`);
       }
       if (items.length > MAX_SAMPLE_INJECTION_PER_SEVERITY) lines.push(`    - ... and ${items.length - MAX_SAMPLE_INJECTION_PER_SEVERITY} more in ${severity}`);
     }
@@ -85,7 +86,8 @@ function formatCircularDepsBlock(circularDeps) {
     return ["### Circular Dependencies (architecture)", `- Status: not available — ${circularDeps.reason || "madge not available"}`, ""];
   }
   const lines = ["### Circular Dependencies (architecture)"];
-  lines.push(`- Total cycles: ${circularDeps.total ?? 0}${circularDeps.suppressedCount ? ` (+${circularDeps.suppressedCount} suppressed)` : ""}`);
+  const suppressedSuffix = circularDeps.suppressedCount ? ` (+${circularDeps.suppressedCount} suppressed)` : "";
+  lines.push(`- Total cycles: ${circularDeps.total ?? 0}${suppressedSuffix}`);
   if ((circularDeps.total ?? 0) > 0) {
     const groups = groupCyclesBySeverity(circularDeps.cycles || []);
     for (const [severity, cycles] of Object.entries(groups)) {
@@ -118,7 +120,8 @@ function formatSemgrepBlock(semgrepFindings) {
       if (findings.length === 0) continue;
       lines.push(`  - ${severity} (${findings.length}):`);
       for (const f of findings.slice(0, MAX_SAMPLE_SEMGREP_PER_SEVERITY)) {
-        const loc = f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : "";
+        const lineSuffix = f.line ? `:${f.line}` : "";
+        const loc = f.file ? `${f.file}${lineSuffix}` : "";
         lines.push(`    - ${loc} [${f.rule}]`);
       }
       if (findings.length > MAX_SAMPLE_SEMGREP_PER_SEVERITY) {
@@ -172,7 +175,9 @@ function formatDeadExportsBlock(deadExports) {
       if (items.length === 0) continue;
       lines.push(`  - ${severity} (${items.length}):`);
       for (const item of items.slice(0, MAX_SAMPLE_KNIP_PER_SEVERITY)) {
-        lines.push(`    - ${item.path}${item.line ? `:${item.line}` : ""} [${item.rule}]${item.name ? ` \`${item.name}\`` : ""}`);
+        const lineSuffix = item.line ? `:${item.line}` : "";
+        const nameSuffix = item.name ? ` \`${item.name}\`` : "";
+        lines.push(`    - ${item.path}${lineSuffix} [${item.rule}]${nameSuffix}`);
       }
       if (items.length > MAX_SAMPLE_KNIP_PER_SEVERITY) {
         lines.push(`    - ... and ${items.length - MAX_SAMPLE_KNIP_PER_SEVERITY} more in ${severity}`);
@@ -246,7 +251,8 @@ function formatSonarBlock(sonarFindings) {
       if (issues.length === 0) continue;
       lines.push(`  - ${severity} (${issues.length}):`);
       for (const issue of issues.slice(0, MAX_SAMPLE_SONAR_PER_SEVERITY)) {
-        const loc = issue.component ? `${issue.component}${issue.line ? `:${issue.line}` : ""}` : "";
+        const lineSuffix = issue.line ? `:${issue.line}` : "";
+        const loc = issue.component ? `${issue.component}${lineSuffix}` : "";
         const rule = issue.rule ? ` [${issue.rule}]` : "";
         lines.push(`    - ${loc}${rule} ${issue.message || ""}`.trim());
       }
