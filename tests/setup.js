@@ -26,11 +26,6 @@ process.env.OPENAI_API_KEY ??= "sk-test-openai";
 process.env.GEMINI_API_KEY ??= "sk-test-gemini";
 process.env.GOOGLE_API_KEY ??= "sk-test-google";
 process.env.OPENCODE_API_KEY ??= "sk-test-opencode";
-// KJC-BUG-0083: the preflight now runs the real Sonar project-key resolver.
-// Suites that mock runCommand generically would feed it garbage as the git
-// remote, so give every test an explicit key. Tests that exercise the
-// derivability check itself delete this var in their own setup.
-process.env.KJ_SONAR_PROJECT_KEY ??= "kj-test-suite";
 
 // loadConfig refuses local config without a global counterpart (KJC-TSK-0395).
 // Under Vitest, KARAJAN_HOME is auto-isolated to a tmp dir per worker but the

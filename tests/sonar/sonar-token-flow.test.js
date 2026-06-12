@@ -69,7 +69,7 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
 
   function makeConfig(overrides = {}) {
     return {
-      sonarqube: { enabled: true, host: "http://localhost:9000", ...overrides.sonarqube },
+      sonarqube: { enabled: true, host: "http://localhost:9000", project_key: "kj-test", ...overrides.sonarqube },
       roles: { security: { provider: "claude" }, coder: { provider: "claude" } },
       coder: "claude",
       ...overrides,
@@ -80,7 +80,7 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
     loadSonarCredentials.mockResolvedValue(null);
     runCommand.mockResolvedValue({ exitCode: 0, stdout: '{"valid":false}', stderr: "" });
 
-    const config = makeConfig({ sonarqube: { enabled: true } });
+    const config = makeConfig({ sonarqube: { enabled: true, project_key: "kj-test" } });
     const result = await runPreflightChecks({
       config, logger, emitter, eventBase,
       resolvedPolicies: { sonar: true },
@@ -97,7 +97,7 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
   });
 
   it("passes when sonar token is set in config", async () => {
-    const config = makeConfig({ sonarqube: { enabled: true, token: "my-config-token" } });
+    const config = makeConfig({ sonarqube: { enabled: true, token: "my-config-token", project_key: "kj-test" } });
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "200", stderr: "" });
 
     const result = await runPreflightChecks({
@@ -114,7 +114,7 @@ describe("[opt-in: sonar] sonar token resolution — preflight", () => {
 
   it("passes when KJ_SONAR_TOKEN env var is set", async () => {
     process.env.KJ_SONAR_TOKEN = "env-token-abc";
-    const config = makeConfig({ sonarqube: { enabled: true } });
+    const config = makeConfig({ sonarqube: { enabled: true, project_key: "kj-test" } });
     runCommand.mockResolvedValue({ exitCode: 0, stdout: "200", stderr: "" });
 
     const result = await runPreflightChecks({
