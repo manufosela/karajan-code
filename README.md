@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.4.0 released** — Cache-friendly prompts (epic KJC-PCS-0057 / Phase 1 closed). Every Karajan prompt is now split into a stable block (identical across iterations and HUs, rendered first so automatic prefix caching hits on it) and a volatile tail; on Claude the stable block ships via `--append-system-prompt` so the CLI's cache breakpoints serve it from cache on every call. Real data: cold-run cache_pct jumps **47.2% → 99.6%** and coder cost drops **76%** ($0.61 → $0.14 per HU). A prefix-stability regression suite freezes the contract in CI. Drop-in upgrade from v3.3.0. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.4.1 released** — Post-Phase-1 hardening. The session journal (Cache hits, budget, commits) is now written on EVERY run ending — not just approved ones; the audit role reports its cached tokens (it was the most expensive role and reported 0); and a new preflight check fails fast with an actionable message when Sonar cannot derive a project key, instead of burning coder iterations and dying in `sonar_repeat`. Plus the top of the v3.4.0 self-audit: shared `escapeRegExp()`, 23 dead exports pruned, 4 complex regexes decomposed, and the HU Board API with zero sync fs calls + mtime-cached plan scans. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
