@@ -130,7 +130,7 @@ export function appendZombieCheckpoint(existingJson, reason, isoTimestamp) {
  * @returns {string}
  */
 import { getKjHome } from "./db.js";
-export function getSessionsDir() {
+function getSessionsDir() {
   return path.join(getKjHome(), "sessions");
 }
 

@@ -5,6 +5,4 @@ export {
   scheduleResume,
   cancelScheduled,
   reconcileAll,
-  acquireStandbyLock,
-  markStandbyDone,
 } from "@karajan/core/standby-scheduler";

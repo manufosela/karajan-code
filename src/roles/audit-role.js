@@ -205,6 +205,8 @@ export class AuditRole extends AgentRole {
  * result fields. Returns a single object so consumers (CLI formatter,
  * report-file writer, MCP) don't need to know about the spread shape.
  *
+ * Consumed by tests via vi.importActual (knip blind spot) — keep exported.
+ * @public
  * @param {object} result - raw agent.runTask() return
  * @param {{provider: string, durationMs: number}} ctx
  * @returns {{available: boolean, provider: string, model?: string, tokens_in?: number, tokens_out?: number, cached_tokens?: number, total_tokens?: number, cost_usd?: number, durationMs: number, reason?: string}}

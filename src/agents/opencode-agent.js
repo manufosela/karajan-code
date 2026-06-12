@@ -10,7 +10,7 @@ import { resolveBin } from "./resolve-bin.js";
  * nested `usage` object. Returns `{tokens_in, tokens_out, cached_tokens}`
  * or null (= unmeasured).
  */
-export function extractOpenCodeUsage(text) {
+function extractOpenCodeUsage(text) {
   if (!text) return null;
   const candidates = [text.trim()];
   for (const line of text.split("\n")) {

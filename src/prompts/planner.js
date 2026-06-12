@@ -70,7 +70,7 @@ export function parsePlannerOutput(output) {
  * @param {string} task
  * @returns {string[]} deduplicated trimmed exclusion items
  */
-export function extractScopeExclusions(task) {
+function extractScopeExclusions(task) {
   if (!task || typeof task !== "string") return [];
   const patterns = [
     /\bNO\s+incluye[^:\n]{0,60}:\s*([^.\n]+)/gi,

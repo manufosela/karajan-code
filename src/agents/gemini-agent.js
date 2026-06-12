@@ -12,7 +12,7 @@ import { resolveBin } from "./resolve-bin.js";
  * so the caller leaves `cached_tokens` undefined (= unmeasured,
  * distinct from a measured 0).
  */
-export function extractGeminiUsage(text) {
+function extractGeminiUsage(text) {
   if (!text) return null;
   const candidates = [];
   for (const line of text.split("\n")) {

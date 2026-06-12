@@ -11,7 +11,7 @@ import {
   resolveSonarCredentials,
 } from "./config-resolver.js";
 
-export async function findNativeSonarScanner() {
+async function findNativeSonarScanner() {
   const which = await runCommand("sh", ["-c", "command -v sonar-scanner"]);
   if (which.exitCode === 0) {
     const bin = String(which.stdout || "").trim();

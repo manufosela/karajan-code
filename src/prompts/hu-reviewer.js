@@ -29,7 +29,7 @@ const DIMENSION_KEYS = [
  * identical across batches on the same project; the stories under
  * evaluation and the per-batch additional context go last.
  */
-export function buildHuReviewerPromptLayout({ stories, instructions, context = null, productContext = null, domainContext = null, hu_language = "en" }) {
+function buildHuReviewerPromptLayout({ stories, instructions, context = null, productContext = null, domainContext = null, hu_language = "en" }) {
   const langInstruction = getLanguageInstruction(hu_language);
 
   return buildPromptLayout([
