@@ -124,4 +124,4 @@ export async function query(db, embedder, text, { topK = 5, scope = "all", kindB
   return reranked;
 }
 
-export { shouldBoostSources, isTestPath, fuseHits, cosineSim };
+export { fuseHits, cosineSim };

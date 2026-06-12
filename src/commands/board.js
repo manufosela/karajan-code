@@ -128,7 +128,7 @@ export function waitForEarlyExit(child, logPath) {
 // out, so we never announce "HU Board started" for an unreachable
 // server. Overridable with KJ_BOARD_READY_TIMEOUT_MS (tests set it
 // low to stay fast).
-export async function waitForBoardReachable(port, totalTimeoutMs) {
+async function waitForBoardReachable(port, totalTimeoutMs) {
   const envTimeout = Number(process.env.KJ_BOARD_READY_TIMEOUT_MS);
   const budget = Number.isFinite(envTimeout) && envTimeout >= 0
     ? envTimeout

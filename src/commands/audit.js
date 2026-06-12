@@ -405,4 +405,4 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
 }
 
 // Exposed for tests — kept module-private otherwise.
-export { formatAudit, formatUsageSummary, AUDIT_DIMENSIONS };
+export { formatAudit, formatUsageSummary };

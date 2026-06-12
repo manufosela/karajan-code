@@ -24,7 +24,7 @@ async function initRuntime() {
   return runtimePromise;
 }
 
-export function grammarPath(id) {
+function grammarPath(id) {
   return resolve(GRAMMAR_DIR, `${id}.wasm`);
 }
 
@@ -43,7 +43,3 @@ export function getLoaded(id) {
   return cache.get(id) || null;
 }
 
-export function resetForTests() {
-  cache.clear();
-  runtimePromise = null;
-}

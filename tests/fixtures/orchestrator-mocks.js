@@ -18,26 +18,7 @@ export const REVIEW_REJECTED = JSON.stringify({
   confidence: 0.9,
 });
 
-export const REVIEW_BLOCKING = JSON.stringify({
-  approved: false,
-  blocking_issues: [{ id: "B1", severity: "high", file: "a.js", line: 10, description: "Bug found", suggested_fix: "Fix it" }],
-  non_blocking_suggestions: [],
-  summary: "Blocking issues found",
-  confidence: 0.85,
-});
-
 // --- Logger factories ---
-
-export function createLogger() {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    setContext: vi.fn(),
-    resetContext: vi.fn(),
-  };
-}
 
 export const noopLogger = {
   info: vi.fn(),
@@ -91,15 +72,6 @@ export function makeConfig(overrides = {}) {
 }
 
 // --- Mock setup helpers ---
-
-export function mockCreateAgent(reviewOutput = REVIEW_OK) {
-  return {
-    createAgent: vi.fn(() => ({
-      runTask: vi.fn().mockResolvedValue({ ok: true, output: "" }),
-      reviewTask: vi.fn().mockResolvedValue({ ok: true, output: reviewOutput }),
-    })),
-  };
-}
 
 // --- Convenience: apply all standard mocks after vi.resetAllMocks() ---
 

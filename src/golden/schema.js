@@ -12,7 +12,7 @@ const NonNegInt = v.pipe(v.number(), v.integer(), v.minValue(0));
 const LocRangeSchema = v.pipe(v.array(NonNegInt), v.length(2),
   v.check((arr) => arr[0] <= arr[1], "allowed_loc_range: min must be <= max"));
 
-export const GoldenTaskSchema = v.looseObject({
+const GoldenTaskSchema = v.looseObject({
   id: v.pipe(NonEmptyString, v.regex(/^[a-z0-9_-]+$/, "id must be lowercase a-z0-9_-")),
   title: NonEmptyString,
   prompt: NonEmptyString,

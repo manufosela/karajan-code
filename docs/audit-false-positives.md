@@ -128,3 +128,22 @@ All five flow through the FP filter above. CLI flags `--no-sonar`,
 `--no-osv`, `--no-semgrep`, `--no-madge`, `--no-knip` disable each one
 independently. `--deterministic-only` runs the collectors but skips the
 LLM phase entirely (zero tokens).
+
+## Root dependencies flagged "unused" by knip (audit v3.4.0, 2026-06-12)
+
+The v3.4.0 post-release audit recommended removing 6 "unused" root
+dependencies. **All six are required** — applying that recommendation
+would have broken the published npm package the same way KJC-BUG-0082
+did. Verified one by one:
+
+| Dependency | Why it must stay in the root `package.json` |
+| --- | --- |
+| `express`, `express-rate-limit`, `helmet` | Runtime deps of the shipped `packages/hu-board`. Nested workspace `package.json` deps are NOT installed for tarball consumers — `packages/hu-board/src/*` resolves them by walking up to the consumer's top-level `node_modules`, which only contains what the ROOT declares. Removing them breaks `kj board` on every `npm install karajan-code`. |
+| `sqlite-vec` | Runtime dep of `@karajan/core` (vec-store). Core ships via `bundleDependencies` (KJC-BUG-0082), but bundling embeds only the package itself, not its deps — those also resolve against the root install. |
+| `postject` | Already a devDependency (correct placement). Used by `scripts/build-sea.mjs` in the SEA release workflow. |
+| `simple-git-hooks` | Already a devDependency (correct placement). Drives the `pre-commit` hook via the `simple-git-hooks` config block in `package.json`. |
+
+Rule of thumb: anything imported by `packages/hu-board/src` or
+`packages/core/src` must ALSO be declared in the root `dependencies`,
+because that is the only `node_modules` that exists after
+`npm install karajan-code`.

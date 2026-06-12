@@ -9,6 +9,5 @@ export {
   getSonarComposePath,
   getOllamaComposePath,
   getWebperfDir,
-  getRunsDir,
   getPromptsDir,
 } from "@karajan/core/paths";

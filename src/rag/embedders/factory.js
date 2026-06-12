@@ -27,4 +27,3 @@ export function makeEmbedder(config = {}) {
   return new spec.cls({ url: cfg.url, apiKey: cfg.api_key, model: cfg.model, dim, timeoutMs: cfg.timeout_ms });
 }
 
-export { PROVIDERS };

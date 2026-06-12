@@ -25,7 +25,7 @@ import { withBrainRecovery } from "../brain/with-brain-recovery.js";
  * @param {object} config
  * @returns {number|null}
  */
-export function resolveAgentSilenceTimeoutMs(config) {
+function resolveAgentSilenceTimeoutMs(config) {
   const minutes = Number(config?.session?.max_agent_silence_minutes);
   return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes * 60 * 1000) : null;
 }

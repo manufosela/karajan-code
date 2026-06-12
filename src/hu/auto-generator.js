@@ -106,7 +106,7 @@ function filterConflictingHints(hints) {
  * @param {string[]} hints
  * @returns {"python"|"go"|"rust"|"javascript"}
  */
-export function resolveLanguageFromHints(hints) {
+function resolveLanguageFromHints(hints) {
   if (!hints || hints.length === 0) return "javascript";
   if (hints.some((h) => HINT_PYTHON.has(h))) return "python";
   if (hints.some((h) => HINT_GO.has(h))) return "go";
