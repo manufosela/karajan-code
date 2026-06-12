@@ -7,6 +7,8 @@
  * See docs/plan-adherence.md (PR-C) for the full spec.
  */
 
+import { escapeRegExp } from "../utils/escape-regexp.js";
+
 const WEIGHTS = {
   commit_attribution: 40,
   acceptance_tests: 30,
@@ -20,7 +22,7 @@ const WEIGHTS = {
  * appear inside HU ids so we anchor on whole-token rather than \b.
  */
 function huIdMatcher(huId) {
-  const escaped = String(huId).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+  const escaped = escapeRegExp(huId);
   return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
 }
 

@@ -16,6 +16,7 @@ import {
 } from "../shared-helpers.js";
 import { buildDashboardJson } from "../../utils/status-dashboard.js";
 import { loadMostRecentSession } from "../../session/store.js";
+import { escapeRegExp } from "../../utils/escape-regexp.js";
 
 const AGENT_ROLES = new Set(["coder", "reviewer", "tester", "security", "solomon"]);
 
@@ -72,9 +73,9 @@ export async function handleAgents(a) {
 function parseHumanResponseOverrides(humanResponse, overrides) {
   for (const role of AGENT_ROLES) {
     const patterns = [
-      new RegExp(String.raw`use\s+(\w+)\s+(?:as|for)\s+${role}`, "i"),
-      new RegExp(String.raw`${role}\s*[:=]\s*(\w+)`, "i"),
-      new RegExp(String.raw`set\s+${role}\s+(?:to|=)\s*(\w+)`, "i")
+      new RegExp(String.raw`use\s+(\w+)\s+(?:as|for)\s+${escapeRegExp(role)}`, "i"),
+      new RegExp(String.raw`${escapeRegExp(role)}\s*[:=]\s*(\w+)`, "i"),
+      new RegExp(String.raw`set\s+${escapeRegExp(role)}\s+(?:to|=)\s*(\w+)`, "i")
     ];
     for (const pat of patterns) {
       const m = pat.exec(humanResponse);

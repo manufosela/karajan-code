@@ -10,12 +10,14 @@
  * allowed_loc_range need filesystem access — PR-3a wires those.
  */
 
+import { escapeRegExp } from "../utils/escape-regexp.js";
+
 const COMMIT_LINE = /^- `([^`]+)`\s+(.*)$/;
 const SCORE_LINE = /^\*\*Score\*\*:\s*(\d+)\s*\/\s*100/m;
 const AUDIT_ROW = /^\|\s*`audit`\s*\|\s*([^|]+?)\s*\|/m;
 
 function extractSection(content, heading) {
-  const re = new RegExp(`^## ${heading}\\s*$([\\s\\S]*?)(?=^## |\\Z)`, "m");
+  const re = new RegExp(`^## ${escapeRegExp(heading)}\\s*$([\\s\\S]*?)(?=^## |\\Z)`, "m");
   const m = content.match(re);
   return m ? m[1].trim() : "";
 }

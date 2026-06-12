@@ -16,6 +16,7 @@
 // metadata for auditability — no silent dropping.
 
 import fs from "node:fs";
+import { escapeRegExp } from "../utils/escape-regexp.js";
 
 export const DEFAULT_FALSE_POSITIVES = [
   {
@@ -59,8 +60,8 @@ export function hasInlineIgnore(filePath, line, ruleId, tool = "sonar") {
     const lines = fs.readFileSync(filePath, "utf8").split("\n");
     const idx = line - 1;
     const candidates = [lines[idx], lines[idx - 1]].filter(Boolean);
-    const escapedRule = escapeRegex(ruleId);
-    const escapedTool = escapeRegex(tool);
+    const escapedRule = escapeRegExp(ruleId);
+    const escapedTool = escapeRegExp(tool);
     // New generalised marker + legacy sonar-only marker.
     const reAudit = new RegExp(`karajan-audit-ignore\\s*:\\s*${escapedTool}:${escapedRule}\\b`);
     const reLegacy = tool === "sonar"
@@ -70,10 +71,6 @@ export function hasInlineIgnore(filePath, line, ruleId, tool = "sonar") {
   } catch {
     return false;
   }
-}
-
-function escapeRegex(s) {
-  return String(s).replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
