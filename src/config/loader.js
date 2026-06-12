@@ -187,8 +187,8 @@ function stripRuntimeOnlyKeys(config) {
   // warning on every subsequent kj run.
   if (out.sonarqube && typeof out.sonarqube === "object"
       && Object.prototype.hasOwnProperty.call(out.sonarqube, "enabled")) {
-    const { enabled: _drop, ...rest } = out.sonarqube;
-    void _drop;
+    const rest = { ...out.sonarqube };
+    delete rest.enabled;
     out.sonarqube = rest;
   }
   return out;
