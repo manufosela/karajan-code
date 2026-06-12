@@ -130,6 +130,9 @@ function formatUsageSummary(usage) {
   // locale-less Node and "1,234" on a US-locale workstation).
   const fmt = (n) => n.toLocaleString("en-US");
   lines.push(`- Tokens: ${fmt(usage.total_tokens)} total (${fmt(usage.tokens_in)} in, ${fmt(usage.tokens_out)} out)`);
+  if (typeof usage.cached_tokens === "number" && usage.cached_tokens > 0) {
+    lines.push(`- Cached tokens: ${fmt(usage.cached_tokens)} (prompt-cache hits)`);
+  }
   if (typeof usage.cost_usd === "number") {
     lines.push(`- Estimated cost: $${usage.cost_usd.toFixed(4)} USD`);
   }

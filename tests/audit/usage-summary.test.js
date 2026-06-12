@@ -87,6 +87,50 @@ describe("formatUsageSummary (KJC-TSK-0363)", () => {
     expect(text).toContain("Tokens: 150 total");
     expect(text).not.toContain("Estimated cost");
   });
+
+  // KJC-BUG-0085: extractUsage must propagate cached_tokens so the
+  // budget chain (computeUsage → BudgetTracker → Cache hits) sees it.
+  it("extractUsage propagates cached_tokens from the agent result", async () => {
+    const { extractUsage } = await vi.importActual("../../src/roles/audit-role.js");
+    const usage = extractUsage(
+      { ok: true, tokens_in: 3795, tokens_out: 11989, cached_tokens: 1058694, cost_usd: 3.84, model: "claude-fable-5" },
+      { provider: "claude", durationMs: 1000 }
+    );
+    expect(usage.cached_tokens).toBe(1058694);
+
+    const noCache = extractUsage(
+      { ok: true, tokens_in: 100, tokens_out: 50 },
+      { provider: "claude", durationMs: 1000 }
+    );
+    expect(noCache.cached_tokens).toBe(0);
+  });
+
+  // KJC-BUG-0085: the audit usage must surface prompt-cache hits.
+  it("renders cached tokens line when cached_tokens > 0 and hides it at 0", () => {
+    const withCache = formatUsageSummary({
+      available: true,
+      provider: "claude",
+      tokens_in: 3795,
+      tokens_out: 11989,
+      total_tokens: 15784,
+      cached_tokens: 1058694,
+      cost_usd: 3.84,
+      durationMs: 174600,
+    });
+    expect(withCache).toContain("Cached tokens: 1,058,694 (prompt-cache hits)");
+
+    const noCache = formatUsageSummary({
+      available: true,
+      provider: "claude",
+      tokens_in: 100,
+      tokens_out: 50,
+      total_tokens: 150,
+      cached_tokens: 0,
+      cost_usd: null,
+      durationMs: 1000,
+    });
+    expect(noCache).not.toContain("Cached tokens");
+  });
 });
 
 describe("formatAudit appends LLM Usage section when usage is provided", () => {

@@ -207,9 +207,9 @@ export class AuditRole extends AgentRole {
  *
  * @param {object} result - raw agent.runTask() return
  * @param {{provider: string, durationMs: number}} ctx
- * @returns {{available: boolean, provider: string, model?: string, tokens_in?: number, tokens_out?: number, total_tokens?: number, cost_usd?: number, durationMs: number, reason?: string}}
+ * @returns {{available: boolean, provider: string, model?: string, tokens_in?: number, tokens_out?: number, cached_tokens?: number, total_tokens?: number, cost_usd?: number, durationMs: number, reason?: string}}
  */
-function extractUsage(result, { provider, durationMs }) {
+export function extractUsage(result, { provider, durationMs }) {
   if (!result || typeof result !== "object") {
     return { available: false, provider, durationMs, reason: "no agent result" };
   }
@@ -218,12 +218,18 @@ function extractUsage(result, { provider, durationMs }) {
   if (tokens_in === null && tokens_out === null) {
     return { available: false, provider, model: result.model, durationMs, reason: `provider "${provider}" did not report token usage` };
   }
+  // KJC-BUG-0085: cached_tokens must survive this consolidation — the
+  // budget chain (computeUsage → BudgetTracker → summary.md Cache hits →
+  // telemetry) reads it from `usage` and the audit is the most expensive
+  // role of the session.
+  const cached_tokens = Number.isFinite(result.cached_tokens) ? result.cached_tokens : 0;
   return {
     available: true,
     provider,
     model: result.model,
     tokens_in: tokens_in ?? 0,
     tokens_out: tokens_out ?? 0,
+    cached_tokens,
     total_tokens: (tokens_in ?? 0) + (tokens_out ?? 0),
     cost_usd: typeof result.cost_usd === "number" ? result.cost_usd : null,
     durationMs,
