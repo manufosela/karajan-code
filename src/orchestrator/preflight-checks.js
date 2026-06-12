@@ -11,6 +11,7 @@
 
 import { checkBinary } from "../utils/agent-detect.js";
 import { isSonarReachable, sonarUp } from "../sonar/manager.js";
+import { resolveSonarProjectKey } from "../sonar/project-key.js";
 import { runCommand } from "../utils/process.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { msg, getLang } from "../utils/messages.js";
@@ -135,6 +136,21 @@ async function checkSonarAuth(config) {
   }
 
   return { name: "sonar-auth", ok: false, detail: "Could not validate or generate Sonar token" };
+}
+
+/**
+ * KJC-BUG-0083 — run the real project-key resolver at preflight time so a
+ * repo Sonar cannot scan aborts BEFORE the first coder iteration instead
+ * of dying in sonar_repeat after burning tokens. Sonar stays mandatory
+ * for code tasks (v2.7.4 contract); this only moves the failure earlier.
+ */
+async function checkSonarProjectKey(config) {
+  try {
+    const key = await resolveSonarProjectKey(config);
+    return { name: "sonar-project-key", ok: true, detail: `Project key resolved: ${key}` };
+  } catch (err) {
+    return { name: "sonar-project-key", ok: false, detail: err.message };
+  }
 }
 
 async function checkSecurityAgent(config) {
@@ -308,6 +324,34 @@ export async function runPreflightChecks({ config, logger, emitter, eventBase, r
         fix: withDocLink("Fix: run 'kj init' to configure it, or set KJ_SONAR_TOKEN env var, or add sonarqube.token to ~/.karajan/kj.config.yml.", "sonar_token")
       });
       logger.error("Preflight: Sonar auth failed");
+    }
+  }
+
+  // --- 3b. Sonar project key derivable (KJC-BUG-0083) ---
+  // The scanner derives its project key from git remote.origin.url. With
+  // an unparseable remote (local-path bare, exotic URL) and no explicit
+  // sonarqube.project_key, every iteration's scan threw, the run burned
+  // coder tokens and died in sonar_repeat. Run the REAL resolver here —
+  // canResolveSonarProjectKey() is weaker (any non-empty remote passes) —
+  // so the run fails fast with the actionable message before iteration 1.
+  if (sonarEnabled && result.ok) {
+    const keyCheck = await checkSonarProjectKey(config);
+    result.checks.push(keyCheck);
+
+    emitProgress(emitter, makeEvent("preflight:check", { ...eventBase, stage: "preflight" }, {
+      status: keyCheck.ok ? "ok" : "fail",
+      message: `Sonar project key: ${keyCheck.detail}`,
+      detail: keyCheck
+    }));
+
+    if (!keyCheck.ok) {
+      result.ok = false;
+      result.errors.push({
+        check: "sonar-project-key",
+        message: "Sonar cannot scan this repository: no project key can be derived.",
+        fix: withDocLink("Set sonarqube.project_key in kj.config.yml, or point remote.origin.url at a valid SSH/HTTPS remote.", "sonar_docker")
+      });
+      logger.error("Preflight: Sonar project key not derivable — failing fast before burning iterations");
     }
   }
 
