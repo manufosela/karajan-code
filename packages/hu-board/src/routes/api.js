@@ -4,6 +4,23 @@ import fsp from 'node:fs/promises';
 
 /** Async existence probe (KJC-TSK-0539 — no sync fs in handlers). */
 const pathExists = (p) => fsp.access(p).then(() => true, () => false);
+
+/**
+ * mtime-keyed cache for parsed plan JSON (KJC-TSK-0539). The plan scans
+ * used to re-read and re-parse every plan file on EVERY request; with N
+ * plans and the board polling, that was O(N) parses per poll. The cache
+ * serves the parsed object while the file's mtime is unchanged and
+ * re-reads transparently when kj writes the plan.
+ */
+const planFileCache = new Map();
+export async function readPlanCached(p) {
+  const { mtimeMs } = await fsp.stat(p);
+  const hit = planFileCache.get(p);
+  if (hit && hit.mtimeMs === mtimeMs) return hit.plan;
+  const plan = JSON.parse(await fsp.readFile(p, 'utf8'));
+  planFileCache.set(p, { mtimeMs, plan });
+  return plan;
+}
 import os from 'node:os';
 import path from 'node:path';
 import { spawn as spawnChild } from 'node:child_process';
@@ -214,7 +231,7 @@ router.get('/projects/:id/preflight', async (req, res) => {
         if (!(await pathExists(plansDir))) continue;
         for (const f of (await fsp.readdir(plansDir)).filter((x) => x.endsWith('.json'))) {
           try {
-            const plan = JSON.parse(await fsp.readFile(path.join(plansDir, f), 'utf8'));
+            const plan = await readPlanCached(path.join(plansDir, f));
             if (plan?.projectDir) { projectDir = plan.projectDir; break outer; }
           } catch { /* try next file */ }
         }
@@ -246,7 +263,7 @@ router.get('/projects/:id/plans-outcome', async (req, res) => {
       if (!(await pathExists(plansDir))) continue;
       for (const f of (await fsp.readdir(plansDir)).filter(n => n.endsWith('.json'))) {
         try {
-          const plan = JSON.parse(await fsp.readFile(path.join(plansDir, f), 'utf8'));
+          const plan = await readPlanCached(path.join(plansDir, f));
           if (plan?.version !== 2) continue;
           out.push({
           planId: plan.planId,
