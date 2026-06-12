@@ -14,6 +14,9 @@
 
 import { writeIterationsJournal } from "../../orchestrator/session-journal.js";
 import { listCommitsBetween } from "../../utils/git.js";
+import { writeDecisionsJournal } from "./decisions-writer.js";
+import { writeTreeJournal } from "./tree-writer.js";
+import { writeSummaryJournal } from "./summary-writer.js";
 
 /**
  * Write iterations.md, decisions.md, tree.txt and summary.md for a session.
@@ -36,9 +39,7 @@ export async function writeSessionJournal({ session, logger, result = "APPROVED"
 
   try {
     await writeIterationsJournal(journalDir, session._journalIterations || []);
-    const { writeDecisionsJournal } = await import("./decisions-writer.js");
     const decisionsResult = await writeDecisionsJournal(session, { journalDir, logger });
-    const { writeTreeJournal } = await import("./tree-writer.js");
     const treeResult = await writeTreeJournal(journalDir, session.session_start_sha, { logger });
 
     const journalFiles = [...(session._journalFiles || [])];
@@ -56,7 +57,6 @@ export async function writeSessionJournal({ session, logger, result = "APPROVED"
       catch { summaryCommits = []; }
     }
 
-    const { writeSummaryJournal } = await import("./summary-writer.js");
     const startedAt = session._startedAt ? new Date(session._startedAt).toISOString() : undefined;
     await writeSummaryJournal(journalDir, {
       task: session.task,
