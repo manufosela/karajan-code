@@ -247,6 +247,31 @@ async function _runFlowInner({ task, config, logger, flags = {}, emitter = null,
     await sealSessionStatusIfStillRunning(ctx.session, result);
     return result;
   } finally {
+    // --- Journal: best-effort write for non-approved endings (KJC-BUG-0084) ---
+    // finalizeApprovedSession writes the journal on the happy path and sets
+    // session._journalWritten. Every other terminal ending (sonar_repeat
+    // stall, stage_error, thrown stage, budget exceeded) used to leave only
+    // triage.md behind — losing the Cache hits table, budget breakdown and
+    // commits exactly on the runs where the post-mortem matters most.
+    // Paused sessions are skipped: they resume later and the eventual
+    // finalize overwrites the journal with the real outcome.
+    try {
+      const s = ctx.session;
+      if (s && s._journalDir && !s._journalWritten && s.status !== "paused") {
+        const { writeSessionJournal } = await import("../session/journal/write-all.js");
+        const badge = s.status && s.status !== "running" ? s.status.toUpperCase() : "FAILED";
+        await writeSessionJournal({
+          session: s, logger,
+          result: badge,
+          iterations: s._journalIterations?.length || 0,
+          budget: typeof ctx.budgetSummary === "function" ? ctx.budgetSummary() : null,
+          stages: ctx.stageResults || {},
+        });
+      }
+    } catch (err) {
+      logger.warn(`Final journal write failed (non-blocking): ${err.message}`);
+    }
+
     // --- Cleanup auto-installed skills ---
     const autoSkills = ctx.session?.autoInstalledSkills;
     if (autoSkills && autoSkills.length > 0) {
