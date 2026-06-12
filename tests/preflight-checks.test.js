@@ -152,7 +152,10 @@ describe("preflight-checks", () => {
 
   function makeConfig(overrides = {}) {
     return {
-      sonarqube: { enabled: true, host: "http://localhost:9000", ...overrides.sonarqube },
+      // project_key short-circuits the KJC-BUG-0083 derivability check so
+      // the suite's generic runCommand mock (whose stdout is not a git
+      // remote) keeps the happy paths green. The check has its own tests.
+      sonarqube: { enabled: true, host: "http://localhost:9000", project_key: "kj-test", ...overrides.sonarqube },
       roles: { security: { provider: "claude" }, coder: { provider: "claude" }, ...overrides.roles },
       coder: "claude",
       // The test suite globally defaults extended preflight OFF (see
@@ -232,6 +235,53 @@ describe("preflight-checks", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.errors).toContainEqual(expect.objectContaining({ check: "sonar-auth" }));
+  });
+
+  // KJC-BUG-0083 — fail fast in preflight when the scanner will not be able
+  // to derive a project key, instead of dying in sonar_repeat after burning
+  // coder iterations. Sonar stays mandatory (v2.7.4 contract).
+  it("hard fails when no project key is derivable (unparseable remote, no explicit key)", async () => {
+    delete process.env.KJ_SONAR_PROJECT_KEY; // set globally in tests/setup.js
+    runCommand.mockImplementation((_cmd, args) => {
+      if (args?.includes?.("remote.origin.url")) {
+        // Local-path bare remote — exactly the Φ1-G measurement scenario.
+        return Promise.resolve({ exitCode: 0, stdout: "/tmp/kj-phase1-origin.git", stderr: "" });
+      }
+      if (args?.some?.(a => typeof a === "string" && a.includes("user_tokens/generate"))) {
+        return Promise.resolve({ exitCode: 0, stdout: JSON.stringify({ token: "t" }), stderr: "" });
+      }
+      return Promise.resolve({ exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" });
+    });
+    const result = await runPreflightChecks({
+      config: makeConfig({ sonarqube: { enabled: true, host: "http://localhost:9000", project_key: undefined } }),
+      logger, emitter, eventBase,
+      resolvedPolicies: { sonar: true },
+      securityEnabled: false,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual(expect.objectContaining({ check: "sonar-project-key" }));
+  });
+
+  it("passes the project-key check with a parseable SSH remote and no explicit key", async () => {
+    delete process.env.KJ_SONAR_PROJECT_KEY; // set globally in tests/setup.js
+    runCommand.mockImplementation((_cmd, args) => {
+      if (args?.includes?.("remote.origin.url")) {
+        return Promise.resolve({ exitCode: 0, stdout: "git@github.com:owner/repo.git", stderr: "" });
+      }
+      if (args?.some?.(a => typeof a === "string" && a.includes("user_tokens/generate"))) {
+        return Promise.resolve({ exitCode: 0, stdout: JSON.stringify({ token: "t" }), stderr: "" });
+      }
+      return Promise.resolve({ exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" });
+    });
+    const result = await runPreflightChecks({
+      config: makeConfig({ sonarqube: { enabled: true, host: "http://localhost:9000", project_key: undefined } }),
+      logger, emitter, eventBase,
+      resolvedPolicies: { sonar: true },
+      securityEnabled: false,
+    });
+    const keyCheck = result.checks.find((c) => c.name === "sonar-project-key");
+    expect(keyCheck?.ok).toBe(true);
+    expect(keyCheck?.detail).toMatch(/Project key resolved: kj-repo-/);
   });
 
   it("caches sonar token in KJ_SONAR_TOKEN when generated", async () => {
