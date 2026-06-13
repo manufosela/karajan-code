@@ -110,6 +110,8 @@ kj audit                      # Auditar toda la base de código
 kj status                     # Estado de la sesión actual
 kj resume <session-id>        # Reanudar sesión pausada
 kj doctor                     # Comprobar entorno
+kj harden                     # Instalar el harness de calidad (hooks, config, CI, guías)
+kj check                      # Verificar que el harness está presente e íntegro
 
 # Gestión de planes (v2.5+)
 kj plan list                  # Listar planes del proyecto actual
@@ -127,6 +129,50 @@ kj board open                 # Iniciar + abrir en el navegador
 kj board status               # Comprobar si está corriendo
 kj board stop                 # Detener el board
 ```
+
+## Harness de calidad — `kj harden` + `kj check`
+
+`kj harden` lleva los guardrails con los que se construyó Karajan a **cualquier**
+repositorio —nuevo o existente— en un solo comando. Es idempotente, consciente
+del stack y nunca sobrescribe lo que tú escribiste: todo lo que gestiona vive
+entre marcadores `kj:managed`, así que al reejecutarlo solo refresca sus propios
+bloques.
+
+```bash
+kj harden                       # Instala el perfil standard
+kj harden --profile strict      # Añade además el gate de shrink-budget
+kj harden --dry-run             # Muestra qué cambiaría, sin escribir
+kj harden --no-ci --no-guidelines   # Solo hooks + config
+```
+
+Qué instala (según el stack detectado):
+
+- **Hooks de git** bajo `.karajan/hooks/` (vía `core.hooksPath`, sin pelear con
+  husky): pre-commit lint+formato, commit-msg (Conventional Commits + tope de
+  100 caracteres + bloqueo de atribución a IA — POSIX puro, sin Node), pre-push
+  tests + guardia de identidad, post-merge reindex. **Comandos nativos por
+  lenguaje** (`go vet`/`ruff`/`npm`…), de modo que endurecer un repo Go o Python
+  nunca convierte a Node en dependencia de commit.
+- **Config**: `.editorconfig`, `commitlint.config.js` y lint/formato por lenguaje
+  (`eslint` con la lista negra de APIs ES2025 obsoletas + `prettier` en JS/TS,
+  `ruff.toml` en Python, `.golangci.yml` en Go). En un monorepo fullstack cada
+  lenguaje recibe su config dentro de su propia carpeta.
+- **Workflows de CI**: gate de atribución a IA, workflow Quality por stack y
+  (en `strict`/paquetes publicables) shrink-budget + pack-smoke.
+- **Guías para agentes**: un conjunto de reglas destilado, sembrado en
+  `AGENTS.md` y `CLAUDE.md` (migrando limpiamente cualquier bloque heredado).
+
+`kj init` ejecuta el mismo motor automáticamente, así que un proyecto recién
+inicializado queda endurecido de serie (desactívalo con `kj init --no-harden`).
+
+```bash
+kj check            # Exit 0 si el harness está íntegro; ≠0 + reporte si hay deriva
+kj check --json     # Salida procesable, para CI
+```
+
+`kj check` detecta deriva —un hook borrado, un marker eliminado, o un lenguaje
+que añadiste después de endurecer y cuya config nunca se sembró— y te dice que
+reejecutes `kj harden`.
 
 ## Flujo de planificación (v2.5+)
 
