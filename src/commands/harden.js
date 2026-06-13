@@ -13,6 +13,7 @@ import { installConfigsForRoots } from "../harden/config-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
+import { installWorkflows } from "../harden/workflow-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 
 const JS_TEST_CMD = {
@@ -54,6 +55,7 @@ export async function hardenCommand({
   projectDir = process.cwd(),
   profile = "standard",
   config = true,
+  ci = true,
   dryRun = false,
   json = false,
   logger = console,
@@ -73,7 +75,9 @@ export async function hardenCommand({
   // fullstack monorepo is hardened on every side, not just one.
   const withConfig = config && profile !== "minimal";
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
-  const out = { ok: true, ...result, configs: cfg?.configs ?? [] };
+  const withCi = ci && profile !== "minimal";
+  const wf = withCi ? installWorkflows({ projectDir, dryRun }) : null;
+  const out = { ok: true, ...result, configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [] };
 
   if (json) {
     logger.info?.(JSON.stringify(out));
@@ -84,6 +88,7 @@ export async function hardenCommand({
   logger.info?.(`kj harden (${profile}) — ${verb} ${result.hooks.length} hook(s) → ${result.hooksPath}`);
   for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
   for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}`);
+  for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check` (H-E).");
   return out;
 }

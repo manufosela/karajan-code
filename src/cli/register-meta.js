@@ -403,6 +403,7 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Install the quality harness (git hooks) into this repo — idempotent")
     .option("--profile <name>", "minimal | standard | strict", "standard")
     .option("--no-config", "Skip lint/format/commit config files (hooks only)")
+    .option("--no-ci", "Skip CI quality workflows")
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
     .action(async (flags) => {
@@ -410,6 +411,7 @@ export function registerMeta(program, { pkgVersion }) {
         await hardenCommand({
           profile: flags.profile,
           config: flags.config !== false,
+          ci: flags.ci !== false,
           dryRun: Boolean(flags.dryRun),
           json: Boolean(flags.json),
           logger,
