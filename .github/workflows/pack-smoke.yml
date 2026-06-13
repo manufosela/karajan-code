@@ -1,0 +1,42 @@
+# Pack Smoke — installs the REAL published tarball and runs the binary.
+#
+# WHY: the test suite runs against the linked workspace, where
+# @karajan/core and its deps resolve via symlink. A broken PUBLISHED
+# artifact (bundleDependencies dragging in sqlite-vec without its entry
+# point — KJC-BUG-0082 / 0086) passed CI yet crashed on every clean
+# `npm install`. v3.2.0, v3.3.0 and v3.4.1 all shipped unable to run
+# even `kj --version`. This job packs the tarball, installs it clean and
+# isolated, and asserts the binary starts — catching packaging breakage
+# in the PR instead of after publish. Mirrors the `prepublishOnly` gate
+# so the same check that blocks a publish also blocks the merge.
+# Ref: KJC-TSK-0553.
+name: Pack Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pack-smoke:
+    name: Tarball installs & runs clean
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify the published tarball installs clean and runs
+        run: npm run verify-pack
