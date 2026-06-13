@@ -9,10 +9,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { installConfigs } from "../harden/config-engine.js";
+import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installHooks } from "../harden/harden-engine.js";
+import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectTestFramework } from "../utils/project-detect.js";
-import { detectProjectStack } from "../utils/stack-detect.js";
 
 const TEST_CMD = {
   vitest: "npx vitest run",
@@ -61,10 +61,11 @@ export async function hardenCommand({
     return { ok: false, error: err.message };
   }
 
-  // Config (lint/format/commit) ships with standard+, adapted to the stack.
+  // Config (lint/format/commit) ships with standard+, per language root so a
+  // fullstack monorepo is hardened on every side, not just one.
   const withConfig = config && profile !== "minimal";
-  const { language } = withConfig ? await detectProjectStack(projectDir) : {};
-  const cfg = withConfig ? installConfigs({ projectDir, language, dryRun }) : null;
+  const roots = withConfig ? detectStackRoots(projectDir) : [];
+  const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const out = { ok: true, ...result, configs: cfg?.configs ?? [] };
 
   if (json) {

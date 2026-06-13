@@ -18,29 +18,23 @@ function writeFile(target, content) {
   writeFileSync(target, content);
 }
 
-/**
- * Install config files for the detected stack: universal (.editorconfig,
- * commitlint) plus language-specific lint/format (JS/TS, Python, Go). An
- * unknown language gets the universal set only — no JS tooling is imposed.
- * Returns a per-file action report. `dryRun` computes actions without writing.
- */
-export function installConfigs({ projectDir = process.cwd(), language = "javascript", dryRun = false } = {}) {
-  const configs = [...UNIVERSAL_CONFIGS, ...(CONFIGS_BY_LANGUAGE[language] ?? [])];
-  const results = [];
+/** Seed a list of config entries into `targetDir`, labelling each by `prefix`. */
+function seedInto(targetDir, configs, dryRun, prefix, results) {
   for (const cfg of configs) {
-    const target = join(projectDir, cfg.file);
+    const target = join(targetDir, cfg.file);
     const exists = existsSync(target);
+    const file = prefix === "." ? cfg.file : join(prefix, cfg.file);
 
     if (cfg.json) {
       const action = exists ? "skipped" : "inserted";
       if (!dryRun && !exists) writeFile(target, `${cfg.body}\n`);
-      results.push({ file: cfg.file, action });
+      results.push({ file, action });
       continue;
     }
 
     const source = exists ? readFileSync(target, "utf8") : "";
     if (exists && !source.includes(`kj:managed:${cfg.blockId}`)) {
-      results.push({ file: cfg.file, action: "skipped" });
+      results.push({ file, action: "skipped" });
       continue;
     }
     const { content, action } = upsertManagedBlock({
@@ -51,7 +45,31 @@ export function installConfigs({ projectDir = process.cwd(), language = "javascr
       style: cfg.style,
     });
     if (!dryRun && action !== "unchanged") writeFile(target, content);
-    results.push({ file: cfg.file, action });
+    results.push({ file, action });
+  }
+}
+
+/**
+ * Single-directory seed: universal (.editorconfig, commitlint) plus the
+ * language's lint/format config, all at `projectDir`. Unknown language ⇒
+ * universal only. `dryRun` computes actions without writing.
+ */
+export function installConfigs({ projectDir = process.cwd(), language = "javascript", dryRun = false } = {}) {
+  const results = [];
+  seedInto(projectDir, [...UNIVERSAL_CONFIGS, ...(CONFIGS_BY_LANGUAGE[language] ?? [])], dryRun, ".", results);
+  return { dryRun, configs: results };
+}
+
+/**
+ * Monorepo seed: universal config once at the root, then each language's
+ * lint/format config inside its own root (from detectStackRoots). A fullstack
+ * repo gets eslint in frontend/, ruff in backend/, etc.
+ */
+export function installConfigsForRoots({ projectDir = process.cwd(), roots = [], dryRun = false } = {}) {
+  const results = [];
+  seedInto(projectDir, UNIVERSAL_CONFIGS, dryRun, ".", results);
+  for (const { dir, language } of roots) {
+    seedInto(join(projectDir, dir), CONFIGS_BY_LANGUAGE[language] ?? [], dryRun, dir, results);
   }
   return { dryRun, configs: results };
 }
