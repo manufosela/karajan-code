@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.2] - 2026-06-13
+
+Hotfix: `npm install karajan-code@3.4.1` rompía en `kj --version`.
+
+### Fixed
+
+- **Install roto en 3.4.1 (Application Blocker)**: `@karajan/core/src/vec-store.js` importa `sqlite-vec`, que declara `files: []` en su package.json; al re-empaquetar `@karajan/core` vía `bundleDependencies` (fix de KJC-BUG-0082), npm arrastraba sqlite-vec respetando ese `files: []` y lo copiaba sin `index.mjs` → `ERR_MODULE_NOT_FOUND` en el arranque. Fix: las deps de runtime de `@karajan/core` (better-sqlite3, execa, sqlite-vec) pasan a `peerDependencies` — nunca se bundlean y resuelven desde el top-level del consumidor, completas y con el binario nativo correcto por plataforma. Las tres ya están declaradas en las dependencies raíz de karajan-code (KJC-BUG-0086). Test de regresión `tests/architecture/core-no-bundled-deps.test.js` lo congela.
+
 ## [3.4.1] - 2026-06-12
 
 Hardening post-v3.4.0: los 3 bugs de observabilidad detectados durante la medición de Phase 1 + el top accionable del `kj audit` ejecutado con claude-fable-5.
