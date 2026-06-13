@@ -10,15 +10,17 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { WORKFLOWS } from "./workflow-templates.js";
+import { qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 const BLOCK_VERSION = 1;
 const WORKFLOWS_DIR = join(".github", "workflows");
 
-export function installWorkflows({ projectDir = process.cwd(), dryRun = false } = {}) {
+export function installWorkflows({ projectDir = process.cwd(), language = null, dryRun = false } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
+  const quality = qualityWorkflowFor(language);
+  const all = quality ? [...WORKFLOWS, quality] : WORKFLOWS;
   const results = [];
-  for (const wf of WORKFLOWS) {
+  for (const wf of all) {
     const target = join(dir, wf.file);
     const label = join(WORKFLOWS_DIR, wf.file);
     const exists = existsSync(target);

@@ -50,4 +50,27 @@ describe("installWorkflows", () => {
     installWorkflows({ projectDir: dir, dryRun: true });
     expect(existsSync(join(dir, wfPath))).toBe(false);
   });
+
+  it("adds a stack-aware Quality workflow for a known language", () => {
+    const res = installWorkflows({ projectDir: dir, language: "go" });
+    expect(res.workflows.map((w) => w.file)).toContain(join(".github", "workflows", "kj-quality.yml"));
+    const text = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(text).toContain("actions/setup-go@v5");
+    expect(text).toContain("go test ./...");
+    expect(yaml.load(text).jobs.quality["runs-on"]).toBe("ubuntu-latest");
+  });
+
+  it("python gets ruff + pytest, javascript gets npm", () => {
+    const py = mkdtempSync(join(tmpdir(), "kj-wf-py-"));
+    installWorkflows({ projectDir: py, language: "python" });
+    expect(readFileSync(join(py, ".github", "workflows", "kj-quality.yml"), "utf8")).toContain("ruff check .");
+    rmSync(py, { recursive: true, force: true });
+    installWorkflows({ projectDir: dir, language: "typescript" });
+    expect(read(join(".github", "workflows", "kj-quality.yml"))).toContain("npm test");
+  });
+
+  it("omits the Quality workflow for an unknown language", () => {
+    const res = installWorkflows({ projectDir: dir, language: "ruby" });
+    expect(res.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-quality.yml"));
+  });
 });
