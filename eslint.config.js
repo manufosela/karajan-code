@@ -197,6 +197,21 @@ export default [
     },
   },
   {
+    // Scripts block — build/release utilities run under Node directly
+    // (no bundler). Node globals + console allowed; unused-vars soft
+    // (destructuring-rest to drop a key leaves a named binding).
+    files: ["scripts/**/*.js", "scripts/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: { ...globals.node },
+    },
+    rules: {
+      "no-console": "off",
+      "no-unused-vars": "warn",
+    },
+  },
+  {
     // Tests block — same bug-killer rules, plus vitest globals and
     // relaxed unused-vars (helpers + fixtures legitimately allocate
     // bindings whose value is only their existence).
