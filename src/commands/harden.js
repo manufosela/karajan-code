@@ -76,7 +76,7 @@ export async function hardenCommand({
   const withConfig = config && profile !== "minimal";
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const withCi = ci && profile !== "minimal";
-  const wf = withCi ? installWorkflows({ projectDir, dryRun }) : null;
+  const wf = withCi ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, dryRun }) : null;
   const out = { ok: true, ...result, configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [] };
 
   if (json) {
