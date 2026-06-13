@@ -30,6 +30,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--no-rtk", "Skip the RTK auto-install (token savings on Bash outputs). Karajan still runs but burns more tokens")
     .option("--no-squeezr", "Skip the Squeezr auto-install (context compression). Karajan still runs but burns more tokens")
     .option("--no-qmd", "Skip the QMD auto-install + collection registration (semantic wiki over docs/, .reviews/ and plans/)")
+    .option("--no-harden", "Skip the quality harness (git hooks, lint/commit config, CI gates, agent guidelines)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "init", flags, async ({ config: _config, logger }) => {
         await initCommand({ logger, flags });

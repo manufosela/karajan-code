@@ -73,6 +73,12 @@ vi.mock("../src/utils/squeezr-install.js", () => ({
   installSqueezr: vi.fn().mockResolvedValue({ ok: true, version: "squeezr 1.46.3", error: null })
 }));
 
+// initCommand runs in the test process cwd (the repo). Mock the harness so it
+// never hardens the real working tree during unit tests.
+vi.mock("../src/commands/harden.js", () => ({
+  hardenCommand: vi.fn().mockResolvedValue({ ok: true })
+}));
+
 describe("initCommand", () => {
   let initCommand;
   let loadConfig, writeConfig;
@@ -141,6 +147,28 @@ describe("initCommand", () => {
 
     expect(writeConfig).toHaveBeenCalled();
     expect(createWizard).not.toHaveBeenCalled();
+  });
+
+  it("installs the quality harness via the shared harden engine", async () => {
+    isTTY.mockReturnValue(true);
+    loadConfig.mockResolvedValue({
+      config: { coder: "claude", reviewer: "codex", roles: { coder: {}, reviewer: {} }, pipeline: {}, sonarqube: { enabled: false }, development: { methodology: "tdd" } },
+      exists: false
+    });
+    const { hardenCommand } = await import("../src/commands/harden.js");
+    await initCommand({ logger, flags: { noInteractive: true } });
+    expect(hardenCommand).toHaveBeenCalled();
+  });
+
+  it("skips the harness with --no-harden", async () => {
+    isTTY.mockReturnValue(true);
+    loadConfig.mockResolvedValue({
+      config: { coder: "claude", reviewer: "codex", roles: { coder: {}, reviewer: {} }, pipeline: {}, sonarqube: { enabled: false }, development: { methodology: "tdd" } },
+      exists: false
+    });
+    const { hardenCommand } = await import("../src/commands/harden.js");
+    await initCommand({ logger, flags: { noInteractive: true, harden: false } });
+    expect(hardenCommand).not.toHaveBeenCalled();
   });
 
   it("runs wizard when interactive and config does not exist", async () => {

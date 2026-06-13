@@ -21,6 +21,8 @@ import { detectAiTrash, installAiTrashHook } from "../utils/ai-trash.js";
 import { detectQmd } from "../utils/qmd-detect.js";
 import { installQmd } from "../utils/qmd-install.js";
 import { registerQmdCollections } from "../utils/qmd-collection.js";
+import { isGitRepo } from "../harden/harden-engine.js";
+import { hardenCommand } from "./harden.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { bootstrapSonarToken } from "../sonar/token-bootstrap.js";
 
@@ -833,6 +835,19 @@ export async function initCommand({ logger, flags = {} }) {
 
   await setupSonarQube(config, logger, { interactive });
   await scaffoldCiGateway(config, flags, logger);
+
+  // Install the quality harness (git hooks, lint/format/commit config, CI
+  // quality gates, agent guidelines) through the SAME engine as `kj harden`,
+  // so init and harden never drift. Opt-out: --no-harden. Needs a git repo.
+  const skipHarden = flags?.noHarden === true || flags?.harden === false;
+  if (skipHarden) {
+    logger.info("Quality harness skipped (--no-harden).");
+  } else if (isGitRepo(process.cwd())) {
+    logger.info("Installing quality harness (kj harden)...");
+    await hardenCommand({ projectDir: process.cwd(), logger });
+  } else {
+    logger.info("Not a git repository — run `kj harden` after `git init` to add the quality harness.");
+  }
 
   // Persist any changes setupSonarQube made (token, etc.) back to disk.
   // Use writeInitConfig so the deprecated `sonarqube.enabled` key —
