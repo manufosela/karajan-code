@@ -11,9 +11,19 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { runCommand } from "../utils/process.js";
+import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 import { PROFILE_HOOKS } from "./hook-templates.js";
+import { detectStackRoots } from "./stack-roots.js";
+import { qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 const HOOKS_DIR = join(".karajan", "hooks");
+const WORKFLOWS_DIR = join(".github", "workflows");
+
+/** A config/workflow file just needs to be present (it may be user-owned). */
+function presence(projectDir, rel, id, miss) {
+  const ok = existsSync(join(projectDir, rel));
+  return { id, ok, detail: ok ? "ok" : miss };
+}
 
 export async function checkHarden({ projectDir = process.cwd(), profile = "standard" } = {}) {
   const checks = [];
@@ -33,6 +43,27 @@ export async function checkHarden({ projectDir = process.cwd(), profile = "stand
     const marked = exists && readFileSync(target, "utf8").includes(`kj:managed:hook:${hook}`);
     const detail = !exists ? "missing" : !executable ? "not executable" : !marked ? "no kj marker" : "ok";
     checks.push({ id: `hook:${hook}`, ok: exists && executable && marked, detail });
+  }
+
+  // Config + workflows ship with standard+ — and surface the greenfield gap:
+  // a language now present but never hardened ⇒ its config shows as missing.
+  if (profile !== "minimal") {
+    const roots = detectStackRoots(projectDir);
+    for (const cfg of UNIVERSAL_CONFIGS) {
+      checks.push(presence(projectDir, cfg.file, `config:${cfg.file}`, "missing — run kj harden"));
+    }
+    for (const { dir, language } of roots) {
+      for (const cfg of CONFIGS_BY_LANGUAGE[language] ?? []) {
+        const rel = dir === "." ? cfg.file : join(dir, cfg.file);
+        checks.push(presence(projectDir, rel, `config:${rel}`, `missing for ${language} — run kj harden`));
+      }
+    }
+    const expectedWf = [...WORKFLOWS];
+    const quality = qualityWorkflowFor(roots[0]?.language ?? null);
+    if (quality) expectedWf.push(quality);
+    for (const wf of expectedWf) {
+      checks.push(presence(projectDir, join(WORKFLOWS_DIR, wf.file), `workflow:${wf.file}`, "missing — run kj harden"));
+    }
   }
 
   return { ok: checks.every((c) => c.ok), checks };
