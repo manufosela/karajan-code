@@ -10,20 +10,27 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { installConfigsForRoots } from "../harden/config-engine.js";
+import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 
-const TEST_CMD = {
+const JS_TEST_CMD = {
   vitest: "npx vitest run",
   jest: "npx jest",
   mocha: "npx mocha",
-  pytest: "pytest",
 };
 
-/** Pick lint/format/test commands from package.json scripts, then by framework. */
-export async function resolveCmds(projectDir) {
-  const cmds = {};
+/**
+ * Resolve the hook's lint/format/test commands for the primary language.
+ * Non-JS stacks use their native toolchain (go/ruff/…); JS/TS is built from
+ * the project's own package.json scripts so no npm command is ever assumed.
+ */
+export async function resolveCmds(projectDir, language) {
+  const lang = language ?? detectStackRoots(projectDir)[0]?.language ?? null;
+  const cmds = { ...commandsForLanguage(lang) };
+  if (lang !== "javascript" && lang !== "typescript") return cmds;
+
   const pkgPath = join(projectDir, "package.json");
   if (existsSync(pkgPath)) {
     try {
@@ -38,7 +45,7 @@ export async function resolveCmds(projectDir) {
   }
   if (!cmds.test) {
     const { framework } = await detectTestFramework(projectDir);
-    if (framework && TEST_CMD[framework]) cmds.test = TEST_CMD[framework];
+    if (framework && JS_TEST_CMD[framework]) cmds.test = JS_TEST_CMD[framework];
   }
   return cmds;
 }
@@ -51,7 +58,8 @@ export async function hardenCommand({
   json = false,
   logger = console,
 } = {}) {
-  const cmds = await resolveCmds(projectDir);
+  const roots = detectStackRoots(projectDir);
+  const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
   let result;
   try {
     result = await installHooks({ projectDir, profile, cmds, dryRun });
@@ -64,7 +72,6 @@ export async function hardenCommand({
   // Config (lint/format/commit) ships with standard+, per language root so a
   // fullstack monorepo is hardened on every side, not just one.
   const withConfig = config && profile !== "minimal";
-  const roots = withConfig ? detectStackRoots(projectDir) : [];
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const out = { ok: true, ...result, configs: cfg?.configs ?? [] };
 
