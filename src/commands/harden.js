@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { installConfigs } from "../harden/config-engine.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
 
@@ -44,6 +45,7 @@ export async function resolveCmds(projectDir) {
 export async function hardenCommand({
   projectDir = process.cwd(),
   profile = "standard",
+  config = true,
   dryRun = false,
   json = false,
   logger = console,
@@ -58,14 +60,20 @@ export async function hardenCommand({
     return { ok: false, error: err.message };
   }
 
+  // Config (eslint/prettier/commitlint/.editorconfig) ships with standard+.
+  const withConfig = config && profile !== "minimal";
+  const cfg = withConfig ? installConfigs({ projectDir, dryRun }) : null;
+  const out = { ok: true, ...result, configs: cfg?.configs ?? [] };
+
   if (json) {
-    logger.info?.(JSON.stringify({ ok: true, ...result }));
-    return { ok: true, ...result };
+    logger.info?.(JSON.stringify(out));
+    return out;
   }
 
   const verb = dryRun ? "would install" : "installed";
   logger.info?.(`kj harden (${profile}) — ${verb} ${result.hooks.length} hook(s) → ${result.hooksPath}`);
   for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
+  for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check` (H-E).");
-  return { ok: true, ...result };
+  return out;
 }
