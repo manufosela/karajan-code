@@ -33,9 +33,15 @@
     "sqlite-vec": "^0.1.9"
   },
   "peerDependenciesMeta": {
-    "better-sqlite3": { "optional": true },
-    "execa": { "optional": true },
-    "sqlite-vec": { "optional": true }
+    "better-sqlite3": {
+      "optional": true
+    },
+    "execa": {
+      "optional": true
+    },
+    "sqlite-vec": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "vitest": "^4.0.0"
