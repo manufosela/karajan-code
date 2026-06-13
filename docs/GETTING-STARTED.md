@@ -110,6 +110,8 @@ kj audit                     # Audit whole codebase
 kj status                    # Current session
 kj resume <session-id>       # Resume paused
 kj doctor                    # Environment check
+kj harden                    # Install the quality harness (hooks, config, CI, guidelines)
+kj check                     # Verify the harness is present and intact
 
 # Plan management (v2.5+)
 kj plan list                 # List plans for this project
@@ -127,6 +129,49 @@ kj board open                # Start + open in browser
 kj board status              # Check if running
 kj board stop                # Stop the board
 ```
+
+## Quality harness — `kj harden` + `kj check`
+
+`kj harden` brings the guardrails Karajan was built with to **any** repo — new
+or existing — in one command. It is idempotent, stack-aware, and never
+overwrites content you wrote: everything it manages lives inside `kj:managed`
+markers, so re-running only refreshes its own blocks.
+
+```bash
+kj harden                       # Install the standard profile
+kj harden --profile strict      # Add the shrink-budget gate too
+kj harden --dry-run             # Show what would change, write nothing
+kj harden --no-ci --no-guidelines   # Hooks + config only
+```
+
+What it installs (per the detected stack):
+
+- **Git hooks** under `.karajan/hooks/` (via `core.hooksPath`, so it never
+  fights husky): pre-commit lint+format, commit-msg (Conventional Commits +
+  100-char cap + AI-attribution block — pure POSIX, no Node), pre-push tests +
+  git-identity guard, post-merge reindex. **Native commands per language**
+  (`go vet`/`ruff`/`npm`…), so hardening a Go or Python repo never makes Node a
+  commit-time dependency.
+- **Config**: `.editorconfig`, `commitlint.config.js`, and per-language
+  lint/format (`eslint` with the ES2025 deprecated-API blacklist + `prettier`
+  for JS/TS, `ruff.toml` for Python, `.golangci.yml` for Go). In a fullstack
+  monorepo each language gets its config inside its own folder.
+- **CI workflows**: an AI-attribution gate, a stack-aware Quality workflow, and
+  (on `strict`/publishable packages) shrink-budget + pack-smoke.
+- **Agent guidelines**: a distilled rule set seeded into `AGENTS.md` and
+  `CLAUDE.md` (migrating any legacy block cleanly).
+
+`kj init` runs the same engine automatically, so a freshly initialised project
+is hardened out of the box (opt out with `kj init --no-harden`).
+
+```bash
+kj check            # Exit 0 if the harness is intact, non-zero + report on drift
+kj check --json     # Machine-readable, for CI
+```
+
+`kj check` catches drift — a deleted hook, a stripped marker, or a language you
+added after hardening whose config was never seeded — and tells you to re-run
+`kj harden`.
 
 ## Planning workflow (v2.5+)
 
