@@ -27,10 +27,21 @@
   "scripts": {
     "test": "vitest run"
   },
-  "dependencies": {
+  "peerDependencies": {
     "better-sqlite3": "^12.10.0",
     "execa": "^9.6.0",
     "sqlite-vec": "^0.1.9"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    },
+    "execa": {
+      "optional": true
+    },
+    "sqlite-vec": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "vitest": "^4.0.0"

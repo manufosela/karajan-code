@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.4.1 released** — Post-Phase-1 hardening. The session journal (Cache hits, budget, commits) is now written on EVERY run ending — not just approved ones; the audit role reports its cached tokens (it was the most expensive role and reported 0); and a new preflight check fails fast with an actionable message when Sonar cannot derive a project key, instead of burning coder iterations and dying in `sonar_repeat`. Plus the top of the v3.4.0 self-audit: shared `escapeRegExp()`, 23 dead exports pruned, 4 complex regexes decomposed, and the HU Board API with zero sync fs calls + mtime-cached plan scans. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.4.2 released** — Hotfix: `npm install karajan-code@3.4.1` crashed at `kj --version` because the bundled `@karajan/core` dragged in `sqlite-vec` (which ships `files: []`) without its entry point. `@karajan/core`'s runtime deps are now `peerDependencies`, so they resolve complete from the consumer's top-level install. Clean install verified end-to-end. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
