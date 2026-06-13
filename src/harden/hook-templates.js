@@ -44,7 +44,14 @@ export function hookBody(hook, cmds = {}) {
         "fi",
       ].join("\n");
     case "pre-push": {
-      const lines = ["# Run the test suite before pushing."];
+      const lines = [
+        "# Identity guard — never push without a configured git identity.",
+        'if [ -z "$(git config user.email)" ] || [ -z "$(git config user.name)" ]; then',
+        "  echo 'kj harden: git user.name/user.email not set — refusing to push'; exit 1",
+        "fi",
+        'echo "kj harden: pushing as $(git config user.name) <$(git config user.email)>"',
+        "# Run the test suite before pushing.",
+      ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
       else lines.push("# (no test command detected for this stack)");
       return lines.join("\n");

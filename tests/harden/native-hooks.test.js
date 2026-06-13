@@ -40,6 +40,13 @@ describe("hookBody is pure POSIX (no Node imposed)", () => {
     expect(hookBody("pre-commit", { lint: "go vet ./..." })).toContain("go vet ./...");
   });
 
+  it("pre-push refuses to push without a configured git identity", () => {
+    const body = hookBody("pre-push");
+    expect(body).toContain("user.email");
+    expect(body).toContain("refusing to push");
+    expect(body).toContain("pushing as");
+  });
+
   it("generates hooks that are valid POSIX shell (sh -n)", async () => {
     writeFileSync(join(repo, "go.mod"), "module example.com/x\n");
     await installHooks({ projectDir: repo, profile: "standard", cmds: { lint: "go vet ./...", test: "go test ./..." } });
