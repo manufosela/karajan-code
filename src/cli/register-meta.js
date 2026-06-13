@@ -14,6 +14,7 @@ import { webperfCommand } from "../commands/webperf.js";
 import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
+import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { withConfig } from "./_shared.js";
 
@@ -394,6 +395,23 @@ export function registerMeta(program, { pkgVersion }) {
         draftDays: flags.draftDays ? Number(flags.draftDays) : undefined,
         sessionDays: flags.sessionDays ? Number(flags.sessionDays) : undefined,
         huDays: flags.huDays ? Number(flags.huDays) : undefined,
+      });
+    });
+
+  program
+    .command("harden")
+    .description("Install the quality harness (git hooks) into this repo — idempotent")
+    .option("--profile <name>", "minimal | standard | strict", "standard")
+    .option("--dry-run", "Show what would change without writing")
+    .option("--json", "Emit machine-readable JSON")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "harden", flags, async ({ logger }) => {
+        await hardenCommand({
+          profile: flags.profile,
+          dryRun: Boolean(flags.dryRun),
+          json: Boolean(flags.json),
+          logger,
+        });
       });
     });
 }
