@@ -73,4 +73,30 @@ describe("installWorkflows", () => {
     const res = installWorkflows({ projectDir: dir, language: "ruby" });
     expect(res.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-quality.yml"));
   });
+
+  it("adds shrink-budget only on the strict profile", () => {
+    const std = installWorkflows({ projectDir: dir, profile: "standard" });
+    expect(std.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-shrink-budget.yml"));
+    const strictDir = mkdtempSync(join(tmpdir(), "kj-wf-strict-"));
+    const strict = installWorkflows({ projectDir: strictDir, profile: "strict" });
+    expect(strict.workflows.map((w) => w.file)).toContain(join(".github", "workflows", "kj-shrink-budget.yml"));
+    expect(yaml.load(readFileSync(join(strictDir, ".github", "workflows", "kj-shrink-budget.yml"), "utf8")).name).toBe(
+      "Shrink budget"
+    );
+    rmSync(strictDir, { recursive: true, force: true });
+  });
+
+  it("adds pack-smoke only for a publishable npm package", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" } }));
+    const res = installWorkflows({ projectDir: dir });
+    expect(res.workflows.map((w) => w.file)).toContain(join(".github", "workflows", "kj-pack-smoke.yml"));
+  });
+
+  it("omits pack-smoke for a private package", () => {
+    const priv = mkdtempSync(join(tmpdir(), "kj-wf-priv-"));
+    writeFileSync(join(priv, "package.json"), JSON.stringify({ name: "x", private: true, main: "i.js" }));
+    const res = installWorkflows({ projectDir: priv });
+    expect(res.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-pack-smoke.yml"));
+    rmSync(priv, { recursive: true, force: true });
+  });
 });
