@@ -405,6 +405,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--profile <name>", "minimal | standard | strict", "standard")
     .option("--no-config", "Skip lint/format/commit config files (hooks only)")
     .option("--no-ci", "Skip CI quality workflows")
+    .option("--no-guidelines", "Skip AI-agent guideline files (AGENTS.md/CLAUDE.md)")
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
     .action(async (flags) => {
@@ -413,6 +414,7 @@ export function registerMeta(program, { pkgVersion }) {
           profile: flags.profile,
           config: flags.config !== false,
           ci: flags.ci !== false,
+          guidelines: flags.guidelines !== false,
           dryRun: Boolean(flags.dryRun),
           json: Boolean(flags.json),
           logger,
