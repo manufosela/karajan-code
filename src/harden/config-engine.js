@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { JS_CONFIGS } from "./config-templates.js";
+import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 
 const BLOCK_VERSION = 1;
 
@@ -19,12 +19,15 @@ function writeFile(target, content) {
 }
 
 /**
- * Install config files for the detected stack (JS/TS for now). Returns a
- * per-file action report. `dryRun` computes actions without touching disk.
+ * Install config files for the detected stack: universal (.editorconfig,
+ * commitlint) plus language-specific lint/format (JS/TS, Python, Go). An
+ * unknown language gets the universal set only — no JS tooling is imposed.
+ * Returns a per-file action report. `dryRun` computes actions without writing.
  */
-export function installConfigs({ projectDir = process.cwd(), dryRun = false } = {}) {
+export function installConfigs({ projectDir = process.cwd(), language = "javascript", dryRun = false } = {}) {
+  const configs = [...UNIVERSAL_CONFIGS, ...(CONFIGS_BY_LANGUAGE[language] ?? [])];
   const results = [];
-  for (const cfg of JS_CONFIGS) {
+  for (const cfg of configs) {
     const target = join(projectDir, cfg.file);
     const exists = existsSync(target);
 

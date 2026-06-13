@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { installConfigs } from "../harden/config-engine.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
+import { detectProjectStack } from "../utils/stack-detect.js";
 
 const TEST_CMD = {
   vitest: "npx vitest run",
@@ -60,9 +61,10 @@ export async function hardenCommand({
     return { ok: false, error: err.message };
   }
 
-  // Config (eslint/prettier/commitlint/.editorconfig) ships with standard+.
+  // Config (lint/format/commit) ships with standard+, adapted to the stack.
   const withConfig = config && profile !== "minimal";
-  const cfg = withConfig ? installConfigs({ projectDir, dryRun }) : null;
+  const { language } = withConfig ? await detectProjectStack(projectDir) : {};
+  const cfg = withConfig ? installConfigs({ projectDir, language, dryRun }) : null;
   const out = { ok: true, ...result, configs: cfg?.configs ?? [] };
 
   if (json) {

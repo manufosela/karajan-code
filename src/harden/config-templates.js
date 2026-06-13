@@ -69,10 +69,44 @@ export const ESLINT_BODY = [
   "];",
 ].join("\n");
 
-/** JS/TS config files harden manages. `json:true` ⇒ seed-only (no marker). */
-export const JS_CONFIGS = [
+// Ruff covers lint + format for Python; `UP` (pyupgrade) is the analogue of
+// the ES2025 deprecated-API ban — it rewrites legacy idioms to modern Python.
+export const RUFF_BODY = [
+  "line-length = 110",
+  'target-version = "py312"',
+  "",
+  "[lint]",
+  'select = ["E", "F", "I", "UP", "B", "SIM"]',
+].join("\n");
+
+export const GOLANGCI_BODY = [
+  "linters:",
+  "  enable:",
+  "    - govet",
+  "    - staticcheck",
+  "    - revive",
+  "    - ineffassign",
+  "    - gofmt",
+].join("\n");
+
+/** Language-agnostic configs (every stack gets these). */
+export const UNIVERSAL_CONFIGS = [
   { file: ".editorconfig", blockId: "editorconfig", style: "hash", body: EDITORCONFIG_BODY },
   { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY },
+];
+
+/** `json:true` ⇒ seed-only (no comment syntax for a marker). */
+export const JS_CONFIGS = [
   { file: "eslint.config.js", blockId: "eslint", style: "slash", body: ESLINT_BODY },
   { file: ".prettierrc.json", json: true, body: PRETTIER_BODY },
 ];
+export const PY_CONFIGS = [{ file: "ruff.toml", blockId: "ruff", style: "hash", body: RUFF_BODY }];
+export const GO_CONFIGS = [{ file: ".golangci.yml", blockId: "golangci", style: "hash", body: GOLANGCI_BODY }];
+
+/** Lint/format configs by detected language. Unknown ⇒ universal only. */
+export const CONFIGS_BY_LANGUAGE = {
+  javascript: JS_CONFIGS,
+  typescript: JS_CONFIGS,
+  python: PY_CONFIGS,
+  go: GO_CONFIGS,
+};
