@@ -14,6 +14,7 @@ import { webperfCommand } from "../commands/webperf.js";
 import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
+import { checkCommand } from "../commands/check.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { withConfig } from "./_shared.js";
@@ -417,5 +418,17 @@ export function registerMeta(program, { pkgVersion }) {
           logger,
         });
       });
+    });
+
+  program
+    .command("check")
+    .description("Verify the quality harness installed by kj harden (drift gate)")
+    .option("--profile <name>", "minimal | standard | strict", "standard")
+    .option("--json", "Emit machine-readable JSON")
+    .action(async (flags) => {
+      const code = await withConfig(pkgVersion, "check", flags, async ({ logger }) =>
+        checkCommand({ profile: flags.profile, json: Boolean(flags.json), logger })
+      );
+      if (Number.isInteger(code)) process.exit(code);
     });
 }
