@@ -1541,6 +1541,14 @@ Dos palancas según familia de provider: los CLIs de OpenAI/Gemini/LiteLLM cache
 
 Medido en runs reales (2026-06-11): coder Claude cold cache_pct 47.2% → 99.60%, hot 94.3% → 99.69%, coste del coder por HU $0.6141 → $0.1447 (−76%). Ambos runs APPROVED con el audit final CERTIFIED. Una suite de regresión prefix-stability (asserts de longest-common-prefix + el mínimo de 1024 tokens de OpenAI + marcadores anti-fuga de volátil) congela el contrato en CI. Seis slices, PRs #1044–#1050.
 
+## Fase 92: v3.4.2 — Hardening post-Phase-1 + el gate pre-publish (v3.4.2)
+
+La línea de mantenimiento que convirtió un ridículo recurrente en una garantía estructural. Tres releases de npm (v3.2.0, v3.3.0, v3.4.1) habían salido sin poder ejecutar ni `kj --version`: la suite de tests corría contra el workspace linkado (los symlinks resuelven todo), mientras que el tarball publicado —con `bundleDependencies` y resolución top-level— nunca se instalaba ni se ejecutaba en ningún punto del pipeline.
+
+v3.4.1 traía la limpieza post-Phase-1 (journal en todos los finales KJC-BUG-0084, cached_tokens del audit KJC-BUG-0085, preflight fail-fast de Sonar KJC-BUG-0083, más el top del audit: escapeRegExp, poda de dead exports, descomposición de regex, fs-async + cache de planes del HU Board) pero rompió el install: `@karajan/core` arrastraba `sqlite-vec` al bundle y su `files: []` lo dejaba sin entrypoint.
+
+v3.4.2 ataca la causa raíz por dos vías. **Resolución**: las deps de runtime de core (better-sqlite3, execa, sqlite-vec) pasan a `peerDependencies`, resueltas completas desde el install del consumidor. **Proceso**: `scripts/verify-pack.mjs` empaqueta el tarball real, lo instala en un tmpdir aislado y ejecuta `kj --version` / `--help`, enganchado como `prepublishOnly` (el publish se aborta solo si el artefacto no arranca) y como job de CI `pack-smoke` en cada PR (KJC-TSK-0553). Un test de regresión `core-no-bundled-deps` congela el contrato de dependencias. v3.4.1 quedó deprecada en npm; v3.4.2 es el primer install 3.x completamente limpio.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

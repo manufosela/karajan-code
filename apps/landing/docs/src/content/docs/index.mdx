@@ -61,7 +61,7 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
   <Card title="5 600+ Automated Tests" icon="approve-check">
-    514 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), the **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge), and the new **cache-friendly prompt layout** (Phase 1 — stable/volatile buckets, claude system-split, prefix-stability regression suite). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+    517 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), the **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge), and the new **cache-friendly prompt layout** (Phase 1 — stable/volatile buckets, claude system-split, prefix-stability regression suite). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -218,6 +218,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Cache-friendly prompts (v3.4)" icon="rocket">
     The **Phase 1** epic (KJC-PCS-0057) restructures every Karajan prompt into a **stable block** (identical across iterations and HUs, rendered first so automatic prefix caching hits on it) and a **volatile tail**. On Claude the stable block ships via `--append-system-prompt`, so the CLI's cache breakpoints serve it from cache on every call. **Measured**: cold-run cache_pct jumps from 47.2% to **99.60%** and coder cost drops **76%** ($0.61 → $0.14 per HU). A prefix-stability regression suite freezes the contract in CI. Drop-in upgrade from v3.3.0.
+  </Card>
+  <Card title="Never ships broken (v3.4.2)" icon="approve-check">
+    A **pre-publish gate** packs the real npm tarball, installs it clean and isolated, and actually runs it (`kj --version` / `--help`) **before every publish** — wired as `prepublishOnly` and as the `pack-smoke` CI job on every PR. The test suite proves the linked workspace; this proves the artifact users receive. Born from three releases that shipped unable to run `-v`; now the publish aborts itself if the tarball doesn't start. Drop-in upgrade from v3.4.0.
   </Card>
 </CardGrid>
 
@@ -734,7 +737,7 @@ Codex shape is verified by unit tests (Φ0-B); live E2E was blocked by codex-cli
 
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.
 
-### v3.4.0 — Cache-friendly prompts (current)
+### v3.4.0 — Cache-friendly prompts
 
 Closes the **Phase 1** epic (KJC-PCS-0057). Every Karajan prompt is now split into a **stable block** — identical across iterations of the same HU and across HUs of the same plan, rendered first — and a **volatile tail** (task, plan, acceptance tests, reviewer feedback, git diff). Providers with automatic prefix caching (OpenAI, Gemini, LiteLLM-routed) hit on the literal stable prefix; on Claude the stable block ships via `--append-system-prompt`, where the CLI places cache breakpoints. **No breaking changes** — drop-in upgrade from v3.3.0.
 
@@ -750,3 +753,16 @@ Closes the **Phase 1** epic (KJC-PCS-0057). Every Karajan prompt is now split in
 Both measurement runs finished APPROVED with the final audit CERTIFIED. The cold/hot distinction nearly disappears: the stable prompt content is served from cache even on the first run of the day.
 
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.
+
+
+### v3.4.2 — Post-Phase-1 hardening + install hotfix (current)
+
+A maintenance line on top of v3.4.0. Three observability fixes found while measuring Phase 1, the top of the v3.4.0 self-audit (run with claude-fable-5), and — most importantly — a **pre-publish gate** so a broken artifact can never ship again.
+
+**Observability & audit follow-ups**: the session journal (Cache hits, budget, commits) is now written on **every** run ending, not just approved ones (KJC-BUG-0084); the audit role reports its cached tokens (it was the most expensive role and reported 0 — KJC-BUG-0085); a preflight check fails fast with an actionable message when Sonar cannot derive a project key, instead of burning iterations and dying in `sonar_repeat` (KJC-BUG-0083). Plus a shared `escapeRegExp()`, 23 dead exports pruned, four complex regexes decomposed, and the HU Board API with zero sync fs calls + mtime-cached plan scans.
+
+**The install hotfix (v3.4.1 → v3.4.2)**: v3.4.1 shipped unable to run `kj --version` — `@karajan/core` dragged `sqlite-vec` into the bundle, and sqlite-vec's `files: []` left it without its entry point. Fix: core's runtime deps are now `peerDependencies`, resolved complete from the consumer's top-level install (KJC-BUG-0086). v3.4.1 is deprecated on npm.
+
+**Why it won't happen again**: the published tarball is now packed, installed clean in isolation, and actually run (`kj --version` / `--help`) **before every publish** via a `prepublishOnly` gate, and on every PR via the `pack-smoke` CI job (KJC-TSK-0553). The test suite proved the linked workspace; this proves the artifact users receive.
+
+**Upgrade from any 3.x** — v3.4.2 is the first fully-clean 3.x npm install.

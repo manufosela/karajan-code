@@ -1542,6 +1542,14 @@ Two levers per provider family: OpenAI/Gemini/LiteLLM-routed CLIs cache automati
 
 Measured on real runs (2026-06-11): Claude coder cold cache_pct 47.2% → 99.60%, hot 94.3% → 99.69%, coder cost per HU $0.6141 → $0.1447 (−76%). Both runs APPROVED with the final audit CERTIFIED. A prefix-stability regression suite (longest-common-prefix assertions + OpenAI's 1024-token floor + volatile-leak markers) freezes the contract in CI. Six slices, PRs #1044–#1050.
 
+## Phase 92: v3.4.2 — Post-Phase-1 hardening + the pre-publish gate (v3.4.2)
+
+The maintenance line that turned a recurring embarrassment into a structural guarantee. Three npm releases (v3.2.0, v3.3.0, v3.4.1) had shipped unable to run even `kj --version`: the test suite ran against the linked workspace (symlinks resolve everything), while the published tarball — with `bundleDependencies` and top-level resolution — was never installed or executed anywhere in the pipeline.
+
+v3.4.1 carried the post-Phase-1 cleanup (journal-on-every-ending KJC-BUG-0084, audit cached_tokens KJC-BUG-0085, Sonar preflight fail-fast KJC-BUG-0083, plus the audit top: escapeRegExp, dead-export pruning, regex decomposition, HU Board fs-async + plan cache) but broke install: `@karajan/core` dragged `sqlite-vec` into the bundle and its `files: []` left it without an entry point.
+
+v3.4.2 fixes the root cause two ways. **Resolution**: core's runtime deps (better-sqlite3, execa, sqlite-vec) become `peerDependencies`, resolved complete from the consumer's top-level install. **Process**: `scripts/verify-pack.mjs` packs the real tarball, installs it into an isolated tmpdir and runs `kj --version` / `--help`, wired as `prepublishOnly` (the publish aborts itself if the artifact does not start) and as the `pack-smoke` CI job on every PR (KJC-TSK-0553). A `core-no-bundled-deps` regression test freezes the dependency contract. v3.4.1 was deprecated on npm; v3.4.2 is the first fully-clean 3.x install.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
