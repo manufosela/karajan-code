@@ -86,3 +86,67 @@ export function qualityWorkflowFor(language) {
   const body = QUALITY_BY_LANGUAGE[language];
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body } : null;
 }
+
+// Caps the net LOC delta of a PR (strict profile only — it is opinionated).
+export const SHRINK_BUDGET_WORKFLOW = [
+  "name: Shrink budget",
+  "on:",
+  "  pull_request:",
+  "    branches: [main]",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  budget:",
+  "    runs-on: ubuntu-latest",
+  '    env: { LOC_LIMIT: "200" }',
+  "    steps:",
+  "      - uses: actions/checkout@v4",
+  "        with:",
+  "          fetch-depth: 0",
+  "      - name: Net LOC delta within budget",
+  "        env:",
+  "          BASE_REF: ${{ github.base_ref }}",
+  "        run: |",
+  "          d=$(git diff --numstat \"origin/${BASE_REF}...HEAD\" -- . ':!**/*.md' ':!*.lock' ':!package-lock.json' || true)",
+  '          a=$(printf "%s\\n" "$d" | awk \'$1!="-"{s+=$1}END{print s+0}\')',
+  '          r=$(printf "%s\\n" "$d" | awk \'$2!="-"{s+=$2}END{print s+0}\')',
+  '          net=$((a - r)); echo "net=$net (limit=$LOC_LIMIT)"',
+  '          if [ "$net" -gt "$LOC_LIMIT" ]; then echo "::error::PR adds $net net lines (limit $LOC_LIMIT)"; exit 1; fi',
+].join("\n");
+
+// Packs the tarball and installs it clean — only for publishable npm packages.
+export const PACK_SMOKE_WORKFLOW = [
+  "name: Pack smoke",
+  "on:",
+  "  pull_request:",
+  "    branches: [main]",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  pack-smoke:",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  "      - uses: actions/checkout@v4",
+  "      - uses: actions/setup-node@v4",
+  "        with:",
+  "          node-version: 22",
+  "      - run: npm ci",
+  "      - name: Pack and install the tarball clean",
+  "        run: |",
+  "          tgz=$(npm pack --silent)",
+  "          dir=$(mktemp -d)",
+  '          npm install --prefix "$dir" "$PWD/$tgz" --no-audit --no-fund',
+  '          echo "Tarball installs clean: $tgz"',
+].join("\n");
+
+/** Conditional workflows: shrink-budget on strict, pack-smoke when publishable. */
+export function extraWorkflowsFor({ profile = "standard", publishable = false } = {}) {
+  const extras = [];
+  if (profile === "strict") {
+    extras.push({ file: "kj-shrink-budget.yml", blockId: "wf-shrink", body: SHRINK_BUDGET_WORKFLOW });
+  }
+  if (publishable) {
+    extras.push({ file: "kj-pack-smoke.yml", blockId: "wf-pack-smoke", body: PACK_SMOKE_WORKFLOW });
+  }
+  return extras;
+}

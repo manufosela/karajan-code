@@ -10,15 +10,33 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 const BLOCK_VERSION = 1;
 const WORKFLOWS_DIR = join(".github", "workflows");
 
-export function installWorkflows({ projectDir = process.cwd(), language = null, dryRun = false } = {}) {
+/** A package.json that ships code (not private, has bin or main) ⇒ publishable. */
+export function isPublishableNpm(projectDir) {
+  const pkgPath = join(projectDir, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    return pkg.private !== true && Boolean(pkg.bin || pkg.main);
+  } catch {
+    return false;
+  }
+}
+
+export function installWorkflows({
+  projectDir = process.cwd(),
+  language = null,
+  profile = "standard",
+  dryRun = false,
+} = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const quality = qualityWorkflowFor(language);
-  const all = quality ? [...WORKFLOWS, quality] : WORKFLOWS;
+  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir) });
+  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras];
   const results = [];
   for (const wf of all) {
     const target = join(dir, wf.file);
