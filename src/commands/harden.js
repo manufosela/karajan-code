@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { installConfigsForRoots } from "../harden/config-engine.js";
+import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
@@ -56,6 +57,7 @@ export async function hardenCommand({
   profile = "standard",
   config = true,
   ci = true,
+  guidelines = true,
   dryRun = false,
   json = false,
   logger = console,
@@ -79,7 +81,15 @@ export async function hardenCommand({
   const wf = withCi
     ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, profile, dryRun })
     : null;
-  const out = { ok: true, ...result, configs: cfg?.configs ?? [], workflows: wf?.workflows ?? [] };
+  const withGuidelines = guidelines && profile !== "minimal";
+  const gl = withGuidelines ? installGuidelines({ projectDir, dryRun }) : null;
+  const out = {
+    ok: true,
+    ...result,
+    configs: cfg?.configs ?? [],
+    workflows: wf?.workflows ?? [],
+    guidelines: gl?.guidelines ?? [],
+  };
 
   if (json) {
     logger.info?.(JSON.stringify(out));
@@ -91,6 +101,7 @@ export async function hardenCommand({
   for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
   for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}`);
   for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
+  for (const g of out.guidelines) logger.info?.(`  • ${g.file}: ${g.action}`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check` (H-E).");
   return out;
 }
