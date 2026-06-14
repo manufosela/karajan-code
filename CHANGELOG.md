@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-06-14
+
+Patch. PHP becomes a first-class language in the quality harness.
+
+### Added
+
+- **PHP support in `kj harden`** (KJC-TSK-0563): `detectStackRoots` now recognises `composer.json` → `php` (aligning the harden detector with `detectProjectStack`, which already knew it), and the harden maps gain PHP — native hook commands (`vendor/bin/phpstan analyse`, `php-cs-fixer fix --dry-run`, `vendor/bin/phpunit`), a `phpstan.neon` config (level 6) seeded as a `kj:managed` block, and a `setup-php` Quality CI workflow. A PHP repo is now hardened like JS/Python/Go — native tooling, no npm/Node imposed at commit time — and `kj check` inherits the PHP config drift checks automatically. The PHP RAG AST grammar (tree-sitter) is intentionally out of scope.
+
 ## [3.5.0] - 2026-06-14
 
 Minor. **Quality harness** — `kj harden` + `kj check` (epic KJC-PCS-0059): the guardrails Karajan was built with, installable into any repo (new or existing) in one command, then verifiable as a CI drift gate.
