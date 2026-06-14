@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.4.2 released** — Hotfix: `npm install karajan-code@3.4.1` crashed at `kj --version` because the bundled `@karajan/core` dragged in `sqlite-vec` (which ships `files: []`) without its entry point. `@karajan/core`'s runtime deps are now `peerDependencies`, so they resolve complete from the consumer's top-level install. Clean install verified end-to-end. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.5.0 released** — Quality harness: `kj harden` brings the guardrails Karajan was built with to any repo in one command — idempotent git hooks, lint/format/commit config, CI quality gates and agent guidelines, all stack-aware and behind `kj:managed` markers that never overwrite your content. Native per-language hook commands mean hardening a Go/Python/Java repo never makes Node a commit-time dependency. `kj check` verifies the harness as a CI drift gate, and `kj init` installs it out of the box. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 

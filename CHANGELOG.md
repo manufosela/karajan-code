@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-06-14
+
+Minor. **Quality harness** — `kj harden` + `kj check` (epic KJC-PCS-0059): the guardrails Karajan was built with, installable into any repo (new or existing) in one command, then verifiable as a CI drift gate.
+
+### Added
+
+- **`kj harden`** — installs the quality harness, idempotent and stack-aware, never overwriting content outside its `kj:managed` markers:
+  - **Git hooks** under `.karajan/hooks/` via `core.hooksPath` (never fights husky/simple-git-hooks): pre-commit lint+format, commit-msg (Conventional Commits + 100-char cap + AI-attribution block — pure POSIX, no Node), pre-push tests + git-identity guard, post-merge reindex. **Native per-language commands** (`go vet`/`gofmt`/`go test`, `ruff`/`pytest`, npm scripts) so hardening a Go/Python/Java repo never makes Node a commit-time dependency (KJC-TSK-0555, 0562).
+  - **Config** seeded if absent: `.editorconfig`, `commitlint.config.js`, and per-language lint/format — `eslint.config.js` with an ES2025 deprecated-API blacklist (`var`/`document.write`/`alert`/`escape`/`substr`…) + `prettier` for JS/TS, `ruff.toml` (pyupgrade) for Python, `.golangci.yml` for Go. In a fullstack monorepo each language gets its config inside its own root (KJC-TSK-0556, 0561).
+  - **CI workflows**: a Block-AI-attribution gate, a stack-aware Quality workflow, plus shrink-budget (strict profile) and pack-smoke (publishable npm packages) (KJC-TSK-0557).
+  - **Agent guidelines**: a distilled rule set seeded into `AGENTS.md`/`CLAUDE.md`, cleanly migrating any legacy dev-hooks block (KJC-TSK-0559).
+  - Profiles `minimal`/`standard`/`strict`; opt-outs `--no-config`/`--no-ci`/`--no-guidelines`; `--dry-run`, `--json`.
+- **`kj check`** — verifies the harness is present and intact (hooks executable + marked, `core.hooksPath`, config/workflows present), with exit 0/≠0 and `--json` for CI. Catches drift and the greenfield gap (a language added after hardening whose config was never seeded) with a run-`kj harden` hint (KJC-TSK-0558).
+- **`kj init`** now installs the harness through the same engine, so init and harden share one source of truth (opt out with `--no-harden`) (KJC-TSK-0560).
+- Managed-markers primitive (`src/utils/managed-markers.js`) — idempotent block upsert preserving everything outside the markers (KJC-TSK-0555).
+- Documented in `docs/GETTING-STARTED.md` (EN + ES).
+
+5 717/5 717 tests passing across 530 files.
+
 ## [3.4.2] - 2026-06-13
 
 Hotfix: `npm install karajan-code@3.4.1` rompía en `kj --version`.
