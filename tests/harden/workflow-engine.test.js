@@ -60,6 +60,13 @@ describe("installWorkflows", () => {
     expect(yaml.load(text).jobs.quality["runs-on"]).toBe("ubuntu-latest");
   });
 
+  it("php gets a setup-php Quality workflow", () => {
+    installWorkflows({ projectDir: dir, language: "php" });
+    const text = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(text).toContain("shivammathur/setup-php@v2");
+    expect(text).toContain("vendor/bin/phpunit");
+  });
+
   it("python gets ruff + pytest, javascript gets npm", () => {
     const py = mkdtempSync(join(tmpdir(), "kj-wf-py-"));
     installWorkflows({ projectDir: py, language: "python" });

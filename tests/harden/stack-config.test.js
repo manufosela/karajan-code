@@ -35,6 +35,12 @@ describe("installConfigs is stack-aware", () => {
     expect(has("eslint.config.js")).toBe(false);
   });
 
+  it("php seeds phpstan + universal, no JS tooling", () => {
+    installConfigs({ projectDir: dir, language: "php" });
+    expect(read("phpstan.neon")).toContain("level: 6");
+    expect(has("eslint.config.js")).toBe(false);
+  });
+
   it("an unknown language gets only the universal set (no tooling imposed)", () => {
     const res = installConfigs({ projectDir: dir, language: "ruby" });
     expect(res.configs.map((c) => c.file).sort()).toEqual([".editorconfig", "commitlint.config.js"]);

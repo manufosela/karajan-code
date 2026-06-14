@@ -78,6 +78,14 @@ const QUALITY_BY_LANGUAGE = {
     "      - run: go vet ./...",
     "      - run: go test ./...",
   ]),
+  php: header([
+    "      - uses: shivammathur/setup-php@v2",
+    "        with:",
+    "          php-version: '8.3'",
+    "      - run: composer install --no-interaction --no-progress",
+    "      - run: vendor/bin/phpstan analyse --no-progress",
+    "      - run: vendor/bin/phpunit",
+  ]),
 };
 QUALITY_BY_LANGUAGE.typescript = QUALITY_BY_LANGUAGE.javascript;
 

@@ -36,6 +36,11 @@ describe("detectStackRoots", () => {
     expect(detectStackRoots(root)).toEqual([{ dir: ".", language: "typescript" }]);
   });
 
+  it("detects php from composer.json", () => {
+    touch("composer.json", "{}");
+    expect(detectStackRoots(root)).toEqual([{ dir: ".", language: "php" }]);
+  });
+
   it("detects each side of a fullstack monorepo", () => {
     touch("frontend/package.json", "{}");
     touch("backend/pyproject.toml", "");
