@@ -1549,6 +1549,14 @@ v3.4.1 traía la limpieza post-Phase-1 (journal en todos los finales KJC-BUG-008
 
 v3.4.2 ataca la causa raíz por dos vías. **Resolución**: las deps de runtime de core (better-sqlite3, execa, sqlite-vec) pasan a `peerDependencies`, resueltas completas desde el install del consumidor. **Proceso**: `scripts/verify-pack.mjs` empaqueta el tarball real, lo instala en un tmpdir aislado y ejecuta `kj --version` / `--help`, enganchado como `prepublishOnly` (el publish se aborta solo si el artefacto no arranca) y como job de CI `pack-smoke` en cada PR (KJC-TSK-0553). Un test de regresión `core-no-bundled-deps` congela el contrato de dependencias. v3.4.1 quedó deprecada en npm; v3.4.2 es el primer install 3.x completamente limpio.
 
+## Fase 93: v3.5.0 — Harness de calidad (kj harden + kj check) (v3.5.0)
+
+La épica que convierte "cómo se construyó Karajan" en superficie de producto. `kj harden` (KJC-PCS-0059) instala todo el harness de calidad en cualquier repo —nuevo o existente— en un comando: hooks de git, config de lint/formato/commits, gates de CI y guías para agentes IA, todo idempotente, consciente del stack y delimitado por marcadores `kj:managed` que nunca sobrescriben el contenido del usuario.
+
+La restricción definitoria es **no imponer runtime ajeno**. Los hooks instalados llaman al toolchain del propio proyecto —`go vet`/`gofmt`/`go test` en Go, `ruff`/`pytest` en Python, scripts de package.json en JS/TS— y el hook commit-msg (Conventional Commits + tope de 100 caracteres + bloqueo de atribución a IA) es POSIX puro. Así, endurecer un repo Go, Python o Java nunca convierte a Node en dependencia de commit de sus contribuidores; Node hace falta una vez, en quien ejecuta `kj harden`. Un monorepo fullstack se detecta por raíz de lenguaje, y cada lado recibe su config en su propia carpeta.
+
+`kj check` verifica el harness como gate de deriva en CI (exit 0/≠0, `--json`) y aflora el hueco del greenfield —un lenguaje añadido tras endurecer cuya config nunca se sembró—. `kj init` ejecuta el mismo motor, así que un proyecto recién inicializado queda endurecido de serie. La lógica del harness y la generación de guías se absorbieron del `dev-toolkit` del autor, de modo que Karajan no depende de ningún MCP externo. Once PRs en nueve slices (H-A…H-G + H-B2 + H-C2); 5 717 tests verdes; install limpio verificado.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

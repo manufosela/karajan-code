@@ -1550,6 +1550,14 @@ v3.4.1 carried the post-Phase-1 cleanup (journal-on-every-ending KJC-BUG-0084, a
 
 v3.4.2 fixes the root cause two ways. **Resolution**: core's runtime deps (better-sqlite3, execa, sqlite-vec) become `peerDependencies`, resolved complete from the consumer's top-level install. **Process**: `scripts/verify-pack.mjs` packs the real tarball, installs it into an isolated tmpdir and runs `kj --version` / `--help`, wired as `prepublishOnly` (the publish aborts itself if the artifact does not start) and as the `pack-smoke` CI job on every PR (KJC-TSK-0553). A `core-no-bundled-deps` regression test freezes the dependency contract. v3.4.1 was deprecated on npm; v3.4.2 is the first fully-clean 3.x install.
 
+## Phase 93: v3.5.0 — Quality harness (kj harden + kj check) (v3.5.0)
+
+The epic that turns "the way Karajan was built" into a product surface. `kj harden` (KJC-PCS-0059) installs the whole quality harness into any repo — new or existing — in one command: git hooks, lint/format/commit config, CI quality gates and AI-agent guidelines, all idempotent, stack-aware, and bounded by `kj:managed` markers that never overwrite the user's content.
+
+The defining constraint is **no imposed runtime**. The installed hooks call the project's own toolchain — `go vet`/`gofmt`/`go test` for Go, `ruff`/`pytest` for Python, package.json scripts for JS/TS — and the commit-msg hook (Conventional Commits + 100-char cap + AI-attribution block) is pure POSIX. So hardening a Go, Python or Java repo never makes Node a commit-time dependency for its contributors; Node is needed once, by whoever runs `kj harden`. A fullstack monorepo is detected per language root, so each side gets its own config in its own folder.
+
+`kj check` verifies the harness as a CI drift gate (exit 0/≠0, `--json`) and surfaces the greenfield gap — a language added after hardening whose config was never seeded. `kj init` runs the same engine, so a freshly initialised project is hardened out of the box. The harness logic and guideline generation were absorbed from the author's `dev-toolkit` so Karajan depends on no external MCP. Eleven PRs across nine slices (H-A…H-G + H-B2 + H-C2); 5 717 tests passing; clean install verified.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

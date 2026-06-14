@@ -60,8 +60,8 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Codebase Health Audit" icon="magnifier">
     Read-only analysis across 5 dimensions: security, code quality (SOLID/DRY/KISS/YAGNI), performance, architecture, and testing. Generates a health report with A/B/C/D/F scores per dimension and prioritized recommendations without modifying any files.
   </Card>
-  <Card title="5 600+ Automated Tests" icon="approve-check">
-    517 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), the **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge), and the new **cache-friendly prompt layout** (Phase 1 — stable/volatile buckets, claude system-split, prefix-stability regression suite). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
+  <Card title="5 700+ Automated Tests" icon="approve-check">
+    530 test files covering every pipeline role (incl. rag-context-stage + tool-correctness judge + TDD-discipline gate), guard, config option, MCP tool (27 total), the full HU Board package (writable settings modal + shared-plan badge + per-HU assignee + canonical statuses API + cross-provider cache badge), the Project RAG subsystem with multi-language AST chunkers (Python, Rust, Go, Java), hybrid mode + rerank + MMR diversification, golden-query recall@k / MRR harness, the retrieval dashboard, the team-shared HU cohort workflow, the semantic test-diet auditor (KJC-TSK-0345), the **cross-provider cache observability subsystem** (Phase 0 — anthropic/openai/gemini/aider/opencode usage normalization, BudgetTracker breakdown, telemetry computeCachedPct, board badge), and the new **cache-friendly prompt layout** (Phase 1 — stable/volatile buckets, claude system-split, prefix-stability regression suite). Full suite runs in around 60 s with Vitest. Opt-in subsystems (brain, ci, sonar, hu-board, webperf) are labelled `[opt-in: <feature>]` so fast feedback loops can skip them via `KJ_SKIP_ALL_OPTIN=1`. **Coverage v8 reports** (`text + html + lcov`) ship as a CI artifact since v2.32 — see KJC-TSK-0465.
   </Card>
   <Card title="Zero-Config Pipeline" icon="setting">
     Auto-detects TDD based on project test framework. Auto-manages SonarQube Docker lifecycle and config generation. Skips sonar/TDD for infra and doc tasks automatically. Simple tasks run lightweight (coder-only), complex tasks get full pipeline — automatically based on triage.
@@ -221,6 +221,9 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   </Card>
   <Card title="Never ships broken (v3.4.2)" icon="approve-check">
     A **pre-publish gate** packs the real npm tarball, installs it clean and isolated, and actually runs it (`kj --version` / `--help`) **before every publish** — wired as `prepublishOnly` and as the `pack-smoke` CI job on every PR. The test suite proves the linked workspace; this proves the artifact users receive. Born from three releases that shipped unable to run `-v`; now the publish aborts itself if the tarball doesn't start. Drop-in upgrade from v3.4.0.
+  </Card>
+  <Card title="Quality harness — kj harden + kj check (v3.5)" icon="approve-check">
+    `kj harden` brings the guardrails Karajan was built with to **any** repo in one command: idempotent git hooks, lint/format/commit config, CI quality gates and agent guidelines — all **stack-aware** and behind `kj:managed` markers that never overwrite your content. **Native per-language hook commands** (`go vet`/`ruff`/npm…) mean hardening a Go, Python or Java repo **never makes Node a commit-time dependency**; the commit-msg hook is pure POSIX (Conventional Commits + AI-attribution block). A fullstack monorepo gets each language's config inside its own folder. `kj check` verifies the harness as a CI drift gate (exit 0/≠0, `--json`), and `kj init` installs it out of the box. Drop-in upgrade from v3.4.2.
   </Card>
 </CardGrid>
 
@@ -755,7 +758,7 @@ Both measurement runs finished APPROVED with the final audit CERTIFIED. The cold
 **Why a minor**. Additive feature, no breaking changes to API or CLI surface.
 
 
-### v3.4.2 — Post-Phase-1 hardening + install hotfix (current)
+### v3.4.2 — Post-Phase-1 hardening + install hotfix
 
 A maintenance line on top of v3.4.0. Three observability fixes found while measuring Phase 1, the top of the v3.4.0 self-audit (run with claude-fable-5), and — most importantly — a **pre-publish gate** so a broken artifact can never ship again.
 
@@ -766,3 +769,17 @@ A maintenance line on top of v3.4.0. Three observability fixes found while measu
 **Why it won't happen again**: the published tarball is now packed, installed clean in isolation, and actually run (`kj --version` / `--help`) **before every publish** via a `prepublishOnly` gate, and on every PR via the `pack-smoke` CI job (KJC-TSK-0553). The test suite proved the linked workspace; this proves the artifact users receive.
 
 **Upgrade from any 3.x** — v3.4.2 is the first fully-clean 3.x npm install.
+
+### v3.5.0 — Quality harness: kj harden + kj check (current)
+
+The **quality harness** epic (KJC-PCS-0059): the guardrails Karajan was built with, installable into any repo — new or existing — in one command, then verifiable as a CI drift gate.
+
+**`kj harden`** is idempotent, stack-aware, and never overwrites content outside its `kj:managed` markers. It installs git hooks under `.karajan/hooks/` (via `core.hooksPath`, so it never fights husky), config seeded if absent (`.editorconfig`, `commitlint`, and per-language lint/format — eslint with an ES2025 deprecated-API blacklist + prettier for JS/TS, `ruff` for Python, `.golangci.yml` for Go), CI workflows (AI-attribution gate, stack-aware Quality, shrink-budget on strict, pack-smoke on publishable npm), and agent guidelines into `AGENTS.md`/`CLAUDE.md`.
+
+**The key design choice**: hook lint/format/test commands are **native to the detected language**, and the commit-msg hook is pure POSIX. So hardening a Go, Python or Java repo **never drags Node onto a contributor's machine** — Node is only needed once, by whoever runs `kj harden`. In a fullstack monorepo each language root gets its own config.
+
+**`kj check`** verifies the harness is present and intact (hooks executable + marked, `core.hooksPath`, config/workflows present), with exit 0/≠0 and `--json` for CI. It catches drift — a deleted hook, a stripped marker — and the greenfield gap: a language you added *after* hardening whose config was never seeded.
+
+**`kj init`** now runs the same engine, so a freshly initialised project is hardened out of the box (`--no-harden` to opt out). 5 717 tests passing; clean install verified.
+
+**Why a minor**. Additive feature, no breaking changes.
