@@ -7,7 +7,9 @@ const KNOWN_AGENTS = [
   { name: "codex", install: getInstallCommand("codex") },
   { name: "gemini", install: getInstallCommand("gemini") },
   { name: "aider", install: getInstallCommand("aider") },
-  { name: "opencode", install: getInstallCommand("opencode") }
+  { name: "opencode", install: getInstallCommand("opencode") },
+  { name: "copilot", install: getInstallCommand("copilot") },
+  { name: "pi", install: getInstallCommand("pi") }
 ];
 
 export async function checkBinary(name, versionArg = "--version") {
@@ -18,10 +20,10 @@ export async function checkBinary(name, versionArg = "--version") {
 }
 
 export async function detectAvailableAgents() {
-  // PR-J (audit quick win): probe the 5 agent binaries in parallel
+  // PR-J (audit quick win): probe the agent binaries in parallel
   // via Promise.all instead of awaiting in a for-of. checkBinary is
   // a pure shell-out (no shared state), so serialising them was
-  // wasted latency. With 5 agents at ~80ms each: O(n) → O(1).
+  // wasted latency. With N agents at ~80ms each: O(n) → O(1).
   return Promise.all(
     KNOWN_AGENTS.map(async (agent) => {
       const check = await checkBinary(agent.name);
@@ -44,6 +46,8 @@ export function detectHostAgent() {
   if (process.env.CODEX_CLI === "1" || process.env.CODEX === "1") return "codex";
   if (process.env.GEMINI_CLI === "1") return "gemini";
   if (process.env.OPENCODE === "1") return "opencode";
+  if (process.env.COPILOT_CLI === "1") return "copilot";
+  if (process.env.PI_CLI === "1") return "pi";
   return null;
 }
 

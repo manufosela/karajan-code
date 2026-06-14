@@ -7,7 +7,7 @@ import { resetRetryCount } from "../session/mutators.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { invokeSolomon } from "./solomon-escalation.js";
 
-const KNOWN_AGENTS = ["claude", "codex", "gemini"];
+const KNOWN_AGENTS = ["claude", "codex", "gemini", "copilot", "pi"];
 
 /**
  * Build an ordered fallback chain for a role.
