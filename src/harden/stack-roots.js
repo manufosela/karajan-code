@@ -39,6 +39,7 @@ export function languageAt(dir) {
   }
   if (["pyproject.toml", "requirements.txt", "setup.py"].some((f) => existsSync(join(dir, f)))) return "python";
   if (existsSync(join(dir, "go.mod"))) return "go";
+  if (existsSync(join(dir, "composer.json"))) return "php";
   return null;
 }
 

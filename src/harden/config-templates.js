@@ -103,10 +103,15 @@ export const JS_CONFIGS = [
 export const PY_CONFIGS = [{ file: "ruff.toml", blockId: "ruff", style: "hash", body: RUFF_BODY }];
 export const GO_CONFIGS = [{ file: ".golangci.yml", blockId: "golangci", style: "hash", body: GOLANGCI_BODY }];
 
+// PHPStan static analysis — the PHP analogue of ruff/golangci.
+export const PHPSTAN_BODY = ["parameters:", "  level: 6", "  paths:", "    - src", "    - tests"].join("\n");
+export const PHP_CONFIGS = [{ file: "phpstan.neon", blockId: "phpstan", style: "hash", body: PHPSTAN_BODY }];
+
 /** Lint/format configs by detected language. Unknown ⇒ universal only. */
 export const CONFIGS_BY_LANGUAGE = {
   javascript: JS_CONFIGS,
   typescript: JS_CONFIGS,
   python: PY_CONFIGS,
   go: GO_CONFIGS,
+  php: PHP_CONFIGS,
 };

@@ -12,6 +12,11 @@
 export const COMMANDS_BY_LANGUAGE = {
   python: { lint: "ruff check .", format: "ruff format --check .", test: "pytest" },
   go: { lint: "go vet ./...", format: 'test -z "$(gofmt -l .)"', test: "go test ./..." },
+  php: {
+    lint: "vendor/bin/phpstan analyse --no-progress",
+    format: "vendor/bin/php-cs-fixer fix --dry-run --diff",
+    test: "vendor/bin/phpunit",
+  },
 };
 
 /** Native commands for a language, or {} when JS/TS or unknown. */
