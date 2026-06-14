@@ -4,11 +4,30 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execa } from "execa";
 
 import { openVecStore, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProjectDelta } from "./indexer.js";
 import { makeEmbedder } from "./embedders/factory.js";
+
+// Defensive lazy-load for execa — may not be available in projects that only
+// use kj as an external CLI (they don't list it in their own deps).
+const execaCache = { loaded: false, execa: null };
+
+async function getExeca() {
+  if (execaCache.loaded) return execaCache.execa;
+  execaCache.loaded = true;
+  try {
+    execaCache.execa = (await import("execa")).execa;
+  } catch (err) {
+    // Only treat module-not-found as optional-dep; rethrow other errors
+    if (err?.code === "ERR_MODULE_NOT_FOUND" || err?.message?.includes("Cannot find module")) {
+      execaCache.execa = null;
+    } else {
+      throw err;
+    }
+  }
+  return execaCache.execa;
+}
 
 const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-hooks/post-merge");
 
@@ -16,8 +35,14 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   // commander turns `--no-rag-update` into flags.ragUpdate === false.
   if (flags?.ragUpdate === false || config?.rag?.autoUpdate?.onRun === false) return { skipped: true };
   if (!projectDir || !existsSync(join(projectDir, ".git"))) return { skipped: true };
+  // execa not available → skip RAG drift check (non-blocking, see KJC-BUG-0082)
+  const execaFn = await getExeca();
+  if (!execaFn) {
+    logger.debug?.("[rag] skipping auto-update: execa not available");
+    return { skipped: true, reason: "execa not available" };
+  }
   let head;
-  try { const r = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]); head = r.stdout.trim(); }
+  try { const r = await execaFn("git", ["-C", projectDir, "rev-parse", "HEAD"]); head = r.stdout.trim(); }
   catch { return { skipped: true }; }
   const slug = projectSlug(projectDir);
   const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
