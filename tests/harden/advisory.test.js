@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildManagedBlock } from "../../src/utils/managed-markers.js";
-import { compareHarden } from "../../src/harden/advisory.js";
+import { compareHarden, formatAdvisoryReport } from "../../src/harden/advisory.js";
 
 let root;
 const touch = (rel, content = "") => {
@@ -70,5 +70,21 @@ describe("compareHarden", () => {
     expect(find(artifacts, "eslint", "frontend")).toMatchObject({ status: "USER_OWNED", foundAt: join("frontend", "eslint.config.js") });
     expect(find(artifacts, "ruff", "backend").status).toBe("MISSING");
     expect(() => JSON.stringify(artifacts)).not.toThrow();
+  });
+});
+
+describe("formatAdvisoryReport", () => {
+  it("renders a line per artifact, indented improvements, and a tally", () => {
+    touch("commitlint.config.js", "export default { rules: {} };");
+    const lines = formatAdvisoryReport(compareHarden({ projectDir: root }));
+    const text = lines.join("\n");
+    expect(text).toContain("advisory report (read-only)");
+    expect(text).toMatch(/~ review\s+commitlint\.config\.js/);
+    expect(text).toContain("      • caps the commit header at 100 chars");
+    expect(lines.at(-1)).toMatch(/artifact\(s\) ·/);
+  });
+
+  it("handles an empty comparison (minimal profile)", () => {
+    expect(formatAdvisoryReport({ artifacts: [] })[0]).toMatch(/nothing to compare/);
   });
 });

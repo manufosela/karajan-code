@@ -75,6 +75,22 @@ describe("hardenCommand", () => {
     expect(res.configs.some((c) => c.file.includes("wrappers"))).toBe(false);
   });
 
+  it("--report is read-only and emits the advisory (KJC-TSK-0566)", async () => {
+    writeFileSync(join(repo, "package.json"), "{}");
+    const res = await hardenCommand({ projectDir: repo, report: true, logger });
+    expect(res).toMatchObject({ ok: true, report: true });
+    expect(Array.isArray(res.artifacts)).toBe(true);
+    expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(false);
+    expect(logger.info.mock.calls.flat().join("\n")).toContain("advisory report");
+  });
+
+  it("--report --json emits the structured comparison", async () => {
+    writeFileSync(join(repo, "package.json"), "{}");
+    await hardenCommand({ projectDir: repo, report: true, json: true, logger });
+    const payload = JSON.parse(logger.info.mock.calls.at(-1)[0]);
+    expect(Array.isArray(payload.artifacts)).toBe(true);
+  });
+
   it("returns ok:false on a non-repo dir without throwing", async () => {
     const plain = mkdtempSync(join(tmpdir(), "kj-plain-"));
     const res = await hardenCommand({ projectDir: plain, logger });

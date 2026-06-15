@@ -133,10 +133,10 @@ export function classifyArtifact(searchDir, artifact) {
  * own root (monorepo-aware, mirroring installConfigsForRoots). `minimal`
  * profile ships no config, so there is nothing to compare.
  */
-export function compareHarden({ projectDir = process.cwd(), profile = "standard" } = {}) {
+export function compareHarden({ projectDir = process.cwd(), profile = "standard", only = [], exclude = [] } = {}) {
   if (profile === "minimal") return { artifacts: [] };
   const artifacts = UNIVERSAL_CONFIGS.map((cfg) => ({ dir: ".", ...classifyArtifact(projectDir, toArtifact(cfg)) }));
-  for (const { dir, language } of detectStackRoots(projectDir)) {
+  for (const { dir, language } of detectStackRoots(projectDir, { only, exclude })) {
     const searchDir = dir === "." ? projectDir : join(projectDir, dir);
     for (const cfg of CONFIGS_BY_LANGUAGE[language] ?? []) {
       const res = classifyArtifact(searchDir, toArtifact(cfg));
@@ -144,4 +144,25 @@ export function compareHarden({ projectDir = process.cwd(), profile = "standard"
     }
   }
   return { artifacts };
+}
+
+const MARK = { install: "+", update: "↑", review: "~", keep: "✓" };
+
+/**
+ * Render a compareHarden() result as human-readable lines (Advisory B). Pure:
+ * returns an array of strings, prints nothing. One line per artifact, indented
+ * bullets for each improvement, then a one-line tally.
+ */
+export function formatAdvisoryReport({ artifacts = [] } = {}) {
+  if (artifacts.length === 0) return ["kj harden — nothing to compare (minimal profile or empty repo)."];
+  const lines = ["kj harden — advisory report (read-only)", ""];
+  const tally = { install: 0, update: 0, review: 0, keep: 0 };
+  for (const a of artifacts) {
+    tally[a.recommendation] = (tally[a.recommendation] ?? 0) + 1;
+    const path = a.foundAt ?? (a.dir === "." ? a.file : join(a.dir, a.file));
+    lines.push(`  ${MARK[a.recommendation] ?? "·"} ${a.recommendation.padEnd(7)} ${path} — ${a.rationale}`);
+    for (const imp of a.improvements ?? []) lines.push(`      • ${imp.detail}`);
+  }
+  lines.push("", `${artifacts.length} artifact(s) · ${tally.install} missing · ${tally.review} to review · ${tally.update} outdated · ${tally.keep} ok`);
+  return lines;
 }
