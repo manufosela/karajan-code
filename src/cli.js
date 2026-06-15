@@ -41,6 +41,21 @@ program
   .allowUnknownOption(true)
   .allowExcessArguments(true);
 
+// KJC-TSK-0571: the command list is long (30+). Orient a newcomer to the few
+// commands they actually need; the rest are advanced/internal.
+program.addHelpText(
+  "after",
+  `
+Getting started (the basics — start here):
+  kj init             Set up Karajan in this project (run once)
+  kj run "<task>"     Build or fix something end-to-end (coder + review)
+  kj plan "<task>"    Break a task into user stories first, then run them
+  kj doctor           Check your environment is ready
+  kj harden           Add quality git hooks + CI to any repo
+
+Everything else is advanced or internal — you rarely call it directly.`
+);
+
 registerPipeline(program, { pkgVersion: PKG_VERSION });
 registerPlan(program, { pkgVersion: PKG_VERSION });
 registerRolesSkills(program, { pkgVersion: PKG_VERSION });
@@ -116,7 +131,6 @@ program.action(async (_opts, command) => {
 try {
   await migrateKjToKarajan();
 } catch (err) {
-  // eslint-disable-next-line no-console
   console.warn(`\x1b[33m[warn]\x1b[0m home migration skipped: ${err.message}`);
 }
 
