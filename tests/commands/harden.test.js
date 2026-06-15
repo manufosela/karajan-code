@@ -91,6 +91,13 @@ describe("hardenCommand", () => {
     expect(Array.isArray(payload.artifacts)).toBe(true);
   });
 
+  it("--interactive without a TTY falls back to a normal install (KJC-TSK-0567)", async () => {
+    // vitest has no TTY, so the interactive branch is skipped and seed-if-absent runs.
+    const res = await hardenCommand({ projectDir: repo, interactive: true, logger });
+    expect(res.ok).toBe(true);
+    expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(true);
+  });
+
   it("returns ok:false on a non-repo dir without throwing", async () => {
     const plain = mkdtempSync(join(tmpdir(), "kj-plain-"));
     const res = await hardenCommand({ projectDir: plain, logger });
