@@ -408,6 +408,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--no-guidelines", "Skip AI-agent guideline files (AGENTS.md/CLAUDE.md)")
     .option("--only <dirs...>", "Harden only these language roots (e.g. frontend backend)")
     .option("--exclude <globs...>", "Skip language roots matching these globs (e.g. wrappers)")
+    .option("--report", "Read-only: show what kj would add/improve, change nothing")
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
     .action(async (flags) => {
@@ -419,6 +420,7 @@ export function registerMeta(program, { pkgVersion }) {
           guidelines: flags.guidelines !== false,
           only: flags.only ?? [],
           exclude: flags.exclude ?? [],
+          report: Boolean(flags.report),
           dryRun: Boolean(flags.dryRun),
           json: Boolean(flags.json),
           logger,

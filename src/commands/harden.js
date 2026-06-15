@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
@@ -75,6 +76,7 @@ export async function hardenCommand({
   guidelines = true,
   dryRun = false,
   json = false,
+  report = false,
   only = [],
   exclude = [],
   logger = console,
@@ -82,6 +84,17 @@ export async function hardenCommand({
   const repoCfg = readHardenConfig(projectDir);
   const onlyDirs = [...(repoCfg.only ?? []), ...only];
   const excludeDirs = [...(repoCfg.exclude ?? []), ...exclude];
+
+  // --report is read-only: compare against the kj standard and print/emit the
+  // advisory (Advisory B, KJC-TSK-0566), honouring the same scope as an install
+  // so it never proposes a root that `kj harden` would skip. Writes nothing.
+  if (report) {
+    const result = compareHarden({ projectDir, profile, only: onlyDirs, exclude: excludeDirs });
+    if (json) logger.info?.(JSON.stringify(result));
+    else for (const line of formatAdvisoryReport(result)) logger.info?.(line);
+    return { ok: true, report: true, ...result };
+  }
+
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
   const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
   let result;
