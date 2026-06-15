@@ -25,6 +25,35 @@ const EQUIVALENTS = {
   prettier: { files: [".prettierrc", ".prettierrc.js", ".prettierrc.yaml", "prettier.config.js"], pkgKey: "prettier" },
 };
 
+// Concrete gains kj's standard would add to a USER_OWNED config, detected by
+// substring probes (no AST parse): each probe absent from the user's content
+// becomes one improvement. Heuristic by design — conservative, never a false
+// "you're missing this" when the signal is clearly present.
+const IMPROVEMENTS = {
+  eslint: [
+    { needle: "no-var", id: "no-var", detail: "bans var (ES2025: const/let)" },
+    { needle: "no-restricted-globals", id: "no-legacy-globals", detail: "bans alert/confirm/prompt, escape/unescape" },
+    { needle: "no-restricted-properties", id: "no-legacy-apis", detail: "bans document.write, substr" },
+  ],
+  commitlint: [
+    { needle: "header-max-length", id: "header-max-length", detail: "caps the commit header at 100 chars" },
+    { needle: "subject-case", id: "subject-case", detail: "enforces a lowercase subject" },
+  ],
+  prettier: [{ needle: "printWidth", id: "print-width", detail: "pins printWidth (consistent wrapping)" }],
+  editorconfig: [
+    { needle: "insert_final_newline", id: "final-newline", detail: "enforces a final newline" },
+    { needle: "charset", id: "charset", detail: "pins charset = utf-8" },
+    { needle: "trim_trailing_whitespace", id: "trim-trailing", detail: "trims trailing whitespace" },
+  ],
+};
+
+/** Improvements kj would add to the user's own config for `artifactId`. */
+function improvementsFor(artifactId, content) {
+  return (IMPROVEMENTS[artifactId] ?? [])
+    .filter((probe) => !content.includes(probe.needle))
+    .map(({ id, detail }) => ({ id, detail }));
+}
+
 /** Build an artifact descriptor from a config-template entry. */
 function toArtifact(cfg) {
   const id = cfg.blockId ?? "prettier"; // the only marker-less JSON config is prettier
@@ -70,7 +99,12 @@ function readArtifactContent(searchDir, foundAt) {
 /** Map a classified state to a recommendation + human rationale. */
 function recommend(state) {
   if (state.status === "MISSING") return { recommendation: "install", rationale: `kj would add ${state.file}`, mergeable: true };
-  if (state.status === "USER_OWNED") return { recommendation: "keep", rationale: "your own config — kept by default", mergeable: false };
+  if (state.status === "USER_OWNED") {
+    const n = state.improvements?.length ?? 0;
+    return n === 0
+      ? { recommendation: "keep", rationale: "your own config — already covers the kj standard", mergeable: false }
+      : { recommendation: "review", rationale: `your own config — kj could add ${n} improvement(s)`, mergeable: true };
+  }
   if (state.upToDate) return { recommendation: "keep", rationale: `managed by kj (v${state.managedVersion}), up to date`, mergeable: false };
   return { recommendation: "update", rationale: `kj v${state.currentVersion} available (you have v${state.managedVersion})`, mergeable: true };
 }
@@ -86,7 +120,7 @@ export function classifyArtifact(searchDir, artifact) {
       const { version } = findManagedBlock(content, artifact.blockId);
       state = { ...base, status: "KJ_MANAGED", managedVersion: version, upToDate: version != null && version >= artifact.currentVersion };
     } else {
-      state = { ...base, status: "USER_OWNED" };
+      state = { ...base, status: "USER_OWNED", improvements: improvementsFor(artifact.id, content) };
     }
   }
   const head = { id: artifact.id, file: artifact.file, currentVersion: artifact.currentVersion };

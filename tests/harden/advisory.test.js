@@ -38,9 +38,21 @@ describe("compareHarden", () => {
     expect(find(run(), "commitlint")).toMatchObject({ upToDate: false, recommendation: "update" });
   });
 
-  it("treats a user's own config as USER_OWNED, kept by default", () => {
+  it("lists concrete improvements for a thin USER_OWNED config", () => {
     touch("commitlint.config.js", "export default { rules: {} };");
-    expect(find(run(), "commitlint")).toMatchObject({ status: "USER_OWNED", recommendation: "keep" });
+    const commitlint = find(run(), "commitlint");
+    expect(commitlint).toMatchObject({ status: "USER_OWNED", recommendation: "review", mergeable: true });
+    expect(commitlint.improvements.map((i) => i.id)).toEqual(["header-max-length", "subject-case"]);
+  });
+
+  it("keeps a USER_OWNED config that already covers the kj standard", () => {
+    touch("commitlint.config.js", 'rules: { "header-max-length": 1, "subject-case": 2 }');
+    expect(find(run(), "commitlint")).toMatchObject({
+      status: "USER_OWNED",
+      recommendation: "keep",
+      improvements: [],
+      mergeable: false,
+    });
   });
 
   it("recognizes equivalent formats (legacy eslintrc, package.json key) — no false MISSING", () => {
