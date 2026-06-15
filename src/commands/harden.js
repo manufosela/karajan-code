@@ -10,6 +10,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
+import { interactiveHarden } from "../harden/interactive.js";
+import { createWizard, isTTY } from "../utils/wizard.js";
 import { installConfigsForRoots } from "../harden/config-engine.js";
 import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
@@ -77,6 +79,7 @@ export async function hardenCommand({
   dryRun = false,
   json = false,
   report = false,
+  interactive = false,
   only = [],
   exclude = [],
   logger = console,
@@ -93,6 +96,25 @@ export async function hardenCommand({
     if (json) logger.info?.(JSON.stringify(result));
     else for (const line of formatAdvisoryReport(result)) logger.info?.(line);
     return { ok: true, report: true, ...result };
+  }
+
+  // --interactive: adopt the kj standard piece by piece, default-safe (keep the
+  // user's own). Only meaningful with a TTY — without one (CI, --json) we fall
+  // through to the normal seed-if-absent install so nothing breaks (KJC-TSK-0567).
+  if (interactive && isTTY() && !json) {
+    const wizard = createWizard();
+    try {
+      return await interactiveHarden({
+        projectDir,
+        profile,
+        only: onlyDirs,
+        exclude: excludeDirs,
+        ask: (prompt, def) => wizard.confirm(prompt, def),
+        logger,
+      });
+    } finally {
+      wizard.close();
+    }
   }
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });

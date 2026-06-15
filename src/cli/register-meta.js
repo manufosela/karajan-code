@@ -409,6 +409,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--only <dirs...>", "Harden only these language roots (e.g. frontend backend)")
     .option("--exclude <globs...>", "Skip language roots matching these globs (e.g. wrappers)")
     .option("--report", "Read-only: show what kj would add/improve, change nothing")
+    .option("--interactive", "Adopt the kj standard piece by piece (default keeps yours)")
     .option("--dry-run", "Show what would change without writing")
     .option("--json", "Emit machine-readable JSON")
     .action(async (flags) => {
@@ -421,6 +422,7 @@ export function registerMeta(program, { pkgVersion }) {
           only: flags.only ?? [],
           exclude: flags.exclude ?? [],
           report: Boolean(flags.report),
+          interactive: Boolean(flags.interactive),
           dryRun: Boolean(flags.dryRun),
           json: Boolean(flags.json),
           logger,
