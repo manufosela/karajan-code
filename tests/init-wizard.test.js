@@ -193,22 +193,10 @@ describe("initCommand", () => {
       confirm: vi.fn().mockResolvedValue(false),
       select: vi.fn()
         // KJC-BUG-0087: first run (no global config) no longer asks scope.
+        // KJC-TSK-0571: advanced agent routing is off by default (confirm→false),
+        // so the 10 per-role provider questions are skipped on a first run.
         .mockResolvedValueOnce("codex")        // coder
         .mockResolvedValueOnce("claude")       // reviewer
-        // KJC-TSK-0367: 10 per-role selects (planner, researcher,
-        // architect, tester, security, solomon, refactorer,
-        // impeccable, perf, hu_reviewer). Sentinel "__default__"
-        // means "inherit from coder/reviewer".
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
-        .mockResolvedValueOnce("__default__")
         .mockResolvedValueOnce("tdd")          // methodology
         .mockResolvedValueOnce("en")           // pipeline language
         .mockResolvedValueOnce("en"),          // HU language
@@ -219,9 +207,11 @@ describe("initCommand", () => {
     await initCommand({ logger, flags: {} });
 
     expect(detectAvailableAgents).toHaveBeenCalled();
-    // KJC-BUG-0087: no scope question on first run. 2 (agents) + 10 (per-role)
-    // + 3 (methodology/pipelineLang/huLang) = 15
-    expect(mockWizard.select).toHaveBeenCalledTimes(15);
+    // KJC-BUG-0087 + KJC-TSK-0571: no scope question, no per-role questions by
+    // default. 2 (agents) + 3 (methodology/pipelineLang/huLang) = 5
+    expect(mockWizard.select).toHaveBeenCalledTimes(5);
+    // per-role providers stay null (inherit) when advanced routing is declined
+    expect(writeConfig.mock.calls[0][1].roles.tester.provider).toBeNull();
     expect(writeConfig).toHaveBeenCalled();
     const writtenConfig = writeConfig.mock.calls[0][1];
     expect(writtenConfig.coder).toBe("codex");
@@ -597,5 +587,35 @@ describe("resolveConfigScope (KJC-BUG-0087)", () => {
     const res = await resolveConfigScope({ flags: {}, interactive: true });
     expect(createWizard).toHaveBeenCalled();
     expect(res.scope).toBe("local");
+  });
+});
+
+describe("askPerRoleProviders advanced gate (KJC-TSK-0571)", () => {
+  let askPerRoleProviders;
+  const logger = { info: vi.fn() };
+  const available = [
+    { name: "claude", available: true },
+    { name: "codex", available: true },
+  ];
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    ({ askPerRoleProviders } = (await import("../src/commands/init.js")).__test__);
+  });
+
+  it("ask=false initialises roles to inherit (provider null) WITHOUT asking", async () => {
+    const wizard = { select: vi.fn() };
+    const config = {};
+    await askPerRoleProviders(wizard, available, config, { coder: "claude", reviewer: "codex" }, logger, false);
+    expect(wizard.select).not.toHaveBeenCalled();
+    expect(config.roles.tester.provider).toBeNull();
+    expect(config.roles.architect.provider).toBeNull();
+  });
+
+  it("ask=true asks one question per role", async () => {
+    const wizard = { select: vi.fn().mockResolvedValue("__default__") };
+    const config = {};
+    await askPerRoleProviders(wizard, available, config, { coder: "claude", reviewer: "codex" }, logger, true);
+    expect(wizard.select).toHaveBeenCalledTimes(10);
   });
 });
