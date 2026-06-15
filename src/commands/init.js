@@ -686,16 +686,24 @@ export async function resolveConfigScope({ flags, interactive }) {
   if (flags?.global) return { configPath: getConfigPath(), scope: "global" };
   if (flags?.local) return { configPath: getProjectConfigPath(process.cwd()), scope: "local" };
   if (interactive) {
+    const globalPath = getConfigPath();
+    // KJC-BUG-0087: on a true first run (no global config yet) there is no
+    // meaningful choice — set up the global config and skip a cold question a
+    // newcomer has no context to answer. Only when a global already exists is
+    // "override just for this project?" an actual decision worth asking.
+    if (!(await exists(globalPath))) {
+      return { configPath: globalPath, scope: "global" };
+    }
     const wizard = createWizard();
     try {
       const choice = await wizard.select(
-        "Where do you want to save the config? (default: global)",
+        "You already have a global Karajan config. For this project, do you want to…",
         [
-          { value: "global", label: `Global (${getConfigPath()} — applies to all projects)` },
-          { value: "local",  label: `Local  (${getProjectConfigPath(process.cwd())} — overrides global for this project only)` },
+          { value: "global", label: "Use the global config (your default for every project)" },
+          { value: "local", label: `Override it just for this project (${getProjectConfigPath(process.cwd())})` },
         ]
       );
-      return { configPath: choice === "local" ? getProjectConfigPath(process.cwd()) : getConfigPath(), scope: choice };
+      return { configPath: choice === "local" ? getProjectConfigPath(process.cwd()) : globalPath, scope: choice };
     } finally {
       wizard.close();
     }
@@ -717,7 +725,11 @@ export async function initCommand({ logger, flags = {} }) {
   const reviewRulesPath = path.resolve(karajanDir, "review-rules.md");
   const coderRulesPath = path.resolve(karajanDir, "coder-rules.md");
 
-  const { config, exists: configExists } = await loadConfig();
+  const { config } = await loadConfig();
+  // KJC-BUG-0087: ask "reconfigure?" only when a config exists AT THE CHOSEN
+  // scope path — not when the global cascade has one. Picking local scope in a
+  // fresh dir must not report the unrelated global config as "already exists".
+  const configExists = await exists(configPath);
 
   // Auto-detect language from OS locale for non-interactive mode
   if (!interactive && !configExists) {

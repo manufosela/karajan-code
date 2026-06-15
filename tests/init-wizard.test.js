@@ -192,7 +192,7 @@ describe("initCommand", () => {
       ask: vi.fn().mockResolvedValue(""),  // branch_prefix only asked if auto_commit
       confirm: vi.fn().mockResolvedValue(false),
       select: vi.fn()
-        .mockResolvedValueOnce("global")       // KJC-TSK-0395: config scope
+        // KJC-BUG-0087: first run (no global config) no longer asks scope.
         .mockResolvedValueOnce("codex")        // coder
         .mockResolvedValueOnce("claude")       // reviewer
         // KJC-TSK-0367: 10 per-role selects (planner, researcher,
@@ -219,8 +219,9 @@ describe("initCommand", () => {
     await initCommand({ logger, flags: {} });
 
     expect(detectAvailableAgents).toHaveBeenCalled();
-    // 1 (KJC-TSK-0395 scope) + 2 (agents) + 10 (per-role) + 3 (methodology/pipelineLang/huLang) = 16
-    expect(mockWizard.select).toHaveBeenCalledTimes(16);
+    // KJC-BUG-0087: no scope question on first run. 2 (agents) + 10 (per-role)
+    // + 3 (methodology/pipelineLang/huLang) = 15
+    expect(mockWizard.select).toHaveBeenCalledTimes(15);
     expect(writeConfig).toHaveBeenCalled();
     const writtenConfig = writeConfig.mock.calls[0][1];
     expect(writtenConfig.coder).toBe("codex");
@@ -237,8 +238,13 @@ describe("initCommand", () => {
     mockWizard.close();
   });
 
-  it("asks to reconfigure when config already exists", async () => {
+  it("asks to reconfigure when a config exists at the chosen scope path", async () => {
     isTTY.mockReturnValue(true);
+    // KJC-BUG-0087: the prompt now keys off existence AT THE CHOSEN PATH.
+    // exists() true means the config file at configPath is present. --global
+    // pins the scope so no scope question is asked.
+    const { exists } = await import("../src/utils/fs.js");
+    exists.mockResolvedValue(true);
     loadConfig.mockResolvedValue({
       config: {
         coder: "claude",
@@ -259,7 +265,7 @@ describe("initCommand", () => {
     };
     createWizard.mockReturnValue(mockWizard);
 
-    await initCommand({ logger, flags: {} });
+    await initCommand({ logger, flags: { global: true } });
 
     expect(mockWizard.confirm).toHaveBeenCalledWith(
       expect.stringContaining("Reconfigure"),
@@ -558,5 +564,38 @@ describe("writeInitConfig — delegates to writeConfig (KJC-BUG-0034 / 0036)", (
     await writeInitConfig("/tmp/kj.config.yml", config);
     expect(config.sonarqube.enabled).toBe(false);
     expect(config.sonarqube.host).toBe("http://localhost:9000");
+  });
+});
+
+describe("resolveConfigScope (KJC-BUG-0087)", () => {
+  let resolveConfigScope, exists, createWizard;
+
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    ({ resolveConfigScope } = await import("../src/commands/init.js"));
+    ({ exists } = await import("../src/utils/fs.js"));
+    ({ createWizard } = await import("../src/utils/wizard.js"));
+  });
+
+  it("honours explicit --global / --local without asking", async () => {
+    expect((await resolveConfigScope({ flags: { global: true }, interactive: true })).scope).toBe("global");
+    expect((await resolveConfigScope({ flags: { local: true }, interactive: true })).scope).toBe("local");
+    expect(createWizard).not.toHaveBeenCalled();
+  });
+
+  it("on a true first run (no global config) defaults to global WITHOUT a cold question", async () => {
+    exists.mockResolvedValue(false); // no global config yet
+    const res = await resolveConfigScope({ flags: {}, interactive: true });
+    expect(res.scope).toBe("global");
+    expect(createWizard).not.toHaveBeenCalled();
+  });
+
+  it("only asks the scope question when a global config already exists", async () => {
+    exists.mockResolvedValue(true); // global exists → override-for-this-project is a real choice
+    const select = vi.fn().mockResolvedValue("local");
+    createWizard.mockReturnValue({ select, close: vi.fn() });
+    const res = await resolveConfigScope({ flags: {}, interactive: true });
+    expect(createWizard).toHaveBeenCalled();
+    expect(res.scope).toBe("local");
   });
 });
