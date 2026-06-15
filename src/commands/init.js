@@ -91,16 +91,28 @@ async function askAgents(wizard, available, config, logger) {
  * `available.length === 1` short-circuits: every role uses the only CLI
  * available, no point asking.
  */
-async function askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger) {
+async function askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger, ask = true) {
   if (available.length <= 1) return;
-
-  logger.info("");
-  logger.info("Configure provider per role (Enter accepts the default):");
 
   // Make sure containers exist for every role/pipeline key we touch —
   // older configs may have a sparser shape than DEFAULTS.
   config.roles = config.roles || {};
   config.pipeline = config.pipeline || {};
+
+  // KJC-TSK-0571: per-role provider selection is advanced. By default every
+  // role inherits its provider from coder/reviewer — a newcomer has no context
+  // to pick an agent for "refactorer" or "perf". Only init the containers.
+  if (!ask) {
+    for (const role of PER_ROLE_QUESTIONS) {
+      config.roles[role.key] = config.roles[role.key] || { provider: null, model: null };
+      if (role.pipelineKey) config.pipeline[role.pipelineKey] = config.pipeline[role.pipelineKey] || { enabled: false };
+    }
+    logger.info("  Agent routing: every role inherits from your coder/reviewer (default).");
+    return;
+  }
+
+  logger.info("");
+  logger.info("Configure provider per role (Enter accepts the default):");
 
   for (const role of PER_ROLE_QUESTIONS) {
     config.roles[role.key] = config.roles[role.key] || { provider: null, model: null };
@@ -348,8 +360,19 @@ async function runWizard(config, logger) {
     }
     logger.info(`  -> HU Board: ${enableHuBoard ? "enabled (auto-start on kj run)" : "disabled"}`);
 
-    await askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger);
-    await askFallbackChain(wizard, available, config, { coder, reviewer }, logger);
+    // KJC-TSK-0571: per-role providers + fallback chains are advanced and
+    // collapse a newcomer's first run by ~12 questions. Ask one gate; default
+    // off → every role inherits from coder/reviewer.
+    const advancedRouting =
+      available.length > 1 &&
+      (await wizard.confirm(
+        "Configure advanced agent routing (a different AI per role + fallback chains)? Most users don't need this.",
+        false
+      ));
+    await askPerRoleProviders(wizard, available, config, { coder, reviewer }, logger, advancedRouting);
+    if (advancedRouting) {
+      await askFallbackChain(wizard, available, config, { coder, reviewer }, logger);
+    }
     await askMethodology(wizard, config, logger);
     await askLanguages(wizard, config, logger);
 
