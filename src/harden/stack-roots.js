@@ -21,8 +21,37 @@ const IGNORE_DIRS = new Set([
   "target",
   "__pycache__",
   "venv",
+  // Auxiliary code that isn't the app to harden (KJC-TSK-0564): demo/fixture
+  // dirs ship their own throwaway manifests and must not seed lint/CI config.
+  "examples",
+  "example",
+  "fixtures",
+  "samples",
+  "third_party",
+  "testdata",
+  "__fixtures__",
 ]);
 const DEFAULT_MAX_DEPTH = 2;
+
+/**
+ * Minimal glob for harden scope flags — no dynamic RegExp (eslint security).
+ * Matches on exact equality, directory prefix (`wrappers` ⊇ `wrappers/python`)
+ * and `*` wildcards anchored at both ends unless the `*` is leading/trailing.
+ */
+export function matchesGlob(value, pattern) {
+  if (value === pattern || value.startsWith(`${pattern}/`)) return true;
+  if (!pattern.includes("*")) return false;
+  const pieces = pattern.split("*");
+  let idx = 0;
+  for (let i = 0; i < pieces.length; i += 1) {
+    const piece = pieces[i];
+    if (!piece) continue;
+    const at = value.indexOf(piece, idx);
+    if (at === -1 || (i === 0 && at !== 0)) return false;
+    idx = at + piece.length;
+  }
+  return pattern.endsWith("*") || value.length === idx;
+}
 
 /** Identify the language of a single directory by its manifest files. */
 export function languageAt(dir) {
@@ -43,7 +72,7 @@ export function languageAt(dir) {
   return null;
 }
 
-export function detectStackRoots(projectDir, { maxDepth = DEFAULT_MAX_DEPTH } = {}) {
+export function detectStackRoots(projectDir, { maxDepth = DEFAULT_MAX_DEPTH, only = [], exclude = [] } = {}) {
   const found = [];
   function walk(dir, depth) {
     const language = languageAt(dir);
@@ -69,7 +98,8 @@ export function detectStackRoots(projectDir, { maxDepth = DEFAULT_MAX_DEPTH } = 
     const cur = byLanguage.get(f.language);
     if (!cur || f.depth < cur.depth) byLanguage.set(f.language, f);
   }
-  return [...byLanguage.values()]
-    .map(({ dir, language }) => ({ dir, language }))
-    .sort((a, b) => a.dir.localeCompare(b.dir));
+  let roots = [...byLanguage.values()].map(({ dir, language }) => ({ dir, language }));
+  if (only.length) roots = roots.filter((r) => only.some((o) => matchesGlob(r.dir, o)));
+  if (exclude.length) roots = roots.filter((r) => !exclude.some((g) => matchesGlob(r.dir, g)));
+  return roots.sort((a, b) => a.dir.localeCompare(b.dir));
 }

@@ -26,6 +26,14 @@
   "engines": {
     "node": ">=22.22.1"
   },
+  "kj": {
+    "harden": {
+      "exclude": [
+        "wrappers",
+        "packages"
+      ]
+    }
+  },
   "workspaces": [
     "packages/ai-trash",
     "packages/core",
