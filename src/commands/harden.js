@@ -24,6 +24,21 @@ const JS_TEST_CMD = {
 };
 
 /**
+ * Per-repo harden scope, persisted in package.json `kj.harden` so a repo with
+ * sub-tools (e.g. a python wrapper) excludes them once instead of on every
+ * invocation (KJC-TSK-0564). CLI flags are merged on top.
+ */
+function readHardenConfig(projectDir) {
+  const pkgPath = join(projectDir, "package.json");
+  if (!existsSync(pkgPath)) return {};
+  try {
+    return JSON.parse(readFileSync(pkgPath, "utf8")).kj?.harden ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Resolve the hook's lint/format/test commands for the primary language.
  * Non-JS stacks use their native toolchain (go/ruff/…); JS/TS is built from
  * the project's own package.json scripts so no npm command is ever assumed.
@@ -60,9 +75,14 @@ export async function hardenCommand({
   guidelines = true,
   dryRun = false,
   json = false,
+  only = [],
+  exclude = [],
   logger = console,
 } = {}) {
-  const roots = detectStackRoots(projectDir);
+  const repoCfg = readHardenConfig(projectDir);
+  const onlyDirs = [...(repoCfg.only ?? []), ...only];
+  const excludeDirs = [...(repoCfg.exclude ?? []), ...exclude];
+  const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
   const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
   let result;
   try {

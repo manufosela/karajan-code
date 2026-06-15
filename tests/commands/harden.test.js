@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -53,6 +53,26 @@ describe("hardenCommand", () => {
     expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(false);
     const payload = JSON.parse(logger.info.mock.calls.at(-1)[0]);
     expect(payload).toMatchObject({ ok: true, profile: "minimal", dryRun: true });
+  });
+
+  const seedPythonWrapper = () => {
+    mkdirSync(join(repo, "wrappers", "python"), { recursive: true });
+    writeFileSync(join(repo, "wrappers", "python", "pyproject.toml"), "");
+  };
+
+  it("honours kj.harden.exclude from package.json (KJC-TSK-0564)", async () => {
+    writeFileSync(join(repo, "package.json"), JSON.stringify({ kj: { harden: { exclude: ["wrappers"] } } }));
+    seedPythonWrapper();
+    const res = await hardenCommand({ projectDir: repo, profile: "standard", json: true, logger });
+    expect(res.ok).toBe(true);
+    expect(res.configs.some((c) => c.file.includes("wrappers"))).toBe(false);
+  });
+
+  it("--exclude flag skips a language root (KJC-TSK-0564)", async () => {
+    writeFileSync(join(repo, "package.json"), "{}");
+    seedPythonWrapper();
+    const res = await hardenCommand({ projectDir: repo, exclude: ["wrappers"], json: true, logger });
+    expect(res.configs.some((c) => c.file.includes("wrappers"))).toBe(false);
   });
 
   it("returns ok:false on a non-repo dir without throwing", async () => {
