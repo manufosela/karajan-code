@@ -157,6 +157,6 @@ export async function hardenCommand({
   for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}`);
   for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
   for (const g of out.guidelines) logger.info?.(`  • ${g.file}: ${g.action}`);
-  if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check` (H-E).");
+  if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");
   return out;
 }

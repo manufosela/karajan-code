@@ -162,14 +162,14 @@ async function askFallbackChain(wizard, available, config, { coder, reviewer }, 
   if (available.length < 2) return;
 
   logger.info("");
-  logger.info("Plan B — fallback automático cuando un provider se queda sin créditos:");
+  logger.info("Plan B — automatic fallback when a provider runs out of credits:");
   const enable = await wizard.confirm(
-    "  ¿Configurar fallback? (default: 12h; si el cooldown supera ese tiempo, switch al provider alternativo)",
+    "  Configure a fallback? (default 12h; if the cooldown exceeds it, switch to the alternate provider)",
     true
   );
   if (!enable) return;
 
-  const maxHoursRaw = await wizard.input("  Máximo tiempo de espera antes de fallback (horas):", "12");
+  const maxHoursRaw = await wizard.input("  Max wait before falling back (hours):", "12");
   const maxHours = Number.parseFloat(maxHoursRaw) || 12;
 
   config.roles = config.roles || {};
@@ -180,18 +180,18 @@ async function askFallbackChain(wizard, available, config, { coder, reviewer }, 
   ];
   for (const role of KEY_ROLES) {
     config.roles[role.key] = config.roles[role.key] || {};
-    const opts = [{ label: "Sin fallback (hibernar)", value: "__none__", available: true }];
+    const opts = [{ label: "No fallback (hibernate)", value: "__none__", available: true }];
     for (const a of available) {
       if (a.name === role.primary) continue;
       opts.push({ label: a.name, value: a.name, available: true });
     }
-    const choice = await wizard.select(`  Fallback de ${role.label} cuando ${role.primary} se quede sin créditos:`, opts);
+    const choice = await wizard.select(`  Fallback for ${role.label} when ${role.primary} runs out of credits:`, opts);
     if (choice === "__none__") {
       delete config.roles[role.key].fallback;
-      logger.info(`    -> ${role.key}: sin fallback (hibernará)`);
+      logger.info(`    -> ${role.key}: no fallback (will hibernate)`);
     } else {
       config.roles[role.key].fallback = { provider: choice, max_wait_hours: maxHours };
-      logger.info(`    -> ${role.key}: ${role.primary} → ${choice} (tras ${maxHours}h)`);
+      logger.info(`    -> ${role.key}: ${role.primary} → ${choice} (after ${maxHours}h)`);
     }
   }
 }
@@ -218,7 +218,7 @@ async function askLanguages(wizard, config, logger) {
     ...allLangEntries.filter((o) => o.value !== detectedLocale),
   ];
 
-  const pipelineLang = await wizard.select("Pipeline language:", languageOptions);
+  const pipelineLang = await wizard.select("Language for agent messages and reports:", languageOptions);
   config.language = pipelineLang;
   logger.info(`  -> Pipeline language: ${pipelineLang}`);
 
@@ -226,14 +226,14 @@ async function askLanguages(wizard, config, logger) {
     ...allLangEntries.filter((o) => o.value === pipelineLang),
     ...allLangEntries.filter((o) => o.value !== pipelineLang),
   ];
-  const huLang = await wizard.select("HU language (for user stories):", huLangOptions);
+  const huLang = await wizard.select("Language for user stories (HUs):", huLangOptions);
   config.hu_language = huLang;
-  logger.info(`  -> HU language: ${huLang}`);
+  logger.info(`  -> User-story language: ${huLang}`);
 }
 
 async function askGitAutomation(wizard, config, logger) {
   config.git = config.git || {};
-  const autoCommit = await wizard.confirm("Auto-commit per HU? (recommended for `kj run` so commits show up in git log)", false);
+  const autoCommit = await wizard.confirm("Auto-commit per user story? (recommended for `kj run` so commits show up in git log)", false);
   config.git.auto_commit = autoCommit;
   logger.info(`  -> auto_commit: ${autoCommit}`);
 
@@ -280,30 +280,20 @@ async function askBoardSecurity(wizard, config, logger) {
 /**
  * Explicit, opt-in telemetry consent. We do NOT inherit a "Karajan-installed
  * users want to help" assumption — silence and missing config keys both mean
- * "no". The prompt is rendered in the OS locale (EN/ES today; falls back to
- * EN for everything else) so users see it in their own language even before
- * they've set `config.language`. See src/utils/telemetry.js and the
+ * "no". The prompt is English to match the rest of the wizard (KJC-BUG-0088).
+ * See src/utils/telemetry.js and the
  * "Privacy & Telemetry" section of README.md for what gets sent.
  */
 async function askTelemetry(wizard, config, logger) {
-  const locale = detectOsLocale();
-  const prompts = {
-    es: {
-      question: "¿Quieres ayudar a mejorar Karajan enviando telemetría anónima al proyecto?",
-      detail: "  (versión, OS, comandos, duración del pipeline — sin código, sin tareas, sin datos personales)",
-      previewIntro: "  Ejemplo del payload exacto que se enviaría al ejecutar `kj run` (puedes inspeccionar más con `kj telemetry preview`):",
-      enabled: "  -> Telemetría: activada (¡gracias!)",
-      disabled: "  -> Telemetría: desactivada",
-    },
-    en: {
-      question: "Help improve Karajan by sending anonymous telemetry to the project?",
-      detail: "  (version, OS, commands, pipeline duration — no code, no tasks, no personal data)",
-      previewIntro: "  Example of the exact payload that would be sent when you run `kj run` (inspect more with `kj telemetry preview`):",
-      enabled: "  -> Telemetry: enabled (thank you!)",
-      disabled: "  -> Telemetry: disabled",
-    },
+  // English to stay consistent with the rest of the wizard (KJC-BUG-0088); the
+  // user's chosen pipeline/HU language drives `kj run` output, not this prompt.
+  const t = {
+    question: "Help improve Karajan by sending anonymous telemetry to the project?",
+    detail: "  (version, OS, commands, pipeline duration — no code, no tasks, no personal data)",
+    previewIntro: "  Example of the exact payload sent when you run `kj run` (inspect more with `kj telemetry preview`):",
+    enabled: "  -> Telemetry: enabled (thank you!)",
+    disabled: "  -> Telemetry: disabled",
   };
-  const t = prompts[locale] || prompts.en;
   logger.info(t.detail);
   const example = buildTelemetryPayload("cli_command", { version: "x.y.z", command: "run" });
   logger.info(t.previewIntro);
@@ -342,7 +332,7 @@ async function runWizard(config, logger) {
   try {
     const { coder, reviewer } = await askAgents(wizard, available, config, logger);
 
-    const enableTriage = await wizard.confirm("Enable triage (auto-classify task complexity)?", false);
+    const enableTriage = await wizard.confirm("Enable triage (auto-pick a lighter pipeline for simple tasks)?", false);
     config.pipeline.triage = config.pipeline.triage || {};
     config.pipeline.triage.enabled = enableTriage;
     logger.info(`  -> Triage: ${enableTriage ? "enabled" : "disabled"}`);
@@ -351,7 +341,7 @@ async function runWizard(config, logger) {
     config.sonarqube.enabled = enableSonar;
     logger.info(`  -> SonarQube: ${enableSonar ? "enabled" : "disabled"}`);
 
-    const enableHuBoard = await wizard.confirm("Enable HU Board for story tracking?", false);
+    const enableHuBoard = await wizard.confirm("Enable the HU Board — a local web UI to track user stories (HUs)?", false);
     config.hu_board = config.hu_board || {};
     config.hu_board.enabled = enableHuBoard;
     if (enableHuBoard) {
@@ -899,6 +889,13 @@ export async function initCommand({ logger, flags = {} }) {
     const version = JSON.parse(readFileSync(pkgPath, "utf8")).version;
     sendTelemetryEvent("install", { version }, config).catch(() => {});
   } catch { /* non-blocking */ }
+
+  // Clear close so a first-time user knows setup finished and what to do next,
+  // instead of being left at the end of a wall of detection logs (KJC-BUG-0088).
+  logger.info("");
+  logger.info("✓ Karajan is set up in this project.");
+  logger.info('  Next:  kj run "describe what to build or fix"');
+  logger.info("  More:  kj --help   ·   kj doctor (check your setup)");
 }
 
 // Internal exports for unit testing (KJC-TSK-0367)
