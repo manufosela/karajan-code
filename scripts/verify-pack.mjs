@@ -18,7 +18,7 @@
  * this from prepublishOnly does not recurse.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -100,6 +100,19 @@ try {
     if (!fs.existsSync(p)) fail(`expected resolved path missing in install: ${p}`);
   }
   console.log("verify-pack: sqlite-vec + @karajan/core resolve ✓");
+
+  // 4. kj-trash (ai-trash safety binary) must ship + link onto PATH and boot
+  // without a module-resolution crash. It was silently absent from the tarball
+  // until KJC-BUG-0089 — every npm user got "kj-trash not found".
+  const trashBin = path.join(tmpDir, "node_modules", ".bin", "kj-trash");
+  if (!fs.existsSync(trashBin)) fail(`kj-trash binary missing after install: ${trashBin}`);
+  const trash = spawnSync(trashBin, ["--help"], { encoding: "utf8", env: childEnv });
+  // The CLI exits 2 on --help (usage); only a real crash (module not found, or
+  // an unexpected non-0/2 exit) is a failure.
+  if (![0, 2].includes(trash.status) || /ERR_MODULE_NOT_FOUND|Cannot find/.test(trash.stderr || "")) {
+    fail("`kj-trash --help` crashed on a clean install", trash.stderr || `exit ${trash.status}`);
+  }
+  console.log("verify-pack: kj-trash ships + boots ✓");
 
   console.log(`\n✓ verify-pack: karajan-code@${expectedVersion} installs clean and runs.`);
 } finally {
