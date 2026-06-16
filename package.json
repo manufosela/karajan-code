@@ -54,6 +54,9 @@
     "packages/hu-board/src/",
     "packages/hu-board/public/",
     "packages/hu-board/package.json",
+    "packages/ai-trash/src/",
+    "packages/ai-trash/bin/",
+    "packages/ai-trash/package.json",
     "docs/karajan-code-logo-small.png",
     "docs/README.es.md",
     "LICENSE",
@@ -62,6 +65,7 @@
   "bin": {
     "kj": "bin/kj.js",
     "kj-tail": "bin/kj-tail",
+    "kj-trash": "packages/ai-trash/bin/kj-trash.js",
     "karajan-mcp": "bin/karajan-mcp.js",
     "kj-rag-mcp": "bin/kj-rag-mcp.js"
   },
