@@ -82,7 +82,7 @@ describe("init wizard includes hu_board question", () => {
       path.resolve(import.meta.dirname, "../../src/commands/init.js"),
       "utf8"
     );
-    expect(initSource).toContain("Enable HU Board for story tracking?");
+    expect(initSource).toContain("Enable the HU Board");
     expect(initSource).toContain("hu_board");
   });
 });
