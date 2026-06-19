@@ -225,13 +225,20 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Quality harness — kj harden + kj check (v3.5)" icon="approve-check">
     `kj harden` brings the guardrails Karajan was built with to **any** repo in one command: idempotent git hooks, lint/format/commit config, CI quality gates and agent guidelines — all **stack-aware** and behind `kj:managed` markers that never overwrite your content. **Native per-language hook commands** (`go vet`/`ruff`/npm…) mean hardening a Go, Python or Java repo **never makes Node a commit-time dependency**; the commit-msg hook is pure POSIX (Conventional Commits + AI-attribution block). A fullstack monorepo gets each language's config inside its own folder. `kj check` verifies the harness as a CI drift gate (exit 0/≠0, `--json`), and `kj init` installs it out of the box. Drop-in upgrade from v3.4.2.
   </Card>
+  <Card title="Advisory harden (v3.6)" icon="approve-check">
+    `kj harden` learns to **compare instead of just install**. `kj harden --report` reads an existing repo and shows, per artifact (editorconfig, eslint, prettier, commitlint…), whether it's **missing**, **yours**, or **kj-managed** — and for your own config, the **concrete improvements** the kj standard would add. `kj harden --interactive` then lets you **adopt it piece by piece**, default-safe (it keeps yours unless you say otherwise). Scope control (`--only`/`--exclude`, demo/fixture dirs ignored by default) keeps it off your examples and sub-tools. Drop-in upgrade from v3.5.1.
+  </Card>
 </CardGrid>
 
 ## Recent releases
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.5.1 — First-class PHP in the harness (current)
+### v3.6.0 — Advisory harden (current)
+
+`kj harden --report` shows, read-only, what the kj standard would add to an existing repo — per artifact: missing / yours / kj-managed, plus the concrete improvements for your own configs. `kj harden --interactive` adopts the standard piece by piece, default-safe. Scope flags (`--only`/`--exclude`) keep it off demo/fixture dirs. A rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now ships to npm installs.
+
+### v3.5.1 — First-class PHP in the harness
 
 PHP joins JS/TS, Python and Go as a first-class `kj harden` language: `composer.json` detection, native hooks (`phpstan` / `php-cs-fixer` / `phpunit`), a `phpstan.neon` config and a `setup-php` Quality CI workflow — native tooling, no npm/Node imposed at commit time.
 
@@ -246,7 +253,3 @@ A pre-publish gate packs the real tarball, installs it clean and isolated, and r
 ### v3.4.0 — Cache-friendly prompts
 
 Every prompt is split into a stable block (rendered first so prefix caching hits it) and a volatile tail. Measured: cold-run cache jumps from 47% to 99.6% and coder cost drops 76%.
-
-### v3.3.0 — Cross-provider cache observability
-
-Cache metrics normalized across Anthropic, OpenAI/Codex, Gemini, aider and opencode, surfaced as a `🎯 N%` badge on the HU Board, persisted in `board.db` and emitted in `pipeline_complete` telemetry.

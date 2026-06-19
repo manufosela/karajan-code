@@ -1557,6 +1557,12 @@ La restricción definitoria es **no imponer runtime ajeno**. Los hooks instalado
 
 `kj check` verifica el harness como gate de deriva en CI (exit 0/≠0, `--json`) y aflora el hueco del greenfield —un lenguaje añadido tras endurecer cuya config nunca se sembró—. `kj init` ejecuta el mismo motor, así que un proyecto recién inicializado queda endurecido de serie. La lógica del harness y la generación de guías se absorbieron del `dev-toolkit` del autor, de modo que Karajan no depende de ningún MCP externo. Once PRs en nueve slices (H-A…H-G + H-B2 + H-C2); 5 717 tests verdes; install limpio verificado.
 
+## Fase 94: v3.6.0 — Harden consultivo (v3.6.0)
+
+El harness aprende a **comparar en vez de solo instalar** (épica KJC-PCS-0060). Un motor de comparación en solo lectura clasifica cada artefacto gestionado de un repo existente como **falta**, **es del usuario** o **gestionado por kj** (al día o desactualizado), reconociendo formatos equivalentes (`.eslintrc.*` legacy, `.commitlintrc.*`, keys inline en `package.json`) para no dar falsos «falta» — y para la config propia del usuario lista las mejoras concretas que aportaría el estándar kj. `kj harden --report` lo muestra por artefacto (más `--json`); `kj harden --interactive` deja adoptar el estándar pieza a pieza, con default seguro (deja lo tuyo salvo que digas lo contrario). El control de alcance —ignora dirs de ejemplos/fixtures por defecto, más `--only`/`--exclude` y `package.json` `kj.harden` por repo— mantiene el endurecido fuera de ejemplos y sub-tools.
+
+La release también redondea el primer uso: `kj init` quita la pregunta de scope en frío, mete el routing avanzado por rol tras un único opt-in, habla un inglés consistente con la jerga glosada, ya no filtra el banner de update de Squeezr, y termina con un siguiente paso claro. Y cierra un hueco real de packaging — la red de seguridad `kj-trash` (snapshots de operaciones destructivas) nunca estaba en el tarball publicado; ahora se publica como bin raíz, blindada por un gate verify-pack ampliado para que no recaiga.
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

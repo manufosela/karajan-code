@@ -1558,6 +1558,12 @@ The defining constraint is **no imposed runtime**. The installed hooks call the 
 
 `kj check` verifies the harness as a CI drift gate (exit 0/≠0, `--json`) and surfaces the greenfield gap — a language added after hardening whose config was never seeded. `kj init` runs the same engine, so a freshly initialised project is hardened out of the box. The harness logic and guideline generation were absorbed from the author's `dev-toolkit` so Karajan depends on no external MCP. Eleven PRs across nine slices (H-A…H-G + H-B2 + H-C2); 5 717 tests passing; clean install verified.
 
+## Phase 94: v3.6.0 — Advisory harden (v3.6.0)
+
+The harness learns to **compare instead of just install** (epic KJC-PCS-0060). A read-only comparison engine classifies every managed artifact in an existing repo as **missing**, **user-owned**, or **kj-managed** (up-to-date or outdated), recognising equivalent config formats (legacy `.eslintrc.*`, `.commitlintrc.*`, inline `package.json` keys) so it never reports a false missing — and for a user's own config it lists the concrete improvements the kj standard would add. `kj harden --report` surfaces that per artifact (plus `--json`); `kj harden --interactive` lets the user adopt the standard piece by piece, default-safe (keep yours unless told otherwise). Scope control — demo/fixture dirs ignored by default, plus `--only`/`--exclude` and per-repo `package.json` `kj.harden` — keeps hardening off examples and sub-tools.
+
+The release also rounds the first run: `kj init` drops the cold scope question, gates advanced per-role agent routing behind one opt-in, speaks consistent English with glossed terms, no longer leaks the Squeezr update banner, and ends with a clear next step. And it closes a real packaging gap — the `kj-trash` safety net (snapshots of destructive ops) was never in the published tarball; it now ships as a root bin, guarded by an extended verify-pack gate so it can't regress.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
