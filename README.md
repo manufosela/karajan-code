@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.5.1 released** — PHP joins the quality harness as a first-class language: `kj harden` now detects `composer.json`, installs PHP-native hooks (`phpstan` / `php-cs-fixer` / `phpunit`), a `phpstan.neon` config and a `setup-php` CI workflow — same as JS/Python/Go, no npm/Node imposed at commit time. Builds on v3.5.0's quality harness (`kj harden` + `kj check`): idempotent git hooks, config, CI gates and agent guidelines for any repo, behind `kj:managed` markers. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.6.0 released** — Advisory harden: `kj harden --report` shows what the kj standard would add to an existing repo (per artifact: missing / yours / kj-managed, plus the concrete improvements), and `kj harden --interactive` lets you adopt it piece by piece, default-safe. Plus scope control (`--only`/`--exclude`, demo/fixture dirs ignored), a rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now actually ships to npm installs. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
