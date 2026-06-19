@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-06-19
+
+Minor. **Advisory harden** — `kj harden` learns to compare instead of just install, plus a rounder first-run and the ai-trash safety net actually reaching npm users.
+
+### Added
+
+- **Advisory mode for `kj harden`** (epic KJC-PCS-0060) — for an existing or legacy repo, see what the kj standard would add before touching anything:
+  - **Comparison engine** (`src/harden/advisory.js`, KJC-TSK-0565): classifies every managed artifact (editorconfig, commitlint, eslint, prettier, per-language lint) as `MISSING`, `KJ_MANAGED` (up-to-date / outdated vN) or `USER_OWNED`, recognising equivalent formats (legacy `.eslintrc.*`, `.commitlintrc.*`, inline `package.json` keys) so it never reports a false "missing". For a user's own config it lists the concrete improvements kj would add (ES2025 ban, commitlint header/subject rules, prettier `printWidth`, editorconfig basics). Monorepo-aware.
+  - **`kj harden --report`** (KJC-TSK-0566): read-only per-artifact report (and `--json`) of what's missing, what you have, and what kj would improve — honouring the same scope as an install.
+  - **`kj harden --interactive`** (KJC-TSK-0567): adopt the standard piece by piece, default-safe (keep your own); without a TTY it falls back to seed-if-absent.
+- **`kj harden` scope control** (KJC-TSK-0564): demo/fixture dirs (`examples`, `fixtures`, `samples`, `third_party`, `testdata`, …) are ignored by default, plus `--only <dirs>` / `--exclude <globs>` flags and per-repo defaults via `package.json` `kj.harden`.
+
+### Changed
+
+- **`kj init` first-run UX** (KJC-BUG-0087, KJC-TSK-0571, KJC-BUG-0088): no scope question on a true first run; advanced per-role agent routing collapsed behind one opt-in question; the wizard is now consistently English with glossed terms (triage, HU Board, user-story language); the Squeezr update banner no longer leaks into init output; and init ends with a clear "next step" close. `kj --help` surfaces the handful of commands a newcomer actually needs.
+
+### Fixed
+
+- **ai-trash safety net now ships to npm** (KJC-BUG-0089): the `kj-trash` binary (snapshots destructive ops) was never in the published tarball — absent from `files`, not a root bin. It's now packaged and exposed as a root bin, with the verify-pack gate extended to assert it links and boots so it can't regress.
+
+Full test suite green on CI (Node 22.x + 24.x); verify-pack confirms a clean isolated install.
+
 ## [3.5.1] - 2026-06-14
 
 Patch. PHP becomes a first-class language in the quality harness.
@@ -666,7 +688,7 @@ Patch release. `kj resume` continúa donde paró y `autoInit` ya no produce comm
 ### Fixed
 
 - **`kj resume` re-arrancaba researcher + architect en lugar de continuar desde el último checkpoint** (KJC-BUG-0058, PR #798). Reportado por Aitor Martínez con screenshot: una sesión que paró durante Sonar, al hacer `kj resume <id>`, re-ejecutaba todo el pre-loop pipeline (HU-reviewer → intent → discover → triage → domainCurator → researcher → architect → planner) desde cero — doblando coste de tokens y rompiendo el value-prop del comando. Causa raíz: `resumeFlow` (flow-runner.js:280) cargaba la sesión y llamaba `runFlow` sin propagar nada sobre qué stages estaban hechas; `runFlow` → `initFlowContext` arrancaba con `ctx.stageResults = {}` siempre. La sesión NUNCA persistía los outputs de stage en `session.json`. **Fix**: dos nuevos mutators en `src/session/mutators.js` — `setStageResult(session, name, result)` mantiene `stage_results[name]` + `stages_completed[]` (idempotente), y `setStageBundle(session, name, bundle)` añade `stage_bundles[name]` para cross-stage context que el stageResult no carga (researcher → `researchContext`, architect → `architectContext`, planner → `plannedTask`). Dos closures en `runPreLoopStages` (`persistStage` + `resumeSkip`) envuelven cada stage cacheable. `init-context.js` rehydrata `ctx.stageResults` desde `session.stage_results` antes de `runPreLoopStages` — sin nuevo flag por la cadena. Triage NO se skipea (emite `roleOverrides` que el Brain decisor necesita; es cheap). 10 test files / 57 tests de orchestrator siguen verdes.
-- **`autoInit()` commiteaba vacío en el main del usuario al dogfooding kj sobre el propio repo** (KJC-BUG-0060, PR #797). Reportado por mjfosela durante el release de v2.19.3: tras `git checkout main`, `git status` reportaba `[adelante 27]` ante origin/main. Los 27 commits — titulados `initial commit`, autor `manufosela@gmail.com` (git config local de karajan-code, no `mjfosela@gmail.com`), tree idéntico a su parent = **commits completamente vacíos**. El reflog acumulaba **2 495 SHAs** con el mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (gh push / CI los habrían rechazado), pero ensuciaban main local y en cada release parecía pérdida de sync. Causa raíz: `src/orchestrator/config-init.js::autoInit()` guardaba con `!(await exists(projectDir/.git))`, demasiado débil. Dos modos de fallo combinados: (1) dogfooding kj sobre karajan-code (kj-linked) desde un subdir del repo → `exists()` devolvía false → `git init` reinicializaba el `.git/` del padre (idempotente) → `git commit --allow-empty` resolvía hacia arriba y aterrizaba commit vacío en main; (2) race FS transitoria con `exists()` falso-negativo. **Fix**: cambio el FS probe estático por `git rev-parse --is-inside-work-tree`, que hace la misma upward-traversal que git haría para el commit — el guard no puede discrepar con la operación que custodia. Drop del `git commit --allow-empty -m "initial commit"` que seguía al `git init` — ningún stage downstream necesita root commit; los 2 495 commits nunca rompieron nada, el seed era decorativo y era el síntoma user-visible. 3 acceptance tests en `tests/orchestrator/config-init-autoinit.test.js`.
+- **`autoInit()` commiteaba vacío en el main del usuario al dogfooding kj sobre el propio repo** (KJC-BUG-0060, PR #797). Reportado por mjfosela durante el release de v2.19.3: tras `git checkout main`, `git status` reportaba `[adelante 27]` ante origin/main. Los 27 commits — titulados `initial commit`, autor `@manufosela` (el git config local de karajan-code usaba un email distinto del email global del usuario), tree idéntico a su parent = **commits completamente vacíos**. El reflog acumulaba **2 495 SHAs** con el mismo patrón desde abril 2026. Ninguno había llegado nunca a origin/main (gh push / CI los habrían rechazado), pero ensuciaban main local y en cada release parecía pérdida de sync. Causa raíz: `src/orchestrator/config-init.js::autoInit()` guardaba con `!(await exists(projectDir/.git))`, demasiado débil. Dos modos de fallo combinados: (1) dogfooding kj sobre karajan-code (kj-linked) desde un subdir del repo → `exists()` devolvía false → `git init` reinicializaba el `.git/` del padre (idempotente) → `git commit --allow-empty` resolvía hacia arriba y aterrizaba commit vacío en main; (2) race FS transitoria con `exists()` falso-negativo. **Fix**: cambio el FS probe estático por `git rev-parse --is-inside-work-tree`, que hace la misma upward-traversal que git haría para el commit — el guard no puede discrepar con la operación que custodia. Drop del `git commit --allow-empty -m "initial commit"` que seguía al `git init` — ningún stage downstream necesita root commit; los 2 495 commits nunca rompieron nada, el seed era decorativo y era el síntoma user-visible. 3 acceptance tests en `tests/orchestrator/config-init-autoinit.test.js`.
 
 ## [2.19.3] - 2026-05-23
 
