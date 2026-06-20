@@ -30,6 +30,14 @@ describe("autorunCommand", () => {
     expect(await autorunCommand({ task: "x", config: {}, logger, flags: {}, planFn, runFn })).toMatchObject({ ok: false, stage: "run" });
   });
 
+  it("builds a real outcome from the run's per-HU results (KJC-BUG-0090)", async () => {
+    const planFn = vi.fn().mockResolvedValue({ ok: true, planId: "p", ref: "p", huCount: 2 });
+    const runFn = vi.fn().mockResolvedValue({ ok: false, hus: [{ id: "h1", met: true }, { id: "h2", met: false }] });
+    const res = await autorunCommand({ task: "x", config: {}, logger, flags: {}, planFn, runFn });
+    expect(res.outcome).toMatchObject({ verdict: "INCOMPLETE", hus: { total: 2, met: 1, unmet: 1 } });
+    expect(res.outcome.residualDefects).toHaveLength(1);
+  });
+
   it("respects an explicit --autonomy level instead of forcing autonomous", async () => {
     const planFn = vi.fn().mockResolvedValue({ ok: true, planId: "p", ref: "p", huCount: 1 });
     const runFn = vi.fn().mockResolvedValue({ ok: true });
