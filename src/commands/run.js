@@ -18,6 +18,7 @@ import { maybeAutoUpdate } from "../rag/auto-update.js";
 // resume.js also needs the same contract.
 import { createCliAskQuestion } from "../utils/cli-ask-question.js";
 import { buildDecider } from "../autonomy/decider.js";
+import { createAutonomyAskQuestion } from "../autonomy/stage-ask.js";
 export { createCliAskQuestion };
 
 export async function runCommandHandler({ task, config, logger, flags }) {
@@ -150,9 +151,14 @@ export async function runCommandHandler({ task, config, logger, flags }) {
     // user actually approved.
     const effectiveTask = reviewResult.refined && reviewResult.finalSpec ? reviewResult.finalSpec : task;
 
+    // AUTO-E: in autonomous mode the stages never ask a human or block on the
+    // board — they auto-continue with the least-bad choice. interactive/assisted
+    // keep the human prompts.
+    const stageAsk = createAutonomyAskQuestion({ baseAsk: askQuestion, autonomy, logger });
+
     let result;
     try {
-      result = await runFlow({ task: effectiveTask, config, logger, flags, emitter, askQuestion, pgTaskId: pgCardId || null, pgProject: pgProject || null });
+      result = await runFlow({ task: effectiveTask, config, logger, flags, emitter, askQuestion: stageAsk, pgTaskId: pgCardId || null, pgProject: pgProject || null });
     } finally {
       // KJC-TSK-0396: limpia el registro pase lo que pase (éxito,
       // throw, o paused). Los handlers de SIGINT/SIGTERM/exit son
