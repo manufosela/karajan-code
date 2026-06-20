@@ -58,6 +58,20 @@ describe("runSpecReview", () => {
     }
   });
 
+  it("autonomous: the resolver decides, never asks the human, never cancels (gap G1)", async () => {
+    const { runSpecReview } = await loadWith({ ok: true, result: { severity: "fail", findings: findingsFail } });
+    const resolve = vi.fn().mockResolvedValue({ choice: "PROCEED", source: "arbiter" });
+    const askQuestion = vi.fn();
+    const r = await runSpecReview({
+      spec: "x", config: {}, logger: noopLog, askQuestion, resolve, autonomy: "autonomous",
+      flags: { forceSpecReview: true },
+    });
+    expect(r).toMatchObject({ proceed: true });
+    expect(r.cancelled).toBeUndefined();
+    expect(askQuestion).not.toHaveBeenCalled(); // no human in the loop
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
   it("never blocks when the reviewer itself failed (proceed=true + warn log)", async () => {
     const { runSpecReview } = await loadWith({ ok: false, summary: "agent crashed", result: { error: "boom" } });
     const r = await runSpecReview({ spec: "x", config: {}, logger: noopLog, flags: { forceSpecReview: true } });

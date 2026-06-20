@@ -7,10 +7,30 @@
 import { SpecReviewerRole } from "../roles/spec-reviewer-role.js";
 import { printFindings } from "../utils/display/spec-findings.js";
 import { runRefinePass } from "./refine-loop.js";
+import { RISK } from "../autonomy/policy.js";
 
 const MAX_REFINE_ITERATIONS = 5;
 
-export async function runSpecReview({ spec, config, logger, askQuestion, flags = {} }) {
+/**
+ * Decide the gate action (`continue` | `refine`) autonomously: the Arbiter
+ * picks PROCEED (proceed with the best reading) or RETRY_DIFFERENT_APPROACH
+ * (auto-refine). It is never offered `cancel`, so an autonomous run never
+ * aborts on spec ambiguity (KJC-TSK-0572, closes gap G1).
+ */
+async function decideGateAutonomously(resolve, { severity, findings }) {
+  const { choice } = await resolve({
+    question: `Spec has ${findings.length} finding(s) at severity ${severity}: proceed with the best reading, or auto-refine?`,
+    options: [
+      { value: "PROCEED", label: "proceed with the best reading", conservative: true },
+      { value: "RETRY_DIFFERENT_APPROACH", label: "auto-refine the spec" },
+    ],
+    context: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))] },
+    risk: severity === "fail" ? RISK.HIGH : RISK.LOW,
+  });
+  return choice === "RETRY_DIFFERENT_APPROACH" ? "refine" : "continue";
+}
+
+export async function runSpecReview({ spec, config, logger, askQuestion, flags = {}, resolve = null, autonomy = "interactive" }) {
   // VITEST guard — pre-existing test suites (e.g. tests/commands/command-run.test.js)
   // mock `runFlow` + `assertAgentsAvailable` but predate this role and have
   // no need to exercise it. Auto-skip in vitest unless the test passes
@@ -40,16 +60,24 @@ export async function runSpecReview({ spec, config, logger, askQuestion, flags =
       return { proceed: true, severity: "ok", findings: [], finalSpec: currentSpec, refined: iter > 0 };
     }
     printFindings(findings, severity);
-    if (!askQuestion) return { proceed: true, severity, findings, finalSpec: currentSpec };
 
-    const answer = await askQuestion(
-      `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: continue)`,
-      { detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1 } },
-    );
-    if (answer === null) return { proceed: false, cancelled: true, severity, findings };
-    const n = String(answer).trim().toLowerCase();
-    if (n.startsWith("x") || n === "cancel") return { proceed: false, cancelled: true, severity, findings };
-    if (n.startsWith("r") || n === "refine") {
+    // Autonomous/assisted: the Arbiter decides (continue|refine), never cancels.
+    // Interactive (no resolver): the human answers [c]/[r]/[x] as before.
+    let action;
+    if (resolve && autonomy !== "interactive") {
+      action = await decideGateAutonomously(resolve, { severity, findings });
+    } else {
+      if (!askQuestion) return { proceed: true, severity, findings, finalSpec: currentSpec };
+      const answer = await askQuestion(
+        `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: continue)`,
+        { detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1 } },
+      );
+      if (answer === null) return { proceed: false, cancelled: true, severity, findings };
+      const n = String(answer).trim().toLowerCase();
+      action = n.startsWith("x") || n === "cancel" ? "cancel" : n.startsWith("r") || n === "refine" ? "refine" : "continue";
+    }
+    if (action === "cancel") return { proceed: false, cancelled: true, severity, findings };
+    if (action === "refine") {
       const refine = await runRefinePass({
         spec: currentSpec, findings, role,
         projectDir: config?.projectDir, taskFile: flags.taskFile, logger,
