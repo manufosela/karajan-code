@@ -10,6 +10,7 @@
 
 import { planGenerateCommand } from "./plan/generate.js";
 import { runCommandHandler } from "./run.js";
+import { buildOutcome, formatOutcomeReport } from "../autonomy/outcome-report.js";
 
 export async function autorunCommand({
   task,
@@ -34,6 +35,15 @@ export async function autorunCommand({
   const run = await runFn({ config, logger, flags: { ...autoFlags, plan: plan.planId } });
 
   const ok = run?.ok === true;
-  logger.info?.(ok ? `✓ autorun complete — plan ${plan.ref ?? plan.planId} delivered.` : `✗ autorun: some HUs did not meet the ask — see the plan board.`);
-  return { ok, stage: ok ? "done" : "run", planId: plan.planId, ref: plan.ref ?? plan.planId };
+  // AUTO-F: emit the auditable outcome — delivered/incomplete, HUs that met the
+  // ask, Arbiter decisions and residual defects (enriched as the run surfaces
+  // them; baseline today is delivered + plan ref).
+  const outcome = buildOutcome({
+    planRef: plan.ref ?? plan.planId,
+    delivered: ok,
+    hus: run?.hus ?? [],
+    decisions: run?.decisions ?? [],
+  });
+  for (const line of formatOutcomeReport(outcome)) logger.info?.(line);
+  return { ok, stage: ok ? "done" : "run", planId: plan.planId, ref: plan.ref ?? plan.planId, outcome };
 }
