@@ -146,6 +146,25 @@ export function registerPipeline(program, { pkgVersion }) {
     });
 
   program
+    .command("autorun")
+    .description("Unattended delivery: spec → plan → run all HUs → outcome (defaults to --autonomous)")
+    .argument("[task]", "Spec/task description (or use --task-file)")
+    .option("--task-file <path>", "Read the spec from a file (e.g. spec.md)")
+    .option("--autonomy <level>", "interactive | assisted | autonomous (default: autonomous)")
+    .option("--autonomous", "Shortcut for --autonomy autonomous")
+    .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
+    .action(async (task, flags) => {
+      const code = await withConfig(pkgVersion, "autorun", flags, async ({ config, logger }) => {
+        const { resolveTaskInput } = await import("../utils/task-file.js");
+        const { autorunCommand } = await import("../commands/autorun.js");
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        const res = await autorunCommand({ task: resolvedTask, config, logger, flags });
+        return res?.ok ? 0 : 1;
+      });
+      if (Number.isInteger(code)) process.exit(code);
+    });
+
+  program
     .command("code")
     .description("Run only coder")
     .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")

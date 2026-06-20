@@ -457,7 +457,7 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
 
   if (json) {
     console.log(JSON.stringify(plan, null, 2));
-    return { ok: true };
+    return { ok: true, planId, ref: plan.alias || planId, huCount: plan.hus.length };
   }
 
   if (parsed?.approach) {
@@ -524,5 +524,6 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       console.log(`\nVisualize: kj board start (http://localhost:${config?.hu_board?.port ?? 4000})`);
     }
   }
-  return { ok: true };
+  // KJC-TSK-0574: surface planId/ref so `kj autorun` can chain plan → run.
+  return { ok: true, planId, ref, huCount: plan.hus.length };
 }

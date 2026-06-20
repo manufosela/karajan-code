@@ -95,7 +95,12 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // time. Static import is not an option: the binary attaches a
 // StdioServerTransport at top level, so a static import would launch the
 // MCP server on every `kj` invocation, not only `kj rag mcp`.
-const DYNAMIC_IMPORT_BUDGET = 167;
+//
+// 2026-06-20 (KJC-TSK-0574 `kj autorun` command): bumped 167 → 169. The
+// autorun action lazy-imports the spec resolver and the autorun chain
+// (which pulls in the heavy plan + run pipelines) only when invoked, so a
+// plain `kj` startup never loads them.
+const DYNAMIC_IMPORT_BUDGET = 169;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
