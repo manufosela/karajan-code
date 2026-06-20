@@ -17,6 +17,7 @@ import { maybeAutoUpdate } from "../rag/auto-update.js";
 // keep working. KJC-BUG-0081 round 2 split the body into utils/ because
 // resume.js also needs the same contract.
 import { createCliAskQuestion } from "../utils/cli-ask-question.js";
+import { buildDecider } from "../autonomy/decider.js";
 export { createCliAskQuestion };
 
 export async function runCommandHandler({ task, config, logger, flags }) {
@@ -129,12 +130,16 @@ export async function runCommandHandler({ task, config, logger, flags }) {
 
     const askQuestion = createCliAskQuestion({ flags });
 
+    // Autonomy (KJC-PCS-0062): wire the level to a resolver. In autonomous mode
+    // every gate is decided by the Arbiter instead of the human; interactive
+    // keeps the human prompts. The decider is threaded into the gates below.
+    const { autonomy, resolve: decide } = buildDecider({ config, flags, ask: askQuestion, logger });
+
     // Spec-reviewer pre-pipeline audit (KJC-PCS-0048). Runs BEFORE
-    // anything else — surfaces ambiguity / missing scope / missing AC
-    // and lets the user bail out cheap, before any tokens burn.
-    // Bypass with --skip-spec-review. Static import — the role runs
-    // on every kj invocation (modulo bypass), no lazy-load benefit.
-    const reviewResult = await runSpecReview({ spec: task, config, logger, askQuestion, flags });
+    // anything else — surfaces ambiguity / missing scope / missing AC.
+    // In autonomous mode the Arbiter decides (never aborts); interactive
+    // lets the user bail. Bypass with --skip-spec-review.
+    const reviewResult = await runSpecReview({ spec: task, config, logger, askQuestion, flags, resolve: decide, autonomy });
     if (!reviewResult.proceed) {
       logger.info("Aborted by user after spec review.");
       cleanupRegistry();

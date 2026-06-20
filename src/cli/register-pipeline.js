@@ -114,6 +114,8 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--skip-role <role...>", "Force one or more roles OFF regardless of triage (e.g. --skip-role tester security)")
     .option("--force-role <role...>", "Force one or more roles ON regardless of triage")
     .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
+    .option("--autonomy <level>", "Autonomy level: interactive | assisted | autonomous (default: interactive)")
+    .option("--autonomous", "Shortcut for --autonomy autonomous: the Arbiter resolves every gate, no human prompts")
     .option("--no-rag-update", "Skip the pre-run RAG drift check (KJC-TSK-0455). Same as config.rag.autoUpdate.onRun=false.")
     .option("--dry-run", "Show what would be executed without running anything")
     .option("--json", "Output JSON only (no styled display)")
