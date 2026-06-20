@@ -316,7 +316,8 @@ function wirePlanCallbacks({ session, loadedPlan, projectDir, syncResultsToPlan,
       await savePlanToDisk(projectDir, loadedPlan);
       if (outcome && Number.isFinite(outcome.cost_usd)) {
         try {
-          const { setStoryCost, setStoryCachedTokens } = await import("../../../../packages/hu-board/src/db.js");
+          const { ensureDb, setStoryCost, setStoryCachedTokens } = await import("../../../../packages/hu-board/src/db.js");
+          ensureDb(); // KJC-BUG-0090: autorun/run may not have started the board
           setStoryCost(huId, outcome.cost_usd);
           // Φ0-G (KJC-TSK-0525): cached/in tokens travel in the same
           // outcome blob as cost. Write them together so the board

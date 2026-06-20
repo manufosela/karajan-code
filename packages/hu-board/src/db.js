@@ -362,6 +362,17 @@ export function getDb() {
 }
 
 /**
+ * Lazily initialise the DB if it isn't open yet (KJC-BUG-0090). The cost
+ * writers run from `kj run`/`kj autorun` paths that may never start the board
+ * (which is what normally calls initDb), so cost writes failed with
+ * "Database not initialized". This makes those writers self-sufficient.
+ */
+export function ensureDb() {
+  if (!db) initDb();
+  return db;
+}
+
+/**
  * Inserts or updates a project record.
  * @param {{ id: string, name?: string, first_seen?: string, last_activity?: string, total_stories?: number }} project
  */

@@ -174,6 +174,12 @@ export async function runCommandHandler({ task, config, logger, flags }) {
       // failed), tell the user the exact command to resume it.
       printResumeHint(result);
     }
-    return { ok: !result?.paused && result?.approved !== false };
+    // Surface per-HU results so `kj autorun` can build a real outcome report
+    // (KJC-BUG-0090: it showed "0/0 met the ask" because only { ok } came back).
+    // The plan run returns them as `huResults` (run-hu-batch finalResult).
+    const hus = Array.isArray(result?.huResults)
+      ? result.huResults.map((r) => ({ id: r.huId, met: r.approved === true }))
+      : [];
+    return { ok: !result?.paused && result?.approved !== false, hus };
   });
 }
