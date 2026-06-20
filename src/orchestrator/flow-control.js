@@ -128,7 +128,13 @@ export function parseCheckpointAnswer({ trimmedAnswer, checkpointDisabled, confi
 }
 
 export async function checkSessionTimeout({ askQuestion, elapsedMinutes, config, session, emitter, eventBase, i, budgetSummary }) {
-  if (askQuestion || elapsedMinutes <= config.session.max_total_minutes) return;
+  // Enforce the wall-clock when no human is watching the checkpoint: either a
+  // non-interactive run (no askQuestion) OR an autonomous one — where askQuestion
+  // is the auto-continue wrapper (truthy) but nobody is there to stop a runaway.
+  // Interactive runs keep skipping it (the human decides at the checkpoint).
+  // KJC-TSK-0575 (AUTO-D): without this, autonomous runs had NO wall-clock cap.
+  const unattended = !askQuestion || askQuestion.unattended === true;
+  if (!unattended || elapsedMinutes <= config.session.max_total_minutes) return;
 
   await markSessionStatus(session, "failed");
   emitProgress(

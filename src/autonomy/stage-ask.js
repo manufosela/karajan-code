@@ -22,5 +22,9 @@ export function createAutonomyAskQuestion({ baseAsk = null, autonomy = "interact
     return stage === "architect" ? null : "continue";
   };
   auto.interactive = false;
+  // Marker so the orchestrator can tell an autonomous (unattended) run from an
+  // interactive one even though both carry a truthy askQuestion — the wall-clock
+  // backstop relies on it (KJC-TSK-0575, AUTO-D).
+  auto.unattended = true;
   return auto;
 }
