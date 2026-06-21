@@ -26,6 +26,17 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 Instead of running one AI agent and manually reviewing its output, `kj` orchestrates **specialized roles** — each executed by the AI agent you choose. The coder writes code, guards check for destructive patterns, SonarQube scans it, the reviewer checks it, and if issues are found, the coder gets another attempt. Roles define *what* to do; agents define *who* does it.
 
+## A loop-engineering runtime
+
+Prompt engineering got one good answer from one good prompt. Context engineering curated what the model saw. The 2026 frontier is **loop engineering**: you stop prompting the agent by hand and design the system that prompts it, checks it, and decides what happens next — until the goal is met or it hands back to you. Karajan was built around that loop before the term caught on:
+
+- **Maker / checker split** — a coder against independent reviewer, tester and security roles, with Solomon judging disputes. The maker never grades its own work.
+- **Deterministic verification** — TDD, per-HU acceptance tests, SonarQube gates and deterministic guards. Checking is tests, not vibes.
+- **The autonomy ladder L1 → L2 → L3** — the `interactive | assisted | autonomous` axis (v3.7.0). Report, then assisted fixes, then unattended `kj autorun` — defaulting to `interactive`, so you opt in.
+- **A durable state spine** — sessions, the HU Board, journals, the RAG index and `kj resume` keep the loop alive across runs.
+
+The caveat loop engineering insists on — *unattended loops make unattended mistakes* — is designed in: autonomous runs list their residual defects, every story lands behind a PR, and `kj-trash` snapshots destructive operations. [Read the full building-block mapping →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+
 <CardGrid stagger>
   <Card title="Zero API Costs" icon="star">
     Runs on your existing AI subscriptions. No additional API keys or cloud services required. Pair with RTK and Squeezr (see below) for 60-90% extra token savings.

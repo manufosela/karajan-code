@@ -26,6 +26,17 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orquesta **roles especializados** — cada uno ejecutado por el agente de IA que tú elijas. El coder escribe código, los guards comprueban patrones destructivos, SonarQube lo analiza, el reviewer lo revisa, y si hay problemas, el coder recibe otra oportunidad. Los roles definen *qué* hacer; los agentes definen *quién* lo hace.
 
+## Un runtime de loop engineering
+
+El prompt engineering sacaba una buena respuesta de un buen prompt. El context engineering curaba lo que veía el modelo. La frontera de 2026 es el **loop engineering**: dejas de promptear al agente a mano y diseñas el sistema que lo promptea, lo verifica y decide qué pasa después — hasta que se cumple el objetivo o te lo devuelve a ti. Karajan se construyó alrededor de ese bucle antes de que el término calara:
+
+- **Separación maker / checker** — un coder contra roles independientes de reviewer, tester y security, con Solomon arbitrando los conflictos. El maker nunca corrige su propio trabajo.
+- **Verificación determinista** — TDD, tests de aceptación por HU, gates de SonarQube y guardarraíles deterministas. Verificar es tests, no intuición.
+- **La escalera de autonomía L1 → L2 → L3** — el eje `interactive | assisted | autonomous` (v3.7.0). Informe, luego fixes asistidos, luego `kj autorun` desatendido — con default `interactive`, así que tú decides.
+- **Un spine de estado duradero** — sesiones, el HU Board, journals, el índice RAG y `kj resume` mantienen vivo el bucle entre runs.
+
+El caveat que el loop engineering recalca — *los bucles desatendidos cometen errores desatendidos* — está diseñado de serie: los runs autónomos listan sus defectos residuales, cada historia aterriza tras una PR, y `kj-trash` hace snapshot de las operaciones destructivas. [Lee el mapeo completo de building blocks →](https://github.com/manufosela/karajan-code/blob/main/docs/loop-engineering.md)
+
 <CardGrid stagger>
   <Card title="Sin Costes Extra" icon="star">
     Funciona con tus suscripciones existentes de IA. No necesita API keys ni servicios cloud adicionales. Combina con RTK y Squeezr (cards de abajo) para un 60-90% adicional de ahorro en tokens.
