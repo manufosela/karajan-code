@@ -228,13 +228,20 @@ En lugar de ejecutar un agente de IA y revisar manualmente su output, `kj` orque
   <Card title="Harden consultivo (v3.6)" icon="approve-check">
     `kj harden` aprende a **comparar en vez de solo instalar**. `kj harden --report` lee un repo existente y muestra, por artefacto (editorconfig, eslint, prettier, commitlint…), si **falta**, es **tuyo** o está **gestionado por kj** — y para tu propia config, las **mejoras concretas** que aportaría el estándar kj. `kj harden --interactive` te deja **adoptarlo pieza a pieza**, con default seguro (deja lo tuyo salvo que digas lo contrario). El control de alcance (`--only`/`--exclude`, ignora dirs de ejemplos/fixtures) lo mantiene fuera de tus ejemplos y sub-tools. Upgrade directo desde v3.5.1.
   </Card>
+  <Card title="Entrega autónoma (v3.7)" icon="rocket">
+    Un único eje de autonomía — `interactive | assisted | autonomous` — convierte a Karajan en un equipo sin manos. **`kj autorun <spec>`** encadena plan → run → informe de resultado de forma atómica: planifica el trabajo, lo descompone en HUs y lo ejecuta hasta terminar sin humano en el bucle. **El Arbiter** resuelve los conflictos entre agentes eligiendo la respuesta menos mala contra un orden de verdad fijo (tests de aceptación > must-fix del reviewer > nice-to-have). Las stages autónomas nunca se bloquean en una pregunta, un tope de wall-clock garantiza que no se cuelguen, y la ejecución termina con un informe **DELIVERED / INCOMPLETE** que lista los defectos residuales. El default sigue siendo `interactive` — tus runs normales no cambian. Upgrade directo desde v3.6.0.
+  </Card>
 </CardGrid>
 
 ## Releases recientes
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.6.0 — Harden consultivo (actual)
+### v3.7.0 — Entrega autónoma (actual)
+
+Un único eje de autonomía (`interactive | assisted | autonomous`) deja que Karajan ejecute sin manos. **`kj autorun <spec>`** encadena plan → run → informe de resultado: planifica, descompone en HUs y ejecuta hasta terminar sin humano en el bucle. **El Arbiter** resuelve los conflictos entre agentes eligiendo la respuesta menos mala (verdad de base: tests de aceptación > must-fix del reviewer > nice-to-have); las stages autónomas nunca se bloquean, un tope de wall-clock evita los cuelgues, y la ejecución termina con un informe DELIVERED / INCOMPLETE de los defectos residuales. El default sigue siendo `interactive`, así que los runs normales no cambian.
+
+### v3.6.0 — Harden consultivo
 
 `kj harden --report` muestra, en solo lectura, qué aportaría el estándar kj a un repo existente — por artefacto: falta / es tuyo / gestionado por kj, más las mejoras concretas para tus propias configs. `kj harden --interactive` adopta el estándar pieza a pieza, con default seguro. Los flags de alcance (`--only`/`--exclude`) lo mantienen fuera de dirs de ejemplos/fixtures. Un primer uso de `kj init` más redondo (inglés consistente, jerga glosada, cierre claro), y la red de seguridad `kj-trash` ya llega a los installs de npm.
 

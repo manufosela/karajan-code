@@ -228,13 +228,20 @@ Instead of running one AI agent and manually reviewing its output, `kj` orchestr
   <Card title="Advisory harden (v3.6)" icon="approve-check">
     `kj harden` learns to **compare instead of just install**. `kj harden --report` reads an existing repo and shows, per artifact (editorconfig, eslint, prettier, commitlint…), whether it's **missing**, **yours**, or **kj-managed** — and for your own config, the **concrete improvements** the kj standard would add. `kj harden --interactive` then lets you **adopt it piece by piece**, default-safe (it keeps yours unless you say otherwise). Scope control (`--only`/`--exclude`, demo/fixture dirs ignored by default) keeps it off your examples and sub-tools. Drop-in upgrade from v3.5.1.
   </Card>
+  <Card title="Autonomous delivery (v3.7)" icon="rocket">
+    A single autonomy axis — `interactive | assisted | autonomous` — turns Karajan into a hands-off squad. **`kj autorun <spec>`** chains plan → run → outcome report atomically: it plans the work, decomposes it into HUs, and runs to completion with no human in the loop. **The Arbiter** resolves agent conflicts by picking the least-bad answer against a fixed ground-truth order (acceptance tests > reviewer must-fix > nice-to-have). Autonomous stages never block on a prompt, a wall-clock backstop guarantees they can't hang, and the run ends with a **DELIVERED / INCOMPLETE** report listing any residual defects. The default stays `interactive` — your normal runs are untouched. Drop-in upgrade from v3.6.0.
+  </Card>
 </CardGrid>
 
 ## Recent releases
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.6.0 — Advisory harden (current)
+### v3.7.0 — Autonomous delivery (current)
+
+A single autonomy axis (`interactive | assisted | autonomous`) lets Karajan run hands-off. **`kj autorun <spec>`** chains plan → run → outcome report: it plans, decomposes into HUs, and runs to completion with no human in the loop. **The Arbiter** resolves agent conflicts by picking the least-bad answer (ground truth: acceptance tests > reviewer must-fix > nice-to-have); autonomous stages never block, a wall-clock backstop prevents hangs, and the run ends with a DELIVERED / INCOMPLETE report of residual defects. The default stays `interactive`, so normal runs are untouched.
+
+### v3.6.0 — Advisory harden
 
 `kj harden --report` shows, read-only, what the kj standard would add to an existing repo — per artifact: missing / yours / kj-managed, plus the concrete improvements for your own configs. `kj harden --interactive` adopts the standard piece by piece, default-safe. Scope flags (`--only`/`--exclude`) keep it off demo/fixture dirs. A rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now ships to npm installs.
 

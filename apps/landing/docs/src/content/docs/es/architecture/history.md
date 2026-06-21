@@ -1563,6 +1563,12 @@ El harness aprende a **comparar en vez de solo instalar** (épica KJC-PCS-0060).
 
 La release también redondea el primer uso: `kj init` quita la pregunta de scope en frío, mete el routing avanzado por rol tras un único opt-in, habla un inglés consistente con la jerga glosada, ya no filtra el banner de update de Squeezr, y termina con un siguiente paso claro. Y cierra un hueco real de packaging — la red de seguridad `kj-trash` (snapshots de operaciones destructivas) nunca estaba en el tarball publicado; ahora se publica como bin raíz, blindada por un gate verify-pack ampliado para que no recaiga.
 
+## Fase 95: v3.7.0 — Entrega autónoma (v3.7.0)
+
+La culminación de la visión: dada una spec, Karajan planifica, descompone en HUs y ejecuta hasta terminar **sin humano en el bucle** (épica KJC-PCS-0062). Un único eje de autonomía — `interactive | assisted | autonomous`, resuelto flag > env > config > default — encamina cada decisión que sería humana por un único choke point que o pregunta al humano o se la pasa **al Arbiter**. El Arbiter resuelve los conflictos entre agentes (reviewer vs coder, un test de aceptación que no pasa tras N iteraciones, una spec ambigua) eligiendo la respuesta **menos mala** contra un orden de verdad fijo: los tests de aceptación mandan sobre el must-fix del reviewer, y este sobre el nice-to-have; ante un fallo de parseo degrada de forma conservadora en vez de bloquear.
+
+`kj autorun <spec>` encadena plan → run → informe de resultado de forma atómica con propagación de exit code. En modo autónomo las stages del pipeline nunca se bloquean en una pregunta y un tope de wall-clock garantiza que un run no se cuelgue, así que el bucle siempre termina con un informe **DELIVERED / INCOMPLETE** que lista las HUs cumplidas/no cumplidas y los defectos residuales — la perfección no es el listón, cumplir el encargo sí. El default sigue siendo `interactive`, así que los runs interactivos existentes no cambian ni un byte. El spine se verificó en vivo end-to-end sobre specs reales (coder + reviewer reales, `node --test` en verde, sin humano).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

@@ -1564,6 +1564,12 @@ The harness learns to **compare instead of just install** (epic KJC-PCS-0060). A
 
 The release also rounds the first run: `kj init` drops the cold scope question, gates advanced per-role agent routing behind one opt-in, speaks consistent English with glossed terms, no longer leaks the Squeezr update banner, and ends with a clear next step. And it closes a real packaging gap — the `kj-trash` safety net (snapshots of destructive ops) was never in the published tarball; it now ships as a root bin, guarded by an extended verify-pack gate so it can't regress.
 
+## Phase 95: v3.7.0 — Autonomous delivery (v3.7.0)
+
+The culmination of the vision: given a spec, Karajan plans, decomposes into HUs and runs to completion **with no human in the loop** (epic KJC-PCS-0062). A single autonomy axis — `interactive | assisted | autonomous`, resolved flag > env > config > default — routes every would-be human decision through one choke point that either asks the human or hands it to **the Arbiter**. The Arbiter resolves agent conflicts (reviewer vs coder, an acceptance test that won't pass after N iterations, an ambiguous spec) by picking the **least-bad** answer against a fixed ground-truth order: acceptance tests outrank reviewer must-fix, which outrank nice-to-have; on a parse failure it degrades conservatively rather than blocking.
+
+`kj autorun <spec>` chains plan → run → outcome report atomically with exit-code propagation. In autonomous mode the pipeline stages never block on a prompt and a wall-clock backstop guarantees a run can't hang, so the loop always terminates with a **DELIVERED / INCOMPLETE** report that lists HUs met/unmet and any residual defects — perfection is not the bar, meeting the ask is. The default stays `interactive`, so existing interactive runs are byte-for-byte unchanged. The spine was live-verified end-to-end on real specs (real coder + reviewer, `node --test` passing, no human).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
