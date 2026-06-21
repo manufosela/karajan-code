@@ -71,6 +71,33 @@ Two technical facts worth keeping straight:
 
 Full write-up with mental mapping for Genkit / Mastra / LangChain / Vercel AI SDK developers: **[docs/COMPARISON.md](./docs/COMPARISON.md)**.
 
+## Loop engineering
+
+Prompt engineering got one good answer from one good prompt. Context engineering
+curated what the model saw. The 2026 frontier is **loop engineering**: you stop
+prompting the agent by hand and design the control system that prompts it, checks
+it, and decides what happens next — until the goal is met or it hands back to you.
+
+Karajan is a loop-engineering runtime, built around the loop before the term
+caught on:
+
+- **Maker / checker split** — a coder against independent reviewer / tester /
+  security roles, with Solomon judging disputes. The maker never grades its own work.
+- **Deterministic verification** — TDD, per-HU acceptance tests, SonarQube gates,
+  and deterministic guards. Checking is tests, not vibes.
+- **The autonomy ladder (L1 → L2 → L3)** — the `interactive | assisted |
+  autonomous` axis (v3.7.0). Report, then assisted fixes, then unattended
+  `kj autorun` — defaulting to `interactive`, so you opt in.
+- **A durable state spine** — sessions, the HU Board, journals, the RAG index and
+  `kj resume` keep the loop alive outside any one conversation.
+
+The honest caveat loop engineering insists on — *unattended loops make unattended
+mistakes* — is designed in: autonomous runs list their residual defects, every HU
+lands behind a PR, and `kj-trash` snapshots destructive operations.
+
+Full mapping of the loop-engineering building blocks onto Karajan:
+**[docs/loop-engineering.md](./docs/loop-engineering.md)**.
+
 ## Install
 
 **npm** (recommended):
