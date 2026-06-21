@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.6.0 released** — Advisory harden: `kj harden --report` shows what the kj standard would add to an existing repo (per artifact: missing / yours / kj-managed, plus the concrete improvements), and `kj harden --interactive` lets you adopt it piece by piece, default-safe. Plus scope control (`--only`/`--exclude`, demo/fixture dirs ignored), a rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now actually ships to npm installs. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.7.0 released** — Autonomous delivery: `kj autorun <spec>` chains spec → plan → run every user story → outcome in one command, unattended. An **Arbiter** resolves agent conflicts by picking the least-bad call (acceptance tests > must-fix > nice-to-have), no stage blocks for a human, a wall-clock backstop stops runaways, and it ends with an auditable "delivered, with known defects" report. Autonomy is opt-in (`--autonomous` / `--autonomy <level>`); interactive runs are unchanged. Verified live end-to-end. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-06-21
+
+Minor. **Autonomous delivery** — give Karajan a spec and it runs to completion unattended, resolving agent conflicts itself (epic KJC-PCS-0062).
+
+### Added
+
+- **`kj autorun <spec>`** — one command chains spec → plan → run every HU → outcome, defaulting to the autonomous level so no human is in the loop. Reuses `kj plan` and `kj run --plan`; propagates a non-zero exit code when HUs don't meet the ask (KJC-TSK-0574).
+- **Autonomy levels** `interactive | assisted | autonomous` (`--autonomy <level>` / `--autonomous`, also on `kj run`). A single decision resolver routes every gate to the human or to the Arbiter depending on the level (KJC-TSK-0572).
+- **The Arbiter** — an autonomous decision authority that resolves agent conflicts (reviewer vs coder, failing acceptance tests, ambiguous spec) by picking the **least-bad** verdict from a closed set (`ACCEPT_WITH_DEFECT` / `RETRY_DIFFERENT_APPROACH` / `DESCOPE_HU` / `BLOCK_AND_CONTINUE` / `PROCEED`), with the ground-truth order *acceptance tests > must-fix > nice-to-have*. Any parse failure degrades to the conservative verdict — it never crashes or blocks (KJC-TSK-0573).
+- **Outcome report** — `kj autorun` ends with an auditable "meets the ask, with known defects" summary: DELIVERED/INCOMPLETE, which HUs met the ask, the Arbiter's decisions, and residual defects (KJC-TSK-0577).
+
+### Changed
+
+- In autonomous mode the spec-review gate and every pipeline stage no longer ask a human or block on the board — they auto-continue with the least-bad choice, and the wall-clock backstop is enforced for unattended runs so a run can't pause or run away (KJC-TSK-0572, 0576, 0575).
+
+### Fixed
+
+- `kj autorun` cost writes no longer fail with "Database not initialized", and the outcome report shows the real per-HU count instead of `0/0` — both found by live end-to-end runs (KJC-BUG-0090).
+
+Verified live: `kj autorun spec.md --autonomous` plans, builds and tests a module with no human, ending DELIVERED. Scheduled auto-resume after a quota reset is a follow-up (KJC-TSK-0578).
+
 ## [3.6.0] - 2026-06-19
 
 Minor. **Advisory harden** — `kj harden` learns to compare instead of just install, plus a rounder first-run and the ai-trash safety net actually reaching npm users.
