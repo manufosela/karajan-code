@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [3.7.2] - 2026-06-22
+
+Patch. HU Board deep-link fix.
+
 ### Fixed
 - **`kj plan` printed a broken HU Board deep-link** (KJC-BUG-0093): the auto-start banner pointed at `http://localhost:4000/p/<slug>`, a path the SPA router doesn't recognise, so the user landed on the global "All projects" dashboard instead of their project. `buildBoardUrl` now emits the canonical hash route `http://localhost:4000/#board/<slug>` used by the frontend router. Fixes the URL for `kj plan`, `kj run` and auto-HU batch alike (single source of truth).
 
