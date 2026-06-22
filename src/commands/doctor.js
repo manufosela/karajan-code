@@ -26,6 +26,7 @@ import { getSqueezrChecks } from "../checks/squeezr.js";
 import { getAiTrashChecks } from "../checks/ai-trash.js";
 import { getQmdChecks } from "../checks/qmd.js";
 import { getNodeChecks } from "../checks/node.js";
+import { getNativeBuildChecks } from "../checks/native-build.js";
 import { getPortChecks } from "../checks/ports.js";
 import { getTokenChecks } from "../checks/tokens.js";
 import { getMcpHealthChecks } from "../checks/mcp-health.js";
@@ -54,6 +55,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
   return [
     ...getSystemChecks(),
     ...getNodeChecks(),
+    ...getNativeBuildChecks(),
     ...getHardwareChecks(),
     ...getDirSetupChecks(),
     ...getConfigFileChecks(),
