@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.1] - 2026-06-22
+
+Patch. Onboarding and package-manager robustness.
+
+### Fixed
+
+- **`kj init` crash configuring Plan B** (KJC-BUG-0091): answering `y` to the fallback-chain prompt threw `wizard.input is not a function`. The interactive wizard never exposed an `input` method; added one (symmetric with `confirm`, with a `[default]` hint). Independent of the package manager.
+- **pnpm installs left karajan unable to open its DB** (KJC-BUG-0092): pnpm blocks dependency build scripts by default, so `better-sqlite3`'s native addon never compiles — `kj --version` works (lazy) but any DB-backed command (`board`, `rag`, cost tracking) crashed with `Cannot find module 'better-sqlite3'`. `kj doctor` now detects the pnpm layout and surfaces the exact remedy (`pnpm approve-builds better-sqlite3`, or install with npm) instead of a cryptic crash.
+
+### Changed
+
+- **Release gate now checks pnpm** (KJC-TSK-0580): `verify-pack` additionally installs the tarball with pnpm and asserts `kj` boots under pnpm's symlinked store, so a pnpm packaging regression is caught every release (CI runs it via `corepack`). The native-build limitation is inherent to pnpm and is surfaced as the doctor warning above.
+
 ## [3.7.0] - 2026-06-21
 
 Minor. **Autonomous delivery** — give Karajan a spec and it runs to completion unattended, resolving agent conflicts itself (epic KJC-PCS-0062).
