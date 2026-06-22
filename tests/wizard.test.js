@@ -120,6 +120,36 @@ describe("wizard", () => {
     expect(result).toBe("first");
     wizard.close();
   });
+
+  it("input returns the typed value", async () => {
+    const input = makeInput(["24"]);
+    const output = makeOutput();
+    const wizard = createWizard(input, output);
+
+    const answer = await wizard.input("Hours:", "12");
+    expect(answer).toBe("24");
+    wizard.close();
+  });
+
+  it("input falls back to the default on empty input", async () => {
+    const input = makeInput([""]);
+    const output = makeOutput();
+    const wizard = createWizard(input, output);
+
+    const answer = await wizard.input("Hours:", "12");
+    expect(answer).toBe("12");
+    wizard.close();
+  });
+
+  it("input shows the default as a [hint]", async () => {
+    const input = makeInput([""]);
+    const output = makeOutput();
+    const wizard = createWizard(input, output);
+
+    await wizard.input("Hours:", "12");
+    expect(output.getOutput()).toContain("[12]");
+    wizard.close();
+  });
 });
 
 describe("isTTY", () => {
