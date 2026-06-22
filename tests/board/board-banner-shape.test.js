@@ -28,7 +28,7 @@ describe("renderBoardBanner", () => {
   });
 
   it("rules width matches the longest content line (or terminal width, whichever is smaller)", () => {
-    const url = "http://localhost:4000/p/very-long-project-slug-that-might-exceed-old-50-char-box";
+    const url = "http://localhost:4000/#board/very-long-project-slug-that-might-exceed-old-50-char-box";
     const out = renderBoardBanner({ url, status: "started", projectName: "Demo" });
     const lines = out.split("\n").filter(Boolean);
     const maxContentWidth = Math.max(
@@ -50,7 +50,7 @@ describe("renderBoardBanner", () => {
 
   it("never draws a fixed-width 50-char box (the old broken layout)", () => {
     const out = renderBoardBanner({
-      url: "http://localhost:4000/p/home_manu_ws_ai_linux-assistant-orchestrator",
+      url: "http://localhost:4000/#board/home_manu_ws_ai_linux-assistant-orchestrator",
       status: "started",
       projectName: "Linux Assistant Orchestrator",
     });
