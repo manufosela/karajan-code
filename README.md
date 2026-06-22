@@ -23,7 +23,7 @@
 
 ---
 
-> **v3.7.0 released** — Autonomous delivery: `kj autorun <spec>` chains spec → plan → run every user story → outcome in one command, unattended. An **Arbiter** resolves agent conflicts by picking the least-bad call (acceptance tests > must-fix > nice-to-have), no stage blocks for a human, a wall-clock backstop stops runaways, and it ends with an auditable "delivered, with known defects" report. Autonomy is opt-in (`--autonomous` / `--autonomy <level>`); interactive runs are unchanged. Verified live end-to-end. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v3.7.1 released** — Patch: fixes a `kj init` crash when configuring the Plan B fallback, and makes pnpm installs safe — `kj doctor` now flags when pnpm skipped `better-sqlite3`'s native build and tells you exactly how to fix it (`pnpm approve-builds better-sqlite3`). The release gate checks pnpm too. Built on **v3.7.0 — Autonomous delivery**: `kj autorun <spec>` chains spec → plan → run every user story → outcome in one command, unattended, with an **Arbiter** that resolves agent conflicts by picking the least-bad call; autonomy is opt-in, interactive runs are unchanged. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
 
@@ -109,6 +109,8 @@ npm install -g karajan-code
 ```bash
 brew install manufosela/tap/karajan-code
 ```
+
+> **Installing with pnpm?** pnpm blocks dependency build scripts by default, so `better-sqlite3`'s native addon won't compile on install and DB-backed commands (`board`, `rag`, cost tracking) will fail. After installing, run `pnpm approve-builds better-sqlite3` — or just use npm. `kj doctor` flags this if it happens.
 
 **Standalone binary** (no Node.js needed):
 ```bash
