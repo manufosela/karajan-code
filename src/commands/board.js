@@ -77,15 +77,18 @@ async function findAvailablePort(desiredPort, maxTries = 10) {
 
 /**
  * Build the board URL. When `projectSlug` is provided, the URL points at
- * the per-project view (`/p/<slug>`) so the caller's project shows up
- * pre-filtered instead of "All projects".
+ * the per-project view via the SPA hash route (`#board/<slug>`) so the
+ * caller's project shows up pre-filtered instead of "All projects". The
+ * frontend router is hash-based (see public/utils/init-listeners.js); a
+ * real `/p/<slug>` path is not a route and silently falls back to the
+ * global dashboard. KJC-BUG-0093.
  * @param {number} port
  * @param {string|null} [projectSlug]
  * @returns {string}
  */
-function buildBoardUrl(port, projectSlug) {
+export function buildBoardUrl(port, projectSlug) {
   const base = `http://localhost:${port}`;
-  return projectSlug ? `${base}/p/${projectSlug}` : base;
+  return projectSlug ? `${base}/#board/${projectSlug}` : base;
 }
 
 /**
