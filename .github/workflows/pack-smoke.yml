@@ -38,5 +38,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Enable pnpm (for the pnpm install smoke — KJC-TSK-0580)
+        run: corepack enable
+
       - name: Verify the published tarball installs clean and runs
         run: npm run verify-pack
