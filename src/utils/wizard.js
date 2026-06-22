@@ -1,7 +1,7 @@
 import readline from "node:readline";
 
-export function createWizard(input = process.stdin, output = process.stdout) {
-  const rl = readline.createInterface({ input, output, terminal: false });
+export function createWizard(inputStream = process.stdin, output = process.stdout) {
+  const rl = readline.createInterface({ input: inputStream, output, terminal: false });
 
   function ask(question) {
     return new Promise((resolve) => {
@@ -14,6 +14,12 @@ export function createWizard(input = process.stdin, output = process.stdout) {
     const answer = await ask(`${question} ${hint} `);
     if (answer === "") return defaultValue;
     return /^y(es)?$/i.test(answer);
+  }
+
+  async function input(question, defaultValue = "") {
+    const hint = defaultValue !== "" ? ` [${defaultValue}]` : "";
+    const answer = await ask(`${question}${hint} `);
+    return answer === "" ? defaultValue : answer;
   }
 
   async function select(question, options) {
@@ -33,7 +39,7 @@ export function createWizard(input = process.stdin, output = process.stdout) {
     rl.close();
   }
 
-  return { ask, confirm, select, close };
+  return { ask, confirm, input, select, close };
 }
 
 export function isTTY() {
