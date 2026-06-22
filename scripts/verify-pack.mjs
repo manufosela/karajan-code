@@ -50,6 +50,7 @@ function fail(msg, detail) {
 
 let tgzPath = null;
 let tmpDir = null;
+let pnpmTmp = null;
 try {
   console.log(`verify-pack: packing karajan-code@${expectedVersion}…`);
   // --json gives us the exact filename without parsing human output.
@@ -114,8 +115,48 @@ try {
   }
   console.log("verify-pack: kj-trash ships + boots ✓");
 
+  // 5. pnpm install smoke (KJC-TSK-0580). pnpm's layout differs from npm's
+  // (a symlinked virtual store), so it can break resolution of the bundled
+  // @karajan/core the way npm packaging breakage did before (KJC-BUG-0082/0086).
+  // Verify a pnpm install resolves the JS tree and `kj --version` boots — every
+  // release catches a pnpm packaging regression. (pnpm also blocks
+  // better-sqlite3's native build by default, so DB-backed commands need
+  // `pnpm approve-builds`; that's surfaced as a doctor warning, KJC-BUG-0092 —
+  // not a gate failure, since it's inherent to pnpm.) Auto-skips without pnpm.
+  const hasPnpm = spawnSync("pnpm", ["--version"], { encoding: "utf8", env: childEnv }).status === 0;
+  if (!hasPnpm) {
+    console.log("verify-pack: pnpm not installed — skipping pnpm smoke (npm path covered above) ⚠");
+  } else {
+    pnpmTmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-pnpm-"));
+    fs.writeFileSync(
+      path.join(pnpmTmp, "package.json"),
+      JSON.stringify({ name: "kj-verify-pnpm", private: true }),
+    );
+    console.log(`verify-pack: installing the tarball with pnpm into ${pnpmTmp}…`);
+    // pnpm exits non-zero on ERR_PNPM_IGNORED_BUILDS (it skips native build
+    // scripts by default) — expected here, so don't treat the exit as failure.
+    spawnSync("pnpm", ["add", tgzPath, "--store-dir", path.join(pnpmTmp, ".store")], {
+      encoding: "utf8",
+      env: childEnv,
+      cwd: pnpmTmp,
+    });
+    const pnpmBin = path.join(pnpmTmp, "node_modules", ".bin", "kj");
+    if (!fs.existsSync(pnpmBin)) fail(`kj binary missing after pnpm install: ${pnpmBin}`);
+    let pnpmVersion;
+    try {
+      pnpmVersion = run(pnpmBin, ["--version"], { cwd: pnpmTmp }).trim();
+    } catch (err) {
+      fail("`kj --version` crashed under a pnpm install (packaging regression)", err.stderr || err.message);
+    }
+    if (!pnpmVersion.includes(expectedVersion)) {
+      fail(`kj --version under pnpm returned "${pnpmVersion}", expected ${expectedVersion}`);
+    }
+    console.log(`verify-pack: pnpm install + kj --version → ${pnpmVersion} ✓ (DB build needs \`pnpm approve-builds\`)`);
+  }
+
   console.log(`\n✓ verify-pack: karajan-code@${expectedVersion} installs clean and runs.`);
 } finally {
   if (tgzPath && fs.existsSync(tgzPath)) fs.rmSync(tgzPath, { force: true });
   if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  if (pnpmTmp && fs.existsSync(pnpmTmp)) fs.rmSync(pnpmTmp, { recursive: true, force: true });
 }
