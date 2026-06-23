@@ -29,3 +29,24 @@ export async function assertAgentsAvailable(agentNames = []) {
   }
   throw new Error(lines.join("\n"));
 }
+
+/**
+ * Non-throwing counterpart to assertAgentsAvailable: probe each agent CLI in
+ * parallel and return the subset whose `--version` succeeds. Used by the
+ * audit fallback (KJC-BUG-0094) to skip uninstalled providers instead of
+ * aborting the whole command when any one is missing.
+ * @param {string[]} agentNames
+ * @returns {Promise<string[]>}
+ */
+export async function filterAvailableAgents(agentNames = []) {
+  const unique = [...new Set(agentNames.filter(Boolean))];
+  const probes = await Promise.all(
+    unique.map(async (name) => {
+      const meta = getAgentMeta(name);
+      if (!meta?.bin) return null;
+      const res = await runCommand(resolveBin(meta.bin), ["--version"]);
+      return res.exitCode === 0 ? name : null;
+    })
+  );
+  return probes.filter(Boolean);
+}

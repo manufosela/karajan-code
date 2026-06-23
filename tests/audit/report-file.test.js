@@ -21,7 +21,7 @@ vi.mock("../../src/roles/audit-role.js", () => ({
     async executeWithDeterministic(input, ctx) { return executeWithDetMock(input, ctx); }
   },
 }));
-vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn() }));
+vi.mock("../../src/agents/availability.js", () => ({ assertAgentsAvailable: vi.fn(), filterAvailableAgents: vi.fn(async (names) => names) }));
 vi.mock("../../src/config.js", () => ({
   resolveRole: vi.fn((config, role) => ({ provider: config.roles?.[role]?.provider || role })),
 }));
