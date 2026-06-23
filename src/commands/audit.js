@@ -3,10 +3,11 @@ import fs from "node:fs/promises";
 import readline from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { assertAgentsAvailable } from "../agents/availability.js";
+import { assertAgentsAvailable, filterAvailableAgents } from "../agents/availability.js";
 import { resolveRole } from "../config.js";
 import { AUDIT_DIMENSIONS } from "../prompts/audit.js";
 import { AuditRole } from "../roles/audit-role.js";
+import { buildAuditFallbackCandidates, runAuditWithFallback } from "../audit/audit-fallback.js";
 import { withCliRunLog } from "../utils/cli-run-log.js";
 import { createCliProgressReporter } from "../utils/cli-progress.js";
 import { runAgentReadiness, formatAgentReadinessReport } from "../audit/agent-readiness.js";
@@ -260,7 +261,11 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
 
   return withCliRunLog("audit", { projectDir: config?.projectDir, logger }, async ({ runLog }) => {
     const auditRoleConfig = resolveRole(config, "audit");
-    await assertAgentsAvailable([auditRoleConfig.provider]);
+    // KJC-BUG-0094: proceed if any fallback candidate is installed; throw only when NONE are.
+    const fallbackCandidates = buildAuditFallbackCandidates(config);
+    const candidateProviders = [...new Set(fallbackCandidates.map((c) => c.provider))];
+    const available = await filterAvailableAgents(candidateProviders);
+    if (available.length === 0) await assertAgentsAvailable([auditRoleConfig.provider]);
     logger.info(`Audit (${auditRoleConfig.provider}) starting...`);
     runLog.logText(`[audit] provider=${auditRoleConfig.provider} dimensions=${dimensions || "all"} deterministicOnly=${deterministicOnly}`);
 
@@ -347,7 +352,18 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
     const progress = createCliProgressReporter({ role: "auditor" });
     let roleResult;
     try {
-      roleResult = await role.executeWithDeterministic({ ...roleInput, onOutput: progress.onOutput }, deterministicCtx);
+      // KJC-BUG-0094: resilient fallback — if the configured provider/model
+      // is down (e.g. an inherited model like "claude-fable-5" is offline),
+      // degrade to the provider default, then to the next installed provider,
+      // reusing the deterministic context so no static analysis is re-run.
+      roleResult = await runAuditWithFallback({
+        config, logger,
+        roleInput: { ...roleInput, onOutput: progress.onOutput },
+        deterministicCtx,
+        available,
+        candidates: fallbackCandidates,
+        onFallback: (cand) => logger.warn(`Audit provider fallback → ${cand.provider}${cand.model ? ` (${cand.model})` : " (default model)"}`),
+      });
       progress.finish(roleResult.ok ? "done" : "failed");
     } catch (err) { progress.finish("failed"); throw err; }
 
