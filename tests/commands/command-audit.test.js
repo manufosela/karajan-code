@@ -21,6 +21,7 @@ vi.mock("../../src/roles/audit-role.js", () => ({
 
 vi.mock("../../src/agents/availability.js", () => ({
   assertAgentsAvailable: vi.fn(),
+  filterAvailableAgents: vi.fn(async (names) => names),
 }));
 
 vi.mock("../../src/config.js", () => ({
@@ -78,7 +79,7 @@ const successResult = {
 };
 
 describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
-  let assertAgentsAvailable;
+  let filterAvailableAgents;
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -87,14 +88,14 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     executeWithDetMock.mockResolvedValue(successResult);
 
     const avail = await import("../../src/agents/availability.js");
-    assertAgentsAvailable = avail.assertAgentsAvailable;
+    filterAvailableAgents = avail.filterAvailableAgents;
   });
 
-  it("asserts audit provider is available before invoking the role", async () => {
+  it("checks audit provider availability before invoking the role", async () => {
     const { auditCommand } = await import("../../src/commands/audit.js");
     await auditCommand({ task: "audit codebase", config: makeConfig(), logger: noopLogger });
 
-    expect(assertAgentsAvailable).toHaveBeenCalledWith(["claude"]);
+    expect(filterAvailableAgents).toHaveBeenCalledWith(["claude", "codex", "gemini"]);
   });
 
   it("invokes AuditRole.executeWithDeterministic with the task verbatim", async () => {
@@ -127,8 +128,8 @@ describe("commands/audit (post KJC-TSK-0357 — uses AuditRole)", () => {
     );
   });
 
-  it("throws when AuditRole returns ok=false", async () => {
-    executeWithDetMock.mockResolvedValueOnce({
+  it("throws when every audit provider returns ok=false", async () => {
+    executeWithDetMock.mockResolvedValue({
       ok: false,
       result: { error: "agent error", provider: "claude" },
       summary: "Audit failed: agent error",
