@@ -7,12 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.7.2] - 2026-06-22
+## [3.7.2] - 2026-06-23
 
-Patch. HU Board deep-link fix.
+Patch. HU Board deep-link fix + resilient `kj audit` provider fallback.
 
 ### Fixed
 - **`kj plan` printed a broken HU Board deep-link** (KJC-BUG-0093): the auto-start banner pointed at `http://localhost:4000/p/<slug>`, a path the SPA router doesn't recognise, so the user landed on the global "All projects" dashboard instead of their project. `buildBoardUrl` now emits the canonical hash route `http://localhost:4000/#board/<slug>` used by the frontend router. Fixes the URL for `kj plan`, `kj run` and auto-HU batch alike (single source of truth).
+- **`kj audit` had no fallback when the configured provider/model was down** (KJC-BUG-0094): the CLI audit called `AuditRole.executeWithDeterministic` directly, bypassing the orchestrator's recovery paths, so a dead configured model (e.g. an inherited `claude-fable-5`) killed the command outright. The LLM phase now walks an ordered, de-duplicated candidate chain — configured provider+model → same provider default model → remaining known providers (claude, codex, gemini) — and the first success wins. Uninstalled CLIs are skipped without throwing, and the deterministic analysis context is collected once and reused across attempts.
 
 ## [3.7.1] - 2026-06-22
 
