@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.7.1 — fix de init + seguridad pnpm (actual)
+### v3.7.2 — Fix de deep-link + fallback resiliente del audit (actual)
+
+Patch. El banner de arranque del HU Board emite ahora la ruta hash canónica (`/#board/<slug>`) que entiende el router de la SPA, así que los deep-links de `kj plan` / `kj run` aterrizan en tu proyecto y no en el dashboard global. Y `kj audit` es ahora resiliente: si el proveedor o el modelo configurado está caído, recorre automáticamente una cadena ordenada de alternativas — proveedor+modelo configurado → el modelo por defecto del mismo proveedor → el resto de proveedores conocidos (claude, codex, gemini) — y gana el primero que funciona, así que un modelo muerto ya no puede tumbar el comando.
+
+### v3.7.1 — fix de init + seguridad pnpm
 
 Patch. Arregla un crash de `kj init` al configurar el fallback Plan B, y hace seguras las instalaciones con pnpm: pnpm bloquea por defecto los build scripts de dependencias, así que el addon nativo de `better-sqlite3` no compilaba — `kj doctor` ahora lo detecta y te dice exactamente cómo arreglarlo (`pnpm approve-builds better-sqlite3`, o instalar con npm). El gate de release también verifica pnpm en cada versión.
 

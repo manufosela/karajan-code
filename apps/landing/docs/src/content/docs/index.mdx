@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.7.1 — init fix + pnpm safety (current)
+### v3.7.2 — Deep-link fix + resilient audit fallback (current)
+
+Patch. The HU Board auto-start banner now emits the canonical hash route (`/#board/<slug>`) the SPA router understands, so `kj plan` / `kj run` deep-links land on your project instead of the global dashboard. And `kj audit` is now resilient: if the configured provider or model is down, it automatically walks an ordered fallback chain — configured provider+model → the same provider's default model → the remaining known providers (claude, codex, gemini) — and the first one that works wins, so a dead model can no longer kill the command.
+
+### v3.7.1 — init fix + pnpm safety
 
 Patch. Fixes a `kj init` crash when configuring the Plan B fallback, and makes pnpm installs safe: pnpm blocks dependency build scripts by default, so `better-sqlite3`'s native addon wouldn't compile — `kj doctor` now detects this and tells you exactly how to fix it (`pnpm approve-builds better-sqlite3`, or install with npm). The release gate checks pnpm on every version too.
 
