@@ -2,8 +2,9 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { Command } from "commander";
+import { Command, Help } from "commander";
 import { loadConfig } from "./config.js";
+import { isAdvancedCommand } from "./cli/advanced-commands.js";
 import { registerPipeline } from "./cli/register-pipeline.js";
 import { registerPlan } from "./cli/register-plan.js";
 import { registerRolesSkills } from "./cli/register-roles-skills.js";
@@ -41,8 +42,20 @@ program
   .allowUnknownOption(true)
   .allowExcessArguments(true);
 
-// KJC-TSK-0571: the command list is long (30+). Orient a newcomer to the few
-// commands they actually need; the rest are advanced/internal.
+// KJC-TSK-0582: the flat list had grown to 37 commands. Show only the core
+// basics in `kj --help`; the advanced/specialized ones live under
+// `kj advanced`. The filter applies to the ROOT help only — subcommand help
+// keeps listing its own subcommands untouched.
+program.configureHelp({
+  visibleCommands(cmd) {
+    const cmds = Help.prototype.visibleCommands.call(this, cmd);
+    if (cmd !== program) return cmds;
+    return cmds.filter((c) => !isAdvancedCommand(c.name()));
+  },
+});
+
+// KJC-TSK-0571/0582: orient a newcomer to the few commands they need and
+// point them at `kj advanced` for everything else.
 program.addHelpText(
   "after",
   `
@@ -53,7 +66,7 @@ Getting started (the basics — start here):
   kj doctor           Check your environment is ready
   kj harden           Add quality git hooks + CI to any repo
 
-Everything else is advanced or internal — you rarely call it directly.`
+  kj advanced         List every advanced/specialized command, grouped by area`
 );
 
 registerPipeline(program, { pkgVersion: PKG_VERSION });

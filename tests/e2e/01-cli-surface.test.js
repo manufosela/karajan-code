@@ -21,14 +21,26 @@ describe("e2e/10 — CLI surface", () => {
     } finally { proj.cleanup(); }
   });
 
-  it("kj --help lists the canonical subcommands and exits 0", () => {
+  it("kj --help lists the core commands + the advanced pointer, exits 0", () => {
     const proj = makeTmpProject();
     try {
       const r = runKj(["--help"], { cwd: proj.projectDir });
       expect(r.exitCode).toBe(0);
-      // Every contract user a power user touches must show up here.
-      for (const cmd of ["plan", "run", "audit", "doctor", "init", "board", "review", "code"]) {
+      // KJC-TSK-0582: --help shows only the core basics + a pointer to
+      // `kj advanced`. The advanced commands no longer clutter this listing.
+      for (const cmd of ["init", "run", "plan", "doctor", "harden", "advanced"]) {
         expect(r.stdout, `'${cmd}' missing from --help`).toContain(cmd);
+      }
+    } finally { proj.cleanup(); }
+  });
+
+  it("kj advanced lists the specialized commands and exits 0", () => {
+    const proj = makeTmpProject();
+    try {
+      const r = runKj(["advanced"], { cwd: proj.projectDir });
+      expect(r.exitCode).toBe(0);
+      for (const cmd of ["audit", "board", "review", "code"]) {
+        expect(r.stdout, `'${cmd}' missing from kj advanced`).toContain(cmd);
       }
     } finally { proj.cleanup(); }
   });
