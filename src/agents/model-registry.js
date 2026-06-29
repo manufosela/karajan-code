@@ -107,6 +107,7 @@ registerModelAlias("gemini", "gemini-2.5-pro");
  */
 registerModel("aider", { provider: "aider", pricing: { input_per_million: 3, output_per_million: 15 } });
 registerModel("opencode", { provider: "opencode", pricing: { input_per_million: 0, output_per_million: 0 } });
+registerModel("copilot", { provider: "copilot", pricing: { input_per_million: 0, output_per_million: 0 } });
 
 // Common CLI Aliases (with provider overrides)
 registerModelAlias("aider/claude-3-7-sonnet", "claude-sonnet-4.6", { provider: "aider" });

@@ -52,11 +52,13 @@ describe("agent-detect", () => {
     expect(gemini.version).toBeNull();
   });
 
-  it("KNOWN_AGENTS contains claude, codex, gemini, aider", () => {
+  it("KNOWN_AGENTS contains claude, codex, gemini, aider, opencode, copilot", () => {
     const names = KNOWN_AGENTS.map((a) => a.name);
     expect(names).toContain("claude");
     expect(names).toContain("codex");
     expect(names).toContain("gemini");
     expect(names).toContain("aider");
+    expect(names).toContain("opencode");
+    expect(names).toContain("copilot");
   });
 });

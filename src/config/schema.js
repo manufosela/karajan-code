@@ -59,7 +59,7 @@ const Methodology = v.picklist(
  * Recursivo — el fallback puede tener su propio fallback.
  */
 const RoleFallback = v.looseObject({
-  provider: v.string("fallback.provider required (claude|codex|gemini|opencode|aider)"),
+  provider: v.string("fallback.provider required (claude|codex|gemini|opencode|aider|copilot)"),
   model: v.optional(v.nullable(v.string())),
   max_wait_hours: v.optional(v.pipe(v.number(), v.minValue(0)), 12),
   // Recursivo. Schema permite cualquier shape compatible con RoleFallback.

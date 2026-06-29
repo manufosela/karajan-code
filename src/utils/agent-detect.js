@@ -7,7 +7,8 @@ const KNOWN_AGENTS = [
   { name: "codex", install: getInstallCommand("codex") },
   { name: "gemini", install: getInstallCommand("gemini") },
   { name: "aider", install: getInstallCommand("aider") },
-  { name: "opencode", install: getInstallCommand("opencode") }
+  { name: "opencode", install: getInstallCommand("opencode") },
+  { name: "copilot", install: getInstallCommand("copilot") }
 ];
 
 export async function checkBinary(name, versionArg = "--version") {
@@ -44,6 +45,7 @@ export function detectHostAgent() {
   if (process.env.CODEX_CLI === "1" || process.env.CODEX === "1") return "codex";
   if (process.env.GEMINI_CLI === "1") return "gemini";
   if (process.env.OPENCODE === "1") return "opencode";
+  if (process.env.COPILOT_CLI === "1") return "copilot";
   return null;
 }
 

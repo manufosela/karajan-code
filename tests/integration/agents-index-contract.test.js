@@ -36,7 +36,7 @@ describe("integration: src/agents/index.js external contract", () => {
   });
 
   it("createAgent returns a BaseAgent subclass for every built-in provider", () => {
-    for (const name of ["claude", "codex", "gemini", "aider", "opencode"]) {
+    for (const name of ["claude", "codex", "gemini", "aider", "opencode", "copilot"]) {
       const agent = createAgent(name, config, logger);
       expect(agent).toBeInstanceOf(BaseAgent);
       expect(agent.name).toBe(name);

@@ -51,6 +51,11 @@ const INSTALL_COMMANDS = {
     linux: "curl -fsSL https://opencode.ai/install | bash",
     windows: "See https://github.com/nicepkg/opencode for Windows install"
   },
+  copilot: {
+    macos: "npm install -g @github/copilot",
+    linux: "npm install -g @github/copilot",
+    windows: "npm install -g @github/copilot"
+  },
   docker: {
     macos: "brew install --cask docker",
     linux: "sudo apt install docker.io docker-compose-v2 (or see https://docs.docker.com/engine/install/)",

@@ -60,7 +60,7 @@ While Genkit, Mastra, LangChain and Vercel AI SDK call `/v1/messages`, Karajan o
 | Axis | Karajan | Genkit / Mastra / LangChain / Vercel AI SDK |
 |------|---------|---------------------------------------------|
 | Calls provider HTTP API (`/v1/messages`, etc.) | ❌ Delegates to CLIs | ✅ |
-| Orchestrates existing AI CLIs (claude, codex, gemini, aider, opencode) as subprocesses | ✅ | ❌ |
+| Orchestrates existing AI CLIs (claude, codex, gemini, aider, opencode, copilot) as subprocesses | ✅ | ❌ |
 | Depends on cloud infrastructure | ❌ Fully local | ⚠️ Varies |
 | Token billing | **Uses your existing CLI subscriptions** | Pay per API call |
 
@@ -338,7 +338,7 @@ Each AI role is executed by the agent you choose:
 >
 > Full per-stage reference: [Pipeline roles](https://karajan-code.web.app/docs/handbook/pipeline-roles/) (handbook).
 
-## 5 AI agents supported
+## 6 AI agents supported
 
 | Agent | CLI | Install |
 |-------|-----|---------|
@@ -347,6 +347,7 @@ Each AI role is executed by the agent you choose:
 | **Gemini** | `gemini` | See [Gemini CLI docs](https://github.com/google-gemini/gemini-cli) |
 | **Aider** | `aider` | `pipx install aider-chat` (or `pip3 install aider-chat`) |
 | **OpenCode** | `opencode` | See [OpenCode docs](https://github.com/nicepkg/opencode) |
+| **Copilot** | `copilot` | `npm install -g @github/copilot` |
 
 Mix and match. Use Claude as coder and Codex as reviewer. Karajan auto-detects installed agents during `kj init`.
 
