@@ -17,6 +17,7 @@ import { cleanCommand } from "../commands/clean.js";
 import { checkCommand } from "../commands/check.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
+import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
 /**
@@ -440,5 +441,16 @@ export function registerMeta(program, { pkgVersion }) {
         checkCommand({ profile: flags.profile, json: Boolean(flags.json), logger })
       );
       if (Number.isInteger(code)) process.exit(code);
+    });
+
+  // KJC-TSK-0582: index of the advanced/specialized commands kept out of the
+  // flat `kj --help` list. Descriptions are read from commander itself so they
+  // never drift from each command's own --description.
+  program
+    .command("advanced")
+    .description("List advanced & specialized commands, grouped by area")
+    .action(() => {
+      const descriptions = Object.fromEntries(program.commands.map((c) => [c.name(), c.description()]));
+      console.log(formatAdvancedIndex(descriptions));
     });
 }
