@@ -6,6 +6,7 @@
 // assessment + intent and apply nothing. Collaborators are injected for testing.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execa } from "execa";
 import { runReadOnlySweep } from "../start/sweep.js";
 import { buildAssessment } from "../start/assessment.js";
 import { StartDecidorRole } from "../start/start-decider-role.js";
@@ -34,7 +35,6 @@ const CLI_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 // Run a saved `kj` subcommand as a child, inheriting stdio so its own prompts
 // (e.g. `harden --interactive`) drive the real terminal. Never throws here.
 async function spawnKj(args, { cwd }) {
-  const { execa } = await import("execa");
   await execa("node", [CLI_PATH, ...args.filter(Boolean)], { cwd, stdio: "inherit", reject: false });
 }
 
