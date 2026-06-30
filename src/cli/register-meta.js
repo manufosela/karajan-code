@@ -3,6 +3,7 @@ import { triageCommand } from "../commands/triage.js";
 import { researcherCommand } from "../commands/researcher.js";
 import { architectCommand } from "../commands/architect.js";
 import { onboardCommand } from "../commands/onboard.js";
+import { startCommand } from "../commands/start.js";
 import { ragIndexCommand, ragQueryCommand, ragInstallHooksCommand, ragEvalCommand } from "../commands/rag.js";
 import { qmdQueryCommand } from "../commands/qmd.js";
 import { ragMcpCommand } from "../commands/rag-mcp.js";
@@ -103,6 +104,19 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "onboard", flags, async ({ config, logger }) => {
         await onboardCommand({ config, logger, flags });
+      });
+    });
+
+  program
+    .command("start")
+    .description("Single entry point: assess the project and recommend the next step")
+    .argument("[task]", "What you want to do (optional natural-language goal)")
+    .option("--maturity <type>", "Declare project maturity: new|existing|legacy")
+    .option("--yes", "Non-interactive: emit assessment + recommendation, apply nothing")
+    .option("--json", "Output the assessment + decision as JSON")
+    .action(async (task, flags) => {
+      await withConfig(pkgVersion, "start", flags, async ({ config, logger }) => {
+        await startCommand({ task, config, logger, flags });
       });
     });
 
