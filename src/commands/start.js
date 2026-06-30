@@ -91,13 +91,17 @@ export async function startCommand({ task = "", config, logger, flags = {}, deps
 
   console.log(`${text}\n`);
   const interactive = tty() && !flags.yes;
+  let goal = task;
 
   // ASK_USER: one interactive re-route — the open answer becomes the goal.
   if (result.intent === "ASK_USER" && interactive) {
     const wizard = makeWizard();
     try {
       const answer = await wizard.input(`❓ ${result.questionToAsk || ASK_FALLBACK}`);
-      if (answer) result = await decide({ task: answer, text, config, logger, makeDecider });
+      if (answer) {
+        goal = answer;
+        result = await decide({ task: answer, text, config, logger, makeDecider });
+      }
     } finally {
       wizard.close();
     }
@@ -107,7 +111,7 @@ export async function startCommand({ task = "", config, logger, flags = {}, deps
   // Dispatch the chosen intent to its saved command, confirming first (it writes).
   const toArgs = DISPATCH[result.intent];
   if (interactive && toArgs && (await confirmApply(makeWizard))) {
-    await spawn(toArgs(task), { cwd: config.projectDir });
+    await spawn(toArgs(goal), { cwd: config.projectDir });
   }
   return { ok: true, intent: result.intent };
 }

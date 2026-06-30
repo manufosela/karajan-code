@@ -110,7 +110,7 @@ describe("startCommand dispatch (KJC-TSK-0570 PR2)", () => {
     const r = await startCommand({ config, logger, flags: {}, deps: d });
     expect(execute).toHaveBeenNthCalledWith(2, { userMessage: "modernize it", assessment: "ASSESSMENT TEXT" });
     expect(r.intent).toBe("PROPOSE_PLAN");
-    expect(spawnKj).toHaveBeenCalledWith(["plan", ""], { cwd: "/tmp/proj" });
+    expect(spawnKj).toHaveBeenCalledWith(["plan", "modernize it"], { cwd: "/tmp/proj" });
   });
 
   it("never dispatches without a TTY (read-only by default)", async () => {
