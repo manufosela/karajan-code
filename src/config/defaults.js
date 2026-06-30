@@ -27,7 +27,8 @@ const DEFAULTS = {
     triage: { provider: null, model: null },
     discover: { provider: null, model: null },
     architect: { provider: null, model: null },
-    hu_reviewer: { provider: null, model: null }
+    hu_reviewer: { provider: null, model: null },
+    start: { provider: null, model: "haiku" }
   },
   pipeline: {
     planner: { enabled: false },
