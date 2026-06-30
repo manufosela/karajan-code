@@ -71,3 +71,57 @@ describe("startCommand (KJC-TSK-0570)", () => {
     expect(execute).toHaveBeenCalledWith({ userMessage: "add logout", assessment: "ASSESSMENT TEXT" });
   });
 });
+
+/** Interactive dispatch (PR2): TTY on, wizard + spawn injected. */
+function interactiveDeps(result, { confirm = true, answer = "" } = {}) {
+  const spawnKj = vi.fn(async () => {});
+  const wizard = { confirm: vi.fn(async () => confirm), input: vi.fn(async () => answer), close: vi.fn() };
+  return { ...deps(result), isTTY: () => true, spawnKj, makeWizard: () => wizard, _spawnKj: spawnKj, _wizard: wizard };
+}
+
+describe("startCommand dispatch (KJC-TSK-0570 PR2)", () => {
+  it("confirms and dispatches the intent to its saved command", async () => {
+    const d = interactiveDeps({ intent: "RECOMMEND_HARDEN" });
+    await startCommand({ config, logger, flags: {}, deps: d });
+    expect(d._wizard.confirm).toHaveBeenCalled();
+    expect(d._spawnKj).toHaveBeenCalledWith(["harden", "--interactive"], { cwd: "/tmp/proj" });
+  });
+
+  it("passes the task as the run argument for START_TASK", async () => {
+    const d = interactiveDeps({ intent: "START_TASK" });
+    await startCommand({ task: "add logout", config, logger, flags: {}, deps: d });
+    expect(d._spawnKj).toHaveBeenCalledWith(["run", "add logout"], { cwd: "/tmp/proj" });
+  });
+
+  it("does not dispatch when the user declines the confirmation", async () => {
+    const d = interactiveDeps({ intent: "RECOMMEND_INDEX" }, { confirm: false });
+    await startCommand({ config, logger, flags: {}, deps: d });
+    expect(d._spawnKj).not.toHaveBeenCalled();
+  });
+
+  it("re-routes ASK_USER: the open answer becomes the next decision input", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ result: { intent: "ASK_USER", questionToAsk: "Build or fix?" } })
+      .mockResolvedValueOnce({ result: { intent: "PROPOSE_PLAN" } });
+    const wizard = { confirm: vi.fn(async () => true), input: vi.fn(async () => "modernize it"), close: vi.fn() };
+    const spawnKj = vi.fn(async () => {});
+    const d = { ...deps({}), makeDecider: () => ({ execute }), isTTY: () => true, makeWizard: () => wizard, spawnKj };
+    const r = await startCommand({ config, logger, flags: {}, deps: d });
+    expect(execute).toHaveBeenNthCalledWith(2, { userMessage: "modernize it", assessment: "ASSESSMENT TEXT" });
+    expect(r.intent).toBe("PROPOSE_PLAN");
+    expect(spawnKj).toHaveBeenCalledWith(["plan", ""], { cwd: "/tmp/proj" });
+  });
+
+  it("never dispatches without a TTY (read-only by default)", async () => {
+    const d = { ...interactiveDeps({ intent: "RECOMMEND_HARDEN" }), isTTY: () => false };
+    await startCommand({ config, logger, flags: {}, deps: d });
+    expect(d._spawnKj).not.toHaveBeenCalled();
+  });
+
+  it("--yes stays read-only even on a TTY", async () => {
+    const d = interactiveDeps({ intent: "RECOMMEND_HARDEN" });
+    await startCommand({ config, logger, flags: { yes: true }, deps: d });
+    expect(d._spawnKj).not.toHaveBeenCalled();
+  });
+});
