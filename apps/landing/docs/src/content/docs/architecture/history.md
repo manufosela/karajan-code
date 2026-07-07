@@ -1570,6 +1570,12 @@ The culmination of the vision: given a spec, Karajan plans, decomposes into HUs 
 
 `kj autorun <spec>` chains plan → run → outcome report atomically with exit-code propagation. In autonomous mode the pipeline stages never block on a prompt and a wall-clock backstop guarantees a run can't hang, so the loop always terminates with a **DELIVERED / INCOMPLETE** report that lists HUs met/unmet and any residual defects — perfection is not the bar, meeting the ask is. The default stays `interactive`, so existing interactive runs are byte-for-byte unchanged. The spine was live-verified end-to-end on real specs (real coder + reviewer, `node --test` passing, no human).
 
+## Phase 96: v3.8.0 — kj start (v3.8.0)
+
+The Brain gets a front door. **`kj start [intent]`** is the single entry point to the autonomous squad (epic KJC-PCS-0061): the user states an intent and, at most, the project's maturity — the Brain orchestrates everything else, read-only, before proposing anything. A deterministic **maturity classifier** infers `new | existing | legacy` from signals (scaffolding only, real code + tests + CI, or neglected health) and a **read-only sweep** runs the assessment commands (`doctor` / `check` / `harden` / `onboard`) without touching the user's code — `init` only ever writes `.karajan/`. The sweep is condensed into a stable report, and a cheap **decider role** picks the next intent from a **closed set**; the loop maps each writing intent to an existing saved command + args and **confirms before anything that writes** — the model never runs commands on its own, and the user never has to learn `doctor`/`check`/`harden` directly.
+
+Two supporting moves ship alongside it. **`kj advanced`** trims `kj --help` down to the core commands and indexes the full surface under one namespace, guarded by a help-parity gate. And **inbound secret redaction** (KJC-TSK-0583) closes the counterpart to the existing outbound commit guard: a hardcoded credential in the working tree used to reach the (possibly cloud) reviewer model verbatim inside the diff; `src/guards/secret-redactor.js` now masks every secret before the model sees it, reusing the existing `CREDENTIAL_PATTERNS` catalog (deterministic, no AI cost, no-op on clean text) while preserving an identifiable prefix (`AKIA***REDACTED***`, `sk-ant-***REDACTED***`) so the reviewer can still flag "move this to .env" without ever seeing the value.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

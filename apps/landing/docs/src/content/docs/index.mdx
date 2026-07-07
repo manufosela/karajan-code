@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.7.2 — Deep-link fix + resilient audit fallback (current)
+### v3.8.0 — kj start + inbound secret redaction (current)
+
+Minor. **`kj start`** is the single door to Karajan's autonomous squad: you state an intent (and at most your project's maturity — new, existing or legacy) and the Brain runs the whole read-only sweep for you (`doctor` / `check` / `harden` / `onboard`), then proposes what to do next. A cheap AI layer decides the *what* from a closed set and maps it to a saved command, always asking before anything that writes — the model never runs commands on its own, and you never have to learn the underlying subcommands. Plus **inbound secret redaction**: a hardcoded credential in your working tree is now masked before the diff reaches the (possibly cloud) reviewer model, keeping an identifiable prefix (`AKIA***REDACTED***`) so the reviewer can still say "move this to .env" without ever seeing the value. And `kj advanced` keeps `kj --help` focused on the core commands.
+
+### v3.7.2 — Deep-link fix + resilient audit fallback
 
 Patch. The HU Board auto-start banner now emits the canonical hash route (`/#board/<slug>`) the SPA router understands, so `kj plan` / `kj run` deep-links land on your project instead of the global dashboard. And `kj audit` is now resilient: if the configured provider or model is down, it automatically walks an ordered fallback chain — configured provider+model → the same provider's default model → the remaining known providers (claude, codex, gemini) — and the first one that works wins, so a dead model can no longer kill the command.
 
@@ -263,19 +267,3 @@ A single autonomy axis (`interactive | assisted | autonomous`) lets Karajan run 
 ### v3.6.0 — Advisory harden
 
 `kj harden --report` shows, read-only, what the kj standard would add to an existing repo — per artifact: missing / yours / kj-managed, plus the concrete improvements for your own configs. `kj harden --interactive` adopts the standard piece by piece, default-safe. Scope flags (`--only`/`--exclude`) keep it off demo/fixture dirs. A rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now ships to npm installs.
-
-### v3.5.1 — First-class PHP in the harness
-
-PHP joins JS/TS, Python and Go as a first-class `kj harden` language: `composer.json` detection, native hooks (`phpstan` / `php-cs-fixer` / `phpunit`), a `phpstan.neon` config and a `setup-php` Quality CI workflow — native tooling, no npm/Node imposed at commit time.
-
-### v3.5.0 — Quality harness: kj harden + kj check
-
-`kj harden` installs the whole quality harness — git hooks, lint/format/commit config, CI quality gates and agent guidelines — into any repo in one command, idempotent and stack-aware behind `kj:managed` markers that never overwrite your content. Native per-language hook commands keep Node off non-JS contributors' machines. `kj check` verifies it as a CI drift gate; `kj init` installs it out of the box.
-
-### v3.4.2 — Post-Phase-1 hardening + install hotfix
-
-A pre-publish gate packs the real tarball, installs it clean and isolated, and runs it (`kj --version`) before every publish, so a broken artifact can never ship again. Plus three observability fixes and the v3.4.1 install hotfix (`@karajan/core` runtime deps → `peerDependencies`).
-
-### v3.4.0 — Cache-friendly prompts
-
-Every prompt is split into a stable block (rendered first so prefix caching hits it) and a volatile tail. Measured: cold-run cache jumps from 47% to 99.6% and coder cost drops 76%.

@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.7.2 — Fix de deep-link + fallback resiliente del audit (actual)
+### v3.8.0 — kj start + redacción de secretos inbound (actual)
+
+Minor. **`kj start`** es la única puerta al squad autónomo de Karajan: expresas una intención (y como mucho la madurez de tu proyecto — nuevo, existente o legacy) y el Brain hace por ti todo el barrido en solo lectura (`doctor` / `check` / `harden` / `onboard`), y luego propone qué hacer a continuación. Una capa de IA barata decide el *qué* de un conjunto cerrado y lo mapea a un comando guardado, preguntando siempre antes de cualquier cosa que escriba — el modelo nunca ejecuta comandos por su cuenta, y tú nunca tienes que aprenderte los subcomandos de debajo. Además, **redacción de secretos inbound**: una credencial hardcodeada en tu working tree se enmascara ahora antes de que el diff llegue al modelo reviewer (posiblemente en la nube), conservando un prefijo identificable (`AKIA***REDACTED***`) para que el reviewer aún pueda decir "muévelo a .env" sin ver jamás el valor. Y `kj advanced` mantiene `kj --help` centrado en los comandos esenciales.
+
+### v3.7.2 — Fix de deep-link + fallback resiliente del audit
 
 Patch. El banner de arranque del HU Board emite ahora la ruta hash canónica (`/#board/<slug>`) que entiende el router de la SPA, así que los deep-links de `kj plan` / `kj run` aterrizan en tu proyecto y no en el dashboard global. Y `kj audit` es ahora resiliente: si el proveedor o el modelo configurado está caído, recorre automáticamente una cadena ordenada de alternativas — proveedor+modelo configurado → el modelo por defecto del mismo proveedor → el resto de proveedores conocidos (claude, codex, gemini) — y gana el primero que funciona, así que un modelo muerto ya no puede tumbar el comando.
 
@@ -263,19 +267,3 @@ Un único eje de autonomía (`interactive | assisted | autonomous`) deja que Kar
 ### v3.6.0 — Harden consultivo
 
 `kj harden --report` muestra, en solo lectura, qué aportaría el estándar kj a un repo existente — por artefacto: falta / es tuyo / gestionado por kj, más las mejoras concretas para tus propias configs. `kj harden --interactive` adopta el estándar pieza a pieza, con default seguro. Los flags de alcance (`--only`/`--exclude`) lo mantienen fuera de dirs de ejemplos/fixtures. Un primer uso de `kj init` más redondo (inglés consistente, jerga glosada, cierre claro), y la red de seguridad `kj-trash` ya llega a los installs de npm.
-
-### v3.5.1 — PHP de primera en el harness
-
-PHP se suma a JS/TS, Python y Go como lenguaje de primera de `kj harden`: detección de `composer.json`, hooks nativos (`phpstan` / `php-cs-fixer` / `phpunit`), config `phpstan.neon` y un workflow Quality `setup-php` — tooling nativo, sin imponer npm/Node en el commit.
-
-### v3.5.0 — Harness de calidad: kj harden + kj check
-
-`kj harden` instala todo el harness de calidad —hooks de git, config de lint/formato/commits, gates de CI y guías de agentes— en cualquier repo en un comando, idempotente y consciente del stack, tras marcadores `kj:managed` que nunca sobrescriben lo tuyo. Los comandos de hook nativos por lenguaje mantienen Node fuera de la máquina de los contribuidores no-JS. `kj check` lo verifica como gate de deriva en CI; `kj init` lo instala de serie.
-
-### v3.4.2 — Hardening post-Phase-1 + hotfix de install
-
-Un gate pre-publish empaqueta el tarball real, lo instala limpio y aislado, y lo arranca (`kj --version`) antes de cada publish, para que un artefacto roto no pueda volver a salir. Más tres fixes de observabilidad y el hotfix de install de v3.4.1 (deps de runtime de `@karajan/core` → `peerDependencies`).
-
-### v3.4.0 — Prompts cache-friendly
-
-Cada prompt se parte en un bloque estable (renderizado primero para que el prefix caching lo pille) y una cola volátil. Medido: el cache en frío salta del 47% al 99,6% y el coste del coder baja un 76%.
