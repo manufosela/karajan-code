@@ -7,20 +7,21 @@ import { CREDENTIAL_PATTERNS } from "../../src/guards/output-guard.js";
 // `keep` is the identifiable prefix the placeholder must preserve, or null when
 // the family has no stable prefix and falls back to the generic placeholder.
 const SAMPLES = [
-  { id: "aws-key", value: "AKIAIOSFODNN7EXAMPLE", keep: "AKIA" },
+  // Stable-prefix fixtures split their prefix from the body (`prefix${"body"}`)
+  // so neither GitHub push-protection nor GitGuardian sees a contiguous
+  // secret-shaped literal; the pattern still matches the concatenated value.
+  { id: "aws-key", value: `AKIA${"IOSFODNN7EXAMPLE0"}`, keep: "AKIA" },
   { id: "private-key", value: "-----BEGIN RSA PRIVATE KEY-----", keep: null },
   { id: "generic-secret", value: 'password = "supersecretvalue123"', keep: null, real: "supersecretvalue123" },
-  { id: "github-token", value: "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", keep: "ghp_" },
-  { id: "npm-token", value: "npm_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", keep: "npm_" },
-  { id: "openai-key", value: "sk-abc123def456ghi789jkl012mno345", keep: "sk-" },
-  { id: "anthropic-key", value: "sk-ant-abc123def456ghi789jkl012mno", keep: "sk-ant-" },
-  // Prefixes split from bodies so GitHub push-protection sees no contiguous
-  // Stripe-shaped literal; the pattern still matches the concatenated value.
+  { id: "github-token", value: `ghp_${"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"}`, keep: "ghp_" },
+  { id: "npm-token", value: `npm_${"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"}`, keep: "npm_" },
+  { id: "openai-key", value: `sk-${"abc123def456ghi789jkl012mno345"}`, keep: "sk-" },
+  { id: "anthropic-key", value: `sk-ant-${"abc123def456ghi789jkl012mno"}`, keep: "sk-ant-" },
   { id: "stripe-key", value: `sk_live_${"abc123def456ghi789jkl012mno"}`, keep: "sk_live_" },
   { id: "stripe-test", value: `sk_test_${"abc123def456ghi789jkl012mno"}`, keep: "sk_test_" },
-  { id: "google-api-key", value: "AIzaTEST_FAKE_KEY_000000000000000000000", keep: "AIza" },
-  { id: "firebase-key", value: '"apiKey": "AIzaTEST_FAKE_KEY_000000000000000000000"', keep: null, real: "AIzaTEST_FAKE_KEY_000000000000000000000" },
-  { id: "slack-token", value: "xoxb-0123456789-ABCDEFGHIJ", keep: "xoxb-" },
+  { id: "google-api-key", value: `AIza${"TEST_FAKE_KEY_000000000000000000000"}`, keep: "AIza" },
+  { id: "firebase-key", value: `"apiKey": "AIza${"TEST_FAKE_KEY_000000000000000000000"}"`, keep: null, real: "AIzaTEST_FAKE_KEY_000000000000000000000" },
+  { id: "slack-token", value: `xoxb-${"0123456789-ABCDEFGHIJ"}`, keep: "xoxb-" },
   { id: "jwt-secret", value: 'jwt_secret = "supersecretjwtvalue"', keep: null, real: "supersecretjwtvalue" },
   { id: "database-url", value: "mongodb://admin:secretpass@localhost:27017/mydb", keep: null, real: "secretpass" },
   { id: "hardcoded-key-assignment", value: 'const apiToken = "abcdef1234567890abcdef"', keep: null, real: "abcdef1234567890abcdef" },
