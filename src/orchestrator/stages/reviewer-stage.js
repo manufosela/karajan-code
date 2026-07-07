@@ -6,6 +6,7 @@
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import { setReviewerFeedback, setDeferredIssues } from "../../session/mutators.js";
 import { generateDiff } from "../../review/diff-generator.js";
+import { redactSecrets } from "../../guards/secret-redactor.js";
 import { validateReviewResult } from "../../review/schema.js";
 import { filterReviewScope } from "../../review/scope-filter.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
@@ -194,7 +195,6 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
 }
 
 export async function fetchReviewDiff(session, logger) {
-  const { redactSecrets } = await import("../../guards/secret-redactor.js");
   let diff;
   if (session.ci_pr_number) {
     const { getPrDiff } = await import("../../ci/pr-diff.js");
