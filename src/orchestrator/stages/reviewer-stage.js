@@ -6,6 +6,7 @@
 import { addCheckpoint, markSessionStatus, saveSession } from "../../session/store.js";
 import { setReviewerFeedback, setDeferredIssues } from "../../session/mutators.js";
 import { generateDiff } from "../../review/diff-generator.js";
+import { redactSecrets } from "../../guards/secret-redactor.js";
 import { validateReviewResult } from "../../review/schema.js";
 import { filterReviewScope } from "../../review/scope-filter.js";
 import { emitProgress, makeEvent, emitAgentOutput } from "../../utils/events.js";
@@ -194,13 +195,18 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
 }
 
 export async function fetchReviewDiff(session, logger) {
+  let diff;
   if (session.ci_pr_number) {
     const { getPrDiff } = await import("../../ci/pr-diff.js");
-    const diff = await getPrDiff(session.ci_pr_number);
+    diff = await getPrDiff(session.ci_pr_number);
     logger.info(`Reviewer reading PR diff #${session.ci_pr_number}`);
-    return diff;
+  } else {
+    diff = await generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });
   }
-  return generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });
+  // Inbound boundary: mask hardcoded secrets before the diff reaches the
+  // (possibly cloud) reviewer model. Runs BEFORE the injection guard below so
+  // that guard still sees the real prompt-injection phrasing (KJC-TSK-0583).
+  return redactSecrets(diff);
 }
 
 export async function runReviewerStage({ reviewerRole, config, logger, emitter, eventBase, session, trackBudget, iteration, reviewRules, task, repeatDetector, budgetSummary, askQuestion, brainCtx }) {
