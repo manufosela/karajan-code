@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-07-07
+
+Minor. **`kj start`** — one entry point to the autonomous squad: the user states an intent (and at most the project's maturity) and the Brain does the rest, read-only, before proposing anything.
+
+### Added
+
+- **`kj start [intent]`** — the single door to the Brain (epic KJC-PCS-0061). The user never learns or invokes `doctor`/`check`/`harden`/`onboard`/`rag`/`qmd`; the Brain orchestrates them. A cheap AI layer **decides the WHAT** (a structured intent from a closed set) and KJ maps it to an existing saved command with **confirmation for anything that writes** — the model never runs commands on its own.
+  - **Maturity classifier** (`src/start/maturity.js`, KJC-TSK-0568): infers `new | existing | legacy` from deterministic signals (scaffolding only, real code + tests + CI, or neglected health) to shape what gets proposed; the guess is confirmed with the user, never asked cold.
+  - **Read-only sweep** (`src/start/sweep.js`, KJC-TSK-0568): runs the assessment commands without touching the user's code (init only ever writes `.karajan/`).
+  - **Deterministic synthesis + decider role** (`src/start/assessment.js`, `src/start/start-decider-role.js`, KJC-TSK-0569): condenses the sweep into a stable report and asks the decider for the next intent.
+  - **Orchestration loop + dispatch** (`src/commands/start.js`, KJC-TSK-0570): each writing intent maps to a saved command + args; degrades gracefully so `kj start` never crashes.
+- **`kj advanced` command namespace** (KJC-TSK-0582): `kj --help` is trimmed to the core commands, with the full surface indexed under `kj advanced` and guarded by a help-parity gate.
+
+### Security
+
+- **Inbound secret redaction at the review boundary** (KJC-TSK-0583): a hardcoded credential in the working tree used to reach the (possibly cloud) reviewer model verbatim inside the diff. `src/guards/secret-redactor.js` now masks every secret before the model sees it, reusing the existing `CREDENTIAL_PATTERNS` catalog (deterministic, no AI cost, no-op on clean text). It preserves an identifiable prefix (`AKIA***REDACTED***`, `sk-ant-***REDACTED***`) so the reviewer can still flag "move this to .env" without seeing the value. Closes the inbound counterpart to the existing outbound (commit) secret guard.
+
 ## [3.7.2] - 2026-06-23
 
 Patch. HU Board deep-link fix + resilient `kj audit` provider fallback.
