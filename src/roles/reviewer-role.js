@@ -2,6 +2,7 @@ import { AgentRole } from "./agent-role.js";
 import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "../prompts/prompt-layout.js";
+import { isMutationReviewEnabled, buildReviewerMutationSignal } from "../mutate/reviewer-signal.js";
 
 const MAX_DIFF_LENGTH = 12000;
 
@@ -38,6 +39,11 @@ export class ReviewerRole extends AgentRole {
   // on every review — last. The buckets ride along so ClaudeAgent can
   // ship the stable block via --append-system-prompt (Φ1-D).
   async buildPrompt({ task, diff, reviewRules }) {
+    // Opt-in (KJ_REVIEW_MUTATION): null when off/clean → prompt stays identical.
+    const mutationSignal = await buildReviewerMutationSignal({
+      enabled: isMutationReviewEnabled(),
+      projectDir: this.config?.projectDir,
+    });
     const layout = buildPromptLayout([
       section(SUBAGENT_PREAMBLE, STABLE),
       section(this.instructions, STABLE),
@@ -51,6 +57,7 @@ export class ReviewerRole extends AgentRole {
       section(reviewRules ? `Review rules:\n${reviewRules}` : null, STABLE),
       section(`Task context:\n${task}`, VOLATILE),
       section(`Git diff:\n${truncateDiff(diff)}`, VOLATILE),
+      section(mutationSignal, VOLATILE),
     ]);
     return { prompt: joinLayout(layout), stablePrompt: layout.stable, volatilePrompt: layout.volatile };
   }
