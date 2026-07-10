@@ -30,7 +30,7 @@ export const ADVANCED_GROUPS = [
   { title: "Pipeline (piezas sueltas)", commands: ["autorun", "code", "review", "scan"] },
   { title: "Análisis pre-run", commands: ["discover", "triage", "researcher", "architect", "onboard"] },
   { title: "Búsqueda / RAG", commands: ["rag", "qmd", "watch"] },
-  { title: "Calidad / auditoría", commands: ["audit", "check", "webperf", "sonar"] },
+  { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar"] },
   { title: "Sesión / board", commands: ["resume", "report", "board", "undo", "standby"] },
   { title: "Infra / setup", commands: ["install-tools", "ollama", "skills", "roles", "agents"] },
   { title: "Mantenimiento", commands: ["clean", "sync", "telemetry"] },
