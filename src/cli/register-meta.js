@@ -16,6 +16,7 @@ import { undoCommand } from "../commands/undo.js";
 import { syncCommand } from "../commands/sync.js";
 import { cleanCommand } from "../commands/clean.js";
 import { checkCommand } from "../commands/check.js";
+import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
@@ -453,6 +454,26 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       const code = await withConfig(pkgVersion, "check", flags, async ({ logger }) =>
         checkCommand({ profile: flags.profile, json: Boolean(flags.json), logger })
+      );
+      if (Number.isInteger(code)) process.exit(code);
+    });
+
+  program
+    .command("mutate")
+    .description("Diff-scoped mutation testing (¿cazan tus tests los mutantes de tu cambio?)")
+    .argument("[path]", "Target explícito a mutar (omite el diff)")
+    .option("--since <ref>", "Ref git contra la que sacar el diff", "HEAD~1")
+    .option("--max-survivors <n>", "Supervivientes tolerados antes de exit 1", "0")
+    .option("--json", "Emitir el resultado normalizado como JSON")
+    .action(async (pathArg, flags) => {
+      const code = await withConfig(pkgVersion, "mutate", flags, async ({ logger }) =>
+        mutateCommand({
+          path: pathArg,
+          since: flags.since,
+          maxSurvivors: Number(flags.maxSurvivors),
+          json: Boolean(flags.json),
+          logger,
+        })
       );
       if (Number.isInteger(code)) process.exit(code);
     });
