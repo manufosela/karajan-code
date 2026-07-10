@@ -106,4 +106,35 @@ describe("installWorkflows", () => {
     expect(res.workflows.map((w) => w.file)).not.toContain(join(".github", "workflows", "kj-pack-smoke.yml"));
     rmSync(priv, { recursive: true, force: true });
   });
+
+  const mutFile = join(".github", "workflows", "kj-mutation.yml");
+
+  it("omits the mutation workflow unless it is opted into", () => {
+    const res = installWorkflows({ projectDir: dir, language: "javascript" });
+    expect(res.workflows.map((w) => w.file)).not.toContain(mutFile);
+  });
+
+  it("seeds a nightly/manual, non-blocking mutation workflow when opted in", () => {
+    const res = installWorkflows({ projectDir: dir, language: "javascript", mutation: true });
+    expect(res.workflows.map((w) => w.file)).toContain(mutFile);
+    const parsed = yaml.load(read(mutFile));
+    // Never a PR gate: only schedule + manual dispatch.
+    expect(parsed.on.schedule).toBeTruthy();
+    expect(parsed.on).toHaveProperty("workflow_dispatch");
+    expect(parsed.on).not.toHaveProperty("pull_request");
+    const step = parsed.jobs.mutation.steps.find((s) => s["continue-on-error"]);
+    expect(step["continue-on-error"]).toBe(true);
+    expect(read(mutFile)).toContain("kj mutate");
+  });
+
+  it("omits the mutation workflow for a stack without a JSON report (go)", () => {
+    const res = installWorkflows({ projectDir: dir, language: "go", mutation: true });
+    expect(res.workflows.map((w) => w.file)).not.toContain(mutFile);
+  });
+
+  it("mutation workflow is idempotent", () => {
+    installWorkflows({ projectDir: dir, language: "python", mutation: true });
+    const res = installWorkflows({ projectDir: dir, language: "python", mutation: true });
+    expect(res.workflows.find((w) => w.file === mutFile).action).toBe("unchanged");
+  });
 });
