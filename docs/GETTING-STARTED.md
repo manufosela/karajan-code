@@ -112,6 +112,7 @@ kj resume <session-id>       # Resume paused
 kj doctor                    # Environment check
 kj harden                    # Install the quality harness (hooks, config, CI, guidelines)
 kj check                     # Verify the harness is present and intact
+kj mutate                    # Mutation-test your last change (do your tests catch mutants?)
 
 # Plan management (v2.5+)
 kj plan list                 # List plans for this project
@@ -157,7 +158,9 @@ What it installs (per the detected stack):
   for JS/TS, `ruff.toml` for Python, `.golangci.yml` for Go). In a fullstack
   monorepo each language gets its config inside its own folder.
 - **CI workflows**: an AI-attribution gate, a stack-aware Quality workflow, and
-  (on `strict`/publishable packages) shrink-budget + pack-smoke.
+  (on `strict`/publishable packages) shrink-budget + pack-smoke. Add
+  `--mutation` to also seed an opt-in nightly mutation job (see
+  [`kj mutate`](#mutation-testing--kj-mutate) below) — never a PR gate.
 - **Agent guidelines**: a distilled rule set seeded into `AGENTS.md` and
   `CLAUDE.md` (migrating any legacy block cleanly).
 
@@ -172,6 +175,52 @@ kj check --json     # Machine-readable, for CI
 `kj check` catches drift — a deleted hook, a stripped marker, or a language you
 added after hardening whose config was never seeded — and tells you to re-run
 `kj harden`.
+
+## Mutation testing — `kj mutate`
+
+Coverage tells you a line *ran*; it doesn't tell you a test would *fail* if that
+line were wrong. Mutation testing does: it flips the logic (a `>` becomes `>=`,
+a `+` becomes `-`, a `return true` becomes `return false`) and reruns your
+suite. A mutant your tests kill is a bug they'd have caught; a **survivor** is a
+blind spot.
+
+`kj mutate` runs it **diff-scoped by default** — only the code you changed since
+`HEAD~1`, not the whole repo. That is the 80/20: cheap, fast, and aimed exactly
+at the lines under review.
+
+```bash
+kj mutate                       # Mutate the diff vs HEAD~1 (the default)
+kj mutate --since main          # Mutate everything changed since main
+kj mutate src/foo.js            # Mutate an explicit path (ignore the diff)
+kj mutate --max-survivors 3     # Tolerate up to 3 survivors before exit 1
+kj mutate --json                # Normalised result as JSON (score, survivors)
+```
+
+It drives the right runner for the detected stack — no silent fallback to a
+different tool if yours isn't installed:
+
+| Stack        | Runner          | Install                                            |
+| ------------ | --------------- | -------------------------------------------------- |
+| JS / TS      | Stryker         | `npm install --save-dev @stryker-mutator/core`     |
+| Python       | mutmut          | `pip install mutmut`                               |
+| PHP          | Infection       | `composer require --dev infection/infection`       |
+| Go           | go-mutesting    | `go install github.com/avito-tech/go-mutesting/…`  |
+| Java         | PIT             | `org.pitest:pitest-maven` / `gradle-pitest-plugin` |
+| Swift/Kotlin | *not supported* | reported explicitly — never a wrong-tool fallback  |
+
+Exit codes make it CI-friendly: **0** when the scope is clean (or empty), **1**
+when survivors exceed `--max-survivors` (or the tool produced no report), **2**
+when the stack has no mutation runner.
+
+Three ways to fold it into a workflow, cheapest first:
+
+1. **On demand** — run `kj mutate` yourself before opening a PR.
+2. **Reviewer signal** — set `KJ_REVIEW_MUTATION=1` and the reviewer role adds
+   an advisory note on the diff's survivors (off by default; never blocks).
+3. **CI job** — `kj harden --mutation` seeds a nightly/manual GitHub Actions
+   workflow (`kj-mutation.yml`). It runs on a schedule + `workflow_dispatch`,
+   never on `pull_request`, and the mutate step is `continue-on-error`, so a red
+   run informs without ever gating a merge.
 
 ## Planning workflow (v2.5+)
 

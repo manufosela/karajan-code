@@ -235,7 +235,21 @@ kj board start                                         # Start web dashboard (po
 kj board open                                          # Start + open in browser
 kj board status                                        # Check if running
 kj board stop                                          # Stop the board
+
+# Quality guardrails
+kj harden                                              # Install hooks, config, CI, guidelines
+kj check                                               # Verify the harness (drift gate)
+kj mutate                                              # Mutation-test the diff (do tests catch mutants?)
 ```
+
+**Mutation testing** (`kj mutate`) closes the gap coverage leaves: it flips the
+logic of the code you just changed and reruns your suite, so a line that ran but
+isn't really tested shows up as a **survivor**. It is diff-scoped by default
+(vs `HEAD~1`), drives the right runner per stack (Stryker/mutmut/Infection/…
+with no silent fallback), and folds into a workflow three ways — on demand,
+as an opt-in reviewer signal (`KJ_REVIEW_MUTATION=1`), or as a non-blocking
+nightly CI job (`kj harden --mutation`). See
+[GETTING-STARTED](docs/GETTING-STARTED.md#mutation-testing--kj-mutate).
 
 ### 2. MCP: inside your AI agent
 
