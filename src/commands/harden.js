@@ -76,6 +76,7 @@ export async function hardenCommand({
   config = true,
   ci = true,
   guidelines = true,
+  mutation = false,
   dryRun = false,
   json = false,
   report = false,
@@ -134,7 +135,7 @@ export async function hardenCommand({
   const cfg = withConfig ? installConfigsForRoots({ projectDir, roots, dryRun }) : null;
   const withCi = ci && profile !== "minimal";
   const wf = withCi
-    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, profile, dryRun })
+    ? installWorkflows({ projectDir, language: roots[0]?.language ?? null, profile, mutation, dryRun })
     : null;
   const withGuidelines = guidelines && profile !== "minimal";
   const gl = withGuidelines ? installGuidelines({ projectDir, dryRun }) : null;

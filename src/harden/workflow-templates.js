@@ -147,6 +147,58 @@ export const PACK_SMOKE_WORKFLOW = [
   '          echo "Tarball installs clean: $tgz"',
 ].join("\n");
 
+// Opt-in nightly/manual mutation audit (KJC-TSK-0589). NEVER a PR gate: it runs
+// on a weekly schedule + manual dispatch, and the mutate step is non-blocking
+// (continue-on-error) so a red run never nags. Only stacks whose `kj mutate`
+// yields a JSON report (stryker/mutmut/infection) get a workflow — no silent
+// scaffold for tools that can't report yet.
+const MUTATION_TOOLCHAIN = {
+  javascript: ["      - run: npm ci"],
+  python: [
+    "      - uses: actions/setup-python@v5",
+    "        with:",
+    "          python-version: '3.12'",
+    "      - run: pip install mutmut pytest",
+  ],
+  php: [
+    "      - uses: shivammathur/setup-php@v2",
+    "        with:",
+    "          php-version: '8.3'",
+    "      - run: composer install --no-interaction --no-progress",
+  ],
+};
+MUTATION_TOOLCHAIN.typescript = MUTATION_TOOLCHAIN.javascript;
+
+/** Opt-in mutation workflow entry, or null for a stack without a JSON report. */
+export function mutationWorkflowFor(language) {
+  const toolchain = MUTATION_TOOLCHAIN[language];
+  if (!toolchain) return null;
+  const body = [
+    "name: Mutation (nightly)",
+    "on:",
+    "  schedule:",
+    "    - cron: '0 4 * * 1'",
+    "  workflow_dispatch:",
+    "permissions:",
+    "  contents: read",
+    "jobs:",
+    "  mutation:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: actions/checkout@v4",
+    "        with:",
+    "          fetch-depth: 0",
+    "      - uses: actions/setup-node@v4",
+    "        with:",
+    "          node-version: 22",
+    ...toolchain,
+    "      - name: Mutation testing (advisory, never blocks a PR)",
+    "        continue-on-error: true",
+    "        run: npx --yes --package karajan-code kj mutate --since HEAD~1",
+  ].join("\n");
+  return { file: "kj-mutation.yml", blockId: "wf-mutation", body };
+}
+
 /** Conditional workflows: shrink-budget on strict, pack-smoke when publishable. */
 export function extraWorkflowsFor({ profile = "standard", publishable = false } = {}) {
   const extras = [];

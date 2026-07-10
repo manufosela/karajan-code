@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
-import { extraWorkflowsFor, qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
+import { extraWorkflowsFor, mutationWorkflowFor, qualityWorkflowFor, WORKFLOWS } from "./workflow-templates.js";
 
 const BLOCK_VERSION = 1;
 const WORKFLOWS_DIR = join(".github", "workflows");
@@ -31,12 +31,14 @@ export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
   profile = "standard",
+  mutation = false,
   dryRun = false,
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const quality = qualityWorkflowFor(language);
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir) });
-  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras];
+  const mut = mutation ? mutationWorkflowFor(language) : null;
+  const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : [])];
   const results = [];
   for (const wf of all) {
     const target = join(dir, wf.file);
