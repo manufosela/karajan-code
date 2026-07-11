@@ -5,9 +5,17 @@ description: Cómo instalar Karajan Code.
 
 ## Requisitos
 
-- **Docker** — necesario para el análisis estático con SonarQube. Si no tienes Docker o no necesitas SonarQube, desactívalo con `--no-sonar` o `sonarqube.enabled: false` en la config
-- Al menos un agente de IA instalado: Claude, Codex, Gemini, Aider u OpenCode
-- **Node.js** >= 18 — solo necesario para la instalación vía npm (el binario standalone incluye su propio runtime)
+El binario `kj` incluye su propio runtime, pero **orquesta herramientas externas** — no las instala. Tras instalar, ejecuta `kj doctor` para comprobar tu máquina.
+
+**Requerido** (kj no funciona sin esto):
+
+- **git** — Karajan trabaja sobre repositorios git
+- **Al menos un CLI de agente de IA** — Claude, Codex, Gemini, Aider u OpenCode (ver Paso 1)
+
+**Opcional** (cada uno habilita funciones extra):
+
+- **Docker** — modelos locales y análisis estático con SonarQube. Desactiva Sonar con `--no-sonar` o `sonarqube.enabled: false`
+- **Node.js >= 18 / npm** — la vía de instalación npm y las herramientas auxiliares (Squeezr, qmd). El binario standalone no lo necesita para funcionar
 
 ## Paso 1: Instala al menos un agente de IA
 
