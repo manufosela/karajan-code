@@ -35,8 +35,18 @@ esac
 
 target="${os}-${arch}"
 case "$target" in
-  linux-x64 | darwin-arm64) ;;
-  *) die "no prebuilt binary for '$target'. Available: linux-x64, darwin-arm64. Use npm instead: npm install -g karajan-code" ;;
+  linux-x64) ;;
+  darwin-arm64)
+    # The macOS standalone binary is not published yet (tracked in
+    # KJC-BUG-0096: the darwin-arm64 SEA build crashes under smoke-test).
+    # Degrade gracefully to the npm install path instead of trying to
+    # download an asset that does not exist.
+    echo "kj-install: the macOS standalone binary is not available yet." >&2
+    echo "kj-install: install with npm instead (requires Node 18+):" >&2
+    echo "  npm install -g karajan-code" >&2
+    exit 0
+    ;;
+  *) die "no prebuilt binary for '$target'. Available: linux-x64. On macOS use npm instead: npm install -g karajan-code" ;;
 esac
 
 # --- Resolve the download URL for the requested version (or latest). ---
