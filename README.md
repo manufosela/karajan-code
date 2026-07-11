@@ -130,6 +130,11 @@ curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/script
 ```
 Pin a version or install dir with env vars: `KJ_VERSION=v3.7.2 KJ_INSTALL_DIR=/usr/local/bin`.
 
+**One-liner, binary — Windows** (no Node — verifies the checksum, installs to `%LOCALAPPDATA%\Karajan` and adds it to your user PATH):
+```powershell
+irm https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.ps1 | iex
+```
+
 **One-liner, npm** (detects OS, installs via npm — needs Node ≥ 18):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
