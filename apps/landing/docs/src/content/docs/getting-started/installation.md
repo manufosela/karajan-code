@@ -5,9 +5,9 @@ description: How to install Karajan Code.
 
 ## Requirements
 
-- **Node.js** >= 18
 - **Docker** — required for SonarQube static analysis. If you don't have Docker or don't need SonarQube, disable it with `--no-sonar` or set `sonarqube.enabled: false` in config
 - At least one AI agent CLI installed: Claude, Codex, Gemini, Aider, or OpenCode
+- **Node.js** >= 18 — only needed for the npm install path (the standalone binary bundles its own runtime)
 
 ## Step 1: Install at least one AI agent
 
@@ -22,6 +22,24 @@ You need at least one agent installed before running `kj init`. Install one or m
 | **OpenCode** | `opencode` | See [opencode.ai](https://opencode.ai) |
 
 ## Step 2: Install Karajan Code
+
+The recommended way is the **standalone binary** — a single executable, no Node.js required. The installer downloads the binary for your platform, verifies its SHA256 checksum, and puts `kj` on your PATH.
+
+### Linux (x64)
+
+```bash
+curl -fsSL https://karajancode.com/install.sh | sh
+```
+
+### Windows (x64, PowerShell)
+
+```powershell
+irm https://karajancode.com/install.ps1 | iex
+```
+
+### macOS, or via npm (Node.js 18+)
+
+The macOS standalone binary isn't available yet — on macOS, install with npm. This is also the fallback for any platform where you'd rather use Node:
 
 ```bash
 npm install -g karajan-code
@@ -123,16 +141,6 @@ WORKDIR /workspace
 RUN kj init --non-interactive --coder claude --reviewer codex
 ```
 
-## Alternative: Shell installer (curl | sh)
-
-One-line installation without npm:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install.sh | sh
-```
-
-This downloads the latest release, installs it globally, and runs `kj init`.
-
 ## Alternative: Python wrapper (pip install)
 
 If you prefer installing via pip:
@@ -143,14 +151,11 @@ cd wrappers/python && pip install .
 
 This installs the `kj` command via a Python wrapper that delegates to the Node.js CLI.
 
-## Alternative: Standalone binaries (no Node.js needed)
+## Alternative: Manual binary download (pin a version)
 
-Download a single binary from [GitHub Releases](https://github.com/manufosela/karajan-code/releases). No Node.js required.
+If you prefer to download a specific release manually instead of using the one-line installer, grab the binary for your platform from [GitHub Releases](https://github.com/manufosela/karajan-code/releases):
 
 ```bash
-# macOS (Apple Silicon)
-curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-darwin-arm64 -o kj && chmod +x kj
-
 # Linux x64
 curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-linux-x64 -o kj && chmod +x kj
 
@@ -158,7 +163,7 @@ curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-l
 curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-win-x64.exe -o kj.exe
 ```
 
-Move the binary to a directory in your PATH (e.g. `/usr/local/bin/kj`). SHA256 checksums are available alongside each binary.
+Move the binary to a directory in your PATH (e.g. `/usr/local/bin/kj`). SHA256 checksums are available alongside each binary. A macOS binary isn't published yet — use npm on macOS.
 
 ## Alternative: Homebrew (macOS)
 

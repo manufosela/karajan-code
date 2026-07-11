@@ -13,6 +13,18 @@
       }
     ],
     "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/install.sh",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.sh",
+        "type": 302
+      },
+      {
+        "source": "/install.ps1",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.ps1",
+        "type": 302
+      }
+    ],
     "rewrites": [
       {
         "source": "/api/telemetry",

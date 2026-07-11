@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.8.0 — kj start + redacción de secretos inbound (actual)
+### v3.9.0 — Binarios standalone (actual)
+
+Minor. Karajan ahora se distribuye como un **único ejecutable standalone** — sin Node.js. Los instaladores de una línea dejan `kj` en tu PATH: `curl -fsSL https://karajancode.com/install.sh | sh` en Linux e `irm https://karajancode.com/install.ps1 | iex` en Windows (PowerShell). Cada binario se construye a partir de un bundle SEA (Single Executable Application), se verifica contra su checksum SHA256 publicado y pasa por un smoke test que rechaza subir un binario cuyo `--version` no coincida con el tag. **macOS se instala por npm de momento** — el binario de Apple Silicon se está terminando aparte, así que en macOS `npm install -g karajan-code` sigue siendo la vía de instalación. Actualización directa desde v3.8.0.
+
+### v3.8.0 — kj start + redacción de secretos inbound
 
 Minor. **`kj start`** es la única puerta al squad autónomo de Karajan: expresas una intención (y como mucho la madurez de tu proyecto — nuevo, existente o legacy) y el Brain hace por ti todo el barrido en solo lectura (`doctor` / `check` / `harden` / `onboard`), y luego propone qué hacer a continuación. Una capa de IA barata decide el *qué* de un conjunto cerrado y lo mapea a un comando guardado, preguntando siempre antes de cualquier cosa que escriba — el modelo nunca ejecuta comandos por su cuenta, y tú nunca tienes que aprenderte los subcomandos de debajo. Además, **redacción de secretos inbound**: una credencial hardcodeada en tu working tree se enmascara ahora antes de que el diff llegue al modelo reviewer (posiblemente en la nube), conservando un prefijo identificable (`AKIA***REDACTED***`) para que el reviewer aún pueda decir "muévelo a .env" sin ver jamás el valor. Y `kj advanced` mantiene `kj --help` centrado en los comandos esenciales.
 
