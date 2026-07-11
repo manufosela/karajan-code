@@ -82,6 +82,13 @@ chmod +x "${tmp}/kj"
 mkdir -p "$INSTALL_DIR"
 mv -f "${tmp}/kj" "${INSTALL_DIR}/kj"
 
+# On macOS the binary is ad-hoc signed, not notarized with a paid Apple
+# certificate, so Gatekeeper can quarantine it. Clear the flag on the copy
+# we just checksummed ourselves (no-op on Linux / if the flag is absent).
+if [ "$os" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
+  xattr -d com.apple.quarantine "${INSTALL_DIR}/kj" 2>/dev/null || true
+fi
+
 installed="$("${INSTALL_DIR}/kj" --version 2>/dev/null || echo '?')"
 echo "kj-install: installed kj ${installed} to ${INSTALL_DIR}/kj"
 

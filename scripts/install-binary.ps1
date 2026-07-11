@@ -57,6 +57,11 @@ try {
   $dest = Join-Path $installDir "kj.exe"
   Move-Item -Path $binTmp -Destination $dest -Force
 
+  # The download carries a "mark of the web" (Zone.Identifier) that makes
+  # SmartScreen warn on first run. The binary is not code-signed with a paid
+  # certificate, so clear the mark on the copy we just verified ourselves.
+  Unblock-File -Path $dest -ErrorAction SilentlyContinue
+
   $installed = (& $dest --version) 2>$null
   Write-Host "kj-install: installed kj $installed to $dest"
 
