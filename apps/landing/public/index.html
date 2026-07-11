@@ -386,11 +386,12 @@
         <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6b8fa3&label=latest" alt="npm version" height="22">
       </a>
     </p>
-    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="npm install -g karajan-code — click to copy">
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="curl -fsSL https://karajancode.com/install.sh | sh — click to copy">
       <span class="prompt" aria-hidden="true">$</span>
-      <span>npm install -g karajan-code</span>
+      <span>curl -fsSL https://karajancode.com/install.sh | sh</span>
       <span class="copy-hint" aria-live="polite">click to copy</span>
     </button>
+    <p class="hero-sub">No Node required. Prefer npm? <a href="/docs/getting-started/installation/">See all install options</a>.</p>
     <nav class="hero-links" aria-label="Project links">
       <a href="/docs/getting-started/introduction/">Get Started</a>
       <a href="/docs/handbook/">Handbook</a>
@@ -467,7 +468,7 @@
     }
 
     function copyInstall(el) {
-      var text = 'npm install -g karajan-code';
+      var text = 'curl -fsSL https://karajancode.com/install.sh | sh';
       var hint = el.querySelector('.copy-hint');
       function onSuccess() {
         el.classList.add('copied');
