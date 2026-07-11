@@ -111,3 +111,11 @@ case ":${PATH}:" in
     echo "  (add that line to ~/.bashrc, ~/.zshrc or ~/.profile to make it permanent)"
     ;;
 esac
+
+# --- Prerequisites: the binary bundles no toolchain. kj orchestrates ---
+# --- external tools, so name the hard requirements and let `kj doctor` ---
+# --- check them precisely for this machine.
+echo ""
+echo "kj-install: next step — run 'kj doctor' to check prerequisites."
+echo "  Required: git, plus at least one agent CLI (Claude Code, Codex or Gemini)."
+echo "  Optional: Docker (local models, SonarQube) and Node/npm (helper tools: Squeezr, qmd)."

@@ -160,6 +160,28 @@ function statusIcon(status) {
   }
 }
 
+// The `kj` binary bundles no toolchain: it orchestrates external tools. So
+// beyond the per-check wall, spell out what is *required* to run kj at all
+// (git + at least one agent CLI) versus what is *optional* (enables extra
+// features). We derive the verdict from the checks already collected rather
+// than re-probing, so it always agrees with the lines printed above.
+function printPrerequisites(report) {
+  const git = report.checks.find((c) => c.name === "git");
+  const agents = report.checks.filter((c) => c.name?.startsWith("agent:"));
+  const okAgent = agents.find((c) => c.status === STATUS.OK);
+  const mark = (ok) => (ok ? "OK" : "MISSING");
+
+  const gitOk = git?.status === STATUS.OK;
+  const agentLabel = okAgent
+    ? `OK (${okAgent.label.replace(/^Agent:\s*/, "")})`
+    : "MISSING — install Claude Code, Codex or Gemini";
+
+  console.log();
+  console.log("Prerequisites (kj orchestrates external tools, it bundles none):");
+  console.log(`  Required: git ${mark(gitOk)}; agent CLI ${agentLabel}`);
+  console.log("  Optional: Docker (local models, SonarQube); Node/npm (helper tools: Squeezr, qmd)");
+}
+
 function printHuman(report, { verbose }) {
   for (const check of report.checks) {
     console.log(`${statusIcon(check.status)} ${check.label}: ${check.detail}`);
@@ -186,6 +208,8 @@ function printHuman(report, { verbose }) {
     console.log(`Runtime overrides applied: ${JSON.stringify(report.overrides)}`);
   }
 
+  printPrerequisites(report);
+
   // KJC-TSK v2.18 — if any external audit tool (semgrep, osv-scanner,
   // lighthouse) reported missing, surface the one-line remediation so
   // the user doesn't have to dig the fix lines out of the wall of
@@ -202,4 +226,4 @@ function printHuman(report, { verbose }) {
   }
 }
 
-export const __test = { printHuman };
+export const __test = { printHuman, printPrerequisites };
