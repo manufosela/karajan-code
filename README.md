@@ -112,6 +112,16 @@ brew install manufosela/tap/karajan-code
 
 > **Installing with pnpm?** pnpm blocks dependency build scripts by default, so `better-sqlite3`'s native addon won't compile on install and DB-backed commands (`board`, `rag`, cost tracking) will fail. After installing, run `pnpm approve-builds better-sqlite3` — or just use npm. `kj doctor` flags this if it happens.
 
+> **On a bare Linux box, install `curl` first.** The binary and script installers
+> below download with `curl` (or `wget`). macOS already ships `curl` and Windows
+> PowerShell has `irm` built in, but a minimal server or container image often has
+> neither — install it with your package manager, then run the one-liner:
+> - **Debian/Ubuntu**: `sudo apt update && sudo apt install -y curl`
+> - **Fedora/RHEL/CentOS**: `sudo dnf install -y curl`
+> - **Arch**: `sudo pacman -S --noconfirm curl`
+> - **Alpine**: `sudo apk add curl`
+> - **openSUSE**: `sudo zypper install -y curl`
+
 **Standalone binary** (no Node.js needed):
 ```bash
 # macOS (Apple Silicon)

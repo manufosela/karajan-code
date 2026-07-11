@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-07-11
+
+Minor. **Distribution as a standalone executable** — install `kj` on a machine with no Node at all, with the release pipeline hardened so a broken binary can never ship (epic KJC-PCS-0006).
+
+### Added
+
+- **Node-free binary installer for Unix** (KJC-TSK-0593): `curl -fsSL https://karajancode.com/install.sh | sh` downloads the prebuilt `kj` for your OS/arch (linux-x64, darwin-arm64), verifies its SHA256 before installing, and drops it in `~/.local/bin` (POSIX `sh`, no bashisms). `KJ_VERSION` / `KJ_INSTALL_DIR` override the defaults.
+- **Node-free binary installer for Windows** (KJC-TSK-0594): `irm https://karajancode.com/install.ps1 | iex` does the same for `kj-win-x64.exe`, verifies the checksum, installs to `%LOCALAPPDATA%\Karajan`, and adds it to the user PATH idempotently (re-running updates in place without duplicating entries).
+- **Channel-aware update notice** (KJC-TSK-0595): the "update available" banner now detects whether `kj` runs as a standalone binary (`node:sea`) or from npm and prints the matching command — re-run the installer for binaries, `npm install -g` for npm — instead of always suggesting npm.
+
+### Changed
+
+- **Binaries clear the OS block on install** (KJC-TSK-0596): the macOS build is ad-hoc signed and the Windows build unsigned (paid notarization/Authenticode remain a deliberate opt-in cost, off by default). The installers now strip the quarantine flag (`xattr` on macOS) and the mark-of-the-web (`Unblock-File` on Windows) on the copy they just checksummed, and the README documents the manual bypass for hand-downloaded binaries.
+
+### CI
+
+- **GitHub Release created from the CHANGELOG before the SEA upload** (KJC-TSK-0591): the `v*` tag triggers the binary build, but the upload needs the Release to already exist — the workflow now creates it from the matching CHANGELOG section first, closing the post-publish "run failed" gap.
+- **SEA binary smoke-tested before its assets are uploaded** (KJC-TSK-0592): each built binary must boot (`--version` / `--help`) before it reaches the Release, so a broken executable is caught in CI rather than by the first user to download it.
+
 ## [3.8.0] - 2026-07-07
 
 Minor. **`kj start`** — one entry point to the autonomous squad: the user states an intent (and at most the project's maturity) and the Brain does the rest, read-only, before proposing anything.
