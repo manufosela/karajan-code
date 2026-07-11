@@ -100,6 +100,43 @@ jobs:
         if: runner.os == 'Windows'
         run: mv dist/kj.exe dist/kj-${{ matrix.target }}.exe
 
+      # KJC-TSK-0592: never ship a binary that can't start. The SEA bundle
+      # inlines its version and stubs the native-dep commands (board/rag), so
+      # the gate mirrors verify-pack: assert the binary boots, its version
+      # matches the tag, and the command tree resolves. This catches the
+      # broken-bundle class (ERR_MODULE_NOT_FOUND) that shipped v3.4.1.
+      - name: Smoke-test binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="dist/kj-${{ matrix.target }}"
+          EXPECTED="${GITHUB_REF_NAME#v}"
+          GOT="$("./${BIN}" --version)"
+          if [ "${GOT}" != "${EXPECTED}" ]; then
+            echo "::error::version mismatch: got '${GOT}', expected '${EXPECTED}'"
+            exit 1
+          fi
+          "./${BIN}" --help >/dev/null
+          "./${BIN}" init --help >/dev/null
+          echo "Smoke OK: ${BIN} reports ${GOT} and the command tree resolves."
+
+      - name: Smoke-test binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bin = "dist\kj-${{ matrix.target }}.exe"
+          $expected = $env:GITHUB_REF_NAME.TrimStart("v")
+          $got = (& ".\$bin" --version).Trim()
+          if ($got -ne $expected) {
+            Write-Error "version mismatch: got '$got', expected '$expected'"
+            exit 1
+          }
+          & ".\$bin" --help | Out-Null
+          & ".\$bin" init --help | Out-Null
+          Write-Host "Smoke OK: $bin reports $got and the command tree resolves."
+
       - name: Generate SHA256 checksum (Linux/macOS)
         if: runner.os != 'Windows'
         run: shasum -a 256 dist/kj-${{ matrix.target }} > dist/kj-${{ matrix.target }}.sha256
