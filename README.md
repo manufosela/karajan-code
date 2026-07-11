@@ -124,7 +124,13 @@ curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-l
 curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-win-x64.exe -o kj.exe
 ```
 
-**One-liner** (detects OS, installs via npm):
+**One-liner, binary** (no Node — detects OS/arch, verifies the checksum, installs to `~/.local/bin`):
+```bash
+curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.sh | sh
+```
+Pin a version or install dir with env vars: `KJ_VERSION=v3.7.2 KJ_INSTALL_DIR=/usr/local/bin`.
+
+**One-liner, npm** (detects OS, installs via npm — needs Node ≥ 18):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
 ```
