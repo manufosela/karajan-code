@@ -77,6 +77,13 @@ try {
   } else {
     Write-Host "kj-install: '$installDir' is already on your user PATH — run 'kj --help' to get started."
   }
+
+  # The binary bundles no toolchain. kj orchestrates external tools, so name
+  # the hard requirements and let `kj doctor` check them for this machine.
+  Write-Host ""
+  Write-Host "kj-install: next step — run 'kj doctor' to check prerequisites."
+  Write-Host "  Required: git, plus at least one agent CLI (Claude Code, Codex or Gemini)."
+  Write-Host "  Optional: Docker (local models, SonarQube) and Node/npm (helper tools: Squeezr, qmd)."
 } finally {
   Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
