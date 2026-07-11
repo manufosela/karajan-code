@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { isSea } from "node:sea";
 import { getKarajanHome } from "./paths.js";
 
 const CACHE_FILE = "update-check.json";
@@ -29,16 +30,14 @@ export function updateInstruction({ channel, platform = process.platform }) {
 }
 
 /**
- * Detect how this kj was installed: "sea" (standalone binary), "npm"
- * (global install / source tree), or "unknown" if it can't be told for sure.
+ * Detect how this kj was installed: "sea" (standalone binary) or "npm"
+ * (global install / source tree). Falls back to "npm" if isSea() throws.
  */
-export async function detectInstallChannel() {
+export function detectInstallChannel() {
   try {
-    const sea = await import("node:sea");
-    if (typeof sea.isSea !== "function") return "unknown";
-    return sea.isSea() ? "sea" : "npm";
+    return isSea() ? "sea" : "npm";
   } catch {
-    // node:sea absent ⇒ this cannot be a SEA binary ⇒ npm / source tree.
+    // isSea() unexpectedly threw ⇒ treat as npm / source tree, never block.
     return "npm";
   }
 }
@@ -98,7 +97,7 @@ export async function checkForUpdate(currentVersion) {
 export async function printUpdateNotice(currentVersion) {
   const result = await checkForUpdate(currentVersion);
   if (result?.updateAvailable) {
-    const channel = await detectInstallChannel();
+    const channel = detectInstallChannel();
     console.log(`\n  Update available: v${result.current} → v${result.latest}`);
     console.log(`  ${updateInstruction({ channel })}\n`);
   }
