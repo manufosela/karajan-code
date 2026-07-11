@@ -6,6 +6,43 @@ const CACHE_FILE = "update-check.json";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PACKAGE_NAME = "karajan-code";
 
+const RAW_BASE = "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts";
+export const INSTALL_SH_URL = `${RAW_BASE}/install-binary.sh`;
+export const INSTALL_PS1_URL = `${RAW_BASE}/install-binary.ps1`;
+
+/**
+ * Build the "how to update" line for the detected install channel.
+ * Pure and testable — no I/O.
+ * @param {{channel: "sea"|"npm"|"unknown", platform?: string}} opts
+ */
+export function updateInstruction({ channel, platform = process.platform }) {
+  if (channel === "sea") {
+    return platform === "win32"
+      ? `Re-run the installer: irm ${INSTALL_PS1_URL} | iex`
+      : `Re-run the installer: curl -fsSL ${INSTALL_SH_URL} | sh`;
+  }
+  if (channel === "npm") {
+    return `Run: npm install -g ${PACKAGE_NAME}`;
+  }
+  // Channel unknown — offer both paths, never silently pick a wrong one.
+  return `Update: npm install -g ${PACKAGE_NAME}  (or re-run the binary installer — see README)`;
+}
+
+/**
+ * Detect how this kj was installed: "sea" (standalone binary), "npm"
+ * (global install / source tree), or "unknown" if it can't be told for sure.
+ */
+export async function detectInstallChannel() {
+  try {
+    const sea = await import("node:sea");
+    if (typeof sea.isSea !== "function") return "unknown";
+    return sea.isSea() ? "sea" : "npm";
+  } catch {
+    // node:sea absent ⇒ this cannot be a SEA binary ⇒ npm / source tree.
+    return "npm";
+  }
+}
+
 /**
  * Check npm for a newer version. Non-blocking, cached for 24h.
  * Returns { updateAvailable, latest, current } or null if check fails/cached.
@@ -61,8 +98,9 @@ export async function checkForUpdate(currentVersion) {
 export async function printUpdateNotice(currentVersion) {
   const result = await checkForUpdate(currentVersion);
   if (result?.updateAvailable) {
+    const channel = await detectInstallChannel();
     console.log(`\n  Update available: v${result.current} → v${result.latest}`);
-    console.log(`  Run: npm install -g ${PACKAGE_NAME}\n`);
+    console.log(`  ${updateInstruction({ channel })}\n`);
   }
 }
 

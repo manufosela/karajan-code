@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { checkForUpdate } from "../src/utils/update-check.js";
+import {
+  checkForUpdate,
+  updateInstruction,
+  INSTALL_SH_URL,
+  INSTALL_PS1_URL,
+} from "../src/utils/update-check.js";
 import fs from "node:fs/promises";
 
 vi.mock("node:fs/promises", () => ({
@@ -98,5 +103,29 @@ describe("update-check", () => {
     const written = JSON.parse(fs.writeFile.mock.calls[0][1]);
     expect(written.latest).toBe("1.39.0");
     expect(written.checkedAt).toBeGreaterThan(0);
+  });
+});
+
+describe("updateInstruction", () => {
+  it("points npm installs at npm install -g", () => {
+    expect(updateInstruction({ channel: "npm" })).toBe("Run: npm install -g karajan-code");
+  });
+
+  it("points SEA binaries on Unix at the shell installer, not npm", () => {
+    const msg = updateInstruction({ channel: "sea", platform: "linux" });
+    expect(msg).toContain(INSTALL_SH_URL);
+    expect(msg).not.toContain("npm install");
+  });
+
+  it("points SEA binaries on Windows at the PowerShell installer", () => {
+    const msg = updateInstruction({ channel: "sea", platform: "win32" });
+    expect(msg).toContain(INSTALL_PS1_URL);
+    expect(msg).toContain("iex");
+  });
+
+  it("offers both paths when the channel is unknown", () => {
+    const msg = updateInstruction({ channel: "unknown" });
+    expect(msg).toContain("npm install -g karajan-code");
+    expect(msg).toContain("binary installer");
   });
 });
