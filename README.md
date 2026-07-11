@@ -135,6 +135,16 @@ Pin a version or install dir with env vars: `KJ_VERSION=v3.7.2 KJ_INSTALL_DIR=/u
 irm https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.ps1 | iex
 ```
 
+> **If your OS blocks the binary.** The macOS build is ad-hoc signed and the
+> Windows build is unsigned — neither carries a paid certificate, so a manually
+> downloaded binary may be blocked on first run. The install scripts above clear
+> the flag for you. If you download the binary by hand instead:
+> - **macOS** — Gatekeeper says the binary "cannot be opened": `xattr -d com.apple.quarantine ./kj`, or Control-click the file → **Open**.
+> - **Windows** — SmartScreen shows "Windows protected your PC": click **More info → Run anyway**, or run `Unblock-File .\kj.exe`.
+>
+> Paid notarization (Apple) and Authenticode signing (Windows) are optional and
+> not enabled by default — this is a deliberate cost decision, not an oversight.
+
 **One-liner, npm** (detects OS, installs via npm — needs Node ≥ 18):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-kj.sh | sh
