@@ -27,6 +27,18 @@ const ALLOWED_COMMANDS = [
 ];
 
 /**
+ * True when `target` resolves to a path inside `base` (or is `base` itself).
+ * Uses path.relative instead of a string prefix check: a naive
+ * `resolved.startsWith(base)` lets a sibling with a shared prefix slip through
+ * (base `/repo/app` would accept `/repo/app2`). Also rejects absolute paths
+ * pointing outside the project.
+ */
+function isInsideBase(target, base) {
+  const rel = path.relative(base, target);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
  * Validate that a shell command is in the allow-list.
  * Prevents arbitrary command execution.
  */
@@ -74,7 +86,7 @@ async function createFile({ filePath, content, cwd, overwrite = false }) {
     // Path traversal guard
     const resolved = path.resolve(fullPath);
     const base = path.resolve(cwd || process.cwd());
-    if (!resolved.startsWith(base)) {
+    if (!isInsideBase(resolved, base)) {
       return { ok: false, error: "Path traversal denied", action: "create_file" };
     }
 
@@ -130,9 +142,10 @@ async function gitAdd({ files, cwd }) {
   }
 
   try {
-    // Only allow relative paths (no absolute paths, no shell metacharacters)
+    // Reject shell metacharacters and anything that resolves outside the project.
+    const base = path.resolve(cwd || process.cwd());
     for (const f of files) {
-      if (typeof f !== "string" || f.includes("..") || /[;&|`$]/.test(f)) {
+      if (typeof f !== "string" || /[;&|`$]/.test(f) || !isInsideBase(path.resolve(base, f), base)) {
         return { ok: false, error: `Invalid file path: ${f}`, action: "git_add" };
       }
     }
