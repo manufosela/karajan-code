@@ -19,8 +19,10 @@ Esta guía asume que ya has [instalado Karajan Code](/docs/es/getting-started/in
 
 2. **Ejecuta una tarea**
 
+   Pide algo que puedas abrir y ver funcionando al instante — un tres en raya contra un bot, en un único fichero y sin servidor:
+
    ```bash
-   kj run "Añadir validación de inputs al formulario de registro"
+   kj run "Crea un juego de tres en raya en un único index.html autocontenido — HTML, CSS y JavaScript sin frameworks, sin servidor y sin paso de build. El humano juega con X, el bot con O y bloquea o remata cuando puede ganar. Detecta victorias y empates, y añade un botón para reiniciar. Abrir index.html en el navegador debe bastar para jugar."
    ```
 
    Esto lanza el pipeline completo con tus defaults configurados (ej: Claude como coder, Codex como reviewer, metodología TDD).
@@ -30,21 +32,25 @@ Esta guía asume que ya has [instalado Karajan Code](/docs/es/getting-started/in
    Verás output en tiempo real a medida que cada rol se ejecuta:
 
    ```
-   [coder]    Escribiendo lógica de validación y tests...
-   [sonar]    Quality gate passed — 0 blockers, 0 critical
+   [coder]    Escribiendo index.html — tablero, estilos y lógica de juego en JS vanilla...
+   [coder]    Commit: feat: crea juego de tres en raya en un único HTML
    [reviewer] APPROVED — no issues found
-   ✔ Pipeline completed in 2m 34s (iteration 1/5)
+   ✔ Pipeline completed (iteration 1/5)
    ```
 
    Si el reviewer encuentra problemas, el coder recibe otra oportunidad. El bucle continúa hasta la aprobación o el límite de iteraciones.
 
-4. **Revisa los resultados**
+4. **Juégalo**
+
+   El resultado es un único `index.html` que puedes abrir directamente — sin servidor, sin build:
 
    ```bash
    git diff                  # Ver qué cambió
+   xdg-open index.html       # Linux — o haz doble clic en el fichero (open en macOS)
    kj report                 # Resumen de la sesión
-   kj report --trace         # Desglose detallado de coste por etapa
    ```
+
+   Haz clic en una casilla para jugar con la X, y el bot responde con la O — bloqueando tus líneas y rematando cuando puede ganar. Pulsa **New Game** para reiniciar.
 
 </Steps>
 

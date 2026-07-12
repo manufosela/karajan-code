@@ -19,8 +19,10 @@ This guide assumes you've already [installed Karajan Code](/docs/getting-started
 
 2. **Run a task**
 
+   Ask for something you can open and see working right away — a tic-tac-toe game you play against a bot, in a single file with no server:
+
    ```bash
-   kj run "Add input validation to the signup form"
+   kj run "Create a tic-tac-toe game in a single self-contained index.html — vanilla HTML, CSS and JavaScript, no server and no build step. The human plays X, the bot plays O and blocks or takes a winning move when it can. Detect wins and draws, and add a New Game button. Opening index.html in a browser must be enough to play."
    ```
 
    This launches the full pipeline with your configured defaults (e.g., Claude as coder, Codex as reviewer, TDD methodology).
@@ -30,21 +32,25 @@ This guide assumes you've already [installed Karajan Code](/docs/getting-started
    You'll see real-time output as each role executes:
 
    ```
-   [coder]    Writing validation logic and tests...
-   [sonar]    Quality gate passed — 0 blockers, 0 critical
+   [coder]    Writing index.html — board, styles and vanilla-JS game logic...
+   [coder]    Committing: feat: create tic-tac-toe game in single HTML file
    [reviewer] APPROVED — no issues found
-   ✔ Pipeline completed in 2m 34s (iteration 1/5)
+   ✔ Pipeline completed (iteration 1/5)
    ```
 
    If the reviewer finds issues, the coder gets another attempt. The loop continues until approval or the iteration limit is reached.
 
-4. **Check the results**
+4. **Play it**
+
+   The result is one `index.html` you can open directly — no server, no build:
 
    ```bash
    git diff                  # See what changed
+   open index.html           # macOS — or double-click the file (xdg-open on Linux)
    kj report                 # View session summary
-   kj report --trace         # Detailed cost breakdown per stage
    ```
+
+   Click a square to play X, and the bot answers as O — blocking your lines and taking a win when it can. Hit **New Game** to reset.
 
 </Steps>
 
