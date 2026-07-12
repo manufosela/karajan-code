@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-07-12
+
+Minor. **The macOS standalone binary now boots** — the first release to ship a working `darwin-arm64` executable, plus installer guidance for binary users (epic KJC-PCS-0006).
+
+### Fixed
+
+- **macOS SEA binary segfaulted on startup** (KJC-BUG-0096): the `darwin-arm64` build crashed with exit 139 the moment it launched, so no macOS binary could ship. `postject` on Mach-O needs `--macho-segment-name NODE_SEA` for the SEA blob to land where Node's loader looks for it; without it the blob went to a segment the loader never inspects. The flag is Mach-O-only (ELF/PE ignore it), so it's applied on macOS builds alone. Re-signing was already correct.
+
+### Added
+
+- **`sea-smoke.yml` CI harness** (KJC-BUG-0096): Node upstream only CI-tests single-executables on Linux, so a macOS startup crash could only surface at release time. A `macos-latest` job now builds the `darwin-arm64` binary and asserts it boots (`--version` / `--help` / `init --help`) on every change to the SEA build, catching regressions on the PR.
+- **Installer points binary users at `kj doctor`** (KJC-TSK-0599): the standalone binary bundles its runtime but still orchestrates external tools (git, an agent CLI, optionally Docker). After a binary install the installers now tell the user to run `kj doctor` to check those prerequisites, instead of leaving them to discover a missing dependency mid-task.
+
+### Changed
+
+- **macOS install degrades to npm cleanly** (KJC-TSK-0598): while the `darwin-arm64` binary was unavailable, the Unix installer detected macOS and pointed the user to `npm install -g karajan-code` with a clear message rather than fetching a binary that wouldn't run. Superseded now that the binary boots, but the graceful-degradation path remains for any future gap.
+
 ## [3.9.0] - 2026-07-11
 
 Minor. **Distribution as a standalone executable** — install `kj` on a machine with no Node at all, with the release pipeline hardened so a broken binary can never ship (epic KJC-PCS-0006).
