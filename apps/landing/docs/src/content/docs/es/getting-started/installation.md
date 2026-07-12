@@ -15,7 +15,7 @@ El binario `kj` incluye su propio runtime, pero **orquesta herramientas externas
 **Opcional** (cada uno habilita funciones extra):
 
 - **Docker** — modelos locales y análisis estático con SonarQube. Desactiva Sonar con `--no-sonar` o `sonarqube.enabled: false`
-- **Node.js >= 18 / npm** — la vía de instalación npm y las herramientas auxiliares (Squeezr, qmd). El binario standalone no lo necesita para funcionar
+- **Node.js >= 18 / npm** — habilita la vía de instalación npm y las herramientas auxiliares (Squeezr, qmd)
 
 ## Paso 1: Instala al menos un agente de IA
 
@@ -134,7 +134,7 @@ export KJ_SONAR_TOKEN="tu-token-aqui"
 
 ## Alternativa: Docker
 
-Ejecuta Karajan Code en un contenedor (Alpine + Node 20) — sin necesidad de instalacion local de Node.js:
+Ejecuta Karajan Code en un contenedor (Alpine + Node 20) — todo va dentro de la imagen:
 
 ```bash
 docker run --rm -it ghcr.io/manufosela/karajan-code kj doctor
