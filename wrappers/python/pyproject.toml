@@ -9,7 +9,7 @@ description = "Python wrapper for Karajan Code - local multi-agent coding orches
 readme = "README.md"
 license = {text = "AGPL-3.0"}
 requires-python = ">=3.9"
-authors = [{name = "manufosela", email = "manufosela@gmail.com"}]
+authors = [{name = "manufosela"}]
 
 [project.scripts]
 kj = "karajan.__main__:main"

@@ -4,7 +4,7 @@
   "description": "Local multi-agent coding orchestrator with TDD, SonarQube, and code review pipeline",
   "type": "module",
   "license": "AGPL-3.0",
-  "author": "Manu Fosela <mjfosela@gmail.com>",
+  "author": "manufosela (https://github.com/manufosela)",
   "homepage": "https://github.com/manufosela/karajan-code#readme",
   "repository": {
     "type": "git",
