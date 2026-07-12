@@ -85,10 +85,16 @@ async function main() {
 
     // ── Step 4: Inject blob with postject ───────────────────────────
     console.log("[4/5] Injecting SEA blob with postject...");
+    // On macOS the blob MUST land as section NODE_SEA_BLOB inside a segment
+    // named NODE_SEA. Without --macho-segment-name postject writes it to a
+    // default segment the SEA loader never inspects, so the binary segfaults
+    // on startup (KJC-BUG-0096, nodejs/postject#76). The flag is Mach-O only —
+    // ELF (Linux) and PE (Windows) don't take it — so add it only on macOS.
     const postjectCmd = [
       `npx postject ${binaryPath}`,
       "NODE_SEA_BLOB dist/sea-prep.blob",
       "--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+      ...(isMac ? ["--macho-segment-name NODE_SEA"] : []),
     ].join(" ");
     run(postjectCmd);
     console.log("      -> Blob injected.\n");
