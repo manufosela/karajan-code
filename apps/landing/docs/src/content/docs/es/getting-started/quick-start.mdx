@@ -32,13 +32,15 @@ Esta guía asume que ya has [instalado Karajan Code](/docs/es/getting-started/in
    Verás output en tiempo real a medida que cada rol se ejecuta:
 
    ```
-   [coder]    Escribiendo index.html — tablero, estilos y lógica de juego en JS vanilla...
-   [coder]    Commit: feat: crea juego de tres en raya en un único HTML
-   [reviewer] APPROVED — no issues found
+   [triage]     Tarea simple → pipeline ligero
+   [coder]      Escribiendo index.html — tablero, estilos y lógica en JS vanilla...
+   [coder]      Commit: feat: create tic-tac-toe game in single HTML file
+   [sonar]      Omitido — no hay remoto git configurado
+   [impeccable] Auditoría de diseño superada
    ✔ Pipeline completed (iteration 1/5)
    ```
 
-   Si el reviewer encuentra problemas, el coder recibe otra oportunidad. El bucle continúa hasta la aprobación o el límite de iteraciones.
+   Triage clasificó esto como tarea simple, así que ejecutó un pipeline ligero — sin framework de test en una carpeta vacía la metodología es standard, y SonarQube se omite cuando no hay remoto que analizar. En un repo real con remoto y suite de tests verás además el quality gate de SonarQube y el bucle completo del reviewer, donde el coder recibe otra oportunidad cada vez que el reviewer encuentra problemas, hasta el límite de iteraciones.
 
 4. **Juégalo**
 

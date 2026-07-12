@@ -32,13 +32,15 @@ This guide assumes you've already [installed Karajan Code](/docs/getting-started
    You'll see real-time output as each role executes:
 
    ```
-   [coder]    Writing index.html — board, styles and vanilla-JS game logic...
-   [coder]    Committing: feat: create tic-tac-toe game in single HTML file
-   [reviewer] APPROVED — no issues found
+   [triage]     Simple task → lightweight pipeline
+   [coder]      Writing index.html — board, styles and vanilla-JS game logic...
+   [coder]      Committing: feat: create tic-tac-toe game in single HTML file
+   [sonar]      Skipped — no git remote configured
+   [impeccable] Design audit passed
    ✔ Pipeline completed (iteration 1/5)
    ```
 
-   If the reviewer finds issues, the coder gets another attempt. The loop continues until approval or the iteration limit is reached.
+   Triage classified this as a simple task, so it ran a lightweight pipeline — no test framework in an empty folder means standard methodology, and SonarQube is skipped when there's no remote to scan. On a real repo with a remote and a test suite you'll also see the SonarQube gate and the full reviewer loop, where the coder gets another attempt whenever the reviewer finds issues, up to the iteration limit.
 
 4. **Play it**
 
