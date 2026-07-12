@@ -15,7 +15,7 @@ If you discover a security vulnerability in karajan-code, please report it respo
 
 ### How to Report
 
-1. Email **mjfosela@gmail.com** with the subject line: `[SECURITY] karajan-code vulnerability report`
+1. Open a private report via [GitHub Security Advisories](https://github.com/manufosela/karajan-code/security/advisories/new) (Security → Report a vulnerability)
 2. Include:
    - Description of the vulnerability
    - Steps to reproduce
@@ -41,8 +41,6 @@ The following are out of scope:
 - Vulnerabilities in third-party AI CLIs (claude, codex, gemini, aider)
 - SonarQube Docker container security (report to SonarSource)
 - Denial of service via resource exhaustion (long-running tasks)
-<<<<<<< HEAD
-=======
 
 ---
 
@@ -63,7 +61,7 @@ Si descubres una vulnerabilidad de seguridad en karajan-code, reportala de forma
 
 ### Como Reportar
 
-1. Envia un email a **mjfosela@gmail.com** con el asunto: `[SECURITY] karajan-code vulnerability report`
+1. Abre un reporte privado via [GitHub Security Advisories](https://github.com/manufosela/karajan-code/security/advisories/new) (Security → Report a vulnerability)
 2. Incluye:
    - Descripcion de la vulnerabilidad
    - Pasos para reproducirla
@@ -89,4 +87,3 @@ Fuera del alcance:
 - Vulnerabilidades en CLIs de IA de terceros (claude, codex, gemini, aider)
 - Seguridad del contenedor Docker de SonarQube (reportar a SonarSource)
 - Denegacion de servicio por agotamiento de recursos (tareas de larga duracion)
->>>>>>> 8792e49efcdc75995e024d81339b100c7b253920
