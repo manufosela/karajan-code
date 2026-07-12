@@ -1,0 +1,49 @@
+name: SEA macOS smoke
+
+# The macOS SEA binary can only be built and run on macOS, and Node upstream
+# only CI-tests single-executables on Linux. This job builds the darwin-arm64
+# binary and asserts it boots, so a startup segfault (KJC-BUG-0096) is caught
+# on the PR instead of at release time. Runs on demand and whenever the SEA
+# build changes.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/build-sea.mjs"
+      - "scripts/esbuild-sea.config.mjs"
+      - ".github/workflows/sea-smoke.yml"
+
+jobs:
+  smoke:
+    name: Build + boot darwin-arm64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build SEA binary
+        run: node scripts/build-sea.mjs
+
+      - name: Boot smoke-test
+        run: |
+          set -euo pipefail
+          ./dist/kj --version
+          ./dist/kj --help >/dev/null
+          ./dist/kj init --help >/dev/null
+          echo "Smoke OK: darwin-arm64 binary boots."
+
+      # If the binary still crashes, surface the Mach-O layout and signature so
+      # the next lead is visible in the run log instead of a bare exit 139.
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "== exit-code probe =="; ./dist/kj --version; echo "exit=$?" || true
+          echo "== NODE_SEA segment =="; otool -l dist/kj | grep -A3 NODE_SEA || echo "NODE_SEA segment NOT found"
+          echo "== codesign verify =="; codesign -vvv --verify dist/kj || true
+          echo "== spctl assess =="; spctl -a -vvv dist/kj || true
