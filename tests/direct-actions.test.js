@@ -106,6 +106,16 @@ describe("direct-actions", () => {
       expect(result.error).toContain("traversal");
     });
 
+    it("rejects a sibling directory that shares a path prefix", async () => {
+      // /tmp/kj-test-XXX vs /tmp/kj-test-XXX2 — a naive startsWith(base) lets this slip.
+      const result = await executeAction({
+        type: "create_file",
+        params: { filePath: path.join(`${tmpDir}2`, "leak.txt"), content: "x", cwd: tmpDir }
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("traversal");
+    });
+
     it("creates parent directories", async () => {
       const result = await executeAction({
         type: "create_file",
@@ -182,6 +192,16 @@ describe("direct-actions", () => {
         params: { files: ["file; rm -rf /"], cwd: tmpDir }
       });
       expect(result.ok).toBe(false);
+    });
+
+    it("rejects absolute paths outside the project", async () => {
+      // No "..", no metacharacters — only a containment check catches this.
+      const result = await executeAction({
+        type: "git_add",
+        params: { files: ["/etc/passwd"], cwd: tmpDir }
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("Invalid file path");
     });
   });
 
