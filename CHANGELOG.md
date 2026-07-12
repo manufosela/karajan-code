@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.1] - 2026-07-12
+
 ### Fixed
 
 - **Standalone binary crashed on `kj run`** (KJC-BUG-0097): every SEA binary (Linux, Windows, macOS) booted fine (`--version` / `--help` / `init`) but died on the core command with `maybeAutoUpdate is not a function`. The SEA bundler stubs out `src/rag/*` to keep native SQLite deps out of the binary; `src/rag/auto-update.js` was caught by that filter, yet `run.js` calls its `maybeAutoUpdate()` on every run. The stub now re-exports `maybeAutoUpdate` as a silent no-op (RAG auto-update is unavailable in the binary anyway) so the command proceeds. The `sea-smoke` gate and `sea-build` test now exercise `kj run` — booting was never enough to prove the bundle wires up.
