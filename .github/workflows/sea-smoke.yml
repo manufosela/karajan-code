@@ -38,6 +38,29 @@ jobs:
           ./dist/kj init --help >/dev/null
           echo "Smoke OK: darwin-arm64 binary boots."
 
+      # KJC-BUG-0097 — booting is not enough: the SEA bundler once stubbed out
+      # src/rag/auto-update.js and `kj run` crashed with "maybeAutoUpdate is not
+      # a function" while --version/--help/init stayed green. Exercise the run
+      # dispatch far enough to prove the bundle wires up. No agent is installed
+      # here, so the command is expected to FAIL later — we only assert it does
+      # NOT die with a missing-symbol error. perl's alarm guards against a hang.
+      - name: Run-dispatch smoke-test
+        run: |
+          set -uo pipefail
+          kj_bin="$PWD/dist/kj"
+          repo="$(mktemp -d)"
+          git -C "$repo" init -q
+          git -C "$repo" -c user.email=kj@test.local -c user.name=kj \
+            commit -q --allow-empty -m "seed"
+          out="$(cd "$repo" && perl -e 'alarm 30; exec @ARGV' \
+            "$kj_bin" run "smoke probe" </dev/null 2>&1 || true)"
+          echo "$out"
+          if echo "$out" | grep -Eq "is not a function|is not defined"; then
+            echo "FAIL: kj run crashed on a missing bundled symbol." >&2
+            exit 1
+          fi
+          echo "Run-dispatch OK: no missing-symbol crash."
+
       # If the binary still crashes, surface the Mach-O layout and signature so
       # the next lead is visible in the run log instead of a bare exit 139.
       - name: Diagnostics on failure
