@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.9.0 — Standalone binaries (current)
+### v3.10.1 — macOS binary + kj run on the standalone (current)
+
+Patch. The **macOS (Apple Silicon) standalone binary now ships** on the GitHub release, next to the Linux and Windows binaries — so on macOS you can install `kj` straight from the binary or keep using `npm install -g karajan-code`; both channels serve v3.10.1. It also fixes a crash where `kj run` died on the standalone binary with a missing-symbol error while `--version` stayed green. A run-dispatch smoke test now gates every release so that path can't regress. Drop-in upgrade from v3.9.0.
+
+### v3.9.0 — Standalone binaries
 
 Minor. Karajan now ships as a **single standalone executable**. One-line installers put `kj` on your PATH: `curl -fsSL https://karajancode.com/install.sh | sh` on Linux, `irm https://karajancode.com/install.ps1 | iex` on Windows (PowerShell). Each binary is built from a SEA (Single Executable Application) bundle, verified against its published SHA256 checksum, and gated by a smoke test that refuses to upload a binary whose `--version` doesn't match the tag. **macOS ships via npm for now** — the Apple Silicon binary is being finished separately, so on macOS `npm install -g karajan-code` remains the install path. Drop-in upgrade from v3.8.0.
 
