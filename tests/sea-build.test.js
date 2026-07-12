@@ -53,6 +53,35 @@ describe("SEA bundle (KJC-BUG-0040)", () => {
     expect(out).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  it("dispatches `kj run` without a missing-symbol crash (KJC-BUG-0097)", () => {
+    // src/rag/auto-update.js lives under src/rag/ so the rag stub swallows it,
+    // yet run.js calls maybeAutoUpdate() on every `kj run`. If the stub omits
+    // that export the whole command dies with "maybeAutoUpdate is not a
+    // function" — while --version/--help stay green. No agent is configured
+    // here, so the command is expected to fail LATER; we only assert it does
+    // not die on a missing bundled symbol.
+    const repo = mkdtempSync(join(tmpdir(), "kj-sea-run-"));
+    // CI runners have no global git identity, so pin one per-invocation
+    // (-c) — otherwise the seed commit dies with "Author identity unknown".
+    execFileSync("git", ["-C", repo, "init", "-q"]);
+    execFileSync("git", [
+      "-C", repo,
+      "-c", "user.email=kj@test.local",
+      "-c", "user.name=kj",
+      "commit", "-q", "--allow-empty", "-m", "seed",
+    ]);
+    let combined = "";
+    try {
+      combined = execFileSync("node", [bundlePath, "run", "smoke probe"], {
+        encoding: "utf8", cwd: repo, input: "", timeout: 30_000,
+      });
+    } catch (err) {
+      combined = `${String(err.stdout || "")}\n${String(err.stderr || "")}`;
+    }
+    rmSync(repo, { recursive: true, force: true });
+    expect(combined).not.toMatch(/is not a function|is not defined/);
+  });
+
   it("emits the stub message (not a stack trace) when `board cleanup` is invoked", () => {
     // The child node process inherits process.env.VITEST, which routes
     // KARAJAN_HOME to a fresh tmp dir without a global kj.config.yml. The

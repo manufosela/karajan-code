@@ -183,6 +183,15 @@ const ragStubPlugin = {
           parseWhere: notAvailable, buildWhereSql: notAvailable,
           // KJC-TSK-0449 — RAG cross-encoder rerank.
           rerank: notAvailable, RerankError: notAvailable, _resetPipeline: notAvailable,
+          // KJC-BUG-0097 — src/rag/auto-update.js lives under src/rag/ so it is
+          // caught by this stub, but its exports are called on the hot path.
+          // maybeAutoUpdate() runs on EVERY \`kj run\` (run.js): it must be a
+          // silent no-op here (RAG index is unavailable in SEA anyway), NOT an
+          // absent symbol — otherwise the whole command crashes with
+          // "maybeAutoUpdate is not a function". installPostMergeHook() is only
+          // reached from \`kj rag install-hooks\`, so it degrades like the rest.
+          maybeAutoUpdate: async () => ({ skipped: true }),
+          installPostMergeHook: notAvailable,
           default: notAvailable,
         };
       `,
