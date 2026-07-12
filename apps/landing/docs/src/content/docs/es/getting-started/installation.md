@@ -31,7 +31,7 @@ Necesitas al menos un agente instalado antes de ejecutar `kj init`. Instala uno 
 
 ## Paso 2: Instala Karajan Code
 
-La vía recomendada es el **binario standalone** — un único ejecutable, sin necesidad de Node.js. El instalador descarga el binario para tu plataforma, verifica su checksum SHA256 y deja `kj` en tu PATH.
+La vía recomendada es el **binario standalone** — un único ejecutable autónomo. El instalador descarga el binario para tu plataforma, verifica su checksum SHA256 y deja `kj` en tu PATH.
 
 ### Linux (x64)
 

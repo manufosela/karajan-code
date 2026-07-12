@@ -250,7 +250,7 @@ The most recent releases, newest first. Older versions live in [Architecture ›
 
 ### v3.9.0 — Standalone binaries (current)
 
-Minor. Karajan now ships as a **single standalone executable** — no Node.js required. One-line installers put `kj` on your PATH: `curl -fsSL https://karajancode.com/install.sh | sh` on Linux, `irm https://karajancode.com/install.ps1 | iex` on Windows (PowerShell). Each binary is built from a SEA (Single Executable Application) bundle, verified against its published SHA256 checksum, and gated by a smoke test that refuses to upload a binary whose `--version` doesn't match the tag. **macOS ships via npm for now** — the Apple Silicon binary is being finished separately, so on macOS `npm install -g karajan-code` remains the install path. Drop-in upgrade from v3.8.0.
+Minor. Karajan now ships as a **single standalone executable**. One-line installers put `kj` on your PATH: `curl -fsSL https://karajancode.com/install.sh | sh` on Linux, `irm https://karajancode.com/install.ps1 | iex` on Windows (PowerShell). Each binary is built from a SEA (Single Executable Application) bundle, verified against its published SHA256 checksum, and gated by a smoke test that refuses to upload a binary whose `--version` doesn't match the tag. **macOS ships via npm for now** — the Apple Silicon binary is being finished separately, so on macOS `npm install -g karajan-code` remains the install path. Drop-in upgrade from v3.8.0.
 
 ### v3.8.0 — kj start + inbound secret redaction
 
