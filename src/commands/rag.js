@@ -64,9 +64,10 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
 // who never run it.
 export async function ragInstallHooksCommand({ config, logger, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
-  const res = installPostMergeHook({ projectDir, logger });
+  const res = await installPostMergeHook({ projectDir, logger });
   if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
-  else if (res.installed) logger.info(`[rag] installed post-merge hook at ${res.target}`);
+  else if (res.installed) logger.info(`[rag] installed post-merge hook at ${res.target}${res.hooksPath ? ` (core.hooksPath=${res.hooksPath})` : ""}`);
+  else if (res.covered) logger.info(`[rag] ${res.target} already reindexes the RAG (kj-managed); nothing to do`);
   return res;
 }
 
