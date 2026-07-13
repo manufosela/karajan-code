@@ -192,6 +192,9 @@ const ragStubPlugin = {
           // reached from \`kj rag install-hooks\`, so it degrades like the rest.
           maybeAutoUpdate: async () => ({ skipped: true }),
           installPostMergeHook: notAvailable,
+          // KJC-BUG-0100 — the doctor rag-hooks check imports this; it throws
+          // here and the check swallows it (degrades to a benign info result).
+          resolveHooksDir: notAvailable,
           default: notAvailable,
         };
       `,

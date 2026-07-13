@@ -2,7 +2,7 @@
 // Keeps the local RAG index aligned with HEAD so retrieval never serves
 // stale code without the user having to run `kj rag index` by hand.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
@@ -34,17 +34,39 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
   } finally { db.close(); }
 }
 
-export function installPostMergeHook({ projectDir, logger = console } = {}) {
-  const hooksDir = join(projectDir, ".git", "hooks");
+// KJC-BUG-0100 — Resolve the hooks dir git actually honours. When a repo is
+// hardened `git config core.hooksPath` points at `.karajan/hooks` and git
+// ignores `.git/hooks/` entirely, so a hook written there never fires.
+export async function resolveHooksDir(projectDir) {
   if (!existsSync(join(projectDir, ".git"))) throw new Error(`Not a git repository: ${projectDir}`);
+  let hooksPath = "";
+  try {
+    const r = await execa("git", ["-C", projectDir, "config", "--local", "core.hooksPath"]);
+    hooksPath = r.stdout.trim();
+  } catch { /* unset → git uses .git/hooks */ }
+  if (hooksPath) {
+    return { dir: isAbsolute(hooksPath) ? hooksPath : join(projectDir, hooksPath), hooksPath };
+  }
+  return { dir: join(projectDir, ".git", "hooks"), hooksPath: "" };
+}
+
+export async function installPostMergeHook({ projectDir, logger = console } = {}) {
+  const { dir: hooksDir, hooksPath } = await resolveHooksDir(projectDir);
   if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true });
   const target = join(hooksDir, "post-merge");
   const src = readFileSync(HOOK_SRC, "utf8");
-  if (existsSync(target) && !readFileSync(target, "utf8").includes("KJC-TSK-0455")) {
-    logger.warn?.(`[rag] ${target} already exists and was not installed by kj; leaving untouched`);
-    return { skipped: true, target };
+  if (existsSync(target)) {
+    const current = readFileSync(target, "utf8");
+    // Another kj-managed hook (e.g. harden's post-merge) already reindexes.
+    if (!current.includes("KJC-TSK-0455") && /kj\s+rag\s+index/.test(current)) {
+      return { skipped: true, covered: true, target, hooksPath };
+    }
+    if (!current.includes("KJC-TSK-0455")) {
+      logger.warn?.(`[rag] ${target} already exists and was not installed by kj; leaving untouched`);
+      return { skipped: true, target, hooksPath };
+    }
   }
   writeFileSync(target, src);
   chmodSync(target, 0o755);
-  return { installed: true, target };
+  return { installed: true, target, hooksPath };
 }

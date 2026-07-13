@@ -25,6 +25,7 @@ import { getRtkChecks } from "../checks/rtk.js";
 import { getSqueezrChecks } from "../checks/squeezr.js";
 import { getAiTrashChecks } from "../checks/ai-trash.js";
 import { getQmdChecks } from "../checks/qmd.js";
+import { getRagHooksChecks } from "../checks/rag-hooks.js";
 import { getNodeChecks } from "../checks/node.js";
 import { getNativeBuildChecks } from "../checks/native-build.js";
 import { getPortChecks } from "../checks/ports.js";
@@ -72,6 +73,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getSqueezrChecks(),
     ...getAiTrashChecks(),
     ...getQmdChecks(),
+    ...getRagHooksChecks({ projectDir }),
     ...getProjectChecks({ projectDir }),
   ];
 }

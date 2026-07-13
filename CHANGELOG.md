@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **RAG post-merge refresh honours `core.hooksPath`** (KJC-BUG-0100): `kj rag install-hooks` always wrote `.git/hooks/post-merge`, but a hardened repo sets `git config core.hooksPath .karajan/hooks` — git then ignores `.git/hooks/` entirely, so the RAG index silently never refreshed after a merge while the command still reported success. `installPostMergeHook` now resolves the effective hooks dir, installs there, and reports `covered` when another kj-managed hook (harden's own post-merge) already reindexes. New `kj doctor` check (`rag-hooks`) surfaces a WARN when the effective post-merge hook does not refresh the RAG; the pre-run drift check in `kj run` remains the backstop.
+
 ## [3.10.2] - 2026-07-13
 
 Patch. Rolls up a privacy fix, a path-containment hardening and triage observability.
