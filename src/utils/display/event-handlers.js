@@ -69,6 +69,20 @@ export const EVENT_HANDLERS = {
     console.log(`  \u251c\u2500 ${icon} TDD policy: ${label}${files}${executor}`);
   },
 
+  "triage:end": (event, icon, elapsed, status) => {
+    const detail = event.detail || {};
+    const level = detail.level ? ` ${detail.level}` : "";
+    const onCount = detail.roles?.length || 0;
+    console.log(
+      `  \u251c\u2500 ${icon} ${status} Triage${level}${ANSI.dim} \u2014 ${onCount} role(s) on${ANSI.reset}  ${elapsed}`
+    );
+    // Per-role rationale: why each role was activated or skipped (KJC-TSK-0601).
+    for (const entry of detail.roleRationale || []) {
+      const mark = entry.enabled ? `${ANSI.green}\u2713${ANSI.reset}` : `${ANSI.dim}\u2717${ANSI.reset}`;
+      console.log(`  \u2502    ${mark} ${ANSI.dim}${entry.role}: ${entry.reason}${ANSI.reset}`);
+    }
+  },
+
   "researcher:start": (event, icon) => {
     console.log(`  \u251c\u2500 ${icon} Researcher (${event.detail?.researcher || "?"}) investigating...`);
   },

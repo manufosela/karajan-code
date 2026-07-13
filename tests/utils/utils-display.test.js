@@ -107,6 +107,28 @@ describe("utils/display", () => {
       expect(output).toContain("OK");
     });
 
+    it("prints triage per-role rationale", () => {
+      printEvent({
+        type: "triage:end",
+        status: "ok",
+        detail: {
+          level: "medium",
+          roles: ["reviewer"],
+          roleRationale: [
+            { role: "reviewer", enabled: true, source: "triage", reason: "recomendado por triage — revisión de cambios" },
+            { role: "planner", enabled: false, source: "none", reason: "no recomendado — planificación multi-fichero sin aplicar" }
+          ]
+        },
+        elapsed: 1000
+      });
+
+      const output = spy.mock.calls.map((c) => c[0]).join("\n");
+      expect(output).toContain("Triage");
+      expect(output).toContain("1 role(s) on");
+      expect(output).toContain("reviewer: recomendado por triage");
+      expect(output).toContain("planner: no recomendado");
+    });
+
     it("prints question event with pause message", () => {
       printEvent({ type: "question", detail: { question: "Should I proceed?" }, sessionId: "s_123" });
 

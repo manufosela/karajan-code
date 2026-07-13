@@ -213,6 +213,78 @@ describe("runTriageStage", () => {
     expect(result.stageResult.taskType).toBe("sw");
   });
 
+  it("emits per-role rationale: triage-recommended, config-forced and off", async () => {
+    triageRunMock.mockResolvedValue({
+      ok: true,
+      result: {
+        level: "medium",
+        roles: ["reviewer", "tester"],
+        reasoning: "Moderate complexity"
+      },
+      usage: { tokens_in: 100, tokens_out: 80 }
+    });
+    config.pipeline = { security: { enabled: true } };
+
+    const result = await runTriageStage({
+      config, logger, emitter, eventBase, session,
+      coderRole: { provider: "codex", model: null },
+      trackBudget
+    });
+
+    const rationale = result.stageResult.roleRationale;
+    const byRole = Object.fromEntries(rationale.map((r) => [r.role, r]));
+    // Every known role is covered, deterministically.
+    expect(rationale).toHaveLength(8);
+
+    // Recommended by triage.
+    expect(byRole.reviewer).toMatchObject({ enabled: true, source: "triage" });
+    expect(byRole.reviewer.reason).toMatch(/triage/i);
+    // Forced by config, not recommended by triage.
+    expect(byRole.security).toMatchObject({ enabled: true, source: "config" });
+    expect(byRole.security.reason).toMatch(/configuración/i);
+    // Off: neither recommended nor forced.
+    expect(byRole.planner).toMatchObject({ enabled: false, source: "none" });
+    expect(byRole.planner.reason).toBeTruthy();
+  });
+
+  it("degrades role rationale to a neutral reason when triage fails", async () => {
+    triageRunMock.mockResolvedValue({
+      ok: false,
+      result: { error: "Agent failed" },
+      summary: "Triage failed",
+      usage: { tokens_in: 50, tokens_out: 20 }
+    });
+    config.pipeline = { security: { enabled: true } };
+
+    const result = await runTriageStage({
+      config, logger, emitter, eventBase, session,
+      coderRole: { provider: "codex", model: null },
+      trackBudget
+    });
+
+    const byRole = Object.fromEntries(result.stageResult.roleRationale.map((r) => [r.role, r]));
+    // No triage data: non-forced roles get a neutral reason, never an invented one.
+    expect(byRole.planner).toMatchObject({ enabled: false, source: "none" });
+    expect(byRole.planner.reason).toMatch(/sin datos de triage/i);
+    // Config-forced roles still resolve from config alone.
+    expect(byRole.security).toMatchObject({ enabled: true, source: "config" });
+  });
+
+  it("exposes roleRationale in the triage:end event", async () => {
+    const events = [];
+    emitter.on("progress", (event) => events.push(event));
+
+    await runTriageStage({
+      config, logger, emitter, eventBase, session,
+      coderRole: { provider: "codex", model: null },
+      trackBudget
+    });
+
+    const endEvent = events.find((e) => e.type === "triage:end");
+    expect(Array.isArray(endEvent.detail.roleRationale)).toBe(true);
+    expect(endEvent.detail.roleRationale.length).toBe(8);
+  });
+
   it("handles shouldDecompose in stage result", async () => {
     triageRunMock.mockResolvedValue({
       ok: true,
