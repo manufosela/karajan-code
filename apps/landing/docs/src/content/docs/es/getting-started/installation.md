@@ -45,9 +45,15 @@ curl -fsSL https://karajancode.com/install.sh | sh
 irm https://karajancode.com/install.ps1 | iex
 ```
 
-### macOS, o vía npm (Node.js 18+)
+### macOS (Apple Silicon)
 
-El binario standalone de macOS aún no está disponible — en macOS, instala con npm. También es la alternativa para cualquier plataforma donde prefieras usar Node:
+```bash
+curl -fsSL https://karajancode.com/install.sh | sh
+```
+
+### Vía npm (cualquier plataforma, Node.js 18+)
+
+Instala con npm en los Mac Intel o en cualquier plataforma donde prefieras ejecutar `kj` sobre Node:
 
 ```bash
 npm install -g karajan-code
@@ -167,11 +173,14 @@ Si prefieres descargar una versión concreta manualmente en lugar de usar el ins
 # Linux x64
 curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-linux-x64 -o kj && chmod +x kj
 
+# macOS (Apple Silicon)
+curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-darwin-arm64 -o kj && chmod +x kj
+
 # Windows (PowerShell)
 curl -L https://github.com/manufosela/karajan-code/releases/latest/download/kj-win-x64.exe -o kj.exe
 ```
 
-Mueve el binario a un directorio en tu PATH (ej. `/usr/local/bin/kj`). Los checksums SHA256 están disponibles junto a cada binario. El binario de macOS aún no está publicado — usa npm en macOS.
+Mueve el binario a un directorio en tu PATH (ej. `/usr/local/bin/kj`). Los checksums SHA256 están disponibles junto a cada binario. El binario de macOS es `kj-darwin-arm64` (Apple Silicon); los Mac Intel se instalan vía npm.
 
 ## Alternativa: Homebrew (macOS)
 
