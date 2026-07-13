@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.2] - 2026-07-13
+
+Patch. Rolls up a privacy fix, a path-containment hardening and triage observability.
+
+### Fixed
+
+- **Personal email removed from public metadata** (#1156): a personal address had leaked into user-facing package metadata. Replaced with the public handle so scrapers can't harvest it.
+- **Path guards use containment, not string prefix** (KJC-BUG-0098): direct-action file writes (`create_file`, `git_add`) confined the target to the project directory with a string-prefix check, which a sibling path like `../project-evil` could slip past. The guard now uses a `path.relative`-based containment test, so a crafted path cannot escape the repo.
+
+### Added
+
+- **Per-role triage rationale** (KJC-TSK-0601): triage decided which roles to activate but only exposed one global `reasoning` blob — the per-role *why* was invisible. Triage now emits a deterministic `roleRationale` (role, enabled, source, reason) mirroring the activation logic, rendered under the `triage:end` event so each activate/skip decision is observable. The rationale describes each role's trigger, never a per-task claim, so it is never invented; on triage failure, skipped roles degrade to a neutral reason.
+
+### Docs
+
+- **Recorded by-design non-goals** (KJC-TSK-0602): `docs/design-decisions.md` documents why `npm install` is not run with `--ignore-scripts`, why there is no built-in sandbox, and why there is no user-editable YAML/JSON config — so reviews stop re-proposing them.
+
 ## [3.10.1] - 2026-07-12
 
 ### Fixed
