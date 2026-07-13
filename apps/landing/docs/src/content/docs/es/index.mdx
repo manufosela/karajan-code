@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.10.1 — Binario de macOS + kj run en el standalone (actual)
+### v3.10.2 — Privacidad, contención de rutas y observabilidad del triage (actual)
+
+Patch. Tres endurecimientos pequeños agrupados. Un email personal que se había colado en los metadatos públicos del paquete se **sustituye por el handle público**, para que los scrapers no puedan cosecharlo. Las escrituras de fichero de acción directa del Brain confinan ahora cada ruta al proyecto con una **comprobación de contención** (basada en `path.relative`, no en prefijo de cadena), así que una ruta hermana manipulada como `../project-evil` no puede escapar del repo. Y el **triage ahora se explica**: en lugar de un único bloque global de razonamiento, emite una justificación por rol — para cada rol, si se activó o se omitió y por qué — mostrada en vivo para que cada decisión sea observable. Actualización directa desde v3.10.1.
+
+### v3.10.1 — Binario de macOS + kj run en el standalone
 
 Patch. El **binario standalone de macOS (Apple Silicon) ya se distribuye** en la release de GitHub, junto a los de Linux y Windows — así que en macOS puedes instalar `kj` directamente desde el binario o seguir usando `npm install -g karajan-code`; ambos canales sirven la v3.10.1. También corrige un fallo por el que `kj run` moría en el binario standalone con un error de símbolo ausente mientras `--version` seguía funcionando. Un smoke test de run-dispatch ahora protege cada release para que ese camino no pueda volver a romperse. Actualización directa desde v3.9.0.
 
@@ -263,15 +267,3 @@ Minor. **`kj start`** es la única puerta al squad autónomo de Karajan: expresa
 ### v3.7.2 — Fix de deep-link + fallback resiliente del audit
 
 Patch. El banner de arranque del HU Board emite ahora la ruta hash canónica (`/#board/<slug>`) que entiende el router de la SPA, así que los deep-links de `kj plan` / `kj run` aterrizan en tu proyecto y no en el dashboard global. Y `kj audit` es ahora resiliente: si el proveedor o el modelo configurado está caído, recorre automáticamente una cadena ordenada de alternativas — proveedor+modelo configurado → el modelo por defecto del mismo proveedor → el resto de proveedores conocidos (claude, codex, gemini) — y gana el primero que funciona, así que un modelo muerto ya no puede tumbar el comando.
-
-### v3.7.1 — fix de init + seguridad pnpm
-
-Patch. Arregla un crash de `kj init` al configurar el fallback Plan B, y hace seguras las instalaciones con pnpm: pnpm bloquea por defecto los build scripts de dependencias, así que el addon nativo de `better-sqlite3` no compilaba — `kj doctor` ahora lo detecta y te dice exactamente cómo arreglarlo (`pnpm approve-builds better-sqlite3`, o instalar con npm). El gate de release también verifica pnpm en cada versión.
-
-### v3.7.0 — Entrega autónoma
-
-Un único eje de autonomía (`interactive | assisted | autonomous`) deja que Karajan ejecute sin manos. **`kj autorun <spec>`** encadena plan → run → informe de resultado: planifica, descompone en HUs y ejecuta hasta terminar sin humano en el bucle. **El Arbiter** resuelve los conflictos entre agentes eligiendo la respuesta menos mala (verdad de base: tests de aceptación > must-fix del reviewer > nice-to-have); las stages autónomas nunca se bloquean, un tope de wall-clock evita los cuelgues, y la ejecución termina con un informe DELIVERED / INCOMPLETE de los defectos residuales. El default sigue siendo `interactive`, así que los runs normales no cambian.
-
-### v3.6.0 — Harden consultivo
-
-`kj harden --report` muestra, en solo lectura, qué aportaría el estándar kj a un repo existente — por artefacto: falta / es tuyo / gestionado por kj, más las mejoras concretas para tus propias configs. `kj harden --interactive` adopta el estándar pieza a pieza, con default seguro. Los flags de alcance (`--only`/`--exclude`) lo mantienen fuera de dirs de ejemplos/fixtures. Un primer uso de `kj init` más redondo (inglés consistente, jerga glosada, cierre claro), y la red de seguridad `kj-trash` ya llega a los installs de npm.

@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.10.1 — macOS binary + kj run on the standalone (current)
+### v3.10.2 — Privacy, path containment & triage observability (current)
+
+Patch. Three small hardenings rolled up. A personal email that had leaked into public package metadata is **replaced with the public handle**, so scrapers can't harvest it. The Brain's direct-action file writes now confine every path to the project with a **containment check** (`path.relative`-based, not a string prefix), so a crafted sibling path like `../project-evil` can't escape the repo. And **triage now explains itself**: instead of one global reasoning blob, it emits a per-role rationale — for each role, whether it was activated or skipped and why — rendered live so every decision is observable. Drop-in upgrade from v3.10.1.
+
+### v3.10.1 — macOS binary + kj run on the standalone
 
 Patch. The **macOS (Apple Silicon) standalone binary now ships** on the GitHub release, next to the Linux and Windows binaries — so on macOS you can install `kj` straight from the binary or keep using `npm install -g karajan-code`; both channels serve v3.10.1. It also fixes a crash where `kj run` died on the standalone binary with a missing-symbol error while `--version` stayed green. A run-dispatch smoke test now gates every release so that path can't regress. Drop-in upgrade from v3.9.0.
 
@@ -264,14 +268,3 @@ Minor. **`kj start`** is the single door to Karajan's autonomous squad: you stat
 
 Patch. The HU Board auto-start banner now emits the canonical hash route (`/#board/<slug>`) the SPA router understands, so `kj plan` / `kj run` deep-links land on your project instead of the global dashboard. And `kj audit` is now resilient: if the configured provider or model is down, it automatically walks an ordered fallback chain — configured provider+model → the same provider's default model → the remaining known providers (claude, codex, gemini) — and the first one that works wins, so a dead model can no longer kill the command.
 
-### v3.7.1 — init fix + pnpm safety
-
-Patch. Fixes a `kj init` crash when configuring the Plan B fallback, and makes pnpm installs safe: pnpm blocks dependency build scripts by default, so `better-sqlite3`'s native addon wouldn't compile — `kj doctor` now detects this and tells you exactly how to fix it (`pnpm approve-builds better-sqlite3`, or install with npm). The release gate checks pnpm on every version too.
-
-### v3.7.0 — Autonomous delivery
-
-A single autonomy axis (`interactive | assisted | autonomous`) lets Karajan run hands-off. **`kj autorun <spec>`** chains plan → run → outcome report: it plans, decomposes into HUs, and runs to completion with no human in the loop. **The Arbiter** resolves agent conflicts by picking the least-bad answer (ground truth: acceptance tests > reviewer must-fix > nice-to-have); autonomous stages never block, a wall-clock backstop prevents hangs, and the run ends with a DELIVERED / INCOMPLETE report of residual defects. The default stays `interactive`, so normal runs are untouched.
-
-### v3.6.0 — Advisory harden
-
-`kj harden --report` shows, read-only, what the kj standard would add to an existing repo — per artifact: missing / yours / kj-managed, plus the concrete improvements for your own configs. `kj harden --interactive` adopts the standard piece by piece, default-safe. Scope flags (`--only`/`--exclude`) keep it off demo/fixture dirs. A rounder `kj init` first run (consistent English, glossed terms, clean close), and the `kj-trash` safety net now ships to npm installs.
