@@ -11,12 +11,48 @@ import { createStallDetector } from "../../utils/stall-detector.js";
 
 const ROLE_NAMES = ["planner", "researcher", "architect", "refactorer", "reviewer", "tester", "security", "impeccable"];
 
+// What each role is for. Used to explain — deterministically — why triage would
+// or would not turn a role on. These describe the role's trigger, never a claim
+// about the current task, so the rationale is never invented per run.
+const ROLE_PURPOSE = {
+  planner: "planificación multi-fichero",
+  researcher: "investigación de contexto externo",
+  architect: "decisiones de arquitectura",
+  refactorer: "refactor de código existente",
+  reviewer: "revisión de cambios",
+  tester: "cobertura de tests dedicada",
+  security: "auditoría de seguridad",
+  impeccable: "auditoría de diseño"
+};
+
 function buildRoleOverrides(recommendedRoles, pipelineConfig) {
   const overrides = {};
   for (const role of ROLE_NAMES) {
     overrides[`${role}Enabled`] = recommendedRoles.has(role) || Boolean(pipelineConfig[role]?.enabled);
   }
   return overrides;
+}
+
+// Per-role explanation of the activate/skip decision, mirroring buildRoleOverrides.
+// When triage failed, recommendations are unavailable: roles resolve from config
+// alone and skipped ones get a neutral "sin datos de triage" reason.
+function buildRoleRationale(recommendedRoles, pipelineConfig, triageOk) {
+  return ROLE_NAMES.map((role) => {
+    const forced = Boolean(pipelineConfig[role]?.enabled);
+    const recommended = triageOk && recommendedRoles.has(role);
+    const purpose = ROLE_PURPOSE[role];
+
+    if (recommended) {
+      return { role, enabled: true, source: "triage", reason: `recomendado por triage — ${purpose}` };
+    }
+    if (forced) {
+      return { role, enabled: true, source: "config", reason: `forzado por configuración — ${purpose}` };
+    }
+    const reason = triageOk
+      ? `no recomendado — ${purpose} sin aplicar`
+      : `sin datos de triage — ${purpose} sin evaluar`;
+    return { role, enabled: false, source: "none", reason };
+  });
 }
 
 function applyModelSelection(triageOutput, config, emitter, eventBase) {
@@ -104,7 +140,8 @@ export async function runTriageStage({ config, logger, emitter, eventBase, sessi
     taskType: triageOutput.result?.taskType || "sw",
     shouldDecompose,
     subtasks,
-    domainHints
+    domainHints,
+    roleRationale: buildRoleRationale(recommendedRoles, config.pipeline || {}, triageOutput.ok)
   };
 
   const modelSelection = applyModelSelection(triageOutput, config, emitter, eventBase);
