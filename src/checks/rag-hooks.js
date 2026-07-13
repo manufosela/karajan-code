@@ -5,8 +5,10 @@
  * but when a repo is hardened `git config core.hooksPath` points at
  * `.karajan/hooks` and git ignores `.git/hooks/` entirely — so the RAG index
  * silently never refreshes after a merge. This check resolves the *effective*
- * hooks dir and warns when the post-merge hook there does not reindex the RAG.
- * The pre-run drift check in `kj run` still covers the gap, so this is a WARN.
+ * hooks dir and reports whether the post-merge hook there reindexes the RAG.
+ * The pre-run drift check in `kj run` already covers the gap, so a missing
+ * hook is advisory (info), not a failure — it surfaces the state without
+ * nagging every repo that never ran `kj rag install-hooks`.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -39,7 +41,7 @@ export function createRagHooksCheck({ projectDir } = {}) {
       const where = hooks.hooksPath ? ` — core.hooksPath=${hooks.hooksPath}` : "";
       return {
         ok: false,
-        severity: "warn",
+        severity: "info",
         detail: `RAG index won't auto-refresh after merges${where}; pre-run drift check still covers \`kj run\``,
         fix: "Wire the post-merge hook: `kj rag install-hooks`",
       };

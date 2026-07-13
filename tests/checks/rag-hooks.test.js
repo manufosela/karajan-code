@@ -21,11 +21,12 @@ describe("rag-hooks check — KJC-BUG-0100", () => {
     expect(r.severity).toBe("info");
   });
 
-  it("warns when no post-merge hook reindexes the RAG", async () => {
+  it("flags (info, non-failing) when no post-merge hook reindexes the RAG", async () => {
     await execa("git", ["-C", projectDir, "init", "-q"]);
     const r = await createRagHooksCheck({ projectDir }).detect();
     expect(r.ok).toBe(false);
-    expect(r.severity).toBe("warn");
+    // info keeps doctor green: the pre-run drift check already covers `kj run`.
+    expect(r.severity).toBe("info");
     expect(r.fix).toMatch(/install-hooks/);
   });
 
