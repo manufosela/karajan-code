@@ -409,6 +409,7 @@ Esto permite recuperación ante caídas, pausa/reanudación e informes post-ejec
 La arquitectura se nutre de varias fuentes:
 
 - **[jorgecasar/ai-orchestration](https://github.com/jorgecasar/legacy-s-end-2/tree/main/packages/ai-orchestration)** Arquitectura hexagonal limpia con puertos y adaptadores para orquestación de IA. Influyó en el diseño de adaptadores de agentes y la abstracción de roles de Karajan.
+- **[Augmented Coding Patterns](https://lexler.github.io/augmented-coding-patterns/) (lexler).** Un catálogo mantenido por la comunidad de patrones para programación asistida por IA. Los role-prompts de Karajan codifican directamente varios de sus remedios: *Active Partner* (el coder plantea un bloqueo real antes de programar en vez de acatar en silencio), *Check Alignment* (reformula lo que ha entendido en tareas no triviales antes de escribir código) y *Point the Target* (las instrucciones de más impacto dicen qué hacer, no solo qué evitar). El catálogo es validación externa de que son patrones reconocidos, no una idiosincrasia de este proyecto.
 - **Arquitectura Hexagonal (Puertos y Adaptadores).** La capa de agentes actúa como adaptadores (Claude, Codex, etc.) detrás de un puerto unificado (`BaseAgent`).
 - **Patrón Pipeline.** El orchestrator compone roles en un pipeline configurable e iterativo con quality gates.
 - **Arquitectura Dirigida por Eventos.** Los roles emiten eventos para tracking de progreso, notificaciones MCP y monitorización en tiempo real con kj-tail.
