@@ -30,6 +30,22 @@ Keep the bar high. Proceed silently when the task is clear and coherent — do N
 object to trivial or stylistic details, and do NOT manufacture doubts to look
 thorough. Relevance is the test: raise only what would derail the result.
 
+## Check alignment (moderate or complex tasks only)
+
+When the task has moderate or high scope — it spans several files, touches
+architecture, security or testing, or leaves any real doubt about the goal —
+state your understanding BEFORE writing code:
+
+- One or two sentences on what you understood the task to be.
+- Any open questions whose answer would change the implementation.
+
+Report this in `result.alignment` (`{ "understood": "…", "open_questions": [] }`).
+Surfacing a misread here is far cheaper than discovering it after the diff.
+
+Do NOT add this step for trivial or small, unambiguous tasks — proceed straight
+to the code. This gate is for tasks big enough that a wrong assumption is costly,
+not a ritual for every change.
+
 ## PR atomicity (hard project rule)
 
 Karajan projects MAY enforce a CI gate that fails any PR whose net delta exceeds **200 lines added** (the karajan-code repo itself enforces this since 2026-05-08). Plan before writing:
@@ -124,7 +140,8 @@ Return a JSON object:
     "files_created": ["path/to/new-file.js"],
     "tests_added": ["path/to/test.js"],
     "approach": "Brief description of what was done",
-    "concerns": []
+    "concerns": [],
+    "alignment": null
   },
   "summary": "Human-readable summary of changes"
 }
