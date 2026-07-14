@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-07-14
+
+Minor. **`kj install-tools` now actually installs** — it is the actuator (installs the external audit tools), while `kj doctor` stays the diagnostician (tells you what's missing). Plus three reviewer/coder role refinements and two install-path fixes.
+
+### Added
+
+- **`kj install-tools` installs, not just advises** (epic KJC-PCS-0006): a wizard that shows the exact command for each tool and installs on accept.
+  - **Sudo-capable executor + binary downloader** (KJC-TSK-0606): `runInstallCommand` runs privileged installs through `sudo` on the user's own tty — kj never captures or logs the password. `downloadBinary` fetches to a temp file, `chmod 0755`, then atomically renames, leaving no partial artifact on failure.
+  - **Standalone binary route** (KJC-TSK-0607): on a machine with no package manager, osv-scanner installs from its GitHub static binary and semgrep falls back to a concrete Docker/pipx command — never a bare docs URL.
+  - **Docker on Linux** (KJC-TSK-0609): opt-in (defaults to no), with the exact command shown first. Prefers the distro package manager (`apt` → docker.io, `dnf` → docker); otherwise downloads Docker's official convenience script to a file and runs it with sudo — never `curl | sh`. macOS/Windows point at the official docs (brew cask suggested on macOS).
+  - **Clearer messaging** (KJC-TSK-0610): sonar states it runs as a Docker container and gives the concrete next step; tools with no package manager name the route and point at `kj doctor`.
+- **Active partner — relevance-gated dissent** (KJC-TSK-0603): the coder and spec-reviewer surface a disagreement when it is materially relevant, instead of silently complying.
+- **Check-alignment micro-gate** (KJC-TSK-0604): a lightweight alignment check for moderate/complex tasks.
+- **Point the target** (KJC-TSK-0605): high-impact negative instructions are reworded affirmatively so the agent aims at the desired outcome.
+
 ### Fixed
 
 - **RAG post-merge refresh honours `core.hooksPath`** (KJC-BUG-0100): `kj rag install-hooks` always wrote `.git/hooks/post-merge`, but a hardened repo sets `git config core.hooksPath .karajan/hooks` — git then ignores `.git/hooks/` entirely, so the RAG index silently never refreshed after a merge while the command still reported success. `installPostMergeHook` now resolves the effective hooks dir, installs there, and reports `covered` when another kj-managed hook (harden's own post-merge) already reindexes. New `kj doctor` check (`rag-hooks`) surfaces a WARN when the effective post-merge hook does not refresh the RAG; the pre-run drift check in `kj run` remains the backstop.
+- **macOS installs the darwin-arm64 binary** (KJC-BUG-0101): the installer script did not select the macOS asset.
 
 ## [3.10.2] - 2026-07-13
 
