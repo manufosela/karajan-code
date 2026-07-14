@@ -89,7 +89,7 @@ async function handleSonar({ available, dryRun }) {
     return {
       tool: "sonar",
       action: "manual",
-      reason: "docker not available — sonar needs docker. Install docker first.",
+      reason: "SonarQube runs as a Docker container — install Docker first (kj install-tools --only docker), then re-run.",
       manualUrl: "https://docs.docker.com/get-docker/",
     };
   }
@@ -160,7 +160,7 @@ async function handleDocker({ available, dryRun, yes, logger }) {
  */
 async function handleStandalone({ tool, standalone, manualUrl, dryRun, yes, logger }) {
   if (standalone.kind === "command") {
-    logger.warn?.(`✗ ${tool}: no package manager. Try: ${standalone.command}  (docs: ${manualUrl})`);
+    logger.warn?.(`✗ ${tool}: no package manager here. Try: ${standalone.command}  ·  \`kj doctor\` shows what's missing (docs: ${manualUrl})`);
     return { tool, action: "manual", reason: "no package manager — suggested route below", suggested: standalone.command, via: standalone.via, manualUrl };
   }
   // kind === "binary"
@@ -223,7 +223,8 @@ export async function installToolsCommand(opts = {}) {
     if (tool === "sonar") {
       const result = await handleSonar({ available, dryRun });
       results.push(result);
-      logger.info?.(`▸ sonar: ${result.command || result.manualUrl}`);
+      if (result.action === "manual") logger.warn?.(`✗ sonar: ${result.reason}`);
+      else logger.info?.(`▸ sonar: ${result.command}`);
       if (!dryRun && result.action === "ready") {
         const proceed = yes || await promptYesNo(`Start SonarQube with: ${result.command}?`);
         if (proceed) {
@@ -253,7 +254,7 @@ export async function installToolsCommand(opts = {}) {
         continue;
       }
       results.push({ tool, action: "manual", reason: "no compatible package manager found", manualUrl: hint.manualUrl, suggested: hint.command });
-      logger.warn?.(`✗ ${tool}: no compatible package manager. Manual: ${hint.manualUrl}`);
+      logger.warn?.(`✗ ${tool}: no automatic install route here. Run \`kj doctor\` for options, or install manually: ${hint.manualUrl}`);
       continue;
     }
     if (dryRun) {
