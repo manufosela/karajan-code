@@ -210,6 +210,66 @@ describe("kj install-tools — git (required tool)", () => {
   });
 });
 
+describe("kj install-tools — agent CLI (required tool)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("plans npm installs for both default CLIs (claude + codex) in dry-run", async () => {
+    // default checkBinary mock → both absent
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "agent-cli", logger: silentLogger });
+    const agent = results.find((r) => r.tool === "agent-cli");
+    expect(agent.action).toBe("dry-run");
+    expect(agent.installed.map((i) => i.command)).toEqual([
+      "npm install -g @anthropic-ai/claude-code",
+      "npm install -g @openai/codex",
+    ]);
+  });
+
+  it("installs both via npm when accepted (yes)", async () => {
+    const { runInstallCommand } = await import("../../src/utils/tool-installer.js");
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ yes: true, only: "agent-cli", logger: silentLogger });
+    expect(runInstallCommand).toHaveBeenCalledWith("npm install -g @anthropic-ai/claude-code", { interactive: false });
+    expect(runInstallCommand).toHaveBeenCalledWith("npm install -g @openai/codex", { interactive: false });
+    expect(results.find((r) => r.tool === "agent-cli").action).toBe("installed");
+  });
+
+  it("reports already-installed when both CLIs are present", async () => {
+    const { checkBinary } = await import("../../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: true, version: "1.0.0", path: "/usr/bin/x" });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "agent-cli", logger: silentLogger });
+    expect(results.find((r) => r.tool === "agent-cli").action).toBe("already-installed");
+  });
+
+  it("installs only the missing CLI when the other is present", async () => {
+    const { checkBinary } = await import("../../src/utils/agent-detect.js");
+    checkBinary.mockImplementation(async (bin) => ({ ok: bin === "claude", version: null, path: null }));
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "agent-cli", logger: silentLogger });
+    const agent = results.find((r) => r.tool === "agent-cli");
+    expect(agent.installed).toHaveLength(1);
+    expect(agent.installed[0].command).toBe("npm install -g @openai/codex");
+  });
+
+  it("surfaces manual commands (no silent failure) when npm is absent", async () => {
+    const { checkBinary } = await import("../../src/utils/agent-detect.js");
+    checkBinary.mockResolvedValue({ ok: false, version: null, path: null }); // both CLIs absent
+    const { detectPackageManagers } = await import("../../src/utils/install-hints.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: true, brew: false, go: false, npm: false, pip: false, apt: false, dnf: false, choco: false, scoop: false, docker: true,
+    });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "agent-cli", logger });
+    const agent = results.find((r) => r.tool === "agent-cli");
+    expect(agent.action).toBe("manual");
+    expect(agent.commands).toContain("npm install -g @anthropic-ai/claude-code");
+    const warned = logger.warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/npm install -g @openai\/codex/);
+  });
+});
+
 describe("kj install-tools — clearer messaging (KJC-TSK-0610)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
