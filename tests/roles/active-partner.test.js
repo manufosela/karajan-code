@@ -29,3 +29,18 @@ describe("active partner — constructive dissent (KJC-TSK-0603)", () => {
     expect(tpl).toMatch(/never rationalise/i);
   });
 });
+
+describe("check alignment micro-gate (KJC-TSK-0604)", () => {
+  it("coder.md gates the alignment step to moderate/complex tasks", async () => {
+    const tpl = await fs.readFile(path.join(ROLES, "coder.md"), "utf8");
+    expect(tpl).toMatch(/Check alignment/i);
+    expect(tpl).toMatch(/moderate or (high|complex)/i);
+    expect(tpl).toContain("result.alignment");
+  });
+
+  it("coder.md skips the alignment step for trivial or small tasks", async () => {
+    const tpl = await fs.readFile(path.join(ROLES, "coder.md"), "utf8");
+    expect(tpl).toMatch(/Do NOT add this step for trivial/i);
+    expect(tpl).toMatch(/"alignment":\s*null/);
+  });
+});
