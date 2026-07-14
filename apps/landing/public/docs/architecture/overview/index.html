@@ -150,6 +150,7 @@
 <p>The architecture draws from several sources:</p>
 <ul>
 <li><strong><a href="https://github.com/jorgecasar/legacy-s-end-2/tree/main/packages/ai-orchestration">jorgecasar/ai-orchestration</a></strong> Clean hexagonal architecture with ports and adapters for AI orchestration. Influenced Karajan’s agent adapter design and role abstraction.</li>
+<li><strong><a href="https://lexler.github.io/augmented-coding-patterns/">Augmented Coding Patterns</a> (lexler).</strong> A community-maintained catalogue of patterns for AI-assisted coding. Karajan’s role prompts encode several of its remedies directly: <em>Active Partner</em> (the coder surfaces a real blocker before coding instead of silently complying), <em>Check Alignment</em> (it restates its understanding on non-trivial tasks before writing code), and <em>Point the Target</em> (high-impact instructions state what to do, not only what to avoid). The catalogue is external validation that these are recognised patterns, not one project’s idiosyncrasy.</li>
 <li><strong>Hexagonal Architecture (Ports &#x26; Adapters).</strong> The agent layer acts as adapters (Claude, Codex, etc.) behind a unified port (<code dir="auto">BaseAgent</code>).</li>
 <li><strong>Pipeline Pattern.</strong> The orchestrator composes roles into a configurable, iterative pipeline with quality gates.</li>
 <li><strong>Event-Driven Architecture.</strong> Roles emit events for progress tracking, MCP notifications, and kj-tail real-time monitoring.</li>
