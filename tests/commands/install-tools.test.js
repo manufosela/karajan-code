@@ -160,6 +160,43 @@ describe("kj install-tools — docker on Linux", () => {
   });
 });
 
+describe("kj install-tools — clearer messaging (KJC-TSK-0610)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("names the Docker-container dependency for sonar instead of a bare URL", async () => {
+    const { detectPackageManagers } = await import("../../src/utils/install-hints.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: true, brew: false, go: false, npm: true, pip: false, apt: false, dnf: false, choco: false, scoop: false, docker: false,
+    });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "sonar", logger });
+    const sonar = results.find((r) => r.tool === "sonar");
+    expect(sonar.action).toBe("manual");
+    expect(sonar.reason).toMatch(/Docker container/);
+    expect(sonar.reason).toMatch(/install-tools --only docker/);
+    const warned = logger.warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/Docker container/);
+  });
+
+  it("names a concrete route for a tool with no package manager, and points at kj doctor", async () => {
+    const { detectPackageManagers, getInstallHint } = await import("../../src/utils/install-hints.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: false, brew: false, go: false, npm: false, pip: false, apt: false, dnf: false, choco: false, scoop: false, docker: true,
+    });
+    getInstallHint.mockResolvedValueOnce({ command: null, manager: null, manualUrl: "https://semgrep.dev" });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "semgrep", logger });
+    const semgrep = results.find((r) => r.tool === "semgrep");
+    expect(semgrep.action).toBe("manual");
+    expect(semgrep.suggested).toMatch(/docker pull semgrep/);
+    const warned = logger.warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/docker pull semgrep/);
+    expect(warned).toMatch(/kj doctor/);
+  });
+});
+
 describe("kj install-tools — stack-aware lighthouse", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
