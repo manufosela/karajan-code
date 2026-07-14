@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.11.0 — kj install-tools actually installs (current)
+### v3.12.0 — install-tools covers the tools kj needs (current)
+
+Minor. `kj install-tools` now installs the tools **kj itself needs** to run, not only the optional audit tools. Two required tools join the list: **git** and the **agent CLIs of the default pipeline** — claude (`@anthropic-ai/claude-code`) and codex (`@openai/codex`). git installs through the OS package manager (brew → apt → dnf → choco → scoop) and, when a privileged step is needed, `sudo` runs on your own terminal so kj never sees the password; with no package manager it surfaces the manual download URL instead of failing silently. The agent CLIs install via global npm, one command shown per CLI and only the missing ones installed — gemini stays out of the default (it's a supported reviewer, not a required one). A near-blank machine becomes operational in a single command, while `kj doctor` keeps reporting the same required set. Drop-in upgrade from v3.11.0.
+
+### v3.11.0 — kj install-tools actually installs
 
 Minor. `kj install-tools` becomes the **actuator**: it now installs the external audit tools instead of only naming them (`kj doctor` stays the diagnostician that tells you what's missing). A wizard shows the **exact command per tool** and installs on accept — privileged steps run `sudo` on your own terminal, so kj never sees or logs the password, and binaries download to a temp file, `chmod`, then atomic-rename (no half-installed artifact on failure). With no package manager, osv-scanner pulls its static GitHub binary and semgrep falls back to a concrete Docker/pipx command; Docker on Linux prefers `apt`/`dnf` or downloads the official script to a file and runs it (never `curl | sh`), always opt-in with the command shown first. Plus three role refinements — active-partner dissent, a check-alignment micro-gate, and affirmative rewording of high-impact instructions — and two install-path fixes (RAG post-merge hook honours `core.hooksPath`; the macOS installer selects the darwin-arm64 binary). Drop-in upgrade from v3.10.2.
 
@@ -263,8 +267,4 @@ Patch. The **macOS (Apple Silicon) standalone binary now ships** on the GitHub r
 ### v3.9.0 — Standalone binaries
 
 Minor. Karajan now ships as a **single standalone executable**. One-line installers put `kj` on your PATH: `curl -fsSL https://karajancode.com/install.sh | sh` on Linux, `irm https://karajancode.com/install.ps1 | iex` on Windows (PowerShell). Each binary is built from a SEA (Single Executable Application) bundle, verified against its published SHA256 checksum, and gated by a smoke test that refuses to upload a binary whose `--version` doesn't match the tag. **macOS ships via npm for now** — the Apple Silicon binary is being finished separately, so on macOS `npm install -g karajan-code` remains the install path. Drop-in upgrade from v3.8.0.
-
-### v3.8.0 — kj start + inbound secret redaction
-
-Minor. **`kj start`** is the single door to Karajan's autonomous squad: you state an intent (and at most your project's maturity — new, existing or legacy) and the Brain runs the whole read-only sweep for you (`doctor` / `check` / `harden` / `onboard`), then proposes what to do next. A cheap AI layer decides the *what* from a closed set and maps it to a saved command, always asking before anything that writes — the model never runs commands on its own, and you never have to learn the underlying subcommands. Plus **inbound secret redaction**: a hardcoded credential in your working tree is now masked before the diff reaches the (possibly cloud) reviewer model, keeping an identifiable prefix (`AKIA***REDACTED***`) so the reviewer can still say "move this to .env" without ever seeing the value. And `kj advanced` keeps `kj --help` focused on the core commands.
 
