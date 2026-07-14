@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-07-14
+
+Minor. **`kj install-tools` now installs the tools kj itself needs**, not just the optional audit tools. A near-blank machine becomes operational with a single command — `git` and the default-pipeline agent CLIs (claude + codex) are treated as first-class required tools, exactly as `kj doctor` classifies them.
+
+### Added
+
+- **git as a required tool** (KJC-TSK-0611): `kj install-tools` installs git through the OS package manager (brew → apt → dnf → choco → scoop), reusing the shared install machinery. On Linux the privileged step runs through `sudo` on the user's own tty — kj never captures the password — and is opt-in, defaulting to no, with the exact command shown first. When no package manager matches, it surfaces the manual download URL rather than failing silently.
+- **agent CLI as a required tool** (KJC-TSK-0611): `kj install-tools` installs the default-pipeline CLIs — claude (`@anthropic-ai/claude-code`) and codex (`@openai/codex`) — via global npm, installing only the ones that are missing. Both present ⇒ already-installed; if npm is absent it reports the concrete manual commands and URLs instead of failing silently. gemini stays out of the default (supported reviewer, not required).
+
 ## [3.11.0] - 2026-07-14
 
 Minor. **`kj install-tools` now actually installs** — it is the actuator (installs the external audit tools), while `kj doctor` stays the diagnostician (tells you what's missing). Plus three reviewer/coder role refinements and two install-path fixes.
