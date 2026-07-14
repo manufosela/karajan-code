@@ -22,6 +22,12 @@ vi.mock("../../src/utils/install-hints.js", () => ({
     if (tool === "lighthouse") return Boolean(stack?.isFrontend || stack?.isFullstack);
     return true;
   }),
+  gitInstallPlan: vi.fn((available) => {
+    const url = "https://git-scm.com/downloads";
+    if (available?.brew) return { command: "brew install git", manager: "brew", needsSudo: false, manualUrl: url };
+    if (available?.apt) return { command: "sudo apt-get install -y git", manager: "apt", needsSudo: true, manualUrl: url };
+    return { command: null, manager: null, needsSudo: false, manualUrl: url };
+  }),
 }));
 
 vi.mock("../../src/utils/stack-detect.js", () => ({
@@ -157,6 +163,50 @@ describe("kj install-tools — docker on Linux", () => {
     expect(runInstallCommand).toHaveBeenCalledWith(expect.stringMatching(/^sudo sh /), { interactive: true });
     expect(results[0].action).toBe("installed");
     expect(results[0].via).toBe("script");
+  });
+});
+
+describe("kj install-tools — git (required tool)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("plans the apt install with sudo in dry-run", async () => {
+    const { detectPackageManagers } = await import("../../src/utils/install-hints.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: true, brew: false, go: false, npm: true, pip: false, apt: true, dnf: false, choco: false, scoop: false, docker: true,
+    });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "git", logger: silentLogger });
+    const git = results.find((r) => r.tool === "git");
+    expect(git.action).toBe("dry-run");
+    expect(git.command).toBe("sudo apt-get install -y git");
+    expect(git.manager).toBe("apt");
+  });
+
+  it("runs the apt install through the interactive tty (sudo) when accepted", async () => {
+    const { detectPackageManagers } = await import("../../src/utils/install-hints.js");
+    const { runInstallCommand } = await import("../../src/utils/tool-installer.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: true, brew: false, go: false, npm: true, pip: false, apt: true, dnf: false, choco: false, scoop: false, docker: true,
+    });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ yes: true, only: "git", logger: silentLogger });
+    expect(runInstallCommand).toHaveBeenCalledWith("sudo apt-get install -y git", { interactive: true });
+    expect(results.find((r) => r.tool === "git").action).toBe("installed");
+  });
+
+  it("surfaces a manual route (no silent failure) when no package manager matches", async () => {
+    const { detectPackageManagers } = await import("../../src/utils/install-hints.js");
+    detectPackageManagers.mockResolvedValueOnce({
+      pipx: false, brew: false, go: false, npm: false, pip: false, apt: false, dnf: false, choco: false, scoop: false, docker: false,
+    });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "git", logger });
+    const git = results.find((r) => r.tool === "git");
+    expect(git.action).toBe("manual");
+    expect(git.manualUrl).toMatch(/git-scm\.com/);
+    const warned = logger.warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/git-scm\.com/);
   });
 });
 

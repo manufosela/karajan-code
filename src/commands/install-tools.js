@@ -18,7 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { checkBinary } from "../utils/agent-detect.js";
-import { getInstallHint, detectPackageManagers, appliesToStack } from "../utils/install-hints.js";
+import { getInstallHint, detectPackageManagers, appliesToStack, gitInstallPlan } from "../utils/install-hints.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { resolveStandalone } from "../utils/binary-sources.js";
 import { downloadBinary, binDir, runInstallCommand } from "../utils/tool-installer.js";
@@ -26,7 +26,9 @@ import { dockerInstallPlan } from "../utils/docker-install.js";
 
 const execFileAsync = promisify(execFile);
 
-const ALL_TOOLS = ["semgrep", "osv-scanner", "lighthouse", "docker", "sonar"];
+// git leads the list: it is a `kj doctor` *required* tool, so a blank machine
+// wants it before the optional audit tools.
+const ALL_TOOLS = ["git", "semgrep", "osv-scanner", "lighthouse", "docker", "sonar"];
 
 function parseOnlyList(raw) {
   if (!raw) return null;
@@ -59,6 +61,43 @@ async function isInstalled(tool) {
   if (tool === "lighthouse") return (await checkBinary("lighthouse")).ok;
   if (tool === "docker") return (await checkBinary("docker")).ok;
   return (await checkBinary(tool)).ok;
+}
+
+/**
+ * git handler. git installs through the OS package manager; on Linux that
+ * needs root, so those runs go through the interactive (tty-inherited) path
+ * where sudo prompts the user directly — kj never captures the password. The
+ * exact command is shown first and the install is opt-in, defaulting to NO for
+ * the privileged case. When no package manager matches, we surface the manual
+ * download URL instead of failing silently.
+ */
+async function handleGit({ available, dryRun, yes, logger }) {
+  const plan = gitInstallPlan(available);
+  if (!plan.command) {
+    logger.warn?.(`✗ git: no supported package manager here — install manually: ${plan.manualUrl}`);
+    return { tool: "git", action: "manual", reason: "no supported package manager found", manualUrl: plan.manualUrl };
+  }
+  if (dryRun) {
+    logger.info?.(`▸ git: would run \`${plan.command}\` (manager: ${plan.manager}${plan.needsSudo ? ", needs sudo" : ""})`);
+    return { tool: "git", action: "dry-run", command: plan.command, manager: plan.manager };
+  }
+  if (plan.needsSudo) {
+    logger.warn?.("git: this step needs sudo — you'll be prompted for your password on your own terminal (kj never sees it).");
+  }
+  const proceed = yes || await promptYesNo(`Install git with: ${plan.command}?`, !plan.needsSudo);
+  if (!proceed) {
+    logger.info?.("⊘ git: declined");
+    return { tool: "git", action: "declined", command: plan.command };
+  }
+  logger.info?.(`▸ git: running \`${plan.command}\`...`);
+  const r = await runInstallCommand(plan.command, { interactive: plan.needsSudo });
+  if (r.ok) {
+    logger.info?.(`✓ git: installed via ${plan.manager}`);
+    return { tool: "git", action: "installed", manager: plan.manager };
+  }
+  const err = r.error || `exit ${r.code}`;
+  logger.warn?.(`✗ git: install failed (${err})`);
+  return { tool: "git", action: "failed", command: plan.command, error: err };
 }
 
 async function checkSonarRunning() {
@@ -233,6 +272,12 @@ export async function installToolsCommand(opts = {}) {
           if (!r.ok) result.error = r.error;
         }
       }
+      continue;
+    }
+
+    if (tool === "git") {
+      const result = await handleGit({ available, dryRun, yes, logger });
+      results.push(result);
       continue;
     }
 

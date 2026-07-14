@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { getInstallHint, appliesToStack, resetPackageManagerCache } from "../../src/utils/install-hints.js";
+import { getInstallHint, appliesToStack, gitInstallPlan, resetPackageManagerCache } from "../../src/utils/install-hints.js";
 
 // KJC-TSK v2.18 — platform-aware install hints for external audit tools.
 
@@ -77,5 +77,44 @@ describe("appliesToStack — stack gating", () => {
     expect(appliesToStack("semgrep", null)).toBe(true);
     expect(appliesToStack("osv-scanner", { isBackend: true })).toBe(true);
     expect(appliesToStack("docker", {})).toBe(true);
+  });
+});
+
+describe("gitInstallPlan — package-manager selection", () => {
+  it("prefers brew (user-level, no sudo) on macOS", () => {
+    const plan = gitInstallPlan({ brew: true, apt: true });
+    expect(plan.command).toBe("brew install git");
+    expect(plan.manager).toBe("brew");
+    expect(plan.needsSudo).toBe(false);
+  });
+
+  it("uses apt with sudo when brew is absent", () => {
+    const plan = gitInstallPlan({ brew: false, apt: true });
+    expect(plan.command).toBe("sudo apt-get install -y git");
+    expect(plan.manager).toBe("apt");
+    expect(plan.needsSudo).toBe(true);
+  });
+
+  it("uses dnf with sudo when only dnf is available", () => {
+    const plan = gitInstallPlan({ dnf: true });
+    expect(plan.command).toBe("sudo dnf install -y git");
+    expect(plan.needsSudo).toBe(true);
+  });
+
+  it("uses choco/scoop on Windows (no sudo)", () => {
+    expect(gitInstallPlan({ choco: true }).command).toBe("choco install git -y");
+    expect(gitInstallPlan({ choco: true }).needsSudo).toBe(false);
+    expect(gitInstallPlan({ scoop: true }).command).toBe("scoop install git");
+  });
+
+  it("returns a manual plan with URL when no manager matches", () => {
+    const plan = gitInstallPlan({});
+    expect(plan.command).toBeNull();
+    expect(plan.manager).toBeNull();
+    expect(plan.manualUrl).toMatch(/git-scm\.com/);
+  });
+
+  it("always includes the manual URL", () => {
+    expect(gitInstallPlan({ brew: true }).manualUrl).toMatch(/git-scm\.com/);
   });
 });
