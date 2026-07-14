@@ -28,6 +28,11 @@ vi.mock("../../src/utils/stack-detect.js", () => ({
   detectProjectStack: vi.fn(async () => ({ isBackend: true, isFrontend: false, isFullstack: false })),
 }));
 
+vi.mock("../../src/utils/tool-installer.js", () => ({
+  downloadBinary: vi.fn(async ({ name }) => ({ ok: true, dest: `/home/u/.local/bin/${name}` })),
+  binDir: vi.fn(() => "/home/u/.local/bin"),
+}));
+
 // Skip child_process exec entirely for these tests — we never want to
 // actually install anything during the test run.
 vi.mock("node:child_process", async (orig) => {
@@ -55,7 +60,8 @@ describe("kj install-tools — dry-run", () => {
     expect(exitCode).toBe(0);
     expect(results.find((r) => r.tool === "semgrep").action).toBe("dry-run");
     expect(results.find((r) => r.tool === "semgrep").command).toBe("pipx install semgrep");
-    expect(results.find((r) => r.tool === "osv-scanner").action).toBe("manual");
+    // osv-scanner has no package manager here, but a static-binary route exists.
+    expect(results.find((r) => r.tool === "osv-scanner").action).toBe("dry-run");
     expect(results.find((r) => r.tool === "lighthouse").action).toBe("skipped");
     expect(results.find((r) => r.tool === "docker").action).toBe("manual");
     expect(results.find((r) => r.tool === "sonar").action).toBe("dry-run");
@@ -90,11 +96,21 @@ describe("kj install-tools — dry-run", () => {
     expect(results[0].action).toBe("already-installed");
   });
 
-  it("flags osv-scanner as manual when no compatible package manager is available", async () => {
+  it("offers osv-scanner via static binary when no package manager is available", async () => {
     const { installToolsCommand } = await import("../../src/commands/install-tools.js");
     const { results } = await installToolsCommand({ dryRun: true, only: "osv-scanner", logger: silentLogger });
-    expect(results[0].action).toBe("manual");
-    expect(results[0].suggested).toBeNull();
+    expect(results[0].action).toBe("dry-run");
+    expect(results[0].via).toBe("binary");
+    expect(results[0].command).toMatch(/osv-scanner_/);
+  });
+
+  it("downloads the osv-scanner binary when accepted (yes)", async () => {
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { downloadBinary } = await import("../../src/utils/tool-installer.js");
+    const { results } = await installToolsCommand({ yes: true, only: "osv-scanner", logger: silentLogger });
+    expect(downloadBinary).toHaveBeenCalledOnce();
+    expect(results[0].action).toBe("installed");
+    expect(results[0].via).toBe("binary");
   });
 });
 

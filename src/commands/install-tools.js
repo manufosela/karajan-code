@@ -19,6 +19,8 @@ import fs from "node:fs/promises";
 import { checkBinary } from "../utils/agent-detect.js";
 import { getInstallHint, detectPackageManagers, appliesToStack } from "../utils/install-hints.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
+import { resolveStandalone } from "../utils/binary-sources.js";
+import { downloadBinary, binDir } from "../utils/tool-installer.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -118,6 +120,36 @@ function handleDocker(available) {
 }
 
 /**
+ * Standalone route when no package manager matched: download a static binary
+ * (osv-scanner) or surface a concrete command to run (semgrep).
+ */
+async function handleStandalone({ tool, standalone, manualUrl, dryRun, yes, logger }) {
+  if (standalone.kind === "command") {
+    logger.warn?.(`✗ ${tool}: no package manager. Try: ${standalone.command}  (docs: ${manualUrl})`);
+    return { tool, action: "manual", reason: "no package manager — suggested route below", suggested: standalone.command, via: standalone.via, manualUrl };
+  }
+  // kind === "binary"
+  const { url, name } = standalone;
+  if (dryRun) {
+    logger.info?.(`▸ ${tool}: would download ${url} → ${binDir()}`);
+    return { tool, action: "dry-run", command: `download ${url}`, via: "binary" };
+  }
+  const proceed = yes || await promptYesNo(`Download ${tool} from ${url} into ${binDir()}?`);
+  if (!proceed) {
+    logger.info?.(`⊘ ${tool}: declined`);
+    return { tool, action: "declined", command: `download ${url}` };
+  }
+  logger.info?.(`▸ ${tool}: downloading static binary...`);
+  const r = await downloadBinary({ url, name });
+  if (r.ok) {
+    logger.info?.(`✓ ${tool}: installed → ${r.dest} (ensure ${binDir()} is on PATH)`);
+    return { tool, action: "installed", via: "binary", dest: r.dest };
+  }
+  logger.warn?.(`✗ ${tool}: download failed (${r.error})`);
+  return { tool, action: "failed", via: "binary", error: r.error };
+}
+
+/**
  * Plan + (optionally execute) the install of every requested tool.
  *
  * @param {Object} opts
@@ -178,6 +210,14 @@ export async function installToolsCommand(opts = {}) {
     // semgrep / osv-scanner / lighthouse — package-manager driven.
     const hint = await getInstallHint(tool, available);
     if (!hint.command || !hint.manager) {
+      // No package manager matched — try a standalone route (static binary
+      // for osv-scanner, a concrete command for semgrep) before giving up.
+      const standalone = resolveStandalone(tool, available);
+      if (standalone) {
+        const result = await handleStandalone({ tool, standalone, manualUrl: hint.manualUrl, dryRun, yes, logger });
+        results.push(result);
+        continue;
+      }
       results.push({ tool, action: "manual", reason: "no compatible package manager found", manualUrl: hint.manualUrl, suggested: hint.command });
       logger.warn?.(`✗ ${tool}: no compatible package manager. Manual: ${hint.manualUrl}`);
       continue;
