@@ -31,6 +31,14 @@ vi.mock("../../src/utils/stack-detect.js", () => ({
 vi.mock("../../src/utils/tool-installer.js", () => ({
   downloadBinary: vi.fn(async ({ name }) => ({ ok: true, dest: `/home/u/.local/bin/${name}` })),
   binDir: vi.fn(() => "/home/u/.local/bin"),
+  runInstallCommand: vi.fn(async () => ({ ok: true })),
+}));
+
+// Docker install plan is platform-dependent; mock it so these tests are
+// deterministic regardless of the host OS. Default: macOS-style manual route.
+// The per-platform logic itself is covered in docker-install.test.js.
+vi.mock("../../src/utils/docker-install.js", () => ({
+  dockerInstallPlan: vi.fn(() => ({ kind: "manual", manualUrl: "https://docs.docker.com/get-docker/", suggested: null })),
 }));
 
 // Skip child_process exec entirely for these tests — we never want to
@@ -111,6 +119,44 @@ describe("kj install-tools — dry-run", () => {
     expect(downloadBinary).toHaveBeenCalledOnce();
     expect(results[0].action).toBe("installed");
     expect(results[0].via).toBe("binary");
+  });
+});
+
+describe("kj install-tools — docker on Linux", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("plans the apt package command in dry-run (invasive, sudo)", async () => {
+    const { dockerInstallPlan } = await import("../../src/utils/docker-install.js");
+    dockerInstallPlan.mockReturnValueOnce({ kind: "package", manager: "apt", command: "sudo apt-get install -y docker.io" });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ dryRun: true, only: "docker", logger: silentLogger });
+    expect(results[0].action).toBe("dry-run");
+    expect(results[0].via).toBe("package");
+    expect(results[0].command).toBe("sudo apt-get install -y docker.io");
+  });
+
+  it("runs the apt install with sudo (interactive tty) when accepted", async () => {
+    const { dockerInstallPlan } = await import("../../src/utils/docker-install.js");
+    const { runInstallCommand } = await import("../../src/utils/tool-installer.js");
+    dockerInstallPlan.mockReturnValueOnce({ kind: "package", manager: "apt", command: "sudo apt-get install -y docker.io" });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ yes: true, only: "docker", logger: silentLogger });
+    expect(runInstallCommand).toHaveBeenCalledWith("sudo apt-get install -y docker.io", { interactive: true });
+    expect(results[0].action).toBe("installed");
+    expect(results[0].via).toBe("package");
+  });
+
+  it("downloads the official script to a file and runs it with sudo (never curl|sh)", async () => {
+    const { dockerInstallPlan } = await import("../../src/utils/docker-install.js");
+    const { downloadBinary, runInstallCommand } = await import("../../src/utils/tool-installer.js");
+    dockerInstallPlan.mockReturnValueOnce({ kind: "script", url: "https://get.docker.com" });
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { results } = await installToolsCommand({ yes: true, only: "docker", logger: silentLogger });
+    expect(downloadBinary).toHaveBeenCalledOnce();
+    expect(downloadBinary.mock.calls[0][0].name).toBe("get-docker.sh");
+    expect(runInstallCommand).toHaveBeenCalledWith(expect.stringMatching(/^sudo sh /), { interactive: true });
+    expect(results[0].action).toBe("installed");
+    expect(results[0].via).toBe("script");
   });
 });
 

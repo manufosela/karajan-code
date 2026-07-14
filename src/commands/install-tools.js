@@ -14,13 +14,15 @@
 import readline from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import os from "node:os";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { checkBinary } from "../utils/agent-detect.js";
 import { getInstallHint, detectPackageManagers, appliesToStack } from "../utils/install-hints.js";
 import { detectProjectStack } from "../utils/stack-detect.js";
 import { resolveStandalone } from "../utils/binary-sources.js";
-import { downloadBinary, binDir } from "../utils/tool-installer.js";
+import { downloadBinary, binDir, runInstallCommand } from "../utils/tool-installer.js";
+import { dockerInstallPlan } from "../utils/docker-install.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -106,17 +108,50 @@ async function handleSonar({ available, dryRun }) {
 }
 
 /**
- * Docker handler: never auto-install (platform-specific, invasive).
- * Always point at the official docs.
+ * Docker handler. On macOS/Windows we never auto-install — point at the docs.
+ * On Linux we offer the distro package manager (apt/dnf) or, failing that, the
+ * official convenience script downloaded to a file. The install runs through
+ * `sudo` on the user's own tty (kj never sees the password) and is opt-in,
+ * defaulting to NO, with the exact command shown first.
  */
-function handleDocker(available) {
-  return {
-    tool: "docker",
-    action: "manual",
-    reason: "Docker install is platform-specific — see official docs.",
-    manualUrl: "https://docs.docker.com/get-docker/",
-    suggested: available.brew ? "brew install --cask docker" : null,
-  };
+async function handleDocker({ available, dryRun, yes, logger }) {
+  const plan = dockerInstallPlan(process.platform, available);
+  if (plan.kind === "manual") {
+    logger.info?.(`▸ docker: ${plan.suggested || plan.manualUrl}`);
+    return { tool: "docker", action: "manual", reason: "Docker install is platform-specific — see official docs.", manualUrl: plan.manualUrl, suggested: plan.suggested };
+  }
+
+  const shownCommand = plan.kind === "package" ? plan.command : `sudo sh <get-docker.sh from ${plan.url}>`;
+  if (dryRun) {
+    logger.info?.(`▸ docker: would run \`${shownCommand}\` (invasive, needs sudo)`);
+    return { tool: "docker", action: "dry-run", command: shownCommand, via: plan.kind };
+  }
+
+  logger.warn?.("docker: this step is invasive and needs sudo — you'll be prompted for your password on your own terminal (kj never sees it).");
+  const proceed = yes || await promptYesNo(`Install Docker with: ${shownCommand}?`, false);
+  if (!proceed) {
+    logger.info?.("⊘ docker: declined");
+    return { tool: "docker", action: "declined", command: shownCommand };
+  }
+
+  if (plan.kind === "package") {
+    logger.info?.(`▸ docker: running \`${plan.command}\`...`);
+    const r = await runInstallCommand(plan.command, { interactive: true });
+    if (r.ok) { logger.info?.(`✓ docker: installed via ${plan.manager}`); return { tool: "docker", action: "installed", via: "package", manager: plan.manager }; }
+    const err = r.error || `exit ${r.code}`;
+    logger.warn?.(`✗ docker: install failed (${err})`);
+    return { tool: "docker", action: "failed", via: "package", error: err };
+  }
+
+  // script route: download to a temp file, then run with sudo — never `curl | sh`.
+  const dl = await downloadBinary({ url: plan.url, name: "get-docker.sh", dir: os.tmpdir() });
+  if (!dl.ok) { logger.warn?.(`✗ docker: script download failed (${dl.error})`); return { tool: "docker", action: "failed", via: "script", error: dl.error }; }
+  logger.info?.(`▸ docker: running \`sudo sh ${dl.dest}\`...`);
+  const r = await runInstallCommand(`sudo sh ${dl.dest}`, { interactive: true });
+  if (r.ok) { logger.info?.("✓ docker: installed via get.docker.com"); return { tool: "docker", action: "installed", via: "script", dest: dl.dest }; }
+  const err = r.error || `exit ${r.code}`;
+  logger.warn?.(`✗ docker: install failed (${err})`);
+  return { tool: "docker", action: "failed", via: "script", error: err };
 }
 
 /**
@@ -201,9 +236,8 @@ export async function installToolsCommand(opts = {}) {
     }
 
     if (tool === "docker") {
-      const result = handleDocker(available);
+      const result = await handleDocker({ available, dryRun, yes, logger });
       results.push(result);
-      logger.info?.(`▸ docker: ${result.suggested || result.manualUrl}`);
       continue;
     }
 
