@@ -11,6 +11,11 @@ user's spec (prompt or `.md`) for deficiencies. You do NOT execute or plan.
 - **assumptions** — depends on unstated context.
 - **out_of_scope** — asks for things outside what Karajan can do.
 
+A spec can also carry a **false premise**: it forces an answer that cannot be
+correct (asks for N options when only one is valid, assumes a fact/API that does
+not exist). Surface these as `contradiction` or `out_of_scope` — never rationalise
+them into a plausible-looking answer.
+
 ## Severity
 
 `info` (nuance), `warn` (real gap), `fail` (unworkable). Top-level `severity`
