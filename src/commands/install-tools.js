@@ -26,9 +26,17 @@ import { dockerInstallPlan } from "../utils/docker-install.js";
 
 const execFileAsync = promisify(execFile);
 
-// git leads the list: it is a `kj doctor` *required* tool, so a blank machine
-// wants it before the optional audit tools.
-const ALL_TOOLS = ["git", "semgrep", "osv-scanner", "lighthouse", "docker", "sonar"];
+// git and the agent CLI lead the list: both are `kj doctor` *required* tools,
+// so a blank machine wants them before the optional audit tools.
+const ALL_TOOLS = ["git", "agent-cli", "semgrep", "osv-scanner", "lighthouse", "docker", "sonar"];
+
+// The default pipeline is coder=claude, reviewer=codex, so `agent-cli` installs
+// exactly those two. gemini stays out of the default: it is a supported
+// reviewer, not a required one. Both ship as global npm packages.
+const AGENT_CLIS = [
+  { bin: "claude", pkg: "@anthropic-ai/claude-code", url: "https://docs.anthropic.com/en/docs/claude-code" },
+  { bin: "codex", pkg: "@openai/codex", url: "https://github.com/openai/codex" },
+];
 
 function parseOnlyList(raw) {
   if (!raw) return null;
@@ -58,9 +66,61 @@ async function isInstalled(tool) {
   // sonar is a Docker container, not a binary. We check it separately
   // by looking at running containers via `docker ps`.
   if (tool === "sonar") return checkSonarRunning();
+  // agent-cli is "installed" only when BOTH default-pipeline CLIs are present;
+  // a partial install (one of two) still routes to handleAgentCli.
+  if (tool === "agent-cli") {
+    const present = await Promise.all(AGENT_CLIS.map(async (c) => (await checkBinary(c.bin)).ok));
+    return present.every(Boolean);
+  }
   if (tool === "lighthouse") return (await checkBinary("lighthouse")).ok;
   if (tool === "docker") return (await checkBinary("docker")).ok;
   return (await checkBinary(tool)).ok;
+}
+
+/**
+ * Agent-CLI handler. Installs whichever of the default-pipeline CLIs
+ * (coder=claude, reviewer=codex) are missing, via global npm. Opt-in with the
+ * exact command shown first. When npm itself is absent we surface the manual
+ * commands + URLs rather than failing silently.
+ */
+async function handleAgentCli({ available, dryRun, yes, logger }) {
+  const missing = [];
+  for (const cli of AGENT_CLIS) {
+    if (!(await checkBinary(cli.bin)).ok) missing.push(cli);
+  }
+  if (missing.length === 0) return { tool: "agent-cli", action: "already-installed" };
+
+  if (!available.npm) {
+    const commands = missing.map((c) => `npm install -g ${c.pkg}`);
+    logger.warn?.(`✗ agent-cli: npm not found — install manually: ${commands.join(" ; ")}`);
+    return { tool: "agent-cli", action: "manual", reason: "npm not available", missing: missing.map((c) => c.bin), commands, manualUrls: missing.map((c) => c.url) };
+  }
+
+  const installed = [];
+  for (const cli of missing) {
+    const command = `npm install -g ${cli.pkg}`;
+    if (dryRun) {
+      logger.info?.(`▸ ${cli.bin}: would run \`${command}\``);
+      installed.push({ bin: cli.bin, action: "dry-run", command });
+      continue;
+    }
+    const proceed = yes || await promptYesNo(`Install ${cli.bin} with: ${command}?`);
+    if (!proceed) {
+      logger.info?.(`⊘ ${cli.bin}: declined`);
+      installed.push({ bin: cli.bin, action: "declined", command });
+      continue;
+    }
+    logger.info?.(`▸ ${cli.bin}: running \`${command}\`...`);
+    const r = await runInstallCommand(command, { interactive: false });
+    if (r.ok) { logger.info?.(`✓ ${cli.bin}: installed`); installed.push({ bin: cli.bin, action: "installed", command }); }
+    else { const err = r.error || `exit ${r.code}`; logger.warn?.(`✗ ${cli.bin}: install failed (${err})`); installed.push({ bin: cli.bin, action: "failed", command, error: err }); }
+  }
+
+  const action = dryRun ? "dry-run"
+    : installed.some((r) => r.action === "failed") ? "failed"
+    : installed.some((r) => r.action === "installed") ? "installed"
+    : "declined";
+  return { tool: "agent-cli", action, installed };
 }
 
 /**
@@ -277,6 +337,12 @@ export async function installToolsCommand(opts = {}) {
 
     if (tool === "git") {
       const result = await handleGit({ available, dryRun, yes, logger });
+      results.push(result);
+      continue;
+    }
+
+    if (tool === "agent-cli") {
+      const result = await handleAgentCli({ available, dryRun, yes, logger });
       results.push(result);
       continue;
     }

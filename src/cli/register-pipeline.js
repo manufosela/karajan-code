@@ -226,7 +226,7 @@ export function registerPipeline(program, { pkgVersion }) {
 
   program
     .command("install-tools")
-    .description("Install external audit tools (semgrep, osv-scanner, lighthouse, docker, sonar) using the package manager available on your system")
+    .description("Install the tools kj needs (git, agent CLI: claude+codex) plus the external audit tools (semgrep, osv-scanner, lighthouse, docker, sonar) using the package manager available on your system")
     .option("--only <tools>", "Comma-separated subset (e.g. \"semgrep,osv-scanner\"). Bypasses stack-gating.")
     .option("-y, --yes", "Auto-accept all prompts (non-interactive)")
     .option("--dry-run", "Show what would be installed without running anything")
