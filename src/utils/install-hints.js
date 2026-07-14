@@ -116,7 +116,35 @@ const MANUAL_URLS = {
   "osv-scanner": "https://google.github.io/osv-scanner/installation/",
   lighthouse: "https://github.com/GoogleChrome/lighthouse#using-the-cli",
   docker: "https://docs.docker.com/get-docker/",
+  git: "https://git-scm.com/downloads",
 };
+
+// git is a `kj doctor` *required* tool. Unlike the audit tools it is installed
+// through the OS package manager, and on Linux that needs root — so the plan
+// carries a `needsSudo` flag and the caller runs those through the interactive
+// (tty-inherited) path, where sudo prompts the user directly and kj never sees
+// the password. brew/scoop/choco install at user scope, no sudo.
+const GIT_CANDIDATES = [
+  { manager: "brew", command: "brew install git", needsSudo: false },
+  { manager: "apt", command: "sudo apt-get install -y git", needsSudo: true },
+  { manager: "dnf", command: "sudo dnf install -y git", needsSudo: true },
+  { manager: "choco", command: "choco install git -y", needsSudo: false },
+  { manager: "scoop", command: "scoop install git", needsSudo: false },
+];
+
+/**
+ * Pick a git install plan for the current machine. Returns a manual plan
+ * (command null + URL) when no supported package manager is present.
+ *
+ * @param {Record<PackageManager, boolean>} available
+ * @returns {{ command: string|null, manager: PackageManager|null, needsSudo: boolean, manualUrl: string }}
+ */
+export function gitInstallPlan(available = {}) {
+  for (const { manager, command, needsSudo } of GIT_CANDIDATES) {
+    if (available[manager]) return { command, manager, needsSudo, manualUrl: MANUAL_URLS.git };
+  }
+  return { command: null, manager: null, needsSudo: false, manualUrl: MANUAL_URLS.git };
+}
 
 /**
  * Tools whose hint depends on the project stack. lighthouse is only
