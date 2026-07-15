@@ -100,7 +100,14 @@ const SRC_DIR = path.join(REPO_ROOT, "src");
 // autorun action lazy-imports the spec resolver and the autorun chain
 // (which pulls in the heavy plan + run pipelines) only when invoked, so a
 // plain `kj` startup never loads them.
-const DYNAMIC_IMPORT_BUDGET = 169;
+//
+// 2026-07-15 (KJC-TSK-0612 clean `kj update` output): bumped 169 → 170 for
+// the lazy `await import("execa")` inside `performSelfUpdate`
+// (src/utils/update-check.js). update-check.js is loaded on EVERY startup
+// (printUpdateNotice in cli.js), but execa is only needed by the `kj update`
+// path — a static import would pull the heavy child-process dep into every
+// plain `kj` invocation. Same feature-gated pattern as the entries above.
+const DYNAMIC_IMPORT_BUDGET = 170;
 
 function listJsFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
