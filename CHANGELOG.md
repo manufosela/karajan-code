@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.1] - 2026-07-15
+
+Patch. **`kj update` output is clean again.** A successful self-update now shows only the progress and result lines; npm's own noise — deprecation, allow-scripts and funding warnings — is build plumbing the user cannot act on, so it no longer reaches them.
+
+### Fixed
+
+- **`kj update` hides npm's warning noise on success** (KJC-TSK-0612): the command captured npm's output instead of streaming it (`stdio: "inherit"` is gone). On success you see `Current version → Updating → Updated to X`; on failure the captured stdout/stderr IS surfaced so real errors (native build, permissions) stay diagnosable — never a silent failure. Extracted into a testable `performSelfUpdate()` in `src/utils/update-check.js`.
+
 ## [3.12.0] - 2026-07-14
 
 Minor. **`kj install-tools` now installs the tools kj itself needs**, not just the optional audit tools. A near-blank machine becomes operational with a single command — `git` and the default-pipeline agent CLIs (claude + codex) are treated as first-class required tools, exactly as `kj doctor` classifies them.
