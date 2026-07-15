@@ -103,6 +103,53 @@ export async function printUpdateNotice(currentVersion) {
   }
 }
 
+/**
+ * Run the npm-channel self-update (`kj update`). Captures npm's output instead
+ * of streaming it: a successful update shows only the progress + result line,
+ * so npm's deprecation / allow-scripts / funding noise — build plumbing, not
+ * actionable for whoever runs the command — never reaches the user. On failure
+ * the captured stdout/stderr IS surfaced, so real errors (native build,
+ * permissions) stay diagnosable — never a silent failure.
+ *
+ * @param {Object} opts
+ * @param {string} opts.currentVersion - version of the running kj
+ * @param {(cmd: string, args: string[]) => Promise<{stdout: string, stderr: string}>} [opts.exec] - injectable runner (defaults to execa)
+ * @param {Console} [opts.logger]
+ * @returns {Promise<{ ok: boolean, alreadyLatest?: boolean, latest?: string }>}
+ */
+export async function performSelfUpdate({ currentVersion, exec, logger = console } = {}) {
+  const run = exec || (async (cmd, args) => (await import("execa")).execa(cmd, args));
+  logger.log(`Current version: ${currentVersion}`);
+  logger.log("Checking for updates...");
+
+  let latest;
+  try {
+    const { stdout } = await run("npm", ["view", PACKAGE_NAME, "version"]);
+    latest = stdout.trim();
+  } catch (err) {
+    logger.error(`Update failed: ${err.shortMessage || err.message}`);
+    return { ok: false };
+  }
+
+  if (latest === currentVersion) {
+    logger.log(`Already on the latest version (${currentVersion}).`);
+    return { ok: true, alreadyLatest: true, latest };
+  }
+
+  logger.log(`Updating ${currentVersion} → ${latest}... (this can take a few minutes)`);
+  try {
+    // No stdio:inherit — capture and drop npm's warnings on the success path.
+    await run("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
+    logger.log(`Updated to ${latest}. Restart Claude to pick up the new MCP server.`);
+    return { ok: true, latest };
+  } catch (err) {
+    if (err.stdout) logger.error(err.stdout);
+    if (err.stderr) logger.error(err.stderr);
+    logger.error(`Update failed: ${err.shortMessage || err.message}`);
+    return { ok: false };
+  }
+}
+
 /** Simple semver compare: returns >0 if a > b, <0 if a < b, 0 if equal */
 function compareVersions(a, b) {
   const pa = a.split(".").map(Number);

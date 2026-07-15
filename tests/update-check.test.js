@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkForUpdate,
   updateInstruction,
+  performSelfUpdate,
   INSTALL_SH_URL,
   INSTALL_PS1_URL,
 } from "../src/utils/update-check.js";
@@ -127,5 +128,62 @@ describe("updateInstruction", () => {
     const msg = updateInstruction({ channel: "unknown" });
     expect(msg).toContain("npm install -g karajan-code");
     expect(msg).toContain("binary installer");
+  });
+});
+
+describe("performSelfUpdate", () => {
+  const makeLogger = () => ({ log: vi.fn(), error: vi.fn() });
+  const logged = (logger) => logger.log.mock.calls.map((c) => c.join(" ")).join("\n");
+  const errored = (logger) => logger.error.mock.calls.map((c) => c.join(" ")).join("\n");
+
+  it("reports already-latest and never runs the install", async () => {
+    const exec = vi.fn(async () => ({ stdout: "3.12.0", stderr: "" }));
+    const logger = makeLogger();
+    const result = await performSelfUpdate({ currentVersion: "3.12.0", exec, logger });
+    expect(result).toEqual({ ok: true, alreadyLatest: true, latest: "3.12.0" });
+    expect(exec).toHaveBeenCalledTimes(1); // only `npm view`, no install
+    expect(logged(logger)).toMatch(/Already on the latest/);
+  });
+
+  it("installs the latest and hides npm's noise on success", async () => {
+    const noisy = "npm warn deprecated prebuild-install@7\nnpm warn allow-scripts\n100 packages are looking for funding";
+    const exec = vi.fn(async (_cmd, args) =>
+      args[0] === "view" ? { stdout: "3.12.0", stderr: "" } : { stdout: noisy, stderr: noisy });
+    const logger = makeLogger();
+    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    expect(result).toEqual({ ok: true, latest: "3.12.0" });
+    expect(exec).toHaveBeenCalledWith("npm", ["install", "-g", "karajan-code@latest"]);
+    const out = logged(logger);
+    expect(out).toMatch(/Updating 3\.10\.2 → 3\.12\.0/);
+    expect(out).toMatch(/Updated to 3\.12\.0/);
+    // The whole point: none of npm's plumbing reaches the user on success.
+    expect(out).not.toMatch(/npm warn|deprecated|allow-scripts|funding/);
+  });
+
+  it("surfaces the captured npm output and fails loudly when install errors", async () => {
+    const err = Object.assign(new Error("Command failed with exit code 1"), {
+      shortMessage: "npm install failed",
+      stdout: "gyp ERR! build error",
+      stderr: "node-gyp rebuild failed",
+    });
+    const exec = vi.fn(async (_cmd, args) => {
+      if (args[0] === "view") return { stdout: "3.12.0", stderr: "" };
+      throw err;
+    });
+    const logger = makeLogger();
+    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    expect(result).toEqual({ ok: false });
+    const out = errored(logger);
+    expect(out).toMatch(/gyp ERR! build error/);
+    expect(out).toMatch(/node-gyp rebuild failed/);
+    expect(out).toMatch(/Update failed/);
+  });
+
+  it("fails cleanly when the version lookup itself errors", async () => {
+    const exec = vi.fn(async () => { throw new Error("network down"); });
+    const logger = makeLogger();
+    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    expect(result).toEqual({ ok: false });
+    expect(errored(logger)).toMatch(/Update failed/);
   });
 });
