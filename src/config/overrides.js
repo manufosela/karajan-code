@@ -55,6 +55,7 @@ const SCALAR_FLAGS = [
   ["maxIterationMinutes", (out, v) => { out.session.max_iteration_minutes = Number(v); }],
   ["maxTotalMinutes", (out, v) => { out.session.max_total_minutes = Number(v); }],
   ["checkpointInterval", (out, v) => { out.session.checkpoint_interval_minutes = Number(v); }],
+  ["parallel", (out, v) => { out.session.max_parallel_hus = Number(v); }],
   ["baseBranch", (out, v) => { out.base_branch = v; }],
   ["coderFallback", (out, v) => { out.coder_options.fallback_coder = v; }],
   ["reviewerFallback", (out, v) => { out.reviewer_options.fallback_reviewer = v; }],

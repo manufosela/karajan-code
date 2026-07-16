@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scopeTokens, husConflict, selectRunnableHus } from "../src/orchestrator/hu-scheduler.js";
+import { scopeTokens, husConflict, selectRunnableHus, partitionConflictFree } from "../src/orchestrator/hu-scheduler.js";
 
 const hu = (id, scope, blocked_by = []) => ({ id, scope, blocked_by });
 
@@ -60,5 +60,29 @@ describe("hu-scheduler (KJC-TSK-0623)", () => {
   it("default maxParallel of 1 reproduces today's sequential behaviour", () => {
     const { selected } = selectRunnableHus({ hus: [hu("A", "src/a"), hu("B", "src/b")] });
     expect(selected.map((h) => h.id)).toEqual(["A"]);
+  });
+
+  describe("partitionConflictFree (KJC-TSK-0626)", () => {
+    const stories = [hu("A", "src/a"), hu("B", "src/b"), hu("C", "src/a/deep"), hu("D", "src/d"), hu("E", null)];
+
+    it("maxParallel 1 yields singletons — fully sequential", () => {
+      expect(partitionConflictFree(stories, ["A", "B", "C"], 1)).toEqual([["A"], ["B"], ["C"]]);
+    });
+
+    it("packs conflict-free HUs together and isolates overlapping or scopeless ones", () => {
+      // A/B/D are disjoint; C overlaps A (src/a prefix); E has no scope ⇒ alone.
+      expect(partitionConflictFree(stories, ["A", "B", "C", "D", "E"], 3)).toEqual([
+        ["A", "B", "D"],
+        ["C"],
+        ["E"],
+      ]);
+    });
+
+    it("never exceeds maxParallel per chunk", () => {
+      const many = [hu("1", "a1"), hu("2", "a2"), hu("3", "a3"), hu("4", "a4")].map((h, i) => ({ ...h, scope: `src/x${i}` }));
+      const chunks = partitionConflictFree(many, ["1", "2", "3", "4"], 2);
+      expect(chunks.every((c) => c.length <= 2)).toBe(true);
+      expect(chunks.flat().sort()).toEqual(["1", "2", "3", "4"]);
+    });
   });
 });

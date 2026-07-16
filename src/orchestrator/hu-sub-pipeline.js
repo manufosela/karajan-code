@@ -7,6 +7,8 @@ import { updateStoryStatus, loadHuBatch, saveHuBatch, HU_STATUS } from "../hu/st
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { refineHuWithContext } from "../hu/lazy-planner.js";
 import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
+import { partitionConflictFree } from "./hu-scheduler.js";
+import { createParallelLimiter, planBudgetUsd } from "./parallel-limiter.js";
 
 /**
  * Determine whether the HU reviewer result needs the sub-pipeline path.
@@ -459,14 +461,37 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
   // --- Group HUs into parallel batches ---
   const parallelBatches = findParallelGroups(certifiedStories, orderedIds);
 
-  for (const group of parallelBatches) {
+  // Governance (KJC-TSK-0626): the dependency groups above used to launch
+  // UNBOUNDED via Promise.all — a plan with N independent HUs ran N full
+  // pipelines at once, with no cap, no shared budget and no scope checks.
+  // Now each group is partitioned into conflict-free chunks of at most
+  // max_parallel_hus (default 1 = fully sequential, today's safe path) and
+  // a shared limiter gates every launch against the PLAN budget.
+  const maxParallel = Math.max(1, Number(config?.session?.max_parallel_hus ?? 1));
+  const limiter = createParallelLimiter({
+    maxParallel,
+    budgetTracker,
+    planBudgetUsd: planBudgetUsd({ maxBudgetUsd: config?.max_budget_usd, maxParallel }),
+  });
+  let stopReason = null;
+
+  outer: for (const group of parallelBatches) {
+    for (const chunk of partitionConflictFree(batch.stories, group, maxParallel)) {
     // Filter out HUs that were blocked by a failed dependency in a previous batch
-    const runnableIds = group.filter(id => {
+    const runnableIds = chunk.filter(id => {
       const story = batch.stories.find(s => s.id === id);
       return story && story.status !== HU_STATUS.BLOCKED;
     });
 
     if (runnableIds.length === 0) continue;
+
+    const blockReason = limiter.launchBlockReason();
+    if (blockReason) {
+      stopReason = blockReason;
+      allApproved = false;
+      logger.warn(`HU sub-pipeline stopped before launching ${runnableIds.join(", ")}: ${blockReason}`);
+      break outer;
+    }
 
     // Emit parallel batch start event
     emitProgress(emitter, makeEvent("hu:parallel-start", { ...eventBase, stage: "hu-sub-pipeline" }, {
@@ -511,14 +536,20 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
         }
       }
 
-      // Run all HUs in the batch concurrently
+      // Run all HUs in the batch concurrently, each holding a limiter slot
+      // (belt-and-braces: chunks are already ≤ maxParallel).
       const batchPromises = runnableIds.map(async (storyId) => {
-        return runSingleHu({
-          storyId, batch, batchSessionId, runIterationFn,
-          emitter, eventBase, logger, config, results,
-          worktreePath: worktrees.get(storyId),
-          onStatusChange, onOutcome, budgetTracker
-        });
+        await limiter.acquire();
+        try {
+          return await runSingleHu({
+            storyId, batch, batchSessionId, runIterationFn,
+            emitter, eventBase, logger, config, results,
+            worktreePath: worktrees.get(storyId),
+            onStatusChange, onOutcome, budgetTracker
+          });
+        } finally {
+          limiter.release();
+        }
       });
 
       const batchResults = await Promise.all(batchPromises);
@@ -554,7 +585,8 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
 
       await saveHuBatch(batchSessionId, batch);
     }
+    }
   }
 
-  return { approved: allApproved, results, blockedIds };
+  return { approved: allApproved, results, blockedIds, ...(stopReason ? { stopReason } : {}) };
 }
