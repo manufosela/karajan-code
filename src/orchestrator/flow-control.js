@@ -153,7 +153,11 @@ export async function checkBudgetExceeded({ budgetTracker, config, session, emit
 
   await markSessionStatus(session, "failed");
   const totalCost = budgetTracker.total().cost_usd;
-  const message = `Budget exceeded: $${totalCost.toFixed(2)} > $${budgetLimit.toFixed(2)}`;
+  const limit = Number(budgetLimit ?? config?.max_budget_usd);
+  const message =
+    `Budget exceeded: $${totalCost.toFixed(2)} > $${limit.toFixed(2)}. ` +
+    `Continue consciously with \`kj resume ${session.id}\`, or raise the cap ` +
+    `(max_budget_usd in .karajan/kj.config.yml; null removes it).`;
   emitProgress(
     emitter,
     makeEvent("session:end", { ...eventBase, iteration: i, stage: "budget" }, {

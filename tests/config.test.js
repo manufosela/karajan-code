@@ -16,6 +16,28 @@ afterEach(async () => {
   }
 });
 
+describe("applyRunOverrides — max_budget_usd default-on (KJC-TSK-0621)", () => {
+  it("an unset budget lands on the shipped default of 5", () => {
+    const out = applyRunOverrides({}, {});
+    expect(out.max_budget_usd).toBe(5);
+  });
+
+  it("an explicit top-level null opts out (no cap)", () => {
+    const out = applyRunOverrides({ max_budget_usd: null }, {});
+    expect(out.max_budget_usd).toBeNull();
+  });
+
+  it("the legacy session location wins over the shipped default, including null", () => {
+    expect(applyRunOverrides({ session: { max_budget_usd: 12 } }, {}).max_budget_usd).toBe(12);
+    expect(applyRunOverrides({ session: { max_budget_usd: null } }, {}).max_budget_usd).toBeNull();
+  });
+
+  it("an explicit top-level value beats the session location", () => {
+    const out = applyRunOverrides({ max_budget_usd: 20, session: { max_budget_usd: 12 } }, {});
+    expect(out.max_budget_usd).toBe(20);
+  });
+});
+
 describe("applyRunOverrides", () => {
   it("overrides review mode and base branch", () => {
     const base = {

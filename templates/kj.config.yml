@@ -114,5 +114,7 @@ output:
 session:
   max_iteration_minutes: 15
   max_total_minutes: 120
-  max_budget_usd: null
+  # Hard per-run spend ceiling (USD-equivalent). The run stops with a summary
+  # when exceeded; resume with `kj resume`. Set to null to remove the cap.
+  max_budget_usd: 5
   fail_fast_repeats: 2
