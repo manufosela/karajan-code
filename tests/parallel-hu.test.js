@@ -297,7 +297,7 @@ describe("parallel HU execution in sub-pipeline", () => {
     expect(runIterationFn).toHaveBeenCalledTimes(1);
   });
 
-  it("emits hu:parallel-start event with batch info", async () => {
+  it("default governance (KJC-TSK-0626): independent HUs run SEQUENTIALLY, one lane at a time", async () => {
     const stories = [
       { id: "HU-001", status: "certified", certified: { text: "A" }, original: { text: "A" }, blocked_by: [] },
       { id: "HU-002", status: "certified", certified: { text: "B" }, original: { text: "B" }, blocked_by: [] }
@@ -312,6 +312,30 @@ describe("parallel HU execution in sub-pipeline", () => {
       huReviewerResult: { ok: true, certified: 2, total: 2, stories, batchSessionId: "hu-s_parallel" },
       runIterationFn, emitter, eventBase, logger,
       config: { projectDir: "/project" }
+    });
+
+    // Pre-governance this launched ONE unbounded parallel batch of 2 —
+    // no cap, no shared budget. Default max_parallel_hus is now 1.
+    const parallelEvents = events.filter(e => e.type === "hu:parallel-start");
+    expect(parallelEvents).toHaveLength(2);
+    expect(parallelEvents.every(e => e.detail.parallel === false)).toBe(true);
+  });
+
+  it("emits hu:parallel-start with batch info when parallelism is opted in and scopes are disjoint", async () => {
+    const stories = [
+      { id: "HU-001", status: "certified", certified: { text: "A" }, original: { text: "A" }, blocked_by: [], scope: "src/a" },
+      { id: "HU-002", status: "certified", certified: { text: "B" }, original: { text: "B" }, blocked_by: [], scope: "src/b" }
+    ];
+    const batch = { session_id: "hu-s_parallel", stories: [...stories] };
+    loadHuBatchMock.mockResolvedValue(batch);
+    execFileAsyncMock.mockResolvedValue({ stdout: "", stderr: "" });
+
+    const runIterationFn = vi.fn(async () => ({ approved: true }));
+
+    await runHuSubPipeline({
+      huReviewerResult: { ok: true, certified: 2, total: 2, stories, batchSessionId: "hu-s_parallel" },
+      runIterationFn, emitter, eventBase, logger,
+      config: { projectDir: "/project", session: { max_parallel_hus: 2 } }
     });
 
     const parallelEvents = events.filter(e => e.type === "hu:parallel-start");

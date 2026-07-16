@@ -50,6 +50,32 @@ export function husConflict(huA, huB) {
 }
 
 /**
+ * Split one dependency-level group into conflict-free chunks of at most
+ * `maxParallel` HUs (KJC-TSK-0626). Every chunk runs concurrently; chunks
+ * run one after another. maxParallel 1 ⇒ singletons (fully sequential).
+ * Same conservative rules as husConflict: no parseable scope ⇒ runs alone.
+ *
+ * @param {Array<{id: string, scope?: string|null}>} stories - full story list
+ * @param {string[]} groupIds - ids of one dependency-level group, in order
+ * @param {number} maxParallel
+ * @returns {string[][]} chunks of ids
+ */
+export function partitionConflictFree(stories, groupIds, maxParallel = 1) {
+  if (maxParallel <= 1) return groupIds.map((id) => [id]);
+  const byId = new Map(stories.map((s) => [s.id, s]));
+  const chunks = [];
+  for (const id of groupIds) {
+    const story = byId.get(id) ?? { id };
+    const fit = chunks.find(
+      (chunk) => chunk.length < maxParallel && !chunk.some((otherId) => husConflict(story, byId.get(otherId) ?? { id: otherId })),
+    );
+    if (fit) fit.push(id);
+    else chunks.push([id]);
+  }
+  return chunks;
+}
+
+/**
  * Select the next HUs to launch, order-preserving and greedy.
  *
  * @param {object} args

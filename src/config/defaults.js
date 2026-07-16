@@ -179,6 +179,9 @@ const DEFAULTS = {
     // Opt-in per-iteration supervision (KJC-TSK-0628): pause after each
     // iteration with a report and ask continue / stop / instructions.
     iteration_gate: false,
+    // Concurrent HU lanes per plan run (KJC-TSK-0626). 1 = sequential.
+    // Raising it multiplies token burn rate — the plan budget scales with it.
+    max_parallel_hus: 1,
     max_iteration_minutes: 30,
     max_total_minutes: 120,
     max_planner_minutes: 60,
