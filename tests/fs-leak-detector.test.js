@@ -270,3 +270,21 @@ describe("detectTranscriptCdLeaks (BUG-0032 layer 2 — cd-then-write outside pr
     expect(Array.isArray(leaks)).toBe(true);
   });
 });
+
+describe("worktree safety (KJC-TSK-0625, épica KJC-PCS-0065)", () => {
+  it("parallel worktrees under projectDir/.karajan/worktrees never register as leaks", () => {
+    // projectDir under $HOME, snapshotted BEFORE the run — the real layout.
+    const projectDir = path.join(tmpHome, "myproj");
+    fs.mkdirSync(projectDir, { recursive: true });
+    const before = snapshotHomeTopLevel();
+
+    // A parallel run creates worktrees INSIDE the project: no new $HOME entry.
+    fs.mkdirSync(path.join(projectDir, ".karajan", "worktrees", "HU-001"), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, ".karajan", "worktrees", "HU-001", "a.js"), "x");
+    expect(detectNewHomeEntries(before, projectDir)).toEqual([]);
+
+    // Control: a genuine stray $HOME entry still trips the detector.
+    fs.writeFileSync(path.join(tmpHome, "stray.md"), "leak");
+    expect(detectNewHomeEntries(before, projectDir)).toEqual([path.join(tmpHome, "stray.md")]);
+  });
+});
