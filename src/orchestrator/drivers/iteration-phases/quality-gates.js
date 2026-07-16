@@ -14,6 +14,7 @@
  */
 
 import { generateDiff } from "../../../review/diff-generator.js";
+import { withLock } from "../../../utils/async-lock.js";
 import {
   runTddCheckStage, runSonarStage, runSonarCloudStage,
 } from "../../iteration-stages.js";
@@ -52,10 +53,12 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
   // that one file.
   const sonarStageDisabledForTest = config?.testHarness?.disableSonarStage === true;
   if (!sonarStageDisabledForTest && session.resolved_policies?.sonar !== false) {
-    const sonarResult = await runSonarStage({
+    // Serialize across parallel HU lanes (KJC-TSK-0625): the SonarQube
+    // server scans one project key at a time. No-op on sequential runs.
+    const sonarResult = await withLock("sonar-scan", () => runSonarStage({
       config, logger, emitter, eventBase, session, trackBudget, iteration: i,
       repeatDetector, budgetSummary, sonarState, askQuestion, task, brainCtx
-    });
+    }));
     if (sonarResult.action === "stalled" || sonarResult.action === "pause") return { action: "return", result: sonarResult.result };
     if (sonarResult.action === "continue") return { action: "continue" };
     if (sonarResult.stageResult) {
