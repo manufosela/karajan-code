@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { isSea } from "node:sea";
 import { getKarajanHome } from "./paths.js";
@@ -104,30 +105,46 @@ export async function printUpdateNotice(currentVersion) {
 }
 
 /**
- * Run the npm-channel self-update (`kj update`). Captures npm's output instead
- * of streaming it: a successful update shows only the progress + result line,
- * so npm's deprecation / allow-scripts / funding noise — build plumbing, not
- * actionable for whoever runs the command — never reaches the user. On failure
- * the captured stdout/stderr IS surfaced, so real errors (native build,
- * permissions) stay diagnosable — never a silent failure.
+ * Run the self-update (`kj update`), channel-aware (KJC-BUG-0106).
+ *
+ * npm channel: `npm install -g` with CAPTURED output — success shows only
+ * progress + result; npm's deprecation / allow-scripts / funding noise never
+ * reaches the user. On failure the captured output IS surfaced.
+ *
+ * sea channel (standalone binary): npm-installing would update a copy the
+ * PATH never resolves — the running binary stays old while `kj update`
+ * reports success. Instead the binary installer is re-run (downloaded to a
+ * temp file first, never piped from the network straight into a shell).
+ *
+ * Both channels end with a PATH probe: `kj --version` must report the new
+ * version, otherwise a stale copy shadows the update and the command fails
+ * LOUDLY naming the likely cause — never a silent "updated" that isn't.
  *
  * @param {Object} opts
  * @param {string} opts.currentVersion - version of the running kj
  * @param {(cmd: string, args: string[]) => Promise<{stdout: string, stderr: string}>} [opts.exec] - injectable runner (defaults to execa)
  * @param {Console} [opts.logger]
- * @returns {Promise<{ ok: boolean, alreadyLatest?: boolean, latest?: string }>}
+ * @param {"npm"|"sea"} [opts.channel] - injectable channel (defaults to detectInstallChannel())
+ * @param {typeof fetch} [opts.fetchFn] - injectable fetch (registry lookup + installer download)
+ * @returns {Promise<{ ok: boolean, alreadyLatest?: boolean, latest?: string, manual?: boolean }>}
  */
-export async function performSelfUpdate({ currentVersion, exec, logger = console } = {}) {
+export async function performSelfUpdate({ currentVersion, exec, logger = console, channel, fetchFn = fetch } = {}) {
   const run = exec || (async (cmd, args) => (await import("execa")).execa(cmd, args));
+  const ch = channel || detectInstallChannel();
   logger.log(`Current version: ${currentVersion}`);
   logger.log("Checking for updates...");
 
   let latest;
   try {
-    const { stdout } = await run("npm", ["view", PACKAGE_NAME, "version"]);
-    latest = stdout.trim();
+    // Registry over HTTP, not `npm view` — standalone-binary machines may
+    // not have npm at all.
+    const res = await fetchFn(`https://registry.npmjs.org/${PACKAGE_NAME}/latest`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`registry responded ${res.status}`);
+    latest = (await res.json()).version;
   } catch (err) {
-    logger.error(`Update failed: ${err.shortMessage || err.message}`);
+    logger.error(`Update failed: could not check the registry (${err.message})`);
     return { ok: false };
   }
 
@@ -136,18 +153,64 @@ export async function performSelfUpdate({ currentVersion, exec, logger = console
     return { ok: true, alreadyLatest: true, latest };
   }
 
+  if (ch === "sea" && process.platform === "win32") {
+    // Executing a downloaded .ps1 from inside the binary is not supported
+    // yet — hand the user the exact command instead of half-updating.
+    logger.log(`Update available: ${currentVersion} → ${latest} (standalone binary).`);
+    logger.log(`${updateInstruction({ channel: "sea" })}`);
+    return { ok: true, latest, manual: true };
+  }
+
   logger.log(`Updating ${currentVersion} → ${latest}... (this can take a few minutes)`);
   try {
-    // No stdio:inherit — capture and drop npm's warnings on the success path.
-    await run("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
-    logger.log(`Updated to ${latest}. Restart Claude to pick up the new MCP server.`);
-    return { ok: true, latest };
+    if (ch === "sea") {
+      // Re-run the binary installer: download to a temp file, then execute —
+      // never pipe the network straight into a shell.
+      const res = await fetchFn(INSTALL_SH_URL);
+      if (!res.ok) throw new Error(`installer download failed (${res.status})`);
+      const tmpScript = path.join(os.tmpdir(), `kj-install-${process.pid}.sh`);
+      await fs.writeFile(tmpScript, await res.text(), { mode: 0o700 });
+      try {
+        await run("sh", [tmpScript]);
+      } finally {
+        await fs.rm(tmpScript, { force: true });
+      }
+    } else {
+      // No stdio:inherit — capture and drop npm's warnings on the success path.
+      await run("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
+    }
   } catch (err) {
     if (err.stdout) logger.error(err.stdout);
     if (err.stderr) logger.error(err.stderr);
     logger.error(`Update failed: ${err.shortMessage || err.message}`);
     return { ok: false };
   }
+
+  // The install succeeded — but is the kj the USER runs actually the new one?
+  const onPath = await verifyKjOnPath({ run, latest, logger });
+  if (!onPath) return { ok: false };
+  logger.log(`Updated to ${latest}. Restart Claude to pick up the new MCP server.`);
+  return { ok: true, latest };
+}
+
+/**
+ * Probe `kj --version` through the PATH and confirm it reports `latest`.
+ * A mismatch means a stale copy shadows the freshly installed one (e.g. a
+ * standalone binary in ~/.local/bin in front of the npm global prefix).
+ */
+async function verifyKjOnPath({ run, latest, logger }) {
+  let reported;
+  try {
+    const { stdout } = await run("kj", ["--version"]);
+    reported = String(stdout).trim();
+  } catch (err) {
+    logger.error(`Update installed ${latest}, but running \`kj --version\` failed: ${err.shortMessage || err.message}`);
+    return false;
+  }
+  if (reported.includes(latest)) return true;
+  logger.error(`Update installed ${latest}, but the \`kj\` on your PATH still reports ${reported}.`);
+  logger.error("A stale copy is shadowing the update. Check `which -a kj` and remove the old one, or update through the channel that owns the first entry.");
+  return false;
 }
 
 /** Simple semver compare: returns >0 if a > b, <0 if a < b, 0 if equal */

@@ -13,6 +13,7 @@ vi.mock("node:fs/promises", () => ({
     readFile: vi.fn(),
     writeFile: vi.fn(),
     mkdir: vi.fn(),
+    rm: vi.fn(),
   },
 }));
 
@@ -135,29 +136,66 @@ describe("performSelfUpdate", () => {
   const makeLogger = () => ({ log: vi.fn(), error: vi.fn() });
   const logged = (logger) => logger.log.mock.calls.map((c) => c.join(" ")).join("\n");
   const errored = (logger) => logger.error.mock.calls.map((c) => c.join(" ")).join("\n");
+  const registry = (version) =>
+    vi.fn(async () => ({ ok: true, json: async () => ({ version }), text: async () => "#!/bin/sh\n" }));
 
   it("reports already-latest and never runs the install", async () => {
-    const exec = vi.fn(async () => ({ stdout: "3.12.0", stderr: "" }));
+    const exec = vi.fn();
     const logger = makeLogger();
-    const result = await performSelfUpdate({ currentVersion: "3.12.0", exec, logger });
+    const result = await performSelfUpdate({
+      currentVersion: "3.12.0", exec, logger, channel: "npm", fetchFn: registry("3.12.0"),
+    });
     expect(result).toEqual({ ok: true, alreadyLatest: true, latest: "3.12.0" });
-    expect(exec).toHaveBeenCalledTimes(1); // only `npm view`, no install
+    expect(exec).not.toHaveBeenCalled();
     expect(logged(logger)).toMatch(/Already on the latest/);
   });
 
-  it("installs the latest and hides npm's noise on success", async () => {
+  it("installs the latest, hides npm's noise, and verifies the kj on PATH", async () => {
     const noisy = "npm warn deprecated prebuild-install@7\nnpm warn allow-scripts\n100 packages are looking for funding";
-    const exec = vi.fn(async (_cmd, args) =>
-      args[0] === "view" ? { stdout: "3.12.0", stderr: "" } : { stdout: noisy, stderr: noisy });
+    const exec = vi.fn(async (cmd) =>
+      cmd === "kj" ? { stdout: "3.12.0", stderr: "" } : { stdout: noisy, stderr: noisy });
     const logger = makeLogger();
-    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    const result = await performSelfUpdate({
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"),
+    });
     expect(result).toEqual({ ok: true, latest: "3.12.0" });
     expect(exec).toHaveBeenCalledWith("npm", ["install", "-g", "karajan-code@latest"]);
+    expect(exec).toHaveBeenCalledWith("kj", ["--version"]);
     const out = logged(logger);
-    expect(out).toMatch(/Updating 3\.10\.2 → 3\.12\.0/);
     expect(out).toMatch(/Updated to 3\.12\.0/);
     // The whole point: none of npm's plumbing reaches the user on success.
     expect(out).not.toMatch(/npm warn|deprecated|allow-scripts|funding/);
+  });
+
+  it("fails LOUDLY when the kj on PATH still reports the old version (KJC-BUG-0106)", async () => {
+    // The user's laptop: npm installs 3.12.2 into its prefix, but the SEA
+    // binary earlier on PATH keeps answering 3.10.2.
+    const exec = vi.fn(async (cmd) =>
+      cmd === "kj" ? { stdout: "3.10.2", stderr: "" } : { stdout: "", stderr: "" });
+    const logger = makeLogger();
+    const result = await performSelfUpdate({
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.2"),
+    });
+    expect(result).toEqual({ ok: false });
+    const out = errored(logger);
+    expect(out).toMatch(/still reports 3\.10\.2/);
+    expect(out).toMatch(/which -a kj/);
+    expect(logged(logger)).not.toMatch(/Updated to/); // no false success line
+  });
+
+  it("sea channel re-runs the downloaded installer instead of npm (KJC-BUG-0106)", async () => {
+    const exec = vi.fn(async (cmd) =>
+      cmd === "kj" ? { stdout: "3.12.2", stderr: "" } : { stdout: "", stderr: "" });
+    const logger = makeLogger();
+    const result = await performSelfUpdate({
+      currentVersion: "3.10.2", exec, logger, channel: "sea", fetchFn: registry("3.12.2"),
+    });
+    expect(result).toEqual({ ok: true, latest: "3.12.2" });
+    // Installer executed from a temp file via sh — npm never invoked.
+    const cmds = exec.mock.calls.map((c) => c[0]);
+    expect(cmds).toContain("sh");
+    expect(cmds).not.toContain("npm");
+    expect(exec).toHaveBeenCalledWith("kj", ["--version"]);
   });
 
   it("surfaces the captured npm output and fails loudly when install errors", async () => {
@@ -166,12 +204,11 @@ describe("performSelfUpdate", () => {
       stdout: "gyp ERR! build error",
       stderr: "node-gyp rebuild failed",
     });
-    const exec = vi.fn(async (_cmd, args) => {
-      if (args[0] === "view") return { stdout: "3.12.0", stderr: "" };
-      throw err;
-    });
+    const exec = vi.fn(async () => { throw err; });
     const logger = makeLogger();
-    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    const result = await performSelfUpdate({
+      currentVersion: "3.10.2", exec, logger, channel: "npm", fetchFn: registry("3.12.0"),
+    });
     expect(result).toEqual({ ok: false });
     const out = errored(logger);
     expect(out).toMatch(/gyp ERR! build error/);
@@ -179,10 +216,12 @@ describe("performSelfUpdate", () => {
     expect(out).toMatch(/Update failed/);
   });
 
-  it("fails cleanly when the version lookup itself errors", async () => {
-    const exec = vi.fn(async () => { throw new Error("network down"); });
+  it("fails cleanly when the registry lookup itself errors", async () => {
+    const fetchFn = vi.fn(async () => { throw new Error("network down"); });
     const logger = makeLogger();
-    const result = await performSelfUpdate({ currentVersion: "3.10.2", exec, logger });
+    const result = await performSelfUpdate({
+      currentVersion: "3.10.2", exec: vi.fn(), logger, channel: "npm", fetchFn,
+    });
     expect(result).toEqual({ ok: false });
     expect(errored(logger)).toMatch(/Update failed/);
   });
