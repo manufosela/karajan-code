@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { runCommand } from "../src/process.js";
 
-describe("@karajan/core/process", () => {
+describe("karajan-core/process", () => {
   it("captures stdout from a real subprocess", async () => {
     const r = await runCommand("node", ["-e", "process.stdout.write('hi')"]);
     expect(r.exitCode).toBe(0);

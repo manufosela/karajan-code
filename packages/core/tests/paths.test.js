@@ -10,7 +10,7 @@ import {
   __resetKjHomeWarningForTests,
 } from "../src/paths.js";
 
-describe("@karajan/core/paths", () => {
+describe("karajan-core/paths", () => {
   let originalKarajanHome;
   let originalKjHome;
 

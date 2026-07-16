@@ -98,7 +98,6 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",
-    "@karajan/core": "*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.10.0",
     "chokidar": "^5.0.0",
@@ -108,15 +107,13 @@
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
+    "karajan-core": "^1.0.0",
     "knip": "^6.15.0",
     "madge": "^8.0.0",
     "sqlite-vec": "^0.1.9",
     "valibot": "^1.4.1",
     "web-tree-sitter": "^0.26.9"
   },
-  "bundleDependencies": [
-    "@karajan/core"
-  ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.8",

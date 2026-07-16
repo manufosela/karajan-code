@@ -1,4 +1,4 @@
-// Smoke coverage for the @karajan/core/shared-paths extraction
+// Smoke coverage for the karajan-core/shared-paths extraction
 // (KJC-TSK-0511 PR2). Full unit coverage stays next to the CLI;
 // this file proves the new package entry point resolves and returns
 // stable paths so a future workspace-wiring regression fails loudly.
@@ -13,7 +13,7 @@ import {
   isSharedPath,
 } from "../src/shared-paths.js";
 
-describe("@karajan/core/shared-paths", () => {
+describe("karajan-core/shared-paths", () => {
   it("constants and joins land inside the project dir", () => {
     expect(SHARED_DIR_NAME).toBe(".karajan-shared");
     expect(getSharedRoot("/tmp/proj")).toBe(`/tmp/proj${sep}.karajan-shared`);

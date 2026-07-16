@@ -16,7 +16,7 @@
  * se borran como cleanup (responsabilidad de run-registry).
  */
 
-import { listActiveRuns as fsList } from "@karajan/core/run-registry";
+import { listActiveRuns as fsList } from "karajan-core/run-registry";
 
 const runs = new Map();
 let reaperTimer = null;

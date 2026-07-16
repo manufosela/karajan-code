@@ -4,7 +4,7 @@
 // 503 with installable:true so the front renders an "Install QMD" CTA
 // instead of a generic error when the binary is missing.
 import { Router } from "express";
-import { runCommand } from "@karajan/core/process";
+import { runCommand } from "karajan-core/process";
 
 const router = Router();
 const QMD_NOT_INSTALLED = /command not found|ENOENT|not recognized as/i;

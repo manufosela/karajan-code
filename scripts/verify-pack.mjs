@@ -3,7 +3,7 @@
  * Pre-publish tarball smoke gate (KJC-TSK-0553).
  *
  * WHY: the test suite runs against the linked workspace, where
- * `@karajan/core` and its deps resolve via symlink — so a broken
+ * `karajan-core` and its deps resolve via symlink — so a broken
  * PUBLISHED artifact (bundleDependencies dragging in sqlite-vec without
  * its entry point, KJC-BUG-0082 / 0086) passed CI yet failed on every
  * clean `npm install`. v3.2.0, v3.3.0 and v3.4.1 all shipped unable to
@@ -50,6 +50,7 @@ function fail(msg, detail) {
 
 let tgzPath = null;
 let tmpDir = null;
+let gTmp = null;
 let pnpmTmp = null;
 try {
   console.log(`verify-pack: packing karajan-code@${expectedVersion}…`);
@@ -92,15 +93,16 @@ try {
   console.log("verify-pack: kj --help ✓");
 
   // 3. The deps that broke before must resolve in the installed tree.
-  const installedRoot = path.join(tmpDir, "node_modules", "karajan-code");
+  // karajan-core is a registry dep since KJC-BUG-0103 (no bundling), so it
+  // hoists to the consumer's top-level node_modules like everything else.
   const checks = [
     path.join(tmpDir, "node_modules", "sqlite-vec", "index.mjs"),
-    path.join(installedRoot, "node_modules", "@karajan", "core", "src", "vec-store.js"),
+    path.join(tmpDir, "node_modules", "karajan-core", "src", "vec-store.js"),
   ];
   for (const p of checks) {
     if (!fs.existsSync(p)) fail(`expected resolved path missing in install: ${p}`);
   }
-  console.log("verify-pack: sqlite-vec + @karajan/core resolve ✓");
+  console.log("verify-pack: sqlite-vec + karajan-core resolve ✓");
 
   // 4. kj-trash (ai-trash safety binary) must ship + link onto PATH and boot
   // without a module-resolution crash. It was silently absent from the tarball
@@ -115,9 +117,38 @@ try {
   }
   console.log("verify-pack: kj-trash ships + boots ✓");
 
-  // 5. pnpm install smoke (KJC-TSK-0580). pnpm's layout differs from npm's
+  // 5. GLOBAL install smoke (KJC-BUG-0103). `npm install -g` nests every dep
+  // under karajan-code/node_modules; with bundleDependencies present, npm
+  // treated that whole subtree as "already in the tarball" and skipped
+  // fetching better-sqlite3 & friends — EMPTY dirs whose install scripts then
+  // crashed. Local installs hoist and never hit it, which is exactly why the
+  // check above stayed green for ~15 broken releases. A fresh global install
+  // must succeed and kj must boot.
+  gTmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-g-"));
+  console.log(`verify-pack: installing the tarball GLOBALLY into ${gTmp}…`);
+  try {
+    run("npm", ["install", "-g", tgzPath, "--no-audit", "--no-fund", "--silent", "--prefix", gTmp]);
+  } catch (err) {
+    fail("`npm install -g` of the tarball failed (KJC-BUG-0103 class)", err.stderr || err.message);
+  }
+  const gBin = process.platform === "win32"
+    ? path.join(gTmp, "kj.cmd")
+    : path.join(gTmp, "bin", "kj");
+  if (!fs.existsSync(gBin)) fail(`kj binary missing after global install: ${gBin}`);
+  let gVersion;
+  try {
+    gVersion = run(gBin, ["--version"]).trim();
+  } catch (err) {
+    fail("`kj --version` crashed on a fresh GLOBAL install", err.stderr || err.message);
+  }
+  if (!gVersion.includes(expectedVersion)) {
+    fail(`kj --version (global) returned "${gVersion}", expected ${expectedVersion}`);
+  }
+  console.log(`verify-pack: global install + kj --version → ${gVersion} ✓`);
+
+  // 6. pnpm install smoke (KJC-TSK-0580). pnpm's layout differs from npm's
   // (a symlinked virtual store), so it can break resolution of the bundled
-  // @karajan/core the way npm packaging breakage did before (KJC-BUG-0082/0086).
+  // karajan-core the way npm packaging breakage did before (KJC-BUG-0082/0086).
   // Verify a pnpm install resolves the JS tree and `kj --version` boots — every
   // release catches a pnpm packaging regression. (pnpm also blocks
   // better-sqlite3's native build by default, so DB-backed commands need
@@ -158,5 +189,6 @@ try {
 } finally {
   if (tgzPath && fs.existsSync(tgzPath)) fs.rmSync(tgzPath, { force: true });
   if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  if (gTmp && fs.existsSync(gTmp)) fs.rmSync(gTmp, { recursive: true, force: true });
   if (pnpmTmp && fs.existsSync(pnpmTmp)) fs.rmSync(pnpmTmp, { recursive: true, force: true });
 }

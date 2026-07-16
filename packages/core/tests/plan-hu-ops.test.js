@@ -11,7 +11,7 @@ import {
 
 const newPlan = () => ({ planId: "plan-T", hus: [], updatedAt: null });
 
-describe("@karajan/core/plan-hu-ops", () => {
+describe("karajan-core/plan-hu-ops", () => {
   it("addHu assigns sequential ID + defaults", () => {
     const plan = newPlan();
     const hu = addHu(plan, { title: "T1" });

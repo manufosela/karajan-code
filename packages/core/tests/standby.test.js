@@ -21,7 +21,7 @@ afterEach(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe("@karajan/core/standby-store", () => {
+describe("karajan-core/standby-store", () => {
   it("persists + loads + lists pending sessions", () => {
     persistStandby({ sessionId: "s_1", cooldownUntil: "2099-01-01T00:00:00Z", reason: "QUOTA" });
     const loaded = loadStandby("s_1");
@@ -48,7 +48,7 @@ describe("@karajan/core/standby-store", () => {
   });
 });
 
-describe("@karajan/core/standby-scheduler", () => {
+describe("karajan-core/standby-scheduler", () => {
   it("scheduleResume with expired cooldown fires immediate", async () => {
     const cb = vi.fn();
     const r = scheduleResume({ sessionId: "s_4", cooldownUntil: "1990-01-01T00:00:00Z", onResume: cb });
