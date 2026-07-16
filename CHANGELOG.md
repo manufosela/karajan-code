@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.3] - 2026-07-16
+
+Patch. Three field-reported fixes: the standalone binary finds its built-in templates, `kj update` updates the kj you actually run, and the osv-scanner go install recipe works.
+
+### Fixed
+
+- **Standalone binary ships its templates** (KJC-BUG-0104): the SEA binary carried no `templates/` — `kj init` warned `ENOENT: $HOME/templates/skills` and built-in role prompts, config-init and onboard templates were unreachable on fresh machines. Templates now travel as SEA assets (72 files) and are extracted once per version to `~/.karajan/embedded-templates/`; every consumer resolves through a single `getTemplatesRoot()`. npm installs keep reading the real `templates/` directory.
+- **`kj update` is channel-aware and verifies the PATH** (KJC-BUG-0106): it always ran `npm install -g`, even on standalone-binary installs — npm updated a copy the PATH never resolves, the running binary stayed old, and the command still reported success. The sea channel now re-runs the binary installer (downloaded to a temp file, never piped into a shell), the registry lookup uses HTTP instead of `npm view`, and both channels end with a `kj --version` probe that fails loudly, naming the shadowing copy, when the reported version is not the target.
+- **osv-scanner go install recipe fixed** (KJC-BUG-0105): `go install github.com/google/osv-scanner@latest` resolves the module but fails — the binary lives in the `cmd/` subpackage and since v2 the module path carries `/v2`. install-tools, the audit hint and the docs now point at `github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`.
+
 ## [3.12.2] - 2026-07-16
 
 Patch. **Fresh `npm install -g karajan-code` works again.** Since bundling was introduced (~v3.4.2), a fresh global install failed on every machine: npm nests all deps under `karajan-code/node_modules`, and bundle semantics mark that subtree as already-shipped, so npm skipped fetching `better-sqlite3` & friends — empty directories whose install scripts crashed. Local installs hoist and never hit it (that's why `verify-pack` stayed green), and upgrades reuse the existing tree (that's why `kj update` kept working).
