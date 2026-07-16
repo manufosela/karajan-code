@@ -176,6 +176,9 @@ const DEFAULTS = {
     role_overrides: {}
   },
   session: {
+    // Opt-in per-iteration supervision (KJC-TSK-0628): pause after each
+    // iteration with a report and ask continue / stop / instructions.
+    iteration_gate: false,
     max_iteration_minutes: 30,
     max_total_minutes: 120,
     max_planner_minutes: 60,

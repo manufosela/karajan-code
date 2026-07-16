@@ -27,6 +27,7 @@ import {
   setReviewerFeedback, resetRetryCount,
 } from "../../session/mutators.js";
 import { invokeSolomon } from "../solomon-escalation.js";
+import { buildIterationReport, handleIterationGate } from "../iteration-gate.js";
 import {
   handleCiEarlyPrOrPush, handleCiReviewDispatch,
 } from "../ci-integration.js";
@@ -251,6 +252,21 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
       return iterResult.result;
     }
     if (iterResult.action === "retry") { i -= 1; }
+    else {
+      // Iteration gate (KJC-TSK-0628): opt-in pause with a report before the
+      // next iteration; free-text answers become directives for the coder.
+      const gate = await handleIterationGate({
+        enabled: ctx.config.session?.iteration_gate === true,
+        askQuestion, session: ctx.session, logger,
+        report: buildIterationReport({
+          i, maxIterations: ctx.config.max_iterations, stageResults: ctx.stageResults,
+          budgetTracker: ctx.budgetTracker, maxBudgetUsd: ctx.config.max_budget_usd,
+        }),
+      });
+      if (gate.action === "stop") {
+        return { approved: false, sessionId: ctx.session.id, reason: "user_stopped_at_gate", iteration: i };
+      }
+    }
   }
 
   // Solomon decides whether to extend iterations or stop
@@ -289,6 +305,20 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
       const iterResult = await runSingleIteration(ctx);
       if (iterResult.action === "return") return iterResult.result;
       if (iterResult.action === "retry") { i -= 1; }
+      else {
+        // Same iteration gate on Solomon-extended iterations (KJC-TSK-0628).
+        const gate = await handleIterationGate({
+          enabled: ctx.config.session?.iteration_gate === true,
+          askQuestion, session: ctx.session, logger,
+          report: buildIterationReport({
+            i, maxIterations: ctx.config.max_iterations, stageResults: ctx.stageResults,
+            budgetTracker: ctx.budgetTracker, maxBudgetUsd: ctx.config.max_budget_usd,
+          }),
+        });
+        if (gate.action === "stop") {
+          return { approved: false, sessionId: ctx.session.id, reason: "user_stopped_at_gate", iteration: i };
+        }
+      }
     }
 
     // Extended iterations also exhausted — final Solomon call

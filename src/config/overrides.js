@@ -147,6 +147,9 @@ function applyMiscOverrides(out, flags) {
   // The flag is still accepted to avoid breaking scripts; it now emits a
   // warning at run start and is otherwise ignored. See preflight-checks.js
   // and flow-runner.js for the actual gate (resolvedPolicies.sonar).
+  // --step: per-iteration supervision gate (KJC-TSK-0628).
+  if (flags.step === true) out.session.iteration_gate = true;
+
   if (flags.noSonar || flags.sonar === false) {
     out._deprecated = out._deprecated || {};
     out._deprecated.noSonarFlag = true;
