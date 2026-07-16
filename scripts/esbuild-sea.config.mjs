@@ -10,7 +10,7 @@
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -213,6 +213,27 @@ const auditHistoryStubPlugin = {
 };
 
 /** @type {import('esbuild').BuildOptions} */
+/**
+ * List every built-in template file, as paths relative to templates/
+ * (KJC-BUG-0104). The SEA binary ships them as SEA assets — build-sea.mjs
+ * turns this list into the sea-config `assets` map plus an index the
+ * runtime (src/utils/templates-root.js) uses to extract them on first use.
+ * Exported (instead of living in build-sea.mjs, which runs main() on
+ * import) so tests can exercise it.
+ */
+export function collectTemplateFiles(rootDir = path.join(ROOT, "templates")) {
+  const files = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else files.push(path.relative(rootDir, p));
+    }
+  };
+  walk(rootDir);
+  return files.sort();
+}
+
 export const seaBuildOptions = {
   entryPoints: ["src/cli.js"],
   outfile: "dist/kj-bundle.cjs",

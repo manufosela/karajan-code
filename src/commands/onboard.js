@@ -6,6 +6,7 @@ import { collectAll } from "../onboarder/collectors/index.js";
 import { OnboarderRole } from "../roles/onboarder-role.js";
 import { resolveRole } from "../config.js";
 import { getKarajanHome } from "../utils/paths.js";
+import { getTemplatesRoot } from "../utils/templates-root.js";
 
 export function briefPath(projectDir) {
   const slug = path.basename(projectDir).replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
@@ -28,7 +29,7 @@ export async function onboardCommand({ config, logger, flags = {} }) {
     return { path: out, bundle, brief: null };
   }
   const roleCfg = resolveRole(config, "onboarder") || resolveRole(config, "architect");
-  const templatePath = new URL("../../templates/roles/onboarder.md", import.meta.url).pathname;
+  const templatePath = path.join(getTemplatesRoot(), "roles", "onboarder.md");
   const instructions = existsSync(templatePath) ? await readFile(templatePath, "utf8") : "";
   const role = new OnboarderRole({ instructions, config, ...roleCfg });
   // KJC-BUG-0061 Bug B: BaseRole.run() refuses to execute unless init()
