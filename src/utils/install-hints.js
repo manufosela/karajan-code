@@ -97,7 +97,11 @@ const INSTALL_CANDIDATES = {
     { manager: "pip", command: "pip install semgrep" },
   ],
   "osv-scanner": [
-    { manager: "go", command: "go install github.com/google/osv-scanner@latest" },
+    // The module root has no main package — the binary lives in the cmd/
+    // subpackage, and since v2 the module path carries the /v2 suffix.
+    // `go install github.com/google/osv-scanner@latest` resolves the module
+    // (v1.x) but fails with "does not contain package" (KJC-BUG-0105).
+    { manager: "go", command: "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest" },
     { manager: "brew", command: "brew install osv-scanner" },
   ],
   lighthouse: [

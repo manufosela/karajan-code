@@ -16,7 +16,7 @@ El pipeline de audit de Karajan corre scanners deterministas en paralelo y mete 
 | Tool | Instalación | Usado por | Te da |
 |------|-------------|-----------|-------|
 | **SonarQube** | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | `kj audit`, `kj run` | Code quality + security rules con line-precision; `kj audit` cruza los hallazgos del LLM con los rule IDs de Sonar |
-| **OSV-Scanner** | `go install github.com/google/osv-scanner@latest` | `kj audit` | Cobertura CVE de dependencias más amplia que `npm audit` (GitHub Advisory DB + GLSA + Go vuln DB + otros). Sin cuenta, sin upload |
+| **OSV-Scanner** | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` | `kj audit` | Cobertura CVE de dependencias más amplia que `npm audit` (GitHub Advisory DB + GLSA + Go vuln DB + otros). Sin cuenta, sin upload |
 | **Semgrep** | `pipx install semgrep` (o `brew install semgrep`) | `kj audit` | SAST: XSS, SQLi, taint flow, secrets hardcodeados, anti-patrones específicos por lenguaje. Equivalente a `snyk code` pero gratis para OSS. `--config auto` trae 2 000+ reglas |
 | **Lighthouse** | `npm install -g lighthouse` | `kj webperf`, `kj audit` (cuando hay scan) | Core Web Vitals (LCP, CLS, INP) + audits de oportunidades (render-blocking, CSS sin uso, formato de imagen, font-display) para proyectos frontend. `kj webperf` escribe el resultado en `~/.karajan/webperf/<slug>/last.json` y `kj audit` lo lee automáticamente |
 
@@ -37,7 +37,7 @@ kj install-tools --only semgrep,osv-scanner      # Subset
 Comportamiento por herramienta:
 
 - **Semgrep**: usa `pipx install semgrep` si pipx está disponible, cae a `brew install semgrep`, luego `pip install semgrep`.
-- **OSV-Scanner**: usa `go install github.com/google/osv-scanner@latest` si Go está disponible, cae a `brew install osv-scanner`.
+- **OSV-Scanner**: usa `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` si Go está disponible, cae a `brew install osv-scanner`.
 - **Lighthouse**: `npm install -g lighthouse`. **Solo se sugiere en proyectos frontend / fullstack** — proyectos backend-only no ven ruido de lighthouse. Usa `--only lighthouse` para forzar.
 - **Docker**: nunca se auto-instala (depende de plataforma). Imprime URL de docs y, en macOS, el hint `brew install --cask docker`.
 - **Sonar**: necesita Docker. Si hay un `docker-compose.yml` en el cwd, sugiere `docker compose up -d`; si no, un `docker run` puntual con la imagen oficial de SonarQube.
