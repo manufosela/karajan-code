@@ -1,12 +1,8 @@
 /**
- * db — better-sqlite3-compatible adapter over node:sqlite (KJC-TSK-0615,
- * épica KJC-PCS-0064).
- *
- * node:sqlite ships INSIDE Node 22+ — no native addon, no node-gyp, no
- * prebuild download, and it works inside the SEA standalone binary. This
- * adapter exposes the exact better-sqlite3 surface karajan consumes
- * (prepare().run/get/all, exec, pragma, transaction, close, loadExtension)
- * so vec-store / hu-board / audit-history migrate without rewriting logic.
+ * db — better-sqlite3-compatible adapter over node:sqlite (KJC-TSK-0615).
+ * node:sqlite ships INSIDE Node 22+ — no native addon, no node-gyp, and it
+ * works inside the SEA standalone binary. Exposes the exact surface karajan
+ * consumes so vec-store / hu-board / audit-history migrate without rewrites.
  */
 
 import { createRequire } from "node:module";

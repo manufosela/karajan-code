@@ -7,12 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/db.js";
 
 let dir;
-beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "kj-db-"));
-});
-afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+beforeEach(() => (dir = mkdtempSync(join(tmpdir(), "kj-db-"))));
+afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("openDatabase — better-sqlite3 parity over node:sqlite (KJC-TSK-0615)", () => {
   it("prepare().run/get/all match the better-sqlite3 surface", () => {
@@ -90,14 +86,9 @@ describe("openDatabase — better-sqlite3 parity over node:sqlite (KJC-TSK-0615)
     const warnings = [];
     const listener = (w) => warnings.push(String(w?.message ?? w));
     process.on("warning", listener);
-    try {
-      const db = openDatabase(":memory:");
-      db.exec("CREATE TABLE t (a TEXT)");
-      db.close();
-      await new Promise((resolve) => setImmediate(resolve));
-    } finally {
-      process.off("warning", listener);
-    }
+    openDatabase(":memory:").close();
+    await new Promise((resolve) => setImmediate(resolve));
+    process.off("warning", listener);
     expect(warnings.filter((w) => w.includes("SQLite is an experimental feature"))).toEqual([]);
   });
 });
