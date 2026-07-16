@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.1] - 2026-07-16
+
+Patch. **Every run now ships with a spend ceiling.** A stuck or runaway pipeline can no longer drain a subscription quota unattended.
+
+### Fixed
+
+- **`max_budget_usd` defaults to 5** (KJC-TSK-0621, from a field report of a stuck run burning a user's whole quota): the per-iteration budget enforcement existed but the default was `null` — opt-in safety. Exceeding the cap stops the run with the spend, the limit, how to raise it and how to continue (`kj resume` opens a fresh window). Explicit `null` opts out; the legacy `session.max_budget_usd` location keeps working.
+
 ## [3.13.0] - 2026-07-16
 
 Minor. **`kj harden` respects your own tooling.** A repo that formats and lints with Biome no longer gets kj's eslint + prettier planted next to it.
