@@ -26,8 +26,8 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { getKarajanHome } from "../utils/paths.js";
+import { getTemplatesRoot } from "../utils/templates-root.js";
 import { normalizeProvider } from "../utils/provider-env.js";
 
 /**
@@ -50,14 +50,7 @@ export function resolveRolePromptPaths(role, provider, projectDir) {
   if (projectDir) homes.push(path.join(projectDir, ".karajan", "roles"));
   homes.push(path.join(getKarajanHome(), "roles"));
 
-  const builtInRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "..",
-    "..",
-    "templates",
-    "roles"
-  );
-  homes.push(builtInRoot);
+  homes.push(path.join(getTemplatesRoot(), "roles"));
 
   const perProvider = [];
   const defaults = [];

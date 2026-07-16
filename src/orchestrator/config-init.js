@@ -10,6 +10,7 @@ import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
 import { resolveRole } from "../config.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
+import { getTemplatesRoot } from "../utils/templates-root.js";
 import { BudgetTracker, extractUsageMetrics } from "../utils/budget.js";
 import { computeKjComparison } from "../budget/comparison.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
@@ -76,7 +77,7 @@ export async function autoInit(projectDir, logger) {
   logger.info("No .karajan/ found — auto-initializing project scaffolding");
   await ensureDir(karajanDir);
 
-  const templatesDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..", "templates");
+  const templatesDir = getTemplatesRoot();
 
   const filesToCopy = [
     { src: "coder-rules.md", dest: "coder-rules.md" },

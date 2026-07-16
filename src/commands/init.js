@@ -7,6 +7,7 @@ import { ollamaUp, waitForOllamaReady, normalizeOllamaConfig } from "../rag/olla
 import { checkOllamaCapability, pullOllamaModel } from "../rag/ollama-capability.js";
 import { exists, ensureDir } from "../utils/fs.js";
 import { getKarajanHome } from "../utils/paths.js";
+import { getTemplatesRoot } from "../utils/templates-root.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
 import { runCommand } from "../utils/process.js";
@@ -441,7 +442,7 @@ async function ensureReviewRules(reviewRulesPath, logger) {
 
 async function ensureCoderRules(coderRulesPath, logger) {
   if (await exists(coderRulesPath)) return;
-  const templatePath = path.resolve(import.meta.dirname, "../../templates/coder-rules.md");
+  const templatePath = path.join(getTemplatesRoot(), "coder-rules.md");
   let content;
   try {
     content = await fs.readFile(templatePath, "utf8");
@@ -537,7 +538,7 @@ async function scaffoldCiGateway(config, flags, logger) {
   const workflowDir = path.join(projectDir, ".github", "workflows");
   await ensureDir(workflowDir);
 
-  const templatesDir = path.resolve(import.meta.dirname, "../../templates/workflows");
+  const templatesDir = path.join(getTemplatesRoot(), "workflows");
   const workflows = ["kj-ci-gateway.yml", "automerge.yml", "houston-override.yml"];
 
   for (const wf of workflows) {
@@ -611,7 +612,7 @@ async function bootstrapOllama({ flags, config, logger, interactive }) {
 async function installSkills(logger, interactive) {
   const projectDir = process.cwd();
   const commandsDir = path.join(projectDir, ".claude", "commands");
-  const skillsTemplateDir = path.resolve(import.meta.dirname, "../../templates/skills");
+  const skillsTemplateDir = path.join(getTemplatesRoot(), "skills");
 
   let doInstall = true;
   if (interactive) {

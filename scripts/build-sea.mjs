@@ -19,7 +19,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { cpSync, mkdirSync, writeFileSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, writeFileSync, statSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,10 +59,32 @@ async function main() {
 
     // ── Step 2: Generate SEA blob ───────────────────────────────────
     console.log("[2/5] Generating SEA preparation blob...");
+    // Templates travel as SEA assets (KJC-BUG-0104): the binary ships no
+    // templates/ directory, so kj init / role prompts / onboard resolved
+    // paths like $HOME/templates/skills and hit ENOENT. The runtime
+    // (src/utils/templates-root.js) reads the index asset and extracts
+    // the files to ~/.karajan/embedded-templates/<version>/ on first use.
+    const { collectTemplateFiles } = await import("./esbuild-sea.config.mjs");
+    const pkgVersion = JSON.parse(
+      readFileSync(path.join(ROOT, "package.json"), "utf8"),
+    ).version;
+    const templateFiles = collectTemplateFiles();
+    writeFileSync(
+      path.join(DIST, "templates-index.json"),
+      JSON.stringify({ version: pkgVersion, files: templateFiles }),
+    );
+    // Absolute paths: node resolves asset paths against the CWD (not the
+    // config file), so anything relative is ambiguous.
+    const assets = { "templates-index.json": path.join(DIST, "templates-index.json") };
+    for (const rel of templateFiles) {
+      assets[`templates/${rel}`] = path.join(ROOT, "templates", rel);
+    }
+    console.log(`      -> ${templateFiles.length} template assets embedded.`);
     const seaConfig = {
       main: "dist/kj-bundle.cjs",
       output: "dist/sea-prep.blob",
       disableExperimentalSEAWarning: true,
+      assets,
     };
     writeFileSync(
       path.join(DIST, "sea-config.json"),
