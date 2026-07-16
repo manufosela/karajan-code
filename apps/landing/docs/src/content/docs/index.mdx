@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.12.1 — clean `kj update` output (current)
+### v3.12.2 — fresh global install fixed (current)
+
+Patch. `npm install -g karajan-code` works again on fresh machines. Since bundling was introduced, a fresh global install failed everywhere: npm nests all deps under the package and bundle semantics marked that subtree as already-shipped, so `better-sqlite3` & friends landed as empty directories and the install crashed — while local installs, upgrades and every CI gate stayed green. The internal core module is now published to npm as `karajan-core` and resolved from the registry; the pre-publish gate gains a global-install smoke so this class of breakage can't ship again. Drop-in upgrade from v3.12.1.
+
+### v3.12.1 — clean `kj update` output
 
 Patch. `kj update` output is clean again. A successful self-update shows only the progress and result lines; npm's own noise — deprecation, allow-scripts and funding warnings — is build plumbing you can't act on, so it no longer reaches you. On failure the captured output IS surfaced, so real errors (native build, permissions) stay diagnosable — never a silent failure. Drop-in upgrade from v3.12.0.
 
