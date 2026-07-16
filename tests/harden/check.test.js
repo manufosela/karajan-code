@@ -75,4 +75,15 @@ describe("checkCommand", () => {
     expect(code).toBe(1);
     expect(JSON.parse(logger.info.mock.calls.at(-1)[0]).ok).toBe(false);
   });
+
+  it("does not flag eslint/prettier as drift when biome.json covers them (KJC-TSK-0614)", async () => {
+    writeFileSync(join(repo, "package.json"), "{}");
+    writeFileSync(join(repo, "biome.json"), "{}");
+    await harden();
+    const res = await checkHarden({ projectDir: repo, profile: "standard" });
+    const covered = res.checks.filter((c) => c.detail?.startsWith("covered by biome.json"));
+    expect(covered.length).toBeGreaterThanOrEqual(2); // eslint + prettier
+    expect(covered.every((c) => c.ok)).toBe(true);
+    expect(res.ok).toBe(true);
+  });
 });

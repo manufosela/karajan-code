@@ -57,4 +57,18 @@ describe("installConfigs", () => {
     expect(existsSync(join(dir, ".editorconfig"))).toBe(false);
     expect(existsSync(join(dir, ".prettierrc.json"))).toBe(false);
   });
+
+  it("never seeds eslint/prettier next to biome.json (KJC-TSK-0614)", () => {
+    writeFileSync(join(dir, "biome.json"), "{}");
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    const byFile = Object.fromEntries(res.configs.map((c) => [c.file, c]));
+    expect(byFile[".prettierrc.json"]).toMatchObject({ action: "covered", by: "biome.json" });
+    expect(existsSync(join(dir, ".prettierrc.json"))).toBe(false);
+    const eslintEntry = res.configs.find((c) => c.file.includes("eslint"));
+    expect(eslintEntry).toMatchObject({ action: "covered", by: "biome.json" });
+    expect(existsSync(join(dir, eslintEntry.file))).toBe(false);
+    // Biome does not replace editorconfig/commitlint — those still seed.
+    expect(byFile[".editorconfig"].action).toBe("inserted");
+    expect(byFile["commitlint.config.js"].action).toBe("inserted");
+  });
 });
