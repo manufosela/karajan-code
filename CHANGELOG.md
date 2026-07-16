@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.2] - 2026-07-16
+
+Patch. **Fresh `npm install -g karajan-code` works again.** Since bundling was introduced (~v3.4.2), a fresh global install failed on every machine: npm nests all deps under `karajan-code/node_modules`, and bundle semantics mark that subtree as already-shipped, so npm skipped fetching `better-sqlite3` & friends — empty directories whose install scripts crashed. Local installs hoist and never hit it (that's why `verify-pack` stayed green), and upgrades reuse the existing tree (that's why `kj update` kept working).
+
+### Fixed
+
+- **Global install no longer breaks on fresh machines** (KJC-BUG-0103): the internal `@karajan/core` workspace is now published to npm as **`karajan-core`** and resolved from the registry like any other dependency; `bundleDependencies` is gone. Verified: fresh `npm install -g` on npm 10 and 11 now succeeds and `kj --version` boots.
+- **E2E Install Test gives a real signal again** (KJC-BUG-0102): the workflow had been chronically red since v3.9.0 — its tarball was packed without the bundled core, and npm never fetches bundled deps from the registry, so `kj` died at startup. Removing the bundle removes the failure mode at the root.
+
+### Infrastructure
+
+- `verify-pack` gains a **global-install smoke** — the pre-publish gate now exercises `npm install -g` of the tarball, the exact path that was broken while every other gate stayed green.
+- The `core-no-bundled-deps` architecture guard now also forbids reintroducing `bundleDependencies`.
+
 ## [3.12.1] - 2026-07-15
 
 Patch. **`kj update` output is clean again.** A successful self-update now shows only the progress and result lines; npm's own noise — deprecation, allow-scripts and funding warnings — is build plumbing the user cannot act on, so it no longer reaches them.
