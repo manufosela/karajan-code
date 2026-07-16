@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.13.0 — `kj harden` respeta tu propio tooling (actual)
+### v3.13.1 — todo run lleva techo de gasto de serie (actual)
+
+Patch. Un pipeline atascado o desbocado ya no puede fundir la cuota de tu suscripción sin nadie mirando: **`max_budget_usd` ahora vale 5 por defecto** (USD-equivalentes, comprobado en cada iteración). Al superarse, el run para con un resumen honesto — cuánto se gastó, el límite, cómo subirlo — y `kj resume` continúa conscientemente con una ventana nueva. Ponlo a `null` para quitar el techo. Nace de un reporte real: un run con la orquesta completa atascado fundió la cuota entera de un usuario. Actualización directa desde v3.13.0.
+
+### v3.13.0 — `kj harden` respeta tu propio tooling
 
 Minor. Un repo que formatea y lintea con **Biome** ya no recibe el eslint + prettier de kj plantados al lado. Harden entiende ahora las alternativas entre herramientas: con `biome.json` presente, el informe marca esos artefactos como cubiertos ("kj no añadirá un segundo linter/formateador"), la siembra de configs los salta y `kj check` deja de señalar su ausencia como drift. Tu propio config de la misma herramienta sigue ganando, `.editorconfig` y commitlint se siguen sembrando (Biome no los sustituye), y los hooks pre-commit y el workflow Quality generados delegan en los scripts `npm run lint`/`format` de tu proyecto. Actualización directa desde v3.12.3.
 
@@ -263,8 +267,4 @@ Patch. `npm install -g karajan-code` vuelve a funcionar en máquinas nuevas. Des
 ### v3.12.1 — salida limpia de `kj update`
 
 Patch. La salida de `kj update` vuelve a estar limpia. Una actualización correcta muestra solo las líneas de progreso y resultado; el ruido propio de npm — avisos de deprecación, allow-scripts y funding — es fontanería del build sobre la que no tienes que actuar, así que ya no te llega. Si falla, la salida capturada **sí** se muestra, para que los errores reales (compilación nativa, permisos) sigan siendo diagnosticables — nunca un fallo silencioso. Actualización directa desde v3.12.0.
-
-### v3.12.0 — install-tools cubre las herramientas que kj necesita
-
-Minor. `kj install-tools` ahora instala las herramientas que **necesita el propio kj** para funcionar, no solo las opcionales de auditoría. Se suman dos herramientas required: **git** y las **CLIs de agente del pipeline por defecto** — claude (`@anthropic-ai/claude-code`) y codex (`@openai/codex`). git se instala por el gestor de paquetes del sistema (brew → apt → dnf → choco → scoop) y, cuando un paso necesita privilegios, `sudo` se ejecuta en tu propia terminal para que kj nunca vea la contraseña; sin gestor de paquetes muestra la URL de descarga manual en vez de fallar en silencio. Las CLIs de agente se instalan por npm global, con un comando mostrado por CLI e instalando solo las que falten — gemini se queda fuera del default (es un reviewer soportado, no uno required). Una máquina casi en blanco queda operativa con un solo comando, mientras `kj doctor` sigue reportando el mismo conjunto required. Actualización directa desde v3.11.0.
 
