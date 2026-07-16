@@ -55,7 +55,10 @@ const DEFAULTS = {
   review_mode: "standard",
   max_iterations: 5,
   hu_max_iterations: 3,
-  max_budget_usd: null,
+  // Hard per-run spend ceiling, ON by default (KJC-TSK-0621): a stuck or
+  // runaway run must never drain a subscription quota unattended. Explicit
+  // null in the user's config opts out (no cap).
+  max_budget_usd: 5,
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",
   base_branch: "main",

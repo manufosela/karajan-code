@@ -172,8 +172,14 @@ export function applyRunOverrides(config, flags) {
   out.git = out.git || {};
   out.development = out.development || {};
   out.sonarqube = out.sonarqube || {};
-  if (out.max_budget_usd === undefined || out.max_budget_usd === null) {
-    out.max_budget_usd = out.session.max_budget_usd ?? null;
+  // Precedence: explicit top-level value (including null = opt-out) wins;
+  // the legacy session.max_budget_usd location next; the shipped default
+  // (KJC-TSK-0621: 5) last. When top-level still carries the default, a
+  // session-level value — including an explicit null — takes over.
+  if (out.max_budget_usd === undefined) {
+    out.max_budget_usd = out.session.max_budget_usd !== undefined ? out.session.max_budget_usd : DEFAULTS.max_budget_usd;
+  } else if (out.max_budget_usd === DEFAULTS.max_budget_usd && out.session.max_budget_usd !== undefined) {
+    out.max_budget_usd = out.session.max_budget_usd;
   }
   out.budget = mergeDeep(DEFAULTS.budget, out.budget || {});
   out.roles = mergeDeep(DEFAULTS.roles, out.roles || {});
