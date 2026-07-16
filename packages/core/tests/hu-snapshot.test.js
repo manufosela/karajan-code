@@ -4,7 +4,7 @@ import {
   restoreHuSnapshot, removeHuSnapshot,
 } from "../src/hu-snapshot.js";
 
-describe("@karajan/core/hu-snapshot", () => {
+describe("karajan-core/hu-snapshot", () => {
   it("snapshotRefForHu sanitises and prefixes", () => {
     expect(snapshotRefForHu("hu_001")).toBe("refs/kj-snapshots/hu_001");
     expect(snapshotRefForHu("hu/with..weird:chars")).toBe("refs/kj-snapshots/hu_with__weird_chars");

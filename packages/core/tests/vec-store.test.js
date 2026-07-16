@@ -15,7 +15,7 @@ import {
   dbPath,
 } from "../src/vec-store.js";
 
-describe("@karajan/core/vec-store", () => {
+describe("karajan-core/vec-store", () => {
   let tmpDir;
   let originalRagDb;
 

@@ -139,7 +139,7 @@ did. Verified one by one:
 | Dependency | Why it must stay in the root `package.json` |
 | --- | --- |
 | `express`, `express-rate-limit`, `helmet` | Runtime deps of the shipped `packages/hu-board`. Nested workspace `package.json` deps are NOT installed for tarball consumers — `packages/hu-board/src/*` resolves them by walking up to the consumer's top-level `node_modules`, which only contains what the ROOT declares. Removing them breaks `kj board` on every `npm install karajan-code`. |
-| `sqlite-vec` | Runtime dep of `@karajan/core` (vec-store). Core ships via `bundleDependencies` (KJC-BUG-0082), but bundling embeds only the package itself, not its deps — those also resolve against the root install. |
+| `sqlite-vec` | Runtime dep of `karajan-core` (vec-store). Core resolves from the npm registry (KJC-BUG-0103 removed bundling) and declares its runtime deps as peers — those resolve against the root install, so the ROOT must declare them. |
 | `postject` | Already a devDependency (correct placement). Used by `scripts/build-sea.mjs` in the SEA release workflow. |
 | `simple-git-hooks` | Already a devDependency (correct placement). Drives the `pre-commit` hook via the `simple-git-hooks` config block in `package.json`. |
 

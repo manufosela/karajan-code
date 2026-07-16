@@ -14,7 +14,7 @@ import {
   removeTombstone,
 } from './db.js';
 import { publish as publishEvent } from './event-bus.js';
-import { getSharedPlansDir, SHARED_DIR_NAME, isSharedPath } from '@karajan/core/shared-paths';
+import { getSharedPlansDir, SHARED_DIR_NAME, isSharedPath } from 'karajan-core/shared-paths';
 import { readConfig } from './config-yaml.js';
 
 /**

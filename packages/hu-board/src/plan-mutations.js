@@ -17,13 +17,13 @@
 import { readFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { writeJsonAtomicSync } from '@karajan/core/atomic-write';
+import { writeJsonAtomicSync } from 'karajan-core/atomic-write';
 import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';
 import { getHuBoardRunsDir } from './db.js';
 import { fileURLToPath } from 'node:url';
-import { updateHuStatus, certifyAllHus, updateHu } from '@karajan/core/plan-hu-ops';
-import { validateBlockedByChange } from '@karajan/core/plan-validation';
+import { updateHuStatus, certifyAllHus, updateHu } from 'karajan-core/plan-hu-ops';
+import { validateBlockedByChange } from 'karajan-core/plan-validation';
 import { syncPlanFile } from './sync.js';
 import { getDb } from './db.js';
 
@@ -230,7 +230,7 @@ export async function revertHuFromSnapshot({ planId, huId, projectId }) {
   const projectDir = plan.projectDir;
   if (!projectDir) return { ok: false, error: 'plan sin projectDir' };
 
-  const { restoreHuSnapshot } = await import('@karajan/core/hu-snapshot');
+  const { restoreHuSnapshot } = await import('karajan-core/hu-snapshot');
   const restore = await restoreHuSnapshot({ projectDir, huId });
   if (!restore.ok) return { ok: false, error: `restore falló: ${restore.error}` };
 

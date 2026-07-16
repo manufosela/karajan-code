@@ -4,9 +4,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 
-vi.mock("@karajan/core/process", () => ({ runCommand: vi.fn() }));
+vi.mock("karajan-core/process", () => ({ runCommand: vi.fn() }));
 
-import { runCommand } from "@karajan/core/process";
+import { runCommand } from "karajan-core/process";
 import wikiRoutes from "../src/routes/wiki.js";
 
 let app;

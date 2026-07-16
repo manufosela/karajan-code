@@ -1,4 +1,4 @@
-// Smoke coverage for the @karajan/core/atomic-write extraction
+// Smoke coverage for the karajan-core/atomic-write extraction
 // (KJC-TSK-0511 PR1). The full behavioural matrix already lives next to
 // the CLI; this file just proves the new package entry point works
 // end-to-end so a future regression in workspace wiring fails loudly.
@@ -13,7 +13,7 @@ async function tmpDir() {
   return mkdtemp(join(tmpdir(), "core-atomic-"));
 }
 
-describe("@karajan/core/atomic-write", () => {
+describe("karajan-core/atomic-write", () => {
   it("writeJsonAtomic persists pretty JSON and leaves no .tmp", async () => {
     const dir = await tmpDir();
     const target = join(dir, "plan.json");

@@ -1,4 +1,4 @@
-// Smoke coverage for the @karajan/core/port-check extraction
+// Smoke coverage for the karajan-core/port-check extraction
 // (KJC-TSK-0511 PR2). Real socket binding — tiny but fast.
 import { createServer } from "node:net";
 import { describe, it, expect } from "vitest";
@@ -12,7 +12,7 @@ function occupy() {
   });
 }
 
-describe("@karajan/core/port-check", () => {
+describe("karajan-core/port-check", () => {
   it("isPortAvailable returns false for a port we already bound", async () => {
     const { srv, port } = await occupy();
     try {

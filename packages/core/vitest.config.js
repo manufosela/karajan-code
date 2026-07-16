@@ -1,4 +1,4 @@
-// Local Vitest config for @karajan/core so the workspace package does
+// Local Vitest config for karajan-core so the workspace package does
 // not inherit the root config (which excludes `packages/**` and points
 // at a global setup file outside the workspace).
 

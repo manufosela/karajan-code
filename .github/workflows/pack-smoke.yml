@@ -1,7 +1,7 @@
 # Pack Smoke — installs the REAL published tarball and runs the binary.
 #
 # WHY: the test suite runs against the linked workspace, where
-# @karajan/core and its deps resolve via symlink. A broken PUBLISHED
+# karajan-core and its deps resolve via symlink. A broken PUBLISHED
 # artifact (bundleDependencies dragging in sqlite-vec without its entry
 # point — KJC-BUG-0082 / 0086) passed CI yet crashed on every clean
 # `npm install`. v3.2.0, v3.3.0 and v3.4.1 all shipped unable to run

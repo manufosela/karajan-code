@@ -17,7 +17,7 @@ import { reapZombieSessions } from './zombie-reaper.js';
 import { reapZombieHus } from './hu-zombie-reaper.js';
 import { setHuStatus as setHuStatusPlanMutation, setHuFailResult as setHuFailResultPlanMutation } from './plan-mutations.js';
 import { cleanupEphemeralProjects } from './ephemeral-cleaner.js';
-import { findAvailablePort as findAvailablePortBase } from '@karajan/core/port-check';
+import { findAvailablePort as findAvailablePortBase } from 'karajan-core/port-check';
 
 /**
  * Path to the PID file the CLI's `kj board start` / `kj board stop`
@@ -238,7 +238,7 @@ async function main() {
   //   - cooldownUntil > now  → re-programa setTimeout que dispara en cooldown
   // Idempotente (lockfile per session). Cero polling.
   try {
-    const { reconcileAll } = await import('@karajan/core/standby-scheduler');
+    const { reconcileAll } = await import('karajan-core/standby-scheduler');
     const { spawn } = await import('node:child_process');
     const { join, dirname } = await import('node:path');
     const { fileURLToPath } = await import('node:url');

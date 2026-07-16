@@ -350,7 +350,7 @@ describe('GET /api/standby', () => {
   });
 
   it('devuelve las sesiones persistidas', async () => {
-    const { persistStandby } = await import('@karajan/core/standby-store');
+    const { persistStandby } = await import('karajan-core/standby-store');
     persistStandby({
       sessionId: 'test-s1',
       cooldownUntil: '2099-01-01T00:00:00Z',

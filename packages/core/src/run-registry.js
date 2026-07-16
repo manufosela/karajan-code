@@ -13,7 +13,7 @@
  * total terminal ↔ board.
  *
  * Compartido entre el CLI (src/commands/run.js) y el board
- * (packages/hu-board/src/run-tracker.js) vía `@karajan/core/run-registry`.
+ * (packages/hu-board/src/run-tracker.js) vía `karajan-core/run-registry`.
  */
 
 import fs from "node:fs";

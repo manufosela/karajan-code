@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { generatePlanId, generateHuId, normaliseAlias } from "../src/plan-id.js";
 
-describe("@karajan/core/plan-id", () => {
+describe("karajan-core/plan-id", () => {
   it("generatePlanId returns plan-<ts>-<rand>", () => {
     const id = generatePlanId();
     expect(id).toMatch(/^plan-\d{14}-[a-z0-9]{4}$/);

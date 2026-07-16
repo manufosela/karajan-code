@@ -1,9 +1,18 @@
 {
-  "name": "@karajan/core",
-  "version": "0.1.0",
+  "name": "karajan-core",
+  "version": "1.0.0",
   "description": "Shared modules for Karajan Code CLI and @karajan/hu-board (atomic-write, paths, RAG store, plan ops, process runner).",
   "type": "module",
-  "private": true,
+  "license": "AGPL-3.0",
+  "author": "manufosela",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manufosela/karajan-code.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "src/"
+  ],
   "engines": {
     "node": ">=22.22.1"
   },

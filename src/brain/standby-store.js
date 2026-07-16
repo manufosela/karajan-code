@@ -1,4 +1,4 @@
-// Shim de compatibilidad: standby-store vive ahora en @karajan/core.
+// Shim de compatibilidad: standby-store vive ahora en karajan-core.
 // Mantiene la ruta para callers internos del CLI.
 export {
   standbyDir,
@@ -9,4 +9,4 @@ export {
   listPendingStandby,
   markStandbyDone,
   acquireStandbyLock,
-} from "@karajan/core/standby-store";
+} from "karajan-core/standby-store";

@@ -9,7 +9,7 @@ const plan = () => ({
   ],
 });
 
-describe("@karajan/core/plan-validation", () => {
+describe("karajan-core/plan-validation", () => {
   it("ok when the new blocked_by is a valid subset", () => {
     expect(validateBlockedByChange(plan(), "c", ["a"]).ok).toBe(true);
   });

@@ -9,7 +9,7 @@ import {
   runsDir,
 } from "../src/run-registry.js";
 
-describe("@karajan/core/run-registry", () => {
+describe("karajan-core/run-registry", () => {
   let tmpHome;
   let originalKarajanHome;
 

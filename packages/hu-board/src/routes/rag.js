@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { existsSync, statSync } from "node:fs";
 import Database from "better-sqlite3";
-import { dbPath } from "@karajan/core/vec-store";
+import { dbPath } from "karajan-core/vec-store";
 import { readConfig } from "../config-yaml.js";
 
 const router = Router();
