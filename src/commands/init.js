@@ -371,6 +371,15 @@ async function runWizard(config, logger) {
     logger.info("Git automation:");
     await askGitAutomation(wizard, config, logger);
 
+    // Iteration gate (KJC-TSK-0628): opt-in step mode, default no.
+    config.session = config.session || {};
+    const stepMode = await wizard.confirm(
+      "Pause after each iteration with a report and ask before continuing (step mode)?",
+      false,
+    );
+    config.session.iteration_gate = stepMode;
+    logger.info(`  -> iteration_gate: ${stepMode}`);
+
     if (enableHuBoard) {
       logger.info("");
       logger.info("HU Board security:");
