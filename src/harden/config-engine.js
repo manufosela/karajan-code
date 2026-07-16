@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
+import { artifactIdForConfig, findAlternative } from "./alternatives.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 
 const BLOCK_VERSION = 1;
@@ -18,12 +19,25 @@ function writeFile(target, content) {
   writeFileSync(target, content);
 }
 
-/** Seed a list of config entries into `targetDir`, labelling each by `prefix`. */
-function seedInto(targetDir, configs, dryRun, prefix, results) {
+/**
+ * Seed a list of config entries into `targetDir`, labelling each by `prefix`.
+ * `altDirs` widens the cross-tool alternative lookup (KJC-TSK-0614): a config
+ * covered by the user's own tool (biome.json ⇒ eslint+prettier) is never
+ * seeded — kj must not install a second, conflicting linter/formatter.
+ */
+function seedInto(targetDir, configs, dryRun, prefix, results, altDirs = [targetDir]) {
   for (const cfg of configs) {
     const target = join(targetDir, cfg.file);
     const exists = existsSync(target);
     const file = prefix === "." ? cfg.file : join(prefix, cfg.file);
+
+    if (!exists) {
+      const alt = findAlternative(altDirs, artifactIdForConfig(cfg));
+      if (alt) {
+        results.push({ file, action: "covered", by: alt.foundAt });
+        continue;
+      }
+    }
 
     if (cfg.json) {
       const action = exists ? "skipped" : "inserted";
@@ -69,7 +83,9 @@ export function installConfigsForRoots({ projectDir = process.cwd(), roots = [],
   const results = [];
   seedInto(projectDir, UNIVERSAL_CONFIGS, dryRun, ".", results);
   for (const { dir, language } of roots) {
-    seedInto(join(projectDir, dir), CONFIGS_BY_LANGUAGE[language] ?? [], dryRun, dir, results);
+    const rootDir = join(projectDir, dir);
+    // A root-level biome.json covers every language root of the monorepo.
+    seedInto(rootDir, CONFIGS_BY_LANGUAGE[language] ?? [], dryRun, dir, results, [rootDir, projectDir]);
   }
   return { dryRun, configs: results };
 }

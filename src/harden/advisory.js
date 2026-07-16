@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { findManagedBlock } from "../utils/managed-markers.js";
+import { findAlternative } from "./alternatives.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 import { detectStackRoots } from "./stack-roots.js";
 
@@ -98,6 +99,13 @@ function readArtifactContent(searchDir, foundAt) {
 
 /** Map a classified state to a recommendation + human rationale. */
 function recommend(state) {
+  if (state.status === "SATISFIED_BY_ALTERNATIVE") {
+    return {
+      recommendation: "keep",
+      rationale: `covered by ${state.foundAt} (${state.alternativeTool}) — kj won't add a second linter/formatter`,
+      mergeable: false,
+    };
+  }
   if (state.status === "MISSING") return { recommendation: "install", rationale: `kj would add ${state.file}`, mergeable: true };
   if (state.status === "USER_OWNED") {
     const n = state.improvements?.length ?? 0;
@@ -109,11 +117,20 @@ function recommend(state) {
   return { recommendation: "update", rationale: `kj v${state.currentVersion} available (you have v${state.managedVersion})`, mergeable: true };
 }
 
-/** Classify a single artifact found (or not) under `searchDir`. */
-export function classifyArtifact(searchDir, artifact) {
+/**
+ * Classify a single artifact found (or not) under `searchDir`. `altDirs`
+ * widens the cross-tool alternative lookup (a root-level biome.json covers a
+ * monorepo's language roots); the user's OWN config of the same tool still
+ * wins over an alternative.
+ */
+export function classifyArtifact(searchDir, artifact, altDirs = [searchDir]) {
   const foundAt = findArtifactFile(searchDir, artifact);
   const base = { foundAt, managedVersion: null, upToDate: null, improvements: [] };
   let state = { ...base, status: "MISSING" };
+  if (!foundAt) {
+    const alt = findAlternative(altDirs, artifact.id);
+    if (alt) state = { ...base, status: "SATISFIED_BY_ALTERNATIVE", foundAt: alt.foundAt, alternativeTool: alt.tool };
+  }
   if (foundAt) {
     const content = readArtifactContent(searchDir, foundAt);
     if (artifact.blockId && content.includes(`kj:managed:${artifact.blockId}`)) {
@@ -139,8 +156,10 @@ export function compareHarden({ projectDir = process.cwd(), profile = "standard"
   for (const { dir, language } of detectStackRoots(projectDir, { only, exclude })) {
     const searchDir = dir === "." ? projectDir : join(projectDir, dir);
     for (const cfg of CONFIGS_BY_LANGUAGE[language] ?? []) {
-      const res = classifyArtifact(searchDir, toArtifact(cfg));
-      artifacts.push({ dir, ...res, foundAt: res.foundAt && dir !== "." ? join(dir, res.foundAt) : res.foundAt });
+      const res = classifyArtifact(searchDir, toArtifact(cfg), [searchDir, projectDir]);
+      // Alternative matches may live at the repo root — keep their path unprefixed.
+      const prefix = res.foundAt && dir !== "." && res.status !== "SATISFIED_BY_ALTERNATIVE";
+      artifacts.push({ dir, ...res, foundAt: prefix ? join(dir, res.foundAt) : res.foundAt });
     }
   }
   return { artifacts };

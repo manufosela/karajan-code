@@ -11,6 +11,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { runCommand } from "../utils/process.js";
+import { artifactIdForConfig, findAlternative } from "./alternatives.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 import { PROFILE_HOOKS } from "./hook-templates.js";
 import { detectStackRoots } from "./stack-roots.js";
@@ -53,8 +54,18 @@ export async function checkHarden({ projectDir = process.cwd(), profile = "stand
       checks.push(presence(projectDir, cfg.file, `config:${cfg.file}`, "missing — run kj harden"));
     }
     for (const { dir, language } of roots) {
+      const rootDir = dir === "." ? projectDir : join(projectDir, dir);
       for (const cfg of CONFIGS_BY_LANGUAGE[language] ?? []) {
         const rel = dir === "." ? cfg.file : join(dir, cfg.file);
+        // A config covered by the user's own tool (biome.json ⇒ eslint+prettier)
+        // is not drift — kj must not demand a second linter/formatter (KJC-TSK-0614).
+        if (!existsSync(join(projectDir, rel))) {
+          const alt = findAlternative([rootDir, projectDir], artifactIdForConfig(cfg));
+          if (alt) {
+            checks.push({ id: `config:${rel}`, ok: true, detail: `covered by ${alt.foundAt} (${alt.tool})` });
+            continue;
+          }
+        }
         checks.push(presence(projectDir, rel, `config:${rel}`, `missing for ${language} — run kj harden`));
       }
     }

@@ -71,6 +71,40 @@ describe("compareHarden", () => {
     expect(find(artifacts, "ruff", "backend").status).toBe("MISSING");
     expect(() => JSON.stringify(artifacts)).not.toThrow();
   });
+
+  it("classifies eslint+prettier as SATISFIED_BY_ALTERNATIVE when biome.json is present (KJC-TSK-0614)", () => {
+    touch("package.json", "{}");
+    touch("biome.json", '{ "linter": { "enabled": true } }');
+    const artifacts = run();
+    for (const id of ["eslint", "prettier"]) {
+      expect(find(artifacts, id)).toMatchObject({
+        status: "SATISFIED_BY_ALTERNATIVE",
+        foundAt: "biome.json",
+        recommendation: "keep",
+        mergeable: false,
+      });
+      expect(find(artifacts, id).rationale).toContain("biome");
+    }
+    // Biome does not cover commit-message linting — commitlint still proposed.
+    expect(find(artifacts, "commitlint").status).toBe("MISSING");
+  });
+
+  it("the user's OWN eslint config wins over the biome alternative", () => {
+    touch("package.json", "{}");
+    touch("biome.json", "{}");
+    touch(".eslintrc.json", '{ "rules": {} }');
+    expect(find(run(), "eslint").status).toBe("USER_OWNED");
+  });
+
+  it("a root-level biome.json covers a monorepo language root", () => {
+    touch("biome.jsonc", "{}");
+    touch("frontend/package.json", "{}");
+    const artifacts = run();
+    expect(find(artifacts, "eslint", "frontend")).toMatchObject({
+      status: "SATISFIED_BY_ALTERNATIVE",
+      foundAt: "biome.jsonc",
+    });
+  });
 });
 
 describe("formatAdvisoryReport", () => {
