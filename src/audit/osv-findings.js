@@ -48,7 +48,7 @@ export async function collectOsvFindings(projectDir, logger = null) {
     // err.code 1 is NORMAL — we still want the stdout. Real failures are
     // ENOENT (binary missing) or stdout empty.
     if (err.code === "ENOENT") {
-      if (logger?.warn) logger.warn("osv-scanner not found in PATH — install via 'go install github.com/google/osv-scanner@latest'");
+      if (logger?.warn) logger.warn("osv-scanner not found in PATH — install via 'go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest'");
       return { available: false, reason: "osv-scanner not installed" };
     }
     if (err.killed) {

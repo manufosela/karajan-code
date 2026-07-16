@@ -23,9 +23,12 @@ describe("getInstallHint — manager prioritization", () => {
     expect(hint.command).toBe("pip install semgrep");
   });
 
-  it("prefers go install for osv-scanner", async () => {
+  it("prefers go install for osv-scanner, targeting the cmd/ subpackage (KJC-BUG-0105)", async () => {
     const hint = await getInstallHint("osv-scanner", { go: true, brew: true });
-    expect(hint.command).toMatch(/go install.*osv-scanner/);
+    // The module root has no main package: installing
+    // github.com/google/osv-scanner@latest resolves the module but fails
+    // with "does not contain package". The binary lives in /v2/cmd/.
+    expect(hint.command).toBe("go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest");
     expect(hint.manager).toBe("go");
   });
 

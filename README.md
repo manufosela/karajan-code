@@ -190,7 +190,7 @@ None of these are required. Karajan auto-skips any scanner that isn't installed,
 | Tool | Scope | Install | Installable from `kj init`? | What you get |
 |------|-------|---------|-----------------------------|--------------|
 | **SonarQube** | Any stack | `docker compose -f ~/sonarqube/docker-compose.yml up -d` | ✅ Yes (wizard configures Docker container + token) | Code quality + security rules with line-precision in `kj audit` |
-| **OSV-Scanner** | Any stack | `go install github.com/google/osv-scanner@latest` | ❌ No (install manually) | Dependency CVE coverage broader than `npm audit` |
+| **OSV-Scanner** | Any stack | `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` | ❌ No (install manually) | Dependency CVE coverage broader than `npm audit` |
 | **Semgrep** | Any stack | `pipx install semgrep` | ❌ No (install manually) | SAST: XSS, SQLi, taint flow, secrets — equivalent to `snyk code`, free for OSS |
 | **Lighthouse** | **Frontend only** | `npm install -g lighthouse` | ❌ No (install manually) | Core Web Vitals + opportunities for `kj webperf` (auto-feeds `kj audit`) |
 
