@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-07-16
+
+Minor. **`kj harden` respects your own tooling.** A repo that formats and lints with Biome no longer gets kj's eslint + prettier planted next to it.
+
+### Added
+
+- **Cross-tool alternatives in harden/check** (KJC-TSK-0614): a user's `biome.json`/`biome.jsonc` replaces both eslint and prettier, but harden only knew same-tool filename equivalents — it classified them as missing, seeded kj's configs next to Biome and `kj check` flagged their absence as drift. A new alternatives map is consulted by all three surfaces: the advisory reports `SATISFIED_BY_ALTERNATIVE` ("covered by biome.json — kj won't add a second linter/formatter"), config seeding skips the covered artifacts, and `kj check` treats them as ok. Your own config of the same tool still wins; `.editorconfig` and commitlint (not replaced by Biome) keep seeding; pre-commit hooks and the Quality workflow already delegate to the project's `npm run lint`/`format` scripts.
+
 ## [3.12.3] - 2026-07-16
 
 Patch. Three field-reported fixes: the standalone binary finds its built-in templates, `kj update` updates the kj you actually run, and the osv-scanner go install recipe works.
