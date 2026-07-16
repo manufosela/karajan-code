@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.12.0 — install-tools cubre las herramientas que kj necesita (actual)
+### v3.12.1 — salida limpia de `kj update` (actual)
+
+Patch. La salida de `kj update` vuelve a estar limpia. Una actualización correcta muestra solo las líneas de progreso y resultado; el ruido propio de npm — avisos de deprecación, allow-scripts y funding — es fontanería del build sobre la que no tienes que actuar, así que ya no te llega. Si falla, la salida capturada **sí** se muestra, para que los errores reales (compilación nativa, permisos) sigan siendo diagnosticables — nunca un fallo silencioso. Actualización directa desde v3.12.0.
+
+### v3.12.0 — install-tools cubre las herramientas que kj necesita
 
 Minor. `kj install-tools` ahora instala las herramientas que **necesita el propio kj** para funcionar, no solo las opcionales de auditoría. Se suman dos herramientas required: **git** y las **CLIs de agente del pipeline por defecto** — claude (`@anthropic-ai/claude-code`) y codex (`@openai/codex`). git se instala por el gestor de paquetes del sistema (brew → apt → dnf → choco → scoop) y, cuando un paso necesita privilegios, `sudo` se ejecuta en tu propia terminal para que kj nunca vea la contraseña; sin gestor de paquetes muestra la URL de descarga manual en vez de fallar en silencio. Las CLIs de agente se instalan por npm global, con un comando mostrado por CLI e instalando solo las que falten — gemini se queda fuera del default (es un reviewer soportado, no uno required). Una máquina casi en blanco queda operativa con un solo comando, mientras `kj doctor` sigue reportando el mismo conjunto required. Actualización directa desde v3.11.0.
 
