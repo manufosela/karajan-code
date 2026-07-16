@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.12.3 — el binario standalone lleva sus plantillas y `kj update` actualiza el kj que ejecutas (actual)
+### v3.13.0 — `kj harden` respeta tu propio tooling (actual)
+
+Minor. Un repo que formatea y lintea con **Biome** ya no recibe el eslint + prettier de kj plantados al lado. Harden entiende ahora las alternativas entre herramientas: con `biome.json` presente, el informe marca esos artefactos como cubiertos ("kj no añadirá un segundo linter/formateador"), la siembra de configs los salta y `kj check` deja de señalar su ausencia como drift. Tu propio config de la misma herramienta sigue ganando, `.editorconfig` y commitlint se siguen sembrando (Biome no los sustituye), y los hooks pre-commit y el workflow Quality generados delegan en los scripts `npm run lint`/`format` de tu proyecto. Actualización directa desde v3.12.3.
+
+### v3.12.3 — el binario standalone lleva sus plantillas y `kj update` actualiza el kj que ejecutas
 
 Patch. Tres arreglos reportados desde el terreno. El **binario standalone ya lleva sus plantillas integradas** como assets embebidos — `kj init` instala skills y prompts de roles en una máquina nueva en vez de avisar `ENOENT`. **`kj update` distingue el canal de instalación**: en instalaciones de binario re-ejecuta el instalador en vez de instalar por npm una copia que tu PATH nunca resuelve, y en todos los canales verifica que el `kj` que realmente ejecutas reporta la versión nueva — fallando en alto y señalando la copia que hace sombra cuando no es así. Y la **receta de instalación de osv-scanner** apunta al subpaquete `cmd/` real, así que `kj install-tools` vuelve a poder instalarlo. Actualización directa desde v3.12.2.
 
@@ -263,8 +267,4 @@ Patch. La salida de `kj update` vuelve a estar limpia. Una actualización correc
 ### v3.12.0 — install-tools cubre las herramientas que kj necesita
 
 Minor. `kj install-tools` ahora instala las herramientas que **necesita el propio kj** para funcionar, no solo las opcionales de auditoría. Se suman dos herramientas required: **git** y las **CLIs de agente del pipeline por defecto** — claude (`@anthropic-ai/claude-code`) y codex (`@openai/codex`). git se instala por el gestor de paquetes del sistema (brew → apt → dnf → choco → scoop) y, cuando un paso necesita privilegios, `sudo` se ejecuta en tu propia terminal para que kj nunca vea la contraseña; sin gestor de paquetes muestra la URL de descarga manual en vez de fallar en silencio. Las CLIs de agente se instalan por npm global, con un comando mostrado por CLI e instalando solo las que falten — gemini se queda fuera del default (es un reviewer soportado, no uno required). Una máquina casi en blanco queda operativa con un solo comando, mientras `kj doctor` sigue reportando el mismo conjunto required. Actualización directa desde v3.11.0.
-
-### v3.11.0 — kj install-tools ya instala de verdad
-
-Minor. `kj install-tools` se convierte en el **actuador**: ahora instala las herramientas externas de auditoría en lugar de solo nombrarlas (`kj doctor` se queda como el diagnosticador que te dice qué falta). Un asistente muestra el **comando exacto por herramienta** e instala al aceptar — los pasos con privilegios ejecutan `sudo` en tu propia terminal, así que kj nunca ve ni registra la contraseña, y los binarios se descargan a un fichero temporal, `chmod` y renombrado atómico (sin artefacto a medio instalar si algo falla). Sin gestor de paquetes, osv-scanner tira de su binario estático de GitHub y semgrep cae a un comando concreto de Docker/pipx; Docker en Linux prefiere `apt`/`dnf` o descarga el script oficial a un fichero y lo ejecuta (nunca `curl | sh`), siempre opt-in y con el comando mostrado primero. Además, tres refinamientos de rol — disensión de socio activo, un micro-gate de alineación y reformulación en positivo de instrucciones de alto impacto — y dos arreglos de instalación (el hook post-merge del RAG respeta `core.hooksPath`; el instalador de macOS elige el binario darwin-arm64). Actualización directa desde v3.10.2.
 

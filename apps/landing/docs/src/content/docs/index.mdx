@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.12.3 — the standalone binary carries its templates, `kj update` updates the kj you run (current)
+### v3.13.0 — `kj harden` respects your own tooling (current)
+
+Minor. A repo that formats and lints with **Biome** no longer gets kj's eslint + prettier planted next to it. Harden now understands cross-tool alternatives: with `biome.json` present, the advisory reports those artifacts as covered ("kj won't add a second linter/formatter"), config seeding skips them, and `kj check` stops flagging their absence as drift. Your own config of the same tool still wins, `.editorconfig` and commitlint keep seeding (Biome doesn't replace them), and the generated pre-commit hooks and Quality workflow delegate to your project's `npm run lint`/`format` scripts. Drop-in upgrade from v3.12.3.
+
+### v3.12.3 — the standalone binary carries its templates, `kj update` updates the kj you run
 
 Patch. Three field-reported fixes. The **standalone binary now ships its built-in templates** as embedded assets — `kj init` installs skills and role prompts on a fresh machine instead of warning `ENOENT`. **`kj update` is channel-aware**: on binary installs it re-runs the installer instead of npm-installing a copy your PATH never resolves, and on every channel it now verifies that the `kj` you actually run reports the new version — failing loudly and naming the shadowing copy when it doesn't. And the **osv-scanner go install recipe** points at the real `cmd/` subpackage, so `kj install-tools` can install it again. Drop-in upgrade from v3.12.2.
 
@@ -263,8 +267,4 @@ Patch. `kj update` output is clean again. A successful self-update shows only th
 ### v3.12.0 — install-tools covers the tools kj needs
 
 Minor. `kj install-tools` now installs the tools **kj itself needs** to run, not only the optional audit tools. Two required tools join the list: **git** and the **agent CLIs of the default pipeline** — claude (`@anthropic-ai/claude-code`) and codex (`@openai/codex`). git installs through the OS package manager (brew → apt → dnf → choco → scoop) and, when a privileged step is needed, `sudo` runs on your own terminal so kj never sees the password; with no package manager it surfaces the manual download URL instead of failing silently. The agent CLIs install via global npm, one command shown per CLI and only the missing ones installed — gemini stays out of the default (it's a supported reviewer, not a required one). A near-blank machine becomes operational in a single command, while `kj doctor` keeps reporting the same required set. Drop-in upgrade from v3.11.0.
-
-### v3.11.0 — kj install-tools actually installs
-
-Minor. `kj install-tools` becomes the **actuator**: it now installs the external audit tools instead of only naming them (`kj doctor` stays the diagnostician that tells you what's missing). A wizard shows the **exact command per tool** and installs on accept — privileged steps run `sudo` on your own terminal, so kj never sees or logs the password, and binaries download to a temp file, `chmod`, then atomic-rename (no half-installed artifact on failure). With no package manager, osv-scanner pulls its static GitHub binary and semgrep falls back to a concrete Docker/pipx command; Docker on Linux prefers `apt`/`dnf` or downloads the official script to a file and runs it (never `curl | sh`), always opt-in with the command shown first. Plus three role refinements — active-partner dissent, a check-alignment micro-gate, and affirmative rewording of high-impact instructions — and two install-path fixes (RAG post-merge hook honours `core.hooksPath`; the macOS installer selects the darwin-arm64 binary). Drop-in upgrade from v3.10.2.
 
