@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.0] - 2026-07-17
+
+Minor. **Step mode and governed parallelism.** You can now supervise the orchestra iteration by iteration — and parallel HU execution, which previously ran unbounded, is capped, budgeted and opt-in.
+
+### Added
+
+- **Per-iteration gate — `kj run --step`** (KJC-TSK-0628): the pipeline pauses after EVERY iteration with a compact report — iteration n/max, the reviewer's verdict with its must-fix list, what the next iteration will do, spend vs cap — and asks: Enter continues, `stop` stops (resumable with `kj resume`), and **any other text becomes a directive** injected into the feedback the coder reads next iteration, never clobbering the reviewer's own list. Also offered as a question in the `kj init` wizard; unattended autonomous runs pass through.
+- **Governed parallel HU execution — `kj run --parallel <n>`** (KJC-TSK-0622..0626): plans can run HUs concurrently, each in its own git worktree under `.karajan/worktrees/`, scheduled over the `blocked_by` graph with conservative scope isolation (overlapping or scopeless HUs never run together), a shared semaphore, and a **plan-level budget ceiling** (`n × max_budget_usd`) that stops the batch loudly when exhausted. The SonarQube stage serializes across lanes.
+
+### Fixed
+
+- **Parallel execution is now bounded — default 1, fully sequential** (KJC-TSK-0626, related to KJC-BUG-0107): the HU sub-pipeline used to launch dependency groups with an UNBOUNDED `Promise.all` — a plan with N independent HUs ran N full coder pipelines at once, with no cap and no shared budget. That path is now opt-in and governed; the safe sequential behaviour is the default.
+
 ## [3.13.1] - 2026-07-16
 
 Patch. **Every run now ships with a spend ceiling.** A stuck or runaway pipeline can no longer drain a subscription quota unattended.
