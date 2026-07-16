@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.12.2 — fresh global install fixed (current)
+### v3.12.3 — the standalone binary carries its templates, `kj update` updates the kj you run (current)
+
+Patch. Three field-reported fixes. The **standalone binary now ships its built-in templates** as embedded assets — `kj init` installs skills and role prompts on a fresh machine instead of warning `ENOENT`. **`kj update` is channel-aware**: on binary installs it re-runs the installer instead of npm-installing a copy your PATH never resolves, and on every channel it now verifies that the `kj` you actually run reports the new version — failing loudly and naming the shadowing copy when it doesn't. And the **osv-scanner go install recipe** points at the real `cmd/` subpackage, so `kj install-tools` can install it again. Drop-in upgrade from v3.12.2.
+
+### v3.12.2 — fresh global install fixed
 
 Patch. `npm install -g karajan-code` works again on fresh machines. Since bundling was introduced, a fresh global install failed everywhere: npm nests all deps under the package and bundle semantics marked that subtree as already-shipped, so `better-sqlite3` & friends landed as empty directories and the install crashed — while local installs, upgrades and every CI gate stayed green. The internal core module is now published to npm as `karajan-core` and resolved from the registry; the pre-publish gate gains a global-install smoke so this class of breakage can't ship again. Drop-in upgrade from v3.12.1.
 
@@ -263,16 +267,4 @@ Minor. `kj install-tools` now installs the tools **kj itself needs** to run, not
 ### v3.11.0 — kj install-tools actually installs
 
 Minor. `kj install-tools` becomes the **actuator**: it now installs the external audit tools instead of only naming them (`kj doctor` stays the diagnostician that tells you what's missing). A wizard shows the **exact command per tool** and installs on accept — privileged steps run `sudo` on your own terminal, so kj never sees or logs the password, and binaries download to a temp file, `chmod`, then atomic-rename (no half-installed artifact on failure). With no package manager, osv-scanner pulls its static GitHub binary and semgrep falls back to a concrete Docker/pipx command; Docker on Linux prefers `apt`/`dnf` or downloads the official script to a file and runs it (never `curl | sh`), always opt-in with the command shown first. Plus three role refinements — active-partner dissent, a check-alignment micro-gate, and affirmative rewording of high-impact instructions — and two install-path fixes (RAG post-merge hook honours `core.hooksPath`; the macOS installer selects the darwin-arm64 binary). Drop-in upgrade from v3.10.2.
-
-### v3.10.2 — Privacy, path containment & triage observability
-
-Patch. Three small hardenings rolled up. A personal email that had leaked into public package metadata is **replaced with the public handle**, so scrapers can't harvest it. The Brain's direct-action file writes now confine every path to the project with a **containment check** (`path.relative`-based, not a string prefix), so a crafted sibling path like `../project-evil` can't escape the repo. And **triage now explains itself**: instead of one global reasoning blob, it emits a per-role rationale — for each role, whether it was activated or skipped and why — rendered live so every decision is observable. Drop-in upgrade from v3.10.1.
-
-### v3.10.1 — macOS binary + kj run on the standalone
-
-Patch. The **macOS (Apple Silicon) standalone binary now ships** on the GitHub release, next to the Linux and Windows binaries — so on macOS you can install `kj` straight from the binary or keep using `npm install -g karajan-code`; both channels serve v3.10.1. It also fixes a crash where `kj run` died on the standalone binary with a missing-symbol error while `--version` stayed green. A run-dispatch smoke test now gates every release so that path can't regress. Drop-in upgrade from v3.9.0.
-
-### v3.9.0 — Standalone binaries
-
-Minor. Karajan now ships as a **single standalone executable**. One-line installers put `kj` on your PATH: `curl -fsSL https://karajancode.com/install.sh | sh` on Linux, `irm https://karajancode.com/install.ps1 | iex` on Windows (PowerShell). Each binary is built from a SEA (Single Executable Application) bundle, verified against its published SHA256 checksum, and gated by a smoke test that refuses to upload a binary whose `--version` doesn't match the tag. **macOS ships via npm for now** — the Apple Silicon binary is being finished separately, so on macOS `npm install -g karajan-code` remains the install path. Drop-in upgrade from v3.8.0.
 
