@@ -19,6 +19,7 @@
   "exports": {
     "./atomic-write": "./src/atomic-write.js",
     "./db": "./src/db.js",
+    "./worktree": "./src/worktree.js",
     "./shared-paths": "./src/shared-paths.js",
     "./port-check": "./src/port-check.js",
     "./paths": "./src/paths.js",
