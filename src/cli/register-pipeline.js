@@ -101,6 +101,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--enable-sonarcloud", "Enable SonarCloud scan (complementary to SonarQube)")
     .option("--no-sonarcloud")
     .option("--checkpoint-interval <n>", "Minutes between interactive checkpoints (default: 5)")
+    .option("--step", "Pause after each iteration with a report and ask before continuing")
     .option("--pg-task <cardId>", "Planning Game card ID (e.g., KJC-TSK-0042)")
     .option("--pg-project <projectId>", "Planning Game project ID")
     .option("--auto-simplify", "Auto-simplify pipeline for simple tasks (disable reviewer/tester)")
