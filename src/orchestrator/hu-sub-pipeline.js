@@ -7,6 +7,7 @@ import { updateStoryStatus, loadHuBatch, saveHuBatch, HU_STATUS } from "../hu/st
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { refineHuWithContext } from "../hu/lazy-planner.js";
 import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
+import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { partitionConflictFree } from "./hu-scheduler.js";
 import { createParallelLimiter, planBudgetUsd } from "./parallel-limiter.js";
 
@@ -533,6 +534,10 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
         try {
           const wtPath = await createWorktree(projectDir, id);
           worktrees.set(id, wtPath);
+          // PAR-G (KJC-TSK-0630): a fresh worktree has no node_modules and
+          // no initialized submodules — make the lane operative before the
+          // coder lands. Best-effort: warnings never block the lane.
+          await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null, logger });
         } catch (err) {
           logger.warn(`Failed to create worktree for HU ${id}: ${err.message} — will run sequentially`);
         }
