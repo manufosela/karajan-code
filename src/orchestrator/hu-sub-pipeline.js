@@ -6,6 +6,9 @@ import { topologicalSort } from "../hu/graph.js";
 import { updateStoryStatus, loadHuBatch, saveHuBatch, HU_STATUS } from "../hu/store.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { refineHuWithContext } from "../hu/lazy-planner.js";
+import { join } from "node:path";
+import { acquireSlot, releaseSlot } from "karajan-core/slot-registry";
+import { getKarajanHome } from "karajan-core/paths";
 import { findParallelGroups, createWorktree, mergeWorktree, removeWorktree } from "../hu/parallel-executor.js";
 import { bootstrapWorktree } from "../hu/worktree-bootstrap.js";
 import { partitionConflictFree } from "./hu-scheduler.js";
@@ -201,7 +204,7 @@ function buildHuOutcome({ story: _story, iterResult, status, startedAt, huBudget
  * @param {object} params
  * @returns {Promise<{huId: string, approved: boolean, result?: object, error?: string, blockedDependents?: string[]}>}
  */
-async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, onStatusChange = null, onOutcome = null, budgetTracker = null }) {
+async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emitter, eventBase, logger, config, results, worktreePath, laneSlot = null, onStatusChange = null, onOutcome = null, budgetTracker = null }) {
   // PR1 (live HU status): every saveHuBatch should also notify the
   // plan JSON so the board reflects state in real time. Defined as a
   // local helper so we don't repeat the try/null-check boilerplate.
@@ -288,7 +291,7 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
   try {
     // PAR-E2 (KJC-TSK-0629): lanes handed a worktree must aim every git and
     // filesystem touchpoint at it — laneOpts carries that path to the runner.
-    const iterResult = await runIterationFn(huTask, story, { worktreePath: worktreePath || null });
+    const iterResult = await runIterationFn(huTask, story, { worktreePath: worktreePath || null, laneSlot });
     const approved = Boolean(iterResult?.approved);
 
     // --- Transition to reviewing (post-coder, pre-reviewer evaluation) ---
@@ -528,6 +531,11 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
       // Multiple HUs: create worktrees, run in parallel
       const projectDir = config?.projectDir || process.cwd();
       const worktrees = new Map();
+      // PAR-H (KJC-TSK-0631): every lane gets a stable numeric slot so
+      // services it starts can offset their ports (KJ_LANE_SLOT /
+      // KJ_PORT_OFFSET reach the coder and the acceptance tests).
+      const slotRegistryPath = join(getKarajanHome(), "worktree-slots.json");
+      const laneSlots = new Map();
 
       // Create worktrees for each HU in the batch
       for (const id of runnableIds) {
@@ -538,6 +546,12 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
           // no initialized submodules — make the lane operative before the
           // coder lands. Best-effort: warnings never block the lane.
           await bootstrapWorktree({ worktreePath: wtPath, setupCommand: config?.session?.worktree_setup || null, logger });
+          try {
+            const { slot } = await acquireSlot({ registryPath: slotRegistryPath, id: `${projectDir}::${id}` });
+            laneSlots.set(id, slot);
+          } catch (err) {
+            logger.warn(`Failed to acquire lane slot for HU ${id}: ${err.message} — lane runs without port offset`);
+          }
         } catch (err) {
           logger.warn(`Failed to create worktree for HU ${id}: ${err.message} — will run sequentially`);
         }
@@ -552,6 +566,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
             storyId, batch, batchSessionId, runIterationFn,
             emitter, eventBase, logger, config, results,
             worktreePath: worktrees.get(storyId),
+            laneSlot: laneSlots.get(storyId) ?? null,
             onStatusChange, onOutcome, budgetTracker
           });
         } finally {
@@ -567,6 +582,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
         if (res.approved && worktrees.has(res.huId)) {
           try {
             await mergeWorktree(projectDir, res.huId);
+            await releaseSlot({ registryPath: slotRegistryPath, id: `${projectDir}::${res.huId}` }).catch(() => {});
           } catch (err) {
             logger.warn(`Failed to merge worktree for HU ${res.huId}: ${err.message}`);
           }
@@ -586,6 +602,7 @@ export async function runHuSubPipeline({ huReviewerResult, runIterationFn, emitt
           // Clean up failed worktree
           if (worktrees.has(res.huId)) {
             try { await removeWorktree(projectDir, res.huId); } catch { /* ignore */ }
+            await releaseSlot({ registryPath: slotRegistryPath, id: `${projectDir}::${res.huId}` }).catch(() => {});
           }
         }
       }

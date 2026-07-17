@@ -129,6 +129,10 @@ export class AgentRole extends BaseRole {
 
     const runArgs = { prompt, role: this.name };
     if (onOutput) runArgs.onOutput = onOutput;
+    // PAR-H (KJC-TSK-0631): per-call env additions for the agent
+    // subprocess (lane slot vars). Agents that ignore task.env simply
+    // run without them.
+    if (extracted.env) runArgs.env = extracted.env;
     // Φ1-D (KJC-PCS-0057): roles that build their prompt as a
     // stable/volatile layout forward both buckets so cache-aware agents
     // (ClaudeAgent) can ship the stable block as system prompt. Agents

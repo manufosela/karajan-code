@@ -56,6 +56,8 @@ export class CoderRole extends AgentRole {
       // PAR-E2 (KJC-TSK-0629): per-call project root. Worktree lanes pass
       // their lane dir here; the shared role instance keeps its own config.
       projectDir: input?.projectDir || null,
+      // PAR-H (KJC-TSK-0631): per-call subprocess env (lane slot vars).
+      env: input?.env || null,
       onOutput: input?.onOutput || null
     };
   }
