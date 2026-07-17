@@ -55,6 +55,8 @@ describe("preflight-hu — KJC-TSK-0397", () => {
     };
     await prependPreflightHu(plan, root);
     expect(plan.hus[0].id).toBe("PREFLIGHT-000");
+    // KJC-BUG-0108: without it, `kj plan ready` rejects the whole plan
+    expect(plan.hus[0].status).toBe("pending");
     expect(plan.hus[1].id).toBe("HU-A");
     expect(plan.hus[1].blocked_by).toEqual(["PREFLIGHT-000"]);
     expect(plan.hus[2].id).toBe("HU-B");
