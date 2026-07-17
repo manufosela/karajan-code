@@ -88,6 +88,9 @@ export async function prependPreflightHu(plan, projectDir) {
     title: "[PREFLIGHT-000] Verificar entorno de desarrollo listo",
     description: "[PREFLIGHT-000] Block functional HUs until the project's environment is reproducible: deps installed, build/test/lint passing, git tree clean, cloud auth ready when applicable.",
     task_type: "infra",
+    // KJC-BUG-0108: without an explicit status, `kj plan ready` rejects the
+    // whole plan with "invalid status undefined".
+    status: "pending",
     blocked_by: [],
     reuse: [],
     acceptance_tests: composePreflightTests(stack, projectDir),
