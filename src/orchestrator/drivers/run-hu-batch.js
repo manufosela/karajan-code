@@ -55,7 +55,6 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
   }));
 
   // Per-HU pipeline: focused max_iterations, fresh Brain state, own git branch.
-  const originalMaxIterations = ctx.config.max_iterations;
   const huMaxIterations = ctx.config.hu_max_iterations ?? 3;
   const huBranches = new Map();
   const { prepareHuBranch, finalizeHuCommit } = await import("../../git/hu-automation.js");
@@ -84,14 +83,6 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
   const subPipelineResult = await runHuSubPipeline({
     huReviewerResult: ctx.stageResults.huReviewer,
     runIterationFn: async (huTask, story, laneOpts = {}) => {
-      ctx.config.max_iterations = huMaxIterations;
-      if (ctx.brainCtx?.enabled) {
-        ctx.brainCtx.extensionCount = 0;
-        const { createBrainContext } = await import("../brain-coordinator.js");
-        const fresh = createBrainContext({ enabled: true });
-        ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
-        ctx.brainCtx.verificationTracker = fresh.verificationTracker;
-      }
       // Apply per-HU policies based on task_type (infra skips reviewer/sonar/tdd).
       // KJC-TSK-0400: `effectiveTaskType` mira primero story.task_type y, si
       // no es válido, infiere del prefijo del title ([SPIKE], [DOC]…). Así
@@ -103,26 +94,49 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
         logger.info(`HU ${story.id}: task_type inferido del title → ${resolvedTaskType} (era ${story.task_type || "null"})`);
       }
       const huPolicies = applyPolicies({ taskType: resolvedTaskType, policies: ctx.config.policies });
-      const savedFlags = { ...ctx.pipelineFlags };
-      if (!huPolicies.reviewer) ctx.pipelineFlags.reviewerEnabled = false;
-      if (!huPolicies.tdd) ctx.config.development = { ...ctx.config.development, methodology: "standard", require_test_changes: false };
-      if (!huPolicies.sonar) ctx.config.sonarqube = { ...ctx.config.sonarqube, enabled: false };
-      if (!huPolicies.testsRequired) ctx.pipelineFlags.testerEnabled = false;
       logger.info(`HU ${story.id} (${resolvedTaskType}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
 
-      // PAR-E2 (KJC-TSK-0629): a lane handed a worktree aims every git and
-      // filesystem touchpoint at it. `git worktree add -b` already left the
-      // worktree checked out on kj-hu-<id>, so the main-tree checkout is
-      // skipped — concurrent lanes must never move the main working tree.
+      // PAR-E2 PR2 (KJC-TSK-0629): every per-HU adjustment lands on LANE
+      // copies. ctx.config/pipelineFlags/session/brainCtx are shared by all
+      // lanes, so concurrent lanes must never mutate them. This also fixes a
+      // latent leak: max_iterations was mutated on ctx.config and only the
+      // fallback path restored it — the acceptance path returned early and
+      // left it clamped to hu_max_iterations for the rest of the run.
       const worktreePath = laneOpts?.worktreePath || null;
       const projectDir = worktreePath || ctx.config.projectDir || process.cwd();
-      const laneConfig = worktreePath ? { ...ctx.config, projectDir } : ctx.config;
+      const laneConfig = { ...ctx.config, projectDir, max_iterations: huMaxIterations };
+      if (!huPolicies.tdd) laneConfig.development = { ...laneConfig.development, methodology: "standard", require_test_changes: false };
+      if (!huPolicies.sonar) laneConfig.sonarqube = { ...laneConfig.sonarqube, enabled: false };
+      const laneFlags = { ...ctx.pipelineFlags };
+      if (!huPolicies.reviewer) laneFlags.reviewerEnabled = false;
+      if (!huPolicies.testsRequired) laneFlags.testerEnabled = false;
+      // Worktree lanes clone the session so reviewer feedback never leaks
+      // across concurrent HUs. Disk saves still share the session id (last
+      // writer wins) — journal noise at most; in-memory isolation is what
+      // guards correctness.
+      const laneSession = worktreePath ? { ...ctx.session } : ctx.session;
+      let laneBrain = ctx.brainCtx;
+      if (ctx.brainCtx?.enabled) {
+        const { createBrainContext } = await import("../brain-coordinator.js");
+        const fresh = createBrainContext({ enabled: true });
+        if (worktreePath) {
+          laneBrain = { ...ctx.brainCtx, extensionCount: 0, feedbackQueue: fresh.feedbackQueue, verificationTracker: fresh.verificationTracker };
+        } else {
+          ctx.brainCtx.extensionCount = 0;
+          ctx.brainCtx.feedbackQueue = fresh.feedbackQueue;
+          ctx.brainCtx.verificationTracker = fresh.verificationTracker;
+        }
+      }
+      let lanePlannedTask = ctx.plannedTask;
+
+      // A worktree lane skips the main-tree checkout: `git worktree add -b`
+      // already left the worktree checked out on kj-hu-<id>.
       let branchName;
       if (worktreePath) {
         branchName = `kj-hu-${story.id}`;
         huBranches.set(story.id, branchName);
       } else {
-        branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
+        branchName = await prepareHuBranch({ story, huBranches, config: laneConfig, logger });
       }
 
       // KJC-TSK-0408 step 2: snapshot del workspace ANTES de invocar al
@@ -154,11 +168,11 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
         // iterations against an irreparable test (the 2026-04-29 bug).
         const failureTracker = createFailureTracker();
 
-        for (let attempt = 1; attempt <= ctx.config.max_iterations; attempt++) {
-          logger.info(`HU ${story.id}: coder iteration ${attempt}/${ctx.config.max_iterations}`);
+        for (let attempt = 1; attempt <= laneConfig.max_iterations; attempt++) {
+          logger.info(`HU ${story.id}: coder iteration ${attempt}/${laneConfig.max_iterations}`);
           emitProgress(emitter, makeEvent("iteration:start", { ...ctx.eventBase, stage: "iteration" }, {
-            message: `Iteration ${attempt}/${ctx.config.max_iterations}`,
-            detail: { iteration: attempt, maxIterations: ctx.config.max_iterations }
+            message: `Iteration ${attempt}/${laneConfig.max_iterations}`,
+            detail: { iteration: attempt, maxIterations: laneConfig.max_iterations }
           }));
 
           // Coder runs with the HU task + any diagnostic feedback from previous attempt.
@@ -168,8 +182,8 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
           const coderResult = await runCoderStage({
             coderRoleInstance: ctx.coderRoleInstance, coderRole: ctx.coderRole,
             config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
-            session: ctx.session, plannedTask: ctx.plannedTask,
-            trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx,
+            session: laneSession, plannedTask: lanePlannedTask,
+            trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: laneBrain,
             acceptanceTests: story.acceptance_tests,
             // PR F (v2.7.5): plan-aware coder context. ADRs are
             // shared across the plan, the rest are scoped to this
@@ -185,11 +199,11 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
           }
 
           // Sonar quality gate (sw task_type only, when policies say sonar=true)
-          if (huPolicies.sonar && ctx.config.sonarqube?.enabled) {
+          if (huPolicies.sonar && laneConfig.sonarqube?.enabled) {
             try {
               const sonarResult = await runSonarStage({
                 config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
-                session: ctx.session, trackBudget: ctx.trackBudget, iteration: attempt,
+                session: laneSession, trackBudget: ctx.trackBudget, iteration: attempt,
                 // sonarState is required: runSonarStage reads/writes
                 // .issuesInitial / .issuesFinal on it. Forgetting this
                 // surfaces as `Cannot read properties of undefined
@@ -200,11 +214,11 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
                 sonarState: ctx.sonarState,
                 repeatDetector: ctx.repeatDetector,
                 budgetSummary: ctx.budgetSummary,
-                askQuestion, brainCtx: ctx.brainCtx
+                askQuestion, brainCtx: laneBrain
               });
               if (sonarResult?.action === "continue") {
                 // Sonar failed — add to feedback for next coder attempt
-                ctx.plannedTask = `${huTask}\n\n--- SONAR FAILURE ---\n${ctx.session.last_reviewer_feedback}`;
+                lanePlannedTask = `${huTask}\n\n--- SONAR FAILURE ---\n${laneSession.last_reviewer_feedback}`;
                 continue;
               }
             } catch (err) {
@@ -238,7 +252,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             if (pendingGherkinTests.length === 0) {
               logger.info(`HU ${story.id}: all shell acceptance tests PASSED, no Gherkin to translate — approved`);
               await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
-              return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed" };
             }
 
             // Shell tests passed; Gherkin needs translation. Invoke the
@@ -249,7 +263,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             const shellResults = testResult.results.filter((r) => r.type !== "gherkin");
             const testerOutcome = await runTesterStage({
               config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
-              session: ctx.session, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
+              session: laneSession, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
               iteration: attempt, task: huTask, diff: null, askQuestion,
               pendingGherkinTests, shellTestResults: shellResults,
             });
@@ -257,7 +271,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             if (testerOutcome?.action !== "continue" && testerStage?.verdict === "pass") {
               logger.info(`HU ${story.id}: tester translated Gherkin and verdict=pass — approved`);
               await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
-              return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
+              return { approved: true, sessionId: laneSession.id, reason: "acceptance_tests_passed" };
             }
 
             // Tester rejected (translated tests failed or coverage
@@ -271,8 +285,8 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
               "Fix the implementation so every scenario passes. Do NOT soften the scenarios.",
             ].filter(Boolean).join("\n");
             logger.warn(`HU ${story.id}: tester verdict=fail after Gherkin translation — sending back to coder`);
-            setReviewerFeedback(ctx.session, diagnostic);
-            ctx.plannedTask = `${huTask}\n\n--- GHERKIN TRANSLATION FAILURES ---\n${diagnostic}`;
+            setReviewerFeedback(laneSession, diagnostic);
+            lanePlannedTask = `${huTask}\n\n--- GHERKIN TRANSLATION FAILURES ---\n${diagnostic}`;
             continue;
           }
 
@@ -326,7 +340,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
 
           if (repairEscalate) {
             logger.warn(`HU ${story.id}: Repairer escalated — ${repairEscalate}`);
-            return { approved: false, sessionId: ctx.session.id, reason: "repair_escalated" };
+            return { approved: false, sessionId: laneSession.id, reason: "repair_escalated" };
           }
           if (repairedAny) {
             // Tests were rewritten — restart iteration with the fixed
@@ -340,26 +354,24 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
           // No repair happened — normal coder feedback path.
           const diagnostic = buildDiagnosticPrompt(failed);
           logger.warn(`HU ${story.id}: ${failed.length} acceptance test(s) FAILED — sending diagnostic to coder`);
-          setReviewerFeedback(ctx.session, diagnostic);
-          ctx.plannedTask = `${huTask}\n\n--- ACCEPTANCE TEST FAILURES ---\n${diagnostic}`;
+          setReviewerFeedback(laneSession, diagnostic);
+          lanePlannedTask = `${huTask}\n\n--- ACCEPTANCE TEST FAILURES ---\n${diagnostic}`;
         }
 
         // All iterations exhausted
         logger.warn(`HU ${story.id}: max iterations reached with acceptance tests still failing`);
-        return { approved: false, sessionId: ctx.session.id, reason: "acceptance_tests_failed" };
+        return { approved: false, sessionId: laneSession.id, reason: "acceptance_tests_failed" };
       }
 
-      // Fallback: no acceptance_tests → standard pipeline (reviewer/tester)
-      try {
-        const result = await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
-        if (result?.approved) {
-          await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
-        }
-        return result;
-      } finally {
-        ctx.config.max_iterations = originalMaxIterations;
-        Object.assign(ctx.pipelineFlags, savedFlags);
+      // Fallback: no acceptance_tests → standard pipeline (reviewer/tester).
+      // The loop reads everything through ctx.* — handing it a lane view
+      // keeps the shared ctx untouched (no more mutate-and-restore dance).
+      const laneCtx = { ...ctx, config: laneConfig, pipelineFlags: laneFlags, session: laneSession, brainCtx: laneBrain, plannedTask: lanePlannedTask };
+      const result = await runIterationLoop(laneCtx, { task: huTask, askQuestion, emitter, logger });
+      if (result?.approved) {
+        await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
       }
+      return result;
     },
     emitter,
     eventBase: ctx.eventBase,
