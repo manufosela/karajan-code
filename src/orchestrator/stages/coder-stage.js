@@ -68,6 +68,9 @@ export async function runCoderStage({ coderRoleInstance, coderRole, config, logg
       // the plan, the rest are scoped to this HU. All four pass through
       // untouched when the caller omits them (legacy single-task runs).
       adrs, specSection, reviewerFindings, huId,
+      // PAR-E2 (KJC-TSK-0629): the stage's config wins over the role's own —
+      // worktree lanes pass a laneConfig whose projectDir is the worktree.
+      projectDir: config?.projectDir || null,
       onOutput: coderStall.onOutput,
       // Lets Brain Recovery persist a standby snapshot if the coder's
       // provider hits a quota cap mid-run (KJC hibernation wiring).

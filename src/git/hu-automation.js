@@ -113,11 +113,11 @@ export async function prepareHuBranch({ story, huBranches, config, logger }) {
  * @param {object} params.logger
  * @returns {Promise<{committed: boolean, pushed: boolean, prUrl: string|null}>}
  */
-export async function finalizeHuCommit({ story, branchName, config, logger }) {
+export async function finalizeHuCommit({ story, branchName, config, logger, cwd = null }) {
   const result = { committed: false, pushed: false, prUrl: null };
   if (!branchName) return result;
 
-  const changed = await hasChanges();
+  const changed = await hasChanges(cwd);
   if (!changed) {
     logger.info(`HU ${story.id}: no changes to commit`);
     return result;
@@ -126,7 +126,7 @@ export async function finalizeHuCommit({ story, branchName, config, logger }) {
   const title = story.title || story.id;
   const commitMsg = `feat(${story.id}): ${title}`;
   if (config.git?.auto_commit) {
-    const commitRes = await commitAll(commitMsg);
+    const commitRes = await commitAll(commitMsg, cwd);
     if (commitRes) {
       result.committed = true;
       logger.info(`HU ${story.id}: committed on '${branchName}'`);
@@ -135,7 +135,7 @@ export async function finalizeHuCommit({ story, branchName, config, logger }) {
 
   if (config.git?.auto_push && result.committed) {
     try {
-      await pushBranch(branchName);
+      await pushBranch(branchName, cwd);
       result.pushed = true;
       logger.info(`HU ${story.id}: pushed '${branchName}'`);
     } catch (err) {
@@ -157,7 +157,8 @@ export async function finalizeHuCommit({ story, branchName, config, logger }) {
         baseBranch: config.base_branch || "main",
         branch: branchName,
         title: commitMsg,
-        body: prBody
+        body: prBody,
+        cwd
       });
       result.prUrl = url;
       logger.info(`HU ${story.id}: PR created ${url}`);

@@ -167,8 +167,8 @@ export function buildBranchName(prefix, task) {
   return `${prefix}${slugifyTask(task) || "task"}-${stamp}`;
 }
 
-export async function hasChanges() {
-  const status = await runGit(["status", "--porcelain"]);
+export async function hasChanges(cwd = null) {
+  const status = await runGit(["status", "--porcelain"], cwd ? { cwd } : {});
   return status.length > 0;
 }
 
@@ -229,12 +229,13 @@ function isNothingToCommit(message) {
   return NOTHING_TO_COMMIT_PATTERNS.some((re) => re.test(m));
 }
 
-export async function commitAll(message) {
-  await runGit(["add", "-A"]);
-  const changed = await hasChanges();
+export async function commitAll(message, cwd = null) {
+  const opts = cwd ? { cwd } : {};
+  await runGit(["add", "-A"], opts);
+  const changed = await hasChanges(cwd);
   if (!changed) return { committed: false };
   try {
-    await runGit(["commit", "-m", message]);
+    await runGit(["commit", "-m", message], opts);
   } catch (err) {
     // `git status --porcelain` and `git commit` disagreed about whether
     // there was anything to commit. Don't escalate — the only outcome
@@ -245,18 +246,18 @@ export async function commitAll(message) {
     }
     throw err;
   }
-  const raw = await runGit(["log", "-1", "--pretty=format:%H%x1f%s"]);
+  const raw = await runGit(["log", "-1", "--pretty=format:%H%x1f%s"], opts);
   const [hash, commitMessage] = raw.split("\x1f");
   return { committed: true, commit: { hash, message: commitMessage } };
 }
 
-export async function pushBranch(branch) {
-  await runGit(["push", "-u", "origin", branch]);
+export async function pushBranch(branch, cwd = null) {
+  await runGit(["push", "-u", "origin", branch], cwd ? { cwd } : {});
 }
 
-export async function createPullRequest({ baseBranch, branch, title, body }) {
+export async function createPullRequest({ baseBranch, branch, title, body, cwd = null }) {
   const args = ["pr", "create", "--base", baseBranch, "--head", branch, "--title", title, "--body", body];
-  const res = await runCommand("gh", args);
+  const res = await runCommand("gh", args, cwd ? { cwd } : {});
   if (res.exitCode !== 0) {
     throw new Error(`gh ${args.join(" ")} failed: ${res.stderr || res.stdout}`);
   }

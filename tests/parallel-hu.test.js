@@ -319,6 +319,11 @@ describe("parallel HU execution in sub-pipeline", () => {
     const parallelEvents = events.filter(e => e.type === "hu:parallel-start");
     expect(parallelEvents).toHaveLength(2);
     expect(parallelEvents.every(e => e.detail.parallel === false)).toBe(true);
+
+    // PAR-E2: sequential lanes carry no worktree — main-tree behavior intact
+    for (const call of runIterationFn.mock.calls) {
+      expect(call[2]).toEqual({ worktreePath: null });
+    }
   });
 
   it("emits hu:parallel-start with batch info when parallelism is opted in and scopes are disjoint", async () => {
@@ -342,6 +347,14 @@ describe("parallel HU execution in sub-pipeline", () => {
     expect(parallelEvents).toHaveLength(1);
     expect(parallelEvents[0].detail.batchIds).toEqual(expect.arrayContaining(["HU-001", "HU-002"]));
     expect(parallelEvents[0].detail.parallel).toBe(true);
+
+    // PAR-E2: each parallel lane receives ITS worktree path so the whole
+    // iteration (coder, git, acceptance tests) runs inside it
+    const lanePaths = runIterationFn.mock.calls.map(call => call[2]?.worktreePath).sort();
+    expect(lanePaths).toEqual([
+      "/project/.kj/worktrees/HU-001",
+      "/project/.kj/worktrees/HU-002"
+    ]);
   });
 
   it("diamond dependency produces correct parallel batches", async () => {
