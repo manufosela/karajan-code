@@ -184,7 +184,8 @@ describe("utils/git", () => {
       expect(url).toBe("https://github.com/repo/pull/1");
       expect(runCommand).toHaveBeenCalledWith(
         "gh",
-        ["pr", "create", "--base", "main", "--head", "feat/test", "--title", "Test PR", "--body", "Description"]
+        ["pr", "create", "--base", "main", "--head", "feat/test", "--title", "Test PR", "--body", "Description"],
+        {}
       );
     });
 

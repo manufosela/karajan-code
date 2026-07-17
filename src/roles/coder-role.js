@@ -31,6 +31,7 @@ export class CoderRole extends AgentRole {
         reviewerFeedback: null, sonarSummary: null, deferredContext: null,
         acceptanceTests: null,
         adrs: null, specSection: null, reviewerFindings: null, huId: null,
+        projectDir: null,
         onOutput: null
       };
     }
@@ -52,12 +53,15 @@ export class CoderRole extends AgentRole {
       specSection: input?.specSection || null,
       reviewerFindings: input?.reviewerFindings || null,
       huId: input?.huId || null,
+      // PAR-E2 (KJC-TSK-0629): per-call project root. Worktree lanes pass
+      // their lane dir here; the shared role instance keeps its own config.
+      projectDir: input?.projectDir || null,
       onOutput: input?.onOutput || null
     };
   }
 
-  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests, adrs, specSection, reviewerFindings, huId }) {
-    const projectDir = this.config?.projectDir || null;
+  async buildPrompt({ task, reviewerFeedback, sonarSummary, deferredContext, acceptanceTests, adrs, specSection, reviewerFindings, huId, projectDir: laneProjectDir }) {
+    const projectDir = laneProjectDir || this.config?.projectDir || null;
     // KJC sesgo-de-stack: pasar stack/testFramework al prompt para que
     // el coder no asuma JS/vitest en proyectos Python / Go / Rust /
     // Ruby. audit-role.js y tester-role.js ya lo hacen así.

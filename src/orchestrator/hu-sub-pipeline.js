@@ -285,7 +285,9 @@ async function runSingleHu({ storyId, batch, batchSessionId, runIterationFn, emi
   }));
 
   try {
-    const iterResult = await runIterationFn(huTask, story);
+    // PAR-E2 (KJC-TSK-0629): lanes handed a worktree must aim every git and
+    // filesystem touchpoint at it — laneOpts carries that path to the runner.
+    const iterResult = await runIterationFn(huTask, story, { worktreePath: worktreePath || null });
     const approved = Boolean(iterResult?.approved);
 
     // --- Transition to reviewing (post-coder, pre-reviewer evaluation) ---

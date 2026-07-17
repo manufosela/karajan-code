@@ -83,7 +83,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
 
   const subPipelineResult = await runHuSubPipeline({
     huReviewerResult: ctx.stageResults.huReviewer,
-    runIterationFn: async (huTask, story) => {
+    runIterationFn: async (huTask, story, laneOpts = {}) => {
       ctx.config.max_iterations = huMaxIterations;
       if (ctx.brainCtx?.enabled) {
         ctx.brainCtx.extensionCount = 0;
@@ -110,8 +110,20 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       if (!huPolicies.testsRequired) ctx.pipelineFlags.testerEnabled = false;
       logger.info(`HU ${story.id} (${resolvedTaskType}): policies → reviewer=${huPolicies.reviewer}, tdd=${huPolicies.tdd}, sonar=${huPolicies.sonar}, tests=${huPolicies.testsRequired}`);
 
-      const branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
-      const projectDir = ctx.config.projectDir || process.cwd();
+      // PAR-E2 (KJC-TSK-0629): a lane handed a worktree aims every git and
+      // filesystem touchpoint at it. `git worktree add -b` already left the
+      // worktree checked out on kj-hu-<id>, so the main-tree checkout is
+      // skipped — concurrent lanes must never move the main working tree.
+      const worktreePath = laneOpts?.worktreePath || null;
+      const projectDir = worktreePath || ctx.config.projectDir || process.cwd();
+      const laneConfig = worktreePath ? { ...ctx.config, projectDir } : ctx.config;
+      let branchName;
+      if (worktreePath) {
+        branchName = `kj-hu-${story.id}`;
+        huBranches.set(story.id, branchName);
+      } else {
+        branchName = await prepareHuBranch({ story, huBranches, config: ctx.config, logger });
+      }
 
       // KJC-TSK-0408 step 2: snapshot del workspace ANTES de invocar al
       // coder. Si el usuario hace Undo después, restaura este SHA. El
@@ -155,7 +167,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
           // not only after the first failed run.
           const coderResult = await runCoderStage({
             coderRoleInstance: ctx.coderRoleInstance, coderRole: ctx.coderRole,
-            config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+            config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
             session: ctx.session, plannedTask: ctx.plannedTask,
             trackBudget: ctx.trackBudget, iteration: attempt, brainCtx: ctx.brainCtx,
             acceptanceTests: story.acceptance_tests,
@@ -176,7 +188,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
           if (huPolicies.sonar && ctx.config.sonarqube?.enabled) {
             try {
               const sonarResult = await runSonarStage({
-                config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+                config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
                 session: ctx.session, trackBudget: ctx.trackBudget, iteration: attempt,
                 // sonarState is required: runSonarStage reads/writes
                 // .issuesInitial / .issuesFinal on it. Forgetting this
@@ -225,7 +237,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             );
             if (pendingGherkinTests.length === 0) {
               logger.info(`HU ${story.id}: all shell acceptance tests PASSED, no Gherkin to translate — approved`);
-              await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+              await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
               return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
             }
 
@@ -236,7 +248,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             const { runTesterStage } = await import("../post-loop-stages.js");
             const shellResults = testResult.results.filter((r) => r.type !== "gherkin");
             const testerOutcome = await runTesterStage({
-              config: ctx.config, logger, emitter, eventBase: ctx.eventBase,
+              config: laneConfig, logger, emitter, eventBase: ctx.eventBase,
               session: ctx.session, coderRole: ctx.coderRole, trackBudget: ctx.trackBudget,
               iteration: attempt, task: huTask, diff: null, askQuestion,
               pendingGherkinTests, shellTestResults: shellResults,
@@ -244,7 +256,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             const testerStage = testerOutcome?.stageResult;
             if (testerOutcome?.action !== "continue" && testerStage?.verdict === "pass") {
               logger.info(`HU ${story.id}: tester translated Gherkin and verdict=pass — approved`);
-              await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+              await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
               return { approved: true, sessionId: ctx.session.id, reason: "acceptance_tests_passed" };
             }
 
@@ -341,7 +353,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       try {
         const result = await runIterationLoop(ctx, { task: huTask, askQuestion, emitter, logger });
         if (result?.approved) {
-          await finalizeHuCommit({ story, branchName, config: ctx.config, logger });
+          await finalizeHuCommit({ story, branchName, config: laneConfig, logger, cwd: worktreePath });
         }
         return result;
       } finally {
