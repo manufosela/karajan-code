@@ -432,8 +432,10 @@ export async function runTddCheckStage({ config, logger, emitter, eventBase, ses
   logger.setContext({ iteration, stage: "tdd" });
   let tddDiff, untrackedFiles;
   try {
-    tddDiff = await generateDiff({ baseRef: session.session_start_sha });
-    untrackedFiles = await getUntrackedFiles();
+    // PAR-E2 (KJC-TSK-0629): diff where the coder actually worked — a
+    // worktree lane's changes are invisible from the main tree.
+    tddDiff = await generateDiff({ baseRef: session.session_start_sha, projectDir: config?.projectDir || null });
+    untrackedFiles = await getUntrackedFiles(config?.projectDir || null);
   } catch (err) {
     logger.warn(`TDD diff generation failed: ${err.message}`);
     return { action: "continue", stageResult: { ok: false, summary: `TDD check failed: ${err.message}` } };

@@ -28,7 +28,7 @@ export async function runGuardStages({ config, logger, emitter, eventBase, sessi
   let diff;
   try {
     const baseRef = await computeBaseRef({ baseBranch });
-    diff = await generateDiff({ baseRef });
+    diff = await generateDiff({ baseRef, projectDir: config?.projectDir || null });
   } catch {
     logger.warn("Guards: could not generate diff, skipping");
     return { action: "ok" };

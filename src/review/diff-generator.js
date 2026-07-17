@@ -105,8 +105,8 @@ export async function generateDiff({ baseRef, stageNewFiles = false, projectDir 
   return generateSnapshotDiff(emptySnapshot, null, dir);
 }
 
-export async function getUntrackedFiles() {
-  const result = await run("git", ["ls-files", "--others", "--exclude-standard"]);
+export async function getUntrackedFiles(cwd = null) {
+  const result = await run("git", ["ls-files", "--others", "--exclude-standard"], cwd ? { cwd } : {});
   if (result.exitCode !== 0) return [];
   return result.stdout.trim().split("\n").filter(Boolean);
 }
