@@ -70,7 +70,11 @@ export async function runSpecReview({ spec, config, logger, askQuestion, flags =
       if (!askQuestion) return { proceed: true, severity, findings, finalSpec: currentSpec };
       const answer = await askQuestion(
         `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: continue)`,
-        { detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1 } },
+        {
+          detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1 },
+          // KJC-BUG-0109: mirrors the interactive default — --yes presses Enter.
+          defaultAnswer: "continue",
+        },
       );
       if (answer === null) return { proceed: false, cancelled: true, severity, findings };
       const n = String(answer).trim().toLowerCase();

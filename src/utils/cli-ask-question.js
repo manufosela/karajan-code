@@ -30,6 +30,15 @@ export function createCliAskQuestion(opts = {}) {
     const isInteractive = Boolean(process.stdin?.isTTY) && stdinReadable;
     if (!isInteractive) {
       if (flags?.yes) {
+        // KJC-BUG-0109: a question that declares a safe default is answered
+        // with it — --yes means "press Enter for me", not "abort on any
+        // gate". Questions without a declared default keep failing loud.
+        const fallback = typeof context?.defaultAnswer === "string" && context.defaultAnswer.trim()
+          ? context.defaultAnswer.trim() : null;
+        if (fallback) {
+          process.stderr.write(`\n[non-interactive --yes] Auto-answering with declared default "${fallback}": ${question}\n`);
+          return fallback;
+        }
         process.stderr.write(
           `\n[non-interactive --yes] Pipeline asked a question that cannot be auto-answered:\n`
           + `  ❓ ${question}\n`
