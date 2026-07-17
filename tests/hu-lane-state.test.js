@@ -15,7 +15,7 @@ vi.mock("../src/orchestrator/hu-sub-pipeline.js", () => ({
       id: "HU-1", task_type: "sw", status: "certified",
       certified: { title: "T" }, acceptance_tests: ["test -f x"]
     };
-    const res = await runIterationFn("do x", story, { worktreePath: "/proj/.kj/worktrees/HU-1" });
+    const res = await runIterationFn("do x", story, { worktreePath: "/proj/.kj/worktrees/HU-1", laneSlot: 3 });
     return { approved: res.approved, results: [res], blockedIds: [] };
   })
 }));
@@ -85,6 +85,8 @@ describe("HU lane state isolation (PAR-E2 PR2)", () => {
     expect(coderArgs.config.projectDir).toBe("/proj/.kj/worktrees/HU-1");
     expect(coderArgs.config.max_iterations).toBe(3);
     expect(coderArgs.config.sonarqube.enabled).toBe(false);
+    // PAR-H: the lane's slot travels to the coder as env vars
+    expect(coderArgs.config.lane_env).toEqual({ KJ_LANE_SLOT: "3", KJ_PORT_OFFSET: "300" });
     expect(coderArgs.session).not.toBe(ctx.session);
     expect(coderArgs.session.id).toBe("s_1");
 

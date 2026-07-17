@@ -12,11 +12,15 @@ import { runCommand } from "../utils/process.js";
  * @param {number} [timeoutMs=30000] - Timeout per test
  * @returns {Promise<{cmd: string, passed: boolean, output: string, exitCode: number}>}
  */
-async function runSingleTest(cmd, cwd, timeoutMs = 30000) {
+async function runSingleTest(cmd, cwd, timeoutMs = 30000, env = null) {
   try {
     const result = await runCommand("bash", ["-c", cmd], {
       timeout: timeoutMs,
-      cwd
+      cwd,
+      // PAR-H (KJC-TSK-0631): lane env (KJ_LANE_SLOT / KJ_PORT_OFFSET) so
+      // tests that start services can offset their ports. execa merges
+      // this on top of process.env.
+      ...(env ? { env } : {})
     });
     const output = (result.stdout || "") + (result.stderr || "");
     return {
@@ -51,7 +55,7 @@ async function runSingleTest(cmd, cwd, timeoutMs = 30000) {
  * @param {string} cwd - Working directory
  * @returns {Promise<{allPassed: boolean, results: object[], summary: string, diagnostics: string|null, pending: number}>}
  */
-export async function runAcceptanceTests(tests, cwd) {
+export async function runAcceptanceTests(tests, cwd, { env = null } = {}) {
   if (!tests || tests.length === 0) {
     return { allPassed: false, results: [], summary: "No acceptance tests defined", diagnostics: null, pending: 0 };
   }
@@ -86,7 +90,7 @@ export async function runAcceptanceTests(tests, cwd) {
       });
       continue;
     }
-    const result = await runSingleTest(cmd, cwd);
+    const result = await runSingleTest(cmd, cwd, 30000, env);
     results.push({ ...result, type: "shell" });
   }
 

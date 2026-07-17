@@ -57,6 +57,30 @@ The launch gate (`parallel-limiter.js`) enforces:
 - **Semaphore**: at most `max_parallel_hus` lanes hold a slot at once.
 - **Cooldown**: provider rate-limit signals pause new launches monotonically.
 
+## Services per lane (ports, docker)
+
+Each parallel lane gets a stable numeric slot (KJC-TSK-0631, registry at
+`~/.karajan/worktree-slots.json`, released when the lane finishes). The
+coder subprocess and the acceptance tests receive:
+
+- `KJ_LANE_SLOT` — the lane's slot number (0, 1, …)
+- `KJ_PORT_OFFSET` — `slot × 100`; apply it over your project's base port
+  (e.g. `PORT=$((3000 + KJ_PORT_OFFSET))`)
+
+Gotchas when your tests start real services (credit: Jorge del Casar's
+worktree-docker-envs skill):
+
+- **Dev-server client port**: Vite/webpack HMR announces the container's
+  INTERNAL port to the browser. Pass the offset host port explicitly as an
+  `environment:` variable and use it to override the dev server's client
+  port — variables used only in `ports:` interpolation never reach the
+  process inside the container.
+- **Docker namespacing**: `docker compose -p "lane-$KJ_LANE_SLOT"` already
+  namespaces containers/networks/volumes — no per-service renaming needed.
+- **One-shot jobs vs `--wait`**: `docker compose up --wait` treats
+  successfully-exited one-shot jobs (migrations, seeders) as failures.
+  Use `up -d` plus polling the main service's healthcheck instead.
+
 ## Known limits
 
 - `session` disk saves share one session id across lanes (last writer wins);

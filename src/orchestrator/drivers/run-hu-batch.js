@@ -104,7 +104,13 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
       // left it clamped to hu_max_iterations for the rest of the run.
       const worktreePath = laneOpts?.worktreePath || null;
       const projectDir = worktreePath || ctx.config.projectDir || process.cwd();
-      const laneConfig = { ...ctx.config, projectDir, max_iterations: huMaxIterations };
+      // PAR-H (KJC-TSK-0631): the lane's slot travels as env vars so any
+      // service the coder or the acceptance tests start can offset its
+      // ports (offset = slot × 100; the project applies its own base).
+      const laneEnv = Number.isInteger(laneOpts?.laneSlot)
+        ? { KJ_LANE_SLOT: String(laneOpts.laneSlot), KJ_PORT_OFFSET: String(laneOpts.laneSlot * 100) }
+        : null;
+      const laneConfig = { ...ctx.config, projectDir, max_iterations: huMaxIterations, lane_env: laneEnv };
       if (!huPolicies.tdd) laneConfig.development = { ...laneConfig.development, methodology: "standard", require_test_changes: false };
       if (!huPolicies.sonar) laneConfig.sonarqube = { ...laneConfig.sonarqube, enabled: false };
       const laneFlags = { ...ctx.pipelineFlags };
@@ -233,7 +239,7 @@ export async function runHuBatch({ ctx, task, askQuestion, emitter, logger }) {
             detail: { huId: story.id, testCount: story.acceptance_tests.length }
           }));
 
-          const testResult = await runAcceptanceTests(story.acceptance_tests, projectDir);
+          const testResult = await runAcceptanceTests(story.acceptance_tests, projectDir, { env: laneEnv });
           emitProgress(emitter, makeEvent("hu:acceptance-end", { ...ctx.eventBase, stage: "acceptance" }, {
             status: testResult.allPassed ? "ok" : "fail",
             message: testResult.summary,

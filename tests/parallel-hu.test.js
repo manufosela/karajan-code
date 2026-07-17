@@ -320,9 +320,10 @@ describe("parallel HU execution in sub-pipeline", () => {
     expect(parallelEvents).toHaveLength(2);
     expect(parallelEvents.every(e => e.detail.parallel === false)).toBe(true);
 
-    // PAR-E2: sequential lanes carry no worktree — main-tree behavior intact
+    // PAR-E2/PAR-H: sequential lanes carry no worktree and no slot —
+    // main-tree behavior intact
     for (const call of runIterationFn.mock.calls) {
-      expect(call[2]).toEqual({ worktreePath: null });
+      expect(call[2]).toEqual({ worktreePath: null, laneSlot: null });
     }
   });
 
@@ -355,6 +356,10 @@ describe("parallel HU execution in sub-pipeline", () => {
       "/project/.kj/worktrees/HU-001",
       "/project/.kj/worktrees/HU-002"
     ]);
+
+    // PAR-H: each lane gets a distinct numeric slot for port offsets
+    const laneSlots = runIterationFn.mock.calls.map(call => call[2]?.laneSlot).sort();
+    expect(laneSlots).toEqual([0, 1]);
   });
 
   it("diamond dependency produces correct parallel batches", async () => {
