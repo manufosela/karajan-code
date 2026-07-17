@@ -182,6 +182,10 @@ const DEFAULTS = {
     // Concurrent HU lanes per plan run (KJC-TSK-0626). 1 = sequential.
     // Raising it multiplies token burn rate — the plan budget scales with it.
     max_parallel_hus: 1,
+    // Command run inside each fresh lane worktree before the coder starts
+    // (KJC-TSK-0630). null = auto-detect: `npm ci` when package-lock.json
+    // exists, nothing otherwise. Submodules are always initialized first.
+    worktree_setup: null,
     max_iteration_minutes: 30,
     max_total_minutes: 120,
     max_planner_minutes: 60,

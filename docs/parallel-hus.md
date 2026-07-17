@@ -33,6 +33,19 @@ is strictly opt-in.
    `kj-hu-<id>` into the main tree's branch, remove worktree, delete branch).
    Failed lanes get their worktree removed without merging.
 
+## Lane bootstrap
+
+A fresh worktree is a clean checkout — no `node_modules`, no initialized
+submodules. Before the coder starts, each lane runs (KJC-TSK-0630):
+
+1. `git submodule update --init --recursive` when `.gitmodules` exists.
+2. `session.worktree_setup` if configured (any shell command, cwd = the
+   worktree); otherwise `npm ci` when `package-lock.json` exists.
+
+Bootstrap is best-effort: failures warn and the lane continues — the
+acceptance tests deliver the real verdict. Each lane keeps its own
+`node_modules` (that IS the isolation; disk is the price).
+
 ## Budget governance
 
 The launch gate (`parallel-limiter.js`) enforces:
