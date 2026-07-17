@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.1] - 2026-07-17
+
+Patch. **`--parallel` now actually parallelizes — inside real worktree lanes.** The 3.14.0 flag silently degraded to sequential, and lanes shared the main working tree. Everything here came out of a real end-to-end run of the feature (live coder, 4-HU plan, `--parallel 2`).
+
+### Fixed
+
+- **`--parallel N` no longer degrades to sequential silently** (KJC-BUG-0110): `planToHuBatch` dropped the plan's `scope` field during conversion, so the scheduler — which conservatively treats scopeless HUs as exclusive — never paired anything. Scope now survives into the batch (and through the plan-edit reconcile). Verified e2e: a 3-HU batch pairs disjoint-scope HUs into a real parallel chunk.
+- **Worktree lanes are now truly isolated** (KJC-TSK-0629, PRs #1196-#1198): the coder prompt, pre-coder snapshot, acceptance tests, TDD/review diffs, sonar and the final commit/push all run INSIDE the lane's worktree on branch `kj-hu-<id>` — concurrent lanes never move the main working tree. Per-lane copies of config, pipeline flags, session and Brain state stop policies and reviewer feedback leaking across lanes. Also fixes a latent leak where `max_iterations` stayed clamped to `hu_max_iterations` after any acceptance-tested HU.
+- **`kj plan ready` no longer rejects every generated plan** (KJC-BUG-0108): the auto-injected `[PREFLIGHT-000]` HU shipped without a `status` field and plan validation failed with "invalid status undefined".
+- **`--yes` answers questions that declare a safe default** (KJC-BUG-0109): unattended runs stopped cold on the spec-review gate even at info severity with "(default: continue)" on screen. Callers can now declare `defaultAnswer`; `--yes` presses Enter for you and logs it. Questions without a declared default still stop loudly.
+
 ## [3.14.0] - 2026-07-17
 
 Minor. **Step mode and governed parallelism.** You can now supervise the orchestra iteration by iteration — and parallel HU execution, which previously ran unbounded, is capped, budgeted and opt-in.
