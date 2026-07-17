@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.14.0 — modo paso a paso y paralelismo gobernado (actual)
+### v3.14.1 — los carriles paralelos funcionan de punta a punta (actual)
+
+Patch. **`--parallel` ahora paraleliza de verdad — dentro de carriles worktree reales.** El flag de la 3.14.0 degradaba a secuencial en silencio (la conversión plan→batch perdía el campo `scope` con el que el scheduler empareja), y los carriles compartían el árbol de trabajo principal. Ahora el coder, los tests de aceptación, los diffs, sonar y el commit final corren DENTRO del worktree de cada carril en su propia rama, con config y estado de sesión por carril — verificado con una ejecución real de punta a punta: dos HUs programando concurrentemente en sus worktrees mientras el árbol principal queda aparcado. También arreglado: `kj plan ready` rechazaba todos los planes generados (el HU preflight auto-inyectado salía sin status), y los runs desatendidos con `--yes` se paraban en seco ante preguntas que declaran un default seguro. Actualización directa desde v3.14.0.
+
+### v3.14.0 — modo paso a paso y paralelismo gobernado
 
 Minor. Dos formas nuevas de dirigir la orquesta. **`kj run --step`** para tras cada iteración con un informe compacto — qué pasó, los must-fix del reviewer, qué hará la siguiente iteración, gasto vs techo — y pregunta: continuar, parar, o **escribir instrucciones** que el coder lee en la siguiente iteración. Y **`kj run --parallel <n>`** ejecuta las HUs de un plan concurrentemente, cada una en su git worktree, planificadas sobre el grafo de dependencias con aislamiento conservador por scope y techo de presupuesto por plan. La ejecución paralela — que antes corría sin límite — ahora vale 1 por defecto (totalmente secuencial) y es estrictamente opt-in. Actualización directa desde v3.13.1.
 
@@ -263,8 +267,3 @@ Minor. Un repo que formatea y lintea con **Biome** ya no recibe el eslint + pret
 ### v3.12.3 — el binario standalone lleva sus plantillas y `kj update` actualiza el kj que ejecutas
 
 Patch. Tres arreglos reportados desde el terreno. El **binario standalone ya lleva sus plantillas integradas** como assets embebidos — `kj init` instala skills y prompts de roles en una máquina nueva en vez de avisar `ENOENT`. **`kj update` distingue el canal de instalación**: en instalaciones de binario re-ejecuta el instalador en vez de instalar por npm una copia que tu PATH nunca resuelve, y en todos los canales verifica que el `kj` que realmente ejecutas reporta la versión nueva — fallando en alto y señalando la copia que hace sombra cuando no es así. Y la **receta de instalación de osv-scanner** apunta al subpaquete `cmd/` real, así que `kj install-tools` vuelve a poder instalarlo. Actualización directa desde v3.12.2.
-
-### v3.12.2 — instalación global nueva arreglada
-
-Patch. `npm install -g karajan-code` vuelve a funcionar en máquinas nuevas. Desde que se introdujo el empaquetado interno, toda instalación global nueva fallaba: npm anida las dependencias bajo el paquete y la semántica de bundle marcaba ese subárbol como "ya incluido", así que `better-sqlite3` y compañía quedaban como directorios vacíos y la instalación reventaba — mientras las instalaciones locales, las actualizaciones y todos los gates de CI seguían en verde. El módulo core interno ahora se publica en npm como `karajan-core` y se resuelve desde el registry; el gate pre-publicación gana una prueba de instalación global para que esta clase de rotura no vuelva a salir. Actualización directa desde v3.12.1.
-

@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.14.0 — step mode and governed parallelism (current)
+### v3.14.1 — parallel lanes work end to end (current)
+
+Patch. **`--parallel` now actually parallelizes — inside real worktree lanes.** The 3.14.0 flag silently degraded to sequential (the plan→batch conversion dropped the `scope` field the scheduler pairs by), and lanes shared the main working tree. Now the coder, acceptance tests, diffs, sonar and the final commit all run INSIDE each lane's worktree on its own branch, with per-lane config and session state — verified with a live end-to-end run: two HUs coding concurrently in their worktrees while the main tree stays parked. Also fixed: `kj plan ready` rejected every generated plan (the auto-injected preflight HU shipped without a status), and unattended `--yes` runs stopped cold on questions that declare a safe default. Drop-in upgrade from v3.14.0.
+
+### v3.14.0 — step mode and governed parallelism
 
 Minor. Two new ways to run the orchestra. **`kj run --step`** pauses after every iteration with a compact report — what happened, the reviewer's must-fix list, what the next iteration will do, spend vs cap — and asks: continue, stop, or **type instructions** that the coder reads next iteration. And **`kj run --parallel <n>`** runs a plan's HUs concurrently, each in its own git worktree, scheduled over the dependency graph with conservative scope isolation and a plan-level budget ceiling. Parallel execution — which previously ran unbounded — now defaults to 1 (fully sequential) and is strictly opt-in. Drop-in upgrade from v3.13.1.
 
@@ -263,8 +267,3 @@ Minor. A repo that formats and lints with **Biome** no longer gets kj's eslint +
 ### v3.12.3 — the standalone binary carries its templates, `kj update` updates the kj you run
 
 Patch. Three field-reported fixes. The **standalone binary now ships its built-in templates** as embedded assets — `kj init` installs skills and role prompts on a fresh machine instead of warning `ENOENT`. **`kj update` is channel-aware**: on binary installs it re-runs the installer instead of npm-installing a copy your PATH never resolves, and on every channel it now verifies that the `kj` you actually run reports the new version — failing loudly and naming the shadowing copy when it doesn't. And the **osv-scanner go install recipe** points at the real `cmd/` subpackage, so `kj install-tools` can install it again. Drop-in upgrade from v3.12.2.
-
-### v3.12.2 — fresh global install fixed
-
-Patch. `npm install -g karajan-code` works again on fresh machines. Since bundling was introduced, a fresh global install failed everywhere: npm nests all deps under the package and bundle semantics marked that subtree as already-shipped, so `better-sqlite3` & friends landed as empty directories and the install crashed — while local installs, upgrades and every CI gate stayed green. The internal core module is now published to npm as `karajan-core` and resolved from the registry; the pre-publish gate gains a global-install smoke so this class of breakage can't ship again. Drop-in upgrade from v3.12.1.
-
