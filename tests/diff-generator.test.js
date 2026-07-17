@@ -74,7 +74,7 @@ describe("getUntrackedFiles", () => {
 
     const files = await getUntrackedFiles();
 
-    expect(runCommand).toHaveBeenCalledWith("git", ["ls-files", "--others", "--exclude-standard"]);
+    expect(runCommand).toHaveBeenCalledWith("git", ["ls-files", "--others", "--exclude-standard"], {});
     expect(files).toEqual([
       "src/guards/policy-resolver.js",
       "tests/guards/policy-resolver.test.js"

@@ -194,14 +194,14 @@ async function handleReviewerRejection({ review, repeatDetector, config, logger,
   });
 }
 
-export async function fetchReviewDiff(session, logger) {
+export async function fetchReviewDiff(session, logger, projectDir = null) {
   let diff;
   if (session.ci_pr_number) {
     const { getPrDiff } = await import("../../ci/pr-diff.js");
     diff = await getPrDiff(session.ci_pr_number);
     logger.info(`Reviewer reading PR diff #${session.ci_pr_number}`);
   } else {
-    diff = await generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true });
+    diff = await generateDiff({ baseRef: session.session_start_sha, stageNewFiles: true, projectDir });
   }
   // Inbound boundary: mask hardcoded secrets before the diff reaches the
   // (possibly cloud) reviewer model. Runs BEFORE the injection guard below so
@@ -221,7 +221,7 @@ export async function runReviewerStage({ reviewerRole, config, logger, emitter, 
 
   let diff;
   try {
-    diff = await fetchReviewDiff(session, logger);
+    diff = await fetchReviewDiff(session, logger, config?.projectDir || null);
   } catch (err) {
     logger.warn(`Review diff generation failed: ${err.message}`);
     return { approved: false, blocking_issues: [{ description: `Diff generation failed: ${err.message}` }], non_blocking_suggestions: [], summary: `Reviewer failed: cannot generate diff — ${err.message}`, confidence: 0 };

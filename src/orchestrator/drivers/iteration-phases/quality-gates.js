@@ -77,7 +77,7 @@ export async function runQualityGateStages({ config, logger, emitter, eventBase,
   }
 
   if (pipelineFlags?.impeccableEnabled) {
-    const diff = await generateDiff({ baseRef: session.session_start_sha });
+    const diff = await generateDiff({ baseRef: session.session_start_sha, projectDir: config?.projectDir || null });
     const impeccableMode = pipelineFlags?.impeccableMode || "audit";
     const impeccableResult = await runImpeccableStage({
       config, logger, emitter, eventBase, session, coderRole, trackBudget,
