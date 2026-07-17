@@ -166,7 +166,11 @@ try {
     console.log(`verify-pack: installing the tarball with pnpm into ${pnpmTmp}…`);
     // pnpm exits non-zero on ERR_PNPM_IGNORED_BUILDS (it skips native build
     // scripts by default) — expected here, so don't treat the exit as failure.
-    spawnSync("pnpm", ["add", tgzPath, "--store-dir", path.join(pnpmTmp, ".store")], {
+    // minimum-release-age=0: modern pnpm quarantines freshly published
+    // versions (supply-chain protection), so right after publishing
+    // karajan-core it silently resolves an OLD one and this smoke fails on
+    // missing subpaths. The gate verifies packaging, not release-age policy.
+    spawnSync("pnpm", ["add", tgzPath, "--store-dir", path.join(pnpmTmp, ".store"), "--config.minimum-release-age=0"], {
       encoding: "utf8",
       env: childEnv,
       cwd: pnpmTmp,
