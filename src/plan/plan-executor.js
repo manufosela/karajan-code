@@ -24,6 +24,10 @@ export function planToHuBatch(plan) {
     task_type: hu.task_type || "sw",
     status: hu.status === "certified" ? "certified" : hu.status,
     blocked_by: hu.blocked_by || [],
+    // KJC-BUG-0110: scope must survive as its own field — the parallel
+    // scheduler treats a scopeless story as exclusive, so dropping it
+    // silently degrades --parallel N to sequential.
+    scope: hu.scope || null,
     certified: { text: hu.scope || hu.title },
     acceptance_criteria: hu.acceptance_criteria || [],
     acceptance_tests: hu.acceptance_tests || [],
