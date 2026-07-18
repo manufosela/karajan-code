@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const noopLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-vi.mock("../../src/rag/embedder.js", () => {
+vi.mock("karajan-core/rag/embedder", () => {
   class FakeEmbedder {
     constructor() { this.dim = 8; }
     async embed() { const v = new Float32Array(8); v[0] = 1; return v; }
