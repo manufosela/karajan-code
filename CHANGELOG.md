@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Lane worktree bootstrap** (KJC-TSK-0630): each fresh parallel-lane worktree is made operative before the coder lands — submodules initialized, then `session.worktree_setup` (or `npm ci` when a lockfile exists). Best-effort: failures warn and the lane continues.
+- **Per-lane slots and port offsets** (KJC-TSK-0631): every parallel lane acquires a stable numeric slot (`karajan-core/slot-registry`, file-locked, released on cleanup) and its coder + acceptance tests receive `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` so services they start don't collide. Requires `karajan-core >= 1.2.0`.
+
+### Fixed
+
+- **verify-pack pnpm smoke vs release-age quarantine**: modern pnpm silently resolves freshly published dependencies to OLD versions (`minimumReleaseAge` supply-chain protection), failing the tarball gate right after a `karajan-core` publish. The smoke now passes `--config.minimum-release-age=0` — it verifies packaging, not release-age policy.
+
 ## [3.14.1] - 2026-07-17
 
 Patch. **`--parallel` now actually parallelizes — inside real worktree lanes.** The 3.14.0 flag silently degraded to sequential, and lanes shared the main working tree. Everything here came out of a real end-to-end run of the feature (live coder, 4-HU plan, `--parallel 2`).
