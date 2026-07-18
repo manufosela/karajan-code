@@ -383,6 +383,16 @@ Each AI role is executed by the agent you choose:
 >
 > Full per-stage reference: [Pipeline roles](https://karajan-code.web.app/docs/handbook/pipeline-roles/) (handbook).
 
+## Step mode and parallel lanes (v3.14+)
+
+Two ways to control how a plan executes:
+
+**`kj run --step`** — supervise the orchestra iteration by iteration. After every iteration the pipeline pauses with a compact report (what happened, the reviewer's must-fix list, what the next iteration will do, spend vs cap) and asks: press Enter to continue, type `stop` to halt (resumable with `kj resume`), or **type instructions** — free text is injected into the feedback the coder reads next iteration, without clobbering the reviewer's own findings. Also offered as a question in the `kj init` wizard (`session.iteration_gate`).
+
+**`kj run --plan <id> --parallel <n>`** — run a plan's independent HUs concurrently, each in its own **git worktree** under `.kj/worktrees/<huId>` on branch `kj-hu-<huId>`. The scheduler walks the `blocked_by` graph and only pairs HUs with disjoint `scope` paths (scopeless HUs run alone); the whole lane — coder, acceptance tests, diffs, sonar, final commit — runs inside its worktree while the main working tree stays parked. Governance is built in: default is `1` (fully sequential), a plan-level budget ceiling (`n × max_budget_usd`) stops the batch loudly when exhausted, and SonarQube serializes across lanes. Each fresh worktree is bootstrapped automatically (submodules + `npm ci`, or your `session.worktree_setup` command) and receives `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` env vars so services started by tests don't collide on ports.
+
+Full guide: [`docs/parallel-hus.md`](docs/parallel-hus.md).
+
 ## 5 AI agents supported
 
 | Agent | CLI | Install |
