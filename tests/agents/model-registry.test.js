@@ -144,3 +144,20 @@ describe("model-registry", () => {
     });
   });
 });
+
+// KJC-TSK-0633: Kimi and DeepSeek ship registered with real pricing so
+// BudgetTracker never sees null for them — including the prefixed ids the
+// documented opencode.json snippet produces.
+describe("kimi + deepseek providers (KJC-TSK-0633)", () => {
+  it.each(["kimi-k2", "kimi", "kimi/kimi-k2", "kimi/kimi-k2-thinking"])("%s has moonshot pricing", (id) => {
+    const p = getModelPricing(id);
+    expect(p).not.toBeNull();
+    expect(p.output_per_million).toBeGreaterThan(0);
+  });
+
+  it.each(["deepseek-chat", "deepseek-reasoner", "deepseek", "deepseek/deepseek-chat", "deepseek/deepseek-reasoner"])("%s has deepseek pricing", (id) => {
+    const p = getModelPricing(id);
+    expect(p).not.toBeNull();
+    expect(p.output_per_million).toBeGreaterThan(0);
+  });
+});

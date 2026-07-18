@@ -108,6 +108,29 @@ registerModelAlias("gemini", "gemini-2.5-pro");
 registerModel("aider", { provider: "aider", pricing: { input_per_million: 3, output_per_million: 15 } });
 registerModel("opencode", { provider: "opencode", pricing: { input_per_million: 0, output_per_million: 0 } });
 
+/**
+ * Moonshot Kimi Family (KJC-TSK-0633) — consumed through OpenCode as an
+ * OpenAI-compatible provider (docs/providers-via-opencode.md).
+ * Pricing: https://platform.moonshot.ai/docs/pricing — verify before
+ * trusting for billing decisions; ids/prices move fast.
+ */
+registerModel("kimi-k2", { provider: "moonshot", pricing: { input_per_million: 0.6, output_per_million: 2.5 } });
+registerModel("kimi-k2-thinking", { provider: "moonshot", pricing: { input_per_million: 0.6, output_per_million: 2.5 } });
+registerModelAlias("kimi", "kimi-k2");
+// Prefixed ids as the documented opencode.json snippet produces them.
+registerModelAlias("kimi/kimi-k2", "kimi-k2");
+registerModelAlias("kimi/kimi-k2-thinking", "kimi-k2-thinking");
+
+/**
+ * DeepSeek Family (KJC-TSK-0633) — same OpenCode route.
+ * Pricing: https://api-docs.deepseek.com/quick_start/pricing
+ */
+registerModel("deepseek-chat", { provider: "deepseek", pricing: { input_per_million: 0.28, output_per_million: 0.42 } });
+registerModel("deepseek-reasoner", { provider: "deepseek", pricing: { input_per_million: 0.28, output_per_million: 0.42 } });
+registerModelAlias("deepseek", "deepseek-chat");
+registerModelAlias("deepseek/deepseek-chat", "deepseek-chat");
+registerModelAlias("deepseek/deepseek-reasoner", "deepseek-reasoner");
+
 // Common CLI Aliases (with provider overrides)
 registerModelAlias("aider/claude-3-7-sonnet", "claude-sonnet-4.6", { provider: "aider" });
 registerModelAlias("aider/gpt-4o", "gpt-5.4-standard", { provider: "aider" });
