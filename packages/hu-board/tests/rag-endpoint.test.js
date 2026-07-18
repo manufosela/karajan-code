@@ -6,16 +6,11 @@ import { join } from "node:path";
 import express from "express";
 import request from "supertest";
 
-vi.mock("../../../src/rag/embedder.js", () => {
-  class FakeEmbedder {
-    constructor() { this.dim = 768; }
-    async embed() { const v = new Float32Array(768); v[0] = 1; return v; }
-    async embedBatch(ts) { return ts.map(() => { const v = new Float32Array(768); v[0] = 1; return v; }); }
-  }
-  return { OllamaEmbedder: FakeEmbedder, OllamaEmbedderError: class extends Error {} };
-});
-// Same module via the path the endpoint uses internally
-vi.mock("../../../../src/rag/embedder.js", () => {
+// KJC-TSK-0632: the embedder lives in karajan-core/rag — mock the REAL
+// module. The old src/rag paths are re-export shims the endpoint's
+// factory (inside core) bypasses; mocking them let the test silently
+// hit a live local Ollama and 500 on CI runners without one.
+vi.mock("karajan-core/rag/embedder", () => {
   class FakeEmbedder {
     constructor() { this.dim = 768; }
     async embed() { const v = new Float32Array(768); v[0] = 1; return v; }
