@@ -1364,8 +1364,10 @@ router.post('/rag/query', async (req, res) => {
   }
   try {
     const { openVecStore, countChunks } = await import('karajan-core/vec-store');
-    const { makeEmbedder } = await import('../../../../src/rag/embedders/factory.js');
-    const { query } = await import('../../../../src/rag/retriever.js');
+    // KJC-TSK-0632: resolved from karajan-core — the board carries zero
+    // relative imports into the CLI src tree (see no-cli-imports test).
+    const { makeEmbedder } = await import('karajan-core/rag/embedders/factory');
+    const { query } = await import('karajan-core/rag/retriever');
     const db = openVecStore({ dim: 768 });
     try {
       if (countChunks(db) === 0) return res.json({ hits: [], empty: true, topK, scope });
