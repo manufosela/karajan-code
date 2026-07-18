@@ -21,6 +21,7 @@
     "./db": "./src/db.js",
     "./worktree": "./src/worktree.js",
     "./slot-registry": "./src/slot-registry.js",
+    "./rag/*": "./src/rag/*.js",
     "./shared-paths": "./src/shared-paths.js",
     "./port-check": "./src/port-check.js",
     "./paths": "./src/paths.js",
