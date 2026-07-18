@@ -76,7 +76,9 @@ router.get('/version', (_req, res) => {
  */
 router.get('/standby', async (_req, res) => {
   try {
-    const { listPendingStandby } = await import('../../../../src/brain/standby-store.js');
+    // KJC-TSK-0632: resolve from karajan-core directly — the CLI's
+    // src/brain/standby-store.js is just a re-export shim of this.
+    const { listPendingStandby } = await import('karajan-core/standby-store');
     const sessions = listPendingStandby();
     res.set('Cache-Control', 'no-store');
     res.json({ sessions });
