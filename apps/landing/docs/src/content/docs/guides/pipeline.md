@@ -374,3 +374,32 @@ Or via environment variable:
 ```bash
 export KJ_TELEMETRY=false
 ```
+
+## Step Mode (v3.14.0+)
+
+Supervise the orchestra iteration by iteration:
+
+```bash
+kj run --step "implement the login form"
+```
+
+After every iteration the pipeline pauses with a compact report — what happened, the reviewer's must-fix list, what the next iteration will do, and spend vs the budget cap — and asks:
+
+- **Enter** — continue to the next iteration.
+- **`stop`** — halt the run (resumable later with `kj resume`).
+- **Any other text** — becomes a directive the coder reads on the next iteration, injected alongside (never replacing) the reviewer's findings.
+
+Also available as a wizard question in `kj init` (`session.iteration_gate: true`). Unattended runs pass through without pausing.
+
+## Parallel HU Lanes (v3.14.1+)
+
+Run a plan's independent HUs concurrently, each in its own git worktree:
+
+```bash
+kj run --plan <planId> --parallel 2
+```
+
+- Each lane lives in `.kj/worktrees/<huId>` on branch `kj-hu-<huId>`; the coder, acceptance tests, diffs, SonarQube and the final commit all run inside it while the main working tree stays parked.
+- The scheduler walks the `blocked_by` graph and only pairs HUs with **disjoint `scope` paths** — overlapping or scopeless HUs never run together.
+- Default is `1` (fully sequential). A plan-level budget ceiling (`n × max_budget_usd`) stops the batch loudly when exhausted.
+- Fresh worktrees are bootstrapped automatically (submodules + `npm ci`, or your `session.worktree_setup` command), and lanes receive `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` env vars so services started by tests don't collide on ports.

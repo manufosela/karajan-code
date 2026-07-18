@@ -378,3 +378,32 @@ O mediante variable de entorno:
 ```bash
 export KJ_TELEMETRY=false
 ```
+
+## Modo paso a paso (v3.14.0+)
+
+Supervisa la orquesta iteración a iteración:
+
+```bash
+kj run --step "implementa el formulario de login"
+```
+
+Tras cada iteración el pipeline se detiene con un informe compacto — qué pasó, los must-fix del reviewer, qué hará la siguiente iteración y el gasto frente al techo de presupuesto — y pregunta:
+
+- **Enter** — continuar con la siguiente iteración.
+- **`stop`** — parar el run (reanudable después con `kj resume`).
+- **Cualquier otro texto** — se convierte en una directiva que el coder lee en la siguiente iteración, inyectada junto a (nunca en lugar de) los hallazgos del reviewer.
+
+También disponible como pregunta del asistente de `kj init` (`session.iteration_gate: true`). Los runs desatendidos pasan de largo sin detenerse.
+
+## Carriles paralelos de HUs (v3.14.1+)
+
+Ejecuta las HUs independientes de un plan concurrentemente, cada una en su propio git worktree:
+
+```bash
+kj run --plan <planId> --parallel 2
+```
+
+- Cada carril vive en `.kj/worktrees/<huId>` sobre la rama `kj-hu-<huId>`; el coder, los tests de aceptación, los diffs, SonarQube y el commit final corren dentro de él mientras el árbol de trabajo principal queda aparcado.
+- El planificador recorre el grafo `blocked_by` y solo empareja HUs con **rutas de `scope` disjuntas** — HUs con solape o sin scope nunca corren juntas.
+- El valor por defecto es `1` (totalmente secuencial). Un techo de presupuesto por plan (`n × max_budget_usd`) detiene el lote en alto cuando se agota.
+- Los worktrees nuevos se preparan automáticamente (submodules + `npm ci`, o tu comando `session.worktree_setup`), y los carriles reciben las variables `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` para que los servicios que arranquen los tests no colisionen en puertos.
