@@ -6,23 +6,105 @@
     "sources": {
       "anthropic": "https://www.anthropic.com/pricing",
       "openai": "https://openai.com/api/pricing/",
-      "google": "https://ai.google.dev/pricing"
+      "google": "https://ai.google.dev/pricing",
+      "moonshot": "https://platform.moonshot.ai/docs/pricing",
+      "deepseek": "https://api-docs.deepseek.com/quick_start/pricing"
     },
     "notes": "Static registry. Cache-write/cache-read tiers ignored on purpose: aggregator uses input/output averages. Unknown models return null so the pipeline does not break."
   },
-  "claude-opus-4-7": { "inputPerMTok": 15.00, "outputPerMTok": 75.00, "source": "anthropic" },
-  "claude-opus-4-6": { "inputPerMTok": 15.00, "outputPerMTok": 75.00, "source": "anthropic" },
-  "claude-sonnet-4-6": { "inputPerMTok": 3.00, "outputPerMTok": 15.00, "source": "anthropic" },
-  "claude-haiku-4-5": { "inputPerMTok": 1.00, "outputPerMTok": 5.00, "source": "anthropic" },
-  "claude-haiku-4-5-20251001": { "inputPerMTok": 1.00, "outputPerMTok": 5.00, "source": "anthropic" },
-  "gpt-4o": { "inputPerMTok": 2.50, "outputPerMTok": 10.00, "source": "openai" },
-  "gpt-4o-mini": { "inputPerMTok": 0.15, "outputPerMTok": 0.60, "source": "openai" },
-  "gpt-4.1": { "inputPerMTok": 2.00, "outputPerMTok": 8.00, "source": "openai" },
-  "gpt-4.1-mini": { "inputPerMTok": 0.40, "outputPerMTok": 1.60, "source": "openai" },
-  "o1": { "inputPerMTok": 15.00, "outputPerMTok": 60.00, "source": "openai" },
-  "o1-mini": { "inputPerMTok": 1.10, "outputPerMTok": 4.40, "source": "openai" },
-  "o3-mini": { "inputPerMTok": 1.10, "outputPerMTok": 4.40, "source": "openai" },
-  "gemini-1.5-pro": { "inputPerMTok": 1.25, "outputPerMTok": 5.00, "source": "google" },
-  "gemini-1.5-flash": { "inputPerMTok": 0.075, "outputPerMTok": 0.30, "source": "google" },
-  "gemini-2.0-flash": { "inputPerMTok": 0.10, "outputPerMTok": 0.40, "source": "google" }
+  "claude-opus-4-7": {
+    "inputPerMTok": 15.0,
+    "outputPerMTok": 75.0,
+    "source": "anthropic"
+  },
+  "claude-opus-4-6": {
+    "inputPerMTok": 15.0,
+    "outputPerMTok": 75.0,
+    "source": "anthropic"
+  },
+  "claude-sonnet-4-6": {
+    "inputPerMTok": 3.0,
+    "outputPerMTok": 15.0,
+    "source": "anthropic"
+  },
+  "claude-haiku-4-5": {
+    "inputPerMTok": 1.0,
+    "outputPerMTok": 5.0,
+    "source": "anthropic"
+  },
+  "claude-haiku-4-5-20251001": {
+    "inputPerMTok": 1.0,
+    "outputPerMTok": 5.0,
+    "source": "anthropic"
+  },
+  "gpt-4o": {
+    "inputPerMTok": 2.5,
+    "outputPerMTok": 10.0,
+    "source": "openai"
+  },
+  "gpt-4o-mini": {
+    "inputPerMTok": 0.15,
+    "outputPerMTok": 0.6,
+    "source": "openai"
+  },
+  "gpt-4.1": {
+    "inputPerMTok": 2.0,
+    "outputPerMTok": 8.0,
+    "source": "openai"
+  },
+  "gpt-4.1-mini": {
+    "inputPerMTok": 0.4,
+    "outputPerMTok": 1.6,
+    "source": "openai"
+  },
+  "o1": {
+    "inputPerMTok": 15.0,
+    "outputPerMTok": 60.0,
+    "source": "openai"
+  },
+  "o1-mini": {
+    "inputPerMTok": 1.1,
+    "outputPerMTok": 4.4,
+    "source": "openai"
+  },
+  "o3-mini": {
+    "inputPerMTok": 1.1,
+    "outputPerMTok": 4.4,
+    "source": "openai"
+  },
+  "gemini-1.5-pro": {
+    "inputPerMTok": 1.25,
+    "outputPerMTok": 5.0,
+    "source": "google"
+  },
+  "gemini-1.5-flash": {
+    "inputPerMTok": 0.075,
+    "outputPerMTok": 0.3,
+    "source": "google"
+  },
+  "gemini-2.0-flash": {
+    "inputPerMTok": 0.1,
+    "outputPerMTok": 0.4,
+    "source": "google"
+  },
+  "kimi-k2": {
+    "inputPerMTok": 0.6,
+    "outputPerMTok": 2.5,
+    "source": "moonshot"
+  },
+  "kimi-k2-thinking": {
+    "inputPerMTok": 0.6,
+    "outputPerMTok": 2.5,
+    "source": "moonshot"
+  },
+  "deepseek-chat": {
+    "inputPerMTok": 0.28,
+    "outputPerMTok": 0.42,
+    "source": "deepseek"
+  },
+  "deepseek-reasoner": {
+    "inputPerMTok": 0.28,
+    "outputPerMTok": 0.42,
+    "source": "deepseek"
+  }
 }
