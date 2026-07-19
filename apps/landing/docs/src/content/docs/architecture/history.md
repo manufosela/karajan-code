@@ -1600,6 +1600,10 @@ A patch that rolls up three unrelated fixes, each worth shipping. **Privacy**: a
 
 Two new execution modes. `kj run --step` gates every iteration behind a compact report (reviewer verdict, next step, spend vs cap) where free-text answers become directives the coder reads next iteration. `kj run --parallel <n>` runs a plan's HUs concurrently in per-HU git worktrees, scheduled over the blocked_by graph with conservative scope isolation, a shared semaphore and a plan-level budget ceiling; the SonarQube stage serializes across lanes. The previously unbounded parallel path now defaults to 1 — sequential — and is strictly opt-in.
 
+## Phase 102: v3.15.0 — Lanes for real projects, priced providers, decoupled board (v3.15.0)
+
+Three convergent moves. Parallel worktree lanes became viable on real codebases: fresh worktrees bootstrap themselves (submodules + dependency install) and each lane gets a stable slot from a file-locked registry, exported as `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` so test-started services offset their ports (design after Jorge del Casar's worktree-docker-envs skill). The model registry learned Moonshot's Kimi K2 and DeepSeek with real pricing, reached through OpenCode as OpenAI-compatible providers — cost tracking stops flying blind on non-native models. And the HU Board completed its independence: the rag subtree moved into `karajan-core/rag`, the board resolves everything through the package, and an architecture test forbids relative imports into the CLI tree. Two operational lessons were burned into the process: publish karajan-core BEFORE merging its consumers, and modern pnpm's release-age quarantine can silently resolve stale dependencies (the pack gate now opts out).
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls

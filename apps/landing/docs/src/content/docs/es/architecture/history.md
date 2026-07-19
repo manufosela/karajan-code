@@ -1599,6 +1599,10 @@ Un patch que agrupa tres arreglos sin relación entre sí, cada uno digno de pub
 
 Dos modos de ejecución nuevos. `kj run --step` pone una compuerta tras cada iteración con un informe compacto (veredicto del reviewer, siguiente paso, gasto vs techo) donde las respuestas de texto libre se convierten en directivas que el coder lee en la siguiente iteración. `kj run --parallel <n>` ejecuta las HUs de un plan concurrentemente en git worktrees por HU, planificadas sobre el grafo blocked_by con aislamiento conservador por scope, semáforo compartido y techo de presupuesto por plan; la stage de SonarQube se serializa entre carriles. El camino paralelo, antes sin límite, ahora vale 1 por defecto — secuencial — y es estrictamente opt-in.
 
+## Fase 102: v3.15.0 — Carriles para proyectos reales, proveedores con precio, board desacoplado (v3.15.0)
+
+Tres movimientos convergentes. Los carriles worktree paralelos se hicieron viables en códigos reales: los worktrees nuevos se preparan solos (submodules + instalación de dependencias) y cada carril recibe un slot estable de un registro con lock de fichero, exportado como `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` para que los servicios arrancados por los tests desplacen sus puertos (diseño a partir de la skill worktree-docker-envs de Jorge del Casar). El registro de modelos aprendió Kimi K2 de Moonshot y DeepSeek con precios reales, accesibles vía OpenCode como proveedores OpenAI-compatibles — el tracking de coste deja de ir a ciegas con modelos no nativos. Y el HU Board completó su independencia: el subárbol rag se movió a `karajan-core/rag`, el board resuelve todo a través del paquete, y un test de arquitectura prohíbe imports relativos hacia el árbol del CLI. Dos lecciones operativas quedaron grabadas en el proceso: publicar karajan-core ANTES de mergear a sus consumidores, y la cuarentena por edad de pnpm moderno puede resolver dependencias rancias en silencio (el gate de empaquetado ahora la desactiva).
+
 ## Decisiones Arquitectonicas Clave
 
 ### CLI wrapping vs llamadas directas a API

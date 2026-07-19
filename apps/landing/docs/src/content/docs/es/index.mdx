@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.14.1 — los carriles paralelos funcionan de punta a punta (actual)
+### v3.15.0 — carriles paralelos para proyectos reales, Kimi + DeepSeek, board desacoplado (actual)
+
+Minor. Tres piezas. **Los carriles paralelos ya sobreviven a proyectos reales**: cada worktree nuevo se prepara automáticamente (submodules + `npm ci` o tu comando `session.worktree_setup`) y recibe las variables `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` desde un registro de slots con lock de fichero, para que los servicios que arranquen los tests no colisionen en puertos. **Kimi K2 y DeepSeek entran en el registro de modelos con precios reales** — usados vía OpenCode como proveedores OpenAI-compatibles, el badge de $ por HU y el techo de presupuesto los contabilizan bien (snippet de configuración en `docs/providers-via-opencode.md`). Y el **HU Board queda totalmente desacoplado del código del CLI**: el subárbol rag vive en `karajan-core/rag` y un test de arquitectura lo mantiene así. Actualización directa desde v3.14.1.
+
+### v3.14.1 — los carriles paralelos funcionan de punta a punta
 
 Patch. **`--parallel` ahora paraleliza de verdad — dentro de carriles worktree reales.** El flag de la 3.14.0 degradaba a secuencial en silencio (la conversión plan→batch perdía el campo `scope` con el que el scheduler empareja), y los carriles compartían el árbol de trabajo principal. Ahora el coder, los tests de aceptación, los diffs, sonar y el commit final corren DENTRO del worktree de cada carril en su propia rama, con config y estado de sesión por carril — verificado con una ejecución real de punta a punta: dos HUs programando concurrentemente en sus worktrees mientras el árbol principal queda aparcado. También arreglado: `kj plan ready` rechazaba todos los planes generados (el HU preflight auto-inyectado salía sin status), y los runs desatendidos con `--yes` se paraban en seco ante preguntas que declaran un default seguro. Actualización directa desde v3.14.0.
 
@@ -263,7 +267,3 @@ Patch. Un pipeline atascado o desbocado ya no puede fundir la cuota de tu suscri
 ### v3.13.0 — `kj harden` respeta tu propio tooling
 
 Minor. Un repo que formatea y lintea con **Biome** ya no recibe el eslint + prettier de kj plantados al lado. Harden entiende ahora las alternativas entre herramientas: con `biome.json` presente, el informe marca esos artefactos como cubiertos ("kj no añadirá un segundo linter/formateador"), la siembra de configs los salta y `kj check` deja de señalar su ausencia como drift. Tu propio config de la misma herramienta sigue ganando, `.editorconfig` y commitlint se siguen sembrando (Biome no los sustituye), y los hooks pre-commit y el workflow Quality generados delegan en los scripts `npm run lint`/`format` de tu proyecto. Actualización directa desde v3.12.3.
-
-### v3.12.3 — el binario standalone lleva sus plantillas y `kj update` actualiza el kj que ejecutas
-
-Patch. Tres arreglos reportados desde el terreno. El **binario standalone ya lleva sus plantillas integradas** como assets embebidos — `kj init` instala skills y prompts de roles en una máquina nueva en vez de avisar `ENOENT`. **`kj update` distingue el canal de instalación**: en instalaciones de binario re-ejecuta el instalador en vez de instalar por npm una copia que tu PATH nunca resuelve, y en todos los canales verifica que el `kj` que realmente ejecutas reporta la versión nueva — fallando en alto y señalando la copia que hace sombra cuando no es así. Y la **receta de instalación de osv-scanner** apunta al subpaquete `cmd/` real, así que `kj install-tools` vuelve a poder instalarlo. Actualización directa desde v3.12.2.

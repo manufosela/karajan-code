@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.14.1 — parallel lanes work end to end (current)
+### v3.15.0 — parallel lanes for real projects, Kimi + DeepSeek, decoupled board (current)
+
+Minor. Three pieces. **Parallel lanes now survive real projects**: each fresh worktree is bootstrapped (submodules + `npm ci` or your `session.worktree_setup` command) and receives `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` env vars from a file-locked slot registry, so services started by tests don't collide on ports. **Kimi K2 and DeepSeek join the model registry with real pricing** — used through OpenCode as OpenAI-compatible providers, the per-HU $ badge and the budget ceiling price them correctly (setup snippet in `docs/providers-via-opencode.md`). And the **HU Board is fully decoupled from the CLI source tree**: the rag subtree lives in `karajan-core/rag` and an architecture test keeps it that way. Drop-in upgrade from v3.14.1.
+
+### v3.14.1 — parallel lanes work end to end
 
 Patch. **`--parallel` now actually parallelizes — inside real worktree lanes.** The 3.14.0 flag silently degraded to sequential (the plan→batch conversion dropped the `scope` field the scheduler pairs by), and lanes shared the main working tree. Now the coder, acceptance tests, diffs, sonar and the final commit all run INSIDE each lane's worktree on its own branch, with per-lane config and session state — verified with a live end-to-end run: two HUs coding concurrently in their worktrees while the main tree stays parked. Also fixed: `kj plan ready` rejected every generated plan (the auto-injected preflight HU shipped without a status), and unattended `--yes` runs stopped cold on questions that declare a safe default. Drop-in upgrade from v3.14.0.
 
@@ -263,7 +267,3 @@ Patch. A stuck or runaway pipeline can no longer drain your subscription quota u
 ### v3.13.0 — `kj harden` respects your own tooling
 
 Minor. A repo that formats and lints with **Biome** no longer gets kj's eslint + prettier planted next to it. Harden now understands cross-tool alternatives: with `biome.json` present, the advisory reports those artifacts as covered ("kj won't add a second linter/formatter"), config seeding skips them, and `kj check` stops flagging their absence as drift. Your own config of the same tool still wins, `.editorconfig` and commitlint keep seeding (Biome doesn't replace them), and the generated pre-commit hooks and Quality workflow delegate to your project's `npm run lint`/`format` scripts. Drop-in upgrade from v3.12.3.
-
-### v3.12.3 — the standalone binary carries its templates, `kj update` updates the kj you run
-
-Patch. Three field-reported fixes. The **standalone binary now ships its built-in templates** as embedded assets — `kj init` installs skills and role prompts on a fresh machine instead of warning `ENOENT`. **`kj update` is channel-aware**: on binary installs it re-runs the installer instead of npm-installing a copy your PATH never resolves, and on every channel it now verifies that the `kj` you actually run reports the new version — failing loudly and naming the shadowing copy when it doesn't. And the **osv-scanner go install recipe** points at the real `cmd/` subpackage, so `kj install-tools` can install it again. Drop-in upgrade from v3.12.2.
