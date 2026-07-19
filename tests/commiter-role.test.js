@@ -15,7 +15,8 @@ vi.mock("../src/utils/git.js", () => ({
   commitAll: vi.fn(),
   pushBranch: vi.fn(),
   createPullRequest: vi.fn(),
-  revParse: vi.fn()
+  revParse: vi.fn(),
+  hasRemote: vi.fn()
 }));
 
 const { CommiterRole } = await import("../src/roles/commiter-role.js");
@@ -36,6 +37,7 @@ describe("CommiterRole", () => {
     git.currentBranch.mockResolvedValue("feat/my-branch");
     git.commitAll.mockResolvedValue({ committed: true });
     git.pushBranch.mockResolvedValue(undefined);
+    git.hasRemote.mockResolvedValue(true);
     git.createPullRequest.mockResolvedValue("https://github.com/org/repo/pull/42");
     git.fetchBase.mockResolvedValue(undefined);
     git.ensureBranchUpToDateWithBase.mockResolvedValue({ upToDate: true, rebased: false });

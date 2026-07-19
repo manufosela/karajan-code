@@ -16,7 +16,8 @@ import {
   commitAll,
   pushBranch,
   createPullRequest,
-  listPendingPaths
+  listPendingPaths,
+  hasRemote
 } from "../utils/git.js";
 
 /**
@@ -276,7 +277,19 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     logger.info(committed ? "Committed changes" : "No changes to commit");
   }
 
-  if (config.git.auto_push || config.git.auto_pr) {
+  // KJC-BUG-0112: without an `origin` remote (the quickstart scenario:
+  // fresh folder + git init) push/PR automation has nothing to talk to —
+  // fetchBase used to throw here and escalate to Solomon on EVERY
+  // iteration, burning the whole budget on an expected condition.
+  const remoteAvailable = (config.git.auto_push || config.git.auto_pr)
+    ? await hasRemote()
+    : false;
+  if ((config.git.auto_push || config.git.auto_pr) && !remoteAvailable) {
+    logger.info("No remote configured — skipping push/PR automation");
+    await addCheckpoint(session, { stage: "git-push", skipped: "no-remote" });
+  }
+
+  if (remoteAvailable && (config.git.auto_push || config.git.auto_pr)) {
     await fetchBase(gitCtx.baseBranch);
     await ensureBranchUpToDateWithBase({
       branch: gitCtx.branch,
@@ -286,14 +299,14 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
     await addCheckpoint(session, { stage: "git-rebase-check", branch: gitCtx.branch });
   }
 
-  if (config.git.auto_push || config.git.auto_pr) {
+  if (remoteAvailable && (config.git.auto_push || config.git.auto_pr)) {
     await pushBranch(gitCtx.branch);
     await addCheckpoint(session, { stage: "git-push", branch: gitCtx.branch });
     logger.info(`Pushed branch: ${gitCtx.branch}`);
   }
 
   let prUrl = session.ci_pr_url || null;
-  if (config.git.auto_pr && !prUrl) {
+  if (remoteAvailable && config.git.auto_pr && !prUrl) {
     const body = buildPrBody({ task, stageResults });
     prUrl = await createPullRequest({
       baseBranch: gitCtx.baseBranch,
