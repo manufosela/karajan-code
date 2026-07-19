@@ -183,14 +183,24 @@ export function registerPipeline(program, { pkgVersion }) {
 
   program
     .command("review")
-    .description("Run only reviewer")
+    .description("Run only reviewer (--staged/--check: v4 cross-AI gate with recorded verdict)")
     .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--reviewer <name>")
     .option("--reviewer-model <name>")
     .option("--base-ref <ref>")
+    .option("--staged", "Review the staged diff with a cross-AI reviewer and record the verdict")
+    .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, hook-friendly)")
+    .option("--range <range>", "Review a git range (e.g. main..HEAD) instead of the staged diff")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
+        // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to
+        // the exact diff so the pre-commit hook can enforce cross-AI review.
+        if (flags.staged || flags.check || flags.range) {
+          const { reviewGateCommand } = await import("../commands/review-gate.js");
+          await reviewGateCommand({ config, logger, flags: { ...flags, task } });
+          return;
+        }
         const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         await reviewCommand({ task: resolvedTask, config, logger, baseRef: flags.baseRef });
