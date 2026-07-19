@@ -28,6 +28,16 @@ export function hookBody(hook, cmds = {}) {
       if (cmds.lint) lines.push(`${cmds.lint} || { echo 'kj harden: lint failed'; exit 1; }`);
       if (cmds.format) lines.push(`${cmds.format} || { echo 'kj harden: format check failed'; exit 1; }`);
       if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");
+      lines.push(
+        "# v4 review gate (ENV-C1, opt-in via `kj review --install-gate`):",
+        "# a staged diff only enters with a recorded cross-AI approved verdict.",
+        "if [ -f .karajan/review-gate ]; then",
+        "  if ! command -v kj >/dev/null 2>&1; then",
+        "    echo 'kj: review gate is enabled but kj is not installed — see karajancode.com/docs/getting-started/installation'; exit 1",
+        "  fi",
+        "  kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }",
+        "fi"
+      );
       return lines.join("\n");
     }
     case "commit-msg":
