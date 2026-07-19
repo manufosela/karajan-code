@@ -253,6 +253,7 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
     }
     if (iterResult.action === "retry") { i -= 1; }
     else {
+      await ensureIterationRecorded(ctx, i, logger);
       // Iteration gate (KJC-TSK-0628): opt-in pause with a report before the
       // next iteration; free-text answers become directives for the coder.
       const gate = await handleIterationGate({
@@ -306,6 +307,7 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
       if (iterResult.action === "return") return iterResult.result;
       if (iterResult.action === "retry") { i -= 1; }
       else {
+        await ensureIterationRecorded(ctx, i, logger);
         // Same iteration gate on Solomon-extended iterations (KJC-TSK-0628).
         const gate = await handleIterationGate({
           enabled: ctx.config.session?.iteration_gate === true,
@@ -323,9 +325,56 @@ export async function runIterationLoop(ctx, { task: loopTask, askQuestion, emitt
 
     // Extended iterations also exhausted — final Solomon call
     const finalResult = await handleMaxIterationsReached({ session: ctx.session, budgetSummary: ctx.budgetSummary, emitter, eventBase: ctx.eventBase, config: ctx.config, stageResults: ctx.stageResults, logger, askQuestion, task: loopTask, rtkTracker: ctx.rtkTracker, brainCtx: ctx.brainCtx });
-    return finalResult;
+    return finalizeMaxIterationsApproval(ctx, finalResult, { task: loopTask, askQuestion, emitter, logger, i });
   }
 
-  return maxIterResult;
+  return finalizeMaxIterationsApproval(ctx, maxIterResult, { task: loopTask, askQuestion, emitter, logger, i });
+}
+
+// KJC-BUG-0117: iterations that end before the reviewer (TDD/sonar
+// "continue", guard retries) never reached the recordIteration call at
+// the end of runSingleIteration, so session._journalIterations stayed
+// empty and the journal read "Iterations: 0" after a 5-iteration run.
+export async function ensureIterationRecorded(ctx, i, logger) {
+  if (!ctx.journalIterations) return;
+  if ((ctx.session._journalIterations?.length || 0) >= i) return;
+  try {
+    const { recordIteration, extractIterationData } = await import("../../session/journal/iteration-logger.js");
+    recordIteration(ctx.session, extractIterationData({
+      iteration: i, durationMs: 0, stageResults: ctx.stageResults, session: ctx.session,
+    }));
+  } catch (err) {
+    logger.warn(`Iteration journal record failed (non-blocking): ${err.message}`);
+  }
+}
+
+// KJC-BUG-0116: an "approved" verdict at max_iterations (brain_approved,
+// brain_solomon_approved, solomon_approved) used to be returned as-is,
+// skipping the entire post-loop (tester/security/audit) AND git
+// automation (push/PR) that every reviewer-approved session gets — the
+// session read "approved" with zero verification and zero push. Route it
+// through the same handleApprovedReview path instead.
+export async function finalizeMaxIterationsApproval(ctx, maxIterResult, { task, askQuestion, emitter, logger, i }) {
+  if (maxIterResult?.approved !== true) return maxIterResult;
+
+  const review = {
+    approved: true,
+    raw_summary: `Finalized at max_iterations (${maxIterResult.reason || "approved"})`,
+    blocking_issues: []
+  };
+  const fin = await handleApprovedReview({
+    config: ctx.config, session: ctx.session, emitter, eventBase: ctx.eventBase,
+    coderRole: ctx.coderRole, trackBudget: ctx.trackBudget, i, task,
+    stageResults: ctx.stageResults, pipelineFlags: ctx.pipelineFlags, askQuestion, logger,
+    gitCtx: ctx.gitCtx, budgetSummary: ctx.budgetSummary, pgCard: ctx.pgCard, pgProject: ctx.pgProject,
+    review, rtkTracker: ctx.rtkTracker, brainCtx: ctx.brainCtx
+  });
+  if (fin.action === "return") return fin.result;
+
+  // Post-loop demanded another coder pass but iterations are exhausted —
+  // report honestly instead of a false green.
+  logger.warn("Post-loop stages rejected the work at max_iterations — session NOT approved");
+  await markSessionStatus(ctx.session, "failed");
+  return { approved: false, sessionId: ctx.session.id, reason: "post_loop_rejected_at_max_iterations" };
 }
 

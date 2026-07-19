@@ -240,7 +240,10 @@ describe("orchestrator events", () => {
   it("emits progress events in correct sequence for approved flow", async () => {
     const emitter = new EventEmitter();
     const events = [];
-    emitter.on("progress", (e) => events.push(e.type));
+    // budget:update is bookkeeping interleaved after every tracked stage
+    // (always on since KJC-BUG-0114 gave null ceilings the shipped default)
+    // — not part of the stage sequence under test.
+    emitter.on("progress", (e) => { if (e.type !== "budget:update") events.push(e.type); });
 
     const config = {
       coder: "codex",
@@ -574,7 +577,8 @@ describe("orchestrator events", () => {
   it("runs planner and refactorer stages when enabled in pipeline", async () => {
     const emitter = new EventEmitter();
     const events = [];
-    emitter.on("progress", (e) => events.push(e.type));
+    // budget:update filtered — see the approved-flow sequence test above.
+    emitter.on("progress", (e) => { if (e.type !== "budget:update") events.push(e.type); });
 
     const { createAgent } = await import("../src/agents/index.js");
     const runTask = vi.fn().mockResolvedValue({ ok: true, output: "ok" });

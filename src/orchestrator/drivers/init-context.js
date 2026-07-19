@@ -21,9 +21,8 @@ import { prepareGitAutomation } from "../../git/automation.js";
 import { CoderRole } from "../../roles/coder-role.js";
 import { PipelineContext } from "../pipeline-context.js";
 import { detectRtk } from "../../utils/rtk-detect.js";
-import { createRtkRunner, RtkSavingsTracker } from "../../utils/rtk-wrapper.js";
-import { setRunner as setDiffRunner, setProjectDir as setDiffProjectDir } from "../../review/diff-generator.js";
-import { setRunner as setGitRunner } from "../../utils/git.js";
+import { RtkSavingsTracker } from "../../utils/rtk-wrapper.js";
+import { setProjectDir as setDiffProjectDir } from "../../review/diff-generator.js";
 import {
   loadProductContext, resolvePipelineFlags, createBudgetManager,
   initializeSession, autoInit,
@@ -116,19 +115,19 @@ export async function initFlowContext({ task, config, logger, emitter, askQuesti
   const rtkResult = await detectRtk();
   if (rtkResult.available) {
     config = { ...config, rtk: { available: true, version: rtkResult.version } };
-    const rtkTracker = new RtkSavingsTracker();
-    const rtkRunner = createRtkRunner(true, rtkTracker);
-    // TSK-0338: install rtkRunner into the per-run context; module-level
-    // setters are the back-compat path for runs outside a withRunContext scope.
-    if (runCtx) runCtx.runner = rtkRunner;
-    else {
-      setDiffRunner(rtkRunner);
-      setGitRunner(rtkRunner);
-    }
-    ctx.rtkTracker = rtkTracker;
-    logger.info(`RTK detected (${rtkResult.version}) — wrapping internal git/diff commands with rtk`);
+    // KJC-BUG-0115: rtk MUST NOT wrap the pipeline's internal git/diff
+    // commands. `rtk git diff` emits a compressed summary without
+    // `diff --git` headers, so every consumer that parses the output
+    // (tdd-policy extractChangedFiles, reviewer diffs, status checks)
+    // sees an empty change set — in the field this made the TDD gate
+    // fail forever with "(2 src, 0 test)" while real tests existed.
+    // RTK still saves tokens where it belongs: inside the coder agent's
+    // own shell, via its Claude Code hook. Detection is kept so the
+    // config advertises availability to agents.
+    ctx.rtkTracker = new RtkSavingsTracker();
+    logger.info(`RTK detected (${rtkResult.version}) — available to agents (internal git/diff stay unwrapped)`);
     emitProgress(emitter, makeEvent("rtk:detected", ctx.eventBase, {
-      message: "RTK detected — internal commands wrapped for token optimization",
+      message: "RTK detected — available to agents",
       detail: { version: rtkResult.version, executorType: "local" }
     }));
   }
