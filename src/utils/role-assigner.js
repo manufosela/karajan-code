@@ -15,7 +15,13 @@ const CAPABILITY_TIERS = {
 // Role requirements: what capability level is ideal for each role
 const ROLE_PREFERENCES = {
   brain: { minTier: 4, prefer: "claude", description: "Karajan Brain (orchestrator)" },
-  solomon: { minTier: 3, prefer: "gemini", description: "Solomon (judge/arbiter)" },
+  // KJC-BUG-0113: Solomon preferred gemini, but Google retired the Gemini
+  // Code Assist CLI for individuals — a binary that answers --version yet
+  // dies with IneligibleTierError on every real call. Any machine with the
+  // stale CLI on PATH got a judge that could never rule. Claude matches
+  // the brain default; diversifyReviewer still picks a different agent
+  // when more than one healthy option exists.
+  solomon: { minTier: 3, prefer: "claude", description: "Solomon (judge/arbiter)" },
   coder: { minTier: 2, prefer: "claude", description: "Coder" },
   reviewer: { minTier: 3, prefer: "codex", description: "Reviewer" },
   planner: { minTier: 4, prefer: "claude", description: "Planner" },
