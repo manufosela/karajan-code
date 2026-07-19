@@ -157,15 +157,21 @@ try {
   qsTmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-qs-"));
   console.log(`verify-pack: quickstart smoke (init on a no-remote repo) in ${qsTmp}…`);
   run("git", ["init", "-q", "-b", "main"], { cwd: qsTmp });
-  const qsEnv = { ...childEnv };
+  // KARAJAN_HOME points at an isolated dir: faithful to a brand-new user
+  // (no pre-existing global config — `--local` without one is rejected by
+  // design, which is exactly what this smoke caught on its first CI run)
+  // AND hermetic (never touches the real ~/.karajan).
+  const qsEnv = { ...childEnv, KARAJAN_HOME: path.join(qsTmp, "karajan-home") };
   delete qsEnv.CLAUDECODE;
-  const initRes = spawnSync(gBin, ["init", "--no-interactive", "--local", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd", "--no-harden"], {
+  const initRes = spawnSync(gBin, ["init", "--no-interactive", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd", "--no-harden"], {
     encoding: "utf8", cwd: qsTmp, env: qsEnv, timeout: 180000,
   });
   if (initRes.status !== 0) {
-    fail("`kj init --no-interactive --local` failed on a fresh no-remote repo", (initRes.stderr || initRes.stdout || "").slice(-800));
+    fail("`kj init --no-interactive` failed on a fresh no-remote repo", (initRes.stderr || initRes.stdout || "").slice(-800));
   }
-  const qsCfg = path.join(qsTmp, ".karajan", "kj.config.yml");
+  const qsCfgLocal = path.join(qsTmp, ".karajan", "kj.config.yml");
+  const qsCfgGlobal = path.join(qsTmp, "karajan-home", "kj.config.yml");
+  const qsCfg = fs.existsSync(qsCfgLocal) ? qsCfgLocal : qsCfgGlobal;
   if (!fs.existsSync(qsCfg)) fail(`kj init did not write ${qsCfg}`);
   if (!/coder:\s*\S+/.test(fs.readFileSync(qsCfg, "utf8"))) {
     fail("generated kj.config.yml has no coder assignment");

@@ -44,12 +44,14 @@ try {
   const kj = path.join(prefix, "bin", "kj");
   fs.rmSync(tgz, { force: true });
 
-  const env = { ...process.env };
+  // Isolated KARAJAN_HOME: faithful to a brand-new user (no global
+  // config) and never touches the maintainer's real ~/.karajan.
+  const env = { ...process.env, KARAJAN_HOME: path.join(work, "karajan-home") };
   delete env.CLAUDECODE;
 
   console.log("quickstart-gate: git init + kj init (unattended)…");
   execFileSync("git", ["init", "-q", "-b", "main"], { cwd: project });
-  const init = spawnSync(kj, ["init", "--no-interactive", "--local", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd"], {
+  const init = spawnSync(kj, ["init", "--no-interactive", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd"], {
     cwd: project, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 300000,
   });
   if (init.status !== 0) fail("kj init failed", init.stderr || init.stdout);
