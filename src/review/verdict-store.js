@@ -16,7 +16,9 @@ import path from "node:path";
 const STORE_DIR = path.join(".karajan", "reviews");
 
 export function diffHash(diff) {
-  return crypto.createHash("sha256").update(diff, "utf8").digest("hex");
+  // trimEnd: runners differ on the final newline (execa strips it, raw
+  // git keeps it) — trailing whitespace must not void a verdict.
+  return crypto.createHash("sha256").update(diff.trimEnd(), "utf8").digest("hex");
 }
 
 function verdictPath(projectDir, hash) {

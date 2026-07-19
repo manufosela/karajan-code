@@ -15,9 +15,10 @@ beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verdict-")); 
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
 describe("verdict store", () => {
-  it("hashes the raw diff deterministically", () => {
+  it("hashes the raw diff deterministically, ignoring the trailing newline", () => {
     expect(diffHash(DIFF)).toBe(diffHash(DIFF));
-    expect(diffHash(DIFF)).not.toBe(diffHash(`${DIFF} `));
+    expect(diffHash(DIFF)).toBe(diffHash(DIFF.trimEnd()));
+    expect(diffHash(DIFF)).not.toBe(diffHash(`${DIFF}+const y = 2;`));
     expect(diffHash(DIFF)).toMatch(/^[a-f0-9]{64}$/);
   });
 
