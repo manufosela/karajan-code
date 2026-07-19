@@ -7,14 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.0] - 2026-07-19
+
+Minor. **Parallel lanes ready for real projects, Kimi + DeepSeek as first-class priced models, and a fully decoupled HU Board.**
+
 ### Added
 
-- **Lane worktree bootstrap** (KJC-TSK-0630): each fresh parallel-lane worktree is made operative before the coder lands — submodules initialized, then `session.worktree_setup` (or `npm ci` when a lockfile exists). Best-effort: failures warn and the lane continues.
-- **Per-lane slots and port offsets** (KJC-TSK-0631): every parallel lane acquires a stable numeric slot (`karajan-core/slot-registry`, file-locked, released on cleanup) and its coder + acceptance tests receive `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` so services they start don't collide. Requires `karajan-core >= 1.2.0`.
+- **Lane worktree bootstrap** (KJC-TSK-0630): each fresh parallel-lane worktree is made operative before the coder lands — submodules initialized, then `session.worktree_setup` (or `npm ci` when a lockfile exists). Best-effort: failures warn and the lane continues. Without this, `--parallel` lanes on any real project died on the first `npm test` of a clean checkout.
+- **Per-lane slots and port offsets** (KJC-TSK-0631): every parallel lane acquires a stable numeric slot (`karajan-core/slot-registry`, file-locked, released on cleanup) and its coder + acceptance tests receive `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` so services they start don't collide on ports. Design credit: Jorge del Casar's worktree-docker-envs skill. See "Services per lane" in `docs/parallel-hus.md`.
+- **Kimi and DeepSeek with real pricing** (KJC-TSK-0633): the `kimi-k2` family (Moonshot) and `deepseek-chat`/`deepseek-reasoner` join the model registry — used through OpenCode as OpenAI-compatible providers, the per-HU $ badge and `max_budget_usd` enforcement now price them correctly instead of flying blind. Full setup snippet in `docs/providers-via-opencode.md`.
+
+### Changed
+
+- **@karajan/hu-board is fully decoupled from the CLI source tree** (KJC-TSK-0632): the rag subtree the board consumes (retriever, embedders, rerank, where-parser) moved to `karajan-core/rag` with re-export shims left behind, and the board resolves everything through the `karajan-core` package — zero relative imports into `src/`, enforced by a new architecture test. Closes the remaining item of the core extraction (KJC-TSK-0511).
 
 ### Fixed
 
 - **verify-pack pnpm smoke vs release-age quarantine**: modern pnpm silently resolves freshly published dependencies to OLD versions (`minimumReleaseAge` supply-chain protection), failing the tarball gate right after a `karajan-core` publish. The smoke now passes `--config.minimum-release-age=0` — it verifies packaging, not release-age policy.
+
+### Dependencies
+
+- Requires `karajan-core >= 1.3.0` (published) — ships `./rag/*` and `./slot-registry`.
 
 ## [3.14.1] - 2026-07-17
 
