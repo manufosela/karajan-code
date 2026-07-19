@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   # node --check catches parse-time syntax/import bugs. Node 20 was dropped
-  # in v3.0.0 (KJC-TSK-0500, 2026-06-03) when engines.node moved to >=22.22.1
+  # in v3.0.0 (KJC-TSK-0500, 2026-06-03) when engines.node moved to >=22.12.0
   # — Node 20 reaches EOL on 2026-04-30 and three deps (lint-staged 17,
   # commander 15, better-sqlite3 12.10+) required the bump.
   syntax:
@@ -88,7 +88,7 @@ jobs:
         run: npm run format:check
 
   # ESLint runs on the same Node matrix as syntax (22/24). engines.node
-  # is now >=22.22.1 (v3.0.0, KJC-TSK-0500).
+  # is now >=22.12.0 (v3.0.0, KJC-TSK-0500).
   lint:
     name: Lint (ESLint, Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
@@ -113,7 +113,7 @@ jobs:
       - name: Lint (ESLint — no-undef + import resolution)
         run: npm run lint
 
-  # Tests run on Node 22/24 — engines.node floor is now >=22.22.1 (v3.0.0).
+  # Tests run on Node 22/24 — engines.node floor is now >=22.12.0 (v3.0.0).
   test:
     name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
