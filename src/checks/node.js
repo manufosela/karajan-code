@@ -2,8 +2,12 @@
  * Node.js runtime version check. Requires Node >= 22 — the Active LTS
  * baseline since Karajan v3.0.0 (KJC-TSK-0500, 2026-06-03). Node 20 was
  * dropped because (a) Node 20 reaches EOL on 2026-04-30 and (b) three
- * dependencies forced the bump: lint-staged 17 needs ≥22.22.1, commander
- * 15 needs ≥22.12.0, and better-sqlite3 v12.10+ dropped Node 20 prebuilds.
+ * dependencies forced the bump: commander 15 needs ≥22.12.0 and
+ * better-sqlite3 v12.10+ dropped Node 20 prebuilds. engines.node is
+ * ">=22.12.0" — the highest RUNTIME floor. KJC-BUG-0111: it briefly sat
+ * at 22.22.1 (lint-staged 17's floor — a devDependency end users never
+ * run) and npm silently served karajan-code@2.34.0 to every Node
+ * 22.0-22.21 install; keep dev-tool floors out of engines.
  * Strategy: manual — we cannot auto-upgrade the runtime. Users on older
  * Node get a clear upgrade instruction with nvm + brew hints instead of a
  * silent runtime crash.

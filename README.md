@@ -234,7 +234,7 @@ Karajan ships as **layers you opt into**. The base CLI is tiny (~5 MB). Heavier 
 - **Pipeline RAM peak**: 1–2 GB per `kj run` (one orchestrator + one coder + one reviewer subprocess at a time).
 - **SQLite is in-process.** No separate DB daemon. `~/.karajan/` is a folder, not a service.
 - **First-run Ollama pull**: ~5 min in the background; you can keep working — `kj` falls back to a cloud embedder if Ollama isn't ready yet.
-- **Runtime**: Node.js ≥ 22.22.1 (Active LTS). v3.0.0 dropped Node 20 support. Use `kj doctor` to verify your environment.
+- **Runtime**: Node.js ≥ 22.12.0 (Active LTS). v3.0.0 dropped Node 20 support. Use `kj doctor` to verify your environment.
 
 ## Two ways to use Karajan
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.1] - 2026-07-19
+
+Patch. **`npm install -g karajan-code` no longer silently installs a months-old version on Node 22.0-22.21.**
+
+### Fixed
+
+- **engines.node lowered to the real runtime floor, `>=22.12.0`** (KJC-BUG-0111, caught by following the Quick Start to the letter with a fresh install): every 3.x release declared `>=22.22.1` — a floor inherited from lint-staged 17, a devDependency end users never run. npm resolves the newest version whose engines match your Node, so any install on Node 22.0-22.21 silently received **karajan-code@2.34.0** with zero warnings. The actual runtime floor is commander 15's `>=22.12.0`; all four workspaces now declare it.
+
 ## [3.15.0] - 2026-07-19
 
 Minor. **Parallel lanes ready for real projects, Kimi + DeepSeek as first-class priced models, and a fully decoupled HU Board.**
