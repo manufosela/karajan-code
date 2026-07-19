@@ -19,6 +19,7 @@ import { checkCommand } from "../commands/check.js";
 import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
+import { envInstallCommand } from "../commands/env.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -119,6 +120,16 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "start", flags, async ({ config, logger }) => {
         await startCommand({ task, config, logger, flags });
       });
+    });
+
+  // ENV-A1 (KJC-TSK-0639) — Karajan Environment v4: the host agent
+  // orchestrates, Karajan installs the method it must follow.
+  const env = program.command("env").description("Karajan Environment (v4) — playbook for host agents");
+  env.command("install")
+    .description("Install/refresh the Karajan playbook in CLAUDE.md (Claude) and AGENTS.md (Codex)")
+    .option("--target <target>", "claude | codex | both", "both")
+    .action(async (flags) => {
+      await envInstallCommand({ flags });
     });
 
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
