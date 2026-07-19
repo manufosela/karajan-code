@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.2] - 2026-07-19
+
+Patch. **The Quick Start scenario no longer burns budget or dies on a retired Gemini CLI.** Both bugs were caught by following the landing's Quick Start to the letter with a fresh npm install.
+
+### Fixed
+
+- **No-remote repos skip push/PR automation** (KJC-BUG-0112): on a fresh `git init` folder — the canonical Quick Start scenario — the post-approval automation ran `git fetch origin`, threw, and escalated to Solomon on EVERY iteration ($2.57 observed on a ~$0.50 run, with the whole budget at risk). `finalizeGitAutomation` and CommiterRole now detect the missing remote and skip with "No remote configured — skipping push/PR automation".
+- **A retired Gemini Code Assist CLI no longer poisons runs** (KJC-BUG-0113, first layers): its `IneligibleTierError` now classifies as `AUTH_FAILED` (non-recoverable, actionable message) instead of `UNKNOWN_FATAL`; agent binary probes carry a 5s timeout so a zombie CLI can't hang init/preflight; and Solomon's hardcoded fallback provider moves from `gemini` (dead for individuals) to `claude`.
+
 ## [3.15.1] - 2026-07-19
 
 Patch. **`npm install -g karajan-code` no longer silently installs a months-old version on Node 22.0-22.21.**
