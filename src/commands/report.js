@@ -3,6 +3,7 @@ import path from "node:path";
 import { exists } from "../utils/fs.js";
 import { getSessionRoot } from "../utils/paths.js";
 import { loadConfig } from "../config.js";
+import { DEFAULTS } from "../config/defaults.js";
 
 function parseBudgetFromActivityLog(logText) {
   if (!logText) {
@@ -131,6 +132,14 @@ async function buildReport(dir, sessionId) {
 
   const sonar = summarizeSonar(checkpoints);
   const budget = parseBudgetFromActivityLog(activityLog);
+  // KJC-BUG-0114: activity logs written when max_budget_usd was null carry
+  // a phantom "$0.00" ceiling (Number(null) === 0). Resolve the effective
+  // ceiling from the session's config snapshot, falling back to the
+  // shipped default; an explicit 0 means "no ceiling" and drops the suffix.
+  if (budget.limit_usd === 0) {
+    const snapBudget = session.config_snapshot?.max_budget_usd;
+    budget.limit_usd = snapBudget == null ? DEFAULTS.max_budget_usd : (Number(snapBudget) || null);
+  }
   const commits = summarizeCommits(session, checkpoints);
 
   const budgetTrace = Array.isArray(session.budget?.trace) ? session.budget.trace : [];

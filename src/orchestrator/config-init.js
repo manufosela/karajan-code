@@ -12,6 +12,7 @@ import { resolveRole } from "../config.js";
 import { emitProgress, makeEvent } from "../utils/events.js";
 import { getTemplatesRoot } from "../utils/templates-root.js";
 import { BudgetTracker, extractUsageMetrics } from "../utils/budget.js";
+import { DEFAULTS } from "../config/defaults.js";
 import { computeKjComparison } from "../budget/comparison.js";
 import { resolveRoleMdPath, loadFirstExisting } from "../roles/base-role.js";
 import { projectSlug } from "../plan/plan-store.js";
@@ -303,8 +304,13 @@ export async function handleDryRun({ task, config, flags, emitter, pipelineFlags
 
 export function createBudgetManager({ config, emitter, eventBase, getCompressionStats = null }) {
   const budgetTracker = new BudgetTracker({ pricing: config?.budget?.pricing });
-  const budgetLimit = Number(config?.max_budget_usd);
-  const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit >= 0;
+  // KJC-BUG-0114: Number(null) === 0, so a config that reached us with
+  // max_budget_usd: null produced a phantom "$X / $0.00" ceiling (and a
+  // permanent warn state). null/undefined fall back to the shipped
+  // default ceiling; an explicit 0 means "no ceiling".
+  const rawBudget = config?.max_budget_usd;
+  const budgetLimit = rawBudget == null ? DEFAULTS.max_budget_usd : Number(rawBudget);
+  const hasBudgetLimit = Number.isFinite(budgetLimit) && budgetLimit > 0;
   const warnThresholdPct = Number(config?.budget?.warn_threshold_pct ?? 80);
   let stageCounter = 0;
 

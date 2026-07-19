@@ -389,16 +389,19 @@ async function handleTddFailure({ tddEval, config, logger, emitter, eventBase, s
     return { action: "continue" };
   }
 
-  // Brain: when enabled, skip Solomon — Brain handles via max_iterations
+  // Brain: at the sub-loop limit the TDD gate must stop eating iterations.
+  // KJC-BUG-0115: returning "continue" here short-circuited runSingleIteration
+  // before the reviewer gate — 5/5 iterations ended without any review. The
+  // failure is already queued as feedback; "proceed" lets the reviewer run.
   if (brainCtx?.enabled) {
-    logger.info("Brain: TDD sub-loop limit reached — Brain will handle via max_iterations (Solomon bypassed)");
+    logger.info("Brain: TDD sub-loop limit reached — proceeding to reviewer with TDD failure as pending feedback");
     emitProgress(emitter, makeEvent("brain:tdd-retry-limit", { ...eventBase, stage: "tdd" }, {
-      message: `TDD sub-loop limit reached (${session.repeated_issue_count}/${config.session.fail_fast_repeats}) — Brain handling`,
+      message: `TDD sub-loop limit reached (${session.repeated_issue_count}/${config.session.fail_fast_repeats}) — proceeding to reviewer`,
       detail: { subloop: "tdd", retryCount: session.repeated_issue_count, reason: tddEval.reason }
     }));
     resetRetryCount(session, "repeated_issue");
     await saveSession(session);
-    return { action: "continue" };
+    return { action: "proceed" };
   }
 
   emitProgress(

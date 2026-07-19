@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.3] - 2026-07-19
+
+Patch. **The integral false green found by the complex real demo is fixed — the last 3.x release before v4.** A 5-iteration run that ended "approved" with zero reviewer passes, zero post-loop stages and zero push can no longer happen: every layer of that chain is closed.
+
+### Fixed
+
+- **RTK no longer wraps the pipeline's internal git/diff commands** (KJC-BUG-0115, layer 1): with RTK installed, `rtk git diff` returns a compressed summary without `diff --git` headers, so the TDD gate parsed 0 changed files and failed forever with "(2 src, 0 test)" while the coder's real tests sat committed in the branch. Internal plumbing now always runs raw git; RTK keeps saving tokens where it belongs — inside the coder agent's own shell.
+- **The TDD gate no longer short-circuits the reviewer** (KJC-BUG-0115, layer 2): at the TDD sub-loop limit under Brain, the iteration used to end before `runReviewerGateStage` — codex never reviewed a single line in 5 rounds. The gate now proceeds to the reviewer with the TDD failure queued as pending feedback.
+- **"Finalizing as approved" at max_iterations now runs the real finalize path** (KJC-BUG-0116): Brain/Solomon approval at the iteration cap returned a bare result, skipping tester, security, final audit AND git push/PR. It now routes through the same post-loop + finalize used on reviewer approval; if post-loop rejects the work, the session honestly reports `post_loop_rejected_at_max_iterations` instead of a false green.
+- **Journals no longer report "Iterations: 0" after real iterations** (KJC-BUG-0117): iterations that ended before the reviewer were never recorded; they now land in the journal from every exit path.
+- **Budget ceiling no longer shows "$X / $0.00"** (KJC-BUG-0114): a config carrying `max_budget_usd: null` produced a phantom $0.00 ceiling (`Number(null) === 0`) and a permanent warn state. null now falls back to the shipped default ($5), explicit 0 means "no ceiling", and `kj report` resolves the effective ceiling for sessions logged before the fix.
+
 ## [3.15.2] - 2026-07-19
 
 Patch. **The Quick Start scenario no longer burns budget or dies on a retired Gemini CLI.** Both bugs were caught by following the landing's Quick Start to the letter with a fresh npm install.
