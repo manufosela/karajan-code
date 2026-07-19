@@ -121,6 +121,17 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // ENV-A1 (KJC-TSK-0639) — Karajan Environment v4: the host agent
+  // orchestrates, Karajan installs the method it must follow.
+  const env = program.command("env").description("Karajan Environment (v4) — playbook for host agents");
+  env.command("install")
+    .description("Install/refresh the Karajan playbook in CLAUDE.md (Claude) and AGENTS.md (Codex)")
+    .option("--target <target>", "claude | codex | both", "both")
+    .action(async (flags) => {
+      const { envInstallCommand } = await import("../commands/env.js");
+      await envInstallCommand({ flags });
+    });
+
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")
