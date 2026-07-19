@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.15.2 — el Quick Start sobrevive a repos sin remoto y a un Gemini CLI retirado (actual)
+### v3.15.3 — el falso verde queda cerrado estructuralmente (actual)
+
+Patch, la última release de la 3.x antes de la v4. Una demo real compleja destapó una cadena por la que un run podía terminar "approved" sin una sola pasada del reviewer: con RTK instalado, el gate TDD parseaba un diff comprimido vacío y fallaba para siempre, cortocircuitando al reviewer en cada iteración; al llegar al máximo de iteraciones se finalizaba como aprobado sin tester, security, audit ni push. Las cuatro capas quedan cerradas: los git/diff internos siempre corren en crudo, el gate TDD pasa al reviewer con su fallo encolado como feedback, la aprobación en el tope de iteraciones ejecuta el post-loop completo + finalize de git (o reporta el rechazo honestamente), los journals registran todas las iteraciones y el techo de presupuesto nunca muestra un $0.00 fantasma. Actualización directa desde v3.15.2.
+
+### v3.15.2 — el Quick Start sobrevive a repos sin remoto y a un Gemini CLI retirado
 
 Patch, nacido de seguir nuestro propio Quick Start al pie de la letra con una instalación limpia. En una carpeta recién `git init`, la automatización de push/PR ahora se salta limpiamente ("No remote configured") en vez de escalar a Solomon en cada iteración y quemar el presupuesto del run. Un Gemini Code Assist CLI retirado en el PATH ya no envenena los runs: su error clasifica como fallo de autenticación con mensaje accionable, los probes de binarios llevan timeout, y el proveedor de respaldo de Solomon ahora es Claude. También publicada hoy: la v3.15.1, cuyo fix de engines evita que npm instale en silencio una versión de hace meses en Node 22.0-22.21. Actualización directa desde v3.15.0.
 

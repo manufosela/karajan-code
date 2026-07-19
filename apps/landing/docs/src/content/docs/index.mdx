@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.15.2 — the Quick Start survives no-remote repos and a retired Gemini CLI (current)
+### v3.15.3 — the false green is structurally closed (current)
+
+Patch, the last 3.x release before v4. A complex real-world demo exposed a chain where a run could end "approved" with zero reviewer passes: with RTK installed, the TDD gate parsed an empty compressed diff and failed forever, short-circuiting the reviewer on every iteration; hitting max iterations then finalized as approved without tester, security, audit or push. All four layers are closed — internal git/diff commands always run raw, the TDD gate proceeds to the reviewer with its failure queued as feedback, approval at the iteration cap runs the full post-loop + git finalize path (or honestly reports the rejection), journals record every iteration, and the budget ceiling never shows a phantom $0.00. Drop-in upgrade from v3.15.2.
+
+### v3.15.2 — the Quick Start survives no-remote repos and a retired Gemini CLI
 
 Patch, born from following our own Quick Start to the letter with a fresh install. On a fresh `git init` folder, push/PR automation now skips cleanly ("No remote configured") instead of escalating to Solomon on every iteration and burning the run's budget. A retired Gemini Code Assist CLI on the PATH no longer poisons runs: its error classifies as an auth failure with an actionable message, binary probes carry a timeout, and Solomon's fallback provider is now Claude. Also released today: v3.15.1, whose engines fix stops npm from silently installing a months-old version on Node 22.0-22.21. Drop-in upgrade from v3.15.0.
 
