@@ -52,6 +52,7 @@ let tgzPath = null;
 let tmpDir = null;
 let gTmp = null;
 let pnpmTmp = null;
+let qsTmp = null;
 try {
   console.log(`verify-pack: packing karajan-code@${expectedVersion}…`);
   // --json gives us the exact filename without parsing human output.
@@ -146,6 +147,42 @@ try {
   }
   console.log(`verify-pack: global install + kj --version → ${gVersion} ✓`);
 
+  // 5.5 Quickstart smoke (KJC-TSK-0635) — the landing's Getting Started
+  // sequence against the INSTALLED tarball, no LLM involved. Born from
+  // 2026-07-19: following the docs to the letter caught 3 field bugs
+  // (silent 2.34.0 install, Solomon loop on no-remote repos, retired
+  // gemini CLI) that 6000 unit tests never saw. Aux bootstraps (ollama,
+  // rtk, squeezr, qmd, harden) are skipped — this validates kj's own
+  // init + config on the canonical no-remote scenario, not the network.
+  qsTmp = fs.mkdtempSync(path.join(os.tmpdir(), "kj-verify-qs-"));
+  console.log(`verify-pack: quickstart smoke (init on a no-remote repo) in ${qsTmp}…`);
+  run("git", ["init", "-q", "-b", "main"], { cwd: qsTmp });
+  // KARAJAN_HOME points at an isolated dir: faithful to a brand-new user
+  // (no pre-existing global config — `--local` without one is rejected by
+  // design, which is exactly what this smoke caught on its first CI run)
+  // AND hermetic (never touches the real ~/.karajan).
+  const qsEnv = { ...childEnv, KARAJAN_HOME: path.join(qsTmp, "karajan-home") };
+  delete qsEnv.CLAUDECODE;
+  const initRes = spawnSync(gBin, ["init", "--no-interactive", "--no-ollama", "--no-rtk", "--no-squeezr", "--no-qmd", "--no-harden"], {
+    encoding: "utf8", cwd: qsTmp, env: qsEnv, timeout: 180000,
+  });
+  if (initRes.status !== 0) {
+    fail("`kj init --no-interactive` failed on a fresh no-remote repo", (initRes.stderr || initRes.stdout || "").slice(-800));
+  }
+  const qsCfgLocal = path.join(qsTmp, ".karajan", "kj.config.yml");
+  const qsCfgGlobal = path.join(qsTmp, "karajan-home", "kj.config.yml");
+  const qsCfg = fs.existsSync(qsCfgLocal) ? qsCfgLocal : qsCfgGlobal;
+  if (!fs.existsSync(qsCfg)) fail(`kj init did not write ${qsCfg}`);
+  if (!/coder:\s*\S+/.test(fs.readFileSync(qsCfg, "utf8"))) {
+    fail("generated kj.config.yml has no coder assignment");
+  }
+  const reportRes = spawnSync(gBin, ["report"], { encoding: "utf8", cwd: qsTmp, env: qsEnv, timeout: 60000 });
+  const reportOut = `${reportRes.stdout || ""}${reportRes.stderr || ""}`;
+  if (reportRes.status !== 0 && !/no session|sin sesi|not found/i.test(reportOut)) {
+    fail("`kj report` crashed on a project with no sessions", reportOut.slice(-400));
+  }
+  console.log("verify-pack: quickstart smoke (init + report, no-remote repo) ✓");
+
   // 6. pnpm install smoke (KJC-TSK-0580). pnpm's layout differs from npm's
   // (a symlinked virtual store), so it can break resolution of the bundled
   // karajan-core the way npm packaging breakage did before (KJC-BUG-0082/0086).
@@ -195,4 +232,5 @@ try {
   if (tmpDir && fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
   if (gTmp && fs.existsSync(gTmp)) fs.rmSync(gTmp, { recursive: true, force: true });
   if (pnpmTmp && fs.existsSync(pnpmTmp)) fs.rmSync(pnpmTmp, { recursive: true, force: true });
+  if (qsTmp && fs.existsSync(qsTmp)) fs.rmSync(qsTmp, { recursive: true, force: true });
 }

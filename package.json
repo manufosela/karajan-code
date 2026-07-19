@@ -85,7 +85,8 @@
     "mcp": "node src/mcp/server.js",
     "audit:test-diet": "node scripts/audit-test-diet.mjs",
     "verify-pack": "node scripts/verify-pack.mjs",
-    "prepublishOnly": "node scripts/verify-pack.mjs"
+    "prepublishOnly": "node scripts/verify-pack.mjs",
+    "verify-quickstart": "node scripts/quickstart-gate.mjs"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
