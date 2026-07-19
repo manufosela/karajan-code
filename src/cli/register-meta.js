@@ -19,6 +19,7 @@ import { checkCommand } from "../commands/check.js";
 import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
+import { envInstallCommand } from "../commands/env.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -128,7 +129,6 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Install/refresh the Karajan playbook in CLAUDE.md (Claude) and AGENTS.md (Codex)")
     .option("--target <target>", "claude | codex | both", "both")
     .action(async (flags) => {
-      const { envInstallCommand } = await import("../commands/env.js");
       await envInstallCommand({ flags });
     });
 
