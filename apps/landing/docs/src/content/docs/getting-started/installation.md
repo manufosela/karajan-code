@@ -15,7 +15,7 @@ The `kj` binary bundles its own runtime, but it **orchestrates external tools** 
 **Optional** (each enables extra features):
 
 - **Docker** — local models and SonarQube static analysis. Disable Sonar with `--no-sonar` or `sonarqube.enabled: false`
-- **Node.js >= 18 / npm** — enables the npm install path and the helper tools (Squeezr, qmd)
+- **Node.js >= 22.12 / npm** — required by the npm install path (`engines.node`; with an older Node, npm silently installs an OLD karajan-code version that still supports it) and by the helper tools (Squeezr, qmd)
 
 ## Step 1: Install at least one AI agent
 

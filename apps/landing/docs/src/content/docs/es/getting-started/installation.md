@@ -15,7 +15,7 @@ El binario `kj` incluye su propio runtime, pero **orquesta herramientas externas
 **Opcional** (cada uno habilita funciones extra):
 
 - **Docker** — modelos locales y análisis estático con SonarQube. Desactiva Sonar con `--no-sonar` o `sonarqube.enabled: false`
-- **Node.js >= 18 / npm** — habilita la vía de instalación npm y las herramientas auxiliares (Squeezr, qmd)
+- **Node.js >= 22.12 / npm** — requerido por la vía de instalación npm (`engines.node`; con un Node más viejo, npm instala EN SILENCIO una versión ANTIGUA de karajan-code que aún lo soporte) y por las herramientas auxiliares (Squeezr, qmd)
 
 ## Paso 1: Instala al menos un agente de IA
 
