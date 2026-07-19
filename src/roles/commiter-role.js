@@ -8,7 +8,8 @@ import {
   commitAll,
   pushBranch,
   createPullRequest,
-  revParse
+  revParse,
+  hasRemote
 } from "../utils/git.js";
 
 function buildCommitMessage(task) {
@@ -59,7 +60,13 @@ export class CommiterRole extends BaseRole {
     await commitAll(msg);
     const commitHash = await revParse("HEAD");
 
-    if (push) {
+    // KJC-BUG-0112: no `origin` remote (quickstart scenario) → skip
+    // push/PR instead of throwing on fetch.
+    const remoteAvailable = push ? await hasRemote() : false;
+    if (push && !remoteAvailable) {
+      this.logger?.info?.("No remote configured — skipping push/PR");
+    }
+    if (push && remoteAvailable) {
       const baseBranch = this.config.base_branch || "main";
       await fetchBase(baseBranch);
       await ensureBranchUpToDateWithBase({
@@ -71,7 +78,7 @@ export class CommiterRole extends BaseRole {
     }
 
     let prUrl = null;
-    if (push && createPr) {
+    if (push && createPr && remoteAvailable) {
       const baseBranch = this.config.base_branch || "main";
       prUrl = await createPullRequest({
         baseBranch,

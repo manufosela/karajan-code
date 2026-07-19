@@ -31,7 +31,11 @@ export const ERROR_CLASS = Object.freeze({
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-const AUTH_PATTERNS = /\b401\b|\b403\b|unauthorized|invalid\s+api\s+key|authentication\s+failed|expired\s+token/i;
+// `error\s+authenticating` + `IneligibleTierError` (KJC-BUG-0113): the
+// retired Gemini Code Assist CLI fails with "Error authenticating:
+// IneligibleTierError … migrate to Antigravity" — it classified as
+// UNKNOWN_FATAL and left the run without the AUTH escalation message.
+const AUTH_PATTERNS = /\b401\b|\b403\b|unauthorized|invalid\s+api\s+key|authentication\s+failed|expired\s+token|error\s+authenticating|IneligibleTierError/i;
 const SILENCED_PATTERNS = /killed\s+after\s+\d+\s*ms|silence\s*timeout|no\s+output\s+for\s+\d+/i;
 // `session\s+limit` / `weekly\s+limit` cover Claude Code's usage caps
 // ("You've hit your session limit · resets 10:10pm"). Without them the

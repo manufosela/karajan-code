@@ -177,3 +177,19 @@ describe("classifyAgentError — Claude Code session limit", () => {
     expect(r.class).not.toBe(ERROR_CLASS.UNKNOWN_FATAL);
   });
 });
+
+// KJC-BUG-0113: the retired Gemini Code Assist CLI fails with
+// "Error authenticating: IneligibleTierError…" — must classify as
+// AUTH_FAILED (non-recoverable, escalate to user), not UNKNOWN_FATAL.
+describe("retired gemini CLI (KJC-BUG-0113)", () => {
+  it("IneligibleTierError classifies as AUTH_FAILED", () => {
+    const r = classifyAgentError({
+      provider: "gemini",
+      exitCode: 1,
+      stderr: "Error authenticating: IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals.",
+      stdout: "",
+    });
+    expect(r.class).toBe("AUTH_FAILED");
+    expect(r.recoverable).toBe(false);
+  });
+});

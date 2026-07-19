@@ -123,7 +123,11 @@ export async function invokeSolomon({ config, logger, emitter, eventBase, stage,
     return escalateToHuman({ askQuestion, session, emitter, eventBase, stage, conflict, iteration });
   }
 
-  const solomonProvider = config?.roles?.solomon?.provider || "gemini";
+  // KJC-BUG-0113: the fallback used to be "gemini" — Google retired the
+  // Gemini Code Assist CLI for individuals (IneligibleTierError), so an
+  // unconfigured Solomon died on every escalation. Claude matches the
+  // brain.provider default.
+  const solomonProvider = config?.roles?.solomon?.provider || "claude";
   emitProgress(
     emitter,
     makeEvent("solomon:start", { ...eventBase, stage: "solomon" }, {

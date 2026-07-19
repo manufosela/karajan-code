@@ -12,7 +12,10 @@ const KNOWN_AGENTS = [
 
 export async function checkBinary(name, versionArg = "--version") {
   const resolved = resolveBin(name);
-  const res = await runCommand(resolved, [versionArg]);
+  // KJC-BUG-0113: a zombie CLI that hangs on --version (seen with the
+  // retired Gemini Code Assist binary) must not hang init/preflight —
+  // 5s is generous for a version print.
+  const res = await runCommand(resolved, [versionArg], { timeout: 5000 });
   const version = (res.stdout || res.stderr || "").split("\n")[0].trim();
   return { ok: res.exitCode === 0, version, path: resolved };
 }

@@ -251,6 +251,16 @@ export async function commitAll(message, cwd = null) {
   return { committed: true, commit: { hash, message: commitMessage } };
 }
 
+/**
+ * KJC-BUG-0112: whether the repo has an `origin` remote. The quickstart
+ * scenario (fresh folder + git init) has none — post-approval push/PR
+ * automation must skip instead of failing and escalating to Solomon.
+ */
+export async function hasRemote(cwd = null) {
+  const res = await run("git", ["remote", "get-url", "origin"], cwd ? { cwd } : {});
+  return res.exitCode === 0;
+}
+
 export async function pushBranch(branch, cwd = null) {
   await runGit(["push", "-u", "origin", branch], cwd ? { cwd } : {});
 }
