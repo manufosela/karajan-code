@@ -248,7 +248,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.15.0 — parallel lanes for real projects, Kimi + DeepSeek, decoupled board (current)
+### v3.15.2 — the Quick Start survives no-remote repos and a retired Gemini CLI (current)
+
+Patch, born from following our own Quick Start to the letter with a fresh install. On a fresh `git init` folder, push/PR automation now skips cleanly ("No remote configured") instead of escalating to Solomon on every iteration and burning the run's budget. A retired Gemini Code Assist CLI on the PATH no longer poisons runs: its error classifies as an auth failure with an actionable message, binary probes carry a timeout, and Solomon's fallback provider is now Claude. Also released today: v3.15.1, whose engines fix stops npm from silently installing a months-old version on Node 22.0-22.21. Drop-in upgrade from v3.15.0.
+
+### v3.15.0 — parallel lanes for real projects, Kimi + DeepSeek, decoupled board
 
 Minor. Three pieces. **Parallel lanes now survive real projects**: each fresh worktree is bootstrapped (submodules + `npm ci` or your `session.worktree_setup` command) and receives `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` env vars from a file-locked slot registry, so services started by tests don't collide on ports. **Kimi K2 and DeepSeek join the model registry with real pricing** — used through OpenCode as OpenAI-compatible providers, the per-HU $ badge and the budget ceiling price them correctly (setup snippet in `docs/providers-via-opencode.md`). And the **HU Board is fully decoupled from the CLI source tree**: the rag subtree lives in `karajan-core/rag` and an architecture test keeps it that way. Drop-in upgrade from v3.14.1.
 
@@ -263,7 +267,3 @@ Minor. Two new ways to run the orchestra. **`kj run --step`** pauses after every
 ### v3.13.1 — every run ships with a spend ceiling
 
 Patch. A stuck or runaway pipeline can no longer drain your subscription quota unattended: **`max_budget_usd` now defaults to 5** (USD-equivalent, checked every iteration). Exceeding it stops the run with an honest summary — what was spent, the limit, how to raise it — and `kj resume` continues consciously with a fresh window. Set it to `null` to remove the cap. Born from a field report of a stuck full-orchestra run burning a user's whole quota. Drop-in upgrade from v3.13.0.
-
-### v3.13.0 — `kj harden` respects your own tooling
-
-Minor. A repo that formats and lints with **Biome** no longer gets kj's eslint + prettier planted next to it. Harden now understands cross-tool alternatives: with `biome.json` present, the advisory reports those artifacts as covered ("kj won't add a second linter/formatter"), config seeding skips them, and `kj check` stops flagging their absence as drift. Your own config of the same tool still wins, `.editorconfig` and commitlint keep seeding (Biome doesn't replace them), and the generated pre-commit hooks and Quality workflow delegate to your project's `npm run lint`/`format` scripts. Drop-in upgrade from v3.12.3.

@@ -248,7 +248,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.15.0 — carriles paralelos para proyectos reales, Kimi + DeepSeek, board desacoplado (actual)
+### v3.15.2 — el Quick Start sobrevive a repos sin remoto y a un Gemini CLI retirado (actual)
+
+Patch, nacido de seguir nuestro propio Quick Start al pie de la letra con una instalación limpia. En una carpeta recién `git init`, la automatización de push/PR ahora se salta limpiamente ("No remote configured") en vez de escalar a Solomon en cada iteración y quemar el presupuesto del run. Un Gemini Code Assist CLI retirado en el PATH ya no envenena los runs: su error clasifica como fallo de autenticación con mensaje accionable, los probes de binarios llevan timeout, y el proveedor de respaldo de Solomon ahora es Claude. También publicada hoy: la v3.15.1, cuyo fix de engines evita que npm instale en silencio una versión de hace meses en Node 22.0-22.21. Actualización directa desde v3.15.0.
+
+### v3.15.0 — carriles paralelos para proyectos reales, Kimi + DeepSeek, board desacoplado
 
 Minor. Tres piezas. **Los carriles paralelos ya sobreviven a proyectos reales**: cada worktree nuevo se prepara automáticamente (submodules + `npm ci` o tu comando `session.worktree_setup`) y recibe las variables `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` desde un registro de slots con lock de fichero, para que los servicios que arranquen los tests no colisionen en puertos. **Kimi K2 y DeepSeek entran en el registro de modelos con precios reales** — usados vía OpenCode como proveedores OpenAI-compatibles, el badge de $ por HU y el techo de presupuesto los contabilizan bien (snippet de configuración en `docs/providers-via-opencode.md`). Y el **HU Board queda totalmente desacoplado del código del CLI**: el subárbol rag vive en `karajan-core/rag` y un test de arquitectura lo mantiene así. Actualización directa desde v3.14.1.
 
@@ -263,7 +267,3 @@ Minor. Dos formas nuevas de dirigir la orquesta. **`kj run --step`** para tras c
 ### v3.13.1 — todo run lleva techo de gasto de serie
 
 Patch. Un pipeline atascado o desbocado ya no puede fundir la cuota de tu suscripción sin nadie mirando: **`max_budget_usd` ahora vale 5 por defecto** (USD-equivalentes, comprobado en cada iteración). Al superarse, el run para con un resumen honesto — cuánto se gastó, el límite, cómo subirlo — y `kj resume` continúa conscientemente con una ventana nueva. Ponlo a `null` para quitar el techo. Nace de un reporte real: un run con la orquesta completa atascado fundió la cuota entera de un usuario. Actualización directa desde v3.13.0.
-
-### v3.13.0 — `kj harden` respeta tu propio tooling
-
-Minor. Un repo que formatea y lintea con **Biome** ya no recibe el eslint + prettier de kj plantados al lado. Harden entiende ahora las alternativas entre herramientas: con `biome.json` presente, el informe marca esos artefactos como cubiertos ("kj no añadirá un segundo linter/formateador"), la siembra de configs los salta y `kj check` deja de señalar su ausencia como drift. Tu propio config de la misma herramienta sigue ganando, `.editorconfig` y commitlint se siguen sembrando (Biome no los sustituye), y los hooks pre-commit y el workflow Quality generados delegan en los scripts `npm run lint`/`format` de tu proyecto. Actualización directa desde v3.12.3.
