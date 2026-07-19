@@ -36,6 +36,21 @@ function printVerdict(record) {
 
 export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+
+  if (flags.installGate) {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const marker = path.join(projectDir, ".karajan", "review-gate");
+    await fs.mkdir(path.dirname(marker), { recursive: true });
+    await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
+    console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
+    const hookProbe = await runCommand("git", ["config", "core.hooksPath"]);
+    if (!hookProbe.stdout?.trim()) {
+      console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
+    }
+    return { installed: true };
+  }
+
   const diff = await rawDiff(flags.range);
 
   if (flags.check) {
