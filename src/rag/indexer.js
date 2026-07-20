@@ -119,7 +119,14 @@ async function listFiles(dir, predicate) {
  * it as `--with-sources`.
  */
 export async function indexProject(projectDir, { db, embedder, karajanHome, logger = console, withSources = false } = {}) {
-  const totals = { indexed: 0, failed: 0, files: 0 };
+  // KJC-TSK-0640: a full index must stamp HEAD too — without it,
+  // last_indexed_commit stayed null after the FIRST index, so the drift
+  // delta-update (maybeAutoUpdate) never engaged until a manual --since.
+  const totals = { indexed: 0, failed: 0, files: 0, head: null };
+  try {
+    const { stdout } = await execa("git", ["-C", projectDir, "rev-parse", "HEAD"]);
+    totals.head = stdout.trim();
+  } catch { /* not a git repo (or zero commits) — nothing to stamp */ }
   const slug = projectDir.split("/").pop()?.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase() || "project";
   await prepareAdapters(detectAdaptersForProject(projectDir), { logger });
   const planRoot = join(karajanHome, PLANS_DIR, slug);

@@ -6,7 +6,7 @@ import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIn
 import { makeEmbedder } from "../rag/embedders/factory.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
-import { installPostMergeHook } from "../rag/auto-update.js";
+import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -73,6 +73,11 @@ export async function ragInstallHooksCommand({ config, logger, flags = {} }) {
 
 export async function ragQueryCommand({ text, config, logger, flags = {} }) {
   if (!text) throw new Error("kj rag query: text argument required");
+  // ENV-E1 (KJC-TSK-0640): never serve stale code — delta-update on drift
+  // before searching. Same escape hatches as the pre-run check
+  // (--no-rag-update / config.rag.autoUpdate); failures degrade to a warn
+  // inside maybeAutoUpdate and the query proceeds with the current index.
+  await maybeAutoUpdate({ projectDir: config?.projectDir || process.cwd(), config, logger, flags });
   const db = openDb(config);
   try {
     const topK = Math.max(1, Number(flags.topK) || 5);
