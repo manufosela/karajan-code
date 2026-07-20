@@ -235,6 +235,12 @@ export const ConfigSchema = v.looseObject({
     v.number(),
     v.minValue(0, "max_budget_usd must be >= 0")
   ))),
+  // ENV-D1 (KJC-TSK-0642): where work items live — the integrated HU Board
+  // or the user's Planning Game. The v4 playbook renders per backend.
+  state_backend: v.optional(v.picklist(
+    ["hu-board", "planning-game"],
+    "state_backend must be \"hu-board\" or \"planning-game\""
+  )),
   review_rules: v.optional(v.string()),
   coder_rules: v.optional(v.string()),
   base_branch: v.optional(v.string()),

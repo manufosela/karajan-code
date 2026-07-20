@@ -16,7 +16,10 @@ function hasRagIndex(config, projectDir) {
 
 export async function envInstallCommand({ config = null, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
-  const result = await installPlaybook({ projectDir, target: flags.target || "both" });
+  const result = await installPlaybook({
+    projectDir, target: flags.target || "both",
+    stateBackend: config?.state_backend || "hu-board",
+  });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
 
   // ENV-E1: RAG-first — the playbook orders "query the RAG before coding",
