@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-07-20
+
+Major. **Karajan v4 is an ENVIRONMENT: the host agent orchestrates, Karajan governs.** Born from a real-world demo where the subprocess loop produced an integral false green (5 "approved" iterations with zero reviewer passes — fixed in 3.15.3) while three days of the inverse model (a human tasking a host agent under deterministic gates) never let a single error through. v4 makes that inverse model the product: you work with Claude Code or Codex as the orchestrator, and Karajan installs the method, the tools and the git gates that make a false green structurally impossible. Everything ships additively — the subprocess runtime continues as the headless mode with the same gates, and no existing config breaks.
+
+### Added
+
+- **`kj env install`** — installs the Karajan playbook as a managed block in the host agents' rule files (CLAUDE.md for Claude Code, AGENTS.md for Codex) from ONE source: RAG before coding, card first, TDD, cross-AI review before committing, security checklist, atomic PRs. Under 60 lines by test; user content outside the block is never touched; re-running is idempotent. It is also RAG-first: when the project has no index, it builds one (`--no-rag` opts out).
+- **`kj review --staged`** — reviews the staged diff with an AI **different from the host** (host detected via environment; a configured reviewer that matches the host is overridden; no cross reviewer available is an error, never a silent same-AI fallback) and records the verdict in `.karajan/reviews/<sha256-of-the-raw-diff>.json`. The hash ties the verdict to byte-exact content: change the code and the verdict is void — resolve-until-pass by construction. `--check` verifies the staged diff has an approved verdict (exit 0/1, hook-friendly), `--range` reviews a git range, `--install-gate` enables the gate.
+- **Pre-commit review gate** (opt-in via `kj review --install-gate`, marker tracked in git so the whole team inherits it): without an approved cross-AI verdict matching the staged diff, **the commit does not enter**. Fails closed when kj is missing.
+- **`state_backend`** (`hu-board` | `planning-game`, default `hu-board`) — where work items live; the playbook's "card first" step names the chosen backend.
+- **`kj rag query` drift update** — before searching, the index delta-updates from the last indexed commit, so retrieval never serves stale code (`--no-rag-update` opts out). Full indexing now stamps the HEAD commit — previously the FIRST full index never armed the drift check.
+- **Headless verdict stamping** — `kj run` sessions record their internal reviewer's verdict for the staged diff before committing, so pipeline commits pass the v4 gate in gated repos.
+
+### Changed
+
+- **karajan-code itself now runs under the v4 environment**: every commit to this repo requires an approved cross-AI verdict. The activation commit was the first one governed — codex rejected the initial version with two legitimate issues before approving.
+- RTK is never used for internal git/diff plumbing (see 3.15.3); detection remains so agents can use it in their own shell.
+
 ## [3.15.3] - 2026-07-19
 
 Patch. **The integral false green found by the complex real demo is fixed — the last 3.x release before v4.** A 5-iteration run that ended "approved" with zero reviewer passes, zero post-loop stages and zero push can no longer happen: every layer of that chain is closed.
