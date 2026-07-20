@@ -4,8 +4,17 @@ dist/
 *.log
 .DS_Store
 
-# Karajan local files
-.karajan/
+# Karajan local files (`.karajan/*` instead of `.karajan/` so the v4
+# environment contract below CAN be re-included — git cannot re-include
+# children of an excluded directory).
+.karajan/*
+# …the v4 contract the whole team inherits (KJC-TSK-0641):
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
 .reviews/
 .kj/
 kj.config.yml
