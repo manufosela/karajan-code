@@ -1,9 +1,9 @@
 ---
 title: Karajan Code
-description: Role-based AI orchestrator with 24 roles, 5 agents, deterministic guards, TDD, SonarQube, and automated code review.
+description: The environment that governs AI-driven development — your agent orchestrates, Karajan installs the method, cross-AI review and git gates that make a false green impossible.
 template: splash
 hero:
-  tagline: "Multiagent coding orchestrator. 24 roles, 5 agents, deterministic guards, TDD, SonarQube, automated review."
+  tagline: "Your agent orchestrates, Karajan governs: method playbook, cross-AI review, git gates, RAG-first. Plus the classic multiagent pipeline as headless mode."
   image:
     html: '<img src="/docs/karajan-orbit.svg" alt="Karajan Code — multiagent coding orchestrator" width="400" height="400" />'
   actions:
@@ -242,13 +242,20 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
   <Card title="Autonomous delivery (v3.7)" icon="rocket">
     A single autonomy axis — `interactive | assisted | autonomous` — turns Karajan into a hands-off squad. **`kj autorun <spec>`** chains plan → run → outcome report atomically: it plans the work, decomposes it into HUs, and runs to completion with no human in the loop. **The Arbiter** resolves agent conflicts by picking the least-bad answer against a fixed ground-truth order (acceptance tests > reviewer must-fix > nice-to-have). Autonomous stages never block on a prompt, a wall-clock backstop guarantees they can't hang, and the run ends with a **DELIVERED / INCOMPLETE** report listing any residual defects. The default stays `interactive` — your normal runs are untouched. Drop-in upgrade from v3.6.0.
   </Card>
+  <Card title="Karajan Environment (v4)" icon="approve-check">
+    Karajan attaches to the agent you already work with — Claude Code or Codex — instead of driving everything by subprocess. **`kj env install`** writes the method into your agent's rule file from one single source: RAG before coding, card first, TDD, cross-AI review before committing. **`kj review --staged`** routes every diff to an AI **different from your orchestrator** and records the verdict tied to the sha256 of the exact content. **`kj review --install-gate`** turns it into a git pre-commit gate: without an approved cross-AI verdict, the commit does not enter. Deterministic, team-inherited, and impossible to fake — the classic pipeline continues as headless mode under the same gates.
+  </Card>
 </CardGrid>
 
 ## Recent releases
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v3.15.3 — the false green is structurally closed (current)
+### v4.0.0 — Karajan Environment: your agent orchestrates, Karajan governs (current)
+
+Major. Karajan becomes an ENVIRONMENT that attaches to the agent you already work with. **`kj env install`** writes the method into your agent's rule file (CLAUDE.md for Claude Code, AGENTS.md for Codex, one single source): query the project RAG before coding, card first, TDD, cross-AI review before committing. **`kj review --staged`** sends your diff to an AI different from your orchestrator and records the verdict tied to the sha256 of the exact diff — change the code and it must be reviewed again. **`kj review --install-gate`** enables the pre-commit gate: without an approved cross-AI verdict, the commit does not enter, so a false green is structurally impossible. The RAG is built on install and delta-updates before every query; `state_backend` chooses where work items live (HU Board or Planning Game); and the classic subprocess pipeline continues as the headless mode — its sessions stamp their reviewer's verdict so both worlds share the same gate. karajan-code itself runs under its own environment: every commit carries a cross-AI verdict.
+
+### v3.15.3 — the false green is structurally closed
 
 Patch, the last 3.x release before v4. A complex real-world demo exposed a chain where a run could end "approved" with zero reviewer passes: with RTK installed, the TDD gate parsed an empty compressed diff and failed forever, short-circuiting the reviewer on every iteration; hitting max iterations then finalized as approved without tester, security, audit or push. All four layers are closed — internal git/diff commands always run raw, the TDD gate proceeds to the reviewer with its failure queued as feedback, approval at the iteration cap runs the full post-loop + git finalize path (or honestly reports the rejection), journals record every iteration, and the budget ceiling never shows a phantom $0.00. Drop-in upgrade from v3.15.2.
 
