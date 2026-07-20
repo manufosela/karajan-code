@@ -1,4 +1,5 @@
 import { BaseRole } from "./base-role.js";
+import { stampStagedVerdict } from "../review/verdict-store.js";
 import {
   ensureGitRepo,
   currentBranch,
@@ -59,7 +60,6 @@ export class CommiterRole extends BaseRole {
     const msg = commitMessage || buildCommitMessage(task);
     // ENV-F1 (KJC-TSK-0643): CommiterRole runs after the HU review passed —
     // stamp the pipeline's verdict so the v4 gate accepts this commit.
-    const { stampStagedVerdict } = await import("../review/verdict-store.js");
     await commitAll(msg, null, {
       beforeCommit: () => stampStagedVerdict({
         projectDir: this.config?.projectDir || process.cwd(),
