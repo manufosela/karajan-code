@@ -36,11 +36,27 @@ function chainToGlobal(hook, globalHooksDir) {
   ];
 }
 
-export function hookBody(hook, cmds = {}, { globalHooksDir = null } = {}) {
+// KJC-TSK-0648: branch-first, enforced. The first external session of the
+// v4 environment committed on local main following literal instructions —
+// the playbook now orders "branch first" and this guard backs it up.
+function baseBranchGuard(baseBranch) {
+  if (!baseBranch) return [];
+  return [
+    "# Branch-first guard — the base branch only moves via PR.",
+    'if [ "$KJ_ALLOW_BASE_COMMIT" != "1" ]; then',
+    '  current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")',
+    `  if [ "$current_branch" = "${baseBranch}" ]; then`,
+    `    echo 'kj harden: direct commits on ${baseBranch} are not allowed — create a branch and open a PR (KJ_ALLOW_BASE_COMMIT=1 to override)'; exit 1`,
+    "  fi",
+    "fi",
+  ];
+}
+
+export function hookBody(hook, cmds = {}, { globalHooksDir = null, baseBranch = null } = {}) {
   const chain = chainToGlobal(hook, globalHooksDir);
   switch (hook) {
     case "pre-commit": {
-      const lines = ["# Lint + format the working tree with the project's native tools."];
+      const lines = [...baseBranchGuard(baseBranch), "# Lint + format the working tree with the project's native tools."];
       if (cmds.lint) lines.push(`${cmds.lint} || { echo 'kj harden: lint failed'; exit 1; }`);
       if (cmds.format) lines.push(`${cmds.format} || { echo 'kj harden: format check failed'; exit 1; }`);
       if (!cmds.lint && !cmds.format) lines.push("# (no lint/format command detected for this stack)");

@@ -120,9 +120,17 @@ export async function hardenCommand({
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
   const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
+  // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
+  // Resolved from the project's kj config (default "main"); best-effort so
+  // harden keeps working on repos that never ran kj init.
+  let baseBranch = "main";
+  try {
+    const { loadConfig } = await import("../config.js");
+    baseBranch = (await loadConfig(projectDir))?.base_branch || "main";
+  } catch { /* no kj config — default stands */ }
   let result;
   try {
-    result = await installHooks({ projectDir, profile, cmds, dryRun });
+    result = await installHooks({ projectDir, profile, cmds, dryRun, baseBranch });
   } catch (err) {
     if (json) logger.info?.(JSON.stringify({ ok: false, error: err.message }));
     else logger.error?.(`kj harden: ${err.message}`);

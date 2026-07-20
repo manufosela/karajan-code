@@ -6,6 +6,14 @@ npm run -s lint || { echo 'kj harden: lint failed'; exit 1; }
 npm run -s format:check || { echo 'kj harden: format check failed'; exit 1; }
 # <<< kj:managed:hook:pre-commit <<<
 
+# Branch-first guard (KJC-TSK-0648) — main only moves via PR.
+if [ "$KJ_ALLOW_BASE_COMMIT" != "1" ]; then
+  current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+  if [ "$current_branch" = "main" ]; then
+    echo 'kj harden: direct commits on main are not allowed — create a branch and open a PR (KJ_ALLOW_BASE_COMMIT=1 to override)'; exit 1
+  fi
+fi
+
 # v4 review gate (ENV-C1, KJC-TSK-0641): a staged diff only enters with a
 # recorded cross-AI approved verdict. Disable by removing .karajan/review-gate.
 if [ -f .karajan/review-gate ]; then
