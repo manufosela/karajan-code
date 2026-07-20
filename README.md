@@ -23,9 +23,19 @@
 
 ---
 
-> **v3.7.1 released** — Patch: fixes a `kj init` crash when configuring the Plan B fallback, and makes pnpm installs safe — `kj doctor` now flags when pnpm skipped `better-sqlite3`'s native build and tells you exactly how to fix it (`pnpm approve-builds better-sqlite3`). The release gate checks pnpm too. Built on **v3.7.0 — Autonomous delivery**: `kj autorun <spec>` chains spec → plan → run every user story → outcome in one command, unattended, with an **Arbiter** that resolves agent conflicts by picking the least-bad call; autonomy is opt-in, interactive runs are unchanged. Full notes in [CHANGELOG.md](CHANGELOG.md).
+> **v4.0.0 released — Karajan Environment.** The host agent orchestrates, Karajan governs. Work with Claude Code or Codex as your orchestrator; Karajan installs the method (`kj env install`), routes every diff through a review by a DIFFERENT AI (`kj review --staged`), and enforces it with a git pre-commit gate: without an approved cross-AI verdict tied to the exact staged diff, **the commit does not enter**. A false green becomes structurally impossible. The classic subprocess pipeline continues as the headless mode with the same gates. Full notes in [CHANGELOG.md](CHANGELOG.md).
 
 You describe what you want to build. Karajan orchestrates multiple AI agents to plan it, implement it, test it, review it with SonarQube, and iterate. No babysitting required.
+
+## v4: the Karajan Environment
+
+Since v4, Karajan attaches to the agent you already work with instead of driving everything by subprocess:
+
+1. **`kj env install`** — writes the Karajan method into your agent's rule file (CLAUDE.md for Claude Code, AGENTS.md for Codex, same single source): query the project RAG before coding, card first, TDD, cross-AI review before committing, security checklist. It also builds the project's RAG index if missing.
+2. **`kj review --staged`** — your diff is reviewed by an AI **different from your orchestrator** (Claude orchestrates → Codex reviews, and vice versa). The verdict is recorded, tied to the sha256 of the exact diff: change the code and it must be reviewed again.
+3. **`kj review --install-gate`** — enables the pre-commit gate. From then on, commits without an approved cross-AI verdict are rejected by git itself. The marker is tracked, so the whole team inherits the contract.
+
+This repo runs under its own environment: every commit to karajan-code carries a cross-AI verdict.
 
 ## What is Karajan?
 
