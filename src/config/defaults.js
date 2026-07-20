@@ -59,6 +59,9 @@ const DEFAULTS = {
   // runaway run must never drain a subscription quota unattended. Explicit
   // null in the user's config opts out (no cap).
   max_budget_usd: 5,
+  // ENV-D1 (KJC-TSK-0642): where work items live. The HU Board ships with
+  // kj; "planning-game" routes the v4 playbook to the user's PG MCP.
+  state_backend: "hu-board",
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",
   base_branch: "main",

@@ -47,7 +47,7 @@ You are the orchestrator; Karajan governs the method. Follow this on every task:
 
 1. **Context first**: before writing code, query the project RAG:
    `kj rag query "<what you need to know>"` — never guess what the codebase does.
-2. **Card first**: no work without a tracked story/bug (HU Board or Planning Game).
+2. **Card first**: no work without a tracked story/bug in the HU Board (`kj board`).
 3. **TDD**: write or extend the failing test FIRST, then the code. Run the suite
    after every significant change; never leave it red.
 4. **Cross-AI review before committing**: stage your changes and run
