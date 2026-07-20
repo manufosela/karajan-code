@@ -38,6 +38,19 @@ export async function installHooks({
   const hooks = PROFILE_HOOKS[profile];
   if (!hooks) throw new Error(`Unknown harden profile: ${profile}`);
 
+  // KJC-TSK-0645: setting a repo-local hooksPath ECLIPSES the machine's
+  // global hooks dir — personal guards (AI-attribution commit-msg, protected
+  // branch pre-push) would silently stop applying here. Detect the previous
+  // global dir and have every generated hook chain to it. `~` is emitted as
+  // `$HOME` so the committed hook stays portable across machines (the -x
+  // guard silences it where the dir doesn't exist).
+  let globalHooksDir = null;
+  const globalCfg = await runCommand("git", ["config", "--global", "core.hooksPath"], { cwd: projectDir });
+  const rawGlobal = globalCfg.exitCode === 0 ? globalCfg.stdout.trim() : "";
+  if (rawGlobal && rawGlobal !== HOOKS_DIR) {
+    globalHooksDir = rawGlobal.startsWith("~") ? `$HOME${rawGlobal.slice(1)}` : rawGlobal;
+  }
+
   const absHooksDir = join(projectDir, HOOKS_DIR);
   const results = [];
   for (const hook of hooks) {
@@ -47,7 +60,7 @@ export async function installHooks({
       source,
       blockId: `hook:${hook}`,
       version: BLOCK_VERSION,
-      body: hookBody(hook, cmds),
+      body: hookBody(hook, cmds, { globalHooksDir }),
       style: "hash",
     });
     results.push({ hook, target, action });

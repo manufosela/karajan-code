@@ -21,7 +21,23 @@ export const PROFILE_HOOKS = {
 };
 
 /** Build the managed body for a single hook. */
-export function hookBody(hook, cmds = {}) {
+// KJC-TSK-0645: `core.hooksPath .karajan/hooks` eclipses the user's global
+// hooks dir, silently disabling personal guards. When a previous global dir
+// is known, every generated hook ends by chaining its namesake there —
+// guarded, so machines without it are unaffected.
+function chainToGlobal(hook, globalHooksDir) {
+  if (!globalHooksDir) return [];
+  return [
+    "# Chain the machine's previous global hook (kj harden keeps it active).",
+    `if [ -x "${globalHooksDir}/${hook}" ]; then`,
+    `  "${globalHooksDir}/${hook}" "$@"; rc=$?`,
+    '  [ "$rc" -eq 0 ] || exit "$rc"',
+    "fi",
+  ];
+}
+
+export function hookBody(hook, cmds = {}, { globalHooksDir = null } = {}) {
+  const chain = chainToGlobal(hook, globalHooksDir);
   switch (hook) {
     case "pre-commit": {
       const lines = ["# Lint + format the working tree with the project's native tools."];
@@ -38,7 +54,7 @@ export function hookBody(hook, cmds = {}) {
         "  kj review --check || { echo 'kj: no approved cross-AI verdict for the staged diff — run `kj review --staged`'; exit 1; }",
         "fi"
       );
-      return lines.join("\n");
+      return [...lines, ...chain].join("\n");
     }
     case "commit-msg":
       // Pure POSIX — Conventional Commits header, length cap, AI-attribution.
@@ -52,6 +68,7 @@ export function hookBody(hook, cmds = {}) {
         `if grep -qiE '${AI_ATTRIBUTION}' "$msg_file"; then`,
         "  echo 'kj harden: AI attribution is not allowed in commit messages'; exit 1",
         "fi",
+        ...chain,
       ].join("\n");
     case "pre-push": {
       const lines = [
@@ -64,7 +81,7 @@ export function hookBody(hook, cmds = {}) {
       ];
       if (cmds.test) lines.push(`${cmds.test} || { echo 'kj harden: tests failed'; exit 1; }`);
       else lines.push("# (no test command detected for this stack)");
-      return lines.join("\n");
+      return [...lines, ...chain].join("\n");
     }
     case "post-merge":
       return [
@@ -72,6 +89,7 @@ export function hookBody(hook, cmds = {}) {
         "if command -v kj >/dev/null 2>&1; then",
         "  kj rag index --since auto >/dev/null 2>&1 || true",
         "fi",
+        ...chain,
       ].join("\n");
     default:
       throw new Error(`Unknown hook: ${hook}`);
