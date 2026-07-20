@@ -128,8 +128,11 @@ export function registerMeta(program, { pkgVersion }) {
   env.command("install")
     .description("Install/refresh the Karajan playbook in CLAUDE.md (Claude) and AGENTS.md (Codex)")
     .option("--target <target>", "claude | codex | both", "both")
+    .option("--no-rag", "Skip building the RAG index when the project has none (ENV-E1)")
     .action(async (flags) => {
-      await envInstallCommand({ flags });
+      await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {
+        await envInstallCommand({ config, logger, flags });
+      });
     });
 
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
@@ -153,6 +156,7 @@ export function registerMeta(program, { pkgVersion }) {
     });
   rag.command("query <text>")
     .description("Run a semantic query against the indexed RAG corpus")
+    .option("--no-rag-update", "Skip the pre-query drift delta-update (ENV-E1)")
     .option("--scope <scope>", "plans | code | onboarding | all (default: all)", "all")
     .option("--top-k <n>", "Number of hits to return (default: 5)", "5")
     .option("--project <slug>", "Filter by project slug. Pass 'all' to query across every indexed project. Default: cwd basename")
