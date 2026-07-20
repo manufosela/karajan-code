@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { loadConfig } from "../config.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
@@ -125,7 +126,6 @@ export async function hardenCommand({
   // harden keeps working on repos that never ran kj init.
   let baseBranch = "main";
   try {
-    const { loadConfig } = await import("../config.js");
     baseBranch = (await loadConfig(projectDir))?.base_branch || "main";
   } catch { /* no kj config — default stands */ }
   let result;
