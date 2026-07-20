@@ -33,6 +33,7 @@ export async function installHooks({
   profile = "standard",
   cmds = {},
   dryRun = false,
+  baseBranch = null,
 } = {}) {
   if (!isGitRepo(projectDir)) throw new Error(`Not a git repository: ${projectDir}`);
   const hooks = PROFILE_HOOKS[profile];
@@ -60,7 +61,7 @@ export async function installHooks({
       source,
       blockId: `hook:${hook}`,
       version: BLOCK_VERSION,
-      body: hookBody(hook, cmds, { globalHooksDir }),
+      body: hookBody(hook, cmds, { globalHooksDir, baseBranch }),
       style: "hash",
     });
     results.push({ hook, target, action });

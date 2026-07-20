@@ -41,7 +41,9 @@ You are the orchestrator; Karajan governs the method. Follow this on every task:
 5. **Security checklist** (you absorb the security role): validate all inputs,
    never commit secrets or keys, no deprecated APIs, parameterized queries,
    sanitize anything user-controlled before it reaches HTML/shell/SQL.
-6. **Ship small**: Conventional Commits, atomic PRs (~150 net lines), each PR
+6. **Branch first**: never commit on the base branch — create a branch per
+   task/bug and every change reaches the base only through a PR.
+7. **Ship small**: Conventional Commits, atomic PRs (~150 net lines), each PR
    compiles and passes tests on its own.
 
 Useful commands: \`kj rag query\` · \`kj review --staged\` · \`kj review --check\` ·
