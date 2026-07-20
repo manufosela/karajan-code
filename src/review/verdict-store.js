@@ -12,6 +12,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { runCommand } from "../utils/process.js";
 
 const STORE_DIR = path.join(".karajan", "reviews");
 
@@ -44,6 +45,30 @@ export async function loadVerdict(projectDir, hash) {
   } catch {
     return null;
   }
+}
+
+/**
+ * ENV-F1 (KJC-TSK-0643): headless pipeline sessions call this after staging
+ * and before committing. Their reviewer ALREADY cross-AI-reviewed the work,
+ * so the verdict is recorded for the staged diff and the v4 pre-commit gate
+ * accepts the pipeline's commit. No gate marker → no-op (zero overhead for
+ * repos that never opted in). Raw git only — never a wrapped runner
+ * (KJC-BUG-0115).
+ * @returns {Promise<{stamped: boolean}>}
+ */
+export async function stampStagedVerdict({ projectDir, reviewer, summary = "" }) {
+  const dir = projectDir || process.cwd();
+  try {
+    await fs.access(path.join(dir, ".karajan", "review-gate"));
+  } catch {
+    return { stamped: false };
+  }
+  const res = await runCommand("git", ["diff", "--cached"], { cwd: dir });
+  if (res.exitCode !== 0 || !res.stdout?.trim()) return { stamped: false };
+  await saveVerdict(dir, res.stdout, {
+    verdict: "approved", reviewer, host: "kj-pipeline", issues: [], summary,
+  });
+  return { stamped: true };
 }
 
 /**

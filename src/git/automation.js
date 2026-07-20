@@ -268,7 +268,17 @@ export async function finalizeGitAutomation({ config, gitCtx, task, logger, sess
   let committed = false;
   const commits = [];
   if (config.git.auto_commit) {
-    const commitResult = await commitAll(commitMsg);
+    // ENV-F1: this path only runs after the pipeline's reviewer approved,
+    // so stamp that verdict for the staged diff — the v4 pre-commit gate
+    // (when the repo opted in) accepts the pipeline's own commit.
+    const { stampStagedVerdict } = await import("../review/verdict-store.js");
+    const commitResult = await commitAll(commitMsg, null, {
+      beforeCommit: () => stampStagedVerdict({
+        projectDir: config?.projectDir || process.cwd(),
+        reviewer: config?.reviewer || "pipeline-reviewer",
+        summary: `kj run session ${session?.id || ""}: reviewer approved`.trim(),
+      }),
+    });
     committed = commitResult.committed;
     if (commitResult.commit) {
       commits.push(commitResult.commit);

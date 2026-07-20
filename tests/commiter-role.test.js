@@ -70,7 +70,11 @@ describe("CommiterRole", () => {
     await role.init({ task: "Fix login" });
     await role.run({ task: "Fix login", commitMessage: "fix: resolve login null pointer" });
 
-    expect(git.commitAll).toHaveBeenCalledWith("fix: resolve login null pointer");
+    expect(git.commitAll).toHaveBeenCalledWith(
+      "fix: resolve login null pointer",
+      null,
+      expect.objectContaining({ beforeCommit: expect.any(Function) })
+    );
   });
 
   it("generates commit message from task when not provided", async () => {
