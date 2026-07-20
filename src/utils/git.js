@@ -229,11 +229,15 @@ function isNothingToCommit(message) {
   return NOTHING_TO_COMMIT_PATTERNS.some((re) => re.test(m));
 }
 
-export async function commitAll(message, cwd = null) {
+export async function commitAll(message, cwd = null, { beforeCommit = null } = {}) {
   const opts = cwd ? { cwd } : {};
   await runGit(["add", "-A"], opts);
   const changed = await hasChanges(cwd);
   if (!changed) return { committed: false };
+  // ENV-F1 (KJC-TSK-0643): runs between staging and committing — the only
+  // window where the staged diff is exactly what the commit will contain
+  // (used to stamp the pipeline's review verdict for the v4 gate).
+  if (beforeCommit) await beforeCommit();
   try {
     await runGit(["commit", "-m", message], opts);
   } catch (err) {
