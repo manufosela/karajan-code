@@ -135,7 +135,10 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--no-rag", "Skip building the RAG index when the project has none (ENV-E1)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {
-        await envInstallCommand({ config, logger, flags });
+        const r = await envInstallCommand({ config, logger, flags });
+        // KJC-TSK-0659: exit 3 = pending user action (RAG cannot index) —
+        // a driving agent must stop and wait, never continue degraded.
+        if (Number.isInteger(r?.exitCode) && r.exitCode !== 0) process.exit(r.exitCode);
       });
     });
 

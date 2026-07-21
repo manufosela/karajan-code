@@ -29,7 +29,7 @@ const TARGET_FILES = {
 // ENV-D1 (KJC-TSK-0642): the tracking invariant names the CHOSEN state
 // backend — a playbook that says "board or PG" makes the host guess.
 const BACKEND_TRACKING = {
-  "hu-board": "Every piece of work has a tracked story/bug in the HU Board (`kj board`) before it starts.",
+  "hu-board": "Every piece of work has a tracked story/bug in the HU Board (`kj hu add` / `kj board`) before it starts.",
   "planning-game": "Every piece of work has a tracked card in the Planning Game MCP before it starts (In Progress while you work it).",
 };
 
@@ -58,8 +58,9 @@ Invariants (the git gates enforce these — they are not suggestions):
   through an atomic PR (~150 net lines, Conventional Commits).
 
 Commands: \`kj rag query\` · \`kj brief <role>\` (triage, planner, researcher,
-architect, tester, security, audit) · \`kj review --staged\` · \`kj review --check\` ·
-\`kj solomon --position\` · \`kj agent run <agent>\` · \`kj report\` · \`kj check\`
+architect, tester, security, audit) · \`kj hu add|move|list\` · \`kj adr add|list\` ·
+\`kj review --staged\` · \`kj review --check\` · \`kj solomon --position\` ·
+\`kj agent run <agent>\` · \`kj report\` · \`kj check\`
 
 Hit a kj bug or friction? Diagnose it and file it upstream with
 \`kj report-issue\` (sanitized; ask your user before \`--publish\`).
