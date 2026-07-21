@@ -251,7 +251,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.0 — any-agent brain: cualquier IA es el orquestador, y el sistema se repara solo (actual)
+### v4.1.1 — fixes de campo de los primeros usuarios del entorno (actual)
+
+Patch. Tres fricciones reportadas por las primeras instalaciones reales del entorno, incorporadas: doctor encuadra un MCP ausente como opcional degradado (el binario standalone de curl no embebe módulos nativos por diseño — RAG, board y MCP necesitan la instalación npm), `kj review --install-gate` reescribe el .gitignore él solo para que el contrato del gate lo herede de verdad todo el equipo, y el pre-push generado deja de correr la suite cuando el CI ya la ejecuta por PR. Actualización directa desde v4.1.0.
+
+### v4.1.0 — any-agent brain: cualquier IA es el orquestador, y el sistema se repara solo
 
 Minor. El entorno se generaliza: el brain puede ser Claude Code, Codex, Gemini CLI o Cursor (`kj env install --target all` escribe el playbook para todos los anfitriones desde una fuente). **`kj solomon`** trae una tercera IA neutral a arbitrar cuando brain y reviewer chocan — los hallazgos de seguridad no son arbitrables jamás. **`kj brief <rol>`** entrega al brain el método destilado de cada rol que absorbe, reescrito outcome-first (misión + invariantes + entregable — los modelos frontier eligen mejor el camino solos; los límites quedan explícitos). **`kj agent run`** es el bus inter-agente, y **`kj report-issue`** cierra el bucle: el brain de cualquier usuario reporta fricciones de kj upstream, sanitizadas y sin duplicar, sin publicar jamás sin un click humano. Doc v4 nueva de cinco páginas (EN+ES) con todo lo anterior agrupado como v3 legacy. Actualización directa desde v4.0.1.
 

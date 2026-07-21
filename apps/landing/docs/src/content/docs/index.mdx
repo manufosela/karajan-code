@@ -251,7 +251,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.0 — any-agent brain: any AI is the orchestrator, and the system repairs itself (current)
+### v4.1.1 — field fixes from the environment's first users (current)
+
+Patch. Three frictions reported by the environment's first real installs, folded back in: doctor frames a missing MCP as a degraded optional (the standalone curl binary ships without native modules by design — RAG, board and MCP need the npm install), `kj review --install-gate` rewrites .gitignore by itself so the gate contract is actually inherited by the whole team, and the generated pre-push drops the test suite when CI already runs it per PR. Drop-in upgrade from v4.1.0.
+
+### v4.1.0 — any-agent brain: any AI is the orchestrator, and the system repairs itself
 
 Minor. The environment generalizes: the brain can be Claude Code, Codex, Gemini CLI or Cursor (`kj env install --target all` writes the playbook for every host from one source). **`kj solomon`** brings a neutral third AI to arbitrate when brain and reviewer clash — security findings are never arbitrable. **`kj brief <role>`** hands the brain the distilled method of each role it absorbs, rewritten outcome-first (mission + invariants + deliverable — frontier models pick better paths alone; the limits stay explicit). **`kj agent run`** is the inter-agent bus, and **`kj report-issue`** closes the loop: any user's brain files kj frictions upstream, sanitized and deduped, never publishing without a human click. New five-page v4 docs (EN+ES) with everything prior grouped as v3 legacy. Drop-in upgrade from v4.0.1.
 
