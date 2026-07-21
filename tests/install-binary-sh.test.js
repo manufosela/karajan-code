@@ -15,6 +15,14 @@ describe("install-binary.sh macOS gating — KJC-BUG-0101", () => {
   });
 
   it("lists darwin-arm64 as an available prebuilt target", () => {
-    expect(script).toMatch(/Available: linux-x64, darwin-arm64/);
+    expect(script).toMatch(/available: linux-x64, darwin-arm64/i);
+  });
+
+  // KJC-TSK-0658: the default route is npm-first (full product); the SEA
+  // binary is an explicit opt-in that states its limitations.
+  it("defaults to the npm route and gates the binary behind --standalone", () => {
+    expect(script).toMatch(/npm install -g/);
+    expect(script).toMatch(/--standalone/);
+    expect(script).toMatch(/SHASUMS256\.txt/); // provisioned Node is checksum-verified
   });
 });
