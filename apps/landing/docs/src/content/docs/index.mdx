@@ -251,7 +251,15 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.2 — one pass, fully operational (current)
+### v4.1.4 — the self-healing loop closed its first cycle (current)
+
+Patch. A user's Karajan diagnosed a real install friction and filed it upstream with `kj report-issue` (sanitized, deduped, human-approved) — and this release ships the fix: semgrep guidance is now distro-aware and PEP 668 safe (Debian/Ubuntu get `sudo apt install pipx`, never a pip bootstrap that cannot work there). Dependency drift also cleared: npm audit down to zero vulnerabilities. Drop-in upgrade from v4.1.3.
+
+### v4.1.3 — perfectly installed, or stopped with instructions
+
+Patch. Never continue degraded: anything `kj install-tools` cannot install unattended becomes one `PENDING USER ACTION` block with the exact commands for your OS and a distinctive exit code 3, so your agent stops, shows it, and waits for you. `kj env install` refuses to call an empty RAG a success. And `kj harden` recognizes every same-tool config variant (`eslint.config.mjs`, `.eslintrc.*`…) so it never eclipses your real linting. Drop-in upgrade from v4.1.2.
+
+### v4.1.2 — one pass, fully operational
 
 Patch. Setting up a Karajan machine is now one command with a complete result. `kj install-tools` covers the FULL stack — rtk, squeezr and qmd join git, agent CLIs, Semgrep, OSV-Scanner, Lighthouse, Docker and SonarQube in the default list, asking before each install. And the `curl` installer is npm-first: it installs the complete product (RAG, HU Board, MCP included), auto-provisioning the official checksum-verified Node LTS into `~/.karajan/node` when Node is missing — the CLI-only single binary moved behind `--standalone`. Drop-in upgrade from v4.1.1.
 

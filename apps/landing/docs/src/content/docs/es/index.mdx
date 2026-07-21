@@ -251,7 +251,15 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.2 — una pasada, totalmente operativo (actual)
+### v4.1.4 — el ciclo self-healing cerró su primera vuelta (actual)
+
+Patch. El Karajan de un usuario diagnosticó una fricción real de instalación y la subió con `kj report-issue` (sanitizada, deduplicada, aprobada por el humano) — y esta versión trae el fix: la guía de semgrep ahora es distro-aware y segura frente a PEP 668 (Debian/Ubuntu reciben `sudo apt install pipx`, nunca un bootstrap con pip que ahí no puede funcionar). Además, drift de dependencias limpio: npm audit a cero vulnerabilidades. Actualización directa desde v4.1.3.
+
+### v4.1.3 — perfectamente instalado, o parado con instrucciones
+
+Patch. Nunca continuar degradado: lo que `kj install-tools` no pueda instalar sin ti se convierte en un único bloque `PENDING USER ACTION` con los comandos exactos de tu sistema y un código de salida distintivo (3), para que tu agente pare, te lo enseñe y espere. `kj env install` se niega a llamar éxito a un RAG vacío. Y `kj harden` reconoce todas las variantes de config del mismo tool (`eslint.config.mjs`, `.eslintrc.*`…) para no eclipsar jamás tu linting real. Actualización directa desde v4.1.2.
+
+### v4.1.2 — una pasada, totalmente operativo
 
 Patch. Montar una máquina Karajan es ya un comando con resultado completo. `kj install-tools` cubre TODO el stack — rtk, squeezr y qmd se suman a git, CLIs de agentes, Semgrep, OSV-Scanner, Lighthouse, Docker y SonarQube en la lista por defecto, preguntando antes de cada instalación. Y el instalador `curl` es npm-first: instala el producto completo (RAG, HU Board y MCP incluidos), autoprovisionando el Node LTS oficial verificado por checksum en `~/.karajan/node` cuando falta Node — el binario único solo-CLI pasa a `--standalone`. Actualización directa desde v4.1.1.
 
