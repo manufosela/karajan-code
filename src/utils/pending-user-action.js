@@ -25,7 +25,9 @@ const OS_COMMANDS = {
     win32: ["winget install Git.Git"],
   },
   semgrep: {
-    linux: ["python3 -m pip install --user semgrep   # or: pipx install semgrep"],
+    // PEP 668 (#1256): system Python is externally managed on modern
+    // distros — pipx comes from the distro package manager, never from pip.
+    linux: ["sudo apt update && sudo apt install -y pipx && pipx install semgrep   # Debian/Ubuntu", "sudo dnf install -y pipx && pipx install semgrep   # Fedora/RHEL"],
     darwin: ["brew install semgrep"],
     win32: ["python -m pip install --user semgrep"],
   },
@@ -75,10 +77,11 @@ export function renderPendingBlock(pending, { platform = process.platform, retry
   for (const r of pending) {
     const why = r.error ? `install failed: ${r.error}` : r.reason || "no automatic route on this machine";
     lines.push(`  ▸ ${r.tool}  (${why})`);
-    const commands = r.commands
-      ?? (r.command ? [r.command] : null)
-      ?? (r.suggested ? [r.suggested] : null)
-      ?? (osCommandsFor(r.tool, platform).length > 0 ? osCommandsFor(r.tool, platform) : null)
+    const os = osCommandsFor(r.tool, platform);
+    const own = r.commands ?? (r.command ? [r.command] : null) ?? (r.suggested ? [r.suggested] : null);
+    // A FAILED install must not be re-suggested verbatim (#1256: the pip
+    // route that just broke) — the curated per-OS route goes first there.
+    const commands = (r.action === "failed" ? (os.length > 0 ? os : own) : (own ?? (os.length > 0 ? os : null)))
       ?? [`see ${r.manualUrl || "the tool's install docs"}`];
     for (const c of commands) lines.push(`      ${c}`);
     lines.push("");
