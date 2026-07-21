@@ -736,11 +736,23 @@ export async function resolveConfigScope({ flags, interactive }) {
 }
 
 export async function initCommand({ logger, flags = {} }) {
+  // AB-B (KJC-TSK-0656): with --json, stdout is a machine contract — every
+  // human log moves to stderr so the only stdout line is the summary object.
+  if (flags.json) {
+    const toStderr = (...args) => console.error(...args);
+    logger = { ...logger, info: toStderr, warn: toStderr, error: toStderr };
+  }
   const karajanHome = getKarajanHome();
   await ensureDir(karajanHome);
   logger.info(`Ensured ${karajanHome} exists`);
 
   const interactive = flags.noInteractive !== true && isTTY();
+  // AB-B (KJC-TSK-0656): the agent is the UI. When there is no TTY the
+  // wizard silently used defaults — say so, so a brain (or a CI log
+  // reader) knows WHY nothing was asked and which flags override what.
+  if (!interactive && flags.noInteractive !== true) {
+    logger.info("No TTY detected — running non-interactive with defaults (pass flags to override; see kj init --help)");
+  }
   const { configPath, scope } = await resolveConfigScope({ flags, interactive });
   logger.info(`Config scope: ${scope} → ${configPath}`);
   const karajanDir = path.join(process.cwd(), ".karajan");
@@ -899,6 +911,16 @@ export async function initCommand({ logger, flags = {} }) {
     const version = JSON.parse(readFileSync(pkgPath, "utf8")).version;
     sendTelemetryEvent("install", { version }, config).catch(() => {});
   } catch { /* non-blocking */ }
+
+  // AB-B (KJC-TSK-0656): machine contract for brains — one JSON object with
+  // what init actually did, instead of parsing the human log.
+  if (flags.json) {
+    console.log(JSON.stringify({
+      ok: true, configPath, scope, interactive,
+      skipped: ["ollama", "rtk", "squeezr", "qmd", "harden"].filter((t) => flags[t] === false),
+    }));
+    return;
+  }
 
   // Clear close so a first-time user knows setup finished and what to do next,
   // instead of being left at the end of a wall of detection logs (KJC-BUG-0088).
