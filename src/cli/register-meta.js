@@ -20,6 +20,7 @@ import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { envInstallCommand, briefCommand } from "../commands/env.js";
+import { agentRunCommand } from "../commands/agent-run.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -132,6 +133,18 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {
         await envInstallCommand({ config, logger, flags });
+      });
+    });
+
+  // AB-D (KJC-TSK-0654): the brain's inter-agent bus.
+  const agentCmd = program.command("agent").description("Delegate work to another AI agent (the brain's bus)");
+  agentCmd.command("run <agent> <task>")
+    .description("Run a task on the named agent and print its output (exit 0/1)")
+    .option("--json", "Machine-readable output: {ok, agent, output, usage}")
+    .option("--timeout-minutes <n>", "Hard timeout for the delegated task")
+    .action(async (agent, task, flags) => {
+      await withConfig(pkgVersion, "agent-run", flags, async ({ config, logger }) => {
+        await agentRunCommand({ agent, task, config, logger, flags });
       });
     });
 
