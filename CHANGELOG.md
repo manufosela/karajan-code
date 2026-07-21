@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-07-21
+
+Patch. **First-day field feedback from the v4 environment, folded back in.** Both fixes come from real installs of the environment on day one — one by the maintainer, one by an external host-agent session.
+
+### Fixed
+
+- **Generated hooks chain to the machine's previous global hooks** (KJC-TSK-0645): `kj harden` sets a repo-local `core.hooksPath`, which ECLIPSED the user's global hooks dir — personal guards (AI-attribution commit-msg, protected-branch pre-push) silently stopped applying in hardened repos. `installHooks` now detects the previous global `core.hooksPath` and every generated hook ends by chaining its global namesake: `-x` guarded (machines without it are unaffected), arguments propagated, and the chained hook's REAL exit code re-emitted. Tildes are written as `$HOME` so committed hooks stay portable.
+- **Branch-first, ordered and enforced** (KJC-TSK-0648): the playbook only implied "atomic PRs" — an external session following it to the letter committed the v4 contract on local main. The playbook now has an explicit step ("never commit on the base branch — every change reaches it through a PR") and harden's pre-commit gains a base-branch guard: direct commits on the configured `base_branch` are rejected with an actionable message (`KJ_ALLOW_BASE_COMMIT=1` to override for releases); feature branches and detached HEAD are unaffected.
+
 ## [4.0.0] - 2026-07-20
 
 Major. **Karajan v4 is an ENVIRONMENT: the host agent orchestrates, Karajan governs.** Born from a real-world demo where the subprocess loop produced an integral false green (5 "approved" iterations with zero reviewer passes — fixed in 3.15.3) while three days of the inverse model (a human tasking a host agent under deterministic gates) never let a single error through. v4 makes that inverse model the product: you work with Claude Code or Codex as the orchestrator, and Karajan installs the method, the tools and the git gates that make a false green structurally impossible. Everything ships additively — the subprocess runtime continues as the headless mode with the same gates, and no existing config breaks.
