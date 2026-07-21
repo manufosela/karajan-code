@@ -9,6 +9,7 @@ import { runCommand } from "../utils/process.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
+import { ensureGateTrackable } from "../review/gate-gitignore.js";
 
 // Raw git always — never a wrapped/compressing runner (KJC-BUG-0115).
 async function rawDiff(range) {
@@ -64,6 +65,12 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     await fs.mkdir(path.dirname(marker), { recursive: true });
     await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
     console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
+    // KJC-TSK-0646: a `.karajan/` dir-exclude would silently keep the
+    // contract out of git — rewrite it so the team actually inherits it.
+    const gi = await ensureGateTrackable(projectDir);
+    if (gi.changed) {
+      console.log("✓ .gitignore adjusted: the gate contract (.karajan/review-gate, hooks) is now trackable — commit it");
+    }
     const hookProbe = await runCommand("git", ["config", "core.hooksPath"]);
     if (!hookProbe.stdout?.trim()) {
       console.log("⚠ no core.hooksPath configured — run `kj harden` so the pre-commit hook enforces the gate");
