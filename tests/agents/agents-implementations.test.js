@@ -165,14 +165,15 @@ describe("Agent implementations", () => {
   });
 
   describe("GeminiAgent", () => {
-    it("runs task with gemini -p and prompt", async () => {
+    it("runs task with the prompt on stdin, never as an argument (KJC-BUG-0121)", async () => {
       const { GeminiAgent } = await import("../../src/agents/gemini-agent.js");
       const agent = new GeminiAgent("gemini", baseConfig, logger);
       await agent.runTask({ prompt: "build feature", role: "coder" });
 
       const args = runCommand.mock.calls[0][1];
-      expect(args).toContain("-p");
-      expect(args).toContain("build feature");
+      expect(args).not.toContain("-p");
+      expect(args).not.toContain("build feature");
+      expect(runCommand.mock.calls[0][2].input).toBe("build feature");
     });
 
     it("reviews with --output-format json", async () => {

@@ -31,17 +31,18 @@ describe("agents role model handling", () => {
     await agent.runTask({ prompt: "plan", role: "planner" });
     await agent.reviewTask({ prompt: "review", role: "reviewer" });
 
+    // KJC-BUG-0121: the prompt travels via stdin, never as an argument.
     expect(runCommand).toHaveBeenNthCalledWith(
       1,
       "gemini",
-      ["-p", "plan", "--model", "gemini-plan-model"],
-      expect.any(Object)
+      ["--model", "gemini-plan-model"],
+      expect.objectContaining({ input: "plan" })
     );
     expect(runCommand).toHaveBeenNthCalledWith(
       2,
       "gemini",
-      ["-p", "review", "--output-format", "json", "--model", "gemini-review-model"],
-      expect.any(Object)
+      ["--output-format", "json", "--model", "gemini-review-model"],
+      expect.objectContaining({ input: "review" })
     );
   });
 
