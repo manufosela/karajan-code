@@ -28,7 +28,17 @@ const execFileAsync = promisify(execFile);
 
 // git and the agent CLI lead the list: both are `kj doctor` *required* tools,
 // so a blank machine wants them before the optional audit tools.
-const ALL_TOOLS = ["git", "agent-cli", "semgrep", "osv-scanner", "lighthouse", "docker", "sonar"];
+// KJC-TSK-0657: rtk/squeezr/qmd (token+context optimizers, previously
+// init-only) complete the list — one pass leaves the machine 100%
+// operational, per the quality-default-on product rule.
+const ALL_TOOLS = ["git", "agent-cli", "semgrep", "osv-scanner", "lighthouse", "docker", "sonar", "rtk", "squeezr", "qmd"];
+
+// Optimizer tools reuse the init installers (same {ok, version, error} contract).
+const OPTIMIZER_INSTALLERS = {
+  rtk: () => import("../utils/rtk-install.js").then((m) => m.installRtk),
+  squeezr: () => import("../utils/squeezr-install.js").then((m) => m.installSqueezr),
+  qmd: () => import("../utils/qmd-install.js").then((m) => m.installQmd),
+};
 
 // The default pipeline is coder=claude, reviewer=codex, so `agent-cli` installs
 // exactly those two. gemini stays out of the default: it is a supported
@@ -332,6 +342,22 @@ export async function installToolsCommand(opts = {}) {
           if (!r.ok) result.error = r.error;
         }
       }
+      continue;
+    }
+
+    if (OPTIMIZER_INSTALLERS[tool]) {
+      if (dryRun) {
+        results.push({ tool, action: "planned", command: `kj install-tools --only ${tool}` });
+        logger.info?.(`▸ ${tool}: would install (init installer)`);
+        continue;
+      }
+      const proceed = yes || await promptYesNo(`Install ${tool}?`);
+      if (!proceed) { results.push({ tool, action: "declined" }); continue; }
+      const install = await OPTIMIZER_INSTALLERS[tool]();
+      const r = await install(logger);
+      results.push(r.ok
+        ? { tool, action: "installed", version: r.version }
+        : { tool, action: "failed", error: r.error });
       continue;
     }
 
