@@ -3,6 +3,10 @@ title: Installation
 description: How to install Karajan Code.
 ---
 
+:::caution[v3 docs (legacy)]
+You are reading the docs for the v3 headless pipeline. Karajan v4 attaches to the AI agent you already work with — start at [Install (v4)](/docs/v4/install/).
+:::
+
 ## Requirements
 
 The `kj` binary bundles its own runtime, but it **orchestrates external tools** — it doesn't install them. After installing, run `kj doctor` to check your machine.

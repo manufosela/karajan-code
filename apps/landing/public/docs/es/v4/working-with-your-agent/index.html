@@ -84,7 +84,7 @@
 <p>Una tarea está HECHA cuando su enunciado-de-hecho es literalmente cierto, la suite está verde y cada commit lleva veredicto de IA cruzada. Los invariantes:</p>
 <ul>
 <li><strong>RAG antes de suponer</strong> — <code dir="auto">kj rag query</code> responde preguntas sobre el código; el índice se construye en la instalación y se refresca solo.</li>
-<li><strong>Card primero</strong> — el trabajo se trackea en el HU Board o en tu Planning Game (<code dir="auto">state_backend</code> en config).</li>
+<li><strong>Card primero</strong> — el trabajo se trackea en el HU Board (<code dir="auto">kj hu add|move|list</code> — tu agente crea la card antes de codificar) o en tu Planning Game (<code dir="auto">state_backend</code> en config). Las decisiones de arquitectura viven como ADRs trackeados en git: <code dir="auto">kj adr add|list</code>.</li>
 <li><strong>Los tests prueban el comportamiento</strong> — test que falla primero, suite nunca en rojo.</li>
 <li><strong>Revisión cruzada antes del commit</strong> — una IA <em>distinta</em> revisa cada diff.</li>
 <li><strong>Los hallazgos de seguridad no los anula nadie.</strong></li>

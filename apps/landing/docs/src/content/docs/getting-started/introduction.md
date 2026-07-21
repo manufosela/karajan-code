@@ -3,6 +3,10 @@ title: Introduction
 description: What is Karajan Code and why use it.
 ---
 
+:::caution[v3 docs (legacy)]
+You are reading the docs for the v3 headless pipeline. Karajan v4 attaches to the AI agent you already work with — start at [Install (v4)](/docs/v4/install/).
+:::
+
 **One command. Multiple AI agents. Full quality pipeline.**
 
 Karajan Code (`kj`) orchestrates AI agents like a conductor orchestrates an orchestra. You define **what** needs to happen — code, review, test, secure — and Karajan assigns **who** does each part.

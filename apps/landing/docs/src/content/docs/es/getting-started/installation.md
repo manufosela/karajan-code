@@ -3,6 +3,10 @@ title: Instalación
 description: Cómo instalar Karajan Code.
 ---
 
+:::caution[Docs de v3 (legacy)]
+Estás leyendo la documentación del pipeline headless v3. Karajan v4 se une al agente de IA con el que ya trabajas — empieza en [Instalación (v4)](/docs/es/v4/install/).
+:::
+
 ## Requisitos
 
 El binario `kj` incluye su propio runtime, pero **orquesta herramientas externas** — no las instala. Tras instalar, ejecuta `kj doctor` para comprobar tu máquina.

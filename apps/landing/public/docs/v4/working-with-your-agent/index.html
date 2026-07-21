@@ -84,7 +84,7 @@
 <p>A task is DONE when its done-statement is literally true, the suite is green, and every commit carries a cross-AI verdict. The invariants:</p>
 <ul>
 <li><strong>RAG before assuming</strong> — <code dir="auto">kj rag query</code> answers questions about the codebase; the index is built on install and refreshes itself on drift.</li>
-<li><strong>Card first</strong> — work is tracked in the HU Board or your Planning Game (<code dir="auto">state_backend</code> in config).</li>
+<li><strong>Card first</strong> — work is tracked in the HU Board (<code dir="auto">kj hu add|move|list</code> — your agent creates the card before it codes) or your Planning Game (<code dir="auto">state_backend</code> in config). Architecture decisions live as git-tracked ADRs: <code dir="auto">kj adr add|list</code>.</li>
 <li><strong>Tests prove behavior</strong> — failing test first, suite never left red.</li>
 <li><strong>Cross-AI review before commit</strong> — a <em>different</em> AI reviews every diff.</li>
 <li><strong>Security findings are never overridable.</strong></li>
