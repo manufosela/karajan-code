@@ -14,7 +14,8 @@ vi.mock("../../src/commands/rag.js", () => ({
   ragIndexCommand: vi.fn().mockResolvedValue({ ok: true }),
 }));
 vi.mock("../../src/environment/playbook.js", () => ({
-  installPlaybook: vi.fn().mockResolvedValue({ files: ["CLAUDE.md", "AGENTS.md"], target: "both" }),
+  // fresh object per call — envInstallCommand mutates its result
+  installPlaybook: vi.fn(async () => ({ files: ["CLAUDE.md", "AGENTS.md"], target: "both" })),
 }));
 
 import { envInstallCommand } from "../../src/commands/env.js";
@@ -45,11 +46,40 @@ describe("env install is RAG-first", () => {
     expect(ragIndexCommand).not.toHaveBeenCalled();
   });
 
-  it("index failure does not break the playbook install (reported, not thrown)", async () => {
+  // KJC-TSK-0659 stop-on-sudo: a RAG that cannot index BLOCKS (exit 3) —
+  // never "success" with an empty index. The playbook stays installed.
+  it("index failure blocks with pending-user-action (exit 3), playbook still installed", async () => {
     getLastIndexedCommit.mockReturnValue(null);
     ragIndexCommand.mockRejectedValueOnce(new Error("ollama down"));
+    const logs = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
     const res = await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
     expect(res.files).toContain("CLAUDE.md");
     expect(res.ragError).toMatch(/ollama down/);
+    expect(res.exitCode).toBe(3);
+    const out = logs.join("\n");
+    expect(out).toMatch(/PENDING USER ACTION/);
+    expect(out).toMatch(/ollama/);
+    expect(out).toMatch(/kj rag index --with-sources/);
+  });
+
+  it("an index that embeds 0 of N files blocks too — empty is not success", async () => {
+    getLastIndexedCommit.mockReturnValue(null);
+    ragIndexCommand.mockResolvedValueOnce({ indexed: 0, files: 727, failed: 727 });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
+    expect(res.exitCode).toBe(3);
+    expect(res.ragError).toMatch(/0 of 727/);
+  });
+
+  it("a healthy first index does not block", async () => {
+    getLastIndexedCommit.mockReturnValue(null);
+    ragIndexCommand.mockResolvedValueOnce({ indexed: 512, files: 700, failed: 0 });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
+    expect(res.exitCode).toBeUndefined();
   });
 });
