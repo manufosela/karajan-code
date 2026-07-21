@@ -43,6 +43,22 @@ export default defineConfig({
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
 				{
+					label: 'Karajan v4',
+					translations: { es: 'Karajan v4' },
+					items: [
+						{ label: 'Install', slug: 'v4/install', translations: { es: 'Instalación' } },
+						{ label: 'Work with your agent', slug: 'v4/working-with-your-agent', translations: { es: 'Trabaja con tu agente' } },
+						{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
+						{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
+						{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
+					],
+				},
+				{
+					label: 'v3 (legacy)',
+					translations: { es: 'v3 (legacy)' },
+					collapsed: true,
+					items: [
+				{
 					label: 'Getting Started',
 					translations: { es: 'Primeros Pasos' },
 					items: [
@@ -101,6 +117,8 @@ export default defineConfig({
 				{
 					label: 'FAQ',
 					slug: 'faq',
+				},
+				],
 				},
 			],
 		}),
