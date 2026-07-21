@@ -19,7 +19,7 @@ import { checkCommand } from "../commands/check.js";
 import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
-import { envInstallCommand } from "../commands/env.js";
+import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -132,6 +132,18 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {
         await envInstallCommand({ config, logger, flags });
+      });
+    });
+
+  // AB-C (KJC-TSK-0652): role briefs for the brain (any host agent).
+  program
+    .command("brief")
+    .description("Show the distilled method of a pipeline role (for the host agent to execute)")
+    .argument("[role]", "triage | planner | researcher | architect | tester | security | audit")
+    .option("--json", "Machine-readable output")
+    .action(async (role, flags) => {
+      await withConfig(pkgVersion, "brief", flags, async ({ config }) => {
+        briefCommand({ config, flags, role });
       });
     });
 
