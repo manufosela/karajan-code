@@ -3,6 +3,7 @@ import { ollamaStartCommand, ollamaStopCommand, ollamaStatusCommand, ollamaPullC
 import { configCommand } from "../commands/config.js";
 import { codeCommand } from "../commands/code.js";
 import { reviewCommand } from "../commands/review.js";
+import { reviewGateCommand, solomonCommand } from "../commands/review-gate.js";
 import { scanCommand } from "../commands/scan.js";
 import { installToolsCommand } from "../commands/install-tools.js";
 import { doctorCommand } from "../commands/doctor.js";
@@ -181,6 +182,18 @@ export function registerPipeline(program, { pkgVersion }) {
       });
     });
 
+  // AB-E (KJC-TSK-0651): third-AI arbitration for the v4 environment.
+  program
+    .command("solomon")
+    .description("Ask a third AI to arbitrate a rejected review verdict (brain ≠ reviewer ≠ solomon)")
+    .requiredOption("--position <text>", "Why the brain disagrees with the reviewer")
+    .option("--range <range>", "Arbitrate a git range instead of the staged diff")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "solomon", flags, async ({ config, logger }) => {
+        await solomonCommand({ config, logger, flags });
+      });
+    });
+
   program
     .command("review")
     .description("Run only reviewer (--staged/--check: v4 cross-AI gate with recorded verdict)")
@@ -198,7 +211,6 @@ export function registerPipeline(program, { pkgVersion }) {
         // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to
         // the exact diff so the pre-commit hook can enforce cross-AI review.
         if (flags.staged || flags.check || flags.range || flags.installGate) {
-          const { reviewGateCommand } = await import("../commands/review-gate.js");
           await reviewGateCommand({ config, logger, flags: { ...flags, task } });
           return;
         }
