@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.3] - 2026-07-21
+
+Patch. **Perfectly installed, or stopped with instructions — never degraded.** Field policy from the third fresh-machine install: a session that times out into "continuing with my own judgment" past a missing Docker leaves a useless environment (RAG indexed 0/727 chunks and nobody noticed).
+
+### Added
+
+- **Stop-on-sudo policy in `kj install-tools`** (KJC-TSK-0659): anything kj cannot install unattended — sudo required, no route on this OS, a failed attempt, or a non-TTY auto-decline nobody actually made — becomes ONE `PENDING USER ACTION` block with the exact commands for this machine's OS (Linux apt/dnf, macOS brew, Windows winget/WSL) and a distinctive **exit code 3**, so a driving agent stops, shows the block, and waits for the user. A real interactive decline is still respected; `--dry-run` keeps exit 0.
+- **`kj env install` blocks when the RAG cannot index** (KJC-TSK-0659): a first index that embeds 0 of N files, or an embedder crash, is no longer reported as success — the command emits the pending block (per-OS Ollama instructions, or a config pointer for cloud embedders) and exits 3. The playbook stays installed; the false green does not. The landing's AI-CLI prompt now carries the matching HARD RULE: stop on sudo/exit-3, show the commands, WAIT.
+- The v4 playbook names `kj hu add|move|list` and `kj adr add|list` in its tracking invariant and commands line (AB-H follow-up).
+
+### Fixed
+
+- **`kj harden` no longer eclipses existing configs** (KJC-BUG-0119): seed-if-absent recognizes every same-tool variant (`eslint.config.mjs`, `.eslintrc.*`, `.commitlintrc.yml`, `prettier.config.mjs`, inline package.json config…) as "the config exists" and reports `covered` instead of creating kj's default filename next to it — which ESLint would resolve FIRST, silently disabling the project's real linting. Field-hit on a Next.js repo with `eslint.config.mjs`.
+
 ## [4.1.2] - 2026-07-21
 
 Patch. **One pass, fully operational.** Direct feedback from a fresh-laptop install: the installer left a minimal setup. No more.
