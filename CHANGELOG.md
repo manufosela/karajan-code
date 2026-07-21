@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.5] - 2026-07-21
+
+Patch. **Arbitration works again — with a new judge.** The gemini individual tier retirement (IneligibleTierError → Antigravity) left machines without an operational third AI, and the first real arbitration attempt surfaced a cascade of spawn bugs.
+
+### Added
+
+- **Qwen Code as sixth built-in agent** (KJC-TSK-0665): `@qwen-code/qwen-code` (binary `qwen`) — a gemini-cli fork with the same headless interface, cloud-backed and free with a Qwen account. Registered, detected, and eligible as solomon arbiter. Set `roles.solomon.provider: qwen` to keep solomon off a zombie gemini binary.
+- **Versioned bootstrap prompts + `start.md` router** (KJC-TSK-0663): `docs/prompts/{start,install-machine,project-new,project-legacy}.md`, served at `karajancode.com/start.md` (302 to raw main). One line to your agent — "read karajancode.com/start.md and do what it says" — covers machine install, new project and existing codebase, always under stop-and-wait.
+
+### Fixed
+
+- **`kj solomon` is operational** (KJC-BUG-0121, three layers): the arbiter prompt (whole diff embedded) travels via **stdin**, never as a CLI argument (E2BIG on large diffs); every gemini spawn declares `GEMINI_CLI_TRUST_WORKSPACE`; and when the arbiter fails at runtime (dead tier, auth), the error names the alternative agents for `roles.solomon.provider` instead of just the wreckage.
+
+### Changed
+
+- **README is v4-first** (KJC-TSK-0664): the npm/GitHub front page now tells the v4 story only — the full v3 README (EN+ES) is preserved verbatim under `docs/README.v3*.md` as a linked historical archive.
+
 ## [4.1.4] - 2026-07-21
 
 Patch. **The self-healing loop closed its first full cycle**: a user's Karajan filed issue #1256 via `kj report-issue`, and this release ships the fix.
