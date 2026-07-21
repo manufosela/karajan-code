@@ -321,6 +321,28 @@ describe("kj install-tools — stack-aware lighthouse", () => {
   });
 });
 
+describe("kj install-tools — stop-on-sudo (KJC-TSK-0659)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("exits with the distinctive pending code and emits the block when a tool needs the user", async () => {
+    // default docker mock → "manual" route (platform installer required)
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { exitCode, pending } = await installToolsCommand({ only: "docker", yes: true, logger });
+    expect(pending.map((r) => r.tool)).toEqual(["docker"]);
+    expect(exitCode).toBe(3);
+    const warned = logger.warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/PENDING USER ACTION/);
+    expect(warned).toMatch(/WAIT/);
+  });
+
+  it("keeps exit 0 in dry-run even when routes are manual (planning is not degradation)", async () => {
+    const { installToolsCommand } = await import("../../src/commands/install-tools.js");
+    const { exitCode } = await installToolsCommand({ only: "docker", dryRun: true, logger: silentLogger });
+    expect(exitCode).toBe(0);
+  });
+});
+
 describe("parseOnlyList", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 

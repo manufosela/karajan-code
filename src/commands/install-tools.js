@@ -23,6 +23,7 @@ import { detectProjectStack } from "../utils/stack-detect.js";
 import { resolveStandalone } from "../utils/binary-sources.js";
 import { downloadBinary, binDir, runInstallCommand } from "../utils/tool-installer.js";
 import { dockerInstallPlan } from "../utils/docker-install.js";
+import { collectPending, renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -416,8 +417,16 @@ export async function installToolsCommand(opts = {}) {
     }
   }
 
+  // KJC-TSK-0659 stop-on-sudo: anything that still needs the user's hands
+  // becomes ONE block with the exact per-OS commands, and a distinctive exit
+  // code so a driving agent stops and waits instead of continuing degraded.
+  const pending = dryRun ? [] : collectPending(results, { yes });
+  if (pending.length > 0) {
+    logger.warn?.(renderPendingBlock(pending));
+    return { results, pending, exitCode: PENDING_EXIT_CODE };
+  }
   const failures = results.filter((r) => r.action === "failed").length;
-  return { results, exitCode: failures > 0 ? 1 : 0 };
+  return { results, pending, exitCode: failures > 0 ? 1 : 0 };
 }
 
 export const __test = { parseOnlyList, isInstalled, ALL_TOOLS };
