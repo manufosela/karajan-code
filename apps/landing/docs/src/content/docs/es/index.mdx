@@ -251,7 +251,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.0.0 — Karajan Environment: tu agente orquesta, Karajan gobierna (actual)
+### v4.0.1 — fixes de campo del primer día del entorno (actual)
+
+Patch, nacido de las primeras instalaciones reales del entorno. Los hooks que genera `kj harden` ahora encadenan los hooks globales previos de la máquina (los guards personales, como un commit-msg anti-atribución de IA, siguen aplicando, y el exit code real del hook encadenado se conserva), y branch-first queda ordenado Y forzado: el playbook gana un paso explícito "nunca commitees en la rama base" y el pre-commit rechaza commits directos en la rama base configurada (`KJ_ALLOW_BASE_COMMIT=1` para excepciones). Actualización directa desde v4.0.0.
+
+### v4.0.0 — Karajan Environment: tu agente orquesta, Karajan gobierna
 
 Major. Karajan se convierte en un ENTORNO que se une al agente con el que ya trabajas. **`kj env install`** escribe el método en el fichero de reglas de tu agente (CLAUDE.md para Claude Code, AGENTS.md para Codex, una única fuente): consultar el RAG del proyecto antes de codificar, card primero, TDD, revisión IA-cruzada antes de commitear. **`kj review --staged`** envía tu diff a una IA distinta de tu orquestador y registra el veredicto ligado al sha256 del diff exacto — si cambias el código, hay que revisar de nuevo. **`kj review --install-gate`** activa el gate en pre-commit: sin veredicto cruzado aprobado, el commit no entra, y el falso verde se vuelve estructuralmente imposible. El RAG se construye en la instalación y se actualiza por drift antes de cada consulta; `state_backend` elige dónde viven las tareas (HU Board o Planning Game); y el pipeline subprocess clásico continúa como modo headless — sus sesiones estampan el veredicto de su reviewer para compartir el mismo gate. El propio karajan-code corre bajo su entorno: cada commit lleva veredicto de IA cruzada.
 
