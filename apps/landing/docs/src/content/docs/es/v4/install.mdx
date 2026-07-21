@@ -1,0 +1,79 @@
+---
+title: Instalación
+description: Monta el Entorno Karajan en un proyecto en menos de cinco minutos.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Karajan v4 se une al agente de IA con el que ya trabajas (Claude Code, Codex, Gemini CLI, Cursor). Se instala una vez por máquina, se activa una vez por proyecto, y desde ahí tu agente sigue el método y git lo hace cumplir.
+
+Dos sabores de instalación, a tu elección: **npm** (completa: RAG, HU Board, MCP — necesita Node ≥ 22.12) o el **binario standalone** (sin Node; solo CLI, sin las features de módulos nativos). Requiere git y al menos un CLI de agente de IA — con dos hay revisión cruzada; con tres, arbitraje.
+
+<Tabs>
+<TabItem label="Con tu CLI de IA (recomendada)">
+
+No toques una terminal — pega esto en tu agente (Claude Code, Codex, Gemini CLI, Cursor) y deja que conduzca:
+
+```text
+Monta Karajan Code (karajancode.com) en esta máquina y este proyecto:
+
+1. Pregúntame qué instalación prefiero y aplícala:
+   - npm (completa: RAG, HU Board, MCP):  npm install -g karajan-code   [necesita Node >= 22.12]
+   - binario standalone (sin Node):       curl -fsSL https://karajancode.com/install.sh | sh
+   Si dudo, recomiéndame una según esta máquina y lo que ya haya instalado.
+2. Ejecuta `kj doctor`. Por cada problema que reporte, explícamelo y PREGÚNTAME
+   antes de instalar nada (git, Docker, Node, otro CLI de agente…). Nunca
+   instales en silencio. Los avisos opcionales pueden quedarse si yo lo digo.
+3. Con doctor limpio, activa el entorno:
+   kj init && kj env install && kj harden && kj review --install-gate
+   después `git config core.hooksPath .karajan/hooks` y commitea los ficheros
+   del contrato generados (.karajan/review-gate, .karajan/hooks/, los ficheros
+   de reglas de agente).
+4. Infórmame de cualquier cosa de mi equipo que limite a Karajan (sin tercer
+   agente para arbitraje, sin Docker para SonarQube, limitaciones del binario
+   standalone…) y cómo quitar cada límite.
+Después lee el bloque "Karajan method (v4)" en el fichero de reglas del
+proyecto y síguelo desde ya: RAG antes de suponer, tests primero, revisión
+IA-cruzada antes de cada commit.
+```
+
+Tu agente instala, diagnostica, pregunta antes de tocar tu sistema, y termina gobernado por el método que acaba de instalar.
+
+</TabItem>
+<TabItem label="Manual">
+
+**1. Instala kj**
+
+```bash
+npm install -g karajan-code
+```
+
+O el binario standalone: `curl -fsSL https://karajancode.com/install.sh | sh`.
+**Nota:** el binario standalone cubre todo el CLI pero no las features de módulos nativos (índice RAG, HU Board, MCP). Para esas, usa npm.
+
+**2. Activa el entorno en tu proyecto**
+
+```bash
+kj init                    # config, reglas, tooling de calidad (wizard; seguro para agentes sin TTY)
+kj env install             # escribe el método en CLAUDE.md, AGENTS.md y GEMINI.md + construye el índice RAG
+kj harden                  # hooks de git: lint, política de commits, el runner del gate de revisión
+kj review --install-gate   # opt-in: los commits EXIGEN veredicto de IA cruzada
+git config core.hooksPath .karajan/hooks
+```
+
+Commitea los ficheros del contrato generados (`.karajan/review-gate`, `.karajan/hooks/`, los ficheros de reglas de agente) — quien clone el repo hereda el entorno (cada clon repite el config de `core.hooksPath` una vez).
+
+**3. Encárgaselo a tu agente**
+
+```text
+Este proyecto corre bajo el Entorno Karajan. Lee el bloque "Karajan method (v4)"
+en el fichero de reglas del proyecto y síguelo en todo lo que hagamos:
+RAG antes de suponer, tests primero, revisión IA-cruzada antes de cada commit.
+```
+
+</TabItem>
+</Tabs>
+
+## Desinstalar / desactivar
+
+Cada gate es un fichero visible: borra `.karajan/review-gate` para desactivar el gate de revisión, quita `core.hooksPath` para desactivar los hooks, elimina el bloque gestionado de los ficheros de reglas para retirar el método. No hay nada oculto.

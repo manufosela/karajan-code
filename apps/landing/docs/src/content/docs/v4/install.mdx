@@ -1,0 +1,78 @@
+---
+title: Install
+description: Set up the Karajan Environment in a project in under five minutes.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Karajan v4 attaches to the AI agent you already work with (Claude Code, Codex, Gemini CLI, Cursor). You install it once per machine, activate it once per project, and from then on your agent follows the method and git enforces it.
+
+Two install flavors, your choice: **npm** (full: RAG, HU Board, MCP — needs Node ≥ 22.12) or the **standalone binary** (no Node; CLI only, no native-module features). Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
+
+<Tabs>
+<TabItem label="With your AI CLI (recommended)">
+
+Don't touch a terminal — paste this into your agent (Claude Code, Codex, Gemini CLI, Cursor) and let it drive:
+
+```text
+Set up Karajan Code (karajancode.com) on this machine and this project:
+
+1. Ask me which install I prefer, then apply it:
+   - npm (full: RAG, HU Board, MCP):  npm install -g karajan-code   [needs Node >= 22.12]
+   - standalone binary (no Node):     curl -fsSL https://karajancode.com/install.sh | sh
+   If I'm unsure, recommend one based on this machine and what's already installed.
+2. Run `kj doctor`. For every issue it reports, explain it and ASK ME before
+   installing anything (git, Docker, Node, another AI agent CLI…). Never install
+   silently. Optional warnings can stay if I say so.
+3. When doctor is clean, activate the environment:
+   kj init && kj env install && kj harden && kj review --install-gate
+   then `git config core.hooksPath .karajan/hooks` and commit the generated
+   contract files (.karajan/review-gate, .karajan/hooks/, the agent rule files).
+4. Report anything about my machine that limits Karajan (no third agent for
+   arbitration, no Docker for SonarQube, standalone-binary limitations…) and
+   how to lift each limit.
+Then read the "Karajan method (v4)" block in this project's rules file and
+follow it from now on: RAG before assuming, tests first, cross-AI review
+before every commit.
+```
+
+Your agent installs, diagnoses, asks before touching your system, and ends up governed by the method it just installed.
+
+</TabItem>
+<TabItem label="Manual">
+
+**1. Install kj**
+
+```bash
+npm install -g karajan-code
+```
+
+Or the standalone binary: `curl -fsSL https://karajancode.com/install.sh | sh`.
+**Note:** the standalone binary covers the full CLI but not the native-module features (RAG index, HU Board, MCP). For those, use npm.
+
+**2. Activate the environment in your project**
+
+```bash
+kj init                    # config, rules, quality tooling (wizard; agent-safe without a TTY)
+kj env install             # writes the method into CLAUDE.md, AGENTS.md and GEMINI.md + builds the RAG index
+kj harden                  # git hooks: lint, commit policy, the review gate runner
+kj review --install-gate   # opt-in: commits now REQUIRE a cross-AI verdict
+git config core.hooksPath .karajan/hooks
+```
+
+Commit the generated contract files (`.karajan/review-gate`, `.karajan/hooks/`, the agent rule files) — everyone who clones the repo inherits the environment (each clone repeats the `core.hooksPath` config once).
+
+**3. Hand it to your agent**
+
+```text
+This project runs under the Karajan Environment. Read the "Karajan method (v4)"
+block in this project's rules file and follow it for everything we do:
+RAG before assuming, tests first, cross-AI review before every commit.
+```
+
+</TabItem>
+</Tabs>
+
+## Uninstalling / opting out
+
+Every gate is a file you can see: remove `.karajan/review-gate` to disable the review gate, unset `core.hooksPath` to disable the hooks, delete the managed block in the rule files to remove the method. Nothing is hidden.
