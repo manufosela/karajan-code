@@ -12,25 +12,32 @@ describe("renderBrief", () => {
     );
   });
 
+  // AB-C2 (KJC-TSK-0653): outcome-first — briefs state Mission (what must
+  // be true), Invariants (hard limits) and Deliverable. Never step lists:
+  // frontier models pick better paths than a script; what they need
+  // explicit are the limits.
   for (const role of ["triage", "planner", "researcher", "architect", "tester", "security", "audit"]) {
-    it(`${role}: actionable, concise, and names its output`, () => {
+    it(`${role}: mission + invariants + deliverable, concise`, () => {
       const text = renderBrief(role, {});
-      expect(text.length).toBeGreaterThan(200);
-      expect(text.split("\n").length).toBeLessThanOrEqual(40);
-      expect(text).toMatch(/## Output/);
+      expect(text.length).toBeGreaterThan(150);
+      expect(text.split("\n").length).toBeLessThanOrEqual(30);
+      expect(text).toMatch(/Mission:/);
+      expect(text).toMatch(/Invariants:/);
+      expect(text).toMatch(/Deliverable:/);
+      expect(text).not.toMatch(/^\s*\d+\.\s/m); // no numbered step scripts
     });
   }
 
-  it("security brief carries the non-negotiables", () => {
+  it("security brief carries the non-negotiable invariants", () => {
     const text = renderBrief("security", {});
     expect(text).toMatch(/secret/i);
     expect(text).toMatch(/injection|sanitiz/i);
     expect(text).toMatch(/never overridable|cannot be overridden/i);
   });
 
-  it("tester brief adapts to the configured methodology", () => {
-    expect(renderBrief("tester", { development: { methodology: "tdd" } })).toMatch(/failing test FIRST/i);
-    expect(renderBrief("tester", { development: { methodology: "standard" } })).not.toMatch(/failing test FIRST/i);
+  it("tester brief keeps the TDD invariant tied to the configured methodology", () => {
+    expect(renderBrief("tester", { development: { methodology: "tdd" } })).toMatch(/failing test .*first/i);
+    expect(renderBrief("tester", { development: { methodology: "standard" } })).not.toMatch(/failing test .*first/i);
   });
 
   it("unknown role throws with the available list", () => {
