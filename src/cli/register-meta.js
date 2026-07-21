@@ -21,6 +21,7 @@ import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { agentRunCommand } from "../commands/agent-run.js";
+import { reportIssueCommand } from "../commands/report-issue.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -146,6 +147,21 @@ export function registerMeta(program, { pkgVersion }) {
       await withConfig(pkgVersion, "agent-run", flags, async ({ config, logger }) => {
         await agentRunCommand({ agent, task, config, logger, flags });
       });
+    });
+
+  // AB-F (KJC-TSK-0655): self-healing — the brain files kj frictions upstream.
+  program
+    .command("report-issue")
+    .description("Report a kj bug/friction to the public repo (sanitized; publishing needs --publish)")
+    .requiredOption("--title <text>", "One-line summary")
+    .option("--description <text>", "What happened and what you expected")
+    .option("--command <cmd>", "The kj command involved")
+    .option("--error <text>", "The error output (it will be sanitized)")
+    .option("--publish", "Create the issue via the gh CLI (confirm with your user first)")
+    .option("--force", "Skip the similar-issues check")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await reportIssueCommand({ logger: console, flags });
     });
 
   // AB-C (KJC-TSK-0652): role briefs for the brain (any host agent).

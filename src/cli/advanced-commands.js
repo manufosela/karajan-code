@@ -33,7 +33,7 @@ export const ADVANCED_GROUPS = [
   { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar"] },
   { title: "Sesión / board", commands: ["resume", "report", "board", "undo", "standby"] },
   { title: "Infra / setup", commands: ["install-tools", "ollama", "skills", "roles", "agents", "env"] },
-  { title: "Mantenimiento", commands: ["clean", "sync", "telemetry"] },
+  { title: "Mantenimiento", commands: ["clean", "sync", "telemetry", "report-issue"] },
 ];
 
 /** Flat set of every advanced command name (for fast lookup / filtering). */

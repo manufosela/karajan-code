@@ -59,7 +59,10 @@ Invariants (the git gates enforce these — they are not suggestions):
 
 Commands: \`kj rag query\` · \`kj brief <role>\` (triage, planner, researcher,
 architect, tester, security, audit) · \`kj review --staged\` · \`kj review --check\` ·
-\`kj solomon --position\` · \`kj report\` · \`kj check\`
+\`kj solomon --position\` · \`kj agent run <agent>\` · \`kj report\` · \`kj check\`
+
+Hit a kj bug or friction? Diagnose it and file it upstream with
+\`kj report-issue\` (sanitized; ask your user before \`--publish\`).
 `;
 
 export function renderPlaybook({ stateBackend = "hu-board" } = {}) {
