@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-07-21
+
+Patch. **One pass, fully operational.** Direct feedback from a fresh-laptop install: the installer left a minimal setup. No more.
+
+### Added
+
+- **`kj install-tools` covers the full stack** (KJC-TSK-0657): rtk, squeezr and qmd (token/context optimizers, previously init-only) join git, agent CLIs, Semgrep, OSV-Scanner, Lighthouse, Docker and SonarQube in the default tool list — reusing the init installers, asking before each install, planning under `--dry-run`, and reporting failures with their error. A fresh machine ends 100% operational in one pass. The landing's install prompt now recommends npm explicitly (native-module features) and drives `kj install-tools` as part of the setup.
+
 ## [4.1.1] - 2026-07-21
 
 Patch. **Three field frictions closed so a fresh install just works** — all three reported by the environment's first external users.
