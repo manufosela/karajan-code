@@ -102,8 +102,14 @@ export function createKarajanMcpCheck() {
       return {
         ok: result.ok,
         severity: result.ok ? "info" : "warn",
-        detail: result.ok ? result.detail : `karajan-mcp did not respond: ${result.detail}`,
-        fix: result.ok ? undefined : "Re-run karajan-mcp via `node bin/karajan-mcp.js`",
+        // KJC-BUG-0118: the MCP is OPTIONAL in the v4 environment (the host
+        // agent drives kj via CLI) — a dead MCP must read as a degraded
+        // optional, never as a broken install. The standalone (curl) binary
+        // cannot run it at all (no bundled native modules).
+        detail: result.ok
+          ? result.detail
+          : `karajan-mcp did not respond: ${result.detail} — OPTIONAL in v4: your agent runs kj directly; only shell-less hosts need MCP`,
+        fix: result.ok ? undefined : "Only if you need MCP: install via npm (`npm i -g karajan-code`) — the standalone binary does not bundle it",
         extra: { binPath },
       };
     },
