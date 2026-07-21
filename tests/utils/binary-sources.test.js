@@ -45,6 +45,26 @@ describe("semgrepFallback", () => {
     expect(f.via).toBe("pipx");
     expect(f.command).toMatch(/pipx install semgrep/);
   });
+
+  // KJC-BUG-0120 (issue #1256): PEP 668 — on apt/dnf systems pipx must come
+  // from the distro, never from `python3 -m pip install --user` (which fails
+  // outright when the system Python ships without pip).
+  it("routes through apt on Debian/Ubuntu (PEP 668 safe, apt update first)", () => {
+    const f = semgrepFallback({ apt: true });
+    expect(f.via).toBe("apt");
+    expect(f.command).toMatch(/^sudo apt update && sudo apt install -y pipx/);
+    expect(f.command).not.toMatch(/pip install --user/);
+  });
+
+  it("routes through dnf on Fedora/RHEL", () => {
+    const f = semgrepFallback({ dnf: true });
+    expect(f.via).toBe("dnf");
+    expect(f.command).toMatch(/sudo dnf install -y pipx && pipx install semgrep/);
+  });
+
+  it("still prefers docker over the distro routes", () => {
+    expect(semgrepFallback({ docker: true, apt: true }).via).toBe("docker");
+  });
 });
 
 describe("resolveStandalone", () => {

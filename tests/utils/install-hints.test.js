@@ -49,6 +49,26 @@ describe("getInstallHint — manager prioritization", () => {
     expect(hint.command).toBe("pipx install semgrep");
   });
 
+  // KJC-BUG-0120 (issue #1256): the no-match fallback must be distro-aware —
+  // PEP 668 makes the generic pip/pipx bootstrap fail on Debian/Ubuntu.
+  it("suggests the apt pipx route on Debian when no runnable manager matches", async () => {
+    const hint = await getInstallHint("semgrep", { pipx: false, brew: false, pip: false, apt: true });
+    expect(hint.manager).toBeNull(); // display-only: sudo never auto-runs
+    expect(hint.command).toBe("sudo apt update && sudo apt install -y pipx && pipx install semgrep");
+  });
+
+  it("suggests the dnf pipx route on Fedora when no runnable manager matches", async () => {
+    const hint = await getInstallHint("semgrep", { pipx: false, brew: false, pip: false, dnf: true });
+    expect(hint.manager).toBeNull();
+    expect(hint.command).toMatch(/^sudo dnf install -y pipx/);
+  });
+
+  it("a runnable manager (pipx) still wins over the distro fallback", async () => {
+    const hint = await getInstallHint("semgrep", { pipx: true, apt: true });
+    expect(hint.manager).toBe("pipx");
+    expect(hint.command).toBe("pipx install semgrep");
+  });
+
   it("always includes the manual URL", async () => {
     const hint = await getInstallHint("semgrep", { pipx: true });
     expect(hint.manualUrl).toMatch(/semgrep\.dev/);

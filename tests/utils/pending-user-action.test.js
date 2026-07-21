@@ -47,6 +47,16 @@ describe("renderPendingBlock", () => {
     expect(block).not.toMatch(/apt-get install -y git/);
   });
 
+  it("a FAILED install prefers the curated per-OS route over re-suggesting the broken command", () => {
+    const block = renderPendingBlock(
+      [{ tool: "semgrep", action: "failed", command: "pip install semgrep", error: "externally-managed-environment" }],
+      { platform: "linux" },
+    );
+    expect(block).toMatch(/sudo apt update && sudo apt install -y pipx/);
+    expect(block).not.toMatch(/ {6}pip install semgrep/); // the broken route is not the instruction
+    expect(block).toMatch(/externally-managed-environment/); // the error still explains WHY
+  });
+
   it("falls back to the manual URL when no command is known", () => {
     const block = renderPendingBlock([{ tool: "weird", action: "manual", manualUrl: "https://x.dev" }], { platform: "linux" });
     expect(block).toMatch(/see https:\/\/x\.dev/);

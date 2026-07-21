@@ -80,8 +80,13 @@ export async function getInstallHint(tool, available = null) {
   for (const { manager, command } of candidates) {
     if (avail[manager]) return { command, manager, manualUrl: MANUAL_URLS[tool] };
   }
-  // Nothing matched — fall back to the first candidate's command as a
-  // suggestion, so the user at least sees a working recipe.
+  // Nothing matched — suggest a recipe that actually works on this system.
+  // KJC-BUG-0120 (issue #1256): distro-aware fallbacks first (PEP 668 makes
+  // the generic pip bootstrap fail on Debian/Ubuntu); these are display-only
+  // (manager: null), never auto-run — sudo stays in the user's hands.
+  for (const { when, command } of DISTRO_FALLBACKS[tool] || []) {
+    if (avail[when]) return { command, manager: null, manualUrl: MANUAL_URLS[tool] };
+  }
   const first = candidates[0];
   return {
     command: first ? first.command : null,
@@ -89,6 +94,13 @@ export async function getInstallHint(tool, available = null) {
     manualUrl: MANUAL_URLS[tool],
   };
 }
+
+const DISTRO_FALLBACKS = {
+  semgrep: [
+    { when: "apt", command: "sudo apt update && sudo apt install -y pipx && pipx install semgrep" },
+    { when: "dnf", command: "sudo dnf install -y pipx && pipx install semgrep" },
+  ],
+};
 
 const INSTALL_CANDIDATES = {
   semgrep: [

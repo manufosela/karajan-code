@@ -44,6 +44,12 @@ export function osvScannerSource(platform = process.platform, arch = process.arc
  */
 export function semgrepFallback(available = {}) {
   if (available.docker) return { via: "docker", command: "docker pull semgrep/semgrep" };
+  // KJC-BUG-0120 (issue #1256): on Debian/Ubuntu-like systems the system
+  // Python is externally managed (PEP 668) and often ships without pip at
+  // all — `python3 -m pip install --user` is guaranteed to fail there.
+  // pipx must come from the distro's own package manager.
+  if (available.apt) return { via: "apt", command: "sudo apt update && sudo apt install -y pipx && pipx install semgrep" };
+  if (available.dnf) return { via: "dnf", command: "sudo dnf install -y pipx && pipx install semgrep" };
   return { via: "pipx", command: "python3 -m pip install --user pipx && pipx install semgrep" };
 }
 
