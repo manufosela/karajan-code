@@ -9,7 +9,7 @@ import path from "node:path";
 import { renderPlaybook, installPlaybook, PLAYBOOK_TARGETS } from "../../src/environment/playbook.js";
 
 describe("renderPlaybook", () => {
-  for (const target of ["claude", "codex"]) {
+  for (const target of ["claude", "codex", "gemini"]) {
     it(`${target}: orders the method and stays concise`, () => {
       const text = renderPlaybook({ target });
       expect(text).toMatch(/kj rag query/);
@@ -33,7 +33,7 @@ describe("installPlaybook", () => {
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-pb-")); });
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
-  it("creates CLAUDE.md and AGENTS.md with the managed block (target both)", async () => {
+  it("creates CLAUDE.md and AGENTS.md with the managed block (legacy target both)", async () => {
     const res = await installPlaybook({ projectDir: dir, target: "both" });
     expect(res.files.sort()).toEqual(["AGENTS.md", "CLAUDE.md"]);
     for (const f of res.files) {
@@ -41,6 +41,19 @@ describe("installPlaybook", () => {
       expect(text).toMatch(/kj:managed:playbook/);
       expect(text).toMatch(/kj review --staged/);
     }
+  });
+
+  // AB-A (KJC-TSK-0650): any agent can be the brain — gemini gets GEMINI.md
+  // and "all" (the new default) covers every host from the single source.
+  it("target gemini writes GEMINI.md", async () => {
+    const res = await installPlaybook({ projectDir: dir, target: "gemini" });
+    expect(res.files).toEqual(["GEMINI.md"]);
+    expect(fs.readFileSync(path.join(dir, "GEMINI.md"), "utf8")).toMatch(/kj:managed:playbook/);
+  });
+
+  it("target all writes the three host files", async () => {
+    const res = await installPlaybook({ projectDir: dir, target: "all" });
+    expect(res.files.sort()).toEqual(["AGENTS.md", "CLAUDE.md", "GEMINI.md"]);
   });
 
   it("preserves user content and is idempotent", async () => {
