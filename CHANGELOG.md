@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-07-21
+
+Minor. **Any-agent brain: any AI CLI is the orchestrator, and the system repairs itself.** One day after v4.0.0, the environment generalizes: the brain can be Claude Code, Codex, Gemini CLI or Cursor; role knowledge moves into commands the brain reads; conflicts between AIs get a neutral third arbiter; and field frictions flow upstream as sanitized issues instead of chat screenshots.
+
+### Added
+
+- **`kj solomon --position "<why>"`** — when the brain disagrees with a rejected review verdict, a THIRD AI arbitrates (never the brain, never the reviewer; two-agent machines get an actionable error, never self-arbitration). An approve ruling records a `solomon:<agent>` verdict for the exact diff — the gate opens structurally; a reject keeps it closed. The full conflict (original verdict, brain's position, ruling, reasoning) is recorded for audit. **Security findings are never arbitrable**: the reviewer's JSON schema now carries a structured `category`, and security issues block arbitration without even consulting the arbiter.
+- **`kj brief <role>`** — the distilled method of triage, planner, researcher, architect, tester, security and audit, for the brain to execute or delegate. Written outcome-first: Mission + Invariants + Deliverable, never step scripts (frontier models pick better paths alone; what they need explicit are the limits). The playbook itself was rewritten the same way — and got shorter.
+- **`kj agent run <agent> "<task>"`** — the brain's inter-agent bus: delegate work to another AI with kj handling binary detection, subprocess workarounds and usage capture. `--json` is a strict machine contract (exactly one JSON object on stdout, even when the delegate crashes).
+- **`kj report-issue`** — the self-healing loop: any user's brain diagnoses a kj friction and files it upstream. Sanitized by construction (home paths collapse to `~`, emails redacted, never project code), deduped against open issues (recommending a comment over a duplicate), and it never publishes without `--publish` — a human decision, as the playbook orders.
+- **`kj env install --target gemini | all`** — the playbook now also lands in GEMINI.md; `all` (the new default) covers CLAUDE.md + AGENTS.md + GEMINI.md from the single source. AGENTS.md already covers Cursor and the emerging standard.
+- **`kj init --json`** and a no-TTY notice — init explains why it fell back to defaults, and `--json` turns stdout into a machine contract for host agents. Audited the remaining wizards: none can hang without a TTY.
+
+### Docs
+
+- **New v4 documentation** (karajancode.com): five outcome-first pages — Install, Work with your agent, The gates, Command reference, Headless mode — in English and Spanish. Everything prior is grouped under "v3 (legacy)": the framing is legacy, the code is current.
+
 ## [4.0.1] - 2026-07-21
 
 Patch. **First-day field feedback from the v4 environment, folded back in.** Both fixes come from real installs of the environment on day one — one by the maintainer, one by an external host-agent session.
