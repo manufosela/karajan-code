@@ -22,6 +22,8 @@ import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/tel
 import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
+import { huCommand } from "../commands/hu.js";
+import { addAdr, listAdrs } from "../environment/adr.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
 
@@ -146,6 +148,55 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (agent, task, flags) => {
       await withConfig(pkgVersion, "agent-run", flags, async ({ config, logger }) => {
         await agentRunCommand({ agent, task, config, logger, flags });
+      });
+    });
+
+  // AB-H (KJC-TSK-0658): board writes + repo ADRs for the brain.
+  const hu = program.command("hu").description("Track work in the HU Board from any host agent (card first)");
+  hu.command("add <title>")
+    .option("--id <shortId>", "Human-readable short id")
+    .option("--criteria <text>", "Acceptance criteria")
+    .option("--json", "Machine-readable output")
+    .action(async (title, flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "add", args: [title], flags });
+      });
+    });
+  hu.command("move <id> <status>")
+    .option("--json", "Machine-readable output")
+    .action(async (id, status, flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "move", args: [id, status], flags });
+      });
+    });
+  hu.command("list")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "hu", flags, async ({ config }) => {
+        await huCommand({ config, action: "list", flags });
+      });
+    });
+
+  const adr = program.command("adr").description("Architecture decision records in .karajan/adrs/ (git-tracked)");
+  adr.command("add <title>")
+    .requiredOption("--decision <text>", "The decision itself")
+    .option("--context <text>", "Why this came up")
+    .option("--consequences <text>", "Trade-offs accepted")
+    .option("--json", "Machine-readable output")
+    .action(async (title, flags) => {
+      await withConfig(pkgVersion, "adr", flags, async ({ config }) => {
+        const res = await addAdr(config?.projectDir || process.cwd(), { title, ...flags });
+        console.log(flags.json ? JSON.stringify(res) : `✓ ADR ${res.number} created: ${res.file} — commit it`);
+      });
+    });
+  adr.command("list")
+    .option("--json", "Machine-readable output")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "adr", flags, async ({ config }) => {
+        const adrs = await listAdrs(config?.projectDir || process.cwd());
+        if (flags.json) { console.log(JSON.stringify(adrs)); return; }
+        for (const a of adrs) console.log(`${String(a.number).padStart(4, "0")}  ${a.status.padEnd(10)} ${a.title}`);
+        if (adrs.length === 0) console.log("no ADRs yet — create one with: kj adr add \"<title>\" --decision \"...\"");
       });
     });
 

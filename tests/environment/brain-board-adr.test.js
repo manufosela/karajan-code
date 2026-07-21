@@ -1,0 +1,75 @@
+// AB-H (KJC-TSK-0658): the brain can honor "card first" and "check the
+// ADRs" on any backend — HU writes without the subprocess planner, ADRs
+// as numbered git-tracked markdown.
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { huCommand, HU_STATUSES } from "../../src/commands/hu.js";
+import { addAdr, listAdrs } from "../../src/environment/adr.js";
+
+let dir;
+beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-abh-")); });
+afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+const cfg = () => ({ projectDir: dir });
+
+describe("kj hu", () => {
+  it("add creates the brain-backlog plan and a pending HU visible in list", async () => {
+    const added = await huCommand({ config: cfg(), action: "add", args: ["Login with magic link"], flags: { json: true, id: "AUTH-1" } });
+    expect(added.status).toBe("pending");
+    const rows = await huCommand({ config: cfg(), action: "list", flags: { json: true } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ short_id: "AUTH-1", title: "Login with magic link", status: "pending" });
+  });
+
+  it("move accepts short_id and validates statuses", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["Thing"], flags: { json: true, id: "T-1" } });
+    const moved = await huCommand({ config: cfg(), action: "move", args: ["T-1", "running"], flags: { json: true } });
+    expect(moved.status).toBe("running");
+    await expect(huCommand({ config: cfg(), action: "move", args: ["T-1", "flying"], flags: {} }))
+      .rejects.toThrow(new RegExp(HU_STATUSES.join(", ")));
+    await expect(huCommand({ config: cfg(), action: "move", args: ["NOPE", "done"], flags: {} }))
+      .rejects.toThrow(/not found/);
+  });
+
+  it("move with an ambiguous ref across plans errors instead of guessing", async () => {
+    const { savePlan } = await import("../../src/plan/plan-store.js");
+    const { generatePlanId } = await import("../../src/plan/plan-id.js");
+    await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true, id: "DUP-1" } });
+    await savePlan(dir, {
+      version: 2, planId: generatePlanId(), name: "other", task: "t", status: "ready",
+      hus: [{ id: "hu_other_001", short_id: "DUP-1", title: "B", status: "pending" }],
+      createdAt: new Date().toISOString(),
+    });
+    await expect(huCommand({ config: cfg(), action: "move", args: ["DUP-1", "done"], flags: {} }))
+      .rejects.toThrow(/ambiguous/);
+    // the full canonical id resolves even when a short_id collides with it
+    const moved = await huCommand({ config: cfg(), action: "move", args: ["hu_other_001", "done"], flags: { json: true } });
+    expect(moved.id).toBe("hu_other_001");
+  });
+
+  it("second add reuses the same backlog plan", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true } });
+    await huCommand({ config: cfg(), action: "add", args: ["B"], flags: { json: true } });
+    const rows = await huCommand({ config: cfg(), action: "list", flags: { json: true } });
+    expect(new Set(rows.map((r) => r.plan)).size).toBe(1);
+  });
+});
+
+describe("kj adr", () => {
+  it("add creates numbered git-trackable markdown; list reads it back", async () => {
+    const a = await addAdr(dir, { title: "Use SQLite for state", decision: "node:sqlite over external DBs", context: "single-machine tool" });
+    expect(a.number).toBe(1);
+    expect(a.file).toMatch(/^\.karajan\/adrs\/0001-use-sqlite-for-state\.md$/);
+    const b = await addAdr(dir, { title: "Second", decision: "yes" });
+    expect(b.number).toBe(2);
+    const adrs = await listAdrs(dir);
+    expect(adrs.map((x) => x.title)).toEqual(["Use SQLite for state", "Second"]);
+    expect(fs.readFileSync(path.join(dir, a.file), "utf8")).toMatch(/## Decision/);
+  });
+
+  it("add without decision throws", async () => {
+    await expect(addAdr(dir, { title: "X" })).rejects.toThrow(/--decision/);
+  });
+});
