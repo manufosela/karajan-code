@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.4] - 2026-07-21
+
+Patch. **The self-healing loop closed its first full cycle**: a user's Karajan filed issue #1256 via `kj report-issue`, and this release ships the fix.
+
+### Fixed
+
+- **Distro-aware semgrep guidance — PEP 668 safe** (KJC-BUG-0120, issue #1256): on Debian 12+/13 the system Python is externally managed and often ships without pip, so the suggested `python3 -m pip install --user pipx` bootstrap failed twice over. All three surfaces now recommend the distro route (`sudo apt update && sudo apt install -y pipx && pipx install semgrep`, dnf equivalent): `semgrepFallback` (docker → apt → dnf → generic last resort), doctor's hint via display-only `DISTRO_FALLBACKS` (sudo never auto-runs — it flows through stop-on-sudo), and the `PENDING USER ACTION` block, which additionally stops re-suggesting a command that just failed and prefers the curated per-OS route instead.
+
+### Changed
+
+- **Nightly drift cleared** (KJC-TSK-0660, issue #994): `npm audit` down to 0 vulnerabilities (hono, brace-expansion, js-yaml and four more highs) via audit fix + in-range updates (vitest 4.1.10, eslint 10.7, prettier 3.9.6, better-sqlite3 12.11.1, helmet, express-rate-limit, knip and friends). Major jumps deliberately excluded — better-sqlite3 13 waits for the node:sqlite epic.
+
 ## [4.1.3] - 2026-07-21
 
 Patch. **Perfectly installed, or stopped with instructions — never degraded.** Field policy from the third fresh-machine install: a session that times out into "continuing with my own judgment" past a missing Docker leaves a useless environment (RAG indexed 0/727 chunks and nobody noticed).
