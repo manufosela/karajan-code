@@ -51,7 +51,10 @@ export function createNativeBuildCheck({ loadDb = defaultLoadDb, isPnpm = isPnpm
         return {
           ok: false,
           severity: "warn",
-          detail: `better-sqlite3 failed to load: ${firstLine}`,
+          // KJC-BUG-0118: the standalone (curl) binary ships without native
+          // modules by design — name the consequence (RAG/board/MCP need the
+          // npm install) instead of implying the install is broken.
+          detail: `better-sqlite3 failed to load: ${firstLine} — DB-backed features (RAG, board, MCP) unavailable; the standalone binary does not bundle native modules`,
           fix: "Reinstall to rebuild native modules: `npm i -g karajan-code`",
         };
       }
