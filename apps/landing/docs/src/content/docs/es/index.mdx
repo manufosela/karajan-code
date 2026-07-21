@@ -251,7 +251,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.1 — fixes de campo de los primeros usuarios del entorno (actual)
+### v4.1.2 — una pasada, totalmente operativo (actual)
+
+Patch. Montar una máquina Karajan es ya un comando con resultado completo. `kj install-tools` cubre TODO el stack — rtk, squeezr y qmd se suman a git, CLIs de agentes, Semgrep, OSV-Scanner, Lighthouse, Docker y SonarQube en la lista por defecto, preguntando antes de cada instalación. Y el instalador `curl` es npm-first: instala el producto completo (RAG, HU Board y MCP incluidos), autoprovisionando el Node LTS oficial verificado por checksum en `~/.karajan/node` cuando falta Node — el binario único solo-CLI pasa a `--standalone`. Actualización directa desde v4.1.1.
+
+### v4.1.1 — fixes de campo de los primeros usuarios del entorno
 
 Patch. Tres fricciones reportadas por las primeras instalaciones reales del entorno, incorporadas: doctor encuadra un MCP ausente como opcional degradado (el binario standalone de curl no embebe módulos nativos por diseño — RAG, board y MCP necesitan la instalación npm), `kj review --install-gate` reescribe el .gitignore él solo para que el contrato del gate lo herede de verdad todo el equipo, y el pre-push generado deja de correr la suite cuando el CI ya la ejecuta por PR. Actualización directa desde v4.1.0.
 
