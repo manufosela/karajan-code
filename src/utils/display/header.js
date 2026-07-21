@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { printBanner } from "../banner.js";
 import { ANSI } from "./formatters.js";
 
-// TODO: i18n display messages
 const DISPLAY_PKG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../package.json");
 const DISPLAY_VERSION = JSON.parse(readFileSync(DISPLAY_PKG_PATH, "utf8")).version;
 
