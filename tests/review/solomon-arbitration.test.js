@@ -54,6 +54,25 @@ describe("runSolomonArbitration", () => {
     expect(check.verdict.arbitration.position).toMatch(/style-only/);
   });
 
+  // KJC-BUG-0121 layer 3: a binary on PATH is not an operational arbiter
+  // (dead tier, auth, trust). The failure must carry the way out.
+  it("an arbiter that fails at runtime produces an actionable error naming alternatives", async () => {
+    await seedRejected([{ id: "I1", severity: "medium", description: "naming" }]);
+    const dead = { reviewTask: vi.fn().mockResolvedValue({ ok: false, error: "IneligibleTierError: migrate to Antigravity" }) };
+    await expect(runSolomonArbitration({
+      ...base, detectAgents: agentsUp("claude", "codex", "gemini", "opencode"),
+      projectDir: dir, diff: DIFF, position: "disagree", createAgentFn: () => dead,
+    })).rejects.toThrow(/IneligibleTierError[\s\S]*roles\.solomon\.provider[\s\S]*opencode/);
+  });
+
+  it("when no alternative arbiter exists, the error says install-or-fix", async () => {
+    await seedRejected([{ id: "I1", severity: "medium", description: "naming" }]);
+    const dead = { reviewTask: vi.fn().mockResolvedValue({ ok: false, error: "not trusted" }) };
+    await expect(runSolomonArbitration({
+      ...base, projectDir: dir, diff: DIFF, position: "disagree", createAgentFn: () => dead,
+    })).rejects.toThrow(/install a third agent CLI or fix gemini/);
+  });
+
   it("reject ruling keeps the gate closed and records the arbitration", async () => {
     await seedRejected([{ id: "I1", severity: "high", description: "off-by-one in loop" }]);
     const res = await runSolomonArbitration({ ...base, projectDir: dir, diff: DIFF, position: "I disagree", createAgentFn: () => ruling("reject") });

@@ -60,10 +60,17 @@ export class GeminiAgent extends BaseAgent {
   }
 
   async _exec(task, model, mode) {
-    const args = ["-p", task.prompt];
+    // KJC-BUG-0121: the prompt NEVER travels as a CLI argument — a solomon
+    // prompt embeds the full diff, and large diffs blow past the kernel's
+    // per-argument limit (E2BIG). gemini reads the prompt from stdin in
+    // headless mode. Same bug's layer 2: headless gemini refuses untrusted
+    // workspaces unless GEMINI_CLI_TRUST_WORKSPACE is set.
+    const args = [];
     if (mode === "review") args.push("--output-format", "json");
     if (model) args.push("--model", model);
     const res = await this.runCommand(resolveBin("gemini"), args, {
+      input: task.prompt,
+      env: { GEMINI_CLI_TRUST_WORKSPACE: "true" },
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs
