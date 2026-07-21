@@ -23,6 +23,26 @@
         "source": "/install.ps1",
         "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts/install-binary.ps1",
         "type": 302
+      },
+      {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
+        "source": "/install-machine.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/install-machine.md",
+        "type": 302
+      },
+      {
+        "source": "/project-new.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/project-new.md",
+        "type": 302
+      },
+      {
+        "source": "/project-legacy.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-code/main/docs/prompts/project-legacy.md",
+        "type": 302
       }
     ],
     "rewrites": [
