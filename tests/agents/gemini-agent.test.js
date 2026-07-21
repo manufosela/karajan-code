@@ -26,20 +26,21 @@ describe("GeminiAgent", () => {
     GeminiAgent = mod.GeminiAgent;
   });
 
-  // merged-from: 4 -p flag + output-format tests collapsed. Both methods pass
-  // -p <prompt>; only reviewTask appends `--output-format json`.
-  describe("-p flag and output format", () => {
+  // KJC-BUG-0121: the prompt travels via stdin (`input`), NEVER as a CLI
+  // argument — solomon prompts embed whole diffs and E2BIG kills the spawn.
+  // Only reviewTask appends `--output-format json`.
+  describe("stdin prompt and output format", () => {
     it.each([
       ["runTask",    "coder",    "build feature", false],
       ["reviewTask", "reviewer", "review code",   true]
-    ])("%s emits -p <prompt>; --output-format json=%s", async (method, role, prompt, expectsJson) => {
+    ])("%s sends the prompt via stdin; --output-format json=%s", async (method, role, prompt, expectsJson) => {
       const agent = new GeminiAgent("gemini", baseConfig, logger);
       await agent[method]({ prompt, role });
 
       const args = runCommand.mock.calls[0][1];
-      const pIdx = args.indexOf("-p");
-      expect(pIdx).toBeGreaterThanOrEqual(0);
-      expect(args[pIdx + 1]).toBe(prompt);
+      expect(args).not.toContain("-p");
+      expect(args).not.toContain(prompt);
+      expect(runCommand.mock.calls[0][2].input).toBe(prompt);
       if (expectsJson) {
         const fmtIdx = args.indexOf("--output-format");
         expect(fmtIdx).toBeGreaterThanOrEqual(0);
@@ -87,16 +88,15 @@ describe("GeminiAgent", () => {
     });
   });
 
-  // merged-from: 2 stdin/env tests collapsed. Gemini, like OpenCode, never
-  // touches either option (unlike Claude which sets stdin=ignore + strips env).
-  describe("no special stdin/env handling (unlike Claude)", () => {
-    it.each([
-      ["stdin", "stdin"],
-      ["env",   "env"]
-    ])("does NOT set %s", async (_label, optKey) => {
+  // KJC-BUG-0121 layer 2: headless gemini refuses untrusted workspaces —
+  // every spawn declares GEMINI_CLI_TRUST_WORKSPACE. stdin stays unset
+  // (the runner wires `input` itself; no Claude-style stdin=ignore).
+  describe("workspace trust env", () => {
+    it("sets GEMINI_CLI_TRUST_WORKSPACE=true and no stdin override", async () => {
       const agent = new GeminiAgent("gemini", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
-      expect(runCommand.mock.calls[0][2][optKey]).toBeUndefined();
+      expect(runCommand.mock.calls[0][2].env).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: "true" });
+      expect(runCommand.mock.calls[0][2].stdin).toBeUndefined();
     });
   });
 

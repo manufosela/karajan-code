@@ -81,7 +81,18 @@ export async function runSolomonArbitration({
   logger?.info?.(`kj solomon: brain=${hostAgent || "?"} vs reviewer=${verdict.reviewer} → arbiter=${solomon}`);
   const agent = createAgentFn(solomon, config, logger);
   const result = await agent.reviewTask({ prompt, role: "solomon" });
-  if (!result?.ok) throw new Error(`solomon ${solomon} failed: ${result?.error || "no output"}`);
+  if (!result?.ok) {
+    // KJC-BUG-0121 layer 3: a binary on PATH is not an OPERATIONAL arbiter
+    // (dead account tier, auth, trust). Fail with the way out, not just the
+    // wreckage: name the other agents that could arbitrate instead.
+    const others = (await detectAgents())
+      .filter((a) => a.available && a.name !== solomon && a.name !== hostAgent && a.name !== verdict.reviewer)
+      .map((a) => a.name);
+    const hint = others.length > 0
+      ? `If ${solomon} is not operational on this machine (account tier, auth, workspace trust), set roles.solomon.provider in your kj config to another agent: ${others.join(", ")}.`
+      : `No other agent CLI on this machine can arbitrate (needs one distinct from brain "${hostAgent}" and reviewer "${verdict.reviewer}") — install a third agent CLI or fix ${solomon}.`;
+    throw new Error(`solomon ${solomon} failed: ${String(result?.error || "no output").slice(0, 400)}\n${hint}`);
+  }
   const parsed = parseMaybeJsonString(result.output);
   if (!parsed || !["approve", "reject"].includes(parsed.ruling)) {
     throw new Error(`solomon ${solomon} returned no parseable ruling`);
