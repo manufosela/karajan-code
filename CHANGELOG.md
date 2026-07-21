@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-07-21
+
+Patch. **Three field frictions closed so a fresh install just works** — all three reported by the environment's first external users.
+
+### Fixed
+
+- **Doctor reads a missing MCP as a degraded optional, not a broken install** (KJC-BUG-0118): the standalone (curl) binary ships without native modules by design, so `karajan-mcp` cannot run from it. Doctor now says the MCP is OPTIONAL in v4 (your agent drives kj via CLI; only shell-less hosts need it), names which features actually require the npm install (RAG, board, MCP), and stops implying the install is broken.
+- **`kj review --install-gate` makes the contract trackable by itself** (KJC-TSK-0646): a `.karajan/` dir-exclude in .gitignore silently kept the gate marker and hooks out of git (git cannot re-include children of an excluded directory) — the team never inherited the gate. install-gate now rewrites the pattern in place: every root exclude removed (a later duplicate would override the re-includes), partial hand-written contracts completed and deduped, everything else byte-identical.
+- **Pre-push drops the test suite when CI already runs it** (KJC-TSK-0647): full-suite-per-push was redundant with CI and a false-red source under local parallelism. The generated pre-push keeps the identity guard and global-hook chaining; `kj.harden.test_on_push: true` in package.json opts back in; repos without CI keep tests on push — there it is the last safety net.
+
 ## [4.1.0] - 2026-07-21
 
 Minor. **Any-agent brain: any AI CLI is the orchestrator, and the system repairs itself.** One day after v4.0.0, the environment generalizes: the brain can be Claude Code, Codex, Gemini CLI or Cursor; role knowledge moves into commands the brain reads; conflicts between AIs get a neutral third arbiter; and field frictions flow upstream as sanitized issues instead of chat screenshots.
