@@ -43,4 +43,4 @@ The commands a v4 setup actually uses. Everything supports `--help`; agent-facin
 | `kj run "<task>"` | The classic subprocess pipeline — see [Headless mode](/docs/v4/headless/). |
 | `kj autorun <spec>` | Spec → plan → run every story → outcome report, unattended. |
 
-Everything else (`kj advanced` lists ~30 more) belongs to the headless pipeline and power users — reference in the [v3 docs](/docs/getting-started/introduction/).
+Everything else (`kj advanced` lists ~30 more) belongs to the headless pipeline and power users — documented in the **V3 historical archive** ([here](/docs/getting-started/introduction/), clearly marked as legacy).

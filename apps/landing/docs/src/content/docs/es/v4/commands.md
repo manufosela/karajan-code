@@ -43,4 +43,4 @@ Los comandos que un setup v4 usa de verdad. Todo soporta `--help`; los comandos 
 | `kj run "<tarea>"` | El pipeline subprocess clásico — ver [Modo headless](/docs/es/v4/headless/). |
 | `kj autorun <spec>` | Spec → plan → cada historia → informe final, desatendido. |
 
-Todo lo demás (`kj advanced` lista ~30 más) pertenece al pipeline headless y usuarios avanzados — referencia en la [doc v3](/docs/es/getting-started/introduction/).
+Todo lo demás (`kj advanced` lista ~30 más) pertenece al pipeline headless y usuarios avanzados — documentado en el **archivo histórico V3** ([aquí](/docs/es/getting-started/introduction/), claramente marcado como legacy).

@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightSidebarTopics from 'starlight-sidebar-topics';
 // https://astro.build/config
 export default defineConfig({
 	base: '/docs',
@@ -41,85 +42,87 @@ export default defineConfig({
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/manufosela/karajan-code' },
 			],
 			customCss: ['./src/styles/custom.css'],
-			sidebar: [
-				{
-					label: 'Karajan v4',
-					translations: { es: 'Karajan v4' },
-					items: [
-						{ label: 'Install', slug: 'v4/install', translations: { es: 'Instalación' } },
-						{ label: 'Work with your agent', slug: 'v4/working-with-your-agent', translations: { es: 'Trabaja con tu agente' } },
-						{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
-						{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
-						{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
-					],
-				},
-				{
-					label: 'v3 (legacy)',
-					translations: { es: 'v3 (legacy)' },
-					collapsed: true,
-					items: [
-				{
-					label: 'Getting Started',
-					translations: { es: 'Primeros Pasos' },
-					items: [
-						{ label: 'Introduction', slug: 'getting-started/introduction', translations: { es: 'Introducción' } },
-						{ label: 'Installation', slug: 'getting-started/installation', translations: { es: 'Instalación' } },
-						{ label: 'Quick Start', slug: 'getting-started/quick-start', translations: { es: 'Inicio Rápido' } },
-					],
-				},
-				{
-					label: 'Guides',
-					translations: { es: 'Guías' },
-					items: [
-						{ label: 'Pipeline', slug: 'guides/pipeline' },
-						{ label: 'Pipeline Flows', slug: 'guides/flows', translations: { es: 'Flujos del Pipeline' } },
-						{ label: 'MCP Server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
-						{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
-						{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
-						{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
-						{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
-						{ label: 'Hardening Against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
-						{ label: 'Recommended Setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración Recomendada' } },
-					],
-				},
-				{
-					label: 'Reference',
-					translations: { es: 'Referencia' },
-					items: [
-						{ label: 'CLI Commands', slug: 'reference/cli', translations: { es: 'Comandos CLI' } },
-						{ label: 'Configuration', slug: 'reference/configuration', translations: { es: 'Configuración' } },
-						{ label: 'MCP Tools', slug: 'reference/mcp-tools', translations: { es: 'Herramientas MCP' } },
-					],
-				},
-				{
-					label: 'Handbook',
-					translations: { es: 'Manual' },
-					collapsed: true,
-					autogenerate: { directory: 'handbook' },
-				},
-				{
-					label: 'Architecture',
-					translations: { es: 'Arquitectura' },
-					items: [
-						{ label: 'Overview', slug: 'architecture/overview', translations: { es: 'Visión General' } },
-						{ label: 'History', slug: 'architecture/history', translations: { es: 'Historial' } },
-					],
-				},
-				{
-					label: 'Examples',
-					translations: { es: 'Ejemplos' },
-					autogenerate: { directory: 'examples' },
-				},
-				{
-					label: 'Contributors',
-					slug: 'contributors',
-				},
-				{
-					label: 'FAQ',
-					slug: 'faq',
-				},
-				],
-				},
+			plugins: [
+				starlightSidebarTopics([
+					{
+						label: 'Karajan v4',
+						link: '/v4/install/',
+						icon: 'rocket',
+						items: [
+							{ label: 'Install', slug: 'v4/install', translations: { es: 'Instalación' } },
+							{ label: 'Work with your agent', slug: 'v4/working-with-your-agent', translations: { es: 'Trabaja con tu agente' } },
+							{ label: 'The gates', slug: 'v4/gates', translations: { es: 'Los gates' } },
+							{ label: 'Command reference', slug: 'v4/commands', translations: { es: 'Referencia de comandos' } },
+							{ label: 'Headless mode', slug: 'v4/headless', translations: { es: 'Modo headless' } },
+							{ label: 'Contributors', slug: 'contributors' },
+						],
+					},
+					{
+						label: { en: 'v3 — historical archive', es: 'v3 — archivo histórico' },
+						link: '/getting-started/introduction/',
+						icon: 'seti:folder',
+						badge: { text: 'V3', variant: 'caution' },
+						items: [
+							{
+								label: 'Getting Started',
+								translations: { es: 'Primeros Pasos' },
+								items: [
+									{ label: 'Introduction', slug: 'getting-started/introduction', translations: { es: 'Introducción' } },
+									{ label: 'Installation', slug: 'getting-started/installation', translations: { es: 'Instalación' } },
+									{ label: 'Quick Start', slug: 'getting-started/quick-start', translations: { es: 'Inicio Rápido' } },
+								],
+							},
+							{
+								label: 'Guides',
+								translations: { es: 'Guías' },
+								items: [
+									{ label: 'Pipeline', slug: 'guides/pipeline' },
+									{ label: 'Pipeline Flows', slug: 'guides/flows', translations: { es: 'Flujos del Pipeline' } },
+									{ label: 'MCP Server', slug: 'guides/mcp-server', translations: { es: 'Servidor MCP' } },
+									{ label: 'Skills Mode', slug: 'guides/skills', translations: { es: 'Modo Skills' } },
+									{ label: 'Plugin System', slug: 'guides/plugins', translations: { es: 'Sistema de Plugins' } },
+									{ label: 'Configuration', slug: 'guides/configuration', translations: { es: 'Configuración' } },
+									{ label: 'HU Board', slug: 'guides/hu-board', translations: { es: 'HU Board' } },
+									{ label: 'Hardening Against AI', slug: 'guides/hardening-against-ai', translations: { es: 'Blindar frente a IA' } },
+									{ label: 'Recommended Setup', slug: 'guides/recommended-setup', translations: { es: 'Configuración Recomendada' } },
+									{ label: 'Troubleshooting', slug: 'guides/troubleshooting', translations: { es: 'Resolución de problemas' } },
+								],
+							},
+							{
+								label: 'Reference',
+								translations: { es: 'Referencia' },
+								items: [
+									{ label: 'CLI Commands', slug: 'reference/cli', translations: { es: 'Comandos CLI' } },
+									{ label: 'Configuration', slug: 'reference/configuration', translations: { es: 'Configuración' } },
+									{ label: 'MCP Tools', slug: 'reference/mcp-tools', translations: { es: 'Herramientas MCP' } },
+								],
+							},
+							{
+								label: 'Handbook',
+								translations: { es: 'Manual' },
+								collapsed: true,
+								autogenerate: { directory: 'handbook' },
+							},
+							{
+								label: 'Architecture',
+								translations: { es: 'Arquitectura' },
+								items: [
+									{ label: 'Overview', slug: 'architecture/overview', translations: { es: 'Visión General' } },
+									{ label: 'History', slug: 'architecture/history', translations: { es: 'Historial' } },
+								],
+							},
+							{
+								label: 'Examples',
+								translations: { es: 'Ejemplos' },
+								autogenerate: { directory: 'examples' },
+							},
+							{
+								label: 'FAQ',
+								slug: 'faq',
+							},
+						],
+					},
+				]),
 			],
 		}),
 	],
