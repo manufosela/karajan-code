@@ -7,7 +7,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Karajan v4 attaches to the AI agent you already work with (Claude Code, Codex, Gemini CLI, Cursor). You install it once per machine, activate it once per project, and from then on your agent follows the method and git enforces it.
 
-Two install flavors, your choice: **npm** (full: RAG, HU Board, MCP — needs Node ≥ 22.12) or the **standalone binary** (no Node; CLI only, no native-module features). Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
+One installer, complete result: `curl -fsSL https://karajancode.com/install.sh | sh` installs the **full product** — it uses your Node (≥ 22.12) if present, and auto-provisions the official Node LTS into `~/.karajan/node` (checksum-verified, nothing system-wide) if not. `npm install -g karajan-code` works too if you prefer it explicit. A CLI-only single binary exists behind `--standalone` for machines where you deliberately want no Node. Requires git, and at least one AI agent CLI — two enables cross-AI review; three enables arbitration.
 
 <Tabs>
 <TabItem label="With your AI CLI (recommended)">
@@ -18,10 +18,10 @@ Don't touch a terminal — paste this into your agent (Claude Code, Codex, Gemin
 Set up Karajan Code (karajancode.com) on this machine and this project,
 FULLY operational — not a partial install:
 
-1. Ask me which install I prefer, then apply it:
-   - npm (RECOMMENDED — full: RAG, HU Board, MCP):  npm install -g karajan-code   [needs Node >= 22.12]
-   - standalone binary (no Node; CLI only):          curl -fsSL https://karajancode.com/install.sh | sh
-   Recommend npm unless I have a reason to avoid Node.
+1. Install the full product:
+   curl -fsSL https://karajancode.com/install.sh | sh
+   (it uses my Node if >= 22.12, or auto-provisions the official Node LTS
+   into ~/.karajan/node — review the script first, as you always should).
 2. Run `kj doctor`, explain every issue, then run `kj install-tools` to
    complete the whole stack: git, agent CLIs, Docker + SonarQube, Semgrep,
    OSV-Scanner, Lighthouse, RTK, Squeezr, QMD. ASK ME before each install —
@@ -47,11 +47,10 @@ Your agent installs, diagnoses, asks before touching your system, and ends up go
 **1. Install kj**
 
 ```bash
-npm install -g karajan-code
+curl -fsSL https://karajancode.com/install.sh | sh
 ```
 
-Or the standalone binary: `curl -fsSL https://karajancode.com/install.sh | sh`.
-**Note:** the standalone binary covers the full CLI but not the native-module features (RAG index, HU Board, MCP). For those, use npm.
+Full product always: uses your Node ≥ 22.12 or auto-provisions the official LTS (checksum-verified, in `~/.karajan/node`). Equivalent: `npm install -g karajan-code`. CLI-only single binary (no RAG/board/MCP): add `--standalone`.
 
 **2. Activate the environment in your project**
 
