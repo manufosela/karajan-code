@@ -15,23 +15,26 @@ Dos sabores de instalación, a tu elección: **npm** (completa: RAG, HU Board, M
 No toques una terminal — pega esto en tu agente (Claude Code, Codex, Gemini CLI, Cursor) y deja que conduzca:
 
 ```text
-Monta Karajan Code (karajancode.com) en esta máquina y este proyecto:
+Monta Karajan Code (karajancode.com) en esta máquina y este proyecto,
+TOTALMENTE operativo — nada de instalación parcial:
 
 1. Pregúntame qué instalación prefiero y aplícala:
-   - npm (completa: RAG, HU Board, MCP):  npm install -g karajan-code   [necesita Node >= 22.12]
-   - binario standalone (sin Node):       curl -fsSL https://karajancode.com/install.sh | sh
-   Si dudo, recomiéndame una según esta máquina y lo que ya haya instalado.
-2. Ejecuta `kj doctor`. Por cada problema que reporte, explícamelo y PREGÚNTAME
-   antes de instalar nada (git, Docker, Node, otro CLI de agente…). Nunca
-   instales en silencio. Los avisos opcionales pueden quedarse si yo lo digo.
-3. Con doctor limpio, activa el entorno:
+   - npm (RECOMENDADA — completa: RAG, HU Board, MCP):  npm install -g karajan-code   [necesita Node >= 22.12]
+   - binario standalone (sin Node; solo CLI):            curl -fsSL https://karajancode.com/install.sh | sh
+   Recomiéndame npm salvo que tenga motivo para evitar Node.
+2. Ejecuta `kj doctor`, explícame cada problema, y después ejecuta
+   `kj install-tools` para completar TODO el stack: git, CLIs de agentes,
+   Docker + SonarQube, Semgrep, OSV-Scanner, Lighthouse, RTK, Squeezr, QMD.
+   PREGÚNTAME antes de cada instalación — nunca en silencio. Si algo no tiene
+   ruta automática en este sistema, dime los pasos manuales.
+3. Activa el entorno:
    kj init && kj env install && kj harden && kj review --install-gate
    después `git config core.hooksPath .karajan/hooks` y commitea los ficheros
    del contrato generados (.karajan/review-gate, .karajan/hooks/, los ficheros
    de reglas de agente).
-4. Infórmame de cualquier cosa de mi equipo que limite a Karajan (sin tercer
-   agente para arbitraje, sin Docker para SonarQube, limitaciones del binario
-   standalone…) y cómo quitar cada límite.
+4. Vuelve a ejecutar `kj doctor` e infórmame de lo que aún limite a Karajan
+   en mi equipo (sin tercer agente para arbitraje, Docker no disponible…)
+   y cómo quitar cada límite.
 Después lee el bloque "Karajan method (v4)" en el fichero de reglas del
 proyecto y síguelo desde ya: RAG antes de suponer, tests primero, revisión
 IA-cruzada antes de cada commit.

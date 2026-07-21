@@ -15,22 +15,25 @@ Two install flavors, your choice: **npm** (full: RAG, HU Board, MCP — needs No
 Don't touch a terminal — paste this into your agent (Claude Code, Codex, Gemini CLI, Cursor) and let it drive:
 
 ```text
-Set up Karajan Code (karajancode.com) on this machine and this project:
+Set up Karajan Code (karajancode.com) on this machine and this project,
+FULLY operational — not a partial install:
 
 1. Ask me which install I prefer, then apply it:
-   - npm (full: RAG, HU Board, MCP):  npm install -g karajan-code   [needs Node >= 22.12]
-   - standalone binary (no Node):     curl -fsSL https://karajancode.com/install.sh | sh
-   If I'm unsure, recommend one based on this machine and what's already installed.
-2. Run `kj doctor`. For every issue it reports, explain it and ASK ME before
-   installing anything (git, Docker, Node, another AI agent CLI…). Never install
-   silently. Optional warnings can stay if I say so.
-3. When doctor is clean, activate the environment:
+   - npm (RECOMMENDED — full: RAG, HU Board, MCP):  npm install -g karajan-code   [needs Node >= 22.12]
+   - standalone binary (no Node; CLI only):          curl -fsSL https://karajancode.com/install.sh | sh
+   Recommend npm unless I have a reason to avoid Node.
+2. Run `kj doctor`, explain every issue, then run `kj install-tools` to
+   complete the whole stack: git, agent CLIs, Docker + SonarQube, Semgrep,
+   OSV-Scanner, Lighthouse, RTK, Squeezr, QMD. ASK ME before each install —
+   never install silently. If something has no automatic route on this OS,
+   tell me the manual steps.
+3. Activate the environment:
    kj init && kj env install && kj harden && kj review --install-gate
    then `git config core.hooksPath .karajan/hooks` and commit the generated
    contract files (.karajan/review-gate, .karajan/hooks/, the agent rule files).
-4. Report anything about my machine that limits Karajan (no third agent for
-   arbitration, no Docker for SonarQube, standalone-binary limitations…) and
-   how to lift each limit.
+4. Run `kj doctor` again and report anything still limiting Karajan on my
+   machine (no third agent for arbitration, Docker unavailable…) and how to
+   lift each limit.
 Then read the "Karajan method (v4)" block in this project's rules file and
 follow it from now on: RAG before assuming, tests first, cross-AI review
 before every commit.
