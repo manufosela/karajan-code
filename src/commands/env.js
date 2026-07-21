@@ -5,6 +5,7 @@
  * has no RAG index yet, build it (default ON, `--no-rag` opts out).
  */
 import { installPlaybook } from "../environment/playbook.js";
+import { renderBrief, listBriefs } from "../environment/briefs.js";
 import { openVecStore, projectSlug, getLastIndexedCommit } from "../rag/vec-store.js";
 import { ragIndexCommand } from "./rag.js";
 
@@ -12,6 +13,24 @@ function hasRagIndex(config, projectDir) {
   const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
   try { return Boolean(getLastIndexedCommit(db, projectSlug(projectDir))); }
   finally { db.close(); }
+}
+
+/**
+ * `kj brief [role]` (AB-C, KJC-TSK-0652) — the distilled method of a role,
+ * for the brain to execute or delegate. No role → list them.
+ */
+export function briefCommand({ config = null, flags = {}, role = null }) {
+  if (!role) {
+    const list = listBriefs();
+    if (flags.json) { console.log(JSON.stringify(list, null, 2)); return list; }
+    console.log("Available role briefs (kj brief <role>):");
+    for (const { role: r, purpose } of list) console.log(`  ${r.padEnd(11)} ${purpose}`);
+    return list;
+  }
+  const text = renderBrief(role, config || {});
+  if (flags.json) { console.log(JSON.stringify({ role, brief: text })); return { role, brief: text }; }
+  console.log(text);
+  return { role, brief: text };
 }
 
 export async function envInstallCommand({ config = null, logger = null, flags = {} }) {

@@ -22,6 +22,8 @@ You are the orchestrator; Karajan governs the method. Follow this on every task:
    compiles and passes tests on its own.
 
 Useful commands: `kj rag query` · `kj review --staged` · `kj review --check` ·
-`kj report` · `kj check`
+`kj brief <role>` (the method of each role you absorb: triage, planner,
+researcher, architect, tester, security, audit) · `kj solomon --position`
+(third-AI arbitration when you disagree with a rejected verdict) · `kj report` · `kj check`
 
 <!-- <<< kj:managed:playbook <<< -->
