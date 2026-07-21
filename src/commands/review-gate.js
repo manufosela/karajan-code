@@ -8,6 +8,7 @@
 import { runCommand } from "../utils/process.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
+import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 
 // Raw git always — never a wrapped/compressing runner (KJC-BUG-0115).
 async function rawDiff(range) {
@@ -32,6 +33,25 @@ function printVerdict(record) {
     if (issue.suggested_fix) console.log(`    fix: ${issue.suggested_fix}`);
   }
   console.log("Fix the issues and run `kj review --staged` again — the verdict is tied to the exact diff.");
+}
+
+/**
+ * `kj solomon --position "<why>"` (AB-E, KJC-TSK-0651) — the brain asks a
+ * third AI to arbitrate a rejected verdict it disagrees with. Exit 0 =
+ * approve (gate opens), 1 = reject (obey the reviewer and fix).
+ */
+export async function solomonCommand({ config, logger = null, flags = {} }) {
+  const projectDir = config?.projectDir || process.cwd();
+  const diff = await rawDiff(flags.range);
+  const res = await runSolomonArbitration({ diff, position: flags.position, config, logger, projectDir });
+  if (res.ruling === "approve") {
+    console.log(`⚖ Solomon (${res.solomon}) rules for the brain — verdict recorded, the gate is open.`);
+  } else {
+    console.log(`⚖ Solomon${res.solomon ? ` (${res.solomon})` : ""} rules for the reviewer — obey and fix:`);
+  }
+  if (res.reasoning) console.log(`  ${res.reasoning}`);
+  process.exitCode = res.ruling === "approve" ? 0 : 1;
+  return res;
 }
 
 export async function reviewGateCommand({ config, logger = null, flags = {} }) {
