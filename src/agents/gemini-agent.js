@@ -37,12 +37,16 @@ function extractGeminiUsage(text) {
 }
 
 export class GeminiAgent extends BaseAgent {
+  // Overridden by forks with the same headless interface (QwenAgent).
+  get cliBin() { return "gemini"; }
+  get spawnEnv() { return { GEMINI_CLI_TRUST_WORKSPACE: "true" }; }
+
   async runTask(task) {
     const role = task.role || "coder";
     const model = this.getRoleModel(role);
     const result = await this._exec(task, model, "run");
     if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Gemini model "${model}" not supported — retrying with agent default`);
+      this.logger?.warn(`${this.cliBin} model "${model}" not supported — retrying with agent default`);
       return this._exec(task, null, "run");
     }
     return result;
@@ -53,7 +57,7 @@ export class GeminiAgent extends BaseAgent {
     const model = this.getRoleModel(role);
     const result = await this._exec(task, model, "review");
     if (!result.ok && model && this.isModelNotSupportedError(result)) {
-      this.logger?.warn(`Gemini model "${model}" not supported — retrying with agent default`);
+      this.logger?.warn(`${this.cliBin} model "${model}" not supported — retrying with agent default`);
       return this._exec(task, null, "review");
     }
     return result;
@@ -68,9 +72,9 @@ export class GeminiAgent extends BaseAgent {
     const args = [];
     if (mode === "review") args.push("--output-format", "json");
     if (model) args.push("--model", model);
-    const res = await this.runCommand(resolveBin("gemini"), args, {
+    const res = await this.runCommand(resolveBin(this.cliBin), args, {
       input: task.prompt,
-      env: { GEMINI_CLI_TRUST_WORKSPACE: "true" },
+      env: this.spawnEnv,
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs

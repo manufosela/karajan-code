@@ -7,7 +7,8 @@ const KNOWN_AGENTS = [
   { name: "codex", install: getInstallCommand("codex") },
   { name: "gemini", install: getInstallCommand("gemini") },
   { name: "aider", install: getInstallCommand("aider") },
-  { name: "opencode", install: getInstallCommand("opencode") }
+  { name: "opencode", install: getInstallCommand("opencode") },
+  { name: "qwen", install: getInstallCommand("qwen") }
 ];
 
 export async function checkBinary(name, versionArg = "--version") {
