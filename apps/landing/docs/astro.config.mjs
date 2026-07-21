@@ -109,6 +109,7 @@ export default defineConfig({
 								items: [
 									{ label: 'Overview', slug: 'architecture/overview', translations: { es: 'Visión General' } },
 									{ label: 'History', slug: 'architecture/history', translations: { es: 'Historial' } },
+							{ label: 'v3 feature tour', slug: 'architecture/feature-tour', translations: { es: 'Recorrido de features v3' } },
 								],
 							},
 							{
