@@ -25,8 +25,13 @@ FULLY operational — not a partial install:
 2. Run `kj doctor`, explain every issue, then run `kj install-tools` to
    complete the whole stack: git, agent CLIs, Docker + SonarQube, Semgrep,
    OSV-Scanner, Lighthouse, RTK, Squeezr, QMD. ASK ME before each install —
-   never install silently. If something has no automatic route on this OS,
-   tell me the manual steps.
+   never install silently.
+   HARD RULE — stop and wait: if a step needs sudo, has no automatic route
+   on this OS, or any `kj` command exits with code 3 (PENDING USER ACTION),
+   STOP. Show me the exact commands, then WAIT until I say "done". Never
+   time out into "continuing with my own judgment", never continue with a
+   degraded setup: a partial install (e.g. an empty RAG because
+   Docker/Ollama is missing) is a FAILED install.
 3. Activate the environment:
    kj init && kj env install && kj harden && kj review --install-gate
    then `git config core.hooksPath .karajan/hooks` and commit the generated
