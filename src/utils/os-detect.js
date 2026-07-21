@@ -51,6 +51,11 @@ const INSTALL_COMMANDS = {
     linux: "curl -fsSL https://opencode.ai/install | bash",
     windows: "See https://github.com/nicepkg/opencode for Windows install"
   },
+  qwen: {
+    macos: "npm install -g @qwen-code/qwen-code",
+    linux: "npm install -g @qwen-code/qwen-code",
+    windows: "npm install -g @qwen-code/qwen-code"
+  },
   docker: {
     macos: "brew install --cask docker",
     linux: "sudo apt install docker.io docker-compose-v2 (or see https://docs.docker.com/engine/install/)",
