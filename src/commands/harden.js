@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { loadConfig } from "../config.js";
+import { resolveTestOnPush } from "../harden/test-on-push.js";
 import { compareHarden, formatAdvisoryReport } from "../harden/advisory.js";
 import { interactiveHarden } from "../harden/interactive.js";
 import { createWizard, isTTY } from "../utils/wizard.js";
@@ -121,6 +122,14 @@ export async function hardenCommand({
 
   const roots = detectStackRoots(projectDir, { only: onlyDirs, exclude: excludeDirs });
   const cmds = await resolveCmds(projectDir, roots[0]?.language ?? null);
+  // KJC-TSK-0647: CI already running the suite per PR ⇒ pre-push drops its
+  // test command (false-red source under local parallelism); opt back in
+  // via package.json kj.harden.test_on_push.
+  const top = resolveTestOnPush({ projectDir, repoCfg, testCmd: cmds.test });
+  if (top.reason) {
+    logger.info?.(`kj harden: ${top.reason}`);
+    cmds.test = undefined;
+  }
   // KJC-TSK-0648: branch-first guard — the base branch only moves via PR.
   // Resolved from the project's kj config (default "main"); best-effort so
   // harden keeps working on repos that never ran kj init.
