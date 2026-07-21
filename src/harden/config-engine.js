@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { upsertManagedBlock } from "../utils/managed-markers.js";
+import { findEquivalentIn } from "./advisory.js";
 import { artifactIdForConfig, findAlternative } from "./alternatives.js";
 import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 
@@ -35,6 +36,15 @@ function seedInto(targetDir, configs, dryRun, prefix, results, altDirs = [target
       const alt = findAlternative(altDirs, artifactIdForConfig(cfg));
       if (alt) {
         results.push({ file, action: "covered", by: alt.foundAt });
+        continue;
+      }
+      // KJC-BUG-0119: a same-tool variant (eslint.config.mjs, .eslintrc.json,
+      // package.json#eslintConfig…) means the config already EXISTS — seeding
+      // kj's default filename next to it would silently ECLIPSE the user's
+      // real config (eslint resolves eslint.config.js before .mjs).
+      const variant = findEquivalentIn(altDirs, artifactIdForConfig(cfg));
+      if (variant) {
+        results.push({ file, action: "covered", by: variant });
         continue;
       }
     }

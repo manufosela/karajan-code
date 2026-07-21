@@ -58,6 +58,44 @@ describe("installConfigs", () => {
     expect(existsSync(join(dir, ".prettierrc.json"))).toBe(false);
   });
 
+  // KJC-BUG-0119 (field, 2026-07-21): harden created eslint.config.js in a
+  // Next.js repo that already had eslint.config.mjs — ESLint resolves .js
+  // BEFORE .mjs, so the generated file silently eclipsed the project's real
+  // linting. Any same-tool variant must count as "the config exists".
+  it("never seeds eslint.config.js next to eslint.config.mjs (KJC-BUG-0119)", () => {
+    writeFileSync(join(dir, "eslint.config.mjs"), "export default [];\n");
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    const eslintEntry = res.configs.find((c) => c.file === "eslint.config.js");
+    expect(eslintEntry).toMatchObject({ action: "covered", by: "eslint.config.mjs" });
+    expect(existsSync(join(dir, "eslint.config.js"))).toBe(false);
+  });
+
+  it("covers legacy .eslintrc.json and inline package.json config too", () => {
+    writeFileSync(join(dir, ".eslintrc.json"), "{}");
+    writeFileSync(join(dir, "package.json"), '{"prettier":{"printWidth":80}}');
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    const byFile = Object.fromEntries(res.configs.map((c) => [c.file, c]));
+    expect(byFile["eslint.config.js"]).toMatchObject({ action: "covered", by: ".eslintrc.json" });
+    expect(byFile[".prettierrc.json"]).toMatchObject({ action: "covered", by: "package.json#prettier" });
+    expect(existsSync(join(dir, "eslint.config.js"))).toBe(false);
+    expect(existsSync(join(dir, ".prettierrc.json"))).toBe(false);
+  });
+
+  it("covers a YAML commitlint config (.commitlintrc.yml) instead of seeding", () => {
+    writeFileSync(join(dir, ".commitlintrc.yml"), "extends: ['@commitlint/config-conventional']\n");
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    const byFile = Object.fromEntries(res.configs.map((c) => [c.file, c]));
+    expect(byFile["commitlint.config.js"]).toMatchObject({ action: "covered", by: ".commitlintrc.yml" });
+    expect(existsSync(join(dir, "commitlint.config.js"))).toBe(false);
+  });
+
+  it("still seeds when no variant of the tool exists", () => {
+    writeFileSync(join(dir, "eslint.config.mjs"), "export default [];\n");
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    // prettier has no variant here → seeds normally alongside the mjs eslint.
+    expect(res.configs.find((c) => c.file === ".prettierrc.json").action).toBe("inserted");
+  });
+
   it("never seeds eslint/prettier next to biome.json (KJC-TSK-0614)", () => {
     writeFileSync(join(dir, "biome.json"), "{}");
     const res = installConfigs({ projectDir: dir, language: "javascript" });

@@ -21,10 +21,37 @@ const BLOCK_VERSION = 1; // current version every markered config ships at
 // Other filenames/formats for the same artifact, so kj never reports a false
 // "missing". `pkgKey` is a package.json field that can hold inline config.
 const EQUIVALENTS = {
-  commitlint: { files: [".commitlintrc", ".commitlintrc.js", ".commitlintrc.json", ".commitlintrc.yaml"], pkgKey: "commitlint" },
-  eslint: { files: ["eslint.config.mjs", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yaml"], pkgKey: "eslintConfig" },
-  prettier: { files: [".prettierrc", ".prettierrc.js", ".prettierrc.yaml", "prettier.config.js"], pkgKey: "prettier" },
+  commitlint: { files: [".commitlintrc", ".commitlintrc.js", ".commitlintrc.cjs", ".commitlintrc.mjs", ".commitlintrc.json", ".commitlintrc.yaml", ".commitlintrc.yml", "commitlint.config.mjs", "commitlint.config.cjs", "commitlint.config.ts"], pkgKey: "commitlint" },
+  eslint: { files: ["eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts", "eslint.config.mts", "eslint.config.cts", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yaml", ".eslintrc.yml"], pkgKey: "eslintConfig" },
+  prettier: { files: [".prettierrc", ".prettierrc.js", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc.json5", ".prettierrc.toml", "prettier.config.js", "prettier.config.mjs", "prettier.config.cjs", "prettier.config.ts"], pkgKey: "prettier" },
 };
+
+/**
+ * KJC-BUG-0119 — same-tool filename variant for `artifactId` in any of
+ * `searchDirs` (file or inline package.json config); null when none exists.
+ * Seeding kj's default filename NEXT TO a variant eclipses the user's real
+ * config (eslint resolves eslint.config.js before .mjs), so config-engine
+ * must consult this before treating an artifact as absent.
+ */
+export function findEquivalentIn(searchDirs, artifactId) {
+  const spec = EQUIVALENTS[artifactId];
+  if (!spec) return null;
+  for (const dir of searchDirs) {
+    for (const rel of spec.files) {
+      if (existsSync(join(dir, rel))) return rel;
+    }
+    if (spec.pkgKey && existsSync(join(dir, "package.json"))) {
+      try {
+        if (JSON.parse(readFileSync(join(dir, "package.json"), "utf8"))[spec.pkgKey] != null) {
+          return `package.json#${spec.pkgKey}`;
+        }
+      } catch {
+        /* unreadable package.json → not a match */
+      }
+    }
+  }
+  return null;
+}
 
 // Concrete gains kj's standard would add to a USER_OWNED config, detected by
 // substring probes (no AST parse): each probe absent from the user's content
@@ -70,19 +97,8 @@ function toArtifact(cfg) {
 
 /** Locate the user's file for an artifact under `searchDir`; null if absent. */
 function findArtifactFile(searchDir, artifact) {
-  for (const rel of [artifact.file, ...artifact.equivalents]) {
-    if (existsSync(join(searchDir, rel))) return rel;
-  }
-  if (artifact.pkgKey && existsSync(join(searchDir, "package.json"))) {
-    try {
-      if (JSON.parse(readFileSync(join(searchDir, "package.json"), "utf8"))[artifact.pkgKey] != null) {
-        return `package.json#${artifact.pkgKey}`;
-      }
-    } catch {
-      /* unreadable package.json → not a match */
-    }
-  }
-  return null;
+  if (existsSync(join(searchDir, artifact.file))) return artifact.file;
+  return findEquivalentIn([searchDir], artifact.id);
 }
 
 /** Read the artifact body, or the JSON of an inline package.json key. */
