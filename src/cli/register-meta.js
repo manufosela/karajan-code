@@ -126,8 +126,8 @@ export function registerMeta(program, { pkgVersion }) {
   // orchestrates, Karajan installs the method it must follow.
   const env = program.command("env").description("Karajan Environment (v4) — playbook for host agents");
   env.command("install")
-    .description("Install/refresh the Karajan playbook in CLAUDE.md (Claude) and AGENTS.md (Codex)")
-    .option("--target <target>", "claude | codex | both", "both")
+    .description("Install/refresh the Karajan playbook for any host agent (CLAUDE.md, AGENTS.md, GEMINI.md)")
+    .option("--target <target>", "claude | codex | gemini | all", "all")
     .option("--no-rag", "Skip building the RAG index when the project has none (ENV-E1)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {

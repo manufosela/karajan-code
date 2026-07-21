@@ -13,9 +13,18 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { upsertManagedBlock } from "../utils/managed-markers.js";
 
-export const PLAYBOOK_TARGETS = ["claude", "codex", "both"];
+// AB-A (KJC-TSK-0650): any agent can be the brain. AGENTS.md is the
+// emerging standard (Codex, Cursor and most new CLIs read it); GEMINI.md
+// covers Gemini CLI. "both" is kept as a legacy alias of claude+codex.
+export const PLAYBOOK_TARGETS = ["claude", "codex", "gemini", "both", "all"];
 
-const TARGET_FILES = { claude: ["CLAUDE.md"], codex: ["AGENTS.md"], both: ["CLAUDE.md", "AGENTS.md"] };
+const TARGET_FILES = {
+  claude: ["CLAUDE.md"],
+  codex: ["AGENTS.md"],
+  gemini: ["GEMINI.md"],
+  both: ["CLAUDE.md", "AGENTS.md"],
+  all: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+};
 
 // ENV-D1 (KJC-TSK-0642): step 2 names the CHOSEN state backend — a playbook
 // that says "board or PG" makes the host guess; the config already knows.
@@ -58,7 +67,7 @@ export function renderPlaybook({ stateBackend = "hu-board" } = {}) {
  * Install/refresh the playbook block in the target agent files.
  * User content outside the managed block is never touched.
  */
-export async function installPlaybook({ projectDir, target = "both", version = "1", stateBackend = "hu-board" }) {
+export async function installPlaybook({ projectDir, target = "all", version = "1", stateBackend = "hu-board" }) {
   if (!PLAYBOOK_TARGETS.includes(target)) {
     throw new Error(`unknown target "${target}" — use one of: ${PLAYBOOK_TARGETS.join(", ")}`);
   }
