@@ -103,6 +103,58 @@ Cloud Run + Cloud SQL pgvector + GCS + Secret Manager, privado por defecto.
 Flujo completo (imagen, migración, indexado, rsync del índice, query con
 identity token) en [`deploy/gcp/README.md`](../deploy/gcp/README.md).
 
+## SDK embebible (frameworks, sin CLI)
+
+`createRag()` expone la misma maquinaria desde código — para Astro, Next,
+Fastify o cualquier worker Node:
+
+```js
+import { createRag } from 'karajan-rag';
+
+const rag = await createRag({ rootDir: './docs' }); // defaults: lancedb + hash
+await rag.index();                                   // incremental, como el CLI
+const { hits } = await rag.query('¿cómo se factura?');
+```
+
+### Fastify — endpoint `/ask`
+
+```js
+import Fastify from 'fastify';
+import { createRag } from 'karajan-rag';
+
+const rag = await createRag({ rootDir: './docs' });
+const app = Fastify();
+
+app.post('/ask', async (request) => {
+  const { question, topK } = request.body;
+  return rag.query(question, { topK });
+});
+
+await app.listen({ port: 3000 });
+```
+
+### Astro / Next — endpoint API
+
+```js
+// src/pages/api/ask.js (Astro) — en Next: app/api/ask/route.js con POST(request)
+import { createRag } from 'karajan-rag';
+
+const rag = await createRag({ rootDir: './docs' });
+
+export async function POST({ request }) {
+  const { question } = await request.json();
+  const result = await rag.query(question);
+  return new Response(JSON.stringify(result), {
+    headers: { 'content-type': 'application/json' },
+  });
+}
+```
+
+Para producción con store remoto, `createRag({ store: 'pgvector', env: process.env })`
+consulta el mismo índice que sirve `karajan-rag serve` en Cloud Run — es el
+mismo `RagService` por debajo. También acepta instancias inyectadas
+(`store`/`embedder` propios) para tests o backends custom.
+
 ## Garantías transversales
 
 - **Sensitivity first**: el routing por sensibilidad y el redactor PII del

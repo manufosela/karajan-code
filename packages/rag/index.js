@@ -99,6 +99,7 @@ export {
 } from './src/easy/manifest.js';
 export { collectIndexableFiles, indexDirectory } from './src/easy/indexer.js';
 export { queryIndex } from './src/easy/query.js';
+export { createRag } from './src/easy/sdk.js';
 export {
   createRagService,
   openRagService,
