@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.10] - 2026-07-22
+
+Patch. **Karajan governs its tools' resources, not just your code** — born from a real CPU storm (concurrent scans, semgrep taking 14 cores each, orphaned semgrep-core processes).
+
+### Added
+
+- **Tool governor** (KJC-TSK-0668): every external scanner kj launches now runs governed — machine-wide single-flight (a second kj needing the same tool waits instead of scanning in parallel; locks from dead processes are stolen), `--jobs` capped at half the CPUs for semgrep, reduced priority (nice +10), and hard timeouts that kill the whole process tree, so an interrupted scan can never leave orphans burning CPU.
+- **`kj doctor` orphan check**: detects scanner processes reparented to init or a systemd reaper, reports them with the exact cleanup command, and offers to kill them.
+
 ## [4.1.9] - 2026-07-22
 
 Patch. **Warnings you can act on** — the fourth field issue filed by a user's Karajan, fixed and auto-closed within hours.
