@@ -29,6 +29,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   casos. Corre como test (`tests/golden-set.test.js`): guardián de
   regresión en CI sin credenciales.
 
+- **Disagreement auto-labelling** (KJR-TSK-0113, roadmap 0.4.0): cada
+  `JudgeVerdict` de `evaluateMultiJudge` incluye ahora `label`
+  (`consensus`/`outlier`, null si el score no es parseable) y `deviation`
+  respecto a la mediana; el `EvaluationReport` agrega `outliers` con los
+  providers desviados ≥ threshold. La mediana como consenso resiste a un
+  juez desviado; con dos jueces enfrentados ambos quedan como outlier
+  (no hay consenso posible). Cambio aditivo: `aggregateScore` y
+  `disagreement` no cambian.
+
 ### Fixed
 
 - **Easy RAG — guarda de integridad manifest↔store** (KJR-BUG-0005,

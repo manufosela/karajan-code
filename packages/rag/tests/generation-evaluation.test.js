@@ -108,6 +108,62 @@ test('evaluateMultiJudge: agrega scores y detecta consenso', async () => {
   assert.equal(report.verdicts.length, 3);
 });
 
+test('evaluateMultiJudge: etiqueta outliers respecto a la mediana (auto-labelling)', async () => {
+  const registry = new AdapterRegistry();
+  registry.register('j1', makeAdapterReturning({ score: 0.8 }));
+  registry.register('j2', makeAdapterReturning({ score: 0.75 }));
+  registry.register('j3', makeAdapterReturning({ score: 0.1 }));
+  const report = await evaluateMultiJudge({
+    registry,
+    providers: ['j1', 'j2', 'j3'],
+    input: { query: 'q', answer: 'a' },
+    disagreementThreshold: 0.3,
+  });
+  assert.deepEqual(report.outliers, ['j3']);
+  const [v1, , v3] = report.verdicts;
+  assert.equal(v1.label, 'consensus');
+  assert.equal(v3.label, 'outlier');
+  assert.ok(Math.abs(v3.deviation - 0.65) < 1e-9, 'deviation = |0.1 - mediana 0.75|');
+});
+
+test('evaluateMultiJudge: sin outliers con scores homogéneos o un solo juez', async () => {
+  const registry = new AdapterRegistry();
+  registry.register('j1', makeAdapterReturning({ score: 0.8 }));
+  registry.register('j2', makeAdapterReturning({ score: 0.82 }));
+  const homogeneo = await evaluateMultiJudge({
+    registry,
+    providers: ['j1', 'j2'],
+    input: { query: 'q', answer: 'a' },
+  });
+  assert.deepEqual(homogeneo.outliers, []);
+  assert.ok(homogeneo.verdicts.every((v) => v.label === 'consensus'));
+
+  const solo = await evaluateMultiJudge({
+    registry,
+    providers: ['j1'],
+    input: { query: 'q', answer: 'a' },
+  });
+  assert.deepEqual(solo.outliers, []);
+  assert.equal(solo.verdicts[0].deviation, 0);
+});
+
+test('evaluateMultiJudge: juez sin score parseable queda con label null', async () => {
+  const registry = new AdapterRegistry();
+  registry.register('ok', makeAdapterReturning({ score: 0.7 }));
+  registry.register('roto', async () => {
+    throw new Error('cli caído');
+  });
+  const report = await evaluateMultiJudge({
+    registry,
+    providers: ['ok', 'roto'],
+    input: { query: 'q', answer: 'a' },
+  });
+  const roto = report.verdicts.find((v) => v.provider === 'roto');
+  assert.equal(roto.label, null);
+  assert.equal(roto.deviation, null);
+  assert.deepEqual(report.outliers, []);
+});
+
 test('evaluateMultiJudge: marca disagreement si max-min >= threshold', async () => {
   const registry = new AdapterRegistry();
   registry.register('jA', makeAdapterReturning({ score: 0.2 }));

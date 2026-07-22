@@ -11,12 +11,16 @@
  * @property {number | null} score [0,1] o null si el juez no devolvió parseable.
  * @property {string | null} rationale Breve justificación si el juez la devuelve.
  * @property {string | null} error Mensaje si el juez falló completamente.
+ * @property {'consensus' | 'outlier' | null} label Auto-labelling: outlier si se
+ *   desvía de la mediana >= threshold; null si el score no es parseable.
+ * @property {number | null} deviation |score - mediana| o null sin score.
  */
 
 /**
  * @typedef {Object} EvaluationReport
  * @property {number | null} aggregateScore Promedio de los scores válidos.
  * @property {boolean} disagreement true si la desviación entre jueces >= threshold.
+ * @property {string[]} outliers Providers etiquetados como outlier.
  * @property {JudgeVerdict[]} verdicts
  */
 
@@ -94,10 +98,12 @@ export async function evaluateMultiJudge(params) {
           outcome.reason instanceof Error
             ? outcome.reason.message
             : String(outcome.reason ?? 'unknown'),
+        label: null,
+        deviation: null,
       };
     }
     const { score, rationale } = extractScore(/** @type {AdapterResult} */ (outcome.value));
-    return { provider, score, rationale, error: null };
+    return { provider, score, rationale, error: null, label: null, deviation: null };
   });
 
   const scores = verdicts
@@ -105,14 +111,35 @@ export async function evaluateMultiJudge(params) {
     .filter(/** @returns {n is number} */ (n) => typeof n === 'number');
 
   if (scores.length === 0) {
-    return { aggregateScore: null, disagreement: false, verdicts };
+    return { aggregateScore: null, disagreement: false, outliers: [], verdicts };
   }
+
+  // Auto-labelling (roadmap 0.4.0): outlier = se desvía de la mediana >=
+  // threshold. La mediana es más robusta que la media como "consenso"
+  // (un solo juez desviado no la arrastra). Con dos jueces enfrentados no
+  // hay consenso posible: ambos quedan etiquetados como outlier.
+  const sorted = [...scores].sort((a, b) => a - b);
+  const median =
+    sorted.length % 2 === 1
+      ? sorted[(sorted.length - 1) / 2]
+      : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+
+  /** @type {string[]} */
+  const outliers = [];
+  for (const verdict of verdicts) {
+    if (typeof verdict.score !== 'number') continue;
+    verdict.deviation = Math.abs(verdict.score - median);
+    verdict.label = verdict.deviation >= threshold ? 'outlier' : 'consensus';
+    if (verdict.label === 'outlier') outliers.push(verdict.provider);
+  }
+
   const avg = scores.reduce((s, x) => s + x, 0) / scores.length;
   const max = Math.max(...scores);
   const min = Math.min(...scores);
   return {
     aggregateScore: avg,
     disagreement: max - min >= threshold,
+    outliers,
     verdicts,
   };
 }
