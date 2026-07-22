@@ -7,6 +7,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Guía "RAG en 5 minutos"** (`docs/easy-rag.md`, KJR-TSK-0108): flujo
+  completo de la capa Easy RAG — index/query/serve en local, contenedor y
+  GCP — con las garantías transversales (sensitivity first, sin fallbacks
+  silenciosos, determinismo). Sección nueva en el README y ROADMAP
+  reestructurado: Easy RAG pasa a ser la 0.3.0 (entregada en main),
+  evaluación avanzada → 0.4.0, persistencia → 0.5.0, ecosistema → 0.6.0+.
+
 ### Added
 
 - **Módulo Terraform `deploy/gcp/`** (KJR-TSK-0107): monta el RAG en

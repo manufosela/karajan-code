@@ -3,7 +3,7 @@
 > Versión viva del plan. Se revisa al cierre de cada sprint y al publicar un release.
 > Para el estado actual y los detalles tácticos, ver el backlog privado en **Planning Game** (`KJR-TSK-XXXX`).
 
-Última revisión: **2026-07-22** (release 0.2.0).
+Última revisión: **2026-07-22** (post-release 0.2.0; épica Easy RAG entregada en main como 0.3.0).
 
 ---
 
@@ -53,7 +53,23 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
   - ✅ `index.js` barrel con 63 símbolos re-exportados (PR #59) + documentación en README (PR #60).
   - ✅ Tests de contrato (`tests/public-api.test.js`).
 
-## 0.3.0 — Evaluación avanzada y golden set
+## 0.3.0 — Easy RAG: crear RAGs en minutos
+
+**Estado**: núcleo entregado en main (épica KJR-PCS-0016, ADR-005). Pendiente el tag.
+
+**Objetivo**: que montar un RAG sobre código, documentos o datos cueste minutos y cero código, en local y en cloud.
+
+- ✅ Autodetección de fuentes (código/docs/datos) y presets con defaults deterministas.
+- ✅ `karajan-rag index` — índice persistente local (LanceDB) con manifest ADR-002 y reindex incremental.
+- ✅ `karajan-rag query` — retrieval híbrido (vector+BM25) con `fichero:línea` y `--answer` opcional.
+- ✅ `karajan-rag init` — scaffold de `karajan.config.json` como defaults del proyecto.
+- ✅ `karajan-rag serve` — servidor MCP stdio (`rag_query`/`rag_status`) y HTTP (`/query`, `/health`).
+- ✅ Imagen Docker multi-stage + servicio en docker-compose.
+- ✅ Módulo Terraform `deploy/gcp/` (Cloud Run + Cloud SQL pgvector + GCS FUSE + Secret Manager), privado por defecto.
+- ✅ Guía end-to-end [docs/easy-rag.md](./docs/easy-rag.md).
+- Adelanta de 0.5.0: el manifest incremental de ADR-002 (la migración entre stores sigue ahí).
+
+## 0.4.0 — Evaluación avanzada y golden set
 
 **Objetivo**: elevar la calidad del módulo de evaluación y proporcionar un baseline reproducible.
 
@@ -63,16 +79,16 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 - **Reranker LLM** con prompt-template auditado y tests snapshot.
 - **`karajan-rag eval`** subcomando CLI para lanzar evaluaciones declarativas.
 
-## 0.4.0 — Persistencia y reindexado
+## 0.5.0 — Persistencia y reindexado
 
 **Objetivo**: políticas robustas de reindex, migración entre stores y modelos.
 
-- Implementación completa de la política de reindex descrita en `ADR-002` (fingerprint por `model|dimensions|chunkSize`).
+- Completar la política de reindex de `ADR-002` sobre la base entregada en 0.3.0 (manifest por fingerprint ya operativo en la capa Easy RAG; falta generalizarla al pipeline declarativo).
 - Migración asistida `InMemoryVectorStore` ↔ `PgVectorStore` ↔ `LanceDBStore`.
 - Soporte de `DELETE`/`UPDATE` por `documentId` con invalidación coherente de caché.
 - Backpressure en ingestas grandes (streaming + lotes configurables).
 
-## 0.5.0+ — Integraciones embebidas y ecosistema
+## 0.6.0+ — Integraciones embebidas y ecosistema
 
 **Objetivo**: abrir la orquestación a casos fuera del CLI puro.
 
