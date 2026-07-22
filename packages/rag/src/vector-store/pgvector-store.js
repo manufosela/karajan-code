@@ -155,6 +155,34 @@ export class PgVectorStore {
   }
 
   /**
+   * Itera todos los records por lotes (para migración/export, 0.5.0).
+   * Orden estable por id; el vector pgvector ('[1,2,...]') se parsea a array.
+   *
+   * @param {{ batchSize?: number }} [options]
+   * @returns {AsyncGenerator<VectorRecord[], void, void>}
+   */
+  async *scan(options = {}) {
+    const batchSize = options.batchSize ?? 100;
+    if (!Number.isInteger(batchSize) || batchSize <= 0) {
+      throw new Error('scan: "batchSize" debe ser entero positivo.');
+    }
+    const client = await this._getClient();
+    for (let offset = 0; ; offset += batchSize) {
+      const { rows } = await client.query(
+        `SELECT id, embedding::text AS embedding, metadata FROM ${this.table} ORDER BY id LIMIT $1 OFFSET $2`,
+        [batchSize, offset],
+      );
+      if (rows.length === 0) return;
+      yield rows.map((row) => ({
+        id: String(row.id),
+        vector: JSON.parse(row.embedding),
+        metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata ?? {},
+      }));
+      if (rows.length < batchSize) return;
+    }
+  }
+
+  /**
    * Asegura la tabla meta compartida (clave/valor) del índice.
    *
    * @returns {Promise<PgClientLike>}

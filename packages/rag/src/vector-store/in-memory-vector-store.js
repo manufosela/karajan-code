@@ -91,6 +91,28 @@ export class InMemoryVectorStore {
   }
 
   /**
+   * Itera todos los records por lotes (para migración/export, 0.5.0).
+   *
+   * @param {{ batchSize?: number }} [options]
+   * @returns {AsyncGenerator<import('./in-memory-vector-store.js').VectorRecord[], void, void>}
+   */
+  async *scan(options = {}) {
+    const batchSize = options.batchSize ?? 100;
+    if (!Number.isInteger(batchSize) || batchSize <= 0) {
+      throw new Error('scan: "batchSize" debe ser entero positivo.');
+    }
+    let batch = [];
+    for (const record of this._store.values()) {
+      batch.push(record);
+      if (batch.length >= batchSize) {
+        yield batch;
+        batch = [];
+      }
+    }
+    if (batch.length > 0) yield batch;
+  }
+
+  /**
    * Fingerprint del espacio vectorial almacenado (ADR-002, 0.5.0).
    *
    * @returns {string | null}

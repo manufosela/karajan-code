@@ -9,6 +9,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Migración asistida entre stores** (KJR-TSK-0119, roadmap 0.5.0):
+  `scan({batchSize})` como async generator en los tres stores (Pg pagina
+  en SQL con orden estable; Lance trocea `query().toArray()` —
+  documentado) y `migrateVectorStore(source, target, {batchSize,
+  onProgress})`: valida dimensiones antes de escribir, propaga el
+  fingerprint vía `ensureIndexFingerprint` (destino con otro espacio →
+  corta sin escribir), upsert por lotes idempotente. Sin re-embedding:
+  cambiar de backend (p. ej. LanceDB local → pgvector en cloud) sin
+  reindexar.
+
 - **Fingerprint persistente en el store** (KJR-TSK-0118, roadmap 0.5.0 —
   ADR-002 generalizado): los tres stores exponen
   `get/setIndexFingerprint` (campo en InMemory, tabla `<tabla>_meta` en
