@@ -69,15 +69,16 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 - ✅ Guía end-to-end [docs/easy-rag.md](./docs/easy-rag.md).
 - Adelanta de 0.5.0: el manifest incremental de ADR-002 (la migración entre stores sigue ahí).
 
-## 0.4.0 — Evaluación avanzada y golden set
+## 0.4.0 — Evaluación avanzada y golden set (✅ publicada 2026-07-22)
 
 **Objetivo**: elevar la calidad del módulo de evaluación y proporcionar un baseline reproducible.
 
-- **Golden set incluido** en `examples/golden/` (preguntas + answers + contextos mínimos) para smoke-tests offline.
-- **Métricas**: faithfulness, context precision/recall, answer relevance (variantes locales sin depender de frameworks externos).
-- **Disagreement auto-labelling**: marcar automáticamente pares (answer, judge) donde la varianza entre jueces supera un threshold configurable.
-- **Reranker LLM** con prompt-template auditado y tests snapshot.
-- **`karajan-rag eval`** subcomando CLI para lanzar evaluaciones declarativas.
+- ✅ **Golden set** en `examples/golden/` con baseline calibrado, corriendo como gate de regresión en CI.
+- ✅ **Métricas locales**: faithfulness, context precision/recall, answer relevance (léxico-deterministas, sin frameworks externos).
+- ✅ **Disagreement auto-labelling**: cada veredicto etiquetado consensus/outlier con deviation respecto a la mediana.
+- ✅ **Reranker LLM** con prompt-template versionado y tests snapshot.
+- ✅ **`karajan-rag eval`** — evaluación declarativa con reporte por métrica, exit code para CI y `--judges` opcional.
+- Incluye los 4 fixes de la validación real en GCP (KJR-BUG-0001..0004) y la guarda manifest↔store (KJR-BUG-0005).
 
 ## 0.5.0 — Persistencia y reindexado
 

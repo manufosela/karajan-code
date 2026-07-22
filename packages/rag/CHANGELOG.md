@@ -7,6 +7,8 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-22
+
 ### Added
 
 - **Métricas locales de evaluación** (KJR-TSK-0111, roadmap 0.4.0):
@@ -340,7 +342,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/manufosela/karajan-rag/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/manufosela/karajan-rag/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/manufosela/karajan-rag/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/manufosela/karajan-rag/releases/tag/v0.1.0
