@@ -60,6 +60,15 @@ export {
   estimateTokens,
 } from './src/ingestion/chunkers.js';
 
+// --- Evaluación local (0.4.0) ----------------------------------------------
+export {
+  faithfulness,
+  contextPrecision,
+  contextRecall,
+  answerRelevance,
+  evaluateAnswer,
+} from './src/evaluation/local-metrics.js';
+
 // --- Easy RAG (ADR-005) ---------------------------------------------------
 export {
   detectSourceType,

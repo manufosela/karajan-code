@@ -38,6 +38,13 @@ const REQUIRED_EXPORTS = [
   'chunkByRecords',
   'estimateTokens',
 
+  // Evaluación local (0.4.0)
+  'faithfulness',
+  'contextPrecision',
+  'contextRecall',
+  'answerRelevance',
+  'evaluateAnswer',
+
   // Easy RAG (ADR-005)
   'detectSourceType',
   'resolvePreset',

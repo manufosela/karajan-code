@@ -7,6 +7,17 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Métricas locales de evaluación** (KJR-TSK-0111, roadmap 0.4.0):
+  `faithfulness`, `contextPrecision`, `contextRecall`, `answerRelevance`
+  y el agregador `evaluateAnswer` en `src/evaluation/local-metrics.js`.
+  Variantes léxico-deterministas (solape de tokens de contenido, con
+  stopwords/interrogativos es-en filtrados) sin LLM ni dependencias:
+  aptas para baselines offline y CI. Valores siempre en [0,1], entradas
+  degeneradas con semántica definida y `relevantIds` vacío → error
+  explícito. Re-exportadas en el barrel.
+
 ### Fixed
 
 Bugs detectados durante la validación del despliegue real en GCP
