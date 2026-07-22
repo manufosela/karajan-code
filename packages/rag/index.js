@@ -77,6 +77,12 @@ export {
 } from './src/easy/manifest.js';
 export { collectIndexableFiles, indexDirectory } from './src/easy/indexer.js';
 export { queryIndex } from './src/easy/query.js';
+export {
+  createRagService,
+  openRagService,
+  openEasyIndex,
+  parseFingerprint,
+} from './src/easy/rag-service.js';
 export { runIndexCommand, runQueryCommand, runInitCommand } from './src/easy/cli.js';
 export {
   loadEasyConfig,
