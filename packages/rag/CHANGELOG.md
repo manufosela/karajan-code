@@ -18,7 +18,25 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   degeneradas con semántica definida y `relevantIds` vacío → error
   explícito. Re-exportadas en el barrel.
 
+- **Golden set offline** (KJR-TSK-0112, roadmap 0.4.0): corpus mínimo en
+  `examples/golden/` (facturación/envíos/soporte) + `golden.json` con
+  preguntas, respuestas esperadas, fuentes relevantes y baseline
+  calibrado al pipeline de stubs. Runner en
+  `src/evaluation/golden-runner.js` (`loadGoldenSet`, `validateGoldenSet`,
+  `runGoldenSet`): indexa con HashEmbedder + InMemoryVectorStore, lanza
+  el retrieval híbrido y compara las medias de las métricas locales
+  contra el baseline — cualquier caída falla señalando métrica y peores
+  casos. Corre como test (`tests/golden-set.test.js`): guardián de
+  regresión en CI sin credenciales.
+
 ### Fixed
+
+- **Easy RAG — guarda de integridad manifest↔store** (KJR-BUG-0005,
+  PR #93): si `.karajan/manifest.json` declara ficheros pero el store
+  está vacío (in-memory recién creado o persistente vaciado),
+  `indexDirectory` reportaba "sin cambios" y las queries devolvían vacío
+  en silencio. Ahora descarta el manifest y reindexa completo,
+  notificándolo por `onEvent`.
 
 Bugs detectados durante la validación del despliegue real en GCP
 (KJR-TSK-0110, primer caso de uso en producción del módulo `deploy/gcp`):

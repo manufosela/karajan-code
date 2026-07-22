@@ -44,6 +44,9 @@ const REQUIRED_EXPORTS = [
   'contextRecall',
   'answerRelevance',
   'evaluateAnswer',
+  'loadGoldenSet',
+  'validateGoldenSet',
+  'runGoldenSet',
 
   // Easy RAG (ADR-005)
   'detectSourceType',
