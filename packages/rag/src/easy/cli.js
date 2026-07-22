@@ -33,6 +33,7 @@ import {
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
+import { redactPII } from '../redaction/pii-redactor.js';
 import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
 
 export { createEasyDeps, parseFingerprint };
@@ -316,13 +317,16 @@ export async function runQueryCommand(argv, io = {}) {
     logger: { info: log, warn: log, error: log },
     adapterName: options.adapter,
   });
+  // Mitigación KJR-BUG-0006 (defensa en profundidad): todo lo que sale de
+  // la capa easy hacia un LLM va redactado de PII. El routing completo por
+  // sensibilidad (resolveAdapterFor por nivel) queda en el bug.
   const generated = await generator.run(
     {
-      query: options.question,
+      query: redactPII(options.question).text,
       contextChunks: result.hits.map((h) => ({
         id: h.id,
         score: h.score,
-        metadata: { content: h.content, source: h.source },
+        metadata: { content: redactPII(h.content).text, source: h.source },
       })),
     },
     {
@@ -476,10 +480,15 @@ export async function runEvalCommand(argv, io = {}) {
     for (const item of golden.cases) {
       const result = report.results.find((r) => r.id === item.id);
       const contexts = result ? result.retrievedSources.join(', ') : '';
+      // Mitigación KJR-BUG-0006: PII redactada antes de salir a los jueces.
       judgeReports[item.id] = await evaluateMultiJudge({
         registry: /** @type {never} */ (registry),
         providers: options.judges,
-        input: { query: item.question, answer: item.expectedAnswer, context: contexts },
+        input: {
+          query: redactPII(item.question).text,
+          answer: redactPII(item.expectedAnswer).text,
+          context: redactPII(contexts).text,
+        },
       });
       const jr = judgeReports[item.id];
       out(
