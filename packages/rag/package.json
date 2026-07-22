@@ -1,6 +1,6 @@
 {
   "name": "karajan-rag",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Orquestador multi-agente de CLIs de IA para pipelines RAG con routing por sensibilidad, policy de proveedores y CLIs intercambiables (Claude, Codex, Gemini, Ollama, Azure, Bedrock, Vertex).",
   "type": "module",
   "main": "index.js",
