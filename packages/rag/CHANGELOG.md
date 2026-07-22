@@ -7,6 +7,27 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+Bugs detectados durante la validación del despliegue real en GCP
+(KJR-TSK-0110, primer caso de uso en producción del módulo `deploy/gcp`):
+
+- **deploy/gcp — Cloud SQL** (KJR-BUG-0001, PR #87): el provider google
+  ~>6.0 crea instancias con edición ENTERPRISE_PLUS por defecto, que
+  rechaza tiers compartidos; se fija `edition = "ENTERPRISE"`, compatible
+  con el default `db-f1-micro`.
+- **Migración pgvector** (KJR-BUG-0002, PR #90): `karajan_rag_chunks.id`
+  pasa de `uuid` a `text` — los chunk ids de la capa Easy RAG son texto
+  estable (`doc:ruta.md#0`) y el INSERT fallaba. Se retira `pgcrypto` y se
+  documenta el ajuste de dimensión según el fingerprint del manifest.
+- **deploy/gcp — Cloud Run** (KJR-BUG-0003, PR #88): `deletion_protection
+  = false` explícito; el default del provider impedía reemplazar
+  revisiones fallidas y rompía `terraform destroy`.
+- **Dockerfile** (KJR-BUG-0004, PR #89): `pg` no llegaba a la imagen — la
+  stage de deps heredaba el `package.json` del repo y npm lo omitía por
+  figurar en devDependencies. Ahora los backends (`pg`,
+  `@lancedb/lancedb`) se instalan sobre un `package.json` aislado.
+
 ## [0.3.0] — 2026-07-22
 
 ### Documentation
