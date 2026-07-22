@@ -28,6 +28,7 @@ import {
   runServeCommand,
   runEvalCommand,
 } from '../src/easy/cli.js';
+import { runDoctorCommand } from '../src/easy/doctor.js';
 
 const consoleLogger = {
   info: (msg, meta) => console.error(`[info] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`),
@@ -45,6 +46,16 @@ async function main() {
   if (!command || command === '--help' || command === '-h') {
     printUsage();
     process.exit(command ? 0 : 2);
+  }
+
+  if (command === 'doctor') {
+    try {
+      const { errors } = await runDoctorCommand(rest);
+      process.exit(errors > 0 ? 1 : 0);
+    } catch (err) {
+      console.error(`karajan-rag doctor: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
   }
 
   if (command === 'eval') {
@@ -141,6 +152,7 @@ function printUsage() {
   console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama.');
   console.error('  serve [ruta]   Sirve el índice: MCP stdio (default, tools rag_query/rag_status)');
   console.error('                 o --http (POST /query, GET /health, --port N, default 8080).');
+  console.error('  doctor [ruta]  Diagnóstico de entorno e índice (✓/⚠/✗ con fixes; exit 1 con errores).');
   console.error('  eval <golden.json> [corpus]');
   console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');
   console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N.');
