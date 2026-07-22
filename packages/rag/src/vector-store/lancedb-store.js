@@ -153,6 +153,38 @@ export class LanceDBStore {
   }
 
   /**
+   * Itera todos los records por lotes (para migración/export, 0.5.0).
+   *
+   * Nota: la API de LanceDB carga el resultado de `query().toArray()` en
+   * memoria y se trocea aquí — suficiente para migración asistida v1;
+   * el caso de volumen grande es Pg, que sí pagina en SQL.
+   *
+   * @param {{ batchSize?: number }} [options]
+   * @returns {AsyncGenerator<VectorRecord[], void, void>}
+   */
+  async *scan(options = {}) {
+    const batchSize = options.batchSize ?? 100;
+    if (!Number.isInteger(batchSize) || batchSize <= 0) {
+      throw new Error('scan: "batchSize" debe ser entero positivo.');
+    }
+    const table = await this._ensureTable();
+    if (typeof table.query !== 'function') {
+      throw new Error(
+        'LanceDBStore.scan: la versión de @lancedb/lancedb no expone table.query(); actualízala para migrar.',
+      );
+    }
+    const rows = await table.query().toArray();
+    for (let i = 0; i < rows.length; i += batchSize) {
+      yield rows.slice(i, i + batchSize).map((row) => ({
+        id: String(row.id),
+        vector: Array.from(row.vector ?? []),
+        metadata:
+          typeof row.metadata === 'string' ? safeParseJSON(row.metadata) : row.metadata ?? {},
+      }));
+    }
+  }
+
+  /**
    * Fingerprint del espacio vectorial (ADR-002, 0.5.0). Vive en un
    * fichero sidecar junto al directorio de datos de LanceDB — si copias
    * la tabla a otra ruta, copia también `.karajan-fingerprint`.

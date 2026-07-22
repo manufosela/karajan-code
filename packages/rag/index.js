@@ -130,6 +130,7 @@ export { createTransformersEmbedder } from './src/embedding/transformers-embedde
 // --- Vector stores --------------------------------------------------------
 export { InMemoryVectorStore } from './src/vector-store/in-memory-vector-store.js';
 export { ensureIndexFingerprint } from './src/vector-store/fingerprint-guard.js';
+export { migrateVectorStore } from './src/vector-store/migrate.js';
 export { PgVectorStore } from './src/vector-store/pgvector-store.js';
 export { LanceDBStore } from './src/vector-store/lancedb-store.js';
 
