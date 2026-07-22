@@ -77,3 +77,39 @@ describe("ensureGateTrackable", () => {
     expect(text.match(/!\.karajan\/review-gate/g)).toHaveLength(1);
   });
 });
+
+// KJC-BUG-0123 (issue #1268, Jorge via kj report-issue): kj init wrote no
+// .karajan entries at all; autoInit wrote a bare `.karajan/` dir-exclude
+// that breaks gate trackability. Both now share this single source.
+describe("ensureContractBlockPresent", () => {
+  it("appends the canonical block to a gitignore with no .karajan mention", async () => {
+    const { ensureContractBlockPresent } = await import("../../src/review/gate-gitignore.js");
+    fs.writeFileSync(path.join(dir, ".gitignore"), "node_modules/\n");
+    const res = await ensureContractBlockPresent(dir);
+    expect(res.changed).toBe(true);
+    // verdicts stay local; the contract stays trackable
+    fs.mkdirSync(path.join(dir, ".karajan", "hooks"), { recursive: true });
+    fs.mkdirSync(path.join(dir, ".karajan", "reviews"), { recursive: true });
+    expect(ignored(".karajan/reviews/abc.json")).toBe(true);
+    expect(ignored(".karajan/review-gate")).toBe(false);
+    expect(ignored(".karajan/hooks/pre-commit")).toBe(false);
+    expect(ignored(".karajan/adrs/0001-x.md")).toBe(false);
+    expect(ignored("node_modules/x.js")).toBe(true); // untouched
+  });
+
+  it("creates the gitignore when none exists", async () => {
+    const { ensureContractBlockPresent } = await import("../../src/review/gate-gitignore.js");
+    const res = await ensureContractBlockPresent(dir);
+    expect(res.changed).toBe(true);
+    expect(fs.readFileSync(path.join(dir, ".gitignore"), "utf8")).toMatch(/\.karajan\/\*/);
+  });
+
+  it("is a no-op when .karajan is already mentioned (legacy files go through ensureGateTrackable)", async () => {
+    const { ensureContractBlockPresent } = await import("../../src/review/gate-gitignore.js");
+    fs.writeFileSync(path.join(dir, ".gitignore"), ".karajan/\n");
+    expect((await ensureContractBlockPresent(dir)).changed).toBe(false);
+    // ...and ensureGateTrackable is the one that repairs that legacy exclude
+    expect((await ensureGateTrackable(dir)).changed).toBe(true);
+    expect(ignored(".karajan/review-gate")).toBe(false);
+  });
+});

@@ -5,6 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { computeBaseRef, setSnapshot } from "../review/diff-generator.js";
+import { ensureContractBlockPresent } from "../review/gate-gitignore.js";
 import { revParse } from "../utils/git.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
@@ -55,8 +56,11 @@ export async function autoInit(projectDir, logger) {
   }
 
   // Ensure .gitignore exists with universal entries only (stack-specific added after planner)
+  // KJC-BUG-0123: `.karajan/` is NOT in this list on purpose — a bare
+  // dir-exclude breaks the gate contract (git cannot re-include children);
+  // the canonical block is appended below from its single source.
   const gitignorePath = path.join(projectDir, ".gitignore");
-  const universalIgnores = [".env", "*.log", ".DS_Store", ".karajan/", ".reviews/"];
+  const universalIgnores = [".env", "*.log", ".DS_Store", ".reviews/"];
   try {
     let content = "";
     if (await exists(gitignorePath)) {
@@ -68,6 +72,7 @@ export async function autoInit(projectDir, logger) {
       await fs.appendFile(gitignorePath, append, "utf8");
       logger.info(`Created .gitignore with universal entries`);
     }
+    await ensureContractBlockPresent(projectDir);
   } catch (err) {
     logger.warn(`Failed to create .gitignore: ${err.message}`);
   }
