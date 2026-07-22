@@ -37,7 +37,7 @@ export const CONTRACT_BLOCK = [
 export async function ensureContractBlockPresent(projectDir) {
   const file = path.join(projectDir, ".gitignore");
   let text = "";
-  try { text = await fs.readFile(file, "utf8"); } catch { /* no .gitignore yet */ }
+  try { text = (await fs.readFile(file, "utf8")) || ""; } catch { /* no .gitignore yet */ }
   if (text.includes(".karajan")) return { changed: false };
   const sep = text && !text.endsWith("\n") ? "\n" : "";
   await fs.writeFile(file, `${text}${sep}# Karajan environment (verdicts stay local; the contract is tracked)\n${CONTRACT_BLOCK.join("\n")}\n`);
