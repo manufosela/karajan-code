@@ -89,15 +89,15 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 - ✅ **`deleteByDocument`** en los tres stores con caché content-addressed (sin invalidación necesaria, demostrado con test).
 - ✅ **Backpressure**: ingesta por lotes configurables (`--batch-size`).
 
-## 0.6.0+ — Integraciones embebidas y ecosistema
+## 0.6.0 — Integraciones embebidas y ecosistema (✅ publicada 2026-07-22)
 
 **Objetivo**: abrir la orquestación a casos fuera del CLI puro.
 
-- SDK embebible para frameworks (Astro/Next/Fastify) — sin CLI, solo API.
-- Adapter `openai` estándar (para OpenAI público cuando la política lo permita).
-- Adapter `anthropic` HTTP (complemento al CLI de Claude para entornos sin shell).
-- Adapter `ollama` bidireccional (embeddings + generación con el mismo proceso).
-- `karajan-rag doctor` — diagnóstico de configuración, credenciales, pgvector, etc.
+- ✅ **SDK embebible** `createRag()` para frameworks (ejemplos Fastify y Astro/Next en docs).
+- ✅ **Adapter `openai`** HTTP estándar, gated en el nivel `public` de la sensitivity policy.
+- ✅ **Adapter `anthropic`** HTTP (Messages API) — Claude sin CLI para Cloud Run/workers.
+- ✅ **Factory `ollama` bidireccional** — generación (blocking + streaming) y embeddings del mismo proceso.
+- ✅ **`karajan-rag doctor`** — diagnóstico de entorno, config e índice con fixes accionables.
 
 ## 1.0 — Estabilidad de API
 
