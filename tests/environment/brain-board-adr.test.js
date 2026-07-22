@@ -68,6 +68,16 @@ describe("kj hu", () => {
     expect(out).toMatch(/kj hu move <id> skipped/);
   });
 
+  // KJC-TSK-0669 (Jorge's dashboard fights): cards are permanent — the
+  // delete-and-recreate "fix" is refused with the norm spelled out.
+  it("add with an existing short_id refuses and teaches the norm", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["First"], flags: { json: true, id: "DUP-9" } });
+    await expect(huCommand({ config: cfg(), action: "add", args: ["Again"], flags: { json: true, id: "DUP-9" } }))
+      .rejects.toThrow(/never deleted or recreated[\s\S]*kj hu move DUP-9/);
+    const rows = await huCommand({ config: cfg(), action: "list", flags: { json: true } });
+    expect(rows.filter((r) => r.short_id === "DUP-9")).toHaveLength(1);
+  });
+
   it("second add reuses the same backlog plan", async () => {
     await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true } });
     await huCommand({ config: cfg(), action: "add", args: ["B"], flags: { json: true } });

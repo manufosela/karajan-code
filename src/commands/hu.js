@@ -66,6 +66,19 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
     const title = args[0];
     if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
     const plan = await backlogPlan(projectDir);
+    // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
+    // recreate "fix" an agent improvises loses history and duplicates ids —
+    // refuse it with the norm spelled out.
+    if (flags.id) {
+      const dup = (plan.hus || []).find((h) => h.short_id === flags.id);
+      if (dup) {
+        throw new Error(
+          `HU "${flags.id}" already exists (status: ${dup.status}). HUs are never deleted or recreated — `
+          + `update its state with: kj hu move ${flags.id} <pending|running|done|failed|skipped>, `
+          + `or discard it with: kj hu move ${flags.id} skipped`
+        );
+      }
+    }
     const hu = addHu(plan, {
       title,
       short_id: flags.id || null,

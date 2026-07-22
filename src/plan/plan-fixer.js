@@ -10,7 +10,7 @@
  */
 
 import { extractFirstJson } from "../utils/json-extract.js";
-import { addHu, removeHu } from "./plan-hu-ops.js";
+import { addHu } from "./plan-hu-ops.js";
 import { normaliseAcceptanceTests } from "./plan-schema.js";
 import { withBrainRecovery } from "../brain/with-brain-recovery.js";
 
@@ -111,9 +111,31 @@ export async function applyReviewerFeedback({ agent, task, hus, findings, onOutp
 }
 
 export function applyFixerPatch(plan, patch) {
-  const counts = { added: 0, depsAdded: 0, deleted: 0 };
+  const counts = { added: 0, depsAdded: 0, archived: 0 };
+  // KJC-TSK-0669 (absolute rule): HUs are NEVER deleted — not even by the
+  // fix loop. Overlap resolutions ARCHIVE in place (status skipped +
+  // provenance), so history survives and ids stay referenceable. The
+  // references are cleaned exactly like removeHu used to, because a
+  // skipped dependency never satisfies the scheduler (deadlock otherwise).
   for (const huId of patch.deletions || []) {
-    if (removeHu(plan, huId)) counts.deleted += 1;
+    const hu = plan.hus.find(h => h.id === huId);
+    if (!hu) continue;
+    if (hu.status !== "skipped") {
+      hu.status = "skipped";
+      hu.archived_by = "plan-reviewer";
+      hu.archive_reason = "scope overlap resolved by the plan-review fix loop";
+      hu.updatedAt = new Date().toISOString();
+      counts.archived += 1;
+    }
+    for (const other of plan.hus) {
+      if (other.id === huId) continue;
+      if (Array.isArray(other.blocked_by) && other.blocked_by.includes(huId)) {
+        other.blocked_by = other.blocked_by.filter(d => d !== huId);
+      }
+      if (Array.isArray(other.reuse) && other.reuse.includes(huId)) {
+        other.reuse = other.reuse.filter(d => d !== huId);
+      }
+    }
   }
   // KJC-BUG-0053: las HUs añadidas por el fixer dejaban `short_id` y
   // `blocked_by` vacíos porque addHu no recibía esos campos. Resultado:
@@ -163,7 +185,7 @@ export function applyFixerPatch(plan, patch) {
     hu.blocked_by = [...blocked, on];
     counts.depsAdded += 1;
   }
-  if (counts.added + counts.depsAdded + counts.deleted > 0) {
+  if (counts.added + counts.depsAdded + counts.archived > 0) {
     plan.updatedAt = new Date().toISOString();
   }
   return counts;

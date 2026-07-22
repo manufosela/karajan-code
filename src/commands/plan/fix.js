@@ -60,7 +60,7 @@ export async function planFixCommand({ config, planId, prompt, logger, json }) {
     });
     if (!fix.ok) { fixProgress.finish("failed"); break; }
     const ops = applyFixerPatch(plan, fix.patch);
-    if (ops.added + ops.depsAdded + ops.deleted === 0) { fixProgress.finish("done"); break; }
+    if (ops.added + ops.depsAdded + ops.archived === 0) { fixProgress.finish("done"); break; }
     const review2 = await reviewPlan({
       agent: planner, task: enrichedTask, hus: plan.hus,
       onOutput: fixProgress.onOutput, silenceTimeoutMs, timeoutMs,

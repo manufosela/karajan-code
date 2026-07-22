@@ -85,7 +85,9 @@ describe("applyFixerPatch", () => {
     updatedAt: "2026-05-11T00:00:00Z",
   });
 
-  it("adds new HUs, declares deps without duplicating, deletes HUs and cleans dangling refs", () => {
+  // KJC-TSK-0669 (absolute rule): the fix loop ARCHIVES, it never deletes —
+  // history survives, refs are cleaned so nothing deadlocks on a skipped HU.
+  it("adds new HUs, declares deps without duplicating, archives 'deleted' HUs and cleans refs", () => {
     const plan = makePlan();
     plan.hus.push({ id: "hu_003", title: "C", task_type: "sw", status: "pending", blocked_by: [], reuse: [], scope: "c", acceptance_criteria: [], acceptance_tests: [] });
     const r = applyFixerPatch(plan, {
@@ -97,17 +99,22 @@ describe("applyFixerPatch", () => {
       ],
       deletions: ["hu_002"],
     });
-    expect(r).toEqual({ added: 1, depsAdded: 1, deleted: 1 });
-    expect(plan.hus).toHaveLength(3); // 3 original - 1 deleted + 1 added
+    expect(r).toEqual({ added: 1, depsAdded: 1, archived: 1 });
+    expect(plan.hus).toHaveLength(4); // nothing is ever removed
+    const archived = plan.hus.find(h => h.id === "hu_002");
+    expect(archived.status).toBe("skipped");
+    expect(archived.archived_by).toBe("plan-reviewer");
+    expect(archived.archive_reason).toMatch(/overlap/);
     expect(plan.hus.find(h => h.id === "hu_001").blocked_by).toEqual(["hu_003"]);
     expect(plan.hus.find(h => h.scope === "Audit log")?.spec_section).toBe("5.3");
   });
 
-  it("removeHu cleans dangling blocked_by refs from other HUs", () => {
+  it("archiving cleans dangling blocked_by refs so dependents never deadlock", () => {
     const plan = makePlan();
     applyFixerPatch(plan, { additions: [], deps_to_add: [], deletions: ["hu_001"] });
-    expect(plan.hus).toHaveLength(1);
-    expect(plan.hus[0].blocked_by).toEqual([]);
+    expect(plan.hus).toHaveLength(2); // archived, not removed
+    expect(plan.hus.find(h => h.id === "hu_001").status).toBe("skipped");
+    expect(plan.hus.find(h => h.id === "hu_002").blocked_by).toEqual([]);
   });
 
   // KJC-BUG-0053: HUs añadidas por fixer deben llevar short_id y blocked_by
