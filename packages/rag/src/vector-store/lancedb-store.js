@@ -175,6 +175,7 @@ export class LanceDBStore {
         'LanceDBStore.deleteByDocument: la tabla no tiene columna document_id ' +
           '(creada antes de 0.5.0). Reindexa para regenerarla. ' +
           `Detalle: ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
       );
     }
     const after = (await this.size()) || 0;
