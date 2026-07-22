@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.9 — warnings sobre los que puedes actuar (actual)
+### v4.1.10 — karajan gobierna los recursos de sus herramientas (actual)
+
+Patch. Nacida de una tormenta de CPU real: todo escáner que lanza kj corre ya gobernado — un solo escaneo por herramienta en toda la máquina (un segundo kj espera en vez de amontonarse), semgrep limitado a la mitad de los cores en vez de sus 14 jobs por defecto, prioridad reducida y timeouts duros que matan el árbol de procesos entero: un escaneo interrumpido ya no puede dejar huérfanos quemando cores. `kj doctor` encuentra los huérfanos preexistentes y ofrece matarlos. Actualización directa desde v4.1.9.
+
+### v4.1.9 — warnings sobre los que puedes actuar
 
 Patch. El modal de prompts del dashboard muestra ya cada finding del spec-review — severidad, mensaje y la sugerencia concreta — en vez de "4 findings at severity fail" y un bloque JSON: cuarta issue abierta por el propio Karajan de un usuario, arreglada y cerrada sola en horas. Además, un test de humo flaky en CI queda estabilizado de raíz con mocks que describen el mundo, no una secuencia frágil. Actualización directa desde v4.1.8.
 
