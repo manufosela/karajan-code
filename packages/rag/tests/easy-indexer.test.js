@@ -117,6 +117,30 @@ test('indexDirectory: sin cambios no toca el store', async () => {
   }
 });
 
+test('indexDirectory: manifest presente con store vacío fuerza reindex (KJR-BUG-0005)', async () => {
+  const root = await makeProject({ 'a.md': '# A\nuno\n' });
+  try {
+    const first = makeDeps();
+    await indexDirectory(root, { store: first.store, embedder: first.embedder });
+
+    // Nuevo store efímero (o store persistente vaciado): el manifest declara
+    // ficheros que el store no tiene — sin la guarda, "0 indexados" silencioso.
+    const second = makeDeps();
+    const events = [];
+    const result = await indexDirectory(root, {
+      store: second.store,
+      embedder: second.embedder,
+      onEvent: (msg) => events.push(msg),
+    });
+    assert.equal(result.fullReindex, true);
+    assert.equal(result.indexedFiles, 1);
+    assert.ok(second.store.size() > 0, 'el store nuevo queda poblado');
+    assert.ok(events.some((e) => e.includes('store vacío')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('indexDirectory: fingerprint distinto fuerza reindex completo', async () => {
   const root = await makeProject({ 'a.md': '# A\nuno\n' });
   try {

@@ -34,6 +34,7 @@ import {
  * @typedef {object} EasyVectorStore
  * @property {(records: { id: string, vector: number[], metadata?: Record<string, unknown> }[]) => void | Promise<void>} upsert
  * @property {(id: string) => unknown} delete
+ * @property {() => number | Promise<number>} [size] Si existe, se usa como guarda de integridad manifest↔store.
  *
  * @typedef {object} IndexResult
  * @property {number} indexedFiles Ficheros añadidos o cambiados que se (re)procesaron.
@@ -121,6 +122,17 @@ export async function indexDirectory(rootDir, deps) {
 
   let manifest = await loadManifest(rootDir);
   let fullReindex = false;
+  if (manifest && Object.keys(manifest.files).length > 0 && typeof store.size === 'function') {
+    // Guarda de integridad (KJR-BUG-0005): un manifest que declara ficheros
+    // contra un store vacío (efímero o vaciado) produciría un "sin cambios"
+    // silencioso con queries vacías. Se descarta el manifest y se reindexa.
+    const storeSize = await store.size();
+    if (storeSize === 0) {
+      notify('manifest presente pero store vacío: reindex completo');
+      manifest = null;
+      fullReindex = true;
+    }
+  }
   if (manifest && manifest.fingerprint !== fingerprint) {
     // ADR-002: espacios vectoriales incompatibles — nunca se mezclan.
     notify(`fingerprint cambiado (${manifest.fingerprint} → ${fingerprint}): reindex completo`);
