@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.6 — GitHub Copilot CLI se une a la orquesta (actual)
+### v4.1.7 — paridad Windows, procedencia de HUs, segundo fix self-healed (actual)
+
+Patch. Día de campo en sentido literal: el instalador de Windows pasa a npm-first (producto completo, Node autoprovisionado con checksums, SEA tras opt-in), cada HU del board dice ya quién la creó y qué hacer con ella, y la segunda issue abierta por el propio Karajan de un usuario (`kj report-issue`) quedó arreglada y cerrada sola — `kj init` escribe ahora el bloque del contrato en .gitignore: los veredictos quedan locales y el gate se hereda. Además: los escáneres externos ya no pueden dispararse desde la suite de tests. Actualización directa desde v4.1.6.
+
+### v4.1.6 — GitHub Copilot CLI se une a la orquesta
 
 Patch. La era del CLI de IA gratuito sigue encogiendo — Copilot va sobre una suscripción que muchos developers ya pagan: séptimo agente built-in, elegible como árbitro solomon (`roles.solomon.provider: copilot`), verificado en vivo de punta a punta. Los prompts de arranque ahora distinguen el OS: Windows recibe la ruta npm, nunca un `curl | sh` que allí no existe. Actualización directa desde v4.1.5.
 

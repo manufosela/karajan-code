@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.6 — GitHub Copilot CLI joins the orchestra (current)
+### v4.1.7 — Windows parity, HU provenance, second self-healed fix (current)
+
+Patch. A field day, literally: the Windows installer goes npm-first (full product, checksum-verified Node auto-provisioning, SEA behind an env opt-in), every HU on the board now says who created it and what to do next, and the second issue filed by a user's own Karajan (`kj report-issue`) was fixed and auto-closed — `kj init` now writes the gitignore contract block so review verdicts stay local while the gate stays inherited. Plus: external scanners can never fire from the test suite again. Drop-in upgrade from v4.1.6.
+
+### v4.1.6 — GitHub Copilot CLI joins the orchestra
 
 Patch. The free-tier era of AI CLIs keeps shrinking — Copilot rides a subscription many developers already have: seventh built-in agent, eligible solomon arbiter (`roles.solomon.provider: copilot`), verified live end-to-end. The bootstrap prompts are now OS-aware: Windows gets the npm route, never a unix-only `curl | sh`. Drop-in upgrade from v4.1.5.
 
