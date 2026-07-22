@@ -68,6 +68,11 @@ export {
   answerRelevance,
   evaluateAnswer,
 } from './src/evaluation/local-metrics.js';
+export {
+  loadGoldenSet,
+  validateGoldenSet,
+  runGoldenSet,
+} from './src/evaluation/golden-runner.js';
 
 // --- Easy RAG (ADR-005) ---------------------------------------------------
 export {
