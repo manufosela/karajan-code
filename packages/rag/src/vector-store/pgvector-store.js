@@ -155,6 +155,45 @@ export class PgVectorStore {
   }
 
   /**
+   * Asegura la tabla meta compartida (clave/valor) del índice.
+   *
+   * @returns {Promise<PgClientLike>}
+   */
+  async _ensureMetaTable() {
+    const client = await this._getClient();
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS ${this.table}_meta (key text PRIMARY KEY, value text NOT NULL)`,
+    );
+    return client;
+  }
+
+  /**
+   * Fingerprint del espacio vectorial almacenado (ADR-002, 0.5.0).
+   *
+   * @returns {Promise<string | null>}
+   */
+  async getIndexFingerprint() {
+    const client = await this._ensureMetaTable();
+    const { rows } = await client.query(
+      `SELECT value FROM ${this.table}_meta WHERE key = 'fingerprint'`,
+    );
+    return rows[0]?.value ?? null;
+  }
+
+  /**
+   * @param {string} fingerprint
+   * @returns {Promise<void>}
+   */
+  async setIndexFingerprint(fingerprint) {
+    const client = await this._ensureMetaTable();
+    await client.query(
+      `INSERT INTO ${this.table}_meta (key, value) VALUES ('fingerprint', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+      [fingerprint],
+    );
+  }
+
+  /**
    * Elimina todos los records de un documento (metadata->>'documentId').
    *
    * @param {string} documentId

@@ -74,6 +74,7 @@ const REQUIRED_EXPORTS = [
   'runInitCommand',
   'runServeCommand',
   'runEvalCommand',
+  'ensureIndexFingerprint',
   'createRagHttpServer',
   'startRagHttpServer',
   'handleMcpMessage',

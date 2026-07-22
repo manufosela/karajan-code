@@ -91,6 +91,22 @@ export class InMemoryVectorStore {
   }
 
   /**
+   * Fingerprint del espacio vectorial almacenado (ADR-002, 0.5.0).
+   *
+   * @returns {string | null}
+   */
+  getIndexFingerprint() {
+    return this._fingerprint ?? null;
+  }
+
+  /**
+   * @param {string} fingerprint
+   */
+  setIndexFingerprint(fingerprint) {
+    this._fingerprint = fingerprint;
+  }
+
+  /**
    * Elimina todos los records de un documento (metadata.documentId).
    *
    * @param {string} documentId
