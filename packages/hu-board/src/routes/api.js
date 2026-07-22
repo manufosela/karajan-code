@@ -32,7 +32,6 @@ import {
   getSessionsByProject,
   getSessionDetail,
   deleteProject,
-  deleteStory,
   deleteSession,
   getKjHome,
   getHuBoardRunsDir,
@@ -462,19 +461,15 @@ router.delete('/prompts/:promptId', async (req, res) => {
  * it. Pre-tombstones this endpoint was a DB-only soft hide that the next
  * chokidar event undid silently.
  */
-router.delete('/stories/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const dir = path.join(huStoriesDir(), id);
-    const ok = deleteStory(id);
-    if (!ok) return res.status(404).json({ error: 'Story not found' });
-    addTombstone('story', id, { source: 'api', fsPaths: [dir] });
-    let dirRemoved = false;
-    try { await fsp.rm(dir, { recursive: true, force: true }); dirRemoved = true; } catch { /* */ }
-    res.json({ deleted: true, dirRemoved });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.delete('/stories/:id', (req, res) => {
+  // KJC-TSK-0671 (absolute product rule): stories are NEVER deleted — the
+  // delete-and-recreate "fix" agents improvise loses history and produced
+  // the field saga this closes. Discard goes through the lifecycle instead.
+  res.status(405).json({
+    error: 'Stories are never deleted. Discard one with: kj hu move <id> skipped '
+      + '(archived, history kept). Dashboard warnings are fixed with the command '
+      + 'they name — see kj brief board.',
+  });
 });
 
 /**
