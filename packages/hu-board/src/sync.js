@@ -358,7 +358,19 @@ export function syncPlanFile(filePath) {
   try {
     const raw = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
-    if (data.version !== 2 || !Array.isArray(data.hus) || data.hus.length === 0) return;
+    // KJC-BUG-0124 (issue #1277): a strict `version !== 2` silently hid
+    // every plan whose version drifted — the board showed 0 stories with no
+    // trace, and users concluded their work was lost. Tolerant now: any
+    // v2+ plan syncs, with a LOUD warn on version drift (fired before the
+    // empty check so drift is visible even on empty plans). Pre-v2 plans
+    // keep their historical silent skip (they never synced and carry no
+    // hus[]), and an empty v2 plan has nothing to sync — skipping it
+    // loses nothing.
+    if (typeof data.version !== 'number' || data.version < 2) return;
+    if (data.version > 2) {
+      console.warn(`[sync] ${filePath}: plan version ${data.version} (expected 2) — syncing anyway; re-save with current kj to normalize`);
+    }
+    if (!Array.isArray(data.hus) || data.hus.length === 0) return;
 
     // Bug fix: pre-patch, `projectId = data.planId` — every plan was a separate
     // "project" on the board, so 2 464 plans across the same repo produced

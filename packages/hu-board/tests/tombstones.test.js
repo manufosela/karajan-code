@@ -226,15 +226,18 @@ describe('tombstones — DELETE endpoints', () => {
 
   // ---------- PR B endpoints (story / session / plan / restore / list) ------
 
-  it('DELETE /api/stories/:id tombstones + removes its batch dir', async () => {
+  // KJC-TSK-0671 (absolute product rule): stories are NEVER deleted — the
+  // endpoint refuses with the norm and the lifecycle alternative.
+  it('DELETE /api/stories/:id is refused with 405 and teaches the norm', async () => {
     dbMod.upsertStory({ id: 'st-1', project_id: 'p1', status: 'pending' });
     const dir = join(tmpDir, 'hu-stories', 'st-1');
     mkdirSync(dir, { recursive: true });
 
-    const r = await request(app).delete('/api/stories/st-1').expect(200);
-    expect(r.body).toMatchObject({ deleted: true, dirRemoved: true });
-    expect(dbMod.isTombstoned('story', 'st-1')).toBe(true);
-    expect(existsSync(dir)).toBe(false);
+    const r = await request(app).delete('/api/stories/st-1').expect(405);
+    expect(r.body.error).toMatch(/never deleted/);
+    expect(r.body.error).toMatch(/kj hu move <id> skipped/);
+    expect(dbMod.isTombstoned('story', 'st-1')).toBe(false);
+    expect(existsSync(dir)).toBe(true); // nothing touched
   });
 
   it('DELETE /api/sessions/:id tombstones + removes its session dir', async () => {
