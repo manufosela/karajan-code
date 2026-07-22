@@ -208,9 +208,27 @@ function showPromptModal(prompt) {
   if (activePromptId === prompt.promptId) return;
   activePromptId = prompt.promptId;
   const dlg = ensureDialog();
+  // KJC-BUG-0125 (issue #1275): findings render as a readable, open list —
+  // "4 findings at severity fail" alone gives the user nothing to act on.
+  // Each finding shows its message and the concrete suggestion.
+  const sevColor = (s) => (s === 'fail' ? '#f87171' : s === 'warn' ? '#fbbf24' : '#60a5fa');
+  const findings = prompt.context?.detail?.findings || prompt.context?.findings;
+  const findingsBlock = Array.isArray(findings) && findings.length
+    ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto">`
+      + findings.map((f) => `
+        <div style="border-left:3px solid ${sevColor(f.severity)};padding:6px 10px;background:var(--bg-primary);border-radius:var(--radius-sm)">
+          <div style="font-size:0.78rem;color:var(--text-muted)">
+            <strong style="color:${sevColor(f.severity)}">${esc(String(f.severity || '').toUpperCase())}</strong>
+            · ${esc(f.category || '')}${f.id ? ` · ${esc(f.id)}` : ''}
+          </div>
+          <div style="font-size:0.86rem;line-height:1.45;margin-top:2px">${esc(f.message || '')}</div>
+          ${f.suggestion ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">→ ${esc(f.suggestion)}</div>` : ''}
+        </div>`).join('')
+      + `</div>`
+    : '';
   const ctxBlock = prompt.context
     ? `<details style="margin-top:8px">
-         <summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem">Context</summary>
+         <summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem">Raw context</summary>
          <pre style="white-space:pre-wrap;font-size:0.78rem;background:var(--bg-primary);padding:8px;border-radius:var(--radius-sm);overflow:auto;max-height:240px">${esc(JSON.stringify(prompt.context, null, 2))}</pre>
        </details>`
     : '';
@@ -221,6 +239,7 @@ function showPromptModal(prompt) {
     </div>
     <div style="padding:14px 18px">
       <div style="white-space:pre-wrap;font-size:0.95rem;line-height:1.55">${esc(prompt.question)}</div>
+      ${findingsBlock}
       ${ctxBlock}
       <textarea id="prompt-answer" rows="3"
                 placeholder="Type your answer (or 'stop' to abort the run)"
