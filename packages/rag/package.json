@@ -1,6 +1,6 @@
 {
   "name": "karajan-rag",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Orquestador multi-agente de CLIs de IA para pipelines RAG con routing por sensibilidad, policy de proveedores y CLIs intercambiables (Claude, Codex, Gemini, Ollama, Azure, Bedrock, Vertex).",
   "type": "module",
   "main": "index.js",
@@ -46,7 +46,7 @@
     "embeddings",
     "retrieval-augmented-generation"
   ],
-  "author": "Manu Fosela <mjfosela@gmail.com>",
+  "author": "Manu Fosela (https://github.com/manufosela)",
   "homepage": "https://github.com/manufosela/karajan-rag",
   "repository": {
     "type": "git",
