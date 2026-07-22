@@ -15,6 +15,8 @@ export async function planAddHuCommand({ config, planId, title, type, deps, scop
     scope: scope || null,
     blocked_by: deps ? deps.split(",").map(d => d.trim()) : []
   });
+  const { creatorLabel } = await import("../hu.js");
+  hu.created_by = creatorLabel(); // KJC-TSK-0661: provenance stamp
 
   await savePlan(projectDir, plan);
   console.log(`Added: ${hu.id} — ${hu.title}`);
