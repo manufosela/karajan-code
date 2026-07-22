@@ -19,10 +19,7 @@
  *     out-of-control result list cannot blow the token budget.
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { runGoverned } from "../utils/tool-governor.js";
 
 const SCAN_TIMEOUT_MS = 60_000;
 const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "MODERATE"];
@@ -42,7 +39,10 @@ export async function collectOsvFindings(projectDir, logger = null) {
   }
   let stdout;
   try {
-    const { stdout: out } = await execFileAsync(
+    // KJC-TSK-0668: governed run — single-flight across kj processes and a
+    // timeout that kills the whole process tree (osv-scanner is I/O-bound,
+    // no jobs flag to cap).
+    const { stdout: out } = await runGoverned(
       "osv-scanner",
       ["--format=json", "--recursive", projectDir || "."],
       { cwd: projectDir, timeout: SCAN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 }
