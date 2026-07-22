@@ -55,7 +55,10 @@ resource "google_sql_database_instance" "rag" {
   deletion_protection = var.db_deletion_protection
 
   settings {
-    tier = var.db_tier
+    # Sin edition explícita, el provider ~>6.0 crea ENTERPRISE_PLUS, que
+    # rechaza tiers compartidos como db-f1-micro (KJR-BUG-0001).
+    edition = "ENTERPRISE"
+    tier    = var.db_tier
 
     ip_configuration {
       # Sin IP pública: acceso solo por conector Cloud SQL (Cloud Run y proxy).
