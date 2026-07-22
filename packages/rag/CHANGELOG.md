@@ -9,6 +9,19 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Módulo Terraform `deploy/gcp/`** (KJR-TSK-0107): monta el RAG en
+  Google Cloud con `terraform apply -var project_id=...`. Cloud Run v2
+  (imagen del Dockerfile, startup probe sobre `/health`, scale-to-zero),
+  Cloud SQL Postgres 16 con pgvector por socket Cloud SQL, bucket GCS con
+  el índice montado read-only en `/data` vía GCS FUSE, `PG_URL` en Secret
+  Manager (contraseña generada por Terraform), Artifact Registry y service
+  account con permisos mínimos. API privada por defecto
+  (`allow_unauthenticated=false`); `terraform destroy` sin huérfanos con
+  protecciones explícitas para la base y el bucket. README con el flujo
+  completo (build+push, migración pgvector, index vía cloud-sql-proxy,
+  rsync del índice, query con identity token). Validado con
+  `terraform fmt` + `validate`. Layout preparado para `deploy/aws|azure`.
+
 - **Imagen Docker del servidor RAG** (KJR-TSK-0106): `Dockerfile`
   multi-stage sobre `node:22-slim`, usuario no root, con los backends
   opcionales preinstalados (`pg`, `@lancedb/lancedb`). Sirve el índice
