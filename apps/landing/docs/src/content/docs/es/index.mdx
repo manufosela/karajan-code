@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.5 — el arbitraje vuelve a funcionar, con juez nuevo (actual)
+### v4.1.6 — GitHub Copilot CLI se une a la orquesta (actual)
+
+Patch. La era del CLI de IA gratuito sigue encogiendo — Copilot va sobre una suscripción que muchos developers ya pagan: séptimo agente built-in, elegible como árbitro solomon (`roles.solomon.provider: copilot`), verificado en vivo de punta a punta. Los prompts de arranque ahora distinguen el OS: Windows recibe la ruta npm, nunca un `curl | sh` que allí no existe. Actualización directa desde v4.1.5.
+
+### v4.1.5 — el arbitraje vuelve a funcionar, con juez nuevo
 
 Patch. La retirada del tier individual de gemini dejó máquinas sin tercera IA operativa — v4.1.5 restaura el arbitraje: **Qwen Code** entra como sexto agente built-in (fork de gemini-cli, cloud, gratis con cuenta Qwen), y `kj solomon` sobrevive a diffs grandes (prompt por stdin), confía en workspaces headless y falla señalando la salida cuando un árbitro está muerto. Extra: el README es v4-first y los prompts de arranque van versionados con kj tras `karajancode.com/start.md`. Actualización directa desde v4.1.4.
 

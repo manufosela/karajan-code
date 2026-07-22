@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.5 — arbitration works again, with a new judge (current)
+### v4.1.6 — GitHub Copilot CLI joins the orchestra (current)
+
+Patch. The free-tier era of AI CLIs keeps shrinking — Copilot rides a subscription many developers already have: seventh built-in agent, eligible solomon arbiter (`roles.solomon.provider: copilot`), verified live end-to-end. The bootstrap prompts are now OS-aware: Windows gets the npm route, never a unix-only `curl | sh`. Drop-in upgrade from v4.1.5.
+
+### v4.1.5 — arbitration works again, with a new judge
 
 Patch. The gemini individual tier retirement left machines without an operational third AI — v4.1.5 restores arbitration: **Qwen Code** joins as the sixth built-in agent (gemini-cli fork, cloud, free with a Qwen account), and `kj solomon` survives large diffs (prompt via stdin), trusts headless workspaces, and fails with the way out when an arbiter is dead. Bonus: the README is v4-first, and the bootstrap prompts ship versioned with kj behind `karajancode.com/start.md`. Drop-in upgrade from v4.1.4.
 
