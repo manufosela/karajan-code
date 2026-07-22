@@ -144,6 +144,24 @@ vi.mock("../../src/orchestrator/preflight-checks.js", () => ({
   })
 }));
 
+
+// KJC-BUG-0126: positional mockResolvedValueOnce chains flake when the
+// orchestrator's call ORDER shifts (observed on Node 24 CI: an extra or
+// reordered probe misaligns the whole chain — the scanner "fails" and
+// runFlow bails with approved undefined). These mocks answer by COMMAND
+// instead: they describe the world, not a fragile sequence.
+function mockCommands(runCommand, overrides = {}) {
+  runCommand.mockImplementation(async (cmd, args = []) => {
+    const line = `${cmd} ${(args || []).join(" ")}`;
+    for (const [needle, res] of Object.entries(overrides)) {
+      if (line.includes(needle)) return res;
+    }
+    if (cmd === "git") return { exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" };
+    if (cmd === "docker") return { exitCode: 0, stdout: "scan ok", stderr: "" };
+    return { exitCode: 0, stdout: "", stderr: "" };
+  });
+}
+
 describe("kj_run smoke", () => {
   // This file legitimately exercises the Sonar stage. Opt out of the
   // global test override (tests/setup.js sets __KJ_DISABLE_SONAR_STAGE=true
@@ -171,11 +189,7 @@ describe("kj_run smoke", () => {
     });
 
     const { runCommand } = await import("../../src/utils/process.js");
-    runCommand
-      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
+    mockCommands(runCommand);
 
     const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
@@ -239,17 +253,10 @@ describe("kj_run smoke", () => {
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "started", stderr: "" });
 
     const { runCommand } = await import("../../src/utils/process.js");
-    runCommand
-      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" })
-      .mockResolvedValueOnce({
-        exitCode: 0,
-        stdout: JSON.stringify({ login: "admin", name: "karajan-x", token: "from-admin" }),
-        stderr: ""
-      })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
+    mockCommands(runCommand, {
+      "authentication/validate": { exitCode: 0, stdout: JSON.stringify({ valid: true }), stderr: "" },
+      "user_tokens": { exitCode: 0, stdout: JSON.stringify({ login: "admin", name: "karajan-x", token: "from-admin" }), stderr: "" },
+    });
 
     const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
@@ -320,12 +327,9 @@ describe("kj_run smoke", () => {
     sonarUp.mockResolvedValue({ exitCode: 0, stdout: "started", stderr: "" });
 
     const { runCommand } = await import("../../src/utils/process.js");
-    runCommand
-      // Extra git probe consumed by canResolveSonarProjectKey before the scanner runs (KJC-TSK-0373 / N4)
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "git@github.com:acme/repo.git\n", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "coverage ok", stderr: "" })
-      .mockResolvedValueOnce({ exitCode: 0, stdout: "scan ok", stderr: "" });
+    mockCommands(runCommand, {
+      "echo coverage": { exitCode: 0, stdout: "coverage ok", stderr: "" },
+    });
 
     const { runFlow } = await import("../../src/orchestrator.js");
     const emitter = new EventEmitter();
