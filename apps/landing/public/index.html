@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karajan Code — Multiagent Coding Orchestrator</title>
-  <meta name="description" content="Multiagent coding orchestrator with TDD, SonarQube, and automated code review. Supports Claude, Codex, Gemini and Aider.">
+  <title>Karajan Code — Code with several AIs, with guarantees</title>
+  <meta name="description" content="The layer that governs AI-driven development: your agent writes, Karajan enforces TDD-first method, cross-AI review on every commit and git gates. A false green is impossible.">
   <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
   <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
@@ -14,7 +14,7 @@
 
   <!-- Open Graph -->
   <meta property="og:title" content="Karajan Code — Multiagent Coding Orchestrator">
-  <meta property="og:description" content="Multiagent coding orchestrator. Orchestrate multiple AI coding agents through an automated pipeline. TDD, SonarQube, code review — all in one command.">
+  <meta property="og:description" content="Code with several AIs, with guarantees. Your agent writes; Karajan governs: TDD-first, cross-AI review on every commit, git gates that make a false green impossible.">
   <meta property="og:image" content="https://karajancode.com/og.png">
   <meta property="og:url" content="https://karajancode.com">
   <meta property="og:type" content="website">
@@ -165,7 +165,8 @@
     }
     .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
     .hero-tagline { font-size: clamp(1rem, 2vw, 1.15rem); color: var(--text-muted); max-width: 480px; margin-bottom: 0.25rem; font-weight: 300; }
-    .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; }
+    .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; max-width: 560px; }
+    .v4-pill { display: inline-block; padding: 0.2rem 0.7rem; margin-right: 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; color: #e8b04b; border: 1px solid rgba(232, 176, 75, 0.45); background: rgba(232, 176, 75, 0.08); vertical-align: middle; }
 
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
@@ -379,19 +380,20 @@
       </div>
     </div>
     <h1>Karajan Code</h1>
-    <p class="hero-tagline">Multiagent coding orchestrator.</p>
-    <p class="hero-sub">TDD-first. MCP-based. Vanilla JavaScript.</p>
+    <p class="hero-tagline">Code with several AIs, with guarantees.</p>
+    <p class="hero-sub">Your agent writes. Karajan governs: TDD-first, cross-AI review on every commit, git gates. A false green is impossible.</p>
     <p class="hero-badge">
+      <span class="v4-pill">v4 · the Karajan Environment</span>
       <a href="https://www.npmjs.com/package/karajan-code" aria-label="Current version on npm">
         <img src="https://img.shields.io/npm/v/karajan-code.svg?style=flat-square&color=6b8fa3&label=latest" alt="npm version" height="22">
       </a>
     </p>
-    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="curl -fsSL https://karajancode.com/install.sh | sh — click to copy">
-      <span class="prompt" aria-hidden="true">$</span>
-      <span>curl -fsSL https://karajancode.com/install.sh | sh</span>
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
+      <span class="prompt" aria-hidden="true">&gt;</span>
+      <span>I want to use Karajan in this project: read karajancode.com/start.md and do what it says.</span>
       <span class="copy-hint" aria-live="polite">click to copy</span>
     </button>
-    <p class="hero-sub">A single self-contained binary. Needs git + an AI agent CLI — see <a href="/docs/v4/install/">requirements &amp; install options</a>.</p>
+    <p class="hero-sub">Paste it into your AI agent (Claude Code, Codex, Cursor…) — it sets up everything and <em>waits for you</em> at every sudo. Prefer the terminal? <code>curl -fsSL https://karajancode.com/install.sh | sh</code> installs the CLI — see <a href="/docs/v4/install/">install options</a>.</p>
     <nav class="hero-links" aria-label="Project links">
       <a href="/docs/v4/install/">Get Started</a>
       <a href="/docs/v4/working-with-your-agent/">The method</a>
@@ -435,7 +437,7 @@
         <li><strong>Any agent is the brain</strong> &mdash; Claude Code, Codex, Gemini CLI, Cursor. Your agent absorbs the roles (triage, planner, architect, tester, security, audit) via <code>kj brief</code>. <a href="/docs/v4/working-with-your-agent/">See the method &rarr;</a></li>
         <li><strong>Cross-AI review on every commit</strong> &mdash; a different AI approves each diff; a third one arbitrates disputes; security findings nobody overrides. <a href="/docs/v4/gates/">See the gates &rarr;</a></li>
         <li><strong>Headless pipeline for CI</strong> &mdash; the classic multiagent loop, unattended, same gates. <a href="/docs/v4/headless/">See headless mode &rarr;</a></li>
-        <li><strong>6,000+ tests. 90+ releases. Vanilla JS.</strong> <a href="https://github.com/manufosela/karajan-code">Read why &rarr;</a></li>
+        <li><strong>6,000+ tests. 90+ releases. Open source (AGPL-3.0).</strong> <a href="https://github.com/manufosela/karajan-code">See the repo &rarr;</a></li>
       </ul>
     </details>
   </section>
@@ -468,7 +470,7 @@
     }
 
     function copyInstall(el) {
-      var text = 'curl -fsSL https://karajancode.com/install.sh | sh';
+      var text = 'I want to use Karajan in this project: read https://karajancode.com/start.md and do what it says.';
       var hint = el.querySelector('.copy-hint');
       function onSuccess() {
         el.classList.add('copied');
