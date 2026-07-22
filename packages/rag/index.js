@@ -83,7 +83,9 @@ export {
   openEasyIndex,
   parseFingerprint,
 } from './src/easy/rag-service.js';
-export { runIndexCommand, runQueryCommand, runInitCommand } from './src/easy/cli.js';
+export { runIndexCommand, runQueryCommand, runInitCommand, runServeCommand } from './src/easy/cli.js';
+export { createRagHttpServer, startRagHttpServer } from './src/easy/http-server.js';
+export { handleMcpMessage, startRagMcpServer } from './src/easy/mcp-server.js';
 export {
   loadEasyConfig,
   saveEasyConfig,

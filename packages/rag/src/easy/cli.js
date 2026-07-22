@@ -18,7 +18,10 @@ import {
   createEasyDeps,
   parseFingerprint,
   openEasyIndex,
+  openRagService,
 } from './rag-service.js';
+import { startRagHttpServer } from './http-server.js';
+import { startRagMcpServer } from './mcp-server.js';
 import { indexDirectory } from './indexer.js';
 import { queryIndex } from './query.js';
 import {
@@ -321,6 +324,77 @@ export async function runQueryCommand(argv, io = {}) {
   out(`--- respuesta (${options.adapter}) ---`);
   out(generated.answer);
   return { ...result, answer: generated.answer };
+}
+
+/**
+ * Parsea `karajan-rag serve [ruta] [--http] [--mcp] [--port N] [--store lancedb|pgvector]`.
+ *
+ * Modo por defecto: MCP stdio. `--http` y `--mcp` son excluyentes (MCP
+ * usa stdout para el protocolo; mezclar ambos en un proceso lo rompería).
+ *
+ * @param {string[]} argv
+ * @returns {{ rootDir: string, mode: 'mcp' | 'http', port: number, store: 'lancedb' | 'pgvector' }}
+ */
+export function parseServeArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      http: { type: 'boolean', default: false },
+      mcp: { type: 'boolean', default: false },
+      port: { type: 'string' },
+      store: { type: 'string', default: 'lancedb' },
+    },
+  });
+  if (values.http && values.mcp) {
+    throw new Error('serve: --http y --mcp son excluyentes (usa dos procesos si necesitas ambos).');
+  }
+  const store = /** @type {'lancedb' | 'pgvector'} */ (values.store);
+  if (!QUERY_STORES.includes(store)) {
+    throw new Error(`serve: --store "${store}" no soportado (esperado: ${QUERY_STORES.join(', ')}).`);
+  }
+  const port = values.port ? Number.parseInt(values.port, 10) : 8080;
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error('serve: --port debe ser un entero en [0, 65535].');
+  }
+  return {
+    rootDir: path.resolve(positionals[0] ?? '.'),
+    mode: values.http ? 'http' : 'mcp',
+    port,
+    store,
+  };
+}
+
+/**
+ * Ejecuta el subcomando `serve`: expone el índice como servidor MCP
+ * (stdio, default) o HTTP. Devuelve los handles sin bloquear — el
+ * proceso queda vivo mientras el servidor/stdin sigan abiertos.
+ *
+ * @param {string[]} argv
+ * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void, input?: NodeJS.ReadableStream, output?: NodeJS.WritableStream }} [io]
+ * @returns {Promise<{ mode: 'mcp' | 'http', url?: string, close: () => Promise<void> | void }>}
+ */
+export async function runServeCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[serve] ${msg}`));
+  const options = parseServeArgs(argv);
+  const service = await openRagService(options.rootDir, {
+    store: options.store,
+    env: io.env ?? process.env,
+  });
+
+  if (options.mode === 'http') {
+    const { server, url } = await startRagHttpServer(service, { port: options.port });
+    log(`HTTP escuchando en ${url} (POST /query, GET /health)`);
+    return {
+      mode: 'http',
+      url,
+      close: () => new Promise((resolve) => server.close(() => resolve(undefined))),
+    };
+  }
+
+  const mcp = startRagMcpServer(service, { input: io.input, output: io.output });
+  log(`MCP stdio listo (tools: rag_query, rag_status) sobre ${options.rootDir}`);
+  return { mode: 'mcp', close: mcp.close };
 }
 
 /**
