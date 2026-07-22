@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.8] - 2026-07-22
+
+Patch. **The board becomes ungameable** — the dashboard-vs-agent fights reported from the field (an agent "fixing" warnings by deleting and recreating tasks) end here, the Planning Game way: the code forbids it AND the agent is taught why.
+
+### Added
+
+- **`kj brief board`** (KJC-TSK-0670): the board's model for any brain — cards are permanent; states move only via `kj hu move`; a duplicate short_id means update, never a twin; a warning is fixed with the command it names or reported with `kj report-issue`, never by destroying state. The playbook's tracking invariant now states card permanence.
+
+### Fixed
+
+- **HUs are never deleted** (KJC-TSK-0669, absolute product rule): the plan-review fix loop ARCHIVES instead of removing (status `skipped` + `archived_by` + reason, references cleaned so nothing deadlocks); `kj hu add` with an existing short_id refuses with the norm spelled out; `DELETE /api/stories/:id` on the board answers 405 (KJC-TSK-0671).
+- **The board stops silently hiding version-drifted plans** (KJC-BUG-0124, issue #1277 — third field issue filed by a user's Karajan via `kj report-issue`, third full self-healing cycle): `syncPlanFile` accepts any v2+ plan with a loud warning on drift; the strict `version !== 2` check made whole plans vanish from the dashboard with no trace — the root cause behind "my tasks disappeared".
+
 ## [4.1.7] - 2026-07-22
 
 Patch. **A field day, literally**: the second self-healed issue closed its full cycle, Windows reached full-product parity, and every HU now says where it came from.
