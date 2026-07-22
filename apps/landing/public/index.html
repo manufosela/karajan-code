@@ -25,8 +25,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet"></noscript>
   <link rel="preload" as="image" type="image/webp" href="/img/logo-240.webp">
 
   <style>
@@ -35,9 +35,13 @@
     :root {
       --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-      /* Brand colors */
-      --brand-green: #34d399;
-      --brand-green-dim: #059669;
+      --serif: 'Instrument Serif', Georgia, serif;
+      /* Brand colors — the gold conducts; green is RESERVED for earned verdicts */
+      --baton-gold: #e8b04b;
+      --baton-gold-deep: #b7832a;
+      --verdict-green: #34d399;
+      --verdict-green-dim: #059669;
+      --reject-red: #f87171;
       --brand-steel: #6b8fa3;
       --brand-steel-light: #8cb4c9;
     }
@@ -50,11 +54,12 @@
       --text: #e2e8f0;
       --text-muted: #a4aeb6;
       --text-dim: #94a4ac;
-      --accent-teal: var(--brand-green);
+      --accent-teal: var(--baton-gold);
       --accent-purple: var(--brand-steel-light);
       --accent-indigo: var(--brand-steel);
-      --terminal-bg: #0c1218;
-      --terminal-bar: rgba(26,35,50,0.6);
+      --gold-ink: var(--baton-gold);
+      --steel-ink: var(--brand-steel-light);
+      --verdict-ink: var(--verdict-green);
       color-scheme: dark;
     }
 
@@ -67,11 +72,12 @@
         --text: #1a2a35;
         --text-muted: #424c52;
         --text-dim: #4b555b;
-        --accent-teal: var(--brand-green-dim);
+        --accent-teal: var(--baton-gold-deep);
         --accent-purple: var(--brand-steel);
         --accent-indigo: var(--brand-steel);
-        --terminal-bg: #1a2332;
-        --terminal-bar: rgba(26,35,50,0.8);
+        --gold-ink: var(--baton-gold-deep);
+        --steel-ink: #4d6a79;
+        --verdict-ink: var(--verdict-green-dim);
         color-scheme: light;
       }
     }
@@ -83,11 +89,12 @@
       --text: #1a2a35;
       --text-muted: #424c52;
       --text-dim: #4b555b;
-      --accent-teal: var(--brand-green-dim);
+      --accent-teal: var(--baton-gold-deep);
       --accent-purple: var(--brand-steel);
       --accent-indigo: var(--brand-steel);
-      --terminal-bg: #1a2332;
-      --terminal-bar: rgba(26,35,50,0.8);
+      --gold-ink: var(--baton-gold-deep);
+      --steel-ink: #4d6a79;
+      --verdict-ink: var(--verdict-green-dim);
       color-scheme: light;
     }
 
@@ -116,10 +123,10 @@
       content: ''; position: absolute; inset: 0; pointer-events: none;
       background:
         radial-gradient(ellipse 600px 400px at 50% 40%, rgba(107,143,163,0.08), transparent),
-        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(52,211,153,0.05), transparent);
+        radial-gradient(ellipse 400px 300px at 60% 35%, rgba(232,176,75,0.05), transparent);
     }
 
-    .hero-logo { width: clamp(120px, 20vw, 200px); height: auto; filter: drop-shadow(0 0 30px rgba(52,211,153,0.12)); }
+    .hero-logo { width: clamp(120px, 20vw, 200px); height: auto; filter: drop-shadow(0 0 30px rgba(232,176,75,0.10)); }
 
     /* --- AGENT ORBIT --- */
     .logo-orbit {
@@ -164,7 +171,9 @@
       .orbit-agent svg { animation: none; }
     }
     .hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
-    .hero-tagline { font-size: clamp(1rem, 2vw, 1.15rem); color: var(--text-muted); max-width: 480px; margin-bottom: 0.25rem; font-weight: 300; }
+    .hero-tagline { font-size: clamp(1.15rem, 2.6vw, 1.5rem); color: var(--text); max-width: 560px; margin-bottom: 0.4rem; font-weight: 300; }
+    /* The guarantee motif: every guarantee-word on this page signs in serif italic */
+    .guarantee { font-family: var(--serif); font-style: italic; font-size: 1.12em; color: var(--gold-ink); }
     .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; max-width: 560px; }
     .v4-pill { display: inline-flex; align-items: center; height: 22px; box-sizing: border-box; padding: 0 0.7rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; color: #e8b04b; border: 1px solid rgba(232, 176, 75, 0.45); background: rgba(232, 176, 75, 0.08); }
     .hero-note { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.65rem; letter-spacing: 0.02em; font-weight: 400; max-width: 560px; }
@@ -173,7 +182,7 @@
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
       padding: 0.9rem 1.8rem; font-family: var(--mono); font-size: 0.95rem;
-      color: var(--accent-teal); display: flex; align-items: center; gap: 1rem;
+      color: var(--steel-ink); display: flex; align-items: center; gap: 1rem;
       cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; position: relative;
       margin-bottom: 2.5rem;
     }
@@ -202,68 +211,44 @@
     .hero-links a:hover, .hero-links a:focus-visible { color: var(--accent-teal); }
     .hero-links a:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
 
-    /* --- TERMINAL --- */
-    .terminal-section { padding: 4rem 2rem 5rem; max-width: 720px; margin: 0 auto; }
-    .terminal {
-      background: var(--terminal-bg); border: 1px solid var(--border); border-radius: 12px;
-      overflow: hidden; text-align: left;
+    /* --- THE SCORE (signature) --- */
+    .score-section { padding: 3rem 2rem 4rem; max-width: 760px; margin: 0 auto; }
+    .score-eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.28em; color: var(--gold-ink); text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
+    .score-title { text-align: center; font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 2rem; }
+    .score { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); padding: 1.3rem 0; }
+    .score-row {
+      display: grid; grid-template-columns: 96px 1fr; gap: 1.1rem; padding: 0.55rem 1.5rem;
+      opacity: 0.14; transform: translateX(-6px); border-left: 2px solid transparent;
+      transition: opacity 0.5s ease, transform 0.5s ease;
     }
-    [data-theme="light"] .terminal,
-    :root:not([data-theme="dark"]) .terminal {
-      box-shadow: 0 4px 24px rgba(15,21,32,0.12);
+    .score-row.on { opacity: 1; transform: none; }
+    .score-player { font-family: var(--mono); font-size: 0.78rem; color: var(--brand-steel); text-align: right; padding-top: 0.12rem; }
+    .score-line { font-family: var(--mono); font-size: 0.84rem; color: var(--text-muted); line-height: 1.55; }
+    .score-row.reject { border-left-color: var(--reject-red); }
+    .score-row.reject .score-line { color: var(--reject-red); }
+    .score-row.verdict { border-left-color: var(--verdict-green); }
+    .score-row.verdict .score-line { color: var(--verdict-ink); font-weight: 600; }
+    .score-row.gate { border-left-color: var(--baton-gold); }
+    .score-row.gate .score-line { color: var(--gold-ink); }
+    .sha-chip {
+      font-size: 0.7rem; font-weight: 500; border: 1px solid var(--verdict-green-dim); border-radius: 5px;
+      padding: 0.05rem 0.45rem; margin-left: 0.55rem; color: var(--verdict-ink); white-space: nowrap;
     }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) .terminal { box-shadow: none; }
+    .score-caption { text-align: center; margin-top: 1.1rem; font-size: 0.82rem; color: var(--text-dim); }
+    .score-caption strong { color: var(--verdict-ink); font-weight: 600; }
+    .score-replay {
+      display: block; margin: 0.9rem auto 0; background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text-dim); font-family: var(--mono); font-size: 0.7rem; padding: 0.3rem 0.85rem; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
     }
-    .terminal-bar {
-      display: flex; gap: 6px; padding: 12px 16px;
-      background: var(--terminal-bar); border-bottom: 1px solid var(--border);
+    .score-replay:hover { border-color: var(--baton-gold); color: var(--baton-gold); }
+    .score-replay:focus-visible { outline: 2px solid var(--baton-gold); outline-offset: 2px; }
+    @media (max-width: 640px) {
+      .score-row { grid-template-columns: 68px 1fr; gap: 0.7rem; padding: 0.55rem 1rem; }
+      .score-line { font-size: 0.75rem; }
     }
-    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .terminal-dot.r { background: #f87171; }
-    .terminal-dot.y { background: #fbbf24; }
-    .terminal-dot.g { background: var(--brand-green); }
-    .terminal-body {
-      padding: 1rem 1.5rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.7;
-      height: 480px; overflow-y: auto; scroll-behavior: smooth;
-      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-      min-height: 0;
-    }
-    .speed-controls {
-      display: flex; justify-content: flex-end; gap: 0.25rem;
-      padding: 0.4rem 1rem; background: var(--terminal-bar);
-      border-top: 1px solid var(--border);
-    }
-    .speed-btn {
-      padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 4px;
-      background: transparent; color: var(--text-dim); font-family: var(--mono);
-      font-size: 0.65rem; cursor: pointer; transition: all 0.2s;
-    }
-    .speed-btn.active { background: rgba(140,180,201,0.15); border-color: #a0cade; color: #a0cade; }
-    .speed-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
-    .speed-btn:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 1px; }
-    .terminal-body .role { color: var(--accent-purple); }
-
-    .demo-line {
-      opacity: 0; animation: fadeInLine 0.3s ease forwards;
-      font-family: var(--mono); font-size: 0.82rem; line-height: 1.8; white-space: pre;
-      min-height: 1.5em;
-    }
-    .demo-line.cmd { color: var(--text); }
-    .demo-line.header { color: #38bdf8; font-weight: 600; }
-    .demo-line.dim { color: var(--text-dim); }
-    .demo-line.stage { color: var(--text-muted); }
-    .demo-line.rejected { color: #f87171; }
-    .demo-line.approved { color: #34d399; }
-    .demo-line.success { color: #34d399; font-weight: 600; }
-
-    @keyframes fadeInLine {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
     @media (prefers-reduced-motion: reduce) {
-      .demo-line { opacity: 1; animation: none; transform: none; }
+      .score-row { opacity: 1 !important; transform: none; transition: none; }
     }
 
     /* --- MORE --- */
@@ -335,7 +320,7 @@
       .fade-in { opacity: 1; transform: none; transition: none; }
     }
   </style>
-  <noscript><style>.fade-in { opacity: 1; transform: none; }</style></noscript>
+  <noscript><style>.fade-in { opacity: 1; transform: none; } .score-row { opacity: 1; transform: none; }</style></noscript>
   <script>
     (function() {
       var saved = localStorage.getItem('theme') || localStorage.getItem('starlight-theme');
@@ -383,7 +368,7 @@
       </div>
     </div>
     <h1>Karajan Code</h1>
-    <p class="hero-tagline">Code with several AIs, with guarantees.</p>
+    <p class="hero-tagline">Code with several AIs, <em class="guarantee">with guarantees</em>.</p>
     <p class="hero-sub">Your agent writes. Karajan governs: TDD-first, cross-AI review on every commit, git gates. A false green is impossible.</p>
     <p class="hero-badge">
       <span class="v4-pill">v4 · the Karajan Environment</span>
@@ -409,32 +394,22 @@
     </nav>
   </section>
 
-  <!-- TERMINAL DEMO — hidden: outdated, re-enable once the demo is refreshed (KJL-TSK-0052) -->
-  <!--
-  <section id="demo" class="terminal-section fade-in">
-    <div class="terminal">
-      <div class="terminal-bar" aria-hidden="true">
-        <div class="terminal-dot r"></div>
-        <div class="terminal-dot y"></div>
-        <div class="terminal-dot g"></div>
-      </div>
-      <div class="terminal-body" id="demo-terminal" aria-label="Animated demo of Karajan Code pipeline output">
-      </div>
-      <div class="speed-controls" aria-label="Playback controls">
-        <button class="speed-btn" id="pause-btn" onclick="togglePause(this)">&#10074;&#10074;</button>
-        <button class="speed-btn" onclick="setSpeed(0.5, this)">0.5x</button>
-        <button class="speed-btn active" onclick="setSpeed(1, this)">1x</button>
-        <button class="speed-btn" onclick="setSpeed(1.5, this)">1.5x</button>
-        <button class="speed-btn" onclick="setSpeed(2, this)">2x</button>
-      </div>
+  <!-- THE SCORE — the method, played by real CLIs (KJL-TSK-0084) -->
+  <section id="score" class="score-section fade-in" aria-label="How a commit earns its way in">
+    <p class="score-eyebrow">The score</p>
+    <h2 class="score-title">How a commit <em class="guarantee">earns</em> its way in</h2>
+    <div class="score" id="the-score">
+      <div class="score-row"><span class="score-player">you</span><span class="score-line">&ldquo;add magic-link login&rdquo;</span></div>
+      <div class="score-row"><span class="score-player">claude</span><span class="score-line">writes the failing test first, then the code</span></div>
+      <div class="score-row"><span class="score-player">kj</span><span class="score-line">review --staged &rarr; routes the exact diff to a different AI</span></div>
+      <div class="score-row reject"><span class="score-player">codex</span><span class="score-line">&#10007; REJECTED &mdash; the error path is untested</span></div>
+      <div class="score-row"><span class="score-player">claude</span><span class="score-line">adds the missing test, fixes the edge case</span></div>
+      <div class="score-row verdict"><span class="score-player">codex</span><span class="score-line">&#10003; APPROVED<span class="sha-chip">diff 82a5504</span></span></div>
+      <div class="score-row gate"><span class="score-player">gate</span><span class="score-line">commit enters &mdash; without a verdict, git refuses it</span></div>
     </div>
-    <noscript>
-      <p style="text-align:center; color: var(--text-muted); margin-top: 2rem;">
-        <a href="https://asciinema.org/a/FPrlKGsjjtyc0HJF" target="_blank" rel="noopener">Watch the demo on asciinema.org</a>
-      </p>
-    </noscript>
+    <p class="score-caption">Played by real CLIs on your machine. <strong>The only green on this page is the earned one.</strong></p>
+    <button type="button" class="score-replay" onclick="playScore(true)">&#8634; replay</button>
   </section>
-  -->
 
   <!-- WANT TO KNOW MORE? -->
   <section class="more-section fade-in">
@@ -464,261 +439,74 @@
     <p class="footer-author">Built by <a href="https://github.com/manufosela">@manufosela</a></p>
   </footer>
 
+
   <script>
+    /* --- COPY PROMPT --- */
+    function copyInstall(btn) {
+      var text = 'I want to use Karajan in this project: read https://karajancode.com/start.md and do what it says.';
+      navigator.clipboard.writeText(text).then(function() {
+        btn.classList.add('copied');
+        var hint = btn.querySelector('.copy-hint');
+        if (hint) hint.textContent = 'copied!';
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          if (hint) hint.textContent = 'click to copy';
+        }, 2000);
+      });
+    }
+
     /* --- THEME TOGGLE --- */
     function toggleTheme() {
       var html = document.documentElement;
       var current = html.getAttribute('data-theme');
-      var isDark = current === 'dark' || (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      var next = isDark ? 'light' : 'dark';
+      var next;
+      if (current) { next = current === 'dark' ? 'light' : 'dark'; }
+      else { next = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'; }
       html.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
       localStorage.setItem('starlight-theme', next);
     }
 
-    function copyInstall(el) {
-      var text = 'I want to use Karajan in this project: read https://karajancode.com/start.md and do what it says.';
-      var hint = el.querySelector('.copy-hint');
-      function onSuccess() {
-        el.classList.add('copied');
-        hint.textContent = 'copied!';
-        setTimeout(function() { el.classList.remove('copied'); hint.textContent = 'click to copy'; }, 2000);
-      }
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(onSuccess).catch(function() { fallbackCopy(text, onSuccess); });
-        } else { fallbackCopy(text, onSuccess); }
-      } catch (e) { fallbackCopy(text, onSuccess); }
-    }
-    function fallbackCopy(text, cb) {
-      var ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta); cb();
-    }
-    var observer = new IntersectionObserver(function(entries) {
-      entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
-
-    /* --- TERMINAL DEMO ANIMATION --- */
-    // t = timestamp in seconds from real log. delay between lines = (t[n] - t[n-1]) / 10
-    // t=0 means instant (sub-line, appears with parent)
-    var DEMO_LINES = [
-      // Header — all instant
-      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { t:0, html: '\u25b6 Karajan Code v1.43.0', cls: 'header' },
-      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { t:0, html: 'Task: Complete the calculator module. Add subtract, multiply, divide', cls: 'dim' },
-      { t:0, html: '      with input validation and comprehensive tests. TDD methodology.', cls: 'dim' },
-      { t:0, html: 'Coder: claude | Reviewer: codex', cls: 'dim' },
-      { t:0, html: 'Max iterations: 3 | Timeout: 30min', cls: 'dim' },
-      { t:0, html: 'Pipeline: Researcher | Architect | Planner | Tester | Security | Solomon', cls: 'dim' },
-      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { t:0, html: '', cls: '' },
-      // RTK instant, then triage takes 40s real = 4s demo
-      { t:0, html: '<span class="role">[rtk]</span>          RTK detected (v0.31.0) \u2014 token optimization active', cls: 'approved' },
-      { t:0, html: '<span class="role">[triage]</span>       Classifying task complexity\u2026', cls: 'stage' },
-      { t:40, html: '  Smart model selection applied', cls: 'dim' },
-      { t:0, html: '  TDD auto-detected: vitest', cls: 'dim' },
-      { t:0, html: '  Policies resolved for taskType="sw"                             [00:40]', cls: 'dim' },
-      { t:0, html: '', cls: '' },
-      // Preflight — 1s after triage (41-40)
-      { t:41, html: '<span class="role">[preflight]</span>    Running environment checks\u2026', cls: 'stage' },
-      { t:0, html: '  Docker: v29.3.0 \u2713', cls: 'dim' },
-      { t:0, html: '  SonarQube: reachable at localhost:9000 \u2713', cls: 'dim' },
-      { t:0, html: '  SonarQube auth: token valid \u2713', cls: 'dim' },
-      { t:0, html: '  Security agent: claude 2.1.83 \u2713', cls: 'dim' },
-      { t:0, html: '  Preflight passed \u2014 all checks OK                               [00:41]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Researcher — 45s after preflight (86-41)
-      { t:86, html: '<span class="role">[researcher]</span>   Investigating codebase\u2026', cls: 'stage' },
-      { t:0, html: '  Found: 2 source files, vitest configured', cls: 'dim' },
-      { t:0, html: '  Patterns: 10 identified, 5 risks flagged', cls: 'dim' },
-      { t:0, html: '  Researcher completed                                            [01:26]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Architect — 40s (126-86)
-      { t:126, html: '<span class="role">[architect]</span>    Designing solution architecture\u2026', cls: 'stage' },
-      { t:0, html: '  Module pattern: pure functions with input validation', cls: 'dim' },
-      { t:0, html: '  TypeError for non-numeric inputs, Error for divide-by-zero', cls: 'dim' },
-      { t:0, html: '  Architecture completed                                          [02:06]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Planner — 45s (171-126)
-      { t:171, html: '<span class="role">[planner]</span>      Planning implementation\u2026', cls: 'stage' },
-      { t:0, html: '  Steps 1-4 (tests first): TDD for each operation', cls: 'dim' },
-      { t:0, html: '  Steps 5-7 (implementation): one function at a time', cls: 'dim' },
-      { t:0, html: '  Risk: use toBeCloseTo() for floating point assertions', cls: 'dim' },
-      { t:0, html: '  Planner completed                                               [02:51]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Iteration 1 — instant after planner
-      { t:171, html: '\u25b6 Iteration 1/3                                                   [02:51]', cls: 'header' },
-      { t:171, html: '<span class="role">[coder]</span>        Writing tests + implementation (TDD)\u2026', cls: 'stage' },
-      { t:213, html: '  Coder completed                                                 [03:33]', cls: 'approved' },
-      { t:0, html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
-      { t:233, html: '<span class="role">[sonar]</span>        Scanning\u2026 Quality gate: OK                         [03:53]', cls: 'approved' },
-      { t:243, html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
-      { t:0, html: '  \u274c REJECTED (1 blocking)', cls: 'rejected' },
-      { t:0, html: '  R-1: Missing input validation \u2014 non-numeric inputs yield NaN/Infinity', cls: 'rejected' },
-      { t:0, html: '', cls: '' },
-      // Solomon — 75s after reviewer start (318-243)
-      { t:252, html: '<span class="role">[solomon]</span>      Evaluating reviewer rejection\u2026', cls: 'stage' },
-      { t:0, html: '  R-1: correctness concern \u2192 valid, must fix', cls: 'rejected' },
-      { t:0, html: '  Decision: add numeric coercion + TypeError for NaN inputs', cls: 'dim' },
-      { t:0, html: '  Add tests for non-numeric inputs (string, null, undefined)', cls: 'dim' },
-      { t:318, html: '  Solomon: 2 conditions                                           [05:18]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Iteration 2 — instant after solomon
-      { t:318, html: '\u25b6 Iteration 2/3                                                   [05:18]', cls: 'header' },
-      { t:318, html: '<span class="role">[coder]</span>        Applying Solomon conditions\u2026', cls: 'stage' },
-      { t:0, html: '  Added Number() coercion + TypeError for NaN', cls: 'dim' },
-      { t:0, html: '  Added 5 new validation tests', cls: 'dim' },
-      { t:381, html: '  Coder completed                                                 [06:21]', cls: 'approved' },
-      { t:0, html: '<span class="role">[tdd]</span>          TDD policy: PASS (1 src, 1 test)', cls: 'approved' },
-      { t:409, html: '<span class="role">[sonar]</span>        Quality gate: OK                                      [06:49]', cls: 'approved' },
-      { t:420, html: '<span class="role">[reviewer]</span>     Reviewing diff\u2026', cls: 'stage' },
-      { t:471, html: '  \u2713 APPROVED                                                      [07:51]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Post-approval
-      { t:471, html: '<span class="role">[tester]</span>       Running test audit\u2026', cls: 'stage' },
-      { t:0, html: '  28 tests | 93.75% coverage | 5 missing scenarios (advisory)', cls: 'dim' },
-      { t:635, html: '  Tester: passed                                                  [10:35]', cls: 'approved' },
-      { t:635, html: '<span class="role">[security]</span>     OWASP scan\u2026', cls: 'stage' },
-      { t:0, html: '  2 low severity findings (advisory)', cls: 'dim' },
-      { t:668, html: '  Security: passed                                                [11:08]', cls: 'approved' },
-      { t:669, html: '<span class="role">[audit]</span>        Final audit \u2014 verifying code quality\u2026', cls: 'stage' },
-      { t:747, html: '  CERTIFIED (with 7 advisory warnings)                            [12:27]', cls: 'approved' },
-      { t:0, html: '', cls: '' },
-      // Result — instant
-      { t:747, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-      { t:0, html: '\ud83c\udfc1 Result: APPROVED                                                [12:27]', cls: 'success' },
-      { t:0, html: '  \ud83d\udd2c Research: 2 files, 5 risks, 10 patterns identified', cls: 'dim' },
-      { t:0, html: '  \ud83d\uddfa Plan: TDD steps 1-4 (tests), 5-7 (implementation)', cls: 'dim' },
-      { t:0, html: '  \ud83e\uddea Tester: 28 tests | 93.75% coverage', cls: 'dim' },
-      { t:0, html: '  \ud83d\udd12 Security: pass (2 low)', cls: 'dim' },
-      { t:0, html: '  \ud83d\udd0d Sonar: OK', cls: 'dim' },
-      { t:0, html: '  \u2714 Audit: CERTIFIED', cls: 'success' },
-      { t:0, html: '  Session: s_2026-03-25T16-40-13-733Z', cls: 'dim' },
-      { t:0, html: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', cls: 'dim' },
-    ];
-
-    var SPINNER = ['\u280b','\u2819','\u2839','\u2838','\u283c','\u2834','\u2826','\u2827','\u2807','\u280f'];
-    var demoTimer = null;
-    var spinnerTimer = null;
-    var spinnerEl = null;
-    var demoSpeed = 1;
-    var demoPaused = false;
-    var demoAddNext = null;
-    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function startSpinner(terminal) {
-      if (spinnerEl) stopSpinner();
-      spinnerEl = document.createElement('div');
-      spinnerEl.className = 'demo-line stage';
-      spinnerEl.style.opacity = '1';
-      spinnerEl.textContent = SPINNER[0];
-      terminal.appendChild(spinnerEl);
-      terminal.scrollTop = terminal.scrollHeight;
-      var si = 0;
-      spinnerTimer = setInterval(function() {
-        si = (si + 1) % SPINNER.length;
-        if (spinnerEl) spinnerEl.textContent = SPINNER[si];
-      }, 100);
-    }
-
-    function stopSpinner() {
-      if (spinnerTimer) clearInterval(spinnerTimer);
-      spinnerTimer = null;
-      if (spinnerEl && spinnerEl.parentNode) spinnerEl.parentNode.removeChild(spinnerEl);
-      spinnerEl = null;
-    }
-
-    function togglePause(btn) {
-      demoPaused = !demoPaused;
-      btn.textContent = demoPaused ? '\u25b6' : '\u23f8';
-      if (demoPaused) {
-        if (demoTimer) clearTimeout(demoTimer);
-        stopSpinner();
-      } else if (demoAddNext) {
-        demoTimer = setTimeout(demoAddNext, 100);
-      }
-    }
-
-    function setSpeed(speed, btn) {
-      demoSpeed = speed;
-      document.querySelectorAll('.speed-btn:not(#pause-btn)').forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-    }
-
-    function runDemo() {
-      var terminal = document.getElementById('demo-terminal');
-      if (!terminal) return;
-      terminal.innerHTML = '';
-      stopSpinner();
-      demoPaused = false;
-      document.getElementById('pause-btn').textContent = '\u23f8';
-
-      if (reducedMotion) {
-        DEMO_LINES.forEach(function(line) {
-          var div = document.createElement('div');
-          div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
-          div.style.opacity = '1';
-          div.innerHTML = line.html || '&nbsp;';
-          terminal.appendChild(div);
-        });
+    /* --- FADE-IN REVEALS --- */
+    (function() {
+      var els = document.querySelectorAll('.fade-in');
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function(e){ e.classList.add('visible'); });
         return;
       }
+      var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.15 });
+      els.forEach(function(e){ io.observe(e); });
+    })();
 
-      var i = 0;
-      var lastT = 0;
-
-      function addNextLine() {
-        demoAddNext = addNextLine;
-        if (demoPaused) return;
-        stopSpinner();
-        if (i >= DEMO_LINES.length) {
-          demoPaused = true;
-          demoAddNext = runDemo;
-          document.getElementById('pause-btn').textContent = '\u25b6';
-          return;
-        }
-        var line = DEMO_LINES[i];
-        var div = document.createElement('div');
-        div.className = 'demo-line' + (line.cls ? ' ' + line.cls : '');
-        div.innerHTML = line.html || '&nbsp;';
-        terminal.appendChild(div);
-        terminal.scrollTop = terminal.scrollHeight;
-
-        var curT = line.t || lastT;
-        if (line.t > 0) lastT = line.t;
-        i++;
-
-        // Calculate delay to next line
-        var nextT = (i < DEMO_LINES.length && DEMO_LINES[i].t > 0) ? DEMO_LINES[i].t : 0;
-        var delayMs = 0;
-        if (nextT > curT) {
-          delayMs = ((nextT - curT) * 1000) / (10 * demoSpeed);
-        }
-
-        if (delayMs > 500) {
-          startSpinner(terminal);
-        }
-        demoTimer = setTimeout(addNextLine, Math.max(delayMs, 50));
-      }
-      addNextLine();
-    }
-
-    runDemo();
-
-    // Language-aware doc links: redirect /docs/ to /docs/es/ for Spanish browsers
-    if (navigator.language && navigator.language.startsWith('es')) {
-      document.querySelectorAll('a[href]').forEach(function(a) {
-        var href = a.getAttribute('href');
-        if (href && href.startsWith('/docs/') && !href.startsWith('/docs/es/')) {
-          a.setAttribute('href', href.replace('/docs/', '/docs/es/'));
-        }
+    /* --- THE SCORE --- */
+    var scoreTimers = [];
+    function playScore(force) {
+      var el = document.getElementById('the-score');
+      if (!el) return;
+      var rows = el.querySelectorAll('.score-row');
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      scoreTimers.forEach(clearTimeout); scoreTimers = [];
+      if (reduced && !force) { rows.forEach(function(r){ r.classList.add('on'); }); return; }
+      rows.forEach(function(r){ r.classList.remove('on'); });
+      rows.forEach(function(r, i) {
+        scoreTimers.push(setTimeout(function(){ r.classList.add('on'); }, 350 + i * 850));
       });
     }
+    (function() {
+      var el = document.getElementById('the-score');
+      if (!el) return;
+      if (!('IntersectionObserver' in window)) { playScore(); return; }
+      var played = false;
+      new IntersectionObserver(function(entries, obs) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting && !played) { played = true; playScore(); obs.disconnect(); }
+        });
+      }, { threshold: 0.35 }).observe(el);
+    })();
   </script>
-
 </body>
 </html>
