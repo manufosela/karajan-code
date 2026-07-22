@@ -26,6 +26,7 @@ const REQUIRED_EXPORTS = [
   'runVertexAi',
   'runOpenAi',
   'runAnthropic',
+  'createOllamaClient',
   'createOllamaStreamAdapter',
   'readNdjsonLines',
   'wrapAdapterAsStream',

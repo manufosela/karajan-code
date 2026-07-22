@@ -9,6 +9,13 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Factory `createOllamaClient`** (KJR-TSK-0124, roadmap 0.6.0): una
+  configuración compartida (`baseUrl`, `model`, `embedModel`) produce las
+  tres piezas contra el mismo proceso Ollama — `adapter` (generación
+  blocking vía `POST /api/generate`, sin depender del binario),
+  `streamAdapter` (NDJSON existente) y `embedder` (OpenAI-compatible
+  existente). RAG 100% local con un solo endpoint.
+
 - **Adapter `anthropic` HTTP** (KJR-TSK-0123, roadmap 0.6.0):
   `runAnthropic` contra la Messages API (`/v1/messages`, headers
   `x-api-key` + `anthropic-version: 2023-06-01`) sin SDK, con modelo por
