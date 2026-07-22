@@ -5,6 +5,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { computeBaseRef, setSnapshot } from "../review/diff-generator.js";
+import { ensureContractBlockPresent } from "../review/gate-gitignore.js";
 import { revParse } from "../utils/git.js";
 import { buildCoderPrompt } from "../prompts/coder.js";
 import { buildReviewerPrompt } from "../prompts/reviewer.js";
@@ -71,7 +72,6 @@ export async function autoInit(projectDir, logger) {
       await fs.appendFile(gitignorePath, append, "utf8");
       logger.info(`Created .gitignore with universal entries`);
     }
-    const { ensureContractBlockPresent } = await import("../review/gate-gitignore.js");
     await ensureContractBlockPresent(projectDir);
   } catch (err) {
     logger.warn(`Failed to create .gitignore: ${err.message}`);

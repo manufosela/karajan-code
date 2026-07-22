@@ -6,6 +6,7 @@ import { sonarUp, checkVmMaxMapCount } from "../sonar/manager.js";
 import { ollamaUp, waitForOllamaReady, normalizeOllamaConfig } from "../rag/ollama-manager.js";
 import { checkOllamaCapability, pullOllamaModel } from "../rag/ollama-capability.js";
 import { exists, ensureDir } from "../utils/fs.js";
+import { ensureContractBlockPresent } from "../review/gate-gitignore.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { getTemplatesRoot } from "../utils/templates-root.js";
 import { detectAvailableAgents } from "../utils/agent-detect.js";
@@ -700,7 +701,6 @@ async function ensureGitignoreEntries(projectDir, logger) {
   // and they must land as the CONTRACT BLOCK (`.karajan/*` + re-includes),
   // never a bare `.karajan/` dir-exclude, or git cannot re-include the
   // review-gate/hooks/adrs the whole team inherits (KJC-TSK-0646).
-  const { ensureContractBlockPresent } = await import("../review/gate-gitignore.js");
   const res = await ensureContractBlockPresent(projectDir);
   if (res.changed) logger.info("Added the .karajan contract block to .gitignore (verdicts stay local; gate/hooks/adrs tracked)");
 }
