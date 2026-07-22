@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.8 — el board se vuelve ingobernable para agentes díscolos (actual)
+### v4.1.9 — warnings sobre los que puedes actuar (actual)
+
+Patch. El modal de prompts del dashboard muestra ya cada finding del spec-review — severidad, mensaje y la sugerencia concreta — en vez de "4 findings at severity fail" y un bloque JSON: cuarta issue abierta por el propio Karajan de un usuario, arreglada y cerrada sola en horas. Además, un test de humo flaky en CI queda estabilizado de raíz con mocks que describen el mundo, no una secuencia frágil. Actualización directa desde v4.1.8.
+
+### v4.1.8 — el board se vuelve ingobernable para agentes díscolos
 
 Patch. Se acabaron las peleas dashboard-agente, al estilo Planning Game: las HUs ya no puede borrarlas ningún agente (el fix loop archiva, `kj hu add` rechaza recrear, la API responde 405 con la norma), `kj brief board` enseña a cualquier brain cómo funciona el board, y el board deja de ocultar en silencio los planes con versión derivada — la causa raíz de "me desaparecen tareas", tercera issue abierta por el propio Karajan de un usuario y cerrada sola por su fix. Actualización directa desde v4.1.7.
 
