@@ -18,7 +18,7 @@ I want to use Karajan in this project: read https://karajancode.com/start.md
 and do what it says.
 ```
 
-The router prompt makes your agent check whether kj is installed (and set up the whole machine if not), detect whether this is a new project or an existing codebase, activate the environment accordingly, and **stop and WAIT for you** whenever a step needs sudo, an account, or `kj` exits with code 3 (`PENDING USER ACTION`) — a partial install is a failed install. The prompts are versioned with kj itself ([docs/prompts/](https://github.com/manufosela/karajan-code/tree/main/docs/prompts)).
+The router prompt makes your agent check whether kj is installed (and set up the whole machine if not), detect whether this is a new project or an existing codebase, activate the environment accordingly, and **stop and WAIT for you** whenever a step needs your permission (sudo/administrator), an account, or `kj` exits with code 3 (`PENDING USER ACTION`) — a partial install is a failed install. The prompts are versioned with kj itself ([docs/prompts/](https://github.com/manufosela/karajan-code/tree/main/docs/prompts)).
 
 Prefer to drive each phase yourself? The three flows below are the same thing, split out.
 
@@ -30,8 +30,8 @@ Prefer to drive each phase yourself? The three flows below are the same thing, s
 ```text
 Read https://karajancode.com/install-machine.md and do what it says: install
 Karajan Code on this machine, FULLY operational. Ask me before each install;
-if a step needs sudo or kj exits with code 3, STOP, show me the exact
-commands and WAIT for my go-ahead.
+if a step needs elevated privileges (sudo/administrator) or kj exits
+with code 3, STOP, show me the exact commands and WAIT for my go-ahead.
 ```
 
 </TabItem>
@@ -56,7 +56,7 @@ Full product always: uses your Node ≥ 22.12 or auto-provisions the official LT
 ```text
 This machine already has kj. Read https://karajancode.com/project-new.md and
 activate Karajan in THIS project (new). Stop and wait for me if anything
-needs sudo, an account, or kj exits with code 3.
+needs my permission, an account, or kj exits with code 3.
 ```
 
 </TabItem>
@@ -84,7 +84,7 @@ Commit the generated contract files (`.karajan/review-gate`, `.karajan/hooks/`, 
 This machine already has kj. Read https://karajancode.com/project-legacy.md
 and adopt Karajan in THIS existing codebase: work on a branch, respect the
 project's own configs, run kj onboard first, and stop and wait for me if
-anything needs sudo or kj exits with code 3.
+anything needs my permission or kj exits with code 3.
 ```
 
 </TabItem>

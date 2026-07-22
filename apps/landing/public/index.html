@@ -167,6 +167,8 @@
     .hero-tagline { font-size: clamp(1rem, 2vw, 1.15rem); color: var(--text-muted); max-width: 480px; margin-bottom: 0.25rem; font-weight: 300; }
     .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.5rem; letter-spacing: 0.04em; font-weight: 400; max-width: 560px; }
     .v4-pill { display: inline-block; padding: 0.2rem 0.7rem; margin-right: 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; color: #e8b04b; border: 1px solid rgba(232, 176, 75, 0.45); background: rgba(232, 176, 75, 0.08); vertical-align: middle; }
+    .hero-note { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.65rem; letter-spacing: 0.02em; font-weight: 400; max-width: 560px; }
+    .hero-note-last { margin-bottom: 2.5rem; }
 
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
@@ -393,7 +395,11 @@
       <span>I want to use Karajan in this project: read karajancode.com/start.md and do what it says.</span>
       <span class="copy-hint" aria-live="polite">click to copy</span>
     </button>
-    <p class="hero-sub">Paste it into your AI agent (Claude Code, Codex, Cursor…) — it sets up everything and <em>waits for you</em> at every sudo. Prefer the terminal? <code>curl -fsSL https://karajancode.com/install.sh | sh</code> installs the CLI — see <a href="/docs/v4/install/">install options</a>.</p>
+    <p class="hero-note">Paste it into your AI agent (Claude Code, Codex, Cursor, VS Code). It checks your machine, installs what is missing, and <em>stops to wait for you</em> whenever a step needs your permission.</p>
+
+    <p class="hero-note">Prefer the terminal? <code>curl -fsSL https://karajancode.com/install.sh | sh</code> on Linux and macOS.</p>
+
+    <p class="hero-note hero-note-last">Want to see what gets installed, or set it up yourself first? <a href="/docs/v4/install/">Requirements and manual install</a>.</p>
     <nav class="hero-links" aria-label="Project links">
       <a href="/docs/v4/install/">Get Started</a>
       <a href="/docs/v4/working-with-your-agent/">The method</a>

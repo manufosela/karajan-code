@@ -18,7 +18,7 @@ Quiero usar Karajan en este proyecto: lee https://karajancode.com/start.md
 y haz lo que dice.
 ```
 
-El prompt enrutador hace que tu agente compruebe si kj está instalado (y monte la máquina completa si no), detecte si esto es un proyecto nuevo o un código existente, active el entorno según toque, y **pare y te ESPERE** siempre que un paso necesite sudo, una cuenta, o kj salga con código 3 (`PENDING USER ACTION`) — una instalación parcial es una instalación fallida. Los prompts van versionados con el propio kj ([docs/prompts/](https://github.com/manufosela/karajan-code/tree/main/docs/prompts)).
+El prompt enrutador hace que tu agente compruebe si kj está instalado (y monte la máquina completa si no), detecte si esto es un proyecto nuevo o un código existente, active el entorno según toque, y **pare y te ESPERE** siempre que un paso necesite tu permiso (sudo/administrador), una cuenta, o kj salga con código 3 (`PENDING USER ACTION`) — una instalación parcial es una instalación fallida. Los prompts van versionados con el propio kj ([docs/prompts/](https://github.com/manufosela/karajan-code/tree/main/docs/prompts)).
 
 ¿Prefieres conducir cada fase tú? Los tres flujos de abajo son lo mismo, separados.
 
@@ -30,8 +30,8 @@ El prompt enrutador hace que tu agente compruebe si kj está instalado (y monte 
 ```text
 Lee https://karajancode.com/install-machine.md y haz lo que dice: instala
 Karajan Code en esta máquina, TOTALMENTE operativo. Pregúntame antes de cada
-instalación; si un paso necesita sudo o kj sale con código 3, PARA, muéstrame
-los comandos exactos y ESPERA mi confirmación.
+instalación; si un paso necesita privilegios elevados (sudo/administrador) o kj sale
+con código 3, PARA, muéstrame los comandos exactos y ESPERA mi confirmación.
 ```
 
 </TabItem>
@@ -55,8 +55,8 @@ Producto completo siempre: usa tu Node ≥ 22.12 o autoprovisiona el LTS oficial
 
 ```text
 Esta máquina ya tiene kj. Lee https://karajancode.com/project-new.md y activa
-Karajan en ESTE proyecto (nuevo). Para y espérame si algo necesita sudo, una
-cuenta, o kj sale con código 3.
+Karajan en ESTE proyecto (nuevo). Para y espérame si algo necesita mi
+permiso, una cuenta, o kj sale con código 3.
 ```
 
 </TabItem>
@@ -84,7 +84,7 @@ Commitea los ficheros del contrato (`.karajan/review-gate`, `.karajan/hooks/`, `
 Esta máquina ya tiene kj. Lee https://karajancode.com/project-legacy.md y
 adopta Karajan en ESTE código existente: trabaja en una rama, respeta las
 configs propias del proyecto, ejecuta kj onboard primero, y para y espérame
-si algo necesita sudo o kj sale con código 3.
+si algo necesita mi permiso o kj sale con código 3.
 ```
 
 </TabItem>
