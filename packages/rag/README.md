@@ -78,6 +78,22 @@ pnpm smoke:gemini
 pnpm smoke:ollama
 ```
 
+## RAG en 5 minutos (Easy RAG)
+
+Crear un RAG sobre una carpeta de código, docs o datos sin escribir código
+([ADR-005](./docs/adrs/ADR-005-easy-rag-layer.md)):
+
+```bash
+karajan-rag index ./mi-proyecto                    # autodetecta e indexa (LanceDB local)
+karajan-rag query "¿cómo se factura?" ./mi-proyecto # híbrido vector+BM25, fichero:línea
+karajan-rag serve ./mi-proyecto                     # servidor MCP (rag_query/rag_status)
+karajan-rag serve ./mi-proyecto --http --port 8080  # o HTTP: POST /query, GET /health
+```
+
+Reindexado incremental, config opcional (`karajan-rag init`), imagen Docker
+y despliegue en GCP con Terraform (`deploy/gcp/`). Guía completa:
+[docs/easy-rag.md](./docs/easy-rag.md).
+
 ## Quickstart end-to-end
 
 Ejemplo mínimo que encadena todo el stack RAG con stubs locales — sin Ollama,
