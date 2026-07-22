@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.4 — el ciclo self-healing cerró su primera vuelta (actual)
+### v4.1.5 — el arbitraje vuelve a funcionar, con juez nuevo (actual)
+
+Patch. La retirada del tier individual de gemini dejó máquinas sin tercera IA operativa — v4.1.5 restaura el arbitraje: **Qwen Code** entra como sexto agente built-in (fork de gemini-cli, cloud, gratis con cuenta Qwen), y `kj solomon` sobrevive a diffs grandes (prompt por stdin), confía en workspaces headless y falla señalando la salida cuando un árbitro está muerto. Extra: el README es v4-first y los prompts de arranque van versionados con kj tras `karajancode.com/start.md`. Actualización directa desde v4.1.4.
+
+### v4.1.4 — el ciclo self-healing cerró su primera vuelta
 
 Patch. El Karajan de un usuario diagnosticó una fricción real de instalación y la subió con `kj report-issue` (sanitizada, deduplicada, aprobada por el humano) — y esta versión trae el fix: la guía de semgrep ahora es distro-aware y segura frente a PEP 668 (Debian/Ubuntu reciben `sudo apt install pipx`, nunca un bootstrap con pip que ahí no puede funcionar). Además, drift de dependencias limpio: npm audit a cero vulnerabilidades. Actualización directa desde v4.1.3.
 
