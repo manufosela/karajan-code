@@ -25,6 +25,7 @@ const REQUIRED_EXPORTS = [
   'runBedrock',
   'runVertexAi',
   'runOpenAi',
+  'runAnthropic',
   'createOllamaStreamAdapter',
   'readNdjsonLines',
   'wrapAdapterAsStream',
