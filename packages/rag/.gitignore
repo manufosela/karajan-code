@@ -40,3 +40,13 @@ data/index/
 # Credentials (NUNCA commitear)
 serviceAccountKey.json
 **/credentials.json
+
+# Índices Easy RAG locales (ADR-005)
+.karajan/
+
+# Terraform (deploy/*)
+**/.terraform/
+**/.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+*.tfvars
