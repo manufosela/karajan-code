@@ -56,6 +56,11 @@ const INSTALL_COMMANDS = {
     linux: "npm install -g @qwen-code/qwen-code",
     windows: "npm install -g @qwen-code/qwen-code"
   },
+  copilot: {
+    macos: "npm install -g @github/copilot",
+    linux: "npm install -g @github/copilot",
+    windows: "npm install -g @github/copilot"
+  },
   docker: {
     macos: "brew install --cask docker",
     linux: "sudo apt install docker.io docker-compose-v2 (or see https://docs.docker.com/engine/install/)",
