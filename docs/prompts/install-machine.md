@@ -21,16 +21,18 @@ LTS into `~/.karajan/node` (checksum-verified, nothing system-wide). Review
 the script first, as you always should. Equivalent: `npm install -g
 karajan-code`.
 
-**Windows:**
+**Windows (PowerShell):**
 
-1. If Node ≥ 22.12 is present: `npm install -g karajan-code` — that's the
-   full product.
-2. If Node is missing: install the official LTS first — `winget install
-   OpenJS.NodeJS.LTS` (needs the user's confirmation/elevation: STOP and
-   wait) — then run the npm install above in a NEW terminal.
-3. `irm https://karajancode.com/install.ps1 | iex` exists but installs the
-   CLI-only standalone binary (no RAG, board or MCP) — use it only if the
-   user explicitly wants no Node.
+```powershell
+irm https://karajancode.com/install.ps1 | iex
+```
+
+Full product, same guarantees as the sh installer: uses the machine's Node
+if ≥ 22.12, or auto-provisions the official Node LTS into `~\.karajan\node`
+(checksum-verified, nothing system-wide). Equivalent with Node already
+present: `npm install -g karajan-code`. CLI-only standalone binary (no RAG,
+board or MCP): set `$env:KJ_STANDALONE = "1"` first — only if the user
+explicitly wants no Node.
 
 ## 2. Diagnose, then complete the stack
 
