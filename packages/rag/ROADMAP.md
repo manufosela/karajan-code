@@ -80,14 +80,14 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 - ✅ **`karajan-rag eval`** — evaluación declarativa con reporte por métrica, exit code para CI y `--judges` opcional.
 - Incluye los 4 fixes de la validación real en GCP (KJR-BUG-0001..0004) y la guarda manifest↔store (KJR-BUG-0005).
 
-## 0.5.0 — Persistencia y reindexado
+## 0.5.0 — Persistencia y reindexado (✅ publicada 2026-07-22)
 
 **Objetivo**: políticas robustas de reindex, migración entre stores y modelos.
 
-- Completar la política de reindex de `ADR-002` sobre la base entregada en 0.3.0 (manifest por fingerprint ya operativo en la capa Easy RAG; falta generalizarla al pipeline declarativo).
-- Migración asistida `InMemoryVectorStore` ↔ `PgVectorStore` ↔ `LanceDBStore`.
-- Soporte de `DELETE`/`UPDATE` por `documentId` con invalidación coherente de caché.
-- Backpressure en ingestas grandes (streaming + lotes configurables).
+- ✅ **ADR-002 generalizado**: el fingerprint del espacio vectorial vive con los datos (`ensureIndexFingerprint` en los tres stores) — cualquier pipeline falla explícitamente ante espacios incompatibles.
+- ✅ **Migración asistida** `InMemoryVectorStore` ↔ `PgVectorStore` ↔ `LanceDBStore` (`scan` + `migrateVectorStore`, idempotente, con fingerprint viajando).
+- ✅ **`deleteByDocument`** en los tres stores con caché content-addressed (sin invalidación necesaria, demostrado con test).
+- ✅ **Backpressure**: ingesta por lotes configurables (`--batch-size`).
 
 ## 0.6.0+ — Integraciones embebidas y ecosistema
 
