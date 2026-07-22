@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.7] - 2026-07-22
+
+Patch. **A field day, literally**: the second self-healed issue closed its full cycle, Windows reached full-product parity, and every HU now says where it came from.
+
+### Added
+
+- **Windows installer goes npm-first** (KJC-TSK-0667): `irm karajancode.com/install.ps1 | iex` now installs the FULL product — the machine's Node ≥ 22.12 or a checksum-verified official LTS auto-provisioned into `~\.karajan\node` (staging + backup + restore swap, self-contained `--prefix`, both shims validated before the swap). The SEA binary moves behind `$env:KJ_STANDALONE = "1"`. Same guarantees as the sh installer, Windows PowerShell 5.1 compatible.
+- **HU provenance** (KJC-TSK-0661, Jorge's friction): every HU records who created it — the detected host agent, `human`, `agent`, `planner` or `plan-reviewer`. `kj hu list` shows `[plan · by whom · date]` per line plus a next-action hint; `--json` exposes `created_by`/`created_at`. No more untraceable cards on the board.
+
+### Fixed
+
+- **`kj init` writes the karajan contract block to .gitignore** (KJC-BUG-0123, issue #1268 filed by a user's Karajan via `kj report-issue` — second full self-healing cycle): review verdicts stay local while the gate/hooks/ADRs stay trackable. The orchestrator's autoInit stops writing the bare `.karajan/` exclude that silently broke gate inheritance; both paths now share one exported `CONTRACT_BLOCK`.
+- **External scanners never fire from the unit suite** (KJC-BUG-0122): on machines with the full stack installed, parallel vitest workers each launched a real `semgrep --config auto` whole-repo scan (load average 50, orphaned processes). Kill-switch in the semgrep/osv collectors under `VITEST`; e2e opts in with `KJ_ALLOW_REAL_SCANS=1`. Verified with a PATH spy: 24 invocations before, 0 after.
+
 ## [4.1.6] - 2026-07-22
 
 Patch. **GitHub Copilot CLI joins the orchestra.** The free-tier era of AI CLIs keeps shrinking (gemini retired, Qwen OAuth discontinued 2026-04-15) — Copilot rides a subscription many developers already have.
