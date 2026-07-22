@@ -1,7 +1,7 @@
 // AB-H (KJC-TSK-0658): the brain can honor "card first" and "check the
 // ADRs" on any backend — HU writes without the subprocess planner, ADRs
 // as numbered git-tracked markdown.
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -47,6 +47,25 @@ describe("kj hu", () => {
     // the full canonical id resolves even when a short_id collides with it
     const moved = await huCommand({ config: cfg(), action: "move", args: ["hu_other_001", "done"], flags: { json: true } });
     expect(moved.id).toBe("hu_other_001");
+  });
+
+  // KJC-TSK-0661 (Jorge's friction): every HU carries provenance — who
+  // created it, when, from which plan — and the list surfaces it.
+  it("add stamps created_by and list exposes provenance + next-action hint", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["Traced"], flags: { json: true, id: "TR-1" } });
+    const rows = await huCommand({ config: cfg(), action: "list", flags: { json: true } });
+    expect(rows[0].plan).toBe("brain-backlog");
+    expect(typeof rows[0].created_by).toBe("string");
+    expect(rows[0].created_by.length).toBeGreaterThan(0);
+    expect(rows[0].created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const logs = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
+    await huCommand({ config: cfg(), action: "list", flags: {} });
+    spy.mockRestore();
+    const out = logs.join("\n");
+    expect(out).toMatch(/brain-backlog · by \S+/);
+    expect(out).toMatch(/kj hu move <id> skipped/);
   });
 
   it("second add reuses the same backlog plan", async () => {

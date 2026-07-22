@@ -229,6 +229,9 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
       reviewer_model: models.reviewer_model,
       reviewer_provider: models.reviewer_provider,
     });
+    // KJC-TSK-0661: provenance stamp (addHu builds its object explicitly,
+    // so this goes on the returned reference, not in huData).
+    hu.created_by = "planner";
     if (symbolicId) symbolicToHuId.set(symbolicId, hu.id);
     const deps = typeof step === "object" && Array.isArray(step.dependencies) ? step.dependencies : [];
     stepDeps.push(deps);

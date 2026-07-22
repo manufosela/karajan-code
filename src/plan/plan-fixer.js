@@ -140,6 +140,7 @@ export function applyFixerPatch(plan, patch) {
       acceptance_tests: a.acceptance_tests,
       reuse: a.reuse || [],
     });
+    hu.created_by = "plan-reviewer"; // KJC-TSK-0661: provenance stamp
     if (symbolicId) symbolicToHuId.set(symbolicId, hu.id);
     const depsSymbolic = Array.isArray(a.dependencies) ? a.dependencies : [];
     addedHus.push({ hu, depsSymbolic });

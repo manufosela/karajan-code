@@ -8,6 +8,14 @@
 import { addHu, updateHuStatus } from "../plan/plan-hu-ops.js";
 import { generatePlanId } from "../plan/plan-id.js";
 import { savePlan, listPlans, loadPlan } from "../plan/plan-store.js";
+import { detectHostAgent } from "../utils/agent-detect.js";
+
+// KJC-TSK-0661 (Jorge's friction): every HU records WHO created it — the
+// board must never show work nobody can trace. Host agent env → that agent;
+// a human typing in a terminal → "human"; anything else headless → "agent".
+export function creatorLabel() {
+  return detectHostAgent() || (process.stdin.isTTY ? "human" : "agent");
+}
 
 export const HU_STATUSES = ["pending", "running", "done", "failed", "skipped"];
 const BACKLOG_NAME = "brain-backlog";
@@ -35,12 +43,22 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
     for (const meta of plans) {
       const plan = await loadPlan(projectDir, meta.planId);
       for (const h of plan.hus || []) {
-        rows.push({ id: h.id, short_id: h.short_id, title: h.title, status: h.status, plan: plan.alias || plan.planId });
+        rows.push({
+          id: h.id, short_id: h.short_id, title: h.title, status: h.status,
+          plan: plan.alias || plan.planId,
+          // KJC-TSK-0661: provenance — where a card came from is part of
+          // the card. Older HUs predate the stamp: shown as "?".
+          created_by: h.created_by || null, created_at: h.createdAt || null,
+        });
       }
     }
     if (flags.json) { console.log(JSON.stringify(rows)); return rows; }
-    for (const r of rows) console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}`);
+    for (const r of rows) {
+      const origin = `${r.plan} · by ${r.created_by || "?"}${r.created_at ? ` · ${r.created_at.slice(0, 10)}` : ""}`;
+      console.log(`${(r.short_id || r.id).padEnd(28)} ${r.status.padEnd(8)} ${r.title}  [${origin}]`);
+    }
     if (rows.length === 0) console.log("no HUs yet — create one with: kj hu add \"<story>\"");
+    else console.log("→ work one: ask your agent, or kj run --plan <plan> · discard one: kj hu move <id> skipped");
     return rows;
   }
 
@@ -53,9 +71,10 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
       short_id: flags.id || null,
       acceptance_criteria: flags.criteria ? [flags.criteria] : [],
     });
+    hu.created_by = creatorLabel();
     await savePlan(projectDir, plan);
-    return emit({ id: hu.id, short_id: hu.short_id, status: hu.status },
-      `✓ HU created: ${hu.short_id || hu.id} (pending) — it shows up in \`kj board\``);
+    return emit({ id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by },
+      `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
   }
 
   if (action === "move") {
