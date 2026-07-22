@@ -113,16 +113,23 @@ async function deleteFileChunks(store, manifest, relPath) {
   }
 }
 
+/** Chunks embebidos/upserteados por lote (backpressure, 0.5.0). */
+export const DEFAULT_INGEST_BATCH_SIZE = 64;
+
 /**
  * Indexa (o reindexa incrementalmente) un directorio.
  *
  * @param {string} rootDir
- * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void }} deps
+ * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void, batchSize?: number }} deps
  * @returns {Promise<IndexResult>}
  */
 export async function indexDirectory(rootDir, deps) {
   const { store, embedder } = deps;
   const notify = deps.onEvent ?? (() => {});
+  const batchSize = deps.batchSize ?? DEFAULT_INGEST_BATCH_SIZE;
+  if (!Number.isInteger(batchSize) || batchSize <= 0) {
+    throw new Error('indexDirectory: "batchSize" debe ser entero positivo.');
+  }
 
   const { groups } = await collectIndexableFiles(rootDir);
   const fingerprint = computeIndexFingerprint({
@@ -202,14 +209,23 @@ export async function indexDirectory(rootDir, deps) {
       metadata: { source: relPath, sourceType },
     };
     const chunks = chunkWithPreset(doc, preset);
-    const vectors = await embedder.embedBatch(chunks.map((c) => c.content));
-    await store.upsert(
-      chunks.map((chunk, i) => ({
-        id: chunk.id,
-        vector: vectors[i],
-        metadata: { ...chunk.metadata, content: chunk.content, documentId: chunk.documentId },
-      })),
-    );
+    // Backpressure (0.5.0): embed + upsert por lotes — nunca se cargan en
+    // memoria todos los embeddings de un fichero grande a la vez.
+    const totalBatches = Math.ceil(chunks.length / batchSize);
+    for (let start = 0; start < chunks.length; start += batchSize) {
+      const slice = chunks.slice(start, start + batchSize);
+      const vectors = await embedder.embedBatch(slice.map((c) => c.content));
+      await store.upsert(
+        slice.map((chunk, i) => ({
+          id: chunk.id,
+          vector: vectors[i],
+          metadata: { ...chunk.metadata, content: chunk.content, documentId: chunk.documentId },
+        })),
+      );
+      if (totalBatches > 1) {
+        notify(`indexando: ${relPath} lote ${start / batchSize + 1}/${totalBatches}`);
+      }
+    }
     next.files[relPath] = { hash, sourceType, chunkIds: chunks.map((c) => c.id) };
     chunksUpserted += chunks.length;
     notify(`indexado: ${relPath} (${chunks.length} chunks)`);

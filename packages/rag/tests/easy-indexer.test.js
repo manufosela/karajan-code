@@ -117,6 +117,48 @@ test('indexDirectory: sin cambios no toca el store', async () => {
   }
 });
 
+test('indexDirectory: embebe y upsertea por lotes de batchSize (backpressure)', async () => {
+  const manyLines = Array.from(
+    { length: 60 },
+    (_, i) => `Párrafo número ${i}: ${'contenido relleno para forzar varios chunks. '.repeat(5)}`,
+  ).join('\n\n');
+  const root = await makeProject({ 'grande.md': `# Grande\n${manyLines}\n` });
+  const { store, embedder } = makeDeps();
+  const embedSizes = [];
+  const upsertSizes = [];
+  const originalEmbedBatch = embedder.embedBatch.bind(embedder);
+  embedder.embedBatch = async (texts) => {
+    embedSizes.push(texts.length);
+    return originalEmbedBatch(texts);
+  };
+  const originalUpsert = store.upsert.bind(store);
+  store.upsert = (records) => {
+    upsertSizes.push(records.length);
+    return originalUpsert(records);
+  };
+  try {
+    const events = [];
+    const result = await indexDirectory(root, {
+      store,
+      embedder,
+      batchSize: 3,
+      onEvent: (msg) => events.push(msg),
+    });
+    assert.ok(result.chunksUpserted > 3, 'el fichero produce varios lotes');
+    assert.ok(embedSizes.every((n) => n <= 3), `lotes de embed ≤3, fueron ${embedSizes}`);
+    assert.ok(upsertSizes.every((n) => n <= 3), `lotes de upsert ≤3, fueron ${upsertSizes}`);
+    assert.equal(store.size(), result.chunksUpserted, 'resultado idéntico al indexado sin lotes');
+    assert.ok(events.some((e) => e.includes('lote 1/')), 'progreso por lote visible');
+
+    await assert.rejects(
+      () => indexDirectory(root, { store, embedder, batchSize: 0 }),
+      /batchSize/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('indexDirectory: usa deleteByDocument del store al invalidar documentos', async () => {
   const root = await makeProject({ 'a.md': '# A\nuno\n', 'b.md': '# B\ndos\n' });
   const { store, embedder } = makeDeps();

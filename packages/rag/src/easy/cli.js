@@ -22,7 +22,7 @@ import {
 } from './rag-service.js';
 import { startRagHttpServer } from './http-server.js';
 import { startRagMcpServer } from './mcp-server.js';
-import { indexDirectory } from './indexer.js';
+import { indexDirectory, DEFAULT_INGEST_BATCH_SIZE } from './indexer.js';
 import { queryIndex } from './query.js';
 import {
   CONFIG_FILE,
@@ -46,6 +46,7 @@ const DEFAULT_DIMENSIONS = Object.freeze({ hash: 256, transformers: 384 });
  * @property {'lancedb' | 'pgvector' | 'in-memory'} store
  * @property {'hash' | 'transformers'} embedder
  * @property {number} dimensions
+ * @property {number} batchSize
  */
 
 /**
@@ -65,6 +66,7 @@ export function parseIndexArgs(argv, defaults = {}) {
       store: { type: 'string' },
       embedder: { type: 'string' },
       dimensions: { type: 'string' },
+      'batch-size': { type: 'string' },
     },
   });
 
@@ -90,7 +92,13 @@ export function parseIndexArgs(argv, defaults = {}) {
   if (!Number.isInteger(dimensions) || dimensions <= 0) {
     throw new Error('index: --dimensions debe ser un entero positivo.');
   }
-  return { rootDir: path.resolve(rootDir), store, embedder, dimensions };
+  const batchSize = values['batch-size']
+    ? Number.parseInt(String(values['batch-size']), 10)
+    : DEFAULT_INGEST_BATCH_SIZE;
+  if (!Number.isInteger(batchSize) || batchSize <= 0) {
+    throw new Error('index: --batch-size debe ser un entero positivo.');
+  }
+  return { rootDir: path.resolve(rootDir), store, embedder, dimensions, batchSize };
 }
 
 /**
@@ -503,7 +511,12 @@ export async function runIndexCommand(argv, io = {}) {
     log('aviso: --store in-memory es efímero — útil solo para pruebas.');
   }
 
-  const result = await indexDirectory(options.rootDir, { store, embedder, onEvent: log });
+  const result = await indexDirectory(options.rootDir, {
+    store,
+    embedder,
+    onEvent: log,
+    batchSize: options.batchSize,
+  });
   log(
     `hecho: ${result.indexedFiles} indexados, ${result.unchangedFiles} sin cambios, ` +
       `${result.removedFiles} invalidados, ${result.chunksUpserted} chunks` +

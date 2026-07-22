@@ -32,6 +32,13 @@ test('parseIndexArgs: flags explícitos y dimensions por embedder', () => {
   assert.equal(custom.dimensions, 128);
 });
 
+test('parseIndexArgs: --batch-size con default y validación', () => {
+  assert.equal(parseIndexArgs(['.']).batchSize, 64);
+  assert.equal(parseIndexArgs(['.', '--batch-size', '16']).batchSize, 16);
+  assert.throws(() => parseIndexArgs(['.', '--batch-size', 'muchos']), /--batch-size/);
+  assert.throws(() => parseIndexArgs(['.', '--batch-size', '0']), /--batch-size/);
+});
+
 test('parseIndexArgs: valida ruta, store y embedder', () => {
   assert.throws(() => parseIndexArgs([]), /ruta/);
   assert.throws(() => parseIndexArgs(['.', '--store', 'redis']), /--store/);
