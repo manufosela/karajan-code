@@ -4,6 +4,7 @@ import { GeminiAgent } from "./gemini-agent.js";
 import { AiderAgent } from "./aider-agent.js";
 import { OpenCodeAgent } from "./opencode-agent.js";
 import { QwenAgent } from "./qwen-agent.js";
+import { CopilotAgent } from "./copilot-agent.js";
 
 const agentRegistry = new Map();
 
@@ -51,3 +52,4 @@ registerAgent("gemini", GeminiAgent, { bin: "gemini", installUrl: "https://githu
 registerAgent("aider", AiderAgent, { bin: "aider", installUrl: "https://aider.chat/docs/install.html" });
 registerAgent("opencode", OpenCodeAgent, { bin: "opencode", installUrl: "https://opencode.ai" });
 registerAgent("qwen", QwenAgent, { bin: "qwen", installUrl: "https://github.com/QwenLM/qwen-code" });
+registerAgent("copilot", CopilotAgent, { bin: "copilot", installUrl: "https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli" });
