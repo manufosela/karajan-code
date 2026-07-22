@@ -79,3 +79,38 @@ describe("runSpecReview", () => {
     expect(noopLog.warn).toHaveBeenCalled();
   });
 });
+
+// KJC-BUG-0125 (issue #1275): the prompt carries the FULL findings so the
+// dashboard modal can show what is wrong and how to fix it — not just a count.
+describe("prompt payload carries full findings", () => {
+  const rich = [
+    { id: "F-001", severity: "fail", category: "missing_ac", message: "no acceptance criteria", suggestion: "add Given/When/Then" },
+    { id: "F-002", severity: "warn", category: "ambiguity", message: "vague scope", suggestion: null },
+  ];
+
+  it("interactive askQuestion detail includes findings with message + suggestion", async () => {
+    const { runSpecReview } = await loadWith({ ok: true, result: { severity: "fail", findings: rich } });
+    const askQuestion = vi.fn().mockResolvedValue("continue");
+    await runSpecReview({ spec: "x", config: {}, logger: noopLog, askQuestion, flags: { forceSpecReview: true } });
+    const detail = askQuestion.mock.calls[0][1].detail;
+    expect(detail.findings).toHaveLength(2);
+    expect(detail.findings[0]).toMatchObject({ id: "F-001", severity: "fail", message: "no acceptance criteria", suggestion: "add Given/When/Then" });
+    expect(detail.findings[1].suggestion).toBeNull();
+  });
+
+  it("caps the findings shipped in the prompt", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: `F-${i}`, severity: "warn", category: "c", message: "m" }));
+    const { runSpecReview } = await loadWith({ ok: true, result: { severity: "warn", findings: many } });
+    const askQuestion = vi.fn().mockResolvedValue("continue");
+    await runSpecReview({ spec: "x", config: {}, logger: noopLog, askQuestion, flags: { forceSpecReview: true } });
+    expect(askQuestion.mock.calls[0][1].detail.findings).toHaveLength(20);
+    expect(askQuestion.mock.calls[0][1].detail.findingCount).toBe(30); // the real total stays visible
+  });
+
+  it("autonomous resolver context includes findings too", async () => {
+    const { runSpecReview } = await loadWith({ ok: true, result: { severity: "fail", findings: rich } });
+    const resolve = vi.fn().mockResolvedValue({ choice: "PROCEED" });
+    await runSpecReview({ spec: "x", config: {}, logger: noopLog, askQuestion: vi.fn(), resolve, autonomy: "autonomous", flags: { forceSpecReview: true } });
+    expect(resolve.mock.calls[0][0].context.findings).toHaveLength(2);
+  });
+});

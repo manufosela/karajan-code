@@ -11,6 +11,16 @@ import { RISK } from "../autonomy/policy.js";
 
 const MAX_REFINE_ITERATIONS = 5;
 
+// KJC-BUG-0125 (issue #1275): the prompt used to carry only counts and
+// categories — the dashboard modal showed "4 findings at severity fail"
+// with nothing to act on. The full findings travel with the prompt now
+// (capped: a runaway reviewer must not blow up the prompt payload).
+const MAX_FINDINGS_IN_PROMPT = 20;
+const findingsForPrompt = (findings) => findings.slice(0, MAX_FINDINGS_IN_PROMPT).map((f) => ({
+  id: f.id, severity: f.severity, category: f.category,
+  message: f.message, suggestion: f.suggestion || null,
+}));
+
 /**
  * Decide the gate action (`continue` | `refine`) autonomously: the Arbiter
  * picks PROCEED (proceed with the best reading) or RETRY_DIFFERENT_APPROACH
@@ -24,7 +34,7 @@ async function decideGateAutonomously(resolve, { severity, findings }) {
       { value: "PROCEED", label: "proceed with the best reading", conservative: true },
       { value: "RETRY_DIFFERENT_APPROACH", label: "auto-refine the spec" },
     ],
-    context: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))] },
+    context: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], findings: findingsForPrompt(findings) },
     risk: severity === "fail" ? RISK.HIGH : RISK.LOW,
   });
   return choice === "RETRY_DIFFERENT_APPROACH" ? "refine" : "continue";
@@ -71,7 +81,7 @@ export async function runSpecReview({ spec, config, logger, askQuestion, flags =
       const answer = await askQuestion(
         `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: continue)`,
         {
-          detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1 },
+          detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1, findings: findingsForPrompt(findings) },
           // KJC-BUG-0109: mirrors the interactive default — --yes presses Enter.
           defaultAnswer: "continue",
         },
