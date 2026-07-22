@@ -264,3 +264,76 @@ export function chunkByHeadings(doc, options) {
   }
   return chunks;
 }
+
+const RECORD_FORMATS = Object.freeze(['csv', 'tsv', 'jsonl', 'auto']);
+
+/**
+ * Detecta el formato de un contenido tabular a partir de su primera línea:
+ * objeto JSON → jsonl; tabulador → tsv; en otro caso → csv.
+ *
+ * @param {string} firstLine
+ * @returns {'csv' | 'tsv' | 'jsonl'}
+ */
+function sniffRecordFormat(firstLine) {
+  const trimmed = firstLine.trim();
+  if (trimmed.startsWith('{')) return 'jsonl';
+  if (trimmed.includes('\t')) return 'tsv';
+  return 'csv';
+}
+
+/**
+ * Trocea un Document tabular (CSV/TSV/JSONL) en lotes de registros.
+ *
+ * - CSV/TSV: la primera línea no vacía se trata como cabecera y se
+ *   prependea a cada chunk para que los registros conserven su contexto
+ *   de columnas al embeberse por separado.
+ * - JSONL: cada línea es un registro autocontenido, sin cabecera.
+ * - Las líneas vacías no cuentan como registro.
+ * - `metadata.records` = nº de registros del chunk, `metadata.recordStart`
+ *   = índice 1-based del primer registro, `metadata.format` = formato
+ *   efectivo, `metadata.offset` = offset del primer registro del chunk.
+ *
+ * @param {Document} doc
+ * @param {{ recordsPerChunk: number, format?: 'csv' | 'tsv' | 'jsonl' | 'auto' }} options
+ * @returns {Chunk[]}
+ */
+export function chunkByRecords(doc, options) {
+  const { recordsPerChunk } = options;
+  const format = options.format ?? 'auto';
+  if (!Number.isInteger(recordsPerChunk) || recordsPerChunk <= 0) {
+    throw new Error('chunkByRecords: "recordsPerChunk" debe ser entero positivo.');
+  }
+  if (!RECORD_FORMATS.includes(format)) {
+    throw new Error(`chunkByRecords: "format" debe ser uno de ${RECORD_FORMATS.join(', ')}.`);
+  }
+
+  const content = String(doc.content ?? '');
+  /** @type {{ text: string, offset: number }[]} */
+  const lines = [];
+  let cursor = 0;
+  for (const raw of content.split('\n')) {
+    if (raw.trim().length > 0) lines.push({ text: raw, offset: cursor });
+    cursor += raw.length + 1;
+  }
+  if (lines.length === 0) return [];
+
+  const effectiveFormat = format === 'auto' ? sniffRecordFormat(lines[0].text) : format;
+  const hasHeader = effectiveFormat !== 'jsonl';
+  const header = hasHeader ? lines[0].text : null;
+  const records = hasHeader ? lines.slice(1) : lines;
+
+  const chunks = [];
+  for (let start = 0; start < records.length; start += recordsPerChunk) {
+    const batch = records.slice(start, start + recordsPerChunk);
+    const body = batch.map((l) => l.text).join('\n');
+    const text = header === null ? body : `${header}\n${body}`;
+    chunks.push(
+      makeChunk(doc, chunks.length, text, batch[0].offset, {
+        format: effectiveFormat,
+        records: batch.length,
+        recordStart: start + 1,
+      }),
+    );
+  }
+  return chunks;
+}

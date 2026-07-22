@@ -5,6 +5,7 @@ import {
   estimateTokens,
   chunkByTokens,
   chunkByHeadings,
+  chunkByRecords,
 } from '../src/ingestion/chunkers.js';
 
 test('estimateTokens: heurística length/4 con redondeo hacia arriba', () => {
@@ -109,4 +110,55 @@ test('chunkByHeadings: contenido antes del primer heading queda con heading null
 test('chunkByHeadings: valida maxSize', () => {
   const doc = { id: 'd', content: 'x', metadata: {} };
   assert.throws(() => chunkByHeadings(doc, { maxSize: 0 }), /maxSize/);
+});
+
+test('chunkByRecords: CSV agrupa registros con cabecera prependida', () => {
+  const content = ['col_a,col_b', '1,uno', '2,dos', '3,tres', '4,cuatro', '5,cinco'].join('\n');
+  const doc = { id: 'd', content, metadata: {} };
+  const chunks = chunkByRecords(doc, { recordsPerChunk: 2, format: 'csv' });
+  assert.equal(chunks.length, 3);
+  for (const c of chunks) {
+    assert.ok(c.content.startsWith('col_a,col_b\n'), 'cada chunk lleva la cabecera');
+  }
+  assert.ok(chunks[0].content.includes('1,uno'));
+  assert.ok(chunks[0].content.includes('2,dos'));
+  assert.ok(!chunks[0].content.includes('3,tres'));
+  assert.equal(chunks[0].metadata.records, 2);
+  assert.equal(chunks[2].metadata.records, 1);
+  assert.equal(chunks[1].metadata.recordStart, 3);
+});
+
+test('chunkByRecords: TSV detectado en modo auto por tabulador en cabecera', () => {
+  const content = ['a\tb', '1\tuno', '2\tdos'].join('\n');
+  const doc = { id: 'd', content, metadata: {} };
+  const chunks = chunkByRecords(doc, { recordsPerChunk: 10 });
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0].metadata.format, 'tsv');
+  assert.ok(chunks[0].content.startsWith('a\tb\n'));
+});
+
+test('chunkByRecords: JSONL sin cabecera, un registro por línea', () => {
+  const content = ['{"x":1}', '{"x":2}', '{"x":3}'].join('\n');
+  const doc = { id: 'd', content, metadata: {} };
+  const chunks = chunkByRecords(doc, { recordsPerChunk: 2 });
+  assert.equal(chunks.length, 2);
+  assert.equal(chunks[0].metadata.format, 'jsonl');
+  assert.ok(!chunks[0].content.includes('\n{"x":3}'));
+  assert.equal(chunks[1].content, '{"x":3}');
+  assert.equal(chunks[1].metadata.recordStart, 3);
+});
+
+test('chunkByRecords: líneas vacías se ignoran y offset apunta al primer registro', () => {
+  const content = 'a,b\n\n1,uno\n\n2,dos\n';
+  const doc = { id: 'd', content, metadata: {} };
+  const chunks = chunkByRecords(doc, { recordsPerChunk: 1, format: 'csv' });
+  assert.equal(chunks.length, 2);
+  assert.equal(chunks[0].metadata.offset, content.indexOf('1,uno'));
+});
+
+test('chunkByRecords: valida recordsPerChunk y format', () => {
+  const doc = { id: 'd', content: 'a,b\n1,2', metadata: {} };
+  assert.throws(() => chunkByRecords(doc, { recordsPerChunk: 0 }), /recordsPerChunk/);
+  // @ts-expect-error formato inválido a propósito
+  assert.throws(() => chunkByRecords(doc, { recordsPerChunk: 1, format: 'xml' }), /format/);
 });
