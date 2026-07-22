@@ -9,6 +9,18 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`karajan-rag serve [ruta]`** (ADR-005, KJR-TSK-0105): sirve el índice
+  Easy RAG sin dependencias nuevas. Modo **MCP stdio** por defecto
+  (JSON-RPC 2.0 delimitado por líneas: initialize, tools/list, tools/call)
+  con dos tools — `rag_query` (híbrido vector+BM25) y `rag_status` —
+  consumibles desde Claude Code o cualquier cliente MCP. Modo **HTTP**
+  (`--http --port N`): `POST /query {question, topK?}` y `GET /health`,
+  con validación estricta y errores JSON. El mismo `RagService` sirve
+  índices locales (lancedb) o remotos (`--store pgvector` + `PG_URL`) —
+  contrato que empaquetarán la imagen Docker y el Terraform de GCP.
+  Módulos nuevos `src/easy/{rag-service,http-server,mcp-server}.js`,
+  re-exportados en el barrel.
+
 - **`karajan-rag init [ruta]`** (ADR-005, KJR-TSK-0104): scaffold de
   `karajan.config.json` con la sección `easy` (store, embedder,
   dimensions, topK, adapter). Wizard interactivo con defaults; `--yes`

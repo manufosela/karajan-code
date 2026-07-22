@@ -21,7 +21,12 @@ import {
   createPipelineContext,
 } from '../src/pipeline/pipeline.js';
 import { createDefaultAdapterRegistry } from '../src/ai/adapter-registry.js';
-import { runIndexCommand, runQueryCommand, runInitCommand } from '../src/easy/cli.js';
+import {
+  runIndexCommand,
+  runQueryCommand,
+  runInitCommand,
+  runServeCommand,
+} from '../src/easy/cli.js';
 
 const consoleLogger = {
   info: (msg, meta) => console.error(`[info] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`),
@@ -39,6 +44,18 @@ async function main() {
   if (!command || command === '--help' || command === '-h') {
     printUsage();
     process.exit(command ? 0 : 2);
+  }
+
+  if (command === 'serve') {
+    try {
+      // No hay process.exit: el proceso vive mientras el servidor (o stdin
+      // en modo MCP) siga abierto.
+      await runServeCommand(rest);
+      return;
+    } catch (err) {
+      console.error(`karajan-rag serve: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
   }
 
   if (command === 'index' || command === 'query' || command === 'init') {
@@ -111,6 +128,8 @@ function printUsage() {
   console.error('  query "<pregunta>" [ruta]');
   console.error('                 Consulta el índice (híbrido vector+BM25). Flags: --top-k N,');
   console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama.');
+  console.error('  serve [ruta]   Sirve el índice: MCP stdio (default, tools rag_query/rag_status)');
+  console.error('                 o --http (POST /query, GET /health, --port N, default 8080).');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
 
