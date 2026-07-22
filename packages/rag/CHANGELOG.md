@@ -9,6 +9,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`karajan-rag init [ruta]`** (ADR-005, KJR-TSK-0104): scaffold de
+  `karajan.config.json` con la sección `easy` (store, embedder,
+  dimensions, topK, adapter). Wizard interactivo con defaults; `--yes`
+  para modo no interactivo (CI/scripts); no sobreescribe sin `--force`;
+  añade `.karajan/` al `.gitignore`. `index` y `query` leen la config
+  como defaults del proyecto — los flags de CLI siempre ganan, y una
+  config inválida falla con el error exacto (nunca se ignora). Nuevo
+  módulo `src/easy/config.js` (`loadEasyConfig`, `saveEasyConfig`,
+  `validateEasyConfig`, `DEFAULT_EASY_CONFIG`) re-exportado en el barrel.
+
 - **`karajan-rag query "<pregunta>" [ruta]`** (ADR-005, KJR-TSK-0103):
   consulta el índice local sin escribir pipeline. Retrieval híbrido en dos
   etapas (vector search sobre el store persistente + BM25 sobre los
