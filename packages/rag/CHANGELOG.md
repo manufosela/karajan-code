@@ -7,6 +7,20 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Easy RAG — autodetección de fuentes y presets** (ADR-005, KJR-TSK-0101):
+  `detectSourceType`, `resolvePreset`, `classifySources` y `chunkWithPreset`
+  en `src/easy/presets.js`. Clasifican ficheros por extensión (código /
+  docs / datos, con binarios y desconocidos excluidos de forma explícita)
+  y devuelven presets inmutables que reutilizan los chunkers existentes
+  con defaults deterministas (`hash` + `lancedb`, ADR-005). Los presets
+  nunca tocan la policy de sensibilidad ni la redacción PII.
+- **Chunker `chunkByRecords`**: para fuentes tabulares (CSV/TSV/JSONL) en
+  lotes de N registros; CSV/TSV prependen la cabecera a cada chunk para
+  conservar el contexto de columnas, JSONL trocea por objeto. Detección
+  `auto` de formato por la primera línea. Re-exportado en el barrel.
+
 ## [0.2.0] — 2026-07-22
 
 ### Added

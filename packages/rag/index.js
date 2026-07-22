@@ -56,8 +56,17 @@ export {
   chunkBySeparators,
   chunkByTokens,
   chunkByHeadings,
+  chunkByRecords,
   estimateTokens,
 } from './src/ingestion/chunkers.js';
+
+// --- Easy RAG (ADR-005) ---------------------------------------------------
+export {
+  detectSourceType,
+  resolvePreset,
+  classifySources,
+  chunkWithPreset,
+} from './src/easy/presets.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';
