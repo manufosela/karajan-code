@@ -80,6 +80,7 @@ const REQUIRED_EXPORTS = [
   'runEvalCommand',
   'runDoctorChecks',
   'runDoctorCommand',
+  'deprecate',
   'ensureIndexFingerprint',
   'migrateVectorStore',
   'createRagHttpServer',

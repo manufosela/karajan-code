@@ -9,6 +9,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Política de deprecación formalizada** (KJR-TSK-0129, criterio 1.0):
+  `docs/DEPRECATION.md` — compromiso de 2 minors de preaviso desde la
+  1.0, convención de triple señal (`@deprecated` en JSDoc + sección
+  Deprecated en CHANGELOG + aviso runtime único) y proceso de retirada.
+  Helper `deprecate(name, {since, removal, alternative})` que emite un
+  `DeprecationWarning` estándar de Node una sola vez por proceso
+  (respeta `--no-deprecation`), exportado en el barrel. Enlazada desde
+  README y marcada en el ROADMAP.
+
 - **Cobertura ≥90% con umbral en CI** (KJR-TSK-0128, criterio 1.0): cuatro
   rondas de tests dirigidos (+44 tests) elevan la cobertura global a
   **97.5% líneas/statements, 94.5% funciones y 88.9% branches** (desde
