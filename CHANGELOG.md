@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.6] - 2026-07-22
+
+Patch. **GitHub Copilot CLI joins the orchestra.** The free-tier era of AI CLIs keeps shrinking (gemini retired, Qwen OAuth discontinued 2026-04-15) — Copilot rides a subscription many developers already have.
+
+### Added
+
+- **GitHub Copilot CLI as seventh built-in agent** (KJC-TSK-0666): `@github/copilot` (binary `copilot`) — non-interactive `-p` mode with `--output-format json` (JSONL); kj extracts the final `assistant.message` content. Review/arbitration runs WITHOUT tool grants plus an explicit no-tools instruction (headless can never approve a tool request); coder mode grants tools. Model pinnable per role (`roles.solomon.model`) — Copilot's automatic routing varies per run. Contract verified live against copilot 1.0.73, including a real end-to-end arbitration answer. Known limit: no stdin prompt channel, so very large diffs share claude-agent's E2BIG bound (KJC-BUG-0121).
+
 ## [4.1.5] - 2026-07-21
 
 Patch. **Arbitration works again — with a new judge.** The gemini individual tier retirement (IneligibleTierError → Antigravity) left machines without an operational third AI, and the first real arbitration attempt surfaced a cascade of spawn bugs.
