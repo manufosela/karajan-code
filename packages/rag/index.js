@@ -73,6 +73,11 @@ export {
   validateGoldenSet,
   runGoldenSet,
 } from './src/evaluation/golden-runner.js';
+export {
+  buildRerankPrompt,
+  RERANK_PROMPT_VERSION,
+  RERANK_SNIPPET_MAX_CHARS,
+} from './src/retrieval/rerank-prompt.js';
 
 // --- Easy RAG (ADR-005) ---------------------------------------------------
 export {

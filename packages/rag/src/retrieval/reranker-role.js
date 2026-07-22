@@ -1,5 +1,6 @@
 // @ts-check
 import { Role } from '../pipeline/role.js';
+import { buildRerankPrompt } from './rerank-prompt.js';
 
 /**
  * @typedef {import('../vector-store/in-memory-vector-store.js').SearchHit} SearchHit
@@ -52,7 +53,7 @@ export class RerankerRole extends Role {
     }
     // mode === 'llm'
     const adapter = this.#resolveAdapter(tools);
-    const prompt = this.#buildPrompt(input.query, input.hits);
+    const prompt = buildRerankPrompt(input.query, input.hits);
     const result = await adapter(prompt);
     const ranking = this.#extractRanking(result);
     const byId = new Map(input.hits.map((h) => [h.id, h]));
@@ -81,26 +82,6 @@ export class RerankerRole extends Role {
     throw new Error(
       'RerankerRole(llm): no hay adapter inyectado ni disponible en tools.',
     );
-  }
-
-  /**
-   * @param {string} query
-   * @param {SearchHit[]} hits
-   * @returns {string}
-   */
-  #buildPrompt(query, hits) {
-    const items = hits
-      .map((h, i) => `${i + 1}. id=${h.id}\n${String(h.metadata?.content ?? '').slice(0, 500)}`)
-      .join('\n---\n');
-    return [
-      'Eres un reranker. Reordena los siguientes fragmentos por relevancia para la query.',
-      `Query: ${query}`,
-      '',
-      'Fragmentos:',
-      items,
-      '',
-      'Responde EXCLUSIVAMENTE con un JSON: { "ranking": ["id1","id2",...] }.',
-    ].join('\n');
   }
 
   /**
