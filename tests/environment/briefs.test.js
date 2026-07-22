@@ -8,8 +8,18 @@ import { BRIEF_ROLES, renderBrief, listBriefs } from "../../src/environment/brie
 describe("renderBrief", () => {
   it("covers the roles the brain absorbs", () => {
     expect(BRIEF_ROLES).toEqual(
-      expect.arrayContaining(["triage", "planner", "researcher", "architect", "tester", "security", "audit"])
+      expect.arrayContaining(["triage", "planner", "researcher", "architect", "tester", "security", "audit", "board"])
     );
+  });
+
+  // KJC-TSK-0670 (Jorge's dashboard fights): the board brief gives any
+  // brain the board's model and its hard rule — cards are never deleted.
+  it("board brief teaches permanence and the warning protocol", () => {
+    const text = renderBrief("board", {});
+    expect(text).toMatch(/NEVER deleted or recreated/);
+    expect(text).toMatch(/kj hu move <id> skipped/);
+    expect(text).toMatch(/kj report-issue/);
+    expect(text).toMatch(/provenance intact/);
   });
 
   // AB-C2 (KJC-TSK-0653): outcome-first — briefs state Mission (what must
