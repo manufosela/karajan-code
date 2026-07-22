@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock node:util's promisify to bypass the {stdout, stderr} custom-impl
 // dance (same trick as tests/audit/osv-findings.test.js).
@@ -19,7 +19,19 @@ import { buildAuditPrompt } from "../../src/prompts/audit.js";
 const noopLogger = { warn: vi.fn(), info: vi.fn() };
 
 describe("collectSemgrepFindings (KJC-TSK-0366)", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => { vi.resetAllMocks(); process.env.KJ_ALLOW_REAL_SCANS = "1"; });
+  afterEach(() => { delete process.env.KJ_ALLOW_REAL_SCANS; });
+
+  // KJC-BUG-0122: the kill-switch — under the test runner, without the
+  // explicit opt-in, the collector never spawns anything.
+  it("refuses to scan under VITEST without KJ_ALLOW_REAL_SCANS", async () => {
+    delete process.env.KJ_ALLOW_REAL_SCANS;
+    const r = await collectSemgrepFindings(".", noopLogger);
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/disabled under the test runner/);
+    expect(execFileMock).not.toHaveBeenCalled();
+  });
+
 
   it("returns available=false when semgrep is not installed (ENOENT)", async () => {
     const enoErr = Object.assign(new Error("not found"), { code: "ENOENT" });

@@ -34,6 +34,14 @@ const SEVERITY_ORDER = ["ERROR", "WARNING", "INFO"];
  * @returns {Promise<{available: boolean, reason?: string, total?: number, findings?: object[]}>}
  */
 export async function collectSemgrepFindings(projectDir, logger = null) {
+  // KJC-BUG-0122: a full `--config auto` scan must NEVER fire from the unit
+  // suite — on machines with the complete stack installed (the product
+  // default since v4.1.2) parallel vitest workers each launched a real
+  // whole-repo scan: load average 50, orphaned semgrep-core processes.
+  // E2E tests that genuinely want the real scan opt in explicitly.
+  if (process.env.VITEST && process.env.KJ_ALLOW_REAL_SCANS !== "1") {
+    return { available: false, reason: "real scans disabled under the test runner (set KJ_ALLOW_REAL_SCANS=1 to opt in)" };
+  }
   let stdout;
   try {
     const { stdout: out } = await execFileAsync(
