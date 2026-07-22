@@ -44,6 +44,7 @@ export { runAzureOpenAi } from './src/ai/adapters/azure-openai-adapter.js';
 export { runBedrock } from './src/ai/adapters/bedrock-adapter.js';
 export { runVertexAi } from './src/ai/adapters/vertex-ai-adapter.js';
 export { runOpenAi } from './src/ai/adapters/openai-adapter.js';
+export { runAnthropic } from './src/ai/adapters/anthropic-adapter.js';
 export {
   createOllamaStreamAdapter,
   readNdjsonLines,

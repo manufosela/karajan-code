@@ -27,7 +27,7 @@ export function createDefaultSensitivityPolicy() {
   return {
     confidential: ['ollama'],
     internal: ['ollama', 'azure-openai', 'bedrock', 'vertex-ai'],
-    public: ['claude', 'codex', 'gemini', 'openai'],
+    public: ['claude', 'codex', 'gemini', 'openai', 'anthropic'],
   };
 }
 

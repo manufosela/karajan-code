@@ -9,6 +9,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Adapter `anthropic` HTTP** (KJR-TSK-0123, roadmap 0.6.0):
+  `runAnthropic` contra la Messages API (`/v1/messages`, headers
+  `x-api-key` + `anthropic-version: 2023-06-01`) sin SDK, con modelo por
+  defecto `claude-opus-4-8`, fetch inyectable y `stop_reason`/`usage`
+  expuestos en `providerMeta` (un `refusal` o `max_tokens` es decisión
+  del caller, sin fallbacks silenciosos). Complemento a `runClaudeCli`
+  para entornos sin shell (Cloud Run, workers). Proveedor público: entra
+  en el nivel `public` de la sensitivity policy junto a openai.
+
 - **Adapter `openai` HTTP** (KJR-TSK-0122, roadmap 0.6.0): `runOpenAi`
   contra Chat Completions públicas sin SDK (fetch inyectable, errores
   HTTP explícitos, `baseUrl` configurable para gateways compatibles).
