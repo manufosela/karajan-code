@@ -24,6 +24,7 @@ const REQUIRED_EXPORTS = [
   'runAzureOpenAi',
   'runBedrock',
   'runVertexAi',
+  'runOpenAi',
   'createOllamaStreamAdapter',
   'readNdjsonLines',
   'wrapAdapterAsStream',

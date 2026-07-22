@@ -7,6 +7,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Adapter `openai` HTTP** (KJR-TSK-0122, roadmap 0.6.0): `runOpenAi`
+  contra Chat Completions públicas sin SDK (fetch inyectable, errores
+  HTTP explícitos, `baseUrl` configurable para gateways compatibles).
+  Proveedor **público**: entra en el nivel `public` de la sensitivity
+  policy por defecto — nunca recibe contenido confidential/internal.
+
 ## [0.5.0] — 2026-07-22
 
 ### Added
