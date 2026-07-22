@@ -69,6 +69,7 @@ const REQUIRED_EXPORTS = [
   'indexDirectory',
   'runIndexCommand',
   'queryIndex',
+  'createRag',
   'runQueryCommand',
   'createRagService',
   'openRagService',

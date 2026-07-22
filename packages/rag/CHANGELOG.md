@@ -9,6 +9,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **SDK embebible `createRag()`** (KJR-TSK-0125, roadmap 0.6.0): fachada
+  programática para frameworks (Astro/Next/Fastify/workers) sin CLI —
+  `{index, query, status, close}` con los mismos defaults ADR-005 que los
+  subcomandos easy. Acepta backends por nombre (`lancedb`/`pgvector`/
+  `in-memory`) o instancias inyectadas de store/embedder. `status` sin
+  índice y `pgvector` sin `PG_URL` fallan con instrucción exacta.
+  Ejemplos copiables por framework en docs/easy-rag.md → sección SDK.
+
 - **Factory `createOllamaClient`** (KJR-TSK-0124, roadmap 0.6.0): una
   configuración compartida (`baseUrl`, `model`, `embedModel`) produce las
   tres piezas contra el mismo proceso Ollama — `adapter` (generación
