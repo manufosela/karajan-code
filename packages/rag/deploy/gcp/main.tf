@@ -129,6 +129,11 @@ resource "google_cloud_run_v2_service" "rag" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
+  # El servicio es stateless (el estado vive en Cloud SQL y el bucket):
+  # sin esto, el default true del provider ~>6.0 bloquea cualquier
+  # replace del servicio y el propio terraform destroy (KJR-BUG-0003).
+  deletion_protection = false
+
   template {
     service_account = google_service_account.run.email
 
