@@ -35,7 +35,14 @@ const REQUIRED_EXPORTS = [
   'chunkBySeparators',
   'chunkByTokens',
   'chunkByHeadings',
+  'chunkByRecords',
   'estimateTokens',
+
+  // Easy RAG (ADR-005)
+  'detectSourceType',
+  'resolvePreset',
+  'classifySources',
+  'chunkWithPreset',
 
   // Embedding
   'createHashEmbedder',
