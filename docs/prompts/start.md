@@ -6,12 +6,15 @@ yourself through these steps and report progress in the user's language.
 
 ## 0. HARD RULE — stop and wait
 
-If at ANY point a step needs sudo, has no automatic route on this OS, or any
+If at ANY point a step needs elevated privileges (sudo on Linux/macOS,
+Administrator on Windows), has no automatic route on this OS, or any
 `kj` command exits with code 3 (`PENDING USER ACTION`): **STOP**. Show the
 user the exact commands to run themselves, then **WAIT** until they say
 "done". Never time out into "continuing with my own judgment", never continue
 with a degraded setup. A partial setup (e.g. an empty RAG because
 Docker/Ollama is missing) is a FAILED setup.
+
+Detect the operating system FIRST — every install route below depends on it.
 
 ## 1. Is kj installed on this machine?
 
