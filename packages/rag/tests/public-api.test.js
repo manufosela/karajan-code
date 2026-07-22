@@ -54,6 +54,11 @@ const REQUIRED_EXPORTS = [
   'runIndexCommand',
   'queryIndex',
   'runQueryCommand',
+  'runInitCommand',
+  'loadEasyConfig',
+  'saveEasyConfig',
+  'validateEasyConfig',
+  'DEFAULT_EASY_CONFIG',
 
   // Embedding
   'createHashEmbedder',

@@ -8,6 +8,8 @@
  * les falta configuración (peer no instalado, PG_URL ausente).
  */
 import path from 'node:path';
+import { appendFile, readFile, stat } from 'node:fs/promises';
+import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { createHashEmbedder } from '../embedding/embedder.js';
 import { createTransformersEmbedder } from '../embedding/transformers-embedder.js';
@@ -17,6 +19,12 @@ import { PgVectorStore } from '../vector-store/pgvector-store.js';
 import { MANIFEST_DIR, loadManifest } from './manifest.js';
 import { indexDirectory } from './indexer.js';
 import { queryIndex } from './query.js';
+import {
+  CONFIG_FILE,
+  DEFAULT_EASY_CONFIG,
+  loadEasyConfig,
+  saveEasyConfig,
+} from './config.js';
 import { GeneratorRole } from '../generation/generator-role.js';
 import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
 
@@ -37,16 +45,19 @@ const DEFAULT_DIMENSIONS = Object.freeze({ hash: 256, transformers: 384 });
 /**
  * Parsea los argumentos de `karajan-rag index <ruta> [--store] [--embedder] [--dimensions]`.
  *
+ * Prioridad: flag explícito > `defaults` (config del proyecto) > default ADR-005.
+ *
  * @param {string[]} argv Argumentos tras el nombre del subcomando.
+ * @param {import('./config.js').EasyConfig} [defaults]
  * @returns {IndexCliOptions}
  */
-export function parseIndexArgs(argv) {
+export function parseIndexArgs(argv, defaults = {}) {
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
     options: {
-      store: { type: 'string', default: 'lancedb' },
-      embedder: { type: 'string', default: 'hash' },
+      store: { type: 'string' },
+      embedder: { type: 'string' },
       dimensions: { type: 'string' },
     },
   });
@@ -55,11 +66,13 @@ export function parseIndexArgs(argv) {
   if (!rootDir) {
     throw new Error('index: falta la ruta del directorio a indexar.');
   }
-  const store = /** @type {IndexCliOptions['store']} */ (values.store);
+  const store = /** @type {IndexCliOptions['store']} */ (values.store ?? defaults.store ?? 'lancedb');
   if (!STORES.includes(store)) {
     throw new Error(`index: --store "${store}" no soportado (esperado: ${STORES.join(', ')}).`);
   }
-  const embedder = /** @type {IndexCliOptions['embedder']} */ (values.embedder);
+  const embedder = /** @type {IndexCliOptions['embedder']} */ (
+    values.embedder ?? defaults.embedder ?? 'hash'
+  );
   if (!EMBEDDERS.includes(embedder)) {
     throw new Error(
       `index: --embedder "${embedder}" no soportado (esperado: ${EMBEDDERS.join(', ')}).`,
@@ -67,7 +80,7 @@ export function parseIndexArgs(argv) {
   }
   const dimensions = values.dimensions
     ? Number.parseInt(values.dimensions, 10)
-    : DEFAULT_DIMENSIONS[embedder];
+    : (defaults.dimensions ?? DEFAULT_DIMENSIONS[embedder]);
   if (!Number.isInteger(dimensions) || dimensions <= 0) {
     throw new Error('index: --dimensions debe ser un entero positivo.');
   }
@@ -109,6 +122,120 @@ export async function createEasyDeps(options, env) {
 }
 
 /**
+ * Parsea `karajan-rag init [ruta] [--yes] [--force]`.
+ *
+ * @param {string[]} argv
+ * @returns {{ rootDir: string, yes: boolean, force: boolean }}
+ */
+export function parseInitArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      yes: { type: 'boolean', default: false },
+      force: { type: 'boolean', default: false },
+    },
+  });
+  return {
+    rootDir: path.resolve(positionals[0] ?? '.'),
+    yes: values.yes === true,
+    force: values.force === true,
+  };
+}
+
+/**
+ * Pregunta interactiva con default; en modo --yes no se llama nunca.
+ *
+ * @param {string} question
+ * @param {string} defaultValue
+ * @returns {Promise<string>}
+ */
+async function askInTerminal(question, defaultValue) {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const reply = await rl.question(`${question} [${defaultValue}]: `);
+    return reply.trim() === '' ? defaultValue : reply.trim();
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Añade `.karajan/` al .gitignore del proyecto (creándolo si no existe),
+ * salvo que ya esté presente.
+ *
+ * @param {string} rootDir
+ * @returns {Promise<boolean>} true si se modificó el .gitignore.
+ */
+async function ensureKarajanGitignored(rootDir) {
+  const gitignorePath = path.join(rootDir, '.gitignore');
+  let current = '';
+  try {
+    current = await readFile(gitignorePath, 'utf8');
+  } catch (err) {
+    if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
+  }
+  const hasEntry = current
+    .split('\n')
+    .some((line) => line.trim() === `${MANIFEST_DIR}/` || line.trim() === MANIFEST_DIR);
+  if (hasEntry) return false;
+  const prefix = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+  await appendFile(gitignorePath, `${prefix}${MANIFEST_DIR}/\n`, 'utf8');
+  return true;
+}
+
+/**
+ * Ejecuta el subcomando `init`: genera karajan.config.json con defaults
+ * ADR-005 (wizard interactivo salvo --yes) y gitignora `.karajan/`.
+ *
+ * @param {string[]} argv
+ * @param {{ log?: (msg: string) => void, ask?: (question: string, defaultValue: string) => Promise<string> }} [io]
+ * @returns {Promise<import('./config.js').EasyConfig>}
+ */
+export async function runInitCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[init] ${msg}`));
+  const ask = io.ask ?? askInTerminal;
+  const { rootDir, yes, force } = parseInitArgs(argv);
+
+  const configPath = path.join(rootDir, CONFIG_FILE);
+  const exists = await stat(configPath).then(
+    () => true,
+    () => false,
+  );
+  if (exists && !force) {
+    throw new Error(`init: ${CONFIG_FILE} ya existe en "${rootDir}". Usa --force para regenerarlo.`);
+  }
+
+  /** @type {import('./config.js').EasyConfig} */
+  let easy = { ...DEFAULT_EASY_CONFIG };
+  if (!yes) {
+    const store = await ask(`vector store (${STORES.join('/')})`, String(DEFAULT_EASY_CONFIG.store));
+    const embedder = await ask(
+      `embedder (${EMBEDDERS.join('/')})`,
+      String(DEFAULT_EASY_CONFIG.embedder),
+    );
+    const dimensions = await ask(
+      'dimensiones del embedding',
+      String(DEFAULT_DIMENSIONS[/** @type {never} */ (embedder)] ?? DEFAULT_EASY_CONFIG.dimensions),
+    );
+    easy = {
+      ...easy,
+      store: /** @type {never} */ (store),
+      embedder: /** @type {never} */ (embedder),
+      dimensions: Number.parseInt(dimensions, 10),
+    };
+  }
+
+  await saveEasyConfig(rootDir, easy);
+  log(`generado ${CONFIG_FILE} (store=${easy.store}, embedder=${easy.embedder}, dims=${easy.dimensions})`);
+  if (await ensureKarajanGitignored(rootDir)) {
+    log(`añadido ${MANIFEST_DIR}/ a .gitignore`);
+  }
+  log(`siguiente paso: karajan-rag index ${rootDir}`);
+  return easy;
+}
+
+/**
  * @typedef {object} QueryCliOptions
  * @property {string} question
  * @property {string} rootDir
@@ -126,15 +253,15 @@ const QUERY_STORES = Object.freeze(['lancedb', 'pgvector']);
  * @param {string[]} argv
  * @returns {QueryCliOptions}
  */
-export function parseQueryArgs(argv) {
+export function parseQueryArgs(argv, defaults = /** @type {import('./config.js').EasyConfig} */ ({})) {
   const { values, positionals } = parseArgs({
     args: argv,
     allowPositionals: true,
     options: {
-      store: { type: 'string', default: 'lancedb' },
-      'top-k': { type: 'string', default: '5' },
+      store: { type: 'string' },
+      'top-k': { type: 'string' },
       answer: { type: 'boolean', default: false },
-      adapter: { type: 'string', default: 'claude' },
+      adapter: { type: 'string' },
     },
   });
 
@@ -142,14 +269,16 @@ export function parseQueryArgs(argv) {
   if (!question || question.trim().length === 0) {
     throw new Error('query: falta la pregunta (karajan-rag query "<pregunta>" [ruta]).');
   }
-  const store = /** @type {QueryCliOptions['store']} */ (values.store);
+  const store = /** @type {QueryCliOptions['store']} */ (values.store ?? defaults.store ?? 'lancedb');
   if (!QUERY_STORES.includes(store)) {
     throw new Error(
       `query: --store "${store}" no soportado (esperado: ${QUERY_STORES.join(', ')} — ` +
         'in-memory no persiste índices, no es consultable).',
     );
   }
-  const topK = Number.parseInt(String(values['top-k']), 10);
+  const topK = values['top-k']
+    ? Number.parseInt(String(values['top-k']), 10)
+    : (defaults.topK ?? 5);
   if (!Number.isInteger(topK) || topK <= 0) {
     throw new Error('query: --top-k debe ser un entero positivo.');
   }
@@ -159,7 +288,7 @@ export function parseQueryArgs(argv) {
     store,
     topK,
     answer: values.answer === true,
-    adapter: String(values.adapter),
+    adapter: String(values.adapter ?? defaults.adapter ?? 'claude'),
   };
 }
 
@@ -191,7 +320,9 @@ export function parseFingerprint(fingerprint) {
 export async function runQueryCommand(argv, io = {}) {
   const log = io.log ?? ((msg) => console.error(`[query] ${msg}`));
   const out = io.out ?? ((msg) => console.log(msg));
-  const options = parseQueryArgs(argv);
+  const pre = parseQueryArgs(argv);
+  const config = await loadEasyConfig(pre.rootDir);
+  const options = config ? parseQueryArgs(argv, config) : pre;
 
   const manifest = await loadManifest(options.rootDir);
   if (manifest === null) {
@@ -259,7 +390,9 @@ export async function runQueryCommand(argv, io = {}) {
  */
 export async function runIndexCommand(argv, io = {}) {
   const log = io.log ?? ((msg) => console.error(`[index] ${msg}`));
-  const options = parseIndexArgs(argv);
+  const pre = parseIndexArgs(argv);
+  const config = await loadEasyConfig(pre.rootDir);
+  const options = config ? parseIndexArgs(argv, config) : pre;
   const { embedder, store } = await createEasyDeps(options, io.env ?? process.env);
 
   if (options.store === 'in-memory') {

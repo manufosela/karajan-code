@@ -21,7 +21,7 @@ import {
   createPipelineContext,
 } from '../src/pipeline/pipeline.js';
 import { createDefaultAdapterRegistry } from '../src/ai/adapter-registry.js';
-import { runIndexCommand, runQueryCommand } from '../src/easy/cli.js';
+import { runIndexCommand, runQueryCommand, runInitCommand } from '../src/easy/cli.js';
 
 const consoleLogger = {
   info: (msg, meta) => console.error(`[info] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`),
@@ -41,8 +41,9 @@ async function main() {
     process.exit(command ? 0 : 2);
   }
 
-  if (command === 'index' || command === 'query') {
-    const runner = command === 'index' ? runIndexCommand : runQueryCommand;
+  if (command === 'index' || command === 'query' || command === 'init') {
+    const runner =
+      command === 'index' ? runIndexCommand : command === 'query' ? runQueryCommand : runInitCommand;
     try {
       await runner(rest);
       process.exit(0);
@@ -102,6 +103,8 @@ function printUsage() {
   console.error('');
   console.error('Comandos:');
   console.error('  run <config>   Ejecuta el pipeline declarado en el JSON.');
+  console.error('  init [ruta]    Genera karajan.config.json con defaults (--yes no interactivo,');
+  console.error('                 --force para regenerar) y gitignora .karajan/.');
   console.error('  index <ruta>   Indexa un directorio (código/docs/datos) en .karajan/.');
   console.error('                 Flags: --store lancedb|pgvector|in-memory (default lancedb),');
   console.error('                        --embedder hash|transformers (default hash), --dimensions N.');
