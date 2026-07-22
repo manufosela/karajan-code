@@ -9,6 +9,19 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`karajan-rag index <ruta>`** (ADR-005, KJR-TSK-0102): construye o
+  actualiza un índice RAG persistente local en `.karajan/` con un solo
+  comando. Autodetecta código/docs/datos vía presets, embebe en batch y
+  hace upsert al store. Reindex **incremental**: `manifest.json` guarda el
+  fingerprint del índice (ADR-002) y el hash por fichero — solo se
+  reprocesan añadidos/cambiados, los borrados se invalidan del store, y
+  un cambio de embedder/dimensiones fuerza reindex completo (nunca se
+  mezclan espacios vectoriales). Flags: `--store lancedb|pgvector|in-memory`
+  (default `lancedb`, error accionable si falta el peer; `pgvector`
+  requiere `PG_URL`), `--embedder hash|transformers`, `--dimensions N`.
+  Módulos nuevos `src/easy/{manifest,indexer,cli}.js`, re-exportados en el
+  barrel (`indexDirectory`, `diffManifest`, `runIndexCommand`, etc.).
+
 - **Easy RAG — autodetección de fuentes y presets** (ADR-005, KJR-TSK-0101):
   `detectSourceType`, `resolvePreset`, `classifySources` y `chunkWithPreset`
   en `src/easy/presets.js`. Clasifican ficheros por extensión (código /

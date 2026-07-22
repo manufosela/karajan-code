@@ -5,11 +5,12 @@
  *
  * Uso:
  *   karajan-rag run <config.json>
+ *   karajan-rag index <ruta> [--store lancedb|pgvector|in-memory] [--embedder hash|transformers] [--dimensions N]
  *
- * Ejecuta el pipeline declarado en JSON contra los roles registrados
+ * `run` ejecuta el pipeline declarado en JSON contra los roles registrados
  * por defecto en un RoleRegistry (actualmente vacío: el usuario debe
- * ampliarlo desde código propio o futuras configuraciones). Pensado
- * como esqueleto sobre el que iterar — ver épica Config-Driven Runs.
+ * ampliarlo desde código propio o futuras configuraciones).
+ * `index` construye/actualiza el índice local Easy RAG (ADR-005).
  */
 
 import { loadPipelineConfig } from '../src/config/pipeline-config.js';
@@ -20,6 +21,7 @@ import {
   createPipelineContext,
 } from '../src/pipeline/pipeline.js';
 import { createDefaultAdapterRegistry } from '../src/ai/adapter-registry.js';
+import { runIndexCommand } from '../src/easy/cli.js';
 
 const consoleLogger = {
   info: (msg, meta) => console.error(`[info] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`),
@@ -37,6 +39,18 @@ async function main() {
   if (!command || command === '--help' || command === '-h') {
     printUsage();
     process.exit(command ? 0 : 2);
+  }
+
+  if (command === 'index') {
+    try {
+      await runIndexCommand(rest);
+      process.exit(0);
+    } catch (err) {
+      console.error(
+        `karajan-rag index: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      process.exit(1);
+    }
   }
 
   if (command !== 'run') {
@@ -83,10 +97,13 @@ async function main() {
 }
 
 function printUsage() {
-  console.error('Usage: karajan-rag run <config.json>');
+  console.error('Usage: karajan-rag <comando> [opciones]');
   console.error('');
   console.error('Comandos:');
   console.error('  run <config>   Ejecuta el pipeline declarado en el JSON.');
+  console.error('  index <ruta>   Indexa un directorio (código/docs/datos) en .karajan/.');
+  console.error('                 Flags: --store lancedb|pgvector|in-memory (default lancedb),');
+  console.error('                        --embedder hash|transformers (default hash), --dimensions N.');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
 
