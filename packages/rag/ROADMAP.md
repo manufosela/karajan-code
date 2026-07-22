@@ -105,7 +105,7 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 
 - API pública documentada, versionada y con tests de contrato.
 - Superficie mínima cubierta al 90% (vs 80% actual).
-- Política de deprecación formalizada (2 menores de pre-aviso).
+- ✅ Política de deprecación formalizada (2 menores de pre-aviso) — [docs/DEPRECATION.md](./docs/DEPRECATION.md).
 - Golden set + runbook de evaluación publicados.
 - Auditoría externa de la política de sensibilidad y del redactor PII.
 - Al menos un caso de uso real en producción documentado públicamente.
