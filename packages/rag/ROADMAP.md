@@ -53,9 +53,9 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
   - ✅ `index.js` barrel con 63 símbolos re-exportados (PR #59) + documentación en README (PR #60).
   - ✅ Tests de contrato (`tests/public-api.test.js`).
 
-## 0.3.0 — Easy RAG: crear RAGs en minutos
+## 0.3.0 — Easy RAG: crear RAGs en minutos (✅ publicada 2026-07-22)
 
-**Estado**: núcleo entregado en main (épica KJR-PCS-0016, ADR-005). Pendiente el tag.
+**Estado**: publicada (épica KJR-PCS-0016, ADR-005).
 
 **Objetivo**: que montar un RAG sobre código, documentos o datos cueste minutos y cero código, en local y en cloud.
 
