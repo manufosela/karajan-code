@@ -7,6 +7,17 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Cobertura ≥90% con umbral en CI** (KJR-TSK-0128, criterio 1.0): cuatro
+  rondas de tests dirigidos (+44 tests) elevan la cobertura global a
+  **97.5% líneas/statements, 94.5% funciones y 88.9% branches** (desde
+  95.1/91.3/83.8). El script `pnpm coverage` pasa a fallar por debajo de
+  los umbrales (statements/lines 95, functions 92, branches 87), de modo
+  que las regresiones de cobertura rompen el build. Las ramas restantes
+  sin cubrir son defensas de streams de proceso y fallbacks de peers no
+  simulables sin fragilidad.
+
 ## [0.6.0] — 2026-07-22
 
 ### Added

@@ -22,7 +22,7 @@
     "start": "node examples/multi-cli-demo.js",
     "lint": "eslint .",
     "test": "node --test tests/*.test.js",
-    "coverage": "c8 node --test tests/*.test.js",
+    "coverage": "c8 --check-coverage --statements 95 --lines 95 --functions 92 --branches 87 node --test tests/*.test.js",
     "smoke": "RUN_SMOKE=1 node scripts/smoke.js",
     "smoke:codex": "RUN_SMOKE=1 node scripts/smoke.js codex",
     "smoke:claude": "RUN_SMOKE=1 node scripts/smoke.js claude",
