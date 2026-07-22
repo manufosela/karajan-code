@@ -52,6 +52,8 @@ const REQUIRED_EXPORTS = [
   'collectIndexableFiles',
   'indexDirectory',
   'runIndexCommand',
+  'queryIndex',
+  'runQueryCommand',
 
   // Embedding
   'createHashEmbedder',

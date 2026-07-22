@@ -4,7 +4,14 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseIndexArgs, createEasyDeps, runIndexCommand } from '../src/easy/cli.js';
+import {
+  parseIndexArgs,
+  createEasyDeps,
+  runIndexCommand,
+  parseQueryArgs,
+  parseFingerprint,
+  runQueryCommand,
+} from '../src/easy/cli.js';
 
 test('parseIndexArgs: defaults ADR-005 (lancedb + hash)', () => {
   const opts = parseIndexArgs(['./docs']);
@@ -41,6 +48,48 @@ test('createEasyDeps: in-memory construye store y embedder coherentes', async ()
   const [vector] = await embedder.embedBatch(['hola']);
   assert.equal(vector.length, 32);
   await store.upsert([{ id: 'x', vector, metadata: {} }]);
+});
+
+test('parseQueryArgs: defaults y flags', () => {
+  const opts = parseQueryArgs(['¿cómo se factura?']);
+  assert.equal(opts.store, 'lancedb');
+  assert.equal(opts.topK, 5);
+  assert.equal(opts.answer, false);
+  assert.equal(opts.adapter, 'claude');
+  assert.ok(path.isAbsolute(opts.rootDir));
+
+  const full = parseQueryArgs(['q', './docs', '--top-k', '3', '--answer', '--adapter', 'ollama']);
+  assert.equal(full.topK, 3);
+  assert.equal(full.answer, true);
+  assert.equal(full.adapter, 'ollama');
+});
+
+test('parseQueryArgs: valida pregunta, store y top-k', () => {
+  assert.throws(() => parseQueryArgs([]), /pregunta/);
+  assert.throws(() => parseQueryArgs(['q', '--store', 'in-memory']), /no persiste/);
+  assert.throws(() => parseQueryArgs(['q', '--top-k', 'cero']), /--top-k/);
+});
+
+test('parseFingerprint: deriva embedder y dimensiones del manifest', () => {
+  assert.deepEqual(parseFingerprint('hash|256|abc123'), { embedder: 'hash', dimensions: 256 });
+  assert.deepEqual(parseFingerprint('transformers|384|x'), {
+    embedder: 'transformers',
+    dimensions: 384,
+  });
+  assert.throws(() => parseFingerprint('openai|64|x'), /fingerprint/);
+  assert.throws(() => parseFingerprint('hash|muchas|x'), /fingerprint/);
+});
+
+test('runQueryCommand: sin índice falla indicando cómo crearlo', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-noindex-'));
+  try {
+    await assert.rejects(
+      () => runQueryCommand(['pregunta', root], { env: {}, log: () => {}, out: () => {} }),
+      /karajan-rag index/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('runIndexCommand: end-to-end con in-memory sobre un proyecto temporal', async () => {
