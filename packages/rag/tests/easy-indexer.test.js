@@ -117,6 +117,50 @@ test('indexDirectory: sin cambios no toca el store', async () => {
   }
 });
 
+test('indexDirectory: usa deleteByDocument del store al invalidar documentos', async () => {
+  const root = await makeProject({ 'a.md': '# A\nuno\n', 'b.md': '# B\ndos\n' });
+  const { store, embedder } = makeDeps();
+  const calls = [];
+  const originalDeleteByDocument = store.deleteByDocument.bind(store);
+  store.deleteByDocument = (documentId) => {
+    calls.push(documentId);
+    return originalDeleteByDocument(documentId);
+  };
+  try {
+    await indexDirectory(root, { store, embedder });
+    await writeFile(path.join(root, 'a.md'), '# A\nuno modificado\n', 'utf8');
+    await rm(path.join(root, 'b.md'));
+    await indexDirectory(root, { store, embedder });
+    assert.ok(calls.includes('doc:a.md'), 'documento cambiado invalidado por deleteByDocument');
+    assert.ok(calls.includes('doc:b.md'), 'documento borrado invalidado por deleteByDocument');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('EmbeddingCache: content-addressed — borrar y reindexar reutiliza la caché sin invalidación', async () => {
+  const { createCachedEmbedder } = await import('../src/embedding/embedding-cache.js');
+  const base = createHashEmbedder({ dimensions: 16 });
+  const cached = createCachedEmbedder(base, { model: 'hash' });
+  const root = await makeProject({ 'a.md': '# A\ncontenido estable\n' });
+  const store = new InMemoryVectorStore({ dimensions: 16 });
+  try {
+    await indexDirectory(root, { store, embedder: cached });
+    const missesAfterFirst = cached.stats.misses;
+
+    // Borrado del documento + reindex del mismo contenido: la clave de la
+    // caché es fingerprint+sha256 del texto, así que no hay nada que
+    // invalidar — el segundo indexado debe ser todo hits.
+    store.deleteByDocument('doc:a.md');
+    await rm(path.join(root, '.karajan'), { recursive: true, force: true });
+    await indexDirectory(root, { store, embedder: cached });
+    assert.equal(cached.stats.misses, missesAfterFirst, 'sin misses nuevos: caché coherente');
+    assert.ok(cached.stats.hits > 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('indexDirectory: manifest presente con store vacío fuerza reindex (KJR-BUG-0005)', async () => {
   const root = await makeProject({ 'a.md': '# A\nuno\n' });
   try {

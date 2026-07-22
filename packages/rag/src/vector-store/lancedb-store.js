@@ -90,6 +90,7 @@ export class LanceDBStore {
       this._tableRef = await this._connection.createTable(this.table, [
         {
           id: '__bootstrap__',
+          document_id: '',
           content: '',
           metadata: '{}',
           vector: new Array(this.dimensions).fill(0),
@@ -116,6 +117,7 @@ export class LanceDBStore {
     await table.add([
       {
         id: record.id,
+        document_id: String(record.metadata?.documentId ?? ''),
         content: String(record.metadata?.content ?? ''),
         metadata: JSON.stringify(record.metadata ?? {}),
         vector: record.vector,
@@ -148,6 +150,35 @@ export class LanceDBStore {
     await table.delete(`id = '${escapeSql(id)}'`);
     const after = (await this.size()) || 0;
     return after < before;
+  }
+
+  /**
+   * Elimina todos los records de un documento (columna document_id,
+   * poblada desde metadata.documentId al upsertear).
+   *
+   * Nota 0.5.0: tablas creadas con versiones anteriores no tienen la
+   * columna — el predicado falla y se traduce a un error accionable.
+   *
+   * @param {string} documentId
+   * @returns {Promise<number>} Records eliminados.
+   */
+  async deleteByDocument(documentId) {
+    if (typeof documentId !== 'string' || documentId.length === 0) {
+      throw new Error('deleteByDocument: "documentId" requerido (string no vacío).');
+    }
+    const table = await this._ensureTable();
+    const before = (await this.size()) || 0;
+    try {
+      await table.delete(`document_id = '${escapeSql(documentId)}'`);
+    } catch (err) {
+      throw new Error(
+        'LanceDBStore.deleteByDocument: la tabla no tiene columna document_id ' +
+          '(creada antes de 0.5.0). Reindexa para regenerarla. ' +
+          `Detalle: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    const after = (await this.size()) || 0;
+    return before - after;
   }
 
   /**

@@ -155,6 +155,24 @@ export class PgVectorStore {
   }
 
   /**
+   * Elimina todos los records de un documento (metadata->>'documentId').
+   *
+   * @param {string} documentId
+   * @returns {Promise<number>} Records eliminados.
+   */
+  async deleteByDocument(documentId) {
+    if (typeof documentId !== 'string' || documentId.length === 0) {
+      throw new Error('deleteByDocument: "documentId" requerido (string no vacío).');
+    }
+    const client = await this._getClient();
+    const res = await client.query(
+      `DELETE FROM ${this.table} WHERE metadata->>'documentId' = $1`,
+      [documentId],
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /**
    * Cosine similarity con el operador `<=>` (distancia coseno: menor = más similar).
    * Convertimos a score = 1 - distance para alinear con InMemoryVectorStore.
    *

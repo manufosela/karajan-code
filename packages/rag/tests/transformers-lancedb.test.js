@@ -106,6 +106,73 @@ test('LanceDBStore: upsertOne con mock lancedb delega en table.delete + add', as
   assert.equal(ops[1].rows[0].id, 'a');
 });
 
+test('LanceDBStore: upsert añade document_id y deleteByDocument borra por él', async () => {
+  const ops = [];
+  let rows = 5;
+  const fakeTable = {
+    async delete(where) {
+      ops.push({ op: 'delete', where });
+      if (where.includes('document_id')) rows -= 2;
+    },
+    async add(added) {
+      ops.push({ op: 'add', rows: added });
+    },
+    async countRows() {
+      return rows;
+    },
+  };
+  const fakeLancedb = {
+    async connect() {
+      return {
+        async tableNames() {
+          return ['karajan_rag_chunks'];
+        },
+        async openTable() {
+          return fakeTable;
+        },
+      };
+    },
+  };
+  const store = new LanceDBStore({ dimensions: 4, lancedb: fakeLancedb });
+  await store.upsertOne({
+    id: 'doc:faq.md#0',
+    vector: [1, 0, 0, 0],
+    metadata: { content: 'hola', documentId: 'doc:faq.md' },
+  });
+  const added = ops.find((o) => o.op === 'add');
+  assert.equal(added.rows[0].document_id, 'doc:faq.md');
+
+  const removed = await store.deleteByDocument('doc:faq.md');
+  assert.equal(removed, 2);
+  assert.ok(ops.some((o) => o.op === 'delete' && o.where === "document_id = 'doc:faq.md'"));
+  await assert.rejects(() => store.deleteByDocument(''), /documentId/);
+});
+
+test('LanceDBStore: deleteByDocument sin columna document_id da error accionable', async () => {
+  const fakeTable = {
+    async delete(where) {
+      if (where.includes('document_id')) throw new Error('no such column: document_id');
+    },
+    async countRows() {
+      return 1;
+    },
+  };
+  const fakeLancedb = {
+    async connect() {
+      return {
+        async tableNames() {
+          return ['karajan_rag_chunks'];
+        },
+        async openTable() {
+          return fakeTable;
+        },
+      };
+    },
+  };
+  const store = new LanceDBStore({ dimensions: 4, lancedb: fakeLancedb });
+  await assert.rejects(() => store.deleteByDocument('doc:x'), /Reindexa/);
+});
+
 test('LanceDBStore: search con mock devuelve hits ordenados con score=1-distance', async () => {
   const fakeTable = {
     async delete() {},

@@ -4,6 +4,21 @@ import assert from 'node:assert/strict';
 import { createHashEmbedder } from '../src/embedding/embedder.js';
 import { InMemoryVectorStore } from '../src/vector-store/in-memory-vector-store.js';
 
+test('InMemoryVectorStore: deleteByDocument elimina solo los chunks del documento', async () => {
+  const { InMemoryVectorStore } = await import('../src/vector-store/in-memory-vector-store.js');
+  const store = new InMemoryVectorStore({ dimensions: 2 });
+  store.upsert([
+    { id: 'doc:a.md#0', vector: [1, 0], metadata: { documentId: 'doc:a.md' } },
+    { id: 'doc:a.md#1', vector: [0, 1], metadata: { documentId: 'doc:a.md' } },
+    { id: 'doc:b.md#0', vector: [1, 1], metadata: { documentId: 'doc:b.md' } },
+  ]);
+  const removed = store.deleteByDocument('doc:a.md');
+  assert.equal(removed, 2);
+  assert.equal(store.size(), 1);
+  assert.equal(store.deleteByDocument('doc:inexistente'), 0);
+  assert.throws(() => store.deleteByDocument(''), /documentId/);
+});
+
 test('HashEmbedder: embed() es determinista para el mismo texto', async () => {
   const e = createHashEmbedder({ dimensions: 32 });
   const a = await e.embed('hola mundo');

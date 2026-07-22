@@ -35,6 +35,7 @@ import {
  * @property {(records: { id: string, vector: number[], metadata?: Record<string, unknown> }[]) => void | Promise<void>} upsert
  * @property {(id: string) => unknown} delete
  * @property {() => number | Promise<number>} [size] Si existe, se usa como guarda de integridad manifest↔store.
+ * @property {(documentId: string) => unknown} [deleteByDocument] Si existe, invalida documentos completos en una llamada.
  *
  * @typedef {object} IndexResult
  * @property {number} indexedFiles Ficheros añadidos o cambiados que se (re)procesaron.
@@ -98,6 +99,12 @@ export async function collectIndexableFiles(rootDir) {
  * @param {string} relPath
  */
 async function deleteFileChunks(store, manifest, relPath) {
+  // 0.5.0: los stores con deleteByDocument invalidan el documento entero
+  // en una llamada; el resto cae al borrado chunk a chunk del manifest.
+  if (typeof store.deleteByDocument === 'function') {
+    await store.deleteByDocument(`doc:${relPath}`);
+    return;
+  }
   for (const chunkId of manifest.files[relPath]?.chunkIds ?? []) {
     await store.delete(chunkId);
   }
