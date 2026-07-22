@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.7 — paridad Windows, procedencia de HUs, segundo fix self-healed (actual)
+### v4.1.8 — el board se vuelve ingobernable para agentes díscolos (actual)
+
+Patch. Se acabaron las peleas dashboard-agente, al estilo Planning Game: las HUs ya no puede borrarlas ningún agente (el fix loop archiva, `kj hu add` rechaza recrear, la API responde 405 con la norma), `kj brief board` enseña a cualquier brain cómo funciona el board, y el board deja de ocultar en silencio los planes con versión derivada — la causa raíz de "me desaparecen tareas", tercera issue abierta por el propio Karajan de un usuario y cerrada sola por su fix. Actualización directa desde v4.1.7.
+
+### v4.1.7 — paridad Windows, procedencia de HUs, segundo fix self-healed
 
 Patch. Día de campo en sentido literal: el instalador de Windows pasa a npm-first (producto completo, Node autoprovisionado con checksums, SEA tras opt-in), cada HU del board dice ya quién la creó y qué hacer con ella, y la segunda issue abierta por el propio Karajan de un usuario (`kj report-issue`) quedó arreglada y cerrada sola — `kj init` escribe ahora el bloque del contrato en .gitignore: los veredictos quedan locales y el gate se hereda. Además: los escáneres externos ya no pueden dispararse desde la suite de tests. Actualización directa desde v4.1.6.
 

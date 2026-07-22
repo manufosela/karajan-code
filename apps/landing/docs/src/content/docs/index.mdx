@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.7 — Windows parity, HU provenance, second self-healed fix (current)
+### v4.1.8 — the board becomes ungameable (current)
+
+Patch. The dashboard-vs-agent fights end, the Planning Game way: HUs can no longer be deleted by anyone's agent (the fix loop archives, `kj hu add` refuses to recreate, the API answers 405 with the norm), `kj brief board` teaches any brain how the board works, and the board stops silently hiding version-drifted plans — the root cause behind "my tasks disappeared", the third issue filed by a user's own Karajan and auto-closed by its fix. Drop-in upgrade from v4.1.7.
+
+### v4.1.7 — Windows parity, HU provenance, second self-healed fix
 
 Patch. A field day, literally: the Windows installer goes npm-first (full product, checksum-verified Node auto-provisioning, SEA behind an env opt-in), every HU on the board now says who created it and what to do next, and the second issue filed by a user's own Karajan (`kj report-issue`) was fixed and auto-closed — `kj init` now writes the gitignore contract block so review verdicts stay local while the gate stays inherited. Plus: external scanners can never fire from the test suite again. Drop-in upgrade from v4.1.6.
 
