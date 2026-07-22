@@ -7,7 +7,24 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Mitigación KJR-BUG-0006**: la capa easy no aplicaba la sensitivity
+  policy ni la redacción PII prometidas por ADR-005 §6 (hallazgo H1 de la
+  revisión interna). Desde ahora `query --answer` y `eval --judges`
+  redactan PII (emails, teléfonos, NIF/NIE, tarjetas) de pregunta,
+  contextos y respuestas antes de cualquier salida a un LLM, con test de
+  no-regresión. El routing completo por nivel de sensibilidad queda
+  rastreado en KJR-BUG-0006.
+
 ### Added
+
+- **Paquete de auditoría de sensibilidad/PII** (KJR-TSK-0130, criterio
+  1.0): `docs/security/sensitivity-audit.md` — alcance, modelo de
+  amenazas, inventario de flujos hacia proveedores por camino (con estado
+  de policy y redacción en cada uno), hallazgos de la revisión interna
+  (H1 alta → bug + mitigación; H2/H3 documentados) y checklist para el
+  auditor externo.
 
 - **Política de deprecación formalizada** (KJR-TSK-0129, criterio 1.0):
   `docs/DEPRECATION.md` — compromiso de 2 minors de preaviso desde la
