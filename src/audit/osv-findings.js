@@ -35,6 +35,11 @@ const SEVERITY_ORDER = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "MODERATE"];
  * @returns {Promise<{available: boolean, reason?: string, total?: number, vulnerabilities?: object[]}>}
  */
 export async function collectOsvFindings(projectDir, logger = null) {
+  // KJC-BUG-0122: same kill-switch as semgrep — external scanners never
+  // fire from the unit suite; e2e opts in with KJ_ALLOW_REAL_SCANS=1.
+  if (process.env.VITEST && process.env.KJ_ALLOW_REAL_SCANS !== "1") {
+    return { available: false, reason: "real scans disabled under the test runner (set KJ_ALLOW_REAL_SCANS=1 to opt in)" };
+  }
   let stdout;
   try {
     const { stdout: out } = await execFileAsync(
