@@ -43,6 +43,15 @@ const REQUIRED_EXPORTS = [
   'resolvePreset',
   'classifySources',
   'chunkWithPreset',
+  'computeIndexFingerprint',
+  'hashContent',
+  'createEmptyManifest',
+  'diffManifest',
+  'loadManifest',
+  'saveManifest',
+  'collectIndexableFiles',
+  'indexDirectory',
+  'runIndexCommand',
 
   // Embedding
   'createHashEmbedder',

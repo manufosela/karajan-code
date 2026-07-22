@@ -67,6 +67,16 @@ export {
   classifySources,
   chunkWithPreset,
 } from './src/easy/presets.js';
+export {
+  computeIndexFingerprint,
+  hashContent,
+  createEmptyManifest,
+  diffManifest,
+  loadManifest,
+  saveManifest,
+} from './src/easy/manifest.js';
+export { collectIndexableFiles, indexDirectory } from './src/easy/indexer.js';
+export { runIndexCommand } from './src/easy/cli.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';
