@@ -3,7 +3,7 @@
 > Versión viva del plan. Se revisa al cierre de cada sprint y al publicar un release.
 > Para el estado actual y los detalles tácticos, ver el backlog privado en **Planning Game** (`KJR-TSK-XXXX`).
 
-Última revisión: **2026-04-19** (post-release 0.1.0).
+Última revisión: **2026-07-22** (release 0.2.0).
 
 ---
 
@@ -25,9 +25,10 @@
 - Parches menores de documentación y ejemplos.
 - No se añaden features nuevas en esta serie.
 
-## 0.2.0 — Observabilidad y Solomon real
+## 0.2.0 — Observabilidad y Solomon real (✅ publicada 2026-07-22)
 
-**Estado**: núcleo entregado. Pendiente OpenTelemetry adapter y el bump del tag.
+**Estado**: publicada. Los dos flecos que quedaron fuera (adapter OpenTelemetry y
+stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 
 **Objetivo**: instrumentar el pipeline y sustituir el stub de Solomon por una implementación de referencia.
 
@@ -36,7 +37,7 @@
   - ✅ Helper `collectPipelineEvents` para captura sin boilerplate (PR #62).
   - ✅ Demo `examples/observability-demo.js` (PR #51).
   - ✅ Métricas de cache de embeddings (`hits, misses, size, evictions`) en `EmbeddingCache.stats` (PR #49).
-  - ⏳ Adapter opcional a OpenTelemetry (peer-dep) — no iniciado.
+  - ⏳ Adapter opcional a OpenTelemetry (peer-dep) — pospuesto a 0.2.x/0.3.0.
 - **Solomon real**
   - ✅ Tres estrategias: `majority`, `weighted`, `llm-arbiter` (PR #53).
   - ✅ `ctx.metadata.solomonDecision` como log de auditoría.
@@ -47,7 +48,7 @@
   - ✅ `GeneratorRole.streamGenerate()` como async iterable con fallback a adapter no-streaming (PR #55).
   - ✅ `createOllamaStreamAdapter` (HTTP NDJSON) como primer streamAdapter real (PR #58).
   - ✅ Helper `wrapAdapterAsStream` para adapters blocking (PR #61).
-  - ⏳ Stream adapters nativos para Claude/Azure/Vertex — pendientes.
+  - ⏳ Stream adapters nativos para Claude/Azure/Vertex — pospuestos a 0.2.x/0.3.0.
 - **API pública**
   - ✅ `index.js` barrel con 63 símbolos re-exportados (PR #59) + documentación en README (PR #60).
   - ✅ Tests de contrato (`tests/public-api.test.js`).
