@@ -12,7 +12,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const CONTRACT_BLOCK = [
+// KJC-BUG-0123 (issue #1268): exported as the SINGLE source of truth — kj
+// init and the orchestrator's autoInit write this same block instead of a
+// bare `.karajan/` exclude (which git cannot re-include children of).
+export const CONTRACT_BLOCK = [
   ".karajan/*",
   "# …except the v4 environment contract, which the whole team inherits:",
   "!.karajan/review-gate",
@@ -24,6 +27,22 @@ const CONTRACT_BLOCK = [
   "!.karajan/hooks/post-merge",
   "!.karajan/adrs/",
 ];
+
+/**
+ * KJC-BUG-0123: append the canonical contract block to .gitignore when the
+ * file has no `.karajan` mention at all (fresh projects — `kj init` path).
+ * Files that already mention .karajan are left to ensureGateTrackable,
+ * which rewrites legacy root excludes without touching anything else.
+ */
+export async function ensureContractBlockPresent(projectDir) {
+  const file = path.join(projectDir, ".gitignore");
+  let text = "";
+  try { text = await fs.readFile(file, "utf8"); } catch { /* no .gitignore yet */ }
+  if (text.includes(".karajan")) return { changed: false };
+  const sep = text && !text.endsWith("\n") ? "\n" : "";
+  await fs.writeFile(file, `${text}${sep}# Karajan environment (verdicts stay local; the contract is tracked)\n${CONTRACT_BLOCK.join("\n")}\n`);
+  return { changed: true };
+}
 
 export async function ensureGateTrackable(projectDir) {
   const file = path.join(projectDir, ".gitignore");
