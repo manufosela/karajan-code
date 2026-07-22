@@ -23,6 +23,16 @@ function makeMockClient(responseQueue) {
   };
 }
 
+test('PgVectorStore: deleteByDocument borra por metadata documentId', async () => {
+  const mock = makeMockClient([{ rows: [], rowCount: 3 }]);
+  const store = new PgVectorStore({ dimensions: 3, client: mock.client });
+  const removed = await store.deleteByDocument('doc:faq.md');
+  assert.equal(removed, 3);
+  assert.match(mock.queries[0].text, /metadata->>'documentId' = \$1/);
+  assert.deepEqual(mock.queries[0].params, ['doc:faq.md']);
+  await assert.rejects(() => store.deleteByDocument(''), /documentId/);
+});
+
 test('PgVectorStore: constructor valida args', () => {
   assert.throws(
     // @ts-expect-error missing dimensions

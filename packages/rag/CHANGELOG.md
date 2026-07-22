@@ -7,6 +7,19 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`deleteByDocument(documentId)`** en los tres vector stores
+  (KJR-TSK-0117, roadmap 0.5.0): borra todos los chunks de un documento
+  en una llamada. InMemory filtra por `metadata.documentId`; PgVector por
+  `metadata->>'documentId'`; LanceDB estrena columna top-level
+  `document_id` (las tablas creadas antes de 0.5.0 no la tienen —
+  `deleteByDocument` sobre ellas falla con instrucción de reindexar). El
+  indexer easy la usa al invalidar documentos, con fallback al borrado
+  por `chunkIds` del manifest. Queda documentado y testeado que la
+  `EmbeddingCache` (content-addressed: fingerprint + sha256) no requiere
+  invalidación ante borrados/reindexados.
+
 ## [0.4.0] — 2026-07-22
 
 ### Added

@@ -91,6 +91,26 @@ export class InMemoryVectorStore {
   }
 
   /**
+   * Elimina todos los records de un documento (metadata.documentId).
+   *
+   * @param {string} documentId
+   * @returns {number} Número de records eliminados.
+   */
+  deleteByDocument(documentId) {
+    if (typeof documentId !== 'string' || documentId.length === 0) {
+      throw new Error('deleteByDocument: "documentId" requerido (string no vacío).');
+    }
+    let removed = 0;
+    for (const [id, record] of this._store) {
+      if (record.metadata?.documentId === documentId) {
+        this._store.delete(id);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  /**
    * Busca los topK vectores más similares al query por cosine similarity.
    *
    * @param {number[]} queryVector
