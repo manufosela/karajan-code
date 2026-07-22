@@ -21,7 +21,7 @@ import {
   createPipelineContext,
 } from '../src/pipeline/pipeline.js';
 import { createDefaultAdapterRegistry } from '../src/ai/adapter-registry.js';
-import { runIndexCommand } from '../src/easy/cli.js';
+import { runIndexCommand, runQueryCommand } from '../src/easy/cli.js';
 
 const consoleLogger = {
   info: (msg, meta) => console.error(`[info] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`),
@@ -41,13 +41,14 @@ async function main() {
     process.exit(command ? 0 : 2);
   }
 
-  if (command === 'index') {
+  if (command === 'index' || command === 'query') {
+    const runner = command === 'index' ? runIndexCommand : runQueryCommand;
     try {
-      await runIndexCommand(rest);
+      await runner(rest);
       process.exit(0);
     } catch (err) {
       console.error(
-        `karajan-rag index: ${err instanceof Error ? err.message : String(err)}`,
+        `karajan-rag ${command}: ${err instanceof Error ? err.message : String(err)}`,
       );
       process.exit(1);
     }
@@ -104,6 +105,9 @@ function printUsage() {
   console.error('  index <ruta>   Indexa un directorio (código/docs/datos) en .karajan/.');
   console.error('                 Flags: --store lancedb|pgvector|in-memory (default lancedb),');
   console.error('                        --embedder hash|transformers (default hash), --dimensions N.');
+  console.error('  query "<pregunta>" [ruta]');
+  console.error('                 Consulta el índice (híbrido vector+BM25). Flags: --top-k N,');
+  console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama.');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
 

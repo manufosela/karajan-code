@@ -76,7 +76,8 @@ export {
   saveManifest,
 } from './src/easy/manifest.js';
 export { collectIndexableFiles, indexDirectory } from './src/easy/indexer.js';
-export { runIndexCommand } from './src/easy/cli.js';
+export { queryIndex } from './src/easy/query.js';
+export { runIndexCommand, runQueryCommand } from './src/easy/cli.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';

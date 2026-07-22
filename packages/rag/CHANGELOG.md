@@ -9,6 +9,17 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`karajan-rag query "<pregunta>" [ruta]`** (ADR-005, KJR-TSK-0103):
+  consulta el índice local sin escribir pipeline. Retrieval híbrido en dos
+  etapas (vector search sobre el store persistente + BM25 sobre los
+  candidatos, merge 50/50 de scores normalizados), dedupe por overlap y
+  salida `fichero:línea (score)` + pasaje. El embedder y las dimensiones
+  se derivan del fingerprint del manifest (imposible consultar con un
+  espacio vectorial distinto al indexado). `--answer --adapter <cli>`
+  genera respuesta con contexto vía `GeneratorRole` (claude/codex/gemini/
+  ollama/azure/bedrock/vertex). Índice inexistente → error con el comando
+  exacto para crearlo. Nuevos `queryIndex` y `runQueryCommand` en el barrel.
+
 - **`karajan-rag index <ruta>`** (ADR-005, KJR-TSK-0102): construye o
   actualiza un índice RAG persistente local en `.karajan/` con un solo
   comando. Autodetecta código/docs/datos vía presets, embebe en batch y
