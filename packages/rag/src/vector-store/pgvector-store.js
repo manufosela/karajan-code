@@ -33,7 +33,7 @@ function toPgVector(vector) {
 /**
  * VectorStore backend sobre pgvector.
  *
- * Schema esperado: `karajan_rag_chunks(id uuid, source text, chunk_index int,
+ * Schema esperado: `karajan_rag_chunks(id text, source text, chunk_index int,
  * content text, embedding vector(N), metadata jsonb, created_at timestamptz)`
  * creado por `migrations/001-init-pgvector.sql`.
  *
