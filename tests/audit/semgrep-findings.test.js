@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock node:util's promisify to bypass the {stdout, stderr} custom-impl
-// dance (same trick as tests/audit/osv-findings.test.js).
+// KJC-TSK-0668: the collector runs through the tool governor now — mock it
+// so tests drive the same {stdout}/rejection contract without real spawns.
 const execFileMock = vi.fn();
 
-vi.mock("node:util", async () => {
-  const actual = await vi.importActual("node:util");
-  return {
-    ...actual,
-    promisify: () => (...args) => Promise.resolve(execFileMock(...args)),
-  };
-});
-vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
+vi.mock("../../src/utils/tool-governor.js", () => ({
+  runGoverned: (...args) => Promise.resolve(execFileMock(...args)),
+  jobsCap: () => 4,
+}));
 
 import { collectSemgrepFindings, parseSemgrepOutput, groupFindingsBySeverity } from "../../src/audit/semgrep-findings.js";
 import { buildAuditPrompt } from "../../src/prompts/audit.js";

@@ -35,6 +35,7 @@ import { getSkillsChecks } from "../checks/skills.js";
 import { getDirSetupChecks } from "../checks/dir-setup.js";
 import { getProjectChecks } from "../checks/project-checks.js";
 import { getHardwareChecks } from "../checks/hardware.js";
+import { getOrphanChecks } from "../checks/orphans.js";
 
 /**
  * Build the list of Check objects applicable to the current config.
@@ -72,6 +73,7 @@ function buildChecks(config, { projectOnly = false } = {}) {
     ...getRtkChecks(),
     ...getSqueezrChecks(),
     ...getAiTrashChecks(),
+    ...getOrphanChecks(),
     ...getQmdChecks(),
     ...getRagHooksChecks({ projectDir }),
     ...getProjectChecks({ projectDir }),

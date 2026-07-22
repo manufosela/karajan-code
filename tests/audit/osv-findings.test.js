@@ -1,18 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock execFile + promisify so we can drive collectOsvFindings under
-// controlled conditions. promisify(execFile) resolves to {stdout, stderr}
-// (Node's custom impl). We bypass that nuance by faking promisify too.
+// KJC-TSK-0668: the collector runs through the tool governor now — mock it
+// so tests drive the same {stdout}/rejection contract without real spawns.
 const execFileMock = vi.fn();
 
-vi.mock("node:util", async () => {
-  const actual = await vi.importActual("node:util");
-  return {
-    ...actual,
-    promisify: () => (...args) => Promise.resolve(execFileMock(...args)),
-  };
-});
-vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
+vi.mock("../../src/utils/tool-governor.js", () => ({
+  runGoverned: (...args) => Promise.resolve(execFileMock(...args)),
+}));
 
 import { collectOsvFindings, parseOsvOutput, groupVulnerabilitiesBySeverity } from "../../src/audit/osv-findings.js";
 import { buildAuditPrompt } from "../../src/prompts/audit.js";

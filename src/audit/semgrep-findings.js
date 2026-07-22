@@ -18,10 +18,7 @@
  *     into the `security` dimension using the rule ID as the rule field.
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { runGoverned, jobsCap } from "../utils/tool-governor.js";
 
 const SCAN_TIMEOUT_MS = 120_000;
 const SEVERITY_ORDER = ["ERROR", "WARNING", "INFO"];
@@ -44,9 +41,12 @@ export async function collectSemgrepFindings(projectDir, logger = null) {
   }
   let stdout;
   try {
-    const { stdout: out } = await execFileAsync(
+    // KJC-TSK-0668: governed run — machine-wide single-flight, --jobs capped
+    // at half the CPUs (semgrep grabs 14 by default), nice +10, and a timeout
+    // that kills the whole process tree (no more orphaned semgrep-core).
+    const { stdout: out } = await runGoverned(
       "semgrep",
-      ["--config", "auto", "--json", "--quiet", `--timeout=${Math.floor(SCAN_TIMEOUT_MS / 1000)}`, projectDir || "."],
+      ["--config", "auto", "--json", "--quiet", `--jobs=${jobsCap()}`, `--timeout=${Math.floor(SCAN_TIMEOUT_MS / 1000)}`, projectDir || "."],
       { cwd: projectDir, timeout: SCAN_TIMEOUT_MS + 5000, maxBuffer: 32 * 1024 * 1024 }
     );
     stdout = out;
