@@ -118,7 +118,10 @@ test('indexDirectory: sin cambios no toca el store', async () => {
 });
 
 test('indexDirectory: embebe y upsertea por lotes de batchSize (backpressure)', async () => {
-  const manyLines = Array.from({ length: 40 }, (_, i) => `Línea de contenido número ${i}.`).join('\n\n');
+  const manyLines = Array.from(
+    { length: 60 },
+    (_, i) => `Párrafo número ${i}: ${'contenido relleno para forzar varios chunks. '.repeat(5)}`,
+  ).join('\n\n');
   const root = await makeProject({ 'grande.md': `# Grande\n${manyLines}\n` });
   const { store, embedder } = makeDeps();
   const embedSizes = [];
