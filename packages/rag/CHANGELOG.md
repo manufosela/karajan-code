@@ -9,6 +9,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Imagen Docker del servidor RAG** (KJR-TSK-0106): `Dockerfile`
+  multi-stage sobre `node:22-slim`, usuario no root, con los backends
+  opcionales preinstalados (`pg`, `@lancedb/lancedb`). Sirve el índice
+  montado en `/data` vía HTTP; configuración solo por entorno (`PORT`,
+  `KARAJAN_STORE=lancedb|pgvector`, `PG_URL`) — sin secretos horneados.
+  `docker-compose.yml` añade el servicio `rag` junto a `pgvector` para un
+  RAG local end-to-end. Verificado con smoke real: index + serve + curl
+  a `/health` y `/query` dentro del contenedor.
+
 - **`karajan-rag serve [ruta]`** (ADR-005, KJR-TSK-0105): sirve el índice
   Easy RAG sin dependencias nuevas. Modo **MCP stdio** por defecto
   (JSON-RPC 2.0 delimitado por líneas: initialize, tools/list, tools/call)

@@ -18,5 +18,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Servidor Easy RAG sobre pgvector (KJR-TSK-0106). Requiere haber
+  # indexado antes contra el mismo Postgres, p. ej.:
+  #   PG_URL=postgres://karajan:karajan@localhost:5432/karajan_rag \
+  #     node bin/karajan-rag.js index . --store pgvector
+  rag:
+    build: .
+    container_name: karajan_rag_server
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      KARAJAN_STORE: pgvector
+      # Credenciales de desarrollo local (las mismas del servicio pgvector).
+      PG_URL: postgres://karajan:karajan@pgvector:5432/karajan_rag
+    ports:
+      - "8080:8080"
+    volumes:
+      # El manifest del índice (.karajan/manifest.json) vive junto a la fuente.
+      - ./:/data:ro
+    depends_on:
+      pgvector:
+        condition: service_healthy
+
 volumes:
   karajan_rag_pgdata:

@@ -1,0 +1,12 @@
+node_modules
+.git
+.github
+.karajan
+coverage
+tests
+examples
+docs
+scripts
+*.md
+!README.md
+.eslintcache
