@@ -12,10 +12,12 @@
 
 FROM node:22-slim AS deps
 WORKDIR /app
-COPY package.json ./
 # karajan-rag no tiene dependencias runtime; se instalan solo los
 # backends opcionales que la imagen ofrece: pg (pgvector) y LanceDB.
-RUN npm install --no-package-lock --omit=dev pg @lancedb/lancedb \
+# Sobre un package.json vacío a propósito: el del repo lista pg en
+# devDependencies y npm lo omitiría/mezclaría devDeps (KJR-BUG-0004).
+RUN npm init -y > /dev/null \
+  && npm install --no-package-lock pg @lancedb/lancedb \
   && npm cache clean --force
 
 FROM node:22-slim
