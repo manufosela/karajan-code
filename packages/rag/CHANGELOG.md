@@ -9,6 +9,13 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Backpressure en ingestas grandes** (KJR-TSK-0120, roadmap 0.5.0):
+  `indexDirectory` embebe y upsertea por lotes de `batchSize`
+  (`DEFAULT_INGEST_BATCH_SIZE = 64`) en vez de cargar todos los
+  embeddings de un fichero de golpe, con progreso por lote vía `onEvent`.
+  Flag `--batch-size N` en `karajan-rag index` con validación estricta.
+  Resultado idéntico al indexado sin lotes (mismos chunks y manifest).
+
 - **Migración asistida entre stores** (KJR-TSK-0119, roadmap 0.5.0):
   `scan({batchSize})` como async generator en los tres stores (Pg pagina
   en SQL con orden estable; Lance trocea `query().toArray()` —
