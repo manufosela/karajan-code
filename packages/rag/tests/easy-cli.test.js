@@ -11,7 +11,10 @@ import {
   parseQueryArgs,
   parseFingerprint,
   runQueryCommand,
+  parseEvalArgs,
+  runEvalCommand,
 } from '../src/easy/cli.js';
+import { fileURLToPath } from 'node:url';
 
 test('parseIndexArgs: defaults ADR-005 (lancedb + hash)', () => {
   const opts = parseIndexArgs(['./docs']);
@@ -90,6 +93,52 @@ test('runQueryCommand: sin índice falla indicando cómo crearlo', async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+const REPO_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+test('parseEvalArgs: defaults (corpus junto al golden) y flags', () => {
+  const opts = parseEvalArgs(['examples/golden/golden.json']);
+  assert.ok(opts.goldenPath.endsWith('golden.json'));
+  assert.ok(opts.corpusDir.endsWith(path.join('examples', 'golden', 'corpus')));
+  assert.deepEqual(opts.judges, []);
+  assert.equal(opts.dimensions, 64);
+
+  const full = parseEvalArgs(['g.json', './otro-corpus', '--judges', 'claude, ollama', '--dimensions', '32']);
+  assert.ok(full.corpusDir.endsWith('otro-corpus'));
+  assert.deepEqual(full.judges, ['claude', 'ollama']);
+  assert.equal(full.dimensions, 32);
+
+  assert.throws(() => parseEvalArgs([]), /golden\.json/);
+  assert.throws(() => parseEvalArgs(['g.json', '--dimensions', 'dos']), /--dimensions/);
+});
+
+test('runEvalCommand: golden del repo pasa y reporta métricas', async () => {
+  const lines = [];
+  const report = await runEvalCommand(
+    [path.join(REPO_ROOT, 'examples/golden/golden.json')],
+    { out: (msg) => lines.push(msg) },
+  );
+  assert.equal(report.passed, true);
+  assert.ok(lines.some((l) => l.includes('faithfulness')));
+  assert.equal(lines.at(-1), 'eval: PASSED');
+});
+
+test('runEvalCommand: --judges usa el registry inyectado y reporta outliers', async () => {
+  const judgeScores = { j1: 0.9, j2: 0.85, j3: 0.1 };
+  const registry = {
+    has: () => true,
+    get: (name) => async () => ({ parsedOutput: { json: { score: judgeScores[name], rationale: 'x' } } }),
+  };
+  const lines = [];
+  const report = await runEvalCommand(
+    [path.join(REPO_ROOT, 'examples/golden/golden.json'), '--judges', 'j1,j2,j3'],
+    { out: (msg) => lines.push(msg), judgeRegistry: registry },
+  );
+  assert.ok(report.judgeReports);
+  const first = Object.values(report.judgeReports)[0];
+  assert.deepEqual(first.outliers, ['j3']);
+  assert.ok(lines.some((l) => l.includes('outliers=[j3]')));
 });
 
 test('runIndexCommand: end-to-end con in-memory sobre un proyecto temporal', async () => {

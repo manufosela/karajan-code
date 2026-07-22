@@ -26,6 +26,7 @@ import {
   runQueryCommand,
   runInitCommand,
   runServeCommand,
+  runEvalCommand,
 } from '../src/easy/cli.js';
 
 const consoleLogger = {
@@ -44,6 +45,16 @@ async function main() {
   if (!command || command === '--help' || command === '-h') {
     printUsage();
     process.exit(command ? 0 : 2);
+  }
+
+  if (command === 'eval') {
+    try {
+      const report = await runEvalCommand(rest);
+      process.exit(report.passed ? 0 : 1);
+    } catch (err) {
+      console.error(`karajan-rag eval: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
   }
 
   if (command === 'serve') {
@@ -130,6 +141,9 @@ function printUsage() {
   console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama.');
   console.error('  serve [ruta]   Sirve el índice: MCP stdio (default, tools rag_query/rag_status)');
   console.error('                 o --http (POST /query, GET /health, --port N, default 8080).');
+  console.error('  eval <golden.json> [corpus]');
+  console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');
+  console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N.');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
 
