@@ -47,6 +47,9 @@ const REQUIRED_EXPORTS = [
   'loadGoldenSet',
   'validateGoldenSet',
   'runGoldenSet',
+  'buildRerankPrompt',
+  'RERANK_PROMPT_VERSION',
+  'RERANK_SNIPPET_MAX_CHARS',
 
   // Easy RAG (ADR-005)
   'detectSourceType',

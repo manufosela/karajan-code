@@ -38,6 +38,13 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (no hay consenso posible). Cambio aditivo: `aggregateScore` y
   `disagreement` no cambian.
 
+- **Prompt-template auditado del Reranker LLM** (KJR-TSK-0114, roadmap
+  0.4.0): el prompt inline de `RerankerRole` (modo llm) se extrae a
+  `src/retrieval/rerank-prompt.js` (`buildRerankPrompt`,
+  `RERANK_PROMPT_VERSION`, `RERANK_SNIPPET_MAX_CHARS`) sin cambio de
+  redacción (v1). Tests snapshot congelan el texto exacto: cambiarlo
+  exige actualizar snapshot y versión conscientemente en el mismo PR.
+
 ### Fixed
 
 - **Easy RAG — guarda de integridad manifest↔store** (KJR-BUG-0005,
