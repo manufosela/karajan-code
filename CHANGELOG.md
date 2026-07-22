@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.9] - 2026-07-22
+
+Patch. **Warnings you can act on** — the fourth field issue filed by a user's Karajan, fixed and auto-closed within hours.
+
+### Fixed
+
+- **Dashboard prompt modals show the FULL spec-review findings** (KJC-BUG-0125, issue #1275 — fourth self-healing cycle): each finding renders as a readable severity-colored entry with its message and the concrete suggestion, instead of "4 findings at severity fail" and a collapsed JSON blob. The full findings travel with the prompt in both the interactive and the autonomous paths (capped at 20, real total always visible).
+- **`kj-run-smoke` no longer flakes on Node 24 CI** (KJC-BUG-0126): the positional `mockResolvedValueOnce` chains — misaligned by any order shift in the orchestrator's probes — are replaced by command-keyed mocks that describe the world, not a fragile sequence.
+
 ## [4.1.8] - 2026-07-22
 
 Patch. **The board becomes ungameable** — the dashboard-vs-agent fights reported from the field (an agent "fixing" warnings by deleting and recreating tasks) end here, the Planning Game way: the code forbids it AND the agent is taught why.
