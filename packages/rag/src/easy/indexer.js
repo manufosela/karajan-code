@@ -21,6 +21,7 @@ import {
   saveManifest,
   MANIFEST_DIR,
 } from './manifest.js';
+import { ensureIndexFingerprint } from '../vector-store/fingerprint-guard.js';
 
 /**
  * @typedef {import('./manifest.js').IndexManifest} IndexManifest
@@ -36,6 +37,8 @@ import {
  * @property {(id: string) => unknown} delete
  * @property {() => number | Promise<number>} [size] Si existe, se usa como guarda de integridad manifest↔store.
  * @property {(documentId: string) => unknown} [deleteByDocument] Si existe, invalida documentos completos en una llamada.
+ * @property {() => string | null | Promise<string | null>} [getIndexFingerprint] Guarda ADR-002 si existe junto a setIndexFingerprint.
+ * @property {(fingerprint: string) => void | Promise<void>} [setIndexFingerprint]
  *
  * @typedef {object} IndexResult
  * @property {number} indexedFiles Ficheros añadidos o cambiados que se (re)procesaron.
@@ -149,6 +152,20 @@ export async function indexDirectory(rootDir, deps) {
     manifest = null;
     fullReindex = true;
   }
+  // ADR-002 generalizado (0.5.0): el fingerprint también vive en el store.
+  // Tras un full-reindex se sobrescribe conscientemente; en el resto de
+  // casos un espacio incompatible falla aquí, antes de tocar nada.
+  if (
+    typeof store.getIndexFingerprint === 'function' &&
+    typeof store.setIndexFingerprint === 'function'
+  ) {
+    if (fullReindex) {
+      await store.setIndexFingerprint(fingerprint);
+    } else {
+      await ensureIndexFingerprint(/** @type {never} */ (store), fingerprint);
+    }
+  }
+
   const previous = manifest ?? createEmptyManifest(fingerprint);
 
   /** @type {Record<string, { hash: string, content: string, sourceType: PresetSourceType }>} */

@@ -153,6 +153,34 @@ export class LanceDBStore {
   }
 
   /**
+   * Fingerprint del espacio vectorial (ADR-002, 0.5.0). Vive en un
+   * fichero sidecar junto al directorio de datos de LanceDB — si copias
+   * la tabla a otra ruta, copia también `.karajan-fingerprint`.
+   *
+   * @returns {Promise<string | null>}
+   */
+  async getIndexFingerprint() {
+    const { readFile } = await import('node:fs/promises');
+    try {
+      const raw = await readFile(`${this.path}/.karajan-fingerprint`, 'utf8');
+      return raw.trim() || null;
+    } catch (err) {
+      if (/** @type {NodeJS.ErrnoException} */ (err).code === 'ENOENT') return null;
+      throw err;
+    }
+  }
+
+  /**
+   * @param {string} fingerprint
+   * @returns {Promise<void>}
+   */
+  async setIndexFingerprint(fingerprint) {
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    await mkdir(this.path, { recursive: true });
+    await writeFile(`${this.path}/.karajan-fingerprint`, `${fingerprint}\n`, 'utf8');
+  }
+
+  /**
    * Elimina todos los records de un documento (columna document_id,
    * poblada desde metadata.documentId al upsertear).
    *

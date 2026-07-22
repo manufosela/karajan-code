@@ -9,6 +9,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Fingerprint persistente en el store** (KJR-TSK-0118, roadmap 0.5.0 —
+  ADR-002 generalizado): los tres stores exponen
+  `get/setIndexFingerprint` (campo en InMemory, tabla `<tabla>_meta` en
+  Postgres, fichero sidecar `.karajan-fingerprint` en LanceDB — cópialo
+  si mueves la tabla de sitio) y el helper `ensureIndexFingerprint`
+  registra/valida el espacio vectorial fallando con error accionable
+  ante mismatch. El indexer easy lo aplica como defensa en profundidad:
+  escribir con un embedder/dimensiones incompatibles corta antes de
+  mezclar espacios, tenga o no manifest el directorio.
+
 - **`deleteByDocument(documentId)`** en los tres vector stores
   (KJR-TSK-0117, roadmap 0.5.0): borra todos los chunks de un documento
   en una llamada. InMemory filtra por `metadata.documentId`; PgVector por
