@@ -9,6 +9,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`karajan-rag doctor [ruta]`** (KJR-TSK-0126, roadmap 0.6.0):
+  diagnóstico de entorno e índice sin efectos — node, peers opcionales
+  (`@lancedb/lancedb`, `@huggingface/transformers`, `pg`), CLIs de IA en
+  PATH, variables de entorno relevantes, config del proyecto
+  (válida/ausente/inválida) y estado del índice (fingerprint, ficheros,
+  chunks). Cada ✗/⚠ incluye el comando exacto para arreglarlo; exit code
+  1 solo con errores. `runDoctorChecks` (puro, deps inyectables) y
+  `runDoctorCommand` en el barrel.
+
 - **SDK embebible `createRag()`** (KJR-TSK-0125, roadmap 0.6.0): fachada
   programática para frameworks (Astro/Next/Fastify/workers) sin CLI —
   `{index, query, status, close}` con los mismos defaults ADR-005 que los

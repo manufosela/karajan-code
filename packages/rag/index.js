@@ -100,6 +100,7 @@ export {
 export { collectIndexableFiles, indexDirectory } from './src/easy/indexer.js';
 export { queryIndex } from './src/easy/query.js';
 export { createRag } from './src/easy/sdk.js';
+export { runDoctorChecks, runDoctorCommand } from './src/easy/doctor.js';
 export {
   createRagService,
   openRagService,
