@@ -45,6 +45,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   redacción (v1). Tests snapshot congelan el texto exacto: cambiarlo
   exige actualizar snapshot y versión conscientemente en el mismo PR.
 
+- **`karajan-rag eval <golden.json> [corpus]`** (KJR-TSK-0115, roadmap
+  0.4.0): evaluación declarativa desde CLI. Ejecuta el golden set offline
+  (stubs deterministas), reporta cada métrica contra su baseline (✓/✗ con
+  peores casos) y termina con exit code 1 si el baseline falla — apto
+  para CI. `--judges claude,ollama` añade veredictos LLM-as-judge por
+  caso con `aggregateScore` y outliers etiquetados. `--dimensions N`
+  para el embedder del run. `runEvalCommand` re-exportado en el barrel.
+
 ### Fixed
 
 - **Easy RAG — guarda de integridad manifest↔store** (KJR-BUG-0005,

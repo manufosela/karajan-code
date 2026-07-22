@@ -30,6 +30,8 @@ import {
   loadEasyConfig,
   saveEasyConfig,
 } from './config.js';
+import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
+import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
 import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
 
@@ -395,6 +397,92 @@ export async function runServeCommand(argv, io = {}) {
   const mcp = startRagMcpServer(service, { input: io.input, output: io.output });
   log(`MCP stdio listo (tools: rag_query, rag_status) sobre ${options.rootDir}`);
   return { mode: 'mcp', close: mcp.close };
+}
+
+/**
+ * Parsea `karajan-rag eval <golden.json> [corpus] [--judges p1,p2] [--dimensions N]`.
+ *
+ * `corpus` por defecto es el directorio `corpus/` junto al golden.json.
+ *
+ * @param {string[]} argv
+ * @returns {{ goldenPath: string, corpusDir: string, judges: string[], dimensions: number }}
+ */
+export function parseEvalArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      judges: { type: 'string' },
+      dimensions: { type: 'string' },
+    },
+  });
+  const goldenPath = positionals[0];
+  if (!goldenPath) {
+    throw new Error('eval: falta la ruta del golden.json (karajan-rag eval <golden.json> [corpus]).');
+  }
+  const resolvedGolden = path.resolve(goldenPath);
+  const dimensions = values.dimensions ? Number.parseInt(values.dimensions, 10) : 64;
+  if (!Number.isInteger(dimensions) || dimensions <= 0) {
+    throw new Error('eval: --dimensions debe ser un entero positivo.');
+  }
+  return {
+    goldenPath: resolvedGolden,
+    corpusDir: path.resolve(positionals[1] ?? path.join(path.dirname(resolvedGolden), 'corpus')),
+    judges: values.judges ? String(values.judges).split(',').map((j) => j.trim()).filter(Boolean) : [],
+    dimensions,
+  };
+}
+
+/**
+ * Ejecuta el subcomando `eval`: golden set offline con métricas locales
+ * y, con `--judges`, veredictos LLM-as-judge con labelling de outliers.
+ *
+ * @param {string[]} argv
+ * @param {{ out?: (msg: string) => void, judgeRegistry?: { get: Function, has: Function } }} [io]
+ * @returns {Promise<import('../evaluation/golden-runner.js').GoldenRunReport & { judgeReports?: Record<string, import('../evaluation/multi-judge-evaluator.js').EvaluationReport> }>}
+ */
+export async function runEvalCommand(argv, io = {}) {
+  const out = io.out ?? ((msg) => console.log(msg));
+  const options = parseEvalArgs(argv);
+
+  const golden = await loadGoldenSet(options.goldenPath);
+  const report = await runGoldenSet(golden, {
+    corpusDir: options.corpusDir,
+    dimensions: options.dimensions,
+  });
+
+  out(`eval: ${report.results.length} casos sobre ${options.corpusDir}`);
+  for (const [metric, value] of Object.entries(report.aggregates)) {
+    const minimum = golden.baseline[metric];
+    const flag = minimum === undefined ? ' ' : value >= minimum ? '✓' : '✗';
+    out(`  ${flag} ${metric}: ${value.toFixed(3)}${minimum === undefined ? '' : ` (mínimo ${minimum})`}`);
+  }
+  for (const failure of report.failures) {
+    out(`  ✗ ${failure.metric} por debajo del baseline — peores casos: ${failure.worstCases.join(', ')}`);
+  }
+
+  /** @type {Record<string, import('../evaluation/multi-judge-evaluator.js').EvaluationReport>} */
+  const judgeReports = {};
+  if (options.judges.length > 0) {
+    const registry = io.judgeRegistry ?? (await createDefaultAdapterRegistry());
+    for (const item of golden.cases) {
+      const result = report.results.find((r) => r.id === item.id);
+      const contexts = result ? result.retrievedSources.join(', ') : '';
+      judgeReports[item.id] = await evaluateMultiJudge({
+        registry: /** @type {never} */ (registry),
+        providers: options.judges,
+        input: { query: item.question, answer: item.expectedAnswer, context: contexts },
+      });
+      const jr = judgeReports[item.id];
+      out(
+        `  juez ${item.id}: score=${jr.aggregateScore === null ? 'n/a' : jr.aggregateScore.toFixed(2)}` +
+          (jr.outliers.length > 0 ? ` outliers=[${jr.outliers.join(', ')}]` : ''),
+      );
+    }
+  }
+
+  out(report.passed ? 'eval: PASSED' : 'eval: FAILED');
+  return options.judges.length > 0 ? { ...report, judgeReports } : report;
 }
 
 /**
