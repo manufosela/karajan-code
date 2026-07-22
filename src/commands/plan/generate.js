@@ -370,8 +370,8 @@ async function planGenerateImpl({ task, config, logger, json, context, runLog, f
             break;
           }
           const ops = applyFixerPatch(plan, fix.patch);
-          runLog.logText(`[planner] self-fix iter ${i} applied: +${ops.added} HU, +${ops.depsAdded} dep, -${ops.deleted} HU`);
-          if (ops.added + ops.depsAdded + ops.deleted === 0) {
+          runLog.logText(`[planner] self-fix iter ${i} applied: +${ops.added} HU, +${ops.depsAdded} dep, ${ops.archived} archived`);
+          if (ops.added + ops.depsAdded + ops.archived === 0) {
             fixProgress.finish("done");
             runLog.logText(`[planner] self-fix iter ${i} empty patch — stopping`);
             break;
