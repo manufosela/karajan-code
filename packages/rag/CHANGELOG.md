@@ -7,6 +7,51 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-23
+
+### Fixed
+
+- **KJR-BUG-0006 cerrado — la capa easy aplica la sensitivity policy
+  completa** (ADR-005 §6, hallazgo H1 de la auditoría interna). El nivel
+  efectivo de una consulta es el **máximo** de los chunks recuperados y
+  toda salida hacia un LLM pasa por la policy:
+  - `query --answer`: `--adapter` explícito no permitido para el nivel →
+    error accionable (nivel, permitidos y cómo corregirlo); adapter de
+    config/default no permitido → se enruta al primer proveedor permitido
+    con aviso. El registry incluye `ollama` (HTTP local) para que
+    `confidential` tenga siempre salida.
+  - `eval --judges`: flag nuevo `--sensitivity` (default seguro
+    `internal`) con gate que rechaza jueces no permitidos antes de enviar
+    nada.
+  - Los índices creados antes de 0.7.0 no tienen marca de nivel: sus
+    chunks cuentan como `internal` (nunca `public`). Reindexa para
+    aplicar tus reglas.
+
+### Added
+
+- **Sensibilidad declarable en `karajan.config.json`**: `easy.sensitivity`
+  (nivel del corpus) y `easy.sensitivityRules` (excepciones por prefijo de
+  ruta, gana la primera que matchea), con validación estricta. El wizard
+  de `init` pregunta el nivel; `index` estampa cada documento y los chunks
+  lo heredan hasta el store; los hits de `query` exponen `sensitivity`.
+- **API nueva exportada**: `maxSensitivity`, `resolveDocumentSensitivity`,
+  `effectiveSensitivityOfHits`, `enforceEasyAdapterPolicy` y
+  `generateAnswerForHits` (generación con routing y redacción PII sobre
+  hits ya recuperados, testeable sin peers).
+- **`redactPII` cubre IBAN** (hallazgo H3): ES e internacional, con y sin
+  separadores, placeholder `[REDACTED_IBAN]` y conteo `counts.iban`.
+- **Docs**: sección «Sensibilidad y privacidad» en `docs/easy-rag.md` y
+  caso de uso real de despliegue GCP en `docs/case-study-gcp.md`
+  (criterio de 1.0 cumplido).
+
+### Security
+
+- Paquete de auditoría actualizado: H1 corregido (este release), H2
+  cerrado con decisión registrada (embedders remotos = documentación
+  prescriptiva; la capa easy solo ofrece embedders locales) y H3
+  corregido (IBAN). Queda únicamente la auditoría externa como criterio
+  de 1.0 pendiente.
+
 ## [0.6.1] — 2026-07-22
 
 ### Security
@@ -466,7 +511,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/manufosela/karajan-rag/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/manufosela/karajan-rag/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/manufosela/karajan-rag/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/manufosela/karajan-rag/compare/v0.4.0...v0.5.0
