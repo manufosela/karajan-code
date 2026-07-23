@@ -109,6 +109,7 @@
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
     "karajan-core": "^1.0.0",
+    "karajan-rag": "^1.2.0",
     "knip": "^6.15.0",
     "madge": "^8.0.0",
     "sqlite-vec": "^0.1.9",

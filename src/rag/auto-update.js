@@ -8,7 +8,7 @@ import { execa } from "execa";
 
 import { openVecStore, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "./vec-store.js";
 import { indexProjectDelta } from "./indexer.js";
-import { makeEmbedder } from "./embedders/factory.js";
+import { makeGovernedEmbedder } from "./governed-embedder.js";
 
 const HOOK_SRC = resolve(fileURLToPath(import.meta.url), "../../../scripts/git-hooks/post-merge");
 
@@ -25,7 +25,7 @@ export async function maybeAutoUpdate({ projectDir, config, logger = console, fl
     const since = getLastIndexedCommit(db, slug);
     if (!since || since === head) return { skipped: true, head };
     logger.info?.(`[rag] drift detected (${since.slice(0, 7)} → ${head.slice(0, 7)}); running delta update`);
-    const totals = await indexProjectDelta(projectDir, { db, embedder: makeEmbedder(config), since, logger });
+    const totals = await indexProjectDelta(projectDir, { db, embedder: makeGovernedEmbedder(config), since, logger });
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
     return { ran: true, totals };
   } catch (err) {
