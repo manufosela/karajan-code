@@ -190,8 +190,25 @@ export async function indexDirectory(rootDir, deps) {
     Object.fromEntries(Object.entries(current).map(([p, v]) => [p, v.hash])),
   );
 
+  // KJR-BUG-0007: el nivel de sensibilidad forma parte de lo indexado. Un
+  // fichero con contenido idéntico pero nivel resuelto distinto al del
+  // manifest (o sin nivel, manifests pre-fix) se reprocesa igualmente —
+  // el gate de query nunca puede apoyarse en una marca antigua.
+  const sensitivityFor = deps.sensitivityFor ?? (() => DEFAULT_SENSITIVITY);
+  const staleSensitivity = diff.unchanged.filter(
+    (relPath) => previous.files[relPath]?.sensitivity !== sensitivityFor(relPath),
+  );
+  const unchanged = diff.unchanged.filter((relPath) => !staleSensitivity.includes(relPath));
+  const changed = [...diff.changed, ...staleSensitivity];
+  for (const relPath of staleSensitivity) {
+    notify(
+      `sensibilidad cambiada (${previous.files[relPath]?.sensitivity ?? 'sin marca'} → ` +
+        `${sensitivityFor(relPath)}): ${relPath}`,
+    );
+  }
+
   const next = createEmptyManifest(fingerprint);
-  for (const relPath of diff.unchanged) next.files[relPath] = previous.files[relPath];
+  for (const relPath of unchanged) next.files[relPath] = previous.files[relPath];
 
   for (const relPath of diff.removed) {
     await deleteFileChunks(store, previous, relPath);
@@ -199,8 +216,8 @@ export async function indexDirectory(rootDir, deps) {
   }
 
   let chunksUpserted = 0;
-  for (const relPath of [...diff.added, ...diff.changed]) {
-    if (diff.changed.includes(relPath)) await deleteFileChunks(store, previous, relPath);
+  for (const relPath of [...diff.added, ...changed]) {
+    if (changed.includes(relPath)) await deleteFileChunks(store, previous, relPath);
 
     const { content, hash, sourceType } = current[relPath];
     const preset = resolvePreset(sourceType);
@@ -212,7 +229,7 @@ export async function indexDirectory(rootDir, deps) {
         sourceType,
         // KJR-BUG-0006: cada chunk hereda el nivel de su documento; el
         // routing de query/eval decide por el máximo de lo recuperado.
-        sensitivity: deps.sensitivityFor?.(relPath) ?? DEFAULT_SENSITIVITY,
+        sensitivity: sensitivityFor(relPath),
       },
     };
     const chunks = chunkWithPreset(doc, preset);
@@ -233,7 +250,12 @@ export async function indexDirectory(rootDir, deps) {
         notify(`indexando: ${relPath} lote ${start / batchSize + 1}/${totalBatches}`);
       }
     }
-    next.files[relPath] = { hash, sourceType, chunkIds: chunks.map((c) => c.id) };
+    next.files[relPath] = {
+      hash,
+      sourceType,
+      chunkIds: chunks.map((c) => c.id),
+      sensitivity: sensitivityFor(relPath),
+    };
     chunksUpserted += chunks.length;
     notify(`indexado: ${relPath} (${chunks.length} chunks)`);
   }
@@ -241,9 +263,9 @@ export async function indexDirectory(rootDir, deps) {
   await saveManifest(rootDir, next);
 
   return {
-    indexedFiles: diff.added.length + diff.changed.length,
+    indexedFiles: diff.added.length + changed.length,
     removedFiles: diff.removed.length,
-    unchangedFiles: diff.unchanged.length,
+    unchangedFiles: unchanged.length,
     chunksUpserted,
     fullReindex,
     excluded: groups.excluded,

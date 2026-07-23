@@ -20,6 +20,10 @@ export const MANIFEST_FILE = 'manifest.json';
  * @property {string} hash Hash sha256 del contenido del fichero.
  * @property {'code' | 'docs' | 'data'} sourceType Preset aplicado.
  * @property {string[]} chunkIds Ids de los chunks upserteados en el store.
+ * @property {import('../domain/document.js').Sensitivity} [sensitivity]
+ *   Nivel estampado al indexar (KJR-BUG-0007): si el nivel resuelto por la
+ *   config cambia, el fichero se reprocesa aunque su contenido no cambie.
+ *   Ausente en manifests pre-0.8.0 → se reestampa en el siguiente index.
  *
  * @typedef {object} IndexManifest
  * @property {number} version
