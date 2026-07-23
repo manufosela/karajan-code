@@ -7,6 +7,20 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07-23
+
+### Added
+
+- **`karajan-rag report-issue`** (KJR-TSK-0140): reporta fricciones al
+  repo público con una issue saneada — rutas home colapsadas a `~` y PII
+  redactada con el propio `redactPII` del pipeline (emails, teléfonos,
+  NIF/NIE, tarjetas, IBAN, resistente a ofuscación Unicode). Dedup contra
+  las issues abiertas por solape de título (degrada sin bloquear;
+  `--force` para saltarlo). Por defecto imprime preview + URL prefabricada
+  — publicar es decisión humana; `--publish` usa el CLI de gh. `--json`
+  para agentes. El prompt `start.md` instruye a los agentes IA a reportar
+  fricciones con él, confirmando siempre antes de publicar.
+
 ## [1.1.0] — 2026-07-23
 
 ### Added
@@ -568,7 +582,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/manufosela/karajan-rag/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/manufosela/karajan-rag/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/manufosela/karajan-rag/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/manufosela/karajan-rag/compare/v0.6.1...v0.7.0
