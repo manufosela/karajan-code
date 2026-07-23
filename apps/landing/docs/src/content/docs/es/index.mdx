@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.10 — karajan gobierna los recursos de sus herramientas (actual)
+### v4.1.11 — ejecución desatendida y un board que rechaza gemelos (actual)
+
+Patch, con las dos mitades venidas del campo. Los agentes y el CI pueden por fin ejecutar kj sin humano delante: `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros — los warnings continúan con la decisión en stderr, los findings FAIL paran el run con exit code de verdad en vez de bloquearse en un modal que nadie mira. Y el board rechaza ya los gemelos: `kj hu add` rehúsa títulos duplicados en cualquier plan y el playbook ordena `kj hu list` primero. Actualización directa desde v4.1.10.
+
+### v4.1.10 — karajan gobierna los recursos de sus herramientas
 
 Patch. Nacida de una tormenta de CPU real: todo escáner que lanza kj corre ya gobernado — un solo escaneo por herramienta en toda la máquina (un segundo kj espera en vez de amontonarse), semgrep limitado a la mitad de los cores en vez de sus 14 jobs por defecto, prioridad reducida y timeouts duros que matan el árbol de procesos entero: un escaneo interrumpido ya no puede dejar huérfanos quemando cores. `kj doctor` encuentra los huérfanos preexistentes y ofrece matarlos. Actualización directa desde v4.1.9.
 

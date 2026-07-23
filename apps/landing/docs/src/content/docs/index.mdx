@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.10 — karajan governs its tools' resources (current)
+### v4.1.11 — unattended runs and a board that refuses twins (current)
+
+Patch, both halves straight from the field. Agents and CI can finally run kj unattended: `--non-interactive` (or `KJ_NON_INTERACTIVE=1`) auto-answers safe gates — warnings continue with the decision on stderr, FAIL findings stop the run with a real exit code instead of blocking on a modal nobody watches. And the board now refuses twins: `kj hu add` rejects duplicate titles across every plan and the playbook orders `kj hu list` first. Drop-in upgrade from v4.1.10.
+
+### v4.1.10 — karajan governs its tools' resources
 
 Patch. Born from a real CPU storm: every scanner kj launches now runs governed — one scan per tool machine-wide (a second kj waits instead of piling on), semgrep capped at half the CPUs instead of its default 14 jobs, reduced priority, and hard timeouts that kill the whole process tree so an interrupted scan can never leave orphans burning cores. `kj doctor` finds any pre-existing orphans and offers to kill them. Drop-in upgrade from v4.1.9.
 
