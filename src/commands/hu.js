@@ -20,6 +20,29 @@ export function creatorLabel() {
 export const HU_STATUSES = ["pending", "running", "done", "failed", "skipped"];
 const BACKLOG_NAME = "brain-backlog";
 
+// KJC-TSK-0675 (issue #1288): agents that skip `kj hu list` created twins of
+// existing work — sometimes in a DIFFERENT plan. Titles are compared
+// normalized (case/punctuation-insensitive) across every live HU of every
+// plan: identical → refuse; mostly-overlapping tokens → warn with candidates.
+const normTitle = (t) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const titleTokens = (t) => new Set(normTitle(t).split(" ").filter((w) => w.length > 2));
+
+export function findTitleMatches(title, allHus) {
+  const norm = normTitle(title);
+  const toks = titleTokens(title);
+  const identical = [];
+  const similar = [];
+  for (const h of allHus) {
+    if (h.status === "skipped") continue; // discarded cards don't reserve titles
+    if (normTitle(h.title) === norm) { identical.push(h); continue; }
+    const other = titleTokens(h.title);
+    const shared = [...toks].filter((w) => other.has(w)).length;
+    const smaller = Math.min(toks.size, other.size);
+    if (smaller > 0 && shared / smaller >= 0.8) similar.push(h);
+  }
+  return { identical, similar };
+}
+
 async function backlogPlan(projectDir) {
   const plans = await listPlans(projectDir);
   const existing = plans.find((p) => p.alias === BACKLOG_NAME || p.name === BACKLOG_NAME);
@@ -65,6 +88,27 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
   if (action === "add") {
     const title = args[0];
     if (!title || !title.trim()) throw new Error("kj hu add requires a title: kj hu add \"<story>\"");
+    // Cross-plan title dedup (KJC-TSK-0675) — check BEFORE creating anything.
+    const allHus = [];
+    for (const meta of await listPlans(projectDir)) {
+      const p = await loadPlan(projectDir, meta.planId);
+      for (const h of p.hus || []) allHus.push({ ...h, plan: p.alias || p.name || p.planId });
+    }
+    const { identical, similar } = findTitleMatches(title, allHus);
+    if (identical.length > 0) {
+      const ref = identical[0];
+      throw new Error(
+        `An HU with this title already exists: ${ref.short_id || ref.id} (status: ${ref.status}, plan: ${ref.plan}). `
+        + `HUs are never duplicated — work that card, move it with: kj hu move ${ref.short_id || ref.id} <status>, `
+        + `or run kj hu list before adding.`
+      );
+    }
+    if (similar.length > 0) {
+      console.warn(
+        `⚠ possible duplicate${similar.length === 1 ? "" : "s"} — check before working it:\n`
+        + similar.map((h) => `  · ${h.short_id || h.id} (${h.status}, plan: ${h.plan}) "${h.title}"`).join("\n")
+      );
+    }
     const plan = await backlogPlan(projectDir);
     // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
     // recreate "fix" an agent improvises loses history and duplicates ids —

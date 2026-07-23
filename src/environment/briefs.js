@@ -87,9 +87,10 @@ const B = {
     render: () => brief("Board",
       "the HU Board is the permanent record of work: every card traces to who created it and what happened to it — a dashboard warning is fixed with the command it names, never by rebuilding the board.",
       [
+        "Before `kj hu add`, ALWAYS run `kj hu list`: if a card already covers the work (same scope, any plan), work THAT card instead of creating a twin.",
         "Cards are NEVER deleted or recreated — not to fix warnings, not to tidy up. Discard = `kj hu move <id> skipped` (archived, history kept).",
         "States move only via `kj hu move <id> <pending|running|done|failed|skipped>`.",
-        "A duplicate short_id means the card already exists: update that card, never add a twin.",
+        "A duplicate short_id or title means the card already exists: update that card, never add a twin.",
         "A warning is information, not damage: run the command it names; if it looks like a kj bug, `kj report-issue` — never work around it by destroying state.",
       ],
       "the board reflects reality: the same cards before and after your action, with truthful states and provenance intact."),
