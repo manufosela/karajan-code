@@ -211,6 +211,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--check", "Verify the recorded verdict matches the staged diff (exit 0/1, hook-friendly)")
     .option("--range <range>", "Review a git range (e.g. main..HEAD) instead of the staged diff")
     .option("--install-gate", "Enable the pre-commit review gate for this project (creates .karajan/review-gate)")
+    .option("--no-sonar", "Skip the deterministic Sonar pre-gate that runs before the cross-AI verdict")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "review", flags, async ({ config, logger }) => {
         // ENV-B1 (KJC-TSK-0637): the gate mode records a verdict tied to

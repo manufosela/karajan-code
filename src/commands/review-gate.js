@@ -10,10 +10,11 @@ import { checkVerdict } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
+import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
 
 // Raw git always — never a wrapped/compressing runner (KJC-BUG-0115).
-async function rawDiff(range) {
-  const args = range ? ["diff", range] : ["diff", "--cached"];
+async function rawDiff(range, extraArgs = []) {
+  const args = range ? ["diff", range, ...extraArgs] : ["diff", "--cached", ...extraArgs];
   const res = await runCommand("git", args);
   if (res.exitCode !== 0) {
     throw new Error(res.stderr?.trim() || `git ${args.join(" ")} failed`);
@@ -29,7 +30,11 @@ function printVerdict(record) {
   }
   console.log(`✗ REJECTED by ${record.reviewer} — ${record.issues.length} blocking issue(s):`);
   for (const issue of record.issues) {
-    const where = issue.file ? ` [${issue.file}${issue.line ? `:${issue.line}` : ""}]` : "";
+    let where = "";
+    if (issue.file) {
+      const line = issue.line ? `:${issue.line}` : "";
+      where = ` [${issue.file}${line}]`;
+    }
     console.log(`  - (${issue.severity || "high"})${where} ${issue.description || issue.id}`);
     if (issue.suggested_fix) console.log(`    fix: ${issue.suggested_fix}`);
   }
@@ -48,7 +53,8 @@ export async function solomonCommand({ config, logger = null, flags = {} }) {
   if (res.ruling === "approve") {
     console.log(`⚖ Solomon (${res.solomon}) rules for the brain — verdict recorded, the gate is open.`);
   } else {
-    console.log(`⚖ Solomon${res.solomon ? ` (${res.solomon})` : ""} rules for the reviewer — obey and fix:`);
+    const who = res.solomon ? ` (${res.solomon})` : "";
+    console.log(`⚖ Solomon${who} rules for the reviewer — obey and fix:`);
   }
   if (res.reasoning) console.log(`  ${res.reasoning}`);
   process.exitCode = res.ruling === "approve" ? 0 : 1;
@@ -89,7 +95,39 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     return res;
   }
 
-  const record = await runOneShotReview({ diff, task: flags.task, config, logger, projectDir });
+  // KJC-TSK-0676: deterministic pre-gate — sonar findings on the changed
+  // files come back BEFORE any AI opinion. Blocking severities reject
+  // without spending reviewer tokens; the rest travel with the task so
+  // the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
+  let task = flags.task;
+  if (flags.sonar !== false) {
+    const files = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
+    const pre = await runSonarPregate({ config, stagedFiles: files, logger });
+    if (!pre.available) {
+      console.log(`⚠ sonar pre-gate skipped: ${pre.reason}`);
+    } else {
+      const found = [...pre.blocking, ...pre.advisory];
+      if (found.length > 0) {
+        console.log(`Sonar on the changed files — ${pre.blocking.length} blocking, ${pre.advisory.length} advisory (project total: ${pre.totalProject}):`);
+        for (const f of found) console.log(`  - ${formatSonarFinding(f)}`);
+      }
+      if (pre.blocking.length > 0) {
+        console.log("✗ REJECTED by sonar (deterministic) — fix the blocking findings; the cross-AI reviewer was not invoked.");
+        process.exitCode = 1;
+        return {
+          verdict: "rejected", reviewer: "sonar",
+          issues: pre.blocking.map((i) => ({ severity: i.severity, file: undefined, description: formatSonarFinding(i) })),
+        };
+      }
+      if (pre.advisory.length > 0) {
+        task = `${task || "Review the following diff for correctness, security and maintainability."}\n\n`
+          + `Deterministic Sonar findings on these files (fold them into your review):\n`
+          + pre.advisory.map((f) => `- ${formatSonarFinding(f)}`).join("\n");
+      }
+    }
+  }
+
+  const record = await runOneShotReview({ diff, task, config, logger, projectDir });
   printVerdict(record);
   process.exitCode = record.verdict === "approved" ? 0 : 1;
   return record;
