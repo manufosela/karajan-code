@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.3.0 — isolation you can prove (current)
+### v4.3.1 — complete stories, isolated lanes (current)
+
+Patch, both halves from the field. `kj hu add` now takes the full spec in one call — `--ac`, `--tests`, `--scope`, `--task-type` — and warns immediately when a story is born incomplete, naming the exact missing flag. And parallel lanes learn resource isolation: `worktree_setup` documented with a lane-aware example, and the generated coder/review rules teach env-var discipline deriving per-task ports and DB names from the lane slots kj already injects. Drop-in upgrade from v4.3.0.
+
+### v4.3.0 — isolation you can prove
 
 Minor. An agent narrated worktree isolation while editing the project root — so isolation became a command and a trail. `kj worktree start|list|done` gives the host agent real task lanes (worktree + branch + dependency bootstrap, one command); the playbook demands the proof before any isolation claim; and every review verdict stamps where it ran — `[root]` or `[worktree:<name>]`. If the story and the trail disagree, the trail wins. Drop-in upgrade from v4.2.1.
 

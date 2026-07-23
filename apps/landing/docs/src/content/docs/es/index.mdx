@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.3.0 — aislamiento que se puede demostrar (actual)
+### v4.3.1 — historias completas, carriles aislados (actual)
+
+Patch, con las dos mitades venidas del campo. `kj hu add` acepta ya la spec completa en una llamada — `--ac`, `--tests`, `--scope`, `--task-type` — y avisa al momento cuando una historia nace incompleta, nombrando el flag exacto que falta. Y los carriles paralelos aprenden aislamiento de recursos: `worktree_setup` documentado con ejemplo por carril, y las reglas generadas de coder/review enseñan la disciplina de variables de entorno derivando puertos y bases de datos por tarea de los slots que kj ya inyecta. Actualización directa desde v4.3.0.
+
+### v4.3.0 — aislamiento que se puede demostrar
 
 Minor. Un agente narró aislamiento en worktree mientras editaba el root del proyecto — así que el aislamiento se convirtió en comando y en rastro. `kj worktree start|list|done` da al agente anfitrión carriles de tarea de verdad (worktree + rama + bootstrap de dependencias, un solo comando); el playbook exige la prueba antes de cualquier afirmación de aislamiento; y cada veredicto de review estampa desde dónde se ejecutó — `[root]` o `[worktree:<nombre>]`. Si el relato y el rastro discrepan, gana el rastro. Actualización directa desde v4.2.1.
 
