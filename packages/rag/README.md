@@ -78,6 +78,8 @@ irm https://rag.karajancode.com/install.ps1 | iex
 Equivalente con Node ya presente: `npm install -g karajan-rag @lancedb/lancedb`
 (el peer es el store por defecto — sin él, `index` no puede persistir).
 
+El CLI responde por tres nombres equivalentes: `karajan-rag`, `kj-rag` y `kjr`.
+
 ## Requisitos (desarrollo)
 
 - Node.js **18+** (recomendado 20 o 22 LTS).

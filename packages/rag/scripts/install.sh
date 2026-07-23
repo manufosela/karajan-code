@@ -123,14 +123,17 @@ mv "$staging" "$node_home" || die "could not move the staged install into place 
 trap 'rm -rf "$tmp"' EXIT INT TERM
 rm -rf "$backup"
 mkdir -p "$INSTALL_DIR"
-# Wrapper, not a symlink: the shebang (#!/usr/bin/env node) must find the
+# Wrappers, not symlinks: the shebang (#!/usr/bin/env node) must find the
 # provisioned Node even though it is not on the user's PATH.
-{
-  echo '#!/bin/sh'
-  echo "export PATH=\"${node_home}/bin:\$PATH\""
-  echo "exec \"${node_home}/bin/karajan-rag\" \"\$@\""
-} >"${INSTALL_DIR}/karajan-rag"
-chmod +x "${INSTALL_DIR}/karajan-rag"
+for bin in karajan-rag kj-rag kjr; do
+  [ -e "${node_home}/bin/${bin}" ] || continue
+  {
+    echo '#!/bin/sh'
+    echo "export PATH=\"${node_home}/bin:\$PATH\""
+    echo "exec \"${node_home}/bin/${bin}\" \"\$@\""
+  } >"${INSTALL_DIR}/${bin}"
+  chmod +x "${INSTALL_DIR}/${bin}"
+done
 installed="$("${INSTALL_DIR}/karajan-rag" --version 2>/dev/null || echo '?')"
 echo "kjr-install: installed karajan-rag ${installed} (full product) — bin at ${INSTALL_DIR}/karajan-rag"
 path_hint "$INSTALL_DIR"
