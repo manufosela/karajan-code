@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-07-23
+
+Minor. **Sonar is a gate now, not discipline.** With the brain outside the core (v4), skipping static analysis was one decision away — proven the day the brain itself shipped three sonar issues in new code and nothing stopped it. Now the review gate does.
+
+### Added
+
+- **Sonar pre-gate in `kj review --staged`** (KJC-TSK-0676): before any AI opinion, sonar scans (single-flight via the tool governor) and the findings on the CHANGED files print first. **BLOCKER/CRITICAL findings reject deterministically — exit 1, cross-AI reviewer not invoked, zero tokens spent.** Advisory findings travel inside the reviewer's task so the verdict weighs them. Sonar down or no Docker → a loud `⚠ sonar pre-gate skipped: <reason>` and the review continues; `--no-sonar` (or `review_gate.sonar: false`) opts out explicitly.
+
+### Fixed
+
+- Three pre-existing sonar MAJORs in `review-gate.js` — surfaced by the pre-gate reviewing its own diff on its first live run.
+
 ## [4.1.11] - 2026-07-23
 
 Patch. **Agents can run kj unattended, and the board refuses twins** — both requested from the field (issues #1288 and #1289).
