@@ -118,3 +118,11 @@ session:
   # when exceeded; resume with `kj resume`. Set to null to remove the cap.
   max_budget_usd: 5
   fail_fast_repeats: 2
+  # Per-lane setup for parallel runs (worktrees). Runs INSIDE the fresh
+  # worktree instead of the default `npm ci`. Each lane receives
+  # KJ_LANE_SLOT (0,1,2…) and KJ_PORT_OFFSET (slot-derived) in its env —
+  # derive ports, DB names and docker project names from them so lanes
+  # never collide. The coder never orchestrates git; isolation is declared
+  # here. Example:
+  #   worktree_setup: "npm ci && docker compose -p app_lane_$KJ_LANE_SLOT up -d db"
+  worktree_setup: null

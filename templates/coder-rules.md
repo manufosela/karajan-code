@@ -23,6 +23,14 @@
 - Do not modify code unrelated to the task.
 - Follow existing code conventions and patterns in the repository.
 
+## Environment isolation (parallel runs)
+
+- Never hardcode ports, DB names, or docker project names — read them from env
+  vars, documenting each one in `.env.example`. When `KJ_LANE_SLOT` /
+  `KJ_PORT_OFFSET` exist in the env, derive per-task values from them so
+  parallel lanes never collide.
+- Never commit a real `.env` — only `.env.example` is versioned.
+
 ## Tests location (MANDATORY)
 
 - Tests live in a top-level `tests/` directory mirroring `src/` (e.g. a function in
