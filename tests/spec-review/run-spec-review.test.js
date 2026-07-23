@@ -49,6 +49,24 @@ describe("runSpecReview", () => {
     }
   });
 
+  // KJC-TSK-0674 (issue #1289): unattended runs must never silently
+  // continue past FAIL findings — only warn/info declare the safe default
+  // that --yes / KJ_NON_INTERACTIVE auto-answer.
+  it("declares defaultAnswer 'continue' for warn but NOT for fail", async () => {
+    for (const [findings, expected] of [[findingsWarn, "continue"], [findingsFail, undefined]]) {
+      const ask = vi.fn().mockResolvedValue("continue");
+      const { runSpecReview } = await loadWith({ ok: true, result: { severity: findings[0].severity, findings } });
+      await runSpecReview({ spec: "x", config: {}, logger: noopLog, askQuestion: ask, flags: { forceSpecReview: true } });
+      expect(ask.mock.calls[0][1].defaultAnswer).toBe(expected);
+    }
+  });
+
+  it("empty answer (Enter) cancels at severity fail instead of continuing", async () => {
+    const { runSpecReview } = await loadWith({ ok: true, result: { severity: "fail", findings: findingsFail } });
+    const r = await runSpecReview({ spec: "x", config: {}, logger: noopLog, askQuestion: vi.fn().mockResolvedValue(""), flags: { forceSpecReview: true } });
+    expect(r).toMatchObject({ proceed: false, cancelled: true });
+  });
+
   it("treats empty / 'c' / 'continue' / unknown as continue", async () => {
     for (const answer of ["", "c", "continue", "yes"]) {
       const { runSpecReview } = await loadWith({ ok: true, result: { severity: "warn", findings: findingsWarn } });

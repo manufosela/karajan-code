@@ -403,10 +403,14 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Resume a paused session")
     .argument("<sessionId>")
     .option("--answer <text>", "Answer to the question that caused the pause")
+    .option("--non-interactive", "Agents/CI: auto-answer prompts with their safe defaults; stop when there is none. Also enabled by KJ_NON_INTERACTIVE=1.")
     .option("--json", "Output JSON only")
     .action(async (sessionId, flags) => {
       await withConfig(pkgVersion, "resume", flags, async ({ config, logger }) => {
-        await resumeCommand({ sessionId, answer: flags.answer, config, logger, flags });
+        const res = await resumeCommand({ sessionId, answer: flags.answer, config, logger, flags });
+        // KJC-TSK-0674 (issue #1289): same contract as kj run — an aborted
+        // resume must be observable by CI.
+        if (res?.aborted) process.exitCode = 1;
       });
     });
 
