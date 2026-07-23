@@ -149,6 +149,9 @@
     .hero-install:hover .copy-hint { opacity: 1; }
     .hero-install.copied .copy-hint { opacity: 1; color: var(--accent); }
 
+    .hero-note { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.65rem; letter-spacing: 0.02em; max-width: 620px; }
+    .hero-note code { font-family: var(--mono); font-size: 0.92em; color: var(--steel-ink); }
+    .hero-note-last { margin-bottom: 2.4rem; }
     .hero-links { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
     .hero-links a {
       color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
@@ -303,11 +306,13 @@
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
     <p class="hero-tagline">Point it at your code, docs or data. Get a queryable RAG in five minutes — <em class="guarantee">with guarantees</em>.</p>
     <p class="hero-sub">Local-first &middot; zero runtime dependencies &middot; hybrid retrieval &middot; your content never reaches a provider the sensitivity policy forbids</p>
-    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Copy install command">
-      <span class="prompt">$</span>
-      <span>npm install -g karajan-rag</span>
-      <span class="copy-hint">click to copy</span>
+    <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
+      <span class="prompt" aria-hidden="true">&gt;</span>
+      <span>I want a RAG over this project: read rag.karajancode.com/start.md and do what it says.</span>
+      <span class="copy-hint" aria-live="polite">click to copy</span>
     </button>
+    <p class="hero-note">Paste it into your AI agent (Claude Code, Codex, Cursor). It checks your machine, installs what is missing, asks YOU the sensitivity question, and <em>stops to wait for you</em> whenever a step needs your permission.</p>
+    <p class="hero-note hero-note-last">Prefer the terminal? <code>curl -fsSL https://rag.karajancode.com/install.sh | sh</code> on Linux/macOS &middot; <code>irm https://rag.karajancode.com/install.ps1 | iex</code> on Windows.</p>
     <nav class="hero-links" aria-label="Primary links">
       <a href="https://github.com/manufosela/karajan-rag">GitHub</a>
       <a href="https://www.npmjs.com/package/karajan-rag">npm</a>
@@ -373,9 +378,10 @@
   </footer>
 
   <script>
-    /* --- COPY INSTALL --- */
+    /* --- COPY SETUP PROMPT --- */
     function copyInstall(btn) {
-      navigator.clipboard.writeText('npm install -g karajan-rag').then(function() {
+      var text = 'I want a RAG over this project: read https://rag.karajancode.com/start.md and do what it says.';
+      navigator.clipboard.writeText(text).then(function() {
         btn.classList.add('copied');
         var hint = btn.querySelector('.copy-hint');
         if (hint) hint.textContent = 'copied!';
