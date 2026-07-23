@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.1.11 — ejecución desatendida y un board que rechaza gemelos (actual)
+### v4.2.0 — sonar ya es gate, no disciplina (actual)
+
+Minor. `kj review --staged` ejecuta SonarQube como pre-gate determinista antes de cualquier opinión de IA: los findings de los ficheros cambiados salen primero, los BLOCKER/CRITICAL rechazan en el acto sin gastar un solo token del reviewer, y los advisory viajan dentro del task del reviewer. Una máquina sin sonar degrada con aviso y continúa. En su primer uso real cazó tres issues preexistentes en el mismísimo fichero que lo implementa. [Fase 104 →](/docs/es/architecture/history/#fase-104-v420--pre-gate-determinista-sonar-antes-de-cualquier-opinión-de-ia-v420)
+
+### v4.1.11 — ejecución desatendida y un board que rechaza gemelos
 
 Patch, con las dos mitades venidas del campo. Los agentes y el CI pueden por fin ejecutar kj sin humano delante: `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros — los warnings continúan con la decisión en stderr, los findings FAIL paran el run con exit code de verdad en vez de bloquearse en un modal que nadie mira. Y el board rechaza ya los gemelos: `kj hu add` rehúsa títulos duplicados en cualquier plan y el playbook ordena `kj hu list` primero. Actualización directa desde v4.1.10.
 
