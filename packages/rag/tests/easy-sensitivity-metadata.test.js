@@ -73,6 +73,26 @@ test('resolveDocumentSensitivity: regla por prefijo > nivel global > default', (
   assert.equal(resolveDocumentSensitivity('src/index.js', null), DEFAULT_SENSITIVITY);
 });
 
+test('resolveDocumentSensitivity: los prefijos respetan fronteras de ruta (KJR-BUG-0008)', () => {
+  const config = {
+    sensitivity: /** @type {const} */ ('confidential'),
+    sensitivityRules: [{ prefix: 'docs/public', level: /** @type {const} */ ('public') }],
+  };
+  // "docs/public" cubre el directorio y sus hijos…
+  assert.equal(resolveDocumentSensitivity('docs/public/faq.md', config), 'public');
+  // …pero NUNCA a un hermano cuyo nombre solo comparte prefijo de string.
+  assert.equal(resolveDocumentSensitivity('docs/public-secrets/nominas.md', config), 'confidential');
+  assert.equal(resolveDocumentSensitivity('docs/publico.md', config), 'confidential');
+  // Un prefijo que apunta a un fichero exacto también matchea.
+  assert.equal(resolveDocumentSensitivity('docs/public', config), 'public');
+  // Prefijo con barra final: comportamiento idéntico.
+  const conBarra = {
+    sensitivityRules: [{ prefix: 'docs/public/', level: /** @type {const} */ ('public') }],
+  };
+  assert.equal(resolveDocumentSensitivity('docs/public/faq.md', conBarra), 'public');
+  assert.equal(resolveDocumentSensitivity('docs/public-secrets/x.md', conBarra), 'internal');
+});
+
 test('resolveDocumentSensitivity: gana la primera regla que matchea', () => {
   const config = {
     sensitivityRules: [
