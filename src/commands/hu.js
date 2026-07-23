@@ -24,7 +24,7 @@ const BACKLOG_NAME = "brain-backlog";
 // existing work — sometimes in a DIFFERENT plan. Titles are compared
 // normalized (case/punctuation-insensitive) across every live HU of every
 // plan: identical → refuse; mostly-overlapping tokens → warn with candidates.
-const normTitle = (t) => String(t || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const normTitle = (t) => String(t || "").toLowerCase().replaceAll(/[^\p{L}\p{N}]+/gu, " ").trim();
 const titleTokens = (t) => new Set(normTitle(t).split(" ").filter((w) => w.length > 2));
 
 export function findTitleMatches(title, allHus) {
@@ -104,10 +104,9 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
       );
     }
     if (similar.length > 0) {
-      console.warn(
-        `⚠ possible duplicate${similar.length === 1 ? "" : "s"} — check before working it:\n`
-        + similar.map((h) => `  · ${h.short_id || h.id} (${h.status}, plan: ${h.plan}) "${h.title}"`).join("\n")
-      );
+      const plural = similar.length === 1 ? "" : "s";
+      const candidates = similar.map((h) => `  · ${h.short_id || h.id} (${h.status}, plan: ${h.plan}) "${h.title}"`).join("\n");
+      console.warn(`⚠ possible duplicate${plural} — check before working it:\n${candidates}`);
     }
     const plan = await backlogPlan(projectDir);
     // KJC-TSK-0669 (absolute rule): cards are permanent. The delete-and-
