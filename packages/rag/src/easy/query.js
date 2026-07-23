@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BM25Index } from '../retrieval/bm25.js';
 import { dedupeChunksByOverlap } from '../retrieval/chunk-dedupe.js';
+import { classifySensitivity } from '../domain/document.js';
 
 /**
  * @typedef {import('./indexer.js').EasyEmbedder} EasyEmbedder
@@ -23,6 +24,7 @@ import { dedupeChunksByOverlap } from '../retrieval/chunk-dedupe.js';
  * @property {number | null} line Línea 1-based del inicio del chunk (null si no resoluble).
  * @property {number} score Score híbrido normalizado en [0, 1].
  * @property {{ vector: number, bm25: number }} scores Componentes normalizados.
+ * @property {import('../domain/document.js').Sensitivity} sensitivity Nivel heredado del documento (default seguro si el índice no lo trae).
  *
  * @typedef {object} EasyQueryResult
  * @property {EasyQueryHit[]} hits
@@ -119,6 +121,7 @@ export async function queryIndex(question, options) {
       source: String(hit.metadata?.source ?? ''),
       line: await resolveLine(rootDir, hit.metadata?.source, hit.metadata?.offset),
       score: hit.score,
+      sensitivity: classifySensitivity({ metadata: /** @type {never} */ (hit.metadata ?? {}) }),
       scores: {
         vector: vectorScores.get(hit.id) ?? 0,
         bm25: bm25Scores.get(hit.id) ?? 0,

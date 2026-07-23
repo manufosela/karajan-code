@@ -22,6 +22,7 @@ import {
   MANIFEST_DIR,
 } from './manifest.js';
 import { ensureIndexFingerprint } from '../vector-store/fingerprint-guard.js';
+import { DEFAULT_SENSITIVITY } from '../domain/document.js';
 
 /**
  * @typedef {import('./manifest.js').IndexManifest} IndexManifest
@@ -120,7 +121,7 @@ export const DEFAULT_INGEST_BATCH_SIZE = 64;
  * Indexa (o reindexa incrementalmente) un directorio.
  *
  * @param {string} rootDir
- * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void, batchSize?: number }} deps
+ * @param {{ store: EasyVectorStore, embedder: EasyEmbedder, onEvent?: (msg: string) => void, batchSize?: number, sensitivityFor?: (relPath: string) => import('../domain/document.js').Sensitivity }} deps
  * @returns {Promise<IndexResult>}
  */
 export async function indexDirectory(rootDir, deps) {
@@ -206,7 +207,13 @@ export async function indexDirectory(rootDir, deps) {
     const doc = {
       id: `doc:${relPath}`,
       content,
-      metadata: { source: relPath, sourceType },
+      metadata: {
+        source: relPath,
+        sourceType,
+        // KJR-BUG-0006: cada chunk hereda el nivel de su documento; el
+        // routing de query/eval decide por el máximo de lo recuperado.
+        sensitivity: deps.sensitivityFor?.(relPath) ?? DEFAULT_SENSITIVITY,
+      },
     };
     const chunks = chunkWithPreset(doc, preset);
     // Backpressure (0.5.0): embed + upsert por lotes — nunca se cargan en

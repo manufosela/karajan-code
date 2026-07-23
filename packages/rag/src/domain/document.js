@@ -96,3 +96,25 @@ export function classifySensitivity(doc) {
 export function isSensitivityAllowed(level, allowed) {
   return allowed.includes(level);
 }
+
+/**
+ * Devuelve el nivel más restrictivo de una lista. Un valor desconocido o
+ * una lista vacía degradan al DEFAULT_SENSITIVITY: ante la duda, nunca se
+ * trata contenido como menos sensible de lo que podría ser.
+ *
+ * @param {readonly Sensitivity[]} levels
+ * @returns {Sensitivity}
+ */
+export function maxSensitivity(levels) {
+  let maxIndex = -1;
+  for (const level of levels) {
+    const index = SENSITIVITY_LEVELS.indexOf(level);
+    if (index === -1) {
+      maxIndex = Math.max(maxIndex, SENSITIVITY_LEVELS.indexOf(DEFAULT_SENSITIVITY));
+      continue;
+    }
+    maxIndex = Math.max(maxIndex, index);
+  }
+  if (maxIndex === -1) return DEFAULT_SENSITIVITY;
+  return SENSITIVITY_LEVELS[maxIndex];
+}

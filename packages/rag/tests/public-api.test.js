@@ -91,6 +91,8 @@ const REQUIRED_EXPORTS = [
   'saveEasyConfig',
   'validateEasyConfig',
   'DEFAULT_EASY_CONFIG',
+  'resolveDocumentSensitivity',
+  'effectiveSensitivityOfHits',
 
   // Embedding
   'createHashEmbedder',
@@ -132,6 +134,7 @@ const REQUIRED_EXPORTS = [
   'DEFAULT_SENSITIVITY',
   'classifySensitivity',
   'isSensitivityAllowed',
+  'maxSensitivity',
 
   // Config-driven
   'createDefaultRoleRegistry',
