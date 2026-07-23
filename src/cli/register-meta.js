@@ -185,7 +185,11 @@ export function registerMeta(program, { pkgVersion }) {
   const hu = program.command("hu").description("Track work in the HU Board from any host agent (card first)");
   hu.command("add <title>")
     .option("--id <shortId>", "Human-readable short id")
-    .option("--criteria <text>", "Acceptance criteria")
+    .option("--ac <criterion>", "Acceptance criterion (repeatable; multiline strings split per line)", (v, acc) => [...acc, v], [])
+    .option("--tests <test>", "Acceptance test (repeatable; multiline strings split per line)", (v, acc) => [...acc, v], [])
+    .option("--scope <text>", "Scope of the story (files/areas)")
+    .option("--task-type <type>", "sw | infra | doc | add-tests | refactor")
+    .option("--criteria <text>", "Legacy alias for a single acceptance criterion")
     .option("--json", "Machine-readable output")
     .action(async (title, flags) => {
       await withConfig(pkgVersion, "hu", flags, async ({ config }) => {

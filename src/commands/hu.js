@@ -122,15 +122,36 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
         );
       }
     }
+    // KJC-TSK-0678 (issue #1296): complete HUs in ONE call. --ac / --tests
+    // are repeatable AND accept multiline strings; --criteria stays as the
+    // legacy single-criterion alias.
+    const TASK_TYPES = ["sw", "infra", "doc", "add-tests", "refactor"];
+    if (flags.taskType && !TASK_TYPES.includes(flags.taskType)) {
+      throw new Error(`invalid --task-type "${flags.taskType}" — valid: ${TASK_TYPES.join(", ")}`);
+    }
+    const splitLines = (v) => (Array.isArray(v) ? v : v ? [v] : [])
+      .flatMap((s) => String(s).split("\n")).map((s) => s.trim()).filter(Boolean);
     const hu = addHu(plan, {
       title,
       short_id: flags.id || null,
-      acceptance_criteria: flags.criteria ? [flags.criteria] : [],
+      acceptance_criteria: [...splitLines(flags.ac), ...splitLines(flags.criteria)],
+      acceptance_tests: splitLines(flags.tests),
+      scope: flags.scope || null,
+      task_type: flags.taskType || undefined,
     });
     hu.created_by = creatorLabel();
     await savePlan(projectDir, plan);
-    return emit({ id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by },
-      `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
+    const missing = [];
+    if (hu.acceptance_criteria.length === 0) missing.push("acceptance criteria (--ac \"...\")");
+    if (hu.acceptance_tests.length === 0) missing.push("tests (--tests \"...\")");
+    if (missing.length > 0) {
+      console.warn(`⚠ incomplete spec — kj run's spec review will flag it. Missing: ${missing.join(", ")}`);
+    }
+    return emit({
+      id: hu.id, short_id: hu.short_id, status: hu.status, created_by: hu.created_by,
+      acceptance_criteria: hu.acceptance_criteria, acceptance_tests: hu.acceptance_tests,
+      scope: hu.scope, task_type: hu.task_type,
+    }, `✓ HU created: ${hu.short_id || hu.id} (pending, by ${hu.created_by}) — it shows up in \`kj board\``);
   }
 
   if (action === "move") {
