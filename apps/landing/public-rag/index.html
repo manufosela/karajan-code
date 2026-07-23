@@ -7,11 +7,14 @@
   <meta name="description" content="Point karajan-rag at your code, docs or data and get a queryable RAG in five minutes. Local-first, zero runtime dependencies, sensitivity-aware routing independently reviewed.">
   <meta name="theme-color" content="#0f1520" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f7f9" media="(prefers-color-scheme: light)">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1520'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='15' font-weight='700' fill='%23e8b04b' text-anchor='middle'%3ERAG%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 
   <!-- Open Graph -->
   <meta property="og:title" content="kaRAGan — RAG over your code, docs and data. With guarantees.">
   <meta property="og:description" content="Local-first RAG orchestrator. Hybrid retrieval, sensitivity-aware routing, PII redaction — independently reviewed. Zero runtime dependencies.">
+  <meta property="og:image" content="https://rag.karajancode.com/img/logo-480.png">
   <meta property="og:url" content="https://rag.karajancode.com">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
@@ -107,6 +110,10 @@
       background:
         radial-gradient(ellipse 600px 400px at 50% 40%, rgba(107,143,163,0.08), transparent),
         radial-gradient(ellipse 400px 300px at 60% 35%, rgba(232,176,75,0.05), transparent);
+    }
+    .hero-logo {
+      width: clamp(120px, 16vw, 180px); height: auto; margin-bottom: 1.2rem;
+      filter: drop-shadow(0 0 30px rgba(232,176,75,0.12));
     }
     .hero-family {
       font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.28em;
@@ -302,6 +309,15 @@
 
   <!-- HERO -->
   <section class="hero">
+    <picture>
+      <source type="image/webp"
+        srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
+        sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+      <source type="image/png"
+        srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
+        sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+      <img src="/img/logo-240.png" alt="kaRAGan — robot conductor mascot with golden amber eyes and bow tie" class="hero-logo" width="163" height="180" fetchpriority="high">
+    </picture>
     <p class="hero-family"><a href="https://karajancode.com">Karajan</a> family</p>
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
     <p class="hero-tagline">Point it at your code, docs or data. Get a queryable RAG in five minutes — <em class="guarantee">with guarantees</em>.</p>
