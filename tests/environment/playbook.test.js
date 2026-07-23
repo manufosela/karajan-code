@@ -17,6 +17,9 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/kj review --staged/);
       expect(text).toMatch(/security/i);
       expect(text).toMatch(/conventional commits/i);
+      // KJC-TSK-0677: in v4 the host agent does the work — the playbook is
+      // where it inherits the worktree practice the headless lanes already use.
+      expect(text).toMatch(/git worktree/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }
