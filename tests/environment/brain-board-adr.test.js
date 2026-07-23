@@ -112,6 +112,36 @@ describe("kj hu", () => {
     expect(added.status).toBe("pending");
   });
 
+  // KJC-TSK-0678 (issue #1296): complete HUs in ONE call — the spec review
+  // gets real material instead of a bare title.
+  it("add accepts --ac (repeatable/multiline), --scope, --tests and --task-type", async () => {
+    const added = await huCommand({ config: cfg(), action: "add", args: ["Full story"], flags: {
+      json: true, id: "FULL-1", ac: ["1. works\n2. survives restart", "3. logs it"],
+      scope: "src/foo.js", tests: ["tests/foo.test.js: validates thing"], taskType: "sw",
+    } });
+    expect(added.acceptance_criteria).toEqual(["1. works", "2. survives restart", "3. logs it"]);
+    expect(added.scope).toBe("src/foo.js");
+    expect(added.acceptance_tests).toEqual(["tests/foo.test.js: validates thing"]);
+    expect(added.task_type).toBe("sw");
+  });
+
+  it("add warns about what is missing for a complete spec", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await huCommand({ config: cfg(), action: "add", args: ["Bare title"], flags: { json: true } });
+      const out = warn.mock.calls.flat().join("\n");
+      expect(out).toMatch(/acceptance criteria/i);
+      expect(out).toMatch(/--ac/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("add rejects an unknown --task-type", async () => {
+    await expect(huCommand({ config: cfg(), action: "add", args: ["X"], flags: { taskType: "banana" } }))
+      .rejects.toThrow(/task-type/);
+  });
+
   it("second add reuses the same backlog plan", async () => {
     await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true } });
     await huCommand({ config: cfg(), action: "add", args: ["B"], flags: { json: true } });
