@@ -93,7 +93,9 @@ export async function runSpecReview({ spec, config, logger, askQuestion, flags =
       );
       if (answer === null) return { proceed: false, cancelled: true, severity, findings };
       const n = String(answer).trim().toLowerCase() || fallback;
-      action = n.startsWith("x") || n === "cancel" ? "cancel" : n.startsWith("r") || n === "refine" ? "refine" : "continue";
+      if (n.startsWith("x") || n === "cancel") action = "cancel";
+      else if (n.startsWith("r") || n === "refine") action = "refine";
+      else action = "continue";
     }
     if (action === "cancel") return { proceed: false, cancelled: true, severity, findings };
     if (action === "refine") {
