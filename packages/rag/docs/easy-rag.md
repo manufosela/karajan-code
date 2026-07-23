@@ -77,10 +77,49 @@ karajan-rag init ./mi-proyecto --yes  # no interactivo (CI)
 ```
 
 La config actúa como defaults del proyecto (store, embedder, dimensions,
-topK, adapter); los flags de CLI siempre ganan. Config inválida → error
-explícito con la clave exacta.
+topK, adapter, sensitivity); los flags de CLI siempre ganan. Config
+inválida → error explícito con la clave exacta.
 
-## 5. En contenedor
+## 5. Sensibilidad y privacidad
+
+Desde 0.7.0 la capa easy aplica la [sensitivity policy](./security/sensitivity-audit.md)
+de punta a punta (ADR-005 §6). Declara el nivel de tu corpus en
+`karajan.config.json`:
+
+```json
+{
+  "easy": {
+    "sensitivity": "internal",
+    "sensitivityRules": [
+      { "prefix": "docs/public/", "level": "public" },
+      { "prefix": "finanzas/", "level": "confidential" }
+    ]
+  }
+}
+```
+
+- **Niveles**: `public` | `internal` | `confidential`. Sin declarar nada,
+  todo cuenta como `internal` (default seguro: nunca se asume público).
+  Las reglas por prefijo son excepciones; gana la primera que matchea.
+- **Al indexar**, cada documento queda marcado con su nivel y los chunks
+  lo heredan en el store.
+- **En `query --answer`**, el nivel efectivo es el **máximo** de los
+  chunks recuperados: un solo chunk `confidential` en el contexto hace
+  confidential a toda la respuesta. La policy por defecto permite:
+  `confidential → ollama` (local), `internal → ollama y nubes privadas`,
+  `public → cualquier proveedor`.
+  - `--adapter` explícito no permitido para el nivel → **error** con la
+    lista de permitidos (nunca se degrada en silencio lo que pediste).
+  - Adapter de config/default no permitido → se enruta al primer
+    proveedor permitido, avisando por stderr.
+- **En `eval --judges`**, declara el nivel con `--sensitivity` (default
+  `internal`); los jueces no permitidos se rechazan antes de enviar nada.
+- **Defensa en profundidad**: todo lo que sale hacia un LLM va además por
+  `redactPII` (emails, teléfonos, NIF/NIE, tarjetas, IBAN).
+- Índices creados antes de 0.7.0 no tienen marca: sus chunks cuentan como
+  `internal`. Reindexa para aplicar tus reglas.
+
+## 6. En contenedor
 
 ```bash
 docker build -t karajan-rag-server .
@@ -92,7 +131,7 @@ docker run -d -p 8080:8080 -v $PWD/mi-proyecto:/data karajan-rag-server
 `docker compose up` levanta además Postgres+pgvector para el modo
 `KARAJAN_STORE=pgvector` (ver `docker-compose.yml`).
 
-## 6. En Google Cloud
+## 7. En Google Cloud
 
 ```bash
 cd deploy/gcp
@@ -101,7 +140,8 @@ terraform apply -var project_id=MI_PROYECTO
 
 Cloud Run + Cloud SQL pgvector + GCS + Secret Manager, privado por defecto.
 Flujo completo (imagen, migración, indexado, rsync del índice, query con
-identity token) en [`deploy/gcp/README.md`](../deploy/gcp/README.md).
+identity token) en [`deploy/gcp/README.md`](../deploy/gcp/README.md). El
+despliegue está validado contra GCP real: [caso de uso documentado](./case-study-gcp.md).
 
 ## SDK embebible (frameworks, sin CLI)
 
@@ -157,9 +197,9 @@ mismo `RagService` por debajo. También acepta instancias inyectadas
 
 ## Garantías transversales
 
-- **Sensitivity first**: el routing por sensibilidad y el redactor PII del
-  paquete siguen activos en todos los presets; easy-mode puede endurecerlos,
-  nunca relajarlos.
+- **Sensitivity first**: el routing por sensibilidad (§5) y el redactor
+  PII están activos en toda salida hacia un LLM; easy-mode puede
+  endurecerlos, nunca relajarlos.
 - **Sin fallbacks silenciosos**: peer ausente, config inválida, índice
   inexistente o fingerprint incompatible → error con el paso exacto para
   arreglarlo.
