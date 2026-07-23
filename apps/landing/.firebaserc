@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "karajan-code"
-  }
+  },
+  "targets": {
+    "karajan-code": {
+      "hosting": {
+        "main": [
+          "karajan-code"
+        ],
+        "rag": [
+          "karajan-rag"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

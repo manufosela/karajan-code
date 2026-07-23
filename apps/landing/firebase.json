@@ -1,5 +1,6 @@
 {
-  "hosting": {
+  "hosting": [{
+    "target": "main",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
@@ -51,7 +52,22 @@
         "function": { "functionId": "telemetry", "region": "us-central1", "pinTag": true }
       }
     ]
-  },
+  }, {
+    "target": "rag",
+    "public": "public-rag",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(css|js)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      }
+    ],
+    "cleanUrls": true
+  }],
   "functions": {
     "source": "functions",
     "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
