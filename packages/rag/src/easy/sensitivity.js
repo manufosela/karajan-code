@@ -21,6 +21,20 @@ import {
  */
 
 /**
+ * Un prefijo de regla matchea SOLO en frontera de segmento de ruta
+ * (KJR-BUG-0008): "docs/public" cubre "docs/public" y "docs/public/…",
+ * nunca "docs/public-secrets/…" ni "docs/publico.md".
+ *
+ * @param {string} relPath
+ * @param {string} prefix
+ * @returns {boolean}
+ */
+function matchesPathPrefix(relPath, prefix) {
+  const clean = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+  return relPath === clean || relPath.startsWith(`${clean}/`);
+}
+
+/**
  * Nivel de un documento según la config easy: primera regla por prefijo
  * que matchea > nivel global del corpus > default seguro (internal).
  *
@@ -31,7 +45,7 @@ import {
 export function resolveDocumentSensitivity(relPath, config) {
   if (!config) return DEFAULT_SENSITIVITY;
   for (const rule of config.sensitivityRules ?? []) {
-    if (relPath.startsWith(rule.prefix)) return rule.level;
+    if (matchesPathPrefix(relPath, rule.prefix)) return rule.level;
   }
   if (config.sensitivity && SENSITIVITY_LEVELS.includes(config.sensitivity)) {
     return config.sensitivity;
