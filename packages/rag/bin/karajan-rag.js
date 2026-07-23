@@ -48,6 +48,15 @@ async function main() {
     process.exit(command ? 0 : 2);
   }
 
+  if (command === '--version' || command === '-v') {
+    const { readFile } = await import('node:fs/promises');
+    const pkg = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    );
+    console.log(pkg.version);
+    process.exit(0);
+  }
+
   if (command === 'doctor') {
     try {
       const { errors } = await runDoctorCommand(rest);
@@ -156,6 +165,7 @@ function printUsage() {
   console.error('  eval <golden.json> [corpus]');
   console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');
   console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N.');
+  console.error('  --version, -v  Muestra la versión instalada.');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
 
