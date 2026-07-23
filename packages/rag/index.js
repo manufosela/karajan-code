@@ -126,7 +126,9 @@ export {
 export {
   resolveDocumentSensitivity,
   effectiveSensitivityOfHits,
+  enforceEasyAdapterPolicy,
 } from './src/easy/sensitivity.js';
+export { generateAnswerForHits } from './src/easy/cli.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';

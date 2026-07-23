@@ -46,10 +46,15 @@ test('eval --judges: la PII del golden no llega a los jueces', async () => {
       },
     };
 
-    await runEvalCommand([path.join(root, 'golden.json'), '--judges', 'j1'], {
-      out: () => {},
-      judgeRegistry: registry,
-    });
+    // El juez debe ser un provider permitido por la policy para el nivel
+    // declarado (gate KJR-BUG-0006); el registry fake responde por él.
+    await runEvalCommand(
+      [path.join(root, 'golden.json'), '--judges', 'claude', '--sensitivity', 'public'],
+      {
+        out: () => {},
+        judgeRegistry: registry,
+      },
+    );
 
     assert.equal(promptsEnviados.length, 1);
     const prompt = promptsEnviados[0];

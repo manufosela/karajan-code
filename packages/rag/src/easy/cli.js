@@ -30,12 +30,22 @@ import {
   loadEasyConfig,
   saveEasyConfig,
 } from './config.js';
-import { resolveDocumentSensitivity } from './sensitivity.js';
+import {
+  resolveDocumentSensitivity,
+  effectiveSensitivityOfHits,
+  enforceEasyAdapterPolicy,
+} from './sensitivity.js';
+import { createOllamaClient } from '../ai/adapters/ollama-client.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
 import { redactPII } from '../redaction/pii-redactor.js';
 import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
+import { DEFAULT_SENSITIVITY, SENSITIVITY_LEVELS } from '../domain/document.js';
+import {
+  createDefaultSensitivityPolicy,
+  isProviderAllowed,
+} from '../policy/sensitivity-policy.js';
 
 export { createEasyDeps, parseFingerprint };
 
@@ -230,6 +240,7 @@ export async function runInitCommand(argv, io = {}) {
  * @property {number} topK
  * @property {boolean} answer
  * @property {string} adapter
+ * @property {boolean} adapterExplicit true solo si vino del flag --adapter (la policy no degrada elecciones explícitas).
  */
 
 const QUERY_STORES = Object.freeze(['lancedb', 'pgvector']);
@@ -276,6 +287,7 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
     topK,
     answer: values.answer === true,
     adapter: String(values.adapter ?? defaults.adapter ?? 'claude'),
+    adapterExplicit: values.adapter !== undefined,
   };
 }
 
@@ -283,7 +295,7 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
  * Ejecuta el subcomando `query` end-to-end.
  *
  * @param {string[]} argv
- * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void, out?: (msg: string) => void }} [io]
+ * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void, out?: (msg: string) => void, adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [io]
  * @returns {Promise<import('./query.js').EasyQueryResult & { answer?: string }>}
  */
 export async function runQueryCommand(argv, io = {}) {
@@ -317,33 +329,82 @@ export async function runQueryCommand(argv, io = {}) {
 
   if (!options.answer) return result;
 
-  const adapterRegistry = await createDefaultAdapterRegistry();
+  const generated = await generateAnswerForHits({
+    question: options.question,
+    hits: result.hits,
+    adapter: options.adapter,
+    adapterExplicit: options.adapterExplicit,
+    registry: io.adapterRegistry,
+    log,
+  });
+  out('');
+  out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}) ---`);
+  out(generated.answer);
+  return { ...result, answer: generated.answer };
+}
+
+/**
+ * Genera la respuesta LLM para hits ya recuperados aplicando el fix de
+ * KJR-BUG-0006 (ADR-005 §6): el nivel efectivo es el MÁXIMO de los chunks
+ * recuperados, el adapter se valida contra la sensitivity policy y todo
+ * el contenido sale redactado de PII (defensa en profundidad).
+ *
+ * @param {{
+ *   question: string,
+ *   hits: import('./query.js').EasyQueryHit[],
+ *   adapter: string,
+ *   adapterExplicit?: boolean,
+ *   registry?: { get: (name: string) => unknown, has: (name: string) => boolean },
+ *   log?: (msg: string) => void,
+ * }} params
+ * @returns {Promise<{ answer: string, adapter: string, sensitivity: import('../domain/document.js').Sensitivity }>}
+ */
+export async function generateAnswerForHits(params) {
+  const { question, hits, adapterExplicit = false } = params;
+  const log = params.log ?? ((msg) => console.error(`[query] ${msg}`));
+  const sensitivity = effectiveSensitivityOfHits(hits);
+  const adapter = enforceEasyAdapterPolicy({
+    sensitivity,
+    adapter: params.adapter,
+    explicit: adapterExplicit,
+    log,
+  });
+  const registry = params.registry ?? (await createEasyAnswerRegistry());
   const generator = new GeneratorRole({
     name: 'easy-query-generator',
     logger: { info: log, warn: log, error: log },
-    adapterName: options.adapter,
+    adapterName: adapter,
   });
-  // Mitigación KJR-BUG-0006 (defensa en profundidad): todo lo que sale de
-  // la capa easy hacia un LLM va redactado de PII. El routing completo por
-  // sensibilidad (resolveAdapterFor por nivel) queda en el bug.
   const generated = await generator.run(
     {
-      query: redactPII(options.question).text,
-      contextChunks: result.hits.map((h) => ({
+      query: redactPII(question).text,
+      contextChunks: hits.map((h) => ({
         id: h.id,
         score: h.score,
         metadata: { content: redactPII(h.content).text, source: h.source },
       })),
     },
     {
-      get: (name) => adapterRegistry.get(name),
-      has: (name) => adapterRegistry.has(name),
+      get: (name) => registry.get(name),
+      has: (name) => registry.has(name),
     },
   );
-  out('');
-  out(`--- respuesta (${options.adapter}) ---`);
-  out(generated.answer);
-  return { ...result, answer: generated.answer };
+  return { answer: generated.answer, adapter, sensitivity };
+}
+
+/**
+ * Registry para `query --answer`: los CLIs públicos por defecto más
+ * ollama (HTTP local), que es el único provider permitido para
+ * confidential — sin él, ningún corpus restrictivo tendría salida.
+ *
+ * @returns {Promise<import('../ai/adapter-registry.js').AdapterRegistry>}
+ */
+async function createEasyAnswerRegistry() {
+  const registry = await createDefaultAdapterRegistry();
+  if (!registry.has('ollama')) {
+    registry.register('ollama', createOllamaClient().adapter, { transport: 'http' });
+  }
+  return registry;
 }
 
 /**
@@ -418,12 +479,14 @@ export async function runServeCommand(argv, io = {}) {
 }
 
 /**
- * Parsea `karajan-rag eval <golden.json> [corpus] [--judges p1,p2] [--dimensions N]`.
+ * Parsea `karajan-rag eval <golden.json> [corpus] [--judges p1,p2] [--dimensions N] [--sensitivity nivel]`.
  *
  * `corpus` por defecto es el directorio `corpus/` junto al golden.json.
+ * `--sensitivity` declara el nivel del golden+corpus para el gate de
+ * jueces (KJR-BUG-0006); default seguro: internal.
  *
  * @param {string[]} argv
- * @returns {{ goldenPath: string, corpusDir: string, judges: string[], dimensions: number }}
+ * @returns {{ goldenPath: string, corpusDir: string, judges: string[], dimensions: number, sensitivity: import('../domain/document.js').Sensitivity }}
  */
 export function parseEvalArgs(argv) {
   const { values, positionals } = parseArgs({
@@ -432,6 +495,7 @@ export function parseEvalArgs(argv) {
     options: {
       judges: { type: 'string' },
       dimensions: { type: 'string' },
+      sensitivity: { type: 'string' },
     },
   });
   const goldenPath = positionals[0];
@@ -443,11 +507,18 @@ export function parseEvalArgs(argv) {
   if (!Number.isInteger(dimensions) || dimensions <= 0) {
     throw new Error('eval: --dimensions debe ser un entero positivo.');
   }
+  const sensitivity = /** @type {import('../domain/document.js').Sensitivity} */ (
+    values.sensitivity ?? DEFAULT_SENSITIVITY
+  );
+  if (!SENSITIVITY_LEVELS.includes(sensitivity)) {
+    throw new Error(`eval: --sensitivity debe ser uno de ${SENSITIVITY_LEVELS.join(', ')}.`);
+  }
   return {
     goldenPath: resolvedGolden,
     corpusDir: path.resolve(positionals[1] ?? path.join(path.dirname(resolvedGolden), 'corpus')),
     judges: values.judges ? String(values.judges).split(',').map((j) => j.trim()).filter(Boolean) : [],
     dimensions,
+    sensitivity,
   };
 }
 
@@ -482,6 +553,19 @@ export async function runEvalCommand(argv, io = {}) {
   /** @type {Record<string, import('../evaluation/multi-judge-evaluator.js').EvaluationReport>} */
   const judgeReports = {};
   if (options.judges.length > 0) {
+    // KJR-BUG-0006: los jueces son salidas a LLM — se validan contra la
+    // policy con el nivel declarado del golden+corpus antes de enviar nada.
+    const policy = createDefaultSensitivityPolicy();
+    const rejected = options.judges.filter(
+      (judge) => !isProviderAllowed(policy, options.sensitivity, judge),
+    );
+    if (rejected.length > 0) {
+      throw new Error(
+        `eval: jueces no permitidos para sensibilidad "${options.sensitivity}": ` +
+          `${rejected.join(', ')} (permitidos: ${policy[options.sensitivity].join(', ')}). ` +
+          'Si el golden y el corpus son públicos, decláralo con --sensitivity public.',
+      );
+    }
     const registry = io.judgeRegistry ?? (await createDefaultAdapterRegistry());
     for (const item of golden.cases) {
       const result = report.results.find((r) => r.id === item.id);

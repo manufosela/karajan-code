@@ -132,20 +132,26 @@ test('runEvalCommand: golden del repo pasa y reporta métricas', async () => {
 });
 
 test('runEvalCommand: --judges usa el registry inyectado y reporta outliers', async () => {
-  const judgeScores = { j1: 0.9, j2: 0.85, j3: 0.1 };
+  // Jueces = providers reales permitidos por la policy para public
+  // (gate KJR-BUG-0006); el registry fake responde por ellos.
+  const judgeScores = { claude: 0.9, codex: 0.85, gemini: 0.1 };
   const registry = {
     has: () => true,
     get: (name) => async () => ({ parsedOutput: { json: { score: judgeScores[name], rationale: 'x' } } }),
   };
   const lines = [];
   const report = await runEvalCommand(
-    [path.join(REPO_ROOT, 'examples/golden/golden.json'), '--judges', 'j1,j2,j3'],
+    [
+      path.join(REPO_ROOT, 'examples/golden/golden.json'),
+      '--judges', 'claude,codex,gemini',
+      '--sensitivity', 'public',
+    ],
     { out: (msg) => lines.push(msg), judgeRegistry: registry },
   );
   assert.ok(report.judgeReports);
   const first = Object.values(report.judgeReports)[0];
-  assert.deepEqual(first.outliers, ['j3']);
-  assert.ok(lines.some((l) => l.includes('outliers=[j3]')));
+  assert.deepEqual(first.outliers, ['gemini']);
+  assert.ok(lines.some((l) => l.includes('outliers=[gemini]')));
 });
 
 test('runIndexCommand: end-to-end con in-memory sobre un proyecto temporal', async () => {
