@@ -141,12 +141,26 @@ control primario.
 
 ## 6. Revisiones realizadas
 
-- **2026-07-23 — revisión independiente asistida (OpenAI Codex,
-  read-only)**: [informe íntegro](./reviews/2026-07-23-codex-review-1.md).
-  Veredicto inicial RECHAZADO con 4 hallazgos accionables, todos
-  corregidos el mismo día: KJR-BUG-0007 (reestampado de sensibilidad en
-  reindex, crítico), KJR-BUG-0008 (frontera de ruta en reglas),
-  KJR-BUG-0009 (normalización Unicode del redactor) y KJR-BUG-0010 (este
-  documento afirmaba inventario exhaustivo y "prompts solo tras gates"
-  sin cubrir los roles de bajo nivel — corregido en §3/§5 y avisado en
-  JSDoc).
+Revisión independiente asistida con OpenAI Codex (codex-cli, sandbox
+read-only, modelo de proveedor distinto al que desarrolló el código),
+en pasadas iterativas de verificación hostil:
+
+- **Pasada 1 (2026-07-23)** —
+  [informe](./reviews/2026-07-23-codex-review-1.md). Veredicto RECHAZADO
+  con 4 hallazgos: KJR-BUG-0007 (reestampado de sensibilidad en reindex,
+  crítico), KJR-BUG-0010 (inventario no exhaustivo, alto), KJR-BUG-0008
+  (frontera de ruta en reglas) y KJR-BUG-0009 (Unicode en el redactor).
+  Correcciones en PRs #120–#123.
+- **Pasada 2 (2026-07-23)** —
+  [informe](./reviews/2026-07-23-codex-review-2.md). Veredicto RECHAZADO:
+  reconoce las 4 correcciones como avances pero las califica de
+  parciales, con residuales: la query confiaba en la metadata del store
+  como fuente de verdad (crítico → PR #124: el manifest es el suelo
+  autoritativo, gana el nivel más restrictivo), prefijos ambiguos sin
+  canonizar (→ PR #125: rechazo explícito en validación) y zero-width/
+  homoglifos en el redactor (→ PR #126: zero-width eliminados; homoglifos
+  declarados como límite conocido en §4 H3, con test que lo fija).
+- **Pasada 3**: pendiente de registro en esta sección al completarse.
+
+Los veredictos se registran íntegros y sin edición, incluidos los
+rechazos: el valor de esta sección es el histórico honesto, no el sello.
