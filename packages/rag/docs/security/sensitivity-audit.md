@@ -160,7 +160,16 @@ en pasadas iterativas de verificación hostil:
   canonizar (→ PR #125: rechazo explícito en validación) y zero-width/
   homoglifos en el redactor (→ PR #126: zero-width eliminados; homoglifos
   declarados como límite conocido en §4 H3, con test que lo fija).
-- **Pasada 3**: pendiente de registro en esta sección al completarse.
+- **Pasada 3 (2026-07-23, final)** —
+  [informe](./reviews/2026-07-23-codex-review-3.md). **Veredicto:
+  APROBADO CON RESERVAS** en el perímetro declarado: capa easy con
+  defaults alineada con la policy y la redacción; API de bajo nivel
+  delimitada honestamente como responsabilidad del integrador; redactPII
+  como defensa en profundidad con límites declarados. Los 4 residuales de
+  la pasada 2 verificados como CORREGIDOS, sin hallazgos nuevos. Reserva:
+  revisión estática (la sandbox no permitió ejecutar la suite — que sí
+  corre en CI con umbrales de cobertura). Las 3 recomendaciones post-1.0
+  quedan registradas en el backlog del proyecto.
 
 Los veredictos se registran íntegros y sin edición, incluidos los
 rechazos: el valor de esta sección es el histórico honesto, no el sello.
