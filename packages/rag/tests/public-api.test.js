@@ -93,6 +93,8 @@ const REQUIRED_EXPORTS = [
   'DEFAULT_EASY_CONFIG',
   'resolveDocumentSensitivity',
   'effectiveSensitivityOfHits',
+  'enforceEasyAdapterPolicy',
+  'generateAnswerForHits',
 
   // Embedding
   'createHashEmbedder',
