@@ -18,6 +18,12 @@ import { buildRerankPrompt } from './rerank-prompt.js';
  * - Modo "llm": delega en un adapter (obtenido del AdapterRegistry o vía
  *   la propiedad `adapter` del rol) que recibe prompt+hits y devuelve
  *   un JSON { ranking: string[] } con los IDs ordenados.
+ *
+ * ⚠️ Sensibilidad (revisión 2026-07-23): en modo "llm" el prompt incluye
+ * `metadata.content` de los hits y este rol NO aplica sensitivity policy
+ * ni redacción por sí mismo — es API de bajo nivel. Si el corpus no es
+ * `public`, coloca un `RedactionRole` antes en el grafo o usa un adapter
+ * permitido para el nivel (ver docs/security/sensitivity-audit.md §3).
  */
 export class RerankerRole extends Role {
   /**

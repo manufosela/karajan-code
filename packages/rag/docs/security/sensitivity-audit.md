@@ -43,6 +43,8 @@ por defecto, secretos en Secret Manager).
 |--------|------------------|-----------------|---------------|--------|
 | Pipeline declarativo (`run`) con `RedactionRole` en el grafo | El adapter del stage de generación | ✅ (`RedactionRole` bloquea por nivel) | ✅ (`redactPII` sobre cada chunk) | Diseño original, correcto |
 | `GeneratorRole` usado directamente por código de usuario | El adapter elegido | ⚠️ responsabilidad del integrador (documentado) | ⚠️ ídem | Por diseño: API de bajo nivel |
+| `RerankerRole` en modo `llm` (bajo nivel) | El adapter del rol — el prompt incluye `metadata.content` de los hits | ⚠️ responsabilidad del integrador (aviso en JSDoc; hallazgo de la revisión 2026-07-23) | ⚠️ vía `RedactionRole` previo si se coloca | API de bajo nivel; KJR-BUG-0010 |
+| `EvaluatorRole` / `evaluateMultiJudge` directos (bajo nivel) | Los jueces — el prompt incluye query, answer y contexto | ⚠️ responsabilidad del integrador (aviso en JSDoc; la capa easy sí aplica gate en `eval --judges`) | ⚠️ ídem | API de bajo nivel; KJR-BUG-0010 |
 | `karajan-rag query --answer` (capa easy) | El adapter resuelto por policy | ✅ nivel efectivo = máx. de chunks recuperados; `--adapter` no permitido → error | ✅ | Corregido 2026-07-23 (KJR-BUG-0006, PRs #114/#115) |
 | `karajan-rag eval --judges` | Los jueces listados | ✅ gate por `--sensitivity` (default `internal`); juez no permitido → error | ✅ | Corregido 2026-07-23 (KJR-BUG-0006, PR #115) |
 | `karajan-rag index` / `query` sin `--answer` / `serve` / `createRag().query()` | Nadie (retrieval local; embeddings con HashEmbedder local por defecto) | n/a | n/a | Sin salida a terceros con defaults |
@@ -121,7 +123,21 @@ en profundidad declarada como tal, no control primario.
 4. Verificar que ningún evento de observabilidad (`onStage*`) ni log de la
    capa easy incluye contenido de chunks.
 5. Revisar los prompts de sistema (`rerank-prompt`, `buildJudgePrompt`) —
-   incluyen contenido de chunks por diseño; confirmar que solo se usan tras
-   los gates.
+   incluyen contenido de chunks por diseño. En la capa easy solo se usan
+   tras los gates; en la API de bajo nivel (`RerankerRole` llm,
+   `EvaluatorRole`) son responsabilidad del integrador (§3, avisos en
+   JSDoc). Verificar que esa frontera está bien señalizada.
 6. Confirmar que `karajan.config.json` y el manifest no persisten contenido,
    solo metadatos y hashes.
+
+## 6. Revisiones realizadas
+
+- **2026-07-23 — revisión independiente asistida (OpenAI Codex,
+  read-only)**: [informe íntegro](./reviews/2026-07-23-codex-review-1.md).
+  Veredicto inicial RECHAZADO con 4 hallazgos accionables, todos
+  corregidos el mismo día: KJR-BUG-0007 (reestampado de sensibilidad en
+  reindex, crítico), KJR-BUG-0008 (frontera de ruta en reglas),
+  KJR-BUG-0009 (normalización Unicode del redactor) y KJR-BUG-0010 (este
+  documento afirmaba inventario exhaustivo y "prompts solo tras gates"
+  sin cubrir los roles de bajo nivel — corregido en §3/§5 y avisado en
+  JSDoc).
