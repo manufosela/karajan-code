@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-07-23
+
+Minor. **Isolation you can prove.** A field case: the playbook said "one worktree per task" and an agent narrated the isolation while editing the project root. Ordering a practice invites narration; ordering a command gets execution — and now the claim leaves a trail.
+
+### Added
+
+- **`kj worktree start|list|done`** (KJC-TSK-0679): isolated task lanes for the host agent. `start <slug>` creates the worktree in `.kj/worktrees/<slug>` (the same lane dir the headless pipeline uses) with its `feat/<slug>` branch, bootstraps dependencies, and prints the exact `cd`; `done <slug>` removes a merged lane (refusing uncommitted changes without `--force`). The playbook now orders the COMMAND and demands the isolation proof: in a lane, `git rev-parse --git-dir` differs from `--git-common-dir`.
+- **The review verdict stamps its workspace** (KJC-TSK-0680): every `kj review --staged` records where it ran — `✓ APPROVED by codex (diff …) [root]` or `[worktree:<name>]`. Working from the root stays legitimate for single-task work, but if the agent claims isolation and the verdict says `[root]`, the trail talks.
+
 ## [4.2.1] - 2026-07-23
 
 Patch — including the first external contribution of the v4 era.
