@@ -23,6 +23,7 @@ import { envInstallCommand, briefCommand } from "../commands/env.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand } from "../commands/hu.js";
+import { worktreeCommand } from "../commands/worktree.js";
 import { addAdr, listAdrs } from "../environment/adr.js";
 import { formatAdvancedIndex } from "../commands/advanced.js";
 import { withConfig } from "./_shared.js";
@@ -155,6 +156,32 @@ export function registerMeta(program, { pkgVersion }) {
     });
 
   // AB-H (KJC-TSK-0658): board writes + repo ADRs for the brain.
+  // KJC-TSK-0679: isolated lanes for the host agent — ordering a command
+  // beats ordering a practice an agent can narrate without doing.
+  const wt = program.command("worktree").description("Isolated task lanes (git worktrees) for the host agent");
+  wt.command("start <slug>")
+    .description("Create a lane: worktree + feat/<slug> branch + dependency bootstrap")
+    .action(async (slug, flags) => {
+      await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
+        await worktreeCommand({ config, action: "start", args: [slug], flags });
+      });
+    });
+  wt.command("list")
+    .description("List the active lanes")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
+        await worktreeCommand({ config, action: "list", flags });
+      });
+    });
+  wt.command("done <slug>")
+    .option("--force", "Remove the lane even with uncommitted changes")
+    .description("Remove a merged lane (refuses uncommitted changes without --force)")
+    .action(async (slug, flags) => {
+      await withConfig(pkgVersion, "worktree", flags, async ({ config }) => {
+        await worktreeCommand({ config, action: "done", args: [slug], flags });
+      });
+    });
+
   const hu = program.command("hu").description("Track work in the HU Board from any host agent (card first)");
   hu.command("add <title>")
     .option("--id <shortId>", "Human-readable short id")
