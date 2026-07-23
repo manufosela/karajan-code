@@ -41,4 +41,42 @@ describe("createCliAskQuestion --yes defaults (KJC-BUG-0109)", () => {
     expect(answer).toBeNull();
     write.mockRestore();
   });
+
+  // KJC-TSK-0674 (issue #1289): agents/CI can enable the same contract
+  // without --yes, via env var or the --non-interactive flag.
+  it("KJ_NON_INTERACTIVE=1 enables auto-answering without --yes", async () => {
+    nonTty();
+    process.env.KJ_NON_INTERACTIVE = "1";
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const ask = createCliAskQuestion({ flags: {} });
+      const answer = await ask("Gate?", { defaultAnswer: "continue" });
+      expect(answer).toBe("continue");
+    } finally {
+      delete process.env.KJ_NON_INTERACTIVE;
+      write.mockRestore();
+    }
+  });
+
+  it("--non-interactive flag enables auto-answering and stops loud without a default", async () => {
+    nonTty();
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const ask = createCliAskQuestion({ flags: { nonInteractive: true } });
+    expect(await ask("Gate?", { defaultAnswer: "continue" })).toBe("continue");
+    expect(await ask("Hard question?", {})).toBeNull();
+    write.mockRestore();
+  });
+
+  it("explicit non-interactive mode wins even with a (pseudo-)TTY attached", async () => {
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const hadTty = process.stdin.isTTY;
+    process.stdin.isTTY = true; // a readline fallback would hang this test
+    try {
+      const ask = createCliAskQuestion({ flags: { nonInteractive: true } });
+      expect(await ask("Gate?", { defaultAnswer: "continue" })).toBe("continue");
+    } finally {
+      process.stdin.isTTY = hadTty;
+      write.mockRestore();
+    }
+  });
 });

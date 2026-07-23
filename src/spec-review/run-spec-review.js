@@ -78,17 +78,24 @@ export async function runSpecReview({ spec, config, logger, askQuestion, flags =
       action = await decideGateAutonomously(resolve, { severity, findings });
     } else {
       if (!askQuestion) return { proceed: true, severity, findings, finalSpec: currentSpec };
+      // KJC-TSK-0674 (issue #1289): at severity FAIL the default flips to
+      // cancel — continuing past fails requires an explicit answer, both
+      // interactively (Enter cancels) and unattended (no declared default,
+      // so --yes / KJ_NON_INTERACTIVE stops with exit ≠ 0). warn/info keep
+      // the KJC-BUG-0109 contract: --yes presses Enter → continue.
+      const fallback = severity === "fail" ? "cancel" : "continue";
       const answer = await askQuestion(
-        `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: continue)`,
+        `Spec review: ${findings.length} finding${findings.length === 1 ? "" : "s"} at severity ${severity}. [c]ontinue / [r]efine / [x]cancel? (default: ${fallback})`,
         {
           detail: { severity, findingCount: findings.length, categories: [...new Set(findings.map((f) => f.category))], iteration: iter + 1, findings: findingsForPrompt(findings) },
-          // KJC-BUG-0109: mirrors the interactive default — --yes presses Enter.
-          defaultAnswer: "continue",
+          defaultAnswer: severity === "fail" ? undefined : "continue",
         },
       );
       if (answer === null) return { proceed: false, cancelled: true, severity, findings };
-      const n = String(answer).trim().toLowerCase();
-      action = n.startsWith("x") || n === "cancel" ? "cancel" : n.startsWith("r") || n === "refine" ? "refine" : "continue";
+      const n = String(answer).trim().toLowerCase() || fallback;
+      if (n.startsWith("x") || n === "cancel") action = "cancel";
+      else if (n.startsWith("r") || n === "refine") action = "refine";
+      else action = "continue";
     }
     if (action === "cancel") return { proceed: false, cancelled: true, severity, findings };
     if (action === "refine") {

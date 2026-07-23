@@ -42,7 +42,7 @@ describe("resume.js askQuestion contract — KJC-BUG-0081 round 2", () => {
     expect(answer).toBeNull();
     expect(askSpy).not.toHaveBeenCalled();
     const all = stderrWrites.join("");
-    expect(all).toMatch(/non-interactive --yes/);
+    expect(all).toMatch(/non-interactive/);
     expect(all).toMatch(/checkpoint/);
     askSpy.mockRestore();
   });

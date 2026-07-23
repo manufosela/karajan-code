@@ -28,22 +28,28 @@ export function createCliAskQuestion(opts = {}) {
   return async (question, context) => {
     const stdinReadable = process.stdin && process.stdin.readable !== false;
     const isInteractive = Boolean(process.stdin?.isTTY) && stdinReadable;
-    if (!isInteractive) {
-      if (flags?.yes) {
+    // KJC-TSK-0674 (issue #1289): agents and CI enable the same contract
+    // as --yes explicitly, via --non-interactive or KJ_NON_INTERACTIVE=1,
+    // instead of blocking forever on a board modal nobody is watching.
+    // Explicit mode wins even when a (pseudo-)TTY is attached.
+    const forcedNonInteractive = flags?.nonInteractive || process.env.KJ_NON_INTERACTIVE === "1";
+    if (!isInteractive || forcedNonInteractive) {
+      const nonInteractive = forcedNonInteractive || flags?.yes;
+      if (nonInteractive) {
         // KJC-BUG-0109: a question that declares a safe default is answered
         // with it — --yes means "press Enter for me", not "abort on any
         // gate". Questions without a declared default keep failing loud.
         const fallback = typeof context?.defaultAnswer === "string" && context.defaultAnswer.trim()
           ? context.defaultAnswer.trim() : null;
         if (fallback) {
-          process.stderr.write(`\n[non-interactive --yes] Auto-answering with declared default "${fallback}": ${question}\n`);
+          process.stderr.write(`\n[non-interactive] Auto-answering with declared default "${fallback}": ${question}\n`);
           return fallback;
         }
         process.stderr.write(
-          `\n[non-interactive --yes] Pipeline asked a question that cannot be auto-answered:\n`
+          `\n[non-interactive] Pipeline asked a question that cannot be auto-answered:\n`
           + `  ❓ ${question}\n`
           + (context?.detail ? `  Context: ${JSON.stringify(context.detail)}\n` : "")
-          + `  Stopping the session. Re-run without --yes (TTY or HU Board) to answer it,\n`
+          + `  Stopping the session. Re-run interactively (TTY or HU Board) to answer it,\n`
           + `  or pass --skip-spec-review / a more complete spec so the question never appears.\n`
         );
         return null;
@@ -56,7 +62,9 @@ export function createCliAskQuestion(opts = {}) {
       console.log(
         "\n[non-interactive] Routing the prompt to the HU Board.\n"
         + "  Open http://localhost:4000 — a modal will appear asking for your answer.\n"
-        + "  This process is now waiting; closing the board does NOT cancel the run."
+        + "  This process is now waiting; closing the board does NOT cancel the run.\n"
+        + "  Running from an agent or CI with nobody watching the board? Re-run with\n"
+        + "  --non-interactive (or KJ_NON_INTERACTIVE=1) to auto-answer safe defaults instead."
       );
       try {
         return await askThroughBoard({ sessionId, question, context });

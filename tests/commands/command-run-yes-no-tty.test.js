@@ -36,7 +36,7 @@ describe("createCliAskQuestion — KJC-BUG-0081", () => {
     expect(answer).toBeNull();
     expect(askSpy).not.toHaveBeenCalled();
     const all = stderrWrites.join("");
-    expect(all).toMatch(/non-interactive --yes/);
+    expect(all).toMatch(/non-interactive/);
     expect(all).toMatch(/Stopping the session/);
     expect(all).toMatch(/missing-ac/);
     askSpy.mockRestore();

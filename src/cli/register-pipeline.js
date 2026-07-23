@@ -54,6 +54,7 @@ export function registerPipeline(program, { pkgVersion }) {
     .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md). Alternative to the positional task argument.")
     .option("-y, --yes", "Skip the cwd confirmation prompt (CI / scripted runs).")
+    .option("--non-interactive", "Agents/CI: auto-answer prompts with their safe defaults (warn → continue) and stop with exit code 1 when there is none (fail). Also enabled by KJ_NON_INTERACTIVE=1.")
     .option("--planner <name>")
     .option("--coder <name>")
     .option("--reviewer <name>")
@@ -145,7 +146,10 @@ export function registerPipeline(program, { pkgVersion }) {
         }
         const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task: effectiveTask, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
-        await runCommandHandler({ task: resolvedTask, config, logger, flags });
+        const res = await runCommandHandler({ task: resolvedTask, config, logger, flags });
+        // KJC-TSK-0674 (issue #1289): an aborted run (spec-review cancel,
+        // unanswerable non-interactive gate) must be observable by CI.
+        if (res?.aborted) process.exitCode = 1;
       });
     });
 
