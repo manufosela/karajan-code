@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.2.1 — primera contribución externa de la era v4 (actual)
+### v4.3.0 — aislamiento que se puede demostrar (actual)
+
+Minor. Un agente narró aislamiento en worktree mientras editaba el root del proyecto — así que el aislamiento se convirtió en comando y en rastro. `kj worktree start|list|done` da al agente anfitrión carriles de tarea de verdad (worktree + rama + bootstrap de dependencias, un solo comando); el playbook exige la prueba antes de cualquier afirmación de aislamiento; y cada veredicto de review estampa desde dónde se ejecutó — `[root]` o `[worktree:<nombre>]`. Si el relato y el rastro discrepan, gana el rastro. Actualización directa desde v4.2.1.
+
+### v4.2.1 — primera contribución externa de la era v4
 
 Patch con hito dentro: el botón play por HU del board pasa ya el título de la propia HU a `kj run` en vez de una descripción genérica del plan — se acabaron los suspensos falsos del spec-review en historias bien definidas — y el fix vino del campo, contribuido por @jorgecasar. Además: el playbook ordena ya un `git worktree` por tarea para el trabajo en paralelo, así cualquier agente anfitrión hereda el aislamiento de carriles que el pipeline headless ya practica. Actualización directa desde v4.2.0.
 
