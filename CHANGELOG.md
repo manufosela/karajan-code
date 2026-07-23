@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-07-23
+
+Patch — including the first external contribution of the v4 era.
+
+### Fixed
+
+- **The board's per-HU play button passes the HU's own title to `kj run`** instead of the generic `plan.task` (issue #1297) — no more false spec-review failures on well-defined HUs. Fix contributed by **@jorgecasar** (#1298).
+
+### Added
+
+- **The playbook now orders git worktrees for parallel work** (KJC-TSK-0677): working on more than one task, or the base tree must stay untouched → one `git worktree` per task; the gates travel with the repo and work there. In v4 the host agent does the work — the playbook is where it inherits the lane-isolation practice the headless pipeline already uses.
+
 ## [4.2.0] - 2026-07-23
 
 Minor. **Sonar is a gate now, not discipline.** With the brain outside the core (v4), skipping static analysis was one decision away — proven the day the brain itself shipped three sonar issues in new code and nothing stopped it. Now the review gate does.
