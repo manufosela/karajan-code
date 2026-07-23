@@ -48,3 +48,11 @@ Run `karajan-rag doctor`. Report to the user: what got installed or indexed,
 anything still limiting kaRAGan on this machine (and the exact way to lift
 each limit — e.g. no local model for `confidential` answers), and an example
 query they can try right now against their own corpus.
+
+## 4. If you hit a karajan-rag bug or friction
+
+Report it upstream so the maintainer learns about it:
+`karajan-rag report-issue --title "<one line>" --command "<what you ran>" --error "<what it said>"`.
+It sanitizes paths and PII, checks for open duplicates, and prints a
+preview + prefilled URL. Only pass `--publish` (needs the gh CLI) after
+your user explicitly confirms they want it published.

@@ -57,6 +57,17 @@ async function main() {
     process.exit(0);
   }
 
+  if (command === 'report-issue') {
+    try {
+      const { runReportIssueCommand } = await import('../src/support/issue-report.js');
+      const res = await runReportIssueCommand(rest);
+      process.exit(res.blockedByDuplicates || (!res.published && rest.includes('--publish')) ? 1 : 0);
+    } catch (err) {
+      console.error(`karajan-rag report-issue: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(2);
+    }
+  }
+
   if (command === 'doctor') {
     try {
       const { errors } = await runDoctorCommand(rest);
@@ -165,6 +176,10 @@ function printUsage() {
   console.error('  eval <golden.json> [corpus]');
   console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');
   console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N.');
+  console.error('  report-issue --title "<resumen>"');
+  console.error('                 Reporta una fricción al repo público, saneada (rutas y PII');
+  console.error('                 redactadas) y con dedup. Flags: --description, --command,');
+  console.error('                 --error, --publish (vía gh), --force, --json.');
   console.error('  --version, -v  Muestra la versión instalada.');
   console.error('  --help, -h     Muestra esta ayuda.');
 }
