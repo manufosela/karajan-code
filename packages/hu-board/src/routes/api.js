@@ -1026,7 +1026,18 @@ router.post('/hus/:huId/run', (req, res) => {
     const extraIds = Array.isArray(req.body?.extraHuIds) ? req.body.extraHuIds.map((x) => (x.includes('::') ? x.split('::').pop() : x)) : [];
     const huIds = [planLocalHuId, ...extraIds];
 
-    const result = runPlan({ planId: row.plan_id, projectId: row.project_id, huIds });
+    // Read the HU title from the plan JSON so kj run receives a
+    // meaningful task description instead of the generic plan.task.
+    let taskOverride;
+    try {
+      const planPath = path.join(getHuBoardPlansDir(), row.project_id, `${row.plan_id}.json`);
+      const planRaw = fs.readFileSync(planPath, 'utf8');
+      const planData = JSON.parse(planRaw);
+      const hu = (planData.hus || []).find((h) => h.id === planLocalHuId);
+      if (hu?.title) taskOverride = hu.title;
+    } catch { /* fall through — runPlan will use plan.task */ }
+
+    const result = runPlan({ planId: row.plan_id, projectId: row.project_id, huIds, taskOverride });
     if (!result.ok) return res.status(400).json({ error: result.error });
 
     // Move the launched HU(s) to "coding" in BOTH the SQLite mirror and the
