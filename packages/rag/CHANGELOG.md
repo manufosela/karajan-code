@@ -7,6 +7,40 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-07-23
+
+### Changed
+
+- **API pública estable.** Desde esta versión aplica semver estricto: los
+  cambios breaking requieren major y la [política de deprecación](./docs/DEPRECATION.md)
+  garantiza 2 minors de preaviso. La superficie exportada queda fijada
+  por el test de contrato (`tests/public-api.test.js`).
+
+### Security
+
+- **Revisión independiente de la política de sensibilidad y el redactor
+  PII completada** (criterio final de salida de la serie 0.x): 3 pasadas
+  iterativas de verificación hostil ejecutadas por un modelo de otro
+  proveedor (OpenAI Codex, sandbox read-only), con informes íntegros
+  versionados en `docs/security/reviews/`. Veredicto final: **APROBADO
+  CON RESERVAS** en el perímetro declarado. El proceso destapó y corrigió
+  4 hallazgos + residuales:
+  - KJR-BUG-0007 (crítico): el reindex incremental no reestampaba la
+    sensibilidad de ficheros sin cambios; además, la query confiaba en la
+    metadata del store. Ahora el nivel se persiste por fichero en el
+    manifest, un nivel distinto fuerza reprocesado y el manifest actúa
+    como **suelo autoritativo** en query (ante discrepancia gana el nivel
+    más restrictivo; una fuente desconocida nunca es `public`).
+  - KJR-BUG-0010 (alto): el inventario de flujos del paquete de auditoría
+    no cubría `RerankerRole` (llm) ni `EvaluatorRole` — corregido el
+    inventario y señalizada la frontera de responsabilidad en JSDoc.
+  - KJR-BUG-0008: las reglas de sensibilidad matcheaban por prefijo de
+    string; ahora respetan fronteras de segmento de ruta y las formas
+    ambiguas (`./`, `..`, `\`, absolutas) se rechazan en validación.
+  - KJR-BUG-0009: `redactPII` era evadible con Unicode — ahora normaliza
+    NFKC, elimina zero-width y acepta NIF/NIE con separadores; los
+    homoglifos quedan como límite conocido declarado y fijado por test.
+
 ## [0.7.0] — 2026-07-23
 
 ### Fixed
@@ -511,7 +545,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/manufosela/karajan-rag/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/manufosela/karajan-rag/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/manufosela/karajan-rag/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/manufosela/karajan-rag/compare/v0.5.0...v0.6.0

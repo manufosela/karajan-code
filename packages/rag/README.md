@@ -232,17 +232,15 @@ tests/
 index.js
 ```
 
-## Roadmap
+## Estabilidad y roadmap
 
-El plan completo de versiones 0.2.0 → 1.0 vive en [ROADMAP.md](./ROADMAP.md).
-La política de deprecación (2 minors de preaviso desde la 1.0) está en
-[docs/DEPRECATION.md](./docs/DEPRECATION.md). Resumen:
-
-- **0.2.0** — Observabilidad por stage + Solomon real (multi-source arbitrage).
-- **0.3.0** — Evaluación avanzada, golden set y `karajan-rag eval`.
-- **0.4.0** — Política de reindex completa y migración entre stores.
-- **0.5.0+** — SDK embebible, adapters OpenAI/Anthropic HTTP, `karajan-rag doctor`.
-- **1.0** — Estabilidad de API, auditoría de sensibilidad, runbook de evaluación.
+**Desde la 1.0.0 la API pública es estable**: semver estricto, [política
+de deprecación](./docs/DEPRECATION.md) con 2 minors de preaviso y test de
+contrato de la superficie exportada. Los criterios de salida de la serie
+0.x —incluida una [revisión independiente de la política de sensibilidad
+y el redactor PII](./docs/security/sensitivity-audit.md#6-revisiones-realizadas)
+y un [caso de uso real desplegado en GCP](./docs/case-study-gcp.md)—
+están documentados en [ROADMAP.md](./ROADMAP.md).
 
 El backlog táctico (`KJR-TSK-XXXX`) vive en Planning Game privado.
 
