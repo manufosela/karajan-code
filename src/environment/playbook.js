@@ -29,7 +29,7 @@ const TARGET_FILES = {
 // ENV-D1 (KJC-TSK-0642): the tracking invariant names the CHOSEN state
 // backend — a playbook that says "board or PG" makes the host guess.
 const BACKEND_TRACKING = {
-  "hu-board": "Every piece of work has a tracked story/bug in the HU Board (`kj hu add` / `kj board`) before it starts. Cards are permanent — never delete or recreate one; discard with `kj hu move <id> skipped`. `kj brief board` explains the board.",
+  "hu-board": "Every piece of work has a tracked story/bug in the HU Board (`kj hu add` / `kj board`) before it starts — and `kj hu list` BEFORE `kj hu add`: reuse the existing card if one covers the work. Cards are permanent — never delete or recreate one; discard with `kj hu move <id> skipped`. `kj brief board` explains the board.",
   "planning-game": "Every piece of work has a tracked card in the Planning Game MCP before it starts (In Progress while you work it).",
 };
 

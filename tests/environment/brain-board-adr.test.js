@@ -78,6 +78,40 @@ describe("kj hu", () => {
     expect(rows.filter((r) => r.short_id === "DUP-9")).toHaveLength(1);
   });
 
+  // KJC-TSK-0675 (issue #1288): an agent that skips `kj hu list` must not
+  // be able to create a twin of existing work — not even in ANOTHER plan
+  // (Jorge's case: planner HUs + a second set under brain-backlog).
+  it("add refuses an identical title, even when it lives in another plan", async () => {
+    const { savePlan } = await import("../../src/plan/plan-store.js");
+    const { generatePlanId } = await import("../../src/plan/plan-id.js");
+    await savePlan(dir, {
+      version: 2, planId: generatePlanId(), name: "toolgate-phase-1", task: "t", status: "ready",
+      hus: [{ id: "hu_plan_002", short_id: "BB-002", title: "Wire the toolgate monorepo scanner", status: "pending" }],
+      createdAt: new Date().toISOString(),
+    });
+    await expect(huCommand({ config: cfg(), action: "add", args: ["Wire the toolgate: monorepo scanner!"], flags: {} }))
+      .rejects.toThrow(/already exists.*toolgate-phase-1|toolgate-phase-1.*already exists/s);
+  });
+
+  it("add warns (but creates) on a very similar title, listing the candidates", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["Add retry logic to the webhook dispatcher"], flags: { json: true, id: "WH-1" } });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const added = await huCommand({ config: cfg(), action: "add", args: ["Add retry logic to webhook dispatcher queue"], flags: { json: true } });
+      expect(added.status).toBe("pending");
+      expect(warn.mock.calls.flat().join("\n")).toMatch(/WH-1/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("a skipped HU does not block reusing its title", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["Rebuild the login form"], flags: { json: true, id: "L-1" } });
+    await huCommand({ config: cfg(), action: "move", args: ["L-1", "skipped"], flags: { json: true } });
+    const added = await huCommand({ config: cfg(), action: "add", args: ["Rebuild the login form"], flags: { json: true } });
+    expect(added.status).toBe("pending");
+  });
+
   it("second add reuses the same backlog plan", async () => {
     await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true } });
     await huCommand({ config: cfg(), action: "add", args: ["B"], flags: { json: true } });
