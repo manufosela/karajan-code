@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.2.0 — sonar is a gate now, not discipline (current)
+### v4.2.1 — first external contribution of the v4 era (current)
+
+Patch with a milestone inside: the board's per-HU play button now feeds the HU's own title to `kj run` instead of a generic plan description — no more false spec-review failures on well-defined stories — and the fix came from the field, contributed by @jorgecasar. Plus: the playbook now orders one `git worktree` per task for parallel work, so any host agent inherits the lane isolation the headless pipeline already practices. Drop-in upgrade from v4.2.0.
+
+### v4.2.0 — sonar is a gate now, not discipline
 
 Minor. `kj review --staged` runs SonarQube as a deterministic pre-gate before any AI opinion: findings on the changed files print first, BLOCKER/CRITICAL ones reject on the spot without spending a single reviewer token, and advisory ones travel inside the reviewer's task. A machine without sonar degrades loudly and continues. On its first live run it caught three pre-existing issues in the very file that implements it. [Phase 104 →](/docs/architecture/history/#phase-104-v420--deterministic-pre-gate-sonar-before-any-ai-opinion-v420)
 

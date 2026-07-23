@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.2.0 — sonar ya es gate, no disciplina (actual)
+### v4.2.1 — primera contribución externa de la era v4 (actual)
+
+Patch con hito dentro: el botón play por HU del board pasa ya el título de la propia HU a `kj run` en vez de una descripción genérica del plan — se acabaron los suspensos falsos del spec-review en historias bien definidas — y el fix vino del campo, contribuido por @jorgecasar. Además: el playbook ordena ya un `git worktree` por tarea para el trabajo en paralelo, así cualquier agente anfitrión hereda el aislamiento de carriles que el pipeline headless ya practica. Actualización directa desde v4.2.0.
+
+### v4.2.0 — sonar ya es gate, no disciplina
 
 Minor. `kj review --staged` ejecuta SonarQube como pre-gate determinista antes de cualquier opinión de IA: los findings de los ficheros cambiados salen primero, los BLOCKER/CRITICAL rechazan en el acto sin gastar un solo token del reviewer, y los advisory viajan dentro del task del reviewer. Una máquina sin sonar degrada con aviso y continúa. En su primer uso real cazó tres issues preexistentes en el mismísimo fichero que lo implementa. [Fase 104 →](/docs/es/architecture/history/#fase-104-v420--pre-gate-determinista-sonar-antes-de-cualquier-opinión-de-ia-v420)
 
