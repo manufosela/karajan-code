@@ -55,7 +55,9 @@ Invariants (the git gates enforce these — they are not suggestions):
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: \`kj brief security\` states what must be true.
 - Branch first: never commit on the base branch — every change reaches it
-  through an atomic PR (~150 net lines, Conventional Commits).
+  through an atomic PR (~150 net lines, Conventional Commits). Working on
+  more than one task, or the user needs the base tree untouched? One
+  \`git worktree\` per task — the gates travel with the repo and work there.
 
 Commands: \`kj rag query\` · \`kj brief <role>\` (triage, planner, researcher,
 architect, tester, security, audit, board) · \`kj hu add|move|list\` · \`kj adr add|list\` ·
