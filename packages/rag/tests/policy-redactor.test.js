@@ -170,6 +170,29 @@ test('redactPII: NIF/NIE con separadores también caen (KJR-BUG-0009)', () => {
   assert.ok(!nie.text.includes('1234567'));
 });
 
+test('redactPII: los zero-width no parten la PII (pasada 2)', () => {
+  // ZWJ (U+200D) y ZWNJ (U+200C) dentro del localpart, ZWSP (U+200B) antes de la arroba.
+  const zwj = redactPII('escribe a cliente‍@empresa.com hoy');
+  assert.equal(zwj.counts.email, 1);
+  assert.ok(!zwj.text.includes('empresa.com'));
+
+  const zwnj = redactPII('escribe a cli‌ente@empresa.com hoy');
+  assert.equal(zwnj.counts.email, 1);
+
+  const zwsp = redactPII('escribe a cliente​@empresa.com hoy');
+  assert.equal(zwsp.counts.email, 1);
+});
+
+test('redactPII: límite conocido — homoglifos redactan solo parcialmente', () => {
+  // "п" cirílica (U+043F) en el localpart: NFKC no la pliega a ASCII, así
+  // que solo cae el tramo ASCII tras el homoglifo ("te@empresa.com") y el
+  // prefijo del localpart sobrevive. Limitación documentada (audit §4 H3)
+  // — este test la hace explícita; si algún día se cubre, actualizarlo.
+  const { text } = redactPII('escribe a clieпte@empresa.com hoy');
+  assert.ok(!text.includes('empresa.com'), 'el dominio sí cae');
+  assert.ok(text.includes('clieп'), 'el prefijo con homoglifo sobrevive (límite conocido)');
+});
+
 test('redactPII: texto sin PII queda igual y total 0', () => {
   const { text, total, counts } = redactPII('Hola mundo sin datos sensibles.');
   assert.equal(text, 'Hola mundo sin datos sensibles.');
