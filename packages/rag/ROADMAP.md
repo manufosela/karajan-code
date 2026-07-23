@@ -103,12 +103,12 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 
 **Criterios de salida de la serie 0.x:**
 
-- API pública documentada, versionada y con tests de contrato.
-- Superficie mínima cubierta al 90% (vs 80% actual).
+- ✅ API pública documentada, versionada y con test de contrato ([tests/public-api.test.js](./tests/public-api.test.js)).
+- ✅ Superficie cubierta ≥90% con umbrales en CI (97% statements / 94% functions / 89% branches).
 - ✅ Política de deprecación formalizada (2 menores de pre-aviso) — [docs/DEPRECATION.md](./docs/DEPRECATION.md).
-- Golden set + runbook de evaluación publicados.
-- Auditoría externa de la política de sensibilidad y del redactor PII.
-- Al menos un caso de uso real en producción documentado públicamente.
+- ✅ Golden set + runbook de evaluación publicados ([examples/golden/](./examples/golden/)).
+- Auditoría externa de la política de sensibilidad y del redactor PII — paquete listo en [docs/security/sensitivity-audit.md](./docs/security/sensitivity-audit.md); hallazgos internos H1/H2/H3 cerrados en 0.7.0.
+- ✅ Al menos un caso de uso real en producción documentado públicamente — [docs/case-study-gcp.md](./docs/case-study-gcp.md).
 
 ---
 
