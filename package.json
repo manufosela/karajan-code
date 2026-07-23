@@ -114,7 +114,8 @@
     "madge": "^8.0.0",
     "sqlite-vec": "^0.1.9",
     "valibot": "^1.4.1",
-    "web-tree-sitter": "^0.26.9"
+    "web-tree-sitter": "^0.26.9",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

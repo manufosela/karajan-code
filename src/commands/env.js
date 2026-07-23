@@ -9,6 +9,7 @@ import { renderBrief, listBriefs } from "../environment/briefs.js";
 import { openVecStore, projectSlug, getLastIndexedCommit } from "../rag/vec-store.js";
 import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
+import { onnxConfig, persistOnnxChoice } from "../rag/onnx-fallback.js";
 
 function hasRagIndex(config, projectDir) {
   const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
@@ -59,6 +60,27 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
         : { tool: `${provider} embedder`, action: "needs-user", reason: `the RAG cannot index: ${why} — check rag.embedder in kj config`, manualUrl: "kj config" };
       console.log(renderPendingBlock([item], { retry: "kj rag index --with-sources   (then re-run: kj env install)" }));
     };
+    // KJC-TSK-0683: on limited machines (no Ollama, no Docker) the DEFAULT
+    // provider falls back to the built-in ONNX embedder instead of blocking.
+    // Only for the first index and only when the user didn't pick a provider
+    // explicitly — the election is persisted (dims differ, it must stick).
+    const explicitProvider = Boolean(config?.rag?.embedder?.provider);
+    const tryOnnxFallback = async (why) => {
+      if (explicitProvider) return false;
+      console.log(`⚠ default embedder unavailable (${why}) — trying the built-in ONNX embedder (no install needed)…`);
+      try {
+        const totals = await ragIndexCommand({ config: onnxConfig(config), logger, flags: { withSources: true } });
+        if ((totals?.indexed ?? 0) > 0) {
+          const p = await persistOnnxChoice(projectDir);
+          console.log(`✓ RAG indexed with the built-in ONNX embedder — persisted in ${p}`);
+          console.log("  For higher-quality embeddings later: install Ollama and run `kj rag index --rebuild`.");
+          return true;
+        }
+      } catch (fallbackErr) {
+        console.log(`  ONNX fallback also failed: ${fallbackErr.message}`);
+      }
+      return false;
+    };
     try {
       if (hasRagIndex(config, projectDir)) {
         console.log("✓ RAG index present");
@@ -66,11 +88,12 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
         console.log("⏳ no RAG index for this project — building it (first time only)…");
         const totals = await ragIndexCommand({ config, logger, flags: { withSources: true } });
         if ((totals?.indexed ?? 0) === 0 && (totals?.files ?? 0) > 0) {
-          blockRag(`0 of ${totals.files} files indexed — is the embedder running?`);
+          const why = `0 of ${totals.files} files indexed — is the embedder running?`;
+          if (!(await tryOnnxFallback(why))) blockRag(why);
         }
       }
     } catch (err) {
-      blockRag(err.message);
+      if (!(await tryOnnxFallback(err.message))) blockRag(err.message);
     }
   }
   if (result.exitCode !== PENDING_EXIT_CODE) {
