@@ -15,6 +15,7 @@ import { resolveReviewProfile } from "./profiles.js";
 import { parseMaybeJsonString } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
 import { saveVerdict } from "./verdict-store.js";
+import { detectWorkspace } from "./workspace.js";
 
 // Cross-AI preference when the configured reviewer IS the host.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
@@ -77,6 +78,8 @@ export async function runOneShotReview({
     verdict: parsed.approved ? "approved" : "rejected",
     reviewer,
     host: hostAgent || null,
+    // KJC-TSK-0680: where the review ran — makes any isolation claim auditable.
+    workspace: await detectWorkspace(projectDir),
     issues: parsed.blocking_issues || [],
     suggestions: parsed.non_blocking_suggestions || [],
     summary: parsed.summary || parsed.raw_summary || "",

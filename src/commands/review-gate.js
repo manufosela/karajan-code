@@ -24,7 +24,8 @@ async function rawDiff(range, extraArgs = []) {
 
 function printVerdict(record) {
   if (record.verdict === "approved") {
-    console.log(`✓ APPROVED by ${record.reviewer} (diff ${record.diffHash.slice(0, 12)})`);
+    const ws = record.workspace ? ` [${record.workspace}]` : "";
+    console.log(`✓ APPROVED by ${record.reviewer} (diff ${record.diffHash.slice(0, 12)})${ws}`);
     if (record.summary) console.log(`  ${record.summary}`);
     return;
   }
