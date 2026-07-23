@@ -66,7 +66,34 @@
         "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
       }
     ],
-    "cleanUrls": true
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/install.sh",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/scripts/install.sh",
+        "type": 302
+      },
+      {
+        "source": "/install.ps1",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/scripts/install.ps1",
+        "type": 302
+      },
+      {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
+        "source": "/install-machine.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/install-machine.md",
+        "type": 302
+      },
+      {
+        "source": "/rag-project.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-rag/main/docs/prompts/rag-project.md",
+        "type": 302
+      }
+    ]
   }],
   "functions": {
     "source": "functions",
