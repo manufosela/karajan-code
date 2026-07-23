@@ -50,3 +50,6 @@ serviceAccountKey.json
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+# Tooling local
+.serena/
