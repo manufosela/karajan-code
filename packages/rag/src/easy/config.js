@@ -109,6 +109,23 @@ export function validateEasyConfig(value) {
             `{ prefix: string, level: ${SENSITIVITY_LEVELS.join(' | ')} }.`,
         );
       }
+      // Pasada 2 de la revisión independiente: formas ambiguas se rechazan
+      // en vez de normalizarse en silencio — el prefijo debe ser una ruta
+      // relativa limpia con separador /, tal como las produce el indexer.
+      const prefix = /** @type {SensitivityRule} */ (rule).prefix;
+      const ambiguous =
+        prefix.includes('\\') ||
+        prefix.startsWith('/') ||
+        prefix === '.' ||
+        prefix.startsWith('./') ||
+        prefix.startsWith('..') ||
+        prefix.split('/').some((seg) => seg === '..');
+      if (ambiguous) {
+        throw new Error(
+          `karajan.config.json: prefijo ambiguo "${prefix}" en easy.sensitivityRules — ` +
+            'usa una ruta relativa limpia con "/" (ej. "docs/public/"), sin "./", ".." ni "\\".',
+        );
+      }
     }
   }
   return /** @type {EasyConfig} */ (config);

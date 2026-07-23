@@ -54,6 +54,16 @@ test('validateEasyConfig rechaza niveles y reglas inválidos', () => {
   );
 });
 
+test('validateEasyConfig rechaza prefijos ambiguos en sensitivityRules (pasada 2)', () => {
+  for (const prefix of ['./docs/public', '../fuera', 'docs/../otra', '/absoluta', 'docs\\public', '/']) {
+    assert.throws(
+      () => validateEasyConfig({ sensitivityRules: [{ prefix, level: 'public' }] }),
+      /prefijo/,
+      `debe rechazar "${prefix}"`,
+    );
+  }
+});
+
 test('DEFAULT_EASY_CONFIG declara el default seguro (internal)', () => {
   assert.equal(DEFAULT_EASY_CONFIG.sensitivity, DEFAULT_SENSITIVITY);
 });
