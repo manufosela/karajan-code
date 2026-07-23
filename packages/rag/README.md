@@ -54,7 +54,31 @@ Fases típicas del pipeline RAG:
 
 Ver la documentación de cada épica en el Planning Game interno para el detalle.
 
-## Requisitos
+## Instalación
+
+La vía recomendada es pegarle este prompt a tu agente de IA (Claude Code,
+Codex, Cursor…): detecta tu sistema, instala lo que falte y **se para a
+esperarte** en cualquier paso que necesite tu permiso:
+
+> I want a RAG over this project: read https://rag.karajancode.com/start.md and do what it says.
+
+¿Prefieres el terminal?
+
+```sh
+# Linux / macOS — Node ≥18 del sistema, o autoprovisiona el LTS oficial
+# en ~/.karajan-rag/node (verificado con SHASUMS256, nada system-wide):
+curl -fsSL https://rag.karajancode.com/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell): mismas garantías; config por variables KJR_*
+irm https://rag.karajancode.com/install.ps1 | iex
+```
+
+Equivalente con Node ya presente: `npm install -g karajan-rag @lancedb/lancedb`
+(el peer es el store por defecto — sin él, `index` no puede persistir).
+
+## Requisitos (desarrollo)
 
 - Node.js **18+** (recomendado 20 o 22 LTS).
 - [pnpm](https://pnpm.io) como package manager.
