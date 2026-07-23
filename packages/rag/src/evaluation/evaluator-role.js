@@ -15,6 +15,14 @@ import { evaluateMultiJudge } from './multi-judge-evaluator.js';
  *
  * Publica el reporte también en ctx.metadata.evaluation para consumidores
  * posteriores (p. ej. stages de alertas o post-proceso).
+ *
+ * ⚠️ Sensibilidad (revisión 2026-07-23): el prompt de los jueces incluye
+ * query, answer y `contextChunks[].metadata.content`, y este rol NO aplica
+ * sensitivity policy ni redacción por sí mismo — es API de bajo nivel.
+ * Si el contenido no es `public`, coloca un `RedactionRole` antes en el
+ * grafo o usa jueces permitidos para el nivel (la capa easy hace este
+ * gate automáticamente en `eval --judges`). Ver
+ * docs/security/sensitivity-audit.md §3.
  */
 export class EvaluatorRole extends Role {
   /**
