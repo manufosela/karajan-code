@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-07-23
+
+Minor. **karajan-rag protects karajan-code** — the first dependency between the two products, and a RAG that works on machines where nothing can be installed.
+
+### Added
+
+- **Sensitivity gate + PII redaction for cloud embedders** (KJC-TSK-0682, card filed by the karajan-rag session after its independent security audit): cloud embedders (openai/voyage/cohere/mistral) now require an explicit `rag.sensitivity: public` — the safe default (`internal`) blocks with an actionable error, never a silent downgrade. Even when allowed, every chunk passes through karajan-rag's audited `redactPII` (emails, phones, NIF/NIE, IBAN, cards) before leaving the machine. Local providers (ollama/onnx) pass through untouched. New dependency: `karajan-rag ^1.2.0`.
+- **ONNX fallback when Ollama is unavailable** (KJC-TSK-0683): on limited machines, the first index with the default provider falls back to the built-in in-process ONNX embedder (no installs, CPU) and persists the choice in the project config via surgical YAML edit — comments and user keys survive. An explicit provider choice is always respected.
+
 ## [4.3.1] - 2026-07-23
 
 Patch. **Complete stories, isolated lanes** — both halves requested from the field (issues #1296 and #1306).
