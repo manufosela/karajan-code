@@ -12,7 +12,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BM25Index } from '../retrieval/bm25.js';
 import { dedupeChunksByOverlap } from '../retrieval/chunk-dedupe.js';
-import { classifySensitivity } from '../domain/document.js';
+import { classifySensitivity, DEFAULT_SENSITIVITY, maxSensitivity } from '../domain/document.js';
+import { loadManifest } from './manifest.js';
 
 /**
  * @typedef {import('./indexer.js').EasyEmbedder} EasyEmbedder
@@ -114,6 +115,20 @@ export async function queryIndex(question, options) {
   const { kept } = dedupeChunksByOverlap(merged);
   const top = kept.slice(0, topK);
 
+  // Revisión 2026-07-23 (pasada 2): la metadata del store no es fuente de
+  // verdad para el gate. El manifest —que persiste el nivel por fichero—
+  // actúa como suelo autoritativo: ante discrepancia gana el nivel más
+  // restrictivo, y una fuente que el manifest no conoce nunca es public.
+  const manifest = await loadManifest(rootDir).catch(() => null);
+  /** @param {{ metadata?: Record<string, unknown> }} hit */
+  const effectiveLevel = (hit) => {
+    const claimed = classifySensitivity({ metadata: /** @type {never} */ (hit.metadata ?? {}) });
+    if (!manifest) return claimed;
+    const source = String(hit.metadata?.source ?? '');
+    const authoritative = manifest.files[source]?.sensitivity ?? DEFAULT_SENSITIVITY;
+    return maxSensitivity([claimed, authoritative]);
+  };
+
   const hits = await Promise.all(
     top.map(async (hit) => ({
       id: hit.id,
@@ -121,7 +136,7 @@ export async function queryIndex(question, options) {
       source: String(hit.metadata?.source ?? ''),
       line: await resolveLine(rootDir, hit.metadata?.source, hit.metadata?.offset),
       score: hit.score,
-      sensitivity: classifySensitivity({ metadata: /** @type {never} */ (hit.metadata ?? {}) }),
+      sensitivity: effectiveLevel(hit),
       scores: {
         vector: vectorScores.get(hit.id) ?? 0,
         bm25: bm25Scores.get(hit.id) ?? 0,

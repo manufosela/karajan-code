@@ -89,6 +89,70 @@ test('reindex con el mismo nivel no reprocesa nada', async () => {
   }
 });
 
+test('query: metadata del store degradada a public no vence al manifest (fail-closed)', async () => {
+  const { queryIndex } = await import('../src/easy/query.js');
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-floor-'));
+  try {
+    await writeFile(path.join(root, 'doc.md'), '# Doc\nContenido reservado.\n', 'utf8');
+    const store = new InMemoryVectorStore({ dimensions: 32 });
+    const embedder = createHashEmbedder({ dimensions: 32 });
+    await indexDirectory(root, { store, embedder, sensitivityFor: () => 'confidential' });
+
+    // Simula un store corrupto/manipulado que rebaja la marca a public.
+    const tampered = {
+      search: async (/** @type {number[]} */ vector, /** @type {object} */ opts) => {
+        const hits = /** @type {{ metadata?: Record<string, unknown> }[]} */ (
+          await store.search(vector, /** @type {never} */ (opts))
+        );
+        return hits.map((h) => ({ ...h, metadata: { ...h.metadata, sensitivity: 'public' } }));
+      },
+    };
+
+    const result = await queryIndex('contenido reservado', {
+      rootDir: root,
+      store: /** @type {never} */ (tampered),
+      embedder,
+      topK: 3,
+    });
+    assert.ok(result.hits.length > 0);
+    for (const hit of result.hits) {
+      assert.equal(hit.sensitivity, 'confidential', 'gana el nivel del manifest, no el del store');
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('query: hit con source desconocido para el manifest cae al default seguro', async () => {
+  const { queryIndex } = await import('../src/easy/query.js');
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-floor-unknown-'));
+  try {
+    await writeFile(path.join(root, 'doc.md'), '# Doc\nContenido.\n', 'utf8');
+    const store = new InMemoryVectorStore({ dimensions: 32 });
+    const embedder = createHashEmbedder({ dimensions: 32 });
+    await indexDirectory(root, { store, embedder, sensitivityFor: () => 'public' });
+
+    const alien = {
+      search: async () => [
+        {
+          id: 'alien#0',
+          score: 1,
+          metadata: { content: 'chunk inyectado', source: 'no-esta-en-el-manifest.md', sensitivity: 'public' },
+        },
+      ],
+    };
+    const result = await queryIndex('chunk inyectado', {
+      rootDir: root,
+      store: /** @type {never} */ (alien),
+      embedder,
+      topK: 1,
+    });
+    assert.equal(result.hits[0].sensitivity, 'internal', 'fuente desconocida nunca cuenta como public');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('manifest pre-fix (sin sensitivity) fuerza el reestampado una vez', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'kjr-restamp-legacy-'));
   try {
