@@ -30,6 +30,7 @@ import {
   loadEasyConfig,
   saveEasyConfig,
 } from './config.js';
+import { resolveDocumentSensitivity } from './sensitivity.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
@@ -199,11 +200,16 @@ export async function runInitCommand(argv, io = {}) {
       'dimensiones del embedding',
       String(DEFAULT_DIMENSIONS[/** @type {never} */ (embedder)] ?? DEFAULT_EASY_CONFIG.dimensions),
     );
+    const sensitivity = await ask(
+      'sensibilidad del corpus (public/internal/confidential)',
+      String(DEFAULT_EASY_CONFIG.sensitivity),
+    );
     easy = {
       ...easy,
       store: /** @type {never} */ (store),
       embedder: /** @type {never} */ (embedder),
       dimensions: Number.parseInt(dimensions, 10),
+      sensitivity: /** @type {never} */ (sensitivity),
     };
   }
 
@@ -525,6 +531,9 @@ export async function runIndexCommand(argv, io = {}) {
     embedder,
     onEvent: log,
     batchSize: options.batchSize,
+    // KJR-BUG-0006: el nivel de sensibilidad declarado en la config se
+    // estampa por documento; sin config aplica el default seguro.
+    sensitivityFor: (relPath) => resolveDocumentSensitivity(relPath, config),
   });
   log(
     `hecho: ${result.indexedFiles} indexados, ${result.unchangedFiles} sin cambios, ` +

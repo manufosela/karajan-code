@@ -123,6 +123,10 @@ export {
   validateEasyConfig,
   DEFAULT_EASY_CONFIG,
 } from './src/easy/config.js';
+export {
+  resolveDocumentSensitivity,
+  effectiveSensitivityOfHits,
+} from './src/easy/sensitivity.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';
@@ -169,6 +173,7 @@ export {
   DEFAULT_SENSITIVITY,
   classifySensitivity,
   isSensitivityAllowed,
+  maxSensitivity,
 } from './src/domain/document.js';
 
 // --- Registry / Config-driven --------------------------------------------

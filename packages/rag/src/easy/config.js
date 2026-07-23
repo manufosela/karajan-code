@@ -9,19 +9,30 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { DEFAULT_SENSITIVITY, SENSITIVITY_LEVELS } from '../domain/document.js';
 
 export const CONFIG_FILE = 'karajan.config.json';
 
 /**
+ * @typedef {import('../domain/document.js').Sensitivity} Sensitivity
+ *
+ * @typedef {object} SensitivityRule
+ * @property {string} prefix Prefijo de ruta relativa (ej. "docs/public/").
+ * @property {Sensitivity} level Nivel asignado a los ficheros bajo ese prefijo.
+ *
  * @typedef {object} EasyConfig
  * @property {'lancedb' | 'pgvector' | 'in-memory'} [store]
  * @property {'hash' | 'transformers'} [embedder]
  * @property {number} [dimensions]
  * @property {number} [topK]
  * @property {string} [adapter]
+ * @property {Sensitivity} [sensitivity] Nivel del corpus completo (default seguro: internal).
+ * @property {SensitivityRule[]} [sensitivityRules] Excepciones por prefijo; gana la primera que matchea.
  */
 
-const VALID_KEYS = Object.freeze(['store', 'embedder', 'dimensions', 'topK', 'adapter']);
+const VALID_KEYS = Object.freeze([
+  'store', 'embedder', 'dimensions', 'topK', 'adapter', 'sensitivity', 'sensitivityRules',
+]);
 const VALID_STORES = Object.freeze(['lancedb', 'pgvector', 'in-memory']);
 const VALID_EMBEDDERS = Object.freeze(['hash', 'transformers']);
 
@@ -32,6 +43,7 @@ export const DEFAULT_EASY_CONFIG = Object.freeze({
   dimensions: 256,
   topK: 5,
   adapter: 'claude',
+  sensitivity: DEFAULT_SENSITIVITY,
 });
 
 /**
@@ -71,6 +83,33 @@ export function validateEasyConfig(value) {
   }
   if (config.adapter !== undefined && typeof config.adapter !== 'string') {
     throw new Error('karajan.config.json: easy.adapter debe ser un string.');
+  }
+  if (
+    config.sensitivity !== undefined &&
+    !SENSITIVITY_LEVELS.includes(/** @type {never} */ (config.sensitivity))
+  ) {
+    throw new Error(
+      `karajan.config.json: easy.sensitivity debe ser uno de ${SENSITIVITY_LEVELS.join(', ')}.`,
+    );
+  }
+  if (config.sensitivityRules !== undefined) {
+    if (!Array.isArray(config.sensitivityRules)) {
+      throw new Error('karajan.config.json: easy.sensitivityRules debe ser un array.');
+    }
+    for (const rule of config.sensitivityRules) {
+      const valid =
+        rule !== null &&
+        typeof rule === 'object' &&
+        typeof (/** @type {SensitivityRule} */ (rule).prefix) === 'string' &&
+        /** @type {SensitivityRule} */ (rule).prefix.length > 0 &&
+        SENSITIVITY_LEVELS.includes(/** @type {never} */ (/** @type {SensitivityRule} */ (rule).level));
+      if (!valid) {
+        throw new Error(
+          'karajan.config.json: cada regla de easy.sensitivityRules necesita ' +
+            `{ prefix: string, level: ${SENSITIVITY_LEVELS.join(' | ')} }.`,
+        );
+      }
+    }
   }
   return /** @type {EasyConfig} */ (config);
 }
