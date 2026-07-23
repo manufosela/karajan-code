@@ -125,17 +125,20 @@ try {
   }
   if (Test-Path $backup) { Remove-Item -Recurse -Force $backup }
 
-  # Wrapper, not a copy: npm's own .cmd shim lives inside nodeHome and
-  # resolves node via its folder; this puts nodeHome on PATH for children
-  # and forwards every argument.
+  # Wrappers, not copies: npm's own .cmd shims live inside nodeHome and
+  # resolve node via their folder; these put nodeHome on PATH for children
+  # and forward every argument.
   New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-  $shim = Join-Path $nodeHome "karajan-rag.cmd"
-  $wrapper = @(
-    "@echo off",
-    "set `"PATH=$nodeHome;%PATH%`"",
-    "`"$shim`" %*"
-  )
-  Set-Content -Path (Join-Path $installDir "karajan-rag.cmd") -Value $wrapper -Encoding ASCII
+  foreach ($bin in @("karajan-rag", "kj-rag", "kjr")) {
+    $shim = Join-Path $nodeHome "$bin.cmd"
+    if (-not (Test-Path $shim)) { continue }
+    $wrapper = @(
+      "@echo off",
+      "set `"PATH=$nodeHome;%PATH%`"",
+      "`"$shim`" %*"
+    )
+    Set-Content -Path (Join-Path $installDir "$bin.cmd") -Value $wrapper -Encoding ASCII
+  }
   Add-UserPath $installDir
   $installed = (& (Join-Path $installDir "karajan-rag.cmd") --version) 2>$null
   Write-Host "kjr-install: installed karajan-rag $installed (full product) - bin at $(Join-Path $installDir 'karajan-rag.cmd')"

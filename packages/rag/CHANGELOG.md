@@ -7,6 +7,29 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-07-23
+
+### Added
+
+- **Instalación con garantías** (KJR-TSK-0138): `scripts/install.sh`
+  (Linux/macOS, POSIX) y `scripts/install.ps1` (Windows, PowerShell 5.1) —
+  npm-first con Node ≥18, o autoprovisión del Node LTS oficial en
+  `~/.karajan-rag/node` verificando SHASUMS256, con staging + backup +
+  rollback. Instalan el paquete junto al peer del store por defecto
+  (`@lancedb/lancedb`): instalación completa o fallo claro, nunca producto
+  degradado en silencio (opt-out `KJR_NO_STORE=1`). Servidos desde
+  `rag.karajancode.com/install.sh` y `/install.ps1`.
+- **Prompts de arranque para agentes IA**: `docs/prompts/start.md`
+  (enrutador OS-aware), `install-machine.md` y `rag-project.md` — con regla
+  dura de parar-y-esperar ante privilegios elevados y la decisión de
+  sensibilidad siempre en manos del usuario. El usuario solo pega:
+  *"I want a RAG over this project: read rag.karajancode.com/start.md and
+  do what it says."*
+- **Aliases del CLI**: `kj-rag` y `kjr` como bins equivalentes a
+  `karajan-rag` (aditivo, el nombre largo sigue siendo el canónico).
+- **`--version` / `-v`** en el CLI — la sonda que usan el instalador y el
+  enrutador de prompts.
+
 ## [1.0.0] — 2026-07-23
 
 ### Changed
@@ -545,7 +568,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/manufosela/karajan-rag/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/manufosela/karajan-rag/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/manufosela/karajan-rag/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/manufosela/karajan-rag/compare/v0.6.0...v0.6.1
