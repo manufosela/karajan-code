@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.11] - 2026-07-23
+
+Patch. **Agents can run kj unattended, and the board refuses twins** — both requested from the field (issues #1288 and #1289).
+
+### Added
+
+- **Non-interactive mode for `kj run` / `kj resume`** (KJC-TSK-0674, issue #1289): `--non-interactive` flag or `KJ_NON_INTERACTIVE=1` env force auto-answering even under a pseudo-TTY, instead of blocking forever on a board modal nobody watches. The spec-review gate is now severity-aware: warn findings auto-continue (decision streamed to stderr); FAIL findings stop the run with **exit code 1** — and interactively, Enter at FAIL now defaults to cancel. An aborted run/resume is finally observable by CI.
+- **Cross-plan title dedup on `kj hu add`** (KJC-TSK-0675, issue #1288): an identical normalized title on any live HU of any plan is refused with the existing card's ref; heavily-overlapping titles warn with the candidates. `kj brief board` and the playbook now order the precondition: `kj hu list` BEFORE `kj hu add` — reuse the covering card.
+
 ## [4.1.10] - 2026-07-22
 
 Patch. **Karajan governs its tools' resources, not just your code** — born from a real CPU storm (concurrent scans, semgrep taking 14 cores each, orphaned semgrep-core processes).
