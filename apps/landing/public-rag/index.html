@@ -112,8 +112,52 @@
         radial-gradient(ellipse 400px 300px at 60% 35%, rgba(232,176,75,0.05), transparent);
     }
     .hero-logo {
-      width: clamp(120px, 16vw, 180px); height: auto; margin-bottom: 1.2rem;
+      width: clamp(120px, 16vw, 180px); height: auto;
       filter: drop-shadow(0 0 30px rgba(232,176,75,0.12));
+    }
+
+    /* --- CORPUS ORBIT: what the conductor orchestrates orbits around it --- */
+    .logo-orbit {
+      position: relative;
+      margin-bottom: 1.2rem;
+      width: 260px; height: 260px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .orbit-ring {
+      position: absolute; inset: 0;
+      animation: orbit-spin 50s linear infinite;
+    }
+    .orbit-item {
+      position: absolute;
+      width: 24px; height: 24px;
+      margin: -12px 0 0 -12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .orbit-item svg {
+      width: 18px; height: 18px;
+      fill: none; stroke: var(--text-dim); stroke-width: 1.4;
+      stroke-linecap: round; stroke-linejoin: round; opacity: 0.55;
+      transition: opacity 0.3s, stroke 0.3s;
+      animation: orbit-counter 50s linear infinite;
+    }
+    .orbit-item:hover svg { opacity: 1; stroke: var(--gold-ink); }
+    /* 5 items on r=120 circle, center=(130,130) */
+    .orbit-item:nth-child(1) { top: 10px;  left: 130px; }
+    .orbit-item:nth-child(2) { top: 93px;  left: 244px; }
+    .orbit-item:nth-child(3) { top: 216px; left: 201px; }
+    .orbit-item:nth-child(4) { top: 216px; left: 59px; }
+    .orbit-item:nth-child(5) { top: 93px;  left: 16px; }
+
+    @keyframes orbit-spin { to { transform: rotate(360deg); } }
+    @keyframes orbit-counter { to { transform: rotate(-360deg); } }
+
+    @media (max-width: 640px) {
+      .orbit-ring { display: none; }
+      .logo-orbit { width: auto; height: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .orbit-ring { animation: none; }
+      .orbit-item svg { animation: none; }
     }
     .hero-family {
       font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.28em;
@@ -309,15 +353,29 @@
 
   <!-- HERO -->
   <section class="hero">
-    <picture>
-      <source type="image/webp"
-        srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
-        sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
-      <source type="image/png"
-        srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
-        sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
-      <img src="/img/logo-240.png" alt="kaRAGan — robot conductor mascot with golden amber eyes and bow tie" class="hero-logo" width="163" height="180" fetchpriority="high">
-    </picture>
+    <div class="logo-orbit">
+      <picture>
+        <source type="image/webp"
+          srcset="/img/logo-120.webp 120w, /img/logo-160.webp 160w, /img/logo-200.webp 200w, /img/logo-240.webp 240w, /img/logo-320.webp 320w, /img/logo-480.webp 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+        <source type="image/png"
+          srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
+          sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
+        <img src="/img/logo-240.png" alt="kaRAGan — robot conductor mascot with golden amber eyes and bow tie" class="hero-logo" width="163" height="180" fetchpriority="high">
+      </picture>
+      <div class="orbit-ring" aria-hidden="true">
+        <!-- Code -->
+        <span class="orbit-item" title="Code"><svg viewBox="0 0 16 16"><path d="M5.5 4.5 2 8l3.5 3.5"/><path d="M10.5 4.5 14 8l-3.5 3.5"/><path d="M9 3 7 13"/></svg></span>
+        <!-- Docs -->
+        <span class="orbit-item" title="Docs"><svg viewBox="0 0 16 16"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/><path d="M6 8h5M6 10.5h5M6 5.5h1.5"/></svg></span>
+        <!-- Data -->
+        <span class="orbit-item" title="Data"><svg viewBox="0 0 16 16"><ellipse cx="8" cy="3.5" rx="5.5" ry="2"/><path d="M2.5 3.5v9c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2v-9"/><path d="M2.5 8c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2"/></svg></span>
+        <!-- Retrieval -->
+        <span class="orbit-item" title="Retrieval"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg></span>
+        <!-- MCP / agents -->
+        <span class="orbit-item" title="Served to agents (MCP)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="1.6"/><path d="M3.8 3.8a6 6 0 0 0 0 8.4M12.2 3.8a6 6 0 0 1 0 8.4"/><path d="M5.6 5.6a3.4 3.4 0 0 0 0 4.8M10.4 5.6a3.4 3.4 0 0 1 0 4.8"/></svg></span>
+      </div>
+    </div>
     <p class="hero-family"><a href="https://karajancode.com">Karajan</a> family</p>
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
     <p class="hero-tagline">Point it at your code, docs or data. Get a queryable RAG in five minutes — <em class="guarantee">with guarantees</em>.</p>
