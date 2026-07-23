@@ -77,7 +77,7 @@ export function redactPII(text) {
   // no se pliegan con NFKC y redactan solo el tramo ASCII.
   let current = text
     .normalize('NFKC')
-    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '')
+    .replace(/\u200B|\u200C|\u200D|\u2060|\uFEFF/g, '')
     .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ');
   for (const { kind, regex, placeholder } of PATTERNS) {
     const matches = current.match(regex);
