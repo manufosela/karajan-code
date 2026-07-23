@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.1] - 2026-07-23
+
+Patch. **Complete stories, isolated lanes** — both halves requested from the field (issues #1296 and #1306).
+
+### Added
+
+- **`kj hu add` takes the full spec in one call** (KJC-TSK-0678, issue #1296): `--ac` and `--tests` (repeatable, multiline strings split per line), `--scope`, and a validated `--task-type`. An incomplete spec warns immediately with the exact missing flag — the same material `kj run`'s spec review would demand later.
+- **Environment isolation for parallel lanes** (KJC-TSK-0681, issue #1306): `session.worktree_setup` documented inline with a lane-aware example; the generated `coder-rules.md` teaches env-var discipline deriving per-task values from the `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` the slot registry already injects; `review-rules.md` rejects hardcoded ports/DB names and committed `.env` files.
+
 ## [4.3.0] - 2026-07-23
 
 Minor. **Isolation you can prove.** A field case: the playbook said "one worktree per task" and an agent narrated the isolation while editing the project root. Ordering a practice invites narration; ordering a command gets execution — and now the claim leaves a trail.
