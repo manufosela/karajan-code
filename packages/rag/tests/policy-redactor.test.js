@@ -144,6 +144,32 @@ test('redactPII: combina múltiples tipos y cuenta total', () => {
   assert.ok(!text.includes('12345678Z'));
 });
 
+test('redactPII: no se evade con Unicode fullwidth ni espacios exóticos (KJR-BUG-0009)', () => {
+  // Arroba fullwidth (U+FF20) — NFKC la normaliza a @.
+  const fullwidth = redactPII('escribe a cliente＠empresa.com ya');
+  assert.ok(!fullwidth.text.includes('empresa.com'), 'el email ofuscado no sobrevive');
+  assert.equal(fullwidth.counts.email, 1);
+
+  // IBAN con thin space (U+2009) y narrow no-break space (U+202F).
+  const iban = redactPII('IBAN: ES91 2100 0418 4502 0005 1332');
+  assert.equal(iban.counts.iban, 1);
+  assert.ok(iban.text.includes('[REDACTED_IBAN]'));
+
+  // No-break space (U+00A0) en un teléfono.
+  const phone = redactPII('llama al +34 600 123 456');
+  assert.ok(phone.counts.phone >= 1);
+});
+
+test('redactPII: NIF/NIE con separadores también caen (KJR-BUG-0009)', () => {
+  const nif = redactPII('El NIF es 12345678-Z.');
+  assert.equal(nif.counts.nif, 1);
+  assert.ok(!nif.text.includes('12345678'));
+
+  const nie = redactPII('NIE X-1234567-L registrado');
+  assert.equal(nie.counts.nie, 1);
+  assert.ok(!nie.text.includes('1234567'));
+});
+
 test('redactPII: texto sin PII queda igual y total 0', () => {
   const { text, total, counts } = redactPII('Hola mundo sin datos sensibles.');
   assert.equal(text, 'Hola mundo sin datos sensibles.');

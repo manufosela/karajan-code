@@ -35,12 +35,12 @@ const PATTERNS = /** @type {Array<{ kind: PiiKind, regex: RegExp, placeholder: s
   },
   {
     kind: 'nif',
-    regex: /\b\d{8}[A-HJ-NP-TV-Z]\b/gi,
+    regex: /\b\d{8}[-.]?[A-HJ-NP-TV-Z]\b/gi,
     placeholder: '[REDACTED_ID]',
   },
   {
     kind: 'nie',
-    regex: /\b[XYZxyz]\d{7}[A-HJ-NP-TV-Z]\b/gi,
+    regex: /\b[XYZxyz][-.]?\d{7}[-.]?[A-HJ-NP-TV-Z]\b/gi,
     placeholder: '[REDACTED_ID]',
   },
   {
@@ -66,7 +66,14 @@ export function redactPII(text) {
   }
   /** @type {Record<PiiKind, number>} */
   const counts = { email: 0, phone: 0, nif: 0, nie: 0, creditCard: 0, iban: 0 };
-  let current = text;
+  // KJR-BUG-0009: sin normalizar, "cliente＠empresa.com" (fullwidth) o un
+  // IBAN con thin spaces sobreviven a las regex ASCII. NFKC pliega los
+  // compatibles (＠→@, dígitos fullwidth→ASCII) y el replace cubre los
+  // espacios Unicode sin descomposición de compatibilidad. El texto
+  // devuelto queda normalizado — aceptable: su destino es un prompt.
+  let current = text
+    .normalize('NFKC')
+    .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ');
   for (const { kind, regex, placeholder } of PATTERNS) {
     const matches = current.match(regex);
     if (matches) {
