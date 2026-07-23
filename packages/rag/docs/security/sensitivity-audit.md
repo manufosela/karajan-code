@@ -5,7 +5,8 @@
 > auditor el alcance, el modelo de amenazas, el inventario de flujos y el
 > resultado de la revisión interna — sin arqueología de código.
 >
-> Última revisión interna: **2026-07-22** (KJR-TSK-0130).
+> Última revisión interna: **2026-07-23** (KJR-TSK-0130 + cierre de
+> hallazgos en KJR-BUG-0006 y KJR-TSK-0132).
 
 ## 1. Alcance
 
@@ -42,46 +43,58 @@ por defecto, secretos en Secret Manager).
 |--------|------------------|-----------------|---------------|--------|
 | Pipeline declarativo (`run`) con `RedactionRole` en el grafo | El adapter del stage de generación | ✅ (`RedactionRole` bloquea por nivel) | ✅ (`redactPII` sobre cada chunk) | Diseño original, correcto |
 | `GeneratorRole` usado directamente por código de usuario | El adapter elegido | ⚠️ responsabilidad del integrador (documentado) | ⚠️ ídem | Por diseño: API de bajo nivel |
-| `karajan-rag query --answer` (capa easy) | El adapter del flag `--adapter` | ❌ **H1** — sin routing por nivel | ✅ desde 2026-07-22 (mitigación H1) | Bug abierto KJR-BUG-0006 |
-| `karajan-rag eval --judges` | Los jueces listados | ❌ **H1** | ✅ desde 2026-07-22 (mitigación H1) | Bug abierto KJR-BUG-0006 |
+| `karajan-rag query --answer` (capa easy) | El adapter resuelto por policy | ✅ nivel efectivo = máx. de chunks recuperados; `--adapter` no permitido → error | ✅ | Corregido 2026-07-23 (KJR-BUG-0006, PRs #114/#115) |
+| `karajan-rag eval --judges` | Los jueces listados | ✅ gate por `--sensitivity` (default `internal`); juez no permitido → error | ✅ | Corregido 2026-07-23 (KJR-BUG-0006, PR #115) |
 | `karajan-rag index` / `query` sin `--answer` / `serve` / `createRag().query()` | Nadie (retrieval local; embeddings con HashEmbedder local por defecto) | n/a | n/a | Sin salida a terceros con defaults |
-| Embedders remotos (`openai-compatible` apuntado a un endpoint externo) | El endpoint de embeddings | ❌ **H2** — sin chequeo de nivel | ❌ | Documentado como riesgo del integrador; pendiente decisión |
+| Embedders remotos (`openai-compatible` apuntado a un endpoint externo) | El endpoint de embeddings | ⚠️ riesgo del integrador (decisión H2, ver §4) | ❌ (degradaría el retrieval) | API de bajo nivel; la capa easy solo ofrece embedders locales |
 | `eval` sin `--judges` | Nadie (métricas locales) | n/a | n/a | Offline puro |
 
 ## 4. Revisión interna — hallazgos
 
-### H1 — La capa easy no aplica la sensitivity policy (ALTA) → KJR-BUG-0006
+### H1 — La capa easy no aplica la sensitivity policy (ALTA) → ✅ CORREGIDO
 
-`src/easy/` no referencia `resolveAdapterFor`, `classifySensitivity` ni
-(hasta esta revisión) `redactPII`, pese a que ADR-005 §6 declara que los
-presets pasan siempre por el routing y el redactor. `query --answer
---adapter openai` enviaba pregunta y contextos sin redactar a un proveedor
-público.
+`src/easy/` no referenciaba `resolveAdapterFor`, `classifySensitivity` ni
+`redactPII`, pese a que ADR-005 §6 declara que los presets pasan siempre
+por el routing y el redactor. `query --answer --adapter openai` enviaba
+pregunta y contextos sin redactar a un proveedor público.
 
-- **Mitigación aplicada (2026-07-22)**: `redactPII` se aplica a pregunta,
-  contextos y respuestas esperadas antes de cualquier salida a LLM desde la
-  capa easy (`query --answer`, `eval --judges`). Test de no-regresión:
-  `tests/easy-sensitivity-mitigation.test.js`.
-- **Pendiente (KJR-BUG-0006)**: clasificación de sensibilidad al indexar
-  (`metadata.sensitivity` por documento) y `resolveAdapterFor` en los puntos
-  de salida, rechazando providers no permitidos para el nivel máximo del
-  contexto recuperado.
+- **Mitigación (2026-07-22)**: `redactPII` sobre toda salida a LLM de la
+  capa easy. Test: `tests/easy-sensitivity-mitigation.test.js`.
+- **Fix completo (2026-07-23, KJR-BUG-0006, PRs #114/#115)**:
+  `easy.sensitivity`/`easy.sensitivityRules` en `karajan.config.json`,
+  nivel estampado por documento al indexar y heredado por los chunks; el
+  nivel efectivo de una consulta es el **máximo** de los chunks
+  recuperados; `enforceEasyAdapterPolicy` valida el adapter (elección
+  explícita no permitida → error accionable, default → primer provider
+  permitido con aviso); `eval --judges` gana `--sensitivity` con gate de
+  jueces. Índices pre-0.7.0 sin marca cuentan como `internal`, nunca como
+  `public`. Tests: `tests/easy-sensitivity-{metadata,enforcement}.test.js`.
 
-### H2 — Embedders remotos sin gate de sensibilidad (MEDIA)
+### H2 — Embedders remotos sin gate de sensibilidad (MEDIA) → 🟡 DECISIÓN REGISTRADA
 
 `createOpenAICompatibleEmbedder` puede apuntar a un endpoint externo; el
 texto de los chunks viaja completo para embeberse, sin policy ni redacción
-(redactar antes de embeber degradaría el retrieval). Recomendación para el
-auditor: evaluar si basta con documentación prescriptiva ("embedders remotos
-solo para corpus public") o si debe bloquearse por policy. Decisión
-registrada como parte del fix de KJR-BUG-0006.
+(redactar antes de embeber degradaría el retrieval).
 
-### H3 — Cobertura de patrones del redactor (BAJA)
+**Decisión (2026-07-23, KJR-TSK-0132)**: documentación prescriptiva, no
+bloqueo por policy. Razones: (1) la capa easy —la única con defaults— solo
+ofrece embedders locales (`hash`, `transformers`), así que ningún usuario
+llega a un embedder remoto sin escribir código contra la API de bajo
+nivel; (2) en esa API el integrador ya elige store, adapter y policy
+explícitamente, y un bloqueo genérico rompería despliegues legítimos
+(endpoint de embeddings self-hosted, que es remoto pero privado). Regla
+documentada: **embedders de terceros solo para corpus `public`**; para
+`internal`/`confidential`, embedder local o endpoint bajo control del
+integrador. El auditor externo puede re-evaluar esta decisión.
 
-`redactPII` cubre email, teléfono, NIF/NIE, tarjetas (patrones ES +
-internacionales simples). No cubre IBAN, pasaportes, ni direcciones
-postales. Es una defensa en profundidad declarada como tal, no el control
-primario. Recomendación: añadir IBAN (patrón simple y de alto valor en ES).
+### H3 — Cobertura de patrones del redactor (BAJA) → ✅ CORREGIDO (IBAN)
+
+`redactPII` cubría email, teléfono, NIF/NIE y tarjetas. **Desde 2026-07-23
+(KJR-TSK-0132) cubre también IBAN** (ES e internacional, con y sin
+separadores, ordenado antes que el patrón de tarjeta para que este no se
+coma los dígitos), con placeholder `[REDACTED_IBAN]` y conteo
+`counts.iban`. Siguen fuera: pasaportes y direcciones postales — defensa
+en profundidad declarada como tal, no control primario.
 
 ### Verificaciones que pasaron
 
@@ -100,8 +113,9 @@ primario. Recomendación: añadir IBAN (patrón simple y de alto valor en ES).
 1. ¿El inventario de flujos (§3) es exhaustivo? Buscar salidas a red no
    listadas (`fetch(`, `spawn`/`execa` de CLIs) fuera de `src/ai/` y
    `src/embedding/`.
-2. Revisar el fix de KJR-BUG-0006 cuando se entregue: ¿el nivel efectivo de
-   una consulta es el MÁXIMO de los chunks recuperados?
+2. Revisar el fix de KJR-BUG-0006 (PRs #114/#115): ¿el nivel efectivo de
+   una consulta es el MÁXIMO de los chunks recuperados? ¿Hay forma de
+   colar un adapter no permitido con elección explícita?
 3. Intentar bypass de `RedactionRole` con PII ofuscada (espacios, unicode
    homoglyphs) y proponer patrones adicionales (H3).
 4. Verificar que ningún evento de observabilidad (`onStage*`) ni log de la

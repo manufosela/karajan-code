@@ -95,6 +95,31 @@ test('redactPII: elimina tarjeta de crédito', () => {
   assert.equal(counts.creditCard, 1);
 });
 
+test('redactPII: elimina IBAN español (con y sin espacios)', () => {
+  const compact = redactPII('Transferir a ES9121000418450200051332 antes del día 5.');
+  assert.ok(compact.text.includes('[REDACTED_IBAN]'));
+  assert.ok(!compact.text.includes('ES9121000418450200051332'));
+  assert.equal(compact.counts.iban, 1);
+
+  const spaced = redactPII('IBAN: ES91 2100 0418 4502 0005 1332');
+  assert.ok(spaced.text.includes('[REDACTED_IBAN]'));
+  assert.ok(!spaced.text.includes('0005 1332'));
+  assert.equal(spaced.counts.iban, 1);
+});
+
+test('redactPII: elimina IBAN internacional', () => {
+  const { text, counts } = redactPII('Cuenta alemana DE89370400440532013000 activa.');
+  assert.ok(text.includes('[REDACTED_IBAN]'));
+  assert.equal(counts.iban, 1);
+});
+
+test('redactPII: un IBAN no se confunde con tarjeta ni teléfono', () => {
+  const { counts } = redactPII('Pagar al IBAN ES9121000418450200051332.');
+  assert.equal(counts.iban, 1);
+  assert.equal(counts.creditCard, 0);
+  assert.equal(counts.phone, 0);
+});
+
 test('redactPII: elimina NIF español', () => {
   const { text, counts } = redactPII('El NIF es 12345678Z.');
   assert.ok(text.includes('[REDACTED_ID]'));
