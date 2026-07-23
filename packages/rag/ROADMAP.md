@@ -107,7 +107,7 @@ stream adapters nativos Claude/Azure/Vertex) pasan a la serie 0.2.x/0.3.0.
 - ✅ Superficie cubierta ≥90% con umbrales en CI (97% statements / 94% functions / 89% branches).
 - ✅ Política de deprecación formalizada (2 menores de pre-aviso) — [docs/DEPRECATION.md](./docs/DEPRECATION.md).
 - ✅ Golden set + runbook de evaluación publicados ([examples/golden/](./examples/golden/)).
-- Auditoría externa de la política de sensibilidad y del redactor PII — paquete listo en [docs/security/sensitivity-audit.md](./docs/security/sensitivity-audit.md); hallazgos internos H1/H2/H3 cerrados en 0.7.0.
+- ✅ Auditoría independiente de la política de sensibilidad y del redactor PII — revisión asistida con OpenAI Codex en 3 pasadas iterativas ([histórico y veredicto final APROBADO CON RESERVAS](./docs/security/sensitivity-audit.md#6-revisiones-realizadas)); 8 hallazgos encontrados y corregidos en el proceso (KJR-BUG-0006..0010 + residuales).
 - ✅ Al menos un caso de uso real en producción documentado públicamente — [docs/case-study-gcp.md](./docs/case-study-gcp.md).
 
 ---

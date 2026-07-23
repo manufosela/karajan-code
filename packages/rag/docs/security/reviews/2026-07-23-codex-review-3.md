@@ -1,0 +1,34 @@
+<!--
+Contexto: pasada 3 y final de la revisión independiente asistida (OpenAI
+Codex, codex-cli 0.124.0, sandbox read-only), sobre main en ba6d626.
+Veredicto final: APROBADO CON RESERVAS en el perímetro declarado.
+Informe íntegro sin edición. Las 3 recomendaciones post-1.0 quedan
+registradas como card en el Planning Game.
+-->
+
+# Informe de verificación final — política de sensibilidad y redacción PII (pasada 3)
+Auditor: OpenAI Codex (codex-cli, sandbox read-only) — revisión independiente asistida  
+Fecha: 2026-07-23
+
+## Veredicto final
+APROBADO CON RESERVAS — en el perímetro declarado de la capa easy con defaults (`query --answer`, `eval --judges`, CLI/SDK/HTTP/MCP apoyados en esa capa), la policy y la redacción quedan alineadas con el código actual. La API de bajo nivel (`GeneratorRole`, `RerankerRole` llm, `EvaluatorRole`) está ahora delimitada de forma honesta como responsabilidad del integrador en el inventario y en JSDoc. `redactPII` queda correctamente presentado como defensa en profundidad, con su límite de homoglifos declarado y fijado por test. Mi reserva es metodológica: esta pasada ha sido estática; no he podido ejecutar binarios ni tests en la sandbox.
+
+## Verificación de los residuales de la pasada 2
+1. [CORREGIDO] CRÍTICO residual — el manifest sí actúa ahora como suelo autoritativo y gana el nivel más restrictivo entre store y manifest. Evidencia en [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:122), [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:124), [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:128), [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:129). La caída segura de una fuente desconocida está en [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:127) y [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:128), y está fijada con tests hostiles en [tests/easy-sensitivity-reindex.test.js](/home/manu/ws_npm-packages/karajan-rag/tests/easy-sensitivity-reindex.test.js:92) y [tests/easy-sensitivity-reindex.test.js](/home/manu/ws_npm-packages/karajan-rag/tests/easy-sensitivity-reindex.test.js:123). Intento de ruptura: store manipulado rebajando `sensitivity` a `public`, `source` alien no presente en manifest, y combinaciones de `claimed/public` frente a manifest `confidential` o ausencia de entrada; en todos esos casos, por inspección del flujo, el resultado se degrada como mucho a `internal`, nunca a `public`. Dentro del modelo de confianza declarado, para rebajar el gate sigue haciendo falta comprometer a la vez store y manifest local.
+
+2. [CORREGIDO] MEDIO — la validación de prefijos ambiguos rechaza explícitamente `./`, `..`, backslashes, rutas absolutas y `/`. Evidencia en [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:115), [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:117), [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:118), [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:120), [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:121), [src/easy/config.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/config.js:123). Test explícito en [tests/easy-sensitivity-metadata.test.js](/home/manu/ws_npm-packages/karajan-rag/tests/easy-sensitivity-metadata.test.js:56). Intento de ruptura: `./docs/public`, `../fuera`, `docs/../otra`, `/absoluta`, `docs\\public` y `/`; todos caen por error explícito, no por normalización silenciosa.
+
+3. [CORREGIDO] MEDIO — los zero-width se eliminan, no se mapean a espacio, y el límite de homoglifos está declarado en §4 H3 y fijado por test. Evidencia en [src/redaction/pii-redactor.js](/home/manu/ws_npm-packages/karajan-rag/src/redaction/pii-redactor.js:72), [src/redaction/pii-redactor.js](/home/manu/ws_npm-packages/karajan-rag/src/redaction/pii-redactor.js:76), [src/redaction/pii-redactor.js](/home/manu/ws_npm-packages/karajan-rag/src/redaction/pii-redactor.js:78). La declaración del límite está en [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:85) y [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:93). Los tests que fijan ambos comportamientos están en [tests/policy-redactor.test.js](/home/manu/ws_npm-packages/karajan-rag/tests/policy-redactor.test.js:167) y [tests/policy-redactor.test.js](/home/manu/ws_npm-packages/karajan-rag/tests/policy-redactor.test.js:181). Intento de ruptura: ZWJ/ZWNJ/ZWSP dentro del localpart y homoglifo cirílico `п`; los zero-width dejan de partir la PII y el caso de homoglifos queda expresamente reconocido como límite no primario.
+
+4. [CORREGIDO] BAJO — la sección §6 ya es un histórico honesto, sin reescribir rechazos previos. Evidencia en [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:147), [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:154), [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:161), [docs/security/sensitivity-audit.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/sensitivity-audit.md:164). Intento de ruptura: contraste con [docs/security/reviews/2026-07-23-codex-review-1.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/reviews/2026-07-23-codex-review-1.md:1) y [docs/security/reviews/2026-07-23-codex-review-2.md](/home/manu/ws_npm-packages/karajan-rag/docs/security/reviews/2026-07-23-codex-review-2.md:1); la narrativa actual conserva ambos veredictos como rechazos y deja la pasada 3 pendiente de registro.
+
+## Hallazgos nuevos
+No he encontrado hallazgos nuevos que contradigan el modelo de confianza y perímetro declarados.
+
+## Reservas y recomendaciones para después de la 1.0
+- Endurecer [src/easy/query.js](/home/manu/ws_npm-packages/karajan-rag/src/easy/query.js:122) para que un manifest ilegible o corrupto falle cerrado o eleve error explícito, en vez de volver a `claimed`; no rompe el modelo declarado, pero mejora robustez operativa.
+- Subir al cuerpo principal de §3/H1 la frase del modelo de confianza del gate que hoy queda más clara en código/tests e histórico (§6): store más manifest local, con suelo autoritativo del manifest.
+- Mantener un test adicional de integración end-to-end para `query --answer` que cubra el routing final del adapter, no solo `queryIndex`.
+
+## Limitaciones
+Revisión estática únicamente. La sandbox read-only de esta sesión no me permitió ejecutar shell, binarios ni la suite de tests; el veredicto se basa en inspección directa de código, documentación y tests presentes en el repositorio a fecha de 2026-07-23.
