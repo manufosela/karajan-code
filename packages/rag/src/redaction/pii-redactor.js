@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * @typedef {"email" | "phone" | "nif" | "nie" | "creditCard"} PiiKind
+ * @typedef {"email" | "phone" | "nif" | "nie" | "creditCard" | "iban"} PiiKind
  */
 
 /**
@@ -20,6 +20,13 @@ const PATTERNS = /** @type {Array<{ kind: PiiKind, regex: RegExp, placeholder: s
     kind: 'email',
     regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
     placeholder: '[REDACTED_EMAIL]',
+  },
+  {
+    // Antes que creditCard: un IBAN contiene tiradas largas de dígitos que
+    // el patrón de tarjeta se comería a trozos (H3, auditoría 2026-07).
+    kind: 'iban',
+    regex: /\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]{4}){2,7}(?:[ -]?[A-Z0-9]{1,4})?\b/g,
+    placeholder: '[REDACTED_IBAN]',
   },
   {
     kind: 'creditCard',
@@ -46,9 +53,9 @@ const PATTERNS = /** @type {Array<{ kind: PiiKind, regex: RegExp, placeholder: s
 /**
  * Redacta PII detectada en el texto (regex-based).
  *
- * Aplica los patrones en orden: email → creditCard → phone → NIF → NIE.
- * El orden importa: teléfonos podrían match sobre trozos de tarjetas si
- * se invirtiese.
+ * Aplica los patrones en orden: email → IBAN → creditCard → NIF → NIE →
+ * phone. El orden importa: teléfonos podrían match sobre trozos de
+ * tarjetas (y tarjetas sobre trozos de IBAN) si se invirtiese.
  *
  * @param {string} text
  * @returns {RedactionReport}
@@ -58,7 +65,7 @@ export function redactPII(text) {
     throw new Error('redactPII: se esperaba un string.');
   }
   /** @type {Record<PiiKind, number>} */
-  const counts = { email: 0, phone: 0, nif: 0, nie: 0, creditCard: 0 };
+  const counts = { email: 0, phone: 0, nif: 0, nie: 0, creditCard: 0, iban: 0 };
   let current = text;
   for (const { kind, regex, placeholder } of PATTERNS) {
     const matches = current.match(regex);
