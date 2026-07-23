@@ -71,9 +71,14 @@ export function redactPII(text) {
   // compatibles (＠→@, dígitos fullwidth→ASCII) y el replace cubre los
   // espacios Unicode sin descomposición de compatibilidad. El texto
   // devuelto queda normalizado — aceptable: su destino es un prompt.
+  // Los zero-width (ZWSP/ZWNJ/ZWJ/WJ/BOM) se ELIMINAN \u2014 mapearlos a
+  // espacio partir\u00EDa la PII en trozos que las regex no ver\u00EDan. L\u00EDmite
+  // conocido (audit \u00A74 H3): homoglifos de otros alfabetos (\u043F cir\u00EDlica\u2026)
+  // no se pliegan con NFKC y redactan solo el tramo ASCII.
   let current = text
     .normalize('NFKC')
-    .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ');
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '')
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ');
   for (const { kind, regex, placeholder } of PATTERNS) {
     const matches = current.match(regex);
     if (matches) {

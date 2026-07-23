@@ -95,8 +95,17 @@ integrador. El auditor externo puede re-evaluar esta decisión.
 (KJR-TSK-0132) cubre también IBAN** (ES e internacional, con y sin
 separadores, ordenado antes que el patrón de tarjeta para que este no se
 coma los dígitos), con placeholder `[REDACTED_IBAN]` y conteo
-`counts.iban`. Siguen fuera: pasaportes y direcciones postales — defensa
-en profundidad declarada como tal, no control primario.
+`counts.iban`. Tras la pasada 2 de la revisión independiente cubre
+también ofuscación Unicode: NFKC (fullwidth, dígitos no ASCII),
+eliminación de zero-width (ZWSP/ZWNJ/ZWJ/WJ/BOM) y mapeo de espacios
+Unicode, más NIF/NIE con separadores.
+
+**Límite conocido y declarado**: homoglifos de otros alfabetos (п
+cirílica y similares) no se pliegan con NFKC — un email así redacta solo
+el tramo ASCII (cae el dominio, sobrevive parte del localpart). Hay un
+test que documenta este comportamiento. Siguen fuera: pasaportes y
+direcciones postales. Defensa en profundidad declarada como tal, no
+control primario.
 
 ### Verificaciones que pasaron
 
