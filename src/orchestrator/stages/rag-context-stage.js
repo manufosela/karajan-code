@@ -6,7 +6,7 @@
 // never sees an exception from this stage.
 import { emitProgress, makeEvent } from "../../utils/events.js";
 import { openVecStore, countChunks } from "../../rag/vec-store.js";
-import { makeEmbedder } from "../../rag/embedders/factory.js";
+import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { query } from "../../rag/retriever.js";
 
 const DEFAULT_TOP_K = 5;
@@ -52,7 +52,7 @@ export async function runRagContextStage({ config, logger, emitter, eventBase, t
       }
       const topK = preload.topK || DEFAULT_TOP_K;
       const scope = preload.scope || DEFAULT_SCOPE;
-      const embedder = makeEmbedder(config);
+      const embedder = makeGovernedEmbedder(config);
       const searchOpts = resolveSearchOpts(config);
       const hits = await query(db, embedder, task, { topK, scope, ...searchOpts });
       if (hits.length === 0) return { skipped: true, reason: "no-hits" };

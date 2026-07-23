@@ -3,7 +3,7 @@
 //   kj rag query <text>   [--scope plans|code|onboarding|all] [--top-k N] [--json]
 // Closes the v2.22.0 RAG MVP end-to-end from the terminal.
 import { openVecStore, countChunks, projectSlug, getLastIndexedCommit, setLastIndexedCommit } from "../rag/vec-store.js";
-import { makeEmbedder } from "../rag/embedders/factory.js";
+import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
@@ -19,7 +19,7 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
   const db = openDb(config);
   try {
     const slug = projectSlug(projectDir);
-    const embedder = makeEmbedder(config);
+    const embedder = makeGovernedEmbedder(config);
     const sinceFlag = flags.since;
     // KJC-TSK-0455 — `--since auto` resolves to the last commit we indexed;
     // an explicit ref is honoured as-is. Without a baseline (first-time
@@ -103,7 +103,7 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     const alpha = Math.max(0, Math.min(1, Number(flags.alpha) || 0.6));
     const where = flags.where || null;
     const rerankOpts = flags.rerank ? { model: flags.rerankModel } : null;
-    const hits = await query(db, makeEmbedder(config), text, { topK, scope, project, mode, alpha, where, rerankOpts });
+    const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, alpha, where, rerankOpts });
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(hits)}\n`);
     } else {
@@ -133,7 +133,7 @@ export async function ragEvalCommand({ config, logger, flags = {} }) {
     const topK = Math.max(1, Number(flags.topK) || 10);
     const detected = projectSlug(config?.projectDir || process.cwd());
     const project = flags.project === "all" ? null : (flags.project || detected || null);
-    const embedder = makeEmbedder(config);
+    const embedder = makeGovernedEmbedder(config);
     const runQuery = async (text, k) => query(db, embedder, text, { topK: k, scope: "all", project });
     const report = await runEval(queries, runQuery, { topK, ks: [5, 10] });
     if (flags.json) {

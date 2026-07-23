@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { extname, join } from "node:path";
 import chokidar from "chokidar";
 import { openVecStore, deleteChunksBySource, projectSlug } from "./vec-store.js";
-import { makeEmbedder } from "./embedders/factory.js";
+import { makeGovernedEmbedder } from "./governed-embedder.js";
 import { indexFile } from "./indexer.js";
 import { getKarajanHome } from "../utils/paths.js";
 import { getAllCodeExtensions } from "../lang/registry.js";
@@ -27,7 +27,7 @@ export function startWatcher({ projectDir, config, logger = console, debounceMs 
   const slug = projectSlug(projectDir);
   const dim = config?.rag?.embedder?.dim || 768;
   const db = openVecStore({ dim });
-  const embedder = makeEmbedder(config);
+  const embedder = makeGovernedEmbedder(config);
   const paths = [join(getKarajanHome(), "onboarding"), join(getKarajanHome(), "plans")];
   if (withSources) paths.push(projectDir);
   const watcher = chokidar.watch(paths, { ignoreInitial: true, persistent: true });

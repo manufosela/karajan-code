@@ -2,7 +2,7 @@
 // from src/commands/* are forbidden by the layer-boundaries test
 // (MCP and CLI are peer layers); we hit the pure rag/* modules instead.
 import { countChunks, openVecStore } from "../../rag/vec-store.js";
-import { makeEmbedder } from "../../rag/embedders/factory.js";
+import { makeGovernedEmbedder } from "../../rag/governed-embedder.js";
 import { indexProject } from "../../rag/indexer.js";
 import { query } from "../../rag/retriever.js";
 import { getKarajanHome } from "../../utils/paths.js";
@@ -25,7 +25,7 @@ export async function handleRagQuery(args, server) {
     const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
     try {
       if (countChunks(db) === 0) return responseText({ hits: [], empty: true, topK, scope });
-      const hits = await query(db, makeEmbedder(config), text, { topK, scope });
+      const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope });
       return responseText({ hits, empty: false, topK, scope });
     } finally { db.close(); }
   } catch (err) {
@@ -40,7 +40,7 @@ export async function handleRagIndex(args, server) {
     const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
     try {
       const totals = await indexProject(projectDir, {
-        db, embedder: makeEmbedder(config),
+        db, embedder: makeGovernedEmbedder(config),
         karajanHome: getKarajanHome(), logger: silentLogger,
         withSources: Boolean(args?.withSources),
       });
