@@ -142,6 +142,16 @@ describe("kj hu", () => {
       .rejects.toThrow(/task-type/);
   });
 
+  // KJC-TSK-0684 (issue #1287): an external board is the source of truth —
+  // kj refuses to write a parallel HU Board and points at the real one.
+  it("add and move are refused when the project declares an external board", async () => {
+    const external = { projectDir: dir, state_backend: "external", board: { name: "Linear" } };
+    await expect(huCommand({ config: external, action: "add", args: ["X"], flags: {} }))
+      .rejects.toThrow(/Linear/);
+    await expect(huCommand({ config: external, action: "move", args: ["A", "done"], flags: {} }))
+      .rejects.toThrow(/external/);
+  });
+
   it("second add reuses the same backlog plan", async () => {
     await huCommand({ config: cfg(), action: "add", args: ["A"], flags: { json: true } });
     await huCommand({ config: cfg(), action: "add", args: ["B"], flags: { json: true } });

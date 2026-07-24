@@ -26,6 +26,15 @@ describe("renderPlaybook", () => {
     });
   }
 
+  // KJC-TSK-0684 (issue #1287): card-first points at THE project's board.
+  it("external backend names the declared board and drops the HU Board", () => {
+    const text = renderPlaybook({ stateBackend: "external", boardName: "Linear" });
+    expect(text).toMatch(/tracked card in Linear/);
+    expect(text).toMatch(/never create a parallel HU Board/);
+    expect(text).not.toMatch(/kj hu add` \/ `kj board/); // hu-board line gone
+    expect(text.split("\n").length).toBeLessThanOrEqual(60);
+  });
+
   it("both targets come from the same source (same method lines)", () => {
     const a = renderPlaybook({ target: "claude" });
     const b = renderPlaybook({ target: "codex" });
