@@ -24,12 +24,12 @@
 
 Your AI agent (Claude Code, Codex, Gemini CLI, Cursor…) writes the code. **Karajan governs how it happens**: it installs a method your agent follows on every task, and enforces it with git gates that make a false green structurally impossible.
 
-- **RAG before assuming** — `kj rag query` answers what your codebase does; no agent guesses.
-- **Card first** — every piece of work is tracked (`kj hu add|move|list`) before it starts; architecture decisions live as git-tracked ADRs (`kj adr add|list`).
+- **RAG before assuming** — `kj rag query` answers what your codebase does; no agent guesses. Works out of the box: local Ollama, or the built-in ONNX embedder when nothing can be installed; cloud embedders require an explicit sensitivity declaration and PII-redact every chunk.
+- **Card first, on YOUR board** — every piece of work is tracked before it starts: kj's HU Board (`kj hu add|move|list`), the Planning Game, or the board the project already uses (Linear, Trello, Jira, GitHub Issues) via your agent's own MCP/tools. Declared, verified at install, never optional — Karajan does not run without a board. ADRs live in git (`kj adr add|list`).
 - **Tests prove behavior** — the failing test exists first; the suite is never left red.
-- **Cross-AI review on every commit** — `kj review --staged` binds a verdict from a *different* AI to the sha256 of the exact diff. Change the code and it must be reviewed again. Without an approved verdict, **the commit does not enter** (pre-commit gate).
+- **Deterministic first, then cross-AI review** — `kj review --staged` runs SonarQube on the changed files before any AI opinion (BLOCKER/CRITICAL reject on the spot), then binds a verdict from a *different* AI to the sha256 of the exact diff — stamped with the workspace it ran from. Without an approved verdict, **the commit does not enter** (pre-commit gate).
 - **A third AI arbitrates disputes** — `kj solomon` rules when brain and reviewer disagree. Security findings are never overridable — not even by arbitration.
-- **Branch first** — the base branch only moves through atomic PRs.
+- **Branch first, lanes for parallel work** — the base branch only moves through atomic PRs; `kj worktree start|list|done` gives each concurrent task its own isolated lane.
 
 This repo runs under its own environment: every commit to karajan-code carries a cross-AI verdict.
 
@@ -66,7 +66,7 @@ Full method: [Work with your agent](https://karajancode.com/docs/v4/working-with
 
 ## Headless mode
 
-The classic multiagent pipeline lives on for CI and automation: `kj run "<task>"` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. `kj advanced` lists the full surface. [Headless mode docs](https://karajancode.com/docs/v4/headless/).
+The classic multiagent pipeline lives on for CI and automation: `kj run "<task>"` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. Agents and CI pass `--non-interactive` (or `KJ_NON_INTERACTIVE=1`): safe gates auto-answer, FAIL findings stop the run with a real exit code. `kj advanced` lists the full surface. [Headless mode docs](https://karajancode.com/docs/v4/headless/).
 
 ## v3 (historical)
 
