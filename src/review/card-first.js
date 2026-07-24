@@ -1,13 +1,10 @@
 /**
- * Card-first gate (KJC-TSK-0686, MG-A of épica KJC-PCS-0068). v3 obeyed
- * but couldn't think; v4 thinks but narrates — so the rule that every
- * piece of work starts from a card stops living in playbook text and
- * moves into the gate. With hu-board the check is fully deterministic:
- * the branch must reference a LIVE card (block by default). With
- * planning-game/external boards, liveness can't be verified locally, so
- * a card-shaped reference is required (warn by default, block via
- * `method_gates.card_first`). Exemptions are explicit and visible:
- * configured branch prefixes (releases) and KJ_ALLOW_NO_CARD=1.
+ * Card-first gate (KJC-TSK-0686, MG-A of épica KJC-PCS-0068): the rule
+ * that work starts from a card moves from playbook text into the gate.
+ * hu-board → the branch must reference a LIVE card (block by default);
+ * planning-game/external → card-shaped reference required (warn default,
+ * block via method_gates.card_first). Exemptions explicit and visible:
+ * base branch, configured prefixes (releases), KJ_ALLOW_NO_CARD=1.
  */
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { escapeRegExp } from "../utils/escape-regexp.js";

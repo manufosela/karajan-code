@@ -73,16 +73,10 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
 });
 
 describe("checkCardFirst — exemptions", () => {
-  it("release branches are exempt by default, visibly", async () => {
-    expect(await hu("chore/release-v4.6.0")).toMatchObject({ ok: true, mode: "exempt" });
-  });
-
-  it("the base branch is exempt — branch-first owns it", async () => {
-    expect(await hu("main")).toMatchObject({ ok: true, mode: "exempt" });
-    expect(await hu("master")).toMatchObject({ ok: true, mode: "exempt" });
-  });
-
-  it("KJ_ALLOW_NO_CARD=1 is the explicit escape hatch", async () => {
+  it("release branches and the base branch are exempt; KJ_ALLOW_NO_CARD=1 is the escape hatch", async () => {
+    for (const branch of ["chore/release-v4.6.0", "main", "master"]) {
+      expect(await hu(branch)).toMatchObject({ ok: true, mode: "exempt" });
+    }
     const r = await checkCardFirst({ config: {}, projectDir: dir, branch: "feat/sin-card", env: { KJ_ALLOW_NO_CARD: "1" } });
     expect(r).toMatchObject({ ok: true, mode: "exempt" });
   });
