@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.3.1 — historias completas, carriles aislados (actual)
+### v4.4.0 — karajan-rag protege a karajan-code (actual)
+
+Minor con hito de familia: la primera dependencia entre los dos productos Karajan. Los embedders cloud exigen ya un `rag.sensitivity: public` explícito — el default seguro los bloquea con error accionable — y aun permitidos, cada chunk pasa por la redacción PII de karajan-rag, auditada de forma independiente, antes de salir de la máquina. Además: las máquinas donde no se puede instalar nada tienen RAG operativo — sin Ollama, se cae al embedder ONNX integrado en proceso, con la elección persistida. Actualización directa desde v4.3.1.
+
+### v4.3.1 — historias completas, carriles aislados
 
 Patch, con las dos mitades venidas del campo. `kj hu add` acepta ya la spec completa en una llamada — `--ac`, `--tests`, `--scope`, `--task-type` — y avisa al momento cuando una historia nace incompleta, nombrando el flag exacto que falta. Y los carriles paralelos aprenden aislamiento de recursos: `worktree_setup` documentado con ejemplo por carril, y las reglas generadas de coder/review enseñan la disciplina de variables de entorno derivando puertos y bases de datos por tarea de los slots que kj ya inyecta. Actualización directa desde v4.3.0.
 
