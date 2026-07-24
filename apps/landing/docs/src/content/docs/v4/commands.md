@@ -20,7 +20,8 @@ The commands a v4 setup actually uses. Everything supports `--help`; agent-facin
 |---|---|
 | `kj rag query "<q>"` | Semantic search over the project (auto-refreshes on drift). |
 | `kj brief <role>` | Mission + invariants + deliverable of a role. No role → list. |
-| `kj review --staged` | Cross-AI review of the staged diff; verdict bound to its sha256. Exit 0/1. |
+| `kj review --staged` | Sonar pre-gate on the changed files (BLOCKER/CRITICAL reject deterministically), then cross-AI review; verdict bound to the diff's sha256 and stamped with its workspace. Exit 0/1. |
+| `kj worktree start\|list\|done <slug>` | Isolated task lanes: worktree + `feat/<slug>` branch + dependency bootstrap; `done` removes a merged lane. |
 | `kj review --check` | Is there an approved verdict for the exact staged diff? (What the hook runs.) |
 | `kj solomon --position "<why>"` | Third-AI arbitration of a rejected verdict. Exit 0 approve / 1 reject. |
 | `kj agent run <agent> "<task>"` | Delegate a task to another AI and print its output. |
@@ -40,7 +41,7 @@ The commands a v4 setup actually uses. Everything supports `--help`; agent-facin
 
 | Command | Does |
 |---|---|
-| `kj run "<task>"` | The classic subprocess pipeline — see [Headless mode](/docs/v4/headless/). |
+| `kj run "<task>"` | The classic subprocess pipeline — see [Headless mode](/docs/v4/headless/). `--non-interactive` (or `KJ_NON_INTERACTIVE=1`) auto-answers safe gates; FAIL findings stop with exit 1. |
 | `kj autorun <spec>` | Spec → plan → run every story → outcome report, unattended. |
 
 Everything else (`kj advanced` lists ~30 more) belongs to the headless pipeline and power users — documented in the **V3 historical archive** ([here](/docs/getting-started/introduction/), clearly marked as legacy).

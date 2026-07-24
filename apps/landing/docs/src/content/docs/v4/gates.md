@@ -9,7 +9,7 @@ Everything else in Karajan is advice to an AI. The gates are not: they run in gi
 
 With `.karajan/review-gate` present (installed by `kj review --install-gate`, tracked in git so the whole team inherits it):
 
-1. Your agent stages a diff and runs `kj review --staged` → an AI **different from it** reviews and records a verdict in `.karajan/reviews/<sha256-of-the-diff>.json`.
+1. Your agent stages a diff and runs `kj review --staged` → SonarQube scans the changed files first (deterministic pre-gate: BLOCKER/CRITICAL findings reject on the spot, without spending a reviewer token), then an AI **different from it** reviews and records a verdict in `.karajan/reviews/<sha256-of-the-diff>.json`, stamped with the workspace it ran from (`[root]` or `[worktree:<name>]`).
 2. `git commit` fires the pre-commit hook → `kj review --check` verifies an **approved** verdict exists for the **exact** staged bytes.
 3. No verdict, stale verdict, rejected verdict → the commit does not enter. Fix, re-review, retry.
 
@@ -18,6 +18,7 @@ Rejected but the agent disagrees? `kj solomon` brings a third AI to arbitrate; a
 ## The other gates
 
 - **Branch-first** — direct commits on the base branch are rejected (`KJ_ALLOW_BASE_COMMIT=1` is the explicit release-day escape hatch).
+- **Board guarantee** — `kj env install` verifies an operational access path to the project's declared board (kj's HU Board, the Planning Game MCP, or an external board via MCP/API token) and blocks with the exact steps when there is none. There is no `none`: Karajan does not run without a board.
 - **Commit policy** — Conventional Commits header, length cap, no AI attribution.
 - **Chained personal guards** — if your machine had global git hooks before Karajan, the generated hooks call them too. Activating Karajan adds protections; it never silently removes yours.
 - **Headless parity** — `kj run` (headless mode) stamps its internal reviewer's verdict the same way, so pipeline commits pass the same gate.

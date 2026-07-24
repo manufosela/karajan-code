@@ -84,7 +84,8 @@
 <p>A task is DONE when its done-statement is literally true, the suite is green, and every commit carries a cross-AI verdict. The invariants:</p>
 <ul>
 <li><strong>RAG before assuming</strong> — <code dir="auto">kj rag query</code> answers questions about the codebase; the index is built on install and refreshes itself on drift.</li>
-<li><strong>Card first</strong> — work is tracked in the HU Board (<code dir="auto">kj hu add|move|list</code> — your agent creates the card before it codes) or your Planning Game (<code dir="auto">state_backend</code> in config). Architecture decisions live as git-tracked ADRs: <code dir="auto">kj adr add|list</code>.</li>
+<li><strong>Card first, on YOUR board</strong> — work is tracked before it starts in the board the project declares (<code dir="auto">state_backend</code> in config): kj’s HU Board (<code dir="auto">kj hu add|move|list</code> — your agent creates the card before it codes), your Planning Game, or the board you already use — Linear, Trello, Jira, GitHub Issues — worked through your agent’s own MCP/tools (<code dir="auto">state_backend: external</code> + <code dir="auto">board.name</code>; kj never mirrors it). <code dir="auto">kj env install</code> verifies the board is reachable — Karajan does not run without one. Architecture decisions live as git-tracked ADRs: <code dir="auto">kj adr add|list</code>.</li>
+<li><strong>Parallel work in lanes</strong> — more than one task at a time? <code dir="auto">kj worktree start &#x3C;slug></code> gives each its own isolated worktree; every review verdict is stamped with the workspace it ran from, so isolation claims are auditable.</li>
 <li><strong>Tests prove behavior</strong> — failing test first, suite never left red.</li>
 <li><strong>Cross-AI review before commit</strong> — a <em>different</em> AI reviews every diff.</li>
 <li><strong>Security findings are never overridable.</strong></li>

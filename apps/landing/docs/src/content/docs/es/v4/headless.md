@@ -6,7 +6,8 @@ description: El pipeline subprocess clásico — para runs desatendidos, bajo lo
 Antes de la v4, Karajan ERA el orquestador: `kj run` lanzaba coder, reviewer, tester, security y juez como subprocesos y dirigía el bucle él mismo. Ese pipeline no ha desaparecido — se convirtió en el **modo headless**, para los casos donde no hay agente anfitrión al volante:
 
 - **Entrega desatendida** — `kj autorun <spec>` encadena spec → plan → historias de usuario → ejecución completa, con un árbitro resolviendo conflictos.
-- **Carriles paralelos** — `kj run --parallel <n>` ejecuta las historias de un plan concurrentemente en worktrees de git por historia.
+- **Carriles paralelos** — `kj run --parallel <n>` ejecuta las historias de un plan concurrentemente en worktrees de git por historia. Cada carril recibe `KJ_LANE_SLOT` y `KJ_PORT_OFFSET`, y `session.worktree_setup` declara el entorno por carril (puertos, BDs, nombres de proyecto docker) para que los carriles jamás colisionen.
+- **Ejecución desatendida** — `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros (los warn continúan, decisión por stderr); los findings FAIL paran el run con exit code 1 en vez de bloquearse en un modal del board.
 - **CI / runs con script** — donde no hay sesión interactiva de agente.
 
 ## Mismos gates, mismos veredictos

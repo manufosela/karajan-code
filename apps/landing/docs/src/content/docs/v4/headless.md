@@ -6,7 +6,8 @@ description: The classic subprocess pipeline — for unattended runs, under the 
 Before v4, Karajan WAS the orchestrator: `kj run` spawned coder, reviewer, tester, security and judge agents as subprocesses and drove the loop itself. That pipeline did not go away — it became the **headless mode**, for the cases where no host agent is at the wheel:
 
 - **Unattended delivery** — `kj autorun <spec>` chains spec → plan → user stories → run to completion, with an arbiter resolving conflicts.
-- **Parallel lanes** — `kj run --parallel <n>` executes a plan's stories concurrently in per-story git worktrees.
+- **Parallel lanes** — `kj run --parallel <n>` executes a plan's stories concurrently in per-story git worktrees. Each lane receives `KJ_LANE_SLOT` and `KJ_PORT_OFFSET`, and `session.worktree_setup` declares the per-lane environment (ports, DBs, docker project names) so lanes never collide.
+- **Unattended runs** — `--non-interactive` (or `KJ_NON_INTERACTIVE=1`) auto-answers safe gates (warn findings continue, decision on stderr); FAIL findings stop the run with exit code 1 instead of blocking on a board modal.
 - **CI / scripted runs** — anywhere without an interactive agent session.
 
 ## Same gates, same verdicts

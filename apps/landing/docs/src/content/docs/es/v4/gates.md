@@ -9,7 +9,7 @@ Todo lo demás en Karajan son consejos a una IA. Los gates no: corren en git, so
 
 Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trackeado en git para que todo el equipo lo herede):
 
-1. Tu agente prepara un diff y ejecuta `kj review --staged` → una IA **distinta de él** revisa y registra el veredicto en `.karajan/reviews/<sha256-del-diff>.json`.
+1. Tu agente prepara un diff y ejecuta `kj review --staged` → SonarQube escanea primero los ficheros cambiados (pre-gate determinista: los findings BLOCKER/CRITICAL rechazan en el acto, sin gastar un token del reviewer), después una IA **distinta de él** revisa y registra el veredicto en `.karajan/reviews/<sha256-del-diff>.json`, estampado con el workspace desde el que corrió (`[root]` o `[worktree:<nombre>]`).
 2. `git commit` dispara el pre-commit → `kj review --check` verifica que existe un veredicto **approved** para los bytes staged **exactos**.
 3. Sin veredicto, veredicto caducado o rechazado → el commit no entra. Corregir, re-revisar, reintentar.
 
@@ -18,6 +18,7 @@ Con `.karajan/review-gate` presente (lo instala `kj review --install-gate`, trac
 ## Los otros gates
 
 - **Rama primero** — los commits directos en la rama base se rechazan (`KJ_ALLOW_BASE_COMMIT=1` es la escotilla explícita para días de release).
+- **Garantía de board** — `kj env install` verifica que existe vía de acceso operativa al board declarado del proyecto (el HU Board de kj, el MCP del Planning Game, o un board externo vía MCP/token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none`: Karajan no funciona sin board.
 - **Política de commits** — cabecera Conventional Commits, tope de longitud, sin atribución a IA.
 - **Guards personales encadenados** — si tu máquina tenía hooks globales de git antes de Karajan, los hooks generados también los llaman. Activar Karajan añade protecciones; jamás quita las tuyas en silencio.
 - **Paridad headless** — `kj run` (modo headless) estampa el veredicto de su reviewer interno igual, así que los commits del pipeline pasan el mismo gate.

@@ -12,7 +12,8 @@ You almost never type `kj` yourself. Your agent does — the playbook installed 
 A task is DONE when its done-statement is literally true, the suite is green, and every commit carries a cross-AI verdict. The invariants:
 
 - **RAG before assuming** — `kj rag query` answers questions about the codebase; the index is built on install and refreshes itself on drift.
-- **Card first** — work is tracked in the HU Board (`kj hu add|move|list` — your agent creates the card before it codes) or your Planning Game (`state_backend` in config). Architecture decisions live as git-tracked ADRs: `kj adr add|list`.
+- **Card first, on YOUR board** — work is tracked before it starts in the board the project declares (`state_backend` in config): kj's HU Board (`kj hu add|move|list` — your agent creates the card before it codes), your Planning Game, or the board you already use — Linear, Trello, Jira, GitHub Issues — worked through your agent's own MCP/tools (`state_backend: external` + `board.name`; kj never mirrors it). `kj env install` verifies the board is reachable — Karajan does not run without one. Architecture decisions live as git-tracked ADRs: `kj adr add|list`.
+- **Parallel work in lanes** — more than one task at a time? `kj worktree start <slug>` gives each its own isolated worktree; every review verdict is stamped with the workspace it ran from, so isolation claims are auditable.
 - **Tests prove behavior** — failing test first, suite never left red.
 - **Cross-AI review before commit** — a *different* AI reviews every diff.
 - **Security findings are never overridable.**
