@@ -112,6 +112,17 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // KJC-TSK-0687 (MG-B): the verifiable half of TDD — sources without a
   // single test change warn (block via method_gates.tests_with_code).
   const changedFiles = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
+
+  // KJC-TSK-0688 (MG-C): oversized-diff nudge — informative only; the
+  // project's CI owns any hard budget. Sums additions from --numstat.
+  const sizeWarn = config?.method_gates?.pr_size_warn ?? 150;
+  if (sizeWarn > 0) {
+    const numstat = await rawDiff(flags.range, ["--numstat"]);
+    const added = numstat.split("\n").reduce((acc, l) => acc + (Number(l.split("\t")[0]) || 0), 0);
+    if (added > sizeWarn) {
+      console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}) — atomic PRs review better; consider splitting (method_gates.pr_size_warn to tune)`);
+    }
+  }
   const tests = checkTestsWithCode({ config, stagedFiles: changedFiles });
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
   if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
