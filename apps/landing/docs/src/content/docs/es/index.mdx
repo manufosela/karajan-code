@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.4.1 — el fallback ONNX funciona de verdad (actual)
+### v4.5.0 — cualquier board, pero siempre un board (actual)
+
+Minor con cambio de contrato. Los proyectos que ya viven en Linear, Trello, Jira o GitHub Issues declaran su board y card-first apunta ALLÍ, trabajado con los MCP/tools de tu propio agente — kj jamás lo espeja en un board paralelo a medias. El contrapeso: `kj env install` verifica ya que existe vía de acceso operativa al board declarado (integrado, MCP o token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none` — Karajan no funciona sin board. [Fase 105 →](/docs/es/architecture/history/#fase-105-v450--cualquier-board-pero-siempre-un-board-v450)
+
+### v4.4.1 — el fallback ONNX funciona de verdad
 
 Patch con un estreno dentro: el fallback instala-donde-sea de la v4.4.0 moría en máquinas limpias porque la sonda del índice creaba en silencio la tabla vectorial con la dimensión equivocada — arreglado con una sonda que no crea nada y un reset del store vacío, verificado sobre el escenario exacto del fallo. Y cuando el reviewer cruzado rechazó el fix con una premisa factualmente errónea, `kj solomon` tuvo su primer uso real: una tercera IA arbitró, falló con la evidencia empírica y abrió el gate. Actualización directa desde v4.4.0.
 

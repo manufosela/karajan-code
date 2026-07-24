@@ -1612,6 +1612,10 @@ The architectural inversion. A complex real-world demo (2026-07-19) exposed an i
 
 The gate learns to measure before it judges. With the brain outside the core, skipping static analysis was one decision away — proven the day the brain itself shipped three sonar issues in new code and nothing stopped it. Since v4.2.0, `kj review --staged` runs SonarQube as a deterministic pre-gate: one scan machine-wide (single-flight through the v4.1.10 tool governor), findings filtered to the CHANGED files and printed before any AI verdict. BLOCKER/CRITICAL findings reject on the spot — exit 1, cross-AI reviewer never invoked, zero tokens spent on code a linter already condemned. Advisory findings travel inside the reviewer's task so the verdict weighs them. A machine without sonar degrades loudly and continues — the gate never bricks a laptop. On its first live run, the pre-gate reviewed its own diff and surfaced three pre-existing issues in the very file that implements it, fixed in the same PR.
 
+## Phase 105: v4.5.0 — Any board, but always a board (v4.5.0)
+
+The board stops being kj's and becomes the project's — without ever becoming optional. Card-first was always the method's spine, but it assumed kj's own HU Board; projects already living in Linear, Trello, Jira or GitHub Issues ended up with two half-boards, which is worse than none. Since v4.5.0 the project declares its backend: kj's HU Board (default), the Planning Game MCP, or any external board by name — and the playbook points card-first at THAT board, worked through the host agent's own MCP/tools, with kj refusing to mirror it. The counterweight is a guarantee: `kj env install` verifies an operational access path to whatever board was declared — bundled, MCP configured, or API token exported — and blocks with the exact steps when there is none, before even touching the RAG. There is no `none`: Karajan does not run without a board, because the board is what makes ordered work, honest cards and meaningful lanes possible.
+
 ## Key Architectural Decisions
 
 ### CLI wrapping vs direct API calls
