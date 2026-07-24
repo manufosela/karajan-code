@@ -33,6 +33,28 @@ describe("kj hu", () => {
       .rejects.toThrow(/not found/);
   });
 
+  // KJC-TSK-0688 (MG-C): passive playbook orders get ignored — the nudge
+  // fires at the moment of the deviation: a SECOND concurrent task should
+  // live in its own lane.
+  it("moving a second HU to running nudges towards kj worktree start", async () => {
+    await huCommand({ config: cfg(), action: "add", args: ["Primera"], flags: { json: true, id: "T-A" } });
+    await huCommand({ config: cfg(), action: "add", args: ["Segunda"], flags: { json: true, id: "T-B" } });
+    await huCommand({ config: cfg(), action: "move", args: ["T-A", "running"], flags: { json: true } });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await huCommand({ config: cfg(), action: "move", args: ["T-B", "running"], flags: { json: true } });
+      const out = warn.mock.calls.flat().join("\n");
+      expect(out).toMatch(/kj worktree start/);
+      expect(out).toMatch(/T-A/); // names the other running card
+      warn.mockClear();
+      // no-op re-move (already running) must not re-nudge
+      await huCommand({ config: cfg(), action: "move", args: ["T-B", "running"], flags: { json: true } });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("move with an ambiguous ref across plans errors instead of guessing", async () => {
     const { savePlan } = await import("../../src/plan/plan-store.js");
     const { generatePlanId } = await import("../../src/plan/plan-id.js");

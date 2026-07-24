@@ -75,7 +75,10 @@ const DEFAULTS = {
     card_first: "auto",
     card_first_exempt_branches: ["chore/release-"],
     // MG-B: source changes without a test change — "warn" | "block".
-    tests_with_code: "warn"
+    tests_with_code: "warn",
+    // MG-C: informative nudge when the staged diff exceeds this many
+    // added lines (0 disables). The project's CI owns any hard budget.
+    pr_size_warn: 150
   },
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",

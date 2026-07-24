@@ -175,11 +175,13 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
     // silently moving the first hit could move the wrong card.
     const byId = [];
     const byShort = [];
+    const running = [];
     for (const meta of await listPlans(projectDir)) {
       const plan = await loadPlan(projectDir, meta.planId);
       for (const hu of plan.hus || []) {
         if (hu.id === ref) byId.push({ plan, hu });
         else if (hu.short_id === ref) byShort.push({ plan, hu });
+        if (hu.status === "running") running.push(hu);
       }
     }
     const matches = byId.length > 0 ? byId : byShort;
@@ -189,6 +191,16 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
       throw new Error(`"${ref}" is ambiguous (${matches.length} matches: ${ids}) — use the full id`);
     }
     const { plan, hu } = matches[0];
+    // KJC-TSK-0688 (MG-C): the nudge fires AT the deviation — a second
+    // concurrent task belongs in its own lane, not in the shared tree.
+    const others = running.filter((r) => r.id !== hu.id);
+    if (status === "running" && hu.status !== "running" && others.length > 0) {
+      const slug = String(hu.short_id || hu.id).toLowerCase();
+      console.warn(
+        `⚠ ${others.map((r) => r.short_id || r.id).join(", ")} ${others.length === 1 ? "is" : "are"} already running — `
+        + `a second concurrent task should live in its own lane: kj worktree start ${slug}`
+      );
+    }
     updateHuStatus(plan, hu.id, status);
     await savePlan(projectDir, plan);
     return emit({ id: hu.id, status }, `✓ ${hu.short_id || hu.id} → ${status}`);
