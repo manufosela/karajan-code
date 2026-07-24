@@ -9,6 +9,9 @@ vi.mock("../../src/rag/vec-store.js", () => ({
   getLastIndexedCommit: vi.fn(),
   setLastIndexedCommit: vi.fn(),
   countChunks: vi.fn(() => 0),
+  // KJC-BUG-0128: the probe checks file existence before opening — point it
+  // at a path that exists so tests still exercise getLastIndexedCommit.
+  dbPath: vi.fn(() => process.cwd()),
 }));
 vi.mock("../../src/commands/rag.js", () => ({
   ragIndexCommand: vi.fn().mockResolvedValue({ ok: true }),
@@ -18,7 +21,9 @@ vi.mock("../../src/environment/playbook.js", () => ({
   installPlaybook: vi.fn(async () => ({ files: ["CLAUDE.md", "AGENTS.md"], target: "both" })),
 }));
 vi.mock("../../src/rag/onnx-fallback.js", async (orig) => ({
-  ...(await orig()), persistOnnxChoice: vi.fn().mockResolvedValue("/tmp/proj/.karajan/kj.config.yml"),
+  ...(await orig()),
+  persistOnnxChoice: vi.fn().mockResolvedValue("/tmp/proj/.karajan/kj.config.yml"),
+  resetEmptyStore: vi.fn(() => true),
 }));
 
 import { envInstallCommand } from "../../src/commands/env.js";
@@ -97,6 +102,32 @@ describe("env install is RAG-first", () => {
     expect(ragIndexCommand.mock.calls[1][0].config.rag.embedder.provider).toBe("onnx");
     const { persistOnnxChoice } = await import("../../src/rag/onnx-fallback.js");
     expect(persistOnnxChoice).toHaveBeenCalledWith("/tmp/proj");
+  });
+
+  // KJC-BUG-0128: probing for an index must never CREATE the store — a vec
+  // table born at 768 breaks the 384 ONNX fallback afterwards.
+  it("the index probe does not open (create) the store when no db file exists", async () => {
+    const { dbPath, openVecStore } = await import("../../src/rag/vec-store.js");
+    dbPath.mockReturnValueOnce("/definitely/not/a/real/path.db");
+    getLastIndexedCommit.mockReturnValue("abc123"); // would say "present" if consulted
+    ragIndexCommand.mockResolvedValueOnce({ indexed: 10, files: 10, failed: 0 });
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
+    expect(openVecStore).not.toHaveBeenCalled(); // no accidental DDL
+    expect(ragIndexCommand).toHaveBeenCalled(); // treated as "no index yet"
+  });
+
+  it("does not switch to ONNX when the store already has data at another dim", async () => {
+    const { resetEmptyStore } = await import("../../src/rag/onnx-fallback.js");
+    resetEmptyStore.mockReturnValueOnce(false);
+    getLastIndexedCommit.mockReturnValue(null);
+    ragIndexCommand.mockRejectedValueOnce(new Error("ollama down"));
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
+    expect(res.exitCode).toBe(3); // blocked — never destroys existing data
+    expect(ragIndexCommand).toHaveBeenCalledTimes(1); // no second (onnx) attempt
   });
 
   it("blocks as before when the ONNX fallback also fails", async () => {

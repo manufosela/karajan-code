@@ -6,7 +6,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import yaml from "js-yaml";
-import { onnxConfig, persistOnnxChoice } from "../../src/rag/onnx-fallback.js";
+import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../../src/rag/onnx-fallback.js";
+import { openVecStore, insertChunk } from "../../src/rag/vec-store.js";
 
 let dir;
 beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "kj-onnx-")); });
@@ -18,6 +19,39 @@ describe("onnxConfig", () => {
     expect(cfg.rag.embedder).toMatchObject({ provider: "onnx", dim: 384, model: "x" });
     expect(cfg.rag.autoUpdate.onRun).toBe(true);
     expect(cfg.projectDir).toBe("/p");
+  });
+});
+
+// KJC-BUG-0128: the hasRagIndex probe used to CREATE the vec table at 768
+// before the fallback indexed at 384 — every insert failed with a dimension
+// mismatch. The fallback now resets an EMPTY store (wrong-dim table, no
+// data) and refuses to touch a store that has chunks.
+describe("resetEmptyStore", () => {
+  it("no store → nothing to reset, ok", () => {
+    process.env.KJ_RAG_DB = path.join(dir, "absent.db");
+    try { expect(resetEmptyStore()).toBe(true); } finally { delete process.env.KJ_RAG_DB; }
+  });
+
+  it("empty store created at another dim is deleted so it can be recreated", () => {
+    const p = path.join(dir, "empty.db");
+    process.env.KJ_RAG_DB = p;
+    try {
+      openVecStore({ dim: 768, path: p }).close(); // the probe's accidental 768 table
+      expect(resetEmptyStore()).toBe(true);
+      expect(fs.existsSync(p)).toBe(false);
+    } finally { delete process.env.KJ_RAG_DB; }
+  });
+
+  it("a store WITH chunks is never touched", () => {
+    const p = path.join(dir, "full.db");
+    process.env.KJ_RAG_DB = p;
+    try {
+      const db = openVecStore({ dim: 768, path: p });
+      insertChunk(db, { source: "s", kind: "code", text: "t", embedding: new Float32Array(768), project: "p" });
+      db.close();
+      expect(resetEmptyStore()).toBe(false);
+      expect(fs.existsSync(p)).toBe(true);
+    } finally { delete process.env.KJ_RAG_DB; }
   });
 });
 

@@ -7,11 +7,38 @@
  * an index can never be written by one and queried by the other.
  */
 import fs from "node:fs/promises";
+import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { parseDocument } from "yaml";
 import { getProjectConfigPath } from "../config/loader.js";
+import { dbPath } from "./vec-store.js";
 
 const ONNX_EMBEDDER = { provider: "onnx", dim: 384 };
+
+/**
+ * KJC-BUG-0128: the hasRagIndex probe could leave behind an EMPTY store
+ * whose vec table was created at the default dim (768) — ONNX inserts (384)
+ * then failed on every chunk. Before the fallback indexes, delete an empty
+ * store (plus WAL siblings) so it is recreated at the right dim. A store
+ * that already HAS chunks is never touched — switching dims there would
+ * destroy other projects' indexes.
+ */
+export function resetEmptyStore() {
+  const storePath = dbPath();
+  if (!existsSync(storePath)) return true;
+  // Read-only, schema-agnostic inspection: no DDL, no vec extension, no
+  // dimension assumptions — the store is only ever OPENED to be counted.
+  const db = new Database(storePath, { readonly: true });
+  try {
+    const hasChunksTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'").get();
+    if (hasChunksTable && db.prepare("SELECT COUNT(*) AS n FROM chunks").get().n > 0) return false;
+  } finally {
+    db.close();
+  }
+  for (const suffix of ["", "-wal", "-shm"]) rmSync(storePath + suffix, { force: true });
+  return true;
+}
 
 /** The same config, with the embedder swapped to the built-in ONNX. */
 export function onnxConfig(config) {
