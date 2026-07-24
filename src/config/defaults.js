@@ -73,7 +73,9 @@ const DEFAULTS = {
   // explicit "warn" | "block" override. Release branches are exempt.
   method_gates: {
     card_first: "auto",
-    card_first_exempt_branches: ["chore/release-"]
+    card_first_exempt_branches: ["chore/release-"],
+    // MG-B: source changes without a test change — "warn" | "block".
+    tests_with_code: "warn"
   },
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",

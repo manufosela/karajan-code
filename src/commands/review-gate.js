@@ -12,6 +12,7 @@ import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
+import { checkTestsWithCode } from "../review/tests-with-code.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
 // (before spending sonar/reviewer effort) AND on --check — the pre-commit
@@ -108,6 +109,18 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   const card = await enforceCardFirst({ config, projectDir });
   if (!card.ok) return { verdict: "rejected", reviewer: "card-first", issues: [{ severity: "high", description: card.reason }] };
 
+  // KJC-TSK-0687 (MG-B): the verifiable half of TDD — sources without a
+  // single test change warn (block via method_gates.tests_with_code).
+  const changedFiles = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
+  const tests = checkTestsWithCode({ config, stagedFiles: changedFiles });
+  if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
+  if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);
+  if (!tests.ok) {
+    console.log(`✗ tests-with-code gate: ${tests.reason}`);
+    process.exitCode = 1;
+    return { verdict: "rejected", reviewer: "tests-with-code", issues: [{ severity: "high", description: tests.reason }] };
+  }
+
   if (flags.check) {
     const res = await checkVerdict(projectDir, diff);
     console.log(res.ok
@@ -123,8 +136,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // the cross-AI reviewer weighs them. Unavailable sonar degrades loudly.
   let task = flags.task;
   if (flags.sonar !== false) {
-    const files = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
-    const pre = await runSonarPregate({ config, stagedFiles: files, logger });
+    const pre = await runSonarPregate({ config, stagedFiles: changedFiles, logger });
     if (!pre.available) {
       console.log(`⚠ sonar pre-gate skipped: ${pre.reason}`);
     } else {
