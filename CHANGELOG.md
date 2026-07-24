@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.4.1] - 2026-07-24
+
+Patch. **The ONNX fallback actually works now** — and the repo's three-AI arbitration had its first real run.
+
+### Fixed
+
+- **v4.4.0's ONNX fallback never worked on a clean machine** (KJC-BUG-0128): the `kj env install` index probe opened the vector store just to check — and opening runs the DDL, creating the vec table at Ollama's 768 dims. The ONNX fallback then failed every 384-dim insert with a dimension mismatch. The probe no longer creates anything (file check first), an EMPTY wrong-dim store is reset (read-only plain-sqlite inspection; a store with data is never touched), and the return-to-Ollama hint now describes the real procedure instead of a nonexistent `--rebuild` flag.
+
+Process milestone: the cross-AI reviewer rejected this fix on a factually wrong premise — `kj solomon` (Copilot as arbiter) ruled for the brain on empirical evidence, the first real arbitration in this repo's own gate.
+
 ## [4.4.0] - 2026-07-23
 
 Minor. **karajan-rag protects karajan-code** — the first dependency between the two products, and a RAG that works on machines where nothing can be installed.
