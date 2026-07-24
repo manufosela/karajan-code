@@ -6,12 +6,17 @@
  */
 import { installPlaybook } from "../environment/playbook.js";
 import { renderBrief, listBriefs } from "../environment/briefs.js";
-import { openVecStore, projectSlug, getLastIndexedCommit } from "../rag/vec-store.js";
+import { existsSync } from "node:fs";
+import { openVecStore, projectSlug, getLastIndexedCommit, dbPath } from "../rag/vec-store.js";
 import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
-import { onnxConfig, persistOnnxChoice } from "../rag/onnx-fallback.js";
+import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
 
 function hasRagIndex(config, projectDir) {
+  // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
+  // the DDL, and a table born at the default dim (768) breaks the ONNX
+  // fallback (384) later. No file → no index, without side effects.
+  if (!existsSync(dbPath())) return false;
   const db = openVecStore({ dim: config?.rag?.embedder?.dim || 768 });
   try { return Boolean(getLastIndexedCommit(db, projectSlug(projectDir))); }
   finally { db.close(); }
@@ -69,11 +74,19 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
       if (explicitProvider) return false;
       console.log(`⚠ default embedder unavailable (${why}) — trying the built-in ONNX embedder (no install needed)…`);
       try {
+        // KJC-BUG-0128: an empty store may carry a vec table at the wrong
+        // dim (the old probe created it at 768) — reset it so ONNX (384)
+        // can index. A store with data is never touched.
+        if (!resetEmptyStore()) {
+          console.log("  the vector store already has data at another dimension — not switching automatically");
+          return false;
+        }
         const totals = await ragIndexCommand({ config: onnxConfig(config), logger, flags: { withSources: true } });
         if ((totals?.indexed ?? 0) > 0) {
           const p = await persistOnnxChoice(projectDir);
           console.log(`✓ RAG indexed with the built-in ONNX embedder — persisted in ${p}`);
-          console.log("  For higher-quality embeddings later: install Ollama and run `kj rag index --rebuild`.");
+          console.log("  To move to Ollama later: install it, remove the rag.embedder block from .karajan/kj.config.yml,");
+          console.log("  delete the store (~/.karajan/rag.db) and run: kj rag index --with-sources");
           return true;
         }
       } catch (fallbackErr) {
