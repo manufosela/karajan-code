@@ -463,6 +463,14 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--bind <host>", "Bind host (default: 127.0.0.1; use 0.0.0.0 to expose on LAN — token auth auto-enforced)")
     .action(async (action = "start", opts) => {
       await withConfig(pkgVersion, "board", opts, async ({ config, logger }) => {
+        // KJC-TSK-0684 (issue #1287): an external board is the source of
+        // truth — don't start (or advertise) a parallel HU Board. "stop"
+        // stays allowed so a leftover daemon can be cleaned up.
+        if (config?.state_backend === "external" && action !== "stop") {
+          const name = config?.board?.name || "an external board";
+          console.log(`⚠ this project's board lives in ${name} (state_backend: external) — kj does not run a parallel HU Board here.`);
+          return;
+        }
         const port = Number(opts.port) || config.hu_board?.port || 4000;
         const bind = opts.bind || config.hu_board?.bind || "127.0.0.1";
         await boardCommand({ action, port, bind, logger });

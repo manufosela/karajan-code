@@ -60,8 +60,13 @@ const DEFAULTS = {
   // null in the user's config opts out (no cap).
   max_budget_usd: 5,
   // ENV-D1 (KJC-TSK-0642): where work items live. The HU Board ships with
-  // kj; "planning-game" routes the v4 playbook to the user's PG MCP.
+  // kj; "planning-game" routes the v4 playbook to the user's PG MCP;
+  // "external" (KJC-TSK-0684) points card-first at the project's own board
+  // (Linear, Trello, Jira, GitHub Issues…) named in board.name — worked
+  // through the host agent's MCP/tools, never mirrored by kj. There is NO
+  // "none": Karajan does not run without a board.
   state_backend: "hu-board",
+  board: { name: null },
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",
   base_branch: "main",

@@ -60,6 +60,16 @@ export async function huCommand({ config = null, action, args = [], flags = {} }
   const projectDir = config?.projectDir || process.cwd();
   const emit = (obj, human) => { console.log(flags.json ? JSON.stringify(obj) : human); return obj; };
 
+  // KJC-TSK-0684 (issue #1287): with an external board declared, kj never
+  // maintains a parallel HU Board — writes are refused with the pointer.
+  if (config?.state_backend === "external" && (action === "add" || action === "move")) {
+    const name = config?.board?.name || "an external board";
+    throw new Error(
+      `this project's board lives in ${name} (state_backend: external) — create and move cards there, `
+      + `through your agent's MCP/tools. kj does not mirror external boards.`
+    );
+  }
+
   if (action === "list") {
     const plans = await listPlans(projectDir);
     const rows = [];

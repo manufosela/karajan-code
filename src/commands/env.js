@@ -45,6 +45,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
   const result = await installPlaybook({
     projectDir, target: flags.target || "all",
     stateBackend: config?.state_backend || "hu-board",
+    boardName: config?.board?.name || null,
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
 
