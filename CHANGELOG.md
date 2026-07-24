@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.0] - 2026-07-24
+
+Minor. **The method, enforced.** v3 commanded but couldn't think; v4 thinks but narrates — so every method rule climbs from playbook text to its deterministic ceiling: gate, nudge, or trail (épica KJC-PCS-0068).
+
+### Added
+
+- **Card-first gate** (KJC-TSK-0686): with hu-board, the branch must reference a LIVE card or the commit does not enter (token-boundary matching, live-preferring scan); planning-game/external boards get a presence check (warn default, `method_gates.card_first: block` to harden). Base and release branches are exempt; `KJ_ALLOW_NO_CARD=1` is the explicit escape. Rides inside `kj review --check` — existing hooks gain it on update, no regeneration.
+- **Tests-with-code gate** (KJC-TSK-0687): a staged diff touching sources without a single test change warns with the list (block via `method_gates.tests_with_code`); uses the project's own `development.*` patterns; docs/config-only diffs pass silently; `KJ_ALLOW_NO_TESTS=1` escape.
+- **Runtime nudges** (KJC-TSK-0688): moving a SECOND HU to running suggests the exact `kj worktree start` command (only on the real transition); staged diffs above `method_gates.pr_size_warn` (150 added lines) get an informative note — never a block.
+- **Method adherence report** (KJC-TSK-0689): `kj check` and `kj doctor` show the aggregate trail — commits with card refs, verdict workspaces (root vs lanes), source commits without tests. Individual deviations can be legitimate; the aggregate is the drift detector.
+
 ## [4.5.0] - 2026-07-24
 
 Minor. **Any board — but always a board.** Projects that already live in Linear, Trello, Jira or GitHub Issues get card-first pointed at THEIR board; and no project runs without one (closes #1287).
