@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.4.0 — karajan-rag protege a karajan-code (actual)
+### v4.4.1 — el fallback ONNX funciona de verdad (actual)
+
+Patch con un estreno dentro: el fallback instala-donde-sea de la v4.4.0 moría en máquinas limpias porque la sonda del índice creaba en silencio la tabla vectorial con la dimensión equivocada — arreglado con una sonda que no crea nada y un reset del store vacío, verificado sobre el escenario exacto del fallo. Y cuando el reviewer cruzado rechazó el fix con una premisa factualmente errónea, `kj solomon` tuvo su primer uso real: una tercera IA arbitró, falló con la evidencia empírica y abrió el gate. Actualización directa desde v4.4.0.
+
+### v4.4.0 — karajan-rag protege a karajan-code
 
 Minor con hito de familia: la primera dependencia entre los dos productos Karajan. Los embedders cloud exigen ya un `rag.sensitivity: public` explícito — el default seguro los bloquea con error accionable — y aun permitidos, cada chunk pasa por la redacción PII de karajan-rag, auditada de forma independiente, antes de salir de la máquina. Además: las máquinas donde no se puede instalar nada tienen RAG operativo — sin Ollama, se cae al embedder ONNX integrado en proceso, con la elección persistida. Actualización directa desde v4.3.1.
 
