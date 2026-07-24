@@ -11,6 +11,24 @@ import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
+import { checkCardFirst } from "../review/card-first.js";
+
+// KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
+// (before spending sonar/reviewer effort) AND on --check — the pre-commit
+// hook already calls --check, so existing projects gain the gate with a
+// simple package update, no hook regeneration.
+async function enforceCardFirst({ config, projectDir }) {
+  const branchRes = await runCommand("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const branch = branchRes.stdout?.trim() || "HEAD";
+  const card = await checkCardFirst({ config, projectDir, branch });
+  if (card.mode === "warn") console.log(`⚠ card-first: ${card.reason}`);
+  if (card.mode === "exempt" && card.reason.includes("KJ_ALLOW_NO_CARD")) console.log(`⚠ card-first exempt: ${card.reason}`);
+  if (!card.ok) {
+    console.log(`✗ card-first gate: ${card.reason}`);
+    process.exitCode = 1;
+  }
+  return card;
+}
 
 // Raw git always — never a wrapped/compressing runner (KJC-BUG-0115).
 async function rawDiff(range, extraArgs = []) {
@@ -86,6 +104,9 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   }
 
   const diff = await rawDiff(flags.range);
+
+  const card = await enforceCardFirst({ config, projectDir });
+  if (!card.ok) return { verdict: "rejected", reviewer: "card-first", issues: [{ severity: "high", description: card.reason }] };
 
   if (flags.check) {
     const res = await checkVerdict(projectDir, diff);

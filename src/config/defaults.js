@@ -67,6 +67,14 @@ const DEFAULTS = {
   // "none": Karajan does not run without a board.
   state_backend: "hu-board",
   board: { name: null },
+  // Method gates (KJC-PCS-0068): rules climb from playbook text to
+  // deterministic enforcement. card_first: "auto" = block with hu-board
+  // (fully verifiable), warn with planning-game/external (presence only);
+  // explicit "warn" | "block" override. Release branches are exempt.
+  method_gates: {
+    card_first: "auto",
+    card_first_exempt_branches: ["chore/release-"]
+  },
   review_rules: "./.karajan/review-rules.md",
   coder_rules: "./.karajan/coder-rules.md",
   base_branch: "main",
