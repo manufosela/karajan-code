@@ -25,6 +25,9 @@ vi.mock("../../src/rag/onnx-fallback.js", async (orig) => ({
   persistOnnxChoice: vi.fn().mockResolvedValue("/tmp/proj/.karajan/kj.config.yml"),
   resetEmptyStore: vi.fn(() => true),
 }));
+vi.mock("../../src/environment/board-access.js", () => ({
+  verifyBoardAccess: vi.fn(() => ({ ok: true, backend: "hu-board", via: "bundled HU Board" })),
+}));
 
 import { envInstallCommand } from "../../src/commands/env.js";
 import { getLastIndexedCommit } from "../../src/rag/vec-store.js";
@@ -140,6 +143,21 @@ describe("env install is RAG-first", () => {
     spy.mockRestore();
     expect(res.exitCode).toBe(3);
     expect(res.ragError).toMatch(/ollama down/);
+  });
+
+  // KJC-TSK-0685: no board access → block BEFORE the RAG even runs. The
+  // playbook stays installed; exit 3 carries the exact steps.
+  it("blocks with exit 3 when the declared board has no access path — before touching the RAG", async () => {
+    const { verifyBoardAccess } = await import("../../src/environment/board-access.js");
+    verifyBoardAccess.mockReturnValueOnce({ ok: false, backend: "external", name: "Linear", needed: ["configure the Linear MCP, or", "export LINEAR_API_KEY"] });
+    const logs = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
+    const res = await envInstallCommand({ config, flags: {} });
+    spy.mockRestore();
+    expect(res.exitCode).toBe(3);
+    expect(res.boardError).toMatch(/Linear|LINEAR/);
+    expect(ragIndexCommand).not.toHaveBeenCalled(); // board first, RAG later
+    expect(logs.join("\n")).toMatch(/PENDING USER ACTION/);
   });
 
   it("a healthy first index does not block", async () => {

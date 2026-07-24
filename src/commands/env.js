@@ -11,6 +11,7 @@ import { openVecStore, projectSlug, getLastIndexedCommit, dbPath } from "../rag/
 import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
+import { verifyBoardAccess } from "../environment/board-access.js";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
@@ -48,6 +49,22 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     boardName: config?.board?.name || null,
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
+
+  // KJC-TSK-0685 (user rule): Karajan does not run without a board — it is
+  // what guarantees ordered, card-first work. Verify an OPERATIONAL access
+  // path to the declared backend BEFORE anything else; no path → block
+  // (exit 3) with the exact steps. The playbook stays installed.
+  const access = verifyBoardAccess({ config, projectDir });
+  if (!access.ok) {
+    result.boardError = access.needed.join(" | ");
+    result.exitCode = PENDING_EXIT_CODE;
+    console.log(renderPendingBlock(
+      [{ tool: `${access.name || access.backend} board`, action: "needs-user", reason: `Karajan does not run without a board. To use ${access.name || access.backend}: ${access.needed.join(" ")}` }],
+      { retry: "kj env install" },
+    ));
+    return result;
+  }
+  if (access.backend !== "hu-board") console.log(`✓ board access verified: ${access.via}`);
 
   // ENV-E1: RAG-first — the playbook orders "query the RAG before coding",
   // so installing the environment guarantees the index exists. KJC-TSK-0659
