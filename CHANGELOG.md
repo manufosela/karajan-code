@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-07-24
+
+Minor. **Any board — but always a board.** Projects that already live in Linear, Trello, Jira or GitHub Issues get card-first pointed at THEIR board; and no project runs without one (closes #1287).
+
+### Added
+
+- **External boards as source of truth** (KJC-TSK-0684): `state_backend: external` + `board.name` make the playbook's card-first invariant point at the project's own board, worked through the host agent's MCP/tools. kj never mirrors it: `kj hu add|move` refuse with the pointer, `kj board` doesn't start a parallel dashboard (`stop` stays available for cleanup). Default `hu-board` unchanged.
+- **`kj env install` guarantees an operational board** (KJC-TSK-0685): hu-board is ok by construction (it ships with kj); planning-game requires its MCP in a host agent config; external requires the named board's MCP or an API token (per-board convention or `board.token_env`). No access path → PENDING-USER-ACTION block (exit 3) with the exact steps, before the RAG step. **There is no `none`: Karajan does not run without a board** — the board is what guarantees ordered, card-first work and meaningful lanes.
+
 ## [4.4.1] - 2026-07-24
 
 Patch. **The ONNX fallback actually works now** — and the repo's three-AI arbitration had its first real run.
