@@ -10,9 +10,10 @@ import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { escapeRegExp } from "../utils/escape-regexp.js";
 
 const LIVE_STATUSES = new Set(["pending", "running", "failed"]);
-// Card-shaped reference: LIN-123, KJC-TSK-0684, bb-002… anchored on a
-// letter, short alnum head, dash, digits — tight enough to skip slugs.
-const CARD_REF_RE = /\b[a-z][a-z0-9]{1,9}-\d{1,6}\b/i;
+// Card-shaped reference: LIN-123, bb-002 and multi-segment ids like
+// KJC-TSK-0684 (optional middle segments) — tight enough to skip slugs.
+// Shared with the method report (MG-D): one pattern, one truth.
+export const CARD_REF_RE = /\b[a-z][a-z0-9]{1,9}(?:-[a-z][a-z0-9]{1,9})*-\d{1,6}\b/i;
 const DEFAULT_EXEMPT_PREFIXES = ["chore/release-"];
 
 // Token-boundary match: BB-002 must not satisfy a branch that actually
