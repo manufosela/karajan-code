@@ -66,6 +66,10 @@ Invariants (the git gates enforce these — they are not suggestions):
   and it must be reviewed again. Disagree with a rejection? \`kj solomon\`.
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: \`kj brief security\` states what must be true.
+- A design decision the card's AC don't cover belongs to the USER: record
+  it as a proposed ADR (\`kj adr add\`) and ask — never bury it in a PR
+  bullet. An oversized-diff warning is not an opinion either: partition,
+  or get an explicit OK.
 - Branch first: never commit on the base branch — every change reaches it
   through an atomic PR (~150 net lines, Conventional Commits). More than one
   task, or the base tree must stay untouched? \`kj worktree start <slug>\`

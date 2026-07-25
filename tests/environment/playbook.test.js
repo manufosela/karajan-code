@@ -22,6 +22,8 @@ describe("renderPlaybook", () => {
       // get run) and demands the isolation proof.
       expect(text).toMatch(/kj worktree start/);
       expect(text).toMatch(/--git-common-dir/);
+      // KJC-TSK-0691 (MG-G): out-of-AC decisions go back to the user.
+      expect(text).toMatch(/proposed ADR/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }
