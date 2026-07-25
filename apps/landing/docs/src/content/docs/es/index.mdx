@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.1 — ninguna sesión trabaja a ciegas (actual)
+### v4.6.2 — los warnings dejan de ser negociables (actual)
+
+Patch, directo del campo: una sesión racionalizó una PR de 522 líneas pese al aviso, dejó commits sin referencia de card mientras preguntaba si adoptar la convención, y decidió un esquema unilateralmente. Tres respuestas: `method_gates.pr_size: block` rechaza los diffs sobredimensionados determinísticamente (escape con nombre, el default sigue warn — redactado ya como *no es una opinión*); las decisiones de diseño fuera de los criterios de la card deben volver como ADR propuesto y pregunta; y un hook `prepare-commit-msg` estampa el ref de card de la rama en cada subject — una convención que se cumple sola no necesita adopción. Actualización directa desde v4.6.1.
+
+### v4.6.1 — ninguna sesión trabaja a ciegas
 
 Patch. Cada invocación de kj ya comprobaba actualizaciones; ahora el aviso dice QUÉ trae la versión nueva — el titular de la release viaja con él —, el chequeo se refresca cada 6 horas en vez de a diario, y tanto el aviso como el playbook ordenan al agente: cuéntaselo a tu usuario y pregunta antes de actualizar, jamás `kj update` por tu cuenta. Actualizar sigue siendo una decisión humana e informada. Actualización directa desde v4.6.0.
 
