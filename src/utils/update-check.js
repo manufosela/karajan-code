@@ -5,8 +5,38 @@ import { isSea } from "node:sea";
 import { getKarajanHome } from "./paths.js";
 
 const CACHE_FILE = "update-check.json";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// KJC-TSK-0690: 6h — kj can ship several releases a day; a session should
+// not work a full day blind. KJ_NO_UPDATE_CHECK=1 opts out (CI).
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const PACKAGE_NAME = "karajan-code";
+const CHANGELOG_URL = "https://raw.githubusercontent.com/manufosela/karajan-code/main/CHANGELOG.md";
+const HIGHLIGHT_MAX = 160;
+
+/**
+ * First paragraph of a version's CHANGELOG section — the release headline
+ * ("Minor. **The method, enforced.** …"), bold stripped, truncated. Pure.
+ */
+export function parseChangelogHighlight(markdown, version) {
+  const section = String(markdown).split(new RegExp(`^## \\[${version.replaceAll(".", "\\.")}\\][^\\n]*$`, "m"))[1];
+  if (!section) return null;
+  const firstLine = section.split(/^##|^###/m)[0].split("\n").map((l) => l.trim()).find(Boolean);
+  if (!firstLine) return null;
+  const clean = firstLine.replaceAll("**", "");
+  return clean.length > HIGHLIGHT_MAX ? `${clean.slice(0, HIGHLIGHT_MAX - 1)}…` : clean;
+}
+
+async function fetchHighlight(version) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(CHANGELOG_URL, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return parseChangelogHighlight(await res.text(), version);
+  } catch {
+    return null;
+  }
+}
 
 const RAW_BASE = "https://raw.githubusercontent.com/manufosela/karajan-code/main/scripts";
 export const INSTALL_SH_URL = `${RAW_BASE}/install-binary.sh`;
@@ -48,6 +78,7 @@ export function detectInstallChannel() {
  * Returns { updateAvailable, latest, current } or null if check fails/cached.
  */
 export async function checkForUpdate(currentVersion) {
+  if (process.env.KJ_NO_UPDATE_CHECK === "1") return null;
   try {
     const cachePath = path.join(getKarajanHome(), CACHE_FILE);
 
@@ -59,7 +90,7 @@ export async function checkForUpdate(currentVersion) {
         if (!cache.latest || cache.latest === currentVersion) return null;
         // Only show update if latest is actually NEWER than current
         if (compareVersions(cache.latest, currentVersion) > 0) {
-          return { updateAvailable: true, latest: cache.latest, current: currentVersion };
+          return { updateAvailable: true, latest: cache.latest, current: currentVersion, highlight: cache.highlight || null };
         }
         return null;
       }
@@ -78,14 +109,16 @@ export async function checkForUpdate(currentVersion) {
     const data = await res.json();
     const latest = data.version;
 
+    // KJC-TSK-0690: a NEWER version also fetches its headline once — the
+    // notice tells the user what it brings, not just that it exists.
+    const newer = latest !== currentVersion && compareVersions(latest, currentVersion) > 0;
+    const highlight = newer ? await fetchHighlight(latest) : null;
+
     // Save cache
     await fs.mkdir(getKarajanHome(), { recursive: true });
-    await fs.writeFile(cachePath, JSON.stringify({ latest, checkedAt: Date.now() }), "utf8");
+    await fs.writeFile(cachePath, JSON.stringify({ latest, checkedAt: Date.now(), highlight }), "utf8");
 
-    if (latest === currentVersion) return null;
-    if (compareVersions(latest, currentVersion) > 0) {
-      return { updateAvailable: true, latest, current: currentVersion };
-    }
+    if (newer) return { updateAvailable: true, latest, current: currentVersion, highlight };
     return null;
   } catch {
     return null; // Network error, offline, etc. Never block.
@@ -100,7 +133,9 @@ export async function printUpdateNotice(currentVersion) {
   if (result?.updateAvailable) {
     const channel = detectInstallChannel();
     console.log(`\n  Update available: v${result.current} → v${result.latest}`);
-    console.log(`  ${updateInstruction({ channel })}\n`);
+    if (result.highlight) console.log(`  What it brings: ${result.highlight}`);
+    console.log(`  ${updateInstruction({ channel })}`);
+    console.log("  Agent: tell your user and ask before updating — never update on your own.\n");
   }
 }
 

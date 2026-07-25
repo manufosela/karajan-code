@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkForUpdate,
   updateInstruction,
+  parseChangelogHighlight,
   performSelfUpdate,
   INSTALL_SH_URL,
   INSTALL_PS1_URL,
@@ -35,6 +36,35 @@ describe("update-check", () => {
     expect(result).toBeNull();
   });
 
+  // KJC-TSK-0690: the notice tells the user WHAT the new version brings —
+  // the headline is the first paragraph of the version's CHANGELOG section.
+  it("parses the version headline from the changelog (bold stripped, truncated)", () => {
+    const md = "# Changelog\n\n## [Unreleased]\n\n## [4.6.0] - 2026-07-24\n\nMinor. **The method, enforced.** Rules climb to gates.\n\n### Added\n- stuff\n\n## [4.5.0] - 2026-07-24\n\nOther.\n";
+    expect(parseChangelogHighlight(md, "4.6.0")).toBe("Minor. The method, enforced. Rules climb to gates.");
+    expect(parseChangelogHighlight(md, "9.9.9")).toBeNull();
+    expect(parseChangelogHighlight("x".repeat(10), "4.6.0")).toBeNull();
+  });
+
+  it("KJ_NO_UPDATE_CHECK=1 skips everything, including the fetch", async () => {
+    process.env.KJ_NO_UPDATE_CHECK = "1";
+    try {
+      expect(await checkForUpdate("1.0.0")).toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.KJ_NO_UPDATE_CHECK;
+    }
+  });
+
+  it("a fresh newer version carries the changelog highlight into result and cache", async () => {
+    global.fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ version: "2.0.0" }) })
+      .mockResolvedValueOnce({ ok: true, text: async () => "## [2.0.0] - 2026-07-25\n\nMinor. **Big thing.** Details.\n" });
+    const r = await checkForUpdate("1.0.0");
+    expect(r).toMatchObject({ updateAvailable: true, latest: "2.0.0", highlight: "Minor. Big thing. Details." });
+    const cached = JSON.parse(fs.writeFile.mock.calls[0][1]);
+    expect(cached.highlight).toBe("Minor. Big thing. Details.");
+  });
+
   it("returns update info when npm has newer version", async () => {
     global.fetch.mockResolvedValue({
       ok: true,
@@ -45,6 +75,7 @@ describe("update-check", () => {
       updateAvailable: true,
       latest: "1.39.0",
       current: "1.38.2",
+      highlight: null,
     });
   });
 
@@ -78,6 +109,7 @@ describe("update-check", () => {
       updateAvailable: true,
       latest: "1.40.0",
       current: "1.38.2",
+      highlight: null,
     });
     expect(global.fetch).not.toHaveBeenCalled();
   });
