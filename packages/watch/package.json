@@ -4,6 +4,9 @@
   "description": "El vigía de la orquesta Karajan: RAG compartido multi-repo siempre fresco, análisis de impacto cross-repo en cada merge y detección de documentación desactualizada. Motor: karajan-rag.",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "karajan-watch": "bin/karajan-watch.js"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js",
     "lint": "eslint ."

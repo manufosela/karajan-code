@@ -1,0 +1,89 @@
+# Workflow REUSABLE de ingesta por merge (F1).
+#
+# Lo invoca el repo de despliegue de la organización (privado) en cada
+# merge de un repo observado. Monta el workspace multi-repo COMPLETO
+# (obligatorio: el manifest incremental invalida los ficheros ausentes,
+# indexar un workspace parcial destruiría el corpus de los demás repos),
+# restaura el manifest y reindexa incrementalmente con karajan-rag.
+#
+# Genérico: nada de organizaciones concretas — todo llega por inputs,
+# secrets y el karajan-watch.config.json del repo que llama.
+name: kjw-ingest
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organización de GitHub dueña de los repos observados
+        type: string
+        required: true
+      config-path:
+        description: Ruta del karajan-watch.config.json en el repo que llama
+        type: string
+        default: karajan-watch.config.json
+      corpus:
+        description: Corpus a reindexar (code | docs)
+        type: string
+        default: code
+      workspace-dir:
+        description: Directorio del workspace multi-repo
+        type: string
+        default: .kjw-workspace
+      karajan-watch-version:
+        description: Versión de karajan-watch a ejecutar
+        type: string
+        default: latest
+    secrets:
+      REPOS_TOKEN:
+        description: Token con lectura de todos los repos observados
+        required: true
+      PG_URL:
+        description: Conexión pgvector del corpus (si el store es pgvector)
+        required: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Montar workspace multi-repo (todos los repos declarados)
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          ORG: ${{ inputs.org }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WS"
+          jq -c '.repos[]' "$CONFIG" | while read -r repo; do
+            name=$(jq -r '.name' <<<"$repo")
+            branch=$(jq -r '.branch // "main"' <<<"$repo")
+            echo "clonando $ORG/$name@$branch"
+            git clone --quiet --depth 1 --branch "$branch" \
+              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
+              "$WS/$name"
+          done
+
+      # Manifest incremental: si el cache no aparece, el reindex es
+      # completo — correcto aunque lento, nunca un índice a medias.
+      - name: Restaurar manifest incremental
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.workspace-dir }}/.karajan
+          key: kjw-manifest-${{ inputs.corpus }}-${{ github.run_id }}
+          restore-keys: |
+            kjw-manifest-${{ inputs.corpus }}-
+
+      - name: Reindexar corpus (karajan-rag, embedder local en el runner)
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+        run: |
+          set -euo pipefail
+          npx --yes "karajan-watch@${{ inputs.karajan-watch-version }}" ingest \
+            --config "${{ inputs.config-path }}" \
+            --workspace "${{ inputs.workspace-dir }}" \
+            --corpus "${{ inputs.corpus }}"
