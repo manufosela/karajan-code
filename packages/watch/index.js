@@ -12,3 +12,5 @@ export {
   VALID_EMBEDDERS,
   VALID_NOTIFY_TYPES,
 } from './src/config.js';
+export { IngestError, buildIngestPlan, verifyWorkspace, runIngest } from './src/ingest.js';
+export { DiffError, parseUnifiedDiff } from './src/diff.js';
