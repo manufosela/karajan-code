@@ -1,0 +1,13 @@
+{
+  "verdict": "approved",
+  "reviewer": "codex",
+  "host": "claude",
+  "issues": [],
+  "suggestions": [
+    "In `.karajan/coder-rules.md` and `.karajan/roles/coder.md`, the advice to revert with `git checkout -- <file>` is risky in a multi-developer workspace because it discards all unstaged changes in that file, not just unintended edits from the current task."
+  ],
+  "summary": "Approved: within the provided diff, the changes are documentation-only additions and I did not find a concrete security, correctness, or performance issue that should block approval.",
+  "confidence": 0.95,
+  "diffHash": "1357adee70396f2798167de2705a97b31eb1ddf21935be3be93b24ac67ad4306",
+  "timestamp": "2026-07-22T13:52:41.738Z"
+}

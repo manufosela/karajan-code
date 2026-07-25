@@ -27,6 +27,13 @@ export function isPublishableNpm(projectDir) {
   }
 }
 
+/** Lockfile-detected package manager (KJC-BUG-0131): npm ci kills pnpm/yarn CI. */
+export function detectPackageManager(projectDir) {
+  if (existsSync(join(projectDir, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync(join(projectDir, "yarn.lock"))) return "yarn";
+  return "npm";
+}
+
 export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
@@ -35,9 +42,10 @@ export function installWorkflows({
   dryRun = false,
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
-  const quality = qualityWorkflowFor(language);
-  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir) });
-  const mut = mutation ? mutationWorkflowFor(language) : null;
+  const pm = detectPackageManager(projectDir);
+  const quality = qualityWorkflowFor(language, pm);
+  const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
+  const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : [])];
   const results = [];
   for (const wf of all) {
