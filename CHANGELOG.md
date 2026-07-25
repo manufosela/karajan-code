@@ -15,6 +15,7 @@ Patch. **Subprocess by right, host by choice** — running kj inside Claude Code
 
 - **CLI providers always spawn as a subprocess** (KJC-BUG-0129, issues #1301/#1303 by @jorgecasar): `isHostAgent()` conflated "running inside agent X" with "the user chose X as provider" — inside Claude Code with `coder: claude`, the pipeline silently delegated to the host via `elicitInput` and hung headless runs. Now every CLI provider spawns its own subprocess even when kj runs inside it; host delegation remains available as an explicit opt-in with `roles.coder.host_delegation: true`.
 - **brace-expansion HIGH advisory resolved** (KJC-BUG-0130, nightly drift #994): GHSA-mh99-v99m-4gvg (DoS via unbounded expansion), transitive through `@modelcontextprotocol/sdk` — lockfile-only `npm audit fix`, non-breaking.
+- **`kj harden` CI workflows respect the repo's package manager** (KJC-BUG-0131, issue #1330): the generated quality/pack-smoke/mutation workflows hardcoded `npm ci`, killing every PR check in pnpm/yarn repos with `EUSAGE: can only install with an existing package-lock.json`. The lockfile now decides — pnpm gets `corepack enable` + `pnpm install --frozen-lockfile` with `--if-present` BEFORE the script name (pnpm forwards trailing flags to the script), yarn gets `yarn install --frozen-lockfile`. Managed workflows refresh on the next `kj harden` run.
 
 ## [4.6.2] - 2026-07-25
 
