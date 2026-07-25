@@ -23,3 +23,9 @@ export {
   parseVerdict,
   judgeImpact,
 } from './src/judgment.js';
+export {
+  NotifyError,
+  buildImpactRanking,
+  renderImpactMarkdown,
+  deliverNotifications,
+} from './src/report.js';
