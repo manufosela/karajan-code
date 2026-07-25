@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.2] - 2026-07-25
+
+Patch. **Warnings stop being negotiable** — a field session rationalized a 522-line PR past the warning, left commits without card refs while asking whether to adopt the convention, and decided a schema unilaterally. Three answers:
+
+### Added
+
+- **`method_gates.pr_size: block`** (KJC-TSK-0691): the review rejects deterministically above the budget without invoking the reviewer; `KJ_ALLOW_LARGE_PR=1` is the explicit, visible escape. The default stays `warn` — now worded without ambiguity: *an oversized warning is not an opinion: partition, or ask your user*.
+- **Out-of-AC decisions go back to the user** (KJC-TSK-0691): the playbook orders that any design decision the card's acceptance criteria don't cover be recorded as a proposed ADR (`kj adr add`) and ASKED — never buried in a PR bullet.
+- **`prepare-commit-msg` card stamp** (KJC-TSK-0692): `kj harden` installs a hook that stamps the branch's card ref into the commit subject automatically — POSIX-safe, boundary-matched, respecting the 100-char cap, skipping merges. A convention that enforces itself needs no adoption; the method report's "commits with card ref" squares itself.
+
 ## [4.6.1] - 2026-07-25
 
 Patch. **No session works blind** — the update notice now tells you what the new version brings, and the agent asks before updating.
