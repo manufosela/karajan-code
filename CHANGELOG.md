@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.3] - 2026-07-25
+
+Patch. **Subprocess by right, host by choice** — running kj inside Claude Code no longer hijacks the coder role.
+
+### Fixed
+
+- **CLI providers always spawn as a subprocess** (KJC-BUG-0129, issues #1301/#1303 by @jorgecasar): `isHostAgent()` conflated "running inside agent X" with "the user chose X as provider" — inside Claude Code with `coder: claude`, the pipeline silently delegated to the host via `elicitInput` and hung headless runs. Now every CLI provider spawns its own subprocess even when kj runs inside it; host delegation remains available as an explicit opt-in with `roles.coder.host_delegation: true`.
+- **brace-expansion HIGH advisory resolved** (KJC-BUG-0130, nightly drift #994): GHSA-mh99-v99m-4gvg (DoS via unbounded expansion), transitive through `@modelcontextprotocol/sdk` — lockfile-only `npm audit fix`, non-breaking.
+
 ## [4.6.2] - 2026-07-25
 
 Patch. **Warnings stop being negotiable** — a field session rationalized a 522-line PR past the warning, left commits without card refs while asking whether to adopt the convention, and decided a schema unilaterally. Three answers:
