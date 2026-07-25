@@ -31,5 +31,10 @@
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "karajan-rag": "^1.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
   }
 }
