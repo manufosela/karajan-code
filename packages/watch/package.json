@@ -29,6 +29,7 @@
     "url": "https://github.com/manufosela/karajan-watch/issues"
   },
   "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@11.5.2",
   "dependencies": {
     "karajan-rag": "^1.2.0"
   },
