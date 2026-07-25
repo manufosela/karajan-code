@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.0 — el método, aplicado (actual)
+### v4.6.1 — ninguna sesión trabaja a ciegas (actual)
+
+Patch. Cada invocación de kj ya comprobaba actualizaciones; ahora el aviso dice QUÉ trae la versión nueva — el titular de la release viaja con él —, el chequeo se refresca cada 6 horas en vez de a diario, y tanto el aviso como el playbook ordenan al agente: cuéntaselo a tu usuario y pregunta antes de actualizar, jamás `kj update` por tu cuenta. Actualizar sigue siendo una decisión humana e informada. Actualización directa desde v4.6.0.
+
+### v4.6.0 — el método, aplicado
 
 Minor que cierra el trade de la v4: el agente ganó inteligencia, las reglas ganaron dientes. Card-first es ya gate (sin card viva no hay commit — con boards externos, chequeo de presencia); el código sin tests avisa o bloquea; una segunda tarea concurrente recibe el comando `kj worktree start` exacto en el momento exacto; y `kj check` informa de la adherencia — commits sin card, veredictos por workspace, commits sin tests — porque las excepciones legítimas agregan una deriva visible. Toda escotilla de escape es explícita y con nombre. [Fase 106 →](/docs/es/architecture/history/#fase-106-v460--el-método-aplicado-v460)
 
