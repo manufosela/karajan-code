@@ -54,15 +54,37 @@ const header = (steps) =>
     ...steps,
   ].join("\n");
 
+// Per-package-manager commands (KJC-BUG-0131, issue #1330): `npm ci` in a
+// pnpm/yarn repo dies with EUSAGE (no package-lock.json). corepack ships with
+// Node 22 and resolves the right pnpm/yarn from `packageManager` — no
+// third-party action. pnpm passes flags AFTER the script name to the script
+// itself, so --if-present must go BEFORE it; yarn has no --if-present at all,
+// so lint runs through `npm run` (scripts don't touch the lockfile).
+const PM_COMMANDS = {
+  npm: { setup: [], install: "npm ci", lint: "npm run -s lint --if-present", test: "npm test" },
+  pnpm: {
+    setup: ["      - run: corepack enable"],
+    install: "pnpm install --frozen-lockfile",
+    lint: "pnpm run --if-present -s lint",
+    test: "pnpm test",
+  },
+  yarn: {
+    setup: ["      - run: corepack enable"],
+    install: "yarn install --frozen-lockfile",
+    lint: "npm run -s lint --if-present",
+    test: "yarn test",
+  },
+};
+
+const nodeSetupSteps = (pm) => [
+  "      - uses: actions/setup-node@v4",
+  "        with:",
+  "          node-version: 22",
+  ...(PM_COMMANDS[pm] || PM_COMMANDS.npm).setup,
+  `      - run: ${(PM_COMMANDS[pm] || PM_COMMANDS.npm).install}`,
+];
+
 const QUALITY_BY_LANGUAGE = {
-  javascript: header([
-    "      - uses: actions/setup-node@v4",
-    "        with:",
-    "          node-version: 22",
-    "      - run: npm ci",
-    "      - run: npm run -s lint --if-present",
-    "      - run: npm test",
-  ]),
   python: header([
     "      - uses: actions/setup-python@v5",
     "        with:",
@@ -87,11 +109,13 @@ const QUALITY_BY_LANGUAGE = {
     "      - run: vendor/bin/phpunit",
   ]),
 };
-QUALITY_BY_LANGUAGE.typescript = QUALITY_BY_LANGUAGE.javascript;
-
 /** Stack-aware Quality workflow entry, or null for an unknown language. */
-export function qualityWorkflowFor(language) {
-  const body = QUALITY_BY_LANGUAGE[language];
+export function qualityWorkflowFor(language, pm = "npm") {
+  const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
+  const body =
+    language === "javascript" || language === "typescript"
+      ? header([...nodeSetupSteps(pm), `      - run: ${c.lint}`, `      - run: ${c.test}`])
+      : QUALITY_BY_LANGUAGE[language];
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body } : null;
 }
 
@@ -123,29 +147,29 @@ export const SHRINK_BUDGET_WORKFLOW = [
 ].join("\n");
 
 // Packs the tarball and installs it clean — only for publishable npm packages.
-export const PACK_SMOKE_WORKFLOW = [
-  "name: Pack smoke",
-  "on:",
-  "  pull_request:",
-  "    branches: [main]",
-  "permissions:",
-  "  contents: read",
-  "jobs:",
-  "  pack-smoke:",
-  "    runs-on: ubuntu-latest",
-  "    steps:",
-  "      - uses: actions/checkout@v4",
-  "      - uses: actions/setup-node@v4",
-  "        with:",
-  "          node-version: 22",
-  "      - run: npm ci",
-  "      - name: Pack and install the tarball clean",
-  "        run: |",
-  "          tgz=$(npm pack --silent)",
-  "          dir=$(mktemp -d)",
-  '          npm install --prefix "$dir" "$PWD/$tgz" --no-audit --no-fund',
-  '          echo "Tarball installs clean: $tgz"',
-].join("\n");
+// `npm pack`/`npm install <tarball>` need no lockfile, so only the dependency
+// install step is package-manager-aware.
+export const packSmokeWorkflow = (pm = "npm") =>
+  [
+    "name: Pack smoke",
+    "on:",
+    "  pull_request:",
+    "    branches: [main]",
+    "permissions:",
+    "  contents: read",
+    "jobs:",
+    "  pack-smoke:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: actions/checkout@v4",
+    ...nodeSetupSteps(pm),
+    "      - name: Pack and install the tarball clean",
+    "        run: |",
+    "          tgz=$(npm pack --silent)",
+    "          dir=$(mktemp -d)",
+    '          npm install --prefix "$dir" "$PWD/$tgz" --no-audit --no-fund',
+    '          echo "Tarball installs clean: $tgz"',
+  ].join("\n");
 
 // Opt-in nightly/manual mutation audit (KJC-TSK-0589). NEVER a PR gate: it runs
 // on a weekly schedule + manual dispatch, and the mutate step is non-blocking
@@ -153,7 +177,7 @@ export const PACK_SMOKE_WORKFLOW = [
 // yields a JSON report (stryker/mutmut/infection) get a workflow — no silent
 // scaffold for tools that can't report yet.
 const MUTATION_TOOLCHAIN = {
-  javascript: ["      - run: npm ci"],
+  javascript: "node", // resolved per package manager in mutationWorkflowFor
   python: [
     "      - uses: actions/setup-python@v5",
     "        with:",
@@ -170,9 +194,11 @@ const MUTATION_TOOLCHAIN = {
 MUTATION_TOOLCHAIN.typescript = MUTATION_TOOLCHAIN.javascript;
 
 /** Opt-in mutation workflow entry, or null for a stack without a JSON report. */
-export function mutationWorkflowFor(language) {
-  const toolchain = MUTATION_TOOLCHAIN[language];
-  if (!toolchain) return null;
+export function mutationWorkflowFor(language, pm = "npm") {
+  const entry = MUTATION_TOOLCHAIN[language];
+  if (!entry) return null;
+  const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
+  const toolchain = entry === "node" ? [...c.setup, `      - run: ${c.install}`] : entry;
   const body = [
     "name: Mutation (nightly)",
     "on:",
@@ -200,13 +226,13 @@ export function mutationWorkflowFor(language) {
 }
 
 /** Conditional workflows: shrink-budget on strict, pack-smoke when publishable. */
-export function extraWorkflowsFor({ profile = "standard", publishable = false } = {}) {
+export function extraWorkflowsFor({ profile = "standard", publishable = false, pm = "npm" } = {}) {
   const extras = [];
   if (profile === "strict") {
     extras.push({ file: "kj-shrink-budget.yml", blockId: "wf-shrink", body: SHRINK_BUDGET_WORKFLOW });
   }
   if (publishable) {
-    extras.push({ file: "kj-pack-smoke.yml", blockId: "wf-pack-smoke", body: PACK_SMOKE_WORKFLOW });
+    extras.push({ file: "kj-pack-smoke.yml", blockId: "wf-pack-smoke", body: packSmokeWorkflow(pm) });
   }
   return extras;
 }

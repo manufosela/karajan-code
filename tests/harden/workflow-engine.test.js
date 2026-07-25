@@ -132,6 +132,32 @@ describe("installWorkflows", () => {
     expect(res.workflows.map((w) => w.file)).not.toContain(mutFile);
   });
 
+  // KJC-BUG-0131 (issue #1330): npm ci in a pnpm repo kills every PR check.
+  it("a pnpm repo installs with pnpm and puts --if-present BEFORE the script", () => {
+    writeFileSync(join(dir, "pnpm-lock.yaml"), "");
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" } }));
+    installWorkflows({ projectDir: dir, language: "javascript", mutation: true });
+    const q = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(q).toContain("corepack enable");
+    expect(q).toContain("pnpm install --frozen-lockfile");
+    expect(q).toContain("pnpm run --if-present -s lint");
+    expect(q).not.toContain("npm ci");
+    expect(read(join(".github", "workflows", "kj-pack-smoke.yml"))).not.toContain("npm ci");
+    expect(read(mutFile)).not.toContain("npm ci");
+  });
+
+  it("a yarn repo installs with yarn; no lockfile keeps npm ci", () => {
+    writeFileSync(join(dir, "yarn.lock"), "");
+    installWorkflows({ projectDir: dir, language: "typescript" });
+    const q = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(q).toContain("yarn install --frozen-lockfile");
+    expect(q).not.toContain("npm ci");
+    const plain = mkdtempSync(join(tmpdir(), "kj-wf-npm-"));
+    installWorkflows({ projectDir: plain, language: "javascript" });
+    expect(readFileSync(join(plain, ".github", "workflows", "kj-quality.yml"), "utf8")).toContain("npm ci");
+    rmSync(plain, { recursive: true, force: true });
+  });
+
   it("mutation workflow is idempotent", () => {
     installWorkflows({ projectDir: dir, language: "python", mutation: true });
     const res = installWorkflows({ projectDir: dir, language: "python", mutation: true });
