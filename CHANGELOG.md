@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.6.1] - 2026-07-25
+
+Patch. **No session works blind** — the update notice now tells you what the new version brings, and the agent asks before updating.
+
+### Added
+
+- **Update notice with release highlights** (KJC-TSK-0690): the per-invocation cached version check now fetches the new version's CHANGELOG headline once and prints it — `What it brings: Minor. The method, enforced. …` — alongside the channel-aware update instruction. Check TTL lowered to 6h (several releases can ship in a day); `KJ_NO_UPDATE_CHECK=1` skips it (CI). The notice and the playbook both order the agent: tell your user what it brings and ASK — never run `kj update` on your own. Updating is always a human, informed decision.
+
 ## [4.6.0] - 2026-07-24
 
 Minor. **The method, enforced.** v3 commanded but couldn't think; v4 thinks but narrates — so every method rule climbs from playbook text to its deterministic ceiling: gate, nudge, or trail (épica KJC-PCS-0068).
