@@ -17,9 +17,17 @@ export class CoderRole extends AgentRole {
   }
 
   createAgentInstance(provider) {
+    // KJC-BUG-0129 (issues #1301/#1303): running INSIDE an agent does not
+    // make it "the host executor" — delegating sent the full instruction
+    // prompt through elicitInput as a hanging board "question". A CLI
+    // provider spawns as a subprocess ALWAYS; host delegation is explicit
+    // opt-in (roles.coder.host_delegation: true) for MCP-only setups.
     if (this._askHost && isHostAgent(provider)) {
-      this.logger.info(`Host-as-coder: delegating to host AI (skipping ${provider} subprocess)`);
-      return new HostAgent(this.config, this.logger, { askHost: this._askHost });
+      if (this.config?.roles?.coder?.host_delegation === true) {
+        this.logger.info(`Host-as-coder: delegating to host AI (roles.coder.host_delegation, skipping ${provider} subprocess)`);
+        return new HostAgent(this.config, this.logger, { askHost: this._askHost });
+      }
+      this.logger.info(`Running inside ${provider} — spawning it as a subprocess anyway (set roles.coder.host_delegation: true to delegate to the host)`);
     }
     return this._createAgent(provider, this.config, this.logger);
   }
