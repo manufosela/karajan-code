@@ -1,0 +1,5 @@
+node_modules/
+.karajan/
+coverage/
+*.log
+.serena/
