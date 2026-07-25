@@ -24,7 +24,7 @@ afterEach(() => {
 describe("installHooks", () => {
   it("installs the standard profile as executable managed hooks and sets hooksPath", async () => {
     const res = await installHooks({ projectDir: repo, profile: "standard" });
-    expect(res.hooks.map((h) => h.hook).sort()).toEqual(["commit-msg", "post-merge", "pre-commit", "pre-push"]);
+    expect(res.hooks.map((h) => h.hook).sort()).toEqual(["commit-msg", "post-merge", "pre-commit", "pre-push", "prepare-commit-msg"]);
     for (const { hook } of res.hooks) {
       const f = join(repo, ".karajan", "hooks", hook);
       expect(existsSync(f)).toBe(true);

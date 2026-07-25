@@ -16,8 +16,8 @@ export const SHEBANG = "#!/usr/bin/env sh";
 /** Hooks enabled per profile. */
 export const PROFILE_HOOKS = {
   minimal: ["commit-msg"],
-  standard: ["pre-commit", "commit-msg", "pre-push", "post-merge"],
-  strict: ["pre-commit", "commit-msg", "pre-push", "post-merge"],
+  standard: ["pre-commit", "prepare-commit-msg", "commit-msg", "pre-push", "post-merge"],
+  strict: ["pre-commit", "prepare-commit-msg", "commit-msg", "pre-push", "post-merge"],
 };
 
 /** Build the managed body for a single hook. */
@@ -99,6 +99,37 @@ export function hookBody(hook, cmds = {}, { globalHooksDir = null, baseBranch = 
       else lines.push("# (no test command detected for this stack)");
       return [...lines, ...chain].join("\n");
     }
+    case "prepare-commit-msg":
+      // KJC-TSK-0692 (MG-F): the branch already carries the card ref
+      // (validated by the card-first gate) — the subject inherits it
+      // automatically. A convention that enforces itself needs no adoption.
+      return [
+        'msg_file="$1"',
+        'branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")',
+        "# POSIX-safe extraction (no grep -o): the ref is the leading",
+        "# card-shaped token of the branch's last segment (feat/REF-desc).",
+        "seg=$(printf '%s' \"$branch\" | tr '[:upper:]' '[:lower:]'); seg=\"${seg##*/}\"",
+        "ref=$(printf '%s' \"$seg\" | sed -nE 's/^([a-z][a-z0-9]{1,9}(-[a-z][a-z0-9]{1,9})*-[0-9]{1,6})(-.*)?$/\\1/p')",
+        'header=$(head -n1 "$msg_file")',
+        'if [ -n "$ref" ] && [ -n "$header" ]; then',
+        '  case "$header" in',
+        "    Merge*|fixup!*|squash!*) ;;",
+        "    *)",
+        "      # Boundary match — a header mentioning KJW-TSK-00011 must not",
+        "      # suppress the KJW-TSK-0001 stamp. $ref is [a-z0-9-] only by",
+        "      # construction (sed extraction above), safe inside the ERE.",
+        '      if ! printf \'%s\' "$header" | grep -qiE "(^|[^a-zA-Z0-9-])$ref([^a-zA-Z0-9-]|$)"; then',
+        "        stamp=$(printf '%s' \"$ref\" | tr '[:lower:]' '[:upper:]')",
+        '        new_header="$header ($stamp)"',
+        '        if [ "${#new_header}" -le 100 ]; then',
+        "          { printf '%s\\n' \"$new_header\"; tail -n +2 \"$msg_file\"; } > \"$msg_file.kjtmp\" && mv \"$msg_file.kjtmp\" \"$msg_file\"",
+        "        fi",
+        "      fi",
+        "      ;;",
+        "  esac",
+        "fi",
+        ...chain,
+      ].join("\n");
     case "post-merge":
       return [
         "# Refresh the local RAG index so retrieval never serves stale code.",
