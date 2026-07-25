@@ -42,7 +42,7 @@ describe("hardenCommand", () => {
   it("installs hooks and reports ok", async () => {
     const res = await hardenCommand({ projectDir: repo, profile: "standard", logger });
     expect(res.ok).toBe(true);
-    expect(res.hooks).toHaveLength(4);
+    expect(res.hooks).toHaveLength(5);
     expect(existsSync(join(repo, ".karajan", "hooks", "commit-msg"))).toBe(true);
     expect(logger.info).toHaveBeenCalled();
   });
