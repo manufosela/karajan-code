@@ -113,14 +113,26 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   // single test change warn (block via method_gates.tests_with_code).
   const changedFiles = (await rawDiff(flags.range, ["--name-only"])).split("\n").map((f) => f.trim()).filter(Boolean);
 
-  // KJC-TSK-0688 (MG-C): oversized-diff nudge — informative only; the
-  // project's CI owns any hard budget. Sums additions from --numstat.
+  // KJC-TSK-0688 (MG-C) + KJC-TSK-0691 (MG-E): oversized-diff policy.
+  // Field case: a 522-line PR sailed past the warning with a
+  // rationalization — where the project wants teeth, pr_size: "block"
+  // rejects deterministically with a NAMED escape. Default stays warn.
   const sizeWarn = config?.method_gates?.pr_size_warn ?? 150;
   if (sizeWarn > 0) {
     const numstat = await rawDiff(flags.range, ["--numstat"]);
     const added = numstat.split("\n").reduce((acc, l) => acc + (Number(l.split("\t")[0]) || 0), 0);
     if (added > sizeWarn) {
-      console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}) — atomic PRs review better; consider splitting (method_gates.pr_size_warn to tune)`);
+      const sizePolicy = config?.method_gates?.pr_size || "warn";
+      if (process.env.KJ_ALLOW_LARGE_PR === "1") {
+        console.log(`⚠ pr-size exempt: ${added} lines added — KJ_ALLOW_LARGE_PR=1 (explicit escape hatch)`);
+      } else if (sizePolicy === "block") {
+        const reason = `${added} lines added exceeds the ${sizeWarn}-line budget (method_gates.pr_size: block) — partition the work, or get your user's explicit OK and re-run with KJ_ALLOW_LARGE_PR=1`;
+        console.log(`✗ pr-size gate: ${reason}`);
+        process.exitCode = 1;
+        return { verdict: "rejected", reviewer: "pr-size", issues: [{ severity: "high", description: reason }] };
+      } else {
+        console.log(`⚠ pr-size: ${added} lines added (guideline ~${sizeWarn}) — an oversized warning is not an opinion: partition, or ask your user (method_gates.pr_size: block to harden)`);
+      }
     }
   }
   const tests = checkTestsWithCode({ config, stagedFiles: changedFiles });
