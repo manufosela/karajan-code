@@ -1,0 +1,143 @@
+# Workflow REUSABLE de análisis de impacto cross-repo (F2).
+#
+# Lo invoca el repo de despliegue tras el merge de un repo observado.
+# Monta el workspace multi-repo (misma convención que ingest.yml) pero
+# con historial (git-depth): la señal de co-cambios lo necesita.
+# El informe se imprime en el job y se entrega a los notify.targets del
+# config; cualquier señal fallida o destino caído = job rojo.
+name: kjw-impact
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organización de GitHub dueña de los repos observados
+        type: string
+        required: true
+      repo:
+        description: Repo observado cuyo merge se analiza
+        type: string
+        required: true
+      base-sha:
+        description: SHA base del merge (diff = base-sha..head-sha del repo observado)
+        type: string
+        required: true
+      head-sha:
+        description: SHA mergeado
+        type: string
+        required: true
+      pr-number:
+        description: Nº de PR donde comentar (target pr-comment)
+        type: string
+        default: ''
+      config-path:
+        description: Ruta del karajan-watch.config.json en el repo que llama
+        type: string
+        default: karajan-watch.config.json
+      corpus:
+        description: Corpus a consultar (code | docs)
+        type: string
+        default: code
+      workspace-dir:
+        description: Directorio del workspace multi-repo
+        type: string
+        default: .kjw-workspace
+      git-depth:
+        description: Profundidad de clone (historial para co-cambios)
+        type: number
+        default: 200
+      karajan-watch-version:
+        description: Versión de karajan-watch a ejecutar
+        type: string
+        default: latest
+    secrets:
+      REPOS_TOKEN:
+        description: >-
+          Token con lectura de todos los repos observados y, si se usa el
+          target pr-comment, permiso de escritura de comentarios (issues/PRs)
+          en el repo observado.
+        required: true
+      PG_URL:
+        description: Conexión pgvector del corpus (si el store es pgvector)
+        required: false
+
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Montar workspace multi-repo con historial
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          ORG: ${{ inputs.org }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          DEPTH: ${{ inputs.git-depth }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WS"
+          jq -c '.repos[]' "$CONFIG" | while read -r repo; do
+            name=$(jq -r '.name' <<<"$repo")
+            branch=$(jq -r '.branch // "main"' <<<"$repo")
+            echo "clonando $ORG/$name@$branch (depth $DEPTH)"
+            git clone --quiet --depth "$DEPTH" --branch "$branch" \
+              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
+              "$WS/$name"
+          done
+
+      - name: Extraer diff del merge
+        env:
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          BASE: ${{ inputs.base-sha }}
+          HEAD: ${{ inputs.head-sha }}
+          DEPTH: ${{ inputs.git-depth }}
+        run: |
+          set -euo pipefail
+          # Fetch por SHA crudo no es fiable en remotes de GitHub y el clone
+          # es shallow: se comprueba localmente y se profundiza (--deepen)
+          # con tope hasta que ambos commits existan.
+          ensure_commit() {
+            local sha=$1 attempts=0
+            until git -C "$WS/$REPO" cat-file -e "${sha}^{commit}" 2>/dev/null; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -gt 5 ] ||
+                 [ "$(git -C "$WS/$REPO" rev-parse --is-shallow-repository)" != "true" ]; then
+                echo "commit ${sha} no encontrado en el historial de ${REPO}"
+                exit 1
+              fi
+              echo "profundizando historial (intento ${attempts}) para encontrar ${sha}"
+              git -C "$WS/$REPO" fetch --quiet --deepen="$DEPTH" origin
+            done
+          }
+          ensure_commit "$BASE"
+          ensure_commit "$HEAD"
+          git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
+          test -s merge.diff || { echo "diff vacío entre $BASE y $HEAD"; exit 1; }
+
+      - name: Analizar impacto y avisar
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          # El comentario va a la PR del repo OBSERVADO, no al de despliegue.
+          GITHUB_REPOSITORY: ${{ inputs.org }}/${{ inputs.repo }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          CORPUS: ${{ inputs.corpus }}
+        run: |
+          set -euo pipefail
+          args=(--config "$CONFIG" --workspace "$WS" --repo "$REPO" --diff merge.diff --corpus "$CORPUS")
+          if [ -n "$PR_NUMBER" ]; then
+            case "$PR_NUMBER" in
+              *[!0-9]*) echo "pr-number inválido: $PR_NUMBER"; exit 1 ;;
+              *) args+=(--pr-number "$PR_NUMBER") ;;
+            esac
+          fi
+          npx --yes "karajan-watch@${KJW_VERSION}" impact "${args[@]}"
