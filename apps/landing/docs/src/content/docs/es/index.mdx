@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.5.0 — cualquier board, pero siempre un board (actual)
+### v4.6.0 — el método, aplicado (actual)
+
+Minor que cierra el trade de la v4: el agente ganó inteligencia, las reglas ganaron dientes. Card-first es ya gate (sin card viva no hay commit — con boards externos, chequeo de presencia); el código sin tests avisa o bloquea; una segunda tarea concurrente recibe el comando `kj worktree start` exacto en el momento exacto; y `kj check` informa de la adherencia — commits sin card, veredictos por workspace, commits sin tests — porque las excepciones legítimas agregan una deriva visible. Toda escotilla de escape es explícita y con nombre. [Fase 106 →](/docs/es/architecture/history/#fase-106-v460--el-método-aplicado-v460)
+
+### v4.5.0 — cualquier board, pero siempre un board
 
 Minor con cambio de contrato. Los proyectos que ya viven en Linear, Trello, Jira o GitHub Issues declaran su board y card-first apunta ALLÍ, trabajado con los MCP/tools de tu propio agente — kj jamás lo espeja en un board paralelo a medias. El contrapeso: `kj env install` verifica ya que existe vía de acceso operativa al board declarado (integrado, MCP o token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none` — Karajan no funciona sin board. [Fase 105 →](/docs/es/architecture/history/#fase-105-v450--cualquier-board-pero-siempre-un-board-v450)
 
