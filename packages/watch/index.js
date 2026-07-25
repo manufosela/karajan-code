@@ -16,3 +16,10 @@ export { IngestError, buildIngestPlan, verifyWorkspace, runIngest } from './src/
 export { DiffError, parseUnifiedDiff } from './src/diff.js';
 export { RetrievalError, findImpactCandidates } from './src/retrieval.js';
 export { CoChangeError, correlateCoChanges, readRepoHistory } from './src/cochanges.js';
+export {
+  JudgmentError,
+  SEVERITIES,
+  buildJudgmentPrompt,
+  parseVerdict,
+  judgeImpact,
+} from './src/judgment.js';
