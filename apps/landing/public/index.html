@@ -162,6 +162,23 @@
     @keyframes orbit-spin { to { transform: rotate(360deg); } }
     @keyframes orbit-counter { to { transform: rotate(-360deg); } }
 
+    /* Family — smaller siblings standing beside the mascot, one per side
+       (KJL-TSK-0103): kaRAGan on the right; karajan-watch takes the left
+       when it ships. Same treatment as the parent, no frame, just smaller. */
+    .family-child {
+      position: absolute; bottom: 36px; z-index: 2; line-height: 0;
+      filter: drop-shadow(0 0 14px rgba(232,176,75,0.10));
+      transition: transform 0.2s;
+    }
+    .family-child img { height: 58px; width: auto; }
+    .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
+    .family-child:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 4px; }
+    .family-child-right { right: 6px; }
+    .family-child-left { left: 6px; }
+    @media (max-width: 640px) {
+      .family-child { position: static; margin: 0 0.5rem; vertical-align: bottom; display: inline-block; }
+    }
+
     @media (max-width: 640px) {
       .orbit-ring { display: none; }
       .logo-orbit { width: auto; height: auto; }
@@ -288,24 +305,6 @@
     .footer-counter { margin-top: 1rem; }
 
     /* --- THEME TOGGLE --- */
-    /* Family links — small-icon chips, one at each side (KJL-TSK-0103):
-       kaRAGan on the left; karajan-watch takes the right when it ships. */
-    .family-link {
-      position: fixed; top: 1rem; z-index: 50;
-      display: inline-flex; align-items: center; gap: 0.45rem;
-      padding: 0.45rem 0.7rem; border-radius: 8px;
-      background: var(--bg-card); border: 1px solid var(--border);
-      color: var(--text-muted); font-size: 0.78rem; font-weight: 600;
-      letter-spacing: 0.03em; text-decoration: none;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .family-link:hover, .family-link:focus-visible { border-color: var(--accent-teal); color: var(--text); }
-    .family-link:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
-    .family-link img { height: 18px; width: auto; }
-    .family-link-left { left: 1rem; }
-    .family-link-right { right: 3.6rem; }
-    @media (max-width: 640px) { .family-link span { display: none; } }
-
     .theme-toggle {
       position: fixed; top: 1rem; right: 1rem; z-index: 50;
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
@@ -353,12 +352,6 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
 
-  <a class="family-link family-link-left" href="https://rag.karajancode.com" aria-label="kaRAGan — RAG over your code, docs and data" title="kaRAGan — RAG over your code, docs and data">
-    <img src="/img/rag-logo-120.png" alt="" width="16" height="18">
-    <span>kaRAGan</span>
-  </a>
-  <!-- .family-link-right reserved for karajan-watch (in progress) -->
-
   <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
     <span class="icon-sun" aria-hidden="true">&#9728;</span>
     <span class="icon-moon" aria-hidden="true">&#9790;</span>
@@ -390,6 +383,13 @@
         <!-- OpenCode -->
         <span class="orbit-agent" title="OpenCode"><svg viewBox="0 0 16 16"><path d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8zm4.292-0.708a.5.5 0 0 0 0 .708L13.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0"/></svg></span>
       </div>
+      <a class="family-child family-child-right" href="https://rag.karajancode.com" aria-label="kaRAGan — RAG over your code, docs and data" title="kaRAGan — RAG over your code, docs and data">
+        <picture>
+          <source type="image/webp" srcset="/img/rag-logo-120.webp">
+          <img src="/img/rag-logo-120.png" alt="kaRAGan" width="53" height="58" loading="lazy">
+        </picture>
+      </a>
+      <!-- .family-child-left reserved for karajan-watch (in progress) -->
     </div>
     <h1>Karajan Code</h1>
     <p class="hero-tagline">Code with several AIs, <em class="guarantee">with guarantees</em>.</p>
