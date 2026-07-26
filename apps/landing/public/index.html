@@ -288,6 +288,24 @@
     .footer-counter { margin-top: 1rem; }
 
     /* --- THEME TOGGLE --- */
+    /* Family links — small-icon chips, one at each side (KJL-TSK-0103):
+       kaRAGan on the left; karajan-watch takes the right when it ships. */
+    .family-link {
+      position: fixed; top: 1rem; z-index: 50;
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.45rem 0.7rem; border-radius: 8px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.03em; text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .family-link:hover, .family-link:focus-visible { border-color: var(--accent-teal); color: var(--text); }
+    .family-link:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 2px; }
+    .family-link img { height: 18px; width: auto; }
+    .family-link-left { left: 1rem; }
+    .family-link-right { right: 3.6rem; }
+    @media (max-width: 640px) { .family-link span { display: none; } }
+
     .theme-toggle {
       position: fixed; top: 1rem; right: 1rem; z-index: 50;
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
@@ -334,6 +352,12 @@
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to content</a>
+
+  <a class="family-link family-link-left" href="https://rag.karajancode.com" aria-label="kaRAGan — RAG over your code, docs and data" title="kaRAGan — RAG over your code, docs and data">
+    <img src="/img/rag-logo-120.png" alt="" width="16" height="18">
+    <span>kaRAGan</span>
+  </a>
+  <!-- .family-link-right reserved for karajan-watch (in progress) -->
 
   <button type="button" class="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">
     <span class="icon-sun" aria-hidden="true">&#9728;</span>
