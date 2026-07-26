@@ -14,7 +14,11 @@
  * de karajan-rag).
  */
 import { readFile } from 'node:fs/promises';
-import { SENSITIVITY_LEVELS, DEFAULT_SENSITIVITY } from 'karajan-rag';
+import {
+  SENSITIVITY_LEVELS,
+  DEFAULT_SENSITIVITY,
+  validateSensitivityPolicy,
+} from 'karajan-rag';
 
 /** Stores soportados por `karajan-rag index --store`. */
 export const VALID_STORES = Object.freeze(['lancedb', 'pgvector', 'in-memory']);
@@ -115,6 +119,7 @@ const requireOneOf = (value, path, allowed) => {
  * @property {{code: CorpusConfig, docs: CorpusConfig}} corpus
  * @property {{thresholds: ImpactThresholds}} [impact]
  * @property {{targets: NotifyTarget[]}} [notify]
+ * @property {Record<Sensitivity, string[]>} [policy] Sensitivity policy propia (niveles → adapters); sin ella rige la default de karajan-rag.
  */
 
 /**
@@ -215,7 +220,7 @@ const validateNotifyTarget = (value, path) => {
  */
 export const validateConfig = (raw) => {
   const config = requireObject(raw, '$');
-  rejectUnknownKeys(config, '$', ['repos', 'corpus', 'impact', 'notify']);
+  rejectUnknownKeys(config, '$', ['repos', 'corpus', 'impact', 'notify', 'policy']);
 
   if (!Array.isArray(config.repos) || config.repos.length === 0) {
     throw new ConfigError('$.repos', 'se esperaba un array no vacío de repos.');
@@ -235,6 +240,21 @@ export const validateConfig = (raw) => {
 
   if (config.impact !== undefined) {
     result.impact = validateImpact(config.impact, '$.impact');
+  }
+  if (config.policy !== undefined) {
+    // La validación es del motor (DRY); solo se traduce el error al
+    // formato de ConfigError con su path.
+    try {
+      result.policy = /** @type {WatchConfig['policy']} */ (
+        validateSensitivityPolicy(config.policy)
+      );
+    } catch (err) {
+      throw new ConfigError(
+        '$.policy',
+        err instanceof Error ? err.message : String(err),
+        { cause: err },
+      );
+    }
   }
   if (config.notify !== undefined) {
     const notify = requireObject(config.notify, '$.notify');

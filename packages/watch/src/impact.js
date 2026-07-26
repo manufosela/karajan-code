@@ -170,7 +170,7 @@ export const runImpactPipeline = async ({
     coChanges,
     diffSummary,
     sensitivity: corpus.sensitivity,
-    policy: createDefaultSensitivityPolicy(),
+    policy: config.policy ?? createDefaultSensitivityPolicy(),
     runAdapter: deps.runAdapter ?? defaultRunAdapter(),
   });
 

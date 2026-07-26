@@ -50,6 +50,26 @@ vacío. Tipos soportados:
 - `{ "type": "pr-comment" }` — comentario en la PR mergeada.
 - `{ "type": "webhook", "url": "https://…" }` — POST al webhook (solo https).
 
+### `policy` (opcional)
+
+Sensitivity policy propia del despliegue: mapa nivel → adapters LLM
+permitidos, validado con `validateSensitivityPolicy` de karajan-rag
+(los tres niveles son obligatorios):
+
+```json
+{
+  "policy": {
+    "confidential": ["ollama"],
+    "internal": ["ollama", "azure-openai"],
+    "public": ["claude", "codex"]
+  }
+}
+```
+
+Sin esta sección rige `createDefaultSensitivityPolicy()` del motor.
+Un adapter pedido explícitamente que la policy no permita para el nivel
+efectivo es un error — nunca se degrada a otro adapter en silencio.
+
 ## Sensibilidad
 
 Los niveles y su default heredan el modelo de karajan-rag

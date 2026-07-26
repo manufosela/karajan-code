@@ -113,6 +113,32 @@ test('co-cambios sin historial: el pipeline sigue y el informe refleja noSignal'
   assert.ok(result.coChanges.noSignal.length > 0);
 });
 
+test('la policy del config gobierna el adapter del juicio', async () => {
+  /** @type {string[]} */
+  const used = [];
+  const customConfig = validateConfig({
+    repos: [{ name: 'repo-a' }, { name: 'repo-b' }],
+    corpus: {
+      code: { store: 'in-memory', embedder: 'hash' },
+      docs: { store: 'in-memory', embedder: 'hash' },
+    },
+    policy: {
+      confidential: ['ollama'],
+      internal: ['azure-openai'],
+      public: ['claude'],
+    },
+  });
+  const deps = fakeDeps({
+    runAdapter: async (adapterName) => {
+      used.push(adapterName);
+      return VERDICT;
+    },
+  });
+  await runImpactPipeline(baseParams({ config: customConfig, deps }));
+  // corpus.code.sensitivity default = internal → primer permitido de la policy del config.
+  assert.deepEqual(used, ['azure-openai']);
+});
+
 test('extractAdapterText: estricto, sin cadenas de fallback silenciosas', () => {
   assert.equal(extractAdapterText({ parsedOutput: { text: 'hola' } }), 'hola');
   assert.equal(extractAdapterText({ process: { stdout: 'salida' } }), 'salida');

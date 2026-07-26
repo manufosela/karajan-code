@@ -136,6 +136,24 @@ test('notify.targets: array no vacío de destinos tipados', () => {
   assertInvalid(withTargets([{ type: 'pr-comment', url: 'https://x' }]), '$.notify.targets[0].url');
 });
 
+test('policy: opcional, validada con el modelo de karajan-rag', () => {
+  const withPolicy = {
+    ...minimalConfig(),
+    policy: {
+      confidential: ['ollama'],
+      internal: ['ollama', 'azure-openai'],
+      public: ['claude'],
+    },
+  };
+  const result = validateConfig(withPolicy);
+  assert.deepEqual(result.policy?.internal, ['ollama', 'azure-openai']);
+
+  assert.equal(validateConfig(minimalConfig()).policy, undefined);
+
+  assertInvalid({ ...minimalConfig(), policy: { internal: ['ollama'] } }, '$.policy');
+  assertInvalid({ ...minimalConfig(), policy: 'ollama' }, '$.policy');
+});
+
 test('loadConfig: carga y valida un fichero JSON', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'kjw-config-'));
   const filePath = join(dir, 'karajan-watch.config.json');
