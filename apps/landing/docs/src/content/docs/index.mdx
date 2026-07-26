@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.2 — warnings stop being negotiable (current)
+### v4.6.3 — subprocess by right, host by choice (current)
+
+Patch closing the first externally-diagnosed v4 bug: running kj inside Claude Code with `coder: claude` silently handed the coder role to the host and hung headless runs (issues #1301/#1303 by @jorgecasar). CLI providers now always spawn their own subprocess even when kj runs inside them; delegating to the host is an explicit opt-in (`roles.coder.host_delegation: true`). Also from the field: `kj harden` CI workflows now detect the repo's package manager (pnpm/yarn repos no longer die on `npm ci`), and the brace-expansion HIGH advisory caught by the nightly drift is resolved. Drop-in upgrade from v4.6.2.
+
+### v4.6.2 — warnings stop being negotiable
 
 Patch, straight from the field: a session rationalized a 522-line PR past the warning, left commits without card refs while asking whether to adopt the convention, and decided a schema unilaterally. Three answers: `method_gates.pr_size: block` rejects oversized diffs deterministically (named escape, default stays warn — now worded as *not an opinion*); design decisions outside the card's acceptance criteria must come back as a proposed ADR and a question; and a `prepare-commit-msg` hook stamps the branch's card ref into every commit subject — a convention that enforces itself needs no adoption. Drop-in upgrade from v4.6.1.
 

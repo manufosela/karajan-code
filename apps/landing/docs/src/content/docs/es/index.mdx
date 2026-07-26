@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.2 — los warnings dejan de ser negociables (actual)
+### v4.6.3 — subproceso por derecho, host por elección (actual)
+
+Parche que cierra el primer bug de v4 diagnosticado desde fuera: ejecutar kj dentro de Claude Code con `coder: claude` entregaba en silencio el rol de coder al host y colgaba las ejecuciones headless (issues #1301/#1303 de @jorgecasar). Los providers CLI ahora siempre lanzan su propio subproceso aunque kj corra dentro de ellos; delegar en el host es un opt-in explícito (`roles.coder.host_delegation: true`). También desde el campo: los workflows de CI de `kj harden` ahora detectan el gestor de paquetes del repo (los repos pnpm/yarn ya no mueren en `npm ci`), y queda resuelto el aviso HIGH de brace-expansion que cazó el drift nocturno. Actualización directa desde v4.6.2.
+
+### v4.6.2 — los warnings dejan de ser negociables
 
 Patch, directo del campo: una sesión racionalizó una PR de 522 líneas pese al aviso, dejó commits sin referencia de card mientras preguntaba si adoptar la convención, y decidió un esquema unilateralmente. Tres respuestas: `method_gates.pr_size: block` rechaza los diffs sobredimensionados determinísticamente (escape con nombre, el default sigue warn — redactado ya como *no es una opinión*); las decisiones de diseño fuera de los criterios de la card deben volver como ADR propuesto y pregunta; y un hook `prepare-commit-msg` estampa el ref de card de la rama en cada subject — una convención que se cumple sola no necesita adopción. Actualización directa desde v4.6.1.
 
