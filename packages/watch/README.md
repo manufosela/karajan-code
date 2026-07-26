@@ -10,21 +10,47 @@ Parte de la familia **Karajan** ([karajan-code](https://github.com/manufosela/ka
 [karajan-rag](https://www.npmjs.com/package/karajan-rag) como motor de
 indexado, retrieval y gobernanza de sensibilidad.
 
-**Estado: en diseño (pre-0.1.0).** El plan de fases vive en
-[docs/design.md](./docs/design.md).
+**Estado: 0.1.0** — F1 (ingesta), F2 (impacto) y F3 (deriva de docs)
+implementadas. El diseño vive en [docs/design.md](./docs/design.md).
 
-## Qué hace (visión)
+## Qué hace
 
 1. **RAG compartido siempre fresco** — en cada PR mergeada de cualquier
    repo observado, reindexa incrementalmente el corpus compartido
    (código multi-repo y documentación, índices separados) y lo sirve a
-   agentes vía MCP/HTTP.
+   agentes vía MCP/HTTP. → [docs/ingest.md](./docs/ingest.md)
 2. **Análisis de impacto cross-repo** — para cada merge: retrieval del
    diff contra los demás repos + historial de co-cambios de git + juicio
    LLM (gobernado por la sensitivity policy) → **ranking de riesgo con
    evidencia**, comentado donde el equipo trabaja.
+   → [docs/impact.md](./docs/impact.md)
 3. **Deriva de documentación** — cruza el diff con el corpus de docs:
    "esto que has cambiado aparece en estas secciones; revísalas".
+   → [docs/drift.md](./docs/drift.md)
+
+## Quickstart
+
+```bash
+npm install karajan-watch   # Node >= 20
+```
+
+En el repo privado de despliegue de tu organización:
+
+1. Declara tus repos, corpus, sensibilidad y destinos de aviso en un
+   [`karajan-watch.config.json`](./karajan-watch.config.example.json)
+   validado estrictamente → [docs/config.md](./docs/config.md).
+2. Invoca los workflows reusables (`ingest.yml`, `impact.yml`,
+   `drift.yml`) desde tus GitHub Actions, o usa el CLI directamente:
+
+```bash
+karajan-watch ingest --workspace .kjw-workspace --corpus code
+karajan-watch impact --workspace .kjw-workspace --repo backend-api --diff merge.diff
+karajan-watch drift  --workspace .kjw-workspace --repo backend-api --diff merge.diff
+karajan-watch eval   --workspace .kjw-workspace --golden golden-incidents.json
+```
+
+Calibración del ranking con incidentes reales: [docs/eval.md](./docs/eval.md).
+Contrato con el motor y gaps upstream: [docs/karajan-rag-contract.md](./docs/karajan-rag-contract.md).
 
 ## Qué NO es
 
