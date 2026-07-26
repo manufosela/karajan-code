@@ -71,3 +71,7 @@ El manifest (`workspace/.karajan/`) se conserva entre ejecuciones con
 completo**: correcto aunque lento, nunca un índice a medias. Los
 despliegues que necesiten garantías más fuertes (p. ej. manifest en GCS
 junto al corpus) lo resuelven en su capa de despliegue.
+
+Los reindex se **serializan por corpus** (`concurrency` del workflow,
+sin cancelación): dos merges concurrentes compartiendo manifest se
+pisarían; en su lugar, el segundo espera al primero.

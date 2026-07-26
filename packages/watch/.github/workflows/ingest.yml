@@ -43,6 +43,12 @@ on:
 jobs:
   ingest:
     runs-on: ubuntu-latest
+    # Un reindex a la vez por corpus: dos merges concurrentes compartiendo
+    # el manifest cacheado se pisarían. Se serializa, nunca se cancela
+    # (cancelar un reindex es perder frescura del corpus).
+    concurrency:
+      group: kjw-ingest-${{ inputs.corpus }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -58,14 +64,18 @@ jobs:
           WS: ${{ inputs.workspace-dir }}
         run: |
           set -euo pipefail
+          # Auth por header (patrón actions/checkout): el token no entra en
+          # la URL remota, ni en .git/config, ni en mensajes de error.
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
           mkdir -p "$WS"
           jq -c '.repos[]' "$CONFIG" | while read -r repo; do
             name=$(jq -r '.name' <<<"$repo")
             branch=$(jq -r '.branch // "main"' <<<"$repo")
             echo "clonando $ORG/$name@$branch"
-            git clone --quiet --depth 1 --branch "$branch" \
-              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
-              "$WS/$name"
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+              clone --quiet --depth 1 --branch "$branch" \
+              "https://github.com/${ORG}/${name}.git" "$WS/$name"
           done
 
       # Manifest incremental: si el cache no aparece, el reindex es

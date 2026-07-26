@@ -79,18 +79,23 @@ jobs:
           DEPTH: ${{ inputs.git-depth }}
         run: |
           set -euo pipefail
+          # Auth por header (patrón actions/checkout): el token no entra en
+          # la URL remota, ni en .git/config, ni en mensajes de error.
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
           mkdir -p "$WS"
           jq -c '.repos[]' "$CONFIG" | while read -r repo; do
             name=$(jq -r '.name' <<<"$repo")
             branch=$(jq -r '.branch // "main"' <<<"$repo")
             echo "clonando $ORG/$name@$branch (depth $DEPTH)"
-            git clone --quiet --depth "$DEPTH" --branch "$branch" \
-              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
-              "$WS/$name"
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+              clone --quiet --depth "$DEPTH" --branch "$branch" \
+              "https://github.com/${ORG}/${name}.git" "$WS/$name"
           done
 
       - name: Extraer diff del merge
         env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
           WS: ${{ inputs.workspace-dir }}
           REPO: ${{ inputs.repo }}
           BASE: ${{ inputs.base-sha }}
@@ -98,6 +103,8 @@ jobs:
           DEPTH: ${{ inputs.git-depth }}
         run: |
           set -euo pipefail
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
           # Fetch por SHA crudo no es fiable en remotes de GitHub y el clone
           # es shallow: se comprueba localmente y se profundiza (--deepen)
           # con tope hasta que ambos commits existan.
@@ -111,7 +118,8 @@ jobs:
                 exit 1
               fi
               echo "profundizando historial (intento ${attempts}) para encontrar ${sha}"
-              git -C "$WS/$REPO" fetch --quiet --deepen="$DEPTH" origin
+              git -C "$WS/$REPO" -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+                fetch --quiet --deepen="$DEPTH" origin
             done
           }
           ensure_commit "$BASE"

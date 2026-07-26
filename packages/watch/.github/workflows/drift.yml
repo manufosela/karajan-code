@@ -72,25 +72,33 @@ jobs:
           WS: ${{ inputs.workspace-dir }}
         run: |
           set -euo pipefail
+          # Auth por header (patrón actions/checkout): el token no entra en
+          # la URL remota, ni en .git/config, ni en mensajes de error.
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
           mkdir -p "$WS"
           jq -c '.repos[]' "$CONFIG" | while read -r repo; do
             name=$(jq -r '.name' <<<"$repo")
             branch=$(jq -r '.branch // "main"' <<<"$repo")
             echo "clonando $ORG/$name@$branch"
-            git clone --quiet --depth 1 --branch "$branch" \
-              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
-              "$WS/$name"
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+              clone --quiet --depth 1 --branch "$branch" \
+              "https://github.com/${ORG}/${name}.git" "$WS/$name"
           done
 
       - name: Extraer diff del merge
         env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
           WS: ${{ inputs.workspace-dir }}
           REPO: ${{ inputs.repo }}
           BASE: ${{ inputs.base-sha }}
           HEAD: ${{ inputs.head-sha }}
         run: |
           set -euo pipefail
-          git -C "$WS/$REPO" fetch --quiet --deepen=50 origin
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          git -C "$WS/$REPO" -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+            fetch --quiet --deepen=50 origin
           git -C "$WS/$REPO" cat-file -e "$BASE^{commit}" || { echo "base $BASE fuera del historial superficial"; exit 1; }
           git -C "$WS/$REPO" cat-file -e "$HEAD^{commit}" || { echo "head $HEAD fuera del historial superficial"; exit 1; }
           git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
