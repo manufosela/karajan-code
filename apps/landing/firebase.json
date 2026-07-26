@@ -94,6 +94,48 @@
         "type": 302
       }
     ]
+  }, {
+    "target": "watch",
+    "public": "public-watch",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      },
+      {
+        "source": "**/*.@(css|js)",
+        "headers": [{ "key": "Cache-Control", "value": "max-age=31536000, immutable" }]
+      }
+    ],
+    "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/config.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/config.md",
+        "type": 302
+      },
+      {
+        "source": "/ingest.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/ingest.md",
+        "type": 302
+      },
+      {
+        "source": "/impact.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/impact.md",
+        "type": 302
+      },
+      {
+        "source": "/drift.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/drift.md",
+        "type": 302
+      },
+      {
+        "source": "/eval.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/eval.md",
+        "type": 302
+      }
+    ]
   }],
   "functions": {
     "source": "functions",

@@ -10,6 +10,9 @@
         ],
         "rag": [
           "karajan-rag"
+        ],
+        "watch": [
+          "karajan-watch"
         ]
       }
     }
