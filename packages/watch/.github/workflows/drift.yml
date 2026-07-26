@@ -1,0 +1,120 @@
+# Workflow REUSABLE de deriva de documentación (F3).
+#
+# Tras el merge de un repo observado, consulta el corpus docs con el diff
+# y avisa de qué secciones de documentación pueden quedar desactualizadas.
+# No usa co-cambios: el clone es shallow (depth 1), como en la ingesta.
+name: kjw-drift
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organización de GitHub dueña de los repos observados
+        type: string
+        required: true
+      repo:
+        description: Repo observado cuyo merge se analiza
+        type: string
+        required: true
+      base-sha:
+        description: SHA base del merge
+        type: string
+        required: true
+      head-sha:
+        description: SHA mergeado
+        type: string
+        required: true
+      pr-number:
+        description: Nº de PR donde comentar (target pr-comment)
+        type: string
+        default: ''
+      judge:
+        description: Activar el juicio LLM de filtrado de ruido
+        type: boolean
+        default: false
+      config-path:
+        description: Ruta del karajan-watch.config.json en el repo que llama
+        type: string
+        default: karajan-watch.config.json
+      workspace-dir:
+        description: Directorio del workspace multi-repo
+        type: string
+        default: .kjw-workspace
+      karajan-watch-version:
+        description: Versión de karajan-watch a ejecutar
+        type: string
+        default: latest
+    secrets:
+      REPOS_TOKEN:
+        description: >-
+          Token con lectura de todos los repos observados y, si se usa el
+          target pr-comment, permiso de escritura de comentarios en el repo
+          observado.
+        required: true
+      PG_URL:
+        description: Conexión pgvector del corpus docs (si el store es pgvector)
+        required: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Montar workspace multi-repo
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          ORG: ${{ inputs.org }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$WS"
+          jq -c '.repos[]' "$CONFIG" | while read -r repo; do
+            name=$(jq -r '.name' <<<"$repo")
+            branch=$(jq -r '.branch // "main"' <<<"$repo")
+            echo "clonando $ORG/$name@$branch"
+            git clone --quiet --depth 1 --branch "$branch" \
+              "https://x-access-token:${REPOS_TOKEN}@github.com/${ORG}/${name}.git" \
+              "$WS/$name"
+          done
+
+      - name: Extraer diff del merge
+        env:
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          BASE: ${{ inputs.base-sha }}
+          HEAD: ${{ inputs.head-sha }}
+        run: |
+          set -euo pipefail
+          git -C "$WS/$REPO" fetch --quiet --deepen=50 origin
+          git -C "$WS/$REPO" cat-file -e "$BASE^{commit}" || { echo "base $BASE fuera del historial superficial"; exit 1; }
+          git -C "$WS/$REPO" cat-file -e "$HEAD^{commit}" || { echo "head $HEAD fuera del historial superficial"; exit 1; }
+          git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
+          test -s merge.diff || { echo "diff vacío entre $BASE y $HEAD"; exit 1; }
+
+      - name: Detectar deriva de docs y avisar
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          GITHUB_REPOSITORY: ${{ inputs.org }}/${{ inputs.repo }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          JUDGE: ${{ inputs.judge }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          args=(--config "$CONFIG" --workspace "$WS" --repo "$REPO" --diff merge.diff)
+          [ "$JUDGE" = "true" ] && args+=(--judge)
+          if [ -n "$PR_NUMBER" ]; then
+            case "$PR_NUMBER" in
+              *[!0-9]*) echo "pr-number inválido: $PR_NUMBER"; exit 1 ;;
+              *) args+=(--pr-number "$PR_NUMBER") ;;
+            esac
+          fi
+          npx --yes "karajan-watch@${KJW_VERSION}" drift "${args[@]}"

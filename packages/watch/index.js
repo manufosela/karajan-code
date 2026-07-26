@@ -29,4 +29,10 @@ export {
   renderImpactMarkdown,
   deliverNotifications,
 } from './src/report.js';
-export { ImpactError, extractAdapterText, runImpactPipeline } from './src/impact.js';
+export {
+  ImpactError,
+  extractAdapterText,
+  createDefaultRunAdapter,
+  runImpactPipeline,
+} from './src/impact.js';
+export { DOC_EXTENSIONS, runDriftPipeline } from './src/drift.js';

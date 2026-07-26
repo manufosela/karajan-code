@@ -59,10 +59,11 @@ export const extractAdapterText = (result) => {
 
 /**
  * runAdapter por defecto: registry de adapters de karajan-rag.
+ * Compartido por los pipelines de impacto (F2) y deriva (F3).
  *
  * @returns {(adapterName: string, prompt: string) => Promise<string>}
  */
-const defaultRunAdapter = () => {
+export const createDefaultRunAdapter = () => {
   /** @type {import('karajan-rag').AdapterRegistry | null} */
   let registry = null;
   return async (adapterName, prompt) => {
@@ -171,7 +172,7 @@ export const runImpactPipeline = async ({
     diffSummary,
     sensitivity: corpus.sensitivity,
     policy: config.policy ?? createDefaultSensitivityPolicy(),
-    runAdapter: deps.runAdapter ?? defaultRunAdapter(),
+    runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
   });
 
   const ranking = buildImpactRanking({
