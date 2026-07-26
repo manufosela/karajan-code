@@ -36,3 +36,10 @@ export {
   runImpactPipeline,
 } from './src/impact.js';
 export { DOC_EXTENSIONS, runDriftPipeline } from './src/drift.js';
+export {
+  GoldenSetError,
+  validateGoldenSet,
+  evaluateRanking,
+  runGoldenEval,
+  loadGoldenSet,
+} from './src/eval.js';

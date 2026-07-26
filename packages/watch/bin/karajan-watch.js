@@ -23,6 +23,7 @@ import { ConfigError, loadConfig } from '../src/config.js';
 import { IngestError, runIngest } from '../src/ingest.js';
 import { ImpactError, runImpactPipeline } from '../src/impact.js';
 import { runDriftPipeline } from '../src/drift.js';
+import { GoldenSetError, loadGoldenSet, runGoldenEval } from '../src/eval.js';
 
 const printUsage = () => {
   console.error(
@@ -31,7 +32,9 @@ const printUsage = () => {
       '     karajan-watch impact --workspace <dir> --repo <name> --diff <fichero|-> ' +
       '[--config karajan-watch.config.json] [--corpus code|docs] [--no-deliver] [--pr-number N]\n' +
       '     karajan-watch drift  --workspace <dir> --repo <name> --diff <fichero|-> ' +
-      '[--config karajan-watch.config.json] [--judge] [--no-deliver] [--pr-number N]',
+      '[--config karajan-watch.config.json] [--judge] [--no-deliver] [--pr-number N]\n' +
+      '     karajan-watch eval   --workspace <dir> --golden <fichero> ' +
+      '[--config karajan-watch.config.json]',
   );
 };
 
@@ -74,7 +77,7 @@ const main = async () => {
     process.exit(command ? 0 : 2);
   }
 
-  if (command !== 'ingest' && command !== 'impact' && command !== 'drift') {
+  if (!['ingest', 'impact', 'drift', 'eval'].includes(command)) {
     console.error(`comando desconocido: "${command}".`);
     printUsage();
     process.exit(2);
@@ -88,6 +91,7 @@ const main = async () => {
       corpus: { type: 'string', default: 'code' },
       repo: { type: 'string' },
       diff: { type: 'string' },
+      golden: { type: 'string' },
       judge: { type: 'boolean', default: false },
       'no-deliver': { type: 'boolean', default: false },
       'pr-number': { type: 'string' },
@@ -108,6 +112,30 @@ const main = async () => {
       corpusName: values.corpus,
     });
     return;
+  }
+
+  if (command === 'eval') {
+    if (!values.golden) {
+      console.error('eval: falta --golden <fichero>.');
+      process.exit(2);
+    }
+    const report = await runGoldenEval({
+      golden: await loadGoldenSet(resolve(values.golden)),
+      config,
+      workspaceDir: resolve(values.workspace),
+    });
+    for (const evalCase of report.cases) {
+      const { precision, recall, truePositives } = evalCase.metrics;
+      console.log(
+        `${evalCase.name}: precision ${precision.toFixed(2)} · recall ${recall.toFixed(2)} ` +
+          `· aciertos ${truePositives}`,
+      );
+    }
+    console.log(
+      `agregado: precision ${report.aggregate.precision.toFixed(2)} · ` +
+        `recall ${report.aggregate.recall.toFixed(2)} → ${report.passed ? 'PASSED' : 'FAILED'}`,
+    );
+    process.exit(report.passed ? 0 : 1);
   }
 
   if (!values.repo || !values.diff) {
@@ -133,7 +161,12 @@ const main = async () => {
 };
 
 main().catch((err) => {
-  if (err instanceof ConfigError || err instanceof IngestError || err instanceof ImpactError) {
+  if (
+    err instanceof ConfigError ||
+    err instanceof IngestError ||
+    err instanceof ImpactError ||
+    err instanceof GoldenSetError
+  ) {
     console.error(`[karajan-watch] ${err.message}`);
   } else {
     console.error(err);

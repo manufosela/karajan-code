@@ -97,6 +97,7 @@ export const createDefaultRunAdapter = () => {
  * @param {string} params.repoName Repo origen del merge.
  * @param {string} params.diffText Diff unificado del merge.
  * @param {'code' | 'docs'} [params.corpusName]
+ * @param {boolean} [params.judge] Ejecutar el juicio LLM (default true). Con false el veredicto queda vacío y no se toca ningún adapter — señales puras (eval, despliegues sin LLM).
  * @param {boolean} [params.deliver] Entregar a notify.targets (default true).
  * @param {{repoSlug: string, prNumber: number, token: string}} [params.prContext]
  * @param {Record<string, string | undefined>} [params.env]
@@ -109,6 +110,7 @@ export const runImpactPipeline = async ({
   repoName,
   diffText,
   corpusName = 'code',
+  judge = true,
   deliver = true,
   prContext,
   env = process.env,
@@ -166,14 +168,16 @@ export const runImpactPipeline = async ({
   const coChanges = correlateCoChanges({ origin, targets, touchedPaths });
 
   const diffSummary = `${repoName}: ${touchedPaths.join(', ')} (${chunks.length} chunks)`;
-  const { verdict } = await judgeImpact({
-    candidates,
-    coChanges,
-    diffSummary,
-    sensitivity: corpus.sensitivity,
-    policy: config.policy ?? createDefaultSensitivityPolicy(),
-    runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
-  });
+  const { verdict } = judge
+    ? await judgeImpact({
+        candidates,
+        coChanges,
+        diffSummary,
+        sensitivity: corpus.sensitivity,
+        policy: config.policy ?? createDefaultSensitivityPolicy(),
+        runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
+      })
+    : { verdict: { summary: '', affected: [] } };
 
   const ranking = buildImpactRanking({
     candidates,
