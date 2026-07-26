@@ -181,10 +181,15 @@
     .family-child:hover .family-child-label { color: var(--gold-ink); }
     .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
     .family-child:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 4px; }
-    .family-child-right { right: 6px; }
-    .family-child-left { left: 6px; }
+    /* Fuera del radio de giro de la órbita (r=130 + logo del agente). */
+    .family-child-right { right: -92px; }
+    .family-child-left { left: -92px; }
     @media (max-width: 640px) {
+      /* Al entrar en el flujo, uno a cada lado del logo en vez de los dos
+         apilados a su derecha (la órbita ya está oculta a este ancho). */
       .family-child { position: static; margin: 0 0.5rem; vertical-align: bottom; display: inline-block; }
+      .family-child-left { order: -1; }
+      .logo-orbit { flex-wrap: wrap; justify-content: center; }
     }
 
     @media (max-width: 640px) {

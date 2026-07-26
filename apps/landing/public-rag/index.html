@@ -125,22 +125,57 @@
     }
     .orbit-ring {
       position: absolute; inset: 0;
-      animation: orbit-spin 50s linear infinite;
+      animation: orbit-spin 38s linear infinite;
     }
     .orbit-item {
       position: absolute;
       width: 24px; height: 24px;
       margin: -12px 0 0 -12px;
       display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 50%;
+      animation: orbit-counter 38s linear infinite;
+    }
+    /* Traza circular: girando con los iconos, hace legible el movimiento. */
+    .orbit-track {
+      position: absolute; inset: 6px;
+      border: 1px dashed var(--border); border-radius: 50%;
+      opacity: 0.85;
     }
     .orbit-item svg {
-      width: 18px; height: 18px;
-      fill: none; stroke: var(--text-dim); stroke-width: 1.4;
-      stroke-linecap: round; stroke-linejoin: round; opacity: 0.55;
+      width: 15px; height: 15px;
+      fill: none; stroke: var(--steel-ink); stroke-width: 1.7;
+      stroke-linecap: round; stroke-linejoin: round; opacity: 0.95;
       transition: opacity 0.3s, stroke 0.3s;
-      animation: orbit-counter 50s linear infinite;
     }
+    .orbit-item:hover { border-color: var(--accent); }
     .orbit-item:hover svg { opacity: 1; stroke: var(--gold-ink); }
+
+    /* --- FAMILY: los dos hermanos, fuera del radio de giro en escritorio --- */
+    .family-child {
+      position: absolute; bottom: 30px; z-index: 2; line-height: 0;
+      text-align: center; text-decoration: none;
+      filter: drop-shadow(0 0 14px rgba(232,176,75,0.10));
+      transition: transform 0.2s;
+    }
+    .family-child img { height: 58px; width: auto; }
+    .family-child-label {
+      display: block; margin-top: 5px; line-height: 1;
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.18em; color: var(--text-dim);
+      transition: color 0.2s;
+    }
+    .family-child:hover .family-child-label { color: var(--gold-ink); }
+    .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
+    .family-child:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .family-child-left { left: -86px; }
+    .family-child-right { right: -86px; }
+    @media (max-width: 640px) {
+      /* Al entrar en el flujo, uno a cada lado del logo en vez de los dos
+         apilados a su derecha (la órbita ya está oculta a este ancho). */
+      .family-child { position: static; margin: 0 0.5rem; vertical-align: bottom; display: inline-block; }
+      .family-child-left { order: -1; }
+      .logo-orbit { flex-wrap: wrap; justify-content: center; }
+    }
     /* 5 items on r=120 circle, center=(130,130) */
     .orbit-item:nth-child(1) { top: 10px;  left: 130px; }
     .orbit-item:nth-child(2) { top: 93px;  left: 244px; }
@@ -157,7 +192,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .orbit-ring { animation: none; }
-      .orbit-item svg { animation: none; }
+      .orbit-item { animation: none; }
     }
     .hero-family {
       font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.28em;
@@ -374,7 +409,22 @@
         <span class="orbit-item" title="Retrieval"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg></span>
         <!-- MCP / agents -->
         <span class="orbit-item" title="Served to agents (MCP)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="1.6"/><path d="M3.8 3.8a6 6 0 0 0 0 8.4M12.2 3.8a6 6 0 0 1 0 8.4"/><path d="M5.6 5.6a3.4 3.4 0 0 0 0 4.8M10.4 5.6a3.4 3.4 0 0 1 0 4.8"/></svg></span>
+        <div class="orbit-track"></div>
       </div>
+      <a class="family-child family-child-left" href="https://karajancode.com" aria-label="Karajan Code — code with several AIs, with guarantees" title="Karajan Code — code with several AIs, with guarantees">
+        <picture>
+          <source type="image/webp" srcset="/img/code-logo-120.webp">
+          <img src="/img/code-logo-120.png" alt="Karajan Code" width="53" height="58" loading="lazy">
+        </picture>
+        <span class="family-child-label">CODE</span>
+      </a>
+      <a class="family-child family-child-right" href="https://watch.karajancode.com" aria-label="kaWATCHan — cross-repo impact analysis on every merge" title="kaWATCHan — cross-repo impact analysis on every merge">
+        <picture>
+          <source type="image/webp" srcset="/img/watch-logo-120.webp">
+          <img src="/img/watch-logo-120.png" alt="kaWATCHan" width="53" height="58" loading="lazy">
+        </picture>
+        <span class="family-child-label">WATCH</span>
+      </a>
     </div>
     <p class="hero-family"><a href="https://karajancode.com">Karajan</a> family</p>
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
