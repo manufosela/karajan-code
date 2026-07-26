@@ -116,7 +116,8 @@
     }
     .hero-logo {
       width: clamp(120px, 16vw, 180px); height: auto;
-      filter: drop-shadow(0 0 30px rgba(232,176,75,0.12));
+      /* Halo en el acento propio de watch, no en el oro de la batuta. */
+      filter: drop-shadow(0 0 30px rgba(56,189,248,0.14));
     }
 
     /* --- WATCH ORBIT: the repos it watches, and the pulse a merge sends across them --- */
@@ -416,7 +417,7 @@
         <source type="image/png"
           srcset="/img/logo-120.png 120w, /img/logo-160.png 160w, /img/logo-200.png 200w, /img/logo-240.png 240w, /img/logo-320.png 320w, /img/logo-480.png 480w"
           sizes="(max-width: 480px) 120px, (max-width: 768px) 150px, 180px">
-        <img src="/img/logo-240.png" alt="Karajan — robot conductor mascot with baton and bow tie" class="hero-logo" width="163" height="180" fetchpriority="high">
+        <img src="/img/logo-240.png" alt="kaWATCHan — robot conductor mascot with cyan eyes, bow tie and suspenders, holding a baton" class="hero-logo" width="163" height="180" fetchpriority="high">
       </picture>
       <div class="orbit-ring" aria-hidden="true">
         <!-- Repo -->
