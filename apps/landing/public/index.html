@@ -167,10 +167,18 @@
        when it ships. Same treatment as the parent, no frame, just smaller. */
     .family-child {
       position: absolute; bottom: 36px; z-index: 2; line-height: 0;
+      text-align: center; text-decoration: none;
       filter: drop-shadow(0 0 14px rgba(232,176,75,0.10));
       transition: transform 0.2s;
     }
     .family-child img { height: 58px; width: auto; }
+    .family-child-label {
+      display: block; margin-top: 5px; line-height: 1;
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 600;
+      letter-spacing: 0.18em; color: var(--text-dim);
+      transition: color 0.2s;
+    }
+    .family-child:hover .family-child-label { color: var(--gold-ink); }
     .family-child:hover, .family-child:focus-visible { transform: scale(1.1); }
     .family-child:focus-visible { outline: 2px solid var(--accent-teal); outline-offset: 4px; }
     .family-child-right { right: 6px; }
@@ -388,6 +396,7 @@
           <source type="image/webp" srcset="/img/rag-logo-120.webp">
           <img src="/img/rag-logo-120.png" alt="kaRAGan" width="53" height="58" loading="lazy">
         </picture>
+        <span class="family-child-label">RAG</span>
       </a>
       <!-- .family-child-left reserved for karajan-watch (in progress) -->
     </div>
