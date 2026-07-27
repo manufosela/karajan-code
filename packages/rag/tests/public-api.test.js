@@ -95,6 +95,8 @@ const REQUIRED_EXPORTS = [
   'effectiveSensitivityOfHits',
   'enforceEasyAdapterPolicy',
   'generateAnswerForHits',
+  'buildCagContext',
+  'DEFAULT_CAG_MAX_CHARS',
 
   // Embedding
   'createHashEmbedder',

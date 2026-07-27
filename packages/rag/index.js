@@ -128,6 +128,7 @@ export {
   effectiveSensitivityOfHits,
   enforceEasyAdapterPolicy,
 } from './src/easy/sensitivity.js';
+export { buildCagContext, DEFAULT_CAG_MAX_CHARS } from './src/easy/cag.js';
 export { generateAnswerForHits } from './src/easy/cli.js';
 
 // --- Embedding ------------------------------------------------------------
