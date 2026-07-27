@@ -50,6 +50,24 @@ vacío. Tipos soportados:
 - `{ "type": "pr-comment" }` — comentario en la PR mergeada.
 - `{ "type": "webhook", "url": "https://…" }` — POST al webhook (solo https).
 
+### `contracts` (opcional)
+
+Controla la señal de contratos (ver [docs/impact.md](./impact.md)):
+
+```json
+{
+  "contracts": { "enabled": true, "types": ["http", "event", "sql"] }
+}
+```
+
+| Clave     | Tipo    | Default              | Notas                                   |
+| --------- | ------- | -------------------- | --------------------------------------- |
+| `enabled` | boolean | `true`               | `false` desactiva la señal por completo |
+| `types`   | array   | los tres             | subconjunto de `http` \| `event` \| `sql` |
+
+Sin esta sección la señal corre con los tres tipos. Un tipo desconocido
+es un error con el path exacto (`$.contracts.types`).
+
 ### `policy` (opcional)
 
 Sensitivity policy propia del despliegue: mapa nivel → adapters LLM

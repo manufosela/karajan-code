@@ -58,9 +58,10 @@ export const SEVERITIES = Object.freeze(['low', 'medium', 'high']);
  * @param {ImpactCandidate[]} params.candidates
  * @param {CoChangeResult} params.coChanges
  * @param {string} params.diffSummary
+ * @param {import('./contracts.js').ContractMatch[]} [params.contracts]
  * @returns {string}
  */
-export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary }) => {
+export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary, contracts = [] }) => {
   const candidateLines = candidates.map(
     (c) =>
       `- ${c.source} (score ${c.score.toFixed(2)}): evidencia ${c.evidence
@@ -86,6 +87,18 @@ export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary }) => {
     '## Co-cambios históricos (git)',
     ...coChangeLines,
     '',
+    ...(contracts.length > 0
+      ? [
+          '## Contracts shared with the diff (hard evidence, not similarity)',
+          ...contracts.map(
+            (c) =>
+              `- ${c.source}: ${c.tokens
+                .map((t) => `${t.value} (${t.type}${t.removed ? ', REMOVED in this merge' : ''})`)
+                .join(', ')}`,
+          ),
+          '',
+        ]
+      : []),
     'Responde SOLO con un JSON válido con esta forma exacta:',
     '{"summary": "<síntesis en una o dos frases>", "affected": [{"source": "<uno de los candidatos>", "severity": "low|medium|high", "reason": "<por qué>"}]}',
     'Incluye en "affected" únicamente candidatos con impacto plausible; puede ser una lista vacía.',
@@ -149,6 +162,7 @@ export const parseVerdict = (rawText) => {
  * @param {string} params.diffSummary
  * @param {import('karajan-rag').Sensitivity} params.sensitivity Nivel efectivo del corpus.
  * @param {Record<string, string[]>} params.policy Sensitivity policy (niveles → adapters).
+ * @param {import('./contracts.js').ContractMatch[]} [params.contracts] Contratos compartidos (señal 4), como contexto del juicio.
  * @param {string} [params.adapter] Adapter explícito; debe estar permitido.
  * @param {(adapterName: string, prompt: string) => Promise<string>} params.runAdapter Ejecuta el adapter (el wiring real llega en KJW-TSK-0008).
  * @param {(text: string) => {text: string}} [params.redact] Default: redactPII de karajan-rag.
@@ -160,6 +174,7 @@ export const judgeImpact = async ({
   diffSummary,
   sensitivity,
   policy,
+  contracts = [],
   adapter,
   runAdapter,
   redact = redactPII,
@@ -181,7 +196,7 @@ export const judgeImpact = async ({
   }
   const adapterName = adapter ?? allowed[0];
 
-  const prompt = buildJudgmentPrompt({ candidates, coChanges, diffSummary });
+  const prompt = buildJudgmentPrompt({ candidates, coChanges, diffSummary, contracts });
   let raw;
   try {
     raw = await runAdapter(adapterName, prompt);

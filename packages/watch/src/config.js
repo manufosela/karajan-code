@@ -19,6 +19,7 @@ import {
   DEFAULT_SENSITIVITY,
   validateSensitivityPolicy,
 } from 'karajan-rag';
+import { CONTRACT_TYPES } from './contracts.js';
 
 /** Stores soportados por `karajan-rag index --store`. */
 export const VALID_STORES = Object.freeze(['lancedb', 'pgvector', 'in-memory']);
@@ -120,6 +121,7 @@ const requireOneOf = (value, path, allowed) => {
  * @property {{thresholds: ImpactThresholds}} [impact]
  * @property {{targets: NotifyTarget[]}} [notify]
  * @property {Record<Sensitivity, string[]>} [policy] Sensitivity policy propia (niveles → adapters); sin ella rige la default de karajan-rag.
+ * @property {{enabled: boolean, types: string[]}} [contracts] Señal de contratos: qué tipos se minan. Sin la sección, la señal corre con todos los tipos.
  */
 
 /**
@@ -220,7 +222,7 @@ const validateNotifyTarget = (value, path) => {
  */
 export const validateConfig = (raw) => {
   const config = requireObject(raw, '$');
-  rejectUnknownKeys(config, '$', ['repos', 'corpus', 'impact', 'notify', 'policy']);
+  rejectUnknownKeys(config, '$', ['repos', 'corpus', 'impact', 'notify', 'policy', 'contracts']);
 
   if (!Array.isArray(config.repos) || config.repos.length === 0) {
     throw new ConfigError('$.repos', 'se esperaba un array no vacío de repos.');
@@ -240,6 +242,36 @@ export const validateConfig = (raw) => {
 
   if (config.impact !== undefined) {
     result.impact = validateImpact(config.impact, '$.impact');
+  }
+  if (config.contracts !== undefined) {
+    const contracts = requireObject(config.contracts, '$.contracts');
+    rejectUnknownKeys(contracts, '$.contracts', ['enabled', 'types']);
+    /** @type {{enabled: boolean, types: string[]}} */
+    const parsed = { enabled: true, types: [...CONTRACT_TYPES] };
+    if (contracts.enabled !== undefined) {
+      if (typeof contracts.enabled !== 'boolean') {
+        throw new ConfigError('$.contracts.enabled', 'se esperaba un booleano.');
+      }
+      parsed.enabled = contracts.enabled;
+    }
+    if (contracts.types !== undefined) {
+      if (!Array.isArray(contracts.types) || contracts.types.length === 0) {
+        throw new ConfigError(
+          '$.contracts.types',
+          `se esperaba un array no vacío de: ${CONTRACT_TYPES.join(' | ')}.`,
+        );
+      }
+      for (const type of contracts.types) {
+        if (!CONTRACT_TYPES.includes(type)) {
+          throw new ConfigError(
+            '$.contracts.types',
+            `tipo "${type}" desconocido (esperado: ${CONTRACT_TYPES.join(' | ')}).`,
+          );
+        }
+      }
+      parsed.types = [...contracts.types];
+    }
+    result.contracts = parsed;
   }
   if (config.policy !== undefined) {
     // La validación es del motor (DRY); solo se traduce el error al

@@ -21,6 +21,7 @@ import { parseUnifiedDiff } from './diff.js';
 import { findImpactCandidates } from './retrieval.js';
 import { correlateCoChanges, readRepoHistory, CoChangeError } from './cochanges.js';
 import { judgeImpact } from './judgment.js';
+import { extractContractTokens, findContractMatches } from './contracts.js';
 import { buildImpactRanking, renderImpactMarkdown, deliverNotifications } from './report.js';
 
 /** Error de orquestación del pipeline de impacto. */
@@ -82,6 +83,7 @@ export const createDefaultRunAdapter = () => {
  *
  * @typedef {Object} ImpactResult
  * @property {import('./report.js').RankingEntry[]} ranking
+ * @property {import('./contracts.js').ContractMatch[]} contracts
  * @property {import('./cochanges.js').CoChangeResult} coChanges
  * @property {import('./judgment.js').Verdict} verdict
  * @property {string} markdown
@@ -140,6 +142,18 @@ export const runImpactPipeline = async ({
 
   const { candidates } = await findImpactCandidates({ chunks, query });
 
+  // Señal 4: contratos. Reutiliza la misma query, así que no añade infra.
+  const contractsConfig = config.contracts ?? { enabled: true, types: undefined };
+  let contracts = [];
+  if (contractsConfig.enabled) {
+    const tokens = extractContractTokens(chunks, { types: contractsConfig.types });
+    ({ matches: contracts } = await findContractMatches({
+      tokens,
+      query,
+      excludeRepo: repoName,
+    }));
+  }
+
   // Señal de co-cambios: historial del origen + de cada target declarado.
   // Un repo cuyo historial no se puede leer queda como noSignal explícito.
   const readHistory = deps.readHistory ?? readRepoHistory;
@@ -175,6 +189,7 @@ export const runImpactPipeline = async ({
         diffSummary,
         sensitivity: corpus.sensitivity,
         policy: config.policy ?? createDefaultSensitivityPolicy(),
+        contracts,
         runAdapter: deps.runAdapter ?? createDefaultRunAdapter(),
       })
     : { verdict: { summary: '', affected: [] } };
@@ -183,6 +198,7 @@ export const runImpactPipeline = async ({
     candidates,
     coChanges,
     verdict,
+    contracts,
     thresholds: config.impact?.thresholds ?? {},
   });
   const markdown = renderImpactMarkdown({
@@ -202,5 +218,5 @@ export const runImpactPipeline = async ({
     });
   }
 
-  return { ranking, coChanges, verdict, markdown, delivered };
+  return { ranking, contracts, coChanges, verdict, markdown, delivered };
 };

@@ -41,6 +41,7 @@ const SEVERITY_RANK = { high: 3, medium: 2, low: 1 };
  * @property {ImpactCandidate['evidence']} evidence
  * @property {{count: number, lastDate: string} | null} coChange Señal de co-cambios para este path, si existe.
  * @property {{severity: 'low' | 'medium' | 'high', reason: string} | null} judged Juicio LLM, si lo hay.
+ * @property {import('./contracts.js').ContractMatch | null} contract Contrato compartido con el diff, si lo hay.
  */
 
 /**
@@ -50,10 +51,17 @@ const SEVERITY_RANK = { high: 3, medium: 2, low: 1 };
  * @param {ImpactCandidate[]} params.candidates
  * @param {CoChangeResult} params.coChanges
  * @param {Verdict} params.verdict
+ * @param {import('./contracts.js').ContractMatch[]} [params.contracts] Coincidencias de contrato (señal 4).
  * @param {{minSimilarity?: number, maxCandidates?: number}} [params.thresholds]
  * @returns {RankingEntry[]}
  */
-export const buildImpactRanking = ({ candidates, coChanges, verdict, thresholds = {} }) => {
+export const buildImpactRanking = ({
+  candidates,
+  coChanges,
+  verdict,
+  contracts = [],
+  thresholds = {},
+}) => {
   const judgedBySource = new Map(
     verdict.affected.map((a) => [a.source, { severity: a.severity, reason: a.reason }]),
   );
@@ -68,7 +76,10 @@ export const buildImpactRanking = ({ candidates, coChanges, verdict, thresholds 
     }
   }
 
+  const contractBySource = new Map(contracts.map((c) => [c.source, c]));
+
   const minSimilarity = thresholds.minSimilarity ?? 0;
+  /** @type {RankingEntry[]} */
   const entries = candidates
     .filter((c) => c.score >= minSimilarity)
     .map((c) => ({
@@ -78,12 +89,39 @@ export const buildImpactRanking = ({ candidates, coChanges, verdict, thresholds 
       evidence: c.evidence,
       coChange: coChangeBySource.get(c.source) ?? null,
       judged: judgedBySource.get(c.source) ?? null,
-    }))
-    .toSorted(
-      (a, b) =>
-        (SEVERITY_RANK[b.judged?.severity ?? ''] ?? 0) -
-          (SEVERITY_RANK[a.judged?.severity ?? ''] ?? 0) || b.score - a.score,
-    );
+      contract: contractBySource.get(c.source) ?? null,
+    }));
+
+  // Un contrato compartido es evidencia de acoplamiento, no parecido: entra
+  // al ranking aunque el retrieval no lo hubiera traído (score 0) y aunque
+  // quede por debajo del umbral de similitud.
+  const alreadyRanked = new Set(entries.map((e) => e.source));
+  for (const match of contracts) {
+    if (alreadyRanked.has(match.source)) continue;
+    entries.push({
+      source: match.source,
+      repo: match.repo,
+      score: 0,
+      evidence: [],
+      coChange: coChangeBySource.get(match.source) ?? null,
+      judged: judgedBySource.get(match.source) ?? null,
+      contract: match,
+    });
+  }
+
+  /** Contrato roto (identificador que desapareció) pesa más que uno vigente. */
+  const contractRank = (entry) => {
+    if (!entry.contract) return 0;
+    return entry.contract.tokens.some((t) => t.removed) ? 2 : 1;
+  };
+
+  entries.sort(
+    (a, b) =>
+      contractRank(b) - contractRank(a) ||
+      (SEVERITY_RANK[b.judged?.severity ?? ''] ?? 0) -
+        (SEVERITY_RANK[a.judged?.severity ?? ''] ?? 0) ||
+      b.score - a.score,
+  );
 
   return thresholds.maxCandidates != null
     ? entries.slice(0, thresholds.maxCandidates)
@@ -116,6 +154,13 @@ export const renderImpactMarkdown = ({ ranking, diffSummary, verdictSummary }) =
     );
     for (const entry of ranking) {
       const parts = [`score ${entry.score.toFixed(2)}`];
+      if (entry.contract) {
+        // La evidencia dura primero: qué identificador comparten y de qué tipo.
+        const ids = entry.contract.tokens
+          .map((t) => `\`${t.value}\` (${t.type}${t.removed ? ', eliminado' : ''})`)
+          .join(', ');
+        parts.unshift(`**contrato**: ${ids}`);
+      }
       if (entry.coChange) {
         parts.push(`co-cambios: ${entry.coChange.count} (último ${entry.coChange.lastDate})`);
       }
