@@ -106,3 +106,69 @@ test('buildCagContext: fichero del manifest borrado del disco → error explíci
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// --- CLI: query --mode cag (PR 2/2) ---
+
+test('parseQueryArgs: --mode rag|cag con validación y --max-context-chars', async () => {
+  const { parseQueryArgs } = await import('../src/easy/cli.js');
+  assert.equal(parseQueryArgs(['q']).mode, 'rag');
+  const cag = parseQueryArgs(['q', '--answer', '--mode', 'cag', '--max-context-chars', '5000']);
+  assert.equal(cag.mode, 'cag');
+  assert.equal(cag.maxContextChars, 5000);
+  assert.throws(() => parseQueryArgs(['q', '--answer', '--mode', 'turbo']), /--mode/);
+  assert.throws(() => parseQueryArgs(['q', '--mode', 'cag']), /--answer/);
+  assert.throws(() => parseQueryArgs(['q', '--answer', '--mode', 'cag', '--max-context-chars', '0']), /--max-context-chars/);
+});
+
+test('runQueryCommand --mode cag: responde con el corpus completo, sin vector store', async () => {
+  const { runQueryCommand } = await import('../src/easy/cli.js');
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-cag-cli-'));
+  try {
+    await writeFile(path.join(root, 'guia.md'), '# Guia\nEl despliegue usa terraform apply.\n', 'utf8');
+    await writeFile(path.join(root, 'contacto.md'), 'Soporte: soporte@example.com\n', 'utf8');
+    await indexTmpCorpus(root);
+
+    /** @type {string[]} */
+    const prompts = [];
+    const registry = {
+      has: (/** @type {string} */ name) => name === 'ollama',
+      get: () => async (/** @type {string} */ prompt) => {
+        prompts.push(prompt);
+        return { parsedOutput: { text: 'respuesta cag' } };
+      },
+    };
+    /** @type {string[]} */
+    const logs = [];
+    // Sin --store: el camino cag no abre ningún vector store (no necesita
+    // el peer de lancedb) — el manifest basta.
+    const result = await runQueryCommand([
+      'como se despliega', root, '--answer', '--mode', 'cag',
+    ], { adapterRegistry: registry, log: (m) => logs.push(m), out: () => {} });
+
+    assert.equal(result.answer, 'respuesta cag');
+    assert.equal(prompts.length, 1);
+    assert.ok(prompts[0].includes('terraform apply'), 'el corpus completo viaja en el prompt');
+    assert.ok(!prompts[0].includes('soporte@example.com'), 'la PII va redactada');
+    assert.ok(logs.some((l) => l.includes('cag') && l.includes('2')), 'log con nº de ficheros');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('runQueryCommand --mode cag: presupuesto excedido → error explícito', async () => {
+  const { runQueryCommand } = await import('../src/easy/cli.js');
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-cag-cli-budget-'));
+  try {
+    await writeFile(path.join(root, 'grande.md'), `# G\n${'x '.repeat(300)}\n`, 'utf8');
+    await indexTmpCorpus(root);
+    await assert.rejects(
+      () => runQueryCommand(['q', root, '--answer', '--mode', 'cag', '--max-context-chars', '50'], {
+        adapterRegistry: { has: () => true, get: () => async () => ({}) },
+        log: () => {}, out: () => {},
+      }),
+      /--max-context-chars/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

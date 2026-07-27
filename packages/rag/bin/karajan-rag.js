@@ -169,7 +169,9 @@ function printUsage() {
   console.error('                        --embedder hash|transformers (default hash), --dimensions N.');
   console.error('  query "<pregunta>" [ruta]');
   console.error('                 Consulta el índice (híbrido vector+BM25). Flags: --top-k N,');
-  console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama.');
+  console.error('                 --store lancedb|pgvector, --answer --adapter claude|codex|gemini|ollama,');
+  console.error('                 --mode rag|cag (cag = corpus COMPLETO como contexto, requiere --answer;');
+  console.error('                 presupuesto --max-context-chars, falla explícito si no cabe).');
   console.error('  serve [ruta]   Sirve el índice: MCP stdio (default, tools rag_query/rag_status)');
   console.error('                 o --http (POST /query, GET /health, --port N, default 8080).');
   console.error('  doctor [ruta]  Diagnóstico de entorno e índice (✓/⚠/✗ con fixes; exit 1 con errores).');
