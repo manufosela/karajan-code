@@ -177,7 +177,8 @@ function printUsage() {
   console.error('  doctor [ruta]  Diagnóstico de entorno e índice (✓/⚠/✗ con fixes; exit 1 con errores).');
   console.error('  eval <golden.json> [corpus]');
   console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');
-  console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N.');
+  console.error('                 exit 1 si falla). Flags: --judges claude,ollama --dimensions N,');
+  console.error('                 --compare-modes (comparativa cag vs rag con recomendación).');
   console.error('  report-issue --title "<resumen>"');
   console.error('                 Reporta una fricción al repo público, saneada (rutas y PII');
   console.error('                 redactadas) y con dedup. Flags: --description, --command,');

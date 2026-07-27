@@ -125,6 +125,7 @@ const REQUIRED_EXPORTS = [
   'extractCitations',
   'EvaluatorRole',
   'evaluateMultiJudge',
+  'compareModes',
 
   // Policy / Redaction
   'createDefaultSensitivityPolicy',

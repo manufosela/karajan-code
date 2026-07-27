@@ -37,6 +37,7 @@ import {
 } from './sensitivity.js';
 import { createOllamaClient } from '../ai/adapters/ollama-client.js';
 import { buildCagContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
+import { compareModes } from '../evaluation/mode-compare.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
@@ -538,6 +539,7 @@ export function parseEvalArgs(argv) {
       judges: { type: 'string' },
       dimensions: { type: 'string' },
       sensitivity: { type: 'string' },
+      'compare-modes': { type: 'boolean', default: false },
     },
   });
   const goldenPath = positionals[0];
@@ -561,6 +563,7 @@ export function parseEvalArgs(argv) {
     judges: values.judges ? String(values.judges).split(',').map((j) => j.trim()).filter(Boolean) : [],
     dimensions,
     sensitivity,
+    compareModes: values['compare-modes'] === true,
   };
 }
 
@@ -630,8 +633,31 @@ export async function runEvalCommand(argv, io = {}) {
     }
   }
 
+  /** @type {import('../evaluation/mode-compare.js').ModeComparisonReport | undefined} */
+  let modeComparison;
+  if (options.compareModes) {
+    modeComparison = await compareModes(golden, {
+      corpusDir: options.corpusDir,
+      dimensions: options.dimensions,
+    });
+    out('');
+    out('--- cag vs rag (offline) ---');
+    for (const c of modeComparison.perCase) {
+      out(
+        `  ${c.id}: recall rag=${c.ragRecall.toFixed(2)}, contexto rag=${c.ragChars} chars, ` +
+          `ratio cag/rag=${Number.isFinite(c.costRatio) ? `${c.costRatio.toFixed(1)}x` : 'n/a'}`,
+      );
+    }
+    out(
+      `  corpus completo: ${modeComparison.cagChars} chars ` +
+        `(presupuesto ${modeComparison.cagBudget}${modeComparison.cagFits ? '' : ' — NO CABE'})`,
+    );
+    out(`  recomendación → ${modeComparison.recommendation}`);
+  }
+
   out(report.passed ? 'eval: PASSED' : 'eval: FAILED');
-  return options.judges.length > 0 ? { ...report, judgeReports } : report;
+  const enriched = options.judges.length > 0 ? { ...report, judgeReports } : report;
+  return modeComparison ? { ...enriched, modeComparison } : enriched;
 }
 
 /**
