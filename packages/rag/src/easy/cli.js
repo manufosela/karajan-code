@@ -36,6 +36,7 @@ import {
   enforceEasyAdapterPolicy,
 } from './sensitivity.js';
 import { createOllamaClient } from '../ai/adapters/ollama-client.js';
+import { buildCagContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
 import { GeneratorRole } from '../generation/generator-role.js';
@@ -241,6 +242,8 @@ export async function runInitCommand(argv, io = {}) {
  * @property {boolean} answer
  * @property {string} adapter
  * @property {boolean} adapterExplicit true solo si vino del flag --adapter (la policy no degrada elecciones explícitas).
+ * @property {'rag' | 'cag'} mode Estrategia de respuesta: retrieval top-k (rag) o corpus completo (cag).
+ * @property {number} maxContextChars Presupuesto del contexto en modo cag.
  */
 
 const QUERY_STORES = Object.freeze(['lancedb', 'pgvector']);
@@ -260,6 +263,8 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
       'top-k': { type: 'string' },
       answer: { type: 'boolean', default: false },
       adapter: { type: 'string' },
+      mode: { type: 'string' },
+      'max-context-chars': { type: 'string' },
     },
   });
 
@@ -280,6 +285,19 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
   if (!Number.isInteger(topK) || topK <= 0) {
     throw new Error('query: --top-k debe ser un entero positivo.');
   }
+  const mode = /** @type {'rag' | 'cag'} */ (values.mode ?? 'rag');
+  if (!['rag', 'cag'].includes(mode)) {
+    throw new Error(`query: --mode "${mode}" no soportado (esperado: rag, cag).`);
+  }
+  if (mode === 'cag' && values.answer !== true) {
+    throw new Error('query: --mode cag requiere --answer (sin retrieval no hay hits que mostrar).');
+  }
+  const maxContextChars = values['max-context-chars']
+    ? Number.parseInt(String(values['max-context-chars']), 10)
+    : DEFAULT_CAG_MAX_CHARS;
+  if (!Number.isInteger(maxContextChars) || maxContextChars <= 0) {
+    throw new Error('query: --max-context-chars debe ser un entero positivo.');
+  }
   return {
     question: question.trim(),
     rootDir: path.resolve(positionals[1] ?? '.'),
@@ -288,6 +306,8 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
     answer: values.answer === true,
     adapter: String(values.adapter ?? defaults.adapter ?? 'claude'),
     adapterExplicit: values.adapter !== undefined,
+    mode,
+    maxContextChars,
   };
 }
 
@@ -304,6 +324,28 @@ export async function runQueryCommand(argv, io = {}) {
   const pre = parseQueryArgs(argv);
   const config = await loadEasyConfig(pre.rootDir);
   const options = config ? parseQueryArgs(argv, config) : pre;
+
+  if (options.mode === 'cag') {
+    // CAG: el corpus completo como contexto — sin vector store (el
+    // manifest basta), por el mismo camino guardado que RAG.
+    const ctx = await buildCagContext(options.rootDir, { maxChars: options.maxContextChars });
+    log(
+      `modo cag: ${ctx.files.length} ficheros, ${ctx.chars} chars, nivel ${ctx.sensitivity} ` +
+        `(contexto ${ctx.contextHash.slice(0, 12)})`,
+    );
+    const generated = await generateAnswerForHits({
+      question: options.question,
+      hits: ctx.hits,
+      adapter: options.adapter,
+      adapterExplicit: options.adapterExplicit,
+      registry: io.adapterRegistry,
+      log,
+    });
+    out('');
+    out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}, modo cag) ---`);
+    out(generated.answer);
+    return { hits: [], candidates: ctx.files.length, answer: generated.answer };
+  }
 
   const { embedder, store } = await openEasyIndex(options.rootDir, {
     store: options.store,

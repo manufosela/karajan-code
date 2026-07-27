@@ -50,6 +50,30 @@ Con un CLI de IA instalado (claude/codex/gemini/ollama…), añade generación:
 karajan-rag query "¿cómo se calcula la facturación?" ./mi-proyecto --answer --adapter ollama
 ```
 
+### Modo CAG: el corpus completo como contexto
+
+Para corpus pequeños/medianos, `--mode cag` (Cache-Augmented Generation)
+salta el retrieval y carga **todo el corpus** en el contexto del modelo:
+
+```bash
+karajan-rag query "resume la arquitectura" ./mi-proyecto --answer --mode cag
+```
+
+- El contexto es **determinista y estable** (orden por ruta): mismo
+  corpus → mismo prompt, lo que permite al proveedor amortizar su
+  prompt-cache entre consultas.
+- La sensibilidad efectiva es el **máximo de todo el manifest** — aquí
+  viaja el corpus entero, así que el gate es más restrictivo que en RAG
+  por diseño. La redacción PII aplica igual.
+- Presupuesto con fallo explícito (`--max-context-chars`, default
+  400K caracteres ≈ 100K tokens): si el corpus no cabe, error con el
+  tamaño real y alternativas — **nunca se trunca en silencio**.
+- No necesita vector store para responder (el manifest basta), pero sí
+  un corpus indexado.
+
+Regla rápida: corpus que cabe en contexto y preguntas que piden visión
+global → `cag`; corpus grande o preguntas puntuales → `rag`.
+
 ## 3. Servir
 
 ### Como servidor MCP (para Claude Code y otros agentes)

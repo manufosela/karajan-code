@@ -7,6 +7,18 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Modo CAG — Cache-Augmented Generation** (épica KJR-PCS-0017):
+  `query --answer --mode cag` carga el corpus COMPLETO como contexto del
+  modelo en vez de recuperar top-k chunks. Contexto determinista y
+  estable (orden por ruta, `contextHash`) para amortizar el prompt-cache
+  del proveedor; sensibilidad efectiva = máximo global del manifest (el
+  gate y redactPII aplican por el mismo camino guardado que RAG);
+  presupuesto `--max-context-chars` (default 400K chars) con fallo
+  explícito — nunca truncado silencioso. No requiere vector store para
+  responder. API: `buildCagContext`, `DEFAULT_CAG_MAX_CHARS`.
+
 ## [1.2.0] — 2026-07-23
 
 ### Added
