@@ -35,6 +35,8 @@ const OVERFETCH_FACTOR = 3;
  * @property {string} source Path namespaceado `repo/…` del fichero que originó el hit.
  * @property {number | null} line Línea aproximada del hit en su fichero.
  * @property {number} score Score híbrido (vector + BM25) normalizado.
+ * @property {string} [content] Texto del chunk; lo usa la señal de contratos para verificar la coincidencia literal.
+ * @property {string} [sensitivity] Nivel efectivo del chunk según la policy.
  *
  * @typedef {(question: string, options: {topK: number}) => Promise<{hits: QueryHit[], candidates: number}>} QueryFn
  *

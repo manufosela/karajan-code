@@ -17,6 +17,11 @@ export { DiffError, parseUnifiedDiff } from './src/diff.js';
 export { RetrievalError, findImpactCandidates } from './src/retrieval.js';
 export { CoChangeError, correlateCoChanges, readRepoHistory } from './src/cochanges.js';
 export {
+  CONTRACT_TYPES,
+  extractContractTokens,
+  findContractMatches,
+} from './src/contracts.js';
+export {
   JudgmentError,
   SEVERITIES,
   buildJudgmentPrompt,
