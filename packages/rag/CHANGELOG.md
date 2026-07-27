@@ -7,6 +7,15 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`eval --compare-modes`** (épica CAG): comparativa offline CAG vs RAG
+  sobre el golden set — recall de fuentes relevantes en el top-k, tamaño
+  de contexto por consulta de cada modo y ratio de coste, con
+  recomendación heurística justificada con números (y el recordatorio
+  honesto de que la calidad de respuesta final se confirma con
+  `--judges`). API: `compareModes`.
+
 ## [1.3.0] — 2026-07-27
 
 ### Added

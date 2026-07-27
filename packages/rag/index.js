@@ -159,6 +159,7 @@ export { SolomonRole } from './src/retrieval/solomon-role.js';
 export { GeneratorRole, extractCitations } from './src/generation/generator-role.js';
 export { EvaluatorRole } from './src/evaluation/evaluator-role.js';
 export { evaluateMultiJudge, buildJudgePrompt } from './src/evaluation/multi-judge-evaluator.js';
+export { compareModes } from './src/evaluation/mode-compare.js';
 
 // --- Policy / Redaction --------------------------------------------------
 export {

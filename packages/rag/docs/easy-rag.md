@@ -72,7 +72,15 @@ karajan-rag query "resume la arquitectura" ./mi-proyecto --answer --mode cag
   un corpus indexado.
 
 Regla rápida: corpus que cabe en contexto y preguntas que piden visión
-global → `cag`; corpus grande o preguntas puntuales → `rag`.
+global → `cag`; corpus grande o preguntas puntuales → `rag`. ¿Dudas con
+TU corpus? Decide con datos:
+
+```bash
+karajan-rag eval golden.json --compare-modes
+```
+
+Compara offline el recall del retrieval contra el coste de contexto de
+cada modo y emite una recomendación justificada con números.
 
 ## 3. Servir
 
