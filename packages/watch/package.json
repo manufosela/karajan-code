@@ -17,6 +17,7 @@
     "docs/drift.md",
     "docs/eval.md",
     "docs/karajan-rag-contract.md",
+    "docs/prompts/start.md",
     "karajan-watch.config.example.json",
     "CHANGELOG.md"
   ],

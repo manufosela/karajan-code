@@ -30,6 +30,25 @@ implementadas. El diseño vive en [docs/design.md](./docs/design.md).
 
 ## Quickstart
 
+Lo más rápido es pedírselo a tu agente. Pega esto en Claude Code, Codex,
+Gemini CLI o Cursor:
+
+> Quiero análisis de impacto cross-repo en mi organización: lee
+> watch.karajancode.com/start.md y haz lo que dice.
+
+El agente comprueba tu máquina, te pregunta lo que solo tú puedes decidir
+(qué repos vigilar, la sensibilidad del código, dónde vive el corpus, dónde
+quieres los avisos), monta tu repo de despliegue y **se detiene a esperarte**
+en cada paso que necesite tu permiso. Nunca manipula tus secretos: te dice
+cuáles crear y espera.
+
+Esa URL redirige al prompt versionado en este repo,
+[docs/prompts/start.md](./docs/prompts/start.md) — puedes leerlo antes de
+pegarlo. Si prefieres no depender de una URL, instala primero el paquete y
+pásale a tu agente la ruta local: el mismo prompt viaja en el tarball.
+
+¿Prefieres a mano?
+
 ```bash
 npm install karajan-watch   # Node >= 20
 ```
