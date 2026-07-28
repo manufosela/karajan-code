@@ -111,6 +111,11 @@
     "cleanUrls": true,
     "redirects": [
       {
+        "source": "/start.md",
+        "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/prompts/start.md",
+        "type": 302
+      },
+      {
         "source": "/config.md",
         "destination": "https://raw.githubusercontent.com/manufosela/karajan-watch/main/docs/config.md",
         "type": 302
