@@ -53,18 +53,13 @@ describe("checkAiSurface", () => {
     expect(second.removed).toEqual([]);
   });
 
-  it("flags an MCP that APPEARED since the last check, then absorbs it", () => {
+  it("flags appearances and removals since the last check, then absorbs them", () => {
     run();
-    writeJson(path.join(dir, ".mcp.json"), { mcpServers: { "karajan-mcp": {}, sonarqube: {}, "shiny-new": {} } });
+    writeJson(path.join(dir, ".mcp.json"), { mcpServers: { "karajan-mcp": {}, "shiny-new": {} } });
     const drifted = run();
     expect(drifted.added.join(" ")).toContain("shiny-new");
+    expect(drifted.removed.join(" ")).toContain("sonarqube"); // offboarding is hygiene too
     expect(run().added).toEqual([]); // snapshot updated: flagged once, not forever
-  });
-
-  it("reports removals too (offboarding is part of hygiene)", () => {
-    run();
-    writeJson(path.join(dir, ".mcp.json"), { mcpServers: { "karajan-mcp": {} } });
-    expect(run().removed.join(" ")).toContain("sonarqube");
   });
 });
 
