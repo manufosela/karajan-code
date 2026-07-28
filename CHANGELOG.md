@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Env allowlist for agent subprocesses** (KJC-TSK-0693): spawned agents (coder/reviewer/tester CLIs) no longer inherit the user's whole environment — only system essentials, the CLI's own auth/config families, and `KJ_*` lane vars. Cloud keys, registry tokens and DB URLs never reach the child, so a compromised agent or injected prompt cannot exfiltrate what it never received. Per-agent extras (`GITHUB_*`/`GH_*` only for copilot); escapes: `security.env_passthrough` (names or trailing-* globs) and `security.env_allowlist: false`. Inspired by Akua's "temporary credentials, never a shared master key" control.
 - **AI-surface inventory in `kj check`** (KJC-TSK-0694): the project's reachable MCPs (project `.mcp.json`, `~/.claude.json` scoped to this project, codex and gemini configs) are inventoried on every check; the first run records a baseline silently, later runs flag what APPEARED — `NEW since last check: x — approved by you?` — and what is gone. A nudge, never a gate: every new tool an agent gains is one more access, and an inventory nobody reconciles is the feeling of control without the control.
 
 ## [4.6.3] - 2026-07-25
