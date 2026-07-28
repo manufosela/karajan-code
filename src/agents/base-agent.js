@@ -53,11 +53,14 @@ export class BaseAgent {
     // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
     // whole environment. security.env_allowlist:false opts out.
     if (this.config?.security?.env_allowlist !== false) {
-      // Merge explicit env over the inherited one BEFORE filtering: a caller
-      // passing only lane vars must not cost the child PATH/HOME.
+      // Contract: options.env, when provided, is the COMPLETE intended child
+      // env (agents build it from process.env and deliberately strip or
+      // override vars — cleanExecaOpts drops CLAUDECODE, qwen unsets gemini's
+      // trust var). Filtering must respect those intentions, so the explicit
+      // env is filtered AS GIVEN, never re-merged over process.env.
       options = {
         ...options,
-        env: buildAgentEnv({ ...process.env, ...(options.env || {}) }, {
+        env: buildAgentEnv(options.env ?? process.env, {
           agent: this.name,
           passthrough: this.config?.security?.env_passthrough || [],
         }),
