@@ -11,6 +11,7 @@
  */
 
 import { defaultEnvironment } from "../infrastructure/environment.js";
+import { buildAgentEnv } from "../utils/role-env.js";
 
 const MODEL_NOT_SUPPORTED_PATTERNS = [
   /model.{0,30}is not supported/i,
@@ -49,6 +50,19 @@ export class BaseAgent {
    * @returns {Promise<CommandRunResult>}
    */
   async runCommand(command, args = [], options = {}) {
+    // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
+    // whole environment. security.env_allowlist:false opts out.
+    if (this.config?.security?.env_allowlist !== false) {
+      // Merge explicit env over the inherited one BEFORE filtering: a caller
+      // passing only lane vars must not cost the child PATH/HOME.
+      options = {
+        ...options,
+        env: buildAgentEnv({ ...process.env, ...(options.env || {}) }, {
+          agent: this.name,
+          passthrough: this.config?.security?.env_passthrough || [],
+        }),
+      };
+    }
     return this.environment.runner.run(command, args, options);
   }
 
