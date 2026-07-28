@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **AI-surface inventory in `kj check`** (KJC-TSK-0694): the project's reachable MCPs (project `.mcp.json`, `~/.claude.json` scoped to this project, codex and gemini configs) are inventoried on every check; the first run records a baseline silently, later runs flag what APPEARED — `NEW since last check: x — approved by you?` — and what is gone. A nudge, never a gate: every new tool an agent gains is one more access, and an inventory nobody reconciles is the feeling of control without the control.
+
 ## [4.6.3] - 2026-07-25
 
 Patch. **Subprocess by right, host by choice** — running kj inside Claude Code no longer hijacks the coder role.
