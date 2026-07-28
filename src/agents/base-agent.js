@@ -11,6 +11,7 @@
  */
 
 import { defaultEnvironment } from "../infrastructure/environment.js";
+import { buildAgentEnv } from "../utils/role-env.js";
 
 const MODEL_NOT_SUPPORTED_PATTERNS = [
   /model.{0,30}is not supported/i,
@@ -49,6 +50,22 @@ export class BaseAgent {
    * @returns {Promise<CommandRunResult>}
    */
   async runCommand(command, args = [], options = {}) {
+    // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
+    // whole environment. security.env_allowlist:false opts out.
+    if (this.config?.security?.env_allowlist !== false) {
+      // Contract: options.env, when provided, is the COMPLETE intended child
+      // env (agents build it from process.env and deliberately strip or
+      // override vars — cleanExecaOpts drops CLAUDECODE, qwen unsets gemini's
+      // trust var). Filtering must respect those intentions, so the explicit
+      // env is filtered AS GIVEN, never re-merged over process.env.
+      options = {
+        ...options,
+        env: buildAgentEnv(options.env ?? process.env, {
+          agent: this.name,
+          passthrough: this.config?.security?.env_passthrough || [],
+        }),
+      };
+    }
     return this.environment.runner.run(command, args, options);
   }
 

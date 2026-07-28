@@ -100,15 +100,27 @@ describe("OpenCodeAgent", () => {
   });
 
   // merged-from: 2 stdin/env tests collapsed. OpenCode does not touch stdin
-  // nor strip env vars (unlike Claude); both opts come back undefined.
-  describe("no special stdin/env handling", () => {
-    it.each([
-      ["stdin", "stdin"],
-      ["env",   "env"]
-    ])("does NOT set %s", async (_label, optKey) => {
+  // (unlike Claude). Since KJC-TSK-0693 the env is never inherited whole:
+  // BaseAgent injects the allowlisted env for every agent.
+  describe("no special stdin handling, allowlisted env", () => {
+    it("does NOT set stdin", async () => {
       const agent = new OpenCodeAgent("opencode", baseConfig, logger);
       await agent.runTask({ prompt: "test", role: "coder" });
-      expect(runCommand.mock.calls[0][2][optKey]).toBeUndefined();
+      expect(runCommand.mock.calls[0][2].stdin).toBeUndefined();
+    });
+
+    it("receives the allowlisted env, not the raw inherited one", async () => {
+      process.env.KJC_0693_CANARY = "must-not-leak";
+      try {
+        const agent = new OpenCodeAgent("opencode", baseConfig, logger);
+        await agent.runTask({ prompt: "test", role: "coder" });
+        const env = runCommand.mock.calls[0][2].env;
+        expect(env).toBeDefined();
+        expect(env.KJC_0693_CANARY).toBeUndefined();
+        expect(env.PATH).toBeDefined();
+      } finally {
+        delete process.env.KJC_0693_CANARY;
+      }
     });
   });
 
