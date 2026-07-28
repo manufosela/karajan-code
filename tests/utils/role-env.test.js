@@ -35,6 +35,12 @@ describe("buildAgentEnv", () => {
     expect(buildAgentEnv(BASE, { agent: "copilot" }).GITHUB_TOKEN).toBe("gh-secret");
   });
 
+  it("a complete Windows env keeps Path and child-process essentials", () => {
+    const win = { Path: "C:\\W", SystemRoot: "C:\\Windows", ComSpec: "cmd.exe", PATHEXT: ".EXE", USERPROFILE: "C:\\U", AWS_SECRET_ACCESS_KEY: "s" };
+    const env = buildAgentEnv(win);
+    expect(env).toEqual({ Path: "C:\\W", SystemRoot: "C:\\Windows", ComSpec: "cmd.exe", PATHEXT: ".EXE", USERPROFILE: "C:\\U" });
+  });
+
   it("passthrough admits exact names and trailing-* globs", () => {
     const env = buildAgentEnv(BASE, { passthrough: ["DATABASE_URL", "AWS_*"] });
     expect(env.DATABASE_URL).toBe("postgres://x");
@@ -77,5 +83,20 @@ describe("BaseAgent.runCommand env filtering", () => {
   it("security.env_passthrough reaches the subprocess", async () => {
     const opts = await runWith({ security: { env_passthrough: ["DATABASE_URL"] } }, { env: { ...BASE } });
     expect(opts.env.DATABASE_URL).toBe("postgres://x");
+  });
+
+  // Solomon-arbitrated: env WITHOUT PATH = partial overlay → merges over the
+  // inherited env (child keeps PATH); env WITH PATH = complete → as given
+  // (a var deliberately stripped by the agent must NOT resurface).
+  it("a partial overlay keeps PATH; a complete env respects deliberate strips", async () => {
+    const prior = process.env.KJC_0693_STRIPPED;
+    process.env.KJC_0693_STRIPPED = "in-parent";
+    try {
+      const overlay = await runWith({}, { env: { KJ_LANE_SLOT: "3" } });
+      expect(overlay.env.PATH).toBeDefined();
+      expect(overlay.env.KJ_LANE_SLOT).toBe("3");
+      const complete = await runWith({}, { env: { ...BASE } }); // no KJC_0693_STRIPPED
+      expect(complete.env.KJC_0693_STRIPPED).toBeUndefined();
+    } finally { if (prior === undefined) delete process.env.KJC_0693_STRIPPED; else process.env.KJC_0693_STRIPPED = prior; }
   });
 });

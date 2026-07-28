@@ -91,12 +91,22 @@ describe("GeminiAgent", () => {
   // KJC-BUG-0121 layer 2: headless gemini refuses untrusted workspaces —
   // every spawn declares GEMINI_CLI_TRUST_WORKSPACE. stdin stays unset
   // (the runner wires `input` itself; no Claude-style stdin=ignore).
+  // Since KJC-TSK-0693 the trust var is a partial overlay: BaseAgent merges
+  // it over the inherited env and filters — PATH survives, secrets don't.
   describe("workspace trust env", () => {
-    it("sets GEMINI_CLI_TRUST_WORKSPACE=true and no stdin override", async () => {
-      const agent = new GeminiAgent("gemini", baseConfig, logger);
-      await agent.runTask({ prompt: "test", role: "coder" });
-      expect(runCommand.mock.calls[0][2].env).toEqual({ GEMINI_CLI_TRUST_WORKSPACE: "true" });
-      expect(runCommand.mock.calls[0][2].stdin).toBeUndefined();
+    it("sets GEMINI_CLI_TRUST_WORKSPACE=true on the allowlisted env, no stdin override", async () => {
+      process.env.KJC_0693_CANARY = "must-not-leak";
+      try {
+        const agent = new GeminiAgent("gemini", baseConfig, logger);
+        await agent.runTask({ prompt: "test", role: "coder" });
+        const env = runCommand.mock.calls[0][2].env;
+        expect(env.GEMINI_CLI_TRUST_WORKSPACE).toBe("true");
+        expect(env.PATH).toBeDefined();
+        expect(env.KJC_0693_CANARY).toBeUndefined();
+        expect(runCommand.mock.calls[0][2].stdin).toBeUndefined();
+      } finally {
+        delete process.env.KJC_0693_CANARY;
+      }
     });
   });
 

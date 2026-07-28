@@ -53,14 +53,17 @@ export class BaseAgent {
     // KJC-TSK-0693: the subprocess gets an env allowlist, never the user's
     // whole environment. security.env_allowlist:false opts out.
     if (this.config?.security?.env_allowlist !== false) {
-      // Contract: options.env, when provided, is the COMPLETE intended child
-      // env (agents build it from process.env and deliberately strip or
-      // override vars — cleanExecaOpts drops CLAUDECODE, qwen unsets gemini's
-      // trust var). Filtering must respect those intentions, so the explicit
-      // env is filtered AS GIVEN, never re-merged over process.env.
+      // Solomon-arbitrated contract (KJC-TSK-0693): an explicit env WITH a
+      // PATH is a COMPLETE child env (agents build those from process.env and
+      // deliberately strip vars — cleanExecaOpts drops CLAUDECODE, qwen
+      // unsets gemini's trust var) and is filtered AS GIVEN. An env WITHOUT
+      // a PATH is a partial overlay and merges over the inherited env first,
+      // so an overlay caller can never cost the child PATH/HOME.
+      const complete = options.env && ("PATH" in options.env || "Path" in options.env);
+      const base = complete ? options.env : { ...process.env, ...(options.env || {}) };
       options = {
         ...options,
-        env: buildAgentEnv(options.env ?? process.env, {
+        env: buildAgentEnv(base, {
           agent: this.name,
           passthrough: this.config?.security?.env_passthrough || [],
         }),

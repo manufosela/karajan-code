@@ -10,8 +10,11 @@
  */
 
 const EXACT = new Set([
-  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "COLORTERM", "LANG",
+  "PATH", "Path", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "COLORTERM", "LANG",
   "TZ", "TMPDIR", "TMP", "TEMP", "EDITOR", "CI", "OLLAMA_HOST",
+  // Windows child-process essentials: executable resolution and profile dirs.
+  "SystemRoot", "SYSTEMROOT", "windir", "COMSPEC", "ComSpec", "PATHEXT",
+  "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
   // SSH agent socket: local-only handle, needed for git fetch/pull over SSH
   // inside worktrees. Unusable off-machine, unlike a long-lived token.
   "SSH_AUTH_SOCK", "SSH_AGENT_PID",

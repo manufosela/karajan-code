@@ -6,21 +6,26 @@
 
 import { checkHarden } from "../harden/check.js";
 import { collectMethodStats, formatMethodStats } from "../checks/method.js";
+import { checkAiSurface, formatAiSurface } from "../checks/ai-surface.js";
 
 export async function checkCommand({ projectDir = process.cwd(), profile = "standard", json = false, logger = console } = {}) {
   const result = await checkHarden({ projectDir, profile });
   // KJC-TSK-0689 (MG-D): method adherence is VISIBILITY, not a gate — it
   // rides along in check output but never affects the exit code.
   const method = await collectMethodStats({ projectDir }).catch(() => null);
+  // KJC-TSK-0694: same deal for the MCP inventory — a nudge, never a gate.
+  let aiSurface = null;
+  try { aiSurface = checkAiSurface({ projectDir }); } catch { /* inventory is best-effort */ }
 
   if (json) {
-    logger.info?.(JSON.stringify({ ...result, method }));
+    logger.info?.(JSON.stringify({ ...result, method, aiSurface }));
     return result.ok ? 0 : 1;
   }
 
   logger.info?.(`kj check (${profile})`);
   for (const c of result.checks) logger.info?.(`  ${c.ok ? "✓" : "✗"} ${c.id}: ${c.detail}`);
   if (method) logger.info?.(`  method: ${formatMethodStats(method)}`);
+  if (aiSurface) logger.info?.(`  ${formatAiSurface(aiSurface)}`);
   if (!result.ok) logger.info?.("Harness drift detected — run `kj harden` to repair.");
   else logger.info?.("Harness OK.");
   return result.ok ? 0 : 1;
