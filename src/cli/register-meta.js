@@ -379,6 +379,7 @@ export function registerMeta(program, { pkgVersion }) {
     .option("--trend", "Append a sparkline of the harness score across the last 10 runs (uses .karajan/audit-history.db). KJC-TSK-0473.")
     .option("--report-file <path>", "Write the audit report to disk in addition to stdout. <path> may be a file (extension drives format: .md or .json) or a directory (creates audit-<ISO>.<md|json> inside). $KJ_AUDIT_REPORT_DIR env var is used as default directory if no --report-file is given.")
     .option("--deterministic-only", "Skip the LLM analysis entirely. Print/persist only the deterministic findings (basalCost, sonar, stack, growth-delta, webperf). Zero tokens spent. Compatible with --report-file and --json.")
+    .option("--security", "Focused deterministic security pass: prompt-injection scan over the agent-context surface (CLAUDE.md/AGENTS.md/templates/.rulesync/.karajan) + OSV + Semgrep + Sonar. Skips basal-cost, webperf, madge, knip, ai-slop, harness and the LLM — zero tokens. Designed for agents to self-invoke when a task touches sensitive surface (KJC-TSK-0695).")
     .option("-y, --yes", "Auto-confirm the 'Continue with LLM analysis?' prompt. Useful in scripts that want the full audit non-interactively. CI/non-TTY paths already auto-confirm without this flag.")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "audit", flags, async ({ config, logger }) => {
@@ -402,6 +403,7 @@ export function registerMeta(program, { pkgVersion }) {
           noAiSlop: flags.aiSlop === false,
           reportFile: flags.reportFile || null,
           deterministicOnly: Boolean(flags.deterministicOnly),
+          security: Boolean(flags.security),
           yes: Boolean(flags.yes),
           trend: Boolean(flags.trend),
         });

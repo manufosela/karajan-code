@@ -237,7 +237,10 @@ function describeInvocation({ task, dimensions, noSonar, noOsv, noSemgrep, noHar
   return parts.join(" ");
 }
 
-export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, noAiSlop = false, reportFile = null, deterministicOnly = false, yes = false, trend = false, promptFn = null }) {
+export async function auditCommand({ task, config, logger, dimensions, json, agentReadiness, path: pathArg, noSonar = false, noOsv = false, noSemgrep = false, noHarness = false, noAiSlop = false, reportFile = null, deterministicOnly = false, yes = false, trend = false, promptFn = null, security = false }) {
+  // KJC-TSK-0695: --security = the focused pass an agent self-invokes.
+  // Deterministic by definition (zero tokens) and skips non-security stages.
+  if (security) { deterministicOnly = true; noHarness = true; noAiSlop = true; }
   // --agent-readiness is a STANDALONE, deterministic, LLM-free audit
   // dimension. It scores any third-party repo for AI-agent readability
   // (llms.txt presence, page token budgets, robots allowlist, etc.).
@@ -281,6 +284,7 @@ export async function auditCommand({ task, config, logger, dimensions, json, age
       noOsv,
       noSemgrep,
       noAiSlop,
+      ...(security ? { securityOnly: true } : {}),
     };
     const deterministicCtx = await role.collectDeterministic(roleInput);
     const deterministicMd = formatDeterministicSummary(deterministicCtx);

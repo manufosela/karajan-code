@@ -66,6 +66,8 @@ Invariants (the git gates enforce these — they are not suggestions):
   and it must be reviewed again. Disagree with a rejection? \`kj solomon\`.
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: \`kj brief security\` states what must be true.
+  Task touches auth, user input, secrets, network or deps? Run
+  \`kj audit --security\` (zero tokens) and remediate BEFORE the review.
 - A design decision the card's AC don't cover belongs to the USER: record
   it as a proposed ADR (\`kj adr add\`) and ask — never bury it in a PR
   bullet. An oversized-diff warning is not an opinion either: partition,

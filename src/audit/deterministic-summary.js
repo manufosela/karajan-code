@@ -65,7 +65,7 @@ function formatAiSlopBlock(slop) {
 
 function formatInjectionBlock(inj) {
   if (!inj.available) return ["### Prompt-injection scan", `- Status: not available — ${inj.reason || "scan failed"}`, ""];
-  const lines = ["### Prompt-injection scan (specs / domain / onboarding)", `- Files scanned: ${inj.scanned ?? 0}`, `- Findings: ${inj.total ?? 0}`];
+  const lines = ["### Prompt-injection scan (agent-context surface: CLAUDE/AGENTS/GEMINI.md, templates, .rulesync, .karajan)", `- Files scanned: ${inj.scanned ?? 0}`, `- Findings: ${inj.total ?? 0}`];
   if ((inj.total ?? 0) > 0) {
     for (const [severity, items] of Object.entries(groupInjectionBySeverity(inj.findings || []))) {
       if (items.length === 0) continue;

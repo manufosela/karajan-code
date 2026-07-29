@@ -79,6 +79,7 @@ const B = {
       [
         "These findings are never overridable — not even by Solomon arbitration.",
         "PII is never logged; new dependencies need a reason and a pinned version.",
+        "Sensitive surface (auth, user input, secrets, network, deps)? Self-invoke `kj audit --security` — deterministic, zero tokens: prompt-injection over the agent-context files + OSV + Semgrep + Sonar — and remediate the findings before requesting review.",
       ],
       "findings with severity, category and file:line — or an explicit 'no security surface touched'."),
   },

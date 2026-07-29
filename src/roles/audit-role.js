@@ -48,13 +48,17 @@ export class AuditRole extends AgentRole {
    *   execute() would gather internally)
    */
   async collectDeterministic(input) {
+    // KJC-TSK-0695: securityOnly = the focused pass an agent self-invokes
+    // when a task touches sensitive surface. Only the security collectors
+    // run (sonar, osv, semgrep, injection) — zero tokens, fast.
+    const securityOnly = typeof input === "object" ? Boolean(input?.securityOnly) : false;
     const noSonar = typeof input === "object" ? Boolean(input?.noSonar) : false;
     const noOsv = typeof input === "object" ? Boolean(input?.noOsv) : false;
     const noSemgrep = typeof input === "object" ? Boolean(input?.noSemgrep) : false;
-    const noMadge = typeof input === "object" ? Boolean(input?.noMadge) : false;
-    const noKnip = typeof input === "object" ? Boolean(input?.noKnip) : false;
+    const noMadge = (typeof input === "object" ? Boolean(input?.noMadge) : false) || securityOnly;
+    const noKnip = (typeof input === "object" ? Boolean(input?.noKnip) : false) || securityOnly;
     const noInjectionScan = typeof input === "object" ? Boolean(input?.noInjectionScan) : false;
-    const noAiSlop = typeof input === "object" ? Boolean(input?.noAiSlop) : false;
+    const noAiSlop = (typeof input === "object" ? Boolean(input?.noAiSlop) : false) || securityOnly;
     const projectDir = this.config?.projectDir || process.cwd();
     let basalCost = null;
     let growthDelta = null;
@@ -67,11 +71,13 @@ export class AuditRole extends AgentRole {
     let deadExports = null;
     let injectionFindings = null;
     let aiSlop = null;
-    try {
-      basalCost = await measureBasalCost(projectDir);
-      const previous = await loadPreviousAudit(projectDir);
-      growthDelta = computeGrowthDelta(basalCost, previous);
-    } catch { /* basal cost is best-effort */ }
+    if (!securityOnly) {
+      try {
+        basalCost = await measureBasalCost(projectDir);
+        const previous = await loadPreviousAudit(projectDir);
+        growthDelta = computeGrowthDelta(basalCost, previous);
+      } catch { /* basal cost is best-effort */ }
+    }
     try {
       stack = await detectProjectStack(projectDir);
     } catch { /* stack detect is best-effort */ }
@@ -80,9 +86,11 @@ export class AuditRole extends AgentRole {
         sonarFindings = await collectSonarFindings(this.config, this.logger);
       } catch { /* sonar fetch is best-effort */ }
     }
-    try {
-      webperf = collectWebPerfInput(stack, this.config);
-    } catch { /* webperf input is best-effort */ }
+    if (!securityOnly) {
+      try {
+        webperf = collectWebPerfInput(stack, this.config);
+      } catch { /* webperf input is best-effort */ }
+    }
     // OSV vulnerabilities — KJC-TSK-0365. Best-effort: missing
     // osv-scanner binary returns available:false and the audit
     // continues without the section.
