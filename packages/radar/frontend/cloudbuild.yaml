@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://ofr-backend-721262691356.europe-southwest1.run.app/api/v1'
+      - '-t'
+      - 'europe-southwest1-docker.pkg.dev/geniova-ofr-prod/ofr-frontend/ofr-frontend:latest'
+      - '.'
+images:
+  - 'europe-southwest1-docker.pkg.dev/geniova-ofr-prod/ofr-frontend/ofr-frontend:latest'

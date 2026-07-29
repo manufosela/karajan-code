@@ -1,0 +1,295 @@
+{
+  "studies": [
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT06312148",
+          "orgStudyIdInfo": {
+            "id": "ORTHO-CA-2024-017"
+          },
+          "organization": {
+            "fullName": "University of Zurich",
+            "class": "OTHER"
+          },
+          "briefTitle": "Clear Aligners Versus Fixed Braces for the Treatment of Class II Division 1 Malocclusion in Adults: A Randomized Controlled Trial",
+          "officialTitle": "Comparison of Treatment Efficacy and Patient-Reported Outcomes Between Thermoplastic Clear Aligners and Conventional Fixed Orthodontic Appliances for Correction of Class II Division 1 Malocclusion in Adult Patients: A Multicenter Randomized Controlled Trial",
+          "acronym": "CAVFB-II"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2024-08",
+          "overallStatus": "RECRUITING",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2024-03-15",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2026-09-30",
+            "type": "ESTIMATED"
+          },
+          "completionDateStruct": {
+            "date": "2027-03-31",
+            "type": "ESTIMATED"
+          },
+          "studyFirstSubmitDate": "2024-01-22",
+          "studyFirstPostDateStruct": {
+            "date": "2024-02-05",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2024-08-10",
+          "lastUpdatePostDateStruct": {
+            "date": "2024-08-12",
+            "type": "ACTUAL"
+          }
+        },
+        "descriptionModule": {
+          "briefSummary": "This multicenter randomized controlled trial compares the treatment efficacy, treatment duration, and patient-reported outcomes of thermoplastic clear aligners versus conventional fixed orthodontic appliances (metal self-ligating brackets) in adult patients with Class II Division 1 malocclusion. The primary outcome is the Peer Assessment Rating (PAR) index reduction at the end of active treatment. Secondary outcomes include treatment duration, patient satisfaction (measured by the Oral Health Impact Profile-14), pain experience (Visual Analog Scale), and three-dimensional digital model superimposition analysis of tooth movement accuracy.",
+          "detailedDescription": "Class II Division 1 malocclusion is one of the most prevalent orthodontic conditions, affecting approximately 15-20% of the adult population seeking orthodontic treatment. While clear aligners have gained significant popularity due to aesthetic advantages and patient preference, evidence comparing their efficacy to fixed appliances for Class II correction remains limited. Most existing studies are retrospective or involve mild malocclusions. This trial aims to provide high-quality evidence on the relative effectiveness of clear aligners for a specific, well-defined malocclusion type.\n\nPatients will be randomized 1:1 to either the clear aligner group (treated with Invisalign Comprehensive, Align Technology) or the fixed appliance group (treated with Damon Q2 self-ligating brackets, Ormco). Treatment will be provided by calibrated orthodontists at three university clinics. Digital dental models will be obtained at baseline (T0), mid-treatment (T1, 6 months), and end of active treatment (T2). All outcome assessors will be blinded to treatment allocation."
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Malocclusion, Angle Class II, Division 1",
+            "Orthodontic Treatment"
+          ],
+          "keywords": [
+            "Clear aligners",
+            "Fixed orthodontic appliances",
+            "Class II malocclusion",
+            "Invisalign",
+            "Self-ligating brackets",
+            "PAR index",
+            "Patient-reported outcomes",
+            "Randomized controlled trial"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "NA"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "interventionModelDescription": "Participants are randomized 1:1 to either the clear aligner intervention group or the fixed appliance control group.",
+            "primaryPurpose": "TREATMENT",
+            "maskingInfo": {
+              "masking": "SINGLE",
+              "maskingDescription": "Outcome assessors are blinded to treatment allocation. Due to the nature of the interventions, blinding of participants and treating clinicians is not feasible.",
+              "whoMasked": [
+                "OUTCOMES_ASSESSOR"
+              ]
+            }
+          },
+          "enrollmentInfo": {
+            "count": 120,
+            "type": "ESTIMATED"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "DEVICE",
+              "name": "Invisalign Comprehensive Clear Aligners",
+              "description": "Thermoplastic clear aligner system (Align Technology) with sequential aligners changed every 7 days."
+            },
+            {
+              "type": "DEVICE",
+              "name": "Damon Q2 Self-Ligating Brackets",
+              "description": "Conventional fixed orthodontic appliance with passive self-ligating bracket system (Ormco)."
+            }
+          ]
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "PRINCIPAL_INVESTIGATOR",
+            "investigatorFullName": "Dr. Sabrina Hediger",
+            "investigatorTitle": "Senior Lecturer and Consultant in Orthodontics",
+            "investigatorAffiliation": "University of Zurich, Center of Dental Medicine"
+          },
+          "leadSponsor": {
+            "name": "University of Zurich",
+            "class": "OTHER"
+          },
+          "collaborators": [
+            {
+              "name": "University of Bern",
+              "class": "OTHER"
+            },
+            {
+              "name": "Medical University of Vienna",
+              "class": "OTHER"
+            }
+          ]
+        }
+      },
+      "hasResults": false
+    },
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT06398201",
+          "orgStudyIdInfo": {
+            "id": "AI-ORTHO-TP-2023"
+          },
+          "organization": {
+            "fullName": "Seoul National University Hospital",
+            "class": "OTHER"
+          },
+          "briefTitle": "Validation of an AI-Assisted Treatment Planning System for Orthodontic Patients",
+          "officialTitle": "Clinical Validation of a Deep Learning-Based Decision Support System for Orthodontic Treatment Planning: A Prospective Observational Cohort Study",
+          "acronym": "AI-OrthoTP"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2024-07",
+          "overallStatus": "COMPLETED",
+          "expandedAccessInfo": {
+            "hasExpandedAccess": false
+          },
+          "startDateStruct": {
+            "date": "2023-06-01",
+            "type": "ACTUAL"
+          },
+          "primaryCompletionDateStruct": {
+            "date": "2024-05-31",
+            "type": "ACTUAL"
+          },
+          "completionDateStruct": {
+            "date": "2024-06-30",
+            "type": "ACTUAL"
+          },
+          "studyFirstSubmitDate": "2023-04-10",
+          "studyFirstPostDateStruct": {
+            "date": "2023-04-18",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2024-07-15",
+          "lastUpdatePostDateStruct": {
+            "date": "2024-07-17",
+            "type": "ACTUAL"
+          }
+        },
+        "descriptionModule": {
+          "briefSummary": "This prospective observational study evaluates the clinical accuracy and utility of an AI-assisted orthodontic treatment planning system. The system integrates a convolutional neural network for cephalometric analysis, a classification model for extraction/non-extraction decisions, and a generative model for treatment outcome prediction. The primary endpoint is concordance between AI-generated treatment plans and the consensus plan of an expert panel of three board-certified orthodontists.",
+          "detailedDescription": "The integration of artificial intelligence into orthodontic treatment planning has the potential to reduce diagnostic errors, standardize care quality, and improve clinical efficiency. This study evaluates a comprehensive AI-based decision support system (OrthoAI Platform v2.1) that processes three input modalities: lateral cephalometric radiographs, panoramic radiographs, and intraoral scan digital models.\n\nThe system produces: (1) automated cephalometric analysis with 23 landmark identifications, (2) extraction vs. non-extraction recommendation with confidence scores, (3) anchorage requirement classification, and (4) predicted post-treatment digital models. A consecutive sample of 350 new orthodontic patients was enrolled. For each patient, the AI system generated a treatment plan independently, which was then compared to the expert panel consensus. Secondary outcomes include time savings, clinician satisfaction, and identification of cases where AI recommendations diverged from expert opinion."
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Malocclusion",
+            "Orthodontic Treatment Planning"
+          ],
+          "keywords": [
+            "Artificial intelligence",
+            "Deep learning",
+            "Treatment planning",
+            "Cephalometric analysis",
+            "Decision support system",
+            "Orthodontics",
+            "Digital orthodontics"
+          ]
+        },
+        "designModule": {
+          "studyType": "OBSERVATIONAL",
+          "designInfo": {
+            "observationalModel": "COHORT",
+            "timePerspective": "PROSPECTIVE"
+          },
+          "enrollmentInfo": {
+            "count": 350,
+            "type": "ACTUAL"
+          }
+        },
+        "armsInterventionsModule": {
+          "interventions": [
+            {
+              "type": "OTHER",
+              "name": "OrthoAI Platform v2.1",
+              "description": "AI-based decision support system for orthodontic treatment planning."
+            }
+          ]
+        },
+        "sponsorCollaboratorsModule": {
+          "responsibleParty": {
+            "type": "PRINCIPAL_INVESTIGATOR",
+            "investigatorFullName": "Prof. Sung-Hwan Choi",
+            "investigatorTitle": "Professor of Orthodontics",
+            "investigatorAffiliation": "Seoul National University School of Dentistry"
+          },
+          "leadSponsor": {
+            "name": "Seoul National University Hospital",
+            "class": "OTHER"
+          },
+          "collaborators": [
+            {
+              "name": "Korean National Research Foundation",
+              "class": "OTHER"
+            }
+          ]
+        }
+      },
+      "hasResults": true
+    },
+    {
+      "protocolSection": {
+        "identificationModule": {
+          "nctId": "NCT05001234",
+          "orgStudyIdInfo": {
+            "id": "TOOTH-MOVE-PILOT"
+          },
+          "organization": {
+            "fullName": "University of Michigan",
+            "class": "OTHER"
+          },
+          "briefTitle": "Accelerated Tooth Movement with Low-Level Laser Therapy: A Pilot Study"
+        },
+        "statusModule": {
+          "statusVerifiedDate": "2024-05",
+          "overallStatus": "NOT_YET_RECRUITING",
+          "startDateStruct": {
+            "date": "2024-09-01",
+            "type": "ESTIMATED"
+          },
+          "studyFirstSubmitDate": "2024-04-20",
+          "studyFirstPostDateStruct": {
+            "date": "2024-05-02",
+            "type": "ACTUAL"
+          },
+          "lastUpdateSubmitDate": "2024-05-10",
+          "lastUpdatePostDateStruct": {
+            "date": "2024-05-12",
+            "type": "ACTUAL"
+          }
+        },
+        "descriptionModule": {
+          "briefSummary": "A pilot study to evaluate the effectiveness of low-level laser therapy (LLLT) in accelerating orthodontic tooth movement during space closure with clear aligners."
+        },
+        "conditionsModule": {
+          "conditions": [
+            "Tooth Movement"
+          ]
+        },
+        "designModule": {
+          "studyType": "INTERVENTIONAL",
+          "phases": [
+            "PHASE1"
+          ],
+          "designInfo": {
+            "allocation": "RANDOMIZED",
+            "interventionModel": "PARALLEL",
+            "primaryPurpose": "TREATMENT"
+          }
+        },
+        "sponsorCollaboratorsModule": {
+          "leadSponsor": {
+            "name": "University of Michigan",
+            "class": "OTHER"
+          }
+        }
+      },
+      "hasResults": false
+    }
+  ],
+  "totalCount": 3,
+  "nextPageToken": null
+}

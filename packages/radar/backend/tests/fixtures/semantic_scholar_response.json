@@ -1,0 +1,195 @@
+{
+  "total": 2,
+  "offset": 0,
+  "next": 2,
+  "data": [
+    {
+      "paperId": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "externalIds": {
+        "DOI": "10.1016/j.ajodo.2024.03.021",
+        "PubMed": "38912457",
+        "CorpusId": 270184592
+      },
+      "corpusId": 270184592,
+      "publicationVenue": {
+        "id": "f5a7b832-1c2d-4e5f-a6b7-c8d9e0f1a2b3",
+        "name": "American Journal of Orthodontics and Dentofacial Orthopedics",
+        "type": "journal",
+        "alternate_names": ["Am J Orthod Dentofacial Orthop", "AJODO"],
+        "issn": "0889-5406",
+        "url": "https://www.ajodo.org"
+      },
+      "url": "https://www.semanticscholar.org/paper/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "title": "Machine learning-based prediction of orthodontic treatment outcomes: a multi-center validation study using pre-treatment records",
+      "abstract": "Objectives: To develop and validate a machine learning ensemble model for predicting orthodontic treatment outcomes (treatment duration, extraction necessity, and post-treatment stability) from pre-treatment diagnostic records. Materials and Methods: Pre-treatment records from 4,126 patients across five orthodontic centers were collected, including lateral cephalograms, panoramic radiographs, digital dental models, and clinical photographs. A gradient-boosted ensemble combining XGBoost, random forest, and neural network components was trained using 5-fold cross-validation. External validation was performed on a geographically distinct cohort of 823 patients. Results: The model achieved an AUC of 0.934 (95% CI: 0.918-0.950) for extraction prediction, mean absolute error of 2.3 months for treatment duration estimation, and an AUC of 0.867 for relapse risk stratification. Feature importance analysis revealed that initial crowding severity, cephalometric skeletal measurements (ANB, SN-GoGn), and patient age were the strongest predictors. The model maintained consistent performance across centers and demographic subgroups. External validation showed minimal performance degradation (AUC drop < 0.02). Conclusions: Multi-modal machine learning models can predict key orthodontic treatment outcomes with clinically useful accuracy, potentially supporting evidence-based treatment planning and improved patient communication regarding expected treatment trajectories.",
+      "venue": "American Journal of Orthodontics and Dentofacial Orthopedics",
+      "year": 2024,
+      "referenceCount": 56,
+      "citationCount": 23,
+      "influentialCitationCount": 5,
+      "isOpenAccess": false,
+      "openAccessPdf": null,
+      "fieldsOfStudy": [
+        "Medicine",
+        "Computer Science"
+      ],
+      "s2FieldsOfStudy": [
+        {
+          "category": "Medicine",
+          "source": "s2-fos-model"
+        },
+        {
+          "category": "Computer Science",
+          "source": "s2-fos-model"
+        },
+        {
+          "category": "Dentistry",
+          "source": "external"
+        }
+      ],
+      "publicationTypes": [
+        "JournalArticle",
+        "Study"
+      ],
+      "publicationDate": "2024-06-15",
+      "journal": {
+        "name": "American Journal of Orthodontics and Dentofacial Orthopedics",
+        "volume": "165",
+        "pages": "678-692"
+      },
+      "authors": [
+        {
+          "authorId": "145892301",
+          "externalIds": {
+            "ORCID": "0000-0002-3456-7890"
+          },
+          "name": "Hyeon-Shik Hwang",
+          "affiliations": [
+            "Department of Orthodontics, School of Dentistry, Chonnam National University, Gwangju, South Korea"
+          ],
+          "homepage": null,
+          "paperCount": 89,
+          "citationCount": 2341,
+          "hIndex": 28
+        },
+        {
+          "authorId": "52781934",
+          "externalIds": {
+            "ORCID": "0000-0001-8765-4321"
+          },
+          "name": "Sarah Mitchell",
+          "affiliations": [
+            "Department of Biomedical Informatics, Columbia University, New York, NY, USA"
+          ],
+          "homepage": null,
+          "paperCount": 45,
+          "citationCount": 1567,
+          "hIndex": 19
+        },
+        {
+          "authorId": "78234561",
+          "name": "Rodrigo Oyonarte",
+          "affiliations": [
+            "Department of Orthodontics, University of Chile, Santiago, Chile"
+          ],
+          "homepage": null,
+          "paperCount": 67,
+          "citationCount": 1890,
+          "hIndex": 22
+        }
+      ],
+      "tldr": {
+        "model": "tldr@v2.0.0",
+        "text": "A multi-modal machine learning ensemble model predicts orthodontic treatment outcomes including extraction necessity (AUC 0.934), treatment duration (MAE 2.3 months), and relapse risk (AUC 0.867) from pre-treatment diagnostic records across five centers."
+      }
+    },
+    {
+      "paperId": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+      "externalIds": {
+        "DOI": "10.1007/s10856-024-06789-3",
+        "PubMed": "39056712",
+        "ArXiv": "2402.11234",
+        "CorpusId": 271038475
+      },
+      "corpusId": 271038475,
+      "publicationVenue": {
+        "id": "c4d5e6f7-a8b9-0c1d-2e3f-4a5b6c7d8e9f",
+        "name": "Journal of Materials Science: Materials in Medicine",
+        "type": "journal",
+        "issn": "0957-4530",
+        "url": "https://www.springer.com/journal/10856"
+      },
+      "url": "https://www.semanticscholar.org/paper/b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+      "title": "3D printing of patient-specific dental aligners using biocompatible shape-memory polymers: material characterization and clinical feasibility",
+      "abstract": "The fabrication of orthodontic clear aligners currently relies on thermoforming over 3D-printed dental models, a process that introduces dimensional inaccuracies and limits geometric complexity. Direct 3D printing of aligners using digital light processing (DLP) offers potential advantages in fit accuracy, design freedom, and manufacturing efficiency. This study evaluates a novel biocompatible shape-memory polyurethane resin (SM-PU) specifically formulated for direct aligner printing. Material characterization included dynamic mechanical analysis (DMA), tensile testing, water sorption, cytotoxicity assays (ISO 10993-5), and force relaxation measurements over a 14-day simulated intraoral aging protocol. The SM-PU resin demonstrated a glass transition temperature (Tg) of 58°C, enabling controlled shape programming at oral temperatures. Printed aligners showed initial force delivery of 0.78 ± 0.12 N for 0.25 mm of programmed tooth movement, with 62% force retention at day 14, compared to 41% for conventional thermoformed PET-G aligners (p < 0.001). Dimensional accuracy of printed aligners (mean deviation: 48 ± 15 μm from digital design) significantly exceeded thermoformed counterparts (mean deviation: 127 ± 34 μm, p < 0.001). Cytotoxicity testing confirmed cell viability above 85% after 72 hours of extract exposure. A pilot clinical feasibility study (n=12 patients, 3 months) demonstrated acceptable tooth movement with no adverse effects. Direct 3D printing with shape-memory polymers represents a promising paradigm shift in aligner manufacturing, offering superior accuracy and sustained force delivery.",
+      "venue": "Journal of Materials Science: Materials in Medicine",
+      "year": 2024,
+      "referenceCount": 63,
+      "citationCount": 8,
+      "influentialCitationCount": 2,
+      "isOpenAccess": true,
+      "openAccessPdf": {
+        "url": "https://link.springer.com/content/pdf/10.1007/s10856-024-06789-3.pdf",
+        "status": "GOLD"
+      },
+      "fieldsOfStudy": [
+        "Materials Science",
+        "Medicine"
+      ],
+      "s2FieldsOfStudy": [
+        {
+          "category": "Materials Science",
+          "source": "s2-fos-model"
+        },
+        {
+          "category": "Engineering",
+          "source": "s2-fos-model"
+        },
+        {
+          "category": "Medicine",
+          "source": "external"
+        }
+      ],
+      "publicationTypes": [
+        "JournalArticle"
+      ],
+      "publicationDate": "2024-07-22",
+      "journal": {
+        "name": "Journal of Materials Science: Materials in Medicine",
+        "volume": "35",
+        "pages": "Article 45"
+      },
+      "authors": [
+        {
+          "authorId": "198456723",
+          "externalIds": {
+            "ORCID": "0000-0003-2345-6789"
+          },
+          "name": "Elena Formlabs-Perez",
+          "affiliations": [
+            "Institute for Biomechanics, ETH Zurich, Zurich, Switzerland"
+          ],
+          "homepage": null,
+          "paperCount": 34,
+          "citationCount": 890,
+          "hIndex": 14
+        },
+        {
+          "authorId": "87654321",
+          "name": "James O'Brien",
+          "affiliations": [
+            "Department of Dental Materials, King's College London, London, UK"
+          ],
+          "homepage": null,
+          "paperCount": 52,
+          "citationCount": 1234,
+          "hIndex": 17
+        }
+      ],
+      "tldr": {
+        "model": "tldr@v2.0.0",
+        "text": "A novel biocompatible shape-memory polyurethane resin enables direct 3D printing of dental aligners with superior dimensional accuracy (48 vs 127 μm deviation) and 62% force retention at 14 days compared to 41% for thermoformed aligners, with confirmed biocompatibility."
+      }
+    }
+  ]
+}
