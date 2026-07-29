@@ -51,3 +51,19 @@ pnpm-debug.log*
 
 # Misc
 .scannerwork/
+
+# Karajan Code
+.kj/
+.agent/
+.reviews/
+# Karajan environment (verdicts stay local; the contract is tracked)
+.karajan/*
+# …except the v4 environment contract, which the whole team inherits:
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
+!.karajan/hooks/post-merge
+!.karajan/adrs/
