@@ -50,7 +50,15 @@ Con un CLI de IA instalado (claude/codex/gemini/ollama…), añade generación:
 karajan-rag query "¿cómo se calcula la facturación?" ./mi-proyecto --answer --adapter ollama
 ```
 
-### Modo CAG: el corpus completo como contexto
+### Un motor, tres estrategias de contexto
+
+La decisión central de cualquier RAG es **qué contexto viaja al modelo**.
+karajan-rag no la impone: sobre el mismo índice ofrece tres estrategias
+(`--mode rag|cag|hybrid`), todas por el mismo camino guardado (sensitivity
+policy + redacción PII). `rag` es el default que ya has visto: los top-k
+chunks del retrieval híbrido.
+
+#### Modo CAG: el corpus completo como contexto
 
 Para corpus pequeños/medianos, `--mode cag` (Cache-Augmented Generation)
 salta el retrieval y carga **todo el corpus** en el contexto del modelo:
