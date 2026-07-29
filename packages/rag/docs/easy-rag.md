@@ -71,9 +71,16 @@ karajan-rag query "resume la arquitectura" ./mi-proyecto --answer --mode cag
 - No necesita vector store para responder (el manifest basta), pero sí
   un corpus indexado.
 
+Y el término medio, `--mode hybrid`: el retrieval **selecciona** los
+ficheros relevantes y el contexto lleva esos ficheros **completos** (no
+fragmentos), con los que no caben en el presupuesto declarados en el
+log. Ideal cuando los chunks se quedan cortos pero el corpus entero no
+cabe.
+
 Regla rápida: corpus que cabe en contexto y preguntas que piden visión
-global → `cag`; corpus grande o preguntas puntuales → `rag`. ¿Dudas con
-TU corpus? Decide con datos:
+global → `cag`; corpus grande y preguntas puntuales → `rag`; corpus
+grande y preguntas que piden entender ficheros enteros → `hybrid`.
+¿Dudas con TU corpus? Decide con datos:
 
 ```bash
 karajan-rag eval golden.json --compare-modes

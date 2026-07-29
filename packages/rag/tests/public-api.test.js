@@ -96,6 +96,7 @@ const REQUIRED_EXPORTS = [
   'enforceEasyAdapterPolicy',
   'generateAnswerForHits',
   'buildCagContext',
+  'buildHybridContext',
   'DEFAULT_CAG_MAX_CHARS',
 
   // Embedding

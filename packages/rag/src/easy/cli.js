@@ -36,7 +36,7 @@ import {
   enforceEasyAdapterPolicy,
 } from './sensitivity.js';
 import { createOllamaClient } from '../ai/adapters/ollama-client.js';
-import { buildCagContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
+import { buildCagContext, buildHybridContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
 import { compareModes } from '../evaluation/mode-compare.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
@@ -243,7 +243,7 @@ export async function runInitCommand(argv, io = {}) {
  * @property {boolean} answer
  * @property {string} adapter
  * @property {boolean} adapterExplicit true solo si vino del flag --adapter (la policy no degrada elecciones explícitas).
- * @property {'rag' | 'cag'} mode Estrategia de respuesta: retrieval top-k (rag) o corpus completo (cag).
+ * @property {'rag' | 'cag' | 'hybrid'} mode Estrategia de respuesta: retrieval top-k (rag), corpus completo (cag) o ficheros completos seleccionados por retrieval (hybrid).
  * @property {number} maxContextChars Presupuesto del contexto en modo cag.
  */
 
@@ -286,12 +286,12 @@ export function parseQueryArgs(argv, defaults = /** @type {import('./config.js')
   if (!Number.isInteger(topK) || topK <= 0) {
     throw new Error('query: --top-k debe ser un entero positivo.');
   }
-  const mode = /** @type {'rag' | 'cag'} */ (values.mode ?? 'rag');
-  if (!['rag', 'cag'].includes(mode)) {
-    throw new Error(`query: --mode "${mode}" no soportado (esperado: rag, cag).`);
+  const mode = /** @type {'rag' | 'cag' | 'hybrid'} */ (values.mode ?? 'rag');
+  if (!['rag', 'cag', 'hybrid'].includes(mode)) {
+    throw new Error(`query: --mode "${mode}" no soportado (esperado: rag, cag, hybrid).`);
   }
-  if (mode === 'cag' && values.answer !== true) {
-    throw new Error('query: --mode cag requiere --answer (sin retrieval no hay hits que mostrar).');
+  if (mode !== 'rag' && values.answer !== true) {
+    throw new Error(`query: --mode ${mode} requiere --answer (su único producto es la respuesta).`);
   }
   const maxContextChars = values['max-context-chars']
     ? Number.parseInt(String(values['max-context-chars']), 10)
@@ -363,6 +363,33 @@ export async function runQueryCommand(argv, io = {}) {
   if (result.hits.length === 0) {
     log('sin resultados.');
     return result;
+  }
+
+  if (options.mode === 'hybrid') {
+    // Hybrid: el retrieval ya seleccionó — el contexto lleva los ficheros
+    // origen COMPLETOS que caben, con la exclusión declarada en el log.
+    const ctx = await buildHybridContext(options.rootDir, {
+      hits: result.hits,
+      maxChars: options.maxContextChars,
+    });
+    log(
+      `modo hybrid: ${ctx.files.length} ficheros completos (${ctx.chars} chars, nivel ${ctx.sensitivity})` +
+        (ctx.excluded.length > 0
+          ? ` — excluidos por presupuesto: ${ctx.excluded.map((e) => `${e.source} (${e.chars} chars)`).join(', ')}`
+          : ''),
+    );
+    const generated = await generateAnswerForHits({
+      question: options.question,
+      hits: ctx.hits,
+      adapter: options.adapter,
+      adapterExplicit: options.adapterExplicit,
+      registry: io.adapterRegistry,
+      log,
+    });
+    out('');
+    out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}, modo hybrid) ---`);
+    out(generated.answer);
+    return { ...result, answer: generated.answer };
   }
   for (const [i, hit] of result.hits.entries()) {
     const location = hit.line === null ? hit.source : `${hit.source}:${hit.line}`;
