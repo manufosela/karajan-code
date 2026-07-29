@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.3 — subprocess by right, host by choice (current)
+### v4.7.0 — least privilege for agents (current)
+
+Minor with two controls born from convergence: a payments processor published how it operates AI agents safely, and their principles mapped almost one-to-one onto Karajan's gates — except two. Now closed: spawned agents receive an **env allowlist** (system essentials + their own CLI's auth + lane vars — your cloud keys and registry tokens never reach a subprocess, so an injected prompt cannot exfiltrate what it never received), and `kj check` keeps an **AI-surface inventory** — every MCP reachable in the project, with drift detection: `NEW since last check: x — approved by you?`. Every new tool an agent gains is one more access, and it should be a conscious one. Named escapes as always: `security.env_passthrough`, `security.env_allowlist: false`.
+
+### v4.6.3 — subprocess by right, host by choice
 
 Patch closing the first externally-diagnosed v4 bug: running kj inside Claude Code with `coder: claude` silently handed the coder role to the host and hung headless runs (issues #1301/#1303 by @jorgecasar). CLI providers now always spawn their own subprocess even when kj runs inside them; delegating to the host is an explicit opt-in (`roles.coder.host_delegation: true`). Also from the field: `kj harden` CI workflows now detect the repo's package manager (pnpm/yarn repos no longer die on `npm ci`), and the brace-expansion HIGH advisory caught by the nightly drift is resolved. Drop-in upgrade from v4.6.2.
 

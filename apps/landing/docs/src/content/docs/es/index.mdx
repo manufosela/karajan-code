@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.6.3 — subproceso por derecho, host por elección (actual)
+### v4.7.0 — mínimo privilegio para agentes (actual)
+
+Minor con dos controles nacidos de una convergencia: un procesador de pagos publicó cómo opera agentes de IA de forma segura, y sus principios mapeaban casi uno a uno con los gates de Karajan — salvo dos. Ya cerrados: los agentes lanzados reciben un **allowlist de entorno** (esenciales del sistema + la auth de su propio CLI + variables de carril — tus claves cloud y tokens de registro no llegan jamás a un subproceso, así que un prompt inyectado no puede exfiltrar lo que nunca recibió), y `kj check` mantiene un **inventario de superficie IA** — cada MCP alcanzable en el proyecto, con detección de deriva: `NEW since last check: x — approved by you?`. Cada herramienta nueva de un agente es un acceso más, y debe ser consciente. Escapes con nombre, como siempre: `security.env_passthrough`, `security.env_allowlist: false`.
+
+### v4.6.3 — subproceso por derecho, host por elección
 
 Parche que cierra el primer bug de v4 diagnosticado desde fuera: ejecutar kj dentro de Claude Code con `coder: claude` entregaba en silencio el rol de coder al host y colgaba las ejecuciones headless (issues #1301/#1303 de @jorgecasar). Los providers CLI ahora siempre lanzan su propio subproceso aunque kj corra dentro de ellos; delegar en el host es un opt-in explícito (`roles.coder.host_delegation: true`). También desde el campo: los workflows de CI de `kj harden` ahora detectan el gestor de paquetes del repo (los repos pnpm/yarn ya no mueren en `npm ci`), y queda resuelto el aviso HIGH de brace-expansion que cazó el drift nocturno. Actualización directa desde v4.6.2.
 
