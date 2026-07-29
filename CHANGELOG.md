@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.7.0] - 2026-07-29
+
+Minor. **Least privilege for agents** — a subprocess gets what its function requires and nothing more, and every new tool is a conscious access. Two controls born from convergence with how a payments processor operates AI agents safely.
+
 ### Added
 
 - **Env allowlist for agent subprocesses** (KJC-TSK-0693): spawned agents (coder/reviewer/tester CLIs) no longer inherit the user's whole environment — only system essentials, the CLI's own auth/config families, and `KJ_*` lane vars. Cloud keys, registry tokens and DB URLs never reach the child, so a compromised agent or injected prompt cannot exfiltrate what it never received. Per-agent extras (`GITHUB_*`/`GH_*` only for copilot); escapes: `security.env_passthrough` (names or trailing-* globs) and `security.env_allowlist: false`. Inspired by Akua's "temporary credentials, never a shared master key" control.
