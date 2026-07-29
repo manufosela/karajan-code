@@ -282,6 +282,25 @@
       .score-row { opacity: 1 !important; transform: none; transition: none; }
     }
 
+    /* --- CONTEXT STRATEGIES --- */
+    .modes-section { padding: 1rem 2rem 4rem; max-width: 860px; margin: 0 auto; text-align: center; }
+    .modes-intro { color: var(--text-muted); font-size: 0.95rem; max-width: 620px; margin: -0.8rem auto 1.8rem; }
+    .modes-intro strong { color: var(--text); }
+    .modes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: left; }
+    .mode-card {
+      border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card);
+      padding: 1.3rem 1.2rem; display: flex; flex-direction: column; gap: 0.55rem;
+      transition: border-color 0.2s;
+    }
+    .mode-card:hover { border-color: var(--accent); }
+    .mode-name { font-family: var(--mono); font-size: 0.82rem; font-weight: 600; color: var(--gold-ink); letter-spacing: 0.02em; }
+    .mode-what { font-size: 0.9rem; color: var(--text); line-height: 1.5; }
+    .mode-what strong { color: var(--gold-ink); font-weight: 600; }
+    .mode-when { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; margin-top: auto; }
+    .modes-footer { margin-top: 1.6rem; font-size: 0.85rem; color: var(--text-muted); max-width: 640px; margin-left: auto; margin-right: auto; }
+    .modes-footer code { font-family: var(--mono); font-size: 0.88em; color: var(--steel-ink); }
+    @media (max-width: 720px) { .modes-grid { grid-template-columns: 1fr; } }
+
     /* --- AUDIT --- */
     .audit-section { padding: 1rem 2rem 4rem; max-width: 720px; margin: 0 auto; text-align: center; }
     .audit-card {
@@ -429,7 +448,7 @@
     <p class="hero-family"><a href="https://karajancode.com">Karajan</a> family</p>
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
     <p class="hero-tagline">Point it at your code, docs or data. Get a queryable RAG in five minutes — <em class="guarantee">with guarantees</em>.</p>
-    <p class="hero-sub">Local-first &middot; zero runtime dependencies &middot; hybrid retrieval &middot; your content never reaches a provider the sensitivity policy forbids</p>
+    <p class="hero-sub">Local-first &middot; zero runtime dependencies &middot; three context strategies (rag / cag / hybrid) &middot; your content never reaches a provider the sensitivity policy forbids</p>
     <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
       <span class="prompt" aria-hidden="true">&gt;</span>
       <span>I want a RAG over this project: read rag.karajancode.com/start.md and do what it says.</span>
@@ -460,6 +479,31 @@
     </div>
     <p class="score-caption">Not a docs promise &mdash; it&rsquo;s enforced in code. <strong>The green above is the only green on this page.</strong></p>
     <button type="button" class="score-replay" onclick="playScore(true)">&#8634; replay</button>
+  </section>
+
+  <!-- CONTEXT STRATEGIES -->
+  <section class="modes-section fade-in" aria-label="Context strategy engine">
+    <p class="score-eyebrow">The engine</p>
+    <h2 class="score-title">One corpus, <em class="guarantee">three</em> context strategies</h2>
+    <p class="modes-intro">The core decision of any retrieval system is <strong>what context travels to the model</strong>. kaRAGan doesn&rsquo;t impose one answer &mdash; pick per query, same guarantees in all three.</p>
+    <div class="modes-grid">
+      <div class="mode-card">
+        <p class="mode-name">--mode rag</p>
+        <p class="mode-what">Top-k chunks from hybrid retrieval (vector + BM25)</p>
+        <p class="mode-when">Large corpus, surgical questions. The default.</p>
+      </div>
+      <div class="mode-card">
+        <p class="mode-name">--mode cag</p>
+        <p class="mode-what">The <strong>whole corpus</strong>, as a deterministic, stable context &mdash; provider prompt-cache friendly</p>
+        <p class="mode-when">Corpus fits the window, questions need the full picture. Never silently truncated: it fits or it fails loud.</p>
+      </div>
+      <div class="mode-card">
+        <p class="mode-name">--mode hybrid</p>
+        <p class="mode-what"><strong>Whole files</strong> selected by retrieval &mdash; exclusions declared, never hidden</p>
+        <p class="mode-when">Chunks fall short but the corpus won&rsquo;t fit. Retrieval picks, files travel whole.</p>
+      </div>
+    </div>
+    <p class="modes-footer">Not sure which fits your corpus? <code>karajan-rag eval golden.json --compare-modes</code> recommends one <em class="guarantee">with numbers</em> &mdash; retrieval recall vs context cost, measured offline on your own golden set.</p>
   </section>
 
   <!-- AUDIT -->
