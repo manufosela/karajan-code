@@ -9,6 +9,14 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Modo hybrid** (épica CAG): `query --answer --mode hybrid` — el
+  retrieval SELECCIONA los ficheros relevantes y el contexto lleva esos
+  ficheros COMPLETOS (no fragmentos), en orden determinista por ruta.
+  Candidatos por mejor score; los que no caben en `--max-context-chars`
+  quedan declarados explícitamente en el log — selección visible, nunca
+  truncado silencioso. Sensibilidad efectiva = máximo de los
+  seleccionados; mismo camino guardado (policy + redactPII). API:
+  `buildHybridContext`.
 - **`eval --compare-modes`** (épica CAG): comparativa offline CAG vs RAG
   sobre el golden set — recall de fuentes relevantes en el top-k, tamaño
   de contexto por consulta de cada modo y ratio de coste, con
