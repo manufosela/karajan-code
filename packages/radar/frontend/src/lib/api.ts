@@ -349,4 +349,15 @@ export async function fetchCostEstimate(): Promise<CostEstimateResponse> {
   return request<CostEstimateResponse>("/analytics/costs");
 }
 
+import type { ActiveProfile } from "@/types/profile";
+
+/**
+ * Describe the Radar Profile this instance runs on: taxonomy, scoring
+ * vocabulary and branding. The interface labels domain concepts from this
+ * response instead of carrying its own lists.
+ */
+export async function fetchActiveProfile(): Promise<ActiveProfile> {
+  return request<ActiveProfile>("/configuration/profile");
+}
+
 export { ApiError };
