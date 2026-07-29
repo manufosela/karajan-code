@@ -108,20 +108,24 @@ export const runDriftPipeline = async ({
   const corpus = config.corpus.docs;
   const chunks = parseUnifiedDiff(diffText, { repoName });
 
-  const query =
-    deps.query ??
-    (await (async () => {
-      const rag = await createRag({
-        rootDir: workspaceDir,
-        store: corpus.store,
-        embedder: corpus.embedder,
-        env: /** @type {never} */ (env),
-      });
-      /** @type {import('./retrieval.js').QueryFn} */
-      const boundQuery = (question, options) => rag.query(question, options);
-      return boundQuery;
-    })());
+  const ragFactory = deps.createRag ?? createRag;
+  /** @type {{query: Function, close?: () => Promise<void>} | null} */
+  let ownedRag = null;
+  /** @type {import('./retrieval.js').QueryFn} */
+  let query;
+  if (deps.query) {
+    query = deps.query;
+  } else {
+    ownedRag = await ragFactory({
+      rootDir: workspaceDir,
+      store: corpus.store,
+      embedder: corpus.embedder,
+      env: /** @type {never} */ (env),
+    });
+    query = (question, options) => /** @type {never} */ (ownedRag).query(question, options);
+  }
 
+  try {
   const { candidates } = await findImpactCandidates({ chunks, query });
   // findImpactCandidates ya excluye el repo origen; el filtro explícito
   // aquí es defensa en profundidad exigida por la review (el informe de
@@ -177,4 +181,7 @@ export const runDriftPipeline = async ({
   }
 
   return { sections, markdown, delivered };
+  } finally {
+    await ownedRag?.close?.();
+  }
 };

@@ -29,8 +29,31 @@ export class JudgmentError extends Error {
   }
 }
 
+/**
+ * Cuánto se espera al adapter antes de dar el juicio por perdido.
+ *
+ * Sin tope, un adapter lento o colgado deja el workflow ocupado hasta el
+ * límite del runner sin informe ni explicación (KJW-BUG-0006).
+ */
+export const JUDGMENT_TIMEOUT_MS = 120_000;
+
 /** Severidades admitidas en el veredicto. */
 export const SEVERITIES = Object.freeze(['low', 'medium', 'high']);
+
+/**
+ * Topes de lo que entra al prompt.
+ *
+ * Sin ellos, un repo con cientos de commits aporta cientos de líneas de
+ * co-cambios y el prompt se dispara: en el primer smoke real midió 88.727
+ * caracteres y dejó el pipeline masticando durante minutos (KJW-BUG-0004).
+ * Lo que se recorta se declara en el propio prompt, nunca en silencio.
+ */
+export const PROMPT_LIMITS = Object.freeze({
+  candidates: 10,
+  evidencePerCandidate: 3,
+  coChangesPerRepo: 8,
+  contracts: 15,
+});
 
 /**
  * @typedef {import('./retrieval.js').ImpactCandidate} ImpactCandidate
@@ -62,16 +85,31 @@ export const SEVERITIES = Object.freeze(['low', 'medium', 'high']);
  * @returns {string}
  */
 export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary, contracts = [] }) => {
-  const candidateLines = candidates.map(
-    (c) =>
-      `- ${c.source} (score ${c.score.toFixed(2)}): evidencia ${c.evidence
-        .map((e) => `${e.fromChunk.path}@${e.fromChunk.newStart}→línea ${e.line ?? '?'}`)
-        .join(', ')}`,
-  );
+  const omitted = (total, shown) =>
+    total > shown ? ` (+${total - shown} more)` : '';
+
+  const candidateLines = candidates.slice(0, PROMPT_LIMITS.candidates).map((c) => {
+    const shown = c.evidence.slice(0, PROMPT_LIMITS.evidencePerCandidate);
+    const evidence = shown
+      .map((e) => `${e.fromChunk.path}@${e.fromChunk.newStart}→línea ${e.line ?? '?'}`)
+      .join(', ');
+    return `- ${c.source} (score ${c.score.toFixed(2)}): evidencia ${evidence}${omitted(c.evidence.length, shown.length)}`;
+  });
+
+  // Los co-cambios se ordenan por frecuencia y se cortan: son la señal que
+  // más volumen genera y la que menos aporta en su cola larga.
   const coChangeLines = [
-    ...coChanges.byRepo.flatMap((r) =>
-      r.coChanges.map((c) => `- ${r.repo}: ${c.path} (count ${c.count}, último ${c.lastDate})`),
-    ),
+    ...coChanges.byRepo.flatMap((r) => {
+      const ranked = r.coChanges.toSorted((a, b) => b.count - a.count);
+      const shown = ranked.slice(0, PROMPT_LIMITS.coChangesPerRepo);
+      const lines = shown.map(
+        (c) => `- ${r.repo}: ${c.path} (count ${c.count}, último ${c.lastDate})`,
+      );
+      if (ranked.length > shown.length) {
+        lines.push(`- ${r.repo}: +${ranked.length - shown.length} more co-changes not listed`);
+      }
+      return lines;
+    }),
     ...coChanges.noSignal.map((r) => `- ${r.repo}: sin señal (${r.reason})`),
   ];
   return [
@@ -90,7 +128,7 @@ export const buildJudgmentPrompt = ({ candidates, coChanges, diffSummary, contra
     ...(contracts.length > 0
       ? [
           '## Contracts shared with the diff (hard evidence, not similarity)',
-          ...contracts.map(
+          ...contracts.slice(0, PROMPT_LIMITS.contracts).map(
             (c) =>
               `- ${c.source}: ${c.tokens
                 .map((t) => `${t.value} (${t.type}${t.removed ? ', REMOVED in this merge' : ''})`)
@@ -166,6 +204,7 @@ export const parseVerdict = (rawText) => {
  * @param {string} [params.adapter] Adapter explícito; debe estar permitido.
  * @param {(adapterName: string, prompt: string) => Promise<string>} params.runAdapter Ejecuta el adapter (el wiring real llega en KJW-TSK-0008).
  * @param {(text: string) => {text: string}} [params.redact] Default: redactPII de karajan-rag.
+ * @param {number} [params.timeoutMs] Tope de espera al adapter (default {@link JUDGMENT_TIMEOUT_MS}).
  * @returns {Promise<JudgmentResult>}
  */
 export const judgeImpact = async ({
@@ -178,6 +217,7 @@ export const judgeImpact = async ({
   adapter,
   runAdapter,
   redact = redactPII,
+  timeoutMs = JUDGMENT_TIMEOUT_MS,
 }) => {
   if (!SENSITIVITY_LEVELS.includes(sensitivity)) {
     throw new JudgmentError(
@@ -198,21 +238,46 @@ export const judgeImpact = async ({
 
   const prompt = buildJudgmentPrompt({ candidates, coChanges, diffSummary, contracts });
   let raw;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
   try {
-    raw = await runAdapter(adapterName, prompt);
+    raw = await Promise.race([
+      runAdapter(adapterName, prompt),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new JudgmentError(
+                `el adapter "${adapterName}" no respondió en ${timeoutMs} ms: juicio abortado.`,
+              ),
+            ),
+          timeoutMs,
+        );
+      }),
+    ]);
   } catch (err) {
+    if (err instanceof JudgmentError) throw err;
     throw new JudgmentError(`el adapter "${adapterName}" falló durante el juicio.`, {
       cause: err,
     });
+  } finally {
+    clearTimeout(timer);
   }
 
   const verdict = parseVerdict(raw);
-  const knownSources = new Set(candidates.map((c) => c.source));
+  // El prompt muestra TRES señales, así que el veredicto puede apoyarse en
+  // cualquiera de ellas: validar solo contra el retrieval convertía en
+  // "alucinación" un juicio legítimo basado en co-cambios (KJW-BUG-0005).
+  const knownSources = new Set([
+    ...candidates.map((c) => c.source),
+    ...contracts.map((c) => c.source),
+    ...coChanges.byRepo.flatMap((r) => r.coChanges.map((c) => `${r.repo}/${c.path}`)),
+  ]);
   for (const entry of verdict.affected) {
     if (!knownSources.has(entry.source)) {
       throw new JudgmentError(
-        `el veredicto menciona "${entry.source}", que no está entre los candidatos: ` +
-          'alucinación del adapter.',
+        `el veredicto menciona "${entry.source}", que no aparece en ninguna señal ` +
+          '(retrieval, co-cambios ni contratos): alucinación del adapter.',
       );
     }
   }

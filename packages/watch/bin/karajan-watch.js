@@ -5,7 +5,7 @@
  *
  * Uso:
  *   karajan-watch ingest [--config karajan-watch.config.json] [--workspace <dir>] [--corpus code|docs]
- *   karajan-watch impact --workspace <dir> --repo <name> --diff <fichero|-> [--no-deliver] [--pr-number N]
+ *   karajan-watch impact --workspace <dir> --repo <name> --diff <fichero|-> [--no-judge] [--no-deliver] [--pr-number N]
  *   karajan-watch drift  --workspace <dir> --repo <name> --diff <fichero|-> [--judge] [--no-deliver] [--pr-number N]
  *
  * `ingest` valida el config de despliegue, verifica la convención de
@@ -30,7 +30,7 @@ const printUsage = () => {
     'Uso: karajan-watch ingest [--config karajan-watch.config.json] ' +
       '[--workspace <dir>] [--corpus code|docs]\n' +
       '     karajan-watch impact --workspace <dir> --repo <name> --diff <fichero|-> ' +
-      '[--config karajan-watch.config.json] [--corpus code|docs] [--no-deliver] [--pr-number N]\n' +
+      '[--config karajan-watch.config.json] [--corpus code|docs] [--no-judge] [--no-deliver] [--pr-number N]\n' +
       '     karajan-watch drift  --workspace <dir> --repo <name> --diff <fichero|-> ' +
       '[--config karajan-watch.config.json] [--judge] [--no-deliver] [--pr-number N]\n' +
       '     karajan-watch eval   --workspace <dir> --golden <fichero> ' +
@@ -93,6 +93,7 @@ const main = async () => {
       diff: { type: 'string' },
       golden: { type: 'string' },
       judge: { type: 'boolean', default: false },
+      'no-judge': { type: 'boolean', default: false },
       'no-deliver': { type: 'boolean', default: false },
       'pr-number': { type: 'string' },
     },
@@ -155,6 +156,7 @@ const main = async () => {
       ? await runImpactPipeline({
           ...shared,
           corpusName: /** @type {'code' | 'docs'} */ (values.corpus),
+          judge: !values['no-judge'],
         })
       : await runDriftPipeline({ ...shared, judge: values.judge });
   console.log(result.markdown);

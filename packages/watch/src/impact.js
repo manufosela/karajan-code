@@ -80,6 +80,7 @@ export const createDefaultRunAdapter = () => {
  * @property {(adapterName: string, prompt: string) => Promise<string>} [runAdapter]
  * @property {(url: string, options: never) => Promise<{ok: boolean, status: number}>} [fetchFn]
  * @property {(repoDir: string) => Promise<import('./cochanges.js').RepoCommit[]>} [readHistory]
+ * @property {(options: Record<string, unknown>) => Promise<{query: Function, close?: () => Promise<void>}>} [createRag] Factoría del RAG, inyectable para poder verificar que se cierra.
  *
  * @typedef {Object} ImpactResult
  * @property {import('./report.js').RankingEntry[]} ranking
@@ -104,6 +105,7 @@ export const createDefaultRunAdapter = () => {
  * @param {{repoSlug: string, prNumber: number, token: string}} [params.prContext]
  * @param {Record<string, string | undefined>} [params.env]
  * @param {ImpactDeps} [params.deps]
+ * @param {(msg: string) => void} [params.log] Progreso por fase: sin esto el pipeline es una caja negra en CI (KJW-BUG-0004).
  * @returns {Promise<ImpactResult>}
  */
 export const runImpactPipeline = async ({
@@ -117,6 +119,7 @@ export const runImpactPipeline = async ({
   prContext,
   env = process.env,
   deps = {},
+  log = (msg) => console.error(`[kjw-impact] ${msg}`),
 }) => {
   const repo = config.repos.find((r) => r.name === repoName);
   if (!repo) {
@@ -126,21 +129,29 @@ export const runImpactPipeline = async ({
 
   const chunks = parseUnifiedDiff(diffText, { repoName });
 
-  const query =
-    deps.query ??
-    (await (async () => {
-      const rag = await createRag({
-        rootDir: workspaceDir,
-        store: corpus.store,
-        embedder: corpus.embedder,
-        env: /** @type {never} */ (env),
-      });
-      /** @type {import('./retrieval.js').QueryFn} */
-      const boundQuery = (question, options) => rag.query(question, options);
-      return boundQuery;
-    })());
+  // Quien abre el recurso lo cierra: si el query viene inyectado es de
+  // quien lo pasó y no nos corresponde tocarlo (KJW-BUG-0007).
+  const ragFactory = deps.createRag ?? createRag;
+  /** @type {{query: Function, close?: () => Promise<void>} | null} */
+  let ownedRag = null;
+  /** @type {import('./retrieval.js').QueryFn} */
+  let query;
+  if (deps.query) {
+    query = deps.query;
+  } else {
+    ownedRag = await ragFactory({
+      rootDir: workspaceDir,
+      store: corpus.store,
+      embedder: corpus.embedder,
+      env: /** @type {never} */ (env),
+    });
+    query = (question, options) => /** @type {never} */ (ownedRag).query(question, options);
+  }
 
+  try {
+  log(`diff: ${chunks.length} chunks`);
   const { candidates } = await findImpactCandidates({ chunks, query });
+  log(`retrieval: ${candidates.length} candidatos`);
 
   // Señal 4: contratos. Reutiliza la misma query, así que no añade infra.
   const contractsConfig = config.contracts ?? { enabled: true, types: undefined };
@@ -152,6 +163,7 @@ export const runImpactPipeline = async ({
       query,
       excludeRepo: repoName,
     }));
+    log(`contratos: ${tokens.length} identificadores → ${contracts.length} coincidencias`);
   }
 
   // Señal de co-cambios: historial del origen + de cada target declarado.
@@ -180,8 +192,10 @@ export const runImpactPipeline = async ({
     }
   }
   const coChanges = correlateCoChanges({ origin, targets, touchedPaths });
+  log(`co-cambios: ${coChanges.byRepo.length} con señal, ${coChanges.noSignal.length} sin ella`);
 
   const diffSummary = `${repoName}: ${touchedPaths.join(', ')} (${chunks.length} chunks)`;
+  if (judge) log('juicio: pidiendo veredicto al adapter…');
   const { verdict } = judge
     ? await judgeImpact({
         candidates,
@@ -219,4 +233,7 @@ export const runImpactPipeline = async ({
   }
 
   return { ranking, contracts, coChanges, verdict, markdown, delivered };
+  } finally {
+    await ownedRag?.close?.();
+  }
 };
