@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class ImpactAnalysisError(Exception):
     """Raised when impact analysis fails (LLM error or invalid response)."""
 
@@ -33,6 +34,7 @@ class ImpactAnalysisError(Exception):
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ImpactAnalysisResult:
@@ -49,6 +51,7 @@ class ImpactAnalysisResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class ImpactAnalysisService:
     """Analyzes research impact and detects hype risk.
@@ -175,16 +178,14 @@ class ImpactAnalysisService:
         # Validate impact_level
         if impact_level not in self.valid_impact_levels:
             raise ImpactAnalysisError(
-                f"Invalid impact_level '{impact_level}'. "
-                f"Must be one of: {sorted(self.valid_impact_levels)}",
+                f"Invalid impact_level '{impact_level}'. Must be one of: {sorted(self.valid_impact_levels)}",
                 title=title,
             )
 
         # Validate hype_risk
         if hype_risk not in self.valid_hype_risks:
             raise ImpactAnalysisError(
-                f"Invalid hype_risk '{hype_risk}'. "
-                f"Must be one of: {sorted(self.valid_hype_risks)}",
+                f"Invalid hype_risk '{hype_risk}'. Must be one of: {sorted(self.valid_hype_risks)}",
                 title=title,
             )
 

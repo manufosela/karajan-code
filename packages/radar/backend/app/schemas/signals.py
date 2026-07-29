@@ -2,14 +2,14 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class SortByEnum(str, Enum):
+class SortByEnum(StrEnum):
     """Allowed sort fields for signal list."""
 
     date = "date"
@@ -18,7 +18,7 @@ class SortByEnum(str, Enum):
     created_at = "created_at"
 
 
-class SortOrderEnum(str, Enum):
+class SortOrderEnum(StrEnum):
     """Sort direction."""
 
     asc = "asc"

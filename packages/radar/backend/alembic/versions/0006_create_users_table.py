@@ -5,6 +5,7 @@ Revises: 0005
 Create Date: 2026-03-20
 """
 
+import contextlib
 import os
 from collections.abc import Sequence
 from uuid import uuid4
@@ -36,11 +37,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
 
-    # Unique constraint on email
-    try:
+    # Unique constraint on email. SQLite may have created it inline.
+    with contextlib.suppress(Exception):
         op.create_unique_constraint("uq_users_email", "users", ["email"])
-    except Exception:
-        pass  # SQLite may have created it inline
 
     # Seed the initial admin from the environment. Never from a literal: a
     # default account with a known password is a backdoor in every deployment
@@ -50,10 +49,7 @@ def upgrade() -> None:
     admin_password = os.getenv("SEED_ADMIN_PASSWORD", "")
 
     if not admin_email or not admin_password:
-        print(
-            "0006: SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set; "
-            "no admin user seeded."
-        )
+        print("0006: SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set; no admin user seeded.")
         return
 
     import bcrypt
@@ -64,9 +60,7 @@ def upgrade() -> None:
             {
                 "id": uuid4(),
                 "email": admin_email,
-                "password_hash": bcrypt.hashpw(
-                    admin_password.encode(), bcrypt.gensalt()
-                ).decode(),
+                "password_hash": bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode(),
                 "name": os.getenv("SEED_ADMIN_NAME", "Administrator"),
                 "is_admin": True,
                 "is_active": True,

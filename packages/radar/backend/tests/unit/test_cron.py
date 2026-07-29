@@ -28,7 +28,8 @@ class TestGenerateCron:
 
     def test_weekly_all_days(self) -> None:
         result = generate_cron(
-            "weekly", "06:00",
+            "weekly",
+            "06:00",
             days_of_week=["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
         )
         assert "00 06 * *" in result
@@ -92,24 +93,32 @@ class TestCalculateNextRuns:
 
     def test_weekly_returns_only_matching_days(self) -> None:
         runs = calculate_next_runs(
-            "weekly", "08:00", "Europe/Madrid",
-            days_of_week=["mon"], count=3,
+            "weekly",
+            "08:00",
+            "Europe/Madrid",
+            days_of_week=["mon"],
+            count=3,
         )
         assert len(runs) == 3
         # All runs should be on a Monday (weekday 0)
         for run_str in runs:
             from datetime import datetime
+
             dt = datetime.fromisoformat(run_str)
             assert dt.weekday() == 0  # Monday
 
     def test_monthly_returns_correct_day(self) -> None:
         runs = calculate_next_runs(
-            "monthly", "09:00", "Europe/Madrid",
-            day_of_month=15, count=3,
+            "monthly",
+            "09:00",
+            "Europe/Madrid",
+            day_of_month=15,
+            count=3,
         )
         assert len(runs) == 3
         for run_str in runs:
             from datetime import datetime
+
             dt = datetime.fromisoformat(run_str)
             assert dt.day == 15
 

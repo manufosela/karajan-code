@@ -1,21 +1,21 @@
 """Pydantic schemas for digest endpoints."""
 
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class DeliveryChannelEnum(str, Enum):
+class DeliveryChannelEnum(StrEnum):
     """Valid delivery channels."""
 
     teams = "teams"
     email = "email"
 
 
-class DeliveryStatusEnum(str, Enum):
+class DeliveryStatusEnum(StrEnum):
     """Valid delivery statuses."""
 
     pending = "pending"
@@ -27,9 +27,7 @@ class DigestTriggerRequest(BaseModel):
     """Request body for triggering digest generation."""
 
     deliver: bool = Field(default=False, description="Whether to deliver the digest after generation")
-    channel: DeliveryChannelEnum = Field(
-        default=DeliveryChannelEnum.teams, description="Delivery channel"
-    )
+    channel: DeliveryChannelEnum = Field(default=DeliveryChannelEnum.teams, description="Delivery channel")
 
 
 class DigestItemSummary(BaseModel):

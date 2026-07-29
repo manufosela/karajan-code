@@ -91,9 +91,7 @@ async def test_daily_digest_query_by_channel(test_session: AsyncSession):
     test_session.add_all([d1, d2, d3])
     await test_session.flush()
 
-    result = await test_session.execute(
-        select(DailyDigest).where(DailyDigest.delivery_channel == "teams")
-    )
+    result = await test_session.execute(select(DailyDigest).where(DailyDigest.delivery_channel == "teams"))
     teams_digests = result.scalars().all()
     assert len(teams_digests) == 2
 

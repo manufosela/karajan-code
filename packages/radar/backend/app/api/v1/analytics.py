@@ -4,11 +4,11 @@ import math
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from fastapi import APIRouter, Query
-from sqlalchemy import String, case, cast, func, select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import Depends, get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_admin
 from app.models.ingestion_run import IngestionRun
 from app.models.research_item import ResearchItem
 from app.models.source import Source
@@ -77,10 +77,7 @@ async def get_trends(
     for row in rows:
         day_val = row.day
         # Normalize date to string
-        if isinstance(day_val, datetime):
-            date_str = day_val.strftime("%Y-%m-%d")
-        else:
-            date_str = str(day_val)
+        date_str = day_val.strftime("%Y-%m-%d") if isinstance(day_val, datetime) else str(day_val)
 
         source_id_str = str(row.source_id)
         if source_id_str not in source_map:
@@ -89,9 +86,7 @@ async def get_trends(
                 source_name=row.source_name,
                 data=[],
             )
-        source_map[source_id_str].data.append(
-            TimeSeriesPoint(date=date_str, count=row.cnt)
-        )
+        source_map[source_id_str].data.append(TimeSeriesPoint(date=date_str, count=row.cnt))
         total += row.cnt
 
     return TrendsResponse(
@@ -124,9 +119,7 @@ async def get_scores(
 
     # Count by strategic_bucket (unnest JSONB array - Python-side for SQLite compat)
     by_bucket: dict[str, int] = {}
-    bucket_query = select(ResearchItem.strategic_buckets).where(
-        ResearchItem.strategic_buckets.isnot(None)
-    )
+    bucket_query = select(ResearchItem.strategic_buckets).where(ResearchItem.strategic_buckets.isnot(None))
     bucket_result = await db.execute(bucket_query)
     for (buckets,) in bucket_result.all():
         if isinstance(buckets, list):
@@ -266,9 +259,9 @@ async def get_ingestion_health(
         )
 
     # Total items processed in last 24h
-    processed_24h_query = select(
-        func.coalesce(func.sum(IngestionRun.items_processed), 0)
-    ).where(IngestionRun.started_at >= twenty_four_hours_ago)
+    processed_24h_query = select(func.coalesce(func.sum(IngestionRun.items_processed), 0)).where(
+        IngestionRun.started_at >= twenty_four_hours_ago
+    )
     processed_24h_result = await db.execute(processed_24h_query)
     total_processed_24h = processed_24h_result.scalar_one()
 
@@ -301,12 +294,12 @@ _CLOUD_RUN_FRONTEND_MONTHLY = Decimal("2.00")
 _CLOUD_SQL_MONTHLY = Decimal("7.67")  # db-f1-micro
 
 # LLM pricing: 4 calls with gpt-4o-mini + 1 call with gpt-4o per signal
-_MINI_INPUT_PER_1M = Decimal("0.15")   # gpt-4o-mini input
+_MINI_INPUT_PER_1M = Decimal("0.15")  # gpt-4o-mini input
 _MINI_OUTPUT_PER_1M = Decimal("0.60")  # gpt-4o-mini output
-_FULL_INPUT_PER_1M = Decimal("2.50")   # gpt-4o input
-_FULL_OUTPUT_PER_1M = Decimal("10.00") # gpt-4o output
-_MINI_CALLS_PER_SIGNAL = 4            # classification, strategic, scoring, impact
-_FULL_CALLS_PER_SIGNAL = 1            # summary only
+_FULL_INPUT_PER_1M = Decimal("2.50")  # gpt-4o input
+_FULL_OUTPUT_PER_1M = Decimal("10.00")  # gpt-4o output
+_MINI_CALLS_PER_SIGNAL = 4  # classification, strategic, scoring, impact
+_FULL_CALLS_PER_SIGNAL = 1  # summary only
 _AVG_INPUT_TOKENS_PER_CALL = 1500
 _AVG_OUTPUT_TOKENS_PER_CALL = 500
 
@@ -331,17 +324,13 @@ async def get_cost_estimate(
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Count ingestion runs this month
-    runs_query = (
-        select(func.count(IngestionRun.id))
-        .where(IngestionRun.started_at >= month_start)
-    )
+    runs_query = select(func.count(IngestionRun.id)).where(IngestionRun.started_at >= month_start)
     runs_result = await db.execute(runs_query)
     ingestion_run_count = runs_result.scalar_one()
 
     # Sum items_processed this month (signals sent through LLM scoring)
-    processed_query = (
-        select(func.coalesce(func.sum(IngestionRun.items_processed), 0))
-        .where(IngestionRun.started_at >= month_start)
+    processed_query = select(func.coalesce(func.sum(IngestionRun.items_processed), 0)).where(
+        IngestionRun.started_at >= month_start
     )
     processed_result = await db.execute(processed_query)
     signals_processed = processed_result.scalar_one()
@@ -364,10 +353,7 @@ async def get_cost_estimate(
     cloud_run_backend = (
         run_count_dec
         * _AVG_RUN_DURATION_SECONDS
-        * (
-            _CLOUD_RUN_VCPU_PER_SECOND * _AVG_RUN_VCPU
-            + _CLOUD_RUN_GB_PER_SECOND * _AVG_RUN_MEMORY_GB
-        )
+        * (_CLOUD_RUN_VCPU_PER_SECOND * _AVG_RUN_VCPU + _CLOUD_RUN_GB_PER_SECOND * _AVG_RUN_MEMORY_GB)
     ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
     # ── Cloud Run Frontend ─────────────────────────────────────────────────
@@ -392,15 +378,13 @@ async def get_cost_estimate(
 
     # ── Cloud Build ────────────────────────────────────────────────────────
     cloud_build = (
-        Decimal(str(_ESTIMATED_DEPLOYS_PER_MONTH))
-        * _AVG_BUILD_MINUTES
-        * _CLOUD_BUILD_PER_MINUTE
+        Decimal(str(_ESTIMATED_DEPLOYS_PER_MONTH)) * _AVG_BUILD_MINUTES * _CLOUD_BUILD_PER_MINUTE
     ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
     # ── Total ──────────────────────────────────────────────────────────────
-    total = (
-        cloud_run_backend + cloud_run_frontend + cloud_sql + openai_cost + cloud_build
-    ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+    total = (cloud_run_backend + cloud_run_frontend + cloud_sql + openai_cost + cloud_build).quantize(
+        _TWO_PLACES, rounding=ROUND_HALF_UP
+    )
 
     line_items = [
         CostLineItem(
@@ -421,7 +405,9 @@ async def get_cost_estimate(
         CostLineItem(
             label="OpenAI API (4o-mini + 4o)",
             amount=float(openai_cost),
-            note=f"{llm_signals} signals x {_MINI_CALLS_PER_SIGNAL} mini + {_FULL_CALLS_PER_SIGNAL} full calls",
+            note=(
+                f"{llm_signals} signals x {_MINI_CALLS_PER_SIGNAL} mini + {_FULL_CALLS_PER_SIGNAL} full calls"
+            ),
         ),
         CostLineItem(
             label="Cloud Build",

@@ -92,9 +92,7 @@ async def list_signals(
         query = query.where(ResearchItem.scientific_strength_score >= min_scientific_score)
     if search is not None:
         search_pattern = f"%{search}%"
-        query = query.where(
-            func.lower(ResearchItem.original_title).like(func.lower(search_pattern))
-        )
+        query = query.where(func.lower(ResearchItem.original_title).like(func.lower(search_pattern)))
 
     # Count
     count_query = select(func.count()).select_from(query.subquery())
@@ -220,5 +218,3 @@ async def update_signal_review(
     await db.flush()
     await db.refresh(item)
     return SignalReviewResponse.model_validate(item)
-
-

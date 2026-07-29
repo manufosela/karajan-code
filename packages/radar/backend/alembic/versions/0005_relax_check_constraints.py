@@ -54,8 +54,7 @@ def upgrade() -> None:
         op.create_check_constraint(
             "chk_time_horizon",
             "research_items",
-            "time_horizon IS NULL OR time_horizon IN "
-            "('immediate', 'short_term', 'medium_term', 'long_term')",
+            "time_horizon IS NULL OR time_horizon IN ('immediate', 'short_term', 'medium_term', 'long_term')",
         )
     except NotImplementedError:
         pass  # SQLite doesn't support check constraints
@@ -89,8 +88,7 @@ def downgrade() -> None:
         op.create_check_constraint(
             "chk_time_horizon",
             "research_items",
-            "time_horizon IS NULL OR time_horizon IN "
-            "('immediate', 'short_term', 'medium_term', 'long_term')",
+            "time_horizon IS NULL OR time_horizon IN ('immediate', 'short_term', 'medium_term', 'long_term')",
         )
     except NotImplementedError:
         pass

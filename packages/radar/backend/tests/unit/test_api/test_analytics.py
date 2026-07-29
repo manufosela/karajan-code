@@ -154,20 +154,26 @@ class TestTrendsEndpoint:
         )
         await test_session.commit()
 
-        response_7d = await client.get("/api/v1/analytics/trends", params={"period": "7d"}, headers=auth_headers)
+        response_7d = await client.get(
+            "/api/v1/analytics/trends", params={"period": "7d"}, headers=auth_headers
+        )
         assert response_7d.status_code == 200
         data_7d = response_7d.json()
         assert data_7d["period"] == "7d"
         assert data_7d["total"] == 1
 
-        response_30d = await client.get("/api/v1/analytics/trends", params={"period": "30d"}, headers=auth_headers)
+        response_30d = await client.get(
+            "/api/v1/analytics/trends", params={"period": "30d"}, headers=auth_headers
+        )
         assert response_30d.status_code == 200
         data_30d = response_30d.json()
         assert data_30d["total"] == 2
 
     async def test_trends_invalid_period(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
         """GET /api/v1/analytics/trends?period=invalid returns 422."""
-        response = await client.get("/api/v1/analytics/trends", params={"period": "invalid"}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/analytics/trends", params={"period": "invalid"}, headers=auth_headers
+        )
         assert response.status_code == 422
 
 
@@ -344,9 +350,7 @@ class TestCostsEndpoint:
         response = await client.get("/api/v1/analytics/costs")
         assert response.status_code == 401
 
-    async def test_costs_empty_db(
-        self, client: AsyncClient, auth_headers: dict[str, str]
-    ) -> None:
+    async def test_costs_empty_db(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
         """GET /api/v1/analytics/costs returns estimates even with no usage data."""
         response = await client.get("/api/v1/analytics/costs", headers=auth_headers)
 
@@ -361,9 +365,7 @@ class TestCostsEndpoint:
         assert data["total_estimated"] >= 0
         assert "last_updated" in data
 
-    async def test_costs_response_shape(
-        self, client: AsyncClient, auth_headers: dict[str, str]
-    ) -> None:
+    async def test_costs_response_shape(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
         """Cost estimate response has the expected schema fields."""
         response = await client.get("/api/v1/analytics/costs", headers=auth_headers)
 
@@ -437,16 +439,12 @@ class TestCostsEndpoint:
         assert data["total_estimated"] > 0
 
         # Cloud Run Backend cost should be > 0 with runs
-        cloud_run_backend = next(
-            (item for item in data["line_items"] if "Backend" in item["label"]), None
-        )
+        cloud_run_backend = next((item for item in data["line_items"] if "Backend" in item["label"]), None)
         assert cloud_run_backend is not None
         assert cloud_run_backend["amount"] > 0
 
         # OpenAI cost should be > 0 with processed signals
-        openai_item = next(
-            (item for item in data["line_items"] if "OpenAI" in item["label"]), None
-        )
+        openai_item = next((item for item in data["line_items"] if "OpenAI" in item["label"]), None)
         assert openai_item is not None
         assert openai_item["amount"] > 0
 
@@ -459,14 +457,10 @@ class TestCostsEndpoint:
         assert response.status_code == 200
         data = response.json()
 
-        cloud_sql = next(
-            (item for item in data["line_items"] if "Cloud SQL" in item["label"]), None
-        )
+        cloud_sql = next((item for item in data["line_items"] if "Cloud SQL" in item["label"]), None)
         assert cloud_sql is not None
         assert cloud_sql["amount"] > 0
 
-        frontend = next(
-            (item for item in data["line_items"] if "Frontend" in item["label"]), None
-        )
+        frontend = next((item for item in data["line_items"] if "Frontend" in item["label"]), None)
         assert frontend is not None
         assert frontend["amount"] > 0

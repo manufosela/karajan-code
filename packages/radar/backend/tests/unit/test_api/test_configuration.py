@@ -40,7 +40,9 @@ class TestListConfiguration:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    async def test_list_configuration_returns_all(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_configuration_returns_all(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/configuration returns all configuration entries."""
         await _create_config(test_session, category="scoring", key="threshold")
         await _create_config(test_session, category="delivery", key="enabled")
@@ -52,14 +54,18 @@ class TestListConfiguration:
         assert isinstance(data, list)
         assert len(data) == 2
 
-    async def test_list_configuration_by_category(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_configuration_by_category(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Filter by category returns only matching entries."""
         await _create_config(test_session, category="scoring", key="threshold")
         await _create_config(test_session, category="scoring", key="max_score")
         await _create_config(test_session, category="delivery", key="enabled")
         await test_session.commit()
 
-        response = await client.get("/api/v1/configuration", params={"category": "scoring"}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/configuration", params={"category": "scoring"}, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
@@ -67,18 +73,25 @@ class TestListConfiguration:
             assert item["category"] == "scoring"
 
     async def test_list_configuration_by_category_no_match(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Filter by non-existent category returns empty list."""
         await _create_config(test_session, category="scoring", key="threshold")
         await test_session.commit()
 
-        response = await client.get("/api/v1/configuration", params={"category": "nonexistent"}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/configuration", params={"category": "nonexistent"}, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 0
 
-    async def test_list_configuration_ordered(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_configuration_ordered(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Configuration entries are ordered by category then key."""
         await _create_config(test_session, category="thematic", key="a_key")
         await _create_config(test_session, category="general", key="z_key")
@@ -96,7 +109,9 @@ class TestListConfiguration:
         assert data[1]["key"] == "z_key"
         assert data[2]["category"] == "thematic"
 
-    async def test_list_configuration_response_shape(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_configuration_response_shape(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Each configuration entry has the expected fields."""
         await _create_config(
             test_session,
@@ -124,7 +139,9 @@ class TestListConfiguration:
 class TestGetConfiguration:
     """Tests for GET /api/v1/configuration/{category}/{key}."""
 
-    async def test_get_configuration(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_get_configuration(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/configuration/{category}/{key} returns the matching entry."""
         await _create_config(
             test_session,
@@ -143,7 +160,9 @@ class TestGetConfiguration:
         assert data["value"] == {"threshold": 5.0}
         assert data["description"] == "Minimum relevance score"
 
-    async def test_get_configuration_not_found(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_get_configuration_not_found(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/configuration/{category}/{key} returns 404 for non-existent entry."""
         response = await client.get("/api/v1/configuration/nonexistent/missing_key", headers=auth_headers)
 
@@ -153,7 +172,9 @@ class TestGetConfiguration:
         assert "error" in data
         assert data["error"]["code"] == "NOT_FOUND"
 
-    async def test_get_configuration_wrong_key(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_get_configuration_wrong_key(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Returns 404 when category exists but key does not."""
         await _create_config(test_session, category="scoring", key="threshold")
         await test_session.commit()
@@ -161,7 +182,9 @@ class TestGetConfiguration:
         response = await client.get("/api/v1/configuration/scoring/wrong_key", headers=auth_headers)
         assert response.status_code == 404
 
-    async def test_get_configuration_wrong_category(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_get_configuration_wrong_category(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Returns 404 when key exists but in different category."""
         await _create_config(test_session, category="scoring", key="threshold")
         await test_session.commit()
@@ -173,7 +196,9 @@ class TestGetConfiguration:
 class TestUpdateConfiguration:
     """Tests for PUT /api/v1/configuration/{category}/{key}."""
 
-    async def test_update_configuration_existing(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_configuration_existing(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """PUT updates an existing configuration entry."""
         await _create_config(
             test_session,
@@ -196,7 +221,9 @@ class TestUpdateConfiguration:
         assert data["value"] == {"min": 7}
         assert data["description"] == "Updated description"
 
-    async def test_update_configuration_creates_new(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_configuration_creates_new(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT creates a new configuration entry if it does not exist."""
         response = await client.put(
             "/api/v1/configuration/sources/new_key",
@@ -210,7 +237,9 @@ class TestUpdateConfiguration:
         assert data["value"] == {"enabled": True}
         assert data["description"] == "Brand new config"
 
-    async def test_update_configuration_value_only(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_configuration_value_only(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """PUT with only value (no description) updates value and preserves description."""
         await _create_config(
             test_session,
@@ -232,7 +261,9 @@ class TestUpdateConfiguration:
         # Description should be preserved since body.description is None
         assert data["description"] == "Maximum score"
 
-    async def test_update_configuration_missing_value(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_configuration_missing_value(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT without required 'value' field returns 422."""
         response = await client.put(
             "/api/v1/configuration/scoring/threshold",
@@ -241,7 +272,9 @@ class TestUpdateConfiguration:
         )
         assert response.status_code == 422
 
-    async def test_update_configuration_roundtrip(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_configuration_roundtrip(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """Create via PUT, then verify via GET."""
         # Create
         put_response = await client.put(

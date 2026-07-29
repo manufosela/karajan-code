@@ -71,24 +71,34 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(
-                error=ErrorDetail(code="INTERNAL_ERROR", message="Internal server error", request_id=request_id)
+                error=ErrorDetail(
+                    code="INTERNAL_ERROR", message="Internal server error", request_id=request_id
+                )
             ).model_dump(),
         )
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id = getattr(request.state, "request_id", None)
-        logger.error("Unhandled exception", error=str(exc), exc_type=type(exc).__name__, request_id=request_id)
+        logger.error(
+            "Unhandled exception", error=str(exc), exc_type=type(exc).__name__, request_id=request_id
+        )
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(
-                error=ErrorDetail(code="INTERNAL_ERROR", message="An unexpected error occurred", request_id=request_id)
+                error=ErrorDetail(
+                    code="INTERNAL_ERROR", message="An unexpected error occurred", request_id=request_id
+                )
             ).model_dump(),
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     async def health_check() -> HealthResponse:
-        """Health check endpoint. Returns 200 even if DB is degraded so Cloud Run doesn't kill the instance."""
+        """Health check endpoint.
+
+        Returns 200 even if the database is degraded, so the platform does not
+        kill the instance while it is still able to serve reads.
+        """
         from datetime import datetime
 
         db_status = "ok"

@@ -4,9 +4,8 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.daily_digest import DailyDigest
@@ -63,9 +62,7 @@ async def _create_research_item(
 class TestDigestServiceGenerateContent:
     """Tests for content generation from high-relevance signals."""
 
-    async def test_generates_digest_with_high_score_signals(
-        self, test_session: AsyncSession
-    ) -> None:
+    async def test_generates_digest_with_high_score_signals(self, test_session: AsyncSession) -> None:
         """DigestService picks signals above the score threshold."""
         source = await _create_source(test_session)
         # High score — should be included
@@ -93,9 +90,7 @@ class TestDigestServiceGenerateContent:
         assert len(result["items_included"]) == 1
         assert str(item_high.id) in result["items_included"]
 
-    async def test_returns_none_when_no_signals_above_threshold(
-        self, test_session: AsyncSession
-    ) -> None:
+    async def test_returns_none_when_no_signals_above_threshold(self, test_session: AsyncSession) -> None:
         """DigestService returns None when no signals meet the threshold."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -200,9 +195,7 @@ class TestDigestServicePayload:
 class TestDigestServiceTrigger:
     """Tests for the trigger method that creates DB records."""
 
-    async def test_trigger_creates_digest_record(
-        self, test_session: AsyncSession
-    ) -> None:
+    async def test_trigger_creates_digest_record(self, test_session: AsyncSession) -> None:
         """trigger() creates a DailyDigest record in the DB."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -214,9 +207,7 @@ class TestDigestServiceTrigger:
         await test_session.commit()
 
         service = DigestService()
-        digest = await service.trigger(
-            test_session, channel="teams", deliver=False
-        )
+        digest = await service.trigger(test_session, channel="teams", deliver=False)
 
         assert digest is not None
         assert isinstance(digest, DailyDigest)
@@ -225,14 +216,10 @@ class TestDigestServiceTrigger:
         assert digest.digest_date == date.today()
         assert len(digest.items_included) > 0
 
-    async def test_trigger_returns_none_when_no_content(
-        self, test_session: AsyncSession
-    ) -> None:
+    async def test_trigger_returns_none_when_no_content(self, test_session: AsyncSession) -> None:
         """trigger() returns None when no signals meet the threshold."""
         service = DigestService()
-        digest = await service.trigger(
-            test_session, channel="teams", deliver=False
-        )
+        digest = await service.trigger(test_session, channel="teams", deliver=False)
 
         assert digest is None
 
@@ -251,18 +238,14 @@ class TestDigestServiceTrigger:
         mock_webhook.send_card.return_value = True
 
         service = DigestService(teams_webhook=mock_webhook)
-        digest = await service.trigger(
-            test_session, channel="teams", deliver=True
-        )
+        digest = await service.trigger(test_session, channel="teams", deliver=True)
 
         assert digest is not None
         assert digest.delivery_status == "sent"
         assert digest.sent_at is not None
         mock_webhook.send_card.assert_called_once()
 
-    async def test_trigger_delivery_failure_marks_failed(
-        self, test_session: AsyncSession
-    ) -> None:
+    async def test_trigger_delivery_failure_marks_failed(self, test_session: AsyncSession) -> None:
         """trigger() marks status as 'failed' when delivery fails."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -277,9 +260,7 @@ class TestDigestServiceTrigger:
         mock_webhook.send_card.return_value = False
 
         service = DigestService(teams_webhook=mock_webhook)
-        digest = await service.trigger(
-            test_session, channel="teams", deliver=True
-        )
+        digest = await service.trigger(test_session, channel="teams", deliver=True)
 
         assert digest is not None
         assert digest.delivery_status == "failed"

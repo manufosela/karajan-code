@@ -11,7 +11,7 @@ from __future__ import annotations
 import enum
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class PipelineError(Exception):
     """Raised for pipeline-level errors."""
 
@@ -44,7 +45,8 @@ class PipelineError(Exception):
 # Data classes
 # ---------------------------------------------------------------------------
 
-class StepStatus(str, enum.Enum):
+
+class StepStatus(enum.StrEnum):
     """Status of a single pipeline step."""
 
     SUCCESS = "success"
@@ -73,6 +75,7 @@ class PipelineResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class SignalPipelineService:
     """Orchestrates the complete signal processing pipeline.
@@ -150,7 +153,7 @@ class SignalPipelineService:
         steps.append(step)
 
         # Set processing timestamp
-        item.processing_timestamp = datetime.now(timezone.utc)
+        item.processing_timestamp = datetime.now(UTC)
         await session.flush()
 
         # Determine overall status
@@ -313,12 +316,8 @@ class SignalPipelineService:
             item.executive_summary_es = result.summary_es
             item.why_it_matters_en = result.key_findings[0] if result.key_findings else None
             item.why_it_matters_es = result.key_findings[0] if result.key_findings else None
-            item.possible_impact_en = (
-                result.implications[0] if result.implications else None
-            )
-            item.possible_impact_es = (
-                result.implications[0] if result.implications else None
-            )
+            item.possible_impact_en = result.implications[0] if result.implications else None
+            item.possible_impact_es = result.implications[0] if result.implications else None
             await session.flush()
             return StepResult(
                 name="executive_summary",

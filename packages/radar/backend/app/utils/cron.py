@@ -139,7 +139,10 @@ def calculate_next_runs(
             return []
         # Convert to Python weekday numbers (0=Monday)
         target_weekdays = sorted(
-            {list(_PYTHON_WEEKDAY_TO_ABBR.keys())[list(_PYTHON_WEEKDAY_TO_ABBR.values()).index(d)] for d in days_of_week}
+            {
+                list(_PYTHON_WEEKDAY_TO_ABBR.keys())[list(_PYTHON_WEEKDAY_TO_ABBR.values()).index(d)]
+                for d in days_of_week
+            }
         )
         candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         if candidate <= now:
@@ -212,8 +215,8 @@ def generate_gcloud_command(cron_expression: str, timezone: str) -> str:
         The full gcloud command string.
     """
     return (
-        f'gcloud scheduler jobs update http ofr-daily-ingestion '
-        f'--location europe-west1 '
+        f"gcloud scheduler jobs update http ofr-daily-ingestion "
+        f"--location europe-west1 "
         f'--schedule "{cron_expression}" '
         f'--time-zone "{timezone}"'
     )
@@ -227,8 +230,8 @@ def _validate_time(time: str) -> None:
     try:
         hour = int(parts[0])
         minute = int(parts[1])
-    except ValueError:
-        raise ValueError(f"Invalid time format '{time}', expected numeric HH:MM")
+    except ValueError as exc:
+        raise ValueError(f"Invalid time format '{time}', expected numeric HH:MM") from exc
     if not (0 <= hour <= 23):
         raise ValueError(f"Hour must be 0-23, got {hour}")
     if not (0 <= minute <= 59):

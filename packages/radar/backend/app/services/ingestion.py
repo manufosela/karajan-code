@@ -55,9 +55,7 @@ class IngestionOrchestrator:
             List of IngestionRun records, one per connector that was executed.
         """
         # 1. Query enabled sources
-        result = await self._session.execute(
-            select(Source).where(Source.enabled.is_(True))
-        )
+        result = await self._session.execute(select(Source).where(Source.enabled.is_(True)))
         sources = list(result.scalars().all())
         if not sources:
             return []
@@ -91,7 +89,7 @@ class IngestionOrchestrator:
 
         # 5. Process results and create ingestion runs
         runs: list[IngestionRun] = []
-        for (source, _connector), connector_result in zip(pairs, results):
+        for (source, _connector), connector_result in zip(pairs, results, strict=True):
             run = self._process_result(source, connector_result, existing_items)
             self._session.add(run)
             runs.append(run)
@@ -194,9 +192,7 @@ class IngestionOrchestrator:
         abstract = clean_abstract(paper.abstract)
         language = detect_language(abstract or norm_title)
 
-        external_id = (
-            paper.doi or paper.pmid or paper.nct_id or paper.arxiv_id or norm_title
-        )
+        external_id = paper.doi or paper.pmid or paper.nct_id or paper.arxiv_id or norm_title
         content_hash = compute_content_hash(str(source.id), external_id)
 
         candidate = DedupCandidate(

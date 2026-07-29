@@ -137,18 +137,22 @@ class BaseConnector(ABC):
                         source=self.source_name,
                         error=str(e),
                     )
-                    result.errors.append({
-                        "message": f"Normalization error: {e}",
-                        "item": str(item)[:500],
-                        "timestamp": datetime.utcnow().isoformat(),
-                    })
+                    result.errors.append(
+                        {
+                            "message": f"Normalization error: {e}",
+                            "item": str(item)[:500],
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                    )
 
         except Exception as e:
             logger.error("Connector fetch failed", source=self.source_name, error=str(e))
-            result.errors.append({
-                "message": f"Fetch error: {e}",
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+            result.errors.append(
+                {
+                    "message": f"Fetch error: {e}",
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
 
         result.completed_at = datetime.utcnow()
         logger.info(

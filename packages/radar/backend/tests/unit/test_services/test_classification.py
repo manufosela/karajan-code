@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -15,10 +14,10 @@ from app.services.classification import (
     ThemeScore,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _valid_llm_response() -> dict:
     """Return a valid classification response dict."""
@@ -45,6 +44,7 @@ def _make_provider(return_value: dict | None = None, side_effect: Exception | No
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 class TestThemeScore:
     """Tests for ThemeScore dataclass."""
@@ -87,6 +87,7 @@ class TestClassificationResult:
 # ---------------------------------------------------------------------------
 # ClassificationService — happy path
 # ---------------------------------------------------------------------------
+
 
 class TestClassificationServiceHappyPath:
     """Tests for successful classification."""
@@ -176,6 +177,7 @@ class TestClassificationServiceHappyPath:
 # ---------------------------------------------------------------------------
 # ClassificationService — validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestClassificationServiceValidation:
     """Tests for response validation in ClassificationService."""
@@ -277,6 +279,7 @@ class TestClassificationServiceValidation:
 # ---------------------------------------------------------------------------
 # ClassificationService — LLM errors
 # ---------------------------------------------------------------------------
+
 
 class TestClassificationServiceLLMErrors:
     """Tests for LLM error handling in ClassificationService."""

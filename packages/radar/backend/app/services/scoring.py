@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class ScoringError(Exception):
     """Raised when scoring fails (LLM error or invalid response)."""
 
@@ -34,6 +35,7 @@ class ScoringError(Exception):
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ScoringResult:
@@ -50,6 +52,7 @@ class ScoringResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class ScoringService:
     """Scores research items on scientific strength and strategic relevance.
@@ -205,8 +208,7 @@ class ScoringService:
         # Validate hype_risk
         if hype not in self.valid_hype_risks:
             raise ScoringError(
-                f"Invalid hype_risk '{hype}'. "
-                f"Must be one of: {sorted(self.valid_hype_risks)}",
+                f"Invalid hype_risk '{hype}'. Must be one of: {sorted(self.valid_hype_risks)}",
                 title=title,
             )
 

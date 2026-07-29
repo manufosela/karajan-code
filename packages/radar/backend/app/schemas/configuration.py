@@ -1,13 +1,13 @@
 import json
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator, model_validator
 
 
-class ConfigCategoryEnum(str, Enum):
+class ConfigCategoryEnum(StrEnum):
     """Valid configuration categories."""
 
     thematic = "thematic"
@@ -78,7 +78,11 @@ class DeliverySettingsResponse(BaseModel):
 
 # --- Schedule schemas ---
 
-ScheduleTypeEnum = Enum("ScheduleTypeEnum", {"daily": "daily", "weekly": "weekly", "monthly": "monthly", "custom": "custom"}, type=str)
+ScheduleTypeEnum = Enum(
+    "ScheduleTypeEnum",
+    {"daily": "daily", "weekly": "weekly", "monthly": "monthly", "custom": "custom"},
+    type=str,
+)
 
 VALID_DAYS_OF_WEEK = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 
@@ -123,8 +127,8 @@ class ScheduleUpdate(BaseModel):
             raise ValueError(f"Invalid time format '{self.time}', expected HH:MM")
         try:
             hour, minute = int(parts[0]), int(parts[1])
-        except ValueError:
-            raise ValueError(f"Invalid time format '{self.time}', expected numeric HH:MM")
+        except ValueError as exc:
+            raise ValueError(f"Invalid time format '{self.time}', expected numeric HH:MM") from exc
         if not (0 <= hour <= 23) or not (0 <= minute <= 59):
             raise ValueError(f"Invalid time '{self.time}': hour 0-23, minute 0-59")
 
@@ -141,9 +145,8 @@ class ScheduleUpdate(BaseModel):
             if not (1 <= self.day_of_month <= 28):
                 raise ValueError("day_of_month must be between 1 and 28")
 
-        if self.schedule_type == "custom":
-            if not self.custom_cron or not self.custom_cron.strip():
-                raise ValueError("custom_cron is required for custom schedule")
+        if self.schedule_type == "custom" and (not self.custom_cron or not self.custom_cron.strip()):
+            raise ValueError("custom_cron is required for custom schedule")
 
         return self
 

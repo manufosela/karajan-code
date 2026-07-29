@@ -6,7 +6,6 @@ import pytest
 
 from app.llm.base import BaseLLMProvider, LLMResponse, Usage
 
-
 # ---------------------------------------------------------------------------
 # Usage dataclass
 # ---------------------------------------------------------------------------
@@ -62,9 +61,8 @@ class TestBaseLLMProviderABC:
     def test_cannot_instantiate_partial_implementation(self) -> None:
         class PartialProvider(BaseLLMProvider):
             async def complete(self, prompt, **kwargs):
-                return LLMResponse(
-                    content="x", model="m", usage=Usage(0, 0), latency_ms=0
-                )
+                return LLMResponse(content="x", model="m", usage=Usage(0, 0), latency_ms=0)
+
             # missing complete_json
 
         with pytest.raises(TypeError):
@@ -123,9 +121,7 @@ class TestConcreteProvider:
     @pytest.mark.asyncio
     async def test_complete_with_kwargs(self) -> None:
         provider = MockLLMProvider()
-        resp = await provider.complete(
-            "test", system_prompt="sys", temperature=0.5, max_tokens=100
-        )
+        resp = await provider.complete("test", system_prompt="sys", temperature=0.5, max_tokens=100)
         assert isinstance(resp, LLMResponse)
 
     @pytest.mark.asyncio

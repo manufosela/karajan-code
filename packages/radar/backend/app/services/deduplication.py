@@ -31,6 +31,7 @@ _CONFIDENCE_DOI = 0.95
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class DedupCandidate:
     """Candidate research item to check for duplicates."""
@@ -65,6 +66,7 @@ class DedupVerdict:
 # Content hash computation
 # ---------------------------------------------------------------------------
 
+
 def compute_content_hash(source_id: str, external_id: str) -> str:
     """Compute SHA-256 hash of source_id + external_id for exact duplicate detection.
 
@@ -82,6 +84,7 @@ def compute_content_hash(source_id: str, external_id: str) -> str:
 # ---------------------------------------------------------------------------
 # DOI-based deduplication
 # ---------------------------------------------------------------------------
+
 
 def find_doi_duplicate(
     candidate_doi: str | None,
@@ -111,6 +114,7 @@ def find_doi_duplicate(
 # ---------------------------------------------------------------------------
 # Fuzzy title matching
 # ---------------------------------------------------------------------------
+
 
 def find_fuzzy_title_match(
     candidate_title: str | None,
@@ -159,6 +163,7 @@ def find_fuzzy_title_match(
 # ---------------------------------------------------------------------------
 # Main deduplication orchestrator
 # ---------------------------------------------------------------------------
+
 
 def deduplicate(
     candidate: DedupCandidate,
@@ -215,7 +220,8 @@ def deduplicate(
 
     # 3. Fuzzy title match
     fuzzy_match, fuzzy_score = find_fuzzy_title_match(
-        candidate.normalized_title, existing_items,
+        candidate.normalized_title,
+        existing_items,
     )
     if fuzzy_match is not None:
         logger.info(

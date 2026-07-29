@@ -23,9 +23,7 @@ def profiles_dir(tmp_path: Path) -> Path:
     """A directory holding one valid profile named ``test-domain.yaml``."""
     directory = tmp_path / "profiles"
     directory.mkdir()
-    (directory / "test-domain.yaml").write_text(
-        yaml.safe_dump(_minimal_profile_dict()), encoding="utf-8"
-    )
+    (directory / "test-domain.yaml").write_text(yaml.safe_dump(_minimal_profile_dict()), encoding="utf-8")
     return directory
 
 
@@ -87,17 +85,13 @@ class TestLoadProfileById:
 
         assert profile.name == "Test Domain Radar"
 
-    def test_raises_for_unknown_id_and_lists_what_is_available(
-        self, profiles_dir: Path
-    ) -> None:
+    def test_raises_for_unknown_id_and_lists_what_is_available(self, profiles_dir: Path) -> None:
         with pytest.raises(ProfileNotFoundError) as excinfo:
             load_profile_by_id("nonexistent", profiles_dir=profiles_dir)
 
         assert "test-domain" in str(excinfo.value)
 
-    def test_rejects_an_id_that_escapes_the_profiles_directory(
-        self, profiles_dir: Path
-    ) -> None:
+    def test_rejects_an_id_that_escapes_the_profiles_directory(self, profiles_dir: Path) -> None:
         """A profile id becomes a filename, so path traversal must be refused."""
         with pytest.raises(ProfileNotFoundError):
             load_profile_by_id("../../etc/passwd", profiles_dir=profiles_dir)
@@ -106,9 +100,7 @@ class TestLoadProfileById:
         """A profile whose id disagrees with its filename is a configuration bug."""
         data = _minimal_profile_dict()
         data["id"] = "something-else"
-        (profiles_dir / "mismatched.yaml").write_text(
-            yaml.safe_dump(data), encoding="utf-8"
-        )
+        (profiles_dir / "mismatched.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
 
         with pytest.raises(ProfileValidationError, match="does not match"):
             load_profile_by_id("mismatched", profiles_dir=profiles_dir)
@@ -122,9 +114,7 @@ class TestAvailableProfiles:
         for name in ("zeta", "alpha"):
             data = _minimal_profile_dict()
             data["id"] = name
-            (profiles_dir / f"{name}.yaml").write_text(
-                yaml.safe_dump(data), encoding="utf-8"
-            )
+            (profiles_dir / f"{name}.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
 
         assert available_profiles(profiles_dir) == ["alpha", "test-domain", "zeta"]
 

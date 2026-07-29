@@ -5,6 +5,7 @@ Revises: 0006
 Create Date: 2026-03-23
 """
 
+import contextlib
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -20,31 +21,21 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     # Use batch_alter_table for SQLite compatibility
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("role", sa.String(20), nullable=False, server_default="user")
-        )
-        batch_op.add_column(
-            sa.Column("last_active_at", sa.DateTime(), nullable=True)
-        )
+        batch_op.add_column(sa.Column("role", sa.String(20), nullable=False, server_default="user"))
+        batch_op.add_column(sa.Column("last_active_at", sa.DateTime(), nullable=True))
 
-    # Add check constraint (try/except for SQLite which doesn't support ALTER TABLE ADD CONSTRAINT)
-    try:
+    # SQLite cannot add check constraints after table creation.
+    with contextlib.suppress(Exception):
         op.create_check_constraint(
             "ck_users_role",
             "users",
             "role IN ('superadmin', 'admin', 'user')",
         )
-    except Exception:
-        pass  # SQLite does not support adding check constraints after table creation
 
     # Migrate existing is_admin=True users to role='superadmin'
-    op.execute(
-        "UPDATE users SET role = 'superadmin' WHERE is_admin = true"
-    )
+    op.execute("UPDATE users SET role = 'superadmin' WHERE is_admin = true")
     # Migrate existing is_admin=False users to role='user'
-    op.execute(
-        "UPDATE users SET role = 'user' WHERE is_admin = false"
-    )
+    op.execute("UPDATE users SET role = 'user' WHERE is_admin = false")
 
     # Remove the old is_admin column
     with op.batch_alter_table("users", schema=None) as batch_op:
@@ -58,18 +49,12 @@ def downgrade() -> None:
         )
 
     # Migrate role back to is_admin
-    op.execute(
-        "UPDATE users SET is_admin = true WHERE role IN ('superadmin', 'admin')"
-    )
-    op.execute(
-        "UPDATE users SET is_admin = false WHERE role = 'user'"
-    )
+    op.execute("UPDATE users SET is_admin = true WHERE role IN ('superadmin', 'admin')")
+    op.execute("UPDATE users SET is_admin = false WHERE role = 'user'")
 
-    # Drop check constraint (try/except for SQLite)
-    try:
+    # Drop check constraint. SQLite does not support dropping it.
+    with contextlib.suppress(Exception):
         op.drop_constraint("ck_users_role", "users", type_="check")
-    except Exception:
-        pass
 
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.drop_column("last_active_at")

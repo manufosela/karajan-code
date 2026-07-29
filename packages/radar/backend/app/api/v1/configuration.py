@@ -114,9 +114,7 @@ async def get_delivery_settings(
     _user: User = Depends(get_current_user),
 ) -> DeliverySettingsResponse:
     """Get delivery settings: digest frequency, channels, and recipients."""
-    result = await db.execute(
-        select(Configuration).where(Configuration.category == "delivery")
-    )
+    result = await db.execute(select(Configuration).where(Configuration.category == "delivery"))
     configs = result.scalars().all()
     if not configs:
         raise HTTPException(status_code=404, detail="No delivery configuration found")
@@ -352,11 +350,7 @@ async def get_configuration_by_category(
     _user: User = Depends(get_current_user),
 ) -> list[ConfigResponse]:
     """Get all configuration entries for a specific category."""
-    query = (
-        select(Configuration)
-        .where(Configuration.category == category.value)
-        .order_by(Configuration.key)
-    )
+    query = select(Configuration).where(Configuration.category == category.value).order_by(Configuration.key)
     result = await db.execute(query)
     configs = result.scalars().all()
     return [ConfigResponse.model_validate(c) for c in configs]

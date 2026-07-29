@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class SummaryError(Exception):
     """Raised when summary generation fails (LLM error or invalid response)."""
 
@@ -33,6 +34,7 @@ class SummaryError(Exception):
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class SummaryResult:
@@ -47,6 +49,7 @@ class SummaryResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class SummaryService:
     """Generates bilingual executive summaries for research items.

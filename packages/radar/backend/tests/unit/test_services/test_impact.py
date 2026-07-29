@@ -13,10 +13,10 @@ from app.services.impact import (
     ImpactAnalysisService,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _valid_llm_response() -> dict:
     """Return a valid impact analysis response dict."""
@@ -46,6 +46,7 @@ def _make_provider(
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 class TestImpactAnalysisResult:
     """Tests for ImpactAnalysisResult dataclass."""
@@ -82,6 +83,7 @@ class TestImpactAnalysisResult:
 # ---------------------------------------------------------------------------
 # ImpactAnalysisService — happy path
 # ---------------------------------------------------------------------------
+
 
 class TestImpactAnalysisServiceHappyPath:
     """Tests for successful impact analysis."""
@@ -216,6 +218,7 @@ class TestImpactAnalysisServiceHappyPath:
 # ImpactAnalysisService — validation errors
 # ---------------------------------------------------------------------------
 
+
 class TestImpactAnalysisServiceValidation:
     """Tests for response validation in ImpactAnalysisService."""
 
@@ -303,6 +306,7 @@ class TestImpactAnalysisServiceValidation:
 # ---------------------------------------------------------------------------
 # ImpactAnalysisService — LLM errors
 # ---------------------------------------------------------------------------
+
 
 class TestImpactAnalysisServiceLLMErrors:
     """Tests for LLM error handling in ImpactAnalysisService."""

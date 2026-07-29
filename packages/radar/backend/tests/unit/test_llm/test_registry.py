@@ -7,7 +7,6 @@ import pytest
 from app.llm import LLMProviderRegistry, get_provider
 from app.llm.base import BaseLLMProvider, LLMResponse, Usage
 
-
 # ---------------------------------------------------------------------------
 # Concrete mock for registry tests
 # ---------------------------------------------------------------------------
@@ -15,9 +14,7 @@ from app.llm.base import BaseLLMProvider, LLMResponse, Usage
 
 class FakeProvider(BaseLLMProvider):
     async def complete(self, prompt, **kwargs):
-        return LLMResponse(
-            content="fake", model="fake-v1", usage=Usage(0, 0), latency_ms=0
-        )
+        return LLMResponse(content="fake", model="fake-v1", usage=Usage(0, 0), latency_ms=0)
 
     async def complete_json(self, prompt, **kwargs):
         return {}
@@ -25,9 +22,7 @@ class FakeProvider(BaseLLMProvider):
 
 class AnotherProvider(BaseLLMProvider):
     async def complete(self, prompt, **kwargs):
-        return LLMResponse(
-            content="another", model="another-v1", usage=Usage(0, 0), latency_ms=0
-        )
+        return LLMResponse(content="another", model="another-v1", usage=Usage(0, 0), latency_ms=0)
 
     async def complete_json(self, prompt, **kwargs):
         return {}

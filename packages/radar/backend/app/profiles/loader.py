@@ -60,8 +60,7 @@ def load_profile(path: Path | str) -> RadarProfile:
 
     if not isinstance(data, dict):
         raise ProfileValidationError(
-            f"{profile_path} must contain a mapping at the top level, "
-            f"got {type(data).__name__}"
+            f"{profile_path} must contain a mapping at the top level, got {type(data).__name__}"
         )
 
     try:
@@ -94,16 +93,13 @@ def load_profile_by_id(
     profile_path = _resolve_profile_path(profile_id, directory)
     if profile_path is None:
         known = ", ".join(available_profiles(directory)) or "none"
-        raise ProfileNotFoundError(
-            f"unknown profile id '{profile_id}' in {directory}; available: {known}"
-        )
+        raise ProfileNotFoundError(f"unknown profile id '{profile_id}' in {directory}; available: {known}")
 
     profile = load_profile(profile_path)
 
     if profile.id != profile_id:
         raise ProfileValidationError(
-            f"{profile_path} declares id '{profile.id}', which does not match "
-            f"its filename '{profile_id}'"
+            f"{profile_path} declares id '{profile.id}', which does not match its filename '{profile_id}'"
         )
 
     return profile
@@ -121,9 +117,7 @@ def available_profiles(profiles_dir: Path | str | None = None) -> list[str]:
         return []
 
     return sorted(
-        entry.stem
-        for entry in directory.iterdir()
-        if entry.is_file() and entry.suffix in _YAML_SUFFIXES
+        entry.stem for entry in directory.iterdir() if entry.is_file() and entry.suffix in _YAML_SUFFIXES
     )
 
 

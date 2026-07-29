@@ -33,7 +33,9 @@ async def _create_source(session: AsyncSession, **overrides: Any) -> Source:
     return source
 
 
-async def _create_research_item(session: AsyncSession, source_id: uuid.UUID, **overrides: Any) -> ResearchItem:
+async def _create_research_item(
+    session: AsyncSession, source_id: uuid.UUID, **overrides: Any
+) -> ResearchItem:
     """Helper to create a ResearchItem record in the test DB."""
     defaults = {
         "id": uuid.uuid4(),
@@ -88,7 +90,9 @@ class TestDashboardStats:
         }
         assert set(data.keys()) == expected_keys
 
-    async def test_stats_total_signals(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_total_signals(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """total_signals reflects the number of items in the DB."""
         source = await _create_source(test_session)
         for _ in range(3):
@@ -98,7 +102,9 @@ class TestDashboardStats:
         response = await client.get("/api/v1/dashboard/stats", headers=auth_headers)
         assert response.json()["total_signals"] == 3
 
-    async def test_stats_by_status(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_by_status(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """signals_by_status groups items by review_status."""
         source = await _create_source(test_session)
         await _create_research_item(test_session, source.id, review_status="review")
@@ -113,18 +119,14 @@ class TestDashboardStats:
         assert by_status["relevant"] == 1
         assert by_status["discarded"] == 1
 
-    async def test_stats_by_theme(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_by_theme(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """signals_by_theme counts occurrences across thematic_tags arrays."""
         source = await _create_source(test_session)
-        await _create_research_item(
-            test_session, source.id, thematic_tags=["aligners", "biomaterials"]
-        )
-        await _create_research_item(
-            test_session, source.id, thematic_tags=["aligners", "AI"]
-        )
-        await _create_research_item(
-            test_session, source.id, thematic_tags=["biomaterials"]
-        )
+        await _create_research_item(test_session, source.id, thematic_tags=["aligners", "biomaterials"])
+        await _create_research_item(test_session, source.id, thematic_tags=["aligners", "AI"])
+        await _create_research_item(test_session, source.id, thematic_tags=["biomaterials"])
         await test_session.commit()
 
         response = await client.get("/api/v1/dashboard/stats", headers=auth_headers)
@@ -133,15 +135,13 @@ class TestDashboardStats:
         assert by_theme["biomaterials"] == 2
         assert by_theme["AI"] == 1
 
-    async def test_stats_by_bucket(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_by_bucket(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """signals_by_bucket counts occurrences across strategic_buckets arrays."""
         source = await _create_source(test_session)
-        await _create_research_item(
-            test_session, source.id, strategic_buckets=["invest", "explore"]
-        )
-        await _create_research_item(
-            test_session, source.id, strategic_buckets=["invest"]
-        )
+        await _create_research_item(test_session, source.id, strategic_buckets=["invest", "explore"])
+        await _create_research_item(test_session, source.id, strategic_buckets=["invest"])
         await test_session.commit()
 
         response = await client.get("/api/v1/dashboard/stats", headers=auth_headers)
@@ -149,7 +149,9 @@ class TestDashboardStats:
         assert by_bucket["invest"] == 2
         assert by_bucket["explore"] == 1
 
-    async def test_stats_avg_scores(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_avg_scores(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """avg_scores computes averages of scientific and strategic scores."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -171,7 +173,9 @@ class TestDashboardStats:
         assert avg["scientific"] == 6.0
         assert avg["strategic"] == 4.0
 
-    async def test_stats_avg_scores_partial(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_avg_scores_partial(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """avg_scores handles items with only one score set."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -187,16 +191,18 @@ class TestDashboardStats:
         assert avg["scientific"] == 7.0
         assert avg["strategic"] is None
 
-    async def test_stats_recent_activity(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_recent_activity(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """recent_activity returns items ordered by created_at descending."""
         source = await _create_source(test_session)
-        older = await _create_research_item(
+        await _create_research_item(
             test_session,
             source.id,
             original_title="Older article",
             created_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
-        newer = await _create_research_item(
+        await _create_research_item(
             test_session,
             source.id,
             original_title="Newer article",
@@ -212,7 +218,9 @@ class TestDashboardStats:
         # Check expected keys
         assert set(activity[0].keys()) == {"id", "title", "status", "created_at"}
 
-    async def test_stats_recent_activity_limit(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_stats_recent_activity_limit(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """recent_activity returns at most 10 items."""
         source = await _create_source(test_session)
         for i in range(15):

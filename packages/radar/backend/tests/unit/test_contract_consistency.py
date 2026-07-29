@@ -9,12 +9,13 @@ import re
 
 import pytest
 
-
 # ─── Extract allowed values from services ────────────────────────────
+
 
 def _get_service_valid_set(module_path: str, attr_name: str) -> set[str]:
     """Import a module and return a set attribute by name."""
     import importlib
+
     mod = importlib.import_module(module_path)
     return set(getattr(mod, attr_name))
 
@@ -58,14 +59,14 @@ class TestHypeRiskConsistency:
     """Verify hype_risk values are consistent across services and DB."""
 
     def test_scoring_hype_risk_fits_db_constraint(self):
-        from app.services.scoring import ScoringService
+
         service_values = {"low", "medium", "high"}  # From VALID_HYPE_RISKS
         db_values = _get_constraint_values(MIGRATION_0005, "chk_hype_risk")
         missing = service_values - db_values
         assert not missing, f"Scoring service hype_risk values {missing} not in DB constraint {db_values}"
 
     def test_impact_hype_risk_fits_db_constraint(self):
-        from app.services.impact import ImpactAnalysisService
+
         service_values = {"low", "medium", "high"}  # From VALID_HYPE_RISKS
         db_values = _get_constraint_values(MIGRATION_0005, "chk_hype_risk")
         missing = service_values - db_values
@@ -127,6 +128,7 @@ class TestColumnWidths:
 
     def test_hype_risk_column_width(self):
         from app.models.research_item import ResearchItem
+
         col = ResearchItem.__table__.columns["hype_risk"]
         max_len = col.type.length
         all_values = {"low", "medium", "high"}
@@ -135,24 +137,33 @@ class TestColumnWidths:
 
     def test_recommended_action_column_width(self):
         from app.models.research_item import ResearchItem
+
         col = ResearchItem.__table__.columns["recommended_action"]
         max_len = col.type.length
         all_values = {"monitor", "investigate", "test", "discard", "act_now", "archive"}
         for v in all_values:
-            assert len(v) <= max_len, f"recommended_action value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            assert len(v) <= max_len, (
+                f"recommended_action value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            )
 
     def test_time_horizon_column_width(self):
         from app.models.research_item import ResearchItem
+
         col = ResearchItem.__table__.columns["time_horizon"]
         max_len = col.type.length
         all_values = {"immediate", "short_term", "medium_term", "long_term"}
         for v in all_values:
-            assert len(v) <= max_len, f"time_horizon value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            assert len(v) <= max_len, (
+                f"time_horizon value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            )
 
     def test_review_status_column_width(self):
         from app.models.research_item import ResearchItem
+
         col = ResearchItem.__table__.columns["review_status"]
         max_len = col.type.length
         all_values = {"relevant", "review", "discarded", "opportunity", "follow_up"}
         for v in all_values:
-            assert len(v) <= max_len, f"review_status value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            assert len(v) <= max_len, (
+                f"review_status value '{v}' ({len(v)} chars) exceeds column width {max_len}"
+            )

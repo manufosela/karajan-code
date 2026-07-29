@@ -205,9 +205,7 @@ class TestClinicalTrialsFetchMocked:
     async def test_fetch_single_page(self, ct_response: dict[str, Any]) -> None:
         """Mock httpx, verify single-page fetch with correct parameters."""
         with respx.mock(base_url="https://clinicaltrials.gov/api/v2") as respx_mock:
-            route = respx_mock.get("/studies").mock(
-                return_value=httpx.Response(200, json=ct_response)
-            )
+            route = respx_mock.get("/studies").mock(return_value=httpx.Response(200, json=ct_response))
 
             connector = ClinicalTrialsConnector()
             try:
@@ -283,9 +281,7 @@ class TestClinicalTrialsFetchMocked:
     async def test_fetch_with_date_range(self, ct_response: dict[str, Any]) -> None:
         """Fetch passes date range as query parameters."""
         with respx.mock(base_url="https://clinicaltrials.gov/api/v2") as respx_mock:
-            route = respx_mock.get("/studies").mock(
-                return_value=httpx.Response(200, json=ct_response)
-            )
+            route = respx_mock.get("/studies").mock(return_value=httpx.Response(200, json=ct_response))
 
             connector = ClinicalTrialsConnector()
             try:
@@ -307,9 +303,7 @@ class TestClinicalTrialsFetchMocked:
     async def test_fetch_query_terms(self, ct_response: dict[str, Any]) -> None:
         """Verify default query terms are included in the request."""
         with respx.mock(base_url="https://clinicaltrials.gov/api/v2") as respx_mock:
-            route = respx_mock.get("/studies").mock(
-                return_value=httpx.Response(200, json=ct_response)
-            )
+            route = respx_mock.get("/studies").mock(return_value=httpx.Response(200, json=ct_response))
 
             connector = ClinicalTrialsConnector()
             try:

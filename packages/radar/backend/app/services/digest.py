@@ -81,9 +81,7 @@ class DigestService:
         await session.flush()
 
         if deliver and channel == "teams" and self.teams_webhook:
-            success = await self.teams_webhook.send_card(
-                content["payload"]["adaptive_card"]
-            )
+            success = await self.teams_webhook.send_card(content["payload"]["adaptive_card"])
             if success:
                 digest.delivery_status = "sent"
                 digest.sent_at = datetime.now(UTC)

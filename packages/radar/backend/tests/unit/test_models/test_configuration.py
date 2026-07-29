@@ -90,9 +90,7 @@ async def test_configuration_query_by_category(test_session: AsyncSession):
     test_session.add_all([config1, config2, config3])
     await test_session.flush()
 
-    result = await test_session.execute(
-        select(Configuration).where(Configuration.category == "thematic")
-    )
+    result = await test_session.execute(select(Configuration).where(Configuration.category == "thematic"))
     thematic = result.scalars().all()
     assert len(thematic) == 2
 

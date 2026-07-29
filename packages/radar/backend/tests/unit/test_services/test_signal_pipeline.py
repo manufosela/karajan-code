@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 from app.llm.base import BaseLLMProvider
 from app.services.classification import ClassificationError, ClassificationResult, ThemeScore
 from app.services.impact import ImpactAnalysisError, ImpactAnalysisResult
 from app.services.scoring import ScoringError, ScoringResult
-from app.services.strategic import StrategicClassificationError, StrategicClassificationResult
-from app.services.summary import SummaryError, SummaryResult
 from app.services.signal_pipeline import (
     PipelineError,
     PipelineResult,
@@ -21,11 +17,13 @@ from app.services.signal_pipeline import (
     StepResult,
     StepStatus,
 )
-
+from app.services.strategic import StrategicClassificationError, StrategicClassificationResult
+from app.services.summary import SummaryError, SummaryResult
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_research_item() -> MagicMock:
     """Create a mock ResearchItem with required fields."""
@@ -114,6 +112,7 @@ def _summary_result() -> SummaryResult:
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 class TestStepResult:
     """Tests for StepResult dataclass."""
 
@@ -177,6 +176,7 @@ class TestPipelineError:
 # SignalPipelineService — happy path
 # ---------------------------------------------------------------------------
 
+
 class TestSignalPipelineHappyPath:
     """Tests for successful full pipeline processing."""
 
@@ -187,11 +187,11 @@ class TestSignalPipelineHappyPath:
         session = _make_session()
 
         with (
-            patch.object(service._classification, "classify", return_value=_classification_result()) as mock_cls,
-            patch.object(service._strategic, "classify", return_value=_strategic_result()) as mock_str,
-            patch.object(service._scoring, "score", return_value=_scoring_result()) as mock_sco,
-            patch.object(service._impact, "analyze", return_value=_impact_result()) as mock_imp,
-            patch.object(service._summary, "summarize", return_value=_summary_result()) as mock_sum,
+            patch.object(service._classification, "classify", return_value=_classification_result()),
+            patch.object(service._strategic, "classify", return_value=_strategic_result()),
+            patch.object(service._scoring, "score", return_value=_scoring_result()),
+            patch.object(service._impact, "analyze", return_value=_impact_result()),
+            patch.object(service._summary, "summarize", return_value=_summary_result()),
         ):
             result = await service.process(item, session)
 
@@ -386,6 +386,7 @@ class TestSignalPipelineHappyPath:
 # SignalPipelineService — partial failures
 # ---------------------------------------------------------------------------
 
+
 class TestSignalPipelinePartialFailures:
     """Tests for partial failure handling."""
 
@@ -397,7 +398,8 @@ class TestSignalPipelinePartialFailures:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("LLM timeout", title="Test"),
             ),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
@@ -422,7 +424,8 @@ class TestSignalPipelinePartialFailures:
             patch.object(service._classification, "classify", return_value=_classification_result()),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("LLM error", title="Test"),
             ),
             patch.object(service._impact, "analyze", return_value=_impact_result()),
@@ -446,7 +449,8 @@ class TestSignalPipelinePartialFailures:
             patch.object(service._scoring, "score", return_value=_scoring_result()),
             patch.object(service._impact, "analyze", return_value=_impact_result()),
             patch.object(
-                service._summary, "summarize",
+                service._summary,
+                "summarize",
                 side_effect=SummaryError("LLM error", title="Test"),
             ),
         ):
@@ -464,7 +468,8 @@ class TestSignalPipelinePartialFailures:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
@@ -487,7 +492,8 @@ class TestSignalPipelinePartialFailures:
             patch.object(service._classification, "classify", return_value=_classification_result()),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("Error", title="Test"),
             ),
             patch.object(service._impact, "analyze", return_value=_impact_result()),
@@ -506,12 +512,14 @@ class TestSignalPipelinePartialFailures:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("Error", title="Test"),
             ),
             patch.object(service._impact, "analyze", return_value=_impact_result()),
@@ -531,7 +539,8 @@ class TestSignalPipelinePartialFailures:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
@@ -549,6 +558,7 @@ class TestSignalPipelinePartialFailures:
 # SignalPipelineService — all steps fail
 # ---------------------------------------------------------------------------
 
+
 class TestSignalPipelineAllFail:
     """Tests for when all steps fail."""
 
@@ -560,23 +570,28 @@ class TestSignalPipelineAllFail:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._strategic, "classify",
+                service._strategic,
+                "classify",
                 side_effect=StrategicClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("Error", title="Test"),
             ),
             patch.object(
-                service._impact, "analyze",
+                service._impact,
+                "analyze",
                 side_effect=ImpactAnalysisError("Error", title="Test"),
             ),
             patch.object(
-                service._summary, "summarize",
+                service._summary,
+                "summarize",
                 side_effect=SummaryError("Error", title="Test"),
             ),
         ):
@@ -593,23 +608,28 @@ class TestSignalPipelineAllFail:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._strategic, "classify",
+                service._strategic,
+                "classify",
                 side_effect=StrategicClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("Error", title="Test"),
             ),
             patch.object(
-                service._impact, "analyze",
+                service._impact,
+                "analyze",
                 side_effect=ImpactAnalysisError("Error", title="Test"),
             ),
             patch.object(
-                service._summary, "summarize",
+                service._summary,
+                "summarize",
                 side_effect=SummaryError("Error", title="Test"),
             ),
         ):
@@ -625,23 +645,28 @@ class TestSignalPipelineAllFail:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=ClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._strategic, "classify",
+                service._strategic,
+                "classify",
                 side_effect=StrategicClassificationError("Error", title="Test"),
             ),
             patch.object(
-                service._scoring, "score",
+                service._scoring,
+                "score",
                 side_effect=ScoringError("Error", title="Test"),
             ),
             patch.object(
-                service._impact, "analyze",
+                service._impact,
+                "analyze",
                 side_effect=ImpactAnalysisError("Error", title="Test"),
             ),
             patch.object(
-                service._summary, "summarize",
+                service._summary,
+                "summarize",
                 side_effect=SummaryError("Error", title="Test"),
             ),
         ):
@@ -655,6 +680,7 @@ class TestSignalPipelineAllFail:
 # SignalPipelineService — unexpected exceptions
 # ---------------------------------------------------------------------------
 
+
 class TestSignalPipelineUnexpectedErrors:
     """Tests for unexpected (non-service) errors."""
 
@@ -666,7 +692,8 @@ class TestSignalPipelineUnexpectedErrors:
 
         with (
             patch.object(
-                service._classification, "classify",
+                service._classification,
+                "classify",
                 side_effect=RuntimeError("Unexpected"),
             ),
             patch.object(service._strategic, "classify", return_value=_strategic_result()),
@@ -684,6 +711,7 @@ class TestSignalPipelineUnexpectedErrors:
 # ---------------------------------------------------------------------------
 # SignalPipelineService — step duration tracking
 # ---------------------------------------------------------------------------
+
 
 class TestSignalPipelineStepDuration:
     """Tests for step duration tracking."""

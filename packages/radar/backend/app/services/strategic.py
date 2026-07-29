@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class StrategicClassificationError(Exception):
     """Raised when strategic classification fails (LLM error or invalid response)."""
 
@@ -33,6 +34,7 @@ class StrategicClassificationError(Exception):
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class StrategicClassificationResult:
@@ -47,6 +49,7 @@ class StrategicClassificationResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class StrategicClassificationService:
     """Classifies research items into strategic buckets using an LLM.
@@ -176,8 +179,7 @@ class StrategicClassificationService:
         # Validate time_horizon
         if time_horizon not in self.valid_time_horizons:
             raise StrategicClassificationError(
-                f"Invalid time_horizon '{time_horizon}'. "
-                f"Must be one of: {sorted(self.valid_time_horizons)}",
+                f"Invalid time_horizon '{time_horizon}'. Must be one of: {sorted(self.valid_time_horizons)}",
                 title=title,
             )
 

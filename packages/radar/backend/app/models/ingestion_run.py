@@ -41,8 +41,7 @@ class IngestionRun(Base):
             name="chk_run_status",
         ),
         CheckConstraint(
-            "items_fetched >= 0 AND items_new >= 0 "
-            "AND items_duplicate >= 0 AND items_processed >= 0",
+            "items_fetched >= 0 AND items_new >= 0 AND items_duplicate >= 0 AND items_processed >= 0",
             name="chk_items_non_negative",
         ),
     )
