@@ -42,9 +42,10 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
-    LLM_DEFAULT_PROVIDER: str = "openai"
-    LLM_DEFAULT_MODEL: str = "gpt-4o"
-    LLM_FAST_MODEL: str = "gpt-4o-mini"
+    # Which LLM backend and models to use is declared by the active Radar
+    # Profile (its `llm` section), not here: it is part of what defines a
+    # radar instance. Credentials stay in the environment.
+    OLLAMA_BASE_URL: str | None = None
 
     APP_SECRET_KEY: str  # Required - must be set via env var or .env
 

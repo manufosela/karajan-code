@@ -12,6 +12,8 @@ import contextlib
 import signal
 import sys
 
+from sqlalchemy import select
+
 from app.connectors.registry import create_default_registry
 from app.core.database import async_session_factory, engine
 from app.core.logging import configure_logging, get_logger
@@ -19,8 +21,6 @@ from app.llm import get_provider
 from app.models.research_item import ResearchItem
 from app.services.ingestion import IngestionOrchestrator
 from app.services.signal_pipeline import SignalPipelineService
-
-from sqlalchemy import select
 
 logger = get_logger(__name__)
 
@@ -102,22 +102,23 @@ async def main() -> int:
             return 0
 
         try:
-            from app.core.config import settings
-            # Auto-register providers
+            # Auto-register providers by importing them
+            import app.llm.ollama_provider  # noqa: F401
             import app.llm.openai_provider  # noqa: F401
+            from app.profiles.active import get_active_profile
+
+            # Which backend and models to use is part of the radar's profile,
+            # so an instance can run on a local model without a code change.
+            llm = get_active_profile().llm
+
             # Use cheap model for classification/scoring, premium for summaries
-            provider = get_provider(
-                settings.LLM_DEFAULT_PROVIDER,
-                model=settings.LLM_FAST_MODEL,
-            )
-            summary_provider = get_provider(
-                settings.LLM_DEFAULT_PROVIDER,
-                model=settings.LLM_DEFAULT_MODEL,
-            )
+            provider = get_provider(llm.provider, model=llm.fast_model)
+            summary_provider = get_provider(llm.provider, model=llm.default_model)
             logger.info(
                 "LLM providers initialized",
-                fast_model=settings.LLM_FAST_MODEL,
-                summary_model=settings.LLM_DEFAULT_MODEL,
+                fast_model=llm.fast_model,
+                summary_model=llm.default_model,
+                provider=llm.provider,
             )
         except Exception as e:
             logger.warning("No LLM provider available, skipping signal processing", error=str(e))
