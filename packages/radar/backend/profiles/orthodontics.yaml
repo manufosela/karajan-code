@@ -1,0 +1,589 @@
+# Orthodontics Radar Profile
+#
+# Migrated verbatim from the constants that used to live in the codebase:
+#   - VALID_THEMES              (app/llm/prompts/classification.py)
+#   - VALID_BUCKETS             (app/llm/prompts/strategic.py)
+#   - VALID_TIME_HORIZONS       (app/llm/prompts/strategic.py)
+#   - VALID_IMPACT_LEVELS       (app/llm/prompts/impact.py)
+#   - VALID_HYPE_RISKS          (app/llm/prompts/impact.py)
+#   - VALID_RECOMMENDED_ACTIONS (impact.py and scoring.py -- two distinct sets)
+#   - default_query per source  (alembic/versions/0002_seed_data.py)
+#
+# The prompts below are domain-agnostic: every definition they present to the
+# LLM is rendered from the taxonomy and vocabulary in this same file, so a new
+# domain needs new data here, not new prompt prose.
+
+id: orthodontics
+name: Ortho Frontier Radar
+version: 1.0.0
+locale: en
+
+organization:
+  name: Geniova Technologies
+  description: a company specializing in clear aligner orthodontic treatments
+  analyst_role: an expert orthodontic research analyst
+
+taxonomy:
+  themes:
+    - id: orthodontics
+      label: Orthodontics
+      description: >-
+        Traditional and modern orthodontic treatments, tooth movement,
+        malocclusion, braces, aligners.
+    - id: biomechanics
+      label: Biomechanics
+      description: >-
+        Forces, mechanics of tooth movement, bone remodeling, finite element
+        analysis, stress distribution.
+    - id: materials
+      label: Materials
+      description: >-
+        Orthodontic materials, wires, brackets, adhesives, 3D printing
+        materials, biocompatibility.
+    - id: AI/digital
+      label: AI and digital
+      description: >-
+        Artificial intelligence, machine learning, digital workflows, CBCT,
+        intraoral scanning, digital twins, CAD/CAM.
+    - id: clinical
+      label: Clinical
+      description: >-
+        Clinical trials, treatment outcomes, patient studies, epidemiology,
+        case reports.
+    - id: other
+      label: Other
+      description: Topics not fitting the above categories.
+
+  strategic_buckets:
+    - id: core_aligner_tech
+      label: Core aligner technology
+      description: >-
+        Clear aligner technology, aligner design, attachment protocols,
+        staging strategies, aligner materials, direct-to-consumer aligners.
+    - id: emerging_materials
+      label: Emerging materials
+      description: >-
+        Novel orthodontic materials, shape-memory alloys, biocompatible
+        polymers, smart wires, nano-materials, 3D-printable resins.
+    - id: ai_digital_workflow
+      label: AI and digital workflow
+      description: >-
+        Artificial intelligence, machine learning, digital treatment planning,
+        CBCT analysis, intraoral scanning, digital twins, automated
+        cephalometric analysis, CAD/CAM workflows.
+    - id: biomechanics_research
+      label: Biomechanics research
+      description: >-
+        Tooth movement mechanics, bone remodeling, force systems, finite
+        element analysis, root resorption, anchorage strategies.
+    - id: clinical_evidence
+      label: Clinical evidence
+      description: >-
+        Clinical trials, treatment outcomes, systematic reviews,
+        meta-analyses, comparative effectiveness, patient-reported outcomes.
+    - id: regulatory_compliance
+      label: Regulatory compliance
+      description: >-
+        FDA/CE regulations, medical device standards, clinical safety
+        requirements, quality management, post-market surveillance.
+    - id: competitive_intelligence
+      label: Competitive intelligence
+      description: >-
+        Competitor products, market analysis, patent landscapes, industry
+        trends, market share, business strategy.
+
+  time_horizons:
+    - id: immediate
+      label: Immediate
+      description: Impact expected within 0-6 months.
+    - id: short_term
+      label: Short term
+      description: Impact expected within 6-18 months.
+    - id: medium_term
+      label: Medium term
+      description: Impact expected within 18-36 months.
+    - id: long_term
+      label: Long term
+      description: Impact expected beyond 36 months.
+
+  keywords:
+    - orthodontics
+    - clear aligners
+    - malocclusion
+    - tooth movement
+    - biomechanics
+    - cephalometric
+    - intraoral scan
+
+vocabulary:
+  impact_levels:
+    - id: transformative
+      label: Transformative
+      description: >-
+        Paradigm-shifting discovery that could fundamentally change the
+        organization's core technology, manufacturing, or treatment
+        protocols. Rare -- reserved for true breakthroughs.
+    - id: significant
+      label: Significant
+      description: >-
+        Major advancement with clear, direct implications for design,
+        materials, workflow, or outcomes. Could provide substantial
+        competitive advantage.
+    - id: moderate
+      label: Moderate
+      description: >-
+        Meaningful contribution that could improve existing processes or
+        validate current approaches. Worth tracking and potentially
+        integrating.
+    - id: incremental
+      label: Incremental
+      description: >-
+        Minor improvement or confirmation of known findings. May refine
+        existing knowledge but unlikely to drive strategic decisions.
+    - id: minimal
+      label: Minimal
+      description: >-
+        Little to no relevance to the organization's business, or findings
+        are too preliminary to be actionable.
+
+  hype_risks:
+    - id: low
+      label: Low
+      description: >-
+        Conservative claims well-supported by robust methodology, adequate
+        sample size, reproducible results, and peer-reviewed validation.
+        Authors acknowledge limitations appropriately.
+    - id: medium
+      label: Medium
+      description: >-
+        Promising results with some methodological concerns. Claims are
+        reasonable but may need further validation. Moderate sample size or
+        limited follow-up period.
+    - id: high
+      label: High
+      description: >-
+        Extraordinary claims with weak evidence. Red flags include very small
+        sample size, no control group, unvalidated methodology, conflicts of
+        interest, cherry-picked outcomes, or conclusions that far exceed what
+        the data supports.
+
+  impact_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Low impact or early-stage research worth tracking over time.
+    - id: investigate
+      label: Investigate
+      description: >-
+        Promising impact with manageable hype risk; warrants deeper analysis,
+        literature review, or internal discussion.
+    - id: act_now
+      label: Act now
+      description: >-
+        High impact with low hype risk; strong evidence suggests the
+        organization should take immediate strategic action (prototype,
+        partner, license, or adapt).
+    - id: archive
+      label: Archive
+      description: >-
+        Minimal impact, high hype risk, or irrelevant to the business. File
+        for reference but no action needed.
+
+  scoring_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Track this line of work over time without committing resources.
+    - id: investigate
+      label: Investigate
+      description: Warrants a deeper review before any decision is taken.
+    - id: test
+      label: Test
+      description: Strong enough to justify a prototype or internal experiment.
+    - id: discard
+      label: Discard
+      description: Not relevant or not credible enough to pursue.
+
+scoring:
+  weights:
+    scientific_strength: 0.5
+    strategic_relevance: 0.5
+
+sources:
+  # Taken from DEFAULT_QUERY in app/connectors/pubmed.py, not from the database
+  # seed: the seeded query duplicated the "last 7 days" date filter that the
+  # connector already appends, and quoted no phrases.
+  - connector: pubmed
+    priority: 1
+    query: >-
+      (orthodontics OR "clear aligners" OR "dental biomechanics" OR
+      "malocclusion treatment" OR "tooth movement" OR "aligner")
+    config:
+      retmax: 100
+      rate_limit_per_second: 3
+  - connector: arxiv
+    priority: 2
+    query: >-
+      orthodontics OR dental alignment OR tooth segmentation OR cephalometric
+      OR intraoral scan
+    config:
+      max_results: 50
+      default_categories: [cs.AI, cs.CV, cs.LG, physics.med-ph, q-bio.QM]
+  - connector: clinical_trials
+    priority: 2
+    query: >-
+      orthodontics OR clear aligners OR malocclusion OR tooth movement OR
+      dental biomechanics
+    config:
+      page_size: 50
+  - connector: crossref
+    priority: 3
+    query: orthodontics aligners biomechanics tooth movement
+    config:
+      rows: 50
+  - connector: semantic_scholar
+    priority: 3
+    query: orthodontics clear aligners biomechanics AI dental
+    config:
+      limit: 50
+
+llm:
+  provider: openai
+  default_model: gpt-4o
+  fast_model: gpt-4o-mini
+
+branding:
+  app_name: Ortho Frontier Radar
+  short_name: Ortho Frontier
+  tagline: Strategic research intelligence for orthodontics
+
+summary:
+  languages: [en, es]
+
+prompts:
+  classification:
+    required_variables:
+      - analyst_role
+      - organization_name
+      - organization_description
+      - themes
+      - id
+      - description
+      - title
+      - abstract
+      - theme_ids_csv
+    template: |
+      You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+      Given a research paper's title and abstract, classify it into one or more
+      thematic categories and extract relevant keywords.
+
+      ## Valid themes
+
+      {{#themes}}
+      - {{id}}: {{description}}
+      {{/themes}}
+
+      ## Input
+
+      **Title:** {{title}}
+
+      **Abstract:** {{abstract}}
+
+      ## Instructions
+
+      1. Assign one or more themes from the valid themes list above.
+      2. For each theme, provide a confidence score between 0.0 and 1.0.
+      3. Identify the single primary theme (highest relevance).
+      4. Extract 3-7 descriptive keywords from the paper.
+
+      ## Output format
+
+      Respond ONLY with valid JSON matching this schema:
+
+      ```json
+      {
+        "themes": [
+          {"name": "<theme>", "confidence": <float 0.0-1.0>}
+        ],
+        "primary_theme": "<theme>",
+        "keywords": ["<keyword1>", "<keyword2>", "..."]
+      }
+      ```
+
+      Rules:
+      - Every theme name MUST be one of: {{theme_ids_csv}}.
+      - primary_theme MUST be one of the themes in the themes list.
+      - confidence values MUST be between 0.0 and 1.0.
+      - keywords MUST contain between 3 and 7 items.
+      - Do NOT include any text outside the JSON object.
+
+  strategic:
+    required_variables:
+      - analyst_role
+      - organization_name
+      - organization_description
+      - strategic_buckets
+      - time_horizons
+      - id
+      - description
+      - title
+      - abstract
+      - bucket_ids_csv
+      - time_horizon_ids_csv
+    template: |
+      You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+      Given a research paper's title and abstract, classify it into exactly one
+      strategic bucket and assess its time horizon for industry impact.
+
+      ## Strategic buckets
+
+      {{#strategic_buckets}}
+      - {{id}}: {{description}}
+      {{/strategic_buckets}}
+
+      ## Time horizons
+
+      {{#time_horizons}}
+      - {{id}}: {{description}}
+      {{/time_horizons}}
+
+      ## Input
+
+      **Title:** {{title}}
+
+      **Abstract:** {{abstract}}
+
+      ## Instructions
+
+      1. Select the single most relevant strategic bucket from the list above.
+      2. Provide a confidence score between 0.0 and 1.0.
+      3. Write a brief rationale (1-3 sentences) explaining the classification.
+      4. Assess the time horizon for when this research could impact industry practice.
+
+      ## Output format
+
+      Respond ONLY with valid JSON matching this schema:
+
+      ```json
+      {
+        "bucket": "<strategic_bucket>",
+        "confidence": <float 0.0-1.0>,
+        "rationale": "<brief explanation>",
+        "time_horizon": "<time_horizon>"
+      }
+      ```
+
+      Rules:
+      - bucket MUST be one of: {{bucket_ids_csv}}.
+      - confidence MUST be between 0.0 and 1.0.
+      - rationale MUST be a non-empty string of 1-3 sentences.
+      - time_horizon MUST be one of: {{time_horizon_ids_csv}}.
+      - Do NOT include any text outside the JSON object.
+
+  impact:
+    required_variables:
+      - analyst_role
+      - organization_name
+      - organization_description
+      - impact_levels
+      - hype_risks
+      - impact_recommended_actions
+      - id
+      - description
+      - title
+      - abstract
+      - impact_level_ids_csv
+      - hype_risk_ids_csv
+      - impact_action_ids_csv
+    template: |
+      You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+      Given a research paper's title and abstract, perform a comprehensive impact
+      analysis and hype detection assessment.
+
+      ## Impact level assessment
+
+      Evaluate the potential business impact of this research on the organization:
+
+      {{#impact_levels}}
+      - **{{id}}**: {{description}}
+      {{/impact_levels}}
+
+      ## Hype risk detection
+
+      Assess whether the research claims are supported by solid evidence or may
+      be overstated:
+
+      {{#hype_risks}}
+      - **{{id}}**: {{description}}
+      {{/hype_risks}}
+
+      ## Input
+
+      **Title:** {{title}}
+
+      **Abstract:** {{abstract}}
+
+      ## Instructions
+
+      1. Determine the impact_level based on potential business impact.
+      2. Assess the hype_risk based on evidence quality vs. claim magnitude.
+      3. Provide a confidence_level (0.0-1.0) reflecting how certain you are in
+         your assessment given the available information.
+      4. List specific impact_areas where this research could affect the
+         organization's business.
+      5. Identify evidence_gaps -- what additional evidence or validation would
+         strengthen or weaken the findings.
+      6. Recommend an action based on the combined impact and hype assessment.
+
+      ### Recommended action logic
+
+      {{#impact_recommended_actions}}
+      - **{{id}}**: {{description}}
+      {{/impact_recommended_actions}}
+
+      ## Output format
+
+      Respond ONLY with valid JSON matching this schema:
+
+      ```json
+      {
+        "impact_level": "<impact_level>",
+        "hype_risk": "<hype_risk>",
+        "confidence_level": <float 0.0-1.0>,
+        "impact_areas": ["<area1>", "<area2>"],
+        "evidence_gaps": ["<gap1>", "<gap2>"],
+        "recommended_action": "<recommended_action>"
+      }
+      ```
+
+      Rules:
+      - impact_level MUST be one of: {{impact_level_ids_csv}}.
+      - hype_risk MUST be one of: {{hype_risk_ids_csv}}.
+      - confidence_level MUST be a float between 0.0 and 1.0.
+      - impact_areas MUST be a list of strings (may be empty if no areas apply).
+      - evidence_gaps MUST be a list of strings (may be empty if no gaps found).
+      - recommended_action MUST be one of: {{impact_action_ids_csv}}.
+      - Do NOT include any text outside the JSON object.
+
+  scoring:
+    required_variables:
+      - analyst_role
+      - organization_name
+      - organization_description
+      - hype_risks
+      - scoring_recommended_actions
+      - id
+      - description
+      - title
+      - abstract
+      - hype_risk_ids_csv
+      - scoring_action_ids_csv
+    template: |
+      You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+      Given a research paper's title and abstract, evaluate it on two independent
+      dimensions: scientific strength and strategic relevance.
+
+      ## Scientific strength (1-10)
+
+      Judge methodology, sample size, controls, reproducibility, peer review
+      status and journal standing. A score of 1 means anecdotal or unsupported;
+      10 means rigorous, well-powered and independently validated.
+
+      ## Strategic relevance (1-10)
+
+      Judge how directly the findings bear on the organization's business. A
+      score of 1 means no discernible connection; 10 means it affects a core
+      product, process or market position right now.
+
+      ## Hype risk
+
+      {{#hype_risks}}
+      - **{{id}}**: {{description}}
+      {{/hype_risks}}
+
+      ## Recommended action
+
+      {{#scoring_recommended_actions}}
+      - **{{id}}**: {{description}}
+      {{/scoring_recommended_actions}}
+
+      ## Input
+
+      **Title:** {{title}}
+
+      **Abstract:** {{abstract}}
+
+      ## Output format
+
+      Respond ONLY with valid JSON matching this schema:
+
+      ```json
+      {
+        "scientific_strength_score": <int 1-10>,
+        "strategic_relevance_score": <int 1-10>,
+        "scientific_rationale": "<brief explanation>",
+        "strategic_rationale": "<brief explanation>",
+        "recommended_action": "<recommended_action>",
+        "hype_risk": "<hype_risk>"
+      }
+      ```
+
+      Rules:
+      - Both scores MUST be integers between 1 and 10.
+      - Both rationales MUST be non-empty strings.
+      - recommended_action MUST be one of: {{scoring_action_ids_csv}}.
+      - hype_risk MUST be one of: {{hype_risk_ids_csv}}.
+      - Do NOT include any text outside the JSON object.
+
+  summary:
+    required_variables:
+      - analyst_role
+      - organization_name
+      - organization_description
+      - title
+      - abstract
+      - assigned_themes
+      - scientific_strength_score
+      - strategic_relevance_score
+      - summary_language_codes_csv
+    template: |
+      You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+      Given a research paper's title, abstract, assigned themes and evaluation
+      scores, write a concise executive summary for a strategic audience.
+
+      ## Input
+
+      **Title:** {{title}}
+
+      **Abstract:** {{abstract}}
+
+      **Assigned themes:** {{assigned_themes}}
+
+      **Scientific strength:** {{scientific_strength_score}}/10
+
+      **Strategic relevance:** {{strategic_relevance_score}}/10
+
+      ## Instructions
+
+      1. Write one executive summary per required language, 2-4 sentences each,
+         aimed at a decision maker who will not read the paper.
+      2. Extract the key findings as short, factual bullet points.
+      3. State the implications for the organization concretely -- what it
+         changes, confirms or threatens.
+
+      ## Output format
+
+      Respond ONLY with valid JSON matching this schema:
+
+      ```json
+      {
+        "summary_en": "<executive summary in English>",
+        "summary_es": "<executive summary in Spanish>",
+        "key_findings": ["<finding1>", "<finding2>"],
+        "implications": "<what this means for the organization>"
+      }
+      ```
+
+      Rules:
+      - One summary field per language code in: {{summary_language_codes_csv}}.
+      - key_findings MUST be a non-empty list of strings.
+      - implications MUST be a non-empty string.
+      - Do NOT include any text outside the JSON object.
