@@ -95,6 +95,13 @@ entry is dropped without taking the rest of the feed with it.
 3. Set the frontend build arguments: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_SHORT_NAME`, `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_ORGANIZATION_NAME`.
 4. Add connectors if the domain needs sources the bundled ones do not cover.
 
+### Deploying a separate instance
+
+Do not fork this repository to run a radar for another domain or customer. An
+instance owns its profile, its secrets and its deployment; it consumes the core
+as a published image. See **[docs/creating-instances.md](docs/creating-instances.md)**
+for the runbook, including what belongs to the instance and what belongs here.
+
 ## Running against a local model
 
 Ollama needs no API key and costs nothing per token, which matters when reprocessing a corpus during development:
