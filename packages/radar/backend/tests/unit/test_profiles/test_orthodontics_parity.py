@@ -1,11 +1,12 @@
-"""The bundled orthodontics profile must reproduce the legacy constants exactly.
+"""The bundled orthodontics profile must preserve the original domain exactly.
 
-While the hardcoded domain constants still exist alongside the Radar Profile,
-these tests guard the migration: if the YAML and the constants drift apart,
-the profile is no longer a faithful replacement and switching the services
-over to it (FRD-TSK-0019) would silently change classifier behaviour.
+These values were hardcoded across the codebase before the Radar Profile
+existed (VALID_THEMES, VALID_BUCKETS, VALID_TIME_HORIZONS, VALID_IMPACT_LEVELS,
+VALID_HYPE_RISKS and two distinct VALID_RECOMMENDED_ACTIONS sets). The
+constants are gone; these literals are what they contained.
 
-Delete this module once the constants are gone.
+Asserting them explicitly keeps a careless edit to the YAML from silently
+changing how every item is classified.
 """
 
 from __future__ import annotations
@@ -21,75 +22,87 @@ def orthodontics() -> RadarProfile:
     return load_profile_by_id("orthodontics")
 
 
-class TestTaxonomyParity:
-    def test_themes_match_valid_themes(self, orthodontics: RadarProfile) -> None:
-        from app.llm.prompts.classification import VALID_THEMES
+class TestTaxonomy:
+    def test_themes(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.taxonomy.theme_ids == frozenset(
+            {
+                "orthodontics",
+                "biomechanics",
+                "materials",
+                "AI/digital",
+                "clinical",
+                "other",
+            }
+        )
 
-        assert orthodontics.taxonomy.theme_ids == VALID_THEMES
+    def test_strategic_buckets(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.taxonomy.bucket_ids == frozenset(
+            {
+                "core_aligner_tech",
+                "emerging_materials",
+                "ai_digital_workflow",
+                "biomechanics_research",
+                "clinical_evidence",
+                "regulatory_compliance",
+                "competitive_intelligence",
+            }
+        )
 
-    def test_buckets_match_valid_buckets(self, orthodontics: RadarProfile) -> None:
-        from app.llm.prompts.strategic import VALID_BUCKETS
+    def test_time_horizons(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.taxonomy.time_horizon_ids == frozenset(
+            {"immediate", "short_term", "medium_term", "long_term"}
+        )
 
-        assert orthodontics.taxonomy.bucket_ids == VALID_BUCKETS
-
-    def test_time_horizons_match_valid_time_horizons(
+    def test_every_theme_carries_a_definition_for_the_prompt(
         self, orthodontics: RadarProfile
     ) -> None:
-        from app.llm.prompts.strategic import VALID_TIME_HORIZONS
-
-        assert orthodontics.taxonomy.time_horizon_ids == VALID_TIME_HORIZONS
-
-
-class TestVocabularyParity:
-    def test_impact_levels_match(self, orthodontics: RadarProfile) -> None:
-        from app.llm.prompts.impact import VALID_IMPACT_LEVELS
-
-        assert orthodontics.vocabulary.impact_level_ids == VALID_IMPACT_LEVELS
-
-    def test_hype_risks_match_both_definitions(self, orthodontics: RadarProfile) -> None:
-        """impact.py and scoring.py declare hype risks separately but identically."""
-        from app.llm.prompts.impact import VALID_HYPE_RISKS as IMPACT_HYPE_RISKS
-        from app.llm.prompts.scoring import VALID_HYPE_RISKS as SCORING_HYPE_RISKS
-
-        assert IMPACT_HYPE_RISKS == SCORING_HYPE_RISKS
-        assert orthodontics.vocabulary.hype_risk_ids == IMPACT_HYPE_RISKS
-
-    def test_impact_actions_match(self, orthodontics: RadarProfile) -> None:
-        from app.llm.prompts.impact import VALID_RECOMMENDED_ACTIONS
-
-        assert orthodontics.vocabulary.impact_action_ids == VALID_RECOMMENDED_ACTIONS
-
-    def test_scoring_actions_match(self, orthodontics: RadarProfile) -> None:
-        from app.llm.prompts.scoring import VALID_RECOMMENDED_ACTIONS
-
-        assert orthodontics.vocabulary.scoring_action_ids == VALID_RECOMMENDED_ACTIONS
-
-    def test_impact_and_scoring_action_sets_genuinely_differ(self) -> None:
-        """Documents a real inconsistency in the original code, kept deliberately."""
-        from app.llm.prompts.impact import VALID_RECOMMENDED_ACTIONS as IMPACT_ACTIONS
-        from app.llm.prompts.scoring import VALID_RECOMMENDED_ACTIONS as SCORING_ACTIONS
-
-        assert IMPACT_ACTIONS != SCORING_ACTIONS
-        assert frozenset({"act_now", "archive"}) == IMPACT_ACTIONS - SCORING_ACTIONS
-        assert frozenset({"test", "discard"}) == SCORING_ACTIONS - IMPACT_ACTIONS
+        for theme in orthodontics.taxonomy.themes:
+            assert theme.description.strip()
 
 
-class TestSummaryParity:
-    def test_summary_languages_cover_required_fields(
+class TestVocabulary:
+    def test_impact_levels(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.vocabulary.impact_level_ids == frozenset(
+            {"transformative", "significant", "moderate", "incremental", "minimal"}
+        )
+
+    def test_hype_risks(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.vocabulary.hype_risk_ids == frozenset(
+            {"low", "medium", "high"}
+        )
+
+    def test_impact_actions(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.vocabulary.impact_action_ids == frozenset(
+            {"monitor", "investigate", "act_now", "archive"}
+        )
+
+    def test_scoring_actions(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.vocabulary.scoring_action_ids == frozenset(
+            {"monitor", "investigate", "test", "discard"}
+        )
+
+    def test_the_two_action_sets_genuinely_differ(
         self, orthodontics: RadarProfile
     ) -> None:
-        from app.llm.prompts.summary import REQUIRED_SUMMARY_FIELDS
+        """Preserved from the original code, where impact.py and scoring.py
+        declared different actions. Unifying them would change behaviour."""
+        impact = orthodontics.vocabulary.impact_action_ids
+        scoring = orthodontics.vocabulary.scoring_action_ids
 
-        expected = {f"summary_{code}" for code in orthodontics.summary.languages}
+        assert frozenset({"act_now", "archive"}) == impact - scoring
+        assert frozenset({"test", "discard"}) == scoring - impact
 
-        assert expected <= REQUIRED_SUMMARY_FIELDS
+
+class TestSummary:
+    def test_generates_english_and_spanish(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.summary.languages == ["en", "es"]
 
 
-class TestSourceParity:
-    def test_declares_every_connector_seeded_in_the_database(
+class TestSources:
+    def test_declares_every_originally_seeded_connector(
         self, orthodontics: RadarProfile
     ) -> None:
-        seeded = {
+        assert {source.connector for source in orthodontics.sources} == {
             "pubmed",
             "arxiv",
             "clinical_trials",
@@ -97,23 +110,23 @@ class TestSourceParity:
             "semantic_scholar",
         }
 
-        assert {source.connector for source in orthodontics.sources} == seeded
+    def test_every_source_carries_a_query(self, orthodontics: RadarProfile) -> None:
+        for source in orthodontics.sources:
+            assert source.query, f"{source.connector} has no query"
 
-    def test_pubmed_query_matches_the_connector_default(
-        self, orthodontics: RadarProfile
-    ) -> None:
-        from app.connectors.pubmed import DEFAULT_QUERY
-
+    def test_pubmed_query_terms(self, orthodontics: RadarProfile) -> None:
+        """Taken from the connector's DEFAULT_QUERY, not the database seed:
+        the seeded query duplicated the date filter the connector adds."""
         pubmed = next(s for s in orthodontics.sources if s.connector == "pubmed")
 
-        assert _terms(pubmed.query or "") == _terms(DEFAULT_QUERY)
+        assert pubmed.query is not None
+        for term in ("orthodontics", "clear aligners", "tooth movement", "aligner"):
+            assert term in pubmed.query
 
 
-def _terms(query: str) -> set[str]:
-    """Split a boolean query into comparable terms, ignoring formatting."""
-    normalised = query.replace("(", " ").replace(")", " ").lower()
-    return {
-        term.strip()
-        for term in normalised.split(" or ")
-        if term.strip() and term.strip() != "and"
-    }
+class TestScoring:
+    def test_weights_are_evenly_split(self, orthodontics: RadarProfile) -> None:
+        assert orthodontics.scoring.weights == {
+            "scientific_strength": 0.5,
+            "strategic_relevance": 0.5,
+        }

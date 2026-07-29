@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, require_admin
+from app.core.config import settings
 from app.models.configuration import Configuration
 from app.models.user import User
 from app.schemas.configuration import (
@@ -13,9 +14,9 @@ from app.schemas.configuration import (
     ConfigUpdate,
     DeliverySettingsResponse,
     RunNowResponse,
-    ScoringWeightsUpdate,
     ScheduleResponse,
     ScheduleUpdate,
+    ScoringWeightsUpdate,
     TopicTaxonomyResponse,
 )
 from app.utils.cron import (
@@ -37,6 +38,10 @@ async def _sync_cloud_scheduler(cron_expression: str, timezone: str) -> tuple[st
         sync_status is "synced", "pending_sync", or "local_only".
         sync_error is None on success, or an error message on failure.
     """
+    if not settings.SCHEDULER_JOB_NAME:
+        logger.info("SCHEDULER_JOB_NAME not configured; skipping Cloud Scheduler sync")
+        return "local_only", None
+
     try:
         from google.cloud import scheduler_v1
     except ImportError:
@@ -45,7 +50,7 @@ async def _sync_cloud_scheduler(cron_expression: str, timezone: str) -> tuple[st
 
     try:
         client = scheduler_v1.CloudSchedulerClient()
-        job_name = "projects/geniova-ofr-prod/locations/europe-west1/jobs/ofr-daily-ingestion"
+        job_name = settings.SCHEDULER_JOB_NAME
         job = scheduler_v1.Job(
             name=job_name,
             schedule=cron_expression,

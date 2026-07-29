@@ -12,12 +12,8 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.impact import (
-    VALID_HYPE_RISKS,
-    VALID_IMPACT_LEVELS,
-    VALID_RECOMMENDED_ACTIONS,
-    format_impact_prompt,
-)
+from app.profiles.active import get_prompt_renderer
+from app.profiles.renderer import PromptRenderer
 
 logger = get_logger(__name__)
 
@@ -61,8 +57,32 @@ class ImpactAnalysisService:
         provider: A BaseLLMProvider instance for LLM calls.
     """
 
-    def __init__(self, provider: BaseLLMProvider) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        renderer: PromptRenderer | None = None,
+    ) -> None:
         self._provider = provider
+        self._renderer = renderer if renderer is not None else get_prompt_renderer()
+
+    @property
+    def valid_impact_levels(self) -> frozenset[str]:
+        """Impact level ids the active profile allows."""
+        return self._renderer.profile.vocabulary.impact_level_ids
+
+    @property
+    def valid_hype_risks(self) -> frozenset[str]:
+        """Hype risk ids the active profile allows."""
+        return self._renderer.profile.vocabulary.hype_risk_ids
+
+    @property
+    def valid_recommended_actions(self) -> frozenset[str]:
+        """Recommended actions the impact prompt allows.
+
+        Deliberately distinct from the scoring service's action set: the two
+        prompts have always offered different choices.
+        """
+        return self._renderer.profile.vocabulary.impact_action_ids
 
     async def analyze(
         self,
@@ -84,7 +104,11 @@ class ImpactAnalysisService:
             ImpactAnalysisError: If the LLM call fails or returns
                 invalid data.
         """
-        prompt = format_impact_prompt(title=title, abstract=abstract)
+        prompt = self._renderer.render(
+            "impact",
+            title=title,
+            abstract=abstract if abstract else "No abstract available.",
+        )
 
         try:
             response = await self._provider.complete_json(prompt)
@@ -149,16 +173,18 @@ class ImpactAnalysisService:
         action = data["recommended_action"]
 
         # Validate impact_level
-        if impact_level not in VALID_IMPACT_LEVELS:
+        if impact_level not in self.valid_impact_levels:
             raise ImpactAnalysisError(
-                f"Invalid impact_level '{impact_level}'. Must be one of: {sorted(VALID_IMPACT_LEVELS)}",
+                f"Invalid impact_level '{impact_level}'. "
+                f"Must be one of: {sorted(self.valid_impact_levels)}",
                 title=title,
             )
 
         # Validate hype_risk
-        if hype_risk not in VALID_HYPE_RISKS:
+        if hype_risk not in self.valid_hype_risks:
             raise ImpactAnalysisError(
-                f"Invalid hype_risk '{hype_risk}'. Must be one of: {sorted(VALID_HYPE_RISKS)}",
+                f"Invalid hype_risk '{hype_risk}'. "
+                f"Must be one of: {sorted(self.valid_hype_risks)}",
                 title=title,
             )
 
@@ -184,9 +210,10 @@ class ImpactAnalysisService:
             )
 
         # Validate recommended_action
-        if action not in VALID_RECOMMENDED_ACTIONS:
+        if action not in self.valid_recommended_actions:
             raise ImpactAnalysisError(
-                f"Invalid recommended_action '{action}'. Must be one of: {sorted(VALID_RECOMMENDED_ACTIONS)}",
+                f"Invalid recommended_action '{action}'. "
+                f"Must be one of: {sorted(self.valid_recommended_actions)}",
                 title=title,
             )
 
