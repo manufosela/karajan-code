@@ -24,6 +24,8 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/--git-common-dir/);
       // KJC-TSK-0691 (MG-G): out-of-AC decisions go back to the user.
       expect(text).toMatch(/proposed ADR/);
+      // KJC-TSK-0695: sensitive-surface tasks self-invoke the security pass.
+      expect(text).toMatch(/kj audit --security/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }

@@ -77,8 +77,11 @@ const UNDEF_CHECK_FLAGS = [
 ];
 
 function applyRoleOverrides(out, flags) {
+  // A provider override is always a string (`--security codex`). A bare
+  // boolean means the flag belongs to the command itself (`kj audit
+  // --security`, KJC-TSK-0695) and must not become a provider.
   for (const [flag, role] of ROLE_PROVIDER_FLAGS) {
-    if (flags[flag]) out.roles[role].provider = flags[flag];
+    if (typeof flags[flag] === "string" && flags[flag]) out.roles[role].provider = flags[flag];
   }
   // coder/reviewer also update top-level aliases
   if (flags.coder) out.coder = flags.coder;

@@ -17,6 +17,15 @@ const SCAN_TARGETS = [
   { rel: ".karajan/specs", kind: "dir" },
   { rel: ".karajan/onboarding", kind: "dir" },
   { rel: ".karajan/domain.md", kind: "file" },
+  // KJC-TSK-0695: the agent-context surface — whatever lands in the host
+  // agent's context every session is the real injection vector.
+  { rel: "CLAUDE.md", kind: "file" },
+  { rel: "AGENTS.md", kind: "file" },
+  { rel: "GEMINI.md", kind: "file" },
+  { rel: ".cursorrules", kind: "file" },
+  { rel: path.join(".github", "copilot-instructions.md"), kind: "file" },
+  { rel: "templates", kind: "dir" },
+  { rel: ".rulesync", kind: "dir" },
 ];
 
 export async function collectInjectionFindings(rootDir, logger = null) {

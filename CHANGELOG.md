@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.7.0] - 2026-07-29
+### Added
+
+- **`kj audit --security` — the security pass an agent self-invokes** (KJC-TSK-0695): a focused deterministic audit (zero tokens) that runs the prompt-injection scan + OSV + Semgrep + Sonar and skips everything else (basal-cost, webperf, madge, knip, ai-slop, harness, LLM). The injection scan now covers the **agent-context surface** — `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, `.cursorrules`, `.github/copilot-instructions.md`, `templates/`, `.rulesync/` — on top of `.karajan/**`: whatever lands in the host agent's context every session is the real injection vector. The playbook and `kj brief security` now order the agent to run it and remediate BEFORE requesting review whenever a task touches auth, user input, secrets, network or deps. Closes the Akua trio (self-invocable continuous pentest). Fix ride-along: a bare boolean `--security` no longer collides with the global `--security <provider>` role override (provider overrides must be strings).
 
 Minor. **Least privilege for agents** — a subprocess gets what its function requires and nothing more, and every new tool is a conscious access. Two controls born from convergence with how a payments processor operates AI agents safely.
 
