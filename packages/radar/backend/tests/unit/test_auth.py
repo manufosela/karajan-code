@@ -228,7 +228,9 @@ class TestUserManagement:
         assert resp.status_code == 200
         assert resp.json()["name"] == "Updated Name"
 
-    async def test_deactivate_user_admin(self, client: AsyncClient, admin_user: User, normal_user: User) -> None:
+    async def test_deactivate_user_admin(
+        self, client: AsyncClient, admin_user: User, normal_user: User
+    ) -> None:
         token = await _get_token(client, "admin@test.com", "Admin123!")
         resp = await client.delete(
             f"/api/v1/auth/users/{normal_user.id}",
@@ -237,9 +239,7 @@ class TestUserManagement:
         assert resp.status_code == 200
         assert resp.json()["is_active"] is False
 
-    async def test_admin_role_cannot_manage_users(
-        self, client: AsyncClient, admin_role_user: User
-    ) -> None:
+    async def test_admin_role_cannot_manage_users(self, client: AsyncClient, admin_role_user: User) -> None:
         """Admin role (non-superadmin) should not be able to list or create users."""
         token = await _get_token(client, "moderator@test.com", "Mod12345!")
         resp = await client.get(

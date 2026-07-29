@@ -1,12 +1,15 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.source import Source
 
 
 class IngestionRun(Base):
@@ -41,8 +44,7 @@ class IngestionRun(Base):
             name="chk_run_status",
         ),
         CheckConstraint(
-            "items_fetched >= 0 AND items_new >= 0 "
-            "AND items_duplicate >= 0 AND items_processed >= 0",
+            "items_fetched >= 0 AND items_new >= 0 AND items_duplicate >= 0 AND items_processed >= 0",
             name="chk_items_non_negative",
         ),
     )

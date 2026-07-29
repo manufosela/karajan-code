@@ -43,6 +43,7 @@ dev = [
     "freezegun>=1.3.0",
     "httpx>=0.27.0",
     "aiosqlite>=0.20.0",
+    "types-PyYAML>=6.0.0",
 ]
 
 [build-system]

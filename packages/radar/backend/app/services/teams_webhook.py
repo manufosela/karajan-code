@@ -57,9 +57,7 @@ class TeamsWebhookService:
                 try:
                     response = await client.post(url, json=payload)
                 except httpx.HTTPError:
-                    logger.exception(
-                        "HTTP error on attempt %d/%d", attempt + 1, MAX_RETRIES
-                    )
+                    logger.exception("HTTP error on attempt %d/%d", attempt + 1, MAX_RETRIES)
                     return False
 
                 if response.status_code == 200:

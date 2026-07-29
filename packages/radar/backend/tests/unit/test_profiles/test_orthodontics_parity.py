@@ -53,9 +53,7 @@ class TestTaxonomy:
             {"immediate", "short_term", "medium_term", "long_term"}
         )
 
-    def test_every_theme_carries_a_definition_for_the_prompt(
-        self, orthodontics: RadarProfile
-    ) -> None:
+    def test_every_theme_carries_a_definition_for_the_prompt(self, orthodontics: RadarProfile) -> None:
         for theme in orthodontics.taxonomy.themes:
             assert theme.description.strip()
 
@@ -67,9 +65,7 @@ class TestVocabulary:
         )
 
     def test_hype_risks(self, orthodontics: RadarProfile) -> None:
-        assert orthodontics.vocabulary.hype_risk_ids == frozenset(
-            {"low", "medium", "high"}
-        )
+        assert orthodontics.vocabulary.hype_risk_ids == frozenset({"low", "medium", "high"})
 
     def test_impact_actions(self, orthodontics: RadarProfile) -> None:
         assert orthodontics.vocabulary.impact_action_ids == frozenset(
@@ -81,9 +77,7 @@ class TestVocabulary:
             {"monitor", "investigate", "test", "discard"}
         )
 
-    def test_the_two_action_sets_genuinely_differ(
-        self, orthodontics: RadarProfile
-    ) -> None:
+    def test_the_two_action_sets_genuinely_differ(self, orthodontics: RadarProfile) -> None:
         """Preserved from the original code, where impact.py and scoring.py
         declared different actions. Unifying them would change behaviour."""
         impact = orthodontics.vocabulary.impact_action_ids
@@ -99,9 +93,7 @@ class TestSummary:
 
 
 class TestSources:
-    def test_declares_every_originally_seeded_connector(
-        self, orthodontics: RadarProfile
-    ) -> None:
+    def test_declares_every_originally_seeded_connector(self, orthodontics: RadarProfile) -> None:
         assert {source.connector for source in orthodontics.sources} == {
             "pubmed",
             "arxiv",

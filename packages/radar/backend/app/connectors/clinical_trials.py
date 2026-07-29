@@ -237,9 +237,7 @@ class ClinicalTrialsConnector(BaseConnector):
             try:
                 pub_date = date.fromisoformat(pub_date_str)
             except (ValueError, TypeError):
-                logger.warning(
-                    "Could not parse study date", nct_id=nct_id, date_str=pub_date_str
-                )
+                logger.warning("Could not parse study date", nct_id=nct_id, date_str=pub_date_str)
 
         content_hash = self.compute_content_hash(title, brief_summary)
         original_url = f"https://clinicaltrials.gov/study/{nct_id}" if nct_id else None

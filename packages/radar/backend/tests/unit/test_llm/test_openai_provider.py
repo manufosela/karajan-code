@@ -7,8 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.llm.base import BaseLLMProvider, LLMResponse, Usage
-
+from app.llm.base import BaseLLMProvider, LLMResponse
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -215,9 +214,7 @@ class TestRateLimitRetry:
         )
         success_resp = mock_openai_response("success after retry")
 
-        provider._client.chat.completions.create = AsyncMock(
-            side_effect=[error, success_resp]
-        )
+        provider._client.chat.completions.create = AsyncMock(side_effect=[error, success_resp])
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await provider.complete("test")
@@ -252,17 +249,15 @@ class TestRateLimitRetry:
 
 class TestRegistryIntegration:
     def test_registered_as_openai(self) -> None:
-        from app.llm import default_registry
-
         # Import the module to trigger registration
         import app.llm.openai_provider  # noqa: F401
+        from app.llm import default_registry
 
         assert "openai" in default_registry.registered_names
 
     def test_get_provider_returns_openai(self) -> None:
-        from app.llm import default_registry
-
         import app.llm.openai_provider  # noqa: F401
+        from app.llm import default_registry
 
         provider = default_registry.get("openai", api_key="sk-test")
 

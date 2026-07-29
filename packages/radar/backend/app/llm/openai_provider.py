@@ -67,8 +67,7 @@ class OpenAIProvider(BaseLLMProvider):
         user_content = prompt
         if schema:
             user_content = (
-                f"{prompt}\n\nRespond with JSON matching this schema:\n"
-                f"{json.dumps(schema, indent=2)}"
+                f"{prompt}\n\nRespond with JSON matching this schema:\n{json.dumps(schema, indent=2)}"
             )
 
         messages = self._build_messages(user_content, system_prompt=system_prompt)
@@ -76,7 +75,8 @@ class OpenAIProvider(BaseLLMProvider):
             messages=messages,
             response_format={"type": "json_object"},
         )
-        return json.loads(response.content)
+        parsed: dict = json.loads(response.content)
+        return parsed
 
     # ------------------------------------------------------------------
     # Internal helpers

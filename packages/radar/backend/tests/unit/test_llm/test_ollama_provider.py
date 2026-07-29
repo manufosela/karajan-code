@@ -33,6 +33,7 @@ def provider() -> OllamaProvider:
 # JSON extraction -- the part that matters with small local models
 # ---------------------------------------------------------------------------
 
+
 class TestExtractJson:
     def test_parses_plain_json(self) -> None:
         assert extract_json('{"a": 1}') == {"a": 1}
@@ -78,12 +79,11 @@ class TestExtractJson:
 # complete()
 # ---------------------------------------------------------------------------
 
+
 class TestComplete:
     @respx.mock
     async def test_returns_an_llm_response(self, provider: OllamaProvider) -> None:
-        respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response("Hello there."))
-        )
+        respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response("Hello there.")))
 
         result = await provider.complete("Say hello")
 
@@ -93,9 +93,7 @@ class TestComplete:
 
     @respx.mock
     async def test_reports_token_usage(self, provider: OllamaProvider) -> None:
-        respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response("hi"))
-        )
+        respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response("hi")))
 
         result = await provider.complete("Say hello")
 
@@ -105,9 +103,7 @@ class TestComplete:
 
     @respx.mock
     async def test_sends_the_system_prompt_first(self, provider: OllamaProvider) -> None:
-        route = respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response("ok"))
-        )
+        route = respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response("ok")))
 
         await provider.complete("Question", system_prompt="Be terse.")
 
@@ -118,9 +114,7 @@ class TestComplete:
     @respx.mock
     async def test_disables_streaming(self, provider: OllamaProvider) -> None:
         """A streamed response would not parse as a single JSON body."""
-        route = respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response("ok"))
-        )
+        route = respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response("ok")))
 
         await provider.complete("Question")
 
@@ -134,9 +128,7 @@ class TestComplete:
             await provider.complete("Question")
 
     @respx.mock
-    async def test_raises_a_connection_error_when_ollama_is_down(
-        self, provider: OllamaProvider
-    ) -> None:
+    async def test_raises_a_connection_error_when_ollama_is_down(self, provider: OllamaProvider) -> None:
         respx.post(CHAT_URL).mock(side_effect=httpx.ConnectError("refused"))
 
         with pytest.raises(ConnectionError, match="Ollama"):
@@ -147,12 +139,11 @@ class TestComplete:
 # complete_json()
 # ---------------------------------------------------------------------------
 
+
 class TestCompleteJson:
     @respx.mock
     async def test_returns_a_parsed_object(self, provider: OllamaProvider) -> None:
-        respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response('{"bucket": "core"}'))
-        )
+        respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response('{"bucket": "core"}')))
 
         result = await provider.complete_json("Classify this")
 
@@ -162,9 +153,7 @@ class TestCompleteJson:
     async def test_recovers_from_a_chatty_model(self, provider: OllamaProvider) -> None:
         """Local models often wrap JSON in prose despite being told not to."""
         content = 'Certainly!\n```json\n{"bucket": "core"}\n```'
-        respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response(content))
-        )
+        respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response(content)))
 
         result = await provider.complete_json("Classify this")
 
@@ -172,9 +161,7 @@ class TestCompleteJson:
 
     @respx.mock
     async def test_requests_json_format(self, provider: OllamaProvider) -> None:
-        route = respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response('{"a": 1}'))
-        )
+        route = respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response('{"a": 1}')))
 
         await provider.complete_json("Classify this")
 
@@ -182,21 +169,15 @@ class TestCompleteJson:
 
     @respx.mock
     async def test_appends_the_schema_when_given(self, provider: OllamaProvider) -> None:
-        route = respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response('{"a": 1}'))
-        )
+        route = respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response('{"a": 1}')))
 
         await provider.complete_json("Classify", schema={"type": "object"})
 
         assert "type" in route.calls.last.request.read().decode()
 
     @respx.mock
-    async def test_raises_when_the_model_returns_no_json(
-        self, provider: OllamaProvider
-    ) -> None:
-        respx.post(CHAT_URL).mock(
-            return_value=httpx.Response(200, json=_chat_response("I cannot."))
-        )
+    async def test_raises_when_the_model_returns_no_json(self, provider: OllamaProvider) -> None:
+        respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=_chat_response("I cannot.")))
 
         with pytest.raises(ValueError, match="no JSON object"):
             await provider.complete_json("Classify this")
@@ -205,6 +186,7 @@ class TestCompleteJson:
 # ---------------------------------------------------------------------------
 # Configuration and registration
 # ---------------------------------------------------------------------------
+
 
 class TestConfiguration:
     def test_defaults_to_the_local_ollama_port(self) -> None:

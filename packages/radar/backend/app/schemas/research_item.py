@@ -61,7 +61,9 @@ class ResearchItemCreate(ResearchItemBase):
 class ResearchItemUpdate(BaseModel):
     """Schema for partial updates to a research item."""
 
-    review_status: str | None = Field(default=None, pattern="^(relevant|review|discarded|opportunity|follow_up)$")
+    review_status: str | None = Field(
+        default=None, pattern="^(relevant|review|discarded|opportunity|follow_up)$"
+    )
     thematic_tags: list[str] | None = None
     strategic_buckets: list[str] | None = None
     scientific_strength_score: Decimal | None = Field(default=None, ge=0, le=10)

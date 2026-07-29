@@ -76,12 +76,15 @@ class TestListSignalsPagination:
         assert data["total"] == 0
         assert data["items"] == []
 
-    async def test_offset_limit(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_offset_limit(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """offset/limit correctly slices result set."""
         source = await _create_source(test_session)
         for i in range(5):
             await _create_item(
-                test_session, source.id,
+                test_session,
+                source.id,
                 original_title=f"Item {i}",
                 created_at=datetime(2024, 1, 1 + i, tzinfo=UTC),
             )
@@ -97,7 +100,9 @@ class TestListSignalsPagination:
         assert len(data["items"]) == 2  # only 2 remaining
         assert data["total"] == 5
 
-    async def test_offset_beyond_total(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_offset_beyond_total(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Offset beyond total returns empty list."""
         source = await _create_source(test_session)
         await _create_item(test_session, source.id)
@@ -125,61 +130,81 @@ class TestListSignalsPagination:
 class TestListSignalsSorting:
     """Tests for sort_by and sort_order on GET /api/v1/signals."""
 
-    async def test_sort_by_date_asc(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_sort_by_date_asc(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Old",
-                          publication_date=date(2023, 1, 1))
-        await _create_item(test_session, source.id, original_title="New",
-                          publication_date=date(2024, 6, 1))
+        await _create_item(test_session, source.id, original_title="Old", publication_date=date(2023, 1, 1))
+        await _create_item(test_session, source.id, original_title="New", publication_date=date(2024, 6, 1))
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"sort_by": "date", "sort_order": "asc"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"sort_by": "date", "sort_order": "asc"}, headers=auth_headers
+        )
         items = resp.json()["items"]
         assert items[0]["original_title"] == "Old"
         assert items[1]["original_title"] == "New"
 
-    async def test_sort_by_date_desc(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_sort_by_date_desc(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Old",
-                          publication_date=date(2023, 1, 1))
-        await _create_item(test_session, source.id, original_title="New",
-                          publication_date=date(2024, 6, 1))
+        await _create_item(test_session, source.id, original_title="Old", publication_date=date(2023, 1, 1))
+        await _create_item(test_session, source.id, original_title="New", publication_date=date(2024, 6, 1))
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"sort_by": "date", "sort_order": "desc"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"sort_by": "date", "sort_order": "desc"}, headers=auth_headers
+        )
         items = resp.json()["items"]
         assert items[0]["original_title"] == "New"
 
-    async def test_sort_by_score(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_sort_by_score(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Low",
-                          strategic_relevance_score=Decimal("2.0"))
-        await _create_item(test_session, source.id, original_title="High",
-                          strategic_relevance_score=Decimal("9.0"))
+        await _create_item(
+            test_session, source.id, original_title="Low", strategic_relevance_score=Decimal("2.0")
+        )
+        await _create_item(
+            test_session, source.id, original_title="High", strategic_relevance_score=Decimal("9.0")
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"sort_by": "score", "sort_order": "desc"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"sort_by": "score", "sort_order": "desc"}, headers=auth_headers
+        )
         items = resp.json()["items"]
         assert items[0]["original_title"] == "High"
 
-    async def test_sort_by_relevance(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_sort_by_relevance(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Low",
-                          scientific_strength_score=Decimal("3.0"))
-        await _create_item(test_session, source.id, original_title="High",
-                          scientific_strength_score=Decimal("8.0"))
+        await _create_item(
+            test_session, source.id, original_title="Low", scientific_strength_score=Decimal("3.0")
+        )
+        await _create_item(
+            test_session, source.id, original_title="High", scientific_strength_score=Decimal("8.0")
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"sort_by": "relevance", "sort_order": "desc"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"sort_by": "relevance", "sort_order": "desc"}, headers=auth_headers
+        )
         items = resp.json()["items"]
         assert items[0]["original_title"] == "High"
 
-    async def test_default_sort_created_at_desc(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_default_sort_created_at_desc(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Older",
-                          created_at=datetime(2024, 1, 1, tzinfo=UTC))
-        await _create_item(test_session, source.id, original_title="Newer",
-                          created_at=datetime(2024, 6, 1, tzinfo=UTC))
+        await _create_item(
+            test_session, source.id, original_title="Older", created_at=datetime(2024, 1, 1, tzinfo=UTC)
+        )
+        await _create_item(
+            test_session, source.id, original_title="Newer", created_at=datetime(2024, 6, 1, tzinfo=UTC)
+        )
         await test_session.commit()
 
         resp = await client.get("/api/v1/signals", headers=auth_headers)
@@ -197,12 +222,19 @@ class TestListSignalsSorting:
 class TestListSignalsFiltering:
     """Tests for each filter param on GET /api/v1/signals."""
 
-    async def test_filter_by_theme(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_theme(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Aligners",
-                          thematic_tags=["clear aligners", "orthodontics"])
-        await _create_item(test_session, source.id, original_title="Materials",
-                          thematic_tags=["biomaterials"])
+        await _create_item(
+            test_session,
+            source.id,
+            original_title="Aligners",
+            thematic_tags=["clear aligners", "orthodontics"],
+        )
+        await _create_item(
+            test_session, source.id, original_title="Materials", thematic_tags=["biomaterials"]
+        )
         await test_session.commit()
 
         resp = await client.get("/api/v1/signals", params={"theme": "clear aligners"}, headers=auth_headers)
@@ -210,12 +242,14 @@ class TestListSignalsFiltering:
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "Aligners"
 
-    async def test_filter_by_bucket(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_bucket(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Clinical",
-                          strategic_buckets=["product_clinical"])
-        await _create_item(test_session, source.id, original_title="AI",
-                          strategic_buckets=["ai_software"])
+        await _create_item(
+            test_session, source.id, original_title="Clinical", strategic_buckets=["product_clinical"]
+        )
+        await _create_item(test_session, source.id, original_title="AI", strategic_buckets=["ai_software"])
         await test_session.commit()
 
         resp = await client.get("/api/v1/signals", params={"bucket": "ai_software"}, headers=auth_headers)
@@ -223,7 +257,9 @@ class TestListSignalsFiltering:
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "AI"
 
-    async def test_filter_by_review_status(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_review_status(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         await _create_item(test_session, source.id, review_status="review")
         await _create_item(test_session, source.id, review_status="relevant")
@@ -232,7 +268,9 @@ class TestListSignalsFiltering:
         resp = await client.get("/api/v1/signals", params={"review_status": "relevant"}, headers=auth_headers)
         assert resp.json()["total"] == 1
 
-    async def test_filter_by_hype_risk(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_hype_risk(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         await _create_item(test_session, source.id, original_title="Risky", hype_risk="high")
         await _create_item(test_session, source.id, original_title="Safe", hype_risk="low")
@@ -243,63 +281,82 @@ class TestListSignalsFiltering:
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "Risky"
 
-    async def test_filter_by_recommended_action(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_recommended_action(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Monitor",
-                          recommended_action="monitor")
-        await _create_item(test_session, source.id, original_title="Investigate",
-                          recommended_action="investigate")
+        await _create_item(test_session, source.id, original_title="Monitor", recommended_action="monitor")
+        await _create_item(
+            test_session, source.id, original_title="Investigate", recommended_action="investigate"
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"recommended_action": "monitor"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"recommended_action": "monitor"}, headers=auth_headers
+        )
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "Monitor"
 
-    async def test_filter_by_date_range(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_by_date_range(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Old",
-                          publication_date=date(2023, 1, 15))
-        await _create_item(test_session, source.id, original_title="Mid",
-                          publication_date=date(2024, 6, 15))
-        await _create_item(test_session, source.id, original_title="New",
-                          publication_date=date(2025, 1, 15))
+        await _create_item(test_session, source.id, original_title="Old", publication_date=date(2023, 1, 15))
+        await _create_item(test_session, source.id, original_title="Mid", publication_date=date(2024, 6, 15))
+        await _create_item(test_session, source.id, original_title="New", publication_date=date(2025, 1, 15))
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={
-            "date_from": "2024-01-01", "date_to": "2024-12-31"
-        }, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals",
+            params={"date_from": "2024-01-01", "date_to": "2024-12-31"},
+            headers=auth_headers,
+        )
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "Mid"
 
-    async def test_filter_min_scientific_score(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_min_scientific_score(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Low",
-                          scientific_strength_score=Decimal("3.0"))
-        await _create_item(test_session, source.id, original_title="High",
-                          scientific_strength_score=Decimal("8.0"))
+        await _create_item(
+            test_session, source.id, original_title="Low", scientific_strength_score=Decimal("3.0")
+        )
+        await _create_item(
+            test_session, source.id, original_title="High", scientific_strength_score=Decimal("8.0")
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"min_scientific_score": "7.0"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"min_scientific_score": "7.0"}, headers=auth_headers
+        )
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "High"
 
-    async def test_filter_min_strategic_score(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_min_strategic_score(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Low",
-                          strategic_relevance_score=Decimal("2.0"))
-        await _create_item(test_session, source.id, original_title="High",
-                          strategic_relevance_score=Decimal("9.0"))
+        await _create_item(
+            test_session, source.id, original_title="Low", strategic_relevance_score=Decimal("2.0")
+        )
+        await _create_item(
+            test_session, source.id, original_title="High", strategic_relevance_score=Decimal("9.0")
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={"min_strategic_score": "5.0"}, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals", params={"min_strategic_score": "5.0"}, headers=auth_headers
+        )
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "High"
 
-    async def test_filter_search_title(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_filter_search_title(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         await _create_item(test_session, source.id, original_title="Clear aligner biomechanics study")
         await _create_item(test_session, source.id, original_title="Dental implant review")
@@ -310,7 +367,9 @@ class TestListSignalsFiltering:
         assert data["total"] == 1
         assert "biomechanics" in data["items"][0]["original_title"].lower()
 
-    async def test_search_case_insensitive(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_search_case_insensitive(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         await _create_item(test_session, source.id, original_title="ORTHODONTIC TREATMENT")
         await test_session.commit()
@@ -318,25 +377,46 @@ class TestListSignalsFiltering:
         resp = await client.get("/api/v1/signals", params={"search": "orthodontic"}, headers=auth_headers)
         assert resp.json()["total"] == 1
 
-    async def test_combined_filters(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_combined_filters(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Multiple filters are combined with AND logic."""
         source = await _create_source(test_session)
-        await _create_item(test_session, source.id, original_title="Match",
-                          review_status="relevant", hype_risk="low",
-                          strategic_relevance_score=Decimal("8.0"))
-        await _create_item(test_session, source.id, original_title="Wrong status",
-                          review_status="review", hype_risk="low",
-                          strategic_relevance_score=Decimal("8.0"))
-        await _create_item(test_session, source.id, original_title="Wrong hype",
-                          review_status="relevant", hype_risk="high",
-                          strategic_relevance_score=Decimal("8.0"))
+        await _create_item(
+            test_session,
+            source.id,
+            original_title="Match",
+            review_status="relevant",
+            hype_risk="low",
+            strategic_relevance_score=Decimal("8.0"),
+        )
+        await _create_item(
+            test_session,
+            source.id,
+            original_title="Wrong status",
+            review_status="review",
+            hype_risk="low",
+            strategic_relevance_score=Decimal("8.0"),
+        )
+        await _create_item(
+            test_session,
+            source.id,
+            original_title="Wrong hype",
+            review_status="relevant",
+            hype_risk="high",
+            strategic_relevance_score=Decimal("8.0"),
+        )
         await test_session.commit()
 
-        resp = await client.get("/api/v1/signals", params={
-            "review_status": "relevant",
-            "hype_risk": "low",
-            "min_strategic_score": "5.0",
-        }, headers=auth_headers)
+        resp = await client.get(
+            "/api/v1/signals",
+            params={
+                "review_status": "relevant",
+                "hype_risk": "low",
+                "min_strategic_score": "5.0",
+            },
+            headers=auth_headers,
+        )
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "Match"
@@ -348,10 +428,13 @@ class TestListSignalsFiltering:
 class TestGetSignalDetail:
     """Tests for GET /api/v1/signals/{id}."""
 
-    async def test_found_with_all_fields(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_found_with_all_fields(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         item = await _create_item(
-            test_session, source.id,
+            test_session,
+            source.id,
             original_title="Full detail article",
             doi="10.1234/test.001",
             abstract="A detailed abstract",
@@ -402,7 +485,9 @@ class TestGetSignalDetail:
 class TestReviewSignal:
     """Tests for PATCH /api/v1/signals/{id}/review."""
 
-    async def test_update_status_only(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_status_only(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         item = await _create_item(test_session, source.id, review_status="review")
         await test_session.commit()
@@ -418,7 +503,9 @@ class TestReviewSignal:
         assert data["id"] == str(item.id)
         assert data["reviewer_notes"] is None
 
-    async def test_update_status_and_notes(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_status_and_notes(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         item = await _create_item(test_session, source.id, review_status="review")
         await test_session.commit()
@@ -433,7 +520,9 @@ class TestReviewSignal:
         assert data["review_status"] == "opportunity"
         assert data["reviewer_notes"] == "Very promising for Q3"
 
-    async def test_reviewer_notes_persisted(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_reviewer_notes_persisted(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """After updating notes, GET detail should return them."""
         source = await _create_source(test_session)
         item = await _create_item(test_session, source.id, review_status="review")
@@ -449,7 +538,9 @@ class TestReviewSignal:
         assert resp.status_code == 200
         assert resp.json()["reviewer_notes"] == "Persisted note"
 
-    async def test_invalid_status_422(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_invalid_status_422(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         item = await _create_item(test_session, source.id)
         await test_session.commit()
@@ -470,7 +561,9 @@ class TestReviewSignal:
         )
         assert resp.status_code == 404
 
-    async def test_missing_body_422(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_missing_body_422(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         source = await _create_source(test_session)
         item = await _create_item(test_session, source.id)
         await test_session.commit()

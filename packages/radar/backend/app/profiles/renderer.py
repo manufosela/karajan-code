@@ -73,9 +73,7 @@ class PromptRenderer:
         prompts = self._profile.prompts
         if prompt_name not in type(prompts).model_fields:
             available = ", ".join(type(prompts).model_fields)
-            raise KeyError(
-                f"unknown prompt '{prompt_name}'; profile defines: {available}"
-            )
+            raise KeyError(f"unknown prompt '{prompt_name}'; profile defines: {available}")
 
         prompt = getattr(prompts, prompt_name)
         context = {**self._base_context, **variables}
@@ -85,8 +83,7 @@ class PromptRenderer:
         missing = sorted(prompt.outer_variables - context.keys())
         if missing:
             raise MissingVariableError(
-                f"prompt '{prompt_name}' requires variables not supplied: "
-                f"{', '.join(missing)}"
+                f"prompt '{prompt_name}' requires variables not supplied: {', '.join(missing)}"
             )
 
         return render(prompt.template, context)
@@ -108,12 +105,8 @@ class PromptRenderer:
             "time_horizons": _as_mappings(taxonomy.time_horizons),
             "impact_levels": _as_mappings(vocabulary.impact_levels),
             "hype_risks": _as_mappings(vocabulary.hype_risks),
-            "impact_recommended_actions": _as_mappings(
-                vocabulary.impact_recommended_actions
-            ),
-            "scoring_recommended_actions": _as_mappings(
-                vocabulary.scoring_recommended_actions
-            ),
+            "impact_recommended_actions": _as_mappings(vocabulary.impact_recommended_actions),
+            "scoring_recommended_actions": _as_mappings(vocabulary.scoring_recommended_actions),
             "keywords": list(taxonomy.keywords),
             "theme_ids_csv": _ids_csv(taxonomy.themes),
             "bucket_ids_csv": _ids_csv(taxonomy.strategic_buckets),
@@ -129,10 +122,7 @@ class PromptRenderer:
 
 def _as_mappings(entries: Iterable[TermDefinition]) -> list[dict[str, str]]:
     """Expose term definitions as plain mappings for section iteration."""
-    return [
-        {"id": entry.id, "label": entry.label, "description": entry.description}
-        for entry in entries
-    ]
+    return [{"id": entry.id, "label": entry.label, "description": entry.description} for entry in entries]
 
 
 def _ids_csv(entries: Iterable[TermDefinition]) -> str:

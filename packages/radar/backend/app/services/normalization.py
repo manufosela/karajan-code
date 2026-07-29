@@ -22,7 +22,8 @@ logger = get_logger(__name__)
 # Matches any HTML/XML tag (including JATS namespace, self-closing)
 _TAG_RE = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:._-]*(?:\s[^>]*)?\s*/?>")
 
-# Matches JATS structured section patterns: <jats:sec>...<jats:title>LABEL</jats:title><jats:p>TEXT</jats:p>...</jats:sec>
+# Matches JATS structured section patterns:
+#   <jats:sec>...<jats:title>LABEL</jats:title><jats:p>TEXT</jats:p>...</jats:sec>
 _JATS_SECTION_RE = re.compile(
     r"<jats:sec[^>]*>\s*<jats:title[^>]*>(.*?)</jats:title>\s*<jats:p[^>]*>(.*?)</jats:p>\s*</jats:sec>",
     re.DOTALL,
@@ -38,58 +39,170 @@ _SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([.,;:!?)])")
 _MONTH_NAMES: dict[str, int] = {}
 _MONTHS_ABBR = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 _MONTHS_FULL = [
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
 ]
-for _i, (_abbr, _full) in enumerate(zip(_MONTHS_ABBR, _MONTHS_FULL), 1):
+for _i, (_abbr, _full) in enumerate(zip(_MONTHS_ABBR, _MONTHS_FULL, strict=True), 1):
     _MONTH_NAMES[_abbr] = _i
     _MONTH_NAMES[_full] = _i
 
 # Date parsing patterns
 # "2024 Jun 15" or "2024 June 15"
-_DATE_YMD_NAME_RE = re.compile(
-    r"^(\d{4})\s+([A-Za-z]+)\s+(\d{1,2})$"
-)
+_DATE_YMD_NAME_RE = re.compile(r"^(\d{4})\s+([A-Za-z]+)\s+(\d{1,2})$")
 # "June 15, 2024" or "Jun 15, 2024"
-_DATE_MDY_NAME_RE = re.compile(
-    r"^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$"
-)
+_DATE_MDY_NAME_RE = re.compile(r"^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$")
 # "15 June 2024"
-_DATE_DMY_NAME_RE = re.compile(
-    r"^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$"
-)
+_DATE_DMY_NAME_RE = re.compile(r"^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$")
 # "2024 Jan-Feb" (MedlineDate range)
-_DATE_MEDLINE_RANGE_RE = re.compile(
-    r"^(\d{4})\s+([A-Za-z]+)[-/]"
-)
+_DATE_MEDLINE_RANGE_RE = re.compile(r"^(\d{4})\s+([A-Za-z]+)[-/]")
 
 # ---------------------------------------------------------------------------
 # English / Spanish stop words for language detection
 # ---------------------------------------------------------------------------
-_EN_WORDS = frozenset({
-    "the", "of", "and", "in", "to", "a", "is", "was", "for", "that", "with",
-    "on", "are", "as", "at", "by", "this", "an", "be", "from", "or", "which",
-    "were", "has", "been", "have", "not", "but", "its", "can", "also", "than",
-    "between", "study", "results", "treatment", "patients", "effect", "during",
-    "after", "we", "our", "these", "their", "more", "when", "there", "each",
-    "may", "clinical", "using", "used", "however", "significant", "compared",
-})
+_EN_WORDS = frozenset(
+    {
+        "the",
+        "of",
+        "and",
+        "in",
+        "to",
+        "a",
+        "is",
+        "was",
+        "for",
+        "that",
+        "with",
+        "on",
+        "are",
+        "as",
+        "at",
+        "by",
+        "this",
+        "an",
+        "be",
+        "from",
+        "or",
+        "which",
+        "were",
+        "has",
+        "been",
+        "have",
+        "not",
+        "but",
+        "its",
+        "can",
+        "also",
+        "than",
+        "between",
+        "study",
+        "results",
+        "treatment",
+        "patients",
+        "effect",
+        "during",
+        "after",
+        "we",
+        "our",
+        "these",
+        "their",
+        "more",
+        "when",
+        "there",
+        "each",
+        "may",
+        "clinical",
+        "using",
+        "used",
+        "however",
+        "significant",
+        "compared",
+    }
+)
 
-_ES_WORDS = frozenset({
-    "el", "de", "en", "los", "las", "del", "una", "con", "para", "por",
-    "que", "se", "es", "son", "fue", "como", "este", "esta", "estos",
-    "estas", "al", "su", "sus", "entre", "sobre", "pero", "más",
-    "han", "ser", "ha", "desde", "hasta", "cada", "durante", "sin",
-    "también", "puede", "tienen", "todos", "dos", "así", "donde",
-    "ya", "muy", "nos", "hay", "le", "lo", "la", "un", "no", "sí",
-    "cuando", "quien", "cual", "resultados", "pacientes", "tratamiento",
-    "efecto", "clínico", "estudio", "método", "conclusión", "objetivo",
-})
+_ES_WORDS = frozenset(
+    {
+        "el",
+        "de",
+        "en",
+        "los",
+        "las",
+        "del",
+        "una",
+        "con",
+        "para",
+        "por",
+        "que",
+        "se",
+        "es",
+        "son",
+        "fue",
+        "como",
+        "este",
+        "esta",
+        "estos",
+        "estas",
+        "al",
+        "su",
+        "sus",
+        "entre",
+        "sobre",
+        "pero",
+        "más",
+        "han",
+        "ser",
+        "ha",
+        "desde",
+        "hasta",
+        "cada",
+        "durante",
+        "sin",
+        "también",
+        "puede",
+        "tienen",
+        "todos",
+        "dos",
+        "así",
+        "donde",
+        "ya",
+        "muy",
+        "nos",
+        "hay",
+        "le",
+        "lo",
+        "la",
+        "un",
+        "no",
+        "sí",
+        "cuando",
+        "quien",
+        "cual",
+        "resultados",
+        "pacientes",
+        "tratamiento",
+        "efecto",
+        "clínico",
+        "estudio",
+        "método",
+        "conclusión",
+        "objetivo",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Title normalization
 # ---------------------------------------------------------------------------
+
 
 def normalize_title(title: str | None) -> str:
     """Normalize a research paper title.
@@ -142,6 +255,7 @@ def _fix_mojibake(text: str) -> str:
 # ---------------------------------------------------------------------------
 # Author parsing
 # ---------------------------------------------------------------------------
+
 
 def parse_authors(raw: list[dict[str, Any]] | str | None) -> list[dict[str, Any]]:
     """Parse author information from varied source formats into a standard form.
@@ -252,6 +366,7 @@ def _flip_last_first(name: str) -> str:
 # ---------------------------------------------------------------------------
 # Date standardization
 # ---------------------------------------------------------------------------
+
 
 def standardize_date(
     date_input: str | date | datetime | list[int] | None,
@@ -437,6 +552,7 @@ def _parse_slash_date(text: str) -> date | None:
 # Abstract cleaning
 # ---------------------------------------------------------------------------
 
+
 def clean_abstract(abstract: str | None) -> str:
     """Clean a research paper abstract.
 
@@ -489,6 +605,7 @@ def clean_abstract(abstract: str | None) -> str:
 # ---------------------------------------------------------------------------
 # Language detection
 # ---------------------------------------------------------------------------
+
 
 def detect_language(text: str | None) -> str:
     """Detect language of text using stop-word heuristics.

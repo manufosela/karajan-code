@@ -129,9 +129,9 @@ class OllamaProvider(BaseLLMProvider):
         model: str | None = None,
         timeout: float = _DEFAULT_TIMEOUT,
     ) -> None:
-        resolved = base_url or os.getenv("OLLAMA_BASE_URL", _DEFAULT_BASE_URL)
+        resolved: str = base_url or os.getenv("OLLAMA_BASE_URL") or _DEFAULT_BASE_URL
         self.base_url = resolved.rstrip("/")
-        self.model = model or os.getenv("OLLAMA_MODEL", _DEFAULT_MODEL)
+        self.model: str = model or os.getenv("OLLAMA_MODEL") or _DEFAULT_MODEL
         self._timeout = timeout
 
     async def complete(
@@ -164,8 +164,7 @@ class OllamaProvider(BaseLLMProvider):
         user_content = prompt
         if schema:
             user_content = (
-                f"{prompt}\n\nRespond with JSON matching this schema:\n"
-                f"{json.dumps(schema, indent=2)}"
+                f"{prompt}\n\nRespond with JSON matching this schema:\n{json.dumps(schema, indent=2)}"
             )
 
         response = await self._chat(
@@ -204,15 +203,11 @@ class OllamaProvider(BaseLLMProvider):
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                http_response = await client.post(
-                    f"{self.base_url}/api/chat", json=payload
-                )
+                http_response = await client.post(f"{self.base_url}/api/chat", json=payload)
                 http_response.raise_for_status()
                 data = http_response.json()
         except httpx.ConnectError as exc:
-            raise ConnectionError(
-                f"cannot reach Ollama at {self.base_url}: {exc}"
-            ) from exc
+            raise ConnectionError(f"cannot reach Ollama at {self.base_url}: {exc}") from exc
 
         latency_ms = (time.perf_counter() - start) * 1000
 

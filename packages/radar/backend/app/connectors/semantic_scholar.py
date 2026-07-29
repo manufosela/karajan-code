@@ -20,21 +20,23 @@ SS_API_BASE_URL = "https://api.semanticscholar.org/graph/v1"
 MAX_LIMIT = 100
 
 # Fields to request from the API
-REQUESTED_FIELDS = ",".join([
-    "paperId",
-    "title",
-    "abstract",
-    "venue",
-    "year",
-    "citationCount",
-    "referenceCount",
-    "fieldsOfStudy",
-    "authors",
-    "externalIds",
-    "openAccessPdf",
-    "publicationDate",
-    "url",
-])
+REQUESTED_FIELDS = ",".join(
+    [
+        "paperId",
+        "title",
+        "abstract",
+        "venue",
+        "year",
+        "citationCount",
+        "referenceCount",
+        "fieldsOfStudy",
+        "authors",
+        "externalIds",
+        "openAccessPdf",
+        "publicationDate",
+        "url",
+    ]
+)
 
 
 class SemanticScholarConnector(BaseConnector):
@@ -191,10 +193,12 @@ class SemanticScholarConnector(BaseConnector):
         # Authors
         authors = []
         for author in paper.get("authors") or []:
-            authors.append({
-                "author_id": author.get("authorId", ""),
-                "name": author.get("name", ""),
-            })
+            authors.append(
+                {
+                    "author_id": author.get("authorId", ""),
+                    "name": author.get("name", ""),
+                }
+            )
 
         # External IDs
         external_ids = paper.get("externalIds") or {}
@@ -248,13 +252,15 @@ class SemanticScholarConnector(BaseConnector):
         # Map authors to standard format (Semantic Scholar has single name field)
         authors = []
         for author in parsed_item.get("authors", []):
-            authors.append({
-                "given": "",
-                "family": author.get("name", ""),
-                "sequence": "",
-                "affiliation": "",
-                "orcid": None,
-            })
+            authors.append(
+                {
+                    "given": "",
+                    "family": author.get("name", ""),
+                    "sequence": "",
+                    "affiliation": "",
+                    "orcid": None,
+                }
+            )
 
         return NormalizedPaper(
             doi=doi,

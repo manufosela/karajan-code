@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 VALID_ROLES = ("superadmin", "admin", "user")
 
 

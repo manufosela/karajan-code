@@ -54,6 +54,7 @@ def _find_duplicates(values: list[str]) -> list[str]:
 # Taxonomy
 # ---------------------------------------------------------------------------
 
+
 class TermDefinition(_FrozenModel):
     """A single entry of a controlled vocabulary.
 
@@ -140,6 +141,7 @@ class Taxonomy(_FrozenModel):
 # Vocabulary
 # ---------------------------------------------------------------------------
 
+
 class Vocabulary(_FrozenModel):
     """Closed value sets the LLM must choose from when scoring an item.
 
@@ -196,6 +198,7 @@ class Vocabulary(_FrozenModel):
 # Scoring
 # ---------------------------------------------------------------------------
 
+
 class ScoringWeights(_FrozenModel):
     """Relative weights combining the scoring dimensions into a final score."""
 
@@ -213,6 +216,7 @@ class ScoringWeights(_FrozenModel):
 # Prompts
 # ---------------------------------------------------------------------------
 
+
 class PromptTemplate(_FrozenModel):
     """A Mustache prompt template plus the variables it expects."""
 
@@ -226,15 +230,12 @@ class PromptTemplate(_FrozenModel):
 
         missing = sorted(declared - used)
         if missing:
-            raise ValueError(
-                f"variables declared but not used in template: {', '.join(missing)}"
-            )
+            raise ValueError(f"variables declared but not used in template: {', '.join(missing)}")
 
         undeclared = sorted(used - declared)
         if undeclared:
             raise ValueError(
-                f"variables used but not declared in required_variables: "
-                f"{', '.join(undeclared)}"
+                f"variables used but not declared in required_variables: {', '.join(undeclared)}"
             )
         return self
 
@@ -266,12 +267,8 @@ class PromptSet(_FrozenModel):
     override a prompt when the defaults genuinely do not fit.
     """
 
-    classification: PromptTemplate = Field(
-        default_factory=lambda: _default_prompt("classification")
-    )
-    strategic: PromptTemplate = Field(
-        default_factory=lambda: _default_prompt("strategic")
-    )
+    classification: PromptTemplate = Field(default_factory=lambda: _default_prompt("classification"))
+    strategic: PromptTemplate = Field(default_factory=lambda: _default_prompt("strategic"))
     impact: PromptTemplate = Field(default_factory=lambda: _default_prompt("impact"))
     scoring: PromptTemplate = Field(default_factory=lambda: _default_prompt("scoring"))
     summary: PromptTemplate = Field(default_factory=lambda: _default_prompt("summary"))
@@ -280,6 +277,7 @@ class PromptSet(_FrozenModel):
 # ---------------------------------------------------------------------------
 # Sources, LLM, organization, branding
 # ---------------------------------------------------------------------------
+
 
 class SourceConfig(_FrozenModel):
     """A data source the ingestion pipeline pulls from."""
@@ -336,6 +334,7 @@ class SummarySettings(_FrozenModel):
 # ---------------------------------------------------------------------------
 # Root
 # ---------------------------------------------------------------------------
+
 
 class RadarProfile(_FrozenModel):
     """A complete, validated domain definition for a radar instance."""

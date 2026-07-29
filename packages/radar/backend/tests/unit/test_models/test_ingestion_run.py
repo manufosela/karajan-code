@@ -110,6 +110,7 @@ async def test_source_has_ingestion_runs(test_session: AsyncSession, source_for_
 
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     result = await test_session.execute(
         select(Source).where(Source.id == source_for_runs.id).options(selectinload(Source.ingestion_runs))
     )
@@ -126,9 +127,7 @@ async def test_ingestion_run_query_by_status(test_session: AsyncSession, source_
     test_session.add_all([run1, run2, run3])
     await test_session.flush()
 
-    result = await test_session.execute(
-        select(IngestionRun).where(IngestionRun.status == "completed")
-    )
+    result = await test_session.execute(select(IngestionRun).where(IngestionRun.status == "completed"))
     completed = result.scalars().all()
     assert len(completed) == 2
 

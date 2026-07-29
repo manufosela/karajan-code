@@ -162,6 +162,7 @@ async def test_source_has_research_items(test_session: AsyncSession, source_in_d
 
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     result = await test_session.execute(
         select(Source).where(Source.id == source_in_db.id).options(selectinload(Source.research_items))
     )
@@ -207,9 +208,7 @@ async def test_research_item_query_by_review_status(test_session: AsyncSession, 
     test_session.add_all([item1, item2])
     await test_session.flush()
 
-    result = await test_session.execute(
-        select(ResearchItem).where(ResearchItem.review_status == "relevant")
-    )
+    result = await test_session.execute(select(ResearchItem).where(ResearchItem.review_status == "relevant"))
     relevant = result.scalars().all()
     assert len(relevant) == 1
     assert relevant[0].original_title == "Approved"

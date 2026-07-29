@@ -13,16 +13,24 @@ from app.services.summary import (
     SummaryService,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _valid_llm_response() -> dict:
     """Return a valid summary response dict."""
     return {
-        "summary_en": "This study demonstrates significant improvements in clear aligner treatment outcomes. The novel approach shows promise for reducing treatment duration.",
-        "summary_es": "Este estudio demuestra mejoras significativas en los resultados del tratamiento con alineadores transparentes. El nuevo enfoque muestra potencial para reducir la duración del tratamiento.",
+        "summary_en": (
+            "This study demonstrates significant improvements in clear aligner "
+            "treatment outcomes. The novel approach shows promise for reducing "
+            "treatment duration."
+        ),
+        "summary_es": (
+            "Este estudio demuestra mejoras significativas en los resultados del "
+            "tratamiento con alineadores transparentes. El nuevo enfoque muestra "
+            "potencial para reducir la duración del tratamiento."
+        ),
         "key_findings": [
             "Treatment duration reduced by 30% with the new protocol.",
             "Patient compliance improved significantly with the modified design.",
@@ -47,6 +55,7 @@ def _make_provider(return_value: dict | None = None, side_effect: Exception | No
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 class TestSummaryResult:
     """Tests for SummaryResult dataclass."""
@@ -77,6 +86,7 @@ class TestSummaryResult:
 # ---------------------------------------------------------------------------
 # SummaryService — happy path
 # ---------------------------------------------------------------------------
+
 
 class TestSummaryServiceHappyPath:
     """Tests for successful summary generation."""
@@ -184,6 +194,7 @@ class TestSummaryServiceHappyPath:
 # SummaryService — validation errors
 # ---------------------------------------------------------------------------
 
+
 class TestSummaryServiceValidation:
     """Tests for response validation in SummaryService."""
 
@@ -195,8 +206,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="summary_en"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_whitespace_summary_en(self) -> None:
@@ -207,8 +220,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="summary_en"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_empty_summary_es(self) -> None:
@@ -219,8 +234,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="summary_es"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_whitespace_summary_es(self) -> None:
@@ -231,8 +248,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="summary_es"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_empty_key_findings_list(self) -> None:
@@ -243,8 +262,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="key_findings"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_empty_implications_list(self) -> None:
@@ -255,8 +276,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="implications"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_empty_string_in_key_findings(self) -> None:
@@ -267,8 +290,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="key_findings"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_empty_string_in_implications(self) -> None:
@@ -279,8 +304,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="implications"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_non_list_key_findings(self) -> None:
@@ -291,8 +318,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="key_findings"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_non_list_implications(self) -> None:
@@ -303,8 +332,10 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="implications"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_rejects_missing_required_fields(self) -> None:
@@ -314,14 +345,17 @@ class TestSummaryServiceValidation:
 
         with pytest.raises(SummaryError, match="[Mm]issing"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
 
 # ---------------------------------------------------------------------------
 # SummaryService — LLM errors
 # ---------------------------------------------------------------------------
+
 
 class TestSummaryServiceLLMErrors:
     """Tests for LLM error handling in SummaryService."""
@@ -332,8 +366,10 @@ class TestSummaryServiceLLMErrors:
 
         with pytest.raises(SummaryError, match="[Tt]imeout|timed out"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_handles_connection_error(self) -> None:
@@ -342,8 +378,10 @@ class TestSummaryServiceLLMErrors:
 
         with pytest.raises(SummaryError, match="[Cc]onnection|LLM"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_handles_value_error_from_malformed_json(self) -> None:
@@ -352,8 +390,10 @@ class TestSummaryServiceLLMErrors:
 
         with pytest.raises(SummaryError, match="JSON|json|LLM"):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_handles_generic_exception(self) -> None:
@@ -362,8 +402,10 @@ class TestSummaryServiceLLMErrors:
 
         with pytest.raises(SummaryError):
             await service.summarize(
-                title="Test", abstract="Abstract",
-                themes=["biomaterials"], scores={"scientific_strength_score": 5},
+                title="Test",
+                abstract="Abstract",
+                themes=["biomaterials"],
+                scores={"scientific_strength_score": 5},
             )
 
     async def test_error_includes_context(self) -> None:

@@ -13,10 +13,10 @@ from app.services.scoring import (
     ScoringService,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _valid_llm_response() -> dict:
     """Return a valid scoring response dict."""
@@ -43,6 +43,7 @@ def _make_provider(return_value: dict | None = None, side_effect: Exception | No
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 class TestScoringResult:
     """Tests for ScoringResult dataclass."""
@@ -80,6 +81,7 @@ class TestScoringResult:
 # ScoringService — happy path
 # ---------------------------------------------------------------------------
 
+
 class TestScoringServiceHappyPath:
     """Tests for successful scoring."""
 
@@ -102,8 +104,13 @@ class TestScoringServiceHappyPath:
 
         assert result.scientific_strength_score == 7
         assert result.strategic_relevance_score == 8
-        assert result.scientific_rationale == "Well-designed RCT with adequate sample size published in a top journal."
-        assert result.strategic_rationale == "Directly applicable to the organization's manufacturing process."
+        assert (
+            result.scientific_rationale
+            == "Well-designed RCT with adequate sample size published in a top journal."
+        )
+        assert (
+            result.strategic_rationale == "Directly applicable to the organization's manufacturing process."
+        )
         assert result.recommended_action == "investigate"
         assert result.hype_risk == "low"
 
@@ -187,6 +194,7 @@ class TestScoringServiceHappyPath:
 # ---------------------------------------------------------------------------
 # ScoringService — validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestScoringServiceValidation:
     """Tests for response validation in ScoringService."""
@@ -284,6 +292,7 @@ class TestScoringServiceValidation:
 # ---------------------------------------------------------------------------
 # ScoringService — LLM errors
 # ---------------------------------------------------------------------------
+
 
 class TestScoringServiceLLMErrors:
     """Tests for LLM error handling in ScoringService."""

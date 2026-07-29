@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class ClassificationError(Exception):
     """Raised when classification fails (LLM error or invalid response)."""
 
@@ -33,6 +34,7 @@ class ClassificationError(Exception):
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class ThemeScore:
@@ -54,6 +56,7 @@ class ClassificationResult:
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
+
 
 class ClassificationService:
     """Classifies research items into thematic categories using an LLM.

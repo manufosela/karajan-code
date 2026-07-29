@@ -18,9 +18,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_active_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, default=None
-    )
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)
 
     @property
     def is_superadmin(self) -> bool:

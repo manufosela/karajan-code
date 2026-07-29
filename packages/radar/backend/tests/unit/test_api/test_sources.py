@@ -9,7 +9,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,7 +73,9 @@ class TestListSources:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_returns_all_sources(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_returns_all_sources(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Returns all sources."""
         await _create_source(test_session, name="PubMed", priority=1)
         await _create_source(test_session, name="ArXiv", priority=2)
@@ -109,9 +110,17 @@ class TestListSources:
         resp = await client.get("/api/v1/sources", headers=auth_headers)
         source = resp.json()[0]
         expected_keys = {
-            "id", "name", "source_type", "category", "priority",
-            "enabled", "config", "base_url", "last_fetched_at",
-            "created_at", "updated_at",
+            "id",
+            "name",
+            "source_type",
+            "category",
+            "priority",
+            "enabled",
+            "config",
+            "base_url",
+            "last_fetched_at",
+            "created_at",
+            "updated_at",
         }
         assert expected_keys <= set(source.keys())
 
@@ -146,14 +155,16 @@ class TestGetSourceDetail:
         source = await _create_source(test_session, name="PubMed")
         # Older run
         await _create_ingestion_run(
-            test_session, source.id,
+            test_session,
+            source.id,
             started_at=datetime(2025, 1, 1, tzinfo=UTC),
             status="completed",
             items_fetched=5,
         )
         # Most recent run
         await _create_ingestion_run(
-            test_session, source.id,
+            test_session,
+            source.id,
             started_at=datetime(2025, 6, 1, tzinfo=UTC),
             status="failed",
             items_fetched=20,
@@ -239,9 +250,7 @@ class TestUpdateSource:
         self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
     ) -> None:
         """Partial update does not change unspecified fields."""
-        source = await _create_source(
-            test_session, name="PubMed", priority=3, enabled=True
-        )
+        source = await _create_source(test_session, name="PubMed", priority=3, enabled=True)
         await test_session.commit()
 
         resp = await client.patch(
@@ -303,12 +312,14 @@ class TestListSourceRuns:
         """Returns runs ordered by started_at descending."""
         source = await _create_source(test_session)
         await _create_ingestion_run(
-            test_session, source.id,
+            test_session,
+            source.id,
             started_at=datetime(2025, 1, 1, tzinfo=UTC),
             status="completed",
         )
         await _create_ingestion_run(
-            test_session, source.id,
+            test_session,
+            source.id,
             started_at=datetime(2025, 6, 1, tzinfo=UTC),
             status="failed",
         )
@@ -328,7 +339,8 @@ class TestListSourceRuns:
         """Each run has the expected response fields."""
         source = await _create_source(test_session)
         await _create_ingestion_run(
-            test_session, source.id,
+            test_session,
+            source.id,
             items_fetched=10,
             items_new=5,
             items_duplicate=3,
@@ -339,8 +351,15 @@ class TestListSourceRuns:
         resp = await client.get(f"/api/v1/sources/{source.id}/runs", headers=auth_headers)
         run = resp.json()[0]
         expected_keys = {
-            "id", "source_id", "started_at", "completed_at", "status",
-            "items_fetched", "items_new", "items_duplicate", "items_processed",
+            "id",
+            "source_id",
+            "started_at",
+            "completed_at",
+            "status",
+            "items_fetched",
+            "items_new",
+            "items_duplicate",
+            "items_processed",
             "errors",
         }
         assert expected_keys <= set(run.keys())

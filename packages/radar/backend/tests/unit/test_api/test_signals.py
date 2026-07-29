@@ -33,7 +33,9 @@ async def _create_source(session: AsyncSession, **overrides: Any) -> Source:
     return source
 
 
-async def _create_research_item(session: AsyncSession, source_id: uuid.UUID, **overrides: Any) -> ResearchItem:
+async def _create_research_item(
+    session: AsyncSession, source_id: uuid.UUID, **overrides: Any
+) -> ResearchItem:
     """Helper to create a ResearchItem record in the test DB."""
     defaults = {
         "id": uuid.uuid4(),
@@ -69,7 +71,9 @@ class TestListSignals:
         assert data["offset"] == 0
         assert data["limit"] == 20
 
-    async def test_list_signals_with_pagination(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_signals_with_pagination(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Pagination params (offset, limit) are respected."""
         source = await _create_source(test_session)
         # Create 5 items
@@ -96,15 +100,25 @@ class TestListSignals:
         data = response.json()
         assert len(data["items"]) == 1
 
-    async def test_list_signals_filter_by_status(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_signals_filter_by_status(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Filter by review_status returns only matching items."""
         source = await _create_source(test_session)
-        await _create_research_item(test_session, source.id, review_status="review", original_title="Review item")
-        await _create_research_item(test_session, source.id, review_status="relevant", original_title="Relevant item")
-        await _create_research_item(test_session, source.id, review_status="discarded", original_title="Discarded item")
+        await _create_research_item(
+            test_session, source.id, review_status="review", original_title="Review item"
+        )
+        await _create_research_item(
+            test_session, source.id, review_status="relevant", original_title="Relevant item"
+        )
+        await _create_research_item(
+            test_session, source.id, review_status="discarded", original_title="Discarded item"
+        )
         await test_session.commit()
 
-        response = await client.get("/api/v1/signals", params={"review_status": "relevant"}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/signals", params={"review_status": "relevant"}, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
@@ -112,7 +126,9 @@ class TestListSignals:
         assert data["items"][0]["review_status"] == "relevant"
         assert data["items"][0]["original_title"] == "Relevant item"
 
-    async def test_list_signals_filter_by_source(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_signals_filter_by_source(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Filter by source_id returns only items from that source."""
         source_a = await _create_source(test_session, name="Source A")
         source_b = await _create_source(test_session, name="Source B")
@@ -120,26 +136,34 @@ class TestListSignals:
         await _create_research_item(test_session, source_b.id, original_title="From B")
         await test_session.commit()
 
-        response = await client.get("/api/v1/signals", params={"source_id": str(source_a.id)}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/signals", params={"source_id": str(source_a.id)}, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
         assert data["items"][0]["original_title"] == "From A"
 
-    async def test_list_signals_filter_by_document_type(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_signals_filter_by_document_type(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Filter by document_type returns only matching items."""
         source = await _create_source(test_session)
         await _create_research_item(test_session, source.id, document_type="paper", original_title="Article")
         await _create_research_item(test_session, source.id, document_type="review", original_title="Review")
         await test_session.commit()
 
-        response = await client.get("/api/v1/signals", params={"document_type": "review"}, headers=auth_headers)
+        response = await client.get(
+            "/api/v1/signals", params={"document_type": "review"}, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
         assert data["items"][0]["document_type"] == "review"
 
-    async def test_list_signals_default_ordering(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_list_signals_default_ordering(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """Signals are ordered by created_at descending (newest first)."""
         source = await _create_source(test_session)
         await _create_research_item(
@@ -184,7 +208,9 @@ class TestGetSignal:
 
         assert response.status_code == 422
 
-    async def test_get_signal_found(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_get_signal_found(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/signals/{id} returns full detail when signal exists."""
         source = await _create_source(test_session)
         item = await _create_research_item(
@@ -214,7 +240,9 @@ class TestGetSignal:
 class TestUpdateSignalStatus:
     """Tests for PATCH /api/v1/signals/{signal_id}/review."""
 
-    async def test_update_signal_status(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_signal_status(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """PATCH /api/v1/signals/{id}/review changes the review status."""
         source = await _create_source(test_session)
         item = await _create_research_item(test_session, source.id, review_status="review")
@@ -230,7 +258,9 @@ class TestUpdateSignalStatus:
         assert data["review_status"] == "relevant"
         assert data["id"] == str(item.id)
 
-    async def test_update_signal_invalid_status(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_signal_invalid_status(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """PATCH with invalid status value returns 422."""
         source = await _create_source(test_session)
         item = await _create_research_item(test_session, source.id, review_status="review")
@@ -243,7 +273,9 @@ class TestUpdateSignalStatus:
         )
         assert response.status_code == 422
 
-    async def test_update_signal_status_not_found(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_signal_status_not_found(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PATCH on non-existent signal returns 404."""
         fake_id = str(uuid.uuid4())
         response = await client.patch(
@@ -259,7 +291,10 @@ class TestUpdateSignalStatus:
     async def test_update_signal_status_all_valid_values(
         self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
     ) -> None:
-        """All valid review_status values are accepted: relevant, review, discarded, opportunity, follow_up."""
+        """All valid review_status values are accepted.
+
+        relevant, review, discarded, opportunity, follow_up.
+        """
         source = await _create_source(test_session)
 
         valid_statuses = ["relevant", "review", "discarded", "opportunity", "follow_up"]
@@ -272,10 +307,14 @@ class TestUpdateSignalStatus:
                 json={"review_status": status},
                 headers=auth_headers,
             )
-            assert response.status_code == 200, f"Status '{status}' should be accepted but got {response.status_code}"
+            assert response.status_code == 200, (
+                f"Status '{status}' should be accepted but got {response.status_code}"
+            )
             assert response.json()["review_status"] == status
 
-    async def test_update_signal_status_missing_body(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_update_signal_status_missing_body(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """PATCH with empty body returns 422."""
         source = await _create_source(test_session)
         item = await _create_research_item(test_session, source.id)
@@ -306,7 +345,9 @@ class TestGetSignalStats:
         assert data["avg_scientific_score"] is None
         assert data["avg_strategic_score"] is None
 
-    async def test_get_signal_stats_with_data(self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]) -> None:
+    async def test_get_signal_stats_with_data(
+        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/signals/stats returns correct counts with data."""
         source = await _create_source(test_session, name="PubMed")
         await _create_research_item(
@@ -344,7 +385,9 @@ class TestGetSignalStats:
         assert data["avg_scientific_score"] is not None
         assert data["avg_strategic_score"] is not None
 
-    async def test_get_signal_stats_response_shape(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_get_signal_stats_response_shape(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """Stats response has the expected schema fields."""
         response = await client.get("/api/v1/signals/stats", headers=auth_headers)
 

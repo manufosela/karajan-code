@@ -32,7 +32,10 @@ class TestGetConfigurationByCategory:
     """Tests for GET /api/v1/configuration/{category}."""
 
     async def test_get_category_returns_matching_entries(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """GET /api/v1/configuration/{category} returns all configs for that category."""
         await _create_config(test_session, category="scoring", key="threshold", value={"min": 3})
@@ -49,7 +52,10 @@ class TestGetConfigurationByCategory:
             assert item["category"] == "scoring"
 
     async def test_get_category_empty_result(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """GET /api/v1/configuration/{category} returns empty list for category with no entries."""
         await _create_config(test_session, category="scoring", key="threshold")
@@ -62,13 +68,17 @@ class TestGetConfigurationByCategory:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    async def test_get_category_invalid_returns_422(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_get_category_invalid_returns_422(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """GET /api/v1/configuration/{category} returns 422 for invalid category."""
         response = await client.get("/api/v1/configuration/invalid_category", headers=auth_headers)
         assert response.status_code == 422
 
     async def test_get_category_all_valid_categories_without_static_routes(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Valid categories without static route conflicts are accepted."""
         # 'delivery' is handled by its own static route, so excluded here
@@ -77,7 +87,10 @@ class TestGetConfigurationByCategory:
             assert response.status_code == 200
 
     async def test_get_category_ordered_by_key(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Results are ordered by key within the category."""
         await _create_config(test_session, category="scoring", key="z_key", value={"z": 1})
@@ -96,7 +109,10 @@ class TestGetThematicTopics:
     """Tests for GET /api/v1/configuration/thematic/topics."""
 
     async def test_get_topics_returns_taxonomy(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """GET /api/v1/configuration/thematic/topics returns topic taxonomy."""
         await _create_config(
@@ -119,10 +135,15 @@ class TestGetThematicTopics:
         assert "orthodontics_keywords" in data
         assert "strategic_buckets" in data
         assert data["orthodontics_keywords"] == {"keywords": ["aligners", "brackets", "malocclusion"]}
-        assert data["strategic_buckets"] == {"buckets": ["product_clinical", "market_intelligence", "regulatory"]}
+        assert data["strategic_buckets"] == {
+            "buckets": ["product_clinical", "market_intelligence", "regulatory"]
+        }
 
     async def test_get_topics_partial_data(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns available topic data even if only one key exists."""
         await _create_config(
@@ -139,13 +160,18 @@ class TestGetThematicTopics:
         assert "orthodontics_keywords" in data
         assert data["orthodontics_keywords"] == {"keywords": ["aligners"]}
 
-    async def test_get_topics_no_data_returns_404(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_get_topics_no_data_returns_404(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """Returns 404 when no thematic topic config exists."""
         response = await client.get("/api/v1/configuration/thematic/topics", headers=auth_headers)
         assert response.status_code == 404
 
     async def test_topics_route_not_shadowed_by_category_key(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Static /thematic/topics route is not intercepted by /{category}/{key}."""
         await _create_config(
@@ -167,7 +193,9 @@ class TestGetThematicTopics:
 class TestUpdateScoringWeights:
     """Tests for PUT /api/v1/configuration/scoring/weights."""
 
-    async def test_update_weights_creates_new(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_weights_creates_new(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT /api/v1/configuration/scoring/weights creates weights config if not exists."""
         payload = {
             "weights": {
@@ -177,7 +205,9 @@ class TestUpdateScoringWeights:
                 "credibility": 0.20,
             },
         }
-        response = await client.put("/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers)
+        response = await client.put(
+            "/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["category"] == "scoring"
@@ -185,7 +215,10 @@ class TestUpdateScoringWeights:
         assert data["value"]["weights"] == payload["weights"]
 
     async def test_update_weights_updates_existing(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """PUT updates existing scoring weights entry."""
         await _create_config(
@@ -204,12 +237,16 @@ class TestUpdateScoringWeights:
                 "credibility": 0.25,
             },
         }
-        response = await client.put("/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers)
+        response = await client.put(
+            "/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["value"]["weights"] == payload["weights"]
 
-    async def test_update_weights_rejects_non_numeric(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_weights_rejects_non_numeric(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT rejects weights with non-numeric values."""
         payload = {
             "weights": {
@@ -219,10 +256,14 @@ class TestUpdateScoringWeights:
                 "credibility": 0.20,
             },
         }
-        response = await client.put("/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers)
+        response = await client.put(
+            "/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers
+        )
         assert response.status_code == 422
 
-    async def test_update_weights_rejects_missing_keys(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_weights_rejects_missing_keys(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT rejects weights with missing required keys."""
         payload = {
             "weights": {
@@ -231,16 +272,22 @@ class TestUpdateScoringWeights:
                 # missing impact and credibility
             },
         }
-        response = await client.put("/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers)
+        response = await client.put(
+            "/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers
+        )
         assert response.status_code == 422
 
-    async def test_update_weights_rejects_empty_body(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_weights_rejects_empty_body(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT rejects empty body."""
         response = await client.put("/api/v1/configuration/scoring/weights", json={}, headers=auth_headers)
         assert response.status_code == 422
 
     async def test_weights_route_not_shadowed(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Static /scoring/weights route is not intercepted by PUT /{category}/{key}."""
         payload = {
@@ -251,7 +298,9 @@ class TestUpdateScoringWeights:
                 "credibility": 0.25,
             },
         }
-        response = await client.put("/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers)
+        response = await client.put(
+            "/api/v1/configuration/scoring/weights", json=payload, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         # Should be stored with domain-validated schema, not generic ConfigUpdate
@@ -261,7 +310,9 @@ class TestUpdateScoringWeights:
 class TestUpdateConfigurationCategoryValidation:
     """Tests for PUT /api/v1/configuration/{category}/{key} category validation (R-1)."""
 
-    async def test_update_invalid_category_returns_422(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_invalid_category_returns_422(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT with invalid category returns 422 instead of DB 500."""
         response = await client.put(
             "/api/v1/configuration/invalid_category/some_key",
@@ -270,7 +321,9 @@ class TestUpdateConfigurationCategoryValidation:
         )
         assert response.status_code == 422
 
-    async def test_update_valid_category_accepted(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_update_valid_category_accepted(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """PUT with valid category is accepted."""
         response = await client.put(
             "/api/v1/configuration/general/some_key",
@@ -287,7 +340,10 @@ class TestGetDeliverySettings:
     """Tests for GET /api/v1/configuration/delivery."""
 
     async def test_get_delivery_returns_settings(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """GET /api/v1/configuration/delivery returns aggregated delivery settings."""
         await _create_config(
@@ -319,7 +375,10 @@ class TestGetDeliverySettings:
         assert data["digest_frequency"] == {"frequency": "weekly", "day": "monday"}
 
     async def test_get_delivery_partial_data(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns available delivery data even if only some keys exist."""
         await _create_config(
@@ -335,13 +394,18 @@ class TestGetDeliverySettings:
         data = response.json()
         assert "digest_frequency" in data
 
-    async def test_get_delivery_no_data_returns_404(self, client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    async def test_get_delivery_no_data_returns_404(
+        self, client: AsyncClient, auth_headers: dict[str, str]
+    ) -> None:
         """Returns 404 when no delivery config exists."""
         response = await client.get("/api/v1/configuration/delivery", headers=auth_headers)
         assert response.status_code == 404
 
     async def test_delivery_route_not_shadowed_by_category(
-        self, client: AsyncClient, test_session: AsyncSession, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        test_session: AsyncSession,
+        auth_headers: dict[str, str],
     ) -> None:
         """Static /delivery route is not intercepted by GET /{category}."""
         await _create_config(

@@ -5,11 +5,8 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from app.connectors.base import ConnectorResult, NormalizedPaper
 from app.services.ingestion import IngestionOrchestrator
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -27,6 +27,7 @@ from app.profiles.schema import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _minimal_profile_dict() -> dict[str, Any]:
     """A valid, fully-populated profile used as the base for mutation tests."""
     return {
@@ -123,6 +124,7 @@ def profile_dict() -> dict[str, Any]:
 # Happy path
 # ---------------------------------------------------------------------------
 
+
 class TestValidProfile:
     def test_parses_a_valid_profile(self, profile_dict: dict[str, Any]) -> None:
         profile = RadarProfile.model_validate(profile_dict)
@@ -138,9 +140,7 @@ class TestValidProfile:
 
         assert profile.taxonomy.theme_ids == frozenset({"alpha", "beta"})
 
-    def test_exposes_bucket_and_horizon_ids_as_frozensets(
-        self, profile_dict: dict[str, Any]
-    ) -> None:
+    def test_exposes_bucket_and_horizon_ids_as_frozensets(self, profile_dict: dict[str, Any]) -> None:
         profile = RadarProfile.model_validate(profile_dict)
 
         assert profile.taxonomy.bucket_ids == frozenset({"core_tech"})
@@ -157,6 +157,7 @@ class TestValidProfile:
 # ---------------------------------------------------------------------------
 # Taxonomy validation
 # ---------------------------------------------------------------------------
+
 
 class TestTaxonomyValidation:
     def test_rejects_duplicate_theme_ids(self, profile_dict: dict[str, Any]) -> None:
@@ -184,9 +185,7 @@ class TestTaxonomyValidation:
             RadarProfile.model_validate(profile_dict)
 
     def test_requires_at_least_two_themes(self, profile_dict: dict[str, Any]) -> None:
-        profile_dict["taxonomy"]["themes"] = [
-            {"id": "alpha", "label": "Alpha", "description": "Only one."}
-        ]
+        profile_dict["taxonomy"]["themes"] = [{"id": "alpha", "label": "Alpha", "description": "Only one."}]
 
         with pytest.raises(ValidationError):
             RadarProfile.model_validate(profile_dict)
@@ -209,11 +208,10 @@ class TestTaxonomyValidation:
 # Scoring weights validation
 # ---------------------------------------------------------------------------
 
+
 class TestScoringWeights:
     def test_accepts_weights_summing_to_one(self) -> None:
-        weights = ScoringWeights.model_validate(
-            {"weights": {"a": 0.25, "b": 0.25, "c": 0.5}}
-        )
+        weights = ScoringWeights.model_validate({"weights": {"a": 0.25, "b": 0.25, "c": 0.5}})
 
         assert weights.weights["c"] == 0.5
 
@@ -241,6 +239,7 @@ class TestScoringWeights:
 # ---------------------------------------------------------------------------
 # Prompt template validation
 # ---------------------------------------------------------------------------
+
 
 class TestPromptTemplateValidation:
     def test_accepts_template_declaring_all_its_variables(self) -> None:
@@ -304,6 +303,7 @@ class TestPromptTemplateValidation:
 # Vocabulary and sources
 # ---------------------------------------------------------------------------
 
+
 class TestVocabularyValidation:
     def test_rejects_duplicate_vocabulary_entries(self, profile_dict: dict[str, Any]) -> None:
         profile_dict["vocabulary"]["hype_risks"].append(
@@ -366,12 +366,11 @@ class TestSourcesValidation:
 # Component-level construction
 # ---------------------------------------------------------------------------
 
+
 class TestComponentModels:
     def test_organization_rejects_blank_name(self) -> None:
         with pytest.raises(ValidationError):
-            Organization.model_validate(
-                {"name": "  ", "description": "d", "analyst_role": "r"}
-            )
+            Organization.model_validate({"name": "  ", "description": "d", "analyst_role": "r"})
 
     def test_branding_rejects_blank_app_name(self) -> None:
         with pytest.raises(ValidationError):
@@ -379,9 +378,7 @@ class TestComponentModels:
 
     def test_llm_settings_reject_unknown_provider(self) -> None:
         with pytest.raises(ValidationError):
-            LLMSettings.model_validate(
-                {"provider": "skynet", "default_model": "m", "fast_model": "f"}
-            )
+            LLMSettings.model_validate({"provider": "skynet", "default_model": "m", "fast_model": "f"})
 
     def test_llm_settings_accept_ollama_with_base_url(self) -> None:
         settings = LLMSettings.model_validate(
@@ -396,9 +393,7 @@ class TestComponentModels:
         assert settings.base_url == "http://localhost:11434"
 
     def test_taxonomy_lookup_by_id(self) -> None:
-        taxonomy = Taxonomy.model_validate(
-            _minimal_profile_dict()["taxonomy"]
-        )
+        taxonomy = Taxonomy.model_validate(_minimal_profile_dict()["taxonomy"])
 
         assert taxonomy.theme("alpha").label == "Alpha"
 
@@ -412,6 +407,7 @@ class TestComponentModels:
 # ---------------------------------------------------------------------------
 # Regression guard: mutation of the source dict must not leak into the model
 # ---------------------------------------------------------------------------
+
 
 class TestIsolation:
     def test_model_does_not_alias_the_input_dict(self, profile_dict: dict[str, Any]) -> None:

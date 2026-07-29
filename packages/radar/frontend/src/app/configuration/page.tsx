@@ -84,6 +84,14 @@ export default function ConfigurationPage() {
     }
   }, [user, isAdmin, router]);
 
+  // Declared before the early return: isAdmin starts false while the session
+  // resolves, so a hook after the return would change the hook count between
+  // renders as soon as the user loads.
+  const handleTabChange = useCallback((tab: ConfigTab) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, "", `#${tab}`);
+  }, []);
+
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -91,11 +99,6 @@ export default function ConfigurationPage() {
       </div>
     );
   }
-
-  const handleTabChange = useCallback((tab: ConfigTab) => {
-    setActiveTab(tab);
-    window.history.replaceState(null, "", `#${tab}`);
-  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">

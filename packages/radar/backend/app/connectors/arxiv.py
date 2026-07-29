@@ -32,10 +32,7 @@ DEFAULT_QUERIES = [
         "(all:orthodontic OR all:dental OR all:aligner OR all:cephalometric OR all:tooth)"
     ),
     # Quantitative biology with dental/biomechanics terms
-    (
-        "cat:q-bio* AND "
-        "(all:dental OR all:orthodontic OR all:biomechanics OR all:tooth OR all:aligner)"
-    ),
+    ("cat:q-bio* AND (all:dental OR all:orthodontic OR all:biomechanics OR all:tooth OR all:aligner)"),
 ]
 
 # Regex to extract arXiv ID from URL

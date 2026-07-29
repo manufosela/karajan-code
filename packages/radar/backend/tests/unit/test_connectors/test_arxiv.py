@@ -198,9 +198,7 @@ class TestArXivFetchMocked:
         """Mock httpx, verify API call with correct parameters."""
         with respx.mock(base_url="http://export.arxiv.org/api/query") as respx_mock:
             # Mock the query endpoint
-            query_route = respx_mock.get("").mock(
-                return_value=httpx.Response(200, text=arxiv_xml)
-            )
+            query_route = respx_mock.get("").mock(return_value=httpx.Response(200, text=arxiv_xml))
 
             connector = ArXivConnector()
             try:
@@ -227,9 +225,7 @@ class TestArXivFetchMocked:
     async def test_arxiv_fetch_multiple_queries(self, arxiv_xml: str) -> None:
         """Multiple queries produce multiple xml_parts."""
         with respx.mock(base_url="http://export.arxiv.org/api/query") as respx_mock:
-            respx_mock.get("").mock(
-                return_value=httpx.Response(200, text=arxiv_xml)
-            )
+            respx_mock.get("").mock(return_value=httpx.Response(200, text=arxiv_xml))
 
             connector = ArXivConnector()
             try:

@@ -54,8 +54,7 @@ class LLMProviderRegistry:
         name_lower = name.lower()
         if name_lower not in self._providers:
             raise KeyError(
-                f"LLM provider '{name_lower}' is not registered. "
-                f"Available: {list(self._providers.keys())}"
+                f"LLM provider '{name_lower}' is not registered. Available: {list(self._providers.keys())}"
             )
         return self._providers[name_lower](**kwargs)
 

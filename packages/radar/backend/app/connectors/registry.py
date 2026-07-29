@@ -48,7 +48,9 @@ class ConnectorRegistry:
         """
         name_lower = name.lower()
         if name_lower not in self._connectors:
-            raise KeyError(f"Connector '{name_lower}' is not registered. Available: {list(self._connectors.keys())}")
+            raise KeyError(
+                f"Connector '{name_lower}' is not registered. Available: {list(self._connectors.keys())}"
+            )
         return self._connectors[name_lower](**kwargs)
 
     def get_all_enabled(self, sources: list[Any]) -> list[BaseConnector]:
@@ -77,7 +79,9 @@ class ConnectorRegistry:
 
             try:
                 config = getattr(source, "config", None) or {}
-                connector = self._connectors[source_name](config=config)
+                # Concrete connectors take only `config`; BaseConnector's own
+                # signature is not what is being called here.
+                connector = self._connectors[source_name](config=config)  # type: ignore[call-arg]
                 connectors.append(connector)
                 logger.info("Instantiated connector for source", name=source_name)
             except Exception as e:

@@ -120,13 +120,9 @@ async def auth_headers(client: AsyncClient, test_engine) -> dict[str, str]:
     about testing auth itself.
     """
     # Create the user directly in the DB
-    session_factory = async_sessionmaker(
-        bind=test_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session_factory = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
-        pw_hash = bcrypt.hashpw(
-            _TEST_ADMIN_PASSWORD.encode(), bcrypt.gensalt()
-        ).decode()
+        pw_hash = bcrypt.hashpw(_TEST_ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
         user = User(
             id=uuid.uuid4(),
             email=_TEST_ADMIN_EMAIL,
@@ -176,7 +172,9 @@ def sample_research_item_data(sample_source_data: dict[str, Any]) -> dict[str, A
             {"name": "Doe A.", "affiliation": "Test Medical Center"},
         ],
         "publication_date": "2024-06-15",
-        "abstract": "This systematic review evaluates the effectiveness of clear aligners in orthodontic treatment.",
+        "abstract": (
+            "This systematic review evaluates the effectiveness of clear aligners in orthodontic treatment."
+        ),
         "journal_or_origin": "Journal of Orthodontics Research",
         "language": "en",
         "thematic_tags": ["clear aligners", "orthodontic treatment", "systematic review"],

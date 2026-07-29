@@ -24,6 +24,7 @@ VALID_TIME_HORIZONS = _TAXONOMY.time_horizon_ids
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _valid_llm_response() -> dict:
     """Return a valid strategic classification response dict."""
     return {
@@ -50,6 +51,7 @@ def _make_provider(
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 class TestStrategicClassificationResult:
     """Tests for StrategicClassificationResult dataclass."""
@@ -81,6 +83,7 @@ class TestStrategicClassificationResult:
 # StrategicClassificationService — happy path
 # ---------------------------------------------------------------------------
 
+
 class TestStrategicClassificationServiceHappyPath:
     """Tests for successful strategic classification."""
 
@@ -103,7 +106,9 @@ class TestStrategicClassificationServiceHappyPath:
 
         assert result.bucket == "ai_digital_workflow"
         assert result.confidence == 0.88
-        assert result.rationale == "The paper focuses on AI-driven digital planning for orthodontic treatment."
+        assert (
+            result.rationale == "The paper focuses on AI-driven digital planning for orthodontic treatment."
+        )
         assert result.time_horizon == "short_term"
 
     async def test_classify_calls_provider_with_prompt(self) -> None:
@@ -160,6 +165,7 @@ class TestStrategicClassificationServiceHappyPath:
 # ---------------------------------------------------------------------------
 # StrategicClassificationService — validation errors
 # ---------------------------------------------------------------------------
+
 
 class TestStrategicClassificationServiceValidation:
     """Tests for response validation in StrategicClassificationService."""
@@ -249,6 +255,7 @@ class TestStrategicClassificationServiceValidation:
 # ---------------------------------------------------------------------------
 # StrategicClassificationService — LLM errors
 # ---------------------------------------------------------------------------
+
 
 class TestStrategicClassificationServiceLLMErrors:
     """Tests for LLM error handling in StrategicClassificationService."""

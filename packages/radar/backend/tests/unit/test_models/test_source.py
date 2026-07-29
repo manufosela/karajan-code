@@ -93,9 +93,7 @@ async def test_source_query_by_category(test_session: AsyncSession):
     test_session.add_all([source1, source2])
     await test_session.flush()
 
-    result = await test_session.execute(
-        select(Source).where(Source.category == "core")
-    )
+    result = await test_session.execute(select(Source).where(Source.category == "core"))
     core_sources = result.scalars().all()
     assert len(core_sources) == 1
     assert core_sources[0].name == "Core 1"

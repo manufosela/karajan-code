@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from app.services.normalization import (
     clean_abstract,
     detect_language,
@@ -257,7 +255,10 @@ class TestCleanAbstract:
             "RESULTS": "The results showed improvement.",
             "CONCLUSIONS": "Clear aligners are effective.",
         }
-        raw = "\n".join(f"<jats:sec><jats:title>{k}</jats:title><jats:p>{v}</jats:p></jats:sec>" for k, v in sections.items())
+        raw = "\n".join(
+            f"<jats:sec><jats:title>{k}</jats:title><jats:p>{v}</jats:p></jats:sec>"
+            for k, v in sections.items()
+        )
         result = clean_abstract(raw)
         assert "BACKGROUND: This is the background." in result
         assert "METHODS: We used RCT design." in result
@@ -298,11 +299,16 @@ class TestDetectLanguage:
     """Tests for basic language detection using heuristics."""
 
     def test_english_text(self) -> None:
-        text = "This systematic review evaluates the effectiveness of clear aligners in orthodontic treatment."
+        text = (
+            "This systematic review evaluates the effectiveness of clear aligners in orthodontic treatment."
+        )
         assert detect_language(text) == "en"
 
     def test_spanish_text(self) -> None:
-        text = "Esta revisión sistemática evalúa la efectividad de los alineadores transparentes en el tratamiento ortodóncico."
+        text = (
+            "Esta revisión sistemática evalúa la efectividad de los alineadores "
+            "transparentes en el tratamiento ortodóncico."
+        )
         assert detect_language(text) == "es"
 
     def test_short_english_text(self) -> None:
@@ -314,7 +320,10 @@ class TestDetectLanguage:
         assert detect_language(text) == "es"
 
     def test_other_language(self) -> None:
-        text = "Diese systematische Übersicht bewertet die Wirksamkeit von Alignern in der kieferorthopädischen Behandlung."
+        text = (
+            "Diese systematische Übersicht bewertet die Wirksamkeit von Alignern "
+            "in der kieferorthopädischen Behandlung."
+        )
         assert detect_language(text) == "other"
 
     def test_empty_string(self) -> None:
@@ -324,15 +333,24 @@ class TestDetectLanguage:
         assert detect_language(None) == "other"  # type: ignore[arg-type]
 
     def test_mixed_english_dominant(self) -> None:
-        text = "This paper studies the tratamiento of orthodontic patients in a clinical setting over several months."
+        text = (
+            "This paper studies the tratamiento of orthodontic patients in a "
+            "clinical setting over several months."
+        )
         assert detect_language(text) == "en"
 
     def test_mixed_spanish_dominant(self) -> None:
-        text = "Este artículo estudia el treatment de los pacientes ortodóncicos en una clínica durante varios meses."
+        text = (
+            "Este artículo estudia el treatment de los pacientes ortodóncicos en "
+            "una clínica durante varios meses."
+        )
         assert detect_language(text) == "es"
 
     def test_french_text_is_other(self) -> None:
-        text = "Cette revue systématique évalue l'efficacité des aligneurs transparents dans le traitement orthodontique."
+        text = (
+            "Cette revue systématique évalue l'efficacité des aligneurs "
+            "transparents dans le traitement orthodontique."
+        )
         assert detect_language(text) == "other"
 
     def test_portuguese_text_is_other(self) -> None:

@@ -235,9 +235,7 @@ class TestCrossrefFetchMocked:
     async def test_fetch_single_page(self, crossref_response: dict[str, Any]) -> None:
         """Mock httpx, verify single-page fetch with correct parameters."""
         with respx.mock(base_url="https://api.crossref.org") as respx_mock:
-            route = respx_mock.get("/works").mock(
-                return_value=httpx.Response(200, json=crossref_response)
-            )
+            route = respx_mock.get("/works").mock(return_value=httpx.Response(200, json=crossref_response))
 
             connector = CrossrefConnector()
             try:
@@ -318,9 +316,7 @@ class TestCrossrefFetchMocked:
     async def test_fetch_with_date_range(self, crossref_response: dict[str, Any]) -> None:
         """Fetch passes date range as filter parameters."""
         with respx.mock(base_url="https://api.crossref.org") as respx_mock:
-            route = respx_mock.get("/works").mock(
-                return_value=httpx.Response(200, json=crossref_response)
-            )
+            route = respx_mock.get("/works").mock(return_value=httpx.Response(200, json=crossref_response))
 
             connector = CrossrefConnector()
             try:
@@ -340,9 +336,7 @@ class TestCrossrefFetchMocked:
     async def test_fetch_default_query(self, crossref_response: dict[str, Any]) -> None:
         """Verify default query terms are included in the request."""
         with respx.mock(base_url="https://api.crossref.org") as respx_mock:
-            route = respx_mock.get("/works").mock(
-                return_value=httpx.Response(200, json=crossref_response)
-            )
+            route = respx_mock.get("/works").mock(return_value=httpx.Response(200, json=crossref_response))
 
             connector = CrossrefConnector()
             try:

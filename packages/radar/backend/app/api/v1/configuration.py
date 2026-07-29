@@ -1,4 +1,5 @@
 import logging
+from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -20,6 +21,7 @@ from app.schemas.configuration import (
     TopicTaxonomyResponse,
 )
 from app.utils.cron import (
+    ScheduleType,
     calculate_next_runs,
     describe_schedule,
     generate_cron,
@@ -114,9 +116,7 @@ async def get_delivery_settings(
     _user: User = Depends(get_current_user),
 ) -> DeliverySettingsResponse:
     """Get delivery settings: digest frequency, channels, and recipients."""
-    result = await db.execute(
-        select(Configuration).where(Configuration.category == "delivery")
-    )
+    result = await db.execute(select(Configuration).where(Configuration.category == "delivery"))
     configs = result.scalars().all()
     if not configs:
         raise HTTPException(status_code=404, detail="No delivery configuration found")
@@ -163,7 +163,7 @@ async def update_scoring_weights(
 
 # --- Schedule routes ---
 
-DEFAULT_SCHEDULE = {
+DEFAULT_SCHEDULE: dict[str, Any] = {
     "schedule_type": "daily",
     "time": "07:00",
     "timezone": "Europe/Madrid",
@@ -243,7 +243,7 @@ async def update_schedule(
     warning is returned via sync_status/sync_error.
     """
     cron_expr = generate_cron(
-        schedule_type=body.schedule_type,
+        schedule_type=cast(ScheduleType, body.schedule_type),
         time=body.time,
         days_of_week=body.days_of_week or None,
         day_of_month=body.day_of_month,
@@ -282,7 +282,7 @@ async def update_schedule(
     await db.flush()
 
     next_runs = calculate_next_runs(
-        schedule_type=body.schedule_type,
+        schedule_type=cast(ScheduleType, body.schedule_type),
         time=body.time,
         timezone=body.timezone,
         days_of_week=body.days_of_week or None,
@@ -293,7 +293,7 @@ async def update_schedule(
     sync_status, sync_error = await _sync_cloud_scheduler(cron_expr, body.timezone)
 
     return ScheduleResponse(
-        schedule_type=body.schedule_type,
+        schedule_type=cast(ScheduleType, body.schedule_type),
         time=body.time,
         timezone=body.timezone,
         days_of_week=body.days_of_week,
@@ -301,7 +301,7 @@ async def update_schedule(
         custom_cron=body.custom_cron,
         cron_expression=cron_expr,
         description=describe_schedule(
-            body.schedule_type,
+            cast(ScheduleType, body.schedule_type),
             body.time,
             body.days_of_week or None,
             body.day_of_month,
@@ -352,11 +352,7 @@ async def get_configuration_by_category(
     _user: User = Depends(get_current_user),
 ) -> list[ConfigResponse]:
     """Get all configuration entries for a specific category."""
-    query = (
-        select(Configuration)
-        .where(Configuration.category == category.value)
-        .order_by(Configuration.key)
-    )
+    query = select(Configuration).where(Configuration.category == category.value).order_by(Configuration.key)
     result = await db.execute(query)
     configs = result.scalars().all()
     return [ConfigResponse.model_validate(c) for c in configs]

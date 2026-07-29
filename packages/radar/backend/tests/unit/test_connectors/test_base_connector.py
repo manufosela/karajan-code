@@ -14,6 +14,7 @@ from app.connectors.base import BaseConnector, ConnectorResult, NormalizedPaper
 # Mock connector implementation for testing
 # ---------------------------------------------------------------------------
 
+
 class MockConnector(BaseConnector):
     """Concrete implementation of BaseConnector used exclusively for testing."""
 
@@ -77,6 +78,7 @@ class MockConnector(BaseConnector):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sample_parsed_items() -> list[dict[str, Any]]:
     """Three sample parsed items for testing the pipeline."""
@@ -131,6 +133,7 @@ def mock_connector(sample_parsed_items: list[dict[str, Any]]) -> MockConnector:
 # Tests: BaseConnector cannot be instantiated directly
 # ---------------------------------------------------------------------------
 
+
 class TestBaseConnectorAbstract:
     """Verify that BaseConnector enforces the abstract interface."""
 
@@ -159,6 +162,7 @@ class TestBaseConnectorAbstract:
 # ---------------------------------------------------------------------------
 # Tests: run() orchestration pipeline
 # ---------------------------------------------------------------------------
+
 
 class TestRunOrchestration:
     """Verify run() calls fetch -> parse -> normalize in the correct order."""
@@ -250,6 +254,7 @@ class TestRunOrchestration:
 # Tests: ConnectorResult model
 # ---------------------------------------------------------------------------
 
+
 class TestConnectorResult:
     """Verify ConnectorResult dataclass fields and computed properties."""
 
@@ -300,6 +305,7 @@ class TestConnectorResult:
 # ---------------------------------------------------------------------------
 # Tests: NormalizedPaper model
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizedPaper:
     """Verify NormalizedPaper Pydantic model creation and validation."""
@@ -366,9 +372,12 @@ class TestNormalizedPaper:
         expected_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
         # Verify the hash is deterministic and reproducible
-        assert expected_hash == hashlib.sha256(
-            b"A study on clear alignersThis study evaluates clear aligner biomechanics."
-        ).hexdigest()
+        assert (
+            expected_hash
+            == hashlib.sha256(
+                b"A study on clear alignersThis study evaluates clear aligner biomechanics."
+            ).hexdigest()
+        )
         assert len(expected_hash) == 64  # SHA-256 hex digest length
 
     def test_normalized_paper_content_hash_without_abstract(self) -> None:
@@ -409,6 +418,7 @@ class TestNormalizedPaper:
 # ---------------------------------------------------------------------------
 # Tests: Retry on failure
 # ---------------------------------------------------------------------------
+
 
 class TestRetryBehavior:
     """Verify that transient fetch failures trigger retry logic."""
@@ -453,6 +463,7 @@ class TestRetryBehavior:
 # ---------------------------------------------------------------------------
 # Tests: Rate limiting
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimiting:
     """Verify that the rate limiter is initialized and respected."""
@@ -519,6 +530,7 @@ class TestRateLimiting:
 # ---------------------------------------------------------------------------
 # Tests: Connector lifecycle (context manager)
 # ---------------------------------------------------------------------------
+
 
 class TestConnectorLifecycle:
     """Verify async context manager and resource cleanup."""

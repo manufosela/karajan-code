@@ -33,6 +33,7 @@ def _get_raw_url() -> str:
         return url
     try:
         from app.core.config import settings
+
         return settings.DATABASE_URL
     except Exception:
         return config.get_main_option(

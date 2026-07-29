@@ -30,6 +30,7 @@ def renderer(profile: RadarProfile) -> PromptRenderer:
 # The template engine itself
 # ---------------------------------------------------------------------------
 
+
 class TestRenderTemplate:
     def test_substitutes_a_simple_variable(self) -> None:
         assert render_template("Hello {{name}}.", {"name": "world"}) == "Hello world."
@@ -121,6 +122,7 @@ class TestSections:
 # Profile-driven rendering
 # ---------------------------------------------------------------------------
 
+
 class TestPromptRendererContext:
     def test_exposes_organization_fields(self, renderer: PromptRenderer) -> None:
         context = renderer.base_context()
@@ -135,9 +137,7 @@ class TestPromptRendererContext:
         assert context["themes"][0]["id"] == "alpha"
         assert context["themes"][0]["description"] == "Alpha topics."
 
-    def test_exposes_csv_id_lists_in_declaration_order(
-        self, renderer: PromptRenderer
-    ) -> None:
+    def test_exposes_csv_id_lists_in_declaration_order(self, renderer: PromptRenderer) -> None:
         """Rules read 'MUST be one of: ...', so the order must be stable."""
         context = renderer.base_context()
 
@@ -165,24 +165,16 @@ class TestPromptRendererRendering:
         with pytest.raises(KeyError, match="nonexistent"):
             renderer.render("nonexistent", title="T")
 
-    def test_raises_when_a_required_variable_is_not_supplied(
-        self, renderer: PromptRenderer
-    ) -> None:
+    def test_raises_when_a_required_variable_is_not_supplied(self, renderer: PromptRenderer) -> None:
         with pytest.raises(MissingVariableError, match="abstract"):
             renderer.render("classification", title="T")
 
-    def test_call_variables_override_the_base_context(
-        self, renderer: PromptRenderer
-    ) -> None:
-        result = renderer.render(
-            "classification", title="{{not-a-tag}}", abstract="A"
-        )
+    def test_call_variables_override_the_base_context(self, renderer: PromptRenderer) -> None:
+        result = renderer.render("classification", title="{{not-a-tag}}", abstract="A")
 
         assert "{{not-a-tag}}" in result
 
-    def test_substituted_values_are_not_re_rendered(
-        self, renderer: PromptRenderer
-    ) -> None:
+    def test_substituted_values_are_not_re_rendered(self, renderer: PromptRenderer) -> None:
         """A paper title containing braces must not be interpreted as a tag."""
         result = renderer.render("classification", title="{{abstract}}", abstract="A")
 
@@ -193,42 +185,33 @@ class TestPromptRendererRendering:
 # The bundled profile must render end to end
 # ---------------------------------------------------------------------------
 
+
 class TestBundledOrthodonticsPrompts:
     @pytest.fixture(scope="class")
     def ortho_renderer(self) -> PromptRenderer:
         return PromptRenderer(load_profile_by_id("orthodontics"))
 
-    def test_classification_prompt_lists_every_theme(
-        self, ortho_renderer: PromptRenderer
-    ) -> None:
-        prompt = ortho_renderer.render(
-            "classification", title="A study", abstract="An abstract"
-        )
+    def test_classification_prompt_lists_every_theme(self, ortho_renderer: PromptRenderer) -> None:
+        prompt = ortho_renderer.render("classification", title="A study", abstract="An abstract")
 
         for theme_id in ("orthodontics", "biomechanics", "materials", "AI/digital"):
             assert theme_id in prompt
         assert "A study" in prompt
 
-    def test_strategic_prompt_lists_buckets_and_horizons(
-        self, ortho_renderer: PromptRenderer
-    ) -> None:
+    def test_strategic_prompt_lists_buckets_and_horizons(self, ortho_renderer: PromptRenderer) -> None:
         prompt = ortho_renderer.render("strategic", title="T", abstract="A")
 
         assert "core_aligner_tech" in prompt
         assert "competitive_intelligence" in prompt
         assert "medium_term" in prompt
 
-    def test_impact_prompt_lists_levels_and_actions(
-        self, ortho_renderer: PromptRenderer
-    ) -> None:
+    def test_impact_prompt_lists_levels_and_actions(self, ortho_renderer: PromptRenderer) -> None:
         prompt = ortho_renderer.render("impact", title="T", abstract="A")
 
         assert "transformative" in prompt
         assert "act_now" in prompt
 
-    def test_scoring_prompt_uses_its_own_action_vocabulary(
-        self, ortho_renderer: PromptRenderer
-    ) -> None:
+    def test_scoring_prompt_uses_its_own_action_vocabulary(self, ortho_renderer: PromptRenderer) -> None:
         prompt = ortho_renderer.render("scoring", title="T", abstract="A")
 
         assert "discard" in prompt
@@ -247,9 +230,7 @@ class TestBundledOrthodonticsPrompts:
         assert "8/10" in prompt
         assert "orthodontics, materials" in prompt
 
-    def test_every_bundled_prompt_renders_without_leftover_tags(
-        self, ortho_renderer: PromptRenderer
-    ) -> None:
+    def test_every_bundled_prompt_renders_without_leftover_tags(self, ortho_renderer: PromptRenderer) -> None:
         """No {{...}} may survive rendering, or the LLM sees raw template syntax."""
         common = {"title": "T", "abstract": "A"}
         extra = {

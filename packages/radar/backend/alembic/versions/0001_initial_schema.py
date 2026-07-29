@@ -47,7 +47,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=now_default, nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint("source_type IN ('api', 'rss', 'scraper')", name="chk_source_type"),
-        sa.CheckConstraint("category IN ('core', 'university', 'journal', 'author')", name="chk_source_category"),
+        sa.CheckConstraint(
+            "category IN ('core', 'university', 'journal', 'author')", name="chk_source_category"
+        ),
         sa.CheckConstraint("priority BETWEEN 1 AND 10", name="chk_source_priority"),
     )
 
@@ -55,9 +57,7 @@ def upgrade() -> None:
     op.create_table(
         "research_items",
         sa.Column("id", sa.Uuid(), server_default=uuid_default, nullable=False),
-        sa.Column(
-            "source_id", sa.Uuid(), sa.ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
-        ),
+        sa.Column("source_id", sa.Uuid(), sa.ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False),
         # Identification
         sa.Column("doi", sa.String(255)),
         sa.Column("pmid", sa.String(20)),
@@ -174,9 +174,7 @@ def upgrade() -> None:
     op.create_table(
         "ingestion_runs",
         sa.Column("id", sa.Uuid(), server_default=uuid_default, nullable=False),
-        sa.Column(
-            "source_id", sa.Uuid(), sa.ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
-        ),
+        sa.Column("source_id", sa.Uuid(), sa.ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("started_at", sa.DateTime(timezone=True), server_default=now_default, nullable=False),
         sa.Column("completed_at", sa.DateTime(timezone=True)),
         sa.Column("status", sa.String(15), server_default=sa.text("'running'"), nullable=False),
@@ -251,38 +249,51 @@ def upgrade() -> None:
     if is_pg:
         # Partial indexes
         op.create_index(
-            "idx_sources_enabled", "sources", ["enabled"],
+            "idx_sources_enabled",
+            "sources",
+            ["enabled"],
             postgresql_where=sa.text("enabled = TRUE"),
         )
         op.create_index(
-            "idx_research_items_doi", "research_items", ["doi"],
+            "idx_research_items_doi",
+            "research_items",
+            ["doi"],
             postgresql_where=sa.text("doi IS NOT NULL"),
         )
         op.create_index(
-            "idx_research_items_pmid", "research_items", ["pmid"],
+            "idx_research_items_pmid",
+            "research_items",
+            ["pmid"],
             postgresql_where=sa.text("pmid IS NOT NULL"),
         )
         op.create_index(
-            "idx_research_items_nct_id", "research_items", ["nct_id"],
+            "idx_research_items_nct_id",
+            "research_items",
+            ["nct_id"],
             postgresql_where=sa.text("nct_id IS NOT NULL"),
         )
         op.create_index(
-            "idx_research_items_arxiv_id", "research_items", ["arxiv_id"],
+            "idx_research_items_arxiv_id",
+            "research_items",
+            ["arxiv_id"],
             postgresql_where=sa.text("arxiv_id IS NOT NULL"),
         )
         op.create_index(
-            "idx_research_items_recommended_action", "research_items", ["recommended_action"],
+            "idx_research_items_recommended_action",
+            "research_items",
+            ["recommended_action"],
             postgresql_where=sa.text("recommended_action IS NOT NULL"),
         )
         op.create_index(
-            "idx_research_items_time_horizon", "research_items", ["time_horizon"],
+            "idx_research_items_time_horizon",
+            "research_items",
+            ["time_horizon"],
             postgresql_where=sa.text("time_horizon IS NOT NULL"),
         )
 
         # DESC / NULLS LAST indexes (raw SQL for complex expressions)
         op.execute(
-            "CREATE INDEX idx_research_items_publication_date "
-            "ON research_items (publication_date DESC)"
+            "CREATE INDEX idx_research_items_publication_date ON research_items (publication_date DESC)"
         )
         op.execute(
             "CREATE INDEX idx_research_items_scientific_score "
@@ -292,22 +303,13 @@ def upgrade() -> None:
             "CREATE INDEX idx_research_items_strategic_score "
             "ON research_items (strategic_relevance_score DESC NULLS LAST)"
         )
-        op.execute(
-            "CREATE INDEX idx_research_items_created_at "
-            "ON research_items (created_at DESC)"
-        )
+        op.execute("CREATE INDEX idx_research_items_created_at ON research_items (created_at DESC)")
         op.execute(
             "CREATE INDEX idx_research_items_processing_ts "
             "ON research_items (processing_timestamp DESC NULLS LAST)"
         )
-        op.execute(
-            "CREATE INDEX idx_ingestion_runs_started_at "
-            "ON ingestion_runs (started_at DESC)"
-        )
-        op.execute(
-            "CREATE INDEX idx_daily_digests_date "
-            "ON daily_digests (digest_date DESC)"
-        )
+        op.execute("CREATE INDEX idx_ingestion_runs_started_at ON ingestion_runs (started_at DESC)")
+        op.execute("CREATE INDEX idx_daily_digests_date ON daily_digests (digest_date DESC)")
 
         # Composite indexes
         op.execute(

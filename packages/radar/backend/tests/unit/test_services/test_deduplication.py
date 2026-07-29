@@ -60,8 +60,20 @@ class TestFindDoiDuplicate:
 
     def test_finds_exact_doi_match(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/test.1", normalized_title="title one", source_id="pubmed"),
-            ExistingItem(id="item-2", content_hash="bbb", doi="10.1000/test.2", normalized_title="title two", source_id="crossref"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/test.1",
+                normalized_title="title one",
+                source_id="pubmed",
+            ),
+            ExistingItem(
+                id="item-2",
+                content_hash="bbb",
+                doi="10.1000/test.2",
+                normalized_title="title two",
+                source_id="crossref",
+            ),
         ]
         match = find_doi_duplicate("10.1000/test.1", existing)
         assert match is not None
@@ -69,7 +81,13 @@ class TestFindDoiDuplicate:
 
     def test_case_insensitive_doi_match(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/TEST.1", normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/TEST.1",
+                normalized_title="title",
+                source_id="pubmed",
+            ),
         ]
         match = find_doi_duplicate("10.1000/test.1", existing)
         assert match is not None
@@ -77,28 +95,48 @@ class TestFindDoiDuplicate:
 
     def test_no_match_when_doi_absent(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/test.1", normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/test.1",
+                normalized_title="title",
+                source_id="pubmed",
+            ),
         ]
         match = find_doi_duplicate(None, existing)
         assert match is None
 
     def test_no_match_when_doi_empty(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/test.1", normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/test.1",
+                normalized_title="title",
+                source_id="pubmed",
+            ),
         ]
         match = find_doi_duplicate("", existing)
         assert match is None
 
     def test_no_match_when_existing_has_no_doi(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1", content_hash="aaa", doi=None, normalized_title="title", source_id="pubmed"
+            ),
         ]
         match = find_doi_duplicate("10.1000/test.1", existing)
         assert match is None
 
     def test_no_match_when_different_doi(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/test.99", normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/test.99",
+                normalized_title="title",
+                source_id="pubmed",
+            ),
         ]
         match = find_doi_duplicate("10.1000/test.1", existing)
         assert match is None
@@ -110,7 +148,13 @@ class TestFindDoiDuplicate:
     def test_cross_source_doi_match(self) -> None:
         """DOI match across different sources is the primary use case."""
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi="10.1000/test.1", normalized_title="title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi="10.1000/test.1",
+                normalized_title="title",
+                source_id="pubmed",
+            ),
         ]
         match = find_doi_duplicate("10.1000/test.1", existing)
         assert match is not None
@@ -125,7 +169,13 @@ class TestFindFuzzyTitleMatch:
 
     def test_exact_title_match(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="orthodontic tooth movement in adults", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adults",
+                source_id="pubmed",
+            ),
         ]
         match, score = find_fuzzy_title_match("orthodontic tooth movement in adults", existing)
         assert match is not None
@@ -134,15 +184,29 @@ class TestFindFuzzyTitleMatch:
 
     def test_near_match_above_threshold(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="orthodontic tooth movement in adult patients", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adult patients",
+                source_id="pubmed",
+            ),
         ]
-        match, score = find_fuzzy_title_match("orthodontic tooth movement in adults", existing, threshold=0.85)
+        match, score = find_fuzzy_title_match(
+            "orthodontic tooth movement in adults", existing, threshold=0.85
+        )
         assert match is not None
         assert score >= 0.85
 
     def test_below_threshold_returns_none(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="clear aligner therapy outcomes", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="clear aligner therapy outcomes",
+                source_id="pubmed",
+            ),
         ]
         match, score = find_fuzzy_title_match("orthodontic tooth movement in adults", existing)
         assert match is None
@@ -150,14 +214,18 @@ class TestFindFuzzyTitleMatch:
 
     def test_empty_candidate_title(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="some title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1", content_hash="aaa", doi=None, normalized_title="some title", source_id="pubmed"
+            ),
         ]
         match, score = find_fuzzy_title_match("", existing)
         assert match is None
 
     def test_none_candidate_title(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="some title", source_id="pubmed"),
+            ExistingItem(
+                id="item-1", content_hash="aaa", doi=None, normalized_title="some title", source_id="pubmed"
+            ),
         ]
         match, score = find_fuzzy_title_match(None, existing)
         assert match is None
@@ -169,14 +237,22 @@ class TestFindFuzzyTitleMatch:
     def test_skips_items_with_empty_titles(self) -> None:
         existing = [
             ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="", source_id="pubmed"),
-            ExistingItem(id="item-2", content_hash="bbb", doi=None, normalized_title=None, source_id="crossref"),
+            ExistingItem(
+                id="item-2", content_hash="bbb", doi=None, normalized_title=None, source_id="crossref"
+            ),
         ]
         match, score = find_fuzzy_title_match("some title", existing)
         assert match is None
 
     def test_unicode_titles(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="análisis de la oclusión dental en pacientes", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="análisis de la oclusión dental en pacientes",
+                source_id="pubmed",
+            ),
         ]
         match, score = find_fuzzy_title_match("análisis de la oclusión dental en pacientes", existing)
         assert match is not None
@@ -184,11 +260,31 @@ class TestFindFuzzyTitleMatch:
 
     def test_best_match_selected_from_multiple(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="totally different topic about chemistry", source_id="pubmed"),
-            ExistingItem(id="item-2", content_hash="bbb", doi=None, normalized_title="orthodontic tooth movement in adult patients", source_id="crossref"),
-            ExistingItem(id="item-3", content_hash="ccc", doi=None, normalized_title="orthodontic tooth movement in adults a review", source_id="semantic_scholar"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="totally different topic about chemistry",
+                source_id="pubmed",
+            ),
+            ExistingItem(
+                id="item-2",
+                content_hash="bbb",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adult patients",
+                source_id="crossref",
+            ),
+            ExistingItem(
+                id="item-3",
+                content_hash="ccc",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adults a review",
+                source_id="semantic_scholar",
+            ),
         ]
-        match, score = find_fuzzy_title_match("orthodontic tooth movement in adults", existing, threshold=0.85)
+        match, score = find_fuzzy_title_match(
+            "orthodontic tooth movement in adults", existing, threshold=0.85
+        )
         assert match is not None
         # Should pick the closest match
         assert match.id in ("item-2", "item-3")
@@ -196,14 +292,24 @@ class TestFindFuzzyTitleMatch:
 
     def test_custom_threshold(self) -> None:
         existing = [
-            ExistingItem(id="item-1", content_hash="aaa", doi=None, normalized_title="orthodontic tooth movement in adult patients with periodontitis", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="aaa",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adult patients with periodontitis",
+                source_id="pubmed",
+            ),
         ]
         # With high threshold, should not match
-        match_high, _ = find_fuzzy_title_match("orthodontic tooth movement in adults", existing, threshold=0.99)
+        match_high, _ = find_fuzzy_title_match(
+            "orthodontic tooth movement in adults", existing, threshold=0.99
+        )
         assert match_high is None
 
         # With lower threshold, should match
-        match_low, score_low = find_fuzzy_title_match("orthodontic tooth movement in adults", existing, threshold=0.70)
+        match_low, score_low = find_fuzzy_title_match(
+            "orthodontic tooth movement in adults", existing, threshold=0.70
+        )
         assert match_low is not None
         assert score_low >= 0.70
 
@@ -223,7 +329,13 @@ class TestDeduplicate:
             normalized_title="orthodontic tooth movement",
         )
         existing = [
-            ExistingItem(id="item-1", content_hash=content_hash, doi="10.1000/test.1", normalized_title="orthodontic tooth movement", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash=content_hash,
+                doi="10.1000/test.1",
+                normalized_title="orthodontic tooth movement",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "exact_duplicate"
@@ -238,7 +350,13 @@ class TestDeduplicate:
             normalized_title="orthodontic tooth movement",
         )
         existing = [
-            ExistingItem(id="item-1", content_hash="different_hash", doi="10.1000/test.1", normalized_title="orthodontic tooth movement", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="different_hash",
+                doi="10.1000/test.1",
+                normalized_title="orthodontic tooth movement",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "likely_duplicate"
@@ -253,7 +371,13 @@ class TestDeduplicate:
             normalized_title="orthodontic tooth movement in adults a systematic review",
         )
         existing = [
-            ExistingItem(id="item-1", content_hash="different_hash", doi=None, normalized_title="orthodontic tooth movement in adults: a systematic review", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="different_hash",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adults: a systematic review",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "likely_duplicate"
@@ -268,7 +392,13 @@ class TestDeduplicate:
             normalized_title="a completely unique title about something",
         )
         existing = [
-            ExistingItem(id="item-1", content_hash="different_hash", doi="10.1000/other", normalized_title="clear aligner therapy review", source_id="pubmed"),
+            ExistingItem(
+                id="item-1",
+                content_hash="different_hash",
+                doi="10.1000/other",
+                normalized_title="clear aligner therapy review",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "new"
@@ -297,8 +427,20 @@ class TestDeduplicate:
             normalized_title="orthodontic tooth movement",
         )
         existing = [
-            ExistingItem(id="item-doi", content_hash="other_hash", doi="10.1000/test.1", normalized_title="orthodontic tooth movement", source_id="crossref"),
-            ExistingItem(id="item-exact", content_hash=content_hash, doi="10.1000/other", normalized_title="different title", source_id="pubmed"),
+            ExistingItem(
+                id="item-doi",
+                content_hash="other_hash",
+                doi="10.1000/test.1",
+                normalized_title="orthodontic tooth movement",
+                source_id="crossref",
+            ),
+            ExistingItem(
+                id="item-exact",
+                content_hash=content_hash,
+                doi="10.1000/other",
+                normalized_title="different title",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "exact_duplicate"
@@ -313,8 +455,20 @@ class TestDeduplicate:
             normalized_title="orthodontic tooth movement in adults",
         )
         existing = [
-            ExistingItem(id="item-fuzzy", content_hash="hash1", doi=None, normalized_title="orthodontic tooth movement in adults", source_id="semantic_scholar"),
-            ExistingItem(id="item-doi", content_hash="hash2", doi="10.1000/test.1", normalized_title="different title entirely", source_id="pubmed"),
+            ExistingItem(
+                id="item-fuzzy",
+                content_hash="hash1",
+                doi=None,
+                normalized_title="orthodontic tooth movement in adults",
+                source_id="semantic_scholar",
+            ),
+            ExistingItem(
+                id="item-doi",
+                content_hash="hash2",
+                doi="10.1000/test.1",
+                normalized_title="different title entirely",
+                source_id="pubmed",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         assert verdict.verdict == "likely_duplicate"
@@ -329,7 +483,13 @@ class TestDeduplicate:
             normalized_title=None,
         )
         existing = [
-            ExistingItem(id="item-1", content_hash="different_hash", doi="10.1000/test.1", normalized_title="some title", source_id="crossref"),
+            ExistingItem(
+                id="item-1",
+                content_hash="different_hash",
+                doi="10.1000/test.1",
+                normalized_title="some title",
+                source_id="crossref",
+            ),
         ]
         verdict = deduplicate(candidate, existing)
         # No hash match (different source+id), no DOI, no title → new

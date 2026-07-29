@@ -9,6 +9,7 @@ import uuid
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DatabaseError
 
 from alembic import command
 
@@ -60,9 +61,8 @@ class TestSourceCheckConstraints:
 
     def test_invalid_source_type_rejected(self, db_engine):
         """Invalid source_type is rejected by chk_source_type."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_source(conn, source_type="graphql")
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_source(conn, source_type="graphql")
 
     def test_valid_categories(self, db_engine):
         """All valid category values are accepted."""
@@ -72,9 +72,8 @@ class TestSourceCheckConstraints:
 
     def test_invalid_category_rejected(self, db_engine):
         """Invalid category is rejected by chk_source_category."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_source(conn, category="blog")
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_source(conn, category="blog")
 
     def test_priority_valid_range(self, db_engine):
         """Priority values 1 through 10 are accepted."""
@@ -84,15 +83,13 @@ class TestSourceCheckConstraints:
 
     def test_priority_zero_rejected(self, db_engine):
         """Priority 0 is rejected by chk_source_priority."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_source(conn, priority=0)
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_source(conn, priority=0)
 
     def test_priority_eleven_rejected(self, db_engine):
         """Priority 11 is rejected by chk_source_priority."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_source(conn, priority=11)
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_source(conn, priority=11)
 
 
 # ── Research Items CHECK constraints ───────────────────────────────────────
@@ -110,7 +107,7 @@ def _insert_research_item(conn, source_id, **overrides):
     }
     defaults.update(overrides)
     cols = ", ".join(defaults.keys())
-    params = ", ".join(f":{k}" for k in defaults.keys())
+    params = ", ".join(f":{k}" for k in defaults)
     conn.execute(text(f"INSERT INTO research_items ({cols}) VALUES ({params})"), defaults)
     conn.commit()
 
@@ -128,8 +125,13 @@ class TestResearchItemCheckConstraints:
     def test_valid_document_types(self):
         """All valid document_type values are accepted."""
         valid_types = (
-            "paper", "review", "clinical_trial", "preprint",
-            "university_publication", "journal_article", "strategic_signal",
+            "paper",
+            "review",
+            "clinical_trial",
+            "preprint",
+            "university_publication",
+            "journal_article",
+            "strategic_signal",
         )
         with self.engine.connect() as conn:
             for dt in valid_types:
@@ -137,139 +139,112 @@ class TestResearchItemCheckConstraints:
 
     def test_invalid_document_type_rejected(self):
         """Invalid document_type is rejected by chk_document_type."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, document_type="blog_post")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, document_type="blog_post")
 
     def test_valid_review_statuses(self):
         """All valid review_status values are accepted."""
         for rs in ("relevant", "review", "discarded", "opportunity", "follow_up"):
             with self.engine.connect() as conn:
-                _insert_research_item(
-                    conn, self.source_id, id=str(uuid.uuid4()), review_status=rs
-                )
+                _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()), review_status=rs)
 
     def test_invalid_review_status_rejected(self):
         """Invalid review_status is rejected by chk_review_status."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, review_status="approved")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, review_status="approved")
 
     def test_valid_hype_risk_values(self):
         """All valid hype_risk values (including NULL) are accepted."""
         with self.engine.connect() as conn:
             for hr in ("low", "medium", "high"):
-                _insert_research_item(
-                    conn, self.source_id, id=str(uuid.uuid4()), hype_risk=hr
-                )
+                _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()), hype_risk=hr)
             # NULL is also valid
             _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()))
 
     def test_invalid_hype_risk_rejected(self):
         """Invalid hype_risk is rejected by chk_hype_risk."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, hype_risk="extreme")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, hype_risk="extreme")
 
     def test_valid_time_horizon_values(self):
         """All valid time_horizon values (including NULL) are accepted."""
         with self.engine.connect() as conn:
             for th in ("immediate", "short_term", "medium_term", "long_term"):
-                _insert_research_item(
-                    conn, self.source_id, id=str(uuid.uuid4()), time_horizon=th
-                )
+                _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()), time_horizon=th)
 
     def test_invalid_time_horizon_rejected(self):
         """Invalid time_horizon is rejected by chk_time_horizon."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, time_horizon="infinite")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, time_horizon="infinite")
 
     def test_valid_recommended_actions(self):
         """All valid recommended_action values are accepted."""
         with self.engine.connect() as conn:
             for ra in ("monitor", "investigate", "test", "discard"):
-                _insert_research_item(
-                    conn, self.source_id, id=str(uuid.uuid4()), recommended_action=ra
-                )
+                _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()), recommended_action=ra)
 
     def test_invalid_recommended_action_rejected(self):
         """Invalid recommended_action is rejected by chk_recommended_action."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, recommended_action="deploy")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, recommended_action="deploy")
 
     def test_confidence_level_valid_range(self):
         """Confidence level 0.0 to 1.0 is accepted."""
         with self.engine.connect() as conn:
             for cl in (0.0, 0.5, 1.0):
-                _insert_research_item(
-                    conn, self.source_id, id=str(uuid.uuid4()), confidence_level=cl
-                )
+                _insert_research_item(conn, self.source_id, id=str(uuid.uuid4()), confidence_level=cl)
 
     def test_confidence_level_negative_rejected(self):
         """Negative confidence_level is rejected by chk_confidence_level."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, confidence_level=-0.1)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, confidence_level=-0.1)
 
     def test_confidence_level_above_one_rejected(self):
         """Confidence level > 1 is rejected by chk_confidence_level."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(conn, self.source_id, confidence_level=1.5)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, confidence_level=1.5)
 
     def test_scientific_score_valid_range(self):
         """Scientific strength score 0.0 to 10.0 is accepted."""
         with self.engine.connect() as conn:
             for score in (0.0, 5.5, 10.0):
                 _insert_research_item(
-                    conn, self.source_id,
+                    conn,
+                    self.source_id,
                     id=str(uuid.uuid4()),
                     scientific_strength_score=score,
                 )
 
     def test_scientific_score_negative_rejected(self):
         """Negative scientific score is rejected by chk_scientific_strength_score."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(
-                    conn, self.source_id, scientific_strength_score=-1.0
-                )
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, scientific_strength_score=-1.0)
 
     def test_scientific_score_above_ten_rejected(self):
         """Scientific score > 10 is rejected by chk_scientific_strength_score."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(
-                    conn, self.source_id, scientific_strength_score=10.5
-                )
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, scientific_strength_score=10.5)
 
     def test_strategic_score_valid_range(self):
         """Strategic relevance score 0.0 to 10.0 is accepted."""
         with self.engine.connect() as conn:
             for score in (0.0, 7.25, 10.0):
                 _insert_research_item(
-                    conn, self.source_id,
+                    conn,
+                    self.source_id,
                     id=str(uuid.uuid4()),
                     strategic_relevance_score=score,
                 )
 
     def test_strategic_score_negative_rejected(self):
         """Negative strategic score is rejected by chk_strategic_relevance_score."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(
-                    conn, self.source_id, strategic_relevance_score=-0.5
-                )
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, strategic_relevance_score=-0.5)
 
     def test_strategic_score_above_ten_rejected(self):
         """Strategic score > 10 is rejected by chk_strategic_relevance_score."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_research_item(
-                    conn, self.source_id, strategic_relevance_score=11.0
-                )
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_research_item(conn, self.source_id, strategic_relevance_score=11.0)
 
 
 # ── Ingestion Runs CHECK constraints ──────────────────────────────────────
@@ -288,7 +263,7 @@ def _insert_ingestion_run(conn, source_id, **overrides):
     }
     defaults.update(overrides)
     cols = ", ".join(defaults.keys())
-    params = ", ".join(f":{k}" for k in defaults.keys())
+    params = ", ".join(f":{k}" for k in defaults)
     conn.execute(text(f"INSERT INTO ingestion_runs ({cols}) VALUES ({params})"), defaults)
     conn.commit()
 
@@ -306,21 +281,19 @@ class TestIngestionRunCheckConstraints:
         """All valid status values are accepted."""
         with self.engine.connect() as conn:
             for status in ("running", "completed", "failed"):
-                _insert_ingestion_run(
-                    conn, self.source_id, id=str(uuid.uuid4()), status=status
-                )
+                _insert_ingestion_run(conn, self.source_id, id=str(uuid.uuid4()), status=status)
 
     def test_invalid_status_rejected(self):
         """Invalid status is rejected by chk_run_status."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_ingestion_run(conn, self.source_id, status="cancelled")
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_ingestion_run(conn, self.source_id, status="cancelled")
 
     def test_items_non_negative_accepted(self):
         """Zero and positive item counts are accepted."""
         with self.engine.connect() as conn:
             _insert_ingestion_run(
-                conn, self.source_id,
+                conn,
+                self.source_id,
                 items_fetched=100,
                 items_new=50,
                 items_duplicate=30,
@@ -329,27 +302,23 @@ class TestIngestionRunCheckConstraints:
 
     def test_items_fetched_negative_rejected(self):
         """Negative items_fetched is rejected by chk_items_non_negative."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_ingestion_run(conn, self.source_id, items_fetched=-1)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_ingestion_run(conn, self.source_id, items_fetched=-1)
 
     def test_items_new_negative_rejected(self):
         """Negative items_new is rejected by chk_items_non_negative."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_ingestion_run(conn, self.source_id, items_new=-1)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_ingestion_run(conn, self.source_id, items_new=-1)
 
     def test_items_duplicate_negative_rejected(self):
         """Negative items_duplicate is rejected by chk_items_non_negative."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_ingestion_run(conn, self.source_id, items_duplicate=-1)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_ingestion_run(conn, self.source_id, items_duplicate=-1)
 
     def test_items_processed_negative_rejected(self):
         """Negative items_processed is rejected by chk_items_non_negative."""
-        with self.engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_ingestion_run(conn, self.source_id, items_processed=-1)
+        with self.engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_ingestion_run(conn, self.source_id, items_processed=-1)
 
 
 # ── Daily Digests CHECK constraints ───────────────────────────────────────
@@ -366,7 +335,7 @@ def _insert_daily_digest(conn, **overrides):
     }
     defaults.update(overrides)
     cols = ", ".join(defaults.keys())
-    params = ", ".join(f":{k}" for k in defaults.keys())
+    params = ", ".join(f":{k}" for k in defaults)
     conn.execute(text(f"INSERT INTO daily_digests ({cols}) VALUES ({params})"), defaults)
     conn.commit()
 
@@ -382,9 +351,8 @@ class TestDailyDigestCheckConstraints:
 
     def test_invalid_delivery_channel_rejected(self, db_engine):
         """Invalid delivery_channel is rejected by chk_delivery_channel."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_daily_digest(conn, delivery_channel="slack")
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_daily_digest(conn, delivery_channel="slack")
 
     def test_valid_delivery_statuses(self, db_engine):
         """All valid delivery_status values are accepted."""
@@ -394,9 +362,8 @@ class TestDailyDigestCheckConstraints:
 
     def test_invalid_delivery_status_rejected(self, db_engine):
         """Invalid delivery_status is rejected by chk_delivery_status."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_daily_digest(conn, delivery_status="cancelled")
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_daily_digest(conn, delivery_status="cancelled")
 
 
 # ── Configuration CHECK constraints ───────────────────────────────────────
@@ -412,7 +379,7 @@ def _insert_configuration(conn, **overrides):
     }
     defaults.update(overrides)
     cols = ", ".join(defaults.keys())
-    params = ", ".join(f":{k}" for k in defaults.keys())
+    params = ", ".join(f":{k}" for k in defaults)
     conn.execute(text(f"INSERT INTO configuration ({cols}) VALUES ({params})"), defaults)
     conn.commit()
 
@@ -428,6 +395,5 @@ class TestConfigurationCheckConstraints:
 
     def test_invalid_category_rejected(self, db_engine):
         """Invalid category is rejected by chk_config_category."""
-        with db_engine.connect() as conn:
-            with pytest.raises(Exception):
-                _insert_configuration(conn, category="custom")
+        with db_engine.connect() as conn, pytest.raises(DatabaseError):
+            _insert_configuration(conn, category="custom")

@@ -35,9 +35,7 @@ async def get_dashboard_stats(
 
     # Count by thematic tag (unnest JSONB array in Python)
     signals_by_theme: dict[str, int] = {}
-    tags_query = select(ResearchItem.thematic_tags).where(
-        ResearchItem.thematic_tags.isnot(None)
-    )
+    tags_query = select(ResearchItem.thematic_tags).where(ResearchItem.thematic_tags.isnot(None))
     tags_result = await db.execute(tags_query)
     for (tags,) in tags_result.all():
         if isinstance(tags, list):
@@ -46,9 +44,7 @@ async def get_dashboard_stats(
 
     # Count by strategic bucket (unnest JSONB array in Python)
     signals_by_bucket: dict[str, int] = {}
-    buckets_query = select(ResearchItem.strategic_buckets).where(
-        ResearchItem.strategic_buckets.isnot(None)
-    )
+    buckets_query = select(ResearchItem.strategic_buckets).where(ResearchItem.strategic_buckets.isnot(None))
     buckets_result = await db.execute(buckets_query)
     for (buckets,) in buckets_result.all():
         if isinstance(buckets, list):
@@ -66,11 +62,7 @@ async def get_dashboard_stats(
     avg_strategic = float(avg_row[1]) if avg_row[1] is not None else None
 
     # Recent activity — last 10 items by created_at
-    recent_query = (
-        select(ResearchItem)
-        .order_by(ResearchItem.created_at.desc())
-        .limit(10)
-    )
+    recent_query = select(ResearchItem).order_by(ResearchItem.created_at.desc()).limit(10)
     recent_result = await db.execute(recent_query)
     recent_items = recent_result.scalars().all()
     recent_activity = [

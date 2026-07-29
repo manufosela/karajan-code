@@ -181,13 +181,15 @@ class CrossrefConnector(BaseConnector):
         for author in item.get("author", []):
             affiliations = author.get("affiliation", [])
             affiliation = affiliations[0].get("name", "") if affiliations else ""
-            authors.append({
-                "given": author.get("given", ""),
-                "family": author.get("family", ""),
-                "sequence": author.get("sequence", ""),
-                "affiliation": affiliation,
-                "orcid": author.get("ORCID"),
-            })
+            authors.append(
+                {
+                    "given": author.get("given", ""),
+                    "family": author.get("family", ""),
+                    "sequence": author.get("sequence", ""),
+                    "affiliation": affiliation,
+                    "orcid": author.get("ORCID"),
+                }
+            )
 
         # Journal
         container_titles = item.get("container-title", [])

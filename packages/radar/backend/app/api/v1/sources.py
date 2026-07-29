@@ -38,9 +38,7 @@ async def get_source_detail(
 ) -> SourceDetailResponse:
     """Get source detail with last ingestion stats."""
     result = await db.execute(
-        select(Source)
-        .where(Source.id == source_id)
-        .options(selectinload(Source.ingestion_runs))
+        select(Source).where(Source.id == source_id).options(selectinload(Source.ingestion_runs))
     )
     source = result.scalar_one_or_none()
     if source is None:

@@ -4,7 +4,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,11 +41,14 @@ class TestGetSchedule:
     """Tests for GET /api/v1/configuration/schedule."""
 
     async def test_get_schedule_defaults(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns default schedule when no config exists in DB."""
         response = await client.get(
-            "/api/v1/configuration/schedule", headers=auth_headers,
+            "/api/v1/configuration/schedule",
+            headers=auth_headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -76,7 +78,8 @@ class TestGetSchedule:
         await test_session.commit()
 
         response = await client.get(
-            "/api/v1/configuration/schedule", headers=auth_headers,
+            "/api/v1/configuration/schedule",
+            headers=auth_headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -95,7 +98,9 @@ class TestUpdateSchedule:
     """Tests for PUT /api/v1/configuration/schedule."""
 
     async def test_update_schedule_daily(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Update to a daily schedule."""
         response = await client.put(
@@ -116,7 +121,9 @@ class TestUpdateSchedule:
         assert len(data["next_runs"]) == 3
 
     async def test_update_schedule_weekly(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Update to a weekly schedule."""
         response = await client.put(
@@ -135,7 +142,9 @@ class TestUpdateSchedule:
         assert data["cron_expression"] == "00 08 * * 1,3,5"
 
     async def test_update_schedule_monthly(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Update to a monthly schedule."""
         response = await client.put(
@@ -155,7 +164,9 @@ class TestUpdateSchedule:
         assert data["day_of_month"] == 15
 
     async def test_update_schedule_custom(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Update to a custom cron schedule."""
         response = await client.put(
@@ -174,7 +185,9 @@ class TestUpdateSchedule:
         assert data["cron_expression"] == "*/30 * * * *"
 
     async def test_update_schedule_validates_weekly_days(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns 422 if weekly has no days_of_week."""
         response = await client.put(
@@ -190,7 +203,9 @@ class TestUpdateSchedule:
         assert response.status_code == 422
 
     async def test_update_schedule_validates_invalid_day(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns 422 for invalid day abbreviation."""
         response = await client.put(
@@ -206,7 +221,9 @@ class TestUpdateSchedule:
         assert response.status_code == 422
 
     async def test_update_schedule_validates_monthly_day(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns 422 if monthly has no day_of_month."""
         response = await client.put(
@@ -221,7 +238,9 @@ class TestUpdateSchedule:
         assert response.status_code == 422
 
     async def test_update_schedule_validates_monthly_day_range(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns 422 if day_of_month is out of range."""
         response = await client.put(
@@ -237,7 +256,9 @@ class TestUpdateSchedule:
         assert response.status_code == 422
 
     async def test_update_schedule_validates_time(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Returns 422 for invalid time format."""
         response = await client.put(
@@ -252,7 +273,9 @@ class TestUpdateSchedule:
         assert response.status_code == 422
 
     async def test_update_schedule_persists(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Updated schedule persists across GET calls."""
         await client.put(
@@ -267,7 +290,8 @@ class TestUpdateSchedule:
         )
 
         response = await client.get(
-            "/api/v1/configuration/schedule", headers=auth_headers,
+            "/api/v1/configuration/schedule",
+            headers=auth_headers,
         )
         assert response.status_code == 200
         data = response.json()
@@ -275,7 +299,9 @@ class TestUpdateSchedule:
         assert data["days_of_week"] == ["sat"]
 
     async def test_update_schedule_includes_sync_status(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Response includes sync_status field after update."""
         response = await client.put(
@@ -296,7 +322,9 @@ class TestRunNow:
     """Tests for POST /api/v1/configuration/schedule/run-now."""
 
     async def test_run_now_success(
-        self, client: AsyncClient, auth_headers: dict[str, str],
+        self,
+        client: AsyncClient,
+        auth_headers: dict[str, str],
     ) -> None:
         """Run-now returns success and status running."""
         response = await client.post(

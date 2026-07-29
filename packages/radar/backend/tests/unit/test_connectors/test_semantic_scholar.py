@@ -58,9 +58,7 @@ class TestSemanticScholarParseJSON:
         assert item["fields_of_study"] == ["Medicine", "Computer Science"]
         assert item["publication_date"] == "2024-06-15"
 
-    def test_parse_authors(
-        self, connector: SemanticScholarConnector, ss_response: dict[str, Any]
-    ) -> None:
+    def test_parse_authors(self, connector: SemanticScholarConnector, ss_response: dict[str, Any]) -> None:
         """Authors are parsed with name and authorId."""
         items = connector.parse(ss_response)
         authors = items[0]["authors"]
@@ -102,7 +100,10 @@ class TestSemanticScholarParseJSON:
         assert items[0]["open_access_pdf_url"] is None
 
         # Second paper has open access PDF
-        assert items[1]["open_access_pdf_url"] == "https://link.springer.com/content/pdf/10.1007/s10856-024-06789-3.pdf"
+        assert (
+            items[1]["open_access_pdf_url"]
+            == "https://link.springer.com/content/pdf/10.1007/s10856-024-06789-3.pdf"
+        )
 
     def test_parse_second_item_fields(
         self, connector: SemanticScholarConnector, ss_response: dict[str, Any]
@@ -176,7 +177,10 @@ class TestSemanticScholarNormalize:
         assert paper.journal_or_origin == "American Journal of Orthodontics and Dentofacial Orthopedics"
         assert paper.document_type == "paper"
         assert paper.language == "en"
-        assert paper.original_url == "https://www.semanticscholar.org/paper/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+        assert (
+            paper.original_url
+            == "https://www.semanticscholar.org/paper/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+        )
         assert paper.nct_id is None
         assert paper.arxiv_id is None
 
@@ -204,7 +208,10 @@ class TestSemanticScholarNormalize:
 
         assert paper.doi == "10.1007/s10856-024-06789-3"
         assert paper.pmid == "39056712"
-        assert paper.raw_data["open_access_pdf_url"] == "https://link.springer.com/content/pdf/10.1007/s10856-024-06789-3.pdf"
+        assert (
+            paper.raw_data["open_access_pdf_url"]
+            == "https://link.springer.com/content/pdf/10.1007/s10856-024-06789-3.pdf"
+        )
         assert paper.raw_data["citation_count"] == 8
         assert paper.raw_data["reference_count"] == 63
 
@@ -290,9 +297,7 @@ class TestSemanticScholarFetchMocked:
         single_page.pop("next", None)
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=single_page)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=single_page))
 
             connector = SemanticScholarConnector()
             try:
@@ -363,9 +368,7 @@ class TestSemanticScholarFetchMocked:
         single_page.pop("next", None)
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=single_page)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=single_page))
 
             connector = SemanticScholarConnector()
             try:
@@ -387,9 +390,7 @@ class TestSemanticScholarFetchMocked:
         single_page.pop("next", None)
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=single_page)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=single_page))
 
             connector = SemanticScholarConnector()
             try:
@@ -416,9 +417,7 @@ class TestSemanticScholarFetchMocked:
         }
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=response)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=response))
 
             connector = SemanticScholarConnector()
             try:
@@ -439,9 +438,7 @@ class TestSemanticScholarFetchMocked:
         }
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=response)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=response))
 
             connector = SemanticScholarConnector()
             try:
@@ -459,9 +456,7 @@ class TestSemanticScholarFetchMocked:
         single_page.pop("next", None)
 
         with respx.mock(base_url="https://api.semanticscholar.org/graph/v1") as respx_mock:
-            route = respx_mock.get("/paper/search").mock(
-                return_value=httpx.Response(200, json=single_page)
-            )
+            route = respx_mock.get("/paper/search").mock(return_value=httpx.Response(200, json=single_page))
 
             connector = SemanticScholarConnector()
             try:
