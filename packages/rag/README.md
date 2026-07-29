@@ -4,13 +4,21 @@
 [![Release](https://img.shields.io/github/v/release/manufosela/karajan-rag?include_prereleases&sort=semver)](https://github.com/manufosela/karajan-rag/releases)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/node/v/karajan-rag.svg)](./package.json)
-[![Status: experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#)
+[![npm](https://img.shields.io/npm/v/karajan-rag.svg?label=npm)](https://www.npmjs.com/package/karajan-rag)
 
-> ⚠️ **Proyecto en fase de desarrollo temprano.** La API, la estructura de carpetas y el set de proveedores soportados pueden cambiar sin previo aviso. No apto para uso productivo todavía.
+> **API estable desde la 1.0.0**: semver estricto, [política de deprecación](./docs/DEPRECATION.md) con 2 minors de preaviso y test de contrato de la superficie pública.
 
-Orquestador multi-agente de CLIs de IA para construir pipelines **RAG** (Retrieval-Augmented Generation). Cada fase del pipeline (chunking, reranking, generación, evaluación…) puede delegarse al CLI/agente más idóneo o a código determinista, con adaptadores desacoplados por proveedor.
+**Motor de estrategias de contexto** para construir RAGs sobre código, documentos o datos. La pregunta de fondo de todo sistema de recuperación es *qué contexto viaja al modelo* — y karajan-rag no impone una única respuesta: ofrece **tres estrategias** sobre el mismo corpus indexado, con las mismas garantías de sensibilidad y redacción PII en todas.
 
-Es un proyecto **hermano** — y deliberadamente independiente — de [Karajan Code](https://github.com/manufosela/karajan-code), del que se toman prestados patrones (Role, AdapterRegistry) con atribución explícita.
+| Estrategia | Qué viaja al modelo | Cuándo |
+|-----------|--------------------|--------|
+| **`rag`** (default) | Los top-k chunks del retrieval híbrido (vector + BM25) | Corpus grande, preguntas puntuales — cirugía |
+| **`cag`** | El **corpus completo**, en contexto determinista y estable (prompt-cache friendly) | Corpus que cabe en contexto, preguntas de visión global |
+| **`hybrid`** | Los **ficheros completos** que seleccionó el retrieval (exclusiones declaradas) | Los chunks se quedan cortos pero el corpus entero no cabe |
+
+¿Dudas con tu corpus? `karajan-rag eval golden.json --compare-modes` recomienda estrategia **con números** (recall del retrieval vs coste de contexto). Detalle de cada modo en [docs/easy-rag.md](./docs/easy-rag.md).
+
+Debajo del motor: orquestador multi-agente de CLIs de IA donde cada fase del pipeline (chunking, reranking, generación, evaluación…) puede delegarse al CLI/agente más idóneo o a código determinista, con adaptadores desacoplados por proveedor. Proyecto **hermano** — y deliberadamente independiente — de [Karajan Code](https://github.com/manufosela/karajan-code), del que se toman prestados patrones (Role, AdapterRegistry) con atribución explícita.
 
 ## Proveedores
 
