@@ -20,6 +20,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.profiles.default_prompts import DEFAULT_PROMPTS
 from app.profiles.mustache import outer_tags_in, tags_in
 
 # ---------------------------------------------------------------------------
@@ -252,14 +253,28 @@ class PromptTemplate(_FrozenModel):
         return outer_tags_in(self.template)
 
 
-class PromptSet(_FrozenModel):
-    """The five prompts driving the analysis pipeline."""
+def _default_prompt(name: str) -> PromptTemplate:
+    """Build one of the shared default templates."""
+    return PromptTemplate.model_validate(DEFAULT_PROMPTS[name])
 
-    classification: PromptTemplate
-    strategic: PromptTemplate
-    impact: PromptTemplate
-    scoring: PromptTemplate
-    summary: PromptTemplate
+
+class PromptSet(_FrozenModel):
+    """The five prompts driving the analysis pipeline.
+
+    Each defaults to a domain-neutral template that renders its definitions
+    from the profile's taxonomy and vocabulary, so a new domain only needs to
+    override a prompt when the defaults genuinely do not fit.
+    """
+
+    classification: PromptTemplate = Field(
+        default_factory=lambda: _default_prompt("classification")
+    )
+    strategic: PromptTemplate = Field(
+        default_factory=lambda: _default_prompt("strategic")
+    )
+    impact: PromptTemplate = Field(default_factory=lambda: _default_prompt("impact"))
+    scoring: PromptTemplate = Field(default_factory=lambda: _default_prompt("scoring"))
+    summary: PromptTemplate = Field(default_factory=lambda: _default_prompt("summary"))
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +350,7 @@ class RadarProfile(_FrozenModel):
     vocabulary: Vocabulary
     scoring: ScoringWeights
     sources: list[SourceConfig] = Field(min_length=1)
-    prompts: PromptSet
+    prompts: PromptSet = Field(default_factory=PromptSet)
     llm: LLMSettings
     branding: Branding
     summary: SummarySettings
