@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.2.0 — 2026-07-29
+
+> **Si estás en 0.1.0, actualiza.** Aquella versión tenía la ingesta rota:
+> `karajan-watch ingest` moría con `ENOENT` antes de indexar nada salvo que
+> tuvieras karajan-rag instalado globalmente.
+
+### Nuevo
+
+- **Cuarta señal del impacto: contratos.** Las otras tres son heurísticas
+  (similitud, correlación temporal, juicio LLM); esta busca acoplamiento
+  declarado: identificadores del diff —rutas HTTP y paths de OpenAPI,
+  topics de evento, tablas SQL— buscados **literalmente** en los demás
+  repos. Un fichero con contrato compartido entra al ranking aunque el
+  retrieval no lo hubiera traído, y va por delante del resto; los
+  contratos **rotos** (identificadores que desaparecen) van primero.
+  Configurable con la sección `contracts` (`enabled`, `types`).
+- **Arranque por prompt de agente**: `docs/prompts/start.md`, servido en
+  <https://watch.karajancode.com/start.md>. El agente pregunta lo que solo
+  tú puedes decidir, monta tu repo de despliegue y se detiene a esperarte;
+  nunca maneja tus secretos.
+- `--no-judge` en el CLI para correr solo con señales, sin LLM.
+- El pipeline informa de cada fase (chunks, candidatos, contratos,
+  co-cambios, juicio) en vez de ser una caja negra.
+
+### Corregido
+
+Todo esto salió de ejecutar el producto de verdad contra pgvector con un
+corpus de 13.894 chunks; los tests con dobles no lo veían.
+
+- **La ingesta no funcionaba** salvo con karajan-rag global: el binario de
+  la dependencia se resuelve ahora desde el propio paquete.
+- **El prompt del juicio no estaba acotado**: 88.727 caracteres en un caso
+  real. Ahora tiene topes por señal y declara lo que omite.
+- **El guardia anti-alucinación tumbaba juicios legítimos** apoyados en
+  co-cambios: ahora valida contra las tres señales, no solo el retrieval.
+- **El juicio no tenía timeout**: un adapter lento dejaba el job ocupado
+  hasta el tope del runner.
+- **El proceso nunca terminaba**: el pipeline abría la conexión al store y
+  no la cerraba, así que el job seguía vivo *después* de hacer el trabajo.
+
 ## 0.1.0 — 2026-07-26
 
 Primera versión publicada. Producto completo de las tres fases del diseño:
