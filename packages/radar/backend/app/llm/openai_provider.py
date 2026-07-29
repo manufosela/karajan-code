@@ -75,7 +75,8 @@ class OpenAIProvider(BaseLLMProvider):
             messages=messages,
             response_format={"type": "json_object"},
         )
-        return json.loads(response.content)
+        parsed: dict = json.loads(response.content)
+        return parsed
 
     # ------------------------------------------------------------------
     # Internal helpers

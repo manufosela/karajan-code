@@ -129,9 +129,9 @@ class OllamaProvider(BaseLLMProvider):
         model: str | None = None,
         timeout: float = _DEFAULT_TIMEOUT,
     ) -> None:
-        resolved = base_url or os.getenv("OLLAMA_BASE_URL", _DEFAULT_BASE_URL)
+        resolved: str = base_url or os.getenv("OLLAMA_BASE_URL") or _DEFAULT_BASE_URL
         self.base_url = resolved.rstrip("/")
-        self.model = model or os.getenv("OLLAMA_MODEL", _DEFAULT_MODEL)
+        self.model: str = model or os.getenv("OLLAMA_MODEL") or _DEFAULT_MODEL
         self._timeout = timeout
 
     async def complete(

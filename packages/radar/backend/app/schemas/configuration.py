@@ -33,7 +33,8 @@ class ConfigResponse(BaseModel):
     @classmethod
     def parse_value(cls, v: Any) -> dict[str, Any]:
         if isinstance(v, str):
-            return json.loads(v)
+            parsed: dict[str, Any] = json.loads(v)
+            return parsed
         return v or {}
 
     model_config = {"from_attributes": True}
