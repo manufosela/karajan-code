@@ -193,6 +193,13 @@ import { createRag } from 'karajan-rag';
 const rag = await createRag({ rootDir: './docs' }); // defaults: lancedb + hash
 await rag.index();                                   // incremental, como el CLI
 const { hits } = await rag.query('¿cómo se factura?');
+
+// Respuesta LLM con cualquiera de los tres modos — siempre por el camino
+// guardado (sensitivity policy + redactPII), igual que el CLI:
+const res = await rag.answer('resume la arquitectura', { mode: 'cag' });
+console.log(res.answer, res.adapter, res.sensitivity, res.files);
+// mode: 'rag' (top-k chunks) · 'cag' (corpus completo) · 'hybrid'
+// (ficheros completos elegidos por el retrieval, con `excluded` declarado)
 ```
 
 ### Fastify — endpoint `/ask`
