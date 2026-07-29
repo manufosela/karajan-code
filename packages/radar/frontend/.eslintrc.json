@@ -1,0 +1,26 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-var": "error",
+    "no-eval": "error",
+    "no-new-func": "error",
+    "no-restricted-globals": [
+      "error",
+      { "name": "alert", "message": "Use the app modal, not alert()." },
+      { "name": "confirm", "message": "Use the app modal, not confirm()." },
+      { "name": "prompt", "message": "Use the app modal, not prompt()." },
+      { "name": "escape", "message": "Use encodeURIComponent()." },
+      { "name": "unescape", "message": "Use decodeURIComponent()." }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "document",
+        "property": "write",
+        "message": "Use DOM nodes / Blob URLs, not document.write."
+      },
+      { "property": "substr", "message": "Use slice() or substring(), not substr()." }
+    ]
+  }
+}
