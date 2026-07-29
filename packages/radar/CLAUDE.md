@@ -1,8 +1,9 @@
-# Ortho Frontier Radar - Project Instructions
+# Frontier Radar - Project Instructions
 
 ## Stack
 - Backend: Python 3.12+ / FastAPI / SQLAlchemy 2.0 / Alembic / PostgreSQL
 - Frontend: Next.js 14+ / TypeScript / Tailwind CSS
+- LLM providers: OpenAI, Anthropic, Ollama (local)
 - Testing: pytest (backend), vitest (frontend)
 - Package managers: uv (backend), pnpm (frontend)
 
@@ -12,19 +13,41 @@
 - Run `make lint` to lint everything
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:3000
-- Database: postgresql://ofr_user:ofr_dev_password@localhost:5432/ortho_frontier_radar
+- Database: postgresql://radar_user:radar_dev_password@localhost:5432/frontier_radar
+
+## The Radar Profile is the domain boundary
+
+This codebase must stay domain-neutral. Everything specific to a subject
+matter lives in a Radar Profile (`backend/profiles/<id>.yaml`), never in code:
+
+- Taxonomy: themes, strategic buckets, time horizons
+- Vocabularies: impact levels, hype risks, recommended actions
+- Prompts: Mustache templates that render their own definitions from the profile
+- Sources: which connectors to query and with what
+- Branding: product name, tagline, organisation
+
+**Never hardcode a theme name, a bucket, a search query, a customer name or a
+production hostname.** If you find yourself typing a domain term into a `.py`
+or `.tsx` file, it belongs in the profile instead. The active profile is
+chosen with `ACTIVE_PROFILE`.
+
+Frontend branding comes from `NEXT_PUBLIC_*` build arguments via
+`frontend/src/lib/branding.ts`.
 
 ## Conventions
 - Conventional Commits: feat/fix/refactor/test/docs/chore
-- Branch naming: feat/OFR-TSK-XXXX-short-desc or fix/OFR-BUG-XXXX-short-desc
+- Branch naming: feat/FRD-TSK-XXXX-short-desc or fix/FRD-BUG-XXXX-short-desc
 - TDD: tests first, then implementation
 - PRs < 300 lines changed
 - Never commit .env files or API keys
+- No production hostnames or customer identifiers in source; they go in the
+  environment (`ALLOWED_ORIGINS`, `SCHEDULER_JOB_NAME`)
 
 ## Testing
 - Backend: `cd backend && pytest`
 - Frontend: `cd frontend && pnpm test`
 - Coverage: backend services 80%+, frontend components 70%+
+- The frontend currently has no tests; new components should come with them
 
 ## Architecture
 - See docs/architecture.md for full architecture

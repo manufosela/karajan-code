@@ -2,7 +2,7 @@
 
 Uses an LLM provider to evaluate research papers on two dimensions:
 scientific strength (methodology, sample size, peer review, journal impact)
-and strategic relevance (alignment with Geniova's aligner business, market
+and strategic relevance (alignment with the organization's business, market
 impact, competitive advantage).
 """
 

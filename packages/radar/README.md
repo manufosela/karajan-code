@@ -1,8 +1,10 @@
-# Ortho Frontier Radar
+# Frontier Radar
 
-**Strategic Research Intelligence for Geniova Technologies**
+**Configurable strategic research intelligence**
 
-Ortho Frontier Radar is an internal platform that automates the monitoring, analysis, and synthesis of scientific literature in orthodontics and dentistry. It helps the clinical and R&D teams at Geniova stay ahead of emerging technologies, materials, and techniques by transforming raw research data into actionable strategic insights.
+Frontier Radar monitors the frontier of a field — whatever field you point it at — and turns raw sources into ranked, summarised, actionable signals. It ingests from configured connectors, classifies and scores each item with an LLM, and delivers digests to the people who need them.
+
+What makes it reusable is the **Radar Profile**: a single YAML file that declares the domain. Themes, strategic buckets, vocabularies, prompts, sources and branding all live there. Watching orthodontic research and watching energy policy are the same code with different profiles — no fork, no prompt rewriting.
 
 ## Tech Stack
 
@@ -11,43 +13,81 @@ Ortho Frontier Radar is an internal platform that automates the monitoring, anal
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic |
 | Frontend | Next.js 14, TypeScript, Tailwind CSS |
 | Database | PostgreSQL 16 |
+| LLM | OpenAI, Anthropic, or Ollama (local, no API key) |
 | Testing | pytest, vitest |
 | Package Managers | uv (backend), pnpm (frontend) |
 | Infrastructure | Docker, Docker Compose, GitHub Actions |
 
-## Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) (v24+)
-- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
-- [Git](https://git-scm.com/)
-
-For local development without Docker:
-- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- Node.js 20+ and [pnpm](https://pnpm.io/)
-- PostgreSQL 16
-
 ## Quick Start
 
 ```bash
-# Clone the repository
-git clone git@github.com:AntonioPF/ortho-frontier-radar.git
-cd ortho-frontier-radar
-
-# Set up environment variables
 cp .env.example .env
-
-# Start all services
 make up
 ```
 
-Once running:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs (Swagger): http://localhost:8000/docs
 
-## Development
+## Radar Profiles
 
-### Make Commands
+A profile lives in `backend/profiles/<id>.yaml` and is selected with the `ACTIVE_PROFILE` environment variable. The bundled `orthodontics` profile doubles as a worked example.
+
+```yaml
+id: my-domain
+name: My Domain Radar
+organization:
+  name: Acme Corp
+  description: a company that makes widgets
+  analyst_role: an expert widget research analyst
+
+taxonomy:
+  themes:
+    - id: materials
+      label: Materials
+      description: Novel materials, coatings and composites.
+  strategic_buckets: [...]
+  time_horizons: [...]
+
+sources:
+  - connector: pubmed
+    query: widgets OR gadgets
+
+prompts:
+  classification:
+    required_variables: [analyst_role, themes, id, description, title, abstract, theme_ids_csv]
+    template: |
+      You are {{analyst_role}}...
+      {{#themes}}
+      - {{id}}: {{description}}
+      {{/themes}}
+```
+
+Profiles are validated on load: scoring weights must sum to 1.0, ids must be unique, and every template variable must be both declared and used. A malformed profile fails at startup rather than producing degraded classifications later.
+
+Prompts use Mustache (`{{variable}}`), so the JSON output schemas they embed need no brace escaping. Tags used inside a section (`{{id}}` within `{{#themes}}`) resolve per item; tags outside one must be supplied by the caller.
+
+### Switching domain
+
+1. Write `backend/profiles/<id>.yaml`.
+2. Set `ACTIVE_PROFILE=<id>`.
+3. Set the frontend build arguments: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_SHORT_NAME`, `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_ORGANIZATION_NAME`.
+4. Add connectors if the domain needs sources the bundled ones do not cover.
+
+## Running against a local model
+
+Ollama needs no API key and costs nothing per token, which matters when reprocessing a corpus during development:
+
+```yaml
+llm:
+  provider: ollama
+  default_model: llama3.1
+  fast_model: llama3.1
+```
+
+Set `OLLAMA_BASE_URL` if the server is not at `http://localhost:11434`.
+
+## Development
 
 | Command | Description |
 |---------|-------------|
@@ -55,8 +95,6 @@ Once running:
 | `make down` | Stop all services |
 | `make logs` | Follow logs from all services |
 | `make test` | Run backend and frontend tests |
-| `make test-backend` | Run backend tests only |
-| `make test-frontend` | Run frontend tests only |
 | `make lint` | Lint backend and frontend |
 | `make migrate` | Apply database migrations |
 | `make migration MSG="description"` | Create a new migration |
@@ -64,95 +102,53 @@ Once running:
 | `make shell-db` | Open a psql shell in the database |
 | `make clean` | Stop services and remove volumes |
 
-### Testing
-
-```bash
-# All tests
-make test
-
-# Backend only
-make test-backend
-
-# Frontend only
-make test-frontend
-```
-
-### Linting
-
-```bash
-# All linting
-make lint
-
-# Backend: ruff + mypy
-make lint-backend
-
-# Frontend: eslint
-make lint-frontend
-```
-
 ## Architecture
 
-The system follows a modular architecture with clear separation of concerns:
+- **Ingestion** — connectors pull from configured sources
+- **Processing** — an LLM classifies, scores and summarises each item against the active profile
+- **Storage** — PostgreSQL, with structured records for items, analyses, trends and alerts
+- **Presentation** — a Next.js dashboard with trends, alerts and synthesis reports
+- **Notification** — webhook delivery for automated alerts
 
-- **Ingestion Layer** -- Collects articles from PubMed, Semantic Scholar, CrossRef, and other scientific databases
-- **Processing Layer** -- Uses LLMs to analyze, classify, and extract insights from research papers
-- **Storage Layer** -- PostgreSQL with structured schema for articles, analyses, trends, and alerts
-- **Presentation Layer** -- Next.js dashboard with trend visualizations, alerts, and synthesis reports
-- **Notification Layer** -- Microsoft Teams integration for automated alerts on key findings
-
-For the full architecture documentation, see [docs/architecture.md](docs/architecture.md).
-
-## Project Structure
+See [docs/architecture.md](docs/architecture.md).
 
 ```
-ortho-frontier-radar/
-├── backend/                # FastAPI backend
+frontier-radar/
+├── backend/
 │   ├── app/
 │   │   ├── api/            # API routes (v1)
+│   │   ├── connectors/     # Source connectors
 │   │   ├── core/           # Config, security, dependencies
+│   │   ├── llm/            # LLM providers
 │   │   ├── models/         # SQLAlchemy models
+│   │   ├── profiles/       # Radar Profile schema, loader, renderer
 │   │   ├── schemas/        # Pydantic schemas
-│   │   ├── services/       # Business logic
-│   │   └── main.py         # App entry point
-│   ├── tests/              # pytest tests
-│   ├── alembic/            # Database migrations
-│   └── Dockerfile
-├── frontend/               # Next.js frontend
-│   ├── src/
-│   │   ├── app/            # App router pages
-│   │   ├── components/     # React components
-│   │   ├── lib/            # Utilities and API client
-│   │   └── types/          # TypeScript types
-│   ├── tests/              # vitest tests
-│   └── Dockerfile
+│   │   └── services/       # Business logic
+│   ├── profiles/           # Radar Profile definitions (YAML)
+│   ├── tests/
+│   └── alembic/
+├── frontend/
 ├── database/               # SQL schema reference
-├── docs/                   # Architecture and design docs
-├── .github/                # CI workflows and PR template
-├── docker-compose.yml      # Service orchestration
-├── Makefile                # Development commands
-└── sonar-project.properties
+├── docs/
+└── docker-compose.yml
 ```
+
+## Configuration
+
+Deployment-specific values belong in the environment, never in source:
+
+| Variable | Purpose |
+|----------|---------|
+| `ACTIVE_PROFILE` | Which Radar Profile this instance runs |
+| `PROFILES_DIR` | Where to look for profiles (defaults to the bundled ones) |
+| `ALLOWED_ORIGINS` | CORS origins for this deployment |
+| `SCHEDULER_JOB_NAME` | Fully qualified Cloud Scheduler job to keep in sync; unset disables the integration |
+| `APP_SECRET_KEY` | Required; no default |
 
 ## Contributing
 
-1. **Branch from main**: Create a feature or fix branch following the naming convention:
-   - Features: `feat/OFR-TSK-XXXX-short-description`
-   - Fixes: `fix/OFR-BUG-XXXX-short-description`
-
-2. **Write tests first**: Follow TDD -- write failing tests, then implement.
-
-3. **Use Conventional Commits**:
-   - `feat:` new feature
-   - `fix:` bug fix
-   - `refactor:` code restructuring
-   - `test:` adding or updating tests
-   - `docs:` documentation changes
-   - `chore:` maintenance tasks
-
-4. **Keep PRs small**: Aim for fewer than 300 lines changed per PR.
-
-5. **Ensure quality**: All tests pass, linting is clean, no new warnings.
-
-## License
-
-Proprietary - Geniova Technologies. All rights reserved.
+1. Branch from `main`: `feat/FRD-TSK-XXXX-short-description` or `fix/FRD-BUG-XXXX-...`
+2. Write tests first.
+3. Use Conventional Commits.
+4. Keep PRs under ~300 lines changed.
+5. All tests pass, linting clean, no new warnings.

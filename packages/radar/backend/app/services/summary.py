@@ -2,7 +2,7 @@
 
 Uses an LLM provider to generate concise executive summaries of research
 items in both English and Spanish, along with key findings and strategic
-implications for Geniova's aligner business.
+implications for the organization the radar reports for.
 """
 
 from __future__ import annotations

@@ -8,14 +8,13 @@ from typing import Any
 
 from app.connectors.base import BaseConnector, NormalizedPaper
 from app.core.logging import get_logger
+from app.profiles.active import default_query_for
 
 logger = get_logger(__name__)
 
 # Semantic Scholar Academic Graph API base URL
 SS_API_BASE_URL = "https://api.semanticscholar.org/graph/v1"
 
-# Default orthodontics search query
-DEFAULT_QUERY = "orthodontics OR clear aligners OR dental biomechanics OR malocclusion treatment OR tooth movement"
 
 # Maximum results per page (Semantic Scholar API limit)
 MAX_LIMIT = 100
@@ -82,7 +81,7 @@ class SemanticScholarConnector(BaseConnector):
         if date_to is None:
             date_to = date.today()
 
-        search_query = query or DEFAULT_QUERY
+        search_query = query or default_query_for("semantic_scholar")
         limit = min(max_results, MAX_LIMIT)
 
         params: dict[str, Any] = {

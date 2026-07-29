@@ -3,18 +3,18 @@ version: "3.9"
 services:
   db:
     image: postgres:16
-    container_name: ofr-db
+    container_name: radar-db
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ortho_frontier_radar
-      POSTGRES_USER: ofr_user
-      POSTGRES_PASSWORD: ofr_dev_password
+      POSTGRES_DB: frontier_radar
+      POSTGRES_USER: radar_user
+      POSTGRES_PASSWORD: radar_dev_password
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ofr_user -d ortho_frontier_radar"]
+      test: ["CMD-SHELL", "pg_isready -U radar_user -d frontier_radar"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ofr-api
+    container_name: radar-api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://ofr_user:ofr_dev_password@db:5432/ortho_frontier_radar
+      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@db:5432/frontier_radar
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -43,7 +43,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: ofr-web
+    container_name: radar-web
     restart: unless-stopped
     ports:
       - "3000:3000"

@@ -28,7 +28,7 @@ def _valid_llm_response() -> dict:
             "Patient compliance improved significantly with the modified design.",
         ],
         "implications": [
-            "Geniova could adopt this protocol to reduce average treatment times.",
+            "The organization could adopt this protocol to reduce average treatment times.",
             "Modified aligner design may improve patient retention rates.",
         ],
     }

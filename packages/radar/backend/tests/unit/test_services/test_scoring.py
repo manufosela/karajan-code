@@ -24,7 +24,7 @@ def _valid_llm_response() -> dict:
         "scientific_strength_score": 7,
         "strategic_relevance_score": 8,
         "scientific_rationale": "Well-designed RCT with adequate sample size published in a top journal.",
-        "strategic_rationale": "Directly applicable to Geniova's aligner manufacturing process.",
+        "strategic_rationale": "Directly applicable to the organization's manufacturing process.",
         "recommended_action": "investigate",
         "hype_risk": "low",
     }
@@ -103,7 +103,7 @@ class TestScoringServiceHappyPath:
         assert result.scientific_strength_score == 7
         assert result.strategic_relevance_score == 8
         assert result.scientific_rationale == "Well-designed RCT with adequate sample size published in a top journal."
-        assert result.strategic_rationale == "Directly applicable to Geniova's aligner manufacturing process."
+        assert result.strategic_rationale == "Directly applicable to the organization's manufacturing process."
         assert result.recommended_action == "investigate"
         assert result.hype_risk == "low"
 

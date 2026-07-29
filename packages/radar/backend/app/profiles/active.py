@@ -38,6 +38,26 @@ def get_prompt_renderer() -> PromptRenderer:
     return PromptRenderer(get_active_profile())
 
 
+def default_query_for(connector: str) -> str:
+    """The search query the active profile declares for a connector.
+
+    Connectors used to carry a hardcoded fallback query, which silently tied
+    every deployment to one subject matter. The query is domain configuration,
+    so an absent one is an error rather than something to guess at.
+
+    Raises:
+        ValueError: If the active profile declares no query for that connector.
+    """
+    for source in get_active_profile().sources:
+        if source.connector == connector and source.query:
+            return source.query
+
+    raise ValueError(
+        f"profile '{settings.ACTIVE_PROFILE}' declares no query for connector "
+        f"'{connector}'; add one under its sources section"
+    )
+
+
 def reset_active_profile() -> None:
     """Drop the cached profile and renderer.
 

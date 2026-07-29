@@ -1,8 +1,8 @@
 """Impact analysis and hype detection service.
 
-Uses an LLM provider to evaluate research papers for potential business
-impact on Geniova's aligner business and detect hype risk (overblown
-claims vs solid evidence).
+Uses an LLM provider to evaluate the potential business impact of research
+papers on the organization the radar reports for, and to detect hype risk
+(overblown claims vs solid evidence).
 """
 
 from __future__ import annotations
