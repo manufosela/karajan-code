@@ -16,21 +16,17 @@ leaves JSON examples untouched.
 from __future__ import annotations
 
 import math
-import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+from app.profiles.mustache import outer_tags_in, tags_in
 
 # ---------------------------------------------------------------------------
 # Shared types
 # ---------------------------------------------------------------------------
 
 NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
-
-# Matches a Mustache tag and captures its name, skipping the sigil that marks
-# sections (#), inverted sections (^), closings (/), comments (!) and
-# unescaped output (& or a third brace).
-_MUSTACHE_TAG = re.compile(r"\{\{\s*[#^/&!]?\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}\}")
 
 # Weights are floats, so exact equality against 1.0 is not a usable test.
 _WEIGHT_SUM_TOLERANCE = 1e-6
@@ -244,7 +240,16 @@ class PromptTemplate(_FrozenModel):
     @property
     def variables_in_template(self) -> frozenset[str]:
         """Every Mustache tag name appearing in the template."""
-        return frozenset(_MUSTACHE_TAG.findall(self.template))
+        return tags_in(self.template)
+
+    @property
+    def outer_variables(self) -> frozenset[str]:
+        """Tag names outside any section, which the caller must supply.
+
+        Names used inside a section -- ``{{id}}`` within ``{{#themes}}`` --
+        are resolved from each iterated item, not from the caller's context.
+        """
+        return outer_tags_in(self.template)
 
 
 class PromptSet(_FrozenModel):
