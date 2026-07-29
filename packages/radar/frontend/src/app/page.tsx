@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/lib/i18n";
+import { branding } from "@/lib/branding";
 import { Card } from "@/components/ui/Card";
 import { ScoreBadge } from "@/components/signals/ScoreBadge";
 import { StatusBadge } from "@/components/signals/StatusBadge";
@@ -101,11 +102,11 @@ export default function DashboardPage() {
             {t("dashboard.briefingLabel")}
           </p>
           <h1 className="text-4xl lg:text-5xl font-display text-[var(--text-primary)] leading-[1.1]">
-            {t("dashboard.title")}<br />
+            {branding.shortName}<br />
             <span className="text-radar-600">{t("dashboard.subtitle")}</span>
           </h1>
           <p className="mt-3 text-[var(--text-secondary)] max-w-lg">
-            {t("dashboard.description")}
+            {branding.tagline}
           </p>
         </div>
 

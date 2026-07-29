@@ -102,8 +102,8 @@ class SignalDetailResponse(BaseModel):
     executive_summary_es: str | None = None
     why_it_matters_en: str | None = None
     why_it_matters_es: str | None = None
-    possible_impact_for_geniova_en: str | None = None
-    possible_impact_for_geniova_es: str | None = None
+    possible_impact_en: str | None = None
+    possible_impact_es: str | None = None
 
     # Review
     review_status: str

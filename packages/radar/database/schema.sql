@@ -90,8 +90,8 @@ CREATE TABLE research_items (
     executive_summary_es            TEXT,
     why_it_matters_en               TEXT,
     why_it_matters_es               TEXT,
-    possible_impact_for_geniova_en  TEXT,
-    possible_impact_for_geniova_es  TEXT,
+    possible_impact_en  TEXT,
+    possible_impact_es  TEXT,
 
     -- Review
     review_status                   VARCHAR(15) NOT NULL DEFAULT 'review',

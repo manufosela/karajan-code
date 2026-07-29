@@ -24,7 +24,7 @@ EXPECTED_COLUMNS = {
         "strategic_interpretation",
         "executive_summary_en", "executive_summary_es",
         "why_it_matters_en", "why_it_matters_es",
-        "possible_impact_for_geniova_en", "possible_impact_for_geniova_es",
+        "possible_impact_en", "possible_impact_es",
         "review_status",
         "llm_provider", "llm_model", "llm_prompt_version",
         "raw_llm_input", "raw_llm_output",

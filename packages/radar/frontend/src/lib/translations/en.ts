@@ -18,10 +18,10 @@ export const en = {
   "nav.analytics": "Analytics",
 
   // Dashboard
-  "dashboard.title": "Ortho Frontier",
+  // The radar's name and tagline are instance branding, not translatable
+  // copy: see lib/branding.ts.
   "dashboard.subtitle": "Radar",
   "dashboard.briefingLabel": "Intelligence Briefing",
-  "dashboard.description": "Strategic monitoring of cutting-edge research in orthodontics, biomaterials, and applied AI.",
   "dashboard.totalSignals": "Total signals",
   "dashboard.pendingReview": "Pending review",
   "dashboard.highRelevance": "High relevance",

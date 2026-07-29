@@ -64,8 +64,8 @@ class ResearchItem(Base):
     executive_summary_es: Mapped[str | None] = mapped_column(Text)
     why_it_matters_en: Mapped[str | None] = mapped_column(Text)
     why_it_matters_es: Mapped[str | None] = mapped_column(Text)
-    possible_impact_for_geniova_en: Mapped[str | None] = mapped_column(Text)
-    possible_impact_for_geniova_es: Mapped[str | None] = mapped_column(Text)
+    possible_impact_en: Mapped[str | None] = mapped_column(Text)
+    possible_impact_es: Mapped[str | None] = mapped_column(Text)
 
     # Review
     review_status: Mapped[str] = mapped_column(

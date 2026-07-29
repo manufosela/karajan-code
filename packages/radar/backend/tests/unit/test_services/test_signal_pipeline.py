@@ -46,8 +46,8 @@ def _make_research_item() -> MagicMock:
     item.executive_summary_es = None
     item.why_it_matters_en = None
     item.why_it_matters_es = None
-    item.possible_impact_for_geniova_en = None
-    item.possible_impact_for_geniova_es = None
+    item.possible_impact_en = None
+    item.possible_impact_es = None
     item.processing_timestamp = None
     return item
 
@@ -297,8 +297,8 @@ class TestSignalPipelineHappyPath:
         assert item.executive_summary_es == "Este estudio presenta un material polimerico novedoso."
         assert item.why_it_matters_en == "New polymer is 30% stronger"
         assert item.why_it_matters_es == "New polymer is 30% stronger"
-        assert item.possible_impact_for_geniova_en == "Could improve aligner durability"
-        assert item.possible_impact_for_geniova_es == "Could improve aligner durability"
+        assert item.possible_impact_en == "Could improve aligner durability"
+        assert item.possible_impact_es == "Could improve aligner durability"
 
     async def test_processing_timestamp_set(self) -> None:
         provider = AsyncMock(spec=BaseLLMProvider)

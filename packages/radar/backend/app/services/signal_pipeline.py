@@ -313,10 +313,10 @@ class SignalPipelineService:
             item.executive_summary_es = result.summary_es
             item.why_it_matters_en = result.key_findings[0] if result.key_findings else None
             item.why_it_matters_es = result.key_findings[0] if result.key_findings else None
-            item.possible_impact_for_geniova_en = (
+            item.possible_impact_en = (
                 result.implications[0] if result.implications else None
             )
-            item.possible_impact_for_geniova_es = (
+            item.possible_impact_es = (
                 result.implications[0] if result.implications else None
             )
             await session.flush()

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+import { branding } from "@/lib/branding";
 import { ChangelogModal } from "@/components/ui/ChangelogModal";
 
 interface NavItem {
@@ -203,7 +204,7 @@ export function Sidebar() {
             <div className="h-2 w-2 rounded-full bg-radar-400 shadow-[0_0_8px_rgba(51,139,255,0.5)]" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white tracking-tight font-sans">Ortho Frontier</h1>
+            <h1 className="text-sm font-bold text-white tracking-tight font-sans">{branding.shortName}</h1>
             <p className="text-2xs text-radar-400/70 font-medium tracking-[0.1em] uppercase">Radar</p>
           </div>
         </div>
@@ -248,7 +249,9 @@ export function Sidebar() {
               >
                 v1.1.0
               </button>
-              <p className="text-2xs text-navy-500">Geniova Technologies</p>
+              {branding.organizationName && (
+                <p className="text-2xs text-navy-500">{branding.organizationName}</p>
+              )}
             </div>
           </div>
         </div>
