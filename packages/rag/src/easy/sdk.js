@@ -20,6 +20,8 @@ import { indexDirectory, DEFAULT_INGEST_BATCH_SIZE } from './indexer.js';
 import { queryIndex } from './query.js';
 import { loadManifest } from './manifest.js';
 import { createRagService } from './rag-service.js';
+import { buildCagContext, buildHybridContext } from './cag.js';
+import { generateAnswerForHits } from './cli.js';
 
 /**
  * @typedef {import('./indexer.js').EasyEmbedder} EasyEmbedder
@@ -36,12 +38,31 @@ import { createRagService } from './rag-service.js';
  * @property {number} [batchSize] Default de index. Default DEFAULT_INGEST_BATCH_SIZE.
  * @property {Record<string, string | undefined>} [env] Entorno para credenciales (PG_URL...). Default process.env.
  *
+ * @typedef {object} RagAnswerOptions
+ * @property {'rag' | 'cag' | 'hybrid'} [mode] Estrategia de contexto. Default 'rag'.
+ * @property {string} [adapter] Adapter preferido. Default 'claude' (la policy decide).
+ * @property {boolean} [adapterExplicit] true = elección explícita: no permitido → error, nunca degradación.
+ * @property {{ get: (name: string) => unknown, has: (name: string) => boolean }} [registry] Registry de adapters inyectado.
+ * @property {number} [topK] Solo rag/hybrid.
+ * @property {number} [maxContextChars] Solo cag/hybrid.
+ * @property {(msg: string) => void} [log]
+ *
+ * @typedef {object} RagAnswerResult
+ * @property {string} answer
+ * @property {string} adapter Adapter realmente usado tras la policy.
+ * @property {import('../domain/document.js').Sensitivity} sensitivity Nivel efectivo del contexto.
+ * @property {'rag' | 'cag' | 'hybrid'} mode
+ * @property {string[]} [files] Ficheros del contexto (cag/hybrid).
+ * @property {{ source: string, chars: number }[]} [excluded] Excluidos por presupuesto (hybrid).
+ *
  * @typedef {object} Rag
  * @property {string} rootDir
  * @property {(options?: { batchSize?: number, onEvent?: (msg: string) => void }) => Promise<import('./indexer.js').IndexResult>} index
  *   Indexa (o reindexa incrementalmente) el rootDir.
  * @property {(question: string, options?: { topK?: number }) => Promise<import('./query.js').EasyQueryResult>} query
  *   Consulta híbrida (vector + BM25) contra el índice.
+ * @property {(question: string, options?: RagAnswerOptions) => Promise<RagAnswerResult>} answer
+ *   Respuesta LLM con el modo elegido — siempre por el camino guardado (policy + redactPII).
  * @property {() => Promise<{ fingerprint: string, files: number, chunks: number, store: string }>} status
  *   Estado del índice desde el manifest. Falla explícitamente si aún no hay índice.
  * @property {() => Promise<void>} close Cierra la conexión del store si éste lo soporta.
@@ -112,6 +133,65 @@ export async function createRag(options = {}) {
         embedder,
         topK: queryOptions.topK ?? options.topK ?? 5,
       });
+    },
+
+    async answer(question, answerOptions = {}) {
+      const mode = answerOptions.mode ?? 'rag';
+      if (!['rag', 'cag', 'hybrid'].includes(mode)) {
+        throw new Error(`createRag.answer: "mode" debe ser rag, cag o hybrid (recibido: "${mode}").`);
+      }
+      const log = answerOptions.log ?? (() => {});
+
+      /** @type {import('./query.js').EasyQueryHit[]} */
+      let hits;
+      /** @type {string[] | undefined} */
+      let files;
+      /** @type {{ source: string, chars: number }[] | undefined} */
+      let excluded;
+
+      if (mode === 'cag') {
+        const ctx = await buildCagContext(rootDir, { maxChars: answerOptions.maxContextChars });
+        hits = ctx.hits;
+        files = ctx.files;
+      } else {
+        const retrieved = await queryIndex(question, {
+          rootDir,
+          store: /** @type {never} */ (store),
+          embedder,
+          topK: answerOptions.topK ?? options.topK ?? 5,
+        });
+        if (retrieved.hits.length === 0) {
+          throw new Error('createRag.answer: la consulta no recuperó nada del índice.');
+        }
+        if (mode === 'hybrid') {
+          const ctx = await buildHybridContext(rootDir, {
+            hits: retrieved.hits,
+            maxChars: answerOptions.maxContextChars,
+          });
+          hits = ctx.hits;
+          files = ctx.files;
+          excluded = ctx.excluded;
+        } else {
+          hits = retrieved.hits;
+        }
+      }
+
+      const generated = await generateAnswerForHits({
+        question,
+        hits,
+        adapter: answerOptions.adapter ?? 'claude',
+        adapterExplicit: answerOptions.adapterExplicit ?? false,
+        registry: answerOptions.registry,
+        log,
+      });
+      return {
+        answer: generated.answer,
+        adapter: generated.adapter,
+        sensitivity: generated.sensitivity,
+        mode,
+        ...(files ? { files } : {}),
+        ...(excluded ? { excluded } : {}),
+      };
     },
 
     async status() {

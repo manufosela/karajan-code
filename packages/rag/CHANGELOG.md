@@ -9,6 +9,12 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`rag.answer()` en el SDK** (épica CAG): `createRag()` gana el método
+  `answer(pregunta, { mode, adapter, registry, topK, maxContextChars })`
+  con los tres modos (rag/cag/hybrid) desde código — mismas garantías
+  que el CLI (policy + redactPII por el camino guardado), devolviendo
+  answer, adapter usado, sensibilidad efectiva, ficheros del contexto y
+  exclusiones cuando aplique.
 - **Modo hybrid** (épica CAG): `query --answer --mode hybrid` — el
   retrieval SELECCIONA los ficheros relevantes y el contexto lleva esos
   ficheros COMPLETOS (no fragmentos), en orden determinista por ruta.
