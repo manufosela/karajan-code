@@ -1,6 +1,6 @@
 -- =============================================================================
--- Ortho Frontier Radar - PostgreSQL Database Schema
--- Strategic research radar for orthodontics
+-- Frontier Radar - PostgreSQL Database Schema
+-- Configurable strategic research radar (reference schema)
 -- =============================================================================
 
 -- Enable required extensions
@@ -90,8 +90,8 @@ CREATE TABLE research_items (
     executive_summary_es            TEXT,
     why_it_matters_en               TEXT,
     why_it_matters_es               TEXT,
-    possible_impact_for_geniova_en  TEXT,
-    possible_impact_for_geniova_es  TEXT,
+    possible_impact_en  TEXT,
+    possible_impact_es  TEXT,
 
     -- Review
     review_status                   VARCHAR(15) NOT NULL DEFAULT 'review',
@@ -141,7 +141,7 @@ COMMENT ON COLUMN research_items.document_type IS 'Type of research document: pa
 COMMENT ON COLUMN research_items.thematic_tags IS 'JSON array of thematic classification tags assigned by LLM';
 COMMENT ON COLUMN research_items.strategic_buckets IS 'JSON array of strategic bucket assignments: product_clinical, biomechanics, materials, ai_software, manufacturing_operations, research_partnerships, risk_disruption';
 COMMENT ON COLUMN research_items.scientific_strength_score IS 'Score 0-10 evaluating scientific rigor and evidence quality';
-COMMENT ON COLUMN research_items.strategic_relevance_score IS 'Score 0-10 evaluating strategic relevance to Geniova orthodontics business';
+COMMENT ON COLUMN research_items.strategic_relevance_score IS 'Score 0-10 evaluating strategic relevance to the organization's business';
 COMMENT ON COLUMN research_items.hype_risk IS 'Risk of hype overinflation: low, medium, high';
 COMMENT ON COLUMN research_items.time_horizon IS 'Expected time to practical applicability: immediate (0-6mo), short_term (6-18mo), medium_term (18-36mo), long_term (>36mo)';
 COMMENT ON COLUMN research_items.recommended_action IS 'Suggested next step: monitor, investigate, test, discard';
@@ -628,7 +628,7 @@ INSERT INTO configuration (category, key, value, description) VALUES
     'general',
     'system_settings',
     '{
-        "project_name": "Ortho Frontier Radar",
+        "project_name": "Frontier Radar",
         "version": "1.0.0",
         "dedup_strategy": "content_hash",
         "normalized_title_match_threshold": 0.92,
@@ -639,13 +639,13 @@ INSERT INTO configuration (category, key, value, description) VALUES
             "university_publication", "journal_article", "strategic_signal"
         ]
     }'::jsonb,
-    'General system-wide settings for the Ortho Frontier Radar'
+    'General system-wide settings for the Frontier Radar'
 ),
 (
     'general',
     'review_status_definitions',
     '{
-        "relevant": "Confirmed relevant to Geniova strategic interests, included in reporting",
+        "relevant": "Confirmed relevant to the organization strategic interests, included in reporting",
         "review": "Pending human review, default status for newly ingested items",
         "discarded": "Reviewed and determined not relevant, excluded from reporting",
         "opportunity": "Identified as a concrete business or research opportunity",

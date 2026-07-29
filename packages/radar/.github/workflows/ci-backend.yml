@@ -20,19 +20,19 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: ortho_frontier_radar_test
-          POSTGRES_USER: ofr_user
-          POSTGRES_PASSWORD: ofr_dev_password
+          POSTGRES_DB: frontier_radar_test
+          POSTGRES_USER: radar_user
+          POSTGRES_PASSWORD: radar_dev_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ofr_user -d ortho_frontier_radar_test"
+          --health-cmd "pg_isready -U radar_user -d frontier_radar_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql+asyncpg://ofr_user:ofr_dev_password@localhost:5432/ortho_frontier_radar_test
+      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@localhost:5432/frontier_radar_test
 
     steps:
       - name: Checkout code

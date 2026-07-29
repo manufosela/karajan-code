@@ -168,8 +168,8 @@ class LLMProvider(ABC):
         - executive_summary_es: str
         - why_it_matters_en: str
         - why_it_matters_es: str
-        - possible_impact_for_geniova_en: str
-        - possible_impact_for_geniova_es: str
+        - possible_impact_en: str
+        - possible_impact_es: str
         - facts_from_source: dict
         - extracted_evidence: dict
         - evidence_snippets: dict

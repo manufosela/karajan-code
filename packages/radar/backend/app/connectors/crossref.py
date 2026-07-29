@@ -9,14 +9,13 @@ from typing import Any
 
 from app.connectors.base import BaseConnector, NormalizedPaper
 from app.core.logging import get_logger
+from app.profiles.active import default_query_for
 
 logger = get_logger(__name__)
 
 # Crossref API base URL
 CROSSREF_API_BASE_URL = "https://api.crossref.org"
 
-# Default orthodontics search query
-DEFAULT_QUERY = "orthodontics OR clear aligners OR dental biomechanics OR malocclusion treatment OR tooth movement"
 
 # Maximum rows per request (Crossref API limit)
 MAX_ROWS = 1000
@@ -69,7 +68,7 @@ class CrossrefConnector(BaseConnector):
         if date_to is None:
             date_to = date.today()
 
-        search_query = query or DEFAULT_QUERY
+        search_query = query or default_query_for("crossref")
         rows = min(max_results, MAX_ROWS)
 
         params: dict[str, Any] = {

@@ -36,7 +36,7 @@ shell-api:
 	docker compose exec api bash
 
 shell-db:
-	docker compose exec db psql -U ofr_user -d ortho_frontier_radar
+	docker compose exec db psql -U radar_user -d frontier_radar
 
 clean:
 	docker compose down -v --remove-orphans

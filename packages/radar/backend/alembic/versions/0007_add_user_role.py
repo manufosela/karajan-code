@@ -46,11 +46,6 @@ def upgrade() -> None:
         "UPDATE users SET role = 'user' WHERE is_admin = false"
     )
 
-    # Specifically set the known admin user to superadmin
-    op.execute(
-        "UPDATE users SET role = 'superadmin' WHERE email = 'mfosela@geniova.com'"
-    )
-
     # Remove the old is_admin column
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.drop_column("is_admin")

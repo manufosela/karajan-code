@@ -1,11 +1,43 @@
+# Build the frontend image for Cloud Run.
+#
+# Every deployment-specific value is a substitution, so this file carries no
+# project id, region or hostname. Supply them at build time:
+#
+#   gcloud builds submit \
+#     --substitutions=_PROJECT=my-gcp-project,_API_URL=https://my-api/api/v1
+#
+# NEXT_PUBLIC_* values are inlined by Next.js at build time, which is why the
+# branding is passed here rather than as Cloud Run environment variables.
+
+substitutions:
+  _REGION: europe-southwest1
+  _PROJECT: ''
+  _REPOSITORY: frontier-radar
+  _IMAGE: frontier-radar-frontend
+  _TAG: latest
+  _API_URL: ''
+  _APP_NAME: 'Frontier Radar'
+  _APP_SHORT_NAME: 'Frontier Radar'
+  _APP_TAGLINE: 'Strategic research intelligence'
+  _ORGANIZATION_NAME: ''
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--build-arg'
-      - 'NEXT_PUBLIC_API_URL=https://ofr-backend-721262691356.europe-southwest1.run.app/api/v1'
+      - 'NEXT_PUBLIC_API_URL=${_API_URL}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_APP_NAME=${_APP_NAME}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_APP_SHORT_NAME=${_APP_SHORT_NAME}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_APP_TAGLINE=${_APP_TAGLINE}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_ORGANIZATION_NAME=${_ORGANIZATION_NAME}'
       - '-t'
-      - 'europe-southwest1-docker.pkg.dev/geniova-ofr-prod/ofr-frontend/ofr-frontend:latest'
+      - '${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPOSITORY}/${_IMAGE}:${_TAG}'
       - '.'
+
 images:
-  - 'europe-southwest1-docker.pkg.dev/geniova-ofr-prod/ofr-frontend/ofr-frontend:latest'
+  - '${_REGION}-docker.pkg.dev/${_PROJECT}/${_REPOSITORY}/${_IMAGE}:${_TAG}'

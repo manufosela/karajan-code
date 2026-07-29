@@ -1,0 +1,262 @@
+# Orthodontics Radar Profile
+#
+# Migrated verbatim from the constants that used to live in the codebase:
+#   - VALID_THEMES              (app/llm/prompts/classification.py)
+#   - VALID_BUCKETS             (app/llm/prompts/strategic.py)
+#   - VALID_TIME_HORIZONS       (app/llm/prompts/strategic.py)
+#   - VALID_IMPACT_LEVELS       (app/llm/prompts/impact.py)
+#   - VALID_HYPE_RISKS          (app/llm/prompts/impact.py)
+#   - VALID_RECOMMENDED_ACTIONS (impact.py and scoring.py -- two distinct sets)
+#   - default_query per source  (alembic/versions/0002_seed_data.py)
+#
+# Set `organization.name` to the actual organisation when deploying an
+# instance; the value here is deliberately generic.
+
+id: orthodontics
+name: Ortho Frontier Radar
+version: 1.0.0
+locale: en
+
+organization:
+  name: the organization
+  description: a company specializing in clear aligner orthodontic treatments
+  analyst_role: an expert orthodontic research analyst
+
+taxonomy:
+  themes:
+    - id: orthodontics
+      label: Orthodontics
+      description: >-
+        Traditional and modern orthodontic treatments, tooth movement,
+        malocclusion, braces, aligners.
+    - id: biomechanics
+      label: Biomechanics
+      description: >-
+        Forces, mechanics of tooth movement, bone remodeling, finite element
+        analysis, stress distribution.
+    - id: materials
+      label: Materials
+      description: >-
+        Orthodontic materials, wires, brackets, adhesives, 3D printing
+        materials, biocompatibility.
+    - id: AI/digital
+      label: AI and digital
+      description: >-
+        Artificial intelligence, machine learning, digital workflows, CBCT,
+        intraoral scanning, digital twins, CAD/CAM.
+    - id: clinical
+      label: Clinical
+      description: >-
+        Clinical trials, treatment outcomes, patient studies, epidemiology,
+        case reports.
+    - id: other
+      label: Other
+      description: Topics not fitting the above categories.
+
+  strategic_buckets:
+    - id: core_aligner_tech
+      label: Core aligner technology
+      description: >-
+        Clear aligner technology, aligner design, attachment protocols,
+        staging strategies, aligner materials, direct-to-consumer aligners.
+    - id: emerging_materials
+      label: Emerging materials
+      description: >-
+        Novel orthodontic materials, shape-memory alloys, biocompatible
+        polymers, smart wires, nano-materials, 3D-printable resins.
+    - id: ai_digital_workflow
+      label: AI and digital workflow
+      description: >-
+        Artificial intelligence, machine learning, digital treatment planning,
+        CBCT analysis, intraoral scanning, digital twins, automated
+        cephalometric analysis, CAD/CAM workflows.
+    - id: biomechanics_research
+      label: Biomechanics research
+      description: >-
+        Tooth movement mechanics, bone remodeling, force systems, finite
+        element analysis, root resorption, anchorage strategies.
+    - id: clinical_evidence
+      label: Clinical evidence
+      description: >-
+        Clinical trials, treatment outcomes, systematic reviews,
+        meta-analyses, comparative effectiveness, patient-reported outcomes.
+    - id: regulatory_compliance
+      label: Regulatory compliance
+      description: >-
+        FDA/CE regulations, medical device standards, clinical safety
+        requirements, quality management, post-market surveillance.
+    - id: competitive_intelligence
+      label: Competitive intelligence
+      description: >-
+        Competitor products, market analysis, patent landscapes, industry
+        trends, market share, business strategy.
+
+  time_horizons:
+    - id: immediate
+      label: Immediate
+      description: Impact expected within 0-6 months.
+    - id: short_term
+      label: Short term
+      description: Impact expected within 6-18 months.
+    - id: medium_term
+      label: Medium term
+      description: Impact expected within 18-36 months.
+    - id: long_term
+      label: Long term
+      description: Impact expected beyond 36 months.
+
+  keywords:
+    - orthodontics
+    - clear aligners
+    - malocclusion
+    - tooth movement
+    - biomechanics
+    - cephalometric
+    - intraoral scan
+
+vocabulary:
+  impact_levels:
+    - id: transformative
+      label: Transformative
+      description: >-
+        Paradigm-shifting discovery that could fundamentally change the
+        organization's core technology, manufacturing, or treatment
+        protocols. Rare -- reserved for true breakthroughs.
+    - id: significant
+      label: Significant
+      description: >-
+        Major advancement with clear, direct implications for design,
+        materials, workflow, or outcomes. Could provide substantial
+        competitive advantage.
+    - id: moderate
+      label: Moderate
+      description: >-
+        Meaningful contribution that could improve existing processes or
+        validate current approaches. Worth tracking and potentially
+        integrating.
+    - id: incremental
+      label: Incremental
+      description: >-
+        Minor improvement or confirmation of known findings. May refine
+        existing knowledge but unlikely to drive strategic decisions.
+    - id: minimal
+      label: Minimal
+      description: >-
+        Little to no relevance to the organization's business, or findings
+        are too preliminary to be actionable.
+
+  hype_risks:
+    - id: low
+      label: Low
+      description: >-
+        Conservative claims well-supported by robust methodology, adequate
+        sample size, reproducible results, and peer-reviewed validation.
+        Authors acknowledge limitations appropriately.
+    - id: medium
+      label: Medium
+      description: >-
+        Promising results with some methodological concerns. Claims are
+        reasonable but may need further validation. Moderate sample size or
+        limited follow-up period.
+    - id: high
+      label: High
+      description: >-
+        Extraordinary claims with weak evidence. Red flags include very small
+        sample size, no control group, unvalidated methodology, conflicts of
+        interest, cherry-picked outcomes, or conclusions that far exceed what
+        the data supports.
+
+  impact_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Low impact or early-stage research worth tracking over time.
+    - id: investigate
+      label: Investigate
+      description: >-
+        Promising impact with manageable hype risk; warrants deeper analysis,
+        literature review, or internal discussion.
+    - id: act_now
+      label: Act now
+      description: >-
+        High impact with low hype risk; strong evidence suggests the
+        organization should take immediate strategic action (prototype,
+        partner, license, or adapt).
+    - id: archive
+      label: Archive
+      description: >-
+        Minimal impact, high hype risk, or irrelevant to the business. File
+        for reference but no action needed.
+
+  scoring_recommended_actions:
+    - id: monitor
+      label: Monitor
+      description: Track this line of work over time without committing resources.
+    - id: investigate
+      label: Investigate
+      description: Warrants a deeper review before any decision is taken.
+    - id: test
+      label: Test
+      description: Strong enough to justify a prototype or internal experiment.
+    - id: discard
+      label: Discard
+      description: Not relevant or not credible enough to pursue.
+
+scoring:
+  weights:
+    scientific_strength: 0.5
+    strategic_relevance: 0.5
+
+sources:
+  # Taken from DEFAULT_QUERY in app/connectors/pubmed.py, not from the database
+  # seed: the seeded query duplicated the "last 7 days" date filter that the
+  # connector already appends, and quoted no phrases.
+  - connector: pubmed
+    priority: 1
+    query: >-
+      (orthodontics OR "clear aligners" OR "dental biomechanics" OR
+      "malocclusion treatment" OR "tooth movement" OR "aligner")
+    config:
+      retmax: 100
+      rate_limit_per_second: 3
+  - connector: arxiv
+    priority: 2
+    query: >-
+      orthodontics OR dental alignment OR tooth segmentation OR cephalometric
+      OR intraoral scan
+    config:
+      max_results: 50
+      default_categories: [cs.AI, cs.CV, cs.LG, physics.med-ph, q-bio.QM]
+  - connector: clinical_trials
+    priority: 2
+    query: >-
+      orthodontics OR clear aligners OR malocclusion OR tooth movement OR
+      dental biomechanics
+    config:
+      page_size: 50
+  - connector: crossref
+    priority: 3
+    query: orthodontics aligners biomechanics tooth movement
+    config:
+      rows: 50
+  - connector: semantic_scholar
+    priority: 3
+    query: orthodontics clear aligners biomechanics AI dental
+    config:
+      limit: 50
+
+llm:
+  provider: openai
+  default_model: gpt-4o
+  fast_model: gpt-4o-mini
+
+branding:
+  app_name: Ortho Frontier Radar
+  short_name: Ortho Frontier
+  tagline: Strategic research intelligence for orthodontics
+
+summary:
+  languages: [en, es]
+
+# No `prompts` section: the default templates in app/profiles/default_prompts.py
+# render every definition above straight into the prompt. Add one here only to
+# say something the defaults do not.

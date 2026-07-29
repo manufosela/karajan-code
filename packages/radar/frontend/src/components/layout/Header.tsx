@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { useTheme } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+import { branding } from "@/lib/branding";
 
 interface Breadcrumb {
   label: string;
@@ -40,7 +41,7 @@ function getPageTitle(pathname: string, t: ReturnType<typeof useTranslation>["t"
     "/analytics": t("nav.analytics"),
   };
 
-  return titleMap[pathname] || "Ortho Frontier Radar";
+  return titleMap[pathname] || branding.appName;
 }
 
 const THEME_CYCLE = ["light", "dark", "system"] as const;

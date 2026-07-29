@@ -12,11 +12,8 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.strategic import (
-    VALID_BUCKETS,
-    VALID_TIME_HORIZONS,
-    format_strategic_prompt,
-)
+from app.profiles.active import get_prompt_renderer
+from app.profiles.renderer import PromptRenderer
 
 logger = get_logger(__name__)
 
@@ -58,8 +55,23 @@ class StrategicClassificationService:
         provider: A BaseLLMProvider instance for LLM calls.
     """
 
-    def __init__(self, provider: BaseLLMProvider) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        renderer: PromptRenderer | None = None,
+    ) -> None:
         self._provider = provider
+        self._renderer = renderer if renderer is not None else get_prompt_renderer()
+
+    @property
+    def valid_buckets(self) -> frozenset[str]:
+        """Strategic bucket ids the active profile allows."""
+        return self._renderer.profile.taxonomy.bucket_ids
+
+    @property
+    def valid_time_horizons(self) -> frozenset[str]:
+        """Time horizon ids the active profile allows."""
+        return self._renderer.profile.taxonomy.time_horizon_ids
 
     async def classify(
         self,
@@ -80,7 +92,11 @@ class StrategicClassificationService:
             StrategicClassificationError: If the LLM call fails or returns
                 invalid data.
         """
-        prompt = format_strategic_prompt(title=title, abstract=abstract)
+        prompt = self._renderer.render(
+            "strategic",
+            title=title,
+            abstract=abstract if abstract else "No abstract available.",
+        )
 
         try:
             response = await self._provider.complete_json(prompt)
@@ -137,9 +153,9 @@ class StrategicClassificationService:
         time_horizon = data["time_horizon"]
 
         # Validate bucket
-        if bucket not in VALID_BUCKETS:
+        if bucket not in self.valid_buckets:
             raise StrategicClassificationError(
-                f"Invalid bucket '{bucket}'. Must be one of: {sorted(VALID_BUCKETS)}",
+                f"Invalid bucket '{bucket}'. Must be one of: {sorted(self.valid_buckets)}",
                 title=title,
             )
 
@@ -158,9 +174,10 @@ class StrategicClassificationService:
             )
 
         # Validate time_horizon
-        if time_horizon not in VALID_TIME_HORIZONS:
+        if time_horizon not in self.valid_time_horizons:
             raise StrategicClassificationError(
-                f"Invalid time_horizon '{time_horizon}'. Must be one of: {sorted(VALID_TIME_HORIZONS)}",
+                f"Invalid time_horizon '{time_horizon}'. "
+                f"Must be one of: {sorted(self.valid_time_horizons)}",
                 title=title,
             )
 

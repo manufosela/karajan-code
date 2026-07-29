@@ -7,13 +7,18 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.strategic import VALID_BUCKETS, VALID_TIME_HORIZONS
+from app.profiles.active import get_active_profile
 from app.services.strategic import (
     StrategicClassificationError,
     StrategicClassificationResult,
     StrategicClassificationService,
 )
 
+# The taxonomy now comes from the active Radar Profile rather than from
+# module-level constants in app.llm.prompts.strategic.
+_TAXONOMY = get_active_profile().taxonomy
+VALID_BUCKETS = _TAXONOMY.bucket_ids
+VALID_TIME_HORIZONS = _TAXONOMY.time_horizon_ids
 
 # ---------------------------------------------------------------------------
 # Helpers

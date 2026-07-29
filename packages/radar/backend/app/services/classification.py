@@ -1,8 +1,8 @@
 """Classification service for thematic tagging of research items.
 
-Uses an LLM provider to classify research papers into predefined themes
-(orthodontics, biomechanics, materials, AI/digital, clinical, other)
-and extract relevant keywords.
+Uses an LLM provider to classify research papers into the themes declared by
+the active Radar Profile and extract relevant keywords. The themes themselves
+are domain configuration, not code.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.classification import VALID_THEMES, format_classification_prompt
+from app.profiles.active import get_prompt_renderer
+from app.profiles.renderer import PromptRenderer
 
 logger = get_logger(__name__)
 
@@ -59,10 +60,22 @@ class ClassificationService:
 
     Args:
         provider: A BaseLLMProvider instance for LLM calls.
+        renderer: Prompt renderer supplying the domain taxonomy. Defaults to
+            the renderer bound to the active Radar Profile.
     """
 
-    def __init__(self, provider: BaseLLMProvider) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        renderer: PromptRenderer | None = None,
+    ) -> None:
         self._provider = provider
+        self._renderer = renderer if renderer is not None else get_prompt_renderer()
+
+    @property
+    def valid_themes(self) -> frozenset[str]:
+        """Theme ids the active profile allows."""
+        return self._renderer.profile.taxonomy.theme_ids
 
     async def classify(
         self,
@@ -81,7 +94,11 @@ class ClassificationService:
         Raises:
             ClassificationError: If the LLM call fails or returns invalid data.
         """
-        prompt = format_classification_prompt(title=title, abstract=abstract)
+        prompt = self._renderer.render(
+            "classification",
+            title=title,
+            abstract=abstract if abstract else "No abstract available.",
+        )
 
         try:
             response = await self._provider.complete_json(prompt)
@@ -148,9 +165,9 @@ class ClassificationService:
             name = entry.get("name", "")
             confidence = entry.get("confidence", 0.0)
 
-            if name not in VALID_THEMES:
+            if name not in self.valid_themes:
                 raise ClassificationError(
-                    f"Invalid theme name '{name}'. Must be one of: {sorted(VALID_THEMES)}",
+                    f"Invalid theme name '{name}'. Must be one of: {sorted(self.valid_themes)}",
                     title=title,
                 )
 

@@ -411,7 +411,7 @@ _CONFIGURATIONS = [
         "key": "review_status_definitions",
         "description": "Definitions of each review status for documentation and UI display",
         "value": ({
-            "relevant": "Confirmed relevant to Geniova strategic interests, included in reporting",
+            "relevant": "Confirmed relevant to strategic interests, included in reporting",
             "review": "Pending human review, default status for newly ingested items",
             "discarded": "Reviewed and determined not relevant, excluded from reporting",
             "opportunity": "Identified as a concrete business or research opportunity",

@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/lib/auth";
 import { AppShell } from "@/components/layout/AppShell";
+import { branding } from "@/lib/branding";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -20,15 +21,8 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Ortho Frontier Radar",
-  description:
-    "Radar estrategico de investigacion para monitorizar avances en ortodoncia, biomateriales, IA y tecnologias emergentes.",
-  keywords: [
-    "ortodoncia",
-    "investigacion",
-    "radar tecnologico",
-    "innovacion dental",
-  ],
+  title: branding.appName,
+  description: branding.tagline,
   icons: {
     icon: "/favicon.svg",
   },

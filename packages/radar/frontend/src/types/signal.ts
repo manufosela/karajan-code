@@ -68,8 +68,8 @@ export interface SignalDetail extends Signal {
   strategic_interpretation: Record<string, unknown> | null;
   why_it_matters_en: string | null;
   why_it_matters_es: string | null;
-  possible_impact_for_geniova_en: string | null;
-  possible_impact_for_geniova_es: string | null;
+  possible_impact_en: string | null;
+  possible_impact_es: string | null;
   llm_provider: string | null;
   llm_model: string | null;
   llm_prompt_version: string | null;

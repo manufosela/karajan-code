@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
+import { branding } from "@/lib/branding";
 
 export default function LoginPage() {
   const { login, isLoading: authLoading } = useAuth();
@@ -45,7 +46,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">
-            Ortho Frontier Radar
+            {branding.appName}
           </h1>
           <p className="mt-1 text-sm text-[var(--text-tertiary)]">
             Sign in to your account
@@ -109,9 +110,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-[var(--text-tertiary)]">
-          Geniova Technologies
-        </p>
+        {branding.organizationName && (
+          <p className="mt-6 text-center text-xs text-[var(--text-tertiary)]">
+            {branding.organizationName}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 [project]
-name = "ortho-frontier-radar-backend"
+name = "frontier-radar-backend"
 version = "1.0.0"
-description = "Strategic research radar backend for orthodontics - Geniova Technologies"
+description = "Configurable strategic research intelligence backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
@@ -22,13 +22,14 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "click>=8.1.0",
     "pyjwt>=2.8.0",
+    "pyyaml>=6.0.0",
     "bcrypt>=4.0.0",
     "pydantic[email]>=2.0",
     "google-cloud-scheduler>=2.0.0",
 ]
 
 [project.scripts]
-ofr-cli = "app.cli:cli"
+radar-cli = "app.cli:cli"
 
 [project.optional-dependencies]
 dev = [

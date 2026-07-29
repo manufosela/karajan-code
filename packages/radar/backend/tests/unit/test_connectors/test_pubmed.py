@@ -217,7 +217,7 @@ class TestPubMedFetchMocked:
                 assert esearch_route.called
                 esearch_request = esearch_route.calls[0].request
                 assert b"db=pubmed" in esearch_request.url.query
-                assert b"tool=ortho-frontier-radar" in esearch_request.url.query
+                assert b"tool=frontier-radar" in esearch_request.url.query
 
                 # Verify efetch was called
                 assert efetch_route.called

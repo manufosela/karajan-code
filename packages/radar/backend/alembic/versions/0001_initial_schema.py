@@ -96,8 +96,8 @@ def upgrade() -> None:
         sa.Column("executive_summary_es", sa.Text()),
         sa.Column("why_it_matters_en", sa.Text()),
         sa.Column("why_it_matters_es", sa.Text()),
-        sa.Column("possible_impact_for_geniova_en", sa.Text()),
-        sa.Column("possible_impact_for_geniova_es", sa.Text()),
+        sa.Column("possible_impact_en", sa.Text()),
+        sa.Column("possible_impact_es", sa.Text()),
         # Review
         sa.Column("review_status", sa.String(15), server_default=sa.text("'review'"), nullable=False),
         # LLM audit trail

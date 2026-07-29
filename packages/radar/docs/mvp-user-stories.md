@@ -1,6 +1,6 @@
-# Ortho Frontier Radar - MVP User Stories
+# Frontier Radar - MVP User Stories
 
-> **Project:** Ortho Frontier Radar (OFR)
+> **Project:** Frontier Radar (OFR)
 > **Version:** MVP v1.0
 > **Date:** 2026-03-19
 > **Tech Stack:** Python/FastAPI, Next.js, PostgreSQL, GCP Cloud Run
@@ -25,7 +25,7 @@
 - **Acceptance Criteria:**
   - Given a clean clone of the repository, when I run `docker compose up --build`, then all three services start without errors within 90 seconds
   - Given the services are running, when I navigate to `http://localhost:8000/docs`, then I see the FastAPI Swagger UI
-  - Given the services are running, when I navigate to `http://localhost:3000`, then I see the Next.js default page with the project title "Ortho Frontier Radar"
+  - Given the services are running, when I navigate to `http://localhost:3000`, then I see the Next.js default page with the project title "Frontier Radar"
   - Given the services are running, when I query `SELECT 1` against the PostgreSQL container, then the query returns successfully
   - Given I review the repository structure, when I check the root, then I find `backend/`, `frontend/`, `docker-compose.yml`, `.env.example`, `Makefile`, and `README.md`
 
@@ -308,7 +308,7 @@
 
 ### US-008: ClinicalTrials.gov Connector
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** the system to fetch orthodontic clinical trials from ClinicalTrials.gov
 - **So that** I can track ongoing and upcoming clinical research that may impact our product strategy
 
@@ -750,23 +750,23 @@
 
 ### US-018: Strategic Bucket Classification
 
-- **As a** Geniova strategist
-- **I want** papers classified into strategic buckets aligned with Geniova's business priorities
+- **As a** the organization strategist
+- **I want** papers classified into strategic buckets aligned with the organization's business priorities
 - **So that** I can quickly assess which research signals are most relevant to our strategic roadmap
 
-- **Description:** Extend the classification pipeline with strategic bucket assignment. Each paper is classified into one primary strategic bucket based on its relevance to Geniova's business. Default buckets: (1) `product_innovation` - new materials, designs, or manufacturing techniques for aligners/orthodontic products, (2) `competitive_intelligence` - competitor research, patents, clinical results from competing products, (3) `market_expansion` - new indications, patient populations, or market segments, (4) `operational_efficiency` - AI/automation for treatment planning, manufacturing, or workflow, (5) `regulatory_landscape` - regulatory changes, standards, compliance requirements, (6) `fundamental_research` - basic science that may have long-term implications, (7) `patient_outcomes` - clinical evidence, patient satisfaction, treatment efficacy. The LLM provides bucket assignment with a `strategic_rationale` explaining why the paper matters for Geniova specifically.
+- **Description:** Extend the classification pipeline with strategic bucket assignment. Each paper is classified into one primary strategic bucket based on its relevance to the organization's business. Default buckets: (1) `product_innovation` - new materials, designs, or manufacturing techniques for aligners/orthodontic products, (2) `competitive_intelligence` - competitor research, patents, clinical results from competing products, (3) `market_expansion` - new indications, patient populations, or market segments, (4) `operational_efficiency` - AI/automation for treatment planning, manufacturing, or workflow, (5) `regulatory_landscape` - regulatory changes, standards, compliance requirements, (6) `fundamental_research` - basic science that may have long-term implications, (7) `patient_outcomes` - clinical evidence, patient satisfaction, treatment efficacy. The LLM provides bucket assignment with a `strategic_rationale` explaining why the paper matters for the organization specifically.
 
 - **Acceptance Criteria:**
   - Given a paper about "Novel 3D-printed resin for clear aligners with improved stress distribution", when bucket-classified, then `strategic_bucket` is `product_innovation` with a rationale mentioning material improvement for aligners
   - Given a paper about "Invisalign vs SmileDirectClub: 5-year clinical outcomes", when bucket-classified, then `strategic_bucket` is `competitive_intelligence`
   - Given a paper about "FDA guidance update for AI-assisted orthodontic treatment planning software", when bucket-classified, then `strategic_bucket` is `regulatory_landscape`
-  - Given any bucket classification, when the result is returned, then it includes: `strategic_bucket` (one of the valid buckets), `strategic_rationale` (2-3 sentences explaining relevance to Geniova), `actionability` (enum: `immediate`, `monitor`, `archive`)
+  - Given any bucket classification, when the result is returned, then it includes: `strategic_bucket` (one of the valid buckets), `strategic_rationale` (2-3 sentences explaining relevance to the organization), `actionability` (enum: `immediate`, `monitor`, `archive`)
   - Given the bucket taxonomy is updated in configuration, when future classifications run, then they use the updated buckets
   - Given a paper with no clear strategic relevance, when classified, then `actionability` is `archive` and rationale explains why it has limited strategic value
 
 - **Technical Notes:**
   - This classification runs as a second LLM call after thematic classification (or combined in a single call if context allows)
-  - The system prompt should include a brief description of Geniova as an orthodontics company specializing in clear aligners and digital treatment planning
+  - The system prompt should include a brief description of the organization, taken from the active Radar Profile
   - `actionability` levels: `immediate` (requires action within 30 days), `monitor` (track for developments), `archive` (low strategic relevance)
   - Consider combining thematic + bucket classification in a single LLM call to reduce costs
   - Store in the same `classifications` table, extending the schema with `strategic_bucket`, `strategic_rationale`, `actionability`
@@ -779,7 +779,7 @@
   - [ ] LLM assigns bucket with rationale and actionability
   - [ ] All bucket assignments validated against configurable taxonomy
   - [ ] Results stored in `classifications` table
-  - [ ] Geniova-specific context included in LLM prompt
+  - [ ] the organization-specific context included in LLM prompt
   - [ ] Configurable bucket definitions via database
   - [ ] Unit tests with mocked LLM responses covering all buckets
   - [ ] Test cases for edge cases (ambiguous papers, no strategic relevance)
@@ -791,11 +791,11 @@
 
 ### US-019: Scientific Strength and Strategic Relevance Scoring with Explainability
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** each paper scored on scientific strength and strategic relevance with transparent explanations
 - **So that** I can prioritize which signals deserve my attention based on objective, explainable criteria
 
-- **Description:** Implement a scoring service in `backend/app/services/scoring.py`. Two independent scores per paper: (1) **Scientific Strength** (0-100): evaluates methodology quality, sample size, study type (RCT > cohort > case study > review > opinion), journal impact, citation count, statistical rigor mentioned in abstract. (2) **Strategic Relevance** (0-100): evaluates alignment with Geniova priorities, commercial applicability, time-to-impact, competitive advantage potential. Both scores combine weighted sub-scores. A **Composite Score** is calculated: `composite = (scientific_strength * w1 + strategic_relevance * w2) / (w1 + w2)` where `w1` and `w2` are configurable weights (default: w1=0.4, w2=0.6). The LLM provides an `explanation` object with sub-scores and reasoning for each. Store weights snapshot with each score for reproducibility.
+- **Description:** Implement a scoring service in `backend/app/services/scoring.py`. Two independent scores per paper: (1) **Scientific Strength** (0-100): evaluates methodology quality, sample size, study type (RCT > cohort > case study > review > opinion), journal impact, citation count, statistical rigor mentioned in abstract. (2) **Strategic Relevance** (0-100): evaluates alignment with the organization priorities, commercial applicability, time-to-impact, competitive advantage potential. Both scores combine weighted sub-scores. A **Composite Score** is calculated: `composite = (scientific_strength * w1 + strategic_relevance * w2) / (w1 + w2)` where `w1` and `w2` are configurable weights (default: w1=0.4, w2=0.6). The LLM provides an `explanation` object with sub-scores and reasoning for each. Store weights snapshot with each score for reproducibility.
 
 - **Acceptance Criteria:**
   - Given a randomized controlled trial paper in a high-impact journal with n=500, when scored, then `scientific_strength` is above 75
@@ -808,7 +808,7 @@
 
 - **Technical Notes:**
   - Scientific strength sub-scores: `study_type` (0-100), `sample_size` (0-100), `methodology_rigor` (0-100), `journal_impact` (0-100), `citation_signal` (0-100)
-  - Strategic relevance sub-scores: `geniova_alignment` (0-100), `commercial_applicability` (0-100), `time_to_impact` (0-100), `competitive_advantage` (0-100), `market_potential` (0-100)
+  - Strategic relevance sub-scores: `organization_alignment` (0-100), `commercial_applicability` (0-100), `time_to_impact` (0-100), `competitive_advantage` (0-100), `market_potential` (0-100)
   - Use `gpt-4o` for scoring (higher accuracy needed for nuanced evaluation)
   - Include citation count and journal name in the prompt context (from paper metadata)
   - Weights for sub-scores also configurable; default equal weighting within each category
@@ -841,17 +841,17 @@
 
 ### US-020: Executive Summary Generation (EN + ES)
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** each paper to have an executive summary in both English and Spanish
 - **So that** I can quickly understand the strategic significance without reading the full paper, in both languages our team uses
 
-- **Description:** Implement an executive summary generator in `backend/app/services/insights.py`. For each classified and scored paper, generate: (1) **Executive Summary** (3-5 sentences): concise overview of what the paper found and why it matters for orthodontics, written for a business audience (not academic). (2) **Key Findings** (3-5 bullet points): the most important takeaways. (3) **Geniova Impact Statement** (1-2 sentences): specific implications for Geniova's products, strategy, or operations. (4) **Recommended Actions** (0-3 bullet points): concrete next steps if applicable. Generate all four components in both English and Spanish in a single LLM call (bilingual generation). Store in the `insights` table with `language` field.
+- **Description:** Implement an executive summary generator in `backend/app/services/insights.py`. For each classified and scored paper, generate: (1) **Executive Summary** (3-5 sentences): concise overview of what the paper found and why it matters for orthodontics, written for a business audience (not academic). (2) **Key Findings** (3-5 bullet points): the most important takeaways. (3) **the organization Impact Statement** (1-2 sentences): specific implications for the organization's products, strategy, or operations. (4) **Recommended Actions** (0-3 bullet points): concrete next steps if applicable. Generate all four components in both English and Spanish in a single LLM call (bilingual generation). Store in the `insights` table with `language` field.
 
 - **Acceptance Criteria:**
   - Given a classified and scored paper, when insight generation runs, then an executive summary is produced in both English and Spanish
   - Given the English summary, when reviewed, then it is written in clear business language (no academic jargon) and is 3-5 sentences long
   - Given the Spanish summary, when reviewed, then it is a natural Spanish translation (not word-for-word), using appropriate dental/orthodontic terminology in Spanish
-  - Given any insight, when inspected, then it includes: `executive_summary`, `key_findings` (list), `geniova_impact`, `recommended_actions` (list), and `language` (enum: `en`, `es`)
+  - Given any insight, when inspected, then it includes: `executive_summary`, `key_findings` (list), `organization_impact`, `recommended_actions` (list), and `language` (enum: `en`, `es`)
   - Given a paper classified as `actionability=immediate`, when insights are generated, then `recommended_actions` contains at least one concrete action item
   - Given a paper classified as `actionability=archive`, when insights are generated, then `recommended_actions` may be empty and the impact statement reflects limited relevance
   - Given both language versions, when stored, then each has its own record in the `insights` table linked to the same paper
@@ -860,7 +860,7 @@
   - Use `gpt-4o` for insight generation (requires nuanced bilingual output)
   - Single LLM call with prompt: "Generate the following in both English and Spanish..."
   - Include classification results and scores in the prompt context for informed summary generation
-  - Pydantic model: `InsightResult(executive_summary: str, key_findings: list[str], geniova_impact: str, recommended_actions: list[str], language: str)`
+  - Pydantic model: `InsightResult(executive_summary: str, key_findings: list[str], organization_impact: str, recommended_actions: list[str], language: str)`
   - Spanish dental terminology reference: include a glossary in the system prompt (e.g., "clear aligners" = "alineadores transparentes")
   - Target total token usage: under 2000 tokens per paper (both languages combined)
   - Store `model_used` and `tokens_used` for cost tracking
@@ -870,7 +870,7 @@
 - **Definition of Done:**
   - [ ] Executive summary generated in English and Spanish
   - [ ] Business-friendly language (non-academic)
-  - [ ] Key findings, Geniova impact, and recommended actions included
+  - [ ] Key findings, the organization impact, and recommended actions included
   - [ ] Both language versions stored in `insights` table
   - [ ] Spanish output uses natural orthodontic terminology
   - [ ] Token usage tracked per call
@@ -884,11 +884,11 @@
 
 ### US-021: Impact Analysis and Hype Detection
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** each paper analyzed for potential market impact and hype indicators
 - **So that** I can distinguish genuinely impactful research from overhyped findings
 
-- **Description:** Implement impact analysis and hype detection in `backend/app/services/insights.py`. For each paper, generate: (1) **Impact Analysis**: `time_horizon` (short-term <1yr, medium 1-3yr, long-term >3yr), `impact_magnitude` (low/medium/high/transformative), `affected_areas` (list of Geniova departments/products affected), `confidence_level` (how confident the assessment is). (2) **Hype Detection**: `hype_score` (0-100, where 100 = pure hype), `hype_indicators` (list of detected indicators like "small sample size with bold claims", "no peer review", "commercial sponsor bias"), `credibility_signals` (positive indicators like "replicated results", "large RCT", "independent funding"), `verdict` (enum: `solid_evidence`, `promising_early`, `needs_replication`, `likely_overhyped`, `insufficient_data`). This helps strategists avoid allocating resources based on overhyped research.
+- **Description:** Implement impact analysis and hype detection in `backend/app/services/insights.py`. For each paper, generate: (1) **Impact Analysis**: `time_horizon` (short-term <1yr, medium 1-3yr, long-term >3yr), `impact_magnitude` (low/medium/high/transformative), `affected_areas` (list of the organization departments/products affected), `confidence_level` (how confident the assessment is). (2) **Hype Detection**: `hype_score` (0-100, where 100 = pure hype), `hype_indicators` (list of detected indicators like "small sample size with bold claims", "no peer review", "commercial sponsor bias"), `credibility_signals` (positive indicators like "replicated results", "large RCT", "independent funding"), `verdict` (enum: `solid_evidence`, `promising_early`, `needs_replication`, `likely_overhyped`, `insufficient_data`). This helps strategists avoid allocating resources based on overhyped research.
 
 - **Acceptance Criteria:**
   - Given a paper from a large multi-center RCT published in a top journal, when analyzed, then `hype_score` is below 20 and `verdict` is `solid_evidence`
@@ -978,11 +978,11 @@
 
 ### US-023: Dashboard Layout and Navigation
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** a clean, professional dashboard layout with intuitive navigation
 - **So that** I can efficiently navigate between different sections of the research radar
 
-- **Description:** Implement the main dashboard layout in Next.js with: (1) **Top navigation bar**: Geniova logo, app title "Ortho Frontier Radar", user avatar placeholder, settings gear icon. (2) **Sidebar navigation**: collapsible sidebar with sections: "Dashboard" (overview/home), "Signals" (signal inbox), "Analytics" (future - placeholder), "Configuration" (settings), "About". Active state indication. (3) **Main content area**: responsive container with breadcrumbs. (4) **Dashboard home page**: summary cards showing `Signals Today`, `Pending Review`, `High Priority` (composite score > 75), `Sources Active`. A recent signals mini-list (last 5). Layout uses Tailwind CSS with a professional color scheme (Geniova brand: blues and whites). Responsive: works on desktop (primary) and tablet.
+- **Description:** Implement the main dashboard layout in Next.js with: (1) **Top navigation bar**: the organization logo, app title "Frontier Radar", user avatar placeholder, settings gear icon. (2) **Sidebar navigation**: collapsible sidebar with sections: "Dashboard" (overview/home), "Signals" (signal inbox), "Analytics" (future - placeholder), "Configuration" (settings), "About". Active state indication. (3) **Main content area**: responsive container with breadcrumbs. (4) **Dashboard home page**: summary cards showing `Signals Today`, `Pending Review`, `High Priority` (composite score > 75), `Sources Active`. A recent signals mini-list (last 5). Layout uses Tailwind CSS with a professional color scheme (the organization brand: blues and whites). Responsive: works on desktop (primary) and tablet.
 
 - **Acceptance Criteria:**
   - Given a user opens the app, when the dashboard loads, then they see the top nav bar with logo and title, the sidebar with all navigation items, and the main content area with the home page
@@ -1013,7 +1013,7 @@
   - [ ] Recent signals mini-list on home page
   - [ ] Responsive layout for desktop and tablet
   - [ ] Loading skeletons and error states
-  - [ ] Tailwind-based design with Geniova color scheme
+  - [ ] Tailwind-based design with the organization color scheme
   - [ ] Frontend unit tests for layout components
 
 - **devPoints:** 3
@@ -1117,11 +1117,11 @@
 
 ### US-026: Signal Detail View with Full Traceability
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** a comprehensive detail view for each signal showing all processed information with full traceability
 - **So that** I can deeply understand a research signal and trust the AI-generated analysis by seeing the reasoning
 
-- **Description:** Implement the signal detail page at `/signals/[id]`. Sections: (1) **Header**: title, source badge, published date, DOI link (clickable to original paper), PDF link if available, status badge with action buttons. (2) **Executive Summary**: bilingual tabs (EN/ES), key findings, Geniova impact statement, recommended actions. (3) **Classification**: primary and secondary themes with confidence bars, strategic bucket with rationale, actionability badge. (4) **Scoring**: composite score (large), scientific strength breakdown (sub-scores visualized as horizontal bars), strategic relevance breakdown (sub-scores as bars), explanation text for each sub-score. (5) **Impact & Hype**: impact timeline visualization, magnitude, affected areas chips, hype score gauge (0-100), hype indicators (red chips), credibility signals (green chips), verdict badge. (6) **Paper Metadata**: authors, journal, keywords/MeSH terms, abstract (full), source-specific IDs. (7) **Traceability Footer**: model used, tokens consumed, processing cost, processing timestamp, raw LLM response toggle (expandable JSON viewer).
+- **Description:** Implement the signal detail page at `/signals/[id]`. Sections: (1) **Header**: title, source badge, published date, DOI link (clickable to original paper), PDF link if available, status badge with action buttons. (2) **Executive Summary**: bilingual tabs (EN/ES), key findings, the organization impact statement, recommended actions. (3) **Classification**: primary and secondary themes with confidence bars, strategic bucket with rationale, actionability badge. (4) **Scoring**: composite score (large), scientific strength breakdown (sub-scores visualized as horizontal bars), strategic relevance breakdown (sub-scores as bars), explanation text for each sub-score. (5) **Impact & Hype**: impact timeline visualization, magnitude, affected areas chips, hype score gauge (0-100), hype indicators (red chips), credibility signals (green chips), verdict badge. (6) **Paper Metadata**: authors, journal, keywords/MeSH terms, abstract (full), source-specific IDs. (7) **Traceability Footer**: model used, tokens consumed, processing cost, processing timestamp, raw LLM response toggle (expandable JSON viewer).
 
 - **Acceptance Criteria:**
   - Given I click a signal title in the inbox, when the detail page loads, then I see all 7 sections with the paper's complete processed information
@@ -1164,7 +1164,7 @@
 
 ### US-027: Review Status Management
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** to change the review status of signals from the UI
 - **So that** I can track which signals I've reviewed and which need attention
 
@@ -1300,11 +1300,11 @@
 
 ### US-030: Scoring Weights Editor
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** to adjust the scoring weights used for scientific strength and strategic relevance
 - **So that** the composite score reflects our current strategic priorities
 
-- **Description:** Implement a scoring weights editor at `/config/scoring`. Display: (1) **Composite formula weights**: sliders for `scientific_strength_weight` (w1) and `strategic_relevance_weight` (w2) with a visual formula display showing `composite = (SS * w1 + SR * w2) / (w1 + w2)`. (2) **Scientific strength sub-weights**: sliders for `study_type`, `sample_size`, `methodology_rigor`, `journal_impact`, `citation_signal` (each 0-100, normalized). (3) **Strategic relevance sub-weights**: sliders for `geniova_alignment`, `commercial_applicability`, `time_to_impact`, `competitive_advantage`, `market_potential` (each 0-100, normalized). Include a "Live Preview" panel showing how 5 sample papers would be rescored with the current weights. Include a "Reset to defaults" button. Changes saved explicitly with a confirmation showing the before/after of sample paper scores.
+- **Description:** Implement a scoring weights editor at `/config/scoring`. Display: (1) **Composite formula weights**: sliders for `scientific_strength_weight` (w1) and `strategic_relevance_weight` (w2) with a visual formula display showing `composite = (SS * w1 + SR * w2) / (w1 + w2)`. (2) **Scientific strength sub-weights**: sliders for `study_type`, `sample_size`, `methodology_rigor`, `journal_impact`, `citation_signal` (each 0-100, normalized). (3) **Strategic relevance sub-weights**: sliders for `organization_alignment`, `commercial_applicability`, `time_to_impact`, `competitive_advantage`, `market_potential` (each 0-100, normalized). Include a "Live Preview" panel showing how 5 sample papers would be rescored with the current weights. Include a "Reset to defaults" button. Changes saved explicitly with a confirmation showing the before/after of sample paper scores.
 
 - **Acceptance Criteria:**
   - Given I navigate to `/config/scoring`, when the page loads, then I see the current weights for composite, scientific strength sub-weights, and strategic relevance sub-weights
@@ -1396,9 +1396,9 @@
 
 - **As a** system
 - **I want** a service that generates a daily digest of the most relevant research signals
-- **So that** the Geniova team receives a curated summary without needing to visit the dashboard
+- **So that** the the organization team receives a curated summary without needing to visit the dashboard
 
-- **Description:** Implement a `DigestService` in `backend/app/services/digest.py`. The service generates a daily digest containing: (1) **Header**: "Ortho Frontier Radar - Daily Digest" with date. (2) **Summary Stats**: new signals today, high-priority count, sources queried, breakdown by bucket. (3) **Top Signals** (max 10): ordered by composite score, each showing: title, source, composite score, strategic bucket, hype verdict, executive summary (first 2 sentences in configured language), and a link to the signal detail page. (4) **Alerts**: any signals with `actionability=immediate` highlighted separately. (5) **Trend Note**: if a particular theme or bucket has significantly more papers than usual (>2x 30-day average), flag it as a trend. The digest is generated as a structured object that can be rendered into different formats (Teams Adaptive Card, HTML email, plain text).
+- **Description:** Implement a `DigestService` in `backend/app/services/digest.py`. The service generates a daily digest containing: (1) **Header**: "Frontier Radar - Daily Digest" with date. (2) **Summary Stats**: new signals today, high-priority count, sources queried, breakdown by bucket. (3) **Top Signals** (max 10): ordered by composite score, each showing: title, source, composite score, strategic bucket, hype verdict, executive summary (first 2 sentences in configured language), and a link to the signal detail page. (4) **Alerts**: any signals with `actionability=immediate` highlighted separately. (5) **Trend Note**: if a particular theme or bucket has significantly more papers than usual (>2x 30-day average), flag it as a trend. The digest is generated as a structured object that can be rendered into different formats (Teams Adaptive Card, HTML email, plain text).
 
 - **Acceptance Criteria:**
   - Given the daily digest runs after ingestion, when 15 new signals were processed today, then the digest includes summary stats showing 15 new signals with breakdown by bucket
@@ -1437,11 +1437,11 @@
 
 ### US-033: Teams Webhook Delivery
 
-- **As a** Geniova strategist
+- **As a** the organization strategist
 - **I want** the daily digest delivered to a Microsoft Teams channel via webhook
 - **So that** the team sees the research radar summary in our primary communication tool without leaving Teams
 
-- **Description:** Implement a `TeamsDeliveryService` in `backend/app/services/teams_delivery.py`. The service: (1) Renders the digest as a Microsoft Teams Adaptive Card (JSON format). (2) Posts the card to the configured Teams incoming webhook URL. (3) Handles delivery failures with retry (3 attempts, exponential backoff). (4) Logs delivery status in `digest_logs` (sent, failed, retrying). The Adaptive Card design: header with Geniova logo and date, collapsible sections for stats/alerts/top signals/trends, each signal as a compact row with score badge and clickable title linking to the dashboard detail view. The card must comply with Teams Adaptive Card schema v1.4 and fit within the 28KB payload limit.
+- **Description:** Implement a `TeamsDeliveryService` in `backend/app/services/teams_delivery.py`. The service: (1) Renders the digest as a Microsoft Teams Adaptive Card (JSON format). (2) Posts the card to the configured Teams incoming webhook URL. (3) Handles delivery failures with retry (3 attempts, exponential backoff). (4) Logs delivery status in `digest_logs` (sent, failed, retrying). The Adaptive Card design: header with the organization logo and date, collapsible sections for stats/alerts/top signals/trends, each signal as a compact row with score badge and clickable title linking to the dashboard detail view. The card must comply with Teams Adaptive Card schema v1.4 and fit within the 28KB payload limit.
 
 - **Acceptance Criteria:**
   - Given the digest is generated, when the Teams delivery service sends it, then a well-formatted Adaptive Card appears in the configured Teams channel

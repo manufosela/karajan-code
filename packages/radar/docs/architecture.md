@@ -1,11 +1,11 @@
-# Ortho Frontier Radar - Architecture Document
+# Frontier Radar - Architecture Document
 
 ## 1. Vision
 
-Ortho Frontier Radar (OFR) is a strategic research intelligence system for Geniova / Global Hybrid Orthodontics. It automatically detects, classifies, scores, and converts cutting-edge research signals from global scientific sources into actionable strategic insights.
+Frontier Radar (OFR) is a strategic research intelligence system for the organization it is configured for. It automatically detects, classifies, scores, and converts cutting-edge research signals from global scientific sources into actionable strategic insights.
 
 **It is NOT a paper aggregator.** It is an opinionated, configurable radar that answers:
-- What advances truly matter for Geniova?
+- What advances truly matter for the organization?
 - What could affect product, clinic, operations, or R&D?
 - What deserves monitoring?
 - What is an opportunity or a competitive threat?
@@ -119,7 +119,7 @@ Ortho Frontier Radar (OFR) is a strategic research intelligence system for Genio
 ### 4.5 Insight Generation (`app/pipeline/`)
 - Executive summaries in EN + ES
 - "Why it matters" analysis
-- "Possible impact for Geniova" assessment
+- "Possible impact" assessment
 - Hype risk detection
 - Time horizon estimation
 - Recommended action
@@ -145,7 +145,7 @@ Ortho Frontier Radar (OFR) is a strategic research intelligence system for Genio
 ## 5. Folder Structure
 
 ```
-ortho-frontier-radar/
+frontier-radar/
 ├── backend/
 │   ├── alembic/
 │   │   ├── versions/

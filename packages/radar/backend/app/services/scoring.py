@@ -2,7 +2,7 @@
 
 Uses an LLM provider to evaluate research papers on two dimensions:
 scientific strength (methodology, sample size, peer review, journal impact)
-and strategic relevance (alignment with Geniova's aligner business, market
+and strategic relevance (alignment with the organization's business, market
 impact, competitive advantage).
 """
 
@@ -13,11 +13,8 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.scoring import (
-    VALID_HYPE_RISKS,
-    VALID_RECOMMENDED_ACTIONS,
-    format_scoring_prompt,
-)
+from app.profiles.active import get_prompt_renderer
+from app.profiles.renderer import PromptRenderer
 
 logger = get_logger(__name__)
 
@@ -61,8 +58,27 @@ class ScoringService:
         provider: A BaseLLMProvider instance for LLM calls.
     """
 
-    def __init__(self, provider: BaseLLMProvider) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        renderer: PromptRenderer | None = None,
+    ) -> None:
         self._provider = provider
+        self._renderer = renderer if renderer is not None else get_prompt_renderer()
+
+    @property
+    def valid_hype_risks(self) -> frozenset[str]:
+        """Hype risk ids the active profile allows."""
+        return self._renderer.profile.vocabulary.hype_risk_ids
+
+    @property
+    def valid_recommended_actions(self) -> frozenset[str]:
+        """Recommended actions the scoring prompt allows.
+
+        Deliberately distinct from the impact service's action set: the two
+        prompts have always offered different choices.
+        """
+        return self._renderer.profile.vocabulary.scoring_action_ids
 
     async def score(
         self,
@@ -82,7 +98,11 @@ class ScoringService:
         Raises:
             ScoringError: If the LLM call fails or returns invalid data.
         """
-        prompt = format_scoring_prompt(title=title, abstract=abstract)
+        prompt = self._renderer.render(
+            "scoring",
+            title=title,
+            abstract=abstract if abstract else "No abstract available.",
+        )
 
         try:
             response = await self._provider.complete_json(prompt)
@@ -175,16 +195,18 @@ class ScoringService:
             )
 
         # Validate recommended_action
-        if action not in VALID_RECOMMENDED_ACTIONS:
+        if action not in self.valid_recommended_actions:
             raise ScoringError(
-                f"Invalid recommended_action '{action}'. Must be one of: {sorted(VALID_RECOMMENDED_ACTIONS)}",
+                f"Invalid recommended_action '{action}'. "
+                f"Must be one of: {sorted(self.valid_recommended_actions)}",
                 title=title,
             )
 
         # Validate hype_risk
-        if hype not in VALID_HYPE_RISKS:
+        if hype not in self.valid_hype_risks:
             raise ScoringError(
-                f"Invalid hype_risk '{hype}'. Must be one of: {sorted(VALID_HYPE_RISKS)}",
+                f"Invalid hype_risk '{hype}'. "
+                f"Must be one of: {sorted(self.valid_hype_risks)}",
                 title=title,
             )
 

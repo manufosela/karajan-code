@@ -20,10 +20,10 @@ export const es: Record<TranslationKey, string> = {
   "nav.analytics": "Anal\u00edtica",
 
   // Dashboard
-  "dashboard.title": "Ortho Frontier",
+  // El nombre y el lema del radar son branding de la instancia, no texto
+  // traducible: ver lib/branding.ts.
   "dashboard.subtitle": "Radar",
   "dashboard.briefingLabel": "Informe de Inteligencia",
-  "dashboard.description": "Monitoreo estrat\u00e9gico de investigaci\u00f3n puntera en ortodoncia, biomateriales e IA aplicada.",
   "dashboard.totalSignals": "Se\u00f1ales totales",
   "dashboard.pendingReview": "Pendientes de revisi\u00f3n",
   "dashboard.highRelevance": "Alta relevancia",

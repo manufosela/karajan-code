@@ -2,7 +2,7 @@
 
 Uses an LLM provider to generate concise executive summaries of research
 items in both English and Spanish, along with key findings and strategic
-implications for Geniova's aligner business.
+implications for the organization the radar reports for.
 """
 
 from __future__ import annotations
@@ -12,10 +12,8 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
-from app.llm.prompts.summary import (
-    REQUIRED_SUMMARY_FIELDS,
-    format_summary_prompt,
-)
+from app.profiles.active import get_prompt_renderer
+from app.profiles.renderer import PromptRenderer
 
 logger = get_logger(__name__)
 
@@ -57,8 +55,26 @@ class SummaryService:
         provider: A BaseLLMProvider instance for LLM calls.
     """
 
-    def __init__(self, provider: BaseLLMProvider) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        renderer: PromptRenderer | None = None,
+    ) -> None:
         self._provider = provider
+        self._renderer = renderer if renderer is not None else get_prompt_renderer()
+
+    @property
+    def required_fields(self) -> frozenset[str]:
+        """Response fields the active profile expects.
+
+        One summary field per configured language, plus the fields every
+        summary carries regardless of domain.
+        """
+        languages = self._renderer.profile.summary.languages
+        return frozenset({f"summary_{code}" for code in languages}) | {
+            "key_findings",
+            "implications",
+        }
 
     async def summarize(
         self,
@@ -82,11 +98,13 @@ class SummaryService:
         Raises:
             SummaryError: If the LLM call fails or returns invalid data.
         """
-        prompt = format_summary_prompt(
+        prompt = self._renderer.render(
+            "summary",
             title=title,
-            abstract=abstract,
-            themes=themes,
-            scores=scores,
+            abstract=abstract if abstract else "No abstract available.",
+            assigned_themes=", ".join(themes) if themes else "none assigned",
+            scientific_strength_score=scores.get("scientific_strength_score", "n/a"),
+            strategic_relevance_score=scores.get("strategic_relevance_score", "n/a"),
         )
 
         try:
@@ -129,7 +147,7 @@ class SummaryService:
         Raises:
             SummaryError: If the response structure is invalid.
         """
-        missing = [f for f in REQUIRED_SUMMARY_FIELDS if f not in data]
+        missing = [f for f in sorted(self.required_fields) if f not in data]
         if missing:
             raise SummaryError(
                 f"Missing required fields in LLM response: {', '.join(sorted(missing))}",
