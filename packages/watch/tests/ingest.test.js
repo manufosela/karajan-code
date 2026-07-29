@@ -1,6 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -99,8 +100,15 @@ test('runIngest: escribe karajan.config.json y ejecuta karajan-rag', async () =>
   });
   assert.equal(result.corpusName, 'code');
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].cmd, 'karajan-rag');
-  assert.deepEqual(calls[0].args, [
+  // El binario de karajan-rag es de una DEPENDENCIA: se resuelve desde el
+  // paquete y se lanza con el node en curso, nunca confiando en el PATH
+  // (KJW-BUG-0003: `spawn('karajan-rag')` fallaba con ENOENT en cualquier
+  // instalación que no lo tuviera global).
+  assert.equal(calls[0].cmd, process.execPath);
+  const [binPath, ...rest] = calls[0].args;
+  assert.match(binPath, /karajan-rag[/\\]bin[/\\]karajan-rag\.js$/);
+  assert.ok(existsSync(binPath), 'el binario resuelto existe en disco');
+  assert.deepEqual(rest, [
     'index', dir, '--store', 'pgvector', '--embedder', 'transformers',
   ]);
   const written = JSON.parse(await readFile(join(dir, 'karajan.config.json'), 'utf8'));

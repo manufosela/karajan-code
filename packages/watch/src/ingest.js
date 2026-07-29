@@ -15,9 +15,10 @@
  * karajan-rag lee en la raíz indexada: nivel global del corpus +
  * `sensitivityRules` por prefijo de repo.
  */
-import { readdir, writeFile, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, writeFile, access, readFile } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 /** Error de ingesta: el job debe quedar en rojo, nunca éxito degradado. */
 export class IngestError extends Error {
@@ -117,6 +118,38 @@ export const verifyWorkspace = async (config, workspaceDir) => {
 };
 
 /**
+ * Ruta real del CLI de karajan-rag.
+ *
+ * karajan-rag es una DEPENDENCIA, así que su binario vive en el
+ * `node_modules` del paquete y no tiene por qué estar en el PATH: confiar
+ * en el PATH rompía cualquier instalación que no lo tuviera global
+ * (KJW-BUG-0003). Se resuelve desde el propio paquete y se lanza con el
+ * node en curso.
+ *
+ * @returns {Promise<string>}
+ */
+export const resolveKarajanRagBin = async () => {
+  const require = createRequire(import.meta.url);
+  let pkgPath;
+  try {
+    pkgPath = require.resolve('karajan-rag/package.json');
+  } catch (err) {
+    throw new IngestError(
+      'no se pudo localizar el paquete karajan-rag: ¿está instalado como dependencia?',
+      { cause: err },
+    );
+  }
+  const pkg = JSON.parse(await readFile(pkgPath, 'utf8'));
+  const binField = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.['karajan-rag'];
+  if (!binField) {
+    throw new IngestError(
+      `el paquete karajan-rag no declara el binario "karajan-rag" en su campo bin.`,
+    );
+  }
+  return resolve(dirname(pkgPath), binField);
+};
+
+/**
  * Ejecuta un comando heredando stdio y resuelve con su exit code.
  *
  * @param {string} cmd
@@ -175,7 +208,8 @@ export const runIngest = async ({
   await writeFile(easyConfigPath, `${JSON.stringify(plan.easyConfig, null, 2)}\n`, 'utf8');
 
   log(`indexando corpus "${corpusName}" desde "${workspaceDir}"…`);
-  const exitCode = await exec('karajan-rag', plan.args, { env });
+  const binPath = await resolveKarajanRagBin();
+  const exitCode = await exec(process.execPath, [binPath, ...plan.args], { env });
   if (exitCode !== 0) {
     throw new IngestError(
       `karajan-rag index terminó con exit code ${exitCode} para el corpus "${corpusName}".`,
