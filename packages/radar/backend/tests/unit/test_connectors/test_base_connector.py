@@ -569,6 +569,6 @@ class TestConnectorLifecycle:
         assert connector.base_url == "https://api.example.com/v1"
 
     def test_user_agent_header_set(self) -> None:
-        """The HTTP client includes the OrthoFrontierRadar user agent."""
+        """The HTTP client identifies itself to upstream APIs."""
         connector = MockConnector()
-        assert connector._client.headers["User-Agent"] == "OrthoFrontierRadar/0.1.0"
+        assert connector._client.headers["User-Agent"] == "FrontierRadar/1.0"

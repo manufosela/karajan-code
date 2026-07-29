@@ -67,6 +67,27 @@ Profiles are validated on load: scoring weights must sum to 1.0, ids must be uni
 
 Prompts use Mustache (`{{variable}}`), so the JSON output schemas they embed need no brace escaping. Tags used inside a section (`{{id}}` within `{{#themes}}`) resolve per item; tags outside one must be supplied by the caller.
 
+### Watching non-academic sources
+
+Not every domain publishes papers. The `rss` connector reads any number of
+RSS or Atom feeds declared in the profile, so official bulletins, ministry
+press rooms and competitor announcements need no connector of their own:
+
+```yaml
+sources:
+  - connector: rss
+    config:
+      feeds:
+        - url: https://example.gov/press.rss
+          name: Ministry press releases
+        - https://competitor.example/blog/feed
+```
+
+Entries are stored as `strategic_signal` documents and go through the same
+classification, scoring and digest pipeline as papers. A feed that fails is
+reported in the ingestion run rather than silently skipped, and a malformed
+entry is dropped without taking the rest of the feed with it.
+
 ### Switching domain
 
 1. Write `backend/profiles/<id>.yaml`.

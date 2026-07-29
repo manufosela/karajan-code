@@ -201,11 +201,27 @@ scoring:
     scientific_strength: 0.4
     strategic_relevance: 0.6
 
-# Only the academic connectors are wired up so far. Legislative sources (BOE,
-# Congreso de los Diputados, EUR-Lex) and news sources for competitor activity
-# need connectors that do not exist yet; until they do, this profile covers the
-# research half of the domain only.
+# The rss connector covers the non-academic half of this domain: official
+# bulletins, ministry press rooms and competitor announcements all publish
+# feeds. Dedicated connectors for BOE (FRD-TSK-0046) and the Congreso's
+# legislative pipeline (FRD-TSK-0047) will add what a feed cannot express,
+# such as a bill's stage of passage.
+#
+# Replace the feed URLs below with the ones an instance actually watches: they
+# are placeholders chosen to show the shape, not a curated list.
 sources:
+  - connector: rss
+    priority: 1
+    query: null
+    config:
+      rate_limit_per_second: 5
+      feeds:
+        - url: https://www.miteco.gob.es/es/prensa/ultimas-noticias.rss
+          name: MITECO press releases
+        - url: https://news.google.com/rss/search?q=carpooling+OR+%22coche+compartido%22&hl=es&gl=ES&ceid=ES:es
+          name: Google News - carpooling (ES)
+        - url: https://news.google.com/rss/search?q=%22bono+social+el%C3%A9ctrico%22&hl=es&gl=ES&ceid=ES:es
+          name: Google News - bono social electrico
   - connector: arxiv
     priority: 1
     query: >-

@@ -100,6 +100,7 @@ def create_default_registry() -> ConnectorRegistry:
     from app.connectors.clinical_trials import ClinicalTrialsConnector
     from app.connectors.crossref import CrossrefConnector
     from app.connectors.pubmed import PubMedConnector
+    from app.connectors.rss import RssConnector
     from app.connectors.semantic_scholar import SemanticScholarConnector
 
     registry = ConnectorRegistry()
@@ -108,6 +109,7 @@ def create_default_registry() -> ConnectorRegistry:
     registry.register("clinical_trials", ClinicalTrialsConnector)
     registry.register("crossref", CrossrefConnector)
     registry.register("semantic_scholar", SemanticScholarConnector)
+    registry.register("rss", RssConnector)
     return registry
 
 
