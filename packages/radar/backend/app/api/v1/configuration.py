@@ -9,6 +9,7 @@ from app.api.deps import get_current_user, get_db, require_admin
 from app.core.config import settings
 from app.models.configuration import Configuration
 from app.models.user import User
+from app.profiles.active import get_active_profile
 from app.schemas.configuration import (
     ConfigCategoryEnum,
     ConfigResponse,
@@ -20,6 +21,7 @@ from app.schemas.configuration import (
     ScoringWeightsUpdate,
     TopicTaxonomyResponse,
 )
+from app.schemas.profile import ActiveProfileResponse
 from app.utils.cron import (
     ScheduleType,
     calculate_next_runs,
@@ -85,6 +87,18 @@ async def list_configuration(
 
 
 # --- Static routes MUST be defined BEFORE parameterized routes ---
+
+
+@router.get("/profile", response_model=ActiveProfileResponse)
+async def get_active_profile_config(
+    _user: User = Depends(get_current_user),
+) -> ActiveProfileResponse:
+    """Describe the Radar Profile this instance runs on.
+
+    The frontend labels themes, buckets and horizons from here, so those
+    lists live in the profile rather than in the components.
+    """
+    return ActiveProfileResponse.from_profile(get_active_profile())
 
 
 @router.get("/thematic/topics", response_model=TopicTaxonomyResponse)
