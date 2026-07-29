@@ -7,6 +7,8 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-07-29
+
 ### Added
 
 - **`rag.answer()` en el SDK** (épica CAG): `createRag()` gana el método
@@ -619,7 +621,8 @@ reales.
 - Sin dependencias runtime (excepto `pg` devDep para PgVectorStore y peer-opts
   para TransformersJs/LanceDB/Bedrock/VertexAI).
 
-[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/manufosela/karajan-rag/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/manufosela/karajan-rag/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/manufosela/karajan-rag/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/manufosela/karajan-rag/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/manufosela/karajan-rag/compare/v1.0.0...v1.1.0
