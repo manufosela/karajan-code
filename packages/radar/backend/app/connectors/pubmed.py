@@ -14,17 +14,13 @@ except ImportError:
 from app.connectors.base import BaseConnector, NormalizedPaper
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.profiles.active import default_query_for
 
 logger = get_logger(__name__)
 
 # NCBI E-utilities base URL
 EUTILS_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
-# Default orthodontics search query
-DEFAULT_QUERY = (
-    "(orthodontics OR \"clear aligners\" OR \"dental biomechanics\" "
-    "OR \"malocclusion treatment\" OR \"tooth movement\" OR \"aligner\")"
-)
 
 # Maximum PMIDs per efetch batch
 BATCH_SIZE = 200
@@ -44,7 +40,10 @@ class PubMedConnector(BaseConnector):
         email: str | None = None,
     ) -> None:
         self._api_key = api_key or settings.PUBMED_API_KEY
-        self._email = email or getattr(settings, "CROSSREF_MAILTO", None) or "ortho-frontier-radar@geniova.com"
+        # NCBI asks callers to identify themselves. Falling back to a literal
+        # address would send someone else's contact details upstream, so an
+        # unconfigured deployment identifies itself only by tool name.
+        self._email = email or settings.CROSSREF_MAILTO
 
         rate_limit = 10.0 if self._api_key else 3.0
 
@@ -82,7 +81,7 @@ class PubMedConnector(BaseConnector):
         if date_to is None:
             date_to = date.today()
 
-        search_query = query or DEFAULT_QUERY
+        search_query = query or default_query_for("pubmed")
         date_range = f" AND {date_from:%Y/%m/%d}:{date_to:%Y/%m/%d}[edat]"
         full_query = search_query + date_range
 
@@ -92,9 +91,10 @@ class PubMedConnector(BaseConnector):
             "term": full_query,
             "retmax": max_results,
             "retmode": "xml",
-            "tool": "ortho-frontier-radar",
-            "email": self._email,
+            "tool": "frontier-radar",
         }
+        if self._email:
+            esearch_params["email"] = self._email
         if self._api_key:
             esearch_params["api_key"] = self._api_key
 
@@ -122,9 +122,10 @@ class PubMedConnector(BaseConnector):
                 "id": ",".join(batch),
                 "rettype": "xml",
                 "retmode": "xml",
-                "tool": "ortho-frontier-radar",
-                "email": self._email,
+                "tool": "frontier-radar",
             }
+            if self._email:
+                efetch_params["email"] = self._email
             if self._api_key:
                 efetch_params["api_key"] = self._api_key
 

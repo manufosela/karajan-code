@@ -5,6 +5,7 @@ Revises: 0005
 Create Date: 2026-03-20
 """
 
+import os
 from collections.abc import Sequence
 from uuid import uuid4
 
@@ -41,19 +42,32 @@ def upgrade() -> None:
     except Exception:
         pass  # SQLite may have created it inline
 
-    # Seed admin user - hash will be regenerated on first startup if needed
-    import bcrypt
+    # Seed the initial admin from the environment. Never from a literal: a
+    # default account with a known password is a backdoor in every deployment
+    # that runs this migration. If the variables are absent, no user is
+    # created and the first account must be provisioned explicitly.
+    admin_email = os.getenv("SEED_ADMIN_EMAIL", "").strip()
+    admin_password = os.getenv("SEED_ADMIN_PASSWORD", "")
 
-    actual_hash = bcrypt.hashpw(b"OFR2026!", bcrypt.gensalt()).decode()
+    if not admin_email or not admin_password:
+        print(
+            "0006: SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set; "
+            "no admin user seeded."
+        )
+        return
+
+    import bcrypt
 
     op.bulk_insert(
         users_table,
         [
             {
                 "id": uuid4(),
-                "email": "mfosela@geniova.com",
-                "password_hash": actual_hash,
-                "name": "Manu Fosela",
+                "email": admin_email,
+                "password_hash": bcrypt.hashpw(
+                    admin_password.encode(), bcrypt.gensalt()
+                ).decode(),
+                "name": os.getenv("SEED_ADMIN_NAME", "Administrator"),
                 "is_admin": True,
                 "is_active": True,
             }
