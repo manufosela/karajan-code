@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.7.0 — mínimo privilegio para agentes (actual)
+### v4.8.0 — la pasada de seguridad que el agente se auto-invoca (actual)
+
+Minor que cierra la terna de controles nacida de la convergencia con el campo. Cuando una tarea toca auth, entrada de usuario, secretos, red o dependencias, el playbook ordena ahora al agente ejecutar `kj audit --security` — una pasada determinista enfocada (prompt-injection + OSV + Semgrep + Sonar, cero tokens) — y remediar los hallazgos ANTES de pedir el review. El scan de inyección cubre la **superficie de contexto del agente** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): lo que entra al contexto de tu agente en cada sesión es el vector real de inyección. Diseñar → escanear → remediar, en la misma sesión.
+
+### v4.7.0 — mínimo privilegio para agentes
 
 Minor con dos controles nacidos de una convergencia: un procesador de pagos publicó cómo opera agentes de IA de forma segura, y sus principios mapeaban casi uno a uno con los gates de Karajan — salvo dos. Ya cerrados: los agentes lanzados reciben un **allowlist de entorno** (esenciales del sistema + la auth de su propio CLI + variables de carril — tus claves cloud y tokens de registro no llegan jamás a un subproceso, así que un prompt inyectado no puede exfiltrar lo que nunca recibió), y `kj check` mantiene un **inventario de superficie IA** — cada MCP alcanzable en el proyecto, con detección de deriva: `NEW since last check: x — approved by you?`. Cada herramienta nueva de un agente es un acceso más, y debe ser consciente. Escapes con nombre, como siempre: `security.env_passthrough`, `security.env_allowlist: false`.
 

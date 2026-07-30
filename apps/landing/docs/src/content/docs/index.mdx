@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.7.0 — least privilege for agents (current)
+### v4.8.0 — the security pass an agent self-invokes (current)
+
+Minor closing the trio of controls born from field convergence. When a task touches auth, user input, secrets, network or dependencies, the playbook now orders the agent to run `kj audit --security` — a focused deterministic pass (prompt-injection + OSV + Semgrep + Sonar, zero tokens) — and remediate the findings BEFORE requesting review. The injection scan covers the **agent-context surface** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): whatever lands in your agent's context every session is the real injection vector. Design → scan → remediate, same session.
+
+### v4.7.0 — least privilege for agents
 
 Minor with two controls born from convergence: a payments processor published how it operates AI agents safely, and their principles mapped almost one-to-one onto Karajan's gates — except two. Now closed: spawned agents receive an **env allowlist** (system essentials + their own CLI's auth + lane vars — your cloud keys and registry tokens never reach a subprocess, so an injected prompt cannot exfiltrate what it never received), and `kj check` keeps an **AI-surface inventory** — every MCP reachable in the project, with drift detection: `NEW since last check: x — approved by you?`. Every new tool an agent gains is one more access, and it should be a conscious one. Named escapes as always: `security.env_passthrough`, `security.env_allowlist: false`.
 
