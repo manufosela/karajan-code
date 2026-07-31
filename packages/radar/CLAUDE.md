@@ -1,4 +1,4 @@
-# Frontier Radar - Project Instructions
+# Karajan Radar - Project Instructions
 
 ## Stack
 - Backend: Python 3.12+ / FastAPI / SQLAlchemy 2.0 / Alembic / PostgreSQL
@@ -13,7 +13,7 @@
 - Run `make lint` to lint everything
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:3000
-- Database: postgresql://radar_user:radar_dev_password@localhost:5432/frontier_radar
+- Database: postgresql://radar_user:radar_dev_password@localhost:5432/karajan_radar
 
 ## The Radar Profile is the domain boundary
 

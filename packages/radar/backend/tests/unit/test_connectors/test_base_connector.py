@@ -571,4 +571,4 @@ class TestConnectorLifecycle:
     def test_user_agent_header_set(self) -> None:
         """The HTTP client identifies itself to upstream APIs."""
         connector = MockConnector()
-        assert connector._client.headers["User-Agent"] == "FrontierRadar/1.0"
+        assert connector._client.headers["User-Agent"] == "KarajanRadar/1.0"

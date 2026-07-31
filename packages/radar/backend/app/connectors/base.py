@@ -76,7 +76,7 @@ class BaseConnector(ABC):
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(30.0),
-            headers={"User-Agent": "FrontierRadar/1.0"},
+            headers={"User-Agent": "KarajanRadar/1.0"},
         )
 
     async def __aenter__(self) -> "BaseConnector":

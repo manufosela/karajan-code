@@ -1,8 +1,8 @@
-# Frontier Radar - Architecture Document
+# Karajan Radar - Architecture Document
 
 ## 1. Vision
 
-Frontier Radar (OFR) is a strategic research intelligence system for the organization it is configured for. It automatically detects, classifies, scores, and converts cutting-edge research signals from global scientific sources into actionable strategic insights.
+Karajan Radar (OFR) is a strategic research intelligence system for the organization it is configured for. It automatically detects, classifies, scores, and converts cutting-edge research signals from global scientific sources into actionable strategic insights.
 
 **It is NOT a paper aggregator.** It is an opinionated, configurable radar that answers:
 - What advances truly matter for the organization?
@@ -145,7 +145,7 @@ Frontier Radar (OFR) is a strategic research intelligence system for the organiz
 ## 5. Folder Structure
 
 ```
-frontier-radar/
+karajan-radar/
 ├── backend/
 │   ├── alembic/
 │   │   ├── versions/

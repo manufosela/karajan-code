@@ -5,11 +5,11 @@ import type { ActiveProfile } from "@/types/profile";
 
 const PROFILE: ActiveProfile = {
   id: "orthodontics",
-  name: "Ortho Frontier Radar",
+  name: "Ortho Karajan Radar",
   version: "1.0.0",
   locale: "en",
   branding: {
-    app_name: "Ortho Frontier Radar",
+    app_name: "Ortho Karajan Radar",
     short_name: "Ortho Frontier",
     tagline: "Strategic research intelligence for orthodontics",
     organization_name: "the organization",
@@ -76,7 +76,7 @@ describe("fetchActiveProfile", () => {
 
     const profile = await fetchActiveProfile();
 
-    expect(profile.branding.app_name).toBe("Ortho Frontier Radar");
+    expect(profile.branding.app_name).toBe("Ortho Karajan Radar");
   });
 
   it("keeps the two action vocabularies distinct", async () => {

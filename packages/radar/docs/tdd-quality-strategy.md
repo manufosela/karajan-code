@@ -1,4 +1,4 @@
-# Frontier Radar - TDD & Quality Strategy
+# Karajan Radar - TDD & Quality Strategy
 
 ## 1. TDD Workflow
 
@@ -340,8 +340,8 @@ class ResearchItemFactory(factory.Factory):
 ### Quick Start
 ```bash
 # Clone and setup
-git clone git@github.com:manufosela/frontier-radar.git
-cd frontier-radar
+git clone git@github.com:manufosela/karajan-radar.git
+cd karajan-radar
 cp .env.example .env
 
 # Start all services

@@ -20,19 +20,19 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: frontier_radar_test
+          POSTGRES_DB: karajan_radar_test
           POSTGRES_USER: radar_user
           POSTGRES_PASSWORD: radar_dev_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U radar_user -d frontier_radar_test"
+          --health-cmd "pg_isready -U radar_user -d karajan_radar_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@localhost:5432/frontier_radar_test
+      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@localhost:5432/karajan_radar_test
       # Settings declares APP_SECRET_KEY with no default, so importing the app
       # fails without it. Not a real secret: it never leaves the CI run.
       APP_SECRET_KEY: ci-secret-key-not-used-outside-tests

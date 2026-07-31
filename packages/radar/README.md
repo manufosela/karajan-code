@@ -1,8 +1,8 @@
-# Frontier Radar
+# Karajan Radar
 
 **Configurable strategic research intelligence**
 
-Frontier Radar monitors the frontier of a field — whatever field you point it at — and turns raw sources into ranked, summarised, actionable signals. It ingests from configured connectors, classifies and scores each item with an LLM, and delivers digests to the people who need them.
+Karajan Radar monitors the frontier of a field — whatever field you point it at — and turns raw sources into ranked, summarised, actionable signals. It ingests from configured connectors, classifies and scores each item with an LLM, and delivers digests to the people who need them.
 
 What makes it reusable is the **Radar Profile**: a single YAML file that declares the domain. Themes, strategic buckets, vocabularies, prompts, sources and branding all live there. Watching orthodontic research and watching energy policy are the same code with different profiles — no fork, no prompt rewriting.
 
@@ -141,7 +141,7 @@ Set `OLLAMA_BASE_URL` if the server is not at `http://localhost:11434`.
 See [docs/architecture.md](docs/architecture.md).
 
 ```
-frontier-radar/
+karajan-radar/
 ├── backend/
 │   ├── app/
 │   │   ├── api/            # API routes (v1)

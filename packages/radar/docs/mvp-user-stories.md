@@ -1,6 +1,6 @@
-# Frontier Radar - MVP User Stories
+# Karajan Radar - MVP User Stories
 
-> **Project:** Frontier Radar (OFR)
+> **Project:** Karajan Radar (OFR)
 > **Version:** MVP v1.0
 > **Date:** 2026-03-19
 > **Tech Stack:** Python/FastAPI, Next.js, PostgreSQL, GCP Cloud Run
@@ -25,7 +25,7 @@
 - **Acceptance Criteria:**
   - Given a clean clone of the repository, when I run `docker compose up --build`, then all three services start without errors within 90 seconds
   - Given the services are running, when I navigate to `http://localhost:8000/docs`, then I see the FastAPI Swagger UI
-  - Given the services are running, when I navigate to `http://localhost:3000`, then I see the Next.js default page with the project title "Frontier Radar"
+  - Given the services are running, when I navigate to `http://localhost:3000`, then I see the Next.js default page with the project title "Karajan Radar"
   - Given the services are running, when I query `SELECT 1` against the PostgreSQL container, then the query returns successfully
   - Given I review the repository structure, when I check the root, then I find `backend/`, `frontend/`, `docker-compose.yml`, `.env.example`, `Makefile`, and `README.md`
 
@@ -982,7 +982,7 @@
 - **I want** a clean, professional dashboard layout with intuitive navigation
 - **So that** I can efficiently navigate between different sections of the research radar
 
-- **Description:** Implement the main dashboard layout in Next.js with: (1) **Top navigation bar**: the organization logo, app title "Frontier Radar", user avatar placeholder, settings gear icon. (2) **Sidebar navigation**: collapsible sidebar with sections: "Dashboard" (overview/home), "Signals" (signal inbox), "Analytics" (future - placeholder), "Configuration" (settings), "About". Active state indication. (3) **Main content area**: responsive container with breadcrumbs. (4) **Dashboard home page**: summary cards showing `Signals Today`, `Pending Review`, `High Priority` (composite score > 75), `Sources Active`. A recent signals mini-list (last 5). Layout uses Tailwind CSS with a professional color scheme (the organization brand: blues and whites). Responsive: works on desktop (primary) and tablet.
+- **Description:** Implement the main dashboard layout in Next.js with: (1) **Top navigation bar**: the organization logo, app title "Karajan Radar", user avatar placeholder, settings gear icon. (2) **Sidebar navigation**: collapsible sidebar with sections: "Dashboard" (overview/home), "Signals" (signal inbox), "Analytics" (future - placeholder), "Configuration" (settings), "About". Active state indication. (3) **Main content area**: responsive container with breadcrumbs. (4) **Dashboard home page**: summary cards showing `Signals Today`, `Pending Review`, `High Priority` (composite score > 75), `Sources Active`. A recent signals mini-list (last 5). Layout uses Tailwind CSS with a professional color scheme (the organization brand: blues and whites). Responsive: works on desktop (primary) and tablet.
 
 - **Acceptance Criteria:**
   - Given a user opens the app, when the dashboard loads, then they see the top nav bar with logo and title, the sidebar with all navigation items, and the main content area with the home page
@@ -1398,7 +1398,7 @@
 - **I want** a service that generates a daily digest of the most relevant research signals
 - **So that** the the organization team receives a curated summary without needing to visit the dashboard
 
-- **Description:** Implement a `DigestService` in `backend/app/services/digest.py`. The service generates a daily digest containing: (1) **Header**: "Frontier Radar - Daily Digest" with date. (2) **Summary Stats**: new signals today, high-priority count, sources queried, breakdown by bucket. (3) **Top Signals** (max 10): ordered by composite score, each showing: title, source, composite score, strategic bucket, hype verdict, executive summary (first 2 sentences in configured language), and a link to the signal detail page. (4) **Alerts**: any signals with `actionability=immediate` highlighted separately. (5) **Trend Note**: if a particular theme or bucket has significantly more papers than usual (>2x 30-day average), flag it as a trend. The digest is generated as a structured object that can be rendered into different formats (Teams Adaptive Card, HTML email, plain text).
+- **Description:** Implement a `DigestService` in `backend/app/services/digest.py`. The service generates a daily digest containing: (1) **Header**: "Karajan Radar - Daily Digest" with date. (2) **Summary Stats**: new signals today, high-priority count, sources queried, breakdown by bucket. (3) **Top Signals** (max 10): ordered by composite score, each showing: title, source, composite score, strategic bucket, hype verdict, executive summary (first 2 sentences in configured language), and a link to the signal detail page. (4) **Alerts**: any signals with `actionability=immediate` highlighted separately. (5) **Trend Note**: if a particular theme or bucket has significantly more papers than usual (>2x 30-day average), flag it as a trend. The digest is generated as a structured object that can be rendered into different formats (Teams Adaptive Card, HTML email, plain text).
 
 - **Acceptance Criteria:**
   - Given the daily digest runs after ingestion, when 15 new signals were processed today, then the digest includes summary stats showing 15 new signals with breakdown by bucket

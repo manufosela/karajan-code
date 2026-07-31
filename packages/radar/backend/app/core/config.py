@@ -4,9 +4,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and .env file."""
 
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/frontier_radar"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/karajan_radar"
 
-    APP_NAME: str = "Frontier Radar"
+    APP_NAME: str = "Karajan Radar"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"

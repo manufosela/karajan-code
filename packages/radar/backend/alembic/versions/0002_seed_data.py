@@ -498,10 +498,10 @@ _CONFIGURATIONS = [
         "id": _uid("b0000001-0007-4000-a000-000000000007"),
         "category": "general",
         "key": "system_settings",
-        "description": "General system-wide settings for the Ortho Frontier Radar",
+        "description": "General system-wide settings for the Ortho Karajan Radar",
         "value": (
             {
-                "project_name": "Ortho Frontier Radar",
+                "project_name": "Ortho Karajan Radar",
                 "version": "1.0.0",
                 "dedup_strategy": "content_hash",
                 "normalized_title_match_threshold": 0.92,

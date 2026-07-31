@@ -38,7 +38,7 @@ def _get_raw_url() -> str:
     except Exception:
         return config.get_main_option(
             "sqlalchemy.url",
-            "postgresql+psycopg://postgres:postgres@localhost:5432/ortho_frontier_radar",
+            "postgresql+psycopg://postgres:postgres@localhost:5432/ortho_karajan_radar",
         )
 
 

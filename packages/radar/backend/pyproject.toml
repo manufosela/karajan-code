@@ -1,5 +1,5 @@
 [project]
-name = "frontier-radar-backend"
+name = "karajan-radar-backend"
 version = "1.0.0"
 description = "Configurable strategic research intelligence backend"
 requires-python = ">=3.12"
