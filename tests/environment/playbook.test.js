@@ -26,6 +26,8 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/proposed ADR/);
       // KJC-TSK-0695: sensitive-surface tasks self-invoke the security pass.
       expect(text).toMatch(/kj audit --security/);
+      // KJC-TSK-0696: the alternatives clause — legacy-following is a choice.
+      expect(text).toMatch(/as if the\s+codebase didn'?t exist/i);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }

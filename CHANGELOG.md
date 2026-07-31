@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The alternatives clause** (KJC-TSK-0696, from proposal KJC-PRP-0011): on legacy codebases agents optimize for local coherence — improving while following the existing line — even when the canonical solution is better. Nothing in the loop asked for the alternative; now the method does. The playbook orders that a non-trivial plan names at least two approaches — **one as if the codebase didn't exist** — and says why the winner won: following the legacy line is a choice, never a default. `kj brief planner` and `kj brief architect` carry the clause where approaches are chosen. First stone of the excellent-code track (library corpus of distilled engineering canon comes next).
+
 ## [4.8.0] - 2026-07-30
 
 Minor. **The security pass an agent self-invokes** — design → scan → remediate in the same session, zero tokens. Closes the trio of controls born from field convergence with how a payments processor operates AI agents.

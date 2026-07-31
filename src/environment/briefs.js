@@ -36,6 +36,7 @@ const B = {
         "Behavior changes carry their test in the same step.",
         "Data-model or API changes never share a step with anything else.",
         "No PR beyond ~150 net lines — partition upfront, not at the gate.",
+        "Non-trivial task? Name at least two approaches — one as if the codebase didn't exist — and say why the winner won.",
       ],
       "numbered-free plan: steps {description, files}, risks, out-of-scope."),
   },
@@ -56,6 +57,7 @@ const B = {
       [
         "Check the ADRs before deciding — never against an accepted one.",
         "Prefer the design that deletes code over the one that adds layers.",
+        "One alternative answers: what would you build as if the codebase didn't exist? Picking the legacy-shaped path is fine — picking it by inertia is not.",
       ],
       "chosen design, discarded alternatives with reasons, affected boundaries."),
   },

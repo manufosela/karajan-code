@@ -26,6 +26,13 @@ describe("renderBrief", () => {
   // be true), Invariants (hard limits) and Deliverable. Never step lists:
   // frontier models pick better paths than a script; what they need
   // explicit are the limits.
+  // KJC-TSK-0696: the alternatives clause lives where approaches are chosen.
+  it("planner and architect carry the greenfield-alternative clause", () => {
+    for (const role of ["planner", "architect"]) {
+      expect(renderBrief(role, {})).toMatch(/as if the codebase didn'?t exist/i);
+    }
+  });
+
   for (const role of ["triage", "planner", "researcher", "architect", "tester", "security", "audit"]) {
     it(`${role}: mission + invariants + deliverable, concise`, () => {
       const text = renderBrief(role, {});
