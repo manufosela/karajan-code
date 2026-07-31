@@ -88,9 +88,8 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
 
   if (flags.installGate) {
     const fs = await import("node:fs/promises");
-    const path = await import("node:path");
-    const marker = path.join(projectDir, ".karajan", "review-gate");
-    await fs.mkdir(path.dirname(marker), { recursive: true });
+    const marker = join(projectDir, ".karajan", "review-gate");
+    await fs.mkdir(join(projectDir, ".karajan"), { recursive: true });
     await fs.writeFile(marker, "# Cross-AI review gate enabled (ENV-C1). Commit this file so the whole team inherits the gate.\n");
     console.log("✓ review gate enabled — commits now require an approved cross-AI verdict (kj review --staged)");
     // KJC-TSK-0646: a `.karajan/` dir-exclude would silently keep the
