@@ -51,7 +51,7 @@ Invariants (the git gates enforce these — they are not suggestions):
 
 - The project RAG answers before you assume: `kj rag query` — never guess
   what the codebase does.
-- Every piece of work has a tracked story/bug in the HU Board (`kj board`) before it starts.
+- Every piece of work has a tracked card in the Planning Game MCP before it starts (In Progress while you work it).
 - Tests prove behavior: the failing test exists first (TDD), and the suite
   is never left red.
 - Every diff is reviewed by a DIFFERENT AI before it is committed
@@ -59,14 +59,31 @@ Invariants (the git gates enforce these — they are not suggestions):
   and it must be reviewed again. Disagree with a rejection? `kj solomon`.
 - Security findings are never overridable — not even by arbitration. You
   absorb the security role: `kj brief security` states what must be true.
+  Task touches auth, user input, secrets, network or deps? Run
+  `kj audit --security` (zero tokens) and remediate BEFORE the review.
+- A design decision the card's AC don't cover belongs to the USER: record
+  it as a proposed ADR (`kj adr add`) and ask — never bury it in a PR
+  bullet. An oversized-diff warning is not an opinion either: partition,
+  or get an explicit OK.
+- A non-trivial plan names at least two approaches — one as if the
+  codebase didn't exist — and says why the winner won. Following the
+  legacy line is a choice, never a default.
 - Branch first: never commit on the base branch — every change reaches it
-  through an atomic PR (~150 net lines, Conventional Commits).
+  through an atomic PR (~150 net lines, Conventional Commits). More than one
+  task, or the base tree must stay untouched? `kj worktree start <slug>`
+  (one lane per task; `kj worktree done <slug>` after merge). Never CLAIM
+  isolation without proof: in a lane, `git rev-parse --git-dir` differs
+  from `--git-common-dir`.
 
 Commands: `kj rag query` · `kj brief <role>` (triage, planner, researcher,
-architect, tester, security, audit) · `kj review --staged` · `kj review --check` ·
-`kj solomon --position` · `kj agent run <agent>` · `kj report` · `kj check`
+architect, tester, security, audit, board) · `kj hu add|move|list` ·
+`kj worktree start|list|done` · `kj adr add|list` ·
+`kj review --staged` · `kj review --check` · `kj solomon --position` ·
+`kj agent run <agent>` · `kj report` · `kj check`
 
 Hit a kj bug or friction? Diagnose it and file it upstream with
 `kj report-issue` (sanitized; ask your user before `--publish`).
+kj announces a newer version? Tell your user what it brings and ask —
+never run `kj update` on your own.
 
 <!-- <<< kj:managed:playbook <<< -->
