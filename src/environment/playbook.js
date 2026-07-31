@@ -72,6 +72,9 @@ Invariants (the git gates enforce these — they are not suggestions):
   it as a proposed ADR (\`kj adr add\`) and ask — never bury it in a PR
   bullet. An oversized-diff warning is not an opinion either: partition,
   or get an explicit OK.
+- A non-trivial plan names at least two approaches — one as if the
+  codebase didn't exist — and says why the winner won. Following the
+  legacy line is a choice, never a default.
 - Branch first: never commit on the base branch — every change reaches it
   through an atomic PR (~150 net lines, Conventional Commits). More than one
   task, or the base tree must stay untouched? \`kj worktree start <slug>\`
