@@ -1,0 +1,44 @@
+# Smoke end-to-end contra un pgvector real en cada PR.
+#
+# Los tests con dobles no vieron que la ingesta estaba rota y se publicó así
+# (KJW-BUG-0003, y cuatro más). Este job ejecuta el producto de verdad:
+# empaqueta el tarball, lo instala en un directorio limpio como haría una
+# organización, indexa y analiza un merge, y comprueba el INFORME.
+name: Smoke
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      pgvector:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: smoke
+          POSTGRES_DB: kjw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ejecutar el smoke
+        env:
+          PG_URL: postgres://postgres:smoke@127.0.0.1:5432/kjw
+        run: bash scripts/smoke.sh
