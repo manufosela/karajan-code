@@ -31,6 +31,8 @@ describe("renderBrief", () => {
     for (const role of ["planner", "architect"]) {
       expect(renderBrief(role, {})).toMatch(/as if the codebase didn'?t exist/i);
     }
+    // KJC-TSK-0697: the architect grounds that alternative in the canon.
+    expect(renderBrief("architect", {})).toMatch(/kj rag query --library/);
   });
 
   for (const role of ["triage", "planner", "researcher", "architect", "tester", "security", "audit"]) {
