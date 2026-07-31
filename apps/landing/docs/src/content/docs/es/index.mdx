@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.8.0 — la pasada de seguridad que el agente se auto-invoca (actual)
+### v4.9.0 — el código excelente es una elección, no inercia (actual)
+
+Minor que abre la vía del código excelente. Ante legacy, los agentes optimizan coherencia local — mejorar siguiendo la línea existente — incluso cuando la solución canónica es mejor; nada en el bucle pedía la alternativa. Ahora el método sí: todo plan no trivial nombra al menos dos enfoques, **uno como si el codebase no existiera**, y justifica por qué gana el elegido. Y el architect responde esa pregunta con un canon citable: `kj rag query --library` sirve fichas de patrón destiladas — firma del problema, cuándo gana al default, *cuándo NO aplicarlo*, y la cita canónica (Lamport estrena; el resto del canon llega ya). Seguir la línea del legacy es una elección, nunca un default.
+
+### v4.8.0 — la pasada de seguridad que el agente se auto-invoca
 
 Minor que cierra la terna de controles nacida de la convergencia con el campo. Cuando una tarea toca auth, entrada de usuario, secretos, red o dependencias, el playbook ordena ahora al agente ejecutar `kj audit --security` — una pasada determinista enfocada (prompt-injection + OSV + Semgrep + Sonar, cero tokens) — y remediar los hallazgos ANTES de pedir el review. El scan de inyección cubre la **superficie de contexto del agente** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): lo que entra al contexto de tu agente en cada sesión es el vector real de inyección. Diseñar → escanear → remediar, en la misma sesión.
 

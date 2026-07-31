@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.8.0 — the security pass an agent self-invokes (current)
+### v4.9.0 — excellent code is a choice, not inertia (current)
+
+Minor opening the excellent-code track. On legacy codebases agents optimize for local coherence — improving while following the existing line — even when the canonical solution is better; nothing in the loop asked for the alternative. Now the method does: every non-trivial plan names at least two approaches, **one as if the codebase didn't exist**, and says why the winner won. And the architect answers that question with a citable canon: `kj rag query --library` serves distilled pattern cards — problem signature, when it beats the default, *when NOT to apply it*, and the canonical citation (Lamport ships first; the rest of the canon lands next). Following the legacy line is a choice, never a default.
+
+### v4.8.0 — the security pass an agent self-invokes
 
 Minor closing the trio of controls born from field convergence. When a task touches auth, user input, secrets, network or dependencies, the playbook now orders the agent to run `kj audit --security` — a focused deterministic pass (prompt-injection + OSV + Semgrep + Sonar, zero tokens) — and remediate the findings BEFORE requesting review. The injection scan covers the **agent-context surface** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): whatever lands in your agent's context every session is the real injection vector. Design → scan → remediate, same session.
 
