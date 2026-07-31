@@ -151,6 +151,12 @@ jobs:
         run: npx vitest run --reporter=default --reporter=github-actions
         working-directory: packages/hu-board
 
+      # Same blind spot, same fix as hu-board above: the root vitest run
+      # excludes packages/**, so karajan-core's own suite must run here.
+      - name: Run karajan-core package tests
+        run: npx vitest run --reporter=default --reporter=github-actions
+        working-directory: packages/core
+
   # Coverage report — generates v8 coverage (text + html + lcov) and uploads
   # the lcov + html as an artifact for download. Added in KJC-TSK-0465 (2026-05-27)
   # to close the ai-harness-scorecard "Code Coverage" FAIL (0/4 → 4/4). Thresholds

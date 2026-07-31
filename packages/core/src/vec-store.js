@@ -37,7 +37,7 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
     CREATE TABLE IF NOT EXISTS chunks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       source TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK (kind IN ('plan', 'code', 'onboarding')),
+      kind TEXT NOT NULL CHECK (kind IN ('plan', 'code', 'onboarding', 'library')),
       text TEXT NOT NULL,
       metadata TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -60,6 +60,39 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
   if (!cols.includes("content_hash")) {
     db.exec("ALTER TABLE chunks ADD COLUMN content_hash TEXT;");
     db.exec("CREATE INDEX IF NOT EXISTS chunks_by_hash ON chunks(content_hash, project_slug);");
+  }
+  // KJC-TSK-0697 — the 'library' kind (distilled engineering canon) joins
+  // the store. SQLite cannot alter a CHECK constraint, so stores created
+  // before it rebuild `chunks` once: ids are preserved (the external-content
+  // FTS keeps pointing at the same rowids) and the fts triggers, dropped
+  // with the old table, are recreated by the block below.
+  const chunksDdl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks'").get()?.sql ?? "";
+  let migratedChunksTable = false;
+  if (chunksDdl.includes("'onboarding'") && !chunksDdl.includes("'library'")) {
+    migratedChunksTable = true;
+    db.exec(`
+      DROP TRIGGER IF EXISTS chunks_ai;
+      DROP TRIGGER IF EXISTS chunks_ad;
+      DROP TRIGGER IF EXISTS chunks_au;
+      CREATE TABLE chunks_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('plan', 'code', 'onboarding', 'library')),
+        text TEXT NOT NULL,
+        metadata TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        project_slug TEXT,
+        content_hash TEXT
+      );
+      INSERT INTO chunks_migrated (id, source, kind, text, metadata, created_at, project_slug, content_hash)
+        SELECT id, source, kind, text, metadata, created_at, project_slug, content_hash FROM chunks;
+      DROP TABLE chunks;
+      ALTER TABLE chunks_migrated RENAME TO chunks;
+      CREATE INDEX IF NOT EXISTS chunks_by_source ON chunks(source);
+      CREATE INDEX IF NOT EXISTS chunks_by_kind ON chunks(kind);
+      CREATE INDEX IF NOT EXISTS chunks_by_project ON chunks(project_slug);
+      CREATE INDEX IF NOT EXISTS chunks_by_hash ON chunks(content_hash, project_slug);
+    `);
   }
   // KJC-TSK-0455 — Auto-update by commit diff. Per-project metadata tracks
   // the last commit whose changes were reflected in the index, so subsequent
@@ -94,7 +127,10 @@ export function openVecStore({ dim = DEFAULT_DIM, path = dbPath() } = {}) {
   `);
   const ftsCount = db.prepare("SELECT COUNT(*) AS n FROM chunks_fts").get().n;
   const chunksCount = db.prepare("SELECT COUNT(*) AS n FROM chunks").get().n;
-  if (ftsCount === 0 && chunksCount > 0) {
+  // On external-content FTS5, COUNT(*) reads through the content table, so
+  // it cannot detect an empty INDEX — after the chunks-table rebuild the
+  // index is stale by construction and must be rebuilt explicitly.
+  if (migratedChunksTable || (ftsCount === 0 && chunksCount > 0)) {
     db.exec("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild');");
   }
   return db;
