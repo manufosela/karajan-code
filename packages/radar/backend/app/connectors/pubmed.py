@@ -91,7 +91,7 @@ class PubMedConnector(BaseConnector):
             "term": full_query,
             "retmax": max_results,
             "retmode": "xml",
-            "tool": "frontier-radar",
+            "tool": "karajan-radar",
         }
         if self._email:
             esearch_params["email"] = self._email
@@ -122,7 +122,7 @@ class PubMedConnector(BaseConnector):
                 "id": ",".join(batch),
                 "rettype": "xml",
                 "retmode": "xml",
-                "tool": "frontier-radar",
+                "tool": "karajan-radar",
             }
             if self._email:
                 efetch_params["email"] = self._email

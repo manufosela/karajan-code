@@ -12,12 +12,12 @@
 substitutions:
   _REGION: europe-southwest1
   _PROJECT: ''
-  _REPOSITORY: frontier-radar
-  _IMAGE: frontier-radar-frontend
+  _REPOSITORY: karajan-radar
+  _IMAGE: karajan-radar-frontend
   _TAG: latest
   _API_URL: ''
-  _APP_NAME: 'Frontier Radar'
-  _APP_SHORT_NAME: 'Frontier Radar'
+  _APP_NAME: 'Karajan Radar'
+  _APP_SHORT_NAME: 'Karajan Radar'
   _APP_TAGLINE: 'Strategic research intelligence'
   _ORGANIZATION_NAME: ''
 

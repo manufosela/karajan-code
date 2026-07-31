@@ -119,7 +119,7 @@ sonarqube:
   ignore_on:
     - INFO
   max_scan_retries: 3
-  project_key: frontier-radar
+  project_key: karajan-radar
   scanner:
     sources: backend/app,frontend/src
     exclusions: '**/node_modules/**,**/dist/**,**/build/**,**/*.min.js,**/__pycache__/**,**/alembic/versions/**'
@@ -141,7 +141,7 @@ serena:
   enabled: false
 planning_game:
   enabled: true
-  project_id: Frontier Radar
+  project_id: Karajan Radar
   codeveloper: dev_010
 becaria:
   enabled: false

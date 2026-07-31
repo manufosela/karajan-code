@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown events."""
     configure_logging()
-    logger.info("Starting Ortho Frontier Radar", version=settings.APP_VERSION)
+    logger.info("Starting Ortho Karajan Radar", version=settings.APP_VERSION)
     yield
-    logger.info("Shutting down Ortho Frontier Radar")
+    logger.info("Shutting down Ortho Karajan Radar")
     await engine.dispose()
 
 

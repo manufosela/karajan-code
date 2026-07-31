@@ -13,7 +13,7 @@
 # instance; the value here is deliberately generic.
 
 id: orthodontics
-name: Ortho Frontier Radar
+name: Ortho Karajan Radar
 version: 1.0.0
 locale: en
 
@@ -250,7 +250,7 @@ llm:
   fast_model: gpt-4o-mini
 
 branding:
-  app_name: Ortho Frontier Radar
+  app_name: Ortho Karajan Radar
   short_name: Ortho Frontier
   tagline: Strategic research intelligence for orthodontics
 

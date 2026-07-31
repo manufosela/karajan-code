@@ -23,7 +23,7 @@ describe("branding", () => {
     it("falls back to the generic product name", async () => {
       vi.stubEnv("NEXT_PUBLIC_APP_NAME", "");
 
-      expect((await loadBranding()).appName).toBe("Frontier Radar");
+      expect((await loadBranding()).appName).toBe("Karajan Radar");
     });
 
     it("hides the organisation credit by leaving it empty", async () => {
@@ -68,7 +68,7 @@ describe("branding", () => {
       // A build argument left as an empty string in CI arrives as "   ".
       vi.stubEnv("NEXT_PUBLIC_APP_NAME", "   ");
 
-      expect((await loadBranding()).appName).toBe("Frontier Radar");
+      expect((await loadBranding()).appName).toBe("Karajan Radar");
     });
 
     it("lets the short name differ from the full name", async () => {

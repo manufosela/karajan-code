@@ -9,10 +9,10 @@
  * The defaults describe the generic product, never a particular customer.
  */
 
-const DEFAULT_APP_NAME = "Frontier Radar";
+const DEFAULT_APP_NAME = "Karajan Radar";
 
 export const branding = {
-  /** Full product name, e.g. "Ortho Frontier Radar". */
+  /** Full product name, e.g. "Ortho Karajan Radar". */
   appName: process.env.NEXT_PUBLIC_APP_NAME?.trim() || DEFAULT_APP_NAME,
 
   /** Short name for the sidebar lockup, e.g. "Ortho Frontier". */

@@ -8,13 +8,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: frontier_radar
+      POSTGRES_DB: karajan_radar
       POSTGRES_USER: radar_user
       POSTGRES_PASSWORD: radar_dev_password
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar_user -d frontier_radar"]
+      test: ["CMD-SHELL", "pg_isready -U radar_user -d karajan_radar"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@db:5432/frontier_radar
+      DATABASE_URL: postgresql+asyncpg://radar_user:radar_dev_password@db:5432/karajan_radar
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
