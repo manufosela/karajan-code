@@ -5,6 +5,8 @@
  * verdict tied to the exact diff (verdict-store), so the pre-commit hook
  * (ENV-C) can verify it. Exit code 0 = approved, 1 = rejected/stale.
  */
+import { existsSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
 import { checkVerdict } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
@@ -145,6 +147,20 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
   }
 
   if (flags.check) {
+    // KJC-BUG-0132 (issue #1344): a PURE merge commit stages no content of
+    // its own — everything it brings reached the parent branches already
+    // reviewed, and there is no diff to bind a verdict to, so demanding one
+    // deadlocks the merge. A merge WITH conflict resolutions stages real
+    // content and still requires its verdict below.
+    if (!flags.range && !diff.trim()) {
+      const gitDirRaw = (await runCommand("git", ["rev-parse", "--git-dir"])).stdout?.trim();
+      const gitDir = gitDirRaw && !isAbsolute(gitDirRaw) ? join(projectDir, gitDirRaw) : gitDirRaw;
+      if (gitDir && existsSync(join(gitDir, "MERGE_HEAD"))) {
+        console.log("✓ pure merge commit — empty staged diff, parents already reviewed; gate passes with trail");
+        process.exitCode = 0;
+        return { ok: true, merge: true, reason: "pure merge commit (MERGE_HEAD, empty staged diff)" };
+      }
+    }
     const res = await checkVerdict(projectDir, diff);
     console.log(res.ok
       ? `✓ verdict ok — approved by ${res.verdict.reviewer} (diff ${res.verdict.diffHash.slice(0, 12)})`

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The verdict gate no longer deadlocks pure merge commits** (KJC-BUG-0132, issue #1344, found dogfooding PR #1343): a merge that stages no content of its own — e.g. merging main to move the merge-base — had no diff to bind a verdict to, and `kj review --staged` rightly refuses an empty diff, so the commit could never pass the pre-commit gate. `kj review --check` now recognizes the case (MERGE_HEAD present + empty staged diff) and passes with a trail line; a merge WITH conflict resolutions stages real content and still requires its cross-AI verdict.
+
 ## [4.9.0] - 2026-07-31
 
 Minor. **Excellent code is a choice, not inertia** — the method now asks the question legacy codebases suppress ("what would you build if this code didn't exist?") and gives the architect a citable canon to answer it with.
