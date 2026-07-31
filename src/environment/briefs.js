@@ -58,6 +58,7 @@ const B = {
         "Check the ADRs before deciding — never against an accepted one.",
         "Prefer the design that deletes code over the one that adds layers.",
         "One alternative answers: what would you build as if the codebase didn't exist? Picking the legacy-shaped path is fine — picking it by inertia is not.",
+        "Ground that alternative in the canon: `kj rag query --library \"<problem signature>\"` serves distilled pattern cards with when-NOT-to-apply and citations.",
       ],
       "chosen design, discarded alternatives with reasons, affected boundaries."),
   },

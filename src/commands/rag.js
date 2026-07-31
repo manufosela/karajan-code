@@ -7,6 +7,7 @@ import { makeGovernedEmbedder } from "../rag/governed-embedder.js";
 import { indexProject, indexProjectDelta } from "../rag/indexer.js";
 import { query } from "../rag/retriever.js";
 import { installPostMergeHook, maybeAutoUpdate } from "../rag/auto-update.js";
+import { indexLibrary, LIBRARY_PROJECT } from "../rag/library.js";
 import { loadGoldenQueries, runEval } from "../rag/eval.js";
 import { getKarajanHome } from "../utils/paths.js";
 
@@ -47,6 +48,13 @@ export async function ragIndexCommand({ config, logger, flags = {} }) {
       });
     }
     if (totals.head) setLastIndexedCommit(db, slug, totals.head);
+    // KJC-TSK-0697 — the library corpus refreshes on every index run.
+    // Best-effort and cheap: a handful of cards, content-hash dedup.
+    try {
+      await indexLibrary({ db, embedder, logger, projectDir });
+    } catch (err) {
+      logger.warn?.(`[rag] library index failed: ${err.message}`);
+    }
     if (flags.json) {
       process.stdout.write(`${JSON.stringify(totals)}\n`);
     } else {
@@ -87,7 +95,10 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // <slug>` overrides. Pre-v2.27 chunks with NULL slug are only visible
     // when no filter is in effect.
     const detected = projectSlug(config?.projectDir || process.cwd());
-    const project = flags.project === "all" ? null : (flags.project || detected || null);
+    // KJC-TSK-0697 — `--library` targets the distilled-canon collection:
+    // its own project namespace plus the kind filter.
+    const library = Boolean(flags.library);
+    const project = library ? LIBRARY_PROJECT : (flags.project === "all" ? null : (flags.project || detected || null));
     // KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
     // handler. The MCP tool responds `{ hits: [], empty: true, topK, scope }`
     // so agents (and the `/kj-rag-query` skill from Camino B) have a
@@ -101,7 +112,12 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     }
     const mode = flags.mode || "hybrid";
     const alpha = Math.max(0, Math.min(1, Number(flags.alpha) || 0.6));
-    const where = flags.where || null;
+    // Safe by grammar: parseWhere (core where-parser.js) accepts ONLY
+    // AND-joined key=value pairs — an OR or parens never parses, so the
+    // composed clause cannot leak past the kind filter; it fails loudly.
+    const where = library
+      ? (flags.where ? `kind=library AND ${flags.where}` : "kind=library")
+      : (flags.where || null);
     const rerankOpts = flags.rerank ? { model: flags.rerankModel } : null;
     const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, alpha, where, rerankOpts });
     if (flags.json) {

@@ -48,6 +48,7 @@
   "files": [
     "src/",
     "bin/",
+    "library/",
     "templates/",
     "scripts/",
     "vendor/tree-sitter-grammars/",
@@ -108,7 +109,7 @@
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "js-yaml": "^4.2.0",
-    "karajan-core": "^1.0.0",
+    "karajan-core": "^1.4.0",
     "karajan-rag": "^1.2.0",
     "knip": "^6.15.0",
     "madge": "^8.0.0",
