@@ -196,6 +196,7 @@ const ragStubPlugin = {
           // KJC-TSK-0704 — privacy scan (engine = karajan-rag redactPII).
           privacyScanCommand: notAvailable, loadPrivacyList: notAvailable,
           scanText: notAvailable, scanPaths: notAvailable, privacyConfigPath: notAvailable,
+          ensurePrivacyList: async () => ({ created: false, reason: "sea-stub" }),
           // KJC-BUG-0100 — the doctor rag-hooks check imports this; it throws
           // here and the check swallows it (degrades to a benign info result).
           resolveHooksDir: notAvailable,
