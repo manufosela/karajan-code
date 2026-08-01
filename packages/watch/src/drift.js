@@ -17,6 +17,7 @@ import { extname } from 'node:path';
 import { createRag, createDefaultSensitivityPolicy, redactPII } from 'karajan-rag';
 import { parseUnifiedDiff } from './diff.js';
 import { findImpactCandidates } from './retrieval.js';
+import { extractContractTokens, findContractMatches } from './contracts.js';
 import { judgeImpact } from './judgment.js';
 import { deliverNotifications } from './report.js';
 import { ImpactError, createDefaultRunAdapter } from './impact.js';
@@ -32,6 +33,7 @@ export const DOC_EXTENSIONS = Object.freeze(['.md', '.mdx', '.rst', '.txt', '.ad
  * @property {number | null} line Línea aproximada de la sección.
  * @property {import('./retrieval.js').ImpactCandidate['evidence']} evidence
  * @property {{severity: 'low' | 'medium' | 'high', reason: string} | null} judged
+ * @property {import('./contracts.js').ContractMatch | null} contract Cita literal de un identificador del diff.
  *
  * @typedef {Object} DriftResult
  * @property {DriftSection[]} sections
@@ -64,6 +66,14 @@ const renderDriftMarkdown = ({ sections, diffSummary }) => {
     for (const section of sections) {
       const anchor = section.line == null ? section.source : `${section.source}:${section.line}`;
       const parts = [`score ${section.score.toFixed(2)}`];
+      if (section.contract) {
+        // Lo primero que se lee: qué identificador cita el documento, y si
+        // ya no existe en el código. Eso es lo accionable.
+        const ids = section.contract.tokens
+          .map((t) => `\`${t.value}\` (${t.type}${t.removed ? ', eliminado' : ''})`)
+          .join(', ');
+        parts.unshift(`**contrato**: ${ids}`);
+      }
       if (section.judged) {
         parts.push(`juicio: **${section.judged.severity}** — ${section.judged.reason}`);
       }
@@ -130,9 +140,42 @@ export const runDriftPipeline = async ({
   // findImpactCandidates ya excluye el repo origen; el filtro explícito
   // aquí es defensa en profundidad exigida por la review (el informe de
   // deriva jamás debe señalar docs del propio repo que cambió).
-  const docCandidates = candidates.filter(
-    (c) => c.repo !== repoName && DOC_EXTENSIONS.includes(extname(c.source).toLowerCase()),
-  );
+  const isDoc = (source) => DOC_EXTENSIONS.includes(extname(source).toLowerCase());
+  const docCandidates = candidates.filter((c) => c.repo !== repoName && isDoc(c.source));
+
+  // La similitud dice "este documento se parece a lo que cambiaste". El
+  // contrato dice "este documento nombra el endpoint que acabas de borrar",
+  // que no es parecido: es prueba de que el documento miente. Se buscan los
+  // mismos identificadores que en F2, pero contra el corpus de docs.
+  const contractsConfig = config.contracts ?? { enabled: true, types: undefined };
+  /** @type {import('./contracts.js').ContractMatch[]} */
+  let contracts = [];
+  if (contractsConfig.enabled) {
+    const tokens = extractContractTokens(chunks, { types: contractsConfig.types });
+    const { matches } = await findContractMatches({ tokens, query, excludeRepo: repoName });
+    // Un consumidor de código que cita el identificador es cosa del pipeline
+    // de impacto; aquí solo interesa la documentación.
+    contracts = matches.filter((m) => isDoc(m.source));
+  }
+  // Una entrada por documento, con TODOS sus identificadores. Hoy
+  // findContractMatches ya los agrupa así, pero agrupar aquí también evita
+  // que la deriva dependa de esa invariante ajena: perder un token sería
+  // perder justo el identificador eliminado que da sentido al aviso.
+  /** @type {Map<string, import('./contracts.js').ContractMatch>} */
+  const contractBySource = new Map();
+  for (const match of contracts) {
+    const existing = contractBySource.get(match.source);
+    if (!existing) {
+      contractBySource.set(match.source, { ...match, tokens: [...match.tokens] });
+      continue;
+    }
+    for (const token of match.tokens) {
+      if (!existing.tokens.some((t) => t.value === token.value && t.type === token.type)) {
+        existing.tokens.push(token);
+      }
+    }
+    existing.line ??= match.line;
+  }
 
   /** @type {Map<string, {severity: 'low' | 'medium' | 'high', reason: string}>} */
   let judgedBySource = new Map();
@@ -151,9 +194,12 @@ export const runDriftPipeline = async ({
     );
   }
 
+  /** @type {DriftSection[]} */
   const sections = docCandidates
     // Con juicio activo, el veredicto es el filtro de ruido: solo lo afectado.
-    .filter((c) => !judge || judgedBySource.has(c.source))
+    // Una cita literal, en cambio, no la tumba una opinión: el documento
+    // nombra algo que ya no existe, opine lo que opine el modelo.
+    .filter((c) => !judge || judgedBySource.has(c.source) || contractBySource.has(c.source))
     .map((c) => ({
       source: c.source,
       repo: c.repo,
@@ -161,7 +207,31 @@ export const runDriftPipeline = async ({
       line: c.evidence[0]?.line ?? null,
       evidence: c.evidence,
       judged: judgedBySource.get(c.source) ?? null,
+      contract: contractBySource.get(c.source) ?? null,
     }));
+
+  // Un documento puede citar el identificador sin parecerse en nada al diff:
+  // entra por derecho propio aunque el retrieval no lo hubiera traído.
+  const alreadyListed = new Set(sections.map((s) => s.source));
+  for (const match of contractBySource.values()) {
+    if (alreadyListed.has(match.source)) continue;
+    sections.push({
+      source: match.source,
+      repo: match.repo,
+      score: 0,
+      line: match.line,
+      evidence: [],
+      judged: judgedBySource.get(match.source) ?? null,
+      contract: match,
+    });
+  }
+
+  /** Documento que cita algo ya eliminado > que lo cita > solo parecido. */
+  const contractRank = (section) => {
+    if (!section.contract) return 0;
+    return section.contract.tokens.some((t) => t.removed) ? 2 : 1;
+  };
+  sections.sort((a, b) => contractRank(b) - contractRank(a) || b.score - a.score);
 
   const touchedPaths = [...new Set(chunks.map((c) => c.path))];
   const markdown = renderDriftMarkdown({

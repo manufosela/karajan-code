@@ -85,6 +85,13 @@ cat > .kjw-workspace/repo-client/src/api-client.js <<'JS'
 export const fetchUser = (id) =>
   fetch('/api/v1/users/:id'.replace(':id', id)).then((r) => r.json());
 JS
+mkdir -p .kjw-workspace/repo-client/docs
+cat > .kjw-workspace/repo-client/docs/manual.md <<'MD'
+# Manual de integración
+
+Para consultar un usuario, llama a `GET /api/v1/users/:id` con el token de
+sesión. Devuelve el perfil completo.
+MD
 for repo in repo-api repo-client; do
   git -C ".kjw-workspace/$repo" init -q
   git -C ".kjw-workspace/$repo" -c user.email=smoke@example.com -c user.name=smoke \
@@ -149,4 +156,21 @@ grep -q '/api/v1/users/:id' informe.md \
 grep -qi 'contrato' informe.md \
   || fail "el informe no marca la coincidencia como contrato"
 
-printf '\n\033[32m✓ smoke OK: ingest e impact funcionan con store %s\033[0m\n' "$STORE"
+say "drift real: qué documentación queda mintiendo tras el mismo merge"
+# Un solo índice para código y docs, que es lo que tiene quien empieza: el
+# corpus `docs` comparte store, y la deriva se queda con los ficheros de
+# documentación. El manual cita el endpoint que el diff acaba de eliminar.
+./node_modules/.bin/karajan-watch drift \
+  --config karajan-watch.config.json --workspace .kjw-workspace \
+  --repo repo-api --diff merge.diff --no-deliver | tee deriva.md
+
+grep -q 'repo-client/docs/manual.md' deriva.md \
+  || fail "el manual que documenta el endpoint eliminado no aparece en la deriva"
+grep -q '/api/v1/users/:id' deriva.md \
+  || fail "la deriva no cita el identificador que quedó obsoleto"
+grep -qi 'eliminado' deriva.md \
+  || fail "la deriva no marca el identificador como eliminado"
+grep -q 'repo-client/src/api-client.js' deriva.md \
+  && fail "la deriva listó código: eso es cosa del pipeline de impacto"
+
+printf '\n\033[32m✓ smoke OK: ingest, impact y drift funcionan con store %s\033[0m\n' "$STORE"

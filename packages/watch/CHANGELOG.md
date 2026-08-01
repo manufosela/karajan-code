@@ -4,6 +4,15 @@
 
 ### Nuevo
 
+- **El enlace duro entre código y documentación.** La deriva de docs (F3)
+  buscaba parecido semántico; ahora busca además los identificadores del
+  diff —rutas HTTP, topics de evento, tablas SQL— **literalmente** en la
+  documentación. Que un manual contenga el endpoint que acabas de borrar no
+  es que se parezca: es que ese documento miente. Esas secciones entran al
+  informe aunque el retrieval no las hubiera traído, van por delante de las
+  de solo similitud, y el informe cita el identificador que quedó obsoleto.
+  Ni el juicio LLM las descarta: una cita literal no la tumba una opinión.
+
 - **Se puede usar sin base de datos.** El store `lancedb` —un directorio en
   disco, sin servidor— ya estaba admitido en la configuración, pero no lo
   ejercía nada: era una promesa. Ahora el smoke end-to-end corre contra los

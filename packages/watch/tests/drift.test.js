@@ -169,3 +169,208 @@ test('fallo de query se propaga', async () => {
     /docs store caído|Retrieval/,
   );
 });
+
+// --- señal de contratos en la deriva (KJW-TSK-0021) -----------------------
+//
+// La similitud dice "este documento se parece a lo que cambiaste". El
+// contrato dice "este documento nombra el endpoint que acabas de borrar", que
+// no es parecido: es prueba de que el documento miente.
+
+const CONTRACT_DIFF = `diff --git a/src/routes.js b/src/routes.js
+index a1b2c3d..e4f5a6b 100644
+--- a/src/routes.js
++++ b/src/routes.js
+@@ -1,3 +1,3 @@
+ export const mount = (app) => {
+-  app.get('/api/v1/users/:id', getUser);
++  app.get('/api/v2/users/:id', getUser);
+ };
+`;
+
+/**
+ * Corpus donde el manual cita el endpoint literalmente pero el retrieval
+ * semántico NO lo trae: solo la búsqueda literal puede encontrarlo.
+ */
+const contractDeps = (overrides = {}) => ({
+  query: async (question) => {
+    // El minero de contratos consulta el identificador EXACTO; el retrieval
+    // semántico manda el texto del chunk entero.
+    if (question.trim() === '/api/v1/users/:id') {
+      return {
+        hits: [
+          {
+            source: 'repo-b/docs/manual.md',
+            line: 42,
+            score: 0.05,
+            content: 'Para consultar un usuario: GET /api/v1/users/:id',
+            sensitivity: 'internal',
+          },
+          {
+            source: 'repo-b/src/cliente.js',
+            line: 7,
+            score: 0.9,
+            content: "fetch('/api/v1/users/:id')",
+            sensitivity: 'internal',
+          },
+        ],
+        candidates: 2,
+      };
+    }
+    return { hits: [docHit('repo-b/docs/otro.md', 0.6)], candidates: 1 };
+  },
+  fetchFn: async () => ({ ok: true, status: 200 }),
+  ...overrides,
+});
+
+test('un documento que cita el identificador entra aunque el retrieval no lo traiga', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: contractDeps(),
+  });
+
+  const manual = result.sections.find((s) => s.source === 'repo-b/docs/manual.md');
+  assert.ok(manual, 'el documento que nombra el endpoint eliminado debe estar en el informe');
+  assert.ok(manual.contract, 'debe llevar la evidencia de contrato');
+  assert.equal(manual.contract.tokens[0].value, '/api/v1/users/:id');
+  assert.equal(manual.contract.tokens[0].removed, true, 'el endpoint desapareció: es rotura');
+});
+
+test('la evidencia dura va por delante de la similitud', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: contractDeps(),
+  });
+
+  assert.equal(result.sections[0].source, 'repo-b/docs/manual.md');
+  assert.ok(
+    result.sections[0].score < result.sections[1].score,
+    'ordena por evidencia, no por score: el contrato gana con score menor',
+  );
+});
+
+test('el informe cita el identificador que quedó obsoleto', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: contractDeps(),
+  });
+
+  assert.match(result.markdown, /\/api\/v1\/users\/:id/);
+  assert.match(result.markdown, /contrato/i);
+  assert.match(result.markdown, /eliminado/i);
+});
+
+test('el código que comparte contrato no entra: esto es deriva de DOCS', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: contractDeps(),
+  });
+
+  assert.ok(
+    !result.sections.some((s) => s.source === 'repo-b/src/cliente.js'),
+    'un consumidor de código es cosa del pipeline de impacto, no de la deriva',
+  );
+});
+
+test('la señal se puede apagar desde el config', async () => {
+  const result = await runDriftPipeline({
+    config: config({ contracts: { enabled: false } }),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: contractDeps(),
+  });
+
+  assert.ok(!result.sections.some((s) => s.contract));
+});
+
+test('el juicio no puede tumbar una cita literal', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    judge: true,
+    deliver: false,
+    deps: contractDeps({
+      // El LLM solo ve interesante otro documento; el que cita el endpoint,
+      // no. La evidencia dura no depende de que la opinión la respalde.
+      runAdapter: async () => JSON.stringify({ affected: [], summary: 'nada relevante' }),
+    }),
+  });
+
+  assert.ok(
+    result.sections.some((s) => s.source === 'repo-b/docs/manual.md'),
+    'una sección con contrato sobrevive al juicio aunque el LLM no la mencione',
+  );
+});
+
+test('un documento que cita varios identificadores los conserva todos', async () => {
+  const deps = contractDeps({
+    query: async (question) => {
+      // El mismo manual casa con dos identificadores distintos del diff: el
+      // eliminado no puede perderse por culpa del otro.
+      if (question.trim() === '/api/v1/users/:id' || question.trim() === '/api/v1/orders') {
+        return {
+          hits: [
+            {
+              source: 'repo-b/docs/manual.md',
+              line: 42,
+              score: 0.05,
+              content: 'GET /api/v1/users/:id y POST /api/v1/orders',
+              sensitivity: 'internal',
+            },
+          ],
+          candidates: 1,
+        };
+      }
+      // El retrieval semántico no trae ningún documento: todo lo que salga
+      // en el informe habrá llegado por la cita literal.
+      return { hits: [docHit('repo-b/src/nada.js', 0.4)], candidates: 5 };
+    },
+  });
+
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: `diff --git a/src/routes.js b/src/routes.js
+index a1b2c3d..e4f5a6b 100644
+--- a/src/routes.js
++++ b/src/routes.js
+@@ -1,4 +1,4 @@
+ export const mount = (app) => {
+-  app.get('/api/v1/users/:id', getUser);
+-  app.post('/api/v1/orders', createOrder);
++  app.get('/api/v2/users/:id', getUser);
++  app.post('/api/v2/orders', createOrder);
+ };
+`,
+    deliver: false,
+    deps,
+  });
+
+  const manual = result.sections.find((s) => s.source === 'repo-b/docs/manual.md');
+  assert.ok(manual?.contract);
+  assert.deepEqual(
+    manual.contract.tokens.map((t) => t.value).sort(),
+    ['/api/v1/orders', '/api/v1/users/:id'],
+  );
+  assert.match(result.markdown, /\/api\/v1\/orders/);
+});
