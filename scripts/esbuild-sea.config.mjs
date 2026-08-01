@@ -146,8 +146,7 @@ const huBoardStubPlugin = {
 const ragStubPlugin = {
   name: "rag-stub",
   setup(build) {
-    // KJC-TSK-0704 — src/privacy/* rides the same stub: its engine is
-    // karajan-rag's redactPII, which cannot bundle (optional pg/lancedb).
+    // KJC-TSK-0704 — src/privacy/* rides this stub too: its engine is redactPII.
     build.onResolve({ filter: /[\\/](rag[\\/].+|privacy[\\/].+|commands[\\/](rag|watch|privacy))\.js$/ }, (args) => ({
       path: args.path, namespace: "rag-stub",
     }));

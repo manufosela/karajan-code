@@ -47,10 +47,8 @@ export function scanText(text, { list = loadPrivacyList(), source = "<text>" } =
       let at = probe.toLowerCase().indexOf(p.toLowerCase());
       if (at === -1) continue;
       findings.push({ severity: "block", type: "denylist", source, line: i + 1, masked: maskValue(p) });
-      while (at !== -1) { // blank every occurrence so generics don't double-report it
-        probe = probe.slice(0, at) + " ".repeat(p.length) + probe.slice(at + p.length);
-        at = probe.toLowerCase().indexOf(p.toLowerCase());
-      }
+      // Blank every occurrence so the generics don't double-report it.
+      while (at !== -1) { probe = probe.slice(0, at) + " ".repeat(p.length) + probe.slice(at + p.length); at = probe.toLowerCase().indexOf(p.toLowerCase()); }
     }
     const red = redactPII(probe);
     if (red.total > 0) {
@@ -67,8 +65,7 @@ export function scanPaths(paths, { list = loadPrivacyList() } = {}) {
   const findings = [];
   const visit = (p) => {
     if (!existsSync(p)) return;
-    // lstat + skip symlinks: a link pointing at an ancestor would recurse
-    // forever, and a link out of the tree would scan content nobody ships.
+    // Skip symlinks: an ancestor link recurses forever; an outside link ships nothing.
     const st = lstatSync(p);
     if (st.isSymbolicLink()) return;
     if (st.isDirectory()) {
