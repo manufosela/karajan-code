@@ -212,6 +212,9 @@
     .hero-tagline { font-size: clamp(1.1rem, 2.6vw, 1.45rem); color: var(--text); max-width: 640px; margin-bottom: 0.5rem; font-weight: 300; }
     .guarantee { font-family: var(--serif); font-style: italic; font-size: 1.12em; color: var(--gold-ink); }
     .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.4rem; letter-spacing: 0.04em; max-width: 620px; }
+    .hero-badge { margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+    .hero-badge a { display: flex; align-items: center; }
+    .hero-badge a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
@@ -449,6 +452,11 @@
     <h1 class="wordmark">ka<span class="rag">RAG</span>an</h1>
     <p class="hero-tagline">Point it at your code, docs or data. Get a queryable RAG in five minutes — <em class="guarantee">with guarantees</em>.</p>
     <p class="hero-sub">Local-first &middot; zero runtime dependencies &middot; three context strategies (rag / cag / hybrid) &middot; your content never reaches a provider the sensitivity policy forbids</p>
+    <p class="hero-badge">
+      <a href="https://www.npmjs.com/package/karajan-rag" aria-label="Current version on npm">
+        <img src="https://img.shields.io/npm/v/karajan-rag.svg?style=flat-square&color=e8b04b&label=latest" alt="npm version" height="22">
+      </a>
+    </p>
     <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
       <span class="prompt" aria-hidden="true">&gt;</span>
       <span>I want a RAG over this project: read rag.karajancode.com/start.md and do what it says.</span>
