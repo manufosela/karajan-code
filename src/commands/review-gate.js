@@ -15,6 +15,7 @@ import { ensureGateTrackable } from "../review/gate-gitignore.js";
 import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js";
 import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
+import { loadPrivacyList, scanText } from "../privacy/scan.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
 // (before spending sonar/reviewer effort) AND on --check — the pre-commit
@@ -136,6 +137,44 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       }
     }
   }
+  // KJC-TSK-0705 (PV-B): the outbound privacy boundary at commit time.
+  // Denylist data rejects (KJ_ALLOW_PII=1 is the named escape); generic PII
+  // warns (privacy.generic: "block" hardens). Added lines only — deletions
+  // don't publish. In the SEA binary the privacy module is stubbed and
+  // throws: the gate degrades with a note instead of crashing.
+  try {
+    const added = diff.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).map((l) => l.slice(1)).join("\n");
+    const findings = scanText(added, { list: loadPrivacyList(), source: "<staged diff>" });
+    const blocks = findings.filter((f) => f.severity === "block");
+    const warns = findings.filter((f) => f.severity === "warn");
+    for (const f of warns) console.log(`⚠ privacy: [${f.type}] added line ${f.line} → ${f.masked} — personal data? move it out before it ships`);
+    const hardened = config?.privacy?.generic === "block" && warns.length > 0;
+    if (blocks.length > 0 || hardened) {
+      if (process.env.KJ_ALLOW_PII === "1") {
+        console.log(`⚠ privacy exempt: ${blocks.length} denylist hit(s) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
+      } else {
+        for (const f of blocks) console.log(`✗ privacy: denylist hit on added line ${f.line} → ${f.masked}`);
+        const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (KJ_ALLOW_PII=1 to override consciously)`;
+        console.log(`✗ privacy gate: ${reason}`);
+        process.exitCode = 1;
+        return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
+      }
+    }
+  } catch (err) {
+    // Known degradation: the SEA stub throws its install-from-npm message.
+    // Anything else fails CLOSED — a silent skip would defeat the guarantee.
+    if (/standalone binary/i.test(err?.message || "")) {
+      console.log("⚠ privacy gate unavailable in this build — skipping");
+    } else if (process.env.KJ_ALLOW_PII === "1") {
+      console.log(`⚠ privacy gate errored (${err.message}) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
+    } else {
+      const reason = `privacy gate error: ${err.message} — refusing to pass the boundary unchecked (KJ_ALLOW_PII=1 to override consciously)`;
+      console.log(`✗ ${reason}`);
+      process.exitCode = 1;
+      return { verdict: "rejected", reviewer: "privacy", issues: [{ severity: "high", description: reason }] };
+    }
+  }
+
   const tests = checkTestsWithCode({ config, stagedFiles: changedFiles });
   if (tests.mode === "warn") console.log(`⚠ tests-with-code: ${tests.reason}`);
   if (tests.mode === "exempt") console.log(`⚠ tests-with-code exempt: ${tests.reason}`);

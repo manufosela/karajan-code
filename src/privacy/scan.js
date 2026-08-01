@@ -18,7 +18,8 @@ const BINARY_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".
 const MAX_FILE_BYTES = 512 * 1024;
 
 export function privacyConfigPath(home = os.homedir()) {
-  return join(home, ".karajan", "privacy.yml");
+  // KJ_PRIVACY_CONFIG: test/CI override of the global denylist location.
+  return process.env.KJ_PRIVACY_CONFIG || join(home, ".karajan", "privacy.yml");
 }
 
 /** Personal denylist + public-identity allowlist. Absent file → generics only. */
