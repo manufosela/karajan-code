@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`kj privacy scan` — the outbound privacy boundary** (KJC-TSK-0704, epic KJC-PCS-0070): audit any outbound surface for personal data before it ships — files/dirs (a build's `dist/`, a docs tree) or the staged diff's ADDED lines (`--staged`). Two layers: your personal denylist from `~/.karajan/privacy.yml` (`personal:`/`allow:` — global, never inside a repo: the list itself is sensitive) **blocks** with exit 1, and generic PII (email, phone, DNI/NIE, IBAN, card — karajan-rag's audited `redactPII`, the family engine, detecting and masking in one pass) **warns**. Findings never echo the datum they flag. Born from a real incident: personal emails published on a landing inside release notes. Gate integration (pre-commit, tarball) lands next (PV-B/PV-C).
+
 ### Fixed
 
 - **The verdict gate no longer deadlocks pure merge commits** (KJC-BUG-0132, issue #1344, found dogfooding PR #1343): a merge that stages no content of its own — e.g. merging main to move the merge-base — had no diff to bind a verdict to, and `kj review --staged` rightly refuses an empty diff, so the commit could never pass the pre-commit gate. `kj review --check` now recognizes the case (MERGE_HEAD present + empty staged diff) and passes with a trail line; a merge WITH conflict resolutions stages real content and still requires its cross-AI verdict.

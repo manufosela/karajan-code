@@ -261,6 +261,17 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-0704 — the outbound privacy boundary: audit before anything ships.
+  const privacy = program.command("privacy").description("Personal-data (PII) auditing of outbound boundaries: staged diffs, build outputs, docs trees");
+  privacy.command("scan [paths...]")
+    .description("Scan files/dirs — or the staged diff's added lines with --staged — for personal data. Denylist hits (~/.karajan/privacy.yml) block with exit 1; generic PII (email/phone/DNI/NIE/IBAN/card via karajan-rag's redactPII) warns. Findings always come out masked.")
+    .option("--staged", "Scan the ADDED lines of the staged diff instead of paths")
+    .option("--json", "Machine-readable result")
+    .action(async (paths, flags) => {
+      const { privacyScanCommand } = await import("../commands/privacy.js");
+      await privacyScanCommand({ paths, flags });
+    });
+
   const rag = program.command("rag").description("Retrieval-augmented search over Karajan plans, onboarding briefs and project code");
   rag.command("index")
     .description("Index plans + onboarding (and optionally project sources) into the local vector store")
