@@ -41,6 +41,39 @@ describe("kj review gate", () => {
     expect(process.exitCode).toBe(0);
   });
 
+  // KJC-TSK-0705 (PV-B) — the privacy gate: a staged diff ADDING a denylist
+  // datum never becomes a commit; generic PII only warns.
+  describe("privacy gate", () => {
+    let cfgFile;
+    beforeEach(() => {
+      cfgFile = path.join(dir, "privacy.yml");
+      fs.writeFileSync(cfgFile, 'personal:\n  - "secreto.real@example.com"\n');
+      process.env.KJ_PRIVACY_CONFIG = cfgFile;
+    });
+    afterEach(() => { delete process.env.KJ_PRIVACY_CONFIG; delete process.env.KJ_ALLOW_PII; });
+
+    it("rejects when the staged diff adds a denylist datum — masked, never echoed", async () => {
+      fs.writeFileSync(path.join(dir, "a.js"), "const mail = 'secreto.real@example.com';\n");
+      execFileSync("git", ["add", "a.js"], { cwd: dir });
+      const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+      expect(res.verdict).toBe("rejected");
+      expect(res.reviewer).toBe("privacy");
+      expect(JSON.stringify(res)).not.toContain("secreto.real@example.com");
+      expect(process.exitCode).toBe(1);
+    });
+
+    it("KJ_ALLOW_PII=1 is the named escape; generic PII alone only warns", async () => {
+      process.env.KJ_ALLOW_PII = "1";
+      const res = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+      expect(res.reviewer).not.toBe("privacy"); // falls through to the verdict check
+      delete process.env.KJ_ALLOW_PII;
+      fs.writeFileSync(path.join(dir, "a.js"), "const mail = 'generico@dominio.com';\n");
+      execFileSync("git", ["add", "a.js"], { cwd: dir });
+      const generic = await reviewGateCommand({ config: { ...config, projectDir: dir }, flags: { check: true } });
+      expect(generic.reviewer).not.toBe("privacy"); // warn, not reject
+    });
+  });
+
   // KJC-BUG-0132 (issue #1344): a PURE merge stages nothing of its own —
   // everything it brings reached the parent branches reviewed. Demanding a
   // verdict of an empty diff deadlocks the merge.
