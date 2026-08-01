@@ -153,7 +153,7 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
       if (process.env.KJ_ALLOW_PII === "1") {
         console.log(`⚠ privacy exempt: ${blocks.length} denylist hit(s) — KJ_ALLOW_PII=1 (explicit escape hatch)`);
       } else {
-        for (const f of blocks) console.log(`✗ privacy: denylist hit on added line ${f.line} → ${f.masked}`);
+        for (const f of blocks) console.log(`✗ privacy: [${f.type}] on added line ${f.line} → ${f.masked}`);
         const reason = `${blocks.length || warns.length} personal-data finding(s) in the staged diff — this must not reach the repo (KJ_ALLOW_PII=1 to override consciously)`;
         console.log(`✗ privacy gate: ${reason}`);
         process.exitCode = 1;
