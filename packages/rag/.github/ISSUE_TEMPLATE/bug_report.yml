@@ -7,7 +7,9 @@ body:
     attributes:
       value: |
         Gracias por el reporte. Antes de abrir, revisa que **no sea un problema de seguridad** —
-        esos se envían a **mjfosela@gmail.com** (ver [SECURITY.md](../SECURITY.md)).
+        esos se reportan en privado desde
+        [Security → Report a vulnerability](https://github.com/manufosela/karajan-rag/security/advisories/new)
+        (ver [SECURITY.md](../SECURITY.md)).
 
   - type: input
     id: version
