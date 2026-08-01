@@ -146,7 +146,8 @@ const huBoardStubPlugin = {
 const ragStubPlugin = {
   name: "rag-stub",
   setup(build) {
-    build.onResolve({ filter: /[\\/](rag[\\/].+|commands[\\/](rag|watch))\.js$/ }, (args) => ({
+    // KJC-TSK-0704 — src/privacy/* rides this stub too: its engine is redactPII.
+    build.onResolve({ filter: /[\\/](rag[\\/].+|privacy[\\/].+|commands[\\/](rag|watch|privacy))\.js$/ }, (args) => ({
       path: args.path, namespace: "rag-stub",
     }));
     build.onLoad({ filter: /.*/, namespace: "rag-stub" }, () => ({
@@ -192,6 +193,9 @@ const ragStubPlugin = {
           // reached from \`kj rag install-hooks\`, so it degrades like the rest.
           maybeAutoUpdate: async () => ({ skipped: true }),
           installPostMergeHook: notAvailable,
+          // KJC-TSK-0704 — privacy scan (engine = karajan-rag redactPII).
+          privacyScanCommand: notAvailable, loadPrivacyList: notAvailable,
+          scanText: notAvailable, scanPaths: notAvailable, privacyConfigPath: notAvailable,
           // KJC-BUG-0100 — the doctor rag-hooks check imports this; it throws
           // here and the check swallows it (degrades to a benign info result).
           resolveHooksDir: notAvailable,
