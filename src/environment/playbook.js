@@ -75,6 +75,8 @@ Invariants (the git gates enforce these — they are not suggestions):
 - A non-trivial plan names at least two approaches — one as if the
   codebase didn't exist — and says why the winner won. Following the
   legacy line is a choice, never a default.
+- Publishing ANY artifact (a build's dist/, a docs site, a tarball)?
+  \`kj privacy scan <dir>\` first — nothing personal or secret-shaped ships.
 - Branch first: never commit on the base branch — every change reaches it
   through an atomic PR (~150 net lines, Conventional Commits). More than one
   task, or the base tree must stay untouched? \`kj worktree start <slug>\`

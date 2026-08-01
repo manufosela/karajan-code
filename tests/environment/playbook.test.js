@@ -28,6 +28,8 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/kj audit --security/);
       // KJC-TSK-0696: the alternatives clause — legacy-following is a choice.
       expect(text).toMatch(/as if the\s+codebase didn'?t exist/i);
+      // KJC-TSK-0706: the outbound privacy boundary before publishing.
+      expect(text).toMatch(/kj privacy scan/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }

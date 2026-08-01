@@ -85,6 +85,23 @@ try {
   }
   console.log(`verify-pack: kj --version → ${versionOut} ✓`);
 
+  // 1.5 Privacy boundary (KJC-TSK-0706): nothing personal or secret-shaped
+  // ships inside the tarball. Scans the INSTALLED package with the same
+  // engine as the pre-commit gate: denylist + token shapes abort the
+  // publish; generic PII only counts (code trees always carry a few
+  // pattern lookalikes).
+  const { scanPaths, loadPrivacyList } = await import(
+    path.join(repoRoot, "src", "privacy", "scan.js")
+  );
+  const shippedDir = path.join(tmpDir, "node_modules", "karajan-code");
+  const pFindings = scanPaths([shippedDir], { list: loadPrivacyList() });
+  const pBlocks = pFindings.filter((f) => f.severity === "block");
+  if (pBlocks.length > 0) {
+    for (const f of pBlocks) console.error(`✗ [${f.type}] ${path.relative(shippedDir, f.source)}:${f.line} → ${f.masked}`);
+    fail(`${pBlocks.length} personal-data/secret hit(s) INSIDE the tarball — this must not publish`);
+  }
+  console.log(`verify-pack: tarball privacy scan ✓ (${pFindings.length} generic warning(s))`);
+
   // 2. kj --help must exit 0 (exercises the command tree wiring).
   try {
     run(binPath, ["--help"]);
