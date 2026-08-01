@@ -1,7 +1,5 @@
-// KJC-TSK-0704 (PV-A) — the outbound privacy boundary. Findings NEVER echo
-// the datum they flag: the denylist masks, the generics report the line
-// already redacted by karajan-rag's redactPII (the family engine).
-
+// KJC-TSK-0704 (PV-A) — outbound privacy boundary. Findings NEVER echo the
+// datum: denylist masks, generics report the redactPII-redacted line.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

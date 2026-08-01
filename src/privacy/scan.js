@@ -1,14 +1,10 @@
 /**
  * privacy — the outbound boundary scanner (KJC-TSK-0704, epic KJC-PCS-0070).
- *
- * Born from a real incident: personal emails published on a landing page
- * inside release notes. Inputs get sanitized at boundaries — outputs must
- * too. Engine: karajan-rag's audited redactPII (the family motor) applied
- * line by line, so it detects AND masks in one pass and a finding never
- * echoes the datum it flags. On top rides the user's personal denylist
- * from `~/.karajan/privacy.yml` (`personal:` block-level strings,
- * `allow:` public identities) — GLOBAL and never inside a repo: the list
- * itself is sensitive.
+ * Born from a real incident (personal emails published on a landing):
+ * outputs get sanitized at boundaries like inputs do. Engine: karajan-rag's
+ * audited redactPII line by line — detects AND masks in one pass, so a
+ * finding never echoes the datum. On top, the user's denylist from
+ * `~/.karajan/privacy.yml` — GLOBAL, never in a repo: the list is sensitive.
  */
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";

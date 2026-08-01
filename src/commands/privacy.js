@@ -1,10 +1,8 @@
 /**
- * `kj privacy scan` (KJC-TSK-0704) — audit any outbound boundary for
- * personal data before it ships: files/dirs (a build's dist/, a docs tree)
- * or the staged diff's ADDED lines. Denylist hits block (exit 1), generic
- * PII warns; every finding comes out masked.
+ * `kj privacy scan` (KJC-TSK-0704) — audit an outbound boundary before it
+ * ships: files/dirs or the staged diff's ADDED lines. Denylist blocks
+ * (exit 1), generic PII warns; findings always come out masked.
  */
-
 import { runCommand } from "../utils/process.js";
 import { loadPrivacyList, scanPaths, scanText, privacyConfigPath } from "../privacy/scan.js";
 
