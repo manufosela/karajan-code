@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-08-01
+
+Minor. **Nothing personal ships** — every outbound boundary (staged diff, npm tarball, any build output) now audits for personal data and hardcoded secrets before it leaves the machine. Born from a real incident: personal emails published on a landing page inside release notes. Epic KJC-PCS-0070.
+
 ### Added
 
 - **Privacy onboarding rides `kj env install`** (KJC-TSK-0707, PV-D): on an interactive install without a denylist, kj ASKS — personal emails, phone/ID, name, public identities — and writes `~/.karajan/privacy.yml` itself (the user never fills YAML by hand; Enter skips any question; answers are never echoed back). Headless installs get a hint, never a block. Protection exists from minute one, not from the day you discover the command.
