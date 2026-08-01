@@ -33,7 +33,7 @@ export async function privacyScanCommand({ paths = [], flags = {}, logger = cons
     process.stdout.write(`${JSON.stringify({ ok, blocks: blocks.length, warns: warns.length, findings })}\n`);
     return { ok, findings };
   }
-  for (const f of blocks) logger.error?.(`✗ BLOCK [denylist] ${f.source}:${f.line} → ${f.masked}`);
+  for (const f of blocks) logger.error?.(`✗ BLOCK [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
   for (const f of warns) logger.warn?.(`⚠ warn [${f.type}] ${f.source}:${f.line} → ${f.masked}`);
   if (!list.present) {
     logger.info?.(`hint: no personal denylist found — create ${privacyConfigPath()} (personal: [...], allow: [...]) so YOUR data blocks, not just warns`);

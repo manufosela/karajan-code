@@ -40,6 +40,28 @@ describe("privacy/scan", () => {
     expect(f.some((x) => x.type === "email" && x.severity === "warn")).toBe(true);
   });
 
+  // KJC-TSK-0708 (PV-E) — hardcoded secrets. Fixture tokens are BUILT by
+  // concatenation so this very file never trips the privacy gate.
+  it("known token shapes BLOCK, masked; assignment/conn-string literals warn toward .env", () => {
+    const gh = "ghp_" + "A1b2".repeat(9);
+    const text = `token: ${gh}\nconst pwd = { password: "hunter2secret" }\ndb: postgres://admin:s3cr3t@db.local/x\n`;
+    const f = scanText(text, { list: list() });
+    const shape = f.find((x) => x.type === "github-token");
+    expect(shape).toMatchObject({ severity: "block", line: 1 });
+    expect(f.some((x) => x.type === "secret-assignment" && x.severity === "warn" && x.line === 2)).toBe(true);
+    expect(f.some((x) => x.type === "conn-string" && x.severity === "warn" && x.line === 3)).toBe(true);
+    const dump = JSON.stringify(f);
+    expect(dump).not.toContain(gh);
+    expect(dump).not.toContain("hunter2secret");
+    expect(dump).not.toContain("s3cr3t");
+  });
+
+  it("allowlisted strings silence secret shapes too", () => {
+    const fake = "AKIA" + "EXAMPLE234567890";
+    writeFileSync(join(home, ".karajan", "privacy.yml"), `personal: []\nallow:\n  - "${fake}"\n`);
+    expect(scanText(`key: ${fake}\n`, { list: list() })).toEqual([]);
+  });
+
   it("scanPaths walks dirs, skips node_modules, and reports file:line", () => {
     writeFileSync(join(dir, "ok.txt"), "nada personal aqui\n");
     writeFileSync(join(dir, "leak.txt"), "linea limpia\ncontacto Nombre Muyprivado\n");
