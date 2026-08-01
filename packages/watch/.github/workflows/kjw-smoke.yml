@@ -1,4 +1,4 @@
-# Smoke end-to-end contra un pgvector real en cada PR.
+# Smoke end-to-end contra los dos stores desplegables, en cada PR.
 #
 # Los tests con dobles no vieron que la ingesta estaba rota y se publicó así
 # (KJW-BUG-0003, y cuatro más). Este job ejecuta el producto de verdad:
@@ -13,7 +13,25 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
+  # La vía por defecto: sin servicios, sin base de datos, sin nada que alojar.
+  # Que este job no tenga `services` es la demostración, no un descuido.
+  smoke-lancedb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Ejecutar el smoke sin infraestructura
+        env:
+          STORE: lancedb
+        run: bash scripts/smoke.sh
+
+  smoke-pgvector:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -38,7 +56,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Ejecutar el smoke
+      - name: Ejecutar el smoke contra pgvector
         env:
+          STORE: pgvector
           PG_URL: postgres://postgres:smoke@127.0.0.1:5432/kjw
         run: bash scripts/smoke.sh

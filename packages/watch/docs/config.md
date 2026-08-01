@@ -32,6 +32,17 @@ Exactamente dos entradas: `code` y `docs` (tablas/corpus separados).
 | `embedder`    | enum | sí        | —          | `hash` \| `transformers` (locales: el código nunca viaja a un embedder de terceros) |
 | `sensitivity` | enum | no        | `internal` | Ver [Sensibilidad](#sensibilidad)    |
 
+**El backend del store lo instalas tú**: `@lancedb/lancedb` para `lancedb`,
+`pg` para `pgvector`. El motor no declara ninguno, así que quien usa uno no
+paga el binario del otro; si falta, la ingesta falla en rojo indicando cuál.
+
+Con `lancedb` el corpus es un directorio en disco: sin servidor y sin nada
+que alojar, pero **solo lo ve quien tiene ese disco**. Si `ingest` e `impact`
+corren en máquinas distintas —o en runners efímeros que no conservan nada
+entre jobs— el corpus tiene que persistirse aparte o el store debe ser
+`pgvector`. Los dos umbrales de `impact` se calibran contra el store que uses:
+los scores no son comparables entre backends.
+
 ### `impact` (opcional)
 
 Umbrales del pipeline de impacto cross-repo (F2). Si la sección está

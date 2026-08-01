@@ -44,9 +44,19 @@ before continuing:
 
 1. **Which repos** should be watched, and in which GitHub organisation.
 2. **Sensitivity** of that code (see hard rule 2).
-3. **Where the corpus lives**: a Postgres with the `pgvector` extension for
-   real deployments (they will provide it as a secret later), or `lancedb`
-   locally just to try it out.
+3. **Where the corpus lives.** Do not ask this as an open question — most
+   people have no reason to run a database for this. Explain the trade-off
+   and let them pick:
+   - `lancedb` (**recommended to start**): a directory on disk, no server,
+     nothing to host. Needs `@lancedb/lancedb` installed. The corpus is only
+     visible to whoever holds that disk, so if `ingest` and `impact` run on
+     ephemeral runners the corpus must be persisted between jobs (cache or
+     artifact) — or the store must be `pgvector`.
+   - `pgvector`: a Postgres with the `vector` extension, and `pg` installed.
+     The answer when several machines share the corpus. They will provide
+     the connection string as a secret later; **one database per corpus**.
+   Whatever they choose, the store backend is a peer dependency they install
+   — the engine ships none, and a missing one fails loudly at ingest time.
 4. **Where alerts should land**: a comment on the merged PR, an https
    webhook, or both.
 5. **Which repo is the deployment repo** — private, theirs. If they do not
@@ -75,8 +85,9 @@ Then tell the user which secrets to create themselves (hard rule 1):
 
 - `REPOS_TOKEN` — read access to every observed repo, plus permission to
   write comments if they chose the PR-comment target.
-- `PG_URL` — the pgvector connection string, **one per corpus** (`code` and
-  `docs` cannot share a database yet: the CLI uses a fixed table name).
+- `PG_URL` — only if they chose `pgvector`: the connection string, **one per
+  corpus** (`code` and `docs` cannot share a database yet: the CLI uses a
+  fixed table name). With `lancedb` there is no secret to create here.
 
 ## 4. First full index — before the first merge
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## No publicado
+
+### Nuevo
+
+- **Se puede usar sin base de datos.** El store `lancedb` —un directorio en
+  disco, sin servidor— ya estaba admitido en la configuración, pero no lo
+  ejercía nada: era una promesa. Ahora el smoke end-to-end corre contra los
+  dos stores desplegables, y el de `lancedb` va en CI **sin service
+  container**, que es justo la demostración. Empezar ya no exige decidir
+  dónde alojar un Postgres.
+- **El paquete anuncia lo que necesita**: `@lancedb/lancedb` y `pg` quedan
+  declarados como peers opcionales. El motor no arrastra ninguno, así que
+  quien usa un store no paga el binario del otro; hasta ahora quien instalaba
+  karajan-watch no podía indexar con **ningún** store y solo lo descubría al
+  ejecutar.
+- Documentado el límite real de la vía sin servidor —el corpus vive en el
+  disco de quien indexa, así que en runners efímeros hay que persistirlo o
+  usar `pgvector`— y que los scores no son comparables entre backends.
+
 ## 0.2.0 — 2026-07-29
 
 > **Si estás en 0.1.0, actualiza.** Aquella versión tenía la ingesta rota:

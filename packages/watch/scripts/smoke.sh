@@ -10,10 +10,21 @@
 # valida es la fontanería, no la calidad semántica. Así el job es rápido,
 # determinista y no depende de la red ni de cuotas.
 #
-# Uso:  PG_URL=postgres://... scripts/smoke.sh
+# Se ejecuta contra los dos stores desplegables, con el mismo guión: lo que
+# vale para uno tiene que valer para el otro, o la diferencia es un bug.
+#
+# Uso:  scripts/smoke.sh                                  (lancedb, sin servidor)
+#       STORE=pgvector PG_URL=postgres://... scripts/smoke.sh
 set -euo pipefail
 
-: "${PG_URL:?falta PG_URL (postgres con la extensión vector)}"
+STORE="${STORE:-lancedb}"
+case "$STORE" in
+  lancedb | pgvector) ;;
+  *) printf 'STORE debe ser lancedb o pgvector (recibido: %s)\n' "$STORE" >&2; exit 1 ;;
+esac
+if [ "$STORE" = pgvector ]; then
+  : "${PG_URL:?falta PG_URL (postgres con la extensión vector)}"
+fi
 EMBEDDER_DIMS=256   # dimensión del embedder `hash` en karajan-rag
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"
@@ -22,13 +33,17 @@ trap 'rm -rf "$WORK"' EXIT
 say() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 fail() { printf '\n\033[31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 
-say "empaquetar e instalar el tarball como lo haría una organización"
+say "empaquetar e instalar el tarball como lo haría una organización ($STORE)"
 cd "$REPO_ROOT"
 TARBALL="$(npm pack --silent | tail -1)"
 mv "$TARBALL" "$WORK/"
 cd "$WORK"
 npm init -y >/dev/null
-npm install --silent "./$TARBALL" pg >/dev/null
+# El backend del store es un peer: karajan-rag no declara dependencias, así
+# que lo instala quien despliega. Que el producto lo ANUNCIE es parte de lo
+# que valida este smoke; aquí se instala como lo haría el usuario avisado.
+if [ "$STORE" = pgvector ]; then STORE_PEER=pg; else STORE_PEER=@lancedb/lancedb; fi
+npm install --silent "./$TARBALL" "$STORE_PEER" >/dev/null
 
 # El esquema y las consultas van por el cliente `pg` ya instalado: así el
 # smoke no depende de tener psql en la máquina (ni local ni en el runner).
@@ -44,16 +59,18 @@ sql() {
   '
 }
 
-say "esquema pgvector (dim $EMBEDDER_DIMS)"
-# Mientras el motor no cree su esquema (KJR-PRP-0008) lo prepara el smoke.
-# La dimensión DEBE coincidir con la del embedder o el INSERT revienta.
-sql "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
-sql "DROP TABLE IF EXISTS karajan_rag_chunks;" >/dev/null
-sql "CREATE TABLE karajan_rag_chunks (
-       id text PRIMARY KEY, source text, chunk_index integer, content text,
-       embedding vector($EMBEDDER_DIMS), metadata jsonb DEFAULT '{}'::jsonb,
-       created_at timestamptz NOT NULL DEFAULT now());" >/dev/null
-sql "CREATE INDEX ON karajan_rag_chunks (source);" >/dev/null
+if [ "$STORE" = pgvector ]; then
+  say "esquema pgvector (dim $EMBEDDER_DIMS)"
+  # Mientras el motor no cree su esquema (KJR-PRP-0008) lo prepara el smoke.
+  # La dimensión DEBE coincidir con la del embedder o el INSERT revienta.
+  sql "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
+  sql "DROP TABLE IF EXISTS karajan_rag_chunks;" >/dev/null
+  sql "CREATE TABLE karajan_rag_chunks (
+         id text PRIMARY KEY, source text, chunk_index integer, content text,
+         embedding vector($EMBEDDER_DIMS), metadata jsonb DEFAULT '{}'::jsonb,
+         created_at timestamptz NOT NULL DEFAULT now());" >/dev/null
+  sql "CREATE INDEX ON karajan_rag_chunks (source);" >/dev/null
+fi
 
 say "workspace multi-repo: un proveedor y un consumidor de su endpoint"
 mkdir -p .kjw-workspace/repo-api/src .kjw-workspace/repo-client/src
@@ -76,15 +93,15 @@ for repo in repo-api repo-client; do
     commit -qm "estado inicial"
 done
 
-cat > karajan-watch.config.json <<'JSON'
+cat > karajan-watch.config.json <<JSON
 {
   "repos": [
     { "name": "repo-api", "sensitivity": "public" },
     { "name": "repo-client", "sensitivity": "public" }
   ],
   "corpus": {
-    "code": { "store": "pgvector", "embedder": "hash", "sensitivity": "public" },
-    "docs": { "store": "pgvector", "embedder": "hash", "sensitivity": "public" }
+    "code": { "store": "$STORE", "embedder": "hash", "sensitivity": "public" },
+    "docs": { "store": "$STORE", "embedder": "hash", "sensitivity": "public" }
   },
   "impact": { "thresholds": { "minSimilarity": 0, "maxCandidates": 20 } }
 }
@@ -94,9 +111,17 @@ say "ingest real"
 ./node_modules/.bin/karajan-watch ingest \
   --config karajan-watch.config.json --workspace .kjw-workspace --corpus code
 
-CHUNKS="$(sql 'SELECT count(*)::int AS n FROM karajan_rag_chunks')"
-[ "$CHUNKS" -gt 0 ] || fail "el corpus quedó vacío tras la ingesta"
-echo "chunks indexados: $CHUNKS"
+# El corpus tiene que sobrevivir al proceso: `impact` corre después, en otro
+# proceso, y si no lo encuentra el informe saldrá vacío.
+if [ "$STORE" = pgvector ]; then
+  CHUNKS="$(sql 'SELECT count(*)::int AS n FROM karajan_rag_chunks')"
+  [ "$CHUNKS" -gt 0 ] || fail "el corpus quedó vacío tras la ingesta"
+  echo "chunks indexados: $CHUNKS"
+else
+  CORPUS_DIR="$(find . -type d -name '*.lance' -not -path './node_modules/*' | head -1)"
+  [ -n "$CORPUS_DIR" ] || fail "lancedb no dejó ningún corpus en disco tras la ingesta"
+  echo "corpus en disco: $CORPUS_DIR"
+fi
 
 say "impact real sobre un diff que renombra el endpoint"
 cat > merge.diff <<'DIFF'
@@ -124,4 +149,4 @@ grep -q '/api/v1/users/:id' informe.md \
 grep -qi 'contrato' informe.md \
   || fail "el informe no marca la coincidencia como contrato"
 
-printf '\n\033[32m✓ smoke OK: ingest e impact funcionan contra pgvector real\033[0m\n'
+printf '\n\033[32m✓ smoke OK: ingest e impact funcionan con store %s\033[0m\n' "$STORE"

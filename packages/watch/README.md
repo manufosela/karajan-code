@@ -50,8 +50,29 @@ pásale a tu agente la ruta local: el mismo prompt viaja en el tarball.
 ¿Prefieres a mano?
 
 ```bash
-npm install karajan-watch   # Node >= 20
+npm install karajan-watch @lancedb/lancedb   # Node >= 20
 ```
+
+### Dónde vive el corpus
+
+Lo eliges tú en `$.corpus.*.store`, y **el backend lo instalas tú**: el motor
+no arrastra ninguno, así que quien usa un store no paga el binario del otro.
+Si falta, la ingesta falla en rojo diciendo cuál instalar — nunca indexa a
+medias.
+
+| Store | Necesita | Cuándo |
+|-------|----------|--------|
+| `lancedb` (por defecto) | `@lancedb/lancedb`. Sin servidor: el corpus es un directorio | Para empezar, y para cualquier despliegue en el que la misma máquina indexa y consulta |
+| `pgvector` | `pg` y un Postgres con la extensión `vector` | Cuando varias máquinas comparten corpus, o cuando quien indexa no conserva el disco |
+| `in-memory` | nada | Tests. No persiste |
+
+Empieza por `lancedb`: no tienes que decidir dónde alojar una base de datos
+para saber si esto te sirve. Su límite es concreto y conviene conocerlo antes
+de elegir — **el corpus vive en el disco de quien indexa**. En runners
+efímeros, donde `ingest` corre en un job y `impact` en otro, ese disco
+desaparece entre medias: o lo persistes (caché o artefacto entre jobs, disco
+propio en un runner self-hosted) o usas `pgvector`, que es exactamente el
+problema que resuelve.
 
 En el repo privado de despliegue de tu organización:
 
