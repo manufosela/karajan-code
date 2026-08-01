@@ -230,6 +230,9 @@
     .hero-tagline { font-size: clamp(1.1rem, 2.6vw, 1.45rem); color: var(--text); max-width: 660px; margin-bottom: 0.5rem; font-weight: 300; }
     .guarantee { font-family: var(--serif); font-style: italic; font-size: 1.12em; color: var(--gold-ink); }
     .hero-sub { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2.4rem; letter-spacing: 0.04em; max-width: 640px; }
+    .hero-badge { margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+    .hero-badge a { display: flex; align-items: center; }
+    .hero-badge a:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
 
     .hero-install {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
@@ -488,6 +491,11 @@
     <h1 class="wordmark">ka<span class="watch">WATCH</span>an</h1>
     <p class="hero-tagline">Every merge asks the same question. This answers it: <em class="guarantee">what else just became risky</em> — and shows you why.</p>
     <p class="hero-sub">Shared multi-repo RAG always fresh &middot; cross-repo impact ranked with evidence &middot; stale documentation flagged &middot; local embedders, your code never leaves your runner</p>
+    <p class="hero-badge">
+      <a href="https://www.npmjs.com/package/karajan-watch" aria-label="Current version on npm">
+        <img src="https://img.shields.io/npm/v/karajan-watch.svg?style=flat-square&color=e8b04b&label=latest" alt="npm version" height="22">
+      </a>
+    </p>
     <button type="button" class="hero-install" onclick="copyInstall(this)" aria-label="Setup prompt — click to copy">
       <span class="prompt" aria-hidden="true">&gt;</span>
       <span>I want cross-repo impact analysis in my organisation: read watch.karajancode.com/start.md and do what it says.</span>
