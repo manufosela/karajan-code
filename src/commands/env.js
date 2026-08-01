@@ -12,6 +12,8 @@ import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
 import { verifyBoardAccess } from "../environment/board-access.js";
+import { ensurePrivacyList } from "../privacy/onboarding.js";
+import { createWizard } from "../utils/wizard.js";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
@@ -128,6 +130,13 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     }
   }
   if (result.exitCode !== PENDING_EXIT_CODE) {
+    // KJC-TSK-0707 (PV-D) — privacy onboarding rides the install: kj asks,
+    // kj writes the denylist. Best-effort (stubbed in the SEA binary).
+    try {
+      const wizard = process.stdin.isTTY && process.stdout.isTTY ? createWizard() : null;
+      await ensurePrivacyList({ wizard, logger: console, isTTY: Boolean(wizard) });
+      wizard?.close();
+    } catch { /* privacy onboarding is best-effort */ }
     console.log("  The host agent now follows the method: RAG first, TDD, cross-AI review before commit.");
   }
   return result;
