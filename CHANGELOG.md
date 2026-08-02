@@ -7,11 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Installing IS activating** (KJC-BUG-0133, field case 2026-08-02): a session "installed karajan" and then wrote an entire feature by hand — no `kj run`, no review, rules violated — because the setup flow ordered `kj harden` + the verdict gate as TEXT steps the agent runs (or narrates), and `kj env install` didn't perform them. A decorative method is worse than none. Now `kj env install` does the enforcement itself, idempotently: git hooks, `core.hooksPath`, and the cross-AI verdict gate — *a commit outside the method is rejected, not narrated*. No git repo → the install BLOCKS pending (the guarantees do not exist without git); enforcement failure blocks too; `--no-enforce` is the named escape. And because a mid-session install lands the playbook in a context the session loaded long ago, the install now ends by PRINTING the method into the conversation: in effect from that very message.
-
-## [4.10.0] - 2026-08-01
+## [4.10.0] - 2026-08-02
 
 Minor. **Nothing personal ships** — every outbound boundary (staged diff, npm tarball, any build output) now audits for personal data and hardcoded secrets before it leaves the machine. Born from a real incident: personal emails published on a landing page inside release notes. Epic KJC-PCS-0070.
 
@@ -25,6 +21,7 @@ Minor. **Nothing personal ships** — every outbound boundary (staged diff, npm 
 
 ### Fixed
 
+- **Installing IS activating** (KJC-BUG-0133, field case 2026-08-02): a session "installed karajan" and then wrote an entire feature by hand — no `kj run`, no review, rules violated — because the setup flow ordered `kj harden` + the verdict gate as TEXT steps the agent runs (or narrates), and `kj env install` didn't perform them. A decorative method is worse than none. Now `kj env install` does the enforcement itself, idempotently: git hooks, `core.hooksPath`, and the cross-AI verdict gate — *a commit outside the method is rejected, not narrated*. No git repo → the install BLOCKS pending (the guarantees do not exist without git); enforcement failure blocks too; `--no-enforce` is the named escape. And because a mid-session install lands the playbook in a context the session loaded long ago, the install now ends by PRINTING the method into the conversation: in effect from that very message.
 - **The verdict gate no longer deadlocks pure merge commits** (KJC-BUG-0132, issue #1344, found dogfooding PR #1343): a merge that stages no content of its own — e.g. merging main to move the merge-base — had no diff to bind a verdict to, and `kj review --staged` rightly refuses an empty diff, so the commit could never pass the pre-commit gate. `kj review --check` now recognizes the case (MERGE_HEAD present + empty staged diff) and passes with a trail line; a merge WITH conflict resolutions stages real content and still requires its cross-AI verdict.
 
 ## [4.9.0] - 2026-07-31
