@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The tool gate: rules imposed at tool time** (KJC-TSK-0710, from proposal KJC-PRP-0013 — suggested by the offending agent itself: *"instructions weren't enough; the environment must impose them"*): `kj harden` (standard+) now writes a PreToolUse hook script and wires it into the project's `.claude/settings.json` (merged, never clobbering the user's own settings). `Write` over an EXISTING file blocks with "use Edit" (`KJ_ALLOW_WRITE=1` escapes); a Bash command that reserializes whole JSON files to disk (`json.dump` + write signal) blocks with "make targeted edits" (`KJ_ALLOW_REWRITE=1`). A new rung under the commit gate: the rule fires when the tool is invoked, not when the agent remembers it. Fails open on garbage input — a gate bug never bricks a session. Claude-only v1; the abstraction arrives with the second host that supports tool hooks.
+
 ## [4.10.0] - 2026-08-02
 
 Minor. **Nothing personal ships** — every outbound boundary (staged diff, npm tarball, any build output) now audits for personal data and hardcoded secrets before it leaves the machine. Born from a real incident: personal emails published on a landing page inside release notes. Epic KJC-PCS-0070.
