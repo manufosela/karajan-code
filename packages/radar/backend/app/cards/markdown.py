@@ -1,4 +1,4 @@
-"""Reading distilled cards from markdown.
+"""Reading and writing distilled cards as markdown.
 
 The canonical form of a card is a markdown document with a level-one title
 and five level-two sections in a fixed order -- the shape karajan-code's
@@ -6,6 +6,9 @@ and five level-two sections in a fixed order -- the shape karajan-code's
 reported as such: an unexpected heading, a missing section or a reordering
 fails loudly instead of being quietly absorbed, so a source format that
 moves under us says what moved.
+
+Writing is the exact inverse of reading: a card read from the corpus and
+written back out is the same file, byte for byte.
 """
 
 from __future__ import annotations
@@ -63,6 +66,17 @@ def parse_card_body(markdown: str) -> CardBody:
         return CardBody.model_validate(fields)
     except ValidationError as exc:
         raise CardFormatError(f"invalid card body: {exc}") from exc
+
+
+def render_card_body(body: CardBody) -> str:
+    """Write a card body as markdown, in the canonical layout.
+
+    This is what goes into the corpus: the document an agent reads, with no
+    metadata mixed into it.
+    """
+    parts = [f"# {body.title}\n"]
+    parts.extend(f"\n## {heading}\n\n{getattr(body, field)}\n" for field, heading in SECTIONS)
+    return "".join(parts)
 
 
 def _split_sections(markdown: str) -> tuple[str, list[tuple[str, list[str]]]]:
