@@ -37,3 +37,25 @@ def provenance_dict() -> dict[str, Any]:
         "captured_at": "2026-07-01T09:00:00Z",
         "status": "feed",
     }
+
+
+MINIMAL_SECTIONS = (
+    ("Problem signature", "The thing goes wrong."),
+    ("Reach for it when", "- The thing is about to go wrong."),
+    ("Do NOT reach for it when", "- The thing cannot go wrong here."),
+    ("Trade-offs", "- It costs something."),
+    ("Canonical source", 'Someone, "A Paper", 1978.'),
+)
+
+
+def card_markdown(
+    sections: tuple[tuple[str, str], ...] = MINIMAL_SECTIONS,
+    *,
+    title: str = "Some pattern",
+) -> str:
+    """Assemble a card document from its sections, in the order given."""
+    blocks = "".join(f"## {heading}\n\n{text}\n\n" for heading, text in sections)
+    return f"# {title}\n\n{blocks}".rstrip("\n") + "\n"
+
+
+MINIMAL_CARD = card_markdown()
