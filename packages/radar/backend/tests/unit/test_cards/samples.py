@@ -6,7 +6,10 @@ test only has to say what it breaks about it.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
+
+from app.cards.schema import Provenance
 
 SECTION_FIELDS = (
     "problem_signature",
@@ -59,3 +62,22 @@ def card_markdown(
 
 
 MINIMAL_CARD = card_markdown()
+
+FRONTMATTER = """\
+---
+captured_at: '2026-07-01T09:00:00+00:00'
+connector: rss
+source: https://example.org/a-paper
+status: feed
+---
+"""
+"""The frontmatter matching ``captured_provenance``, as it is written out."""
+
+
+def captured_provenance() -> Provenance:
+    """The provenance of a document captured by the rss connector."""
+    return Provenance.for_capture(
+        source="https://example.org/a-paper",
+        connector="rss",
+        captured_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
+    )

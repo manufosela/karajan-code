@@ -9,15 +9,22 @@ moves under us says what moved.
 
 Writing is the exact inverse of reading: a card read from the corpus and
 written back out is the same file, byte for byte.
+
+Provenance travels in YAML frontmatter ahead of the body, so a card file
+stays a readable markdown document. The corpus indexer chunks whatever it
+finds and does not recognise frontmatter, which is why ``render_card_body``
+exists next to ``render_card``: what goes into the corpus is the body, and
+provenance is carried alongside it.
 """
 
 from __future__ import annotations
 
 import re
 
+import yaml
 from pydantic import ValidationError
 
-from app.cards.schema import CardBody
+from app.cards.schema import CardBody, DistilledCard, Provenance
 
 # Field name paired with the heading it is written under, in document order.
 SECTIONS: tuple[tuple[str, str], ...] = (
@@ -29,6 +36,8 @@ SECTIONS: tuple[tuple[str, str], ...] = (
 )
 
 CANONICAL_HEADINGS: tuple[str, ...] = tuple(heading for _, heading in SECTIONS)
+
+_FRONTMATTER_FENCE = "---"
 
 _TITLE_RE = re.compile(r"^# (?P<title>.+)$")
 _SECTION_RE = re.compile(r"^## (?P<heading>.+)$")
@@ -49,9 +58,13 @@ def parse_card_body(markdown: str) -> CardBody:
 
     Raises:
         CardFormatError: If the document has no title, is missing a section,
-            leaves one empty, carries an unknown heading, or orders the
-            sections differently.
+            leaves one empty, carries an unknown heading, orders the sections
+            differently, or opens with frontmatter -- which would mean
+            silently dropping the provenance it carries.
     """
+    if markdown.lstrip().startswith(_FRONTMATTER_FENCE):
+        raise CardFormatError("document starts with frontmatter; use parse_card to read provenance too")
+
     title, sections = _split_sections(markdown)
     _check_headings([heading for heading, _ in sections])
 
@@ -68,6 +81,37 @@ def parse_card_body(markdown: str) -> CardBody:
         raise CardFormatError(f"invalid card body: {exc}") from exc
 
 
+def parse_card(markdown: str) -> DistilledCard:
+    """Read a card and its provenance from a markdown document.
+
+    Args:
+        markdown: The document, opening with YAML frontmatter.
+
+    Returns:
+        The validated card.
+
+    Raises:
+        CardFormatError: If the frontmatter is absent, unparseable or does
+            not describe a complete provenance, or if the body is invalid.
+    """
+    frontmatter, body = _split_frontmatter(markdown)
+
+    try:
+        data = yaml.safe_load(frontmatter)
+    except yaml.YAMLError as exc:
+        raise CardFormatError(f"invalid frontmatter: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise CardFormatError(f"frontmatter must be a mapping, got {type(data).__name__}")
+
+    try:
+        provenance = Provenance.model_validate(data)
+    except ValidationError as exc:
+        raise CardFormatError(f"invalid provenance: {exc}") from exc
+
+    return DistilledCard(body=parse_card_body(body), provenance=provenance)
+
+
 def render_card_body(body: CardBody) -> str:
     """Write a card body as markdown, in the canonical layout.
 
@@ -77,6 +121,35 @@ def render_card_body(body: CardBody) -> str:
     parts = [f"# {body.title}\n"]
     parts.extend(f"\n## {heading}\n\n{getattr(body, field)}\n" for field, heading in SECTIONS)
     return "".join(parts)
+
+
+def render_card(card: DistilledCard) -> str:
+    """Write a card as markdown with its provenance in YAML frontmatter."""
+    provenance = card.provenance.model_dump()
+    provenance["captured_at"] = card.provenance.captured_at.isoformat()
+
+    frontmatter = yaml.safe_dump(provenance, default_flow_style=False, sort_keys=True, allow_unicode=True)
+
+    return f"{_FRONTMATTER_FENCE}\n{frontmatter}{_FRONTMATTER_FENCE}\n{render_card_body(card.body)}"
+
+
+def _split_frontmatter(markdown: str) -> tuple[str, str]:
+    """Separate the YAML frontmatter from the body that follows it.
+
+    Raises:
+        CardFormatError: If the document does not open with a fenced
+            frontmatter block, or the fence is never closed.
+    """
+    lines = markdown.splitlines(keepends=True)
+
+    if not lines or lines[0].rstrip("\n") != _FRONTMATTER_FENCE:
+        raise CardFormatError("card has no provenance frontmatter")
+
+    for index, line in enumerate(lines[1:], start=1):
+        if line.rstrip("\n") == _FRONTMATTER_FENCE:
+            return "".join(lines[1:index]), "".join(lines[index + 1 :])
+
+    raise CardFormatError("frontmatter is never closed")
 
 
 def _split_sections(markdown: str) -> tuple[str, list[tuple[str, list[str]]]]:
