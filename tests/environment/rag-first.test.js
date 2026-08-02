@@ -19,6 +19,7 @@ vi.mock("../../src/commands/rag.js", () => ({
 vi.mock("../../src/environment/playbook.js", () => ({
   // fresh object per call — envInstallCommand mutates its result
   installPlaybook: vi.fn(async () => ({ files: ["CLAUDE.md", "AGENTS.md"], target: "both" })),
+  renderPlaybook: vi.fn(() => "# Karajan method (v4)"),
 }));
 vi.mock("../../src/rag/onnx-fallback.js", async (orig) => ({
   ...(await orig()),
@@ -40,14 +41,14 @@ describe("env install is RAG-first", () => {
 
   it("builds the index with sources when the project has none", async () => {
     getLastIndexedCommit.mockReturnValue(null);
-    await envInstallCommand({ config, flags: {} });
+    await envInstallCommand({ config, flags: { enforce: false } });
     expect(ragIndexCommand).toHaveBeenCalledTimes(1);
     expect(ragIndexCommand.mock.calls[0][0].flags.withSources).toBe(true);
   });
 
   it("does not reindex when an index already exists", async () => {
     getLastIndexedCommit.mockReturnValue("abc123");
-    await envInstallCommand({ config, flags: {} });
+    await envInstallCommand({ config, flags: { enforce: false } });
     expect(ragIndexCommand).not.toHaveBeenCalled();
   });
 
@@ -68,7 +69,7 @@ describe("env install is RAG-first", () => {
     ragIndexCommand.mockRejectedValueOnce(new Error("ollama down"));
     const logs = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
-    const res = await envInstallCommand({ config: explicitOllama, flags: {} });
+    const res = await envInstallCommand({ config: explicitOllama, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.files).toContain("CLAUDE.md");
     expect(res.ragError).toMatch(/ollama down/);
@@ -83,7 +84,7 @@ describe("env install is RAG-first", () => {
     getLastIndexedCommit.mockReturnValue(null);
     ragIndexCommand.mockResolvedValueOnce({ indexed: 0, files: 727, failed: 727 });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await envInstallCommand({ config: explicitOllama, flags: {} });
+    const res = await envInstallCommand({ config: explicitOllama, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBe(3);
     expect(res.ragError).toMatch(/0 of 727/);
@@ -98,7 +99,7 @@ describe("env install is RAG-first", () => {
       .mockRejectedValueOnce(new Error("ollama down"))
       .mockResolvedValueOnce({ indexed: 300, files: 400, failed: 0 });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await envInstallCommand({ config, flags: {} });
+    const res = await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBeUndefined(); // no block
     expect(ragIndexCommand).toHaveBeenCalledTimes(2);
@@ -115,7 +116,7 @@ describe("env install is RAG-first", () => {
     getLastIndexedCommit.mockReturnValue("abc123"); // would say "present" if consulted
     ragIndexCommand.mockResolvedValueOnce({ indexed: 10, files: 10, failed: 0 });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await envInstallCommand({ config, flags: {} });
+    await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(openVecStore).not.toHaveBeenCalled(); // no accidental DDL
     expect(ragIndexCommand).toHaveBeenCalled(); // treated as "no index yet"
@@ -127,7 +128,7 @@ describe("env install is RAG-first", () => {
     getLastIndexedCommit.mockReturnValue(null);
     ragIndexCommand.mockRejectedValueOnce(new Error("ollama down"));
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await envInstallCommand({ config, flags: {} });
+    const res = await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBe(3); // blocked — never destroys existing data
     expect(ragIndexCommand).toHaveBeenCalledTimes(1); // no second (onnx) attempt
@@ -139,7 +140,7 @@ describe("env install is RAG-first", () => {
       .mockRejectedValueOnce(new Error("ollama down"))
       .mockRejectedValueOnce(new Error("model download failed"));
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await envInstallCommand({ config, flags: {} });
+    const res = await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBe(3);
     expect(res.ragError).toMatch(/ollama down/);
@@ -152,7 +153,7 @@ describe("env install is RAG-first", () => {
     verifyBoardAccess.mockReturnValueOnce({ ok: false, backend: "external", name: "Linear", needed: ["configure the Linear MCP, or", "export LINEAR_API_KEY"] });
     const logs = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...a) => logs.push(a.join(" ")));
-    const res = await envInstallCommand({ config, flags: {} });
+    const res = await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBe(3);
     expect(res.boardError).toMatch(/Linear|LINEAR/);
@@ -164,7 +165,7 @@ describe("env install is RAG-first", () => {
     getLastIndexedCommit.mockReturnValue(null);
     ragIndexCommand.mockResolvedValueOnce({ indexed: 512, files: 700, failed: 0 });
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await envInstallCommand({ config, flags: {} });
+    const res = await envInstallCommand({ config, flags: { enforce: false } });
     spy.mockRestore();
     expect(res.exitCode).toBeUndefined();
   });
