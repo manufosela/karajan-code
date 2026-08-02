@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.9.0 — el código excelente es una elección, no inercia (actual)
+### v4.10.0 — nada personal se publica (actual)
+
+Minor que cierra todos los boundaries de salida. Nacida de un incidente real — correos personales publicados en una landing dentro de unas release notes — la Privacy Gate audita todo lo que sale de la máquina: el **pre-commit** rechaza un diff con tus datos vetados (enmascarados, con escape con nombre), **verify-pack** escanea el tarball exacto que se publicaría, y `kj privacy scan <dir>` audita cualquier build antes de desplegar. Dos capas en cada boundary: tu denylist personal (`kj env install` pregunta y la escribe — jamás rellenas YAML) y detectores de patrón — PII genérico y **secretos hardcodeados**: un token de plataforma (`ghp_`, `sk-`, `AKIA`…) bloquea directamente, un `password: "literal"` te avisa hacia el `.env`. Los hallazgos jamás ecoan el dato que señalan. Además, en esta release una lección de campo se hace estructural: **instalar ES activar** — `kj env install` ejecuta él mismo el enforcement (hooks de git, gate de veredicto) en vez de confiar en que el agente corra los pasos de setup, y termina imprimiendo el método en la propia conversación que instaló. Un commit fuera del método se rechaza, no se narra.
+
+### v4.9.0 — el código excelente es una elección, no inercia
 
 Minor que abre la vía del código excelente. Ante legacy, los agentes optimizan coherencia local — mejorar siguiendo la línea existente — incluso cuando la solución canónica es mejor; nada en el bucle pedía la alternativa. Ahora el método sí: todo plan no trivial nombra al menos dos enfoques, **uno como si el codebase no existiera**, y justifica por qué gana el elegido. Y el architect responde esa pregunta con un canon citable: `kj rag query --library` sirve fichas de patrón destiladas — firma del problema, cuándo gana al default, *cuándo NO aplicarlo*, y la cita canónica (Lamport estrena; el resto del canon llega ya). Seguir la línea del legacy es una elección, nunca un default.
 
