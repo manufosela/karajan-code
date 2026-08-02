@@ -14,11 +14,12 @@ cualquier reporte responsable de vulnerabilidades.
 
 **No abras issues públicos con detalles explotables.** En su lugar:
 
-1. Envía un email a **mjfosela@gmail.com** con:
+1. Usa **[Report a vulnerability](https://github.com/manufosela/karajan-rag/security/advisories/new)**
+   (pestaña *Security* del repositorio). Abre un hilo privado entre tú y los
+   mantenedores, no visible públicamente. Incluye:
    - Descripción del problema y vector de explotación.
    - Pasos reproducibles (commit hash, comandos).
    - Impacto estimado (confidencialidad / integridad / disponibilidad).
-   - Tu PGP key si quieres respuesta cifrada (opcional).
 
 2. **SLA de respuesta**: esperamos responder en un plazo de **72 horas** con
    acuse de recibo. Una evaluación inicial (severidad, plan) llegará en los
