@@ -134,6 +134,7 @@ export function registerMeta(program, { pkgVersion }) {
     .description("Install/refresh the Karajan playbook for any host agent (CLAUDE.md, AGENTS.md, GEMINI.md)")
     .option("--target <target>", "claude | codex | gemini | all", "all")
     .option("--no-rag", "Skip building the RAG index when the project has none (ENV-E1)")
+    .option("--no-enforce", "Skip installing the git hooks + verdict gate (KJC-BUG-0133 — installing IS activating; skipping this leaves the method narratable)")
     .action(async (flags) => {
       await withConfig(pkgVersion, "env-install", flags, async ({ config, logger }) => {
         const r = await envInstallCommand({ config, logger, flags });

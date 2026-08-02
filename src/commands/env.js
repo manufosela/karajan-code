@@ -4,7 +4,7 @@
  * files (CLAUDE.md, AGENTS.md), and make its step 1 real: when the project
  * has no RAG index yet, build it (default ON, `--no-rag` opts out).
  */
-import { installPlaybook } from "../environment/playbook.js";
+import { installPlaybook, renderPlaybook } from "../environment/playbook.js";
 import { renderBrief, listBriefs } from "../environment/briefs.js";
 import { existsSync } from "node:fs";
 import { openVecStore, projectSlug, getLastIndexedCommit, dbPath } from "../rag/vec-store.js";
@@ -14,6 +14,9 @@ import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fall
 import { verifyBoardAccess } from "../environment/board-access.js";
 import { ensurePrivacyList } from "../privacy/onboarding.js";
 import { createWizard } from "../utils/wizard.js";
+import { hardenCommand } from "./harden.js";
+import { reviewGateCommand } from "./review-gate.js";
+import { join } from "node:path";
 
 function hasRagIndex(config, projectDir) {
   // KJC-BUG-0128: probing must never CREATE the store — openVecStore runs
@@ -67,6 +70,35 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     return result;
   }
   if (access.backend !== "hu-board") console.log(`✓ board access verified: ${access.via}`);
+
+  // KJC-BUG-0133 — installing IS activating. The setup flow used to order
+  // harden + the verdict gate as TEXT steps the agent runs (or narrates);
+  // a session that skipped them got a decorative method — field case
+  // 2026-08-02: installed karajan, then wrote everything by hand with
+  // nothing to stop it. env install now does them itself, idempotently.
+  if (flags.enforce !== false) {
+    if (!existsSync(join(projectDir, ".git"))) {
+      result.exitCode = PENDING_EXIT_CODE;
+      console.log(renderPendingBlock(
+        [{ tool: "git", action: "needs-user", reason: "the enforcement gates live in git hooks — run `git init` (Karajan's guarantees do not exist without git)" }],
+        { retry: "kj env install" },
+      ));
+      return result;
+    }
+    try {
+      const h = await hardenCommand({ projectDir, logger: console });
+      if (h?.ok === false) throw new Error(h.error || "kj harden failed");
+      await reviewGateCommand({ config, flags: { installGate: true } });
+      console.log("✓ enforcement active: git hooks + cross-AI verdict gate — a commit outside the method is rejected, not narrated");
+    } catch (err) {
+      result.exitCode = PENDING_EXIT_CODE;
+      console.log(renderPendingBlock(
+        [{ tool: "enforcement", action: "needs-user", reason: `hooks/gate could not be installed: ${err.message} — without them the method is narratable` }],
+        { retry: "kj env install" },
+      ));
+      return result;
+    }
+  }
 
   // ENV-E1: RAG-first — the playbook orders "query the RAG before coding",
   // so installing the environment guarantees the index exists. KJC-TSK-0659
@@ -138,6 +170,11 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
       wizard?.close();
     } catch { /* privacy onboarding is best-effort */ }
     console.log("  The host agent now follows the method: RAG first, TDD, cross-AI review before commit.");
+    // KJC-BUG-0133 (part 2): a mid-session install lands the playbook in
+    // CLAUDE.md, but the running session loaded its context BEFORE — nobody
+    // re-reads it. Print the method so it enters THIS conversation now.
+    console.log("\n— The Karajan method below is IN EFFECT from this very message. If your session started before this install, apply it from now on:\n");
+    console.log(renderPlaybook({ stateBackend: config?.state_backend || "hu-board", boardName: config?.board?.name || null }));
   }
   return result;
 }
