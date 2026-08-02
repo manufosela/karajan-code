@@ -27,3 +27,13 @@ def body_dict() -> dict[str, Any]:
         "trade_offs": "- Vector clocks cost O(nodes) metadata per event.",
         "canonical_source": 'Leslie Lamport, "Time, Clocks, and the Ordering of Events", CACM, 1978.',
     }
+
+
+def provenance_dict() -> dict[str, Any]:
+    """A valid provenance, as the base for mutation tests."""
+    return {
+        "source": "https://example.org/lamport-1978",
+        "connector": "rss",
+        "captured_at": "2026-07-01T09:00:00Z",
+        "status": "feed",
+    }
