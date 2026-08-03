@@ -12,8 +12,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SCRIPT_REL = join(".karajan", "harness", "pretooluse.mjs");
-
 const SCRIPT_BODY = `#!/usr/bin/env node
 // kj tool gate (KJC-TSK-0710) — managed by \`kj harden\`. Exit 2 blocks the
 // tool call (stderr explains why); anything unexpected fails OPEN (exit 0)
@@ -43,38 +41,67 @@ process.stdin.on("end", () => {
 });
 `;
 
-const hookEntry = (matcher) => ({ matcher, hooks: [{ type: "command", command: `node ${SCRIPT_REL}` }] });
+/** Write a managed hook script under .karajan/harness/ and return its path. */
+export function writeHarnessScript(projectDir, name, body) {
+  const dir = join(projectDir, ".karajan", "harness");
+  mkdirSync(dir, { recursive: true });
+  const abs = join(dir, name);
+  writeFileSync(abs, body, { mode: 0o755 });
+  return abs;
+}
 
-/** Write the script and merge the PreToolUse entries into .claude/settings.json. */
-export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
-  const scriptAbs = join(projectDir, SCRIPT_REL);
-  mkdirSync(join(projectDir, ".karajan", "harness"), { recursive: true });
-  writeFileSync(scriptAbs, SCRIPT_BODY, { mode: 0o755 });
-
+/**
+ * Merge hook entries into .claude/settings.json. Preserve, never clobber:
+ * invalid JSON or a hook event with an unexpected (non-array) shape is the
+ * user's business — the file is left alone and the caller wires manually.
+ * entries: [{ event, matcher?, script }] where script is a .karajan/harness
+ * basename; an entry is present when that script already appears under the
+ * same event (and matcher, when given).
+ */
+export function mergeClaudeHooks({ projectDir, logger = console, entries }) {
   const settingsPath = join(projectDir, ".claude", "settings.json");
   let settings = {};
   if (existsSync(settingsPath)) {
     try {
       settings = JSON.parse(readFileSync(settingsPath, "utf8"));
     } catch {
-      logger.warn?.(`kj harden: ${settingsPath} is not valid JSON — leaving it untouched (tool gate script written, wire it manually)`);
-      return { script: scriptAbs, wired: false };
+      logger.warn?.(`kj harden: ${settingsPath} is not valid JSON — leaving it untouched (hook scripts written, wire them manually)`);
+      return { wired: false };
     }
   }
   settings.hooks = settings.hooks || {};
-  // Preserve, never clobber: an existing PreToolUse with an unexpected shape
-  // is the user's business — leave the file alone (same as invalid JSON).
-  if ("PreToolUse" in settings.hooks && !Array.isArray(settings.hooks.PreToolUse)) {
-    logger.warn?.(`kj harden: ${settingsPath} has a non-array hooks.PreToolUse — leaving it untouched (tool gate script written, wire it manually)`);
-    return { script: scriptAbs, wired: false };
+  for (const { event } of entries) {
+    if (event in settings.hooks && !Array.isArray(settings.hooks[event])) {
+      logger.warn?.(`kj harden: ${settingsPath} has a non-array hooks.${event} — leaving it untouched (hook scripts written, wire them manually)`);
+      return { wired: false };
+    }
   }
-  const pre = Array.isArray(settings.hooks.PreToolUse) ? settings.hooks.PreToolUse : [];
-  for (const matcher of ["Write", "Bash"]) {
-    const present = pre.some((e) => e?.matcher === matcher && JSON.stringify(e).includes("pretooluse.mjs"));
-    if (!present) pre.push(hookEntry(matcher));
+  for (const { event, matcher, script } of entries) {
+    const list = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
+    const present = list.some(
+      (e) => JSON.stringify(e).includes(script) && (matcher === undefined || e?.matcher === matcher),
+    );
+    if (!present) {
+      const cmd = { type: "command", command: `node ${join(".karajan", "harness", script)}` };
+      list.push(matcher === undefined ? { hooks: [cmd] } : { matcher, hooks: [cmd] });
+    }
+    settings.hooks[event] = list;
   }
-  settings.hooks.PreToolUse = pre;
   mkdirSync(join(projectDir, ".claude"), { recursive: true });
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-  return { script: scriptAbs, wired: true };
+  return { wired: true };
+}
+
+/** Write the script and merge the PreToolUse entries into .claude/settings.json. */
+export function installHarnessHooks({ projectDir = process.cwd(), logger = console } = {}) {
+  const scriptAbs = writeHarnessScript(projectDir, "pretooluse.mjs", SCRIPT_BODY);
+  const { wired } = mergeClaudeHooks({
+    projectDir,
+    logger,
+    entries: [
+      { event: "PreToolUse", matcher: "Write", script: "pretooluse.mjs" },
+      { event: "PreToolUse", matcher: "Bash", script: "pretooluse.mjs" },
+    ],
+  });
+  return { script: scriptAbs, wired };
 }
