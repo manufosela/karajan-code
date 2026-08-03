@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Karajan Sentinel — the turn cannot end red** (KJC-TSK-0713, epic KJC-PCS-0071, born from the field critique *"with an agent as brain it is impossible to be strict about the rules"*): a deterministic supervisor (zero LLM) wired by `kj harden` into the harness's synchronous hooks. A PostToolUse hook records the method state of the session (sources edited vs tests touched, `KJ_ALLOW_*` escapes used) and a **Stop hook blocks the agent from ending its turn while method violations are open** — sources edited on the base branch, a branch without a card ref, code without a single test touched — each block stating the exact violation and its remediation. `kj sentinel status` inspects the state; fail-open (recorded) on corrupt state or after 3 unresolved blocks, so a sentinel bug never hangs a session. v3 had authority without intelligence; v4 intelligence without authority; the Sentinel separates them: the program rules, the agent thinks. Claude Code only by decision (ADR): to guarantee a harness that controls the LLM, use Claude as the host — Claude writes, Codex reviews, gemini retired.
+
 ## [4.12.0] - 2026-08-03
 
 Minor. **Memory is the reminder; the check is the guarantee** — the release checklist stops depending on anyone (human or AI) remembering it.

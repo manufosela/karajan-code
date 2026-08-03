@@ -25,6 +25,7 @@ Tu agente de IA (Claude Code, Codex, Gemini CLI, Cursor…) escribe el código. 
 - **Mínimo privilegio para agentes** — los subprocesos de agente reciben un allowlist de entorno (la auth de su propio CLI, jamás tus claves cloud ni tokens de registro), y `kj check` inventaría cada MCP alcanzable del proyecto marcando lo aparecido desde el último check. Las tareas con superficie sensible se auto-invocan `kj audit --security` — pasada de cero tokens (prompt-injection sobre los ficheros de contexto del agente + OSV + Semgrep + Sonar) — y remedian antes del review.
 - **Nada personal se publica** — cada boundary de salida se audita antes de dejar la máquina: el pre-commit rechaza un diff con tus datos vetados, los tokens de plataforma hardcodeados (`ghp_`, `sk-`, `AKIA`…) bloquean directamente, el scan del tarball guarda el publish, y `kj privacy scan <dir>` audita cualquier build. Tu denylist vive en `~/.karajan/privacy.yml` — la instalación pregunta y la escribe por ti.
 - **Instalar ES activar** — `kj env install` ejecuta él mismo el enforcement (hooks de git, gate de veredicto, tool gate) en vez de confiar en que el agente corra pasos de setup, y termina imprimiendo el método en la propia conversación que instaló. Un commit fuera del método se rechaza, no se narra.
+- **El turno no puede terminar en rojo — el Sentinel** — un supervisor determinista (cero LLM) cableado a los hooks síncronos del harness registra el estado del método de la sesión según corren las herramientas, y un hook Stop bloquea que el agente termine su turno mientras haya violaciones abiertas. El programa manda, el agente piensa. Ver [niveles de garantía](#niveles-de-garantía-gobernado-vs-supervisado).
 
 Este repo corre bajo su propio entorno: cada commit de karajan-code lleva un veredicto de IA cruzada.
 
@@ -58,6 +59,12 @@ Requiere git y al menos un CLI de agente de IA — con dos hay revisión cruzada
 4. ¿Tu agente choca con un bug de kj? `kj report-issue` lo sube — sanitizado, deduplicado y solo con tu aprobación. El ecosistema se repara solo.
 
 Método completo: [Trabaja con tu agente](https://karajancode.com/docs/es/v4/working-with-your-agent/) · [Los gates](https://karajancode.com/docs/es/v4/gates/) · [Referencia de comandos](https://karajancode.com/docs/es/v4/commands/).
+
+## Niveles de garantía: gobernado vs supervisado
+
+Karajan **gobierna** a cualquier agente con gates de git — el falso verde es estructuralmente imposible escriba quien escriba, porque los gates viven en el repositorio, no en la buena voluntad del agente. Encima de eso, el **Karajan Sentinel** añade **supervisión dentro del turno**: `kj harden` cablea hooks deterministas al harness — uno registra el estado del método de la sesión según corren las herramientas (fuentes editadas vs tests tocados, escapes usados), y un hook Stop bloquea que el agente termine su turno mientras haya violaciones abiertas: fuentes editadas en la rama base, rama sin card, código sin tocar un solo test. Cada bloqueo dice la violación exacta y su remediación; `kj sentinel status` muestra lo que ve el supervisor. Ante cualquier duda falla en abierto — y lo dice — antes que colgar una sesión, y cada escape `KJ_ALLOW_*` queda registrado.
+
+Los hooks síncronos con capacidad de bloqueo hoy solo existen en Claude Code. Eso hace explícito el montaje soportado: **para garantizar un harness que controle al LLM, usa Claude Code como anfitrión** — Claude escribe, Codex revisa (un subproceso de revisión no necesita hooks), y un tercer CLI arbitra cuando está disponible. Con cualquier otro anfitrión Karajan sigue gobernando al nivel completo de gates de git y te dice qué nivel está activo — jamás finge una supervisión que no puede imponer.
 
 ## Modo headless
 
