@@ -20,6 +20,7 @@ import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { envInstallCommand, briefCommand } from "../commands/env.js";
+import { runReleaseCheck } from "../checks/release-check.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand } from "../commands/hu.js";
@@ -259,6 +260,23 @@ export function registerMeta(program, { pkgVersion }) {
     .action(async (role, flags) => {
       await withConfig(pkgVersion, "brief", flags, async ({ config }) => {
         briefCommand({ config, flags, role });
+      });
+    });
+
+  // KJC-TSK-0712 — memory is the reminder, the check is the guarantee.
+  const release = program.command("release").description("Release ceremony helpers");
+  release.command("check")
+    .description("Verify the release checklist deterministically (manifest vs CHANGELOG vs tags, privacy scan of publishable files, plus the project's release_check.items); exit 1 lists exactly what is missing")
+    .option("--json", "Machine-readable result")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "release-check", flags, async ({ config }) => {
+        const res = await runReleaseCheck({ projectDir: config?.projectDir || process.cwd(), config });
+        if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+        else {
+          for (const c of res.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.name}: ${c.detail}`);
+          console.log(res.ok ? `release check: ready to release ${res.version ?? ""}`.trim() : "release check: NOT ready — fix the red items first");
+        }
+        process.exitCode = res.ok ? 0 : 1;
       });
     });
 
