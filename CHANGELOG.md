@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.12.0] - 2026-08-03
+
+Minor. **Memory is the reminder; the check is the guarantee** — the release checklist stops depending on anyone (human or AI) remembering it.
+
 ### Added
 
 - **`kj release check` — the release checklist made verifiable** (KJC-TSK-0712, born from the user's critique: *"whatever you note down, you eventually ignore it"* — a note loses salience; a check fails RED with the exact list): generic checks for any karajan project — manifest version vs the CHANGELOG's TOP section (Unreleased promoted?), no tag ahead of the manifest, privacy scan of the exact publishable file set — plus the project's own declarative items in `release_check.items` (`file_contains` with `{version}` interpolation, or any `command` with exit-0 semantics), written once by the agent during setup and evaluated forever after. Completes the per-project triad: commit check (pre-commit gate), PR check (harden CI), release check. First live run caught its first real finding within a minute — a wrong URL in this very repo's landing item.
