@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.11.0 — la caja de herramientas decide (actual)
+### v4.12.0 — la memoria es el recordatorio; el check es la garantía (actual)
+
+Minor nacida de la crítica más afilada del usuario hasta la fecha: *"da igual lo que apuntes, pasado un tiempo lo ignoras"* — cierto en humanos, más cierto en agentes. Así que el checklist de release deja de vivir en la memoria de nadie: `kj release check` lo verifica determinísticamente — versión del manifest contra la sección superior del CHANGELOG (con Unreleased de verdad vacío), ningún tag adelantado, privacy scan del set exacto de ficheros publicables — más las verdades declaradas de cada proyecto (`release_check.items`: un fichero debe contener `v{version}`, un comando debe salir 0 — como "el sitio desplegado muestra esta versión como actual"). Rojo con la lista exacta, o listo. Completa la tríada por proyecto: commit check (gate pre-commit), PR check (CI de harden), release check. En su primer día cazó dos hallazgos reales — incluido el changelog sin promover de su propio repo.
+
+### v4.11.0 — la caja de herramientas decide
 
 Minor nacida de observar a los agentes trabajar: usan las herramientas que tienen delante, así que el entorno pone ahí las correctas. El **RAG se vuelve herramienta MCP nativa** — `kj env install` cablea `kj-rag-mcp` en el `.mcp.json` del proyecto, haciendo de `kj_rag_query` el camino más barato del agente hacia "qué hace este código" (antes analizaba a mano, porque el RAG era solo un comando Bash mencionado en un texto). Y el **board se vuelve pregunta**: la instalación detecta qué alcanza tu máquina — MCP del Planning Game, tokens de Linear/Jira — y pregunta y persiste en instalaciones interactivas, o nombra el default y la línea exacta para cambiarlo en headless. Nunca más `hu-board` en silencio. Drift de regalo cazado: el schema de config nunca aprendió el backend `external` de la v4.5.0 — arreglado.
 

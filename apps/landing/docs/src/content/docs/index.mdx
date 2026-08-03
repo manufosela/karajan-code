@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.11.0 — the toolbox decides (current)
+### v4.12.0 — memory is the reminder; the check is the guarantee (current)
+
+Minor born from the sharpest user critique yet: *"whatever you note down, you eventually ignore it"* — true of humans, truer of agents. So the release checklist stops living in anyone's memory: `kj release check` verifies it deterministically — manifest version vs the CHANGELOG's top section (with Unreleased actually empty), no tag ahead of the manifest, a privacy scan of the exact publishable file set — plus each project's own declared truths (`release_check.items`: a file must contain `v{version}`, a command must exit 0 — like "the deployed site shows this version as current"). Red with the exact list, or ready. It completes the per-project triad: commit check (pre-commit gate), PR check (harden CI), release check. On its first day it caught two real findings — including its own repo's unpromoted changelog.
+
+### v4.11.0 — the toolbox decides
 
 Minor born from watching agents work: they use the tools in front of them, so the environment now puts the right ones there. The **RAG becomes a native MCP tool** — `kj env install` wires `kj-rag-mcp` into the project's `.mcp.json`, making `kj_rag_query` the agent's cheapest path to "what does this code do" (before, it grepped by hand because the RAG was just a Bash command a text line mentioned). And the **board becomes a question**: the install detects what your machine can reach — Planning Game MCP, Linear/Jira tokens — then asks and persists in interactive installs, or names the default and the exact line to change it in headless ones. Never `hu-board` silently again. Bonus drift caught: the config schema never learned the `external` backend shipped in v4.5.0 — fixed.
 
