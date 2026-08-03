@@ -238,8 +238,10 @@ export const ConfigSchema = v.looseObject({
   // ENV-D1 (KJC-TSK-0642): where work items live — the integrated HU Board
   // or the user's Planning Game. The v4 playbook renders per backend.
   state_backend: v.optional(v.picklist(
-    ["hu-board", "planning-game"],
-    "state_backend must be \"hu-board\" or \"planning-game\""
+    // KJC-TSK-0709 caught the drift: "external" shipped in v4.5.0 (any
+    // board via the agent's own MCP/tools) but this picklist never learned it.
+    ["hu-board", "planning-game", "external"],
+    "state_backend must be \"hu-board\", \"planning-game\" or \"external\""
   )),
   review_rules: v.optional(v.string()),
   coder_rules: v.optional(v.string()),

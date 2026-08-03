@@ -12,6 +12,7 @@ import { ragIndexCommand } from "./rag.js";
 import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-action.js";
 import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
 import { verifyBoardAccess } from "../environment/board-access.js";
+import { pickStateBackend } from "../environment/board-select.js";
 import { ensurePrivacyList } from "../privacy/onboarding.js";
 import { installProjectMcp } from "../environment/mcp-wiring.js";
 import { createWizard } from "../utils/wizard.js";
@@ -49,6 +50,23 @@ export function briefCommand({ config = null, flags = {}, role = null }) {
 
 export async function envInstallCommand({ config = null, logger = null, flags = {} }) {
   const projectDir = config?.projectDir || process.cwd();
+
+  // KJC-TSK-0709 — the board is chosen BEFORE the playbook renders (its
+  // tracking line depends on the backend): interactive installs ask when
+  // alternatives are reachable, headless installs name the default. The
+  // choice persists so it is only ever asked once.
+  try {
+    const wizard = process.stdin.isTTY && process.stdout.isTTY ? createWizard() : null;
+    const sel = await pickStateBackend({ projectDir, wizard, isTTY: Boolean(wizard), logger: console });
+    wizard?.close();
+    // The effective backend feeds the render on EVERY non-error path —
+    // chosen, declared-in-file or default — so the playbook never falls
+    // back to hu-board while the selection said otherwise.
+    config = { ...config, state_backend: sel.backend, board: sel.boardName ? { ...(config?.board || {}), name: sel.boardName } : config?.board };
+  } catch (err) {
+    console.log(`⚠ board selection failed (${err.message}) — continuing with the configured default`);
+  }
+
   const result = await installPlaybook({
     projectDir, target: flags.target || "all",
     stateBackend: config?.state_backend || "hu-board",

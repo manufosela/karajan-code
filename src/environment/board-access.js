@@ -42,6 +42,25 @@ function mcpConfigsMention(slug, projectDir, home) {
   return null;
 }
 
+/**
+ * Boards reachable from this machine (KJC-TSK-0709): the bundled HU Board
+ * always; planning-game / external candidates when their MCP appears in a
+ * host config or a conventional token is exported. Presence-based, like
+ * verifyBoardAccess — an OPTION list, not a connectivity check.
+ */
+export function detectAvailableBoards({ projectDir = process.cwd(), env = process.env, home = os.homedir() } = {}) {
+  const boards = [{ value: "hu-board", label: "HU Board (bundled, zero setup)" }];
+  if (mcpConfigsMention("planning-game", projectDir, home)) {
+    boards.push({ value: "planning-game", label: "Planning Game (MCP detected)" });
+  }
+  for (const [slug, envs] of Object.entries(TOKEN_CONVENTIONS)) {
+    const token = envs.find((k) => env[k]);
+    if (token) boards.push({ value: `external:${slug}`, label: `${slug} (token ${token})` });
+    else if (mcpConfigsMention(slug, projectDir, home)) boards.push({ value: `external:${slug}`, label: `${slug} (MCP detected)` });
+  }
+  return boards;
+}
+
 export function verifyBoardAccess({ config = {}, projectDir = process.cwd(), env = process.env, home = os.homedir() } = {}) {
   const backend = config.state_backend || "hu-board";
 
