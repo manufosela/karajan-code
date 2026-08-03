@@ -57,7 +57,8 @@ carries a cross-AI verdict.
 Invariants (the git gates enforce these — they are not suggestions):
 
 - The project RAG answers before you assume: \`kj rag query\` — never guess
-  what the codebase does.
+  what the codebase does. In MCP hosts the same index is the native
+  \`kj_rag_query\` tool: reach for it before grepping by hand.
 - ${trackingLine(stateBackend, boardName)}
 - Tests prove behavior: the failing test exists first (TDD), and the suite
   is never left red.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The RAG becomes a native tool** (KJC-TSK-0711, field case 2026-08-03: agents in karajan projects grepped code by hand because the RAG was only "a Bash command a text line told them about"): `kj env install` now wires kj's RAG-only MCP server (`kj-rag-mcp`, ships with the package) into the project's `.mcp.json` — merged, idempotent, user entries preserved, invalid JSON untouched. Agents use the tools in their toolbox, so the official path (`kj_rag_query`) is now cheaper than the grep shortcut — the same shadow-AI principle the privacy epic borrowed. The playbook names the native tool alongside `kj rag query`.
+
 ## [4.10.0] - 2026-08-02
 
 Minor. **Nothing personal ships** — every outbound boundary (staged diff, npm tarball, any build output) now audits for personal data and hardcoded secrets before it leaves the machine. Born from a real incident: personal emails published on a landing page inside release notes. Epic KJC-PCS-0070.

@@ -13,6 +13,7 @@ import { renderPendingBlock, PENDING_EXIT_CODE } from "../utils/pending-user-act
 import { onnxConfig, persistOnnxChoice, resetEmptyStore } from "../rag/onnx-fallback.js";
 import { verifyBoardAccess } from "../environment/board-access.js";
 import { ensurePrivacyList } from "../privacy/onboarding.js";
+import { installProjectMcp } from "../environment/mcp-wiring.js";
 import { createWizard } from "../utils/wizard.js";
 import { hardenCommand } from "./harden.js";
 import { reviewGateCommand } from "./review-gate.js";
@@ -54,6 +55,14 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     boardName: config?.board?.name || null,
   });
   console.log(`✓ Karajan playbook installed in: ${result.files.join(", ")}`);
+
+  // KJC-TSK-0711 — RAG as a native tool: agents use what is in their
+  // toolbox, so the official path must be cheaper than the grep shortcut.
+  try {
+    installProjectMcp({ projectDir, logger: console });
+  } catch (err) {
+    console.log(`⚠ could not wire kj-rag-mcp into .mcp.json: ${err.message}`);
+  }
 
   // KJC-TSK-0685 (user rule): Karajan does not run without a board — it is
   // what guarantees ordered, card-first work. Verify an OPERATIONAL access
