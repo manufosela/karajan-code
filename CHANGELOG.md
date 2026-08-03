@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.11.0] - 2026-08-03
+
+Minor. **The toolbox decides** — agents use what is in front of them, so the RAG becomes a native MCP tool and the board becomes a question. Two installs-that-listen born from the same field week.
+
 ### Added
 
 - **The board is a question, never a silent default** (KJC-TSK-0709, field case 2026-08-02: an install defaulted to hu-board with the user's Planning Game MCP sitting configured and detectable): `kj env install` now detects the boards this machine can reach (Planning Game MCP, external boards by MCP mention or conventional token — `LINEAR_API_KEY`, `JIRA_API_TOKEN`…) BEFORE rendering the playbook. Interactive installs ask and PERSIST the choice in `.karajan/kj.config.yml` (asked once, ever); headless installs keep the default but name the alternatives and the exact line to switch. A backend declared in a config file is never asked again — and "declared" now means *written by you in a file*, because the merged config always carries the default and cannot tell a choice from a fallback. Drift caught along the way: the config schema never learned the `external` backend that shipped in v4.5.0 — a declared `state_backend: external` failed validation ever since. Fixed.
