@@ -262,6 +262,25 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-0712 — the release checklist made verifiable: memory is the
+  // reminder, the check is the guarantee.
+  const release = program.command("release").description("Release ceremony helpers");
+  release.command("check")
+    .description("Verify the release checklist deterministically: manifest vs CHANGELOG top section vs tags, privacy scan of the publishable files, plus the project's own release_check.items (file_contains with {version} / command). Exit 1 lists exactly what is missing.")
+    .option("--json", "Machine-readable result")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "release-check", flags, async ({ config }) => {
+        const { runReleaseCheck } = await import("../checks/release-check.js");
+        const res = await runReleaseCheck({ projectDir: config?.projectDir || process.cwd(), config });
+        if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+        else {
+          for (const c of res.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.name}: ${c.detail}`);
+          console.log(res.ok ? `release check: ready to release ${res.version ?? ""}`.trim() : "release check: NOT ready — fix the red items first");
+        }
+        process.exitCode = res.ok ? 0 : 1;
+      });
+    });
+
   // KJC-TSK-0704 — the outbound privacy boundary: audit before anything ships.
   const privacy = program.command("privacy").description("Personal-data (PII) auditing of outbound boundaries: staged diffs, build outputs, docs trees");
   privacy.command("scan [paths...]")
