@@ -62,7 +62,11 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.10.0 — nothing personal ships (current)
+### v4.11.0 — the toolbox decides (current)
+
+Minor born from watching agents work: they use the tools in front of them, so the environment now puts the right ones there. The **RAG becomes a native MCP tool** — `kj env install` wires `kj-rag-mcp` into the project's `.mcp.json`, making `kj_rag_query` the agent's cheapest path to "what does this code do" (before, it grepped by hand because the RAG was just a Bash command a text line mentioned). And the **board becomes a question**: the install detects what your machine can reach — Planning Game MCP, Linear/Jira tokens — then asks and persists in interactive installs, or names the default and the exact line to change it in headless ones. Never `hu-board` silently again. Bonus drift caught: the config schema never learned the `external` backend shipped in v4.5.0 — fixed.
+
+### v4.10.0 — nothing personal ships
 
 Minor closing every outbound boundary. Born from a real incident — personal emails published on a landing page inside release notes — the Privacy Gate audits everything that leaves the machine: the **pre-commit** rejects a staged diff carrying your denylisted data (masked, with a named escape), **verify-pack** scans the exact tarball that would publish, and `kj privacy scan <dir>` audits any build output before deploy. Two detection layers ride every boundary: your personal denylist (`kj env install` asks and writes it — you never fill YAML) and pattern detectors — generic PII plus **hardcoded secrets**: a platform token (`ghp_`, `sk-`, `AKIA`…) blocks outright, a `password: "literal"` warns you toward `.env`. Findings never echo the datum they flag. Also in this release, a field lesson turned structural: **installing IS activating** — `kj env install` now performs the enforcement itself (git hooks, verdict gate) instead of trusting the agent to run the setup steps, and ends by printing the method into the very conversation that installed it. A commit outside the method is rejected, not narrated.
 

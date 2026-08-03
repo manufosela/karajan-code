@@ -62,7 +62,11 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.10.0 — nada personal se publica (actual)
+### v4.11.0 — la caja de herramientas decide (actual)
+
+Minor nacida de observar a los agentes trabajar: usan las herramientas que tienen delante, así que el entorno pone ahí las correctas. El **RAG se vuelve herramienta MCP nativa** — `kj env install` cablea `kj-rag-mcp` en el `.mcp.json` del proyecto, haciendo de `kj_rag_query` el camino más barato del agente hacia "qué hace este código" (antes analizaba a mano, porque el RAG era solo un comando Bash mencionado en un texto). Y el **board se vuelve pregunta**: la instalación detecta qué alcanza tu máquina — MCP del Planning Game, tokens de Linear/Jira — y pregunta y persiste en instalaciones interactivas, o nombra el default y la línea exacta para cambiarlo en headless. Nunca más `hu-board` en silencio. Drift de regalo cazado: el schema de config nunca aprendió el backend `external` de la v4.5.0 — arreglado.
+
+### v4.10.0 — nada personal se publica
 
 Minor que cierra todos los boundaries de salida. Nacida de un incidente real — correos personales publicados en una landing dentro de unas release notes — la Privacy Gate audita todo lo que sale de la máquina: el **pre-commit** rechaza un diff con tus datos vetados (enmascarados, con escape con nombre), **verify-pack** escanea el tarball exacto que se publicaría, y `kj privacy scan <dir>` audita cualquier build antes de desplegar. Dos capas en cada boundary: tu denylist personal (`kj env install` pregunta y la escribe — jamás rellenas YAML) y detectores de patrón — PII genérico y **secretos hardcodeados**: un token de plataforma (`ghp_`, `sk-`, `AKIA`…) bloquea directamente, un `password: "literal"` te avisa hacia el `.env`. Los hallazgos jamás ecoan el dato que señalan. Además, en esta release una lección de campo se hace estructural: **instalar ES activar** — `kj env install` ejecuta él mismo el enforcement (hooks de git, gate de veredicto) en vez de confiar en que el agente corra los pasos de setup, y termina imprimiendo el método en la propia conversación que instaló. Un commit fuera del método se rechaza, no se narra.
 
