@@ -30,6 +30,8 @@ describe("renderPlaybook", () => {
       expect(text).toMatch(/as if the\s+codebase didn'?t exist/i);
       // KJC-TSK-0706: the outbound privacy boundary before publishing.
       expect(text).toMatch(/kj privacy scan/);
+      // KJC-TSK-0711: the RAG is a native MCP tool, not just a Bash command.
+      expect(text).toMatch(/kj_rag_query/);
       expect(text.split("\n").length).toBeLessThanOrEqual(60);
     });
   }
