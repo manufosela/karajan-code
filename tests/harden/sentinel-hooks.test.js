@@ -1,7 +1,7 @@
-// KJC-TSK-0713 SEN-A — the Sentinel: per-session method state (PostToolUse).
-// Tests run the REAL script through the hooks protocol (JSON on stdin),
-// inside a throwaway git repo. The Stop gate that consumes this state is the
-// next slice of the card.
+// KJC-TSK-0713 SEN-A — the Sentinel: per-session method state (PostToolUse)
+// plus a Stop hook that BLOCKS ending the turn while violations are open.
+// Tests run the REAL scripts through the hooks protocol (JSON on stdin,
+// exit 2 = block), inside a throwaway git repo.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -10,7 +10,7 @@ import path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { installSentinelHooks } from "../../src/harden/sentinel-hooks.js";
 
-let dir, postScript, statePath;
+let dir, postScript, stopScript, statePath;
 const run = (script, payload, env = {}) =>
   spawnSync("node", [script], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
@@ -28,6 +28,7 @@ beforeEach(() => {
   );
   installSentinelHooks({ projectDir: dir });
   postScript = path.join(dir, ".karajan", "harness", "posttooluse.mjs");
+  stopScript = path.join(dir, ".karajan", "harness", "stop.mjs");
   statePath = path.join(dir, ".karajan", "harness", "sentinel-state.json");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -49,8 +50,54 @@ describe("posttooluse script (state writer)", () => {
   });
 });
 
+describe("stop script (turn cannot end red)", () => {
+  it("blocks when sources were edited without touching a single test, then passes once a test is touched", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    const blocked = run(stopScript, { session_id: "s1" });
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toMatch(/test/i);
+    run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
+    expect(run(stopScript, { session_id: "s1" }).status).toBe(0);
+  });
+
+  it("blocks on the base branch and on a branch without a card ref, with remediation in the message", () => {
+    execSync("git checkout -q main", { cwd: dir });
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
+    const onMain = run(stopScript, { session_id: "s1" });
+    expect(onMain.status).toBe(2);
+    expect(onMain.stderr).toMatch(/rama base|base branch/i);
+    execSync("git checkout -q -b sin-card", { cwd: dir });
+    const noCard = run(stopScript, { session_id: "s1" });
+    expect(noCard.status).toBe(2);
+    expect(noCard.stderr).toMatch(/card/i);
+  });
+
+  it("ends the turn normally when nothing was edited, on escape, and on garbage input", () => {
+    expect(run(stopScript, { session_id: "empty" }).status).toBe(0);
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    expect(run(stopScript, { session_id: "s1" }, { KJ_SENTINEL_OFF: "1" }).status).toBe(0);
+    expect(run(stopScript, "not-json").status).toBe(0);
+  });
+
+  it("fails OPEN after 3 consecutive blocks (a sentinel bug never bricks the session) and records it", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    for (let i = 0; i < 3; i++) expect(run(stopScript, { session_id: "s1" }).status).toBe(2);
+    const open = run(stopScript, { session_id: "s1" });
+    expect(open.status).toBe(0);
+    expect(state().sessions.s1.errors.join(" ")).toMatch(/fail-open/);
+  });
+
+  it("--status prints the state without blocking", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    const res = spawnSync("node", [stopScript, "--status"], { encoding: "utf8" });
+    expect(res.status).toBe(0);
+    expect(res.stdout).toMatch(/src\/a\.js/);
+  });
+});
+
 describe("installSentinelHooks settings merge", () => {
-  it("wires PostToolUse idempotently, preserving the user's entries", () => {
+  it("wires PostToolUse and Stop idempotently, preserving the user's entries", () => {
     const settings = path.join(dir, ".claude", "settings.json");
     const mine = { matcher: "Grep", hooks: [{ type: "command", command: "echo mine" }] };
     fs.writeFileSync(settings, JSON.stringify({ model: "opus", hooks: { PostToolUse: [mine] } }));
@@ -60,13 +107,14 @@ describe("installSentinelHooks settings merge", () => {
     expect(cfg.model).toBe("opus");
     expect(JSON.stringify(cfg.hooks.PostToolUse)).toContain("echo mine");
     expect((JSON.stringify(cfg.hooks.PostToolUse).match(/posttooluse\.mjs/g) || []).length).toBe(1);
+    expect((JSON.stringify(cfg.hooks.Stop).match(/stop\.mjs/g) || []).length).toBe(1);
   });
 
   it("leaves a non-array hook event untouched and reports script-only", () => {
     const settings = path.join(dir, ".claude", "settings.json");
-    fs.writeFileSync(settings, JSON.stringify({ hooks: { PostToolUse: { weird: true } } }));
+    fs.writeFileSync(settings, JSON.stringify({ hooks: { Stop: { weird: true } } }));
     const res = installSentinelHooks({ projectDir: dir });
     expect(res.wired).toBe(false);
-    expect(JSON.parse(fs.readFileSync(settings, "utf8")).hooks.PostToolUse).toEqual({ weird: true });
+    expect(JSON.parse(fs.readFileSync(settings, "utf8")).hooks.Stop).toEqual({ weird: true });
   });
 });

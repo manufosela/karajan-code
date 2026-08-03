@@ -19,6 +19,7 @@ import { installGuidelines } from "../harden/guidelines-engine.js";
 import { commandsForLanguage } from "../harden/hook-commands.js";
 import { installHooks } from "../harden/harden-engine.js";
 import { installHarnessHooks } from "../harden/harness-hooks.js";
+import { installSentinelHooks } from "../harden/sentinel-hooks.js";
 import { detectStackRoots } from "../harden/stack-roots.js";
 import { installWorkflows } from "../harden/workflow-engine.js";
 import { detectTestFramework } from "../utils/project-detect.js";
@@ -146,6 +147,10 @@ export async function hardenCommand({
     if (profile !== "minimal" && !dryRun) {
       const hh = installHarnessHooks({ projectDir, logger });
       result.harnessHooks = hh.wired ? "wired" : "script-only";
+      // KJC-TSK-0713 — the Sentinel: method state + Stop gate (turn cannot
+      // end red). Same Claude-only harness surface as the tool gate.
+      const sh = installSentinelHooks({ projectDir, logger });
+      result.sentinelHooks = sh.wired ? "wired" : "script-only";
     }
   } catch (err) {
     if (json) logger.info?.(JSON.stringify({ ok: false, error: err.message }));

@@ -6,9 +6,9 @@
  * method facts per session, Stop BLOCKS ending the turn while violations are
  * open. Claude Code only: it is the one harness with synchronous blocking
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
- * This module ships the state writer; the Stop gate lands next.
  */
 
+import { CARD_REF_RE } from "../review/card-first.js";
 import { mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
 
 const POST_BODY = `#!/usr/bin/env node
@@ -48,14 +48,85 @@ process.stdin.on("end", () => {
 });
 `;
 
+const STOP_BODY = `#!/usr/bin/env node
+// kj sentinel stop gate (KJC-TSK-0713) — managed by \`kj harden\`. Exit 2
+// BLOCKS ending the turn while method violations are open (stderr lists each
+// one with its remediation). Fails OPEN on corrupt state, git errors, or
+// after 3 unresolved blocks — a sentinel bug never bricks the session — and
+// the fail-open is recorded in the state. \`--status\` prints, never blocks.
+import { readFileSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+const here = dirname(fileURLToPath(import.meta.url));
+const STATE = join(here, "sentinel-state.json");
+const ROOT = join(here, "..", "..");
+const CARD = new RegExp(${JSON.stringify(CARD_REF_RE.source)}, "i");
+const load = () => { try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return { sessions: {} }; } };
+const branchOf = () => {
+  try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  catch { return null; }
+};
+const violations = (s, branch) => {
+  const v = [];
+  if (!s || !(s.edited_sources || []).length) return v;
+  if (branch === "main" || branch === "master") v.push("Fuentes editadas en la rama base '" + branch + "' — crea una rama: git checkout -b feat/<CARD-ID>-descripcion");
+  else if (branch && !CARD.test(branch)) v.push("La rama '" + branch + "' no referencia ninguna card — usa feat/<CARD-ID>-descripcion (y una card VIVA en el board)");
+  if (!(s.edited_tests || []).length) v.push("Fuentes editadas sin tocar un solo test (" + s.edited_sources.join(", ") + ") — escribe o actualiza el test que prueba el cambio");
+  return v;
+};
+if (process.argv.includes("--status")) {
+  const st = load();
+  const branch = branchOf();
+  const sessions = Object.entries(st.sessions || {});
+  if (!sessions.length) console.log("sentinel: sin actividad registrada en esta sesion");
+  for (const [sid, s] of sessions) {
+    console.log("session " + sid + ": sources=[" + (s.edited_sources || []).join(", ") + "] tests=[" + (s.edited_tests || []).join(", ") + "] escapes=[" + (s.escapes || []).join(", ") + "] blocks=" + (s.blocks || 0) + ((s.errors || []).length ? " errors=" + s.errors.length : ""));
+    for (const x of violations(s, branch)) console.log("  ROJO: " + x);
+  }
+  process.exit(0);
+}
+let raw = "";
+process.stdin.on("data", (d) => { raw += d; });
+process.stdin.on("end", () => {
+  try {
+    if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+    const { session_id: sid = "default" } = JSON.parse(raw);
+    const state = load();
+    const s = state.sessions?.[sid];
+    if (!s) process.exit(0);
+    const v = violations(s, branchOf());
+    if (!v.length) {
+      s.blocks = 0;
+      writeFileSync(STATE, JSON.stringify(state, null, 2));
+      process.exit(0);
+    }
+    s.blocks = (s.blocks || 0) + 1;
+    if (s.blocks > 3) {
+      (s.errors ||= []).push("fail-open: 3 bloqueos consecutivos sin resolver — el sentinel se aparta para no colgar la sesion");
+      writeFileSync(STATE, JSON.stringify(state, null, 2));
+      console.error("kj sentinel: fail-open tras 3 bloqueos sin resolver — revisa kj sentinel status con tu usuario");
+      process.exit(0);
+    }
+    writeFileSync(STATE, JSON.stringify(state, null, 2));
+    console.error("kj sentinel: el turno NO puede terminar con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve las violaciones (o pide a tu usuario el escape) y termina de nuevo. Estado: kj sentinel status");
+    process.exit(2);
+  } catch { /* fail open */ }
+  process.exit(0);
+});
+`;
 
-/** Write the state-writer script and wire PostToolUse into .claude/settings.json. */
+/** Write both sentinel scripts and wire PostToolUse + Stop into .claude/settings.json. */
 export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
   const post = writeHarnessScript(projectDir, "posttooluse.mjs", POST_BODY);
+  const stop = writeHarnessScript(projectDir, "stop.mjs", STOP_BODY);
   const { wired } = mergeClaudeHooks({
     projectDir,
     logger,
-    entries: [{ event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" }],
+    entries: [
+      { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
+      { event: "Stop", script: "stop.mjs" },
+    ],
   });
-  return { scripts: [post], wired };
+  return { scripts: [post, stop], wired };
 }
