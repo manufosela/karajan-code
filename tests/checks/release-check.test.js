@@ -1,6 +1,4 @@
-// KJC-TSK-0712 — the release checklist made verifiable. Born from the
-// user's critique: "whatever you note down, you eventually ignore it".
-// Memory is the reminder; the check is the guarantee.
+// KJC-TSK-0712 — memory is the reminder; the check is the guarantee.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -63,17 +61,13 @@ describe("runReleaseCheck — declared items", () => {
       { name: "footer shows version", file_contains: { path: "footer.html", pattern: "v{version}" } },
       { name: "always ok", command: "true" },
       { name: "always fails", command: "false" },
+      { name: "ghost", file_contains: { path: "nope.txt", pattern: "x" } }, // missing file = red, not crash
     ] } };
     const res = await runReleaseCheck({ projectDir: dir, config });
     expect(byName(res, "footer shows version").ok).toBe(true);
     expect(byName(res, "always ok").ok).toBe(true);
     expect(byName(res, "always fails").ok).toBe(false);
-    expect(res.ok).toBe(false);
-  });
-
-  it("a missing file in file_contains is a red check, not a crash", async () => {
-    const config = { release_check: { items: [{ name: "ghost", file_contains: { path: "nope.txt", pattern: "x" } }] } };
-    const res = await runReleaseCheck({ projectDir: dir, config });
     expect(byName(res, "ghost").ok).toBe(false);
+    expect(res.ok).toBe(false);
   });
 });

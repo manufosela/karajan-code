@@ -20,6 +20,7 @@ import { mutateCommand } from "../commands/mutate.js";
 import { hardenCommand } from "../commands/harden.js";
 import { telemetryPreviewCommand, telemetryStatusCommand } from "../commands/telemetry.js";
 import { envInstallCommand, briefCommand } from "../commands/env.js";
+import { runReleaseCheck } from "../checks/release-check.js";
 import { agentRunCommand } from "../commands/agent-run.js";
 import { reportIssueCommand } from "../commands/report-issue.js";
 import { huCommand } from "../commands/hu.js";
@@ -262,15 +263,13 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
-  // KJC-TSK-0712 — the release checklist made verifiable: memory is the
-  // reminder, the check is the guarantee.
+  // KJC-TSK-0712 — memory is the reminder, the check is the guarantee.
   const release = program.command("release").description("Release ceremony helpers");
   release.command("check")
-    .description("Verify the release checklist deterministically: manifest vs CHANGELOG top section vs tags, privacy scan of the publishable files, plus the project's own release_check.items (file_contains with {version} / command). Exit 1 lists exactly what is missing.")
+    .description("Verify the release checklist deterministically (manifest vs CHANGELOG vs tags, privacy scan of publishable files, plus the project's release_check.items); exit 1 lists exactly what is missing")
     .option("--json", "Machine-readable result")
     .action(async (flags) => {
       await withConfig(pkgVersion, "release-check", flags, async ({ config }) => {
-        const { runReleaseCheck } = await import("../checks/release-check.js");
         const res = await runReleaseCheck({ projectDir: config?.projectDir || process.cwd(), config });
         if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
         else {

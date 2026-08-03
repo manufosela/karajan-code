@@ -1,11 +1,8 @@
 /**
- * release-check (KJC-TSK-0712) — the release checklist made verifiable.
- * Born from the user's critique: "whatever you note down, you eventually
- * ignore it" — a note loses salience; a check fails RED with the exact
- * list. Generic checks work for any karajan project; each project extends
- * with declarative items in `release_check.items` (file_contains with
- * {version} interpolation, or command with exit-0 semantics) — written by
- * the agent during setup, evaluated forever after.
+ * release-check (KJC-TSK-0712) — the release checklist made verifiable:
+ * a note loses salience; a check fails RED with the exact list. Generics
+ * fit any karajan project; each project extends via `release_check.items`
+ * (file_contains with {version}, or command with exit-0 semantics).
  */
 
 import { existsSync, readFileSync } from "node:fs";
