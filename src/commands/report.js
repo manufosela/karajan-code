@@ -162,6 +162,9 @@ async function buildReport(dir, sessionId) {
   if (session.pg_task_id) report.pg_task_id = session.pg_task_id;
   if (session.pg_project_id) report.pg_project_id = session.pg_project_id;
   if (session.rtk_savings) report.rtk_savings = session.rtk_savings;
+  // The session may belong to another workspace: its snapshot knows the
+  // project dir the sentinel state lives in (same source solomon-rules uses).
+  if (session.config_snapshot?.projectDir) report.project_dir = session.config_snapshot.projectDir;
   return report;
 }
 
@@ -208,6 +211,36 @@ function printTextReport(report) {
   console.log(formatBudgetText(report.budget_consumed));
   console.log("Commits Generated:");
   console.log(formatCommitsText(report.commits_generated));
+}
+
+/**
+ * KJC-TSK-0715 — escapes are the user's decisions, never the agent's silent
+ * shortcuts: every KJ_ALLOW_* the sentinel honored surfaces in the report.
+ */
+export function formatSentinelEscapes(state) {
+  const events = Array.isArray(state?.escape_events) ? state.escape_events : [];
+  if (events.length === 0) return null;
+  const lines = events.map(
+    (e) => `  ${e.ts ? new Date(e.ts).toISOString() : "?"} ${e.escape} (tool: ${e.tool || "?"}, session: ${e.sid || "?"})`
+  );
+  return `Sentinel escapes used (${events.length}):\n${lines.join("\n")}`;
+}
+
+// The sentinel state is a PROJECT artifact (<project>/.karajan/harness), not
+// a session artifact: the `dir` the report handlers receive is the GLOBAL
+// sessions root (~/.karajan/sessions) and never contains it. `kj report` is
+// run from inside the project, so the project dir is the cwd — overridable
+// for callers reporting on another workspace.
+async function printSentinelEscapes({ projectDir = process.cwd(), format } = {}) {
+  if (format === "json") return;
+  try {
+    const raw = await fs.readFile(path.join(projectDir, ".karajan", "harness", "sentinel-state.json"), "utf8");
+    const text = formatSentinelEscapes(JSON.parse(raw));
+    if (text) {
+      console.log("");
+      console.log(text);
+    }
+  } catch { /* no sentinel state in this project — nothing to report */ }
 }
 
 function formatDuration(ms) {
@@ -384,6 +417,7 @@ async function handlePgTaskReport({ dir, pgTask, list, sessionId, format, trace,
   } else {
     printTextReport(report);
   }
+  await printSentinelEscapes({ projectDir: report.project_dir, format });
 }
 
 async function handleSingleSessionReport({ dir, entries, sessionId, format, trace, currency }) {
@@ -405,9 +439,10 @@ async function handleSingleSessionReport({ dir, entries, sessionId, format, trac
   if (trace) {
     const { cur, rate } = await resolveTraceOptions(currency);
     printTraceReport(report, cur, rate);
-    return;
+  } else {
+    printTextReport(report);
   }
-  printTextReport(report);
+  await printSentinelEscapes({ projectDir: report.project_dir, format });
 }
 
 export async function reportCommand({ list = false, sessionId = null, format = "text", trace = false, currency = "usd", pgTask = null }) {

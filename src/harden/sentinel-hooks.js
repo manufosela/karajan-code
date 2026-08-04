@@ -8,8 +8,22 @@
  * hooks, which is why the guaranteed level requires Claude as host (ADR).
  */
 
+import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { CARD_REF_RE } from "../review/card-first.js";
 import { mergeClaudeHooks, writeHarnessScript } from "./harness-hooks.js";
+
+/** The harness lives at the PROJECT root — resolve it even from a subdir. */
+export function resolveSentinelRoot(dir = process.cwd()) {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || dir
+    );
+  } catch {
+    return dir;
+  }
+}
 
 const LIB_BODY = `// kj sentinel shared lib (KJC-TSK-0714) — managed by \`kj harden\`.
 // Single source for every sentinel script: state, branch, classification,
@@ -73,7 +87,11 @@ process.stdin.on("end", () => {
     const rel = relative(ROOT, file).replaceAll("\\\\", "/");
     const bucket = TESTS.test(rel) ? s.edited_tests : CODE.test(rel) ? s.edited_sources : null;
     if (bucket && !bucket.includes(rel)) bucket.push(rel);
-    for (const e of ESCAPES) if (process.env[e] === "1" && !s.escapes.includes(e)) s.escapes.push(e);
+    for (const e of ESCAPES)
+      if (process.env[e] === "1" && !s.escapes.includes(e)) {
+        s.escapes.push(e);
+        (state.escape_events ||= []).push({ escape: e, tool, sid, ts: Date.now() });
+      }
     const ids = Object.keys(state.sessions);
     if (ids.length > 5) delete state.sessions[ids.sort((a, b) => (state.sessions[a].at || 0) - (state.sessions[b].at || 0))[0]];
     save(state);
@@ -88,7 +106,8 @@ const STOP_BODY = `#!/usr/bin/env node
 // one with its remediation). Fails OPEN on corrupt state, git errors, or
 // after 3 unresolved blocks — a sentinel bug never bricks the session — and
 // the fail-open is recorded in the state. \`--status\` prints, never blocks.
-import { load, save, branchOf, violations } from "./sentinel-lib.mjs";
+import { spawnSync } from "node:child_process";
+import { load, save, branchOf, violations, ROOT } from "./sentinel-lib.mjs";
 if (process.argv.includes("--status")) {
   const st = load();
   const branch = branchOf();
@@ -107,12 +126,34 @@ process.stdin.on("end", () => {
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     const { session_id: sid = "default" } = JSON.parse(raw);
     const state = load();
+    // Tamper check runs regardless of session state: shell indirection leaves
+    // no edit-tool record, but it cannot survive \`kj sentinel verify\`, whose
+    // root of trust is the INSTALLED kj package (outside this project tree) —
+    // nothing under .karajan can vouch for itself. No kj on PATH → fail open.
+    const ver = spawnSync("kj", ["sentinel", "verify", "--json"], { cwd: ROOT, encoding: "utf8" });
+    let tampered = [];
+    if (!ver.error && ver.status !== null && ver.status !== 0) {
+      try { tampered = JSON.parse(ver.stdout).mismatched || ["unknown"]; } catch { tampered = ["unknown"]; }
+    }
+    if (tampered.length) {
+      state.tamper_blocks = (state.tamper_blocks || 0) + 1;
+      save(state);
+      if (state.tamper_blocks > 3) {
+        console.error("kj sentinel: fail-open tras 3 bloqueos por manipulacion sin restaurar — corre kj harden y avisa a tu usuario");
+        process.exit(0);
+      }
+      console.error("kj sentinel: scripts del supervisor modificados fuera de kj harden (" + tampered.join(", ") + ") — restaura con kj harden antes de terminar; si lo cambiaste tu (humano), reinstalar lo deja en verde.");
+      process.exit(2);
+    }
+    state.tamper_blocks = 0;
     const s = state.sessions?.[sid];
     if (!s) process.exit(0);
     const v = violations(s, branchOf());
     if (!v.length) {
       s.blocks = 0;
       save(state);
+      if ((s.escapes || []).length)
+        console.log(JSON.stringify({ systemMessage: "kj sentinel: esta sesion uso " + s.escapes.length + " escape(s): " + s.escapes.join(", ") + " — decision registrada; detalle en kj sentinel status." }));
       process.exit(0);
     }
     s.blocks = (s.blocks || 0) + 1;
@@ -142,12 +183,33 @@ import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, load, violations, rec
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
 const PUSH = /\\bgit\\s+push\\b/;
+const PROTECTED = /\\.claude\\/settings\\.json\\b|\\.karajan\\/(hooks|harness)\\//;
 let raw = "";
 process.stdin.on("data", (d) => { raw += d; });
 process.stdin.on("end", () => {
   try {
-    if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     const { session_id: sid = "default", tool_name: tool, tool_input: input = {} } = JSON.parse(raw);
+    // Self-protection (KJC-TSK-0715) rules run BEFORE any escape, including
+    // KJ_SENTINEL_OFF: the sentinel is not dismantled from inside a session —
+    // only the human, editing outside it.
+    if (EDIT_TOOLS.includes(tool)) {
+      const target = input.file_path || input.notebook_path;
+      const relT = target ? relative(ROOT, String(target)).replaceAll("\\\\", "/") : "";
+      if (relT && PROTECTED.test(relT)) {
+        console.error("kj sentinel: ese fichero es parte del supervisor (" + relT + ") — solo el humano desmonta el sentinel, editalo fuera de la sesion.");
+        process.exit(2);
+      }
+    }
+    // Any Bash that NAMES the supervisor's files is denied — a write-verb
+    // blocklist is bypassable (cp, dd, one-liners), and reading them is what
+    // the Read/Grep tools are for. Shell indirection (variables, globs,
+    // substitution) cannot be resolved from command text: that vector is
+    // caught by the Stop gate's checksum verification, which blocks the turn.
+    if (tool === "Bash" && PROTECTED.test(String(input.command || "").replaceAll("\\\\", "/"))) {
+      console.error("kj sentinel: los ficheros del supervisor no se tocan desde Bash — consultalos con la tool Read/Grep; solo el humano los modifica, fuera de la sesion.");
+      process.exit(2);
+    }
+    if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
     if (EDIT_TOOLS.includes(tool)) {
       const file = input.file_path || input.notebook_path;
       const rel = file ? relative(ROOT, String(file)).replaceAll("\\\\", "/") : "";
@@ -188,12 +250,37 @@ process.stdin.on("end", () => {
 });
 `;
 
+const SCRIPT_BODIES = {
+  "sentinel-lib.mjs": LIB_BODY,
+  "posttooluse.mjs": POST_BODY,
+  "stop.mjs": STOP_BODY,
+  "pretooluse-sentinel.mjs": PRETOOL_BODY,
+};
+
+/**
+ * Tamper detection (KJC-TSK-0715): compare the on-disk harness scripts with
+ * what THIS kj install would write. The root of trust is the installed kj
+ * package — outside the project tree, beyond the session's tool reach —
+ * because nothing under .karajan can vouch for itself.
+ */
+export function verifySentinelScripts({ projectDir } = {}) {
+  const dir = join(projectDir || resolveSentinelRoot(), ".karajan", "harness");
+  const mismatched = [];
+  for (const [name, body] of Object.entries(SCRIPT_BODIES)) {
+    try {
+      if (readFileSync(join(dir, name), "utf8") !== body) mismatched.push(name);
+    } catch {
+      mismatched.push(name);
+    }
+  }
+  return { ok: mismatched.length === 0, mismatched };
+}
+
 /** Write the sentinel scripts (shared lib + state writer + gates) and wire them. */
 export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
-  const lib = writeHarnessScript(projectDir, "sentinel-lib.mjs", LIB_BODY);
-  const post = writeHarnessScript(projectDir, "posttooluse.mjs", POST_BODY);
-  const stop = writeHarnessScript(projectDir, "stop.mjs", STOP_BODY);
-  const pre = writeHarnessScript(projectDir, "pretooluse-sentinel.mjs", PRETOOL_BODY);
+  const [lib, post, stop, pre] = Object.entries(SCRIPT_BODIES).map(([name, body]) =>
+    writeHarnessScript(projectDir, name, body),
+  );
   const { wired } = mergeClaudeHooks({
     projectDir,
     logger,

@@ -145,6 +145,72 @@ describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE th
   });
 });
 
+describe("self-protection + audited escapes (SEN-C)", () => {
+  let gate;
+  beforeEach(() => {
+    gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+  });
+
+  it("blocks the agent editing settings.json or the harness/hooks, with NO agent escape honored", () => {
+    for (const target of [
+      path.join(dir, ".claude", "settings.json"),
+      path.join(dir, ".karajan", "hooks", "pre-commit"),
+      path.join(dir, ".karajan", "harness", "stop.mjs"),
+    ]) {
+      const blocked = run(gate, editTool(target), { KJ_ALLOW_WRITE: "1", KJ_ALLOW_NO_CARD: "1", KJ_SENTINEL_OFF: "1" });
+      expect(blocked.status).toBe(2);
+      expect(blocked.stderr).toMatch(/humano|sentinel/i);
+    }
+  });
+
+  it("denies ANY Bash mentioning protected paths (write blocklists are bypassable), leaves other Bash alone", () => {
+    const bash = (command) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } });
+    expect(bash("sed -i 's/x/y/' .karajan/harness/stop.mjs").status).toBe(2);
+    expect(bash("echo '{}' > .claude/settings.json").status).toBe(2);
+    expect(bash("cp evil.mjs .karajan/harness/stop.mjs").status).toBe(2);
+    expect(bash("cat .claude/settings.json").status).toBe(2);
+    expect(bash("ls -la src/").status).toBe(0);
+  });
+
+  it("kj report formats the audited escape events (timestamp + escape + tool)", async () => {
+    const { formatSentinelEscapes } = await import("../../src/commands/report.js");
+    expect(formatSentinelEscapes({})).toBeNull();
+    const text = formatSentinelEscapes({ escape_events: [{ escape: "KJ_ALLOW_PII", tool: "Bash", sid: "s1", ts: Date.UTC(2026, 7, 4, 12) }] });
+    expect(text).toMatch(/Sentinel escapes used \(1\)/);
+    expect(text).toMatch(/KJ_ALLOW_PII/);
+    expect(text).toMatch(/2026-08-04T12/);
+  });
+
+  it("stop BLOCKS the turn on tampered scripts (root of trust: the installed kj, never the project tree)", async () => {
+    const { verifySentinelScripts } = await import("../../src/harden/sentinel-hooks.js");
+    fs.appendFileSync(postScript, "// tampered via indirection\n");
+    expect(verifySentinelScripts({ projectDir: dir }).mismatched).toEqual(["posttooluse.mjs"]);
+    const bin = path.join(dir, "verifybin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(
+      path.join(bin, "kj"),
+      `#!/bin/sh\necho '{"ok":false,"mismatched":["posttooluse.mjs"]}'\nexit 1\n`,
+      { mode: 0o755 },
+    );
+    const blocked = run(stopScript, { session_id: "empty" }, { PATH: `${bin}:${process.env.PATH}` });
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toMatch(/kj harden/);
+    installSentinelHooks({ projectDir: dir });
+    expect(verifySentinelScripts({ projectDir: dir }).ok).toBe(true);
+    expect(run(stopScript, { session_id: "empty" }, { PATH: path.dirname(process.execPath) }).status).toBe(0);
+  });
+
+  it("stop emits a user-visible summary of used escapes when the turn ends green", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
+    run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
+    const res = run(stopScript, { session_id: "s1" });
+    expect(res.status).toBe(0);
+    expect(res.stdout).toMatch(/systemMessage/);
+    expect(res.stdout).toMatch(/KJ_ALLOW_NO_CARD/);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_CARD")).toBe(true);
+  });
+});
+
 describe("sentinel-lib (shared single source)", () => {
   it("is written by install, and both scripts import it instead of duplicating logic", async () => {
     const lib = path.join(dir, ".karajan", "harness", "sentinel-lib.mjs");

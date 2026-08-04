@@ -31,6 +31,7 @@ import { withConfig } from "./_shared.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { verifySentinelScripts, resolveSentinelRoot } from "../harden/sentinel-hooks.js";
 
 /**
  * Register the "meta" / single-role / housekeeping commands: pre-pipeline
@@ -288,13 +289,22 @@ export function registerMeta(program, { pkgVersion }) {
   sentinel.command("status")
     .description("Print the per-session method facts (sources/tests edited, escapes used) and any open violation the Stop gate would block on")
     .action(() => {
-      const script = join(process.cwd(), ".karajan", "harness", "stop.mjs");
+      const script = join(resolveSentinelRoot(), ".karajan", "harness", "stop.mjs");
       if (!existsSync(script)) {
         console.log("sentinel: not installed in this project — run `kj harden` (standard profile or higher)");
         process.exitCode = 1;
         return;
       }
       process.exitCode = spawnSync("node", [script, "--status"], { stdio: "inherit" }).status ?? 0;
+    });
+  sentinel.command("verify")
+    .description("Verify the harness scripts match this kj install — the root of trust is the installed package, not the project tree; exit 1 lists what was modified")
+    .option("--json", "Machine-readable result")
+    .action((flags) => {
+      const res = verifySentinelScripts();
+      if (flags.json) process.stdout.write(`${JSON.stringify(res)}\n`);
+      else console.log(res.ok ? "sentinel verify: scripts intactos" : `sentinel verify: modificados fuera de kj harden: ${res.mismatched.join(", ")} — restaura con kj harden`);
+      process.exitCode = res.ok ? 0 : 1;
     });
 
   // KJC-TSK-0704 — the outbound privacy boundary: audit before anything ships.
