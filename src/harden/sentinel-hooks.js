@@ -130,18 +130,79 @@ process.stdin.on("end", () => {
 });
 `;
 
-/** Write the sentinel scripts (shared lib + state writer + stop gate) and wire them. */
+const PRETOOL_BODY = `#!/usr/bin/env node
+// kj sentinel pretooluse gate (KJC-TSK-0714) — managed by \`kj harden\`.
+// Consults the session method state BEFORE the tool runs: the rule fires
+// before the damage, not in the post-mortem. Exit 2 blocks (stderr says the
+// remediation); read-only tools are never wired here; every honored escape
+// is recorded as an auditable event. Fails OPEN on anything unexpected.
+import { relative } from "node:path";
+import { spawnSync } from "node:child_process";
+import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, load, violations, recordEscape } from "./sentinel-lib.mjs";
+const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
+const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
+const PUSH = /\\bgit\\s+push\\b/;
+let raw = "";
+process.stdin.on("data", (d) => { raw += d; });
+process.stdin.on("end", () => {
+  try {
+    if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+    const { session_id: sid = "default", tool_name: tool, tool_input: input = {} } = JSON.parse(raw);
+    if (EDIT_TOOLS.includes(tool)) {
+      const file = input.file_path || input.notebook_path;
+      const rel = file ? relative(ROOT, String(file)).replaceAll("\\\\", "/") : "";
+      if (rel && CODE.test(rel) && !TESTS.test(rel)) {
+        const branch = branchOf();
+        const why = !branch ? null : BASE_BRANCHES.has(branch) ? "base" : !CARD.test(branch) ? "nocard" : null;
+        if (why) {
+          if (process.env.KJ_ALLOW_NO_CARD === "1") { recordEscape(sid, "KJ_ALLOW_NO_CARD", tool); process.exit(0); }
+          console.error(why === "base"
+            ? "kj sentinel: no se editan fuentes en la rama base '" + branch + "' — crea la card (kj hu add) y la rama: git checkout -b feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)"
+            : "kj sentinel: la rama '" + branch + "' no referencia ninguna card — crea/mueve la card a running (kj hu add | kj hu move) y usa una rama feat/<CARD-ID>-descripcion. (KJ_ALLOW_NO_CARD=1 = excepcion consciente, queda registrada)");
+          process.exit(2);
+        }
+      }
+    }
+    if (tool === "Bash") {
+      const cmd = String(input.command || "");
+      if (PUBLISH.test(cmd)) {
+        if (process.env.KJ_ALLOW_RELEASE === "1") { recordEscape(sid, "KJ_ALLOW_RELEASE", tool); process.exit(0); }
+        const res = spawnSync("kj", ["release", "check", "--json"], { cwd: ROOT, encoding: "utf8" });
+        if (res.error || res.status === null) process.exit(0);
+        if (res.status !== 0) {
+          let items = "";
+          try { items = (JSON.parse(res.stdout).checks || []).filter((c) => !c.ok).map((c) => "\\n- " + c.name + ": " + c.detail).join(""); } catch { /* raw output */ }
+          console.error("kj sentinel: release check en ROJO — no se publica ni despliega hasta resolverlo:" + (items || "\\n- corre kj release check para el detalle") + "\\n(KJ_ALLOW_RELEASE=1 = excepcion consciente, queda registrada)");
+          process.exit(2);
+        }
+      } else if (PUSH.test(cmd)) {
+        const v = violations(load().sessions?.[sid], branchOf());
+        if (v.length) {
+          console.error("kj sentinel: git push con el metodo en rojo:\\n" + v.map((x) => "- " + x).join("\\n") + "\\nResuelve antes de empujar. Estado: kj sentinel status");
+          process.exit(2);
+        }
+      }
+    }
+  } catch { /* fail open */ }
+  process.exit(0);
+});
+`;
+
+/** Write the sentinel scripts (shared lib + state writer + gates) and wire them. */
 export function installSentinelHooks({ projectDir = process.cwd(), logger = console } = {}) {
   const lib = writeHarnessScript(projectDir, "sentinel-lib.mjs", LIB_BODY);
   const post = writeHarnessScript(projectDir, "posttooluse.mjs", POST_BODY);
   const stop = writeHarnessScript(projectDir, "stop.mjs", STOP_BODY);
+  const pre = writeHarnessScript(projectDir, "pretooluse-sentinel.mjs", PRETOOL_BODY);
   const { wired } = mergeClaudeHooks({
     projectDir,
     logger,
     entries: [
+      { event: "PreToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "pretooluse-sentinel.mjs" },
+      { event: "PreToolUse", matcher: "Bash", script: "pretooluse-sentinel.mjs" },
       { event: "PostToolUse", matcher: "Write|Edit|MultiEdit|NotebookEdit", script: "posttooluse.mjs" },
       { event: "Stop", script: "stop.mjs" },
     ],
   });
-  return { scripts: [lib, post, stop], wired };
+  return { scripts: [lib, post, stop, pre], wired };
 }
