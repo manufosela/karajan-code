@@ -96,6 +96,27 @@ describe("stop script (turn cannot end red)", () => {
   });
 });
 
+describe("sentinel-lib (shared single source)", () => {
+  it("is written by install, and both scripts import it instead of duplicating logic", async () => {
+    const lib = path.join(dir, ".karajan", "harness", "sentinel-lib.mjs");
+    expect(fs.existsSync(lib)).toBe(true);
+    for (const script of [postScript, stopScript]) {
+      expect(fs.readFileSync(script, "utf8")).toContain('from "./sentinel-lib.mjs"');
+    }
+    const mod = await import(`file://${lib}`);
+    expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: [] }, "main").length).toBe(2);
+    expect(mod.violations({ edited_sources: ["src/a.js"], edited_tests: ["tests/a.test.js"] }, "feat/KJC-TSK-0001-x")).toEqual([]);
+  });
+
+  it("recordEscape appends an auditable escape event to the state", async () => {
+    const mod = await import(`file://${path.join(dir, ".karajan", "harness", "sentinel-lib.mjs")}`);
+    mod.recordEscape("s1", "KJ_ALLOW_NO_CARD", "Edit");
+    expect(state().escape_events).toHaveLength(1);
+    expect(state().escape_events[0]).toMatchObject({ escape: "KJ_ALLOW_NO_CARD", tool: "Edit", sid: "s1" });
+    expect(state().sessions.s1.escapes).toContain("KJ_ALLOW_NO_CARD");
+  });
+});
+
 describe("installSentinelHooks settings merge", () => {
   it("wires PostToolUse and Stop idempotently, preserving the user's entries", () => {
     const settings = path.join(dir, ".claude", "settings.json");
