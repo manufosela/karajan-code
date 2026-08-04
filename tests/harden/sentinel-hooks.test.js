@@ -96,6 +96,55 @@ describe("stop script (turn cannot end red)", () => {
   });
 });
 
+describe("pretooluse-sentinel script (stateful gate — the rule fires BEFORE the damage)", () => {
+  let gate;
+  beforeEach(() => {
+    gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+  });
+
+  it("blocks editing a source on a branch without card ref, with remediation and named escape recorded", () => {
+    execSync("git checkout -q -b sin-card", { cwd: dir });
+    const blocked = run(gate, editTool(path.join(dir, "src", "a.js")));
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toMatch(/kj hu add|card/i);
+    const escaped = run(gate, editTool(path.join(dir, "src", "a.js")), { KJ_ALLOW_NO_CARD: "1" });
+    expect(escaped.status).toBe(0);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_NO_CARD")).toBe(true);
+  });
+
+  it("allows source edits on a card branch, test edits anywhere, and blocks on the base branch", () => {
+    expect(run(gate, editTool(path.join(dir, "src", "a.js"))).status).toBe(0);
+    execSync("git checkout -q main", { cwd: dir });
+    expect(run(gate, editTool(path.join(dir, "tests", "a.test.js"))).status).toBe(0);
+    expect(run(gate, editTool(path.join(dir, "src", "a.js"))).status).toBe(2);
+  });
+
+  it("blocks git push while method violations are open, allows once green", () => {
+    run(postScript, editTool(path.join(dir, "src", "a.js")));
+    const push = { session_id: "s1", tool_name: "Bash", tool_input: { command: "git push origin HEAD" } };
+    expect(run(gate, push).status).toBe(2);
+    run(postScript, editTool(path.join(dir, "tests", "a.test.js")));
+    expect(run(gate, push).status).toBe(0);
+  });
+
+  it("blocks npm publish when the release check is red, honors the escape, and fails open without kj", () => {
+    const bin = path.join(dir, "fakebin");
+    fs.mkdirSync(bin);
+    fs.writeFileSync(
+      path.join(bin, "kj"),
+      `#!/bin/sh\necho '{"ok":false,"checks":[{"ok":false,"name":"changelog","detail":"missing section"}]}'\nexit 1\n`,
+      { mode: 0o755 },
+    );
+    const publish = { session_id: "s1", tool_name: "Bash", tool_input: { command: "npm publish --otp=123456" } };
+    const blocked = run(gate, publish, { PATH: `${bin}:${process.env.PATH}` });
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toMatch(/changelog/);
+    expect(run(gate, publish, { PATH: `${bin}:${process.env.PATH}`, KJ_ALLOW_RELEASE: "1" }).status).toBe(0);
+    expect(run(gate, publish, { PATH: path.dirname(process.execPath) }).status).toBe(0);
+    expect(run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "ls -la" } }).status).toBe(0);
+  });
+});
+
 describe("sentinel-lib (shared single source)", () => {
   it("is written by install, and both scripts import it instead of duplicating logic", async () => {
     const lib = path.join(dir, ".karajan", "harness", "sentinel-lib.mjs");
