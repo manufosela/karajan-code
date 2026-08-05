@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.13.0] - 2026-08-05
+
+Minor. **The program rules, the agent thinks** — the deterministic brain of v3 is reborn as a supervisor with real, synchronous authority over the agent: the Karajan Sentinel. Born from a field case: an agent that narrated the rules while skipping the gates. v3 had authority without intelligence; v4 intelligence without authority; the Sentinel separates the powers.
+
 ### Added
 
 - **Karajan Sentinel — the rule fires before the damage** (KJC-TSK-0714): the PreToolUse gate goes stateful. Editing a source on the base branch or on a branch without a card ref blocks with the exact remediation (`kj hu add` / `feat/<CARD-ID>` branch); `npm publish`/`firebase deploy`/`gh release create` with a red `kj release check` block listing the failed items; `git push` with open method violations blocks. Read-only tools are never wired; every honored `KJ_ALLOW_*` escape is recorded as an auditable event. Shared `sentinel-lib.mjs` is the single source for all sentinel scripts.
