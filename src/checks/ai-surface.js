@@ -50,8 +50,11 @@ export function collectAiSurface({ projectDir = process.cwd(), home = os.homedir
  * Diff the current surface against the last-seen snapshot and persist the
  * new state. First run records the baseline silently.
  */
-export function checkAiSurface({ projectDir = process.cwd(), home = os.homedir(), statePath = path.join(os.homedir(), ".karajan", "ai-surface.json") } = {}) {
-  const surface = collectAiSurface({ projectDir, home });
+export function checkAiSurface({ projectDir = process.cwd(), home = os.homedir(), statePath = path.join(os.homedir(), ".karajan", "ai-surface.json"), extraSurface = [] } = {}) {
+  // KJC-TSK-0728: extraSurface carries entries the (async) caller collected
+  // outside config files — e.g. observed agent CLIs as "grok (cli)" — so
+  // they ride the same snapshot and the same "NEW since last check" drift.
+  const surface = [...new Set([...collectAiSurface({ projectDir, home }), ...extraSurface])].sort();
   let state = {};
   try { state = JSON.parse(readFileSync(statePath, "utf8")); } catch { /* first run or corrupt → baseline */ }
   const prev = Array.isArray(state[projectDir]) ? state[projectDir] : null;

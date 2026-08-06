@@ -12,7 +12,7 @@
  * the install command and can offer to run it).
  */
 
-import { checkBinary, KNOWN_AGENTS } from "../utils/agent-detect.js";
+import { checkBinary, KNOWN_AGENTS, detectObservedAgents } from "../utils/agent-detect.js";
 import { runCommand } from "../utils/process.js";
 import { withDocLink } from "../utils/doc-links.js";
 import { getInstallHint, appliesToStack } from "../utils/install-hints.js";
@@ -33,6 +33,33 @@ function createAgentCheck(agent) {
         severity: "warn", // missing one agent CLI shouldn't block — user may not use it
         detail: result.ok ? `${result.version} (${result.path})` : "Not found",
         fix: result.ok ? undefined : withDocLink(`Install: ${agent.install}`, "agent_not_found"),
+      };
+    },
+  };
+}
+
+/**
+ * KJC-TSK-0728 — ONE aggregate line for the observation census (agent CLIs
+ * kj sees but does not drive). Only FOUND CLIs are listed; the missing ones
+ * make no noise, and the check never fails. `detector` is injectable for
+ * tests.
+ */
+export function createObservedAgentsCheck({ detector = detectObservedAgents } = {}) {
+  return {
+    name: "agents:observed",
+    label: "Agent CLIs observed (not driven)",
+    strategy: STRATEGY.MANUAL,
+    async detect() {
+      let found = [];
+      try {
+        found = (await detector()).filter((a) => a.available);
+      } catch { /* census is best-effort */ }
+      return {
+        ok: true,
+        severity: "info",
+        detail: found.length
+          ? found.map((a) => `${a.name} (${(a.version || "").split(" ").at(-1) || "?"})`).join(", ")
+          : "none detected",
       };
     },
   };
@@ -165,6 +192,7 @@ export function getBinaryChecks() {
   for (const agent of KNOWN_AGENTS) {
     checks.push(createAgentCheck(agent));
   }
+  checks.push(createObservedAgentsCheck());
   for (const bin of ["node", "npm", "git"]) {
     checks.push(createCoreBinaryCheck(bin));
   }
