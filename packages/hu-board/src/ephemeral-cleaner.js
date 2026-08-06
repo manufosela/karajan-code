@@ -150,8 +150,6 @@ export function cleanupEphemeralProjects({
   const candidates = findEphemeralProjects(allProjects, { ...opts, now: now() });
   if (candidates.length === 0) return [];
 
-  const countStories = db.prepare("SELECT COUNT(*) AS n FROM stories WHERE project_id = ?");
-  const countSessions = db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE project_id = ?");
   const delStories = db.prepare("DELETE FROM stories WHERE project_id = ?");
   const delSessions = db.prepare("DELETE FROM sessions WHERE project_id = ?");
   const delProject = db.prepare("DELETE FROM projects WHERE id = ?");

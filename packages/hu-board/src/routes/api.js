@@ -21,7 +21,6 @@ export async function readPlanCached(p) {
   planFileCache.set(p, { mtimeMs, plan });
   return plan;
 }
-import os from 'node:os';
 import path from 'node:path';
 import { spawn as spawnChild } from 'node:child_process';
 import {
@@ -36,7 +35,6 @@ import {
   getKjHome,
   getHuBoardRunsDir,
   getHuBoardPlansDir,
-  getHuBoardLegacyPlansDir,
   getHuBoardPlansDirs,
   getStoryRow,
   listPlanIdsForProject,
@@ -91,19 +89,6 @@ router.get('/standby', async (_req, res) => {
  */
 function huStoriesDir() {
   return path.join(getKjHome(), 'hu-stories');
-}
-
-/**
- * Best-effort removal of the hu-stories/<id>/ directory.
- */
-async function removeBatchDir(batchId) {
-  try {
-    const dir = path.join(huStoriesDir(), batchId);
-    await fsp.rm(dir, { recursive: true, force: true });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /**

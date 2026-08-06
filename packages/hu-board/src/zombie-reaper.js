@@ -45,7 +45,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 
 const DEFAULT_CODING_HOURS = 6;
 const DEFAULT_PAUSED_HOURS = 24;

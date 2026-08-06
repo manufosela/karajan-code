@@ -12,7 +12,6 @@
 
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, chmodSync, existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 const TOKEN_BYTES = 32;

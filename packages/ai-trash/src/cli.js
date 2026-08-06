@@ -113,7 +113,9 @@ async function cmdPurge(root, id, out, err) {
 async function cmdEmpty(root, flags, out) {
   await ensureRoot(root);
   const m = await loadManifest(root);
-  let dropped = [];
+  // Assigned in every branch below (the trailing else covers the default),
+  // so an initializer would never be read (no-useless-assignment).
+  let dropped;
   if (flags["older-than-days"]) {
     const days = Number(flags["older-than-days"]);
     if (!Number.isFinite(days) || days < 0) throw new Error("--older-than-days must be >= 0");

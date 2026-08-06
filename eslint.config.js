@@ -258,4 +258,103 @@ export default [
       "no-var": "off",
     },
   },
+
+  // KJC-TSK-0543 — packages/ joins the lint surface. It rotted to 1100+
+  // errors precisely because `npm run lint` never looked at it; same
+  // bug-killer rules as src/, three environments, and the lint script now
+  // covers it so the regression is structurally impossible.
+  {
+    files: [
+      "packages/*/src/**/*.js",
+      "packages/*/bin/**/*.js",
+      "packages/*/*.js",
+      "packages/*/scripts/**/*.js",
+    ],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: { ...globals.node, fetch: "readonly", URL: "readonly", URLSearchParams: "readonly" },
+    },
+    plugins: { "import-x": importX },
+    rules: {
+      "no-undef": "error",
+      "import-x/no-unresolved": ["error", { ignore: ["^node:"] }],
+      "import-x/named": "error",
+      "no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
+      ],
+      "no-useless-assignment": "error",
+      "no-useless-escape": "error",
+      "preserve-caught-error": "error",
+    },
+  },
+  {
+    // The hu-board dashboard is BROWSER code in CLASSIC scripts: index.html
+    // loads 21 <script> tags and the files share one deliberate global API
+    // (function declarations hoist to global scope; inline onclick handlers
+    // call them). `no-undef` stays a bug-killer here because every shared
+    // symbol is declared below. Regenerate the list after adding a
+    // top-level function/var to public/:
+    //   grep -hoE '^(async +)?function [A-Za-z_$][\w$]*|^(let|var|const) [A-Za-z_$][\w$]*' packages/hu-board/public -r
+    files: ["packages/hu-board/public/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "script",
+      globals: {
+        ...globals.browser,
+        ...Object.fromEntries(
+          `ANSI_SGR DAG_H_GAP DAG_NODE_H DAG_NODE_W DAG_PAD DAG_V_GAP EPHEMERAL_HEURISTIC_RE ESC ESC_CHARS HEADERS
+           HTML_ESC KNOWN_ROLES POLL_INTERVAL_MS SCOPED_PREFIX TOKEN __versionBaseline _fmtCountdown _renderStandbyBanner
+           _standbyData _standbyPollTimer _standbyTickTimer _tickStandbyCountdowns activePromptId ansi256ToCss ansiToHtml
+           api bars bytes closeModal closePromptModalIfMatches computeDagLevels computeEffectiveResult
+           confirmRunWithPreflight cssEscape currentSessionId currentView deriveInitialsFromName deriveRoleStatus els
+           embedderCard ensureDialog esc escapeHtml fetchPreflight formatCacheRatio formatCost formatDuration formatHHMM
+           formatProjectCostSummary formatSessionLabel handleRoute humaniseProjectName isTestIcon isTestTitle
+           lastLaunchedPlanId lastOpenedLog load loadSessions logPollTimer logViewerState navigate nextIsTestValue
+           openCommandLogViewer openGenericLogPanel openLogViewer patchBoardIncremental pollServerVersion pollTimer
+           populateProjectSelect preflightCache preflightStatusColor preflightStatusIcon projectInitialsCache
+           projectIsSharedCache projectNameCache qualityBar refreshCurrentView refreshInterval refreshOnce refreshStandby
+           render renderBoard renderDashboard renderEmptyState renderGraph renderHits renderInstallCTA renderIterations
+           renderKanbanColumn renderOutcomeChip renderPlanRollup renderPreflightPanel renderProjectPicker
+           renderResultBadge renderRoleGrid renderSessionCard renderSessions renderSolomon renderStoryCard
+           renderStoryEditForm renderSummary resolveBlockedBy resolveProjectInitials resolveProjectMeta runProject
+           runSearch saveStoryEdits scopedProjectSlug scoreClass selectProject selectedProject shortStoryId shortTask
+           showCommandLauncher showConfigEditor showConfirm showError showHelp showPromptModal showSessionDetail
+           showStoryDetail smartRefresh sseRefreshTimer sseSource startPolling startStandbyPolling stopPolling
+           subscribeToServerEvents timeAgo triggerSync truncate winBtnStyle`
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((name) => [name, "writable"])
+        ),
+      },
+    },
+    rules: {
+      "no-undef": "error",
+      // Defining one of the declared shared globals in its home file is the
+      // POINT of a classic script, not a redeclaration bug.
+      "no-redeclare": ["error", { builtinGlobals: false }],
+      // Cross-file usage (other scripts, inline onclick) is invisible to a
+      // per-file linter — warn keeps real dead code visible without lying.
+      "no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
+      ],
+    },
+  },
+  {
+    files: ["packages/*/tests/**/*.js", "packages/*/tests/**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: { ...globals.node, ...globals.browser },
+    },
+    plugins: { "import-x": importX },
+    rules: {
+      "no-undef": "error",
+      "import-x/no-unresolved": ["error", { ignore: ["^node:"] }],
+      "no-unused-vars": "warn",
+      "no-console": "off",
+    },
+  },
 ];
