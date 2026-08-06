@@ -16,6 +16,7 @@ import { parseMaybeJsonString } from "./parser.js";
 import { detectAvailableAgents, detectHostAgent } from "../utils/agent-detect.js";
 import { saveVerdict } from "./verdict-store.js";
 import { detectWorkspace } from "./workspace.js";
+import { isQuotaExhausted, candidateStatus, pickQuotaFallback, formatCandidateMenu } from "./reviewer-fallback.js";
 
 // Cross-AI preference when the configured reviewer IS the host.
 const CROSS_ORDER = ["codex", "claude", "gemini", "opencode", "aider"];
@@ -44,6 +45,7 @@ export async function runOneShotReview({
   hostAgent = detectHostAgent(),
   createAgentFn = createAgent,
   detectAgents = detectAvailableAgents,
+  candidateStatusFn = candidateStatus,
 }) {
   if (!diff || !diff.trim()) {
     throw new Error("nothing to review — the diff is empty (stage your changes or pass --range)");
@@ -57,26 +59,58 @@ export async function runOneShotReview({
   }
 
   const { rules } = await resolveReviewProfile({ mode: "standard", projectDir });
-  const prompt = await buildReviewerPrompt({
-    task: task || "Review the following diff for correctness, security and maintainability.",
-    diff, reviewRules: rules, mode: "standard", provider: reviewer, projectDir,
-  });
+  const attempt = async (who, cfg = config) => {
+    const prompt = await buildReviewerPrompt({
+      task: task || "Review the following diff for correctness, security and maintainability.",
+      diff, reviewRules: rules, mode: "standard", provider: who, projectDir,
+    });
+    logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${who} (cross-AI)`);
+    return createAgentFn(who, cfg, logger).reviewTask({ prompt, role: "reviewer" });
+  };
 
-  logger?.info?.(`kj review: host=${hostAgent || "none"} → reviewer=${reviewer} (cross-AI)`);
-  const agent = createAgentFn(reviewer, config, logger);
-  const result = await agent.reviewTask({ prompt, role: "reviewer" });
+  let activeReviewer = reviewer;
+  let result = await attempt(activeReviewer);
+
+  // KJC-TSK-0730 — quota failover: exhausted quota is not a review failure,
+  // it is a provider outage. One retry with an authenticated candidate
+  // (loud notice, never silent), or an actionable menu. Never the host:
+  // the brain does not review itself.
+  if (!result?.ok && isQuotaExhausted(result?.error) && (config?.reviewer_options?.auto_fallback ?? true)) {
+    const statuses = await candidateStatusFn();
+    const fallback = pickQuotaFallback(statuses, { exclude: [activeReviewer, hostAgent].filter(Boolean) });
+    if (fallback) {
+      logger?.warn?.(
+        `⚠ reviewer ${activeReviewer} sin cuota → usando ${fallback} SOLO en esta invocación. ` +
+        `Para fijarlo: roles.reviewer.provider: ${fallback} (avisando, nunca en silencio — KJC-TSK-0730).`
+      );
+      activeReviewer = fallback;
+      // The role's model pin belongs to the exhausted provider (a codex
+      // model name means nothing to copilot) — the candidate runs on its
+      // own default model.
+      result = await attempt(activeReviewer, {
+        ...config,
+        roles: { ...config?.roles, reviewer: { ...config?.roles?.reviewer, model: null } },
+      });
+    } else {
+      throw new Error(
+        `reviewer ${activeReviewer} sin cuota y ningún candidato autenticado con adaptador.\n` +
+        formatCandidateMenu(statuses, { exclude: [hostAgent].filter(Boolean) })
+      );
+    }
+  }
+
   if (!result?.ok) {
-    throw new Error(`reviewer ${reviewer} failed: ${result?.error || "no output"}`);
+    throw new Error(`reviewer ${activeReviewer} failed: ${result?.error || "no output"}`);
   }
 
   const parsed = parseMaybeJsonString(result.output);
   if (!parsed || typeof parsed.approved !== "boolean") {
-    throw new Error(`reviewer ${reviewer} returned no parseable verdict`);
+    throw new Error(`reviewer ${activeReviewer} returned no parseable verdict`);
   }
 
   return saveVerdict(projectDir, diff, {
     verdict: parsed.approved ? "approved" : "rejected",
-    reviewer,
+    reviewer: activeReviewer,
     host: hostAgent || null,
     // KJC-TSK-0680: where the review ran — makes any isolation claim auditable.
     workspace: await detectWorkspace(projectDir),
