@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Reviewer quota failover — a loud switch or an actionable menu, never a silent failure** (KJC-TSK-0730, born from the real codex weekly-quota outage of 2026-08-06 mid-card): when the configured reviewer's quota is exhausted (classifier over the real error shapes), `kj review` retries ONCE with the first installed+authenticated candidate from a declarative registry (codex, copilot, agy, kimi, qwen, opencode — tier, login command, verified install command, local auth heuristics) that is neither the exhausted reviewer nor the host — warning loudly and telling you how to pin it; with no candidate, it fails with the menu of candidates and their exact login commands. The exhausted provider's model pin never travels to the fallback (its model name means nothing there). `reviewer_options.auto_fallback` (default on) opts out. Every verdict during the outage day — including this feature's own reviews — shipped through it.
+- **Observation census of agent CLIs — detecting is not supporting** (KJC-TSK-0728, from the Orca landscape): `kj check`'s AI-surface inventory now also snapshots installed agent CLI binaries (grok, cursor-agent, pi, kilocode, kimi, vibe, rovodev) as `(cli)` entries, so a newly-appeared agent binary trips the same "NEW since last check — approved by you?" drift question; `kj doctor` gains one aggregate `agents:observed` line listing only what was found. Pipeline agents unchanged. Its first real run caught two true drifts on the maintainer's machine.
+
+### Fixed
+
+- **packages/ joins the lint surface — 1124 errors to zero** (KJC-TSK-0543): the card said "21 no-undef errors"; reality was 1124, because `npm run lint` never looked at packages/. Flat-config blocks per environment (node for src/bin, browser CLASSIC scripts for the hu-board dashboard — 132 shared globals declared with a regeneration recipe — vitest for tests), `npm run lint` now covers `src/ packages/` so the rot is structurally impossible, and the 17 real findings fixed (dead imports, a dead function, a missing `Error` cause).
+
 ## [4.13.0] - 2026-08-05
 
 Minor. **The program rules, the agent thinks** — the deterministic brain of v3 is reborn as a supervisor with real, synchronous authority over the agent: the Karajan Sentinel. Born from a field case: an agent that narrated the rules while skipping the gates. v3 had authority without intelligence; v4 intelligence without authority; the Sentinel separates the powers.
