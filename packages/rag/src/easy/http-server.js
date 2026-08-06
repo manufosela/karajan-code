@@ -83,12 +83,56 @@ function validateQueryPayload(body) {
 }
 
 /**
+ * Valida el payload de /answer.
+ *
+ * @param {Record<string, unknown>} body
+ * @returns {{ question: string, options: import('./answer.js').AnswerWithModeOptions }}
+ */
+function validateAnswerPayload(body) {
+  const { question, topK } = validateQueryPayload(body);
+  const mode = body.mode === undefined ? 'rag' : body.mode;
+  if (mode !== 'rag' && mode !== 'cag' && mode !== 'hybrid') {
+    throw Object.assign(new Error('"mode" debe ser rag, cag o hybrid.'), { statusCode: 400 });
+  }
+  if (body.adapter !== undefined && (typeof body.adapter !== 'string' || body.adapter.length === 0)) {
+    throw Object.assign(new Error('"adapter" debe ser un string no vacío.'), { statusCode: 400 });
+  }
+  const maxContextChars = body.maxContextChars;
+  const MAX_CONTEXT_CAP = 5_000_000;
+  if (
+    maxContextChars !== undefined &&
+    (!Number.isInteger(maxContextChars) ||
+      /** @type {number} */ (maxContextChars) <= 0 ||
+      /** @type {number} */ (maxContextChars) > MAX_CONTEXT_CAP)
+  ) {
+    throw Object.assign(
+      new Error(`"maxContextChars" debe ser un entero en [1, ${MAX_CONTEXT_CAP}].`),
+      { statusCode: 400 },
+    );
+  }
+  return {
+    question,
+    options: {
+      mode,
+      // topK solo si el cliente lo manda: sin él mandan los defaults del
+      // corpus (karajan.config.json), igual que en el CLI.
+      ...(body.topK !== undefined ? { topK } : {}),
+      ...(body.adapter !== undefined
+        ? { adapter: /** @type {string} */ (body.adapter), adapterExplicit: true }
+        : {}),
+      ...(maxContextChars !== undefined ? { maxContextChars: /** @type {number} */ (maxContextChars) } : {}),
+    },
+  };
+}
+
+/**
  * Crea el servidor HTTP (sin arrancarlo — el caller hace listen/close).
  *
  * @param {RagService} service
+ * @param {{ adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [options]
  * @returns {import('node:http').Server}
  */
-export function createRagHttpServer(service) {
+export function createRagHttpServer(service, options = {}) {
   return createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/health') {
@@ -101,6 +145,34 @@ export function createRagHttpServer(service) {
         const { question, topK } = validateQueryPayload(body);
         const result = await service.query(question, topK);
         sendJson(res, 200, result);
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/answer') {
+        const body = await readJsonBody(req);
+        const { question, options: answerOptions } = validateAnswerPayload(body);
+        try {
+          const result = await service.answer(question, {
+            ...answerOptions,
+            registry: options.adapterRegistry,
+            log: () => {},
+          });
+          // Por red NO viaja el inventario del corpus (listas de rutas de
+          // files/excluded): solo conteos. Las garantías (adapter, nivel,
+          // modo) sí son siempre visibles.
+          const { files, excluded, ...rest } = result;
+          sendJson(res, 200, {
+            ...rest,
+            ...(files ? { filesCount: files.length } : {}),
+            ...(excluded ? { excludedCount: excluded.length } : {}),
+          });
+        } catch (err) {
+          // Rechazo del gate de sensibilidad = 403 (petición prohibida
+          // por policy), no un error del servidor.
+          if (err instanceof Error && err.message.includes('no está permitido')) {
+            throw Object.assign(err, { statusCode: 403 });
+          }
+          throw err;
+        }
         return;
       }
       sendJson(res, 404, { error: `ruta no soportada: ${req.method} ${req.url}` });
@@ -120,11 +192,11 @@ export function createRagHttpServer(service) {
  * Arranca el servidor y resuelve con la URL local efectiva.
  *
  * @param {RagService} service
- * @param {{ port?: number, host?: string }} [options]
+ * @param {{ port?: number, host?: string, adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [options]
  * @returns {Promise<{ server: import('node:http').Server, url: string }>}
  */
 export async function startRagHttpServer(service, options = {}) {
-  const server = createRagHttpServer(service);
+  const server = createRagHttpServer(service, { adapterRegistry: options.adapterRegistry });
   const port = options.port ?? 8080;
   const host = options.host ?? '0.0.0.0';
   await new Promise((resolve, reject) => {

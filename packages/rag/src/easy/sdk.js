@@ -20,8 +20,7 @@ import { indexDirectory, DEFAULT_INGEST_BATCH_SIZE } from './indexer.js';
 import { queryIndex } from './query.js';
 import { loadManifest } from './manifest.js';
 import { createRagService } from './rag-service.js';
-import { buildCagContext, buildHybridContext } from './cag.js';
-import { generateAnswerForHits } from './cli.js';
+import { answerWithMode } from './answer.js';
 
 /**
  * @typedef {import('./indexer.js').EasyEmbedder} EasyEmbedder
@@ -136,62 +135,16 @@ export async function createRag(options = {}) {
     },
 
     async answer(question, answerOptions = {}) {
-      const mode = answerOptions.mode ?? 'rag';
-      if (!['rag', 'cag', 'hybrid'].includes(mode)) {
-        throw new Error(`createRag.answer: "mode" debe ser rag, cag o hybrid (recibido: "${mode}").`);
-      }
-      const log = answerOptions.log ?? (() => {});
-
-      /** @type {import('./query.js').EasyQueryHit[]} */
-      let hits;
-      /** @type {string[] | undefined} */
-      let files;
-      /** @type {{ source: string, chars: number }[] | undefined} */
-      let excluded;
-
-      if (mode === 'cag') {
-        const ctx = await buildCagContext(rootDir, { maxChars: answerOptions.maxContextChars });
-        hits = ctx.hits;
-        files = ctx.files;
-      } else {
-        const retrieved = await queryIndex(question, {
-          rootDir,
-          store: /** @type {never} */ (store),
-          embedder,
-          topK: answerOptions.topK ?? options.topK ?? 5,
-        });
-        if (retrieved.hits.length === 0) {
-          throw new Error('createRag.answer: la consulta no recuperó nada del índice.');
-        }
-        if (mode === 'hybrid') {
-          const ctx = await buildHybridContext(rootDir, {
-            hits: retrieved.hits,
-            maxChars: answerOptions.maxContextChars,
-          });
-          hits = ctx.hits;
-          files = ctx.files;
-          excluded = ctx.excluded;
-        } else {
-          hits = retrieved.hits;
-        }
-      }
-
-      const generated = await generateAnswerForHits({
+      // Delegado al camino compartido (answer.js) — la misma
+      // implementación que sirve el endpoint HTTP /answer.
+      return answerWithMode({
+        rootDir,
+        store,
+        embedder,
         question,
-        hits,
-        adapter: answerOptions.adapter ?? 'claude',
-        adapterExplicit: answerOptions.adapterExplicit ?? false,
-        registry: answerOptions.registry,
-        log,
+        ...answerOptions,
+        topK: answerOptions.topK ?? options.topK ?? 5,
       });
-      return {
-        answer: generated.answer,
-        adapter: generated.adapter,
-        sensitivity: generated.sensitivity,
-        mode,
-        ...(files ? { files } : {}),
-        ...(excluded ? { excluded } : {}),
-      };
     },
 
     async status() {
