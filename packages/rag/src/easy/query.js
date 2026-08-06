@@ -92,6 +92,11 @@ export async function queryIndex(question, options) {
   const topK = options.topK ?? 5;
   const candidateCount = options.candidates ?? Math.max(topK * 8, 32);
 
+  // El manifest se carga ANTES de embeber o buscar: un manifest ilegible
+  // falla cerrado sin gastar embedding y sin depender de que haya hits
+  // (recomendación post-1.0, endurecida en la revisión del diff).
+  const manifest = await loadManifest(rootDir);
+
   const [queryVector] = await embedder.embedBatch([trimmed]);
   const rawHits = /** @type {{ id: string, score: number, metadata?: Record<string, unknown> }[]} */ (
     await store.search(queryVector, { topK: candidateCount })
@@ -116,10 +121,10 @@ export async function queryIndex(question, options) {
   const top = kept.slice(0, topK);
 
   // Revisión 2026-07-23 (pasada 2): la metadata del store no es fuente de
-  // verdad para el gate. El manifest —que persiste el nivel por fichero—
-  // actúa como suelo autoritativo: ante discrepancia gana el nivel más
-  // restrictivo, y una fuente que el manifest no conoce nunca es public.
-  const manifest = await loadManifest(rootDir).catch(() => null);
+  // verdad para el gate. El manifest —cargado arriba, suelo autoritativo—
+  // gana ante discrepancia con el nivel más restrictivo, y una fuente que
+  // no conoce nunca es public. Solo su AUSENCIA (null) permite operar con
+  // el nivel que declare el store.
   /** @param {{ metadata?: Record<string, unknown> }} hit */
   const effectiveLevel = (hit) => {
     const claimed = classifySensitivity({ metadata: /** @type {never} */ (hit.metadata ?? {}) });
