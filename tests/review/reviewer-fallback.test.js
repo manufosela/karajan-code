@@ -40,6 +40,19 @@ describe("candidate registry + status", () => {
     }
     expect(REVIEWER_CANDIDATES.map((c) => c.name)).toContain("copilot");
     expect(REVIEWER_CANDIDATES.map((c) => c.name)).toContain("kimi");
+    // "mete también copilot y no sé si alguna más" (2026-08-06): copilot ya
+    // estaba; el hueco real era aider — adaptador kj desde v1, auth por env.
+    expect(REVIEWER_CANDIDATES.map((c) => c.name)).toContain("aider");
+  });
+
+  it("aider authenticates via env keys (no session file), checked against an injected env", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "kj-fb-aider-"));
+    const base = { home, checkBin: async () => ({ ok: true }) };
+    const withKey = await candidateStatus({ ...base, env: { OPENAI_API_KEY: "sk-test" } });
+    expect(withKey.find((s) => s.name === "aider").authenticated).toBe(true);
+    const without = await candidateStatus({ ...base, env: {} });
+    expect(without.find((s) => s.name === "aider").authenticated).toBe(false);
+    fs.rmSync(home, { recursive: true, force: true });
   });
 
   it("reports installed × authenticated from local heuristics (fake home)", async () => {
