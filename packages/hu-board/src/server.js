@@ -4,7 +4,6 @@ import rateLimit from 'express-rate-limit';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { writeFileSync, rmSync, mkdirSync, realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { initDb, closeDb } from './db.js';
 import { fullScan, startWatcher } from './sync.js';
 import apiRoutes from './routes/api.js';

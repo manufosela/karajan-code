@@ -16,7 +16,6 @@
  */
 import { readFileSync, existsSync, readdirSync, mkdirSync, openSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { homedir } from 'node:os';
 import { writeJsonAtomicSync } from 'karajan-core/atomic-write';
 import { spawn } from 'node:child_process';
 import { trackRun, untrack } from './run-tracker.js';

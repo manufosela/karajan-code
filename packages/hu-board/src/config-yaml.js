@@ -30,7 +30,6 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
 import { getKjHome } from './db.js';
 
@@ -448,7 +447,7 @@ export function readConfig({ scope = 'global' } = {}) {
       parsed = yaml.load(readFileSync(p, 'utf8'), { json: true }) || {};
       exists = true;
     } catch (err) {
-      throw new Error(`No se pudo parsear ${p}: ${err.message}`);
+      throw new Error(`No se pudo parsear ${p}: ${err.message}`, { cause: err });
     }
   }
   const fields = EDITABLE_FIELDS.map((f) => {

@@ -18,7 +18,6 @@
 
 import { mkdirSync, openSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";

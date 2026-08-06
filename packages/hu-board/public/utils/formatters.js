@@ -117,7 +117,7 @@ function humaniseProjectName(id) {
   if (!id || typeof id !== 'string') return id || '';
   const tail = id.split(/[/_]/).filter(Boolean).pop() || id;
   const words = tail
-    .split(/[\s\-]+/)
+    .split(/[\s-]+/)
     .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ''))
     .filter((w) => w.length > 0);
   if (words.length === 0) return id;

@@ -1,5 +1,5 @@
 import { watch } from 'chokidar';
-import { readFileSync, readdirSync, existsSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { homedir } from 'node:os';
 import {

@@ -23,7 +23,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { homedir } from 'node:os';
 import {
   getDb,
   getKjHome,
