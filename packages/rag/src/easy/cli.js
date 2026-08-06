@@ -30,17 +30,12 @@ import {
   loadEasyConfig,
   saveEasyConfig,
 } from './config.js';
-import {
-  resolveDocumentSensitivity,
-  effectiveSensitivityOfHits,
-  enforceEasyAdapterPolicy,
-} from './sensitivity.js';
-import { createOllamaClient } from '../ai/adapters/ollama-client.js';
+import { resolveDocumentSensitivity } from './sensitivity.js';
+import { generateAnswerForHits } from './answer.js';
 import { buildCagContext, buildHybridContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
 import { compareModes } from '../evaluation/mode-compare.js';
 import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
 import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
-import { GeneratorRole } from '../generation/generator-role.js';
 import { redactPII } from '../redaction/pii-redactor.js';
 import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
 import { DEFAULT_SENSITIVITY, SENSITIVITY_LEVELS } from '../domain/document.js';
@@ -413,69 +408,9 @@ export async function runQueryCommand(argv, io = {}) {
   return { ...result, answer: generated.answer };
 }
 
-/**
- * Genera la respuesta LLM para hits ya recuperados aplicando el fix de
- * KJR-BUG-0006 (ADR-005 §6): el nivel efectivo es el MÁXIMO de los chunks
- * recuperados, el adapter se valida contra la sensitivity policy y todo
- * el contenido sale redactado de PII (defensa en profundidad).
- *
- * @param {{
- *   question: string,
- *   hits: import('./query.js').EasyQueryHit[],
- *   adapter: string,
- *   adapterExplicit?: boolean,
- *   registry?: { get: (name: string) => unknown, has: (name: string) => boolean },
- *   log?: (msg: string) => void,
- * }} params
- * @returns {Promise<{ answer: string, adapter: string, sensitivity: import('../domain/document.js').Sensitivity }>}
- */
-export async function generateAnswerForHits(params) {
-  const { question, hits, adapterExplicit = false } = params;
-  const log = params.log ?? ((msg) => console.error(`[query] ${msg}`));
-  const sensitivity = effectiveSensitivityOfHits(hits);
-  const adapter = enforceEasyAdapterPolicy({
-    sensitivity,
-    adapter: params.adapter,
-    explicit: adapterExplicit,
-    log,
-  });
-  const registry = params.registry ?? (await createEasyAnswerRegistry());
-  const generator = new GeneratorRole({
-    name: 'easy-query-generator',
-    logger: { info: log, warn: log, error: log },
-    adapterName: adapter,
-  });
-  const generated = await generator.run(
-    {
-      query: redactPII(question).text,
-      contextChunks: hits.map((h) => ({
-        id: h.id,
-        score: h.score,
-        metadata: { content: redactPII(h.content).text, source: h.source },
-      })),
-    },
-    {
-      get: (name) => registry.get(name),
-      has: (name) => registry.has(name),
-    },
-  );
-  return { answer: generated.answer, adapter, sensitivity };
-}
-
-/**
- * Registry para `query --answer`: los CLIs públicos por defecto más
- * ollama (HTTP local), que es el único provider permitido para
- * confidential — sin él, ningún corpus restrictivo tendría salida.
- *
- * @returns {Promise<import('../ai/adapter-registry.js').AdapterRegistry>}
- */
-async function createEasyAnswerRegistry() {
-  const registry = await createDefaultAdapterRegistry();
-  if (!registry.has('ollama')) {
-    registry.register('ollama', createOllamaClient().adapter, { transport: 'http' });
-  }
-  return registry;
-}
+// El camino guardado de respuesta vive en answer.js (compartido con SDK
+// y servidor HTTP); se re-exporta aquí por compatibilidad de API pública.
+export { generateAnswerForHits } from './answer.js';
 
 /**
  * Parsea `karajan-rag serve [ruta] [--http] [--mcp] [--port N] [--store lancedb|pgvector]`.

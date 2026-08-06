@@ -95,6 +95,8 @@ const REQUIRED_EXPORTS = [
   'effectiveSensitivityOfHits',
   'enforceEasyAdapterPolicy',
   'generateAnswerForHits',
+  'answerWithMode',
+  'createEasyAnswerRegistry',
   'buildCagContext',
   'buildHybridContext',
   'DEFAULT_CAG_MAX_CHARS',

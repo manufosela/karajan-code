@@ -15,6 +15,8 @@ import { LanceDBStore } from '../vector-store/lancedb-store.js';
 import { PgVectorStore } from '../vector-store/pgvector-store.js';
 import { MANIFEST_DIR, loadManifest } from './manifest.js';
 import { queryIndex } from './query.js';
+import { answerWithMode } from './answer.js';
+import { loadEasyConfig } from './config.js';
 
 /**
  * @typedef {import('./indexer.js').EasyEmbedder} EasyEmbedder
@@ -22,6 +24,7 @@ import { queryIndex } from './query.js';
  *
  * @typedef {object} RagService
  * @property {(question: string, topK?: number) => Promise<import('./query.js').EasyQueryResult>} query
+ * @property {(question: string, options?: import('./answer.js').AnswerWithModeOptions) => Promise<import('./answer.js').AnswerWithModeResult>} answer
  * @property {() => Promise<{ fingerprint: string, files: number, chunks: number, store: string }>} status
  */
 
@@ -113,6 +116,8 @@ export async function openEasyIndex(rootDir, options = {}) {
 export function createRagService(deps) {
   const { rootDir, manifest, embedder, store } = deps;
   const storeName = deps.storeName ?? 'custom';
+  /** @type {import('./config.js').EasyConfig | undefined} */
+  let easyConfig;
   return {
     async query(question, topK = 5) {
       return queryIndex(question, {
@@ -120,6 +125,24 @@ export function createRagService(deps) {
         store: /** @type {never} */ (store),
         embedder,
         topK,
+      });
+    },
+    async answer(question, answerOptions = {}) {
+      // Camino guardado compartido (answer.js): modo → contexto → policy
+      // → redacción → adapter. Los defaults del corpus (adapter, topK)
+      // salen de karajan.config.json IGUAL que en el CLI — sin esto, la
+      // misma pregunta por HTTP y por CLI podría acabar en adapters
+      // distintos sin que nadie lo eligiera. Config inválida → error
+      // explícito (loadEasyConfig lanza), nunca se ignora.
+      easyConfig ??= (await loadEasyConfig(rootDir)) ?? {};
+      return answerWithMode({
+        rootDir,
+        store,
+        embedder,
+        question,
+        ...answerOptions,
+        adapter: answerOptions.adapter ?? easyConfig.adapter,
+        topK: answerOptions.topK ?? easyConfig.topK,
       });
     },
     async status() {

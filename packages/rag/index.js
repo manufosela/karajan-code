@@ -130,6 +130,7 @@ export {
 } from './src/easy/sensitivity.js';
 export { buildCagContext, buildHybridContext, DEFAULT_CAG_MAX_CHARS } from './src/easy/cag.js';
 export { generateAnswerForHits } from './src/easy/cli.js';
+export { answerWithMode, createEasyAnswerRegistry } from './src/easy/answer.js';
 
 // --- Embedding ------------------------------------------------------------
 export { createHashEmbedder } from './src/embedding/embedder.js';
