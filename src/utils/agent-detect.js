@@ -12,6 +12,32 @@ const KNOWN_AGENTS = [
   { name: "copilot", install: getInstallCommand("copilot") }
 ];
 
+/**
+ * KJC-TSK-0728 — observation census (from the Orca landscape): agent CLIs kj
+ * can SEE but does not drive. Detecting is not supporting — these never feed
+ * pipeline pickers; they feed the AI-surface inventory and one doctor line.
+ * `bin` differs from `name` when the vendor ships an umbrella binary.
+ */
+const OBSERVED_AGENTS = [
+  { name: "grok", bin: "grok" },
+  { name: "cursor-agent", bin: "cursor-agent" },
+  { name: "pi", bin: "pi" },
+  { name: "kilocode", bin: "kilocode" },
+  { name: "kimi", bin: "kimi" },
+  { name: "vibe", bin: "vibe" },
+  { name: "rovodev", bin: "acli" },
+];
+
+/** Probe the observation census in parallel; callers filter on `available`. */
+export async function detectObservedAgents() {
+  return Promise.all(
+    OBSERVED_AGENTS.map(async (agent) => {
+      const check = await checkBinary(agent.bin);
+      return { name: agent.name, bin: agent.bin, available: check.ok, version: check.ok ? check.version : null };
+    })
+  );
+}
+
 export async function checkBinary(name, versionArg = "--version") {
   const resolved = resolveBin(name);
   // KJC-BUG-0113: a zombie CLI that hangs on --version (seen with the
@@ -61,4 +87,4 @@ export function isHostAgent(provider) {
   return host !== null && host === provider;
 }
 
-export { KNOWN_AGENTS };
+export { KNOWN_AGENTS, OBSERVED_AGENTS };

@@ -7,6 +7,7 @@
 import { checkHarden } from "../harden/check.js";
 import { collectMethodStats, formatMethodStats } from "../checks/method.js";
 import { checkAiSurface, formatAiSurface } from "../checks/ai-surface.js";
+import { detectObservedAgents } from "../utils/agent-detect.js";
 
 export async function checkCommand({ projectDir = process.cwd(), profile = "standard", json = false, logger = console } = {}) {
   const result = await checkHarden({ projectDir, profile });
@@ -14,8 +15,15 @@ export async function checkCommand({ projectDir = process.cwd(), profile = "stan
   // rides along in check output but never affects the exit code.
   const method = await collectMethodStats({ projectDir }).catch(() => null);
   // KJC-TSK-0694: same deal for the MCP inventory — a nudge, never a gate.
+  // KJC-TSK-0728: observed agent CLIs ride the same snapshot as "(cli)"
+  // entries, so a newly-appeared agent binary trips the same drift question.
   let aiSurface = null;
-  try { aiSurface = checkAiSurface({ projectDir }); } catch { /* inventory is best-effort */ }
+  try {
+    const clis = (await detectObservedAgents().catch(() => []))
+      .filter((a) => a.available)
+      .map((a) => `${a.name} (cli)`);
+    aiSurface = checkAiSurface({ projectDir, extraSurface: clis });
+  } catch { /* inventory is best-effort */ }
 
   if (json) {
     logger.info?.(JSON.stringify({ ...result, method, aiSurface }));

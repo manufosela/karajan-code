@@ -112,6 +112,8 @@ vi.mock("../src/sonar/manager.js", () => ({
 }));
 
 vi.mock("../src/utils/agent-detect.js", () => ({
+  detectObservedAgents: vi.fn().mockResolvedValue([]),
+  OBSERVED_AGENTS: [],
   detectAvailableAgents: vi.fn().mockResolvedValue([
     { name: "claude", available: true, version: "2.0.0", install: "" },
     { name: "codex", available: true, version: "1.0.0", install: "" }
