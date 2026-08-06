@@ -217,6 +217,12 @@ test('LanceDBStore: search con mock devuelve hits ordenados con score=1-distance
 });
 
 test('LanceDBStore: sin dep real lanza con instrucción', async () => {
-  const store = new LanceDBStore({ dimensions: 4 });
+  // El peer está instalado como devDependency (e2e del routing), así que
+  // el camino "peer ausente" se simula con el seam _importFn — la
+  // cobertura del branch de error no se pierde.
+  const store = new LanceDBStore({
+    dimensions: 4,
+    _importFn: async () => { throw new Error("Cannot find package '@lancedb/lancedb'"); },
+  });
   await assert.rejects(() => store.upsertOne({ id: 'x', vector: [1, 0, 0, 0] }), /@lancedb\/lancedb/);
 });
