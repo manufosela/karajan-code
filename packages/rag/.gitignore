@@ -67,3 +67,4 @@ examples/**/.karajan/
 
 # Tooling local
 .serena/
+.kj-scratch/

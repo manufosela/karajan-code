@@ -1,0 +1,14 @@
+# Sin workspaces reales: el campo packages es obligatorio para pnpm 9
+# (la versión fijada en CI) aunque quede vacío.
+packages: []
+
+# Opcionales de @lancedb/lancedb que NO usamos (sus helpers de embedding):
+# sin esto, el arbol de dev/CI pasa de ~350MB a 1.1GB.
+ignoredOptionalDependencies:
+  - "@huggingface/transformers"
+  - openai
+
+allowBuilds:
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true

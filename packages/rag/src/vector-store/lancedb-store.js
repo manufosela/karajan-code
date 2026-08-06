@@ -12,6 +12,7 @@
  * @property {string} [table] Nombre de tabla (default 'karajan_rag_chunks').
  * @property {number} dimensions Dimensión del vector.
  * @property {any} [lancedb] Módulo @lancedb/lancedb inyectable (tests).
+ * @property {(specifier: string) => Promise<any>} [_importFn] Importador inyectable (tests: simular peer ausente).
  */
 
 /**
@@ -39,6 +40,7 @@ export class LanceDBStore {
     this.table = opts.table ?? 'karajan_rag_chunks';
     this.dimensions = opts.dimensions;
     this._lancedb = opts.lancedb ?? null;
+    this._importFn = opts._importFn ?? null;
     /** @type {any} */
     this._connection = null;
     /** @type {any} */
@@ -60,7 +62,9 @@ export class LanceDBStore {
   async _loadModule() {
     if (this._lancedb) return this._lancedb;
     try {
-      const mod = await import('@lancedb/lancedb');
+      // Seam para tests: _importFn permite simular el peer ausente aunque
+      // esté instalado como devDependency (cobertura del branch de error).
+      const mod = await (this._importFn ?? ((s) => import(s)))('@lancedb/lancedb');
       this._lancedb = mod;
       return mod;
     } catch (err) {
