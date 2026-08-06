@@ -419,7 +419,7 @@ export { generateAnswerForHits } from './answer.js';
  * usa stdout para el protocolo; mezclar ambos en un proceso lo rompería).
  *
  * @param {string[]} argv
- * @returns {{ rootDir: string, mode: 'mcp' | 'http', port: number, store: 'lancedb' | 'pgvector' }}
+ * @returns {{ rootDir: string, mode: 'mcp' | 'http', port: number, store: 'lancedb' | 'pgvector', ui: boolean }}
  */
 export function parseServeArgs(argv) {
   const { values, positionals } = parseArgs({
@@ -430,6 +430,7 @@ export function parseServeArgs(argv) {
       mcp: { type: 'boolean', default: false },
       port: { type: 'string' },
       store: { type: 'string', default: 'lancedb' },
+      'no-ui': { type: 'boolean', default: false },
     },
   });
   if (values.http && values.mcp) {
@@ -448,6 +449,7 @@ export function parseServeArgs(argv) {
     mode: values.http ? 'http' : 'mcp',
     port,
     store,
+    ui: values['no-ui'] !== true,
   };
 }
 
@@ -469,8 +471,11 @@ export async function runServeCommand(argv, io = {}) {
   });
 
   if (options.mode === 'http') {
-    const { server, url } = await startRagHttpServer(service, { port: options.port });
-    log(`HTTP escuchando en ${url} (POST /query, GET /health)`);
+    const { server, url } = await startRagHttpServer(service, { port: options.port, ui: options.ui });
+    log(
+      `HTTP escuchando en ${url} (POST /query, POST /answer, GET /health` +
+        `${options.ui ? `, playground en ${url}/` : ' — sin UI'})`,
+    );
     return {
       mode: 'http',
       url,

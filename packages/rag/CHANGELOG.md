@@ -7,6 +7,21 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Query playground** (KJR-TSK-0150): `serve --http` sirve en `/` una
+  página web autocontenida (cero assets externos) para consultar el
+  corpus sin CLI ni MCP — pregunta, modo (rag/cag/hybrid), topK, hits
+  `fichero:línea` y respuestas con las garantías siempre visibles
+  (adapter decidido por la policy y nivel del gate). `--no-ui` la apaga.
+- **`POST /answer`** en el servidor HTTP: los tres modos por el camino
+  guardado compartido (`src/easy/answer.js`, nueva API `answerWithMode` y
+  `createEasyAnswerRegistry`), con los defaults del corpus desde
+  `karajan.config.json` como el CLI, rechazo del gate como 403, retrieval
+  vacío como 404, tope de `maxContextChars` y solo CONTEOS de
+  files/excluded por red (el inventario de rutas no se expone).
+  `RagService` gana `answer()`.
+
 ### Changed
 
 - **`queryIndex` falla cerrado ante un manifest ilegible o de versión

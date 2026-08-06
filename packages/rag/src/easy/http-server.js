@@ -10,6 +10,7 @@
  * autenticación llega con el despliegue cloud (fuera de alcance aquí).
  */
 import { createServer } from 'node:http';
+import { PLAYGROUND_HTML } from './playground-page.js';
 
 /**
  * @typedef {import('./rag-service.js').RagService} RagService
@@ -129,12 +130,21 @@ function validateAnswerPayload(body) {
  * Crea el servidor HTTP (sin arrancarlo — el caller hace listen/close).
  *
  * @param {RagService} service
- * @param {{ adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [options]
+ * @param {{ adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean }, ui?: boolean }} [options]
  * @returns {import('node:http').Server}
  */
 export function createRagHttpServer(service, options = {}) {
+  const ui = options.ui !== false;
   return createServer(async (req, res) => {
     try {
+      if (ui && req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'content-length': Buffer.byteLength(PLAYGROUND_HTML),
+        });
+        res.end(PLAYGROUND_HTML);
+        return;
+      }
       if (req.method === 'GET' && req.url === '/health') {
         const status = await service.status();
         sendJson(res, 200, { ok: true, ...status });
@@ -192,11 +202,14 @@ export function createRagHttpServer(service, options = {}) {
  * Arranca el servidor y resuelve con la URL local efectiva.
  *
  * @param {RagService} service
- * @param {{ port?: number, host?: string, adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [options]
+ * @param {{ port?: number, host?: string, adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean }, ui?: boolean }} [options]
  * @returns {Promise<{ server: import('node:http').Server, url: string }>}
  */
 export async function startRagHttpServer(service, options = {}) {
-  const server = createRagHttpServer(service, { adapterRegistry: options.adapterRegistry });
+  const server = createRagHttpServer(service, {
+    adapterRegistry: options.adapterRegistry,
+    ui: options.ui,
+  });
   const port = options.port ?? 8080;
   const host = options.host ?? '0.0.0.0';
   await new Promise((resolve, reject) => {
