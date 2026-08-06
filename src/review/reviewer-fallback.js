@@ -54,6 +54,14 @@ export const REVIEWER_CANDIDATES = [
     authPaths: [".qwen/oauth_creds.json"],
   },
   {
+    name: "aider",
+    tier: "API keys propias (pago por token: OpenAI/Anthropic/OpenRouter…)",
+    login: "exportar OPENAI_API_KEY / ANTHROPIC_API_KEY (o ~/.aider.conf.yml)",
+    install: "pipx install aider-chat || pip3 install aider-chat",
+    authPaths: [".aider.conf.yml"],
+    authEnv: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"],
+  },
+  {
     name: "opencode",
     tier: "gratis con modelos locales (LiteLLM/Ollama) o API keys propias",
     login: "provider en ~/.config/opencode/opencode.json",
@@ -70,14 +78,19 @@ export function isQuotaExhausted(text) {
 }
 
 /** installed × authenticated for every candidate, from cheap local checks. */
-export async function candidateStatus({ home = os.homedir(), checkBin = checkBinary } = {}) {
+export async function candidateStatus({ home = os.homedir(), checkBin = checkBinary, env = process.env } = {}) {
   return Promise.all(
     REVIEWER_CANDIDATES.map(async (c) => {
       let installed = false;
       try {
         installed = (await checkBin(c.name)).ok;
       } catch { /* not installed */ }
-      const authenticated = c.authPaths.some((p) => existsSync(path.join(home, p)));
+      // Session-file heuristics, or env keys for CLIs (aider) that carry
+      // no session file. Key present ≠ credit left — it is menu signal;
+      // the failover only sticks if the candidate actually answers.
+      const authenticated =
+        c.authPaths.some((p) => existsSync(path.join(home, p))) ||
+        (c.authEnv || []).some((name) => Boolean(env[name]));
       return { ...c, installed, authenticated };
     }),
   );
