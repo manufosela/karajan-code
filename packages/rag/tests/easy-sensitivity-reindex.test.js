@@ -153,6 +153,48 @@ test('query: hit con source desconocido para el manifest cae al default seguro',
   }
 });
 
+test('query: manifest CORRUPTO falla cerrado, nunca vuelve al nivel del store (post-1.0 rec)', async () => {
+  const { queryIndex } = await import('../src/easy/query.js');
+  const root = await mkdtemp(path.join(tmpdir(), 'kjr-corrupt-manifest-'));
+  try {
+    await writeFile(path.join(root, 'doc.md'), '# Doc\nContenido reservado.\n', 'utf8');
+    const store = new InMemoryVectorStore({ dimensions: 32 });
+    const embedder = createHashEmbedder({ dimensions: 32 });
+    await indexDirectory(root, { store, embedder, sensitivityFor: () => 'confidential' });
+
+    // Se corrompe el manifest: el suelo autoritativo deja de ser legible.
+    await writeFile(path.join(root, '.karajan', 'manifest.json'), '{corrupto', 'utf8');
+
+    // El fallo debe ocurrir ANTES de embeber y aunque el store no tenga
+    // nada que devolver: store vacío + embedder contado fijan ambos
+    // invariantes (no se gasta embedding, no depende de que haya hits).
+    let embedCalls = 0;
+    const countingEmbedder = {
+      ...embedder,
+      dimensions: embedder.dimensions,
+      embedBatch: (/** @type {string[]} */ texts) => {
+        embedCalls += 1;
+        return embedder.embedBatch(texts);
+      },
+    };
+    const emptyStore = new InMemoryVectorStore({ dimensions: 32 });
+
+    await assert.rejects(
+      () => queryIndex('contenido reservado', {
+        rootDir: root,
+        store: /** @type {never} */ (emptyStore),
+        embedder: countingEmbedder,
+        topK: 1,
+      }),
+      /manifest/,
+      'manifest ilegible → error explícito, no degradar al nivel que declare el store',
+    );
+    assert.equal(embedCalls, 0, 'el fallo llega antes de embeber nada');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('manifest pre-fix (sin sensitivity) fuerza el reestampado una vez', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'kjr-restamp-legacy-'));
   try {

@@ -39,6 +39,15 @@ por defecto, secretos en Secret Manager).
 
 ## 3. Inventario de flujos hacia proveedores de IA
 
+**Modelo de confianza del gate** (elevado aquí desde §6 por recomendación
+de la pasada 3): la decisión de sensibilidad en query se toma con DOS
+fuentes — la metadata que devuelve el store y el nivel persistido en el
+manifest local, ganando siempre el más restrictivo. Para degradar el gate
+hace falta comprometer **el store Y el manifest a la vez**; una fuente
+desconocida para el manifest nunca cuenta como `public`, y un manifest
+ilegible **falla cerrado** (solo su ausencia permite operar con el nivel
+del store).
+
 | Camino | Sale contenido a | Policy aplicada | Redacción PII | Estado |
 |--------|------------------|-----------------|---------------|--------|
 | Pipeline declarativo (`run`) con `RedactionRole` en el grafo | El adapter del stage de generación | ✅ (`RedactionRole` bloquea por nivel) | ✅ (`redactPII` sobre cada chunk) | Diseño original, correcto |

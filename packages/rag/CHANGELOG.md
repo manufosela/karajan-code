@@ -7,6 +7,16 @@ este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`queryIndex` falla cerrado ante un manifest ilegible o de versión
+  incompatible** (recomendación post-1.0 de la revisión independiente):
+  antes un manifest corrupto se ignoraba en silencio y el gate degradaba
+  al nivel que declarase el store; ahora lanza error explícito ANTES de
+  embeber o buscar. Solo la AUSENCIA de manifest mantiene el
+  comportamiento anterior. Migración: la que el propio error indica —
+  borra `.karajan/` y reindexa.
+
 ## [1.4.0] — 2026-07-29
 
 ### Added
