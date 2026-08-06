@@ -174,7 +174,8 @@ function printUsage() {
   console.error('                 hybrid = ficheros completos elegidos por el retrieval; ambos');
   console.error('                 requieren --answer y respetan --max-context-chars).');
   console.error('  serve [ruta]   Sirve el índice: MCP stdio (default, tools rag_query/rag_status)');
-  console.error('                 o --http (POST /query, GET /health, --port N, default 8080).');
+  console.error('                 o --http (playground web en /, POST /query, POST /answer,');
+  console.error('                 GET /health; --port N default 8080, --no-ui para solo-API).');
   console.error('  doctor [ruta]  Diagnóstico de entorno e índice (✓/⚠/✗ con fixes; exit 1 con errores).');
   console.error('  eval <golden.json> [corpus]');
   console.error('                 Evalúa el golden set offline (métricas locales vs baseline;');

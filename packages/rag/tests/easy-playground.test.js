@@ -193,3 +193,57 @@ test('POST /answer: adapter explícito no permitido → 403 del gate', async () 
     await ctx.close();
   }
 });
+
+// --- PR2: la página del playground ---
+
+test('GET /: sirve la página autocontenida con los tres modos', async () => {
+  const ctx = await startPlaygroundServer(fakeRegistry([]));
+  try {
+    const res = await fetch(`${ctx.url}/`);
+    assert.equal(res.status, 200);
+    assert.ok(String(res.headers.get('content-type')).includes('text/html'));
+    const html = await res.text();
+    assert.ok(html.includes('karajan-') && html.includes('playground'));
+    for (const mode of ['rag', 'cag', 'hybrid']) {
+      assert.ok(html.includes(`value="${mode}"`), `selector con modo ${mode}`);
+    }
+    assert.ok(!/https?:\/\/(?!localhost)/.test(html.replace('http://www.w3.org', '')), 'sin assets externos');
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('createRagHttpServer ui:false → GET / responde 404 (solo API)', async () => {
+  const { createRagHttpServer } = await import('../src/easy/http-server.js');
+  const fakeService = /** @type {never} */ ({ status: async () => ({ ok: true }) });
+  const server = createRagHttpServer(fakeService, { ui: false });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(undefined)));
+  const { port } = /** @type {{ port: number }} */ (server.address());
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/`);
+    assert.equal(res.status, 404);
+  } finally {
+    await new Promise((resolve) => server.close(() => resolve(undefined)));
+  }
+});
+
+test('parseServeArgs: --no-ui apaga la página', async () => {
+  const { parseServeArgs } = await import('../src/easy/cli.js');
+  assert.equal(parseServeArgs(['.', '--http']).ui, true);
+  assert.equal(parseServeArgs(['.', '--http', '--no-ui']).ui, false);
+});
+
+test('playground: invariantes del script — sin var, sin estado de acción mutable, ARIA presente', async () => {
+  // Sin navegador en la suite, estos invariantes estáticos fijan las
+  // decisiones de diseño del JS embebido (el linter no ve dentro del
+  // template literal): la acción se captura del SubmitEvent.submitter en
+  // el propio submit (sin race con awaits), ES2025 (cero `var`) y
+  // accesibilidad mínima (labels + aria-live).
+  const { PLAYGROUND_HTML } = await import('../src/easy/playground-page.js');
+  assert.ok(!/\bvar\s+\w/.test(PLAYGROUND_HTML), 'cero var en el script embebido');
+  assert.ok(PLAYGROUND_HTML.includes('ev.submitter'), 'la acción sale del submitter del evento');
+  assert.ok(!PLAYGROUND_HTML.includes("addEventListener('click'"), 'sin estado de acción por click');
+  assert.equal((PLAYGROUND_HTML.match(/aria-label=/g) ?? []).length >= 3, true, 'inputs etiquetados');
+  assert.ok(PLAYGROUND_HTML.includes('aria-live'), 'resultados anunciados a lectores de pantalla');
+  assert.ok(!/\.innerHTML\s*=/.test(PLAYGROUND_HTML), 'render solo con textContent (sin asignaciones innerHTML)');
+});
