@@ -121,7 +121,9 @@ Crear un RAG sobre una carpeta de código, docs o datos sin escribir código
 karajan-rag index ./mi-proyecto                    # autodetecta e indexa (LanceDB local)
 karajan-rag query "¿cómo se factura?" ./mi-proyecto # híbrido vector+BM25, fichero:línea
 karajan-rag serve ./mi-proyecto                     # servidor MCP (rag_query/rag_status)
-karajan-rag serve ./mi-proyecto --http --port 8080  # o HTTP: POST /query, GET /health
+karajan-rag serve ./mi-proyecto --http --port 8080  # HTTP: playground web en /,
+                                                    # POST /query, POST /answer, GET /health
+                                                    # (--no-ui para servir solo la API)
 ```
 
 Reindexado incremental, config opcional (`karajan-rag init`), imagen Docker
