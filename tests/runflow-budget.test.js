@@ -21,6 +21,22 @@ vi.mock("../src/agents/index.js", () => ({
   createAgent: vi.fn()
 }));
 
+// KJC-TSK-0545: without this mock the orchestrator's preflight probes every
+// KNOWN_AGENTS binary for real (nine 5s-timeout spawns per run) — latency
+// and nondeterminism a budget test must not depend on.
+vi.mock("../src/utils/agent-detect.js", () => ({
+  detectAvailableAgents: vi.fn().mockResolvedValue([
+    { name: "claude", available: true, version: "1.0.0", install: "" },
+    { name: "codex", available: true, version: "1.0.0", install: "" }
+  ]),
+  detectObservedAgents: vi.fn().mockResolvedValue([]),
+  checkBinary: vi.fn().mockResolvedValue({ ok: true, version: "1.0.0", path: "/usr/bin/mock" }),
+  detectHostAgent: vi.fn().mockReturnValue(null),
+  isHostAgent: vi.fn().mockReturnValue(false),
+  KNOWN_AGENTS: [{ name: "claude", install: "" }, { name: "codex", install: "" }],
+  OBSERVED_AGENTS: []
+}));
+
 vi.mock("../src/session/store.js", () => {
   let session = null;
   return {
