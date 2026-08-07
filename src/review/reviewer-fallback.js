@@ -35,8 +35,7 @@ export const REVIEWER_CANDIDATES = [
     tier: "suscripción Google AI Pro/Ultra (sucesor del gemini CLI, retirado 06-2026)",
     login: "agy → /login (cuenta Google)",
     install: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
-    authPaths: [".agy", ".config/agy", ".antigravity-cli"],
-    adapterPending: true,
+    authPaths: [".gemini/antigravity-cli"],
   },
   {
     name: "kimi",

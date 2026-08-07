@@ -56,6 +56,11 @@ const INSTALL_COMMANDS = {
     linux: "npm install -g @qwen-code/qwen-code",
     windows: "npm install -g @qwen-code/qwen-code"
   },
+  agy: {
+    macos: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    linux: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    windows: "irm https://antigravity.google/cli/install.ps1 | iex"
+  },
   copilot: {
     macos: "npm install -g @github/copilot",
     linux: "npm install -g @github/copilot",
