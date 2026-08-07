@@ -1,6 +1,11 @@
 # Changelog
 
-## No publicado
+## 0.3.0 — 2026-08-07
+
+> **Ya no necesitas una base de datos para probarlo.** Si te frenó tener que
+> decidir dónde alojar un Postgres, esta es tu versión: empieza con
+> `lancedb`, que es un directorio en disco, y deja `pgvector` para cuando el
+> corpus crezca o varias máquinas lo compartan.
 
 ### Nuevo
 
