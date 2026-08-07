@@ -32,8 +32,9 @@ const PREFIXES = [
 
 // Vars only ONE agent authenticates with — granting them globally would
 // defeat the point (the coder does not need your GitHub token; copilot does).
-const AGENT_EXTRAS = {
+export const AGENT_EXTRAS = {
   copilot: ["GITHUB_", "GH_"],
+  kimi: ["KIMI_", "MOONSHOT_"],
 };
 
 const matches = (pattern, key) =>

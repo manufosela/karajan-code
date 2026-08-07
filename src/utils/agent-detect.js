@@ -9,7 +9,10 @@ const KNOWN_AGENTS = [
   { name: "aider", install: getInstallCommand("aider") },
   { name: "opencode", install: getInstallCommand("opencode") },
   { name: "qwen", install: getInstallCommand("qwen") },
-  { name: "copilot", install: getInstallCommand("copilot") }
+  { name: "copilot", install: getInstallCommand("copilot") },
+  // KJC-TSK-0729: promoted from the observation census once its adapter
+  // landed — detecting is not supporting; supporting is.
+  { name: "kimi", install: getInstallCommand("kimi") }
 ];
 
 /**
@@ -23,7 +26,6 @@ const OBSERVED_AGENTS = [
   { name: "cursor-agent", bin: "cursor-agent" },
   { name: "pi", bin: "pi" },
   { name: "kilocode", bin: "kilocode" },
-  { name: "kimi", bin: "kimi" },
   { name: "vibe", bin: "vibe" },
   { name: "rovodev", bin: "acli" },
 ];
