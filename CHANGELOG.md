@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.14.0] - 2026-08-07
+
+Minor. **The panel never runs dry** — born from a real outage: codex exhausted its weekly quota mid-card and the whole arbitration panel collapsed with it (gemini retired, the local model down, copilot conflicted as the disputing reviewer). One day later: quota failover with consent, two new agents restoring the panel, and the lint rot that was hiding in the unwatched corner.
+
 ### Added
 
 - **Kimi Code and Antigravity CLI as the eighth and ninth built-in agents** (KJC-TSK-0729): `kimi` (Moonshot, free tier — the panel's no-cost reserve) and `agy` (Google's official successor to the gemini CLI retired 2026-06-18, covered by a Google AI Pro subscription — the gemini lineage back in the arbitration panel). Both verified live against their real CLIs (`-p` print modes, JSON parsing, no-tools review discipline, coder-only permission grants); both promoted OUT of the observation census — detecting is not supporting, supporting is. `aider` also joins the quota-failover candidates via env-key auth. And the root fix the agy debut exposed: **a role's model pin belongs to its provider** — switching provider by flag (`--reviewer agy`) now drops the pin instead of shipping codex's model name to a CLI that answers with its model list (second appearance of this bug class in two days; now closed at the overrides layer, with tests). agy's first act: approving the review of its own adapter.
