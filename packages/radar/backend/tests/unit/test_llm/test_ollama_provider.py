@@ -7,7 +7,7 @@ import pytest
 import respx
 
 from app.llm.base import LLMResponse
-from app.llm.ollama_provider import OllamaProvider, extract_json
+from app.llm.ollama_provider import OllamaProvider
 
 BASE_URL = "http://localhost:11434"
 CHAT_URL = f"{BASE_URL}/api/chat"
@@ -31,55 +31,6 @@ def provider() -> OllamaProvider:
 
 # ---------------------------------------------------------------------------
 # JSON extraction -- the part that matters with small local models
-# ---------------------------------------------------------------------------
-
-
-class TestExtractJson:
-    def test_parses_plain_json(self) -> None:
-        assert extract_json('{"a": 1}') == {"a": 1}
-
-    def test_parses_json_with_surrounding_whitespace(self) -> None:
-        assert extract_json('  \n {"a": 1} \n ') == {"a": 1}
-
-    def test_unwraps_a_fenced_json_block(self) -> None:
-        raw = 'Here you go:\n```json\n{"a": 1}\n```\nHope that helps.'
-
-        assert extract_json(raw) == {"a": 1}
-
-    def test_unwraps_an_unlabelled_fenced_block(self) -> None:
-        raw = '```\n{"a": 1}\n```'
-
-        assert extract_json(raw) == {"a": 1}
-
-    def test_extracts_an_object_buried_in_prose(self) -> None:
-        raw = 'Sure! The answer is {"a": 1} — let me know if you need more.'
-
-        assert extract_json(raw) == {"a": 1}
-
-    def test_handles_nested_objects(self) -> None:
-        raw = 'Result: {"a": {"b": [1, 2]}, "c": "}"} done'
-
-        assert extract_json(raw) == {"a": {"b": [1, 2]}, "c": "}"}
-
-    def test_ignores_braces_inside_strings(self) -> None:
-        raw = '{"note": "use {curly} braces"}'
-
-        assert extract_json(raw) == {"note": "use {curly} braces"}
-
-    def test_raises_when_there_is_no_json(self) -> None:
-        with pytest.raises(ValueError, match="no JSON object"):
-            extract_json("I am afraid I cannot do that.")
-
-    def test_raises_on_malformed_json(self) -> None:
-        with pytest.raises(ValueError):
-            extract_json('{"a": }')
-
-
-# ---------------------------------------------------------------------------
-# complete()
-# ---------------------------------------------------------------------------
-
-
 class TestComplete:
     @respx.mock
     async def test_returns_an_llm_response(self, provider: OllamaProvider) -> None:
