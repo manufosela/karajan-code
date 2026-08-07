@@ -41,10 +41,9 @@ export const REVIEWER_CANDIDATES = [
   {
     name: "kimi",
     tier: "gratis (Kimi Code, Moonshot K2.x)",
-    login: "kimi → /login",
+    login: "kimi login (device-code; si dice 'No model configured', repítelo)",
     install: null,
     authPaths: [".kimi-code/credentials"],
-    adapterPending: true,
   },
   {
     name: "qwen",
