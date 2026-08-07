@@ -22,7 +22,7 @@
 
 ---
 
-Your AI agent (Claude Code, Codex, Gemini CLI, Cursor…) writes the code. **Karajan governs how it happens**: it installs a method your agent follows on every task, and enforces it with git gates that make a false green structurally impossible.
+Your AI agent (Claude Code, Codex, Copilot, Antigravity, Cursor…) writes the code. **Karajan governs how it happens**: it installs a method your agent follows on every task, and enforces it with git gates that make a false green structurally impossible.
 
 - **RAG before assuming** — `kj rag query` answers what your codebase does; no agent guesses. The install wires it as a native MCP tool (`kj_rag_query`) so querying the index is the agent's cheapest path. Works out of the box: local Ollama, or the built-in ONNX embedder when nothing can be installed; cloud embedders require an explicit sensitivity declaration and PII-redact every chunk. A distilled engineering canon rides along: `kj rag query --library` serves pattern cards (when it applies, when it does NOT, the canonical citation) so plans name a greenfield alternative instead of following the legacy line by inertia.
 - **Card first, on YOUR board** — every piece of work is tracked before it starts: kj's HU Board (`kj hu add|move|list`), the Planning Game, or the board the project already uses (Linear, Trello, Jira, GitHub Issues) via your agent's own MCP/tools. Declared, verified at install, never optional — Karajan does not run without a board. ADRs live in git (`kj adr add|list`).
@@ -34,6 +34,7 @@ Your AI agent (Claude Code, Codex, Gemini CLI, Cursor…) writes the code. **Kar
 - **Nothing personal ships** — every outbound boundary audits before it leaves the machine: the pre-commit rejects a staged diff carrying your denylisted personal data, hardcoded platform tokens (`ghp_`, `sk-`, `AKIA`…) block outright, `verify-pack`-style tarball scans guard the publish, and `kj privacy scan <dir>` audits any build output. Your denylist lives in `~/.karajan/privacy.yml` — the install asks and writes it for you.
 - **Installing IS activating** — `kj env install` performs the enforcement itself (git hooks, verdict gate, tool gate) instead of trusting the agent to run setup steps, and ends by printing the method into the very conversation that installed it. A commit outside the method is rejected, not narrated.
 - **The turn cannot end red — the Sentinel** — a deterministic supervisor (zero LLM) wired into the harness's synchronous hooks records the method state of the session as tools run, and a Stop hook blocks the agent from ending its turn while method violations are open. The program rules, the agent thinks. See [guarantee levels](#guarantee-levels-governed-vs-supervised).
+- **The review panel never runs dry** — nine built-in agents (Claude Code, Codex, GitHub Copilot, Antigravity `agy` — the gemini successor —, Kimi Code, Qwen, OpenCode, Aider, Gemini legacy), and when the configured reviewer exhausts its quota, `kj review` switches to an authenticated candidate with a LOUD notice — or hands you the menu of candidates with their tier (free / subscription / local) and the exact login command. Never a silent failure, never the brain reviewing itself.
 
 This repo runs under its own environment: every commit to karajan-code carries a cross-AI verdict.
 

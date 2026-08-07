@@ -14,7 +14,7 @@
 
 ---
 
-Tu agente de IA (Claude Code, Codex, Gemini CLI, Cursor…) escribe el código. **Karajan gobierna cómo ocurre**: instala un método que tu agente sigue en cada tarea y lo hace cumplir con gates de git que hacen el falso verde estructuralmente imposible.
+Tu agente de IA (Claude Code, Codex, Copilot, Antigravity, Cursor…) escribe el código. **Karajan gobierna cómo ocurre**: instala un método que tu agente sigue en cada tarea y lo hace cumplir con gates de git que hacen el falso verde estructuralmente imposible.
 
 - **RAG antes de suponer** — `kj rag query` responde qué hace tu código; ningún agente adivina. La instalación lo cablea como herramienta MCP nativa (`kj_rag_query`), de modo que consultar el índice sea el camino más barato del agente. Funciona de serie: Ollama local, o el embedder ONNX integrado cuando no se puede instalar nada; los embedders cloud exigen declarar la sensibilidad y redactan PII de cada chunk. Y viaja con un canon de ingeniería destilado: `kj rag query --library` sirve fichas de patrón (cuándo aplica, cuándo NO, la cita canónica) para que los planes nombren una alternativa greenfield en vez de seguir la línea del legacy por inercia.
 - **Card primero, en TU board** — todo trabajo se registra antes de empezar: el HU Board de kj (`kj hu add|move|list`), el Planning Game, o el board que el proyecto ya use (Linear, Trello, Jira, GitHub Issues) vía los MCP/tools de tu agente. Declarado, verificado en la instalación, jamás opcional — Karajan no funciona sin board. Los ADRs viven en git (`kj adr add|list`).
@@ -26,6 +26,7 @@ Tu agente de IA (Claude Code, Codex, Gemini CLI, Cursor…) escribe el código. 
 - **Nada personal se publica** — cada boundary de salida se audita antes de dejar la máquina: el pre-commit rechaza un diff con tus datos vetados, los tokens de plataforma hardcodeados (`ghp_`, `sk-`, `AKIA`…) bloquean directamente, el scan del tarball guarda el publish, y `kj privacy scan <dir>` audita cualquier build. Tu denylist vive en `~/.karajan/privacy.yml` — la instalación pregunta y la escribe por ti.
 - **Instalar ES activar** — `kj env install` ejecuta él mismo el enforcement (hooks de git, gate de veredicto, tool gate) en vez de confiar en que el agente corra pasos de setup, y termina imprimiendo el método en la propia conversación que instaló. Un commit fuera del método se rechaza, no se narra.
 - **El turno no puede terminar en rojo — el Sentinel** — un supervisor determinista (cero LLM) cableado a los hooks síncronos del harness registra el estado del método de la sesión según corren las herramientas, y un hook Stop bloquea que el agente termine su turno mientras haya violaciones abiertas. El programa manda, el agente piensa. Ver [niveles de garantía](#niveles-de-garantía-gobernado-vs-supervisado).
+- **El panel de revisión nunca se seca** — nueve agentes integrados (Claude Code, Codex, GitHub Copilot, Antigravity `agy` — el sucesor de gemini —, Kimi Code, Qwen, OpenCode, Aider, Gemini legacy), y cuando al reviewer configurado se le agota la cuota, `kj review` cambia a un candidato autenticado AVISANDO en alto — o te entrega el menú de candidatos con su tier (gratis / suscripción / local) y el comando de login exacto. Jamás un fallo mudo, jamás el brain revisándose a sí mismo.
 
 Este repo corre bajo su propio entorno: cada commit de karajan-code lleva un veredicto de IA cruzada.
 
