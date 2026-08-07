@@ -28,6 +28,15 @@ export default defineConfig({
     // ~5-15s in isolation. Use forks (not threads) because several config
     // tests call process.chdir(), which throws inside worker_threads.
     testTimeout: 120000,
+    // KJC-TSK-0545: hooks inherit the SAME contention budget. The runflow
+    // family cold-imports the orchestrator graph inside beforeEach (31 test
+    // files, ~90 sites); under parallel workers that first import can exceed
+    // the 10s default, and an aborted hook leaves the module/mock registry
+    // half-wired — the source of a whole week of file-hopping flakes (missing
+    // solomon events, "mockImplementation is not a function", even REAL agent
+    // spawns when the broken mock fell through to the real createAgent). An
+    // architecture test pins hookTimeout === testTimeout.
+    hookTimeout: 120000,
     pool: "forks",
     poolOptions: {
       forks: {
