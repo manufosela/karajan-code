@@ -16,6 +16,25 @@ afterEach(async () => {
   }
 });
 
+describe("applyRunOverrides — a model pin belongs to its provider (KJC-TSK-0729)", () => {
+  // Found live twice in one day: codex's gpt-5.4-mini pin travelled first to
+  // the quota fallback (copilot) and then to an explicit --reviewer agy,
+  // which answered with its model list instead of a verdict.
+  it("switching a role provider by flag drops the configured model pin", () => {
+    const cfg = { roles: { reviewer: { provider: "codex", model: "gpt-5.4-mini" } } };
+    const out = applyRunOverrides(cfg, { reviewer: "agy" });
+    expect(out.roles.reviewer.provider).toBe("agy");
+    expect(out.roles.reviewer.model).toBeNull();
+  });
+
+  it("keeps the pin when the flag names the SAME provider, and honours an explicit model flag", () => {
+    const cfg = { roles: { reviewer: { provider: "codex", model: "gpt-5.4-mini" } } };
+    expect(applyRunOverrides(cfg, { reviewer: "codex" }).roles.reviewer.model).toBe("gpt-5.4-mini");
+    const out = applyRunOverrides(cfg, { reviewer: "agy", reviewerModel: "gemini-3.1-pro" });
+    expect(out.roles.reviewer.model).toBe("gemini-3.1-pro");
+  });
+});
+
 describe("applyRunOverrides — max_budget_usd default-on (KJC-TSK-0621)", () => {
   it("an unset budget lands on the shipped default of 5", () => {
     const out = applyRunOverrides({}, {});

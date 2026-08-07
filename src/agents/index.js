@@ -6,6 +6,7 @@ import { OpenCodeAgent } from "./opencode-agent.js";
 import { QwenAgent } from "./qwen-agent.js";
 import { CopilotAgent } from "./copilot-agent.js";
 import { KimiAgent } from "./kimi-agent.js";
+import { AgyAgent } from "./agy-agent.js";
 
 const agentRegistry = new Map();
 
@@ -55,3 +56,4 @@ registerAgent("opencode", OpenCodeAgent, { bin: "opencode", installUrl: "https:/
 registerAgent("qwen", QwenAgent, { bin: "qwen", installUrl: "https://github.com/QwenLM/qwen-code" });
 registerAgent("copilot", CopilotAgent, { bin: "copilot", installUrl: "https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli" });
 registerAgent("kimi", KimiAgent, { bin: "kimi", installUrl: "https://github.com/MoonshotAI/kimi-code" });
+registerAgent("agy", AgyAgent, { bin: "agy", installUrl: "https://antigravity.google" });

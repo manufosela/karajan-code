@@ -81,7 +81,14 @@ function applyRoleOverrides(out, flags) {
   // boolean means the flag belongs to the command itself (`kj audit
   // --security`, KJC-TSK-0695) and must not become a provider.
   for (const [flag, role] of ROLE_PROVIDER_FLAGS) {
-    if (typeof flags[flag] === "string" && flags[flag]) out.roles[role].provider = flags[flag];
+    if (typeof flags[flag] === "string" && flags[flag]) {
+      // A model pin belongs to the provider it was written for — switching
+      // provider by flag drops it (KJC-TSK-0729: codex's pinned mini reached
+      // agy, which answered with its model list instead of a verdict). An
+      // explicit --<role>-model flag re-pins below, after this loop.
+      if (out.roles[role].provider && out.roles[role].provider !== flags[flag]) out.roles[role].model = null;
+      out.roles[role].provider = flags[flag];
+    }
   }
   // coder/reviewer also update top-level aliases
   if (flags.coder) out.coder = flags.coder;

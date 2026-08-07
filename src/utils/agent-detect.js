@@ -12,7 +12,8 @@ const KNOWN_AGENTS = [
   { name: "copilot", install: getInstallCommand("copilot") },
   // KJC-TSK-0729: promoted from the observation census once its adapter
   // landed — detecting is not supporting; supporting is.
-  { name: "kimi", install: getInstallCommand("kimi") }
+  { name: "kimi", install: getInstallCommand("kimi") },
+  { name: "agy", install: getInstallCommand("agy") }
 ];
 
 /**
