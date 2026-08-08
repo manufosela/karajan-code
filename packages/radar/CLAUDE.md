@@ -36,7 +36,8 @@ Frontend branding comes from `NEXT_PUBLIC_*` build arguments via
 
 ## Conventions
 - Conventional Commits: feat/fix/refactor/test/docs/chore
-- Branch naming: feat/FRD-TSK-XXXX-short-desc or fix/FRD-BUG-XXXX-short-desc
+- Branch naming: feat/KRD-TSK-XXXX-short-desc or fix/KRD-BUG-XXXX-short-desc
+  (older cards carry the FRD- prefix; use whichever the card itself has)
 - TDD: tests first, then implementation
 - PRs < 300 lines changed
 - Never commit .env files or API keys

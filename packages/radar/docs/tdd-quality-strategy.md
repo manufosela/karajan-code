@@ -138,9 +138,9 @@ tests/
 ### Branch Naming
 ```
 main                          # Production-ready code
-feat/OFR-TSK-XXXX-short-desc  # Feature branches (from user stories)
-fix/OFR-BUG-XXXX-short-desc   # Bug fix branches
-refactor/OFR-TSK-XXXX-desc    # Refactoring branches
+feat/KRD-TSK-XXXX-short-desc  # Feature branches (from user stories)
+fix/KRD-BUG-XXXX-short-desc   # Bug fix branches
+refactor/KRD-TSK-XXXX-desc    # Refactoring branches
 chore/description              # Infrastructure, CI, config changes
 ```
 
@@ -156,7 +156,7 @@ chore/description              # Infrastructure, CI, config changes
 ```
 main ─────────────────────────────────────────────
        \                    /
-        feat/OFR-TSK-0001 ─  (PR → review → merge)
+        feat/KRD-TSK-0001 ─  (PR → review → merge)
          \         /
           commits (small, atomic)
 ```

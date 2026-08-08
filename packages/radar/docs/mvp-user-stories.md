@@ -1,10 +1,18 @@
 # Karajan Radar - MVP User Stories
 
-> **Project:** Karajan Radar (OFR)
+> **Project:** Karajan Radar
 > **Version:** MVP v1.0
 > **Date:** 2026-03-19
 > **Tech Stack:** Python/FastAPI, Next.js, PostgreSQL, GCP Cloud Run
 > **Total Stories:** 34 | **Total devPoints:** 99 | **Total businessPoints:** 109
+
+> **Read this as a record, not as a specification.** These are the stories the
+> MVP was built from, written when the radar watched a single domain. The
+> subject-matter terms below — the default search queries in particular — are
+> where that domain showed through; they live in the Radar Profile now, and
+> the engine carries none of them. For how the system is actually put
+> together today, see [architecture.md](architecture.md); for standing up a
+> new instance, [creating-instances.md](creating-instances.md).
 
 ---
 
@@ -583,13 +591,13 @@
   - Given environment variables `DATABASE_URL`, `NCBI_API_KEY`, `S2_API_KEY`, `OPENAI_API_KEY` are configured, when the job starts, then it reads them from the environment (injected via Secret Manager)
 
 - **Technical Notes:**
-  - Cloud Run Job: `gcloud run jobs create ofr-daily-ingestion --image=... --tasks=1 --max-retries=1 --task-timeout=1800s`
-  - Cloud Scheduler: `gcloud scheduler jobs create http ofr-daily-trigger --schedule="0 6 * * *" --uri=... --http-method=POST`
+  - Cloud Run Job: `gcloud run jobs create <instance>-daily-ingestion --image=... --tasks=1 --max-retries=1 --task-timeout=1800s`
+  - Cloud Scheduler: `gcloud scheduler jobs create http <instance>-daily-trigger --schedule="0 6 * * *" --uri=... --http-method=POST`
   - Use Secret Manager for API keys, mount as environment variables
   - Job container should use the same backend image with a different entrypoint (`python -m app.jobs.daily_ingestion`)
   - Include a health check at job start (verify DB connectivity, connector reachability)
   - Log to stdout in JSON format for Cloud Logging compatibility
-  - Document manual job triggering: `gcloud run jobs execute ofr-daily-ingestion`
+  - Document manual job triggering: `gcloud run jobs execute <instance>-daily-ingestion`
 
 - **Dependencies:** US-013
 
