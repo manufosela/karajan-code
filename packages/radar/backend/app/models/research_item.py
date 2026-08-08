@@ -79,6 +79,11 @@ class ResearchItem(Base):
     )
     reviewer_notes: Mapped[str | None] = mapped_column(Text)
 
+    # Injection scan performed at ingestion. NULL means the item predates the
+    # scan and nobody has looked at it; a record with no findings means it was
+    # scanned and came out clean. The two must stay distinguishable.
+    injection_scan: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
     # LLM audit trail
     llm_provider: Mapped[str | None] = mapped_column(String(50))
     llm_model: Mapped[str | None] = mapped_column(String(100))
