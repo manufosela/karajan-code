@@ -7,20 +7,43 @@
 import path from "node:path";
 import { runTournament } from "../tournament/run.js";
 import { scoreTournament } from "../tournament/scoreboard.js";
+import { judgeTournament } from "../tournament/judge.js";
+import { crownWinner } from "../tournament/crown.js";
+
+// The id feeds a path — same traversal class codex caught in TOR-A's coder
+// names: strict slug, no separators, before any filesystem use.
+function tournamentDirFor(config, rawId) {
+  const id = String(rawId);
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/i.test(id)) {
+    throw new Error(`tournament: id inválido "${id}" — usa el id que imprimió el torneo (p. ej. tor-abc123)`);
+  }
+  return path.join(config?.projectDir || process.cwd(), ".kj", "tournaments", id);
+}
 
 export async function tournamentCommand({
   task, config, logger = console, flags = {},
   runTournamentFn = runTournament, scoreTournamentFn = scoreTournament,
+  judgeTournamentFn = judgeTournament, crownWinnerFn = crownWinner,
 }) {
+  // TOR-C: `--judge <id>` ranks the finalists; `--crown <id>` commits the
+  // winner through the real gate in its lane.
+  if (flags.judge) {
+    const judgement = await judgeTournamentFn({ tournamentDir: tournamentDirFor(config, flags.judge), config, logger });
+    if (flags.json) logger?.info?.(JSON.stringify(judgement));
+    else logger?.info?.(`  siguiente: kj tournament --crown ${flags.judge}${judgement.escalated ? " (ganador vía solomon)" : ""}`);
+    return judgement;
+  }
+  if (flags.crown) {
+    const crown = await crownWinnerFn({
+      tournamentDir: tournamentDirFor(config, flags.crown), config, logger, cardRef: flags.card || null,
+    });
+    if (flags.json) logger?.info?.(JSON.stringify(crown));
+    return crown;
+  }
+
   // TOR-B: `--score <id>` scores an EXISTING tournament from its artifacts.
   if (flags.score) {
-    // The id feeds a path — same traversal class codex caught in TOR-A's
-    // coder names: strict slug, no separators, before any filesystem use.
-    const id = String(flags.score);
-    if (!/^[a-z0-9][a-z0-9-]{0,63}$/i.test(id)) {
-      throw new Error(`tournament: id inválido "${id}" — usa el id que imprimió el torneo (p. ej. tor-abc123)`);
-    }
-    const tournamentDir = path.join(config?.projectDir || process.cwd(), ".kj", "tournaments", id);
+    const tournamentDir = tournamentDirFor(config, flags.score);
     const board = await scoreTournamentFn({ tournamentDir });
     if (flags.json) {
       logger?.info?.(JSON.stringify(board));
