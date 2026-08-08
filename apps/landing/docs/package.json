@@ -7,7 +7,9 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "sync:family-docs": "node scripts/sync-family-docs.mjs",
+    "sync:family-docs:check": "node scripts/sync-family-docs.mjs --check"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.37.6",

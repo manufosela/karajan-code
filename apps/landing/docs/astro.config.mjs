@@ -58,6 +58,20 @@ export default defineConfig({
 						],
 					},
 					{
+						label: 'kaRAGan (RAG)',
+						link: '/karagan/',
+						icon: 'seti:db',
+						items: [
+							{ label: 'Overview', slug: 'karagan', translations: { es: 'Visión general' } },
+							{ label: 'RAG in 5 minutes', slug: 'karagan/quickstart', translations: { es: 'RAG en 5 minutos' } },
+							{ label: 'Context strategies', slug: 'karagan/context-strategies', translations: { es: 'Estrategias de contexto' } },
+							{ label: 'Serve and configure', slug: 'karagan/serve', translations: { es: 'Servir y personalizar' } },
+							{ label: 'Sensitivity and privacy', slug: 'karagan/sensitivity', translations: { es: 'Sensibilidad y privacidad' } },
+							{ label: 'Container and GCP', slug: 'karagan/deploy', translations: { es: 'Contenedor y GCP' } },
+							{ label: 'Embeddable SDK', slug: 'karagan/sdk', translations: { es: 'SDK embebible' } },
+						],
+					},
+					{
 						label: { en: 'v3 — historical archive', es: 'v3 — archivo histórico' },
 						link: '/getting-started/introduction/',
 						icon: 'seti:folder',
