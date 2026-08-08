@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.delivery.digest import DigestService
 from app.models.daily_digest import DailyDigest
 from app.models.research_item import ResearchItem
 from app.models.source import Source
-from app.services.digest import DigestService
 
 
 async def _create_source(session: AsyncSession, **overrides: Any) -> Source:

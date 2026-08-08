@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db, get_settings, require_admin
 from app.core.config import Settings
+from app.delivery.digest import DigestService
+from app.delivery.teams_webhook import TeamsWebhookService
 from app.models.daily_digest import DailyDigest
 from app.schemas.digest import (
     DigestDetailResponse,
@@ -17,8 +19,6 @@ from app.schemas.digest import (
     DigestTriggerRequest,
     DigestTriggerResponse,
 )
-from app.services.digest import DigestService
-from app.services.teams_webhook import TeamsWebhookService
 
 router = APIRouter()
 
