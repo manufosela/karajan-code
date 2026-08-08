@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "vendored_from": {
+    "package": "karajan-code",
+    "version": "4.15.0",
+    "path": "src/utils/injection-guard.js",
+    "captured": "2026-08-08"
+  },
+  "note": "Copied from karajan-code, which holds the family's knowledge of what an injection attempt looks like. It lives there as JavaScript regexes rather than as a published catalogue, so this is a translation, not a mirror -- see KRD-TSK-0004. Every pattern here needs its own test: JavaScript and Python regexes agree on these constructs, but agreeing by inspection is not the same as agreeing.",
+  "directive": [
+    {
+      "id": "ignore_previous",
+      "regex": "ignore\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|rules?|prompts?|guidelines?)",
+      "why": "The classic override: tells the model its real instructions do not count"
+    },
+    {
+      "id": "disregard_previous",
+      "regex": "disregard\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|rules?|prompts?)",
+      "why": "Same as ignore_previous, different verb"
+    },
+    {
+      "id": "forget_previous",
+      "regex": "forget\\s+(all\\s+)?(previous|prior|your)\\s+(instructions?|rules?|context)",
+      "why": "Same intent, aimed at the model's memory of its own setup"
+    },
+    {
+      "id": "override_system",
+      "regex": "override\\s+(the\\s+)?(system|reviewer|review)\\s+(prompt|instructions?|rules?)",
+      "why": "Names the system prompt directly"
+    },
+    {
+      "id": "do_not_follow",
+      "regex": "do\\s+not\\s+follow\\s+(the\\s+)?(above|previous|system)\\s+(instructions?|rules?)",
+      "why": "Negative phrasing of the same override"
+    },
+    {
+      "id": "new_instructions",
+      "regex": "new\\s+instructions?\\s*:",
+      "why": "Opens a fake instruction block inside the document"
+    },
+    {
+      "id": "system_you_are",
+      "regex": "system\\s*:\\s*you\\s+are",
+      "why": "Imitates a system turn inside ordinary text"
+    }
+  ]
+}
