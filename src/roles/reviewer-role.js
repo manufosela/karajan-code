@@ -2,20 +2,14 @@ import { AgentRole } from "./agent-role.js";
 import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "../prompts/prompt-layout.js";
+import { clipDiff } from "../prompts/diff-clip.js";
 import { isMutationReviewEnabled, buildReviewerMutationSignal } from "../mutate/reviewer-signal.js";
-
-const MAX_DIFF_LENGTH = 12000;
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
   "Do NOT ask about using Karajan, do NOT mention Karajan, do NOT suggest orchestration.",
   "Do NOT use any MCP tools. Focus only on reviewing the code."
 ].join(" ");
-
-function truncateDiff(diff) {
-  if (!diff) return "";
-  return diff.length > MAX_DIFF_LENGTH ? `${diff.slice(0, MAX_DIFF_LENGTH)}\n\n[TRUNCATED]` : diff;
-}
 
 export class ReviewerRole extends AgentRole {
   constructor(opts) {
@@ -44,6 +38,8 @@ export class ReviewerRole extends AgentRole {
       enabled: isMutationReviewEnabled(),
       projectDir: this.config?.projectDir,
     });
+    // KJC-BUG-0134: a clip is declared as kj's own, outside the diff body.
+    const { body: clippedDiff, note: clipNote } = clipDiff(diff || "");
     const layout = buildPromptLayout([
       section(SUBAGENT_PREAMBLE, STABLE),
       section(this.instructions, STABLE),
@@ -56,7 +52,8 @@ export class ReviewerRole extends AgentRole {
       section(buildRtkInstructions({ rtkAvailable: Boolean(this.config?.rtk?.available) }), STABLE),
       section(reviewRules ? `Review rules:\n${reviewRules}` : null, STABLE),
       section(`Task context:\n${task}`, VOLATILE),
-      section(`Git diff:\n${truncateDiff(diff)}`, VOLATILE),
+      section(`Git diff:\n${clippedDiff}`, VOLATILE),
+      section(clipNote, VOLATILE),
       section(mutationSignal, VOLATILE),
     ]);
     return { prompt: joinLayout(layout), stablePrompt: layout.stable, volatilePrompt: layout.volatile };

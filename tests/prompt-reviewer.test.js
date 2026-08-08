@@ -82,30 +82,43 @@ describe("buildReviewerPrompt", () => {
     expect(result).toContain("Git diff:\ndiff --git a/src/auth.js");
   });
 
-  it("truncates diff larger than 12KB", async () => {
-    const largeDiff = "x".repeat(15000);
+  // KJC-BUG-0134 (issue #1381): a bare [TRUNCATED] inside the diff body reads
+  // as file content — reviewers blamed whichever file the cut landed in and
+  // rejected complete, untouched code. The clip is DECLARED as kj's own,
+  // outside the diff, with the order not to reason about completeness.
+  it("clips diffs larger than 12KB with a note attributed to kj — never a bare marker", async () => {
+    const line = "+a changed line of code xxxx\n";
+    const largeDiff = line.repeat(600); // ~17KB of newline-terminated lines
     const result = await buildReviewerPrompt({ ...baseArgs, diff: largeDiff });
 
-    expect(result).toContain("[TRUNCATED]");
-    expect(result).not.toContain("x".repeat(15000));
-    // Truncated portion should be 12000 chars
-    const diffSection = result.split("Git diff:\n")[1];
-    expect(diffSection).toContain("x".repeat(12000));
+    expect(result).not.toContain("[TRUNCATED]");
+    expect(result).toContain("clipped by kj");
+    expect(result).toContain("not part of the diff");
+    expect(result).toMatch(/\d+ more line/);
+    // The cut lands on a line boundary — no half-line artifacts to misread.
+    const diffSection = result.split("Git diff:\n")[1].split("\n\nNOTE FROM")[0];
+    expect(diffSection.endsWith(line.trimEnd())).toBe(true);
   });
 
-  it("does not truncate diff at exactly 12KB", async () => {
+  it("a diff with no newlines still clips hard at the limit", async () => {
+    const result = await buildReviewerPrompt({ ...baseArgs, diff: "x".repeat(15000) });
+    expect(result).toContain("clipped by kj");
+    expect(result).not.toContain("x".repeat(12001));
+  });
+
+  it("does not clip a diff at exactly 12KB", async () => {
     const exactDiff = "y".repeat(12000);
     const result = await buildReviewerPrompt({ ...baseArgs, diff: exactDiff });
 
-    expect(result).not.toContain("[TRUNCATED]");
+    expect(result).not.toContain("clipped by kj");
     expect(result).toContain("y".repeat(12000));
   });
 
-  it("does not truncate diff smaller than 12KB", async () => {
+  it("does not clip a diff smaller than 12KB", async () => {
     const smallDiff = "z".repeat(5000);
     const result = await buildReviewerPrompt({ ...baseArgs, diff: smallDiff });
 
-    expect(result).not.toContain("[TRUNCATED]");
+    expect(result).not.toContain("clipped by kj");
     expect(result).toContain("z".repeat(5000));
   });
 
