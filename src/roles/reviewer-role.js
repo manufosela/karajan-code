@@ -3,6 +3,7 @@ import { buildRtkInstructions } from "../prompts/rtk-snippet.js";
 import { extractFirstJson } from "../utils/json-extract.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "../prompts/prompt-layout.js";
 import { clipDiff } from "../prompts/diff-clip.js";
+import { buildSplitSignal } from "../prompts/split-signal.js";
 import { isMutationReviewEnabled, buildReviewerMutationSignal } from "../mutate/reviewer-signal.js";
 
 const SUBAGENT_PREAMBLE = [
@@ -40,6 +41,8 @@ export class ReviewerRole extends AgentRole {
     });
     // KJC-BUG-0134: a clip is declared as kj's own, outside the diff body.
     const { body: clippedDiff, note: clipNote } = clipDiff(diff || "");
+    // KJC-BUG-0138: moved-lines correlation, computed on the FULL diff.
+    const splitSignal = buildSplitSignal(diff || "");
     const layout = buildPromptLayout([
       section(SUBAGENT_PREAMBLE, STABLE),
       section(this.instructions, STABLE),
@@ -54,6 +57,7 @@ export class ReviewerRole extends AgentRole {
       section(`Task context:\n${task}`, VOLATILE),
       section(`Git diff:\n${clippedDiff}`, VOLATILE),
       section(clipNote, VOLATILE),
+      section(splitSignal, VOLATILE),
       section(mutationSignal, VOLATILE),
     ]);
     return { prompt: joinLayout(layout), stablePrompt: layout.stable, volatilePrompt: layout.volatile };
