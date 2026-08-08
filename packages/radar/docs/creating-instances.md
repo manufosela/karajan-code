@@ -140,12 +140,27 @@ Follow what `app/connectors/rss.py` does about failure: degrade per item and
 per source, and surface a dead source in the run result. A connector that
 silently returns nothing is indistinguishable from a quiet week.
 
-> **Not yet supported:** the registry (`app/connectors/registry.py`) registers
-> connectors by name but only discovers the ones bundled in the core. Loading a
-> connector from outside the repository needs an extension point that does not
-> exist yet — until it does, a source-specific connector has to be contributed
-> to the core. This is the main thing standing between the current state and a
-> clean instance model.
+Declare it in the instance's environment, as `name=module:Class`:
+
+```bash
+RADAR_CONNECTORS="boe=myinstance.connectors.boe:BoeConnector"
+```
+
+The name is what a profile's source calls it; several are comma-separated.
+The class has to be importable by the backend process — installed into the
+image, or on `PYTHONPATH`. Instance connectors are registered after the
+bundled ones, so this is also how you replace one of those with your own.
+
+Anything wrong with the declaration stops the process while it is starting,
+naming the entry at fault: a module that is not installed, a class that is
+not there, a class that is not a `BaseConnector`. That is deliberate. Every
+one of those failures otherwise turns into a source your profile declares
+and nothing ever queries, which looks exactly like a quiet week.
+
+> **This value names code the process will import and run**, so it belongs to
+> whoever deploys the instance — the same trust you already place in the
+> profile and in the image's dependencies. Never build it from anything that
+> arrives from outside the deployment.
 
 ---
 

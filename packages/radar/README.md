@@ -95,6 +95,17 @@ entry is dropped without taking the rest of the feed with it.
 3. Set the frontend build arguments: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_SHORT_NAME`, `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_ORGANIZATION_NAME`.
 4. Add connectors if the domain needs sources the bundled ones do not cover.
 
+A connector that only your domain needs does not have to enter this
+repository. Subclass `BaseConnector` where your instance lives and name it in
+`RADAR_CONNECTORS`:
+
+```bash
+RADAR_CONNECTORS="boe=myinstance.connectors.boe:BoeConnector"
+```
+
+The name is what your profile's source calls it. See
+[docs/creating-instances.md](docs/creating-instances.md) for the rest.
+
 ### Deploying a separate instance
 
 Do not fork this repository to run a radar for another domain or customer. An
