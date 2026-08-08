@@ -8,6 +8,20 @@
 
 // Blocks AI self-attribution in PR commit messages. Pure bash + grep, no Node.
 // Pins github.base_ref to an env var (never interpolated into the run block).
+// KJC-BUG-0136 (issue #1374): actions pinned to full commit SHAs — a
+// mutable tag lets its owner run arbitrary code inside EVERY hardened
+// repo's CI, with access to the workflow's secrets; 5 of this project's 7
+// audit findings came from files kj itself generated. The version rides in
+// a comment (the practice kj audit demands). To bump one:
+//   gh api repos/<owner>/<repo>/commits/<tag> --jq .sha
+export const PINNED_ACTIONS = {
+  checkout: "actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4",
+  setupNode: "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4",
+  setupPython: "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5",
+  setupGo: "actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5",
+  setupPhp: "shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2",
+};
+
 export const NO_AI_ATTRIBUTION_WORKFLOW = [
   "name: Block AI attribution",
   "on:",
@@ -19,7 +33,7 @@ export const NO_AI_ATTRIBUTION_WORKFLOW = [
   "  scan:",
   "    runs-on: ubuntu-latest",
   "    steps:",
-  "      - uses: actions/checkout@v4",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
   "        with:",
   "          fetch-depth: 0",
   "      - name: Scan commit messages for AI attribution",
@@ -50,7 +64,7 @@ const header = (steps) =>
     "  quality:",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - uses: actions/checkout@v4",
+    `      - uses: ${PINNED_ACTIONS.checkout}`,
     ...steps,
   ].join("\n");
 
@@ -77,7 +91,7 @@ export const PM_COMMANDS = {
 };
 
 const nodeSetupSteps = (pm) => [
-  "      - uses: actions/setup-node@v4",
+  `      - uses: ${PINNED_ACTIONS.setupNode}`,
   "        with:",
   "          node-version: 22",
   ...(PM_COMMANDS[pm] || PM_COMMANDS.npm).setup,
@@ -86,7 +100,7 @@ const nodeSetupSteps = (pm) => [
 
 const QUALITY_BY_LANGUAGE = {
   python: header([
-    "      - uses: actions/setup-python@v5",
+    `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
     "          python-version: '3.12'",
     "      - run: pip install ruff pytest",
@@ -94,14 +108,14 @@ const QUALITY_BY_LANGUAGE = {
     "      - run: pytest",
   ]),
   go: header([
-    "      - uses: actions/setup-go@v5",
+    `      - uses: ${PINNED_ACTIONS.setupGo}`,
     "        with:",
     "          go-version: stable",
     "      - run: go vet ./...",
     "      - run: go test ./...",
   ]),
   php: header([
-    "      - uses: shivammathur/setup-php@v2",
+    `      - uses: ${PINNED_ACTIONS.setupPhp}`,
     "        with:",
     "          php-version: '8.3'",
     "      - run: composer install --no-interaction --no-progress",
@@ -132,7 +146,7 @@ export const SHRINK_BUDGET_WORKFLOW = [
   "    runs-on: ubuntu-latest",
   '    env: { LOC_LIMIT: "200" }',
   "    steps:",
-  "      - uses: actions/checkout@v4",
+  `      - uses: ${PINNED_ACTIONS.checkout}`,
   "        with:",
   "          fetch-depth: 0",
   "      - name: Net LOC delta within budget",
@@ -161,7 +175,7 @@ export const packSmokeWorkflow = (pm = "npm") =>
     "  pack-smoke:",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - uses: actions/checkout@v4",
+    `      - uses: ${PINNED_ACTIONS.checkout}`,
     ...nodeSetupSteps(pm),
     "      - name: Pack and install the tarball clean",
     "        run: |",
@@ -179,13 +193,13 @@ export const packSmokeWorkflow = (pm = "npm") =>
 const MUTATION_TOOLCHAIN = {
   javascript: "node", // resolved per package manager in mutationWorkflowFor
   python: [
-    "      - uses: actions/setup-python@v5",
+    `      - uses: ${PINNED_ACTIONS.setupPython}`,
     "        with:",
     "          python-version: '3.12'",
     "      - run: pip install mutmut pytest",
   ],
   php: [
-    "      - uses: shivammathur/setup-php@v2",
+    `      - uses: ${PINNED_ACTIONS.setupPhp}`,
     "        with:",
     "          php-version: '8.3'",
     "      - run: composer install --no-interaction --no-progress",
@@ -211,10 +225,10 @@ export function mutationWorkflowFor(language, pm = "npm") {
     "  mutation:",
     "    runs-on: ubuntu-latest",
     "    steps:",
-    "      - uses: actions/checkout@v4",
+    `      - uses: ${PINNED_ACTIONS.checkout}`,
     "        with:",
     "          fetch-depth: 0",
-    "      - uses: actions/setup-node@v4",
+    `      - uses: ${PINNED_ACTIONS.setupNode}`,
     "        with:",
     "          node-version: 22",
     ...toolchain,

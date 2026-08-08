@@ -55,7 +55,7 @@ describe("installWorkflows", () => {
     const res = installWorkflows({ projectDir: dir, language: "go" });
     expect(res.workflows.map((w) => w.file)).toContain(join(".github", "workflows", "kj-quality.yml"));
     const text = read(join(".github", "workflows", "kj-quality.yml"));
-    expect(text).toContain("actions/setup-go@v5");
+    expect(text).toContain("actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5");
     expect(text).toContain("go test ./...");
     expect(yaml.load(text).jobs.quality["runs-on"]).toBe("ubuntu-latest");
   });
@@ -63,7 +63,7 @@ describe("installWorkflows", () => {
   it("php gets a setup-php Quality workflow", () => {
     installWorkflows({ projectDir: dir, language: "php" });
     const text = read(join(".github", "workflows", "kj-quality.yml"));
-    expect(text).toContain("shivammathur/setup-php@v2");
+    expect(text).toContain("shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2");
     expect(text).toContain("vendor/bin/phpunit");
   });
 
@@ -162,5 +162,33 @@ describe("installWorkflows", () => {
     installWorkflows({ projectDir: dir, language: "python", mutation: true });
     const res = installWorkflows({ projectDir: dir, language: "python", mutation: true });
     expect(res.workflows.find((w) => w.file === mutFile).action).toBe("unchanged");
+  });
+});
+
+// KJC-BUG-0136 (issue #1374) — a mutable action tag lets its owner run
+// arbitrary code inside every hardened repo's CI. Every generated workflow
+// pins actions to a full commit SHA with the version in a comment — the
+// practice kj audit itself demands (semgrep github-actions-mutable-action-tag).
+describe("pinned actions — no mutable tags in generated workflows (KJC-BUG-0136)", () => {
+  it("every `uses:` in every template is pinned to a 40-hex SHA with a version comment", async () => {
+    const t = await import("../../src/harden/workflow-templates.js");
+    const flat = (w) => {
+      if (!w) return "";
+      return typeof w === "string" ? w : (w.content ?? Object.values(w).join("\n"));
+    };
+    const corpora = [
+      t.NO_AI_ATTRIBUTION_WORKFLOW,
+      t.SHRINK_BUDGET_WORKFLOW,
+      t.packSmokeWorkflow("npm"),
+      t.packSmokeWorkflow("pnpm"),
+      ...["node", "python", "go", "php"].map((lang) => flat(t.qualityWorkflowFor(lang))),
+      ...["node", "python"].map((lang) => flat(t.mutationWorkflowFor(lang))),
+    ].join("\n");
+    const uses = corpora.split("\n").filter((l) => l.includes("uses:"));
+    expect(uses.length).toBeGreaterThan(0);
+    for (const line of uses) {
+      expect(line).toMatch(/uses: [\w.-]+\/[\w.-]+@[0-9a-f]{40} # v/);
+      expect(line).not.toMatch(/@v\d/);
+    }
   });
 });
