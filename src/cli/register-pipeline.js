@@ -3,6 +3,8 @@ import { ollamaStartCommand, ollamaStopCommand, ollamaStatusCommand, ollamaPullC
 import { configCommand } from "../commands/config.js";
 import { codeCommand } from "../commands/code.js";
 import { reviewCommand } from "../commands/review.js";
+import { tournamentCommand } from "../commands/tournament.js";
+import { resolveTaskInput } from "../utils/task-file.js";
 import { reviewGateCommand, solomonCommand } from "../commands/review-gate.js";
 import { scanCommand } from "../commands/scan.js";
 import { installToolsCommand } from "../commands/install-tools.js";
@@ -144,7 +146,6 @@ export function registerPipeline(program, { pkgVersion }) {
             effectiveTask = plan.task;
           }
         }
-        const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task: effectiveTask, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         const res = await runCommandHandler({ task: resolvedTask, config, logger, flags });
         // KJC-TSK-0674 (issue #1289): an aborted run (spec-review cancel,
@@ -163,7 +164,6 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--skip-spec-review", "Bypass the spec-reviewer pre-pipeline audit")
     .action(async (task, flags) => {
       const code = await withConfig(pkgVersion, "autorun", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
         const { autorunCommand } = await import("../commands/autorun.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         const res = await autorunCommand({ task: resolvedTask, config, logger, flags });
@@ -181,7 +181,6 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--coder-model <name>")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "code", flags, async ({ config, logger }) => {
-        const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         await codeCommand({ task: resolvedTask, config, logger });
       });
@@ -196,6 +195,21 @@ export function registerPipeline(program, { pkgVersion }) {
     .action(async (flags) => {
       await withConfig(pkgVersion, "solomon", flags, async ({ config, logger }) => {
         await solomonCommand({ config, logger, flags });
+      });
+    });
+
+  // KJC-TSK-0723 (TOR-A) — the governed tournament: same task, N coders,
+  // isolated lanes; the method picks the winner (TOR-B/C), not vibes.
+  program
+    .command("tournament")
+    .description("Fan the SAME task out to N coders in isolated worktree lanes and collect per-lane evidence (diff, suite, log)")
+    .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
+    .option("--task-file <path>", "Read the task from a file (e.g. .md)")
+    .option("--coders <csv>", "Comma-separated coder agents (minimum 2), e.g. claude,codex,agy")
+    .action(async (task, flags) => {
+      await withConfig(pkgVersion, "tournament", flags, async ({ config, logger }) => {
+        const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
+        await tournamentCommand({ task: resolvedTask, config, logger, flags });
       });
     });
 
@@ -220,7 +234,6 @@ export function registerPipeline(program, { pkgVersion }) {
           await reviewGateCommand({ config, logger, flags: { ...flags, task } });
           return;
         }
-        const { resolveTaskInput } = await import("../utils/task-file.js");
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         await reviewCommand({ task: resolvedTask, config, logger, baseRef: flags.baseRef });
       });
