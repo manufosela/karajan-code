@@ -11,11 +11,9 @@ content enters, rather than in whatever consumes the corpus later.
 the accidental: a document that says "ignore all previous instructions", one
 that opens a fake instruction block mid-abstract, a run of characters a
 reader cannot see, a comment block far too large to be a comment. Someone
-who knows what is in the catalogue can rephrase
-around it, and hidden characters are the one part of this that a person
-cannot review by reading. Treating a clean scan as proof of
-safety would be worse than not scanning at all, because it invites exactly
-the confidence the scan cannot support.
+who knows what is in the catalogue can rephrase around it. Treating a clean
+scan as proof of safety would be worse than not scanning at all, because it
+invites exactly the confidence the scan cannot support.
 
 The catalogue lives beside this file as data (``injection_patterns.json``),
 copied from karajan-code, which holds the family's knowledge of what an
@@ -27,7 +25,8 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -108,6 +107,36 @@ def scan_fields(**fields: str | None) -> dict[str, ScanResult]:
     return {name: result for name, result in results.items() if not result.clean}
 
 
+def scan_record(*, scanned_at: datetime, **fields: str | None) -> dict[str, Any]:
+    """Scan named fields and return the record to store alongside the item.
+
+    Storing the record even when nothing is found is the point: an absent
+    record means nobody looked, and a record with no findings means somebody
+    looked and the document was clean. Collapsing the two would make an
+    unscanned corpus indistinguishable from a safe one.
+
+    The catalogue version travels with the record, because a finding only
+    means something relative to the patterns that were in force when it was
+    made -- and a clean result even more so.
+
+    Args:
+        scanned_at: When the scan ran. Passed in rather than read from the
+            clock so the caller stamps the whole item consistently.
+        **fields: Field name to content.
+
+    Returns:
+        A JSON-serialisable record: the catalogue version, the timestamp, and
+        the findings per field. Fields that came out clean are not listed.
+    """
+    found = scan_fields(**fields)
+
+    return {
+        "catalogue_version": _load_catalogue()["version"],
+        "scanned_at": scanned_at.isoformat(),
+        "fields": {name: [asdict(finding) for finding in result.findings] for name, result in found.items()},
+    }
+
+
 @lru_cache(maxsize=1)
 def _load_catalogue() -> dict[str, Any]:
     """Read and compile the catalogue once.
@@ -122,6 +151,7 @@ def _load_catalogue() -> dict[str, Any]:
     raw = json.loads(_CATALOGUE.read_text(encoding="utf-8"))
 
     return {
+        "version": raw["version"],
         "directive": _compile_all(raw["directive"]),
         "unicode": _compile_all(raw["unicode"]),
         "comment_block": {
