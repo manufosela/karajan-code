@@ -60,7 +60,7 @@ class PromptRenderer:
         """Render one of the profile's named prompts.
 
         Args:
-            prompt_name: One of classification, strategic, impact, scoring, summary.
+            prompt_name: One of the names PromptSet declares.
             **variables: Per-item values such as title and abstract.
 
         Returns:

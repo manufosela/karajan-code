@@ -245,3 +245,60 @@ class TestBundledOrthodonticsPrompts:
             prompt = ortho_renderer.render(name, **common, **extra.get(name, {}))
 
             assert "{{" not in prompt, f"unrendered tag left in {name} prompt"
+
+
+class TestDistillationPrompt:
+    """The distillation prompt ships with the engine, not with a domain.
+
+    An instance that opts into the family contract should get a working
+    prompt without writing one, and that prompt has to say nothing about any
+    particular subject matter -- everything domain-specific arrives through
+    the profile.
+    """
+
+    def test_a_profile_gets_the_prompt_without_declaring_one(self) -> None:
+        profile = RadarProfile.model_validate(_minimal_profile_dict())
+
+        assert profile.prompts.distillation.template
+
+    def test_renders_the_document_into_the_prompt(self) -> None:
+        renderer = PromptRenderer(RadarProfile.model_validate(_minimal_profile_dict()))
+
+        rendered = renderer.render(
+            "distillation",
+            title="Logical clocks",
+            abstract="Events across processes need a consistent order.",
+            source_reference="Lamport, CACM 1978",
+        )
+
+        assert "Logical clocks" in rendered
+        assert "Events across processes" in rendered
+        assert "Lamport, CACM 1978" in rendered
+
+    def test_carries_the_organisation_from_the_profile(self) -> None:
+        renderer = PromptRenderer(RadarProfile.model_validate(_minimal_profile_dict()))
+
+        rendered = renderer.render("distillation", title="t", abstract="a", source_reference="s")
+
+        assert "Acme Corp" in rendered
+
+    @pytest.mark.parametrize(
+        "domain_term",
+        ["orthodont", "aligner", "mobility", "battery", "clinical", "patient"],
+    )
+    def test_the_template_names_no_domain(self, domain_term: str) -> None:
+        """Anything subject-specific belongs in the profile, not the engine."""
+        from app.profiles.default_prompts import DEFAULT_PROMPTS
+
+        template = DEFAULT_PROMPTS["distillation"]["template"].lower()
+
+        assert domain_term not in template
+
+    def test_asks_the_model_to_decline_rather_than_invent_limits(self) -> None:
+        """A card whose boundaries were guessed is worse than no card."""
+        from app.profiles.default_prompts import DEFAULT_PROMPTS
+
+        template = DEFAULT_PROMPTS["distillation"]["template"]
+
+        assert "distillable" in template
+        assert "inventing a plausible limit" in template

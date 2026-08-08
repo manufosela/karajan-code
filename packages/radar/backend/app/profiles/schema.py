@@ -260,7 +260,7 @@ def _default_prompt(name: str) -> PromptTemplate:
 
 
 class PromptSet(_FrozenModel):
-    """The five prompts driving the analysis pipeline.
+    """The prompts driving the analysis pipeline.
 
     Each defaults to a domain-neutral template that renders its definitions
     from the profile's taxonomy and vocabulary, so a new domain only needs to
@@ -272,6 +272,10 @@ class PromptSet(_FrozenModel):
     impact: PromptTemplate = Field(default_factory=lambda: _default_prompt("impact"))
     scoring: PromptTemplate = Field(default_factory=lambda: _default_prompt("scoring"))
     summary: PromptTemplate = Field(default_factory=lambda: _default_prompt("summary"))
+
+    # Only rendered by instances that opted into the family contract; the
+    # default is here so those instances need no prompt of their own.
+    distillation: PromptTemplate = Field(default_factory=lambda: _default_prompt("distillation"))
 
 
 # ---------------------------------------------------------------------------
