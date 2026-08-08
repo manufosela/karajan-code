@@ -38,6 +38,7 @@ export class KimiAgent extends BaseAgent {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs,
+      cwd: task.cwd,
     });
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode };
   }

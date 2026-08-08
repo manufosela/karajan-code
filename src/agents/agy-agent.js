@@ -37,6 +37,7 @@ export class AgyAgent extends BaseAgent {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs,
+      cwd: task.cwd,
     });
     const parsed = extractAgyOutput(res.stdout);
     const ok = res.exitCode === 0 && parsed?.status === "SUCCESS";

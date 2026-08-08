@@ -85,7 +85,9 @@ export class CodexAgent extends BaseAgent {
       onOutput: task.onOutput,
       silenceTimeoutMs: task.silenceTimeoutMs,
       timeout: task.timeoutMs,
-      input: task.prompt
+      input: task.prompt,
+      // TOR-A (KJC-TSK-0723): tournament lanes run the coder INSIDE the lane.
+      cwd: task.cwd
     });
     const usage = extractCodexTokens(res.stdout);
     return { ok: res.exitCode === 0, output: res.stdout, error: res.stderr, exitCode: res.exitCode, ...usage };

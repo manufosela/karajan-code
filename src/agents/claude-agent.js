@@ -374,7 +374,8 @@ export class ClaudeAgent extends BaseAgent {
         onOutput: streamFilter,
         silenceTimeoutMs: task.silenceTimeoutMs,
         timeout: task.timeoutMs,
-        env: task.env
+        env: task.env,
+        cwd: task.cwd
       }));
       const raw = pickOutput(res);
       const output = extractTextFromStreamJson(raw);
@@ -384,7 +385,7 @@ export class ClaudeAgent extends BaseAgent {
 
     // Without streaming, use json output to get structured response via stderr
     args.push("--output-format", "json");
-    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({ env: task.env }));
+    const res = await this.runCommand(resolveBin("claude"), args, cleanExecaOpts({ env: task.env, cwd: task.cwd }));
     const raw = pickOutput(res);
     const output = extractTextFromStreamJson(raw);
     const usage = extractUsageFromStreamJson(raw);
