@@ -61,6 +61,11 @@ _VALID_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 # about.
 _UNSET_TEMPERATURE = 0.2
 
+# Thinking draws on the same budget as the answer, so a JSON reply needs more
+# headroom than the free-text default: a truncated object is not partial
+# output, it is unparseable output.
+_JSON_MAX_TOKENS = 8192
+
 _MAX_RETRIES = 3
 _RETRY_BASE_DELAY = 1.0  # seconds
 
@@ -155,14 +160,15 @@ class AnthropicProvider(BaseLLMProvider):
     ) -> dict:
         """Send a prompt and return structured JSON.
 
-        The pipeline calls this without a schema, because the default
-        prompts carry their own schema in the prompt text, so the object has
-        to be read back out of whatever the reply wraps it in.
+        With a *schema* the API constrains the reply and the object arrives
+        bare. Without one -- which is how the pipeline calls this, because
+        the default prompts carry their own schema in the prompt text -- the
+        object has to be read back out of whatever the reply wraps it in.
 
         Args:
             prompt: The user turn.
             system_prompt: Sent as the request's system field.
-            schema: Reserved for constraining the reply; not yet applied.
+            schema: JSON Schema the reply must satisfy.
 
         Returns:
             The decoded object.
@@ -170,7 +176,15 @@ class AnthropicProvider(BaseLLMProvider):
         Raises:
             ValueError: If the reply contains no usable JSON object.
         """
-        response = await self.complete(prompt, system_prompt=system_prompt)
+        request = self._build_request(
+            prompt,
+            system_prompt=system_prompt,
+            max_tokens=_JSON_MAX_TOKENS,
+        )
+        if schema:
+            request["output_config"]["format"] = {"type": "json_schema", "schema": schema}
+
+        response = await self._call_with_retry(request)
         return extract_json(response.content)
 
     def _build_request(

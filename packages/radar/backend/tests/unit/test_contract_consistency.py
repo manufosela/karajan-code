@@ -167,3 +167,47 @@ class TestColumnWidths:
             assert len(v) <= max_len, (
                 f"review_status value '{v}' ({len(v)} chars) exceeds column width {max_len}"
             )
+
+
+# ─── Profile schema vs LLM provider registry ─────────────────────────
+
+
+class TestProviderContract:
+    """Every provider a profile may name has to exist at run time.
+
+    The profile schema validates `llm.provider` against a closed set. A value
+    in that set with no registered provider passes validation and then fails
+    when the pipeline asks the registry for it -- the profile looks fine and
+    the radar dies on its first run. This test keeps the two in step.
+    """
+
+    @staticmethod
+    def _accepted_by_the_profile_schema() -> set[str]:
+        from typing import get_args
+
+        from app.profiles.schema import LLMSettings
+
+        return set(get_args(LLMSettings.model_fields["provider"].annotation))
+
+    @staticmethod
+    def _registered_in_the_engine() -> set[str]:
+        import app.llm.anthropic_provider  # noqa: F401
+        import app.llm.ollama_provider  # noqa: F401
+        import app.llm.openai_provider  # noqa: F401
+        from app.llm import default_registry
+
+        return set(default_registry.registered_names)
+
+    def test_every_accepted_provider_is_registered(self):
+        missing = self._accepted_by_the_profile_schema() - self._registered_in_the_engine()
+        assert not missing, (
+            f"the profile schema accepts {sorted(missing)} but the engine has no such "
+            "provider; a profile naming one would validate and then fail at startup"
+        )
+
+    def test_every_registered_provider_is_accepted(self):
+        unreachable = self._registered_in_the_engine() - self._accepted_by_the_profile_schema()
+        assert not unreachable, (
+            f"{sorted(unreachable)} is registered but no profile can ask for it, "
+            "because the profile schema does not accept the name"
+        )

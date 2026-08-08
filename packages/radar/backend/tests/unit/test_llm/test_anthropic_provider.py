@@ -274,3 +274,53 @@ class TestRetries:
             await provider.complete("go")
 
         assert call.await_count == 1
+
+
+# ---------------------------------------------------------------------------
+# complete_json()
+# ---------------------------------------------------------------------------
+
+
+class TestCompleteJson:
+    async def test_returns_a_parsed_object(self, provider: AnthropicProvider) -> None:
+        _reply_with(provider, _message(text='{"theme": "robotics"}'))
+
+        assert await provider.complete_json("classify") == {"theme": "robotics"}
+
+    async def test_recovers_an_object_from_a_chatty_reply(self, provider: AnthropicProvider) -> None:
+        """Without an output schema the object arrives wrapped in whatever."""
+        _reply_with(provider, _message(text='Sure!\n```json\n{"theme": "ai"}\n```'))
+
+        assert await provider.complete_json("classify") == {"theme": "ai"}
+
+    async def test_constrains_the_reply_when_given_a_schema(self, provider: AnthropicProvider) -> None:
+        schema = {"type": "object", "properties": {"theme": {"type": "string"}}}
+        call = _reply_with(provider, _message(text='{"theme": "ai"}'))
+
+        await provider.complete_json("classify", schema=schema)
+
+        assert call.await_args.kwargs["output_config"]["format"] == {
+            "type": "json_schema",
+            "schema": schema,
+        }
+
+    async def test_sends_no_output_format_without_a_schema(self, provider: AnthropicProvider) -> None:
+        call = _reply_with(provider, _message(text="{}"))
+
+        await provider.complete_json("classify")
+
+        assert "format" not in call.await_args.kwargs["output_config"]
+
+    async def test_leaves_room_for_thinking(self, provider: AnthropicProvider) -> None:
+        """A truncated object is unparseable, not merely short."""
+        call = _reply_with(provider, _message(text="{}"))
+
+        await provider.complete_json("classify")
+
+        assert call.await_args.kwargs["max_tokens"] > 4096
+
+    async def test_raises_when_the_reply_holds_no_object(self, provider: AnthropicProvider) -> None:
+        _reply_with(provider, _message(text="I am afraid I cannot do that."))
+
+        with pytest.raises(ValueError, match="no JSON object"):
+            await provider.complete_json("classify")
