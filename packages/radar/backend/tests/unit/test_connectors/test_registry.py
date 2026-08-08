@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from app.connectors.base import BaseConnector
+from app.connectors.external import ConnectorSpecError
 from app.connectors.registry import ConnectorRegistry, create_default_registry
 
 
@@ -150,3 +151,44 @@ class TestTheDefaultRegistry:
             "semantic_scholar",
             "rss",
         }
+
+
+# ---------------------------------------------------------------------------
+# Connectors an instance brings itself
+# ---------------------------------------------------------------------------
+
+
+class TestInstanceConnectors:
+    """The point of the card: a source only one instance cares about.
+
+    The BOE matters to a radar watching Spanish regulation and to nobody
+    else. It should reach that instance's registry without the engine ever
+    learning that the BOE exists.
+    """
+
+    _SPEC = "boe=tests.unit.test_connectors.test_registry:_FakeConnector"
+
+    def test_a_declared_connector_reaches_the_registry(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RADAR_CONNECTORS", self._SPEC)
+
+        assert "boe" in create_default_registry().registered_names
+
+    def test_a_profile_can_then_declare_that_source(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RADAR_CONNECTORS", self._SPEC)
+        registry = create_default_registry()
+
+        connectors = registry.get_all_enabled([_Source("boe")])
+
+        assert len(connectors) == 1
+
+    def test_the_bundled_connectors_are_still_there(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RADAR_CONNECTORS", self._SPEC)
+
+        assert "pubmed" in create_default_registry().registered_names
+
+    def test_a_broken_declaration_stops_the_process_starting(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Better than a registry that comes up missing a source."""
+        monkeypatch.setenv("RADAR_CONNECTORS", "boe=nowhere.at.all:BoeConnector")
+
+        with pytest.raises(ConnectorSpecError, match="cannot import"):
+            create_default_registry()

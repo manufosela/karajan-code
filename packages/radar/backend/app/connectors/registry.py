@@ -12,6 +12,7 @@ from typing import Any
 
 from app.connectors.arxiv import ArXivConnector
 from app.connectors.base import BaseConnector
+from app.connectors.external import load_declared_connectors
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -118,7 +119,16 @@ class ConnectorRegistry:
 
 
 def create_default_registry() -> ConnectorRegistry:
-    """Create and return the default registry with all built-in connectors registered."""
+    """Build the registry: the engine's connectors, plus the instance's own.
+
+    An instance declares connectors of its own with RADAR_CONNECTORS; see
+    app.connectors.external. A declared connector that cannot be loaded
+    raises here, while the process is starting, rather than turning into a
+    source that quietly never runs.
+
+    Raises:
+        ConnectorSpecError: If a declared connector cannot be loaded.
+    """
     from app.connectors.clinical_trials import ClinicalTrialsConnector
     from app.connectors.crossref import CrossrefConnector
     from app.connectors.pubmed import PubMedConnector
@@ -132,6 +142,12 @@ def create_default_registry() -> ConnectorRegistry:
     registry.register("crossref", CrossrefConnector)
     registry.register("semantic_scholar", SemanticScholarConnector)
     registry.register("rss", RssConnector)
+
+    # Declared last so an instance can replace a bundled connector with its
+    # own -- the override is logged by register().
+    for name, connector_class in load_declared_connectors().items():
+        registry.register(name, connector_class)
+
     return registry
 
 
