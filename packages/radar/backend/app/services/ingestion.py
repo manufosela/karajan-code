@@ -8,7 +8,7 @@ ingestion run statistics.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -20,6 +20,7 @@ from app.core.logging import get_logger
 from app.models.ingestion_run import IngestionRun
 from app.models.research_item import ResearchItem
 from app.models.source import Source
+from app.security.injection_scan import scan_record
 from app.services.deduplication import (
     DedupCandidate,
     ExistingItem,
@@ -206,6 +207,30 @@ class IngestionOrchestrator:
         if verdict.verdict != "new":
             return None
 
+        # Naive UTC, matching the other timestamps on this model, but without
+        # the deprecated utcnow(). The rest of this file still uses it; that
+        # is existing debt and cleaning it up would change timestamps this
+        # change has no business touching.
+        processed_at = datetime.now(UTC).replace(tzinfo=None)
+
+        # Scan before the item exists, not after: this is the boundary where
+        # third-party text enters, and every field below travels into a prompt
+        # later on. Findings are recorded, not acted on -- quarantine is a
+        # separate decision and does not belong in the ingestion path.
+        injection_scan = scan_record(
+            scanned_at=processed_at,
+            title=paper.title,
+            abstract=abstract,
+            journal_or_origin=paper.journal_or_origin,
+        )
+        if injection_scan["fields"]:
+            logger.warning(
+                "injection_patterns_in_ingested_item",
+                source=source.name,
+                external_id=external_id,
+                fields=sorted(injection_scan["fields"]),
+            )
+
         item = ResearchItem(
             source_id=source.id,
             doi=paper.doi,
@@ -222,7 +247,8 @@ class IngestionOrchestrator:
             document_type=paper.document_type,
             language=language,
             content_hash=content_hash,
-            processing_timestamp=datetime.utcnow(),
+            injection_scan=injection_scan,
+            processing_timestamp=processed_at,
         )
 
         # Add to in-memory dedup pool for same-batch detection
