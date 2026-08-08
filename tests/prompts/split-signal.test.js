@@ -1,10 +1,6 @@
-// KJC-BUG-0138 (issue #1364) — a file split is not a coverage deletion. The
-// reviewer sees a file losing most of its content plus new files gaining it
-// and does not correlate the two sides: 4 of 13 pure-refactor PRs were
-// falsely rejected, each costing a solomon round. kj precomputes the
-// correlation deterministically (removed lines of A reappearing verbatim as
-// additions of B in the SAME diff) and hands it to the reviewer as its own
-// note — zero LLM, zero extra runs.
+// KJC-BUG-0138 (issue #1364) — a file split is not a coverage deletion: kj
+// precomputes the moved-lines correlation (removed in A, re-added in B in the
+// SAME diff) and hands it to the reviewer as its own note — zero LLM.
 
 import { describe, it, expect } from "vitest";
 import { buildSplitSignal } from "../../src/prompts/split-signal.js";
@@ -89,7 +85,6 @@ describe("buildSplitSignal", () => {
   });
 
   it("handles null/empty diffs", () => {
-    expect(buildSplitSignal(null)).toBeNull();
-    expect(buildSplitSignal("")).toBeNull();
+    for (const d of [null, ""]) expect(buildSplitSignal(d)).toBeNull();
   });
 });

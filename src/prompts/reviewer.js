@@ -37,8 +37,7 @@ const SERENA_INSTRUCTIONS = [
  */
 export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
   const { body: clippedDiff, note: clipNote } = clipDiff(diff);
-  // KJC-BUG-0138: computed on the FULL diff — the moved-to side must inform
-  // the reviewer even when the clipped copy no longer shows it.
+  // KJC-BUG-0138: full diff on purpose — the moved-to side survives clipping.
   const splitSignal = buildSplitSignal(diff);
 
   const langInstruction = getLanguageInstruction(language);

@@ -1,34 +1,24 @@
 /**
  * split-signal — KJC-BUG-0138 (issue #1364). A file split is not a coverage
- * deletion: the reviewer sees file A losing most of its content and new files
- * gaining it, and does not correlate the two sides — 4 of 13 pure-refactor
- * PRs were falsely rejected for "deleting tests", each costing a solomon
- * round. kj's own method (pr-size gate, partition guidance) PUSHES toward
- * exactly that refactor, so the review gate must not fight it.
- *
- * Deterministic pre-analysis over the raw diff, zero LLM: significant lines
- * removed from A that reappear verbatim among the ADDITIONS of another file
- * in the SAME diff are moves, not deletions. When at least half of a file's
- * significant removals move elsewhere, the reviewer gets the correlation as
- * a note from the pipeline. Exact `--- a/` / `+++ b/` headers only — the
- * BUG-0132 lesson: `++content` body lines must never read as headers.
+ * deletion, but the reviewer doesn't correlate a file losing content with new
+ * files gaining it (4/13 pure-refactor PRs falsely rejected). Deterministic
+ * pre-analysis, zero LLM: significant removed lines reappearing verbatim among
+ * another file's ADDITIONS in the same diff are moves — when ≥ MIN_RATIO of a
+ * file's removals move, the reviewer gets the correlation as a pipeline note.
+ * Exact `--- a/` / `+++ b/` headers only (BUG-0132: `++content` ≠ header).
  */
 
 const MIN_REMOVED = 10; // fewer significant removals ⇒ too small to misread
 const MIN_RATIO = 0.5; // below this, the removal is mostly a real removal
 
-// Braces, blanks and punctuation reappear everywhere by accident — only
-// letter-bearing lines of some length count as evidence of a move.
+// Braces/punctuation reappear by accident — only letter-bearing lines count.
 function significant(text) {
   const t = text.trim();
   return t.length >= 10 && /[a-zA-Z]/.test(t);
 }
 
-/**
- * @param {string|null} diff raw unified diff (pre-clipping — the added side
- *   must be visible to the signal even when the reviewer's copy is clipped)
- * @returns {string|null} pipeline note, or null when nothing moved
- */
+/** @returns {string|null} pipeline note, or null when nothing moved. Feed the
+ * PRE-CLIPPING diff: the added side must inform even when clipped away. */
 export function buildSplitSignal(diff) {
   if (!diff) return null;
   const removedByFile = new Map();
