@@ -102,7 +102,10 @@ async def main() -> int:
             return 0
 
         try:
-            # Auto-register providers by importing them
+            # Auto-register providers by importing them. Every value the
+            # profile schema accepts for `llm.provider` needs a line here, or
+            # a profile that names it validates and then fails at run time.
+            import app.llm.anthropic_provider  # noqa: F401
             import app.llm.ollama_provider  # noqa: F401
             import app.llm.openai_provider  # noqa: F401
             from app.profiles.active import get_active_profile
