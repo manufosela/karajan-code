@@ -1,4 +1,10 @@
-"""Connector registry for managing and discovering research data connectors."""
+"""Connector registry for managing and discovering research data connectors.
+
+A source the profile declares and the registry cannot serve is the failure
+mode worth designing against here. Ingestion is periodic and unattended, and
+a missing source produces exactly what a quiet week produces -- fewer items
+-- so anything that drops one has to say so loudly enough to be found later.
+"""
 
 from __future__ import annotations
 
@@ -26,7 +32,16 @@ class ConnectorRegistry:
         Args:
             name: Unique name for the connector (e.g., "pubmed", "arxiv").
             connector_class: The connector class to register.
+
+        Raises:
+            TypeError: If the class does not implement BaseConnector. Checked
+                here rather than at use, so a connector that cannot work
+                fails while the process is starting instead of halfway
+                through an ingestion run that has already spent calls.
         """
+        if not isinstance(connector_class, type) or not issubclass(connector_class, BaseConnector):
+            raise TypeError(f"connector '{name}' must be a BaseConnector subclass, got {connector_class!r}")
+
         name_lower = name.lower()
         if name_lower in self._connectors:
             logger.warning("Overwriting existing connector registration", name=name_lower)
@@ -74,7 +89,14 @@ class ConnectorRegistry:
 
             source_name = getattr(source, "name", "").lower()
             if source_name not in self._connectors:
-                logger.debug("No connector registered for source", name=source_name)
+                # Not debug: a declared source that never runs looks exactly
+                # like a source that found nothing.
+                logger.error(
+                    "source_has_no_connector",
+                    name=source_name,
+                    available=self.registered_names,
+                    consequence="the source was declared in the profile and will not be queried",
+                )
                 continue
 
             try:

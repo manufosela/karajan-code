@@ -129,7 +129,7 @@ class SignalPipelineService:
         step = await self._run_classification(item, session)
         steps.append(step)
         if step.status == StepStatus.SUCCESS:
-            themes = [t for t in (item.thematic_tags or [])]
+            themes = list(item.thematic_tags or [])
 
         # Step 2: Strategic bucket classification
         step = await self._run_strategic(item, session)
