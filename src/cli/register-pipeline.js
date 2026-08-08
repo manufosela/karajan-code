@@ -206,8 +206,14 @@ export function registerPipeline(program, { pkgVersion }) {
     .argument("[task]", "Task description (REQUIRED — provide as argument or via --task-file)")
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--coders <csv>", "Comma-separated coder agents (minimum 2), e.g. claude,codex,agy")
+    .option("--score <id>", "Score an EXISTING tournament from its artifacts (deterministic, zero LLM)")
+    .option("--json", "With --score: emit the stable scoreboard JSON")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "tournament", flags, async ({ config, logger }) => {
+        if (flags.score) {
+          await tournamentCommand({ task: "", config, logger, flags });
+          return;
+        }
         const resolvedTask = await resolveTaskInput({ task, taskFile: flags.taskFile, projectDir: config.projectDir, logger });
         await tournamentCommand({ task: resolvedTask, config, logger, flags });
       });
