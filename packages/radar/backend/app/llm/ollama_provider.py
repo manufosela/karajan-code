@@ -5,9 +5,10 @@ reprocessing a corpus during development: the same pipeline that would spend
 real money against a hosted model can be exercised locally for free.
 
 Small local models are chattier than hosted ones and routinely wrap their
-JSON in prose or code fences despite instructions to the contrary, so the
-JSON path here is deliberately forgiving about the envelope while staying
-strict about the payload.
+JSON in prose or code fences despite instructions to the contrary. Reading
+that reply is not an Ollama problem, though -- every provider that asks for
+structured output without an output schema hits it -- so it lives in
+``app.llm.json_parsing``.
 """
 
 from __future__ import annotations
@@ -22,101 +23,13 @@ import httpx
 from app.core.logging import get_logger
 from app.llm import default_registry
 from app.llm.base import BaseLLMProvider, LLMResponse, Usage
+from app.llm.json_parsing import extract_json
 
 logger = get_logger(__name__)
 
 _DEFAULT_BASE_URL = "http://localhost:11434"
 _DEFAULT_MODEL = "llama3.1"
 _DEFAULT_TIMEOUT = 120.0  # local generation is slower than a hosted API
-
-
-def extract_json(text: str) -> dict[str, Any]:
-    """Pull a JSON object out of a model response.
-
-    Accepts a bare object, one wrapped in a Markdown code fence, or one
-    embedded in prose. Braces inside string literals are not mistaken for
-    structure.
-
-    Args:
-        text: The raw model output.
-
-    Returns:
-        The decoded object.
-
-    Raises:
-        ValueError: If no JSON object is present, or it is malformed.
-    """
-    candidate = _strip_code_fence(text.strip())
-
-    try:
-        return _as_object(json.loads(candidate))
-    except json.JSONDecodeError:
-        pass
-
-    span = _find_object_span(candidate)
-    if span is None:
-        raise ValueError(f"no JSON object found in model response: {text[:200]!r}")
-
-    start, end = span
-    try:
-        return _as_object(json.loads(candidate[start:end]))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"malformed JSON in model response: {exc}") from exc
-
-
-def _as_object(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise ValueError(f"expected a JSON object, got {type(value).__name__}")
-    return value
-
-
-def _strip_code_fence(text: str) -> str:
-    """Remove a surrounding ``` fence, with or without a language tag."""
-    if not text.startswith("```"):
-        return text
-
-    without_open = text[3:]
-    newline = without_open.find("\n")
-    if newline == -1:
-        return text
-
-    body = without_open[newline + 1 :]
-    closing = body.rfind("```")
-    return body[:closing].strip() if closing != -1 else body.strip()
-
-
-def _find_object_span(text: str) -> tuple[int, int] | None:
-    """Locate the first balanced ``{...}`` span, ignoring braces in strings."""
-    start = text.find("{")
-    if start == -1:
-        return None
-
-    depth = 0
-    in_string = False
-    escaped = False
-
-    for index in range(start, len(text)):
-        char = text[index]
-
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            continue
-
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return start, index + 1
-
-    return None
 
 
 class OllamaProvider(BaseLLMProvider):
