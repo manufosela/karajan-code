@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import contextlib
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.cards.schema import CardBody, DistilledCard, Provenance
 from app.llm.base import BaseLLMProvider
+from app.profiles.schema import RadarProfile
 from app.services.classification import ClassificationError, ClassificationResult, ThemeScore
+from app.services.distillation import DistillationError, NotDistilled
 from app.services.impact import ImpactAnalysisError, ImpactAnalysisResult
 from app.services.scoring import ScoringError, ScoringResult
 from app.services.signal_pipeline import (
@@ -19,6 +23,7 @@ from app.services.signal_pipeline import (
 )
 from app.services.strategic import StrategicClassificationError, StrategicClassificationResult
 from app.services.summary import SummaryError, SummaryResult
+from tests.unit.test_profiles.test_schema import _minimal_profile_dict
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -733,3 +738,145 @@ class TestSignalPipelineStepDuration:
 
         for step in result.steps:
             assert step.duration_ms >= 0
+
+
+# ---------------------------------------------------------------------------
+# Distillation: the family-contract step
+# ---------------------------------------------------------------------------
+
+
+def _analysis_patches(service: SignalPipelineService):
+    """The five analysis steps, all succeeding."""
+    return (
+        patch.object(service._classification, "classify", return_value=_classification_result()),
+        patch.object(service._strategic, "classify", return_value=_strategic_result()),
+        patch.object(service._scoring, "score", return_value=_scoring_result()),
+        patch.object(service._impact, "analyze", return_value=_impact_result()),
+        patch.object(service._summary, "summarize", return_value=_summary_result()),
+    )
+
+
+def _a_card() -> DistilledCard:
+    return DistilledCard(
+        body=CardBody(
+            title="Aligner polymer creep",
+            problem_signature="Aligners lose force before the treatment step ends.",
+            reach_for_it_when="- The appliance must hold load for days at body temperature.",
+            do_not_reach_for_it_when="- The appliance is replaced faster than the material relaxes.",
+            trade_offs="- The stiffer blend costs comfort and is harder to thermoform.",
+            canonical_source="Some Author, Journal of Materials, 2026.",
+        ),
+        provenance=Provenance.for_capture(
+            source="https://example.org/paper",
+            connector="pubmed",
+            captured_at=datetime.now(tz=UTC),
+        ),
+    )
+
+
+class TestDistillationStep:
+    async def test_an_instance_without_the_contract_never_distils(self) -> None:
+        """No sixth step, and nothing asked of the model."""
+        service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider))
+        item, session = _make_research_item(), _make_session()
+
+        with contextlib.ExitStack() as stack:
+            for p in _analysis_patches(service):
+                stack.enter_context(p)
+            result = await service.process(item, session)
+
+        assert service._distillation is None
+        assert len(result.steps) == 5
+        assert result.card is None
+        assert result.not_distilled_reason is None
+
+    async def test_a_card_travels_out_with_the_result(self) -> None:
+        distiller = AsyncMock()
+        distiller.distill = AsyncMock(return_value=_a_card())
+        service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider), distillation=distiller)
+        item, session = _make_research_item(), _make_session()
+
+        with contextlib.ExitStack() as stack:
+            for p in _analysis_patches(service):
+                stack.enter_context(p)
+            result = await service.process(item, session)
+
+        assert len(result.steps) == 6
+        assert result.steps[-1].name == "distillation"
+        assert result.card is not None
+        assert result.card.body.title == "Aligner polymer creep"
+        assert result.status == "completed"
+
+    async def test_a_document_with_no_card_in_it_is_not_a_failure(self) -> None:
+        """The step succeeded; the honest answer was that there is no card."""
+        distiller = AsyncMock()
+        distiller.distill = AsyncMock(return_value=NotDistilled(reason="a product announcement"))
+        service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider), distillation=distiller)
+        item, session = _make_research_item(), _make_session()
+
+        with contextlib.ExitStack() as stack:
+            for p in _analysis_patches(service):
+                stack.enter_context(p)
+            result = await service.process(item, session)
+
+        assert result.status == "completed"
+        assert result.steps[-1].status == StepStatus.SUCCESS
+        assert result.card is None
+        assert result.not_distilled_reason == "a product announcement"
+
+    async def test_a_failed_distillation_keeps_the_rest_of_the_analysis(self) -> None:
+        distiller = AsyncMock()
+        distiller.distill = AsyncMock(side_effect=DistillationError("the model is down"))
+        service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider), distillation=distiller)
+        item, session = _make_research_item(), _make_session()
+
+        with contextlib.ExitStack() as stack:
+            for p in _analysis_patches(service):
+                stack.enter_context(p)
+            result = await service.process(item, session)
+
+        assert result.status == "partially_processed"
+        assert result.steps[-1].status == StepStatus.FAILED
+        assert "the model is down" in (result.steps[-1].error or "")
+        assert item.executive_summary_en is not None
+
+    async def test_the_document_reaches_the_distiller(self) -> None:
+        distiller = AsyncMock()
+        distiller.distill = AsyncMock(return_value=_a_card())
+        service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider), distillation=distiller)
+        item, session = _make_research_item(), _make_session()
+        item.original_url = "https://example.org/paper"
+
+        with contextlib.ExitStack() as stack:
+            for p in _analysis_patches(service):
+                stack.enter_context(p)
+            await service.process(item, session)
+
+        sent = distiller.distill.await_args.kwargs
+        assert sent["title"] == "Novel Aligner Material Study"
+        assert sent["source"] == "https://example.org/paper"
+
+    async def test_turning_the_flag_on_is_enough_to_get_the_step(self) -> None:
+        """No caller has to remember to wire it: the profile decides."""
+        data = _minimal_profile_dict()
+        data["family_contract"] = {"distilled_cards": True}
+        profile = RadarProfile.model_validate(data)
+
+        with patch(
+            "app.services.signal_pipeline.get_active_profile",
+            return_value=profile,
+        ):
+            service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider))
+
+        assert service._distillation is not None
+
+    async def test_leaving_the_flag_off_costs_nothing(self) -> None:
+        profile = RadarProfile.model_validate(_minimal_profile_dict())
+
+        with patch(
+            "app.services.signal_pipeline.get_active_profile",
+            return_value=profile,
+        ):
+            service = SignalPipelineService(AsyncMock(spec=BaseLLMProvider))
+
+        assert service._distillation is None
