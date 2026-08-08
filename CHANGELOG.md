@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The governed tournament — `kj tournament` → `--score` → `--judge` → `--crown`** (epic KJC-PCS-0073, KJC-TSK-0723/0724/0725, born from the Orca analysis: "fan one prompt across N agents, compare, merge the winner" — with a human eyeballing diffs; here the method chooses): fan the SAME task out to N coders in N isolated worktree lanes (`task.cwd` forwarded to every adapter; per-lane evidence: diff with intent-to-add, suite result, agent log, metadata; one lane's failure never sinks another) → a **deterministic zero-LLM scoreboard** (red suite eliminates; net LOC and tests parsed with exact-header diff parsing; mutation with honest degradation — a null never becomes a hidden penalty; the ranking rule is lexicographic and PRINTED with the result) → a **cross-AI judge** that chooses among survivors (a participant never judges its own tournament; only first place crowns; tie or winner-disagreement escalates to solomon with both positions; the LLM verdict is untrusted input — hallucinated coders fail loud) → the **crown**: the winner enters through the NORMAL door — real cross-AI review of its exact staged diff, verdict bound to the sha256, commit through the pre-commit gate; a rejected review aborts the coronation, because winning the tournament earns a candidacy, not a bypass. Losers keep their full dossier. The complete cycle ran LIVE on day one, coronation included. Ten legitimate cross-AI review rejections hardened the epic along the way.
+
 ## [4.14.0] - 2026-08-07
 
 Minor. **The panel never runs dry** — born from a real outage: codex exhausted its weekly quota mid-card and the whole arbitration panel collapsed with it (gemini retired, the local model down, copilot conflicted as the disputing reviewer). One day later: quota failover with consent, two new agents restoring the panel, and the lint rot that was hiding in the unwatched corner.
