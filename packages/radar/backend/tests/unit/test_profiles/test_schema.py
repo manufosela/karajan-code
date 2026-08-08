@@ -417,3 +417,37 @@ class TestIsolation:
         profile_dict["taxonomy"]["themes"].clear()
 
         assert len(profile.taxonomy.themes) == len(original["taxonomy"]["themes"])
+
+
+class TestFamilyContract:
+    """The karajan-family capabilities are opt-in, one flag at a time.
+
+    A capability that costs tokens and latency must not arrive by default:
+    an instance watching another domain entirely should pay nothing for a
+    contract it does not speak.
+    """
+
+    def test_a_profile_that_says_nothing_speaks_no_capability(self) -> None:
+        profile = RadarProfile.model_validate(_minimal_profile_dict())
+
+        assert profile.family_contract.distilled_cards is False
+
+    def test_a_profile_can_turn_a_capability_on(self) -> None:
+        data = _minimal_profile_dict()
+        data["family_contract"] = {"distilled_cards": True}
+
+        assert RadarProfile.model_validate(data).family_contract.distilled_cards is True
+
+    def test_rejects_a_capability_the_engine_does_not_have(self) -> None:
+        """Declaring a capability that does nothing is worse than not having it."""
+        data = _minimal_profile_dict()
+        data["family_contract"] = {"injection_scan": True}
+
+        with pytest.raises(ValidationError, match="injection_scan"):
+            RadarProfile.model_validate(data)
+
+    def test_the_contract_is_immutable_once_loaded(self) -> None:
+        profile = RadarProfile.model_validate(_minimal_profile_dict())
+
+        with pytest.raises(ValidationError):
+            profile.family_contract.distilled_cards = True  # type: ignore[misc]
