@@ -88,12 +88,32 @@ jobs:
           restore-keys: |
             kjw-manifest-${{ inputs.corpus }}-
 
+      # El backend del store es un peer que el motor no arrastra: sin él la
+      # ingesta muere pidiéndolo. Se instala LOCAL junto a karajan-watch —no
+      # con npx efímero— para que la resolución del módulo lo encuentre.
+      - name: Instalar karajan-watch y el backend del store
+        env:
+          CONFIG: ${{ inputs.config-path }}
+          CORPUS: ${{ inputs.corpus }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+        run: |
+          set -euo pipefail
+          store=$(jq -r --arg c "$CORPUS" '.corpus[$c].store' "$CONFIG")
+          case "$store" in
+            lancedb) peer='@lancedb/lancedb' ;;
+            pgvector) peer='pg' ;;
+            in-memory) peer='' ;;
+            *) echo "store no soportado en $CONFIG: $store"; exit 1 ;;
+          esac
+          echo "store declarado: $store${peer:+ (backend $peer)}"
+          npm install --no-save --silent "karajan-watch@${KJW_VERSION}" ${peer:+"$peer"}
+
       - name: Reindexar corpus (karajan-rag, embedder local en el runner)
         env:
           PG_URL: ${{ secrets.PG_URL }}
         run: |
           set -euo pipefail
-          npx --yes "karajan-watch@${{ inputs.karajan-watch-version }}" ingest \
+          ./node_modules/.bin/karajan-watch ingest \
             --config "${{ inputs.config-path }}" \
             --workspace "${{ inputs.workspace-dir }}" \
             --corpus "${{ inputs.corpus }}"

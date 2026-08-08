@@ -66,10 +66,23 @@ jobs:
       base-sha: ${{ github.event.client_payload.base }}
       head-sha: ${{ github.event.client_payload.head }}
       pr-number: ${{ github.event.client_payload.pr }}
+      # Sin un adapter LLM disponible en el runner, desactívalo: el pipeline
+      # corre con las tres señales deterministas en vez de fallar en rojo.
+      # judge: false
     secrets:
       REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+      # Solo si tu store es pgvector. Con lancedb no hay secreto que crear.
       PG_URL: ${{ secrets.PG_URL_CODE }}
 ```
+
+El workflow **instala solo el backend del store** que declares en el
+config (`@lancedb/lancedb` o `pg`) y, si tu store es de fichero, restaura
+el corpus que dejó la ingesta. El informe queda además publicado como
+artifact del job, para leerlo o archivarlo sin depender del log.
+
+Este bloque no está escrito de memoria: es el que ejecuta el self-test de
+[`kjw-workflows-selftest.yml`](../.github/workflows/kjw-workflows-selftest.yml)
+en cada PR que toca los workflows.
 
 ## Límites conocidos
 

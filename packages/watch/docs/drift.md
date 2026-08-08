@@ -57,8 +57,18 @@ jobs:
       judge: false
     secrets:
       REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+      # Solo si tu store es pgvector. Con lancedb no hay secreto que crear.
       PG_URL: ${{ secrets.PG_URL_DOCS }}
 ```
+
+El workflow **instala solo el backend del store** que declares en el config
+y, si es de fichero, restaura el corpus que dejó la ingesta. El informe
+queda publicado como artifact del job, para leerlo o archivarlo sin
+depender del log.
+
+Este bloque no está escrito de memoria: es el que ejecuta el self-test de
+[`kjw-workflows-selftest.yml`](../.github/workflows/kjw-workflows-selftest.yml)
+en cada PR que toca los workflows.
 
 ## Límites conocidos
 

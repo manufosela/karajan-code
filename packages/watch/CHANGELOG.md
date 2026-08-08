@@ -1,5 +1,33 @@
 # Changelog
 
+## No publicado
+
+### Corregido
+
+Los tres workflows reusables —`ingest.yml`, `impact.yml`, `drift.yml`—
+existían desde la primera versión y le pedíamos a cada organización que los
+invocase, pero **no los había ejecutado nunca nadie**. Al ejecutarlos por
+primera vez salieron cuatro fallos que impedían que funcionasen en
+cualquier despliegue:
+
+- **Ninguno instalaba el backend del store**, así que morían pidiendo
+  `@lancedb/lancedb` o `pg`. Ahora lo deducen del store declarado en el
+  config y lo instalan junto a karajan-watch.
+- **`impact` y `drift` no restauraban el corpus** que dejó la ingesta: con
+  un store de fichero corren en otra máquina y no había nada que consultar.
+- **En `drift`, un `[ ] && …` bajo `set -e` abortaba el paso** cuando el
+  juicio venía desactivado, que es el valor por defecto.
+- **`impact` no exponía `--no-judge`**, que el CLI tiene desde la 0.2.0:
+  quien no tuviera un adapter LLM en el runner no podía usar el pipeline.
+
+### Nuevo
+
+- **Los informes se publican como artifact** del job, para leerlos o
+  archivarlos sin depender del log.
+- Un self-test los ejecuta en cada PR que toque los workflows, sobre repos
+  públicos reales y con store `lancedb`, y **comprueba lo que dicen los
+  informes**, no solo que el job salga verde.
+
 ## 0.3.0 — 2026-08-07
 
 > **Ya no necesitas una base de datos para probarlo.** Si te frenó tener que

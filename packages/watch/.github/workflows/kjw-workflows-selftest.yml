@@ -1,0 +1,104 @@
+# Los tres workflows reusables, ejecutados de verdad (KJW-TSK-0026).
+#
+# ingest.yml, impact.yml y drift.yml existen desde F1 y le pedimos a cada
+# organización que los invoque, pero nunca los había ejecutado NADIE. Es la
+# misma situación que dejó la ingesta rota en la 0.1.0, a mayor escala.
+#
+# Aquí se invocan como los invocaría un repo de despliegue, con dos repos
+# observados PÚBLICOS y reales (los de la propia familia) y el store
+# lancedb: sin infraestructura, sin secretos especiales, y con cross-repo
+# de verdad — el diff de uno se contrasta contra el corpus del otro.
+#
+# Lo que este self-test NO cubre, y conviene no confundir: el
+# `repository_dispatch` desde el repo observado hasta el de despliegue,
+# que exige dos repos con permisos cruzados.
+name: Workflows selftest
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/selftest/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SELFTEST_CONFIG: .github/selftest/karajan-watch.config.json
+
+jobs:
+  # Un merge real de este repo: la PR #8, que añadió la vía sin servidor.
+  # SHAs fijos para que el ejercicio sea determinista.
+  ingest:
+    uses: ./.github/workflows/ingest.yml
+    with:
+      org: manufosela
+      config-path: .github/selftest/karajan-watch.config.json
+      corpus: code
+    secrets:
+      REPOS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  impact:
+    needs: ingest
+    uses: ./.github/workflows/impact.yml
+    with:
+      org: manufosela
+      repo: karajan-watch
+      base-sha: 25d05867569f49a0dea2e02e9d029310cb20ce7d
+      head-sha: 357d37c401d002180c1587a6cff14366c8942957
+      config-path: .github/selftest/karajan-watch.config.json
+      corpus: code
+      # Sin adapter LLM en el runner: se ejercita la fontanería y las tres
+      # señales deterministas, que es lo que este self-test debe cubrir.
+      judge: false
+    secrets:
+      REPOS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  drift:
+    needs: ingest
+    uses: ./.github/workflows/drift.yml
+    with:
+      org: manufosela
+      repo: karajan-watch
+      base-sha: 25d05867569f49a0dea2e02e9d029310cb20ce7d
+      head-sha: 357d37c401d002180c1587a6cff14366c8942957
+      config-path: .github/selftest/karajan-watch.config.json
+    secrets:
+      REPOS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Un job verde no prueba nada: la 0.1.0 salió con la ingesta rota y exit
+  # code 0 en los tests. Aquí se lee lo que los workflows PRODUJERON.
+  verificar-informes:
+    needs: [impact, drift]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kjw-*-report-*
+          merge-multiple: true
+
+      - name: Los informes dicen algo, y dicen lo que deben
+        run: |
+          set -euo pipefail
+          for f in impact-report.md drift-report.md; do
+            test -s "$f" || { echo "falta o está vacío: $f"; exit 1; }
+          done
+
+          echo '--- informe de impacto ---'; cat impact-report.md
+          grep -q 'posible impacto cross-repo' impact-report.md \
+            || { echo 'el informe de impacto no tiene su encabezado'; exit 1; }
+          # El repo observado se analiza contra el OTRO: si aparece a sí mismo,
+          # la exclusión del repo origen está rota.
+          grep -q 'karajan-rag/' impact-report.md \
+            || { echo 'ningún candidato del otro repo: el cross-repo no funcionó'; exit 1; }
+          grep -qE '^- `karajan-watch/' impact-report.md \
+            && { echo 'se ha listado el propio repo origen'; exit 1; }
+
+          echo '--- informe de deriva ---'; cat drift-report.md
+          grep -q 'documentación posiblemente desactualizada' drift-report.md \
+            || { echo 'el informe de deriva no tiene su encabezado'; exit 1; }
+          # La deriva es de DOCS: nunca debe listar código.
+          grep -qE '^- `[^`]+\.(js|mjs|ts|json)' drift-report.md \
+            && { echo 'la deriva ha listado código'; exit 1; }
+
+          echo '✓ los tres workflows producen informes con sentido'

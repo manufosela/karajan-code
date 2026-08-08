@@ -86,6 +86,20 @@ jobs:
               "https://github.com/${ORG}/${name}.git" "$WS/$name"
           done
 
+      # Con un store de fichero (lancedb) el corpus VIVE en el workspace, y
+      # este job corre en una máquina distinta de la que ingestó: sin
+      # restaurarlo no habría documentación que consultar. Con pgvector es
+      # inocuo. El fallback sin corpus cubre que hoy code y docs comparten
+      # índice cuando el store es de fichero.
+      - name: Restaurar el corpus indexado por la ingesta
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ inputs.workspace-dir }}/.karajan
+          key: kjw-manifest-docs-${{ github.run_id }}
+          restore-keys: |
+            kjw-manifest-docs-
+            kjw-manifest-
+
       - name: Extraer diff del merge
         env:
           REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
@@ -104,6 +118,25 @@ jobs:
           git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
           test -s merge.diff || { echo "diff vacío entre $BASE y $HEAD"; exit 1; }
 
+      # El backend del store es un peer que el motor no arrastra: sin él la
+      # deriva muere pidiéndolo. Se instala LOCAL junto a karajan-watch —no
+      # con npx efímero— para que la resolución del módulo lo encuentre.
+      - name: Instalar karajan-watch y el backend del store
+        env:
+          CONFIG: ${{ inputs.config-path }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+        run: |
+          set -euo pipefail
+          store=$(jq -r '.corpus.docs.store' "$CONFIG")
+          case "$store" in
+            lancedb) peer='@lancedb/lancedb' ;;
+            pgvector) peer='pg' ;;
+            in-memory) peer='' ;;
+            *) echo "store no soportado en $CONFIG: $store"; exit 1 ;;
+          esac
+          echo "store declarado: $store${peer:+ (backend $peer)}"
+          npm install --no-save --silent "karajan-watch@${KJW_VERSION}" ${peer:+"$peer"}
+
       - name: Detectar deriva de docs y avisar
         env:
           PG_URL: ${{ secrets.PG_URL }}
@@ -118,11 +151,27 @@ jobs:
         run: |
           set -euo pipefail
           args=(--config "$CONFIG" --workspace "$WS" --repo "$REPO" --diff merge.diff)
-          [ "$JUDGE" = "true" ] && args+=(--judge)
+          # Con `set -e`, un `[ ] && cmd` que da falso aborta el paso entero:
+          # como judge viene desactivado por defecto, la deriva NUNCA llegaba
+          # a ejecutarse. Tiene que ser un if.
+          if [ "$JUDGE" = "true" ]; then
+            args+=(--judge)
+          fi
           if [ -n "$PR_NUMBER" ]; then
             case "$PR_NUMBER" in
               *[!0-9]*) echo "pr-number inválido: $PR_NUMBER"; exit 1 ;;
               *) args+=(--pr-number "$PR_NUMBER") ;;
             esac
           fi
-          npx --yes "karajan-watch@${KJW_VERSION}" drift "${args[@]}"
+          # El informe queda además en un fichero: un job verde no dice nada
+          # sobre qué documentación quedó señalada, y quien despliega querrá
+          # leerlo o archivarlo. pipefail ya está activo, así que un fallo
+          # del CLI sigue tumbando el paso aunque `tee` termine bien.
+          ./node_modules/.bin/karajan-watch drift "${args[@]}" | tee drift-report.md
+
+      - name: Publicar el informe
+        uses: actions/upload-artifact@v4
+        with:
+          name: kjw-drift-report-${{ inputs.repo }}-${{ inputs.head-sha }}
+          path: drift-report.md
+          if-no-files-found: error

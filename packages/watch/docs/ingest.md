@@ -58,8 +58,18 @@ jobs:
       PG_URL: ${{ secrets.PG_URL_CODE }}
 ```
 
+El workflow **instala solo el backend del store** que declares en el config:
+`@lancedb/lancedb` si es `lancedb`, `pg` si es `pgvector`, nada si es
+`in-memory`. Si el store no está soportado, el job falla diciéndolo en vez
+de intentar indexar.
+
+Este bloque no está escrito de memoria: es el que ejecuta el self-test de
+[`kjw-workflows-selftest.yml`](../.github/workflows/kjw-workflows-selftest.yml)
+en cada PR que toca los workflows.
+
 - `REPOS_TOKEN`: token con lectura de todos los repos observados.
-- `PG_URL`: conexión del corpus. **Un `PG_URL` (base de datos o schema)
+- `PG_URL`: **solo si tu store es `pgvector`** — con `lancedb` no hay
+  secreto que crear. Conexión del corpus. **Un `PG_URL` (base de datos o schema)
   por corpus**: el CLI de karajan-rag usa una tabla fija
   (`karajan_rag_chunks`), así que `code` y `docs` no pueden compartir
   base — gap upstream registrado (KJW-TSK-0003).
