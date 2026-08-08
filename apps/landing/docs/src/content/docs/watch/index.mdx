@@ -1,0 +1,52 @@
+---
+title: Watch — karajan-watch
+description: The multi-repo watchman of the Karajan family — a shared RAG fed on every merge, cross-repo impact ranking with evidence, and documentation-drift alerts.
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+**karajan-watch** is the watchman of the Karajan family: a shared RAG
+over ALL your organization's repos, fed on every merge — and, on top of
+it, two answers no single-repo view can give you: *which other repos may
+this change break?* and *which documentation did it just make stale?*
+
+## Three layers, strictly separated
+
+| Layer | What it is | Where |
+|---|---|---|
+| **Engine** | [karajan-rag](/docs/karagan/) — index/query/serve, context strategies, sensitivity policy + PII redaction | Open source, npm |
+| **Product** | **karajan-watch** — generic orchestration: reusable ingestion, impact and drift workflows. Knows no organization. | Open source, npm |
+| **Deployment** | One private repo per organization: repo list, thresholds, infra, credentials, calibration golden set | Yours |
+
+The dependency always points upward — the product never learns who
+deploys it. Like nginx and your `nginx.conf`: the product belongs to
+everyone, the instance is yours.
+
+## Honest by design
+
+Impact analysis produces a **risk ranking with evidence** — retrieval
+similarity, git co-change history, literal contract matches (HTTP
+routes, event topics, SQL tables) and a policy-gated LLM verdict. It is
+never sold as a calibrated "probability": heuristics are labeled as
+heuristics, contracts are labeled as evidence, and you calibrate the
+thresholds against a golden set of your own real incidents.
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Design and phases" href="/docs/watch/design/" description="The problem, the three layers and the F1/F2/F3 roadmap." />
+  <LinkCard title="Configuration" href="/docs/watch/config/" description="The strict contract between product and deployment repo." />
+  <LinkCard title="Ingestion on merge" href="/docs/watch/ingest/" description="The reusable workflow that keeps the shared corpus fresh." />
+  <LinkCard title="Cross-repo impact" href="/docs/watch/impact/" description="Four signals, one ranking with evidence on every merge." />
+  <LinkCard title="Documentation drift" href="/docs/watch/drift/" description="Which sections went stale — with literal proof." />
+  <LinkCard title="Eval and calibration" href="/docs/watch/eval/" description="precision/recall@k against your own incident history." />
+  <LinkCard title="Contract with the engine" href="/docs/watch/engine-contract/" description="What watch consumes from karajan-rag, and the upstream gaps." />
+</CardGrid>
+
+:::note[Source of truth]
+These pages are synced from the canonical docs in the
+[karajan-watch repo](https://github.com/manufosela/karajan-watch)
+(pinned to `v0.3.0`) — regenerated, never hand-copied. Landing:
+[watch.karajancode.com](https://watch.karajancode.com) · npm:
+[karajan-watch](https://www.npmjs.com/package/karajan-watch)
+:::

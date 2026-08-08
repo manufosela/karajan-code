@@ -84,11 +84,17 @@ function normalizeHeadings(body) {
   return body.replaceAll(/^(#{1,6}) /gm, (_, hashes) => `${'#'.repeat(hashes.length + shift)} `);
 }
 
-/** Reescribe enlaces markdown relativos hacia el blob del repo pinneado. */
-function absolutizeLinks(body, { repo, ref, path: filePath }) {
+/**
+ * Reescribe enlaces markdown relativos: si resuelven a un fichero hermano
+ * del mismo grupo (`siblings`: path → slug), apuntan a la página local
+ * (`../<slug>/`, válido en ambos locales); si no, al blob del repo pinneado.
+ */
+function absolutizeLinks(body, { repo, ref, path: filePath }, siblings = new Map()) {
   const baseDir = path.posix.dirname(filePath);
   return body.replaceAll(/\]\((\.{1,2}\/[^)#\s]+)(#[^)\s]*)?\)/g, (_, rel, anchor = '') => {
     const resolved = path.posix.normalize(path.posix.join(baseDir, rel));
+    const sibling = siblings.get(resolved);
+    if (sibling !== undefined) return `](../${sibling}/)`;
     return `](https://github.com/${repo}/blob/${ref}/${resolved}${anchor})`;
   });
 }
@@ -101,19 +107,38 @@ function frontmatter({ title, description }) {
 const warnings = [];
 
 for (const source of sources) {
-  const label = `${source.repo}@${source.ref}:${source.path}`;
-  const markdown = await fetchSource(source);
-  const pages = splitPages(markdown, source.pages, label);
+  /** @type {Array<{slug: string, title: string, description: string, body: string, filePath: string}>} */
+  let pages;
+  let label;
+  const siblings = new Map((source.files ?? []).map((f) => [f.path, f.slug]));
+  if (source.files !== undefined) {
+    label = `${source.repo}@${source.ref}`;
+    pages = await Promise.all(
+      source.files.map(async (file) => ({
+        ...file,
+        filePath: file.path,
+        body: (await fetchSource({ ...source, path: file.path })).trim(),
+      })),
+    );
+  } else {
+    label = `${source.repo}@${source.ref}:${source.path}`;
+    const markdown = await fetchSource(source);
+    pages = splitPages(markdown, source.pages, label).map((page) => ({
+      ...page,
+      filePath: source.path,
+    }));
+  }
   const outDir = path.join(docsRoot, source.outDir);
   await mkdir(outDir, { recursive: true });
 
   for (const page of pages) {
     const content = normalizeHeadings(
-      absolutizeLinks(dropLeadingHeading(page.body), source),
+      absolutizeLinks(dropLeadingHeading(page.body), { ...source, path: page.filePath }, siblings),
     );
     const hash = sha256(content);
+    const pageLabel = source.files !== undefined ? `${label}:${page.filePath}` : label;
     const banner =
-      `<!-- synced-from: ${label} · section-sha256: ${hash}\n` +
+      `<!-- synced-from: ${pageLabel} · section-sha256: ${hash}\n` +
       '     NO EDITAR A MANO — regenerado con `npm run sync:family-docs` -->';
     await writeFile(
       path.join(outDir, `${page.slug}.md`),
@@ -138,7 +163,7 @@ for (const source of sources) {
       );
     }
   }
-  console.log(`✓ ${label} → ${source.pages.length} páginas en ${source.outDir}`);
+  console.log(`✓ ${label} → ${pages.length} páginas en ${source.outDir}`);
 }
 
 if (warnings.length > 0) {

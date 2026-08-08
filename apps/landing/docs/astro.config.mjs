@@ -72,6 +72,21 @@ export default defineConfig({
 						],
 					},
 					{
+						label: 'Watch',
+						link: '/watch/',
+						icon: 'magnifier',
+						items: [
+							{ label: 'Overview', slug: 'watch', translations: { es: 'Visión general' } },
+							{ label: 'Design and phases', slug: 'watch/design', translations: { es: 'Diseño y fases' } },
+							{ label: 'Configuration', slug: 'watch/config', translations: { es: 'Configuración' } },
+							{ label: 'Ingestion on merge', slug: 'watch/ingest', translations: { es: 'Ingesta por merge' } },
+							{ label: 'Cross-repo impact', slug: 'watch/impact', translations: { es: 'Impacto cross-repo' } },
+							{ label: 'Documentation drift', slug: 'watch/drift', translations: { es: 'Deriva de documentación' } },
+							{ label: 'Eval and calibration', slug: 'watch/eval', translations: { es: 'Eval y calibración' } },
+							{ label: 'Contract with the engine', slug: 'watch/engine-contract', translations: { es: 'Contrato con el motor' } },
+						],
+					},
+					{
 						label: { en: 'v3 — historical archive', es: 'v3 — archivo histórico' },
 						link: '/getting-started/introduction/',
 						icon: 'seti:folder',
