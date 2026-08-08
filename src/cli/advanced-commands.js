@@ -27,7 +27,7 @@ export const META_COMMANDS = ["advanced", "help"];
  * so a newly-registered command can never silently vanish from `kj advanced`.
  */
 export const ADVANCED_GROUPS = [
-  { title: "Pipeline (piezas sueltas)", commands: ["autorun", "code", "review", "solomon", "agent", "scan"] },
+  { title: "Pipeline (piezas sueltas)", commands: ["autorun", "code", "review", "solomon", "agent", "scan", "tournament"] },
   { title: "Análisis pre-run", commands: ["discover", "triage", "researcher", "architect", "onboard", "brief"] },
   { title: "Búsqueda / RAG", commands: ["rag", "qmd", "watch"] },
   { title: "Calidad / auditoría", commands: ["audit", "check", "mutate", "webperf", "sonar", "privacy", "release"] },

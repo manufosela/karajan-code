@@ -105,8 +105,14 @@ async function runLane({ coder, task, id, projectDir, resultsRoot, config, logge
   await gitFn(["worktree", "add", "-b", branch, lanePath], projectDir);
   await bootstrapFn({ worktreePath: lanePath, setupCommand: config?.session?.worktree_setup || null });
 
-  // The PAR idiom: the lane IS the project for this agent.
-  const laneConfig = { ...config, projectDir: lanePath };
+  // The PAR idiom: the lane IS the project for this agent. A tournament
+  // coder MUST be able to write files — found live in the first real run:
+  // codex without auto_approve produced an honest but useless EMPTY diff.
+  const laneConfig = {
+    ...config,
+    projectDir: lanePath,
+    coder_options: { ...config?.coder_options, auto_approve: true },
+  };
   const prompt =
     `You are one of ${"several"} coders solving the SAME task independently. ` +
     `Work ONLY inside this directory (your isolated worktree). Implement the task with tests. Do not commit.\n\nTASK:\n${task}`;

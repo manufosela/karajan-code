@@ -18,7 +18,10 @@ afterEach(() => fs.rmSync(projectDir, { recursive: true, force: true }));
 
 const okAgent = (marks) => (name, laneConfig) => ({
   runTask: async (task) => {
-    marks.push({ name, cwd: task.cwd, projectDir: laneConfig.projectDir, role: task.role });
+    marks.push({
+      name, cwd: task.cwd, projectDir: laneConfig.projectDir, role: task.role,
+      autoApprove: Boolean(laneConfig?.coder_options?.auto_approve),
+    });
     return { ok: true, output: `${name} did the work` };
   },
 });
@@ -62,6 +65,9 @@ describe("runTournament fan-out", () => {
       expect(m.cwd).toContain(".kj/worktrees/");
       expect(m.projectDir).toBe(m.cwd);
       expect(m.role).toBe("coder");
+      // a coder that cannot write is a rigged tournament (live finding:
+      // codex without auto_approve → honest but useless empty diff)
+      expect(m.autoApprove).toBe(true);
     }
     // two distinct lanes
     expect(new Set(agentMarks.map((m) => m.cwd)).size).toBe(2);
