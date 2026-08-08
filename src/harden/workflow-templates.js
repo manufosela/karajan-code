@@ -60,7 +60,7 @@ const header = (steps) =>
 // third-party action. pnpm passes flags AFTER the script name to the script
 // itself, so --if-present must go BEFORE it; yarn has no --if-present at all,
 // so lint runs through `npm run` (scripts don't touch the lockfile).
-const PM_COMMANDS = {
+export const PM_COMMANDS = {
   npm: { setup: [], install: "npm ci", lint: "npm run -s lint --if-present", test: "npm test" },
   pnpm: {
     setup: ["      - run: corepack enable"],

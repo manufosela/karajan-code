@@ -44,6 +44,13 @@ describe("KimiAgent", () => {
     expect(args[args.indexOf("-m") + 1]).toBe("k2.6");
   });
 
+  it("forwards task.cwd to the spawn — tournament lanes run the coder INSIDE the lane (TOR-A)", async () => {
+    const agent = new KimiAgent("kimi", {}, {}, env);
+    await agent.runTask({ prompt: "x", role: "coder", cwd: "/tmp/lane-1" });
+    const [, , options] = runCommand.mock.calls[0];
+    expect(options.cwd).toBe("/tmp/lane-1");
+  });
+
   it("maps non-zero exit to ok:false with stderr as the error", async () => {
     runCommand.mockResolvedValue({ exitCode: 1, stdout: "", stderr: "error: failed to run prompt" });
     const agent = new KimiAgent("kimi", {}, {}, env);
