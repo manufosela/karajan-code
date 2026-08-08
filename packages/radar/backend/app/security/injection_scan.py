@@ -8,9 +8,11 @@ abstract. The containment belongs here, at the point where third-party
 content enters, rather than in whatever consumes the corpus later.
 
 **This is pattern detection, not a guarantee.** It catches the clumsy and
-the accidental: a document that says "ignore all previous instructions", or
-that opens a fake instruction block mid-abstract. Someone who knows what is
-in the catalogue can rephrase around it. Treating a clean scan as proof of
+the accidental: a document that says "ignore all previous instructions", one
+that opens a fake instruction block mid-abstract, a run of characters a
+reader cannot see. Someone who knows what is in the catalogue can rephrase
+around it, and hidden characters are the one part of this that a person
+cannot review by reading. Treating a clean scan as proof of
 safety would be worse than not scanning at all, because it invites exactly
 the confidence the scan cannot support.
 
@@ -76,6 +78,7 @@ def scan(text: str | None) -> ScanResult:
 
     catalogue = _load_catalogue()
     findings = _match_patterns(text, catalogue["directive"], kind="directive")
+    findings.extend(_match_patterns(text, catalogue["unicode"], kind="unicode"))
 
     return ScanResult(
         clean=not findings,
@@ -97,7 +100,10 @@ def _load_catalogue() -> dict[str, Any]:
     """
     raw = json.loads(_CATALOGUE.read_text(encoding="utf-8"))
 
-    return {"directive": _compile_all(raw["directive"])}
+    return {
+        "directive": _compile_all(raw["directive"]),
+        "unicode": _compile_all(raw["unicode"]),
+    }
 
 
 def _compile_all(entries: list[dict[str, str]]) -> tuple[tuple[str, re.Pattern[str]], ...]:

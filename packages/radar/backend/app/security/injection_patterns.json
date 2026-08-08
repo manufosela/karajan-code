@@ -93,5 +93,42 @@
       "regex": "return\\s+this\\s+exact\\s+(json|response|output)",
       "why": "Same, phrased as an instruction to copy"
     }
+  ],
+  "unicode": [
+    {
+      "id": "zero_width",
+      "regex": "[\\u200b-\\u200f]",
+      "why": "Zero-width spaces and direction marks: text the reader cannot see"
+    },
+    {
+      "id": "bidi_override",
+      "regex": "[\\u202a-\\u202e]",
+      "why": "Bidirectional overrides can display text in an order it is not written in"
+    },
+    {
+      "id": "bidi_isolate",
+      "regex": "[\\u2066-\\u2069]",
+      "why": "Same family, isolates rather than embeddings"
+    },
+    {
+      "id": "bom_mid_text",
+      "regex": "\\ufeff",
+      "why": "A byte-order mark in the middle of a document has no legitimate reason to be there"
+    },
+    {
+      "id": "soft_hyphen_run",
+      "regex": "\\u00ad{3,}",
+      "why": "Runs of soft hyphens break up words that a scanner would otherwise match"
+    },
+    {
+      "id": "invisible_operators",
+      "regex": "[\\u2060-\\u2064]",
+      "why": "Invisible mathematical operators used as hidden separators"
+    },
+    {
+      "id": "tag_characters",
+      "regex": "[\\U000e0000-\\U000e007f]",
+      "why": "Tag characters can carry an entire hidden instruction"
+    }
   ]
 }
