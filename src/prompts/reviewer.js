@@ -3,6 +3,7 @@ import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.j
 import { getLanguageInstruction } from "../utils/locale.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
 import { clipDiff } from "./diff-clip.js";
+import { buildSplitSignal } from "./split-signal.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -36,6 +37,9 @@ const SERENA_INSTRUCTIONS = [
  */
 export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
   const { body: clippedDiff, note: clipNote } = clipDiff(diff);
+  // KJC-BUG-0138: computed on the FULL diff — the moved-to side must inform
+  // the reviewer even when the clipped copy no longer shows it.
+  const splitSignal = buildSplitSignal(diff);
 
   const langInstruction = getLanguageInstruction(language);
   const rtkSnippet = buildRtkInstructions({ rtkAvailable });
@@ -63,6 +67,7 @@ export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode,
     section(`Task context:\n${task}`, VOLATILE),
     section(`Git diff:\n${clippedDiff}`, VOLATILE),
     section(clipNote, VOLATILE),
+    section(splitSignal, VOLATILE),
   ]);
 }
 

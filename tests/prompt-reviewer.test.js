@@ -114,6 +114,23 @@ describe("buildReviewerPrompt", () => {
     expect(result).toContain("y".repeat(12000));
   });
 
+  // KJC-BUG-0138: a split diff carries the moved-lines correlation to the
+  // reviewer so a relocation is never read as a coverage deletion.
+  it("a file-split diff includes the kj split signal", async () => {
+    const moved = Array.from({ length: 15 }, (_, i) => `  expect(thing(${i})).toBe(out[${i}]);`);
+    const splitDiff = [
+      "--- a/tests/big.test.js",
+      "+++ b/tests/big.test.js",
+      ...moved.map((l) => `-${l}`),
+      "--- /dev/null",
+      "+++ b/tests/extracted.test.js",
+      ...moved.map((l) => `+${l}`),
+    ].join("\n");
+    const result = await buildReviewerPrompt({ ...baseArgs, diff: splitDiff });
+    expect(result).toContain("MOVES content between files");
+    expect(result).toContain("tests/extracted.test.js (15)");
+  });
+
   it("does not clip a diff smaller than 12KB", async () => {
     const smallDiff = "z".repeat(5000);
     const result = await buildReviewerPrompt({ ...baseArgs, diff: smallDiff });
