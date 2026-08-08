@@ -63,18 +63,30 @@ const OVERFETCH_FACTOR = 3;
  * @param {DiffChunk[]} params.chunks Chunks del diff (parseUnifiedDiff).
  * @param {QueryFn} params.query Función de consulta (wrapper de queryIndex de karajan-rag).
  * @param {number} [params.topK] Máximo de candidatos finales (default 10).
- * @param {string} [params.excludeRepo] Repo origen a excluir (default: el repo de los chunks).
+ * @param {string | null} [params.excludeRepo] Repo origen a excluir (default: el repo de los chunks). `null` explícito = no excluir por repo.
+ * @param {Iterable<string>} [params.excludeSources] Sources concretos a dejar fuera (`repo/path`).
  * @returns {Promise<RetrievalResult>}
  */
-export const findImpactCandidates = async ({ chunks, query, topK = 10, excludeRepo }) => {
+export const findImpactCandidates = async ({
+  chunks,
+  query,
+  topK = 10,
+  excludeRepo,
+  excludeSources,
+}) => {
   const queryable = chunks.filter((c) => c.text.length > 0);
   if (queryable.length === 0) {
     throw new RetrievalError(
       'ningún chunk consultable en el diff (¿solo binarios o renames puros?).',
     );
   }
-  const originRepo = excludeRepo ?? queryable[0].repo;
-  const originPrefix = `${originRepo}/`;
+  // `excludeRepo: null` EXPLÍCITO significa "no excluyas por repo": lo pide la
+  // deriva de docs, donde el documento que primero queda mintiendo es el que
+  // vive al lado del código. Ausente = el repo de los chunks, que es lo que
+  // necesita el impacto cross-repo. Un `??` los confundiría.
+  const originRepo = excludeRepo === null ? null : (excludeRepo ?? queryable[0].repo);
+  const originPrefix = originRepo === null ? null : `${originRepo}/`;
+  const excluded = new Set(excludeSources ?? []);
 
   /** @type {Map<string, ImpactCandidate>} */
   const bySource = new Map();
@@ -93,7 +105,8 @@ export const findImpactCandidates = async ({ chunks, query, topK = 10, excludeRe
     rawCandidates += response.candidates;
 
     for (const responseHit of response.hits) {
-      if (responseHit.source.startsWith(originPrefix)) continue;
+      if (originPrefix !== null && responseHit.source.startsWith(originPrefix)) continue;
+      if (excluded.has(responseHit.source)) continue;
       const existing = bySource.get(responseHit.source);
       const evidence = {
         fromChunk: { path: diffChunk.path, newStart: diffChunk.newStart },

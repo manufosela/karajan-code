@@ -2,6 +2,16 @@
 
 ## No publicado
 
+### Nuevo
+
+- **La deriva ya avisa de la documentación del propio repo.** Excluía
+  siempre el repo de origen —correcto para el impacto cross-repo, que existe
+  para mirar a los demás— y con ello se perdía el caso más común: el README
+  que vive al lado del código que acaba de cambiar. Ahora entra, y lo que se
+  deja fuera son los ficheros que el propio diff tocó, que no son
+  documentación obsoleta sino el cambio mismo. Verificado en el smoke real:
+  el README del repo que cambia sale primero, citando el endpoint eliminado.
+
 ### Corregido
 
 Los tres workflows reusables —`ingest.yml`, `impact.yml`, `drift.yml`—

@@ -44,7 +44,7 @@ const fakeDeps = (overrides = {}) => ({
   ...overrides,
 });
 
-test('solo documentación de otros repos: código y repo origen filtrados', async () => {
+test('solo documentación: el código se filtra, la del propio repo NO', async () => {
   const result = await runDriftPipeline({
     config: config(),
     workspaceDir: '/ws',
@@ -52,9 +52,12 @@ test('solo documentación de otros repos: código y repo origen filtrados', asyn
     diffText: DIFF,
     deps: fakeDeps(),
   });
+  // `repo-a/docs/interno.md` es documentación del repo que cambió, y entra:
+  // es el caso más común de deriva (KJW-TSK-0027). El consumidor de código
+  // queda fuera porque esto es deriva de DOCS.
   assert.deepEqual(
     result.sections.map((s) => s.source),
-    ['repo-b/docs/api.md'],
+    ['repo-b/docs/api.md', 'repo-a/docs/interno.md'],
   );
   assert.ok(result.markdown.includes('repo-b/docs/api.md'));
   assert.ok(result.markdown.includes(':12'));
@@ -373,4 +376,93 @@ index a1b2c3d..e4f5a6b 100644
     ['/api/v1/orders', '/api/v1/users/:id'],
   );
   assert.match(result.markdown, /\/api\/v1\/orders/);
+});
+
+// --- la documentación del propio repo (KJW-TSK-0027) ----------------------
+//
+// El documento que primero queda mintiendo es el que vive AL LADO del código
+// que cambió. Excluir el repo origen —correcto para el impacto cross-repo—
+// lo escondía justo en el caso más común.
+
+/** Corpus donde el manual desactualizado está en el MISMO repo del diff. */
+const ownRepoDeps = (overrides = {}) => ({
+  query: async (question) => {
+    if (question.trim() === '/api/v1/users/:id') {
+      return {
+        hits: [
+          {
+            source: 'repo-a/README.md',
+            line: 12,
+            score: 0.04,
+            content: 'Consulta un usuario con GET /api/v1/users/:id',
+            sensitivity: 'internal',
+          },
+          {
+            // El fichero que el propio diff acaba de tocar: no es
+            // documentación desactualizada, es el cambio.
+            source: 'repo-a/src/routes.js',
+            line: 2,
+            score: 0.95,
+            content: "app.get('/api/v1/users/:id', getUser);",
+            sensitivity: 'internal',
+          },
+        ],
+        candidates: 2,
+      };
+    }
+    return { hits: [docHit('repo-a/docs/tocado.md', 0.7)], candidates: 3 };
+  },
+  fetchFn: async () => ({ ok: true, status: 200 }),
+  ...overrides,
+});
+
+test('el README del propio repo que cita el endpoint eliminado sí aparece', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: ownRepoDeps(),
+  });
+
+  const readme = result.sections.find((s) => s.source === 'repo-a/README.md');
+  assert.ok(readme, 'la documentación del propio repo debe entrar en la deriva');
+  assert.equal(readme.contract?.tokens[0].value, '/api/v1/users/:id');
+  assert.equal(readme.contract?.tokens[0].removed, true);
+});
+
+test('los ficheros que el diff tocó no se listan a sí mismos', async () => {
+  const result = await runDriftPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    deliver: false,
+    deps: ownRepoDeps(),
+  });
+
+  assert.ok(
+    !result.sections.some((s) => s.source === 'repo-a/src/routes.js'),
+    'el fichero del propio diff no es documentación que haya quedado obsoleta',
+  );
+});
+
+test('el impacto cross-repo sigue excluyendo el repo origen', async () => {
+  // No regresión: la exclusión que se relaja en la deriva es CORRECTA aquí.
+  const { runImpactPipeline } = await import('../src/impact.js');
+  const result = await runImpactPipeline({
+    config: config(),
+    workspaceDir: '/ws',
+    repoName: 'repo-a',
+    diffText: CONTRACT_DIFF,
+    judge: false,
+    deliver: false,
+    deps: ownRepoDeps({ readHistory: async () => [] }),
+  });
+
+  assert.ok(
+    !result.ranking.some((e) => e.source.startsWith('repo-a/')),
+    'el impacto mira a los OTROS repos: el origen no debe aparecer',
+  );
 });

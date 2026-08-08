@@ -136,12 +136,24 @@ export const runDriftPipeline = async ({
   }
 
   try {
-  const { candidates } = await findImpactCandidates({ chunks, query });
-  // findImpactCandidates ya excluye el repo origen; el filtro explícito
-  // aquí es defensa en profundidad exigida por la review (el informe de
-  // deriva jamás debe señalar docs del propio repo que cambió).
+  // La documentación que primero queda mintiendo es la que vive AL LADO del
+  // código: excluir el repo origen —correcto para el impacto cross-repo— la
+  // escondía justo en el caso más común, el README junto al código. Lo que
+  // se deja fuera son los ficheros que el propio diff tocó: esos no son
+  // documentación desactualizada, son el cambio.
+  const touchedSources = new Set(
+    chunks.flatMap((c) =>
+      [c.path, c.oldPath].filter(Boolean).map((p) => `${repoName}/${p}`),
+    ),
+  );
+  const { candidates } = await findImpactCandidates({
+    chunks,
+    query,
+    excludeRepo: null,
+    excludeSources: touchedSources,
+  });
   const isDoc = (source) => DOC_EXTENSIONS.includes(extname(source).toLowerCase());
-  const docCandidates = candidates.filter((c) => c.repo !== repoName && isDoc(c.source));
+  const docCandidates = candidates.filter((c) => isDoc(c.source));
 
   // La similitud dice "este documento se parece a lo que cambiaste". El
   // contrato dice "este documento nombra el endpoint que acabas de borrar",
@@ -152,7 +164,12 @@ export const runDriftPipeline = async ({
   let contracts = [];
   if (contractsConfig.enabled) {
     const tokens = extractContractTokens(chunks, { types: contractsConfig.types });
-    const { matches } = await findContractMatches({ tokens, query, excludeRepo: repoName });
+    const { matches } = await findContractMatches({
+      tokens,
+      query,
+      excludeRepo: null,
+      excludeSources: touchedSources,
+    });
     // Un consumidor de código que cita el identificador es cosa del pipeline
     // de impacto; aquí solo interesa la documentación.
     contracts = matches.filter((m) => isDoc(m.source));

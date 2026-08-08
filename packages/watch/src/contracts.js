@@ -169,20 +169,31 @@ export const extractContractTokens = (chunks, options = {}) => {
  * @param {Object} params
  * @param {ContractToken[]} params.tokens
  * @param {import('./retrieval.js').QueryFn} params.query
- * @param {string} params.excludeRepo Repo origen del diff.
+ * @param {string | null} params.excludeRepo Repo origen del diff. `null` = no excluir por repo.
+ * @param {Iterable<string>} [params.excludeSources] Sources concretos a dejar fuera (`repo/path`).
  * @param {number} [params.topK] Hits a pedir por identificador (default 8).
  * @returns {Promise<ContractResult>}
  */
-export const findContractMatches = async ({ tokens, query, excludeRepo, topK = 8 }) => {
+export const findContractMatches = async ({
+  tokens,
+  query,
+  excludeRepo,
+  excludeSources,
+  topK = 8,
+}) => {
   if (tokens.length === 0) return { matches: [], tokensSearched: 0 };
-  const originPrefix = `${excludeRepo}/`;
+  // `excludeRepo: null` EXPLÍCITO = no excluir por repo (lo pide la deriva:
+  // un manual del propio repo que cita lo eliminado es la señal más directa).
+  const originPrefix = excludeRepo === null ? null : `${excludeRepo}/`;
+  const excluded = new Set(excludeSources ?? []);
   /** @type {Map<string, ContractMatch>} */
   const bySource = new Map();
 
   for (const token of tokens) {
     const response = await query(token.value, { topK });
     for (const hit of response.hits) {
-      if (hit.source.startsWith(originPrefix)) continue;
+      if (originPrefix !== null && hit.source.startsWith(originPrefix)) continue;
+      if (excluded.has(hit.source)) continue;
       // La verificación literal es la que convierte esto en evidencia: sin
       // ella solo tendríamos otra vez similitud semántica.
       if (!String(hit.content ?? '').includes(token.value)) continue;

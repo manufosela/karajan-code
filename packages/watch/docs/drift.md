@@ -6,10 +6,14 @@ contra la documentación indexada y el informe lista **qué secciones
 mencionan lo cambiado** y pueden quedar desactualizadas, con enlace
 `fichero:línea` y evidencia.
 
-- El retrieval reusa `findImpactCandidates` (exclusión del repo origen
-  incluida) y filtra post-hoc a ficheros de documentación
-  (`DOC_EXTENSIONS`: md, mdx, rst, txt, adoc) — workaround de
+- El retrieval reusa `findImpactCandidates` y filtra post-hoc a ficheros de
+  documentación (`DOC_EXTENSIONS`: md, mdx, rst, txt, adoc) — workaround de
   KJR-PRP-0004 hasta que queryIndex exponga `sourceType`.
+- **Incluye la documentación del propio repo.** A diferencia del análisis de
+  impacto, que mira a los OTROS repos por definición, aquí el documento que
+  primero queda mintiendo suele ser el README que vive al lado del código
+  que cambió. Lo que se deja fuera son **los ficheros que el propio diff
+  tocó**: esos no son documentación desactualizada, son el cambio.
 - **Contratos: el enlace duro código ↔ documentación.** Los mismos
   identificadores que mina F2 —rutas HTTP y paths de OpenAPI, topics de
   evento, tablas SQL— se buscan **literalmente** en el corpus de docs. Que

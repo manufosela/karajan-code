@@ -85,6 +85,15 @@ cat > .kjw-workspace/repo-client/src/api-client.js <<'JS'
 export const fetchUser = (id) =>
   fetch('/api/v1/users/:id'.replace(':id', id)).then((r) => r.json());
 JS
+# Documentación en el MISMO repo que cambia: el caso más común de deriva.
+cat > .kjw-workspace/repo-api/README.md <<'MD'
+# repo-api
+
+## Endpoints
+
+- `GET /api/v1/users/:id` — devuelve el perfil de un usuario.
+- `POST /api/v1/orders` — crea un pedido.
+MD
 mkdir -p .kjw-workspace/repo-client/docs
 cat > .kjw-workspace/repo-client/docs/manual.md <<'MD'
 # Manual de integración
@@ -166,6 +175,10 @@ say "drift real: qué documentación queda mintiendo tras el mismo merge"
 
 grep -q 'repo-client/docs/manual.md' deriva.md \
   || fail "el manual que documenta el endpoint eliminado no aparece en la deriva"
+grep -q 'repo-api/README.md' deriva.md \
+  || fail "el README del PROPIO repo que cambió no aparece en la deriva"
+grep -q 'repo-api/src/routes.js' deriva.md \
+  && fail "la deriva listó el fichero que el diff acaba de tocar"
 grep -q '/api/v1/users/:id' deriva.md \
   || fail "la deriva no cita el identificador que quedó obsoleto"
 grep -qi 'eliminado' deriva.md \
