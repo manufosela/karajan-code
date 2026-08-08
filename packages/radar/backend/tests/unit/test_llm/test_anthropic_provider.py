@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+import anthropic
+import httpx
 import pytest
 from anthropic.types import Message, TextBlock, Usage
 
@@ -45,9 +47,14 @@ def _message(
     )
 
 
+def _http_error(kind: type, status: int, message: str) -> Exception:
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return kind(message, response=httpx.Response(status, request=request), body=None)
+
+
 @pytest.fixture
 def provider() -> AnthropicProvider:
-    return AnthropicProvider(api_key="test-key")
+    return AnthropicProvider(api_key="test-key", max_retries=3)
 
 
 def _reply_with(provider: AnthropicProvider, *replies: object) -> AsyncMock:
@@ -215,3 +222,55 @@ class TestUnusableReplies:
 
         with pytest.raises(TruncatedResponseError):
             await provider.complete_json("classify")
+
+
+# ---------------------------------------------------------------------------
+# Retries
+# ---------------------------------------------------------------------------
+
+
+class TestRetries:
+    async def test_retries_a_rate_limit_and_succeeds(self, provider: AnthropicProvider) -> None:
+        call = _reply_with(
+            provider,
+            _http_error(anthropic.RateLimitError, 429, "slow down"),
+            _message(text="second time"),
+        )
+
+        response = await provider.complete("go")
+
+        assert response.content == "second time"
+        assert call.await_count == 2
+
+    async def test_gives_up_after_the_configured_attempts(self, provider: AnthropicProvider) -> None:
+        errors = [_http_error(anthropic.RateLimitError, 429, "slow down") for _ in range(3)]
+        call = _reply_with(provider, *errors)
+
+        with pytest.raises(anthropic.RateLimitError):
+            await provider.complete("go")
+
+        assert call.await_count == 3
+
+    async def test_does_not_retry_a_rejected_request(self, provider: AnthropicProvider) -> None:
+        """A malformed request fails the same way however often it is sent."""
+        call = _reply_with(
+            provider,
+            _http_error(anthropic.BadRequestError, 400, "temperature is not supported"),
+            _message(),
+        )
+
+        with pytest.raises(anthropic.BadRequestError):
+            await provider.complete("go")
+
+        assert call.await_count == 1
+
+    async def test_does_not_retry_a_declined_request(self, provider: AnthropicProvider) -> None:
+        """A decline is a verdict on the content, not a passing failure."""
+        declined = _message(stop_reason="refusal")
+        declined.content = []
+        call = _reply_with(provider, declined, _message())
+
+        with pytest.raises(RequestDeclinedError):
+            await provider.complete("go")
+
+        assert call.await_count == 1

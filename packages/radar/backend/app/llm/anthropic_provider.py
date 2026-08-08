@@ -24,10 +24,12 @@ looks whole.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from typing import Any
 
+import anthropic
 from anthropic import AsyncAnthropic
 
 from app.core.logging import get_logger
@@ -59,6 +61,19 @@ _VALID_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 # about.
 _UNSET_TEMPERATURE = 0.2
 
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 1.0  # seconds
+
+# Worth another attempt: the request was fine and the moment was not. A 400
+# is deliberately absent -- a malformed request fails the same way however
+# often it is sent, and retrying only delays the error.
+_RETRYABLE = (
+    anthropic.RateLimitError,
+    anthropic.InternalServerError,
+    anthropic.APIConnectionError,
+    anthropic.APITimeoutError,
+)
+
 
 class AnthropicProvider(BaseLLMProvider):
     """Chat provider backed by the Anthropic Messages API."""
@@ -69,6 +84,7 @@ class AnthropicProvider(BaseLLMProvider):
         api_key: str | None = None,
         model: str | None = None,
         effort: str = _DEFAULT_EFFORT,
+        max_retries: int = _MAX_RETRIES,
     ) -> None:
         """Configure the provider.
 
@@ -78,6 +94,7 @@ class AnthropicProvider(BaseLLMProvider):
             effort: How hard the model works per request. This is the main
                 cost lever, and classification-shaped work does not need
                 much, so the default is deliberately low.
+            max_retries: Total attempts when a call fails transiently.
 
         Raises:
             ValueError: If *effort* is not one the API accepts.
@@ -87,6 +104,7 @@ class AnthropicProvider(BaseLLMProvider):
 
         self.model = model or os.getenv("ANTHROPIC_MODEL") or _DEFAULT_MODEL
         self.effort = effort
+        self._max_retries = max_retries
         self._client = AsyncAnthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY", ""))
 
     async def complete(
@@ -126,7 +144,7 @@ class AnthropicProvider(BaseLLMProvider):
             )
 
         request = self._build_request(prompt, system_prompt=system_prompt, max_tokens=max_tokens)
-        return await self._send(request)
+        return await self._call_with_retry(request)
 
     async def complete_json(
         self,
@@ -172,6 +190,27 @@ class AnthropicProvider(BaseLLMProvider):
         if system_prompt:
             request["system"] = system_prompt
         return request
+
+    async def _call_with_retry(self, request: dict[str, Any]) -> LLMResponse:
+        """Send the request, retrying only what a retry could fix."""
+        last_error: Exception | None = None
+
+        for attempt in range(self._max_retries):
+            try:
+                return await self._send(request)
+            except _RETRYABLE as exc:
+                last_error = exc
+                if attempt < self._max_retries - 1:
+                    delay = _RETRY_BASE_DELAY * (2**attempt)
+                    logger.warning(
+                        "anthropic_retrying",
+                        attempt=attempt + 1,
+                        delay=delay,
+                        error=type(exc).__name__,
+                    )
+                    await asyncio.sleep(delay)
+
+        raise last_error  # type: ignore[misc]
 
     async def _send(self, request: dict[str, Any]) -> LLMResponse:
         """Perform one call and turn the reply into an LLMResponse."""
