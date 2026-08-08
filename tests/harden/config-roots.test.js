@@ -23,7 +23,7 @@ afterEach(() => {
 
 describe("installConfigsForRoots (monorepo)", () => {
   it("seeds universal at root and each language inside its own root", () => {
-    seed("frontend/package.json", "{}");
+    seed("frontend/package.json", '{"devDependencies":{"eslint":"^9","prettier":"^3"}}');
     seed("backend/pyproject.toml", "");
     const roots = detectStackRoots(root);
     const res = installConfigsForRoots({ projectDir: root, roots });
@@ -51,7 +51,7 @@ describe("installConfigsForRoots (monorepo)", () => {
   });
 
   it("dry-run writes nothing", () => {
-    seed("frontend/package.json", "{}");
+    seed("frontend/package.json", '{"devDependencies":{"eslint":"^9","prettier":"^3"}}');
     const roots = detectStackRoots(root);
     installConfigsForRoots({ projectDir: root, roots, dryRun: true });
     expect(has(".editorconfig")).toBe(false);

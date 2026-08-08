@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,6 +11,8 @@ let dir;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "kj-eslint-"));
+  // KJC-BUG-0137: the seeded eslint config demands the tool be present.
+  writeFileSync(join(dir, "package.json"), '{"devDependencies":{"eslint":"^9","prettier":"^3"}}');
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });

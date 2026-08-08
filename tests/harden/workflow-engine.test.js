@@ -133,17 +133,37 @@ describe("installWorkflows", () => {
   });
 
   // KJC-BUG-0131 (issue #1330): npm ci in a pnpm repo kills every PR check.
-  it("a pnpm repo installs with pnpm and puts --if-present BEFORE the script", () => {
+  it("a pnpm repo installs with pnpm and lints through pnpm", () => {
     writeFileSync(join(dir, "pnpm-lock.yaml"), "");
-    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" } }));
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", bin: { x: "cli.js" }, scripts: { lint: "eslint ." } }));
     installWorkflows({ projectDir: dir, language: "javascript", mutation: true });
     const q = read(join(".github", "workflows", "kj-quality.yml"));
     expect(q).toContain("corepack enable");
     expect(q).toContain("pnpm install --frozen-lockfile");
-    expect(q).toContain("pnpm run --if-present -s lint");
+    expect(q).toContain("pnpm run -s lint");
     expect(q).not.toContain("npm ci");
     expect(read(join(".github", "workflows", "kj-pack-smoke.yml"))).not.toContain("npm ci");
     expect(read(mutFile)).not.toContain("npm ci");
+  });
+
+  // KJC-BUG-0137 (issue #1357): `--if-present` let the gate disarm itself when
+  // the script was missing — silently green, the opposite of the local hook.
+  // Now the lint step only exists when the project HAS a lint script at harden
+  // time, and when it exists it ENFORCES.
+  it("a repo with a lint script gets an enforcing lint step — never --if-present (KJC-BUG-0137)", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x", scripts: { lint: "eslint ." } }));
+    installWorkflows({ projectDir: dir, language: "javascript" });
+    const q = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(q).toContain("- run: npm run -s lint");
+    expect(q).not.toContain("--if-present");
+  });
+
+  it("a repo without a lint script gets NO lint step — a gate that exists always enforces", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x" }));
+    installWorkflows({ projectDir: dir, language: "javascript" });
+    const q = read(join(".github", "workflows", "kj-quality.yml"));
+    expect(q).not.toContain("lint");
+    expect(q).toContain("npm test");
   });
 
   it("a yarn repo installs with yarn; no lockfile keeps npm ci", () => {
