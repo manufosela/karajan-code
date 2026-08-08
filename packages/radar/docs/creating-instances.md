@@ -20,6 +20,15 @@ was restructured to remove. An instance consumes the core; it does not copy it.
 | API keys, database credentials, webhook URLs | **instance** | Secrets, never in any repository |
 | Deployment config (Cloud Run, Cloud SQL, scheduler) | **instance** | Its own project and billing |
 | Branding (name, tagline, organisation) | **instance** | Build arguments |
+| Delivery thresholds, digest size, languages, sections | **instance**, in the profile | Domain judgement; belongs under review |
+| Webhook URLs, recipients | **instance**, in the environment | One deployment's own, some of them secrets |
+
+Delivery splits across the last two rows, and the line is not only about
+secrecy. Ask what a change *means*: how good a signal has to be before it
+interrupts someone is a judgement about the domain, and you want it in a pull
+request. A webhook URL is one deployment's own, and you would be alarmed to
+find it in one. The first kind goes in the profile, the second in the
+environment.
 
 The rule of thumb for a connector: **a connector that knows a protocol belongs
 to the core; a connector that knows an organisation belongs to the instance.**

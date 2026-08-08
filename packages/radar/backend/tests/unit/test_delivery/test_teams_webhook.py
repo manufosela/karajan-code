@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.services.teams_webhook import TeamsWebhookService
+from app.delivery.teams_webhook import TeamsWebhookService
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestTeamsWebhookSendCard:
         service = TeamsWebhookService(webhook_url="https://hooks.example.com/webhook")
 
         mock_response = httpx.Response(status_code=200, text="1")
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -75,7 +75,7 @@ class TestTeamsWebhookSendCard:
         service = TeamsWebhookService(webhook_url="https://default.example.com/webhook")
 
         mock_response = httpx.Response(status_code=200, text="1")
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -95,7 +95,7 @@ class TestTeamsWebhookSendCard:
         service = TeamsWebhookService(webhook_url="https://hooks.example.com/webhook")
 
         mock_response = httpx.Response(status_code=200, text="1")
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -122,7 +122,7 @@ class TestTeamsWebhookRetry:
         response_429 = httpx.Response(status_code=429, text="Too Many Requests")
         response_200 = httpx.Response(status_code=200, text="1")
 
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.side_effect = [response_429, response_200]
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -141,7 +141,7 @@ class TestTeamsWebhookRetry:
         response_500 = httpx.Response(status_code=500, text="Internal Server Error")
         response_200 = httpx.Response(status_code=200, text="1")
 
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.side_effect = [response_500, response_200]
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -159,7 +159,7 @@ class TestTeamsWebhookRetry:
 
         response_500 = httpx.Response(status_code=500, text="Internal Server Error")
 
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.return_value = response_500
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -177,7 +177,7 @@ class TestTeamsWebhookRetry:
 
         response_400 = httpx.Response(status_code=400, text="Bad Request")
 
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.return_value = response_400
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -193,7 +193,7 @@ class TestTeamsWebhookRetry:
         """send_card returns False on connection errors."""
         service = TeamsWebhookService(webhook_url="https://hooks.example.com/webhook")
 
-        with patch("app.services.teams_webhook.httpx.AsyncClient") as mock_client_cls:
+        with patch("app.delivery.teams_webhook.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.post.side_effect = httpx.ConnectError("Connection refused")
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)

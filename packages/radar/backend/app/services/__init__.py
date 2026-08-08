@@ -15,7 +15,6 @@ from app.services.deduplication import (
     find_doi_duplicate,
     find_fuzzy_title_match,
 )
-from app.services.digest import DigestService
 from app.services.impact import (
     ImpactAnalysisError,
     ImpactAnalysisResult,
@@ -44,11 +43,8 @@ from app.services.summary import (
     SummaryResult,
     SummaryService,
 )
-from app.services.teams_webhook import TeamsWebhookService
 
 __all__ = [
-    "DigestService",
-    "TeamsWebhookService",
     "ClassificationError",
     "ClassificationResult",
     "ClassificationService",

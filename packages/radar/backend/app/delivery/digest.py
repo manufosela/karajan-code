@@ -8,9 +8,9 @@ from typing import Any
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.delivery.teams_webhook import TeamsWebhookService
 from app.models.daily_digest import DailyDigest
 from app.models.research_item import ResearchItem
-from app.services.teams_webhook import TeamsWebhookService
 
 logger = logging.getLogger(__name__)
 
