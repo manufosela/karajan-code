@@ -260,7 +260,7 @@ def _default_prompt(name: str) -> PromptTemplate:
 
 
 class PromptSet(_FrozenModel):
-    """The five prompts driving the analysis pipeline.
+    """The prompts driving the analysis pipeline.
 
     Each defaults to a domain-neutral template that renders its definitions
     from the profile's taxonomy and vocabulary, so a new domain only needs to
@@ -272,6 +272,10 @@ class PromptSet(_FrozenModel):
     impact: PromptTemplate = Field(default_factory=lambda: _default_prompt("impact"))
     scoring: PromptTemplate = Field(default_factory=lambda: _default_prompt("scoring"))
     summary: PromptTemplate = Field(default_factory=lambda: _default_prompt("summary"))
+
+    # Only rendered by instances that opted into the family contract; the
+    # default is here so those instances need no prompt of their own.
+    distillation: PromptTemplate = Field(default_factory=lambda: _default_prompt("distillation"))
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +322,22 @@ class Branding(_FrozenModel):
     tagline: NonBlankStr
 
 
+class FamilyContract(_FrozenModel):
+    """Which karajan-family capabilities this instance speaks.
+
+    The contract is opt-in per instance, and deliberately so: a radar
+    watching car-pooling has no reason to pay for distilled cards, and a
+    capability that costs tokens and latency should not arrive by default.
+    Every flag is off unless a profile turns it on.
+
+    Capabilities land here one card at a time; the ones not yet built are
+    absent rather than declared and ignored, so a profile cannot ask for
+    something the engine does not do.
+    """
+
+    distilled_cards: bool = False
+
+
 class SummarySettings(_FrozenModel):
     """Languages the executive summary is generated in."""
 
@@ -353,6 +373,7 @@ class RadarProfile(_FrozenModel):
     llm: LLMSettings
     branding: Branding
     summary: SummarySettings
+    family_contract: FamilyContract = Field(default_factory=FamilyContract)
 
     @model_validator(mode="after")
     def _reject_duplicate_connectors(self) -> RadarProfile:

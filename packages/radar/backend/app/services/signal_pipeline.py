@@ -16,10 +16,13 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cards.schema import DistilledCard
 from app.core.logging import get_logger
 from app.llm.base import BaseLLMProvider
 from app.models.research_item import ResearchItem
+from app.profiles.active import get_active_profile
 from app.services.classification import ClassificationResult, ClassificationService
+from app.services.distillation import DistillationError, DistillationService, NotDistilled
 from app.services.impact import ImpactAnalysisResult, ImpactAnalysisService
 from app.services.scoring import ScoringResult, ScoringService
 from app.services.strategic import StrategicClassificationResult, StrategicClassificationService
@@ -71,6 +74,20 @@ class PipelineResult:
     steps: list[StepResult] = field(default_factory=list)
     duration_ms: float = 0.0
 
+    # Present only for instances that speak the family contract. A run can
+    # legitimately produce neither: a document with no reusable lesson in it
+    # yields a reason instead of a card, and both being None means the
+    # instance never asked for one.
+    card: DistilledCard | None = None
+    not_distilled_reason: str | None = None
+
+
+def _distillation_if_enabled(provider: BaseLLMProvider) -> DistillationService | None:
+    """Build the distiller only when the active profile asked for one."""
+    if not get_active_profile().family_contract.distilled_cards:
+        return None
+    return DistillationService(provider)
+
 
 # ---------------------------------------------------------------------------
 # Service
@@ -95,13 +112,23 @@ class SignalPipelineService:
         provider: A BaseLLMProvider instance for LLM calls.
     """
 
-    def __init__(self, provider: BaseLLMProvider, summary_provider: BaseLLMProvider | None = None) -> None:
+    def __init__(
+        self,
+        provider: BaseLLMProvider,
+        summary_provider: BaseLLMProvider | None = None,
+        distillation: DistillationService | None = None,
+    ) -> None:
         self._provider = provider
         self._classification = ClassificationService(provider)
         self._strategic = StrategicClassificationService(provider)
         self._scoring = ScoringService(provider)
         self._impact = ImpactAnalysisService(provider)
         self._summary = SummaryService(summary_provider or provider)
+
+        # Resolved once, here, rather than per item: an instance that does
+        # not speak the contract must pay neither tokens nor latency, and a
+        # check inside the loop would still cost the loop.
+        self._distillation = distillation or _distillation_if_enabled(provider)
 
     async def process(
         self,
@@ -152,6 +179,13 @@ class SignalPipelineService:
         step = await self._run_summary(item, session, themes=themes, scores=scores)
         steps.append(step)
 
+        # Step 6: Distillation, for instances that speak the family contract
+        card: DistilledCard | None = None
+        reason: str | None = None
+        if self._distillation is not None:
+            step, card, reason = await self._run_distillation(item)
+            steps.append(step)
+
         # Set processing timestamp
         item.processing_timestamp = datetime.now(UTC)
         await session.flush()
@@ -176,7 +210,51 @@ class SignalPipelineService:
             duration_ms=round(duration_ms, 2),
         )
 
-        return PipelineResult(status=status, steps=steps, duration_ms=duration_ms)
+        return PipelineResult(
+            status=status,
+            steps=steps,
+            duration_ms=duration_ms,
+            card=card,
+            not_distilled_reason=reason,
+        )
+
+    async def _run_distillation(
+        self,
+        item: ResearchItem,
+    ) -> tuple[StepResult, DistilledCard | None, str | None]:
+        """Ask for a card, tolerating the model deciding there isn't one.
+
+        A document with no reusable lesson is a normal finding rather than a
+        failed step, so it counts as a success carrying a reason. Only being
+        unable to ask, or getting back an answer that is neither a card nor
+        an intelligible refusal, fails.
+        """
+        step_start = time.monotonic()
+        try:
+            result = await self._distillation.distill(  # type: ignore[union-attr]
+                title=item.original_title,
+                abstract=item.abstract,
+                source=item.original_url or str(item.id),
+                connector=str(item.source_id),
+            )
+        except DistillationError as exc:
+            return (
+                StepResult(
+                    name="distillation",
+                    status=StepStatus.FAILED,
+                    duration_ms=(time.monotonic() - step_start) * 1000,
+                    error=str(exc),
+                ),
+                None,
+                None,
+            )
+
+        duration_ms = (time.monotonic() - step_start) * 1000
+        step = StepResult(name="distillation", status=StepStatus.SUCCESS, duration_ms=duration_ms)
+
+        if isinstance(result, NotDistilled):
+            return step, None, result.reason
+        return step, result, None
 
     # -----------------------------------------------------------------------
     # Step runners

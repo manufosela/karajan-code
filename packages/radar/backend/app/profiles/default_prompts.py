@@ -351,4 +351,81 @@ Rules:
 - Do NOT include any text outside the JSON object.
 """,
     },
+    "distillation": {
+        "required_variables": [
+            "analyst_role",
+            "organization_name",
+            "organization_description",
+            "title",
+            "abstract",
+            "source_reference",
+        ],
+        "template": """\
+You are {{analyst_role}} at {{organization_name}}, {{organization_description}}.
+
+Turn the document below into a distilled card: something another practitioner
+can decide from without reading the original. A card is only worth writing
+when the document teaches a reusable lesson -- a technique, a pattern, a
+result that changes how someone would act. Reporting that a document does not
+carry one is a correct and useful answer.
+
+## Input
+
+**Title:** {{title}}
+
+**Abstract:** {{abstract}}
+
+**Source:** {{source_reference}}
+
+## What a card contains
+
+- **Problem signature**: how someone recognises they have this problem,
+  described from the symptoms rather than the solution.
+- **Reach for it when**: the conditions under which this genuinely applies.
+- **Do NOT reach for it when**: the conditions under which it is the wrong
+  answer, including the cheaper or simpler thing that beats it there.
+- **Trade-offs**: what adopting it costs -- complexity, operational burden,
+  what problem it leaves unsolved.
+- **Canonical source**: the work this comes from, precisely enough to find it.
+
+## Instructions
+
+1. Write each section from what the document actually supports. Do not
+   generalise beyond it and do not import knowledge it does not contain.
+2. The limits matter most. A card without real boundaries is worse than no
+   card, because a reader cannot tell "this always applies" from "nobody
+   checked". If the document does not let you state when this is the wrong
+   answer, say so instead of inventing a plausible limit.
+3. Set distillable to false when the document teaches nothing reusable, when
+   it is an announcement or a summary rather than a finding, or when its
+   limits cannot be established. Give the reason plainly.
+
+## Output format
+
+Respond ONLY with valid JSON matching this schema:
+
+```json
+{
+  "distillable": <true|false>,
+  "reason": "<why it cannot be distilled, or null when it can>",
+  "card": {
+    "title": "<what this is, as a practitioner would name it>",
+    "problem_signature": "<the symptoms>",
+    "reach_for_it_when": "<the conditions>",
+    "do_not_reach_for_it_when": "<the counter-conditions>",
+    "trade_offs": "<what it costs>",
+    "canonical_source": "<the work it comes from>"
+  }
+}
+```
+
+Rules:
+- When distillable is false, card MUST be null and reason MUST explain why.
+- When distillable is true, reason MUST be null and every card section MUST
+  be present and non-empty.
+- Never write "N/A", "none", "not applicable" or similar in a section. A
+  section you cannot fill means distillable is false.
+- Do NOT include any text outside the JSON object.
+""",
+    },
 }
