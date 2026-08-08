@@ -207,10 +207,13 @@ export function registerPipeline(program, { pkgVersion }) {
     .option("--task-file <path>", "Read the task from a file (e.g. .md)")
     .option("--coders <csv>", "Comma-separated coder agents (minimum 2), e.g. claude,codex,agy")
     .option("--score <id>", "Score an EXISTING tournament from its artifacts (deterministic, zero LLM)")
-    .option("--json", "With --score: emit the stable scoreboard JSON")
+    .option("--judge <id>", "Cross-AI judge ranks the finalists (scoreboard in sight; solomon on tie/dispute)")
+    .option("--crown <id>", "Commit the judged winner in its lane THROUGH the real review gate")
+    .option("--card <ref>", "With --crown: card reference for the commit message (card-first gates)")
+    .option("--json", "With --score/--judge/--crown: emit stable JSON")
     .action(async (task, flags) => {
       await withConfig(pkgVersion, "tournament", flags, async ({ config, logger }) => {
-        if (flags.score) {
+        if (flags.score || flags.judge || flags.crown) {
           await tournamentCommand({ task: "", config, logger, flags });
           return;
         }

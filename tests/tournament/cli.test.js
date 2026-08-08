@@ -65,12 +65,41 @@ describe("tournamentCommand", () => {
     expect(out).toMatch(/eliminado|eliminated/i);
   });
 
-  it("--score rejects ids that could traverse paths", async () => {
+  it("--score/--judge/--crown reject ids that could traverse paths", async () => {
     for (const evil of ["../../..", "a/b", ".oculto"]) {
-      await expect(
-        tournamentCommand({ task: "", config: {}, logger: logger(), flags: { score: evil }, scoreTournamentFn: async () => ({}) }),
-      ).rejects.toThrow(/inválido|invalid/i);
+      for (const flag of ["score", "judge", "crown"]) {
+        await expect(
+          tournamentCommand({
+            task: "", config: {}, logger: logger(), flags: { [flag]: evil },
+            scoreTournamentFn: async () => ({}), judgeTournamentFn: async () => ({}), crownWinnerFn: async () => ({}),
+          }),
+        ).rejects.toThrow(/inválido|invalid/i);
+      }
     }
+  });
+
+  it("--judge wires the tournament dir and prints the crown hint; --crown forwards the card ref", async () => {
+    const log = logger();
+    const judgement = await tournamentCommand({
+      task: "", config: { projectDir: "/p" }, logger: log, flags: { judge: "tor-x" },
+      judgeTournamentFn: async ({ tournamentDir }) => {
+        expect(tournamentDir).toBe("/p/.kj/tournaments/tor-x");
+        return { winner: "claude", escalated: false };
+      },
+    });
+    expect(judgement.winner).toBe("claude");
+    expect(log.lines.join("\n")).toMatch(/--crown tor-x/);
+
+    let seen = null;
+    await tournamentCommand({
+      task: "", config: { projectDir: "/p" }, logger: logger(), flags: { crown: "tor-x", card: "KJC-TSK-0999" },
+      crownWinnerFn: async (args) => {
+        seen = args;
+        return { winner: "claude", commit: "abc" };
+      },
+    });
+    expect(seen.cardRef).toBe("KJC-TSK-0999");
+    expect(seen.tournamentDir).toBe("/p/.kj/tournaments/tor-x");
   });
 
   it("--score --json emits the stable board as JSON on the logger", async () => {
