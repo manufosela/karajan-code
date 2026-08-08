@@ -14,7 +14,11 @@ import pytest
 from anthropic.types import Message, TextBlock, Usage
 
 from app.llm import anthropic_provider
-from app.llm.anthropic_provider import AnthropicProvider
+from app.llm.anthropic_provider import (
+    AnthropicProvider,
+    RequestDeclinedError,
+    TruncatedResponseError,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -169,3 +173,45 @@ class TestComplete:
         monkeypatch.setenv("ANTHROPIC_MODEL", "claude-sonnet-5")
 
         assert AnthropicProvider(api_key="k").model == "claude-sonnet-5"
+
+
+# ---------------------------------------------------------------------------
+# Replies that arrive with a 200 and cannot be used
+# ---------------------------------------------------------------------------
+
+
+class TestUnusableReplies:
+    async def test_raises_when_the_request_was_declined(self, provider: AnthropicProvider) -> None:
+        """A safety decline is a 200 with an empty body, not an HTTP error.
+
+        This radar ingests PubMed and ClinicalTrials, so it meets the
+        biology classifiers in the course of ordinary work.
+        """
+        declined = _message(stop_reason="refusal")
+        declined.content = []
+        _reply_with(provider, declined)
+
+        with pytest.raises(RequestDeclinedError, match="declined"):
+            await provider.complete("go")
+
+    async def test_raises_when_the_reply_was_cut_off(self, provider: AnthropicProvider) -> None:
+        """Thinking shares the max_tokens budget, so truncation is easy to hit."""
+        _reply_with(provider, _message(stop_reason="max_tokens", text="half an ans"))
+
+        with pytest.raises(TruncatedResponseError, match="max_tokens"):
+            await provider.complete("go", max_tokens=16)
+
+    async def test_raises_when_a_finished_reply_carries_no_text(self, provider: AnthropicProvider) -> None:
+        empty = _message()
+        empty.content = []
+        _reply_with(provider, empty)
+
+        with pytest.raises(ValueError, match="no text"):
+            await provider.complete("go")
+
+    async def test_a_truncated_reply_never_reaches_the_json_parser(self, provider: AnthropicProvider) -> None:
+        """Half an object parses as malformed; saying why is more useful."""
+        _reply_with(provider, _message(stop_reason="max_tokens", text='{"theme": "rob'))
+
+        with pytest.raises(TruncatedResponseError):
+            await provider.complete_json("classify")

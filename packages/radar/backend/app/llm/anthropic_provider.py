@@ -13,6 +13,13 @@ nobody hears about.
 
 The system prompt is a request field, not a message. Sent as a message it
 would be an ordinary user turn with none of its authority.
+
+A third rule shapes the reply rather than the request: it can be unusable
+while the HTTP call succeeded. A safety decline comes back as a 200 with an
+empty body, and a reply that ran out of room comes back truncated. Both are
+raised as themselves, because reading the text off either one yields
+something worse than an error -- an empty string, or half an answer that
+looks whole.
 """
 
 from __future__ import annotations
@@ -29,6 +36,19 @@ from app.llm.base import BaseLLMProvider, LLMResponse, Usage
 from app.llm.json_parsing import extract_json
 
 logger = get_logger(__name__)
+
+
+class AnthropicProviderError(RuntimeError):
+    """Base for replies that arrived successfully and cannot be used."""
+
+
+class RequestDeclinedError(AnthropicProviderError):
+    """Raised when Claude's safety classifiers declined the request."""
+
+
+class TruncatedResponseError(AnthropicProviderError):
+    """Raised when the reply hit the output budget before finishing."""
+
 
 _DEFAULT_MODEL = "claude-opus-5"
 _DEFAULT_EFFORT = "low"
@@ -92,6 +112,11 @@ class AnthropicProvider(BaseLLMProvider):
             The reply, with token usage and latency. Thinking is on by
             default on current models, so a reply routinely carries blocks
             that are not text; those are skipped.
+
+        Raises:
+            RequestDeclinedError: If safety classifiers declined the request.
+            TruncatedResponseError: If the reply hit *max_tokens*.
+            ValueError: If a finished reply carries no text at all.
         """
         if temperature != _UNSET_TEMPERATURE:
             logger.warning(
@@ -154,10 +179,10 @@ class AnthropicProvider(BaseLLMProvider):
         message = await self._client.messages.create(**request)
         latency_ms = (time.perf_counter() - start) * 1000
 
+        _reject_unusable(message)
+
         return LLMResponse(
-            content="\n".join(
-                block.text for block in message.content if getattr(block, "type", None) == "text"
-            ),
+            content=_text_of(message),
             model=message.model,
             usage=Usage(
                 prompt_tokens=message.usage.input_tokens,
@@ -165,6 +190,42 @@ class AnthropicProvider(BaseLLMProvider):
             ),
             latency_ms=latency_ms,
         )
+
+
+def _reject_unusable(message: Any) -> None:
+    """Fail on a reply that arrived intact and cannot be used.
+
+    Raises:
+        RequestDeclinedError: The safety classifiers declined the request.
+        TruncatedResponseError: The reply ran out of output budget.
+    """
+    if message.stop_reason == "refusal":
+        raise RequestDeclinedError(
+            "Anthropic declined the request; its safety classifiers stopped it before any output"
+        )
+
+    if message.stop_reason == "max_tokens":
+        raise TruncatedResponseError(
+            "reply hit max_tokens and is incomplete; raise max_tokens or lower the effort, "
+            "because thinking draws on the same budget as the answer"
+        )
+
+
+def _text_of(message: Any) -> str:
+    """Join the text blocks of a reply, skipping everything else.
+
+    Raises:
+        ValueError: If the reply contains no text block at all.
+    """
+    blocks = [block.text for block in message.content if getattr(block, "type", None) == "text"]
+
+    if not blocks:
+        raise ValueError(
+            f"Anthropic returned no text (stop_reason={message.stop_reason!r}, "
+            f"{len(message.content)} block(s))"
+        )
+
+    return "\n".join(blocks)
 
 
 # ---------------------------------------------------------------------------
