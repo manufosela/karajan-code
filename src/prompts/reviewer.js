@@ -2,6 +2,7 @@ import { buildRtkInstructions } from "./rtk-snippet.js";
 import { loadAvailableSkills, buildSkillSection } from "../skills/skill-loader.js";
 import { getLanguageInstruction } from "../utils/locale.js";
 import { section, buildPromptLayout, joinLayout, STABLE, VOLATILE } from "./prompt-layout.js";
+import { clipDiff } from "./diff-clip.js";
 
 const SUBAGENT_PREAMBLE = [
   "IMPORTANT: You are running as a Karajan sub-agent.",
@@ -34,7 +35,7 @@ const SERENA_INSTRUCTIONS = [
  * and always different) goes last.
  */
 export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode, serenaEnabled = false, rtkAvailable = false, productContext = null, domainContext = null, projectDir = null, language = "en", provider = null }) {
-  const truncatedDiff = diff.length > 12000 ? `${diff.slice(0, 12000)}\n\n[TRUNCATED]` : diff;
+  const { body: clippedDiff, note: clipNote } = clipDiff(diff);
 
   const langInstruction = getLanguageInstruction(language);
   const rtkSnippet = buildRtkInstructions({ rtkAvailable });
@@ -60,7 +61,8 @@ export async function buildReviewerPromptLayout({ task, diff, reviewRules, mode,
     section(`Review rules:\n${reviewRules}`, STABLE),
     section(skillSection, STABLE),
     section(`Task context:\n${task}`, VOLATILE),
-    section(`Git diff:\n${truncatedDiff}`, VOLATILE),
+    section(`Git diff:\n${clippedDiff}`, VOLATILE),
+    section(clipNote, VOLATILE),
   ]);
 }
 

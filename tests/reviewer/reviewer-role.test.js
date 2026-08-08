@@ -214,6 +214,8 @@ describe("ReviewerRole", () => {
     await role.run({ task: "Task", diff: largeDiff });
 
     const prompt = fakeAgent.reviewTask.mock.calls[0][0].prompt;
-    expect(prompt).toContain("[TRUNCATED]");
+    // KJC-BUG-0134: the clip is declared as kj's own, never a bare marker.
+    expect(prompt).toContain("clipped by kj");
+    expect(prompt).not.toContain("[TRUNCATED]");
   });
 });
