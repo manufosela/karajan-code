@@ -71,21 +71,22 @@ const header = (steps) =>
 // Per-package-manager commands (KJC-BUG-0131, issue #1330): `npm ci` in a
 // pnpm/yarn repo dies with EUSAGE (no package-lock.json). corepack ships with
 // Node 22 and resolves the right pnpm/yarn from `packageManager` — no
-// third-party action. pnpm passes flags AFTER the script name to the script
-// itself, so --if-present must go BEFORE it; yarn has no --if-present at all,
-// so lint runs through `npm run` (scripts don't touch the lockfile).
+// third-party action. Yarn scripts run through `npm run` (scripts don't touch
+// the lockfile). Lint ENFORCES — never --if-present: a step that passes when
+// its script is missing protects nothing (KJC-BUG-0137, issue #1357); the
+// engine omits the step instead when the project has no lint script.
 export const PM_COMMANDS = {
-  npm: { setup: [], install: "npm ci", lint: "npm run -s lint --if-present", test: "npm test" },
+  npm: { setup: [], install: "npm ci", lint: "npm run -s lint", test: "npm test" },
   pnpm: {
     setup: ["      - run: corepack enable"],
     install: "pnpm install --frozen-lockfile",
-    lint: "pnpm run --if-present -s lint",
+    lint: "pnpm run -s lint",
     test: "pnpm test",
   },
   yarn: {
     setup: ["      - run: corepack enable"],
     install: "yarn install --frozen-lockfile",
-    lint: "npm run -s lint --if-present",
+    lint: "npm run -s lint",
     test: "yarn test",
   },
 };
@@ -123,12 +124,16 @@ const QUALITY_BY_LANGUAGE = {
     "      - run: vendor/bin/phpunit",
   ]),
 };
-/** Stack-aware Quality workflow entry, or null for an unknown language. */
-export function qualityWorkflowFor(language, pm = "npm") {
+/**
+ * Stack-aware Quality workflow entry, or null for an unknown language.
+ * `lint:false` drops the JS lint step entirely (project has no lint script,
+ * KJC-BUG-0137) — mirroring the local hook, which also omits it.
+ */
+export function qualityWorkflowFor(language, pm = "npm", lint = true) {
   const c = PM_COMMANDS[pm] || PM_COMMANDS.npm;
   const body =
     language === "javascript" || language === "typescript"
-      ? header([...nodeSetupSteps(pm), `      - run: ${c.lint}`, `      - run: ${c.test}`])
+      ? header([...nodeSetupSteps(pm), ...(lint ? [`      - run: ${c.lint}`] : []), `      - run: ${c.test}`])
       : QUALITY_BY_LANGUAGE[language];
   return body ? { file: "kj-quality.yml", blockId: "wf-quality", body } : null;
 }

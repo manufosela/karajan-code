@@ -34,6 +34,16 @@ export function detectPackageManager(projectDir) {
   return "npm";
 }
 
+// KJC-BUG-0137: the JS quality workflow only carries a lint step when the
+// project HAS a lint script — and then it enforces (no --if-present).
+function hasLintScript(projectDir) {
+  try {
+    return Boolean(JSON.parse(readFileSync(join(projectDir, "package.json"), "utf8")).scripts?.lint);
+  } catch {
+    return false;
+  }
+}
+
 export function installWorkflows({
   projectDir = process.cwd(),
   language = null,
@@ -43,7 +53,7 @@ export function installWorkflows({
 } = {}) {
   const dir = join(projectDir, WORKFLOWS_DIR);
   const pm = detectPackageManager(projectDir);
-  const quality = qualityWorkflowFor(language, pm);
+  const quality = qualityWorkflowFor(language, pm, hasLintScript(projectDir));
   const extras = extraWorkflowsFor({ profile, publishable: isPublishableNpm(projectDir), pm });
   const mut = mutation ? mutationWorkflowFor(language, pm) : null;
   const all = [...WORKFLOWS, ...(quality ? [quality] : []), ...extras, ...(mut ? [mut] : [])];

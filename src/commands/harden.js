@@ -184,7 +184,7 @@ export async function hardenCommand({
   const verb = dryRun ? "would install" : "installed";
   logger.info?.(`kj harden (${profile}) — ${verb} ${result.hooks.length} hook(s) → ${result.hooksPath}`);
   for (const h of result.hooks) logger.info?.(`  • ${h.hook}: ${h.action}`);
-  for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}`);
+  for (const c of out.configs) logger.info?.(`  • ${c.file}: ${c.action}${c.note ? ` (${c.note})` : ""}`);
   for (const w of out.workflows) logger.info?.(`  • ${w.file}: ${w.action}`);
   for (const g of out.guidelines) logger.info?.(`  • ${g.file}: ${g.action}`);
   if (!dryRun) logger.info?.("core.hooksPath set. Verify later with `kj check`.");

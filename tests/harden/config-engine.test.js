@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,8 +9,17 @@ import { installConfigs } from "../../src/harden/config-engine.js";
 let dir;
 const read = (f) => readFileSync(join(dir, f), "utf8");
 
+// KJC-BUG-0137: eslint/prettier configs only seed when their tool is actually
+// installed — most fixtures here declare both so the classic behavior holds.
+const withTools = (extra = {}) =>
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "x", devDependencies: { eslint: "^9", prettier: "^3" }, ...extra }),
+  );
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "kj-cfg-"));
+  withTools();
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -72,7 +81,7 @@ describe("installConfigs", () => {
 
   it("covers legacy .eslintrc.json and inline package.json config too", () => {
     writeFileSync(join(dir, ".eslintrc.json"), "{}");
-    writeFileSync(join(dir, "package.json"), '{"prettier":{"printWidth":80}}');
+    withTools({ prettier: { printWidth: 80 } });
     const res = installConfigs({ projectDir: dir, language: "javascript" });
     const byFile = Object.fromEntries(res.configs.map((c) => [c.file, c]));
     expect(byFile["eslint.config.js"]).toMatchObject({ action: "covered", by: ".eslintrc.json" });
@@ -94,6 +103,32 @@ describe("installConfigs", () => {
     const res = installConfigs({ projectDir: dir, language: "javascript" });
     // prettier has no variant here → seeds normally alongside the mjs eslint.
     expect(res.configs.find((c) => c.file === ".prettierrc.json").action).toBe("inserted");
+  });
+
+  // KJC-BUG-0137 (issue #1357): a lint/format config whose tool isn't even
+  // installed is decorative at best — and pairs with a hook/workflow demand
+  // the project can't satisfy. kj never generates a demand it didn't leave
+  // satisfied: no eslint/prettier in the project ⇒ no config, with the
+  // actionable install command in the report instead.
+  it("omits eslint/prettier configs when the tool is not installed (KJC-BUG-0137)", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x" }));
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    const byFile = Object.fromEntries(res.configs.map((c) => [c.file, c]));
+    expect(byFile["eslint.config.js"].action).toBe("omitted");
+    expect(byFile["eslint.config.js"].note).toContain("npm i -D eslint");
+    expect(byFile[".prettierrc.json"].action).toBe("omitted");
+    expect(existsSync(join(dir, "eslint.config.js"))).toBe(false);
+    expect(existsSync(join(dir, ".prettierrc.json"))).toBe(false);
+    // Tool-independent configs are untouched by the gate.
+    expect(byFile[".editorconfig"].action).toBe("inserted");
+  });
+
+  it("a tool present only via node_modules/.bin still counts as installed", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "x" }));
+    mkdirSync(join(dir, "node_modules", ".bin"), { recursive: true });
+    writeFileSync(join(dir, "node_modules", ".bin", "eslint"), "");
+    const res = installConfigs({ projectDir: dir, language: "javascript" });
+    expect(res.configs.find((c) => c.file === "eslint.config.js").action).toBe("inserted");
   });
 
   it("never seeds eslint/prettier next to biome.json (KJC-TSK-0614)", () => {

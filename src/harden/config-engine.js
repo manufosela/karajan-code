@@ -15,6 +15,24 @@ import { CONFIGS_BY_LANGUAGE, UNIVERSAL_CONFIGS } from "./config-templates.js";
 
 const BLOCK_VERSION = 1;
 
+// KJC-BUG-0137 (issue #1357): is the tool a config demands actually installed?
+// Declared dependency or a resolvable bin both count; an unreadable
+// package.json is no evidence of the tool.
+function hasTool(dirs, tool) {
+  for (const d of dirs) {
+    if (existsSync(join(d, "node_modules", ".bin", tool))) return true;
+    const pkgPath = join(d, "package.json");
+    if (!existsSync(pkgPath)) continue;
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      if (pkg.devDependencies?.[tool] || pkg.dependencies?.[tool]) return true;
+    } catch {
+      /* unreadable ⇒ keep looking */
+    }
+  }
+  return false;
+}
+
 function writeFile(target, content) {
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content);
@@ -45,6 +63,15 @@ function seedInto(targetDir, configs, dryRun, prefix, results, altDirs = [target
       const variant = findEquivalentIn(altDirs, artifactIdForConfig(cfg));
       if (variant) {
         results.push({ file, action: "covered", by: variant });
+        continue;
+      }
+      // KJC-BUG-0137: no tool ⇒ no config — report the actionable gap instead.
+      if (cfg.requires && !hasTool(altDirs, cfg.requires)) {
+        results.push({
+          file,
+          action: "omitted",
+          note: `${cfg.requires} is not installed — npm i -D ${cfg.requires}, then re-run kj harden`,
+        });
         continue;
       }
     }

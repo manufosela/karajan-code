@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,8 @@ const read = (f) => readFileSync(join(dir, f), "utf8");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "kj-stack-"));
+  // KJC-BUG-0137: JS configs only seed when their tool is installed.
+  writeFileSync(join(dir, "package.json"), '{"devDependencies":{"eslint":"^9","prettier":"^3"}}');
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });

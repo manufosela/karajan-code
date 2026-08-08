@@ -95,10 +95,15 @@ export const UNIVERSAL_CONFIGS = [
   { file: "commitlint.config.js", blockId: "commitlint", style: "slash", body: COMMITLINT_BODY },
 ];
 
-/** `json:true` ⇒ seed-only (no comment syntax for a marker). */
+/**
+ * `json:true` ⇒ seed-only (no comment syntax for a marker). `requires` names
+ * the tool the config is for: absent from the project ⇒ the config is omitted
+ * with the install command in the report (KJC-BUG-0137) — a config without its
+ * tool is decorative, and kj never generates a demand it didn't satisfy.
+ */
 export const JS_CONFIGS = [
-  { file: "eslint.config.js", blockId: "eslint", style: "slash", body: ESLINT_BODY },
-  { file: ".prettierrc.json", json: true, body: PRETTIER_BODY },
+  { file: "eslint.config.js", blockId: "eslint", style: "slash", body: ESLINT_BODY, requires: "eslint" },
+  { file: ".prettierrc.json", json: true, body: PRETTIER_BODY, requires: "prettier" },
 ];
 export const PY_CONFIGS = [{ file: "ruff.toml", blockId: "ruff", style: "hash", body: RUFF_BODY }];
 export const GO_CONFIGS = [{ file: ".golangci.yml", blockId: "golangci", style: "hash", body: GOLANGCI_BODY }];
