@@ -70,6 +70,27 @@ class TestComplete:
         assert response.usage.completion_tokens == 7
         assert response.latency_ms >= 0
 
+    async def test_joins_several_text_blocks(self, provider: AnthropicProvider) -> None:
+        reply = _message()
+        reply.content = [
+            TextBlock(type="text", text="first"),
+            TextBlock(type="text", text="second"),
+        ]
+        _reply_with(provider, reply)
+
+        assert (await provider.complete("go")).content == "first\nsecond"
+
+    async def test_skips_blocks_that_are_not_text(self, provider: AnthropicProvider) -> None:
+        """Thinking is on by default, so a reply routinely opens with one."""
+        reply = _message()
+        reply.content = [
+            TextBlock.construct(type="thinking", thinking="working on it"),
+            TextBlock(type="text", text="the answer"),
+        ]
+        _reply_with(provider, reply)
+
+        assert (await provider.complete("go")).content == "the answer"
+
     async def test_sends_no_sampling_parameters(self, provider: AnthropicProvider) -> None:
         """Current Claude models reject temperature, top_p and top_k with a 400."""
         call = _reply_with(provider, _message())
@@ -120,7 +141,31 @@ class TestComplete:
         with pytest.raises(ValueError, match="effort"):
             AnthropicProvider(api_key="k", effort="colossal")
 
+    # ---------------------------------------------------------------------------
+    # complete_json()
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# complete_json()
-# ---------------------------------------------------------------------------
+    async def test_omits_the_system_field_when_there_is_none(self, provider: AnthropicProvider) -> None:
+        call = _reply_with(provider, _message())
+
+        await provider.complete("go")
+
+        assert "system" not in call.await_args.kwargs
+
+    async def test_sends_the_configured_effort(self) -> None:
+        provider = AnthropicProvider(api_key="k", effort="medium")
+        call = _reply_with(provider, _message())
+
+        await provider.complete("go")
+
+        assert call.await_args.kwargs["output_config"] == {"effort": "medium"}
+
+    def test_an_explicit_model_wins_over_the_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ANTHROPIC_MODEL", "claude-sonnet-5")
+
+        assert AnthropicProvider(api_key="k", model="claude-opus-5").model == "claude-opus-5"
+
+    def test_reads_the_model_from_the_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ANTHROPIC_MODEL", "claude-sonnet-5")
+
+        assert AnthropicProvider(api_key="k").model == "claude-sonnet-5"
