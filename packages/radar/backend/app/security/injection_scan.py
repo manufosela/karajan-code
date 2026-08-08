@@ -10,7 +10,8 @@ content enters, rather than in whatever consumes the corpus later.
 **This is pattern detection, not a guarantee.** It catches the clumsy and
 the accidental: a document that says "ignore all previous instructions", one
 that opens a fake instruction block mid-abstract, a run of characters a
-reader cannot see. Someone who knows what is in the catalogue can rephrase
+reader cannot see, a comment block far too large to be a comment. Someone
+who knows what is in the catalogue can rephrase
 around it, and hidden characters are the one part of this that a person
 cannot review by reading. Treating a clean scan as proof of
 safety would be worse than not scanning at all, because it invites exactly
@@ -79,12 +80,32 @@ def scan(text: str | None) -> ScanResult:
     catalogue = _load_catalogue()
     findings = _match_patterns(text, catalogue["directive"], kind="directive")
     findings.extend(_match_patterns(text, catalogue["unicode"], kind="unicode"))
+    findings.extend(_oversized_comments(text, catalogue["comment_block"]))
 
     return ScanResult(
         clean=not findings,
         findings=tuple(findings),
         summary=_summarise(findings),
     )
+
+
+def scan_fields(**fields: str | None) -> dict[str, ScanResult]:
+    """Scan several named fields, keeping only the ones with findings.
+
+    Every field that travels into a prompt is scanned, not just the body: a
+    title reaches the model exactly like an abstract does, and is a quieter
+    place to hide something because it is short enough to look harmless.
+
+    Args:
+        **fields: Field name to content.
+
+    Returns:
+        Field name to result, for the fields that turned something up. A
+        clean document yields an empty mapping, so a caller can treat the
+        result as the list of problems rather than having to filter it.
+    """
+    results = {name: scan(value) for name, value in fields.items()}
+    return {name: result for name, result in results.items() if not result.clean}
 
 
 @lru_cache(maxsize=1)
@@ -103,6 +124,10 @@ def _load_catalogue() -> dict[str, Any]:
     return {
         "directive": _compile_all(raw["directive"]),
         "unicode": _compile_all(raw["unicode"]),
+        "comment_block": {
+            "max_chars": raw["comment_block"]["max_chars"],
+            "delimiters": _compile_all(raw["comment_block"]["delimiters"]),
+        },
     }
 
 
@@ -145,6 +170,30 @@ def _match_patterns(
                     line=_line_at(text, match.start()),
                 )
             )
+    return findings
+
+
+def _oversized_comments(text: str, config: dict[str, Any]) -> list[Finding]:
+    """Report comment blocks too large to be comments.
+
+    The size is the signal, not the content: readers skim comments and models
+    do not, which makes an oversized one a comfortable place to park a
+    payload.
+    """
+    limit = config["max_chars"]
+    findings = []
+
+    for name, pattern in config["delimiters"]:
+        for match in pattern.finditer(text):
+            if len(match.group(0)) > limit:
+                findings.append(
+                    Finding(
+                        type="comment_block",
+                        pattern=f"{name}: {len(match.group(0))} chars (max {limit})",
+                        snippet=_excerpt(text, match.start()),
+                        line=_line_at(text, match.start()),
+                    )
+                )
     return findings
 
 

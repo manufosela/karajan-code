@@ -130,5 +130,16 @@
       "regex": "[\\U000e0000-\\U000e007f]",
       "why": "Tag characters can carry an entire hidden instruction"
     }
-  ]
+  ],
+  "comment_block": {
+    "max_chars": 2000,
+    "why": "A comment far larger than any real one is a common place to hide a payload, since readers skim comments and models do not",
+    "delimiters": [
+      { "id": "c_style", "regex": "/\\*[\\s\\S]{0,20000}?\\*/" },
+      { "id": "html", "regex": "<!--[\\s\\S]{0,20000}?-->" },
+      { "id": "python_double", "regex": "\"\"\"[\\s\\S]{0,20000}?\"\"\"" },
+      { "id": "python_single", "regex": "'''[\\s\\S]{0,20000}?'''" },
+      { "id": "ruby", "regex": "=begin[\\s\\S]{0,20000}?=end" }
+    ]
+  }
 }
