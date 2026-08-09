@@ -55,8 +55,15 @@ before continuing:
    - `pgvector`: a Postgres with the `vector` extension, and `pg` installed.
      The answer when several machines share the corpus. They will provide
      the connection string as a secret later; **one database per corpus**.
-   Whatever they choose, the store backend is a peer dependency they install
-   — the engine ships none, and a missing one fails loudly at ingest time.
+     They do **not** have to create any schema: the ingest builds the table
+     and its indexes with the dimension their embedder needs. If the database
+     already has a `karajan_rag_chunks` table with a different dimension —
+     the usual cause is having applied the engine's own migration, which
+     declares `vector(768)` — the ingest stops and says so before indexing.
+   Running locally, the store backend is a peer dependency **they** install
+   (`@lancedb/lancedb` or `pg`); the engine ships none, and a missing one
+   fails loudly. Inside the reusable workflows it is installed for them,
+   deduced from the store declared in the config.
 4. **Where alerts should land**: a comment on the merged PR, an https
    webhook, or both.
 5. **Which repo is the deployment repo** — private, theirs. If they do not
@@ -76,6 +83,11 @@ repo):
   <https://watch.karajancode.com/impact.md> for the exact `uses:` blocks and
   inputs. `drift` is optional:
   <https://watch.karajancode.com/drift.md>.
+  **Ask whether they have an LLM CLI available on the runner.** If they do
+  not, pass `judge: false` to the impact workflow: it will run on the three
+  deterministic signals — retrieval, contracts and git co-changes — instead
+  of dying with `spawn claude ENOENT` after having computed all of them.
+  The judgement is off by default in `drift` and on by default in `impact`.
 - Each **observed** repo needs a small workflow that notifies the
   deployment repo when something is merged into its main branch
   (`repository_dispatch`). Show the user the snippet and let them add it, or
@@ -135,6 +147,14 @@ should expect on their next merge. Be explicit about today's limits:
 
 - The `docs` corpus indexes the whole workspace, so it also embeds code —
   extra cost and some noise until upstream supports per-corpus globs.
+- Drift reports documentation **from the changed repo too**, not only from
+  the others: the README that documents an endpoint usually lives next to the
+  code that changed it. Only the files the diff itself touched are left out.
+  Expect more entries than a pure cross-repo report, and lean on the contract
+  signal — a literal citation of something you just deleted — over similarity.
+- Similarity scores are **not comparable between stores**: a `minSimilarity`
+  tuned on `lancedb` does not carry over to `pgvector`, where scores can even
+  be negative. Tune it against the store they actually run.
 - Serving the corpus to agents is done with `karajan-rag serve` (one process
   per corpus for now).
 

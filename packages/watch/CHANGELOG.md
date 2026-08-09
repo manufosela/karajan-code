@@ -1,6 +1,10 @@
 # Changelog
 
-## No publicado
+## 0.4.0 — 2026-08-09
+
+> **Si vas a montar una instancia, parte de aquí.** Hasta la 0.3.0 los tres
+> workflows reusables no funcionaban en ningún despliegue: morían pidiendo el
+> backend del store. Nadie lo había notado porque nadie los había ejecutado.
 
 ### Nuevo
 
