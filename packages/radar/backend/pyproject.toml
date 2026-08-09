@@ -74,7 +74,13 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+# Smoke tests need a real PostgreSQL and take seconds rather than
+# milliseconds, so they are out of the default run: a suite that is slow on
+# every push is a suite people learn to skip. `make smoke` opts in.
+addopts = "-v --tb=short -m 'not smoke'"
+markers = [
+    "smoke: exercises the real stack end to end; needs a live PostgreSQL",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
