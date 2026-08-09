@@ -26,6 +26,9 @@ async function enforceCardFirst({ config, projectDir }) {
   const branch = branchRes.stdout?.trim() || "HEAD";
   const card = await checkCardFirst({ config, projectDir, branch });
   if (card.mode === "warn") console.log(`⚠ card-first: ${card.reason}`);
+  // KJC-TSK-0732: the verification LEVEL is part of the verdict — a pass on
+  // branch-ref alone must never read as a tracker-verified pass.
+  if (card.note) console.log(`⚠ card-first: ${card.note}`);
   if (card.mode === "exempt" && card.reason.includes("KJ_ALLOW_NO_CARD")) console.log(`⚠ card-first exempt: ${card.reason}`);
   if (!card.ok) {
     console.log(`✗ card-first gate: ${card.reason}`);

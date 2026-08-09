@@ -8,6 +8,7 @@
  */
 import { listPlans, loadPlan } from "../plan/plan-store.js";
 import { escapeRegExp } from "../utils/escape-regexp.js";
+import { verifyCardAlive } from "./card-verify.js";
 
 const LIVE_STATUSES = new Set(["pending", "running", "failed"]);
 // Card-shaped reference: LIN-123, bb-002 and multi-segment ids like
@@ -44,7 +45,7 @@ async function findLiveCardInBranch(projectDir, branch) {
   return closedHit;
 }
 
-export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, env = process.env }) {
+export async function checkCardFirst({ config = {}, projectDir = process.cwd(), branch, env = process.env, deps = {} }) {
   if (env.KJ_ALLOW_NO_CARD === "1") {
     return { ok: true, mode: "exempt", reason: "KJ_ALLOW_NO_CARD=1 (explicit escape hatch)" };
   }
@@ -73,11 +74,24 @@ export async function checkCardFirst({ config = {}, projectDir = process.cwd(), 
       : { ok: true, mode: "warn", reason };
   }
 
-  // planning-game / external: presence check only — liveness lives in the
-  // project's own board, out of local reach.
-  if (CARD_REF_RE.test(branch)) return { ok: true, mode: "pass", ref: branch.match(CARD_REF_RE)[0] };
-  const effective = policy === "auto" ? "warn" : policy;
+  // planning-game / external: presence check, upgraded to LIVENESS against
+  // the real tracker when board.verify_cmd declares an adapter
+  // (KJC-TSK-0732, issue #1371). Unverifiable degrades honestly — the
+  // result names its level so nobody mistakes branch-ref for tracker.
   const boardName = config.board?.name || backend;
+  const effective = policy === "auto" ? "warn" : policy;
+  if (CARD_REF_RE.test(branch)) {
+    const ref = branch.match(CARD_REF_RE)[0];
+    const { verifyFn = verifyCardAlive } = deps;
+    const v = await verifyFn({ ref, verifyCmd: config.board?.verify_cmd, projectDir });
+    if (v.verified === false) {
+      const reason = `branch references ${ref} but ${boardName} reports it "${v.status}" — card-first needs a live card in the tracker (create/reopen it there)`;
+      return effective === "block"
+        ? { ok: false, mode: "block", reason, level: v.level }
+        : { ok: true, mode: "warn", reason, level: v.level };
+    }
+    return { ok: true, mode: "pass", ref, level: v.level, ...(v.note ? { note: v.note } : {}) };
+  }
   const reason = `no card reference in branch "${branch}" — card-first on ${boardName}: create the card there and name the branch after it (e.g. feat/ABC-123-summary)`;
   return effective === "block"
     ? { ok: false, mode: "block", reason }
