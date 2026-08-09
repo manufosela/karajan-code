@@ -17,7 +17,8 @@ const HIGHLIGHT_MAX = 160;
  * ("Minor. **The method, enforced.** …"), bold stripped, truncated. Pure.
  */
 export function parseChangelogHighlight(markdown, version) {
-  const section = String(markdown).split(new RegExp(`^## \\[${version.replaceAll(".", "\\.")}\\][^\\n]*$`, "m"))[1];
+  const escapedVersion = version.replaceAll(".", String.raw`\.`);
+  const section = String(markdown).split(new RegExp(String.raw`^## \[${escapedVersion}\][^\n]*$`, "m"))[1];
   if (!section) return null;
   const firstLine = section.split(/^##|^###/m)[0].split("\n").map((l) => l.trim()).find(Boolean);
   if (!firstLine) return null;

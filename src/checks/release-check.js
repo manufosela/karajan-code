@@ -28,9 +28,7 @@ async function genericChecks(projectDir) {
   checks.push({ name: "manifest", ok: Boolean(version), detail: version ? `version ${version}` : "package.json has no version" });
 
   const clPath = join(projectDir, "CHANGELOG.md");
-  if (!existsSync(clPath)) {
-    checks.push({ name: "changelog-current", ok: false, detail: "no CHANGELOG.md — the release story must exist before the release" });
-  } else {
+  if (existsSync(clPath)) {
     const cl = readFileSync(clPath, "utf8");
     const topVersioned = (cl.match(/^## \[(\d+\.\d+\.\d+)\]/m) || [])[1] || null;
     // Content still sitting under [Unreleased] means unpromoted entries —
@@ -39,25 +37,20 @@ async function genericChecks(projectDir) {
     const unreleasedBody = afterUnreleased.split(/^## \[/m)[0] ?? "";
     const pending = /\S/.test(unreleasedBody);
     const ok = topVersioned === version && !pending;
-    checks.push({
-      name: "changelog-current",
-      ok,
-      detail: ok
-        ? `top section is [${version}], Unreleased empty`
-        : pending
-          ? `[Unreleased] still carries content — promote it into [${version}] before releasing`
-          : `top CHANGELOG section is [${topVersioned ?? "none"}] but the manifest says ${version} — promote Unreleased before releasing`,
-    });
+    let detail = `top section is [${version}], Unreleased empty`;
+    if (pending) detail = `[Unreleased] still carries content — promote it into [${version}] before releasing`;
+    else if (!ok) detail = `top CHANGELOG section is [${topVersioned ?? "none"}] but the manifest says ${version} — promote Unreleased before releasing`;
+    checks.push({ name: "changelog-current", ok, detail });
+  } else {
+    checks.push({ name: "changelog-current", ok: false, detail: "no CHANGELOG.md — the release story must exist before the release" });
   }
 
   const tagsOut = await runCommand("git", ["-C", projectDir, "tag", "--list", "v[0-9]*"]);
   const tags = (tagsOut.stdout || "").split("\n").map((t) => t.trim().replace(/^v/, "")).filter((t) => /^\d+\.\d+\.\d+$/.test(t));
   const ahead = version ? tags.filter((t) => semverCmp(t, version) > 0) : [];
-  checks.push({
-    name: "tags",
-    ok: ahead.length === 0,
-    detail: ahead.length ? `tag(s) ahead of the manifest exist: v${ahead.join(", v")}` : (tags.includes(version) ? `v${version} already tagged` : `tag v${version} pending (created after publish)`),
-  });
+  let tagDetail = tags.includes(version) ? `v${version} already tagged` : `tag v${version} pending (created after publish)`;
+  if (ahead.length > 0) tagDetail = `tag(s) ahead of the manifest exist: v${ahead.join(", v")}`;
+  checks.push({ name: "tags", ok: ahead.length === 0, detail: tagDetail });
   return { checks, version, pkg };
 }
 

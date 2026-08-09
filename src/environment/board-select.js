@@ -53,6 +53,7 @@ export async function pickStateBackend({ projectDir = process.cwd(), home = os.h
   const backend = external ? "external" : value;
   const boardName = external ? value.slice("external:".length) : null;
   await persistStateBackend(projectDir, backend, boardName);
-  logger.info?.(`✓ board: ${backend}${boardName ? ` (${boardName})` : ""} — persisted in .karajan/kj.config.yml`);
+  const suffix = boardName ? ` (${boardName})` : "";
+  logger.info?.(`✓ board: ${backend}${suffix} — persisted in .karajan/kj.config.yml`);
   return { backend, boardName, source: "chosen" };
 }

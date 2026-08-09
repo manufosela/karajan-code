@@ -60,7 +60,7 @@ export class BaseAgent {
       // a PATH is a partial overlay and merges over the inherited env first,
       // so an overlay caller can never cost the child PATH/HOME.
       const complete = options.env && ("PATH" in options.env || "Path" in options.env);
-      const base = complete ? options.env : { ...process.env, ...(options.env || {}) };
+      const base = complete ? options.env : { ...process.env, ...options.env };
       options = {
         ...options,
         env: buildAgentEnv(base, {
