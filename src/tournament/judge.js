@@ -123,9 +123,8 @@ export async function judgeTournament({ tournamentDir, config = {}, logger = con
   let solomon = null;
   if (escalated) {
     if (!solomonFn) {
-      throw new Error(
-        `tournament: ${verdict.tie ? "empate declarado" : `discrepancia juez(${judgeTop}) vs scoreboard(${boardTop})`} y sin árbitro configurado`
-      );
+      const why = verdict.tie ? "empate declarado" : `discrepancia juez(${judgeTop}) vs scoreboard(${boardTop})`;
+      throw new Error(`tournament: ${why} y sin árbitro configurado`);
     }
     solomon = await solomonFn({
       judgeRanking: verdict.ranking,

@@ -98,7 +98,8 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // KJC-TSK-0697 — `--library` targets the distilled-canon collection:
     // its own project namespace plus the kind filter.
     const library = Boolean(flags.library);
-    const project = library ? LIBRARY_PROJECT : (flags.project === "all" ? null : (flags.project || detected || null));
+    let project = flags.project === "all" ? null : (flags.project || detected || null);
+    if (library) project = LIBRARY_PROJECT;
     // KJC-BUG-0061 follow-up: align the CLI `--json` shape with the MCP
     // handler. The MCP tool responds `{ hits: [], empty: true, topK, scope }`
     // so agents (and the `/kj-rag-query` skill from Camino B) have a
@@ -115,9 +116,8 @@ export async function ragQueryCommand({ text, config, logger, flags = {} }) {
     // Safe by grammar: parseWhere (core where-parser.js) accepts ONLY
     // AND-joined key=value pairs — an OR or parens never parses, so the
     // composed clause cannot leak past the kind filter; it fails loudly.
-    const where = library
-      ? (flags.where ? `kind=library AND ${flags.where}` : "kind=library")
-      : (flags.where || null);
+    let where = flags.where || null;
+    if (library) where = flags.where ? `kind=library AND ${flags.where}` : "kind=library";
     const rerankOpts = flags.rerank ? { model: flags.rerankModel } : null;
     const hits = await query(db, makeGovernedEmbedder(config), text, { topK, scope, project, mode, alpha, where, rerankOpts });
     if (flags.json) {

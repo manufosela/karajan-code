@@ -17,7 +17,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const TESTS_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[a-z]+$/;
+const TESTS_RE = /(?:(?:^|\/)(?:tests?|__tests__|spec)\/)|(?:\.(?:test|spec)\.[a-z]+$)/;
 const MUTATE_TIMEOUT_MS = 10 * 60 * 1000;
 
 // EXACT unified-diff header forms — an added line whose content starts with

@@ -62,7 +62,7 @@ export async function envInstallCommand({ config = null, logger = null, flags = 
     // The effective backend feeds the render on EVERY non-error path —
     // chosen, declared-in-file or default — so the playbook never falls
     // back to hu-board while the selection said otherwise.
-    config = { ...config, state_backend: sel.backend, board: sel.boardName ? { ...(config?.board || {}), name: sel.boardName } : config?.board };
+    config = { ...config, state_backend: sel.backend, board: sel.boardName ? { ...config?.board, name: sel.boardName } : config?.board };
   } catch (err) {
     console.log(`⚠ board selection failed (${err.message}) — continuing with the configured default`);
   }
