@@ -451,3 +451,77 @@ class TestFamilyContract:
 
         with pytest.raises(ValidationError):
             profile.family_contract.distilled_cards = True  # type: ignore[misc]
+
+
+class TestDeliverySettings:
+    """Where the line falls between "worth interrupting someone" and "noise".
+
+    That is a domain judgement, so it belongs to the profile and changes in a
+    pull request. Where the digest is sent, and when, is not here.
+    """
+
+    def test_the_defaults_are_what_the_digest_did_before(self) -> None:
+        """A profile that says nothing keeps today's behaviour, so adopting
+        this changes who decides rather than what happens."""
+        profile = RadarProfile.model_validate(_minimal_profile_dict())
+
+        assert profile.delivery.score_threshold == 6.0
+        assert profile.delivery.max_items == 5
+
+    def test_a_profile_can_set_its_own_line(self) -> None:
+        data = _minimal_profile_dict()
+        data["delivery"] = {"score_threshold": 8.5, "max_items": 3}
+
+        delivery = RadarProfile.model_validate(data).delivery
+
+        assert delivery.score_threshold == 8.5
+        assert delivery.max_items == 3
+
+    @pytest.mark.parametrize("threshold", [-0.1, 10.1])
+    def test_rejects_a_threshold_outside_the_score_range(self, threshold: float) -> None:
+        """Scores run 0 to 10. A threshold outside that either lets
+        everything through or nothing, silently."""
+        data = _minimal_profile_dict()
+        data["delivery"] = {"score_threshold": threshold}
+
+        with pytest.raises(ValidationError, match="score_threshold"):
+            RadarProfile.model_validate(data)
+
+    def test_rejects_a_digest_of_no_items(self) -> None:
+        data = _minimal_profile_dict()
+        data["delivery"] = {"max_items": 0}
+
+        with pytest.raises(ValidationError, match="max_items"):
+            RadarProfile.model_validate(data)
+
+    def test_rejects_a_digest_with_no_sections(self) -> None:
+        """A digest with no sections is an empty message nobody asked for."""
+        data = _minimal_profile_dict()
+        data["delivery"] = {"sections": []}
+
+        with pytest.raises(ValidationError, match="sections"):
+            RadarProfile.model_validate(data)
+
+    def test_rejects_a_repeated_section(self) -> None:
+        data = _minimal_profile_dict()
+        data["delivery"] = {"sections": ["top_insights", "top_insights"]}
+
+        with pytest.raises(ValidationError, match="duplicate entry in sections"):
+            RadarProfile.model_validate(data)
+
+    def test_the_output_language_is_not_declared_here(self) -> None:
+        """It is already declared by summary.languages. A second field would
+        recreate the duplication this removes, inside the same file."""
+        data = _minimal_profile_dict()
+        data["delivery"] = {"output_language": "es"}
+
+        with pytest.raises(ValidationError, match="output_language"):
+            RadarProfile.model_validate(data)
+
+    def test_where_the_digest_goes_is_not_declared_here(self) -> None:
+        """A webhook URL in a profile is a secret in a repository."""
+        data = _minimal_profile_dict()
+        data["delivery"] = {"teams_webhook_url": "https://example.invalid/hook"}
+
+        with pytest.raises(ValidationError, match="teams_webhook_url"):
+            RadarProfile.model_validate(data)
