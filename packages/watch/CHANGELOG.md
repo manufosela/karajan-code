@@ -1,6 +1,10 @@
 # Changelog
 
-## No publicado
+## 0.5.0 — 2026-08-09
+
+> Con esta versión, **los cuatro comandos y los tres workflows del producto
+> se ejecutan de verdad** en cada PR, contra los dos stores. Ya no queda
+> nada prometido que no se haya ejercitado al menos una vez.
 
 ### Nuevo
 
