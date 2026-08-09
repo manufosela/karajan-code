@@ -52,8 +52,29 @@ describe("direct-actions", () => {
       });
       expect(result.ok).toBe(true);
       expect(result.output).toContain("42 packages");
-      // Tokenised arg array, no shell expansion.
-      expect(execFileSync).toHaveBeenCalledWith("npm", ["install"], expect.any(Object));
+      // Tokenised arg array, no shell expansion — and hardened (KJC-BUG-0099):
+      // a dependency install must never run arbitrary lifecycle scripts.
+      expect(execFileSync).toHaveBeenCalledWith("npm", ["install", "--ignore-scripts"], expect.any(Object));
+    });
+
+    // KJC-BUG-0099: every ecosystem with lifecycle hooks gets its skip flag
+    // appended at EXECUTION time — the allow-list stays as the user-visible
+    // intent. Ecosystems without package hooks run untouched.
+    it("appends script-skipping flags per ecosystem (KJC-BUG-0099)", async () => {
+      execFileSync.mockReturnValue("");
+      const expected = [
+        ["npm ci", "npm", ["ci", "--ignore-scripts"]],
+        ["pnpm install", "pnpm", ["install", "--ignore-scripts"]],
+        ["yarn install", "yarn", ["install", "--ignore-scripts"]],
+        ["composer install", "composer", ["install", "--no-scripts", "--no-plugins"]],
+        ["go mod download", "go", ["mod", "download"]],
+        ["cargo fetch", "cargo", ["fetch"]],
+      ];
+      for (const [cmd, program, args] of expected) {
+        execFileSync.mockClear();
+        await executeAction({ type: "run_command", params: { cmd } });
+        expect(execFileSync).toHaveBeenCalledWith(program, args, expect.any(Object));
+      }
     });
 
     it("rejects disallowed command", async () => {

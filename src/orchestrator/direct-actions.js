@@ -26,6 +26,17 @@ const ALLOWED_COMMANDS = [
   "bundle install", "composer install", "dotnet restore"
 ];
 
+// KJC-BUG-0099: a dependency install must not be arbitrary code execution —
+// lifecycle hooks (postinstall & friends) run whatever the dependency ships.
+// The allow-list above names the INTENT; execution appends the ecosystem's
+// script-skipping flag. Ecosystems without package hooks run untouched.
+const HARDEN_FLAGS = {
+  npm: ["--ignore-scripts"],
+  pnpm: ["--ignore-scripts"],
+  yarn: ["--ignore-scripts"],
+  composer: ["--no-scripts", "--no-plugins"],
+};
+
 /**
  * True when `target` resolves to a path inside `base` (or is `base` itself).
  * Uses path.relative instead of a string prefix check: a naive
@@ -64,7 +75,7 @@ async function runCommand({ cmd, cwd }) {
     // Even though `cmd` is allow-listed, defense-in-depth: switched to
     // execFileSync with a tokenised arg array so no shell expansion at all.
     const [program, ...args] = cmd.trim().split(/\s+/);
-    const output = execFileSync(program, args, {
+    const output = execFileSync(program, [...args, ...(HARDEN_FLAGS[program] ?? [])], {
       cwd: cwd || process.cwd(),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
