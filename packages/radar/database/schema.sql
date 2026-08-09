@@ -574,27 +574,23 @@ INSERT INTO configuration (category, key, value, description) VALUES
 
 -- =============================================================================
 -- SEED DATA: Default configuration - Delivery settings
+--
+-- Only what belongs to a deployment: when the digest runs, and where it is
+-- sent. The score threshold, the item count and the sections are domain
+-- judgements and live in the Radar Profile (`delivery`); the output language
+-- is declared once, by the profile's `summary.languages`.
 -- =============================================================================
 INSERT INTO configuration (category, key, value, description) VALUES
 (
     'delivery',
     'daily_digest_settings',
     '{
-        "teams_threshold": 6.0,
-        "max_daily_insights": 5,
-        "output_language": "both",
         "digest_schedule": "09:00",
         "digest_timezone": "Europe/Madrid",
-        "include_sections": [
-            "top_insights",
-            "strategic_summary",
-            "new_opportunities",
-            "follow_up_items"
-        ],
         "teams_webhook_env": "TEAMS_WEBHOOK_URL",
         "email_recipients_env": "DIGEST_EMAIL_RECIPIENTS"
     }'::jsonb,
-    'Daily digest delivery configuration: threshold scores, max items, language, and schedule'
+    'Daily digest delivery: schedule and where to send it. Domain thresholds live in the Radar Profile'
 );
 
 -- =============================================================================
