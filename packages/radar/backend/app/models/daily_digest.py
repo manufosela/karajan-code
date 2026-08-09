@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Date, String
+from sqlalchemy import CheckConstraint, Date, DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,7 +23,9 @@ class DailyDigest(Base):
         server_default="pending",
     )
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    sent_at: Mapped[datetime | None] = mapped_column()
+    # timezone=True because the column already is timestamptz in the database;
+    # see the note on ResearchItem.processing_timestamp.
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         CheckConstraint(
