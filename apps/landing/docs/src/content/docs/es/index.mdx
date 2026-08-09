@@ -56,13 +56,20 @@ El caveat que el loop engineering recalca — *los bucles desatendidos cometen e
   <Card title="Modo headless" icon="seti:shell">
     El pipeline multiagente clásico sigue vivo para CI y automatización: `kj run` orquesta roles coder/reviewer/tester en subprocesos sin humano delante, con los mismos gates. [Modo headless →](/docs/es/v4/headless/)
   </Card>
+  <Card title="Torneo gobernado (v4.15)" icon="star">
+    Una tarea, N coders en carriles worktree aislados: `kj tournament` reparte, `--score` construye un scoreboard determinista sin LLM, un juez cross-AI sin conflicto de interés elige al ganador, y `--crown` lo corona por el gate normal de review — ganar da candidatura, no bypass.
+  </Card>
 </CardGrid>
 
 ## Releases recientes
 
 Las versiones más recientes, la última primero. Las anteriores están en [Arquitectura › Historia](/docs/es/architecture/history/) y en el [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.14.0 — el panel nunca se seca (actual)
+### v4.15.0 — ganar da candidatura, no bypass (actual)
+
+Minor que abre el torneo gobernado (`kj tournament`): la MISMA tarea se reparte a N coders en carriles worktree aislados, cada uno dejando su evidencia por carril. Después el embudo se estrecha: `--score` construye un scoreboard determinista con cero LLM — una suite roja elimina en el acto, y la regla lexicográfica de ranking se imprime con el resultado — `--judge` trae un juez cross-AI sin conflicto de interés (un participante nunca juzga; empate o desacuerdo escalan a solomon), y `--crown` corona al ganador por la puerta NORMAL: review cross-AI del diff staged exacto, veredicto ligado por sha256, commit por el gate real — un rechazo ABORTA. Ganar da candidatura, no bypass — y el ciclo completo corrió EN VIVO el primer día. Más cuatro fixes de campo: GitHub Actions pineadas por SHA (#1374), configs y gate de lint solo con la herramienta presente (#1357), el clipping de diffs declarado como propio del pipeline (#1381), y un split de fichero ya no se lee como borrado de cobertura — las líneas movidas son señal determinista (#1364).
+
+### v4.14.0 — el panel nunca se seca
 
 Minor nacida de un apagón real: codex agotó su cuota semanal en mitad de una tarea y el panel de arbitraje se derrumbó con él — gemini retirado, el modelo local caído, copilot en conflicto por ser el reviewer de la disputa. Un día después, el método es a prueba de apagones. **Failover de cuota con consentimiento**: cuando al reviewer configurado se le seca la cuota, `kj review` cambia a un candidato autenticado de un registro declarativo — avisando en alto y diciéndote cómo fijarlo — o te entrega el menú de candidatos con su tier (gratis / suscripción / local) y el comando de login exacto; jamás un fallo mudo, jamás el brain revisándose a sí mismo. **Dos agentes restauran el panel**: Kimi Code (Moonshot, tier gratis — la reserva sin coste) y Antigravity CLI (`agy`, el sucesor oficial del gemini CLI retirado) entran como octavo y noveno agentes integrados, ambos verificados contra sus CLIs vivos — el primer acto de agy fue aprobar la revisión de su propio adaptador. Y el rincón que nadie miraba: packages/ entra en la superficie de lint, 1.124 errores a cero, con la regresión hecha estructuralmente imposible.
 
@@ -77,143 +84,3 @@ Minor nacida de la crítica más afilada del usuario hasta la fecha: *"da igual 
 ### v4.11.0 — la caja de herramientas decide
 
 Minor nacida de observar a los agentes trabajar: usan las herramientas que tienen delante, así que el entorno pone ahí las correctas. El **RAG se vuelve herramienta MCP nativa** — `kj env install` cablea `kj-rag-mcp` en el `.mcp.json` del proyecto, haciendo de `kj_rag_query` el camino más barato del agente hacia "qué hace este código" (antes analizaba a mano, porque el RAG era solo un comando Bash mencionado en un texto). Y el **board se vuelve pregunta**: la instalación detecta qué alcanza tu máquina — MCP del Planning Game, tokens de Linear/Jira — y pregunta y persiste en instalaciones interactivas, o nombra el default y la línea exacta para cambiarlo en headless. Nunca más `hu-board` en silencio. Drift de regalo cazado: el schema de config nunca aprendió el backend `external` de la v4.5.0 — arreglado.
-
-### v4.10.0 — nada personal se publica
-
-Minor que cierra todos los boundaries de salida. Nacida de un incidente real — correos personales publicados en una landing dentro de unas release notes — la Privacy Gate audita todo lo que sale de la máquina: el **pre-commit** rechaza un diff con tus datos vetados (enmascarados, con escape con nombre), **verify-pack** escanea el tarball exacto que se publicaría, y `kj privacy scan <dir>` audita cualquier build antes de desplegar. Dos capas en cada boundary: tu denylist personal (`kj env install` pregunta y la escribe — jamás rellenas YAML) y detectores de patrón — PII genérico y **secretos hardcodeados**: un token de plataforma (`ghp_`, `sk-`, `AKIA`…) bloquea directamente, un `password: "literal"` te avisa hacia el `.env`. Los hallazgos jamás ecoan el dato que señalan. Además, en esta release una lección de campo se hace estructural: **instalar ES activar** — `kj env install` ejecuta él mismo el enforcement (hooks de git, gate de veredicto) en vez de confiar en que el agente corra los pasos de setup, y termina imprimiendo el método en la propia conversación que instaló. Un commit fuera del método se rechaza, no se narra.
-
-### v4.9.0 — el código excelente es una elección, no inercia
-
-Minor que abre la vía del código excelente. Ante legacy, los agentes optimizan coherencia local — mejorar siguiendo la línea existente — incluso cuando la solución canónica es mejor; nada en el bucle pedía la alternativa. Ahora el método sí: todo plan no trivial nombra al menos dos enfoques, **uno como si el codebase no existiera**, y justifica por qué gana el elegido. Y el architect responde esa pregunta con un canon citable: `kj rag query --library` sirve fichas de patrón destiladas — firma del problema, cuándo gana al default, *cuándo NO aplicarlo*, y la cita canónica (Lamport estrena; el resto del canon llega ya). Seguir la línea del legacy es una elección, nunca un default.
-
-### v4.8.0 — la pasada de seguridad que el agente se auto-invoca
-
-Minor que cierra la terna de controles nacida de la convergencia con el campo. Cuando una tarea toca auth, entrada de usuario, secretos, red o dependencias, el playbook ordena ahora al agente ejecutar `kj audit --security` — una pasada determinista enfocada (prompt-injection + OSV + Semgrep + Sonar, cero tokens) — y remediar los hallazgos ANTES de pedir el review. El scan de inyección cubre la **superficie de contexto del agente** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): lo que entra al contexto de tu agente en cada sesión es el vector real de inyección. Diseñar → escanear → remediar, en la misma sesión.
-
-### v4.7.0 — mínimo privilegio para agentes
-
-Minor con dos controles nacidos de una convergencia: un procesador de pagos publicó cómo opera agentes de IA de forma segura, y sus principios mapeaban casi uno a uno con los gates de Karajan — salvo dos. Ya cerrados: los agentes lanzados reciben un **allowlist de entorno** (esenciales del sistema + la auth de su propio CLI + variables de carril — tus claves cloud y tokens de registro no llegan jamás a un subproceso, así que un prompt inyectado no puede exfiltrar lo que nunca recibió), y `kj check` mantiene un **inventario de superficie IA** — cada MCP alcanzable en el proyecto, con detección de deriva: `NEW since last check: x — approved by you?`. Cada herramienta nueva de un agente es un acceso más, y debe ser consciente. Escapes con nombre, como siempre: `security.env_passthrough`, `security.env_allowlist: false`.
-
-### v4.6.3 — subproceso por derecho, host por elección
-
-Parche que cierra el primer bug de v4 diagnosticado desde fuera: ejecutar kj dentro de Claude Code con `coder: claude` entregaba en silencio el rol de coder al host y colgaba las ejecuciones headless (issues #1301/#1303 de @jorgecasar). Los providers CLI ahora siempre lanzan su propio subproceso aunque kj corra dentro de ellos; delegar en el host es un opt-in explícito (`roles.coder.host_delegation: true`). También desde el campo: los workflows de CI de `kj harden` ahora detectan el gestor de paquetes del repo (los repos pnpm/yarn ya no mueren en `npm ci`), y queda resuelto el aviso HIGH de brace-expansion que cazó el drift nocturno. Actualización directa desde v4.6.2.
-
-### v4.6.2 — los warnings dejan de ser negociables
-
-Patch, directo del campo: una sesión racionalizó una PR de 522 líneas pese al aviso, dejó commits sin referencia de card mientras preguntaba si adoptar la convención, y decidió un esquema unilateralmente. Tres respuestas: `method_gates.pr_size: block` rechaza los diffs sobredimensionados determinísticamente (escape con nombre, el default sigue warn — redactado ya como *no es una opinión*); las decisiones de diseño fuera de los criterios de la card deben volver como ADR propuesto y pregunta; y un hook `prepare-commit-msg` estampa el ref de card de la rama en cada subject — una convención que se cumple sola no necesita adopción. Actualización directa desde v4.6.1.
-
-### v4.6.1 — ninguna sesión trabaja a ciegas
-
-Patch. Cada invocación de kj ya comprobaba actualizaciones; ahora el aviso dice QUÉ trae la versión nueva — el titular de la release viaja con él —, el chequeo se refresca cada 6 horas en vez de a diario, y tanto el aviso como el playbook ordenan al agente: cuéntaselo a tu usuario y pregunta antes de actualizar, jamás `kj update` por tu cuenta. Actualizar sigue siendo una decisión humana e informada. Actualización directa desde v4.6.0.
-
-### v4.6.0 — el método, aplicado
-
-Minor que cierra el trade de la v4: el agente ganó inteligencia, las reglas ganaron dientes. Card-first es ya gate (sin card viva no hay commit — con boards externos, chequeo de presencia); el código sin tests avisa o bloquea; una segunda tarea concurrente recibe el comando `kj worktree start` exacto en el momento exacto; y `kj check` informa de la adherencia — commits sin card, veredictos por workspace, commits sin tests — porque las excepciones legítimas agregan una deriva visible. Toda escotilla de escape es explícita y con nombre. [Fase 106 →](/docs/es/architecture/history/#fase-106-v460--el-método-aplicado-v460)
-
-### v4.5.0 — cualquier board, pero siempre un board
-
-Minor con cambio de contrato. Los proyectos que ya viven en Linear, Trello, Jira o GitHub Issues declaran su board y card-first apunta ALLÍ, trabajado con los MCP/tools de tu propio agente — kj jamás lo espeja en un board paralelo a medias. El contrapeso: `kj env install` verifica ya que existe vía de acceso operativa al board declarado (integrado, MCP o token de API) y bloquea con los pasos exactos cuando no la hay. No existe `none` — Karajan no funciona sin board. [Fase 105 →](/docs/es/architecture/history/#fase-105-v450--cualquier-board-pero-siempre-un-board-v450)
-
-### v4.4.1 — el fallback ONNX funciona de verdad
-
-Patch con un estreno dentro: el fallback instala-donde-sea de la v4.4.0 moría en máquinas limpias porque la sonda del índice creaba en silencio la tabla vectorial con la dimensión equivocada — arreglado con una sonda que no crea nada y un reset del store vacío, verificado sobre el escenario exacto del fallo. Y cuando el reviewer cruzado rechazó el fix con una premisa factualmente errónea, `kj solomon` tuvo su primer uso real: una tercera IA arbitró, falló con la evidencia empírica y abrió el gate. Actualización directa desde v4.4.0.
-
-### v4.4.0 — karajan-rag protege a karajan-code
-
-Minor con hito de familia: la primera dependencia entre los dos productos Karajan. Los embedders cloud exigen ya un `rag.sensitivity: public` explícito — el default seguro los bloquea con error accionable — y aun permitidos, cada chunk pasa por la redacción PII de karajan-rag, auditada de forma independiente, antes de salir de la máquina. Además: las máquinas donde no se puede instalar nada tienen RAG operativo — sin Ollama, se cae al embedder ONNX integrado en proceso, con la elección persistida. Actualización directa desde v4.3.1.
-
-### v4.3.1 — historias completas, carriles aislados
-
-Patch, con las dos mitades venidas del campo. `kj hu add` acepta ya la spec completa en una llamada — `--ac`, `--tests`, `--scope`, `--task-type` — y avisa al momento cuando una historia nace incompleta, nombrando el flag exacto que falta. Y los carriles paralelos aprenden aislamiento de recursos: `worktree_setup` documentado con ejemplo por carril, y las reglas generadas de coder/review enseñan la disciplina de variables de entorno derivando puertos y bases de datos por tarea de los slots que kj ya inyecta. Actualización directa desde v4.3.0.
-
-### v4.3.0 — aislamiento que se puede demostrar
-
-Minor. Un agente narró aislamiento en worktree mientras editaba el root del proyecto — así que el aislamiento se convirtió en comando y en rastro. `kj worktree start|list|done` da al agente anfitrión carriles de tarea de verdad (worktree + rama + bootstrap de dependencias, un solo comando); el playbook exige la prueba antes de cualquier afirmación de aislamiento; y cada veredicto de review estampa desde dónde se ejecutó — `[root]` o `[worktree:<nombre>]`. Si el relato y el rastro discrepan, gana el rastro. Actualización directa desde v4.2.1.
-
-### v4.2.1 — primera contribución externa de la era v4
-
-Patch con hito dentro: el botón play por HU del board pasa ya el título de la propia HU a `kj run` en vez de una descripción genérica del plan — se acabaron los suspensos falsos del spec-review en historias bien definidas — y el fix vino del campo, contribuido por @jorgecasar. Además: el playbook ordena ya un `git worktree` por tarea para el trabajo en paralelo, así cualquier agente anfitrión hereda el aislamiento de carriles que el pipeline headless ya practica. Actualización directa desde v4.2.0.
-
-### v4.2.0 — sonar ya es gate, no disciplina
-
-Minor. `kj review --staged` ejecuta SonarQube como pre-gate determinista antes de cualquier opinión de IA: los findings de los ficheros cambiados salen primero, los BLOCKER/CRITICAL rechazan en el acto sin gastar un solo token del reviewer, y los advisory viajan dentro del task del reviewer. Una máquina sin sonar degrada con aviso y continúa. En su primer uso real cazó tres issues preexistentes en el mismísimo fichero que lo implementa. [Fase 104 →](/docs/es/architecture/history/#fase-104-v420--pre-gate-determinista-sonar-antes-de-cualquier-opinión-de-ia-v420)
-
-### v4.1.11 — ejecución desatendida y un board que rechaza gemelos
-
-Patch, con las dos mitades venidas del campo. Los agentes y el CI pueden por fin ejecutar kj sin humano delante: `--non-interactive` (o `KJ_NON_INTERACTIVE=1`) auto-responde los gates seguros — los warnings continúan con la decisión en stderr, los findings FAIL paran el run con exit code de verdad en vez de bloquearse en un modal que nadie mira. Y el board rechaza ya los gemelos: `kj hu add` rehúsa títulos duplicados en cualquier plan y el playbook ordena `kj hu list` primero. Actualización directa desde v4.1.10.
-
-### v4.1.10 — karajan gobierna los recursos de sus herramientas
-
-Patch. Nacida de una tormenta de CPU real: todo escáner que lanza kj corre ya gobernado — un solo escaneo por herramienta en toda la máquina (un segundo kj espera en vez de amontonarse), semgrep limitado a la mitad de los cores en vez de sus 14 jobs por defecto, prioridad reducida y timeouts duros que matan el árbol de procesos entero: un escaneo interrumpido ya no puede dejar huérfanos quemando cores. `kj doctor` encuentra los huérfanos preexistentes y ofrece matarlos. Actualización directa desde v4.1.9.
-
-### v4.1.9 — warnings sobre los que puedes actuar
-
-Patch. El modal de prompts del dashboard muestra ya cada finding del spec-review — severidad, mensaje y la sugerencia concreta — en vez de "4 findings at severity fail" y un bloque JSON: cuarta issue abierta por el propio Karajan de un usuario, arreglada y cerrada sola en horas. Además, un test de humo flaky en CI queda estabilizado de raíz con mocks que describen el mundo, no una secuencia frágil. Actualización directa desde v4.1.8.
-
-### v4.1.8 — el board se vuelve ingobernable para agentes díscolos
-
-Patch. Se acabaron las peleas dashboard-agente, al estilo Planning Game: las HUs ya no puede borrarlas ningún agente (el fix loop archiva, `kj hu add` rechaza recrear, la API responde 405 con la norma), `kj brief board` enseña a cualquier brain cómo funciona el board, y el board deja de ocultar en silencio los planes con versión derivada — la causa raíz de "me desaparecen tareas", tercera issue abierta por el propio Karajan de un usuario y cerrada sola por su fix. Actualización directa desde v4.1.7.
-
-### v4.1.7 — paridad Windows, procedencia de HUs, segundo fix self-healed
-
-Patch. Día de campo en sentido literal: el instalador de Windows pasa a npm-first (producto completo, Node autoprovisionado con checksums, SEA tras opt-in), cada HU del board dice ya quién la creó y qué hacer con ella, y la segunda issue abierta por el propio Karajan de un usuario (`kj report-issue`) quedó arreglada y cerrada sola — `kj init` escribe ahora el bloque del contrato en .gitignore: los veredictos quedan locales y el gate se hereda. Además: los escáneres externos ya no pueden dispararse desde la suite de tests. Actualización directa desde v4.1.6.
-
-### v4.1.6 — GitHub Copilot CLI se une a la orquesta
-
-Patch. La era del CLI de IA gratuito sigue encogiendo — Copilot va sobre una suscripción que muchos developers ya pagan: séptimo agente built-in, elegible como árbitro solomon (`roles.solomon.provider: copilot`), verificado en vivo de punta a punta. Los prompts de arranque ahora distinguen el OS: Windows recibe la ruta npm, nunca un `curl | sh` que allí no existe. Actualización directa desde v4.1.5.
-
-### v4.1.5 — el arbitraje vuelve a funcionar, con juez nuevo
-
-Patch. La retirada del tier individual de gemini dejó máquinas sin tercera IA operativa — v4.1.5 restaura el arbitraje: **Qwen Code** entra como sexto agente built-in (fork de gemini-cli, cloud, gratis con cuenta Qwen), y `kj solomon` sobrevive a diffs grandes (prompt por stdin), confía en workspaces headless y falla señalando la salida cuando un árbitro está muerto. Extra: el README es v4-first y los prompts de arranque van versionados con kj tras `karajancode.com/start.md`. Actualización directa desde v4.1.4.
-
-### v4.1.4 — el ciclo self-healing cerró su primera vuelta
-
-Patch. El Karajan de un usuario diagnosticó una fricción real de instalación y la subió con `kj report-issue` (sanitizada, deduplicada, aprobada por el humano) — y esta versión trae el fix: la guía de semgrep ahora es distro-aware y segura frente a PEP 668 (Debian/Ubuntu reciben `sudo apt install pipx`, nunca un bootstrap con pip que ahí no puede funcionar). Además, drift de dependencias limpio: npm audit a cero vulnerabilidades. Actualización directa desde v4.1.3.
-
-### v4.1.3 — perfectamente instalado, o parado con instrucciones
-
-Patch. Nunca continuar degradado: lo que `kj install-tools` no pueda instalar sin ti se convierte en un único bloque `PENDING USER ACTION` con los comandos exactos de tu sistema y un código de salida distintivo (3), para que tu agente pare, te lo enseñe y espere. `kj env install` se niega a llamar éxito a un RAG vacío. Y `kj harden` reconoce todas las variantes de config del mismo tool (`eslint.config.mjs`, `.eslintrc.*`…) para no eclipsar jamás tu linting real. Actualización directa desde v4.1.2.
-
-### v4.1.2 — una pasada, totalmente operativo
-
-Patch. Montar una máquina Karajan es ya un comando con resultado completo. `kj install-tools` cubre TODO el stack — rtk, squeezr y qmd se suman a git, CLIs de agentes, Semgrep, OSV-Scanner, Lighthouse, Docker y SonarQube en la lista por defecto, preguntando antes de cada instalación. Y el instalador `curl` es npm-first: instala el producto completo (RAG, HU Board y MCP incluidos), autoprovisionando el Node LTS oficial verificado por checksum en `~/.karajan/node` cuando falta Node — el binario único solo-CLI pasa a `--standalone`. Actualización directa desde v4.1.1.
-
-### v4.1.1 — fixes de campo de los primeros usuarios del entorno
-
-Patch. Tres fricciones reportadas por las primeras instalaciones reales del entorno, incorporadas: doctor encuadra un MCP ausente como opcional degradado (el binario standalone de curl no embebe módulos nativos por diseño — RAG, board y MCP necesitan la instalación npm), `kj review --install-gate` reescribe el .gitignore él solo para que el contrato del gate lo herede de verdad todo el equipo, y el pre-push generado deja de correr la suite cuando el CI ya la ejecuta por PR. Actualización directa desde v4.1.0.
-
-### v4.1.0 — any-agent brain: cualquier IA es el orquestador, y el sistema se repara solo
-
-Minor. El entorno se generaliza: el brain puede ser Claude Code, Codex, Gemini CLI o Cursor (`kj env install --target all` escribe el playbook para todos los anfitriones desde una fuente). **`kj solomon`** trae una tercera IA neutral a arbitrar cuando brain y reviewer chocan — los hallazgos de seguridad no son arbitrables jamás. **`kj brief <rol>`** entrega al brain el método destilado de cada rol que absorbe, reescrito outcome-first (misión + invariantes + entregable — los modelos frontier eligen mejor el camino solos; los límites quedan explícitos). **`kj agent run`** es el bus inter-agente, y **`kj report-issue`** cierra el bucle: el brain de cualquier usuario reporta fricciones de kj upstream, sanitizadas y sin duplicar, sin publicar jamás sin un click humano. Doc v4 nueva de cinco páginas (EN+ES) con todo lo anterior agrupado como v3 legacy. Actualización directa desde v4.0.1.
-
-### v4.0.1 — fixes de campo del primer día del entorno
-
-Patch, nacido de las primeras instalaciones reales del entorno. Los hooks que genera `kj harden` ahora encadenan los hooks globales previos de la máquina (los guards personales, como un commit-msg anti-atribución de IA, siguen aplicando, y el exit code real del hook encadenado se conserva), y branch-first queda ordenado Y forzado: el playbook gana un paso explícito "nunca commitees en la rama base" y el pre-commit rechaza commits directos en la rama base configurada (`KJ_ALLOW_BASE_COMMIT=1` para excepciones). Actualización directa desde v4.0.0.
-
-### v4.0.0 — Karajan Environment: tu agente orquesta, Karajan gobierna
-
-Major. Karajan se convierte en un ENTORNO que se une al agente con el que ya trabajas. **`kj env install`** escribe el método en el fichero de reglas de tu agente (CLAUDE.md para Claude Code, AGENTS.md para Codex, una única fuente): consultar el RAG del proyecto antes de codificar, card primero, TDD, revisión IA-cruzada antes de commitear. **`kj review --staged`** envía tu diff a una IA distinta de tu orquestador y registra el veredicto ligado al sha256 del diff exacto — si cambias el código, hay que revisar de nuevo. **`kj review --install-gate`** activa el gate en pre-commit: sin veredicto cruzado aprobado, el commit no entra, y el falso verde se vuelve estructuralmente imposible. El RAG se construye en la instalación y se actualiza por drift antes de cada consulta; `state_backend` elige dónde viven las tareas (HU Board o Planning Game); y el pipeline subprocess clásico continúa como modo headless — sus sesiones estampan el veredicto de su reviewer para compartir el mismo gate. El propio karajan-code corre bajo su entorno: cada commit lleva veredicto de IA cruzada.
-
-### v3.15.3 — el falso verde queda cerrado estructuralmente
-
-Patch, la última release de la 3.x antes de la v4. Una demo real compleja destapó una cadena por la que un run podía terminar "approved" sin una sola pasada del reviewer: con RTK instalado, el gate TDD parseaba un diff comprimido vacío y fallaba para siempre, cortocircuitando al reviewer en cada iteración; al llegar al máximo de iteraciones se finalizaba como aprobado sin tester, security, audit ni push. Las cuatro capas quedan cerradas: los git/diff internos siempre corren en crudo, el gate TDD pasa al reviewer con su fallo encolado como feedback, la aprobación en el tope de iteraciones ejecuta el post-loop completo + finalize de git (o reporta el rechazo honestamente), los journals registran todas las iteraciones y el techo de presupuesto nunca muestra un $0.00 fantasma. Actualización directa desde v3.15.2.
-
-### v3.15.2 — el Quick Start sobrevive a repos sin remoto y a un Gemini CLI retirado
-
-Patch, nacido de seguir nuestro propio Quick Start al pie de la letra con una instalación limpia. En una carpeta recién `git init`, la automatización de push/PR ahora se salta limpiamente ("No remote configured") en vez de escalar a Solomon en cada iteración y quemar el presupuesto del run. Un Gemini Code Assist CLI retirado en el PATH ya no envenena los runs: su error clasifica como fallo de autenticación con mensaje accionable, los probes de binarios llevan timeout, y el proveedor de respaldo de Solomon ahora es Claude. También publicada hoy: la v3.15.1, cuyo fix de engines evita que npm instale en silencio una versión de hace meses en Node 22.0-22.21. Actualización directa desde v3.15.0.
-
-### v3.15.0 — carriles paralelos para proyectos reales, Kimi + DeepSeek, board desacoplado
-
-Minor. Tres piezas. **Los carriles paralelos ya sobreviven a proyectos reales**: cada worktree nuevo se prepara automáticamente (submodules + `npm ci` o tu comando `session.worktree_setup`) y recibe las variables `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` desde un registro de slots con lock de fichero, para que los servicios que arranquen los tests no colisionen en puertos. **Kimi K2 y DeepSeek entran en el registro de modelos con precios reales** — usados vía OpenCode como proveedores OpenAI-compatibles, el badge de $ por HU y el techo de presupuesto los contabilizan bien (snippet de configuración en `docs/providers-via-opencode.md`). Y el **HU Board queda totalmente desacoplado del código del CLI**: el subárbol rag vive en `karajan-core/rag` y un test de arquitectura lo mantiene así. Actualización directa desde v3.14.1.
-
-### v3.14.1 — los carriles paralelos funcionan de punta a punta
-
-Patch. **`--parallel` ahora paraleliza de verdad — dentro de carriles worktree reales.** El flag de la 3.14.0 degradaba a secuencial en silencio (la conversión plan→batch perdía el campo `scope` con el que el scheduler empareja), y los carriles compartían el árbol de trabajo principal. Ahora el coder, los tests de aceptación, los diffs, sonar y el commit final corren DENTRO del worktree de cada carril en su propia rama, con config y estado de sesión por carril — verificado con una ejecución real de punta a punta: dos HUs programando concurrentemente en sus worktrees mientras el árbol principal queda aparcado. También arreglado: `kj plan ready` rechazaba todos los planes generados (el HU preflight auto-inyectado salía sin status), y los runs desatendidos con `--yes` se paraban en seco ante preguntas que declaran un default seguro. Actualización directa desde v3.14.0.
-
-### v3.14.0 — modo paso a paso y paralelismo gobernado
-
-Minor. Dos formas nuevas de dirigir la orquesta. **`kj run --step`** para tras cada iteración con un informe compacto — qué pasó, los must-fix del reviewer, qué hará la siguiente iteración, gasto vs techo — y pregunta: continuar, parar, o **escribir instrucciones** que el coder lee en la siguiente iteración. Y **`kj run --parallel <n>`** ejecuta las HUs de un plan concurrentemente, cada una en su git worktree, planificadas sobre el grafo de dependencias con aislamiento conservador por scope y techo de presupuesto por plan. La ejecución paralela — que antes corría sin límite — ahora vale 1 por defecto (totalmente secuencial) y es estrictamente opt-in. Actualización directa desde v3.13.1.
-
-### v3.13.1 — todo run lleva techo de gasto de serie
-
-Patch. Un pipeline atascado o desbocado ya no puede fundir la cuota de tu suscripción sin nadie mirando: **`max_budget_usd` ahora vale 5 por defecto** (USD-equivalentes, comprobado en cada iteración). Al superarse, el run para con un resumen honesto — cuánto se gastó, el límite, cómo subirlo — y `kj resume` continúa conscientemente con una ventana nueva. Ponlo a `null` para quitar el techo. Nace de un reporte real: un run con la orquesta completa atascado fundió la cuota entera de un usuario. Actualización directa desde v3.13.0.

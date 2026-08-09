@@ -56,13 +56,20 @@ The caveat loop engineering insists on — *unattended loops make unattended mis
   <Card title="Headless mode" icon="seti:shell">
     The classic multiagent pipeline lives on for CI and automation: `kj run` orchestrates coder/reviewer/tester subprocess roles unattended, with the same gates. [Headless mode →](/docs/v4/headless/)
   </Card>
+  <Card title="Governed tournament (v4.15)" icon="star">
+    One task, N coders in isolated worktree lanes: `kj tournament` fans out, `--score` builds a deterministic zero-LLM scoreboard, a cross-AI judge with no conflict of interest picks the winner, and `--crown` promotes it through the normal review gate — winning earns a candidacy, not a bypass.
+  </Card>
 </CardGrid>
 
 ## Recent releases
 
 The most recent releases, newest first. Older versions live in [Architecture › History](/docs/architecture/history/) and the [CHANGELOG](https://github.com/manufosela/karajan-code/blob/main/CHANGELOG.md).
 
-### v4.14.0 — the panel never runs dry (current)
+### v4.15.0 — winning earns a candidacy, not a bypass (current)
+
+Minor opening the governed tournament (`kj tournament`): the SAME task fans out to N coders in isolated worktree lanes, each leaving per-lane evidence. Then the funnel narrows: `--score` builds a deterministic, zero-LLM scoreboard — a red suite eliminates on the spot, and the lexicographic ranking rule is printed with the result — `--judge` brings a cross-AI judge with no conflict of interest (a participant never judges; a tie or a disagreement escalates to solomon), and `--crown` promotes the winner through the NORMAL gate: cross-AI review of the exact staged diff, sha256-bound verdict, commit through the real gate — one rejection ABORTS. Winning earns a candidacy, not a bypass — and the full cycle ran LIVE on day one. Plus four field fixes: GitHub Actions pinned by SHA (#1374), lint configs and gate only when the tool is present (#1357), diff clipping declared as the pipeline's own (#1381), and a file split no longer reads as coverage deletion — moved lines are a deterministic signal (#1364).
+
+### v4.14.0 — the panel never runs dry
 
 Minor born from a real outage: codex exhausted its weekly quota mid-task and the arbitration panel collapsed with it — gemini retired, the local model down, copilot conflicted as the disputing reviewer. One day later the method is outage-proof. **Quota failover with consent**: when the configured reviewer runs dry, `kj review` switches to an authenticated candidate from a declarative registry — warning loudly and telling you how to pin it — or hands you the menu of candidates with their tier (free / subscription / local) and the exact login command; never a silent failure, never the brain reviewing itself. **Two agents restore the panel**: Kimi Code (Moonshot, free tier — the no-cost reserve) and Antigravity CLI (`agy`, Google's official successor to the retired gemini CLI) join as the eighth and ninth built-in agents, both verified against their live CLIs — agy's first act was approving the review of its own adapter. And the corner nobody watched: packages/ joins the lint surface, 1,124 errors to zero, with the regression made structurally impossible.
 
@@ -77,143 +84,3 @@ Minor born from the sharpest user critique yet: *"whatever you note down, you ev
 ### v4.11.0 — the toolbox decides
 
 Minor born from watching agents work: they use the tools in front of them, so the environment now puts the right ones there. The **RAG becomes a native MCP tool** — `kj env install` wires `kj-rag-mcp` into the project's `.mcp.json`, making `kj_rag_query` the agent's cheapest path to "what does this code do" (before, it grepped by hand because the RAG was just a Bash command a text line mentioned). And the **board becomes a question**: the install detects what your machine can reach — Planning Game MCP, Linear/Jira tokens — then asks and persists in interactive installs, or names the default and the exact line to change it in headless ones. Never `hu-board` silently again. Bonus drift caught: the config schema never learned the `external` backend shipped in v4.5.0 — fixed.
-
-### v4.10.0 — nothing personal ships
-
-Minor closing every outbound boundary. Born from a real incident — personal emails published on a landing page inside release notes — the Privacy Gate audits everything that leaves the machine: the **pre-commit** rejects a staged diff carrying your denylisted data (masked, with a named escape), **verify-pack** scans the exact tarball that would publish, and `kj privacy scan <dir>` audits any build output before deploy. Two detection layers ride every boundary: your personal denylist (`kj env install` asks and writes it — you never fill YAML) and pattern detectors — generic PII plus **hardcoded secrets**: a platform token (`ghp_`, `sk-`, `AKIA`…) blocks outright, a `password: "literal"` warns you toward `.env`. Findings never echo the datum they flag. Also in this release, a field lesson turned structural: **installing IS activating** — `kj env install` now performs the enforcement itself (git hooks, verdict gate) instead of trusting the agent to run the setup steps, and ends by printing the method into the very conversation that installed it. A commit outside the method is rejected, not narrated.
-
-### v4.9.0 — excellent code is a choice, not inertia
-
-Minor opening the excellent-code track. On legacy codebases agents optimize for local coherence — improving while following the existing line — even when the canonical solution is better; nothing in the loop asked for the alternative. Now the method does: every non-trivial plan names at least two approaches, **one as if the codebase didn't exist**, and says why the winner won. And the architect answers that question with a citable canon: `kj rag query --library` serves distilled pattern cards — problem signature, when it beats the default, *when NOT to apply it*, and the canonical citation (Lamport ships first; the rest of the canon lands next). Following the legacy line is a choice, never a default.
-
-### v4.8.0 — the security pass an agent self-invokes
-
-Minor closing the trio of controls born from field convergence. When a task touches auth, user input, secrets, network or dependencies, the playbook now orders the agent to run `kj audit --security` — a focused deterministic pass (prompt-injection + OSV + Semgrep + Sonar, zero tokens) — and remediate the findings BEFORE requesting review. The injection scan covers the **agent-context surface** (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.cursorrules`, `templates/`, `.rulesync/`): whatever lands in your agent's context every session is the real injection vector. Design → scan → remediate, same session.
-
-### v4.7.0 — least privilege for agents
-
-Minor with two controls born from convergence: a payments processor published how it operates AI agents safely, and their principles mapped almost one-to-one onto Karajan's gates — except two. Now closed: spawned agents receive an **env allowlist** (system essentials + their own CLI's auth + lane vars — your cloud keys and registry tokens never reach a subprocess, so an injected prompt cannot exfiltrate what it never received), and `kj check` keeps an **AI-surface inventory** — every MCP reachable in the project, with drift detection: `NEW since last check: x — approved by you?`. Every new tool an agent gains is one more access, and it should be a conscious one. Named escapes as always: `security.env_passthrough`, `security.env_allowlist: false`.
-
-### v4.6.3 — subprocess by right, host by choice
-
-Patch closing the first externally-diagnosed v4 bug: running kj inside Claude Code with `coder: claude` silently handed the coder role to the host and hung headless runs (issues #1301/#1303 by @jorgecasar). CLI providers now always spawn their own subprocess even when kj runs inside them; delegating to the host is an explicit opt-in (`roles.coder.host_delegation: true`). Also from the field: `kj harden` CI workflows now detect the repo's package manager (pnpm/yarn repos no longer die on `npm ci`), and the brace-expansion HIGH advisory caught by the nightly drift is resolved. Drop-in upgrade from v4.6.2.
-
-### v4.6.2 — warnings stop being negotiable
-
-Patch, straight from the field: a session rationalized a 522-line PR past the warning, left commits without card refs while asking whether to adopt the convention, and decided a schema unilaterally. Three answers: `method_gates.pr_size: block` rejects oversized diffs deterministically (named escape, default stays warn — now worded as *not an opinion*); design decisions outside the card's acceptance criteria must come back as a proposed ADR and a question; and a `prepare-commit-msg` hook stamps the branch's card ref into every commit subject — a convention that enforces itself needs no adoption. Drop-in upgrade from v4.6.1.
-
-### v4.6.1 — no session works blind
-
-Patch. Every kj invocation already checked for updates; now the notice tells you WHAT the new version brings — the release headline travels with it — the check refreshes every 6 hours instead of daily, and both the notice and the playbook order the agent: tell your user and ask before updating, never `kj update` on your own. Updating stays a human, informed decision. Drop-in upgrade from v4.6.0.
-
-### v4.6.0 — the method, enforced
-
-Minor closing the v4 trade: the agent gained intelligence, the rules gained teeth. Card-first is now a gate (no live card, no commit — with external boards, a presence check); code without tests warns or blocks; a second concurrent task gets the exact `kj worktree start` command at the exact moment; and `kj check` reports adherence — commits without cards, verdicts by workspace, testless commits — because legitimate one-offs aggregate into visible drift. Every escape hatch is explicit and named. [Phase 106 →](/docs/architecture/history/#phase-106-v460--the-method-enforced-v460)
-
-### v4.5.0 — any board, but always a board
-
-Minor with a contract change. Projects already living in Linear, Trello, Jira or GitHub Issues declare their board and card-first points THERE, worked through your agent's own MCP/tools — kj never mirrors it into a parallel half-board. The counterweight: `kj env install` now verifies an operational access path to whatever board you declared (bundled, MCP, or API token) and blocks with the exact steps when there is none. There is no `none` — Karajan does not run without a board. [Phase 105 →](/docs/architecture/history/#phase-105-v450--any-board-but-always-a-board-v450)
-
-### v4.4.1 — the ONNX fallback actually works now
-
-Patch with a first inside: v4.4.0's install-anywhere fallback died on clean machines because the index probe silently created the vector table at the wrong dimension — fixed with a non-creating probe and an empty-store reset, verified on the exact failing scenario. And when the cross-AI reviewer rejected the fix on a factually wrong premise, `kj solomon` had its first real run: a third AI arbitrated, ruled on the empirical evidence, and opened the gate. Drop-in upgrade from v4.4.0.
-
-### v4.4.0 — karajan-rag protects karajan-code
-
-Minor with a family milestone: the first dependency between the two Karajan products. Cloud embedders now require an explicit `rag.sensitivity: public` — the safe default blocks them with an actionable error — and even when allowed, every chunk passes through karajan-rag's independently audited PII redaction before leaving the machine. Plus: machines where nothing can be installed get a working RAG — no Ollama found means falling back to the built-in in-process ONNX embedder, with the choice persisted. Drop-in upgrade from v4.3.1.
-
-### v4.3.1 — complete stories, isolated lanes
-
-Patch, both halves from the field. `kj hu add` now takes the full spec in one call — `--ac`, `--tests`, `--scope`, `--task-type` — and warns immediately when a story is born incomplete, naming the exact missing flag. And parallel lanes learn resource isolation: `worktree_setup` documented with a lane-aware example, and the generated coder/review rules teach env-var discipline deriving per-task ports and DB names from the lane slots kj already injects. Drop-in upgrade from v4.3.0.
-
-### v4.3.0 — isolation you can prove
-
-Minor. An agent narrated worktree isolation while editing the project root — so isolation became a command and a trail. `kj worktree start|list|done` gives the host agent real task lanes (worktree + branch + dependency bootstrap, one command); the playbook demands the proof before any isolation claim; and every review verdict stamps where it ran — `[root]` or `[worktree:<name>]`. If the story and the trail disagree, the trail wins. Drop-in upgrade from v4.2.1.
-
-### v4.2.1 — first external contribution of the v4 era
-
-Patch with a milestone inside: the board's per-HU play button now feeds the HU's own title to `kj run` instead of a generic plan description — no more false spec-review failures on well-defined stories — and the fix came from the field, contributed by @jorgecasar. Plus: the playbook now orders one `git worktree` per task for parallel work, so any host agent inherits the lane isolation the headless pipeline already practices. Drop-in upgrade from v4.2.0.
-
-### v4.2.0 — sonar is a gate now, not discipline
-
-Minor. `kj review --staged` runs SonarQube as a deterministic pre-gate before any AI opinion: findings on the changed files print first, BLOCKER/CRITICAL ones reject on the spot without spending a single reviewer token, and advisory ones travel inside the reviewer's task. A machine without sonar degrades loudly and continues. On its first live run it caught three pre-existing issues in the very file that implements it. [Phase 104 →](/docs/architecture/history/#phase-104-v420--deterministic-pre-gate-sonar-before-any-ai-opinion-v420)
-
-### v4.1.11 — unattended runs and a board that refuses twins
-
-Patch, both halves straight from the field. Agents and CI can finally run kj unattended: `--non-interactive` (or `KJ_NON_INTERACTIVE=1`) auto-answers safe gates — warnings continue with the decision on stderr, FAIL findings stop the run with a real exit code instead of blocking on a modal nobody watches. And the board now refuses twins: `kj hu add` rejects duplicate titles across every plan and the playbook orders `kj hu list` first. Drop-in upgrade from v4.1.10.
-
-### v4.1.10 — karajan governs its tools' resources
-
-Patch. Born from a real CPU storm: every scanner kj launches now runs governed — one scan per tool machine-wide (a second kj waits instead of piling on), semgrep capped at half the CPUs instead of its default 14 jobs, reduced priority, and hard timeouts that kill the whole process tree so an interrupted scan can never leave orphans burning cores. `kj doctor` finds any pre-existing orphans and offers to kill them. Drop-in upgrade from v4.1.9.
-
-### v4.1.9 — warnings you can act on
-
-Patch. The dashboard prompt modal now shows every spec-review finding — severity, message and the concrete suggestion — instead of "4 findings at severity fail" and a JSON blob: the fourth issue filed by a user's own Karajan, fixed and auto-closed within hours. Plus a flaky CI smoke test stabilized for good with mocks that describe the world, not a fragile sequence. Drop-in upgrade from v4.1.8.
-
-### v4.1.8 — the board becomes ungameable
-
-Patch. The dashboard-vs-agent fights end, the Planning Game way: HUs can no longer be deleted by anyone's agent (the fix loop archives, `kj hu add` refuses to recreate, the API answers 405 with the norm), `kj brief board` teaches any brain how the board works, and the board stops silently hiding version-drifted plans — the root cause behind "my tasks disappeared", the third issue filed by a user's own Karajan and auto-closed by its fix. Drop-in upgrade from v4.1.7.
-
-### v4.1.7 — Windows parity, HU provenance, second self-healed fix
-
-Patch. A field day, literally: the Windows installer goes npm-first (full product, checksum-verified Node auto-provisioning, SEA behind an env opt-in), every HU on the board now says who created it and what to do next, and the second issue filed by a user's own Karajan (`kj report-issue`) was fixed and auto-closed — `kj init` now writes the gitignore contract block so review verdicts stay local while the gate stays inherited. Plus: external scanners can never fire from the test suite again. Drop-in upgrade from v4.1.6.
-
-### v4.1.6 — GitHub Copilot CLI joins the orchestra
-
-Patch. The free-tier era of AI CLIs keeps shrinking — Copilot rides a subscription many developers already have: seventh built-in agent, eligible solomon arbiter (`roles.solomon.provider: copilot`), verified live end-to-end. The bootstrap prompts are now OS-aware: Windows gets the npm route, never a unix-only `curl | sh`. Drop-in upgrade from v4.1.5.
-
-### v4.1.5 — arbitration works again, with a new judge
-
-Patch. The gemini individual tier retirement left machines without an operational third AI — v4.1.5 restores arbitration: **Qwen Code** joins as the sixth built-in agent (gemini-cli fork, cloud, free with a Qwen account), and `kj solomon` survives large diffs (prompt via stdin), trusts headless workspaces, and fails with the way out when an arbiter is dead. Bonus: the README is v4-first, and the bootstrap prompts ship versioned with kj behind `karajancode.com/start.md`. Drop-in upgrade from v4.1.4.
-
-### v4.1.4 — the self-healing loop closed its first cycle
-
-Patch. A user's Karajan diagnosed a real install friction and filed it upstream with `kj report-issue` (sanitized, deduped, human-approved) — and this release ships the fix: semgrep guidance is now distro-aware and PEP 668 safe (Debian/Ubuntu get `sudo apt install pipx`, never a pip bootstrap that cannot work there). Dependency drift also cleared: npm audit down to zero vulnerabilities. Drop-in upgrade from v4.1.3.
-
-### v4.1.3 — perfectly installed, or stopped with instructions
-
-Patch. Never continue degraded: anything `kj install-tools` cannot install unattended becomes one `PENDING USER ACTION` block with the exact commands for your OS and a distinctive exit code 3, so your agent stops, shows it, and waits for you. `kj env install` refuses to call an empty RAG a success. And `kj harden` recognizes every same-tool config variant (`eslint.config.mjs`, `.eslintrc.*`…) so it never eclipses your real linting. Drop-in upgrade from v4.1.2.
-
-### v4.1.2 — one pass, fully operational
-
-Patch. Setting up a Karajan machine is now one command with a complete result. `kj install-tools` covers the FULL stack — rtk, squeezr and qmd join git, agent CLIs, Semgrep, OSV-Scanner, Lighthouse, Docker and SonarQube in the default list, asking before each install. And the `curl` installer is npm-first: it installs the complete product (RAG, HU Board, MCP included), auto-provisioning the official checksum-verified Node LTS into `~/.karajan/node` when Node is missing — the CLI-only single binary moved behind `--standalone`. Drop-in upgrade from v4.1.1.
-
-### v4.1.1 — field fixes from the environment's first users
-
-Patch. Three frictions reported by the environment's first real installs, folded back in: doctor frames a missing MCP as a degraded optional (the standalone curl binary ships without native modules by design — RAG, board and MCP need the npm install), `kj review --install-gate` rewrites .gitignore by itself so the gate contract is actually inherited by the whole team, and the generated pre-push drops the test suite when CI already runs it per PR. Drop-in upgrade from v4.1.0.
-
-### v4.1.0 — any-agent brain: any AI is the orchestrator, and the system repairs itself
-
-Minor. The environment generalizes: the brain can be Claude Code, Codex, Gemini CLI or Cursor (`kj env install --target all` writes the playbook for every host from one source). **`kj solomon`** brings a neutral third AI to arbitrate when brain and reviewer clash — security findings are never arbitrable. **`kj brief <role>`** hands the brain the distilled method of each role it absorbs, rewritten outcome-first (mission + invariants + deliverable — frontier models pick better paths alone; the limits stay explicit). **`kj agent run`** is the inter-agent bus, and **`kj report-issue`** closes the loop: any user's brain files kj frictions upstream, sanitized and deduped, never publishing without a human click. New five-page v4 docs (EN+ES) with everything prior grouped as v3 legacy. Drop-in upgrade from v4.0.1.
-
-### v4.0.1 — day-one field fixes for the environment
-
-Patch, folded back from the environment's first real installs. Hooks generated by `kj harden` now chain the machine's previous global hooks (personal guards like an AI-attribution commit-msg keep applying, with the chained hook's real exit code preserved), and branch-first is both ordered and enforced: the playbook gains an explicit "never commit on the base branch" step and the pre-commit rejects direct commits on the configured base branch (`KJ_ALLOW_BASE_COMMIT=1` to override). Drop-in upgrade from v4.0.0.
-
-### v4.0.0 — Karajan Environment: your agent orchestrates, Karajan governs
-
-Major. Karajan becomes an ENVIRONMENT that attaches to the agent you already work with. **`kj env install`** writes the method into your agent's rule file (CLAUDE.md for Claude Code, AGENTS.md for Codex, one single source): query the project RAG before coding, card first, TDD, cross-AI review before committing. **`kj review --staged`** sends your diff to an AI different from your orchestrator and records the verdict tied to the sha256 of the exact diff — change the code and it must be reviewed again. **`kj review --install-gate`** enables the pre-commit gate: without an approved cross-AI verdict, the commit does not enter, so a false green is structurally impossible. The RAG is built on install and delta-updates before every query; `state_backend` chooses where work items live (HU Board or Planning Game); and the classic subprocess pipeline continues as the headless mode — its sessions stamp their reviewer's verdict so both worlds share the same gate. karajan-code itself runs under its own environment: every commit carries a cross-AI verdict.
-
-### v3.15.3 — the false green is structurally closed
-
-Patch, the last 3.x release before v4. A complex real-world demo exposed a chain where a run could end "approved" with zero reviewer passes: with RTK installed, the TDD gate parsed an empty compressed diff and failed forever, short-circuiting the reviewer on every iteration; hitting max iterations then finalized as approved without tester, security, audit or push. All four layers are closed — internal git/diff commands always run raw, the TDD gate proceeds to the reviewer with its failure queued as feedback, approval at the iteration cap runs the full post-loop + git finalize path (or honestly reports the rejection), journals record every iteration, and the budget ceiling never shows a phantom $0.00. Drop-in upgrade from v3.15.2.
-
-### v3.15.2 — the Quick Start survives no-remote repos and a retired Gemini CLI
-
-Patch, born from following our own Quick Start to the letter with a fresh install. On a fresh `git init` folder, push/PR automation now skips cleanly ("No remote configured") instead of escalating to Solomon on every iteration and burning the run's budget. A retired Gemini Code Assist CLI on the PATH no longer poisons runs: its error classifies as an auth failure with an actionable message, binary probes carry a timeout, and Solomon's fallback provider is now Claude. Also released today: v3.15.1, whose engines fix stops npm from silently installing a months-old version on Node 22.0-22.21. Drop-in upgrade from v3.15.0.
-
-### v3.15.0 — parallel lanes for real projects, Kimi + DeepSeek, decoupled board
-
-Minor. Three pieces. **Parallel lanes now survive real projects**: each fresh worktree is bootstrapped (submodules + `npm ci` or your `session.worktree_setup` command) and receives `KJ_LANE_SLOT` / `KJ_PORT_OFFSET` env vars from a file-locked slot registry, so services started by tests don't collide on ports. **Kimi K2 and DeepSeek join the model registry with real pricing** — used through OpenCode as OpenAI-compatible providers, the per-HU $ badge and the budget ceiling price them correctly (setup snippet in `docs/providers-via-opencode.md`). And the **HU Board is fully decoupled from the CLI source tree**: the rag subtree lives in `karajan-core/rag` and an architecture test keeps it that way. Drop-in upgrade from v3.14.1.
-
-### v3.14.1 — parallel lanes work end to end
-
-Patch. **`--parallel` now actually parallelizes — inside real worktree lanes.** The 3.14.0 flag silently degraded to sequential (the plan→batch conversion dropped the `scope` field the scheduler pairs by), and lanes shared the main working tree. Now the coder, acceptance tests, diffs, sonar and the final commit all run INSIDE each lane's worktree on its own branch, with per-lane config and session state — verified with a live end-to-end run: two HUs coding concurrently in their worktrees while the main tree stays parked. Also fixed: `kj plan ready` rejected every generated plan (the auto-injected preflight HU shipped without a status), and unattended `--yes` runs stopped cold on questions that declare a safe default. Drop-in upgrade from v3.14.0.
-
-### v3.14.0 — step mode and governed parallelism
-
-Minor. Two new ways to run the orchestra. **`kj run --step`** pauses after every iteration with a compact report — what happened, the reviewer's must-fix list, what the next iteration will do, spend vs cap — and asks: continue, stop, or **type instructions** that the coder reads next iteration. And **`kj run --parallel <n>`** runs a plan's HUs concurrently, each in its own git worktree, scheduled over the dependency graph with conservative scope isolation and a plan-level budget ceiling. Parallel execution — which previously ran unbounded — now defaults to 1 (fully sequential) and is strictly opt-in. Drop-in upgrade from v3.13.1.
-
-### v3.13.1 — every run ships with a spend ceiling
-
-Patch. A stuck or runaway pipeline can no longer drain your subscription quota unattended: **`max_budget_usd` now defaults to 5** (USD-equivalent, checked every iteration). Exceeding it stops the run with an honest summary — what was spent, the limit, how to raise it — and `kj resume` continues consciously with a fresh window. Set it to `null` to remove the cap. Born from a field report of a stuck full-orchestra run burning a user's whole quota. Drop-in upgrade from v3.13.0.
