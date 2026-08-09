@@ -12,6 +12,17 @@ from app.delivery.digest import DigestService
 from app.models.daily_digest import DailyDigest
 from app.models.research_item import ResearchItem
 from app.models.source import Source
+from app.profiles.schema import DeliverySettings
+
+
+def _digest_service(*, threshold: float = 6.0, max_items: int = 5, **kwargs: Any) -> DigestService:
+    """A service whose delivery settings are stated by the test.
+
+    The settings come from the active profile in production; passing them
+    here keeps each test's threshold visible in the test that depends on it.
+    """
+    delivery = DeliverySettings(score_threshold=threshold, max_items=max_items)
+    return DigestService(delivery=delivery, **kwargs)
 
 
 async def _create_source(session: AsyncSession, **overrides: Any) -> Source:
@@ -83,8 +94,8 @@ class TestDigestServiceGenerateContent:
         )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=5)
+        service = _digest_service()
+        result = await service.generate(test_session)
 
         assert result is not None
         assert len(result["items_included"]) == 1
@@ -100,8 +111,8 @@ class TestDigestServiceGenerateContent:
         )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=5)
+        service = _digest_service()
+        result = await service.generate(test_session)
 
         assert result is None
 
@@ -117,8 +128,8 @@ class TestDigestServiceGenerateContent:
             )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=3)
+        service = _digest_service(max_items=3)
+        result = await service.generate(test_session)
 
         assert result is not None
         assert len(result["items_included"]) == 3
@@ -140,8 +151,8 @@ class TestDigestServiceGenerateContent:
         )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=1)
+        service = _digest_service(max_items=1)
+        result = await service.generate(test_session)
 
         assert result is not None
         assert str(item_top.id) in result["items_included"]
@@ -162,8 +173,8 @@ class TestDigestServicePayload:
         )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=5)
+        service = _digest_service()
+        result = await service.generate(test_session)
 
         assert result is not None
         assert "html_content" in result["payload"]
@@ -181,8 +192,8 @@ class TestDigestServicePayload:
         )
         await test_session.commit()
 
-        service = DigestService()
-        result = await service.generate(test_session, score_threshold=6.0, max_items=5)
+        service = _digest_service()
+        result = await service.generate(test_session)
 
         assert result is not None
         card = result["payload"]["adaptive_card"]
@@ -265,3 +276,36 @@ class TestDigestServiceTrigger:
         assert digest is not None
         assert digest.delivery_status == "failed"
         assert digest.sent_at is None
+
+
+class TestTheProfileDecides:
+    """The point of KRD-TSK-0011.
+
+    Before this, the threshold was a module constant and the configuration
+    row that appeared to hold it was read by nobody. Raising it there changed
+    nothing, which is worse than a contradiction: the setting looked real.
+    """
+
+    async def test_the_threshold_comes_from_the_profile(self, test_session: AsyncSession) -> None:
+        """A signal below the profile's line is not worth interrupting
+        anyone, even though it clears the old constant of 6.0."""
+        source = await _create_source(test_session)
+        await _create_research_item(
+            test_session,
+            source.id,
+            original_title="Moderately interesting",
+            strategic_relevance_score=Decimal("7.0"),
+        )
+        await test_session.commit()
+
+        assert await _digest_service(threshold=6.0).generate(test_session) is not None
+        assert await _digest_service(threshold=8.0).generate(test_session) is None
+
+    async def test_a_service_with_no_settings_takes_them_from_the_active_profile(self) -> None:
+        """Nothing falls back to a constant: with no settings passed, the
+        profile is what answers."""
+        from app.profiles.active import get_active_profile
+
+        service = DigestService()
+
+        assert service.delivery == get_active_profile().delivery

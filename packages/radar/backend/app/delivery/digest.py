@@ -11,34 +11,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.delivery.teams_webhook import TeamsWebhookService
 from app.models.daily_digest import DailyDigest
 from app.models.research_item import ResearchItem
+from app.profiles.active import get_active_profile
+from app.profiles.schema import DeliverySettings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SCORE_THRESHOLD = 6.0
-DEFAULT_MAX_ITEMS = 5
-
 
 class DigestService:
-    """Generates daily digest content from recent high-relevance signals."""
+    """Generates daily digest content from recent high-relevance signals.
 
-    def __init__(self, teams_webhook: TeamsWebhookService | None = None) -> None:
-        self.teams_webhook = teams_webhook
+    Where the line falls between "worth interrupting someone" and "noise"
+    comes from the active Radar Profile, not from constants here. It is a
+    domain judgement, and a constant in this file cannot be reviewed as one.
+    """
 
-    async def generate(
+    def __init__(
         self,
-        session: AsyncSession,
-        score_threshold: float = DEFAULT_SCORE_THRESHOLD,
-        max_items: int = DEFAULT_MAX_ITEMS,
-    ) -> dict[str, Any] | None:
+        teams_webhook: TeamsWebhookService | None = None,
+        delivery: DeliverySettings | None = None,
+    ) -> None:
+        self.teams_webhook = teams_webhook
+        # Resolved once at construction, like the pipeline does with the
+        # family contract. Passing it in is for tests and for a caller that
+        # already holds a profile -- not a default, which is why there is no
+        # fallback value if the profile itself says nothing.
+        self.delivery = delivery or get_active_profile().delivery
+
+    async def generate(self, session: AsyncSession) -> dict[str, Any] | None:
         """Query high-relevance signals and generate digest content.
 
         Returns:
             Dict with items_included, payload (html_content + adaptive_card),
-            or None if no signals meet the threshold.
+            or None if no signals meet the profile's threshold.
         """
-        items = await self._fetch_top_signals(session, score_threshold, max_items)
+        threshold = self.delivery.score_threshold
+        items = await self._fetch_top_signals(session, threshold, self.delivery.max_items)
         if not items:
-            logger.info("No signals above threshold %.1f — skipping digest", score_threshold)
+            logger.info("No signals above threshold %.1f — skipping digest", threshold)
             return None
 
         items_included = [str(item.id) for item in items]
@@ -58,15 +67,13 @@ class DigestService:
         session: AsyncSession,
         channel: str = "teams",
         deliver: bool = False,
-        score_threshold: float = DEFAULT_SCORE_THRESHOLD,
-        max_items: int = DEFAULT_MAX_ITEMS,
     ) -> DailyDigest | None:
         """Generate digest, persist to DB, and optionally deliver.
 
         Returns:
             The created DailyDigest record, or None if no content was generated.
         """
-        content = await self.generate(session, score_threshold, max_items)
+        content = await self.generate(session)
         if content is None:
             return None
 
