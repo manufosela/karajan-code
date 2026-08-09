@@ -25,8 +25,10 @@ describe("@karajan/ai-trash skeleton", () => {
     expect(pkg.bin["kj-trash"]).toBe("bin/kj-trash.js");
   });
 
-  it("declares AGPL-3.0 license and node >=22.22.1", () => {
+  // Floor aligned with KJC-BUG-0111 (#1213): 22.12.0 is the runtime-real
+  // minimum — the old >=22.22.1 silently pushed installers to an ancient kj.
+  it("declares AGPL-3.0 license and the runtime-real node floor", () => {
     expect(pkg.license).toBe("AGPL-3.0");
-    expect(pkg.engines?.node).toBe(">=22.22.1");
+    expect(pkg.engines?.node).toBe(">=22.12.0");
   });
 });
