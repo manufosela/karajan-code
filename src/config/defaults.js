@@ -66,7 +66,9 @@ const DEFAULTS = {
   // through the host agent's MCP/tools, never mirrored by kj. There is NO
   // "none": Karajan does not run without a board.
   state_backend: "hu-board",
-  board: { name: null },
+  // verify_cmd (KJC-TSK-0732): user adapter that checks a card ref against
+  // the real tracker — prints {exists, live, status} JSON; {ref} substituted.
+  board: { name: null, verify_cmd: null },
   // Method gates (KJC-PCS-0068): rules climb from playbook text to
   // deterministic enforcement. card_first: "auto" = block with hu-board
   // (fully verifiable), warn with planning-game/external (presence only);

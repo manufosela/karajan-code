@@ -70,6 +70,43 @@ describe("checkCardFirst — external / planning-game (presence check, warns by 
     });
     expect(b).toMatchObject({ ok: false, mode: "block" });
   });
+
+  // KJC-TSK-0732 (issue #1371): with board.verify_cmd the gate checks the
+  // card is ALIVE in the real tracker — a dead/invented ref gets the same
+  // treatment as "no card"; unverifiable degrades to branch-ref, saying so.
+  describe("with board.verify_cmd (tracker verification)", () => {
+    const cfg = { ...ext, board: { name: "Linear", verify_cmd: "adapter {ref}" } };
+    const verify = (result) => ({ verifyFn: async () => result });
+
+    it("a live card passes at tracker level", async () => {
+      const r = await checkCardFirst({
+        config: cfg, projectDir: dir, branch: "jorge/lin-123-fix", env: {},
+        deps: verify({ level: "tracker", verified: true, status: "In Progress" }),
+      });
+      expect(r).toMatchObject({ ok: true, mode: "pass", ref: "lin-123", level: "tracker" });
+    });
+
+    it("a dead or invented ref is treated like 'no card' (warn by default, block via config)", async () => {
+      const dead = verify({ level: "tracker", verified: false, status: "Done" });
+      const w = await checkCardFirst({ config: cfg, projectDir: dir, branch: "jorge/lin-123-fix", env: {}, deps: dead });
+      expect(w).toMatchObject({ ok: true, mode: "warn" });
+      expect(w.reason).toContain("Done");
+      const b = await checkCardFirst({
+        config: { ...cfg, method_gates: { card_first: "block" } },
+        projectDir: dir, branch: "jorge/lin-123-fix", env: {}, deps: dead,
+      });
+      expect(b).toMatchObject({ ok: false, mode: "block" });
+    });
+
+    it("unverifiable passes at branch-ref level WITH the degradation note", async () => {
+      const r = await checkCardFirst({
+        config: cfg, projectDir: dir, branch: "jorge/lin-123-fix", env: {},
+        deps: verify({ level: "branch-ref", verified: null, note: "tracker verification degraded to branch-ref (ETIMEDOUT)" }),
+      });
+      expect(r).toMatchObject({ ok: true, mode: "pass", level: "branch-ref" });
+      expect(r.note).toMatch(/degraded/);
+    });
+  });
 });
 
 describe("checkCardFirst — exemptions", () => {
