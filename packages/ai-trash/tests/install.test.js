@@ -1,10 +1,12 @@
 // install --claude-code tests (KJC-TSK-0390 commit 3).
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 
-import { installClaudeCodeHook, patchSettings, HOOK_COMMAND } from "../src/install.js";
+import { installClaudeCodeHook, patchSettings, HOOK_COMMAND, LEGACY_HOOK_COMMAND } from "../src/install.js";
 
 async function makeSettings(initial) {
   const dir = await mkdtemp(join(tmpdir(), "ai-trash-install-"));
@@ -75,5 +77,62 @@ describe("installClaudeCodeHook (filesystem)", () => {
     await installClaudeCodeHook({ path });
     const second = await installClaudeCodeHook({ path });
     expect(second.mutated).toBe(false);
+  });
+});
+
+// KJC-BUG-0095: the net must never go down silently. The installed line
+// fails CLOSED when the bin is off PATH, and old installs upgrade in place.
+describe("fail-closed hook line (KJC-BUG-0095)", () => {
+  it("the installed command guards the bin and blocks (exit 2) when missing", () => {
+    expect(HOOK_COMMAND).toContain("command -v kj-trash");
+    expect(HOOK_COMMAND).toContain("exit 2");
+    expect(HOOK_COMMAND).toMatch(/DOWN/);
+  });
+
+  it("upgrades a legacy bare line in place — no duplicates, mutated:true", () => {
+    const initial = {
+      hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: LEGACY_HOOK_COMMAND }] }] },
+    };
+    const { settings, mutated } = patchSettings(initial);
+    expect(mutated).toBe(true);
+    const bash = settings.hooks.PreToolUse.find((e) => e.matcher === "Bash");
+    expect(bash.hooks).toHaveLength(1);
+    expect(bash.hooks[0].command).toBe(HOOK_COMMAND);
+  });
+
+  it("an entry carrying BOTH legacy and new line ends with a single copy (reviewer catch)", () => {
+    const initial = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Bash",
+            hooks: [
+              { type: "command", command: LEGACY_HOOK_COMMAND },
+              { type: "command", command: HOOK_COMMAND },
+            ],
+          },
+        ],
+      },
+    };
+    const { settings } = patchSettings(initial);
+    const bash = settings.hooks.PreToolUse.find((e) => e.matcher === "Bash");
+    expect(bash.hooks.filter((h) => h.command === HOOK_COMMAND)).toHaveLength(1);
+    expect(bash.hooks.some((h) => h.command === LEGACY_HOOK_COMMAND)).toBe(false);
+  });
+
+  it("behaves: blocks with the warning without the bin; delegates when present", () => {
+    const empty = spawnSync("/bin/sh", ["-c", HOOK_COMMAND], { encoding: "utf8", env: { PATH: "/nonexistent" } });
+    expect(empty.status).toBe(2);
+    expect(empty.stderr).toContain("anti-delete net is DOWN");
+
+    const binDir = mkdtempSync(join(tmpdir(), "kj-trash-bin-"));
+    writeFileSync(join(binDir, "kj-trash"), "#!/bin/sh\necho delegated-ok\nexit 0\n", { mode: 0o755 });
+    const ok = spawnSync("/bin/sh", ["-c", HOOK_COMMAND], {
+      encoding: "utf8",
+      env: { PATH: `${binDir}:/usr/bin:/bin` },
+    });
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toContain("delegated-ok");
+    rmSync(binDir, { recursive: true, force: true });
   });
 });
