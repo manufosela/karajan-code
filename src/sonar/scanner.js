@@ -47,13 +47,17 @@ export function buildScannerOpts(projectKey, scanner = {}) {
     opts.push(`-Dsonar.javascript.lcov.reportPaths=${scanner.javascript_lcov_report_paths}`);
   }
   const rules = scanner.disabled_rules || [];
-  rules.forEach((rule, i) => {
-    opts.push(
-      `-Dsonar.issue.ignore.multicriteria=e${i + 1}`,
-      `-Dsonar.issue.ignore.multicriteria.e${i + 1}.ruleKey=${rule}`,
-      `-Dsonar.issue.ignore.multicriteria.e${i + 1}.resourceKey=**/*`
-    );
-  });
+  if (rules.length > 0) {
+    // KJC-BUG-0139: the list property is declared ONCE — one `multicriteria=`
+    // per rule was last-wins, silently un-ignoring every rule but the final one.
+    opts.push(`-Dsonar.issue.ignore.multicriteria=${rules.map((_, i) => `e${i + 1}`).join(",")}`);
+    rules.forEach((rule, i) => {
+      opts.push(
+        `-Dsonar.issue.ignore.multicriteria.e${i + 1}.ruleKey=${rule}`,
+        `-Dsonar.issue.ignore.multicriteria.e${i + 1}.resourceKey=**/*`
+      );
+    });
+  }
   return opts.join(" ");
 }
 
