@@ -24,17 +24,26 @@ describe("[opt-in: sonar] buildScannerOpts", () => {
     expect(result).toContain("-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info");
   });
 
-  it("generates disabled_rules with multicriteria syntax", () => {
+  // KJC-BUG-0139: one `multicriteria=` property PER RULE meant last-wins —
+  // with [S1116, S3776] only S3776 was really ignored. The property must be
+  // declared ONCE with the full entry list; sub-properties stay per rule.
+  it("declares multicriteria ONCE with the full entry list (KJC-BUG-0139)", () => {
     const scanner = {
       disabled_rules: ["javascript:S1116", "javascript:S3776"]
     };
     const result = buildScannerOpts("proj", scanner);
-    expect(result).toContain("-Dsonar.issue.ignore.multicriteria=e1");
+    expect(result).toContain("-Dsonar.issue.ignore.multicriteria=e1,e2");
+    expect(result.match(/-Dsonar\.issue\.ignore\.multicriteria=/g)).toHaveLength(1);
     expect(result).toContain("-Dsonar.issue.ignore.multicriteria.e1.ruleKey=javascript:S1116");
     expect(result).toContain("-Dsonar.issue.ignore.multicriteria.e1.resourceKey=**/*");
-    expect(result).toContain("-Dsonar.issue.ignore.multicriteria=e2");
     expect(result).toContain("-Dsonar.issue.ignore.multicriteria.e2.ruleKey=javascript:S3776");
     expect(result).toContain("-Dsonar.issue.ignore.multicriteria.e2.resourceKey=**/*");
+  });
+
+  it("a single disabled rule still declares the list form", () => {
+    const result = buildScannerOpts("proj", { disabled_rules: ["javascript:S1116"] });
+    expect(result).toContain("-Dsonar.issue.ignore.multicriteria=e1");
+    expect(result).toContain("-Dsonar.issue.ignore.multicriteria.e1.ruleKey=javascript:S1116");
   });
 
   it("works without scanner config (backward compatible)", () => {
