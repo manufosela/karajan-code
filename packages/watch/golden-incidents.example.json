@@ -1,0 +1,17 @@
+{
+  "thresholds": { "precision": 0.3, "recall": 0.6, "k": 10 },
+  "cases": [
+    {
+      "name": "endpoint renombrado que rompió al consumidor",
+      "repoName": "backend-api",
+      "diff": "diff --git a/src/routes.js b/src/routes.js\nindex a1b2c3d..e4f5a6b 100644\n--- a/src/routes.js\n+++ b/src/routes.js\n@@ -1,3 +1,3 @@\n export const mount = (app) => {\n-  app.get('/api/v1/users/:id', getUser);\n+  app.get('/api/v2/users/:id', getUser);\n };\n",
+      "expectedImpacted": ["web-frontend/src/api-client.js"]
+    },
+    {
+      "name": "columna eliminada que dejó una consulta rota",
+      "repoName": "backend-api",
+      "diff": "diff --git a/migrations/012-drop-legacy.sql b/migrations/012-drop-legacy.sql\nnew file mode 100644\nindex 0000000..b7c8d9e\n--- /dev/null\n+++ b/migrations/012-drop-legacy.sql\n@@ -0,0 +1,2 @@\n+ALTER TABLE customer_orders DROP COLUMN legacy_ref;\n+\n",
+      "expectedImpacted": ["reporting-jobs/src/orders-export.js"]
+    }
+  ]
+}

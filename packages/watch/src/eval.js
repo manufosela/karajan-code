@@ -54,6 +54,7 @@ export class GoldenSetError extends Error {
  * @property {{name: string, metrics: CaseMetrics}[]} cases
  * @property {{precision: number, recall: number}} aggregate Medias sobre los casos.
  * @property {boolean} passed
+ * @property {{store: string, embedder: string}} measuredWith Con qué se obtuvieron estos números: los scores NO son comparables entre backends, así que un umbral calibrado aquí no vale para otro store.
  */
 
 /**
@@ -213,7 +214,11 @@ export const runGoldenEval = async ({ golden, config, workspaceDir, env, deps })
     (precision === undefined || aggregate.precision >= precision) &&
     (recall === undefined || aggregate.recall >= recall);
 
-  return { cases, aggregate, passed };
+  // Los scores no son comparables entre backends (KJR-PRP-0010): unos
+  // umbrales calibrados con un store y un embedder no significan lo mismo
+  // con otros. El informe lo deja registrado en vez de dar un número suelto.
+  const { store, embedder } = config.corpus.code;
+  return { cases, aggregate, passed, measuredWith: { store, embedder } };
 };
 
 /**

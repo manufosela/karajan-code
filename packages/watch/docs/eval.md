@@ -52,3 +52,30 @@ tras cambiar umbrales, embedder o versión de karajan-rag).
 - `precision@k` = aciertos / candidatos devueltos (hasta `k`).
 - `recall@k` = aciertos / ficheros esperados.
 - Agregado = media simple sobre los casos.
+
+**Los números van firmados con el store y el embedder** que los produjeron:
+
+```
+agregado: precision 0.33 · recall 1.00 → PASSED
+medido con: store lancedb · embedder hash
+```
+
+No es decorativo. Los scores de similitud **no son comparables entre
+backends** (propuesta upstream KJR-PRP-0010): unos umbrales calibrados con
+`lancedb` no significan lo mismo con `pgvector`, donde además pueden salir
+negativos. Si cambias de store, la calibración hay que rehacerla.
+
+## Por dónde empezar
+
+[`golden-incidents.example.json`](../golden-incidents.example.json) es una
+plantilla **válida de verdad** —hay un test que lo comprueba, para que nadie
+la copie y se estrelle en su primer eval— con dos casos que enseñan la forma:
+un endpoint renombrado y una columna eliminada.
+
+Los incidentes reales son de la organización y **viven en su repo de
+despliegue**, no aquí: contienen diffs de su código. Aquí solo viajan el
+esquema, la mecánica y ese ejemplo sintético.
+
+Para construir el conjunto, la pregunta que hay que poder responder de cada
+caso es concreta: *«este merge rompió aquello»*, con el fichero culpable y
+el fichero roto identificados. Sin esa certeza el caso no sirve para medir.

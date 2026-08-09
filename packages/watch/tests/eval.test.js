@@ -2,7 +2,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateConfig } from '../src/config.js';
-import { GoldenSetError, validateGoldenSet, evaluateRanking, runGoldenEval } from '../src/eval.js';
+import { fileURLToPath } from 'node:url';
+import {
+  GoldenSetError,
+  validateGoldenSet,
+  evaluateRanking,
+  runGoldenEval,
+  loadGoldenSet,
+} from '../src/eval.js';
 
 const config = () =>
   validateConfig({
@@ -147,4 +154,50 @@ test('runGoldenEval: caso con repo no declarado se propaga como error', async ()
       }),
     /repo-fantasma/,
   );
+});
+
+test('el golden de ejemplo que publicamos es válido de verdad', async () => {
+  // Un ejemplo que no pasa la propia validación es peor que no tenerlo:
+  // quien lo copie para arrancar se estrella con su primer eval.
+  const path = fileURLToPath(new URL('../golden-incidents.example.json', import.meta.url));
+  const golden = await loadGoldenSet(path);
+
+  assert.ok(golden.cases.length >= 2, 'un solo caso no enseña a construir el conjunto');
+  for (const c of golden.cases) {
+    assert.match(c.diff, /^diff --git /, `el caso "${c.name}" no lleva un diff unificado`);
+    assert.ok(
+      c.expectedImpacted.every((p) => p.includes('/')),
+      `"${c.name}": los paths esperados van namespaceados como repo/ruta`,
+    );
+  }
+});
+
+test('el informe registra con qué store y embedder se midió', async () => {
+  const report = await runGoldenEval({
+    golden: {
+      thresholds: { k: 5 },
+      cases: [
+        {
+          name: 'caso',
+          repoName: 'repo-a',
+          diff: DIFF,
+          expectedImpacted: ['repo-b/src/x.js'],
+        },
+      ],
+    },
+    config: validateConfig({
+      repos: [{ name: 'repo-a' }, { name: 'repo-b' }],
+      corpus: { code: { store: 'pgvector', embedder: 'transformers' } },
+    }),
+    workspaceDir: '/ws',
+    deps: {
+      query: async () => ({
+        hits: [{ source: 'repo-b/src/x.js', line: 1, score: 0.9, content: 'x', sensitivity: 'internal' }],
+        candidates: 1,
+      }),
+      readHistory: async () => [],
+    },
+  });
+
+  assert.deepEqual(report.measuredWith, { store: 'pgvector', embedder: 'transformers' });
 });

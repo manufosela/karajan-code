@@ -203,4 +203,28 @@ grep -qi 'eliminado' deriva.md \
 grep -q 'repo-client/src/api-client.js' deriva.md \
   && fail "la deriva listó código: eso es cosa del pipeline de impacto"
 
-printf '\n\033[32m✓ smoke OK: ingest, impact y drift funcionan con store %s\033[0m\n' "$STORE"
+say "eval real: el cuarto comando, el único que nunca se había ejecutado"
+# El golden se construye con el MISMO diff del merge, esperando al consumidor
+# que ya sabemos que existe. Se comprueba el informe, no el exit code.
+node -e '
+  const fs = require("node:fs");
+  fs.writeFileSync("golden.json", JSON.stringify({
+    thresholds: { precision: 0.1, recall: 1, k: 10 },
+    cases: [{
+      name: "endpoint renombrado",
+      repoName: "repo-api",
+      diff: fs.readFileSync("merge.diff", "utf8"),
+      expectedImpacted: ["repo-client/src/api-client.js"],
+    }],
+  }, null, 2));
+'
+./node_modules/.bin/karajan-watch eval \
+  --config karajan-watch.config.json --workspace .kjw-workspace \
+  --golden golden.json | tee eval.md
+
+grep -q 'PASSED' eval.md \
+  || fail "el eval no alcanzó los umbrales: el consumidor del endpoint debería estar en el ranking"
+grep -q "medido con: store $STORE" eval.md \
+  || fail "el informe no dice con qué store se midió, y los scores no son comparables entre backends"
+
+printf '\n\033[32m✓ smoke OK: ingest, impact, drift y eval funcionan con store %s\033[0m\n' "$STORE"

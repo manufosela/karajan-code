@@ -4,6 +4,19 @@
 
 ### Nuevo
 
+- **`eval` se ejecuta de verdad.** Era el único de los cuatro comandos que
+  no ejercitaba nadie: existía, tenía tests con dobles y jamás se había
+  ejecutado end-to-end. Ahora el smoke lo corre contra los dos stores y
+  comprueba su informe. Funciona — recall 1.00 sobre el consumidor del
+  endpoint renombrado.
+- **Los números del eval van firmados** con el store y el embedder que los
+  produjeron. Unos umbrales calibrados con `lancedb` no significan lo mismo
+  con `pgvector`, así que un número suelto es engañoso.
+- **Plantilla de golden set** ([`golden-incidents.example.json`](./golden-incidents.example.json))
+  válida de verdad, verificada por un test para que nadie la copie y se
+  estrelle en su primer eval. Los incidentes reales siguen viviendo en el
+  repo de despliegue de cada organización: contienen su código.
+
 - **Una instancia es una lista de repos.** Hasta ahora había que decidir
   store, embedder y sensibilidad de dos corpus antes de poder ejecutar
   nada — decisiones que se toman mal justo antes de haber visto la

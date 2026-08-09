@@ -20,6 +20,7 @@
     "docs/prompts/start.md",
     "karajan-watch.config.example.json",
     "karajan-watch.config.full.example.json",
+    "golden-incidents.example.json",
     "CHANGELOG.md"
   ],
   "scripts": {

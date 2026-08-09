@@ -136,6 +136,12 @@ const main = async () => {
       `agregado: precision ${report.aggregate.precision.toFixed(2)} · ` +
         `recall ${report.aggregate.recall.toFixed(2)} → ${report.passed ? 'PASSED' : 'FAILED'}`,
     );
+    // Sin esto el número es engañoso: no significa lo mismo medido contra
+    // otro store, y estos umbrales acaban copiados a otro despliegue.
+    console.log(
+      `medido con: store ${report.measuredWith.store} · ` +
+        `embedder ${report.measuredWith.embedder}`,
+    );
     process.exit(report.passed ? 0 : 1);
   }
 
