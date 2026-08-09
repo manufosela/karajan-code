@@ -338,6 +338,45 @@ class FamilyContract(_FrozenModel):
     distilled_cards: bool = False
 
 
+class DeliverySettings(_FrozenModel):
+    """When a signal is worth interrupting someone, and with what.
+
+    These are domain judgements, not deployment settings: where to draw the
+    line between "worth reading" and "noise" is the kind of decision a domain
+    expert changes and should be reviewed in a pull request, not a row
+    somebody edited in production. Where the digest is *sent* -- webhook URL,
+    recipients, schedule -- stays in the environment, because that belongs to
+    a particular deployment and some of it is secret.
+
+    The output language is deliberately absent: it is already declared by
+    ``summary.languages``. A second field here would recreate the very
+    duplication this is meant to remove, only inside the same file.
+
+    The defaults are the values the digest service used as module constants
+    before this existed, so declaring them changes who decides rather than
+    what happens.
+    """
+
+    score_threshold: float = Field(default=6.0, ge=0, le=10)
+    max_items: int = Field(default=5, ge=1)
+    sections: list[NonBlankStr] = Field(
+        default_factory=lambda: [
+            "top_insights",
+            "strategic_summary",
+            "new_opportunities",
+            "follow_up_items",
+        ],
+        min_length=1,
+    )
+
+    @model_validator(mode="after")
+    def _reject_duplicate_sections(self) -> DeliverySettings:
+        duplicates = _find_duplicates(self.sections)
+        if duplicates:
+            raise ValueError(f"duplicate entry in sections: {', '.join(duplicates)}")
+        return self
+
+
 class SummarySettings(_FrozenModel):
     """Languages the executive summary is generated in."""
 
@@ -373,6 +412,7 @@ class RadarProfile(_FrozenModel):
     llm: LLMSettings
     branding: Branding
     summary: SummarySettings
+    delivery: DeliverySettings = Field(default_factory=DeliverySettings)
     family_contract: FamilyContract = Field(default_factory=FamilyContract)
 
     @model_validator(mode="after")

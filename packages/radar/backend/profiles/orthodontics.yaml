@@ -257,6 +257,14 @@ branding:
 summary:
   languages: [en, es]
 
+# Where the line falls between "worth interrupting someone" and "noise".
+# A domain judgement, so it lives here and changes in a pull request. Where
+# the digest is sent, and when, stays in the environment.
+delivery:
+  score_threshold: 6.0
+  max_items: 5
+  sections: [top_insights, strategic_summary, new_opportunities, follow_up_items]
+
 # No `prompts` section: the default templates in app/profiles/default_prompts.py
 # render every definition above straight into the prompt. Add one here only to
 # say something the defaults do not.
