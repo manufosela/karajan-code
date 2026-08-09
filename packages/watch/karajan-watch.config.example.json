@@ -1,20 +1,7 @@
 {
   "repos": [
-    { "name": "backend-api", "branch": "main", "sensitivity": "internal" },
+    { "name": "backend-api" },
     { "name": "web-frontend" },
     { "name": "shared-libs", "sensitivity": "confidential" }
-  ],
-  "corpus": {
-    "code": { "store": "pgvector", "embedder": "transformers", "sensitivity": "internal" },
-    "docs": { "store": "pgvector", "embedder": "transformers", "sensitivity": "internal" }
-  },
-  "impact": {
-    "thresholds": { "minSimilarity": 0.55, "maxCandidates": 20 }
-  },
-  "notify": {
-    "targets": [
-      { "type": "pr-comment" },
-      { "type": "webhook", "url": "https://chat.example.com/hooks/impact-alerts" }
-    ]
-  }
+  ]
 }

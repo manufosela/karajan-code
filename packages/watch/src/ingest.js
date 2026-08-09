@@ -19,6 +19,7 @@ import { readdir, writeFile, access, readFile } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { prepareStore } from './store.js';
+import { announceDefaults } from './config.js';
 import { createRequire } from 'node:module';
 
 /** Error de ingesta: el job debe quedar en rojo, nunca éxito degradado. */
@@ -188,6 +189,7 @@ export const runIngest = async ({
   log = (msg) => console.error(`[kjw-ingest] ${msg}`),
   deps = {},
 }) => {
+  announceDefaults(config, log);
   const plan = buildIngestPlan(config, corpusName, workspaceDir);
   const corpus = config.corpus[/** @type {CorpusName} */ (corpusName)];
 
@@ -204,12 +206,12 @@ export const runIngest = async ({
     corpus,
     connectionString: env.PG_URL ?? env.DATABASE_URL,
   });
-  log(
-    prepared.prepared
-      ? `store listo (${corpus.store}, vector de ${prepared.dimensions})` +
-          `${prepared.alreadyExisted ? ', ya existía' : ', recién creado'}`
-      : `store ${corpus.store}: ${prepared.reason}`,
-  );
+  if (prepared.prepared) {
+    const estado = prepared.alreadyExisted ? 'ya existía' : 'recién creado';
+    log(`store listo (${corpus.store}, vector de ${prepared.dimensions}, ${estado})`);
+  } else {
+    log(`store ${corpus.store}: ${prepared.reason}`);
+  }
 
   await verifyWorkspace(config, workspaceDir);
 

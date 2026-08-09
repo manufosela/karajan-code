@@ -23,6 +23,7 @@ import { correlateCoChanges, readRepoHistory, CoChangeError } from './cochanges.
 import { judgeImpact } from './judgment.js';
 import { extractContractTokens, findContractMatches } from './contracts.js';
 import { buildImpactRanking, renderImpactMarkdown, deliverNotifications } from './report.js';
+import { announceDefaults } from './config.js';
 
 /** Error de orquestación del pipeline de impacto. */
 export class ImpactError extends Error {
@@ -149,6 +150,7 @@ export const runImpactPipeline = async ({
   }
 
   try {
+  announceDefaults(config, log);
   log(`diff: ${chunks.length} chunks`);
   const { candidates } = await findImpactCandidates({ chunks, query });
   log(`retrieval: ${candidates.length} candidatos`);

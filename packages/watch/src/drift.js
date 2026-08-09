@@ -20,6 +20,7 @@ import { findImpactCandidates } from './retrieval.js';
 import { extractContractTokens, findContractMatches } from './contracts.js';
 import { judgeImpact } from './judgment.js';
 import { deliverNotifications } from './report.js';
+import { announceDefaults } from './config.js';
 import { ImpactError, createDefaultRunAdapter } from './impact.js';
 
 /** Extensiones consideradas documentación (workaround KJR-PRP-0004). */
@@ -99,6 +100,7 @@ const renderDriftMarkdown = ({ sections, diffSummary }) => {
  * @param {{repoSlug: string, prNumber: number, token: string}} [params.prContext]
  * @param {Record<string, string | undefined>} [params.env]
  * @param {import('./impact.js').ImpactDeps} [params.deps]
+ * @param {(msg: string) => void} [params.log]
  * @returns {Promise<DriftResult>}
  */
 export const runDriftPipeline = async ({
@@ -111,6 +113,7 @@ export const runDriftPipeline = async ({
   prContext,
   env = process.env,
   deps = {},
+  log = (msg) => console.error(`[kjw-drift] ${msg}`),
 }) => {
   if (!config.repos.some((r) => r.name === repoName)) {
     throw new ImpactError(`el repo "${repoName}" no está declarado en el config.`);
@@ -146,6 +149,7 @@ export const runDriftPipeline = async ({
       [c.path, c.oldPath].filter(Boolean).map((p) => `${repoName}/${p}`),
     ),
   );
+  announceDefaults(config, log);
   const { candidates } = await findImpactCandidates({
     chunks,
     query,

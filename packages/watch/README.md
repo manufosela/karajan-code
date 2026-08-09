@@ -76,9 +76,18 @@ problema que resuelve.
 
 En el repo privado de despliegue de tu organización:
 
-1. Declara tus repos, corpus, sensibilidad y destinos de aviso en un
-   [`karajan-watch.config.json`](./karajan-watch.config.example.json)
-   validado estrictamente → [docs/config.md](./docs/config.md).
+1. Declara **qué repos vigilas**, y nada más si no quieres:
+
+   ```json
+   { "repos": [{ "name": "backend-api" }, { "name": "web-frontend" }] }
+   ```
+
+   Eso es un `karajan-watch.config.json` completo y válido: el corpus
+   arranca sin servidor ni descargas, y cada valor asumido se anuncia al
+   ejecutar. Corpus, sensibilidad, umbrales y destinos de aviso se declaran
+   cuando hagan falta → [docs/config.md](./docs/config.md), con
+   [ejemplo mínimo](./karajan-watch.config.example.json) y
+   [completo](./karajan-watch.config.full.example.json).
 2. Invoca los workflows reusables (`ingest.yml`, `impact.yml`,
    `drift.yml`) desde tus GitHub Actions, o usa el CLI directamente:
 

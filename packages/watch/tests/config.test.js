@@ -93,12 +93,13 @@ test('repos[i]: clave desconocida y branch/sensitivity inválidos', () => {
   assertInvalid({ ...base, repos: [{ name: 'a', sensitivity: 'secret' }] }, '$.repos[0].sensitivity');
 });
 
-test('corpus: requerido con code y docs exactamente', () => {
+test('corpus: opcional, pero solo admite code y docs', () => {
   const { repos } = minimalConfig();
   const code = { store: 'pgvector', embedder: 'transformers' };
-  assertInvalid({ repos }, '$.corpus');
-  assertInvalid({ repos, corpus: { code } }, '$.corpus.docs');
-  assertInvalid({ repos, corpus: { docs: code } }, '$.corpus.code');
+  // Omitir `corpus`, o uno de los dos, ya no es un error: se rellena con los
+  // defaults (KJW-TSK-0032). Inventarse una entrada sigue siéndolo.
+  assert.doesNotThrow(() => validateConfig({ repos }));
+  assert.doesNotThrow(() => validateConfig({ repos, corpus: { code } }));
   assertInvalid({ repos, corpus: { code, docs: code, extra: code } }, '$.corpus.extra');
 });
 
@@ -174,4 +175,68 @@ test('loadConfig: JSON inválido = ConfigError explícito con el fichero', async
 
 test('loadConfig: fichero inexistente = error, nunca fallback silencioso', async () => {
   await assert.rejects(() => loadConfig('/no/existe/karajan-watch.config.json'));
+});
+
+// --- que funcione por defecto (KJW-TSK-0032) -------------------------------
+//
+// Una instancia debería ser una lista de repos y poco más. Exigir store,
+// embedder y sensibilidad de dos corpus obliga a decidir antes de haber
+// visto la herramienta funcionar, que es justo cuando peor se decide.
+
+test('config mínimo: solo repos, y arranca por la vía sin servidor', () => {
+  const config = validateConfig({ repos: [{ name: 'repo-a' }] });
+
+  assert.equal(config.corpus.code.store, 'lancedb', 'empezar no debe exigir una base de datos');
+  assert.equal(config.corpus.code.embedder, 'hash', 'el default no descarga modelos');
+  assert.equal(config.corpus.docs.store, 'lancedb');
+  assert.equal(config.corpus.code.sensitivity, DEFAULT_SENSITIVITY);
+  assert.equal(config.repos[0].branch, 'main');
+});
+
+test('corpus a medias: lo declarado manda, el hueco se rellena', () => {
+  const config = validateConfig({
+    repos: [{ name: 'repo-a' }],
+    corpus: { code: { store: 'pgvector' } },
+  });
+
+  assert.equal(config.corpus.code.store, 'pgvector', 'lo explícito gana siempre');
+  assert.equal(config.corpus.code.embedder, 'hash');
+  assert.equal(config.corpus.docs.store, 'lancedb', 'el corpus no declarado también tiene default');
+});
+
+test('rellenar huecos NO es tragarse errores', () => {
+  // Un valor inválido sigue fallando con su path exacto: la diferencia entre
+  // "no lo has dicho" y "lo has dicho mal" es justo lo que no debe perderse.
+  assertInvalid({ repos: [{ name: 'r' }], corpus: { code: { store: 'mongo' } } },
+    '$.corpus.code.store');
+  assertInvalid({ repos: [{ name: 'r' }], corpus: { code: { embedder: 'openai' } } },
+    '$.corpus.code.embedder');
+  assertInvalid({ repos: [{ name: 'r' }], corpus: { code: { inventado: 1 } } },
+    '$.corpus.code.inventado');
+  assertInvalid({ repos: [{ name: 'r' }], corpus: { wiki: {} } }, '$.corpus.wiki');
+});
+
+test('el config declara qué se ha asumido, para que nadie lo descubra leyendo el código', () => {
+  const full = { store: 'pgvector', embedder: 'transformers', sensitivity: 'internal' };
+  const explicit = validateConfig({
+    repos: [{ name: 'r' }],
+    corpus: { code: full, docs: full },
+  });
+  assert.deepEqual(explicit.defaulted, [], 'sin huecos no hay nada que anunciar');
+
+  const minimal = validateConfig({ repos: [{ name: 'r' }] });
+  assert.ok(minimal.defaulted.length > 0);
+  assert.ok(
+    minimal.defaulted.some((d) => d.includes('$.corpus.code.store') && d.includes('lancedb')),
+    'cada valor asumido dice su path y el valor: ' + minimal.defaulted.join(' | '),
+  );
+});
+
+test('un config ya validado se puede volver a validar', () => {
+  // `defaulted` es metadato, no configuración: si se colara como clave del
+  // objeto, revalidar —o escribir el config a disco— fallaría por clave
+  // desconocida.
+  const once = validateConfig({ repos: [{ name: 'r' }] });
+  assert.doesNotThrow(() => validateConfig({ ...once }));
+  assert.equal(JSON.parse(JSON.stringify(once)).defaulted, undefined);
 });

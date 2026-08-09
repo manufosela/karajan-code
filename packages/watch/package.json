@@ -19,6 +19,7 @@
     "docs/karajan-rag-contract.md",
     "docs/prompts/start.md",
     "karajan-watch.config.example.json",
+    "karajan-watch.config.full.example.json",
     "CHANGELOG.md"
   ],
   "scripts": {

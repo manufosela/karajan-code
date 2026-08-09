@@ -1,5 +1,26 @@
 # Changelog
 
+## No publicado
+
+### Nuevo
+
+- **Una instancia es una lista de repos.** Hasta ahora había que decidir
+  store, embedder y sensibilidad de dos corpus antes de poder ejecutar
+  nada — decisiones que se toman mal justo antes de haber visto la
+  herramienta funcionar. Ahora esto es un config completo y válido:
+
+  ```json
+  { "repos": [{ "name": "backend-api" }, { "name": "web-frontend" }] }
+  ```
+
+  El corpus arranca por la vía sin servidor y sin descargas (`lancedb` +
+  `hash`) y con el nivel de sensibilidad seguro. **Los defaults no son
+  silenciosos**: cada valor asumido se anuncia al arrancar cualquier
+  pipeline, con su path y su valor. Y rellenar un hueco no es tragarse un
+  error: un valor equivocado sigue fallando con su path exacto.
+- El ejemplo de configuración que se publica pasa a ser el **mínimo**; el
+  completo queda como referencia aparte.
+
 ## 0.4.0 — 2026-08-09
 
 > **Si vas a montar una instancia, parte de aquí.** Hasta la 0.3.0 los tres

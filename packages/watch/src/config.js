@@ -24,6 +24,15 @@ import { CONTRACT_TYPES } from './contracts.js';
 /** Stores soportados por `karajan-rag index --store`. */
 export const VALID_STORES = Object.freeze(['lancedb', 'pgvector', 'in-memory']);
 
+/**
+ * Con qué arranca un corpus que no declara nada: la vía sin servidor y sin
+ * descargas. `lancedb` es un directorio en disco y `hash` no baja ningún
+ * modelo, así que una instancia nueva no tiene que alojar ni descargar nada
+ * antes de ver si la herramienta le sirve. Quien necesite más semántica sube
+ * a `transformers`; quien comparta corpus entre máquinas, a `pgvector`.
+ */
+export const DEFAULT_CORPUS = Object.freeze({ store: 'lancedb', embedder: 'hash' });
+
 /** Embedders soportados por `karajan-rag index --embedder` (locales; el código no viaja a terceros). */
 export const VALID_EMBEDDERS = Object.freeze(['hash', 'transformers']);
 
@@ -118,11 +127,27 @@ const requireOneOf = (value, path, allowed) => {
  * @typedef {Object} WatchConfig
  * @property {RepoConfig[]} repos
  * @property {{code: CorpusConfig, docs: CorpusConfig}} corpus
+ * @property {string[]} defaulted Valores asumidos por no venir declarados (`path = valor`), para que los pipelines los anuncien.
  * @property {{thresholds: ImpactThresholds}} [impact]
  * @property {{targets: NotifyTarget[]}} [notify]
  * @property {Record<Sensitivity, string[]>} [policy] Sensitivity policy propia (niveles → adapters); sin ella rige la default de karajan-rag.
  * @property {{enabled: boolean, types: string[]}} [contracts] Señal de contratos: qué tipos se minan. Sin la sección, la señal corre con todos los tipos.
  */
+
+/**
+ * Anuncia por log lo que el config no declaraba y se ha asumido. Un default
+ * aplicado en silencio es indistinguible de un error: quien lee el informe
+ * tiene derecho a saber con qué store y qué embedder se ha producido, sin
+ * ir a buscarlo al código.
+ *
+ * @param {WatchConfig} config
+ * @param {(msg: string) => void} log
+ */
+export const announceDefaults = (config, log) => {
+  if (config.defaulted?.length) {
+    log(`config: valores por defecto → ${config.defaulted.join(', ')}`);
+  }
+};
 
 /**
  * @param {unknown} value
@@ -152,16 +177,26 @@ const validateRepo = (value, path, seenNames) => {
  * @param {string} path
  * @returns {CorpusConfig}
  */
-const validateCorpusEntry = (value, path) => {
-  const corpus = requireObject(value, path);
+const validateCorpusEntry = (value, path, defaulted) => {
+  const corpus = value === undefined ? {} : requireObject(value, path);
   rejectUnknownKeys(corpus, path, ['store', 'embedder', 'sensitivity']);
-  const store = requireOneOf(corpus.store, `${path}.store`, VALID_STORES);
-  const embedder = requireOneOf(corpus.embedder, `${path}.embedder`, VALID_EMBEDDERS);
-  const sensitivity =
-    corpus.sensitivity === undefined
-      ? DEFAULT_SENSITIVITY
-      : requireOneOf(corpus.sensitivity, `${path}.sensitivity`, SENSITIVITY_LEVELS);
-  return { store, embedder, sensitivity: /** @type {Sensitivity} */ (sensitivity) };
+
+  // Un hueco se rellena; un valor equivocado sigue fallando con su path. La
+  // diferencia entre "no lo has dicho" y "lo has dicho mal" es justo lo que
+  // no puede perderse al tener defaults.
+  const withDefault = (raw, key, allowed, fallback) => {
+    if (raw !== undefined) return requireOneOf(raw, `${path}.${key}`, allowed);
+    defaulted.push(`${path}.${key} = ${fallback}`);
+    return fallback;
+  };
+
+  return {
+    store: withDefault(corpus.store, 'store', VALID_STORES, DEFAULT_CORPUS.store),
+    embedder: withDefault(corpus.embedder, 'embedder', VALID_EMBEDDERS, DEFAULT_CORPUS.embedder),
+    sensitivity: /** @type {Sensitivity} */ (
+      withDefault(corpus.sensitivity, 'sensitivity', SENSITIVITY_LEVELS, DEFAULT_SENSITIVITY)
+    ),
+  };
 };
 
 /**
@@ -230,15 +265,25 @@ export const validateConfig = (raw) => {
   const seenNames = new Set();
   const repos = config.repos.map((repo, i) => validateRepo(repo, `$.repos[${i}]`, seenNames));
 
-  const corpusRoot = requireObject(config.corpus, '$.corpus');
+  // Declarar repos debería bastar para arrancar: el resto son decisiones que
+  // se toman mal antes de haber visto la herramienta funcionar. Lo asumido se
+  // acumula en `defaulted` y los pipelines lo anuncian — un default aplicado
+  // en silencio es indistinguible de un error.
+  /** @type {string[]} */
+  const defaulted = [];
+  const corpusRoot = config.corpus === undefined ? {} : requireObject(config.corpus, '$.corpus');
   rejectUnknownKeys(corpusRoot, '$.corpus', ['code', 'docs']);
   const corpus = {
-    code: validateCorpusEntry(corpusRoot.code, '$.corpus.code'),
-    docs: validateCorpusEntry(corpusRoot.docs, '$.corpus.docs'),
+    code: validateCorpusEntry(corpusRoot.code, '$.corpus.code', defaulted),
+    docs: validateCorpusEntry(corpusRoot.docs, '$.corpus.docs', defaulted),
   };
 
   /** @type {WatchConfig} */
   const result = { repos, corpus };
+  // No enumerable a propósito: `defaulted` es metadato de la validación, no
+  // configuración. Así ni se copia con un spread —revalidar un config ya
+  // validado seguiría funcionando— ni se cuela en un JSON escrito a disco.
+  Object.defineProperty(result, 'defaulted', { value: defaulted, enumerable: false });
 
   if (config.impact !== undefined) {
     result.impact = validateImpact(config.impact, '$.impact');

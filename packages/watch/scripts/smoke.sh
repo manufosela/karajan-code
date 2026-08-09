@@ -105,7 +105,20 @@ for repo in repo-api repo-client; do
     commit -qm "estado inicial"
 done
 
-cat > karajan-watch.config.json <<JSON
+if [ "$STORE" = lancedb ]; then
+  # La vía por defecto se ejercita con el config MÍNIMO de verdad: solo
+  # repos. Si algún día deja de bastar, este smoke se entera (KJW-TSK-0032).
+  say "config mínimo: solo repos, todo lo demás por defecto"
+  cat > karajan-watch.config.json <<'JSON'
+{
+  "repos": [
+    { "name": "repo-api", "sensitivity": "public" },
+    { "name": "repo-client", "sensitivity": "public" }
+  ]
+}
+JSON
+else
+  cat > karajan-watch.config.json <<JSON
 {
   "repos": [
     { "name": "repo-api", "sensitivity": "public" },
@@ -118,6 +131,7 @@ cat > karajan-watch.config.json <<JSON
   "impact": { "thresholds": { "minSimilarity": 0, "maxCandidates": 20 } }
 }
 JSON
+fi
 
 say "ingest real"
 ./node_modules/.bin/karajan-watch ingest \
