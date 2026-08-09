@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **card-first verifies liveness against the declared tracker** (KJC-TSK-0732, issue #1371, PRs #1402/#1403): on planning-game/external backends the gate no longer settles for a card-shaped branch reference — with `board.verify_cmd` declared (the user's own adapter: their CLI/MCP wrapper, credentials never enter kj; `{ref}` substituted, `{exists, live, status}` JSON out) the referenced card is verified ALIVE in the real tracker. Dead or invented refs get the same treatment as "no card"; unverifiable degrades honestly to the branch-ref level and the gate SAYS SO — a pass by reference never reads as a tracker-verified pass. Short per-adapter cache (definitive verdicts only), 4s timeout, ref inert by construction. card-first now means the same thing on every backend.
+
 ## [4.15.0] - 2026-08-08
 
 ### Added
