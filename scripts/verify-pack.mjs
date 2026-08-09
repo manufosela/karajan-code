@@ -208,7 +208,17 @@ try {
   // better-sqlite3's native build by default, so DB-backed commands need
   // `pnpm approve-builds`; that's surfaced as a doctor warning, KJC-BUG-0092 —
   // not a gate failure, since it's inherent to pnpm.) Auto-skips without pnpm.
-  const hasPnpm = spawnSync("pnpm", ["--version"], { encoding: "utf8", env: childEnv }).status === 0;
+  // KJC-BUG-0135: `npm run` leaks npm_config_* into the child env, and pnpm
+  // maps those variables onto its own config — which can re-anchor it to THIS
+  // repo (7-aug incident: the repo's node_modules converted to pnpm layout,
+  // native bindings wiped, and simple-git-hooks' hook overwrote
+  // .karajan/hooks). The smoke runs with a scrubbed env and a pinned --dir,
+  // and the tripwire below turns any host contamination into a loud gate
+  // failure instead of a silent green.
+  const pnpmEnv = Object.fromEntries(Object.entries(childEnv).filter(([k]) => !/^npm_config_/i.test(k)));
+  const HOST_MARKERS = ["pnpm-lock.yaml", "pnpm-workspace.yaml", path.join("node_modules", ".pnpm")];
+  const hostMarkersBefore = new Set(HOST_MARKERS.filter((m) => fs.existsSync(path.join(repoRoot, m))));
+  const hasPnpm = spawnSync("pnpm", ["--version"], { encoding: "utf8", env: pnpmEnv }).status === 0;
   if (!hasPnpm) {
     console.log("verify-pack: pnpm not installed — skipping pnpm smoke (npm path covered above) ⚠");
   } else {
@@ -224,11 +234,11 @@ try {
     // versions (supply-chain protection), so right after publishing
     // karajan-core it silently resolves an OLD one and this smoke fails on
     // missing subpaths. The gate verifies packaging, not release-age policy.
-    spawnSync("pnpm", ["add", tgzPath, "--store-dir", path.join(pnpmTmp, ".store"), "--config.minimum-release-age=0"], {
-      encoding: "utf8",
-      env: childEnv,
-      cwd: pnpmTmp,
-    });
+    spawnSync(
+      "pnpm",
+      ["add", tgzPath, "--dir", pnpmTmp, "--ignore-workspace", "--store-dir", path.join(pnpmTmp, ".store"), "--config.minimum-release-age=0"],
+      { encoding: "utf8", env: pnpmEnv, cwd: pnpmTmp },
+    );
     const pnpmBin = path.join(pnpmTmp, "node_modules", ".bin", "kj");
     if (!fs.existsSync(pnpmBin)) fail(`kj binary missing after pnpm install: ${pnpmBin}`);
     let pnpmVersion;
@@ -241,6 +251,18 @@ try {
       fail(`kj --version under pnpm returned "${pnpmVersion}", expected ${expectedVersion}`);
     }
     console.log(`verify-pack: pnpm install + kj --version → ${pnpmVersion} ✓ (DB build needs \`pnpm approve-builds\`)`);
+  }
+  // Tripwire (KJC-BUG-0135): the smoke must NEVER touch the host repo. If a
+  // pnpm artifact appeared at the repo root during this run, the gate fails
+  // naming it — never a green over a contaminated tree.
+  const contaminated = HOST_MARKERS.filter(
+    (m) => !hostMarkersBefore.has(m) && fs.existsSync(path.join(repoRoot, m)),
+  );
+  if (contaminated.length > 0) {
+    fail(
+      `pnpm smoke contaminated the host repo: ${contaminated.join(", ")} appeared at the repo root`,
+      "remove the listed files and run `npm ci` to restore the npm layout; then verify .karajan/hooks with `git status`",
+    );
   }
 
   console.log(`\n✓ verify-pack: karajan-code@${expectedVersion} installs clean and runs.`);
