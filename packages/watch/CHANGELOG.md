@@ -4,6 +4,15 @@
 
 ### Nuevo
 
+- **Cobertura medida y exigida en CI.** Hasta ahora "135 tests en verde" no
+  decía nada sobre qué código se ejercitaba. La cifra real resultó ser
+  buena —97,5% de líneas, 91,8% de ramas— y el gate exige los mismos
+  mínimos que karajan-rag (95/95/92/87), por debajo de lo actual con
+  margen: un listón clavado donde ya se llega salta con cualquier línea
+  nueva y acaba desactivándose. Lo que queda sin cubrir son ramas de error
+  difíciles de provocar en test —workspace ilegible, `spawn` real— que sí
+  ejercita el smoke.
+
 - **La deriva ya avisa de la documentación del propio repo.** Excluía
   siempre el repo de origen —correcto para el impacto cross-repo, que existe
   para mirar a los demás— y con ello se perdía el caso más común: el README
