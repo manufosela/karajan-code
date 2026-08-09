@@ -77,8 +77,11 @@ async def get_current_user(
             detail="User not found or inactive",
         )
 
-    # Track last activity
-    user.last_active_at = datetime.now(UTC)
+    # Track last activity. Naive UTC because every timestamp column on `users`
+    # is `timestamp without time zone`, and an aware value here is rejected by
+    # PostgreSQL on every authenticated request. Making the column timestamptz
+    # would be better, but it is the whole table's decision -- KRD-TSK-0014.
+    user.last_active_at = datetime.now(UTC).replace(tzinfo=None)
     db.add(user)
 
     return user

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String, Text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -92,7 +92,11 @@ class ResearchItem(Base):
     raw_llm_output: Mapped[str | None] = mapped_column(Text)
 
     # Timestamps
-    processing_timestamp: Mapped[datetime | None] = mapped_column()
+    # timezone=True because the column already is timestamptz in the database.
+    # Without it SQLAlchemy assumes naive and casts to TIMESTAMP WITHOUT TIME
+    # ZONE, which PostgreSQL rejects for the aware value the pipeline writes.
+    # SQLite accepts either, which is why the unit suite never saw it.
+    processing_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Deduplication
     content_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
