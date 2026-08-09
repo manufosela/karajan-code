@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Direct-action installs skip lifecycle scripts** (KJC-BUG-0099, PR #1405): the Brain's `run_command` ran allow-listed dependency installs with lifecycle hooks live — an autonomous `npm install` was arbitrary code execution via any compromised dependency's postinstall. The allow-list still names the intent; execution appends the ecosystem's skip flag (npm/pnpm/yarn `--ignore-scripts`, composer `--no-scripts --no-plugins`); ecosystems without package hooks run untouched.
+- **verify-pack's pnpm smoke is isolated from the host repo** (KJC-BUG-0135, PR #1406): `npm run` leaks `npm_config_*` into the child env and pnpm maps those onto its own config — on 7-aug it re-anchored to the repo itself, converted `node_modules` to pnpm layout (wiping native bindings) and let simple-git-hooks overwrite `.karajan/hooks`, silently disarming the local review gate. The smoke now runs with a scrubbed env and a pinned `--dir --ignore-workspace`, and a tripwire fails the gate loudly if any pnpm artifact appears at the repo root — never a green over a contaminated tree.
+- **The anti-delete hook fails closed** (KJC-BUG-0095, PR #1407): the installer wrote a bare `kj-trash hook` line into Claude Code's global PreToolUse — with the bin off PATH (nvm switch, reinstall) the net went down without notice. The installed line now blocks the tool call naming the downed net and the remedy; legacy lines upgrade in place on reinstall, deduplicated.
+
 ### Added
 
 - **card-first verifies liveness against the declared tracker** (KJC-TSK-0732, issue #1371, PRs #1402/#1403): on planning-game/external backends the gate no longer settles for a card-shaped branch reference — with `board.verify_cmd` declared (the user's own adapter: their CLI/MCP wrapper, credentials never enter kj; `{ref}` substituted, `{exists, live, status}` JSON out) the referenced card is verified ALIVE in the real tracker. Dead or invented refs get the same treatment as "no card"; unverifiable degrades honestly to the branch-ref level and the gate SAYS SO — a pass by reference never reads as a tracker-verified pass. Short per-adapter cache (definitive verdicts only), 4s timeout, ref inert by construction. card-first now means the same thing on every backend.
