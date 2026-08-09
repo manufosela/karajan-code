@@ -4,6 +4,17 @@
 
 ### Nuevo
 
+- **El producto prepara su propio store pgvector.** Hasta ahora el esquema
+  bueno solo existía dentro de `scripts/smoke.sh`: quien declaraba
+  `store: pgvector` no tenía de dónde sacarlo, y la migración del motor
+  declara `vector(768)` mientras la capa Easy indexa con 256 (hash) o 384
+  (transformers) — seguirla al pie de la letra revienta el INSERT. Ahora la
+  ingesta crea extensión, tabla e índices con la dimensión que corresponde
+  al embedder configurado, de forma idempotente y **sin tocar un corpus que
+  ya exista**. Si el esquema presente no cuadra con el embedder, falla antes
+  de indexar diciendo qué hay y qué se esperaba, en vez de morir a mitad del
+  INSERT. Y si faltan permisos de DDL, dice el SQL exacto que hay que pedir.
+
 - **Cobertura medida y exigida en CI.** Hasta ahora "135 tests en verde" no
   decía nada sobre qué código se ejercitaba. La cifra real resultó ser
   buena —97,5% de líneas, 91,8% de ramas— y el gate exige los mismos

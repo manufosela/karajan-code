@@ -74,6 +74,25 @@ en cada PR que toca los workflows.
   (`karajan_rag_chunks`), así que `code` y `docs` no pueden compartir
   base — gap upstream registrado (KJW-TSK-0003).
 
+## El esquema lo prepara la ingesta
+
+Con `store: pgvector` **no tienes que crear nada a mano**: antes de indexar,
+la ingesta deja lista la extensión `vector`, la tabla del corpus y sus
+índices, con la dimensión que corresponde a tu embedder — 256 para `hash`,
+384 para `transformers`. Es idempotente y **nunca toca un corpus existente**.
+
+Dos avisos que verás en rojo antes de que se indexe nada, en vez de a mitad
+de la operación:
+
+- **La dimensión no cuadra.** Si la tabla ya existe con otra dimensión —el
+  caso típico es haber aplicado `migrations/001-init-pgvector.sql` del motor,
+  que declara `vector(768)`— la ingesta corta diciendo qué hay y qué se
+  esperaba. Ese esquema y el embedder `hash` son incompatibles: el INSERT
+  fallaría vector a vector.
+- **Faltan permisos de DDL.** Si el usuario de la conexión no puede crear
+  tablas, el error incluye el SQL exacto que hay que pedirle a quien
+  administre la base.
+
 ## Manifest incremental
 
 El manifest (`workspace/.karajan/`) se conserva entre ejecuciones con

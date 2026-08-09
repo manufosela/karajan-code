@@ -60,16 +60,12 @@ sql() {
 }
 
 if [ "$STORE" = pgvector ]; then
-  say "esquema pgvector (dim $EMBEDDER_DIMS)"
-  # Mientras el motor no cree su esquema (KJR-PRP-0008) lo prepara el smoke.
-  # La dimensión DEBE coincidir con la del embedder o el INSERT revienta.
-  sql "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
+  say "base vacía: el esquema lo crea el PRODUCTO, no este script"
+  # El smoke ya no se sabe el SQL. Se tira la tabla a propósito para que la
+  # ingesta tenga que crearla: lo que se valida es que karajan-watch prepara
+  # el store con la dimensión del embedder, que es justo donde se estrellaba
+  # quien seguía la migración del motor (768 contra 256 reales).
   sql "DROP TABLE IF EXISTS karajan_rag_chunks;" >/dev/null
-  sql "CREATE TABLE karajan_rag_chunks (
-         id text PRIMARY KEY, source text, chunk_index integer, content text,
-         embedding vector($EMBEDDER_DIMS), metadata jsonb DEFAULT '{}'::jsonb,
-         created_at timestamptz NOT NULL DEFAULT now());" >/dev/null
-  sql "CREATE INDEX ON karajan_rag_chunks (source);" >/dev/null
 fi
 
 say "workspace multi-repo: un proveedor y un consumidor de su endpoint"
@@ -130,6 +126,13 @@ say "ingest real"
 # El corpus tiene que sobrevivir al proceso: `impact` corre después, en otro
 # proceso, y si no lo encuentra el informe saldrá vacío.
 if [ "$STORE" = pgvector ]; then
+  DECLARED="$(sql "SELECT format_type(a.atttypid, a.atttypmod) AS t
+                   FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
+                   WHERE c.relname = 'karajan_rag_chunks' AND a.attname = 'embedding'")"
+  [ "$DECLARED" = "vector($EMBEDDER_DIMS)" ] \
+    || fail "el producto creó la columna como '$DECLARED' y el embedder da $EMBEDDER_DIMS"
+  echo "esquema creado por el producto: embedding $DECLARED"
+
   CHUNKS="$(sql 'SELECT count(*)::int AS n FROM karajan_rag_chunks')"
   [ "$CHUNKS" -gt 0 ] || fail "el corpus quedó vacío tras la ingesta"
   echo "chunks indexados: $CHUNKS"

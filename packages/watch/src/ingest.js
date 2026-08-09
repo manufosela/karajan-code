@@ -18,6 +18,7 @@
 import { readdir, writeFile, access, readFile } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { prepareStore } from './store.js';
 import { createRequire } from 'node:module';
 
 /** Error de ingesta: el job debe quedar en rojo, nunca éxito degradado. */
@@ -185,6 +186,7 @@ export const runIngest = async ({
   env = process.env,
   exec = defaultExec,
   log = (msg) => console.error(`[kjw-ingest] ${msg}`),
+  deps = {},
 }) => {
   const plan = buildIngestPlan(config, corpusName, workspaceDir);
   const corpus = config.corpus[/** @type {CorpusName} */ (corpusName)];
@@ -194,6 +196,20 @@ export const runIngest = async ({
       `corpus "${corpusName}" usa pgvector y falta PG_URL (o DATABASE_URL) en el entorno.`,
     );
   }
+
+  // El esquema se prepara antes de indexar: es idempotente y, sobre un store
+  // ya listo, cuesta una consulta. Si la dimensión no cuadra con el embedder
+  // corta aquí, en vez de reventar a mitad del INSERT (KJW-TSK-0022).
+  const prepared = await (deps.prepareStore ?? prepareStore)({
+    corpus,
+    connectionString: env.PG_URL ?? env.DATABASE_URL,
+  });
+  log(
+    prepared.prepared
+      ? `store listo (${corpus.store}, vector de ${prepared.dimensions})` +
+          `${prepared.alreadyExisted ? ', ya existía' : ', recién creado'}`
+      : `store ${corpus.store}: ${prepared.reason}`,
+  );
 
   await verifyWorkspace(config, workspaceDir);
 

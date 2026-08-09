@@ -5,8 +5,16 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
 import { validateConfig } from '../src/config.js';
 import { IngestError, buildIngestPlan, verifyWorkspace, runIngest } from '../src/ingest.js';
+
+/**
+ * La ingesta prepara el store antes de indexar (KJW-TSK-0022). Aquí se
+ * inyecta el doble: estos tests son de la ingesta, no de la fontanería de
+ * Postgres — esa la cubren tests/store.test.js y el smoke real.
+ */
+const fakePrepareStore = async () => ({ prepared: true, dimensions: 256, alreadyExisted: true });
 
 const baseConfig = () =>
   validateConfig({
@@ -97,6 +105,7 @@ test('runIngest: escribe karajan.config.json y ejecuta karajan-rag', async () =>
       return 0;
     },
     log: () => {},
+    deps: { prepareStore: fakePrepareStore },
   });
   assert.equal(result.corpusName, 'code');
   assert.equal(calls.length, 1);
@@ -127,6 +136,7 @@ test('runIngest: exit code != 0 = IngestError, nunca éxito degradado', async ()
         env: { PG_URL: 'postgres://x' },
         exec: async () => 3,
         log: () => {},
+    deps: { prepareStore: fakePrepareStore },
       }),
     (err) => err instanceof IngestError && err.message.includes('3'),
   );
@@ -147,6 +157,7 @@ test('runIngest: pgvector sin PG_URL/DATABASE_URL = error antes de ejecutar', as
           return 0;
         },
         log: () => {},
+    deps: { prepareStore: fakePrepareStore },
       }),
     (err) => err instanceof IngestError && err.message.includes('PG_URL'),
   );
@@ -168,6 +179,7 @@ test('runIngest: workspace inválido = error antes de ejecutar', async () => {
           return 0;
         },
         log: () => {},
+    deps: { prepareStore: fakePrepareStore },
       }),
     (err) => err instanceof IngestError,
   );
@@ -186,8 +198,37 @@ test('runIngest: sobrescribe un karajan.config.json previo avisando', async () =
     env: { PG_URL: 'postgres://x' },
     exec: async () => 0,
     log: (msg) => logged.push(msg),
+    deps: { prepareStore: fakePrepareStore },
   });
   const written = JSON.parse(await readFile(join(dir, 'karajan.config.json'), 'utf8'));
   assert.equal(written.easy.store, 'pgvector');
   assert.ok(logged.some((m) => m.includes('karajan.config.json')));
+});
+
+test('la ingesta prepara el store ANTES de indexar, nunca después', async () => {
+  const dir = await makeWorkspace(['repo-a', 'repo-b']);
+  /** @type {string[]} */
+  const order = [];
+
+  await runIngest({
+    config: baseConfig(),
+    corpusName: 'code',
+    workspaceDir: dir,
+    env: { PG_URL: 'postgres://x' },
+    exec: async () => {
+      order.push('index');
+      return 0;
+    },
+    log: () => {},
+    deps: {
+      prepareStore: async ({ corpus, connectionString }) => {
+        order.push('prepare');
+        assert.equal(corpus.store, 'pgvector');
+        assert.equal(connectionString, 'postgres://x');
+        return { prepared: true, dimensions: 256, alreadyExisted: false };
+      },
+    },
+  });
+
+  assert.deepEqual(order, ['prepare', 'index'], 'indexar sin esquema revienta el INSERT');
 });
