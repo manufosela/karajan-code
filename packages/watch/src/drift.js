@@ -21,6 +21,7 @@ import { extractContractTokens, findContractMatches } from './contracts.js';
 import { judgeImpact } from './judgment.js';
 import { deliverNotifications } from './report.js';
 import { announceDefaults } from './config.js';
+import { appendReport } from './history.js';
 import { ImpactError, createDefaultRunAdapter } from './impact.js';
 
 /** Extensiones consideradas documentación (workaround KJR-PRP-0004). */
@@ -270,6 +271,20 @@ export const runDriftPipeline = async ({
       fetchFn: /** @type {never} */ (deps.fetchFn),
     });
   }
+
+  // Mismo histórico que el impacto: opt-in, no-op sin la sección `history`.
+  const persisted = await appendReport({
+    config,
+    workspaceDir,
+    report: {
+      kind: 'drift',
+      repo: repoName,
+      diffSummary: `${repoName}: ${touchedPaths.join(', ')} (${chunks.length} chunks)`,
+      measuredWith: { store: corpus.store, embedder: corpus.embedder },
+      entries: sections,
+    },
+  });
+  if (persisted.persisted) log(`historial: informe guardado en ${persisted.path}`);
 
   return { sections, markdown, delivered };
   } finally {

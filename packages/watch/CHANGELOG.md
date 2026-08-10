@@ -1,5 +1,28 @@
 # Changelog
 
+## No publicado
+
+### Nuevo
+
+- **Historial de informes** (`$.history`, opt-in). El comentario de una PR
+  es efímero: cuando alguien pregunta si esto va a mejor o a peor, no hay
+  nada que mirar. Ahora cada run de `impact` y `drift` puede guardar su
+  informe —con la evidencia citada y con qué store y embedder se midió— en
+  un `reports.ndjson`, con retención configurable.
+
+  Va a **fichero, no a base de datos**: una instancia arranca sin Postgres y
+  el historial no debería ser el motivo de montar uno. Desactivado por
+  defecto: sin la sección, watch funciona exactamente como hasta ahora.
+
+### Corregido
+
+- **La redacción de PII corrompía el histórico.** Redactar el JSON ya
+  serializado convertía un score como `0.15476923` en
+  `"score":0.[REDACTED_CARD]` —la tirada de dígitos se leía como número de
+  tarjeta— y el fichero dejaba de ser JSON válido. Ahora la redacción va
+  campo a campo: los textos se limpian, los números se guardan tal cual. Lo
+  encontró el smoke real; los tests con dobles usaban scores cortos.
+
 ## 0.5.0 — 2026-08-09
 
 > Con esta versión, **los cuatro comandos y los tres workflows del producto

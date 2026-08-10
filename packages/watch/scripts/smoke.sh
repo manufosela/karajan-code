@@ -114,7 +114,8 @@ if [ "$STORE" = lancedb ]; then
   "repos": [
     { "name": "repo-api", "sensitivity": "public" },
     { "name": "repo-client", "sensitivity": "public" }
-  ]
+  ],
+  "history": { "enabled": true }
 }
 JSON
 else
@@ -226,5 +227,35 @@ grep -q 'PASSED' eval.md \
   || fail "el eval no alcanzó los umbrales: el consumidor del endpoint debería estar en el ranking"
 grep -q "medido con: store $STORE" eval.md \
   || fail "el informe no dice con qué store se midió, y los scores no son comparables entre backends"
+
+if [ "$STORE" = lancedb ]; then
+  say "historial: los informes quedan guardados, no solo impresos"
+  HIST=.kjw-workspace/.kjw-history/reports.ndjson
+  [ -s "$HIST" ] || fail "el historial está activado en el config y no se escribió nada"
+
+  # Un run de impact y otro de drift, cada uno en su línea.
+  LINEAS="$(wc -l < "$HIST")"
+  [ "$LINEAS" -ge 2 ] || fail "esperaba al menos impact y drift en el historial, hay $LINEAS línea(s)"
+  node -e '
+    const fs = require("node:fs");
+    const rows = fs.readFileSync(process.argv[1], "utf8").trim().split("\n").map(JSON.parse);
+    const kinds = rows.map((r) => r.kind);
+    if (!kinds.includes("impact") || !kinds.includes("drift")) {
+      console.error("faltan tipos en el historial: " + kinds.join(", "));
+      process.exit(1);
+    }
+    const impact = rows.find((r) => r.kind === "impact");
+    if (!impact.at || !impact.measuredWith?.store) {
+      console.error("un registro sin fecha o sin saber con qué se midió no sirve de histórico");
+      process.exit(1);
+    }
+    const citado = JSON.stringify(impact.entries).includes("/api/v1/users/:id");
+    if (!citado) {
+      console.error("el histórico no conserva la evidencia citada");
+      process.exit(1);
+    }
+    console.log(`historial: ${rows.length} informes, evidencia conservada, medido con ${impact.measuredWith.store}`);
+  ' "$HIST"
+fi
 
 printf '\n\033[32m✓ smoke OK: ingest, impact, drift y eval funcionan con store %s\033[0m\n' "$STORE"

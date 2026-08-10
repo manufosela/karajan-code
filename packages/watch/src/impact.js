@@ -24,6 +24,7 @@ import { judgeImpact } from './judgment.js';
 import { extractContractTokens, findContractMatches } from './contracts.js';
 import { buildImpactRanking, renderImpactMarkdown, deliverNotifications } from './report.js';
 import { announceDefaults } from './config.js';
+import { appendReport } from './history.js';
 
 /** Error de orquestación del pipeline de impacto. */
 export class ImpactError extends Error {
@@ -233,6 +234,21 @@ export const runImpactPipeline = async ({
       fetchFn: /** @type {never} */ (deps.fetchFn),
     });
   }
+
+  // El comentario de la PR es efímero; el histórico permite mirar la
+  // evolución después. Opt-in: sin la sección `history` esto es un no-op.
+  const persisted = await appendReport({
+    config,
+    workspaceDir,
+    report: {
+      kind: 'impact',
+      repo: repoName,
+      diffSummary,
+      measuredWith: { store: corpus.store, embedder: corpus.embedder },
+      entries: ranking,
+    },
+  });
+  if (persisted.persisted) log(`historial: informe guardado en ${persisted.path}`);
 
   return { ranking, contracts, coChanges, verdict, markdown, delivered };
   } finally {

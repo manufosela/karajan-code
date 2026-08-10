@@ -132,6 +132,7 @@ const requireOneOf = (value, path, allowed) => {
  * @property {{targets: NotifyTarget[]}} [notify]
  * @property {Record<Sensitivity, string[]>} [policy] Sensitivity policy propia (niveles → adapters); sin ella rige la default de karajan-rag.
  * @property {{enabled: boolean, types: string[]}} [contracts] Señal de contratos: qué tipos se minan. Sin la sección, la señal corre con todos los tipos.
+ * @property {{enabled: boolean, dir?: string, retentionDays?: number}} [history] Persistencia de informes. Opt-in: sin la sección no se escribe nada.
  */
 
 /**
@@ -257,7 +258,15 @@ const validateNotifyTarget = (value, path) => {
  */
 export const validateConfig = (raw) => {
   const config = requireObject(raw, '$');
-  rejectUnknownKeys(config, '$', ['repos', 'corpus', 'impact', 'notify', 'policy', 'contracts']);
+  rejectUnknownKeys(config, '$', [
+    'repos',
+    'corpus',
+    'impact',
+    'notify',
+    'policy',
+    'contracts',
+    'history',
+  ]);
 
   if (!Array.isArray(config.repos) || config.repos.length === 0) {
     throw new ConfigError('$.repos', 'se esperaba un array no vacío de repos.');
@@ -288,6 +297,30 @@ export const validateConfig = (raw) => {
   if (config.impact !== undefined) {
     result.impact = validateImpact(config.impact, '$.impact');
   }
+  if (config.history !== undefined) {
+    const history = requireObject(config.history, '$.history');
+    rejectUnknownKeys(history, '$.history', ['enabled', 'dir', 'retentionDays']);
+    /** @type {{enabled: boolean, dir?: string, retentionDays?: number}} */
+    const parsed = { enabled: false };
+    if (history.enabled !== undefined) {
+      if (typeof history.enabled !== 'boolean') {
+        throw new ConfigError('$.history.enabled', 'se esperaba un booleano.');
+      }
+      parsed.enabled = history.enabled;
+    }
+    if (history.dir !== undefined) {
+      parsed.dir = requireNonEmptyString(history.dir, '$.history.dir');
+    }
+    if (history.retentionDays !== undefined) {
+      const { retentionDays } = history;
+      if (!Number.isInteger(retentionDays) || Number(retentionDays) < 1) {
+        throw new ConfigError('$.history.retentionDays', 'se esperaba un entero >= 1.');
+      }
+      parsed.retentionDays = Number(retentionDays);
+    }
+    result.history = parsed;
+  }
+
   if (config.contracts !== undefined) {
     const contracts = requireObject(config.contracts, '$.contracts');
     rejectUnknownKeys(contracts, '$.contracts', ['enabled', 'types']);

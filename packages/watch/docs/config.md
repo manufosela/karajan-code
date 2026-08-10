@@ -109,6 +109,35 @@ Controla la señal de contratos (ver [docs/impact.md](./impact.md)):
 Sin esta sección la señal corre con los tres tipos. Un tipo desconocido
 es un error con el path exacto (`$.contracts.types`).
 
+### `history` (opcional)
+
+Guarda cada informe de impacto y deriva, para poder mirar la evolución más
+allá del comentario efímero de una PR. **Desactivado por defecto**: sin esta
+sección no se escribe nada, ni siquiera se crea el directorio.
+
+```json
+{
+  "history": { "enabled": true, "dir": ".kjw-history", "retentionDays": 90 }
+}
+```
+
+| Clave           | Tipo    | Default         | Notas                                        |
+| --------------- | ------- | --------------- | -------------------------------------------- |
+| `enabled`       | boolean | `false`         | Opt-in explícito                             |
+| `dir`           | string  | `.kjw-history`  | Relativo al workspace                        |
+| `retentionDays` | int     | sin retención   | `>= 1`. Sin declararlo **no se borra nada**  |
+
+Va a **fichero**, no a base de datos: un `reports.ndjson` con una línea por
+run. Una instancia arranca sin base de datos y el historial no debería ser
+el motivo de montar una; además así se lee con cualquier herramienta.
+
+Cada registro guarda cuándo se produjo, el repo, el resumen del diff, las
+entradas **con su evidencia** —incluidos los identificadores de contrato
+citados— y **con qué store y embedder se midió**, porque los scores no son
+comparables entre backends.
+
+Los textos pasan por `redactPII` campo a campo, igual que el informe.
+
 ### `policy` (opcional)
 
 Sensitivity policy propia del despliegue: mapa nivel → adapters LLM
