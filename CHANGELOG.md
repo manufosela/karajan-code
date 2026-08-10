@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.16.0] - 2026-08-10
+
 ### Fixed
 
 - **Disabled sonar rules are ALL ignored now** (KJC-BUG-0139, PR #1411): `buildScannerOpts` declared `sonar.issue.ignore.multicriteria` once per rule — last definition wins, so with the default `[S1116, S3776]` only S3776 was really ignored and S1116 kept reporting on every kj scan despite being "disabled". The list property is now declared once with every entry; the old test locked the broken shape and was rewritten to the real contract.
