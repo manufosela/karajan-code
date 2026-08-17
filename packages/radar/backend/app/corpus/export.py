@@ -13,12 +13,15 @@ public). ``quarantine/`` is simply not indexed: everything indexed is
 servable, since retrieval does not filter, so an item carrying an injection
 attempt has to be stopped here or not at all.
 
-What happens to documents left over from a previous export is a separate
-question, and its own change: this one writes the corpus.
+Each export rewrites those directories from empty rather than updating them in
+place. A corpus that keeps a document for an item that was deleted, or two
+copies of one whose identifier changed, answers questions with material the
+radar no longer stands behind -- and nothing downstream can tell that it did.
 """
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -75,8 +78,7 @@ class CorpusExporter:
         Returns:
             Counts of what was written and what was held back.
         """
-        for name in _MANAGED_DIRS:
-            (self._root / name).mkdir(parents=True, exist_ok=True)
+        self._clear_managed_dirs()
 
         items = list((await session.execute(select(ResearchItem))).scalars().all())
         quarantined = 0
@@ -99,6 +101,19 @@ class CorpusExporter:
             quarantined=result.quarantined,
         )
         return result
+
+    def _clear_managed_dirs(self) -> None:
+        """Start each export from empty, and touch nothing else.
+
+        Only the three directories this writes are removed. The root is also
+        where an operator keeps ``karajan.config.json`` and where karajan-rag
+        leaves its index; wiping the root would take both with it.
+        """
+        for name in _MANAGED_DIRS:
+            directory = self._root / name
+            if directory.exists():
+                shutil.rmtree(directory)
+            directory.mkdir(parents=True)
 
     def _write(self, directory: str, item: ResearchItem, document: str) -> None:
         """Write one document, named so the two halves of an item line up."""

@@ -68,3 +68,10 @@ pnpm-debug.log*
 !.karajan/hooks/pre-push
 !.karajan/hooks/post-merge
 !.karajan/adrs/
+
+# The exported corpus is data, not source: it is rebuilt from the database by
+# `python -m app.jobs.export_corpus` and can carry internal analysis. Only the
+# engine config and the README that explains the layout are tracked.
+backend/corpus/sources/
+backend/corpus/analysis/
+backend/corpus/quarantine/
