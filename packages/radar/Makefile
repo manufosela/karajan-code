@@ -1,4 +1,4 @@
-.PHONY: up down logs test test-backend test-frontend smoke lint lint-backend lint-frontend migrate migration shell-api shell-db clean
+.PHONY: up down logs test test-backend test-frontend smoke export-corpus lint lint-backend lint-frontend migrate migration shell-api shell-db clean
 
 up:
 	docker compose up --build -d
@@ -24,6 +24,11 @@ smoke:
 	docker compose up -d db
 	cd backend && DATABASE_URL=postgresql+asyncpg://radar_user:radar_dev_password@localhost:5432/karajan_radar \
 		uv run pytest tests/smoke -m smoke -p no:cacheprovider
+
+# Write the corpus karajan-rag indexes. See backend/corpus/README.md for why
+# the folder layout is what decides each document's sensitivity.
+export-corpus:
+	docker compose exec api python -m app.jobs.export_corpus ./corpus
 
 lint: lint-backend lint-frontend
 

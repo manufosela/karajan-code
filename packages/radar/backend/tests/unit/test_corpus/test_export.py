@@ -129,3 +129,45 @@ class TestQuarantineIsNotIndexed:
         assert result.items == 2
         assert result.quarantined == 1
         assert result.exported == 1
+
+
+class TestExportingAgain:
+    async def test_a_document_for_a_deleted_item_does_not_survive(self, test_session, root) -> None:
+        """Otherwise the corpus keeps answering with material the radar no
+        longer stands behind, and nothing downstream can tell."""
+        source = await _source(test_session)
+        item = await _item(test_session, source)
+        await CorpusExporter(root).export(test_session)
+
+        await test_session.delete(item)
+        await test_session.flush()
+        await CorpusExporter(root).export(test_session)
+
+        assert not (root / SOURCES_DIR / f"{item.id}.md").exists()
+
+    async def test_an_item_that_stopped_being_quarantined_leaves_quarantine(self, test_session, root) -> None:
+        """The scan catalogue changes. A finding that a later version no
+        longer makes should not strand the item out of the corpus forever."""
+        source = await _source(test_session)
+        item = await _item(test_session, source, injection_scan=_FLAGGED)
+        await CorpusExporter(root).export(test_session)
+
+        item.injection_scan = _CLEAN
+        await test_session.flush()
+        await CorpusExporter(root).export(test_session)
+
+        assert not (root / QUARANTINE_DIR / f"{item.id}.md").exists()
+        assert (root / SOURCES_DIR / f"{item.id}.md").exists()
+
+    async def test_it_leaves_the_rest_of_the_root_alone(self, test_session, root) -> None:
+        """The root is where an operator keeps karajan.config.json and where
+        karajan-rag leaves its index. Wiping the root would take both."""
+        source = await _source(test_session)
+        await _item(test_session, source)
+        await CorpusExporter(root).export(test_session)
+
+        config = root / "karajan.config.json"
+        config.write_text("{}", encoding="utf-8")
+        await CorpusExporter(root).export(test_session)
+
+        assert config.exists()

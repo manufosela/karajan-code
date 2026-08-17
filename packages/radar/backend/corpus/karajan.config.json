@@ -1,0 +1,8 @@
+{
+  "easy": {
+    "sensitivity": "internal",
+    "sensitivityRules": [
+      { "prefix": "sources/", "level": "public" }
+    ]
+  }
+}
