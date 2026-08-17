@@ -232,6 +232,145 @@ describe("sentinel-lib (shared single source)", () => {
   });
 });
 
+// MONO-0 (KJC-TSK-0737, ADR 0002) — lane boundary: a session mutates only
+// ITS worktree. Same repo (git-common-dir) + another toplevel ⇒ deny BEFORE
+// the damage; reads and non-repo paths untouched; the escape is audited.
+describe("pretooluse-sentinel lane boundary (MONO-0)", () => {
+  let gate, lane;
+  beforeEach(() => {
+    gate = path.join(dir, ".karajan", "harness", "pretooluse-sentinel.mjs");
+    lane = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "kj-lane-")), "wt");
+    execSync(`git worktree add --detach ${lane}`, { cwd: dir });
+    fs.mkdirSync(path.join(lane, "src"), { recursive: true });
+    fs.writeFileSync(path.join(lane, "src", "x.js"), "x");
+  });
+  afterEach(() => {
+    execSync(`git worktree remove --force ${lane}`, { cwd: dir });
+  });
+  const laneEdit = () => ({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(lane, "src", "x.js") } });
+
+  it("denies an Edit into a sibling worktree of the same repo, naming the lane", () => {
+    const res = run(gate, laneEdit());
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+    expect(res.stderr).toContain(lane);
+  });
+
+  it("KJ_ALLOW_CROSS_LANE=1 passes AND records the auditable escape", () => {
+    const res = run(gate, laneEdit(), { KJ_ALLOW_CROSS_LANE: "1" });
+    expect(res.status).toBe(0);
+    expect(state().escape_events.some((e) => e.escape === "KJ_ALLOW_CROSS_LANE")).toBe(true);
+  });
+
+  it("denies Bash that mutates a sibling-lane path; read-only Bash passes", () => {
+    const mut = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${path.join(lane, "src", "x.js")}` } });
+    expect(mut.status).toBe(2);
+    expect(mut.stderr).toContain("carril");
+    const wipe = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `rm -rf ${lane}` } });
+    expect(wipe.status).toBe(2);
+    const ro = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `grep -rn foo ${path.join(lane, "src")}` } });
+    expect(ro.status).toBe(0);
+  });
+
+  it("expansion hiding a destructive target is denied; benign $ usage passes (solomon ruling)", () => {
+    const bash = (command, env = {}) => run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command } }, env);
+    expect(bash("rm -rf $LANE").status).toBe(2);
+    expect(bash("echo hi > $OUT").status).toBe(2);
+    expect(bash("tee `cat target`").status).toBe(2);
+    expect(bash("rm -rf $LANE", { KJ_ALLOW_CROSS_LANE: "1" }).status).toBe(0);
+    // Multilinea nunca es "lectura simple" (reviewer catch): la 2a linea muta.
+    expect(bash(`git status\nsed -i s/a/b/ ${path.join(lane, "src", "x.js")}`).status).toBe(2);
+    // Expansion en herramienta generica (chmod/touch/interprete): deny.
+    expect(bash("chmod 755 $F").status).toBe(2);
+    expect(bash('python -c "open(\'$F\')"').status).toBe(2);
+    // find muta con -delete/-exec: no es read-only y sus paths se escanean.
+    expect(bash(`find ${path.join(lane, "src")} -delete`).status).toBe(2);
+    // A "read-only" verb with substitution is NOT read-only (reviewer catch).
+    expect(bash(`grep foo $(true) ${path.join(lane, "src")}`.replace("$(true)", "$(rm -rf $L)")).status).toBe(2);
+    // Command substitution EXECUTES anywhere — denied even in runner args;
+    // plain $VARs in toolchain-runner segments stay allowed.
+    expect(bash('git commit -m "release $(date +%F)"').status).toBe(2);
+    expect(bash("FOO=$BAR npm test").status).toBe(0);
+    expect(bash("git commit -m $MSG").status).toBe(0);
+  });
+
+  it("bare relative paths into an in-tree lane (.kj/worktrees/…) are denied; sed patterns never false-positive (reviewer catch)", () => {
+    const inTree = path.join(dir, ".kj", "worktrees", "wt2");
+    execSync(`git worktree add --detach ${inTree}`, { cwd: dir });
+    fs.mkdirSync(path.join(inTree, "src"), { recursive: true });
+    fs.writeFileSync(path.join(inTree, "src", "x.js"), "x");
+    const spawn = (command) => spawnSync("node", [gate], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command } }),
+      encoding: "utf8", cwd: dir, env: { ...process.env },
+    });
+    const bare = spawn("sed -i s/a/b/ .kj/worktrees/wt2/src/x.js");
+    expect(bare.status).toBe(2);
+    expect(bare.stderr).toContain("carril");
+    const sedOnly = spawn("sed -i s/a/b/ notas.txt");
+    expect(sedOnly.status).toBe(0);
+    // cd/pushd en comando mutador: deny conservador SIEMPRE — bare, con $,
+    // o relativas post-cd, todas las variantes de la carrera de bypasses.
+    for (const evil of ["cd .kj/worktrees/wt2 && rm x.js", "cd $L && rm x.js", "cd .kj/worktrees && rm -rf wt2"]) {
+      const res = spawn(evil);
+      expect(res.status).toBe(2);
+      expect(res.stderr).toContain("cd");
+    }
+    execSync(`git worktree remove --force ${inTree}`, { cwd: dir });
+  });
+
+  it("a local symlink into a foreign lane is canonicalized and denied (reviewer catch)", () => {
+    fs.symlinkSync(path.join(lane, "src"), path.join(dir, "sneaky"));
+    const res = run(gate, { session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(dir, "sneaky", "x.js") } });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+  });
+
+  it("cd/pushd in any mutating command is denied conservatively; mutating without cd in own tree passes", () => {
+    const res = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: "cd /tmp && rm -rf ../whatever" } });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("cd");
+    const own = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `rm -f ${path.join(dir, "notas.txt")}` } });
+    expect(own.status).toBe(0);
+  });
+
+  it("a write under a NOT-yet-existing lane subdir is denied — walks up to an existing ancestor (reviewer catch)", () => {
+    const res = run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(lane, "newdir", "deep", "file.js") } });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+  });
+
+  it("unlisted mutators and cd-chains into a lane are denied — deny-unless-read-only (reviewer catch)", () => {
+    const dd = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `dd if=/dev/zero of=${path.join(lane, "src", "img")} count=1` } });
+    expect(dd.status).toBe(2);
+    const cdChain = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `cd ${lane} && make build` } });
+    expect(cdChain.status).toBe(2);
+  });
+
+  it("a redirection glued to the path (>/lane/file) is denied too (reviewer catch)", () => {
+    const res = run(gate, { session_id: "s1", tool_name: "Bash", tool_input: { command: `echo x >${path.join(lane, "src", "out.txt")}` } });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+  });
+
+  it("relative ../ paths into a sibling lane are resolved and denied too (reviewer catch)", () => {
+    const rel = path.relative(dir, path.join(lane, "src", "x.js"));
+    const res = spawnSync("node", [gate], {
+      input: JSON.stringify({ session_id: "s1", tool_name: "Bash", tool_input: { command: `sed -i s/a/b/ ${rel}` } }),
+      encoding: "utf8",
+      cwd: dir,
+      env: { ...process.env },
+    });
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("carril");
+  });
+
+  it("same-tree edits and non-repo paths stay untouched", () => {
+    expect(run(gate, editTool(path.join(dir, "src", "ok.js"))).status).toBe(0);
+    const outside = path.join(os.tmpdir(), "kj-nolane-note.md");
+    expect(run(gate, { session_id: "s1", tool_name: "Write", tool_input: { file_path: outside } }).status).toBe(0);
+  });
+});
+
 describe("installSentinelHooks settings merge", () => {
   it("wires PostToolUse and Stop idempotently, preserving the user's entries", () => {
     const settings = path.join(dir, ".claude", "settings.json");

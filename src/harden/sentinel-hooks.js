@@ -49,6 +49,21 @@ export const branchOf = () => {
   try { return execSync("git rev-parse --abbrev-ref HEAD", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
   catch { return null; }
 };
+const _git = (args, cwd) => {
+  try { return execSync("git " + args, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return ""; }
+};
+let _home;
+// MONO-0 (ADR 0002): lane identity = worktree toplevel; repo identity =
+// git-common-dir. Same repo but another toplevel than OUR root => foreign
+// lane (returns its toplevel); anything else => null.
+export const foreignLane = (targetDir) => {
+  const top = _git("rev-parse --show-toplevel", targetDir);
+  if (!top) return null;
+  _home ||= { top: _git("rev-parse --show-toplevel", ROOT), common: _git("rev-parse --path-format=absolute --git-common-dir", ROOT) };
+  if (!_home.top || top === _home.top) return null;
+  const common = _git("rev-parse --path-format=absolute --git-common-dir", targetDir);
+  return common && common === _home.common ? top : null;
+};
 export const violations = (s, branch) => {
   const v = [];
   if (!s || !(s.edited_sources || []).length) return v;
@@ -177,9 +192,10 @@ const PRETOOL_BODY = `#!/usr/bin/env node
 // before the damage, not in the post-mortem. Exit 2 blocks (stderr says the
 // remediation); read-only tools are never wired here; every honored escape
 // is recorded as an auditable event. Fails OPEN on anything unexpected.
-import { relative } from "node:path";
+import { dirname, relative, resolve } from "node:path";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, load, violations, recordEscape } from "./sentinel-lib.mjs";
+import { CODE, TESTS, ROOT, BASE_BRANCHES, CARD, branchOf, foreignLane, load, violations, recordEscape } from "./sentinel-lib.mjs";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const PUBLISH = /\\bnpm\\s+publish\\b|\\bfirebase\\s+deploy\\b|\\bgh\\s+release\\s+create\\b/;
 const PUSH = /\\bgit\\s+push\\b/;
@@ -210,6 +226,109 @@ process.stdin.on("end", () => {
       process.exit(2);
     }
     if (process.env.KJ_SENTINEL_OFF === "1") process.exit(0);
+    // MONO-0 (KJC-TSK-0737, ADR 0002): cada sesion muta solo SU worktree;
+    // otro carril del MISMO repo se deniega ANTES del dano. Lectura libre.
+    const laneOf = (p) => {
+      // Sube al primer ancestro EXISTENTE (un subdir aun no creado escapaba).
+      let d = String(p);
+      if (!(existsSync(d) && statSync(d).isDirectory())) d = dirname(d);
+      while (d && !existsSync(d)) {
+        const up = dirname(d);
+        if (up === d) return null;
+        d = up;
+      }
+      // Canonicaliza (reviewer catch: un symlink local hacia otro carril
+      // esquivaba la clasificacion por ruta literal).
+      try { d = realpathSync(d); } catch { /* se clasifica tal cual */ }
+      return d ? foreignLane(d) : null;
+    };
+    const laneDeny = (what, lane) => {
+      if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); return false; }
+      console.error("kj sentinel: " + what + " vive en otro carril (" + lane + ") de este repo — cada sesion muta solo SU worktree (MONO-0). Cruce deliberado: KJ_ALLOW_CROSS_LANE=1, queda registrado.");
+      return true;
+    };
+    if (EDIT_TOOLS.includes(tool)) {
+      const target = input.file_path || input.notebook_path;
+      const lane = target ? laneOf(target) : null;
+      if (lane && laneDeny(String(target), lane)) process.exit(2);
+    }
+    if (tool === "Bash") {
+      const cmd = String(input.command || "");
+      // Deny-unless-known-read-only: un allowlist de verbos mutadores era
+      // esquivable (dd, interpretes). Solo un comando SIMPLE de lectura (sin
+      // encadenar ni redirigir) puede nombrar otro carril; leer carriles es
+      // trabajo de las tools Read/Grep, como con los ficheros del supervisor.
+      // Solo LITERALES: expansión/sustitución en un comando "de lectura"
+      // puede ejecutar cualquier cosa (reviewer catch: grep foo $(rm ...)).
+      // (find fuera: -delete/-exec mutan — reviewer catch; sus tokens de
+      // carril los caza el escaner de abajo.)
+      const READONLY = /^[ \\t]*(grep|rg|cat|head|tail|less|ls|wc|diff|stat|file|du|tree|git (log|show|diff|status|blame))\\b[^;|&<>$\`(){}\\n\\r]*$/;
+      if (!READONLY.test(cmd)) {
+        // cd/pushd invalida TODO razonamiento textual de rutas posteriores
+        // (carrera de bypasses confirmada en review: destino bare, con $,
+        // relativas post-cd...): en un comando NO-read-only, cambiar de
+        // directorio se deniega conservadoramente — el remedio es no
+        // necesitarlo (git -C, npm --prefix, rutas absolutas).
+        if (/(^|[;&|(\\s])(cd|pushd)([ \\t]|$)/.test(cmd)) {
+          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          else {
+            console.error("kj sentinel: cd/pushd en un comando mutador — las rutas posteriores no son verificables por el guard de carriles (MONO-0); usa git -C / npm --prefix / rutas ABSOLUTAS sin cd (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            process.exit(2);
+          }
+        }
+        // Absolute AND dot-relative tokens (../lane escapaba al primer scan —
+        // reviewer catch); relative se resuelve contra el cwd de la sesion.
+        // EVERY token (un tope seria un bypass); dedup acota el coste git.
+        // Fallo de solomon (seguridad no arbitrable) + carrera de bypasses:
+        // la expansion ($, backtick) solo se tolera en segmentos que son
+        // asignaciones puras o runners del toolchain propio (npm/pnpm/yarn/
+        // vitest/jest/kj/gh/echo/printf, git sin -C/--git-dir/--work-tree) —
+        // sus argumentos son datos. En herramientas genericas de fichero o
+        // interpretes el objetivo queda oculto al texto => deny. Los paths
+        // LITERALES (tambien dentro de sustituciones) los escanea el bucle
+        // de tokens de abajo; el residuo (expansion anidada en segmentos
+        // runner) queda documentado como en la regla de ficheros PROTECTED.
+        if (/>{1,2}[ \\t]*["']?[\\$\`]/.test(cmd)) {
+          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          else {
+            console.error("kj sentinel: redireccion con destino tras variable/sustitucion — el guard de carriles no puede verificarlo (MONO-0); usa una ruta LITERAL (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            process.exit(2);
+          }
+        }
+        // Sustitucion de comandos ($(...) o backticks) EJECUTA su contenido
+        // en cualquier posicion, y una ruta entrecomillada con espacios es
+        // invisible al tokenizador: ambas => deny conservador (endpoint
+        // pedido por el reviewer; friccion asumida, el remedio es literal).
+        if (/\\$\\(|\`/.test(cmd) || /["'][^"'\\n]*\\/[^"'\\n]* [^"'\\n]*["']/.test(cmd)) {
+          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          else {
+            console.error("kj sentinel: sustitucion de comandos o ruta entrecomillada con espacios en un comando mutador — no verificable por el guard de carriles (MONO-0); usa valores/rutas LITERALES sin sustitucion (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            process.exit(2);
+          }
+        }
+        const SAFE_EXP_SEG = /^([A-Za-z_][A-Za-z0-9_]*=[^ \\t]*[ \\t]*)*((npm|pnpm|yarn|vitest|jest|kj|gh|echo|printf|true|test)\\b|git[ \\t](?![^\\n]*(-C[ \\t]|--git-dir|--work-tree)))[^;|&\\n]*$|^[A-Za-z_][A-Za-z0-9_]*=[^;|&\\n]*$/;
+        const segs = cmd.split(/&&|\\|\\||[;|\\n]/).map((s) => s.trim()).filter(Boolean);
+        if (!segs.every((s) => !/[\\$]/.test(s) || SAFE_EXP_SEG.test(s))) {
+          if (process.env.KJ_ALLOW_CROSS_LANE === "1") { recordEscape(sid, "KJ_ALLOW_CROSS_LANE", tool); }
+          else {
+            console.error("kj sentinel: expansion de shell en una herramienta generica de fichero/interprete — el objetivo no es verificable por el guard de carriles (MONO-0); usa rutas LITERALES o un runner del toolchain (o KJ_ALLOW_CROSS_LANE=1, queda registrado).");
+            process.exit(2);
+          }
+        }
+        // ...incluidas relativas A PELO (los carriles kj viven en
+        // .kj/worktrees/). Un falso token (s/a/b/) resuelve al arbol propio
+        // y foreignLane da null — solo deniega lo que CAE en otro carril.
+        const seen = new Set();
+        for (const m of cmd.matchAll(/(?:^|[\\s"'=;(><])((?:\\.\\.?\\/)[^\\s"'\`;|&)]*|\\/[^\\s"'\`;|&)]+|~\\/[^\\s"'\`;|&)]+|[A-Za-z0-9_.@-]+\\/[^\\s"'\`;|&)]+)/g)) {
+          const t = m[1].startsWith("~/") ? (process.env.HOME || "~") + m[1].slice(1) : m[1];
+          const abs = resolve(t);
+          if (seen.has(abs)) continue;
+          seen.add(abs);
+          const lane = laneOf(abs);
+          if (lane && laneDeny(m[1], lane)) process.exit(2);
+        }
+      }
+    }
     if (EDIT_TOOLS.includes(tool)) {
       const file = input.file_path || input.notebook_path;
       const rel = file ? relative(ROOT, String(file)).replaceAll("\\\\", "/") : "";
