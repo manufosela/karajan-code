@@ -9,6 +9,7 @@ dist/
 # children of an excluded directory).
 .karajan/*
 # …the v4 contract the whole team inherits (KJC-TSK-0641):
+!.karajan/adrs/
 !.karajan/review-gate
 !.karajan/hooks/
 .karajan/hooks/*
