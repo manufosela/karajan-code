@@ -15,7 +15,11 @@ from decimal import Decimal
 import pytest
 import yaml
 
-from app.corpus.documents import render_analysis_document, render_source_document
+from app.corpus.documents import (
+    is_quarantined,
+    render_analysis_document,
+    render_source_document,
+)
 from app.models.research_item import ResearchItem
 
 
@@ -142,3 +146,27 @@ class TestTheAnalysisDocumentCarriesTheReading:
         )
 
         assert "# Polymer creep in clear aligners" in document
+
+
+class TestQuarantine:
+    def test_an_item_with_findings_is_kept_out(self) -> None:
+        """Everything exported is servable: karajan-rag's retrieval does not
+        filter, it returns each hit with its level. So this is the only place
+        the attempt can be stopped."""
+        item = _item(
+            injection_scan={
+                "catalogue_version": "1.0.0",
+                "scanned_at": "x",
+                "fields": {"abstract": [{"type": "directive", "pattern": "ignore_previous"}]},
+            }
+        )
+
+        assert is_quarantined(item)
+
+    def test_a_clean_item_is_not(self) -> None:
+        assert not is_quarantined(_item())
+
+    def test_an_item_nobody_scanned_is_not_treated_as_suspect(self) -> None:
+        """NULL means it predates the scan. Refusing to export the whole
+        pre-scan corpus would be a sweeping change made in silence."""
+        assert not is_quarantined(_item(injection_scan=None))
