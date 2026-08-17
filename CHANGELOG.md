@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Lane boundary — each session mutates only ITS worktree** (MONO-0, KJC-TSK-0737, epic KJC-PCS-0075, ADR 0002, PR #1416): the Sentinel's PreToolUse gate now denies Edit/Write/Bash mutations into a SIBLING worktree of the same repo (lane identity = worktree toplevel; repo identity = git-common-dir), before the damage — reads stay free and the `KJ_ALLOW_CROSS_LANE=1` escape is audited. Forged by 12 cross-AI review rounds and two solomon arbitrations: symlink canonicalization, not-yet-existing subdirs, absolute/dot-relative/bare/`~` token scanning with no cap, glued redirections, conservative denial of `cd`/`pushd` in mutating commands, command substitution and quoted-paths-with-spaces, and `$VAR` tolerated only in own-toolchain runner segments. This is the safety prerequisite for the family-monorepo migration (two sessions colliding on one tree was a real incident).
+
 ## [4.16.0] - 2026-08-10
 
 ### Fixed
