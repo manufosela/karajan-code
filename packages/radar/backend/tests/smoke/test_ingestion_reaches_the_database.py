@@ -42,11 +42,20 @@ async def ingested(session, monkeypatch):
     between runs: a smoke suite that leaves its own leftovers behind starts
     passing, or failing, for reasons that have nothing to do with the code.
 
+    It also sweeps up before it starts, which is not belt and braces. A
+    teardown can fail for reasons of its own -- a broken model mid-debugging
+    is enough -- and then every later run inherits sources that are still
+    disabled and items that make the deduplication call the new ones
+    duplicates. On CI the database is new each time and none of this shows;
+    locally it poisons the database until someone drops the schema.
+
     The order of the deletes is not incidental. `ingestion_runs` references
     `sources` with ON DELETE RESTRICT, so removing the source first raises --
     and PostgreSQL says so where SQLite would have let it through.
     """
     monkeypatch.setenv("RADAR_CONNECTORS", _CONNECTOR_SPEC)
+
+    await _remove_leftovers(session)
 
     # The orchestrator queries every enabled source, and the seed migration
     # leaves the real ones enabled -- so without this the smoke run goes out
@@ -81,13 +90,32 @@ async def ingested(session, monkeypatch):
     runs = await orchestrator.run_all()
     await session.commit()
 
-    yield runs, source
+    try:
+        yield runs, source
+    finally:
+        # In a finally because a failing test must not also leave the database
+        # worse than it found it: the next run would then fail for a reason
+        # that has nothing to do with what broke.
+        await _remove_leftovers(session)
+        for other in silenced:
+            other.enabled = True
+        await session.commit()
 
-    await session.execute(delete(ResearchItem).where(ResearchItem.source_id == source.id))
-    await session.execute(delete(IngestionRun).where(IngestionRun.source_id == source.id))
-    await session.execute(delete(Source).where(Source.id == source.id))
-    for other in silenced:
-        other.enabled = True
+
+async def _remove_leftovers(session) -> None:
+    """Delete anything a previous run of this fixture left behind.
+
+    By source name rather than by id, because the leftovers are precisely the
+    ones whose id nobody kept. Deletes children first: `ingestion_runs`
+    references `sources` with ON DELETE RESTRICT.
+    """
+    stale = (await session.execute(select(Source.id).where(Source.name == _SOURCE_NAME))).scalars().all()
+    if not stale:
+        return
+
+    await session.execute(delete(ResearchItem).where(ResearchItem.source_id.in_(stale)))
+    await session.execute(delete(IngestionRun).where(IngestionRun.source_id.in_(stale)))
+    await session.execute(delete(Source).where(Source.id.in_(stale)))
     await session.commit()
 
 
