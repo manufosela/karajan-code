@@ -15,11 +15,17 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from alembic import command
+
 pytestmark = pytest.mark.smoke
+
+_BACKEND = Path(__file__).resolve().parents[2]
 
 _ASYNC_PREFIX = "postgresql+asyncpg://"
 
@@ -60,6 +66,32 @@ def sync_database_url(database_url: str) -> str:
     disagreeing about which database was migrated -- it is the same URL.
     """
     return database_url.replace(_ASYNC_PREFIX, "postgresql+psycopg://")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def schema_at_head(database_url: str) -> str:
+    """Bring the live database up to head before anything else runs.
+
+    Autouse and session-scoped because every test here needs the schema, and
+    only one file used to apply it. That worked locally, where the database
+    survives between runs and was already migrated, and failed on CI, where it
+    is empty and the ingestion file happens to sort first: `relation "sources"
+    does not exist`.
+
+    A suite must guarantee its own precondition rather than inherit it from
+    whatever ran before, or the order of the filenames becomes part of the
+    contract without anyone deciding that it should be.
+
+    Alembic gets the async URL and converts it itself, which is the code path
+    a real deployment takes; handing it a pre-converted one would skip the
+    conversion most likely to be wrong.
+    """
+    config = Config(str(_BACKEND / "alembic.ini"))
+    config.set_main_option("script_location", str(_BACKEND / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url)
+
+    command.upgrade(config, "head")
+    return database_url
 
 
 @pytest.fixture

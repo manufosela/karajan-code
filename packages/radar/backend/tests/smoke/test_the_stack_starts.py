@@ -11,11 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, inspect
-
-from alembic import command
 
 pytestmark = pytest.mark.smoke
 
@@ -27,19 +24,14 @@ _BACKEND = Path(__file__).resolve().parents[2]
 _ESSENTIAL_TABLES = {"sources", "research_items", "configuration", "ingestion_runs"}
 
 
-@pytest.fixture(scope="module")
-def migrated(database_url: str, sync_database_url: str) -> str:
-    """Bring the live database up to head, once for this module.
+@pytest.fixture
+def migrated(schema_at_head: str, sync_database_url: str) -> str:
+    """The migrated database, ready to inspect over the sync driver.
 
-    Alembic gets the async URL and converts it itself, which is the code path
-    a real deployment takes. Handing it a pre-converted URL would skip the
-    very conversion most likely to be wrong.
+    Applying the migrations is `schema_at_head` in the conftest, autouse for
+    the whole suite: every file here needs the schema, so no single file
+    should be the one that happens to create it.
     """
-    config = Config(str(_BACKEND / "alembic.ini"))
-    config.set_main_option("script_location", str(_BACKEND / "alembic"))
-    config.set_main_option("sqlalchemy.url", database_url)
-
-    command.upgrade(config, "head")
     return sync_database_url
 
 
