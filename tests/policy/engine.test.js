@@ -2,7 +2,7 @@
 // cargar), engine as code (puro, fs inyectado, deny-wins).
 
 import { describe, it, expect } from "vitest";
-import { loadPolicy, evalToolCall } from "../../src/policy/engine.js";
+import { checkStagedDiff, evalToolCall, loadPolicy } from "../../src/policy/engine.js";
 
 const load = (yamlText) =>
   loadPolicy({ projectDir: "/p", deps: { readFile: () => yamlText } });
@@ -14,8 +14,15 @@ roles:
     write:
       allow: ["src/**", "tests/**"]
       deny: ["**/*.env*", ".github/workflows/**"]
+    shell:
+      deny: ["git add -A*", "git push*", "curl *"]
   reviewer:
     write: { allow: [] }
+invariants:
+  - id: loc-budget
+    kind: diff-threshold
+    metric: net_lines_added
+    max: 200
 `;
 
 describe("loadPolicy", () => {
@@ -29,8 +36,9 @@ describe("loadPolicy", () => {
   it("everything undeclarable fails LOUD at load — closed vocabulary, strict shapes, one version", () => {
     expect(load("version: 1\ninvariants:\n  - id: x\n    kind: quantum-vibes\n").errors.some((e) => e.includes("quantum-vibes"))).toBe(true);
     expect(load("version: 1\nroles:\n  coder:\n    teleport: {}\n").errors.some((e) => e.includes("teleport"))).toBe(true);
-    // shell entra en la parte 2 CON su evaluación — hoy declararlo es error.
-    expect(load("version: 1\nroles:\n  coder:\n    shell: {deny: ['curl *']}\n").errors.some((e) => e.includes("shell"))).toBe(true);
+    // Un invariant con kind válido pero forma incompleta o max no-finito falla.
+    expect(load("version: 1\ninvariants:\n  - id: x\n    kind: diff-threshold\n").errors.some((e) => e.includes("max"))).toBe(true);
+    expect(load("version: 1\ninvariants:\n  - id: x\n    kind: diff-threshold\n    metric: net_lines_added\n    max: .nan\n").errors.some((e) => e.includes("max"))).toBe(true);
     expect(load("version: 7\n").errors.some((e) => e.includes("version"))).toBe(true);
     expect(load("version: 1\ninvariants: nope\n").errors.some((e) => e.includes("lista"))).toBe(true);
     expect(load('version: 1\nroles:\n  coder:\n    write: si\n').errors.some((e) => e.includes("objeto"))).toBe(true);
@@ -93,8 +101,81 @@ describe("evalToolCall — write", () => {
   it("a DECLARED role using a tool outside the registry is denied — unknown is unverifiable (solomon ruling)", () => {
     expect(evalToolCall(policy, { role: "coder", tool: "TeleportFiles", input: {} })).toMatchObject({ decision: "deny", rule_id: "roles.coder.tools" });
     expect(evalToolCall(policy, { role: "tester", tool: "TeleportFiles", input: {} }).decision).toBe("allow");
-    // Bash es conocida (su kind shell llega en la parte 2) — no se deniega.
-    expect(evalToolCall(policy, { role: "coder", tool: "Bash", input: { command: "ls" } }).decision).toBe("allow");
+  });
+});
+
+describe("evalToolCall — shell (por segmento)", () => {
+  const { policy } = load(POLICY);
+  const bash = (command, role = "coder") => evalToolCall(policy, { role, tool: "Bash", input: { command } });
+
+  it("deniega si CUALQUIER segmento casa un patrón denegado (el clásico git add -A)", () => {
+    expect(bash("npx vitest run && git add -A")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell.deny" });
+    expect(bash("git add -A")).toMatchObject({ decision: "deny" });
+  });
+
+  it("comandos limpios pasan; roles sin shell declarado quedan libres; comando ausente deniega", () => {
+    expect(bash("npx vitest run").decision).toBe("allow");
+    expect(bash("git push", "tester").decision).toBe("allow");
+    expect(bash(undefined)).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+  });
+
+  it("el quoting se canonicaliza y la evasión por comillas/escapes/cabecera-variable deniega (reviewer catch)", () => {
+    expect(bash('"git" push origin')).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell.deny" });
+    expect(bash("git 'add' -A")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell.deny" });
+    expect(bash("git\\ push x")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    expect(bash("$G push")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    // $ expandible en CUALQUIER posición = opaco; entre comillas simples es literal.
+    expect(bash("git push $REMOTE")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    expect(bash("git commit -m 'precio en $'").decision).toBe("allow");
+    // Comillas legítimas en argumentos no molestan al prefijo, y un ';'
+    // DENTRO de comillas no es separador (reviewer catch).
+    expect(bash('git commit -m "release 4.17"').decision).toBe("allow");
+    expect(bash('git commit -m "a;b && c"').decision).toBe("allow");
+  });
+
+  it("launchers y asignaciones se pelan: el patrón caza el subcomando real (reviewer catch)", () => {
+    expect(bash("sudo git push origin main")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell.deny" });
+    expect(bash("env FOO=1 git add -A")).toMatchObject({ decision: "deny" });
+    expect(bash("NODE_ENV=test nohup curl http://x")).toMatchObject({ decision: "deny" });
+    expect(bash("FOO=1 npx vitest run").decision).toBe("allow");
+    // Redirecciones y backgrounding no están modelados ⇒ opacos.
+    expect(bash("git status > out.txt")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    expect(bash("npx vitest run & npx vitest run")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    expect(bash("git commit -m 'a > b'").decision).toBe("allow");
+    // Asignaciones que cambian QUÉ ejecutable resuelve = opacas.
+    expect(bash("PATH=/tmp/evil git status")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    expect(bash("FOO=$BAR git status")).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+  });
+
+  it("envolturas, sustitución y eval son texto opaco ⇒ deny (reviewer catch, clase del Sentinel)", () => {
+    for (const evil of ['sh -c "git add -A"', "bash -lc 'git push'", "echo $(git push)", "eval git push", "xargs rm < lista", "diff <(git push) x", "tee >(git push)"]) {
+      expect(bash(evil)).toMatchObject({ decision: "deny", rule_id: "roles.coder.shell" });
+    }
+  });
+
+  it("con allow-list, TODO segmento debe casar", () => {
+    const { policy: p2 } = load('version: 1\nroles:\n  ci:\n    shell: {allow: ["npm *", "npx *"]}\n');
+    expect(evalToolCall(p2, { role: "ci", tool: "Bash", input: { command: "npm test && npx vitest run" } }).decision).toBe("allow");
+    expect(evalToolCall(p2, { role: "ci", tool: "Bash", input: { command: "npm test && rm -rf x" } })).toMatchObject({ decision: "deny", rule_id: "roles.ci.shell.allow" });
+  });
+});
+
+describe("checkStagedDiff — el gate del resultado", () => {
+  const { policy } = load(POLICY);
+
+  it("flagea ficheros write-deny del diff y el presupuesto de líneas", () => {
+    const v = checkStagedDiff(policy, { role: "coder", files: ["src/ok.js", ".github/workflows/x.yml"], netLinesAdded: 250 });
+    expect(v.some((x) => x.rule_id === "roles.coder.write.deny" && x.file === ".github/workflows/x.yml")).toBe(true);
+    expect(v.some((x) => x.rule_id === "loc-budget" && x.reason.includes("250"))).toBe(true);
+  });
+
+  it("un diff limpio devuelve cero violaciones", () => {
+    expect(checkStagedDiff(policy, { role: "coder", files: ["src/a.js"], netLinesAdded: 10 })).toEqual([]);
+  });
+
+  it("métrica ausente con invariante declarado = violación, no pase silencioso (reviewer catch)", () => {
+    const v = checkStagedDiff(policy, { role: "coder", files: [] });
+    expect(v.some((x) => x.rule_id === "loc-budget" && x.reason.includes("no disponible"))).toBe(true);
   });
 });
 
