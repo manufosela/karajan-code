@@ -1,0 +1,7 @@
+{
+  "repos": [
+    { "name": "backend-api" },
+    { "name": "web-frontend" },
+    { "name": "shared-libs", "sensitivity": "confidential" }
+  ]
+}

@@ -1,0 +1,34 @@
+# Cobertura con mínimo exigido (KJW-TSK-0028).
+#
+# 135 tests en verde no dicen qué parte del código se ejercita. Los umbrales
+# son los mismos que exige karajan-rag, para que la familia mida igual, y
+# están por debajo de la cifra actual con margen deliberado: un gate clavado
+# donde ya se llega salta con cualquier línea nueva y acaba desactivándose.
+#
+# Vive en su propio workflow y no dentro de kj-quality.yml porque ese lo
+# regenera `kj env install`.
+name: Coverage
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cobertura con mínimo exigido
+        run: pnpm run coverage

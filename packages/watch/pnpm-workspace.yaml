@@ -1,0 +1,5 @@
+# Los backends de store (@lancedb/lancedb, pg) se declaran como peers
+# opcionales para que el paquete anuncie lo que necesita. Desarrollar aquí no
+# debe obligar a instalar AMBOS ni sus binarios nativos: el smoke instala el
+# que le toca en su directorio limpio, y quien despliega instala el suyo.
+autoInstallPeers: false

@@ -1,0 +1,23 @@
+node_modules/
+.karajan/*
+# …except the v4 environment contract, which the whole team inherits:
+!.karajan/review-gate
+!.karajan/hooks/
+.karajan/hooks/*
+!.karajan/hooks/pre-commit
+!.karajan/hooks/commit-msg
+!.karajan/hooks/pre-push
+!.karajan/hooks/post-merge
+!.karajan/adrs/
+coverage/
+*.log
+.serena/
+
+# Karajan Code
+.kj/
+.agent/
+.scannerwork/
+.reviews/
+
+# Artefactos de npm pack
+*.tgz

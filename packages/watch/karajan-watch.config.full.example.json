@@ -1,0 +1,29 @@
+{
+  "repos": [
+    { "name": "backend-api", "branch": "main", "sensitivity": "internal" },
+    { "name": "web-frontend" },
+    { "name": "shared-libs", "sensitivity": "confidential" }
+  ],
+  "corpus": {
+    "code": { "store": "pgvector", "embedder": "transformers", "sensitivity": "internal" },
+    "docs": { "store": "pgvector", "embedder": "transformers", "sensitivity": "internal" }
+  },
+  "impact": {
+    "thresholds": { "minSimilarity": 0.55, "maxCandidates": 20 }
+  },
+  "contracts": {
+    "enabled": true,
+    "types": ["http", "event", "sql"]
+  },
+  "policy": {
+    "confidential": ["ollama"],
+    "internal": ["ollama", "azure-openai"],
+    "public": ["claude", "codex", "gemini"]
+  },
+  "notify": {
+    "targets": [
+      { "type": "pr-comment" },
+      { "type": "webhook", "url": "https://chat.example.com/hooks/impact-alerts" }
+    ]
+  }
+}

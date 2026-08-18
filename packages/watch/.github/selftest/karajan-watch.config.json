@@ -1,0 +1,11 @@
+{
+  "repos": [
+    { "name": "karajan-watch", "sensitivity": "public" },
+    { "name": "karajan-rag", "sensitivity": "public" }
+  ],
+  "corpus": {
+    "code": { "store": "lancedb", "embedder": "hash", "sensitivity": "public" },
+    "docs": { "store": "lancedb", "embedder": "hash", "sensitivity": "public" }
+  },
+  "impact": { "thresholds": { "minSimilarity": 0, "maxCandidates": 20 } }
+}

@@ -1,0 +1,177 @@
+# Workflow REUSABLE de deriva de documentación (F3).
+#
+# Tras el merge de un repo observado, consulta el corpus docs con el diff
+# y avisa de qué secciones de documentación pueden quedar desactualizadas.
+# No usa co-cambios: el clone es shallow (depth 1), como en la ingesta.
+name: kjw-drift
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organización de GitHub dueña de los repos observados
+        type: string
+        required: true
+      repo:
+        description: Repo observado cuyo merge se analiza
+        type: string
+        required: true
+      base-sha:
+        description: SHA base del merge
+        type: string
+        required: true
+      head-sha:
+        description: SHA mergeado
+        type: string
+        required: true
+      pr-number:
+        description: Nº de PR donde comentar (target pr-comment)
+        type: string
+        default: ''
+      judge:
+        description: Activar el juicio LLM de filtrado de ruido
+        type: boolean
+        default: false
+      config-path:
+        description: Ruta del karajan-watch.config.json en el repo que llama
+        type: string
+        default: karajan-watch.config.json
+      workspace-dir:
+        description: Directorio del workspace multi-repo
+        type: string
+        default: .kjw-workspace
+      karajan-watch-version:
+        description: Versión de karajan-watch a ejecutar
+        type: string
+        default: latest
+    secrets:
+      REPOS_TOKEN:
+        description: >-
+          Token con lectura de todos los repos observados y, si se usa el
+          target pr-comment, permiso de escritura de comentarios en el repo
+          observado.
+        required: true
+      PG_URL:
+        description: Conexión pgvector del corpus docs (si el store es pgvector)
+        required: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Montar workspace multi-repo
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          ORG: ${{ inputs.org }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+        run: |
+          set -euo pipefail
+          # Auth por header (patrón actions/checkout): el token no entra en
+          # la URL remota, ni en .git/config, ni en mensajes de error.
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          mkdir -p "$WS"
+          jq -c '.repos[]' "$CONFIG" | while read -r repo; do
+            name=$(jq -r '.name' <<<"$repo")
+            branch=$(jq -r '.branch // "main"' <<<"$repo")
+            echo "clonando $ORG/$name@$branch"
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+              clone --quiet --depth 1 --branch "$branch" \
+              "https://github.com/${ORG}/${name}.git" "$WS/$name"
+          done
+
+      # Con un store de fichero (lancedb) el corpus VIVE en el workspace, y
+      # este job corre en una máquina distinta de la que ingestó: sin
+      # restaurarlo no habría documentación que consultar. Con pgvector es
+      # inocuo. El fallback sin corpus cubre que hoy code y docs comparten
+      # índice cuando el store es de fichero.
+      - name: Restaurar el corpus indexado por la ingesta
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ inputs.workspace-dir }}/.karajan
+          key: kjw-manifest-docs-${{ github.run_id }}
+          restore-keys: |
+            kjw-manifest-docs-
+            kjw-manifest-
+
+      - name: Extraer diff del merge
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          BASE: ${{ inputs.base-sha }}
+          HEAD: ${{ inputs.head-sha }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          git -C "$WS/$REPO" -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+            fetch --quiet --deepen=50 origin
+          git -C "$WS/$REPO" cat-file -e "$BASE^{commit}" || { echo "base $BASE fuera del historial superficial"; exit 1; }
+          git -C "$WS/$REPO" cat-file -e "$HEAD^{commit}" || { echo "head $HEAD fuera del historial superficial"; exit 1; }
+          git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
+          test -s merge.diff || { echo "diff vacío entre $BASE y $HEAD"; exit 1; }
+
+      # El backend del store es un peer que el motor no arrastra: sin él la
+      # deriva muere pidiéndolo. Se instala LOCAL junto a karajan-watch —no
+      # con npx efímero— para que la resolución del módulo lo encuentre.
+      - name: Instalar karajan-watch y el backend del store
+        env:
+          CONFIG: ${{ inputs.config-path }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+        run: |
+          set -euo pipefail
+          store=$(jq -r '.corpus.docs.store' "$CONFIG")
+          case "$store" in
+            lancedb) peer='@lancedb/lancedb' ;;
+            pgvector) peer='pg' ;;
+            in-memory) peer='' ;;
+            *) echo "store no soportado en $CONFIG: $store"; exit 1 ;;
+          esac
+          echo "store declarado: $store${peer:+ (backend $peer)}"
+          npm install --no-save --silent "karajan-watch@${KJW_VERSION}" ${peer:+"$peer"}
+
+      - name: Detectar deriva de docs y avisar
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          GITHUB_REPOSITORY: ${{ inputs.org }}/${{ inputs.repo }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          JUDGE: ${{ inputs.judge }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+        run: |
+          set -euo pipefail
+          args=(--config "$CONFIG" --workspace "$WS" --repo "$REPO" --diff merge.diff)
+          # Con `set -e`, un `[ ] && cmd` que da falso aborta el paso entero:
+          # como judge viene desactivado por defecto, la deriva NUNCA llegaba
+          # a ejecutarse. Tiene que ser un if.
+          if [ "$JUDGE" = "true" ]; then
+            args+=(--judge)
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            case "$PR_NUMBER" in
+              *[!0-9]*) echo "pr-number inválido: $PR_NUMBER"; exit 1 ;;
+              *) args+=(--pr-number "$PR_NUMBER") ;;
+            esac
+          fi
+          # El informe queda además en un fichero: un job verde no dice nada
+          # sobre qué documentación quedó señalada, y quien despliega querrá
+          # leerlo o archivarlo. pipefail ya está activo, así que un fallo
+          # del CLI sigue tumbando el paso aunque `tee` termine bien.
+          ./node_modules/.bin/karajan-watch drift "${args[@]}" | tee drift-report.md
+
+      - name: Publicar el informe
+        uses: actions/upload-artifact@v4
+        with:
+          name: kjw-drift-report-${{ inputs.repo }}-${{ inputs.head-sha }}
+          path: drift-report.md
+          if-no-files-found: error

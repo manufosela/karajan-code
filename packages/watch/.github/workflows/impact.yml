@@ -1,0 +1,208 @@
+# Workflow REUSABLE de análisis de impacto cross-repo (F2).
+#
+# Lo invoca el repo de despliegue tras el merge de un repo observado.
+# Monta el workspace multi-repo (misma convención que ingest.yml) pero
+# con historial (git-depth): la señal de co-cambios lo necesita.
+# El informe se imprime en el job y se entrega a los notify.targets del
+# config; cualquier señal fallida o destino caído = job rojo.
+name: kjw-impact
+on:
+  workflow_call:
+    inputs:
+      org:
+        description: Organización de GitHub dueña de los repos observados
+        type: string
+        required: true
+      repo:
+        description: Repo observado cuyo merge se analiza
+        type: string
+        required: true
+      base-sha:
+        description: SHA base del merge (diff = base-sha..head-sha del repo observado)
+        type: string
+        required: true
+      head-sha:
+        description: SHA mergeado
+        type: string
+        required: true
+      pr-number:
+        description: Nº de PR donde comentar (target pr-comment)
+        type: string
+        default: ''
+      config-path:
+        description: Ruta del karajan-watch.config.json en el repo que llama
+        type: string
+        default: karajan-watch.config.json
+      corpus:
+        description: Corpus a consultar (code | docs)
+        type: string
+        default: code
+      judge:
+        description: >-
+          Pedir veredicto al LLM. Desactívalo si no tienes un adapter
+          disponible en el runner: el pipeline correrá solo con señales
+          (retrieval, contratos y co-cambios) en vez de fallar en rojo.
+        type: boolean
+        default: true
+      workspace-dir:
+        description: Directorio del workspace multi-repo
+        type: string
+        default: .kjw-workspace
+      git-depth:
+        description: Profundidad de clone (historial para co-cambios)
+        type: number
+        default: 200
+      karajan-watch-version:
+        description: Versión de karajan-watch a ejecutar
+        type: string
+        default: latest
+    secrets:
+      REPOS_TOKEN:
+        description: >-
+          Token con lectura de todos los repos observados y, si se usa el
+          target pr-comment, permiso de escritura de comentarios (issues/PRs)
+          en el repo observado.
+        required: true
+      PG_URL:
+        description: Conexión pgvector del corpus (si el store es pgvector)
+        required: false
+
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Montar workspace multi-repo con historial
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          ORG: ${{ inputs.org }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          DEPTH: ${{ inputs.git-depth }}
+        run: |
+          set -euo pipefail
+          # Auth por header (patrón actions/checkout): el token no entra en
+          # la URL remota, ni en .git/config, ni en mensajes de error.
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          mkdir -p "$WS"
+          jq -c '.repos[]' "$CONFIG" | while read -r repo; do
+            name=$(jq -r '.name' <<<"$repo")
+            branch=$(jq -r '.branch // "main"' <<<"$repo")
+            echo "clonando $ORG/$name@$branch (depth $DEPTH)"
+            git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+              clone --quiet --depth "$DEPTH" --branch "$branch" \
+              "https://github.com/${ORG}/${name}.git" "$WS/$name"
+          done
+
+      # Con un store de fichero (lancedb) el corpus VIVE en el workspace, y
+      # este job corre en una máquina distinta de la que ingestó: sin
+      # restaurarlo no habría nada que consultar. Con pgvector es inocuo,
+      # porque el corpus está en la base. El fallback sin corpus cubre que
+      # hoy code y docs comparten índice cuando el store es de fichero.
+      - name: Restaurar el corpus indexado por la ingesta
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ inputs.workspace-dir }}/.karajan
+          key: kjw-manifest-${{ inputs.corpus }}-${{ github.run_id }}
+          restore-keys: |
+            kjw-manifest-${{ inputs.corpus }}-
+            kjw-manifest-
+
+      - name: Extraer diff del merge
+        env:
+          REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          BASE: ${{ inputs.base-sha }}
+          HEAD: ${{ inputs.head-sha }}
+          DEPTH: ${{ inputs.git-depth }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf 'x-access-token:%s' "$REPOS_TOKEN" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          # Fetch por SHA crudo no es fiable en remotes de GitHub y el clone
+          # es shallow: se comprueba localmente y se profundiza (--deepen)
+          # con tope hasta que ambos commits existan.
+          ensure_commit() {
+            local sha=$1 attempts=0
+            until git -C "$WS/$REPO" cat-file -e "${sha}^{commit}" 2>/dev/null; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -gt 5 ] ||
+                 [ "$(git -C "$WS/$REPO" rev-parse --is-shallow-repository)" != "true" ]; then
+                echo "commit ${sha} no encontrado en el historial de ${REPO}"
+                exit 1
+              fi
+              echo "profundizando historial (intento ${attempts}) para encontrar ${sha}"
+              git -C "$WS/$REPO" -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+                fetch --quiet --deepen="$DEPTH" origin
+            done
+          }
+          ensure_commit "$BASE"
+          ensure_commit "$HEAD"
+          git -C "$WS/$REPO" diff "$BASE" "$HEAD" > merge.diff
+          test -s merge.diff || { echo "diff vacío entre $BASE y $HEAD"; exit 1; }
+
+      # El backend del store es un peer que el motor no arrastra: sin él el
+      # análisis muere pidiéndolo. Se instala LOCAL junto a karajan-watch
+      # —no con npx efímero— para que la resolución del módulo lo encuentre.
+      - name: Instalar karajan-watch y el backend del store
+        env:
+          CONFIG: ${{ inputs.config-path }}
+          CORPUS: ${{ inputs.corpus }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+        run: |
+          set -euo pipefail
+          store=$(jq -r --arg c "$CORPUS" '.corpus[$c].store' "$CONFIG")
+          case "$store" in
+            lancedb) peer='@lancedb/lancedb' ;;
+            pgvector) peer='pg' ;;
+            in-memory) peer='' ;;
+            *) echo "store no soportado en $CONFIG: $store"; exit 1 ;;
+          esac
+          echo "store declarado: $store${peer:+ (backend $peer)}"
+          npm install --no-save --silent "karajan-watch@${KJW_VERSION}" ${peer:+"$peer"}
+
+      - name: Analizar impacto y avisar
+        env:
+          PG_URL: ${{ secrets.PG_URL }}
+          GITHUB_TOKEN: ${{ secrets.REPOS_TOKEN }}
+          # El comentario va a la PR del repo OBSERVADO, no al de despliegue.
+          GITHUB_REPOSITORY: ${{ inputs.org }}/${{ inputs.repo }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          KJW_VERSION: ${{ inputs.karajan-watch-version }}
+          CONFIG: ${{ inputs.config-path }}
+          WS: ${{ inputs.workspace-dir }}
+          REPO: ${{ inputs.repo }}
+          CORPUS: ${{ inputs.corpus }}
+          JUDGE: ${{ inputs.judge }}
+        run: |
+          set -euo pipefail
+          args=(--config "$CONFIG" --workspace "$WS" --repo "$REPO" --diff merge.diff --corpus "$CORPUS")
+          # Un `[ ] && cmd` que da falso abortaría el paso bajo `set -e`.
+          if [ "$JUDGE" != "true" ]; then
+            args+=(--no-judge)
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            case "$PR_NUMBER" in
+              *[!0-9]*) echo "pr-number inválido: $PR_NUMBER"; exit 1 ;;
+              *) args+=(--pr-number "$PR_NUMBER") ;;
+            esac
+          fi
+          # El informe queda además en un fichero: un job verde no dice nada
+          # sobre lo que se analizó, y quien despliega querrá leerlo o
+          # archivarlo. pipefail ya está activo, así que un fallo del CLI
+          # sigue tumbando el paso aunque `tee` termine bien.
+          ./node_modules/.bin/karajan-watch impact "${args[@]}" | tee impact-report.md
+
+      - name: Publicar el informe
+        uses: actions/upload-artifact@v4
+        with:
+          name: kjw-impact-report-${{ inputs.repo }}-${{ inputs.head-sha }}
+          path: impact-report.md
+          if-no-files-found: error

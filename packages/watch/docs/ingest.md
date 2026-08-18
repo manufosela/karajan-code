@@ -1,0 +1,106 @@
+# Ingesta por merge (F1)
+
+Cada merge a la rama observada de un repo dispara el workflow reusable
+[`ingest.yml`](../.github/workflows/ingest.yml), que reindexa
+incrementalmente el corpus compartido con karajan-rag. El embedder corre
+LOCAL en el runner: el código nunca viaja a un embedder de terceros.
+
+## Convención de workspace multi-repo
+
+El corpus se indexa desde un workspace con **un subdirectorio por repo
+observado** (`workspace/<repo>/…`): los paths quedan namespaceados por
+repo y no colisionan entre repos.
+
+El workspace debe contener **la totalidad** de los repos declarados en el config.
+No es opcional: el manifest incremental de karajan-rag invalida (borra
+del store) los ficheros ausentes en disco, así que indexar un workspace
+parcial destruiría el corpus de los demás repos. `karajan-watch ingest`
+lo verifica y falla en rojo antes de tocar nada — igual que si aparece
+un directorio no declarado.
+
+La sensibilidad declarada en el config se estampa generando el
+`karajan.config.json` que karajan-rag lee en la raíz del workspace:
+nivel global del corpus + una `sensitivityRule` por prefijo de repo.
+
+## CLI
+
+```bash
+karajan-watch ingest \
+  --config karajan-watch.config.json \
+  --workspace .kjw-workspace \
+  --corpus code   # code | docs
+```
+
+Cualquier fallo (config inválida, workspace incompleto, `PG_URL`
+ausente con store pgvector, exit != 0 de karajan-rag) termina con exit
+code != 0: **job rojo, nunca éxito degradado**.
+
+## Uso desde el repo de despliegue
+
+En el repo privado de despliegue de la organización (donde vive su
+`karajan-watch.config.json`):
+
+```yaml
+# .github/workflows/reindex.yml del repo de despliegue
+name: reindex
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [repo-merged] # cada repo observado lo emite en su push a main
+jobs:
+  ingest:
+    uses: manufosela/karajan-watch/.github/workflows/ingest.yml@main
+    with:
+      org: mi-organizacion
+      corpus: code
+    secrets:
+      REPOS_TOKEN: ${{ secrets.REPOS_TOKEN }}
+      PG_URL: ${{ secrets.PG_URL_CODE }}
+```
+
+El workflow **instala solo el backend del store** que declares en el config:
+`@lancedb/lancedb` si es `lancedb`, `pg` si es `pgvector`, nada si es
+`in-memory`. Si el store no está soportado, el job falla diciéndolo en vez
+de intentar indexar.
+
+Este bloque no está escrito de memoria: es el que ejecuta el self-test de
+[`kjw-workflows-selftest.yml`](../.github/workflows/kjw-workflows-selftest.yml)
+en cada PR que toca los workflows.
+
+- `REPOS_TOKEN`: token con lectura de todos los repos observados.
+- `PG_URL`: **solo si tu store es `pgvector`** — con `lancedb` no hay
+  secreto que crear. Conexión del corpus. **Un `PG_URL` (base de datos o schema)
+  por corpus**: el CLI de karajan-rag usa una tabla fija
+  (`karajan_rag_chunks`), así que `code` y `docs` no pueden compartir
+  base — gap upstream registrado (KJW-TSK-0003).
+
+## El esquema lo prepara la ingesta
+
+Con `store: pgvector` **no tienes que crear nada a mano**: antes de indexar,
+la ingesta deja lista la extensión `vector`, la tabla del corpus y sus
+índices, con la dimensión que corresponde a tu embedder — 256 para `hash`,
+384 para `transformers`. Es idempotente y **nunca toca un corpus existente**.
+
+Dos avisos que verás en rojo antes de que se indexe nada, en vez de a mitad
+de la operación:
+
+- **La dimensión no cuadra.** Si la tabla ya existe con otra dimensión —el
+  caso típico es haber aplicado `migrations/001-init-pgvector.sql` del motor,
+  que declara `vector(768)`— la ingesta corta diciendo qué hay y qué se
+  esperaba. Ese esquema y el embedder `hash` son incompatibles: el INSERT
+  fallaría vector a vector.
+- **Faltan permisos de DDL.** Si el usuario de la conexión no puede crear
+  tablas, el error incluye el SQL exacto que hay que pedirle a quien
+  administre la base.
+
+## Manifest incremental
+
+El manifest (`workspace/.karajan/`) se conserva entre ejecuciones con
+`actions/cache`. Si el cache se pierde, el siguiente run hace **reindex
+completo**: correcto aunque lento, nunca un índice a medias. Los
+despliegues que necesiten garantías más fuertes (p. ej. manifest en GCS
+junto al corpus) lo resuelven en su capa de despliegue.
+
+Los reindex se **serializan por corpus** (`concurrency` del workflow,
+sin cancelación): dos merges concurrentes compartiendo manifest se
+pisarían; en su lugar, el segundo espera al primero.
