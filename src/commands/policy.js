@@ -9,6 +9,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { checkStagedDiff, evalToolCall, loadPolicy } from "../policy/engine.js";
+import { recordPolicyException } from "../policy/exceptions.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -36,6 +37,37 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     for (const e of errors) logger.error?.(`✗ ${e}`);
     logger.error?.("policy: el fichero declara lo que el motor no puede aplicar — corrígelo (una regla que miente es peor que ninguna)");
     return 1;
+  }
+
+  // GOV-B (KJC-TSK-0746): conceder una excepción PERMANENTE con el modelo
+  // probatorio completo — quién (identidad), regla exacta, justificación en
+  // el momento y caducidad obligatoria. Los defaults.* del consumidor son
+  // inexcepcionables: no se conceden ni desde aquí.
+  if (action === "grant") {
+    const { rule, until, reason } = flags;
+    if (!rule || !until || !reason?.trim()) {
+      logger.error?.("policy grant: --rule, --until (ISO) y --reason son obligatorios — una excepción sin quién/por qué/hasta cuándo no es una excepción, es un agujero");
+      return 1;
+    }
+    // Inexcepcionable = inexcepcionable TAMBIÉN al conceder (catch de codex):
+    // defaults.*, cualquier cap con class security, y una policy inválida
+    // (sin policy legible no se puede probar que la regla NO es security).
+    const m = /^roles\.([^.]+)\.(write|shell)/.exec(rule);
+    if (rule.startsWith("defaults.") || errors.length > 0 || (m && policy.roles?.[m[1]]?.[m[2]]?.class === "security")) {
+      logger.error?.(`policy grant: "${rule}" es inexcepcionable (default del proyecto o clase security) o la policy no es verificable — no se concede, ni con razón`);
+      return 1;
+    }
+    try {
+      const rec = recordPolicyException({
+        projectDir,
+        entry: { rule_id: rule, justification: reason.trim(), scopeKind: "permanente", expiresAt: until },
+      });
+      logger.info?.(`✓ excepción permanente registrada: [${rec.rule_id}] hasta ${rec.expiresAt} — concedida por ${rec.who?.git ?? "?"} (${rec.who?.grade ?? "?"})`);
+      return 0;
+    } catch (err) {
+      logger.error?.(`policy grant: ${err.message}`);
+      return 1;
+    }
   }
 
   if (action === "eval") {

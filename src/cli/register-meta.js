@@ -298,6 +298,17 @@ export function registerMeta(program, { pkgVersion }) {
         process.exitCode = await policyCommand({ action: "eval", config, flags });
       });
     });
+  policyCmd.command("grant")
+    .description("Concede una excepción PERMANENTE con caducidad a una regla NO-security: quién (identidad), regla exacta, justificación y hasta cuándo — GOV-B")
+    .option("--rule <rule_id>", "Regla exacta (p.ej. roles.coder.write.deny)")
+    .option("--until <iso>", "Caducidad ISO-8601 (p.ej. 2026-09-01T00:00:00Z)")
+    .option("--reason <text>", "Justificación escrita en el momento")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-grant", flags, async ({ config }) => {
+        const { policyCommand } = await import("../commands/policy.js");
+        process.exitCode = await policyCommand({ action: "grant", config, flags });
+      });
+    });
   policyCmd.command("check")
     .description("Comprueba el diff STAGED contra la policy (write-deny + invariantes) — siempre warn en PL-A; exit 1 solo si policy.yml es inválido")
     .option("--role <role>", "Rol del agente", "coder")

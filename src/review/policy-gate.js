@@ -14,11 +14,13 @@ import { evaluateGate } from "../../packages/governance/src/gate.js";
 export function evaluatePolicyGate({
   policy, errors = [], role = "coder", files = [], netLinesAdded = null,
   diffHashValue = null, env = process.env, recordException = () => {},
+  standingExceptions = [], now = new Date(),
 }) {
   return evaluateGate({
     policy, errors, role, files, netLinesAdded,
     artifactHash: diffHashValue,
     exemption: { requested: env.KJ_ALLOW_POLICY === "1", justification: env.KJ_POLICY_REASON, hint: 'KJ_POLICY_REASON="por qué"' },
     recordException: (entry) => recordException({ ...entry, scope: "este diff exacto" }),
+    standingExceptions, now,
   });
 }

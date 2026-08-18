@@ -17,7 +17,7 @@ import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
 import { checkStagedDiff, loadPolicy } from "../policy/engine.js";
-import { recordPolicyException } from "../policy/exceptions.js";
+import { loadStandingExceptions, recordPolicyException } from "../policy/exceptions.js";
 import { evaluatePolicyGate } from "../review/policy-gate.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
@@ -224,14 +224,23 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     if (a && a !== "-") net += Number(a) || 0;
     if (r && r !== "-") net -= Number(r) || 0;
   }
+  // GOV-B (KJC-TSK-0746): las permanentes concedidas (kj policy grant)
+  // eximen su regla mientras viven; el descarte de líneas corruptas se dice.
+  const std = loadStandingExceptions(projectDir);
+  if (std.discarded > 0) console.log(`⚠ policy: ${std.discarded} línea(s) corruptas descartadas en policy-exceptions.jsonl — revísalo`);
   const gate = evaluatePolicyGate({
     policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
     diffHashValue: diffHash(diff),
     recordException: (entry) => recordPolicyException({ projectDir, entry }),
+    standingExceptions: std.standing,
   });
   const at = (v) => (v.file ? ` (${v.file})` : "");
   for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${at(w)}`);
-  for (const e of gate.exempted) console.log(`⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
+  for (const e of gate.exempted) {
+    console.log(e.standing
+      ? `⚠ policy standing [${e.rule_id}] — excepción permanente viva hasta ${e.standing.expiresAt} (${e.standing.justification || "sin justificación"})`
+      : `⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
+  }
   if (!gate.ok) {
     for (const d of gate.denials) {
       const sec = d.class === "security" ? " [security — sin escape ni arbitraje]" : "";
