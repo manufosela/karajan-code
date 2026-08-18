@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-08-18
+
 ### Added
 
 - **Policy as code — `kj policy` and the deterministic policy engine** (PL-A, KJC-TSK-0733, epic KJC-PCS-0074, ADR 0001, PRs #1429-#1432): rules stop being requests. `.karajan/policy.yml` declares per-role capabilities (`write` allow/deny globs, `shell` command patterns) and invariants (`diff-threshold`) in a CLOSED, fail-loud vocabulary — anything the engine cannot enforce is a LOAD ERROR, never a silently dead rule (unknown kinds/keys, malformed shapes at every level, unsupported versions, an unreadable file ≠ "no policy"). Evaluation is pure and deterministic: deny wins, an allow-list makes the outside a denial, unverifiable targets deny (missing paths, traversal, absolutes without root, unknown tools for declared roles), and the shell matcher survived a full adversarial review cycle — quote-aware tokenization, launchers peeled (PATH-altering assignments opaque), substitution/redirections/backgrounding/escapes/expansion all opaque-therefore-denied. `kj policy check` warns on the staged diff (PL-A never blocks); `kj policy eval --strict` exits 2 on deny — the contract PL-B's hook adapters will consume. Forged by ~23 cross-AI review catches and two solomon rulings, each one a regression test.
