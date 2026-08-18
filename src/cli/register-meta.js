@@ -284,6 +284,31 @@ export function registerMeta(program, { pkgVersion }) {
       });
     });
 
+  // KJC-TSK-0733 PL-A — policy as code: motor determinista en modo warn.
+  const policyCmd = program.command("policy").description("Policy as code (.karajan/policy.yml, vocabulario cerrado) — PL-A: modo warn");
+  policyCmd.command("eval")
+    .description("Evalúa UNA tool call: imprime {decision, rule_id, reason}; --strict devuelve exit 2 en deny (contrato para adaptadores de hooks)")
+    .option("--role <role>", "Rol del agente", "coder")
+    .option("--tool <tool>", "Tool (Write, Edit, Bash…)")
+    .option("--input <json>", "tool_input en JSON")
+    .option("--strict", "Exit 2 si deny")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-eval", flags, async ({ config }) => {
+        const { policyCommand } = await import("../commands/policy.js");
+        process.exitCode = await policyCommand({ action: "eval", config, flags });
+      });
+    });
+  policyCmd.command("check")
+    .description("Comprueba el diff STAGED contra la policy (write-deny + invariantes) — siempre warn en PL-A; exit 1 solo si policy.yml es inválido")
+    .option("--role <role>", "Rol del agente", "coder")
+    .option("--json", "Machine-readable")
+    .action(async (flags) => {
+      await withConfig(pkgVersion, "policy-check", flags, async ({ config }) => {
+        const { policyCommand } = await import("../commands/policy.js");
+        process.exitCode = await policyCommand({ action: "check", config, flags });
+      });
+    });
+
   // KJC-TSK-0713 — the Sentinel: the method state the harness hooks record.
   const sentinel = program.command("sentinel").description("Deterministic method supervisor wired into the harness hooks (Claude Code)");
   sentinel.command("status")
