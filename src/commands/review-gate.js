@@ -8,7 +8,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { runCommand } from "../utils/process.js";
-import { checkVerdict } from "../review/verdict-store.js";
+import { checkVerdict, diffHash } from "../review/verdict-store.js";
 import { runOneShotReview } from "../review/one-shot-review.js";
 import { runSolomonArbitration } from "../review/solomon-arbitration.js";
 import { ensureGateTrackable } from "../review/gate-gitignore.js";
@@ -16,6 +16,9 @@ import { runSonarPregate, formatSonarFinding } from "../review/sonar-pregate.js"
 import { checkCardFirst } from "../review/card-first.js";
 import { checkTestsWithCode } from "../review/tests-with-code.js";
 import { loadPrivacyList, scanText } from "../privacy/scan.js";
+import { loadPolicy } from "../policy/engine.js";
+import { recordPolicyException } from "../policy/exceptions.js";
+import { evaluatePolicyGate } from "../review/policy-gate.js";
 
 // KJC-TSK-0686 (MG-A): card-first is a gate, not a habit. Runs on --staged
 // (before spending sonar/reviewer effort) AND on --check — the pre-commit
@@ -185,6 +188,39 @@ export async function reviewGateCommand({ config, logger = null, flags = {} }) {
     console.log(`✗ tests-with-code gate: ${tests.reason}`);
     process.exitCode = 1;
     return { verdict: "rejected", reviewer: "tests-with-code", issues: [{ severity: "high", description: tests.reason }] };
+  }
+
+  // KJC-TSK-0734 (PL-B): la policy declarativa como gate determinista, en
+  // --staged Y en --check — el pre-commit hereda los dientes sin regenerar
+  // hooks. enforcement=warn avisa; deny cierra salvo excepción probatoria
+  // (KJ_ALLOW_POLICY=1 + KJ_POLICY_REASON, registrada con identidad y hash
+  // del diff); class=security cierra sin escape y sin arbitraje.
+  const pol = loadPolicy({ projectDir });
+  let net = 0;
+  for (const l of (await rawDiff(flags.range, ["--numstat"])).split("\n")) {
+    const [a, r] = l.trim().split(/\s+/);
+    if (a && a !== "-") net += Number(a) || 0;
+    if (r && r !== "-") net -= Number(r) || 0;
+  }
+  const gate = evaluatePolicyGate({
+    policy: pol.policy, errors: pol.errors, files: changedFiles, netLinesAdded: net,
+    diffHashValue: diffHash(diff),
+    recordException: (entry) => recordPolicyException({ projectDir, entry }),
+  });
+  const at = (v) => (v.file ? ` (${v.file})` : "");
+  for (const w of gate.warns) console.log(`⚠ policy [${w.rule_id}] ${w.reason}${at(w)}`);
+  for (const e of gate.exempted) console.log(`⚠ policy exempt [${e.rule_id}] — excepción registrada en .karajan/policy-exceptions.jsonl (${e.justification})`);
+  if (!gate.ok) {
+    for (const d of gate.denials) {
+      const sec = d.class === "security" ? " [security — sin escape ni arbitraje]" : "";
+      console.log(`✗ policy [${d.rule_id}]${sec} ${d.reason}${at(d)}`);
+    }
+    const reason = gate.invalid
+      ? "policy.yml inválida — una regla que miente es peor que ninguna: corrígela"
+      : `${gate.denials.length} violación(es) de policy con enforcement=deny — el diff no entra`;
+    console.log(`✗ policy gate: ${reason}`);
+    process.exitCode = 1;
+    return { verdict: "rejected", reviewer: "policy", issues: gate.denials.map((d) => ({ severity: "high", file: d.file, description: `[${d.rule_id}] ${d.reason}` })) };
   }
 
   if (flags.check) {

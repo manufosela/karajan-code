@@ -63,8 +63,9 @@ export async function policyCommand({ action, config = {}, flags = {}, logger = 
     return 0;
   }
   for (const v of violations) {
-    logger.warn?.(`⚠ policy [${v.rule_id}] ${v.reason}${v.file ? ` (${v.file})` : ""}`);
+    const where = v.file ? ` (${v.file})` : "";
+    logger.warn?.(`⚠ policy [${v.rule_id}] ${v.reason}${where}`);
   }
-  logger.warn?.(`policy check: ${violations.length} aviso(s) — modo warn (PL-A): no bloquea; PL-B le dará dientes`);
+  logger.warn?.(`policy check: ${violations.length} aviso(s) — check es modo warn, no bloquea; los deny los aplican kj review --staged y el pre-commit (PL-B)`);
   return 0;
 }
