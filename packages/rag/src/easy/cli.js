@@ -1,0 +1,666 @@
+// @ts-check
+/**
+ * Capa Easy RAG — parsing y wiring del subcomando `index` (ADR-005 §1 y §4).
+ *
+ * Defaults deterministas: store `lancedb` (local, requiere el peer
+ * @lancedb/lancedb — sin fallback silencioso) y embedder `hash`. Las
+ * alternativas se activan por flag y fallan con mensaje accionable si
+ * les falta configuración (peer no instalado, PG_URL ausente).
+ */
+import path from 'node:path';
+import { appendFile, readFile, stat } from 'node:fs/promises';
+import { createInterface } from 'node:readline/promises';
+import { parseArgs } from 'node:util';
+import { MANIFEST_DIR } from './manifest.js';
+import {
+  STORES,
+  EMBEDDERS,
+  createEasyDeps,
+  parseFingerprint,
+  openEasyIndex,
+  openRagService,
+} from './rag-service.js';
+import { startRagHttpServer } from './http-server.js';
+import { startRagMcpServer } from './mcp-server.js';
+import { indexDirectory, DEFAULT_INGEST_BATCH_SIZE } from './indexer.js';
+import { queryIndex } from './query.js';
+import {
+  CONFIG_FILE,
+  DEFAULT_EASY_CONFIG,
+  loadEasyConfig,
+  saveEasyConfig,
+} from './config.js';
+import { resolveDocumentSensitivity } from './sensitivity.js';
+import { generateAnswerForHits } from './answer.js';
+import { buildCagContext, buildHybridContext, DEFAULT_CAG_MAX_CHARS } from './cag.js';
+import { compareModes } from '../evaluation/mode-compare.js';
+import { loadGoldenSet, runGoldenSet } from '../evaluation/golden-runner.js';
+import { evaluateMultiJudge } from '../evaluation/multi-judge-evaluator.js';
+import { redactPII } from '../redaction/pii-redactor.js';
+import { createDefaultAdapterRegistry } from '../ai/adapter-registry.js';
+import { DEFAULT_SENSITIVITY, SENSITIVITY_LEVELS } from '../domain/document.js';
+import {
+  createDefaultSensitivityPolicy,
+  isProviderAllowed,
+} from '../policy/sensitivity-policy.js';
+
+export { createEasyDeps, parseFingerprint };
+
+/** Dimensión por defecto de cada embedder cuando no se pasa --dimensions. */
+const DEFAULT_DIMENSIONS = Object.freeze({ hash: 256, transformers: 384 });
+
+/**
+ * @typedef {object} IndexCliOptions
+ * @property {string} rootDir
+ * @property {'lancedb' | 'pgvector' | 'in-memory'} store
+ * @property {'hash' | 'transformers'} embedder
+ * @property {number} dimensions
+ * @property {number} batchSize
+ */
+
+/**
+ * Parsea los argumentos de `karajan-rag index <ruta> [--store] [--embedder] [--dimensions]`.
+ *
+ * Prioridad: flag explícito > `defaults` (config del proyecto) > default ADR-005.
+ *
+ * @param {string[]} argv Argumentos tras el nombre del subcomando.
+ * @param {import('./config.js').EasyConfig} [defaults]
+ * @returns {IndexCliOptions}
+ */
+export function parseIndexArgs(argv, defaults = {}) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      store: { type: 'string' },
+      embedder: { type: 'string' },
+      dimensions: { type: 'string' },
+      'batch-size': { type: 'string' },
+    },
+  });
+
+  const rootDir = positionals[0];
+  if (!rootDir) {
+    throw new Error('index: falta la ruta del directorio a indexar.');
+  }
+  const store = /** @type {IndexCliOptions['store']} */ (values.store ?? defaults.store ?? 'lancedb');
+  if (!STORES.includes(store)) {
+    throw new Error(`index: --store "${store}" no soportado (esperado: ${STORES.join(', ')}).`);
+  }
+  const embedder = /** @type {IndexCliOptions['embedder']} */ (
+    values.embedder ?? defaults.embedder ?? 'hash'
+  );
+  if (!EMBEDDERS.includes(embedder)) {
+    throw new Error(
+      `index: --embedder "${embedder}" no soportado (esperado: ${EMBEDDERS.join(', ')}).`,
+    );
+  }
+  const dimensions = values.dimensions
+    ? Number.parseInt(values.dimensions, 10)
+    : (defaults.dimensions ?? DEFAULT_DIMENSIONS[embedder]);
+  if (!Number.isInteger(dimensions) || dimensions <= 0) {
+    throw new Error('index: --dimensions debe ser un entero positivo.');
+  }
+  const batchSize = values['batch-size']
+    ? Number.parseInt(String(values['batch-size']), 10)
+    : DEFAULT_INGEST_BATCH_SIZE;
+  if (!Number.isInteger(batchSize) || batchSize <= 0) {
+    throw new Error('index: --batch-size debe ser un entero positivo.');
+  }
+  return { rootDir: path.resolve(rootDir), store, embedder, dimensions, batchSize };
+}
+
+/**
+ * Parsea `karajan-rag init [ruta] [--yes] [--force]`.
+ *
+ * @param {string[]} argv
+ * @returns {{ rootDir: string, yes: boolean, force: boolean }}
+ */
+export function parseInitArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      yes: { type: 'boolean', default: false },
+      force: { type: 'boolean', default: false },
+    },
+  });
+  return {
+    rootDir: path.resolve(positionals[0] ?? '.'),
+    yes: values.yes === true,
+    force: values.force === true,
+  };
+}
+
+/**
+ * Pregunta interactiva con default; en modo --yes no se llama nunca.
+ *
+ * @param {string} question
+ * @param {string} defaultValue
+ * @returns {Promise<string>}
+ */
+async function askInTerminal(question, defaultValue) {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const reply = await rl.question(`${question} [${defaultValue}]: `);
+    return reply.trim() === '' ? defaultValue : reply.trim();
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Añade `.karajan/` al .gitignore del proyecto (creándolo si no existe),
+ * salvo que ya esté presente.
+ *
+ * @param {string} rootDir
+ * @returns {Promise<boolean>} true si se modificó el .gitignore.
+ */
+async function ensureKarajanGitignored(rootDir) {
+  const gitignorePath = path.join(rootDir, '.gitignore');
+  let current = '';
+  try {
+    current = await readFile(gitignorePath, 'utf8');
+  } catch (err) {
+    if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
+  }
+  const hasEntry = current
+    .split('\n')
+    .some((line) => line.trim() === `${MANIFEST_DIR}/` || line.trim() === MANIFEST_DIR);
+  if (hasEntry) return false;
+  const prefix = current.length > 0 && !current.endsWith('\n') ? '\n' : '';
+  await appendFile(gitignorePath, `${prefix}${MANIFEST_DIR}/\n`, 'utf8');
+  return true;
+}
+
+/**
+ * Ejecuta el subcomando `init`: genera karajan.config.json con defaults
+ * ADR-005 (wizard interactivo salvo --yes) y gitignora `.karajan/`.
+ *
+ * @param {string[]} argv
+ * @param {{ log?: (msg: string) => void, ask?: (question: string, defaultValue: string) => Promise<string> }} [io]
+ * @returns {Promise<import('./config.js').EasyConfig>}
+ */
+export async function runInitCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[init] ${msg}`));
+  const ask = io.ask ?? askInTerminal;
+  const { rootDir, yes, force } = parseInitArgs(argv);
+
+  const configPath = path.join(rootDir, CONFIG_FILE);
+  const exists = await stat(configPath).then(
+    () => true,
+    () => false,
+  );
+  if (exists && !force) {
+    throw new Error(`init: ${CONFIG_FILE} ya existe en "${rootDir}". Usa --force para regenerarlo.`);
+  }
+
+  /** @type {import('./config.js').EasyConfig} */
+  let easy = { ...DEFAULT_EASY_CONFIG };
+  if (!yes) {
+    const store = await ask(`vector store (${STORES.join('/')})`, String(DEFAULT_EASY_CONFIG.store));
+    const embedder = await ask(
+      `embedder (${EMBEDDERS.join('/')})`,
+      String(DEFAULT_EASY_CONFIG.embedder),
+    );
+    const dimensions = await ask(
+      'dimensiones del embedding',
+      String(DEFAULT_DIMENSIONS[/** @type {never} */ (embedder)] ?? DEFAULT_EASY_CONFIG.dimensions),
+    );
+    const sensitivity = await ask(
+      'sensibilidad del corpus (public/internal/confidential)',
+      String(DEFAULT_EASY_CONFIG.sensitivity),
+    );
+    easy = {
+      ...easy,
+      store: /** @type {never} */ (store),
+      embedder: /** @type {never} */ (embedder),
+      dimensions: Number.parseInt(dimensions, 10),
+      sensitivity: /** @type {never} */ (sensitivity),
+    };
+  }
+
+  await saveEasyConfig(rootDir, easy);
+  log(`generado ${CONFIG_FILE} (store=${easy.store}, embedder=${easy.embedder}, dims=${easy.dimensions})`);
+  if (await ensureKarajanGitignored(rootDir)) {
+    log(`añadido ${MANIFEST_DIR}/ a .gitignore`);
+  }
+  log(`siguiente paso: karajan-rag index ${rootDir}`);
+  return easy;
+}
+
+/**
+ * @typedef {object} QueryCliOptions
+ * @property {string} question
+ * @property {string} rootDir
+ * @property {'lancedb' | 'pgvector'} store
+ * @property {number} topK
+ * @property {boolean} answer
+ * @property {string} adapter
+ * @property {boolean} adapterExplicit true solo si vino del flag --adapter (la policy no degrada elecciones explícitas).
+ * @property {'rag' | 'cag' | 'hybrid'} mode Estrategia de respuesta: retrieval top-k (rag), corpus completo (cag) o ficheros completos seleccionados por retrieval (hybrid).
+ * @property {number} maxContextChars Presupuesto del contexto en modo cag.
+ */
+
+const QUERY_STORES = Object.freeze(['lancedb', 'pgvector']);
+
+/**
+ * Parsea `karajan-rag query "<pregunta>" [ruta] [--store] [--top-k N] [--answer] [--adapter <cli>]`.
+ *
+ * @param {string[]} argv
+ * @returns {QueryCliOptions}
+ */
+export function parseQueryArgs(argv, defaults = /** @type {import('./config.js').EasyConfig} */ ({})) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      store: { type: 'string' },
+      'top-k': { type: 'string' },
+      answer: { type: 'boolean', default: false },
+      adapter: { type: 'string' },
+      mode: { type: 'string' },
+      'max-context-chars': { type: 'string' },
+    },
+  });
+
+  const question = positionals[0];
+  if (!question || question.trim().length === 0) {
+    throw new Error('query: falta la pregunta (karajan-rag query "<pregunta>" [ruta]).');
+  }
+  const store = /** @type {QueryCliOptions['store']} */ (values.store ?? defaults.store ?? 'lancedb');
+  if (!QUERY_STORES.includes(store)) {
+    throw new Error(
+      `query: --store "${store}" no soportado (esperado: ${QUERY_STORES.join(', ')} — ` +
+        'in-memory no persiste índices, no es consultable).',
+    );
+  }
+  const topK = values['top-k']
+    ? Number.parseInt(String(values['top-k']), 10)
+    : (defaults.topK ?? 5);
+  if (!Number.isInteger(topK) || topK <= 0) {
+    throw new Error('query: --top-k debe ser un entero positivo.');
+  }
+  const mode = /** @type {'rag' | 'cag' | 'hybrid'} */ (values.mode ?? 'rag');
+  if (!['rag', 'cag', 'hybrid'].includes(mode)) {
+    throw new Error(`query: --mode "${mode}" no soportado (esperado: rag, cag, hybrid).`);
+  }
+  if (mode !== 'rag' && values.answer !== true) {
+    throw new Error(`query: --mode ${mode} requiere --answer (su único producto es la respuesta).`);
+  }
+  const maxContextChars = values['max-context-chars']
+    ? Number.parseInt(String(values['max-context-chars']), 10)
+    : DEFAULT_CAG_MAX_CHARS;
+  if (!Number.isInteger(maxContextChars) || maxContextChars <= 0) {
+    throw new Error('query: --max-context-chars debe ser un entero positivo.');
+  }
+  return {
+    question: question.trim(),
+    rootDir: path.resolve(positionals[1] ?? '.'),
+    store,
+    topK,
+    answer: values.answer === true,
+    adapter: String(values.adapter ?? defaults.adapter ?? 'claude'),
+    adapterExplicit: values.adapter !== undefined,
+    mode,
+    maxContextChars,
+  };
+}
+
+/**
+ * Ejecuta el subcomando `query` end-to-end.
+ *
+ * @param {string[]} argv
+ * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void, out?: (msg: string) => void, adapterRegistry?: { get: (name: string) => unknown, has: (name: string) => boolean } }} [io]
+ * @returns {Promise<import('./query.js').EasyQueryResult & { answer?: string }>}
+ */
+export async function runQueryCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[query] ${msg}`));
+  const out = io.out ?? ((msg) => console.log(msg));
+  const pre = parseQueryArgs(argv);
+  const config = await loadEasyConfig(pre.rootDir);
+  const options = config ? parseQueryArgs(argv, config) : pre;
+
+  if (options.mode === 'cag') {
+    // CAG: el corpus completo como contexto — sin vector store (el
+    // manifest basta), por el mismo camino guardado que RAG.
+    const ctx = await buildCagContext(options.rootDir, { maxChars: options.maxContextChars });
+    log(
+      `modo cag: ${ctx.files.length} ficheros, ${ctx.chars} chars, nivel ${ctx.sensitivity} ` +
+        `(contexto ${ctx.contextHash.slice(0, 12)})`,
+    );
+    const generated = await generateAnswerForHits({
+      question: options.question,
+      hits: ctx.hits,
+      adapter: options.adapter,
+      adapterExplicit: options.adapterExplicit,
+      registry: io.adapterRegistry,
+      log,
+    });
+    out('');
+    out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}, modo cag) ---`);
+    out(generated.answer);
+    return { hits: [], candidates: ctx.files.length, answer: generated.answer };
+  }
+
+  const { embedder, store } = await openEasyIndex(options.rootDir, {
+    store: options.store,
+    env: io.env ?? process.env,
+  });
+
+  const result = await queryIndex(options.question, {
+    rootDir: options.rootDir,
+    store: /** @type {never} */ (store),
+    embedder,
+    topK: options.topK,
+  });
+
+  if (result.hits.length === 0) {
+    log('sin resultados.');
+    return result;
+  }
+
+  if (options.mode === 'hybrid') {
+    // Hybrid: el retrieval ya seleccionó — el contexto lleva los ficheros
+    // origen COMPLETOS que caben, con la exclusión declarada en el log.
+    const ctx = await buildHybridContext(options.rootDir, {
+      hits: result.hits,
+      maxChars: options.maxContextChars,
+    });
+    log(
+      `modo hybrid: ${ctx.files.length} ficheros completos (${ctx.chars} chars, nivel ${ctx.sensitivity})` +
+        (ctx.excluded.length > 0
+          ? ` — excluidos por presupuesto: ${ctx.excluded.map((e) => `${e.source} (${e.chars} chars)`).join(', ')}`
+          : ''),
+    );
+    const generated = await generateAnswerForHits({
+      question: options.question,
+      hits: ctx.hits,
+      adapter: options.adapter,
+      adapterExplicit: options.adapterExplicit,
+      registry: io.adapterRegistry,
+      log,
+    });
+    out('');
+    out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}, modo hybrid) ---`);
+    out(generated.answer);
+    return { ...result, answer: generated.answer };
+  }
+  for (const [i, hit] of result.hits.entries()) {
+    const location = hit.line === null ? hit.source : `${hit.source}:${hit.line}`;
+    out(`${i + 1}. ${location} (score ${hit.score.toFixed(3)})`);
+    out(`   ${hit.content.replaceAll('\n', '\n   ')}`);
+  }
+
+  if (!options.answer) return result;
+
+  const generated = await generateAnswerForHits({
+    question: options.question,
+    hits: result.hits,
+    adapter: options.adapter,
+    adapterExplicit: options.adapterExplicit,
+    registry: io.adapterRegistry,
+    log,
+  });
+  out('');
+  out(`--- respuesta (${generated.adapter}, nivel ${generated.sensitivity}) ---`);
+  out(generated.answer);
+  return { ...result, answer: generated.answer };
+}
+
+// El camino guardado de respuesta vive en answer.js (compartido con SDK
+// y servidor HTTP); se re-exporta aquí por compatibilidad de API pública.
+export { generateAnswerForHits } from './answer.js';
+
+/**
+ * Parsea `karajan-rag serve [ruta] [--http] [--mcp] [--port N] [--store lancedb|pgvector]`.
+ *
+ * Modo por defecto: MCP stdio. `--http` y `--mcp` son excluyentes (MCP
+ * usa stdout para el protocolo; mezclar ambos en un proceso lo rompería).
+ *
+ * @param {string[]} argv
+ * @returns {{ rootDir: string, mode: 'mcp' | 'http', port: number, store: 'lancedb' | 'pgvector', ui: boolean }}
+ */
+export function parseServeArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      http: { type: 'boolean', default: false },
+      mcp: { type: 'boolean', default: false },
+      port: { type: 'string' },
+      store: { type: 'string', default: 'lancedb' },
+      'no-ui': { type: 'boolean', default: false },
+    },
+  });
+  if (values.http && values.mcp) {
+    throw new Error('serve: --http y --mcp son excluyentes (usa dos procesos si necesitas ambos).');
+  }
+  const store = /** @type {'lancedb' | 'pgvector'} */ (values.store);
+  if (!QUERY_STORES.includes(store)) {
+    throw new Error(`serve: --store "${store}" no soportado (esperado: ${QUERY_STORES.join(', ')}).`);
+  }
+  const port = values.port ? Number.parseInt(values.port, 10) : 8080;
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error('serve: --port debe ser un entero en [0, 65535].');
+  }
+  return {
+    rootDir: path.resolve(positionals[0] ?? '.'),
+    mode: values.http ? 'http' : 'mcp',
+    port,
+    store,
+    ui: values['no-ui'] !== true,
+  };
+}
+
+/**
+ * Ejecuta el subcomando `serve`: expone el índice como servidor MCP
+ * (stdio, default) o HTTP. Devuelve los handles sin bloquear — el
+ * proceso queda vivo mientras el servidor/stdin sigan abiertos.
+ *
+ * @param {string[]} argv
+ * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void, input?: NodeJS.ReadableStream, output?: NodeJS.WritableStream }} [io]
+ * @returns {Promise<{ mode: 'mcp' | 'http', url?: string, close: () => Promise<void> | void }>}
+ */
+export async function runServeCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[serve] ${msg}`));
+  const options = parseServeArgs(argv);
+  const service = await openRagService(options.rootDir, {
+    store: options.store,
+    env: io.env ?? process.env,
+  });
+
+  if (options.mode === 'http') {
+    const { server, url } = await startRagHttpServer(service, { port: options.port, ui: options.ui });
+    log(
+      `HTTP escuchando en ${url} (POST /query, POST /answer, GET /health` +
+        `${options.ui ? `, playground en ${url}/` : ' — sin UI'})`,
+    );
+    return {
+      mode: 'http',
+      url,
+      close: () => new Promise((resolve) => server.close(() => resolve(undefined))),
+    };
+  }
+
+  const mcp = startRagMcpServer(service, { input: io.input, output: io.output });
+  log(`MCP stdio listo (tools: rag_query, rag_status) sobre ${options.rootDir}`);
+  return { mode: 'mcp', close: mcp.close };
+}
+
+/**
+ * Parsea `karajan-rag eval <golden.json> [corpus] [--judges p1,p2] [--dimensions N] [--sensitivity nivel]`.
+ *
+ * `corpus` por defecto es el directorio `corpus/` junto al golden.json.
+ * `--sensitivity` declara el nivel del golden+corpus para el gate de
+ * jueces (KJR-BUG-0006); default seguro: internal.
+ *
+ * @param {string[]} argv
+ * @returns {{ goldenPath: string, corpusDir: string, judges: string[], dimensions: number, sensitivity: import('../domain/document.js').Sensitivity }}
+ */
+export function parseEvalArgs(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      judges: { type: 'string' },
+      dimensions: { type: 'string' },
+      sensitivity: { type: 'string' },
+      'compare-modes': { type: 'boolean', default: false },
+    },
+  });
+  const goldenPath = positionals[0];
+  if (!goldenPath) {
+    throw new Error('eval: falta la ruta del golden.json (karajan-rag eval <golden.json> [corpus]).');
+  }
+  const resolvedGolden = path.resolve(goldenPath);
+  const dimensions = values.dimensions ? Number.parseInt(values.dimensions, 10) : 64;
+  if (!Number.isInteger(dimensions) || dimensions <= 0) {
+    throw new Error('eval: --dimensions debe ser un entero positivo.');
+  }
+  const sensitivity = /** @type {import('../domain/document.js').Sensitivity} */ (
+    values.sensitivity ?? DEFAULT_SENSITIVITY
+  );
+  if (!SENSITIVITY_LEVELS.includes(sensitivity)) {
+    throw new Error(`eval: --sensitivity debe ser uno de ${SENSITIVITY_LEVELS.join(', ')}.`);
+  }
+  return {
+    goldenPath: resolvedGolden,
+    corpusDir: path.resolve(positionals[1] ?? path.join(path.dirname(resolvedGolden), 'corpus')),
+    judges: values.judges ? String(values.judges).split(',').map((j) => j.trim()).filter(Boolean) : [],
+    dimensions,
+    sensitivity,
+    compareModes: values['compare-modes'] === true,
+  };
+}
+
+/**
+ * Ejecuta el subcomando `eval`: golden set offline con métricas locales
+ * y, con `--judges`, veredictos LLM-as-judge con labelling de outliers.
+ *
+ * @param {string[]} argv
+ * @param {{ out?: (msg: string) => void, judgeRegistry?: { get: Function, has: Function } }} [io]
+ * @returns {Promise<import('../evaluation/golden-runner.js').GoldenRunReport & { judgeReports?: Record<string, import('../evaluation/multi-judge-evaluator.js').EvaluationReport> }>}
+ */
+export async function runEvalCommand(argv, io = {}) {
+  const out = io.out ?? ((msg) => console.log(msg));
+  const options = parseEvalArgs(argv);
+
+  const golden = await loadGoldenSet(options.goldenPath);
+  const report = await runGoldenSet(golden, {
+    corpusDir: options.corpusDir,
+    dimensions: options.dimensions,
+  });
+
+  out(`eval: ${report.results.length} casos sobre ${options.corpusDir}`);
+  for (const [metric, value] of Object.entries(report.aggregates)) {
+    const minimum = golden.baseline[metric];
+    const flag = minimum === undefined ? ' ' : value >= minimum ? '✓' : '✗';
+    out(`  ${flag} ${metric}: ${value.toFixed(3)}${minimum === undefined ? '' : ` (mínimo ${minimum})`}`);
+  }
+  for (const failure of report.failures) {
+    out(`  ✗ ${failure.metric} por debajo del baseline — peores casos: ${failure.worstCases.join(', ')}`);
+  }
+
+  /** @type {Record<string, import('../evaluation/multi-judge-evaluator.js').EvaluationReport>} */
+  const judgeReports = {};
+  if (options.judges.length > 0) {
+    // KJR-BUG-0006: los jueces son salidas a LLM — se validan contra la
+    // policy con el nivel declarado del golden+corpus antes de enviar nada.
+    const policy = createDefaultSensitivityPolicy();
+    const rejected = options.judges.filter(
+      (judge) => !isProviderAllowed(policy, options.sensitivity, judge),
+    );
+    if (rejected.length > 0) {
+      throw new Error(
+        `eval: jueces no permitidos para sensibilidad "${options.sensitivity}": ` +
+          `${rejected.join(', ')} (permitidos: ${policy[options.sensitivity].join(', ')}). ` +
+          'Si el golden y el corpus son públicos, decláralo con --sensitivity public.',
+      );
+    }
+    const registry = io.judgeRegistry ?? (await createDefaultAdapterRegistry());
+    for (const item of golden.cases) {
+      const result = report.results.find((r) => r.id === item.id);
+      const contexts = result ? result.retrievedSources.join(', ') : '';
+      // Mitigación KJR-BUG-0006: PII redactada antes de salir a los jueces.
+      judgeReports[item.id] = await evaluateMultiJudge({
+        registry: /** @type {never} */ (registry),
+        providers: options.judges,
+        input: {
+          query: redactPII(item.question).text,
+          answer: redactPII(item.expectedAnswer).text,
+          context: redactPII(contexts).text,
+        },
+      });
+      const jr = judgeReports[item.id];
+      out(
+        `  juez ${item.id}: score=${jr.aggregateScore === null ? 'n/a' : jr.aggregateScore.toFixed(2)}` +
+          (jr.outliers.length > 0 ? ` outliers=[${jr.outliers.join(', ')}]` : ''),
+      );
+    }
+  }
+
+  /** @type {import('../evaluation/mode-compare.js').ModeComparisonReport | undefined} */
+  let modeComparison;
+  if (options.compareModes) {
+    modeComparison = await compareModes(golden, {
+      corpusDir: options.corpusDir,
+      dimensions: options.dimensions,
+    });
+    out('');
+    out('--- cag vs rag (offline) ---');
+    for (const c of modeComparison.perCase) {
+      out(
+        `  ${c.id}: recall rag=${c.ragRecall.toFixed(2)}, contexto rag=${c.ragChars} chars, ` +
+          `ratio cag/rag=${Number.isFinite(c.costRatio) ? `${c.costRatio.toFixed(1)}x` : 'n/a'}`,
+      );
+    }
+    out(
+      `  corpus completo: ${modeComparison.cagChars} chars ` +
+        `(presupuesto ${modeComparison.cagBudget}${modeComparison.cagFits ? '' : ' — NO CABE'})`,
+    );
+    out(`  recomendación → ${modeComparison.recommendation}`);
+  }
+
+  out(report.passed ? 'eval: PASSED' : 'eval: FAILED');
+  const enriched = options.judges.length > 0 ? { ...report, judgeReports } : report;
+  return modeComparison ? { ...enriched, modeComparison } : enriched;
+}
+
+/**
+ * Ejecuta el subcomando `index` end-to-end.
+ *
+ * @param {string[]} argv
+ * @param {{ env?: Record<string, string | undefined>, log?: (msg: string) => void }} [io]
+ * @returns {Promise<import('./indexer.js').IndexResult>}
+ */
+export async function runIndexCommand(argv, io = {}) {
+  const log = io.log ?? ((msg) => console.error(`[index] ${msg}`));
+  const pre = parseIndexArgs(argv);
+  const config = await loadEasyConfig(pre.rootDir);
+  const options = config ? parseIndexArgs(argv, config) : pre;
+  const { embedder, store } = await createEasyDeps(options, io.env ?? process.env);
+
+  if (options.store === 'in-memory') {
+    log('aviso: --store in-memory es efímero — útil solo para pruebas.');
+  }
+
+  const result = await indexDirectory(options.rootDir, {
+    store,
+    embedder,
+    onEvent: log,
+    batchSize: options.batchSize,
+    // KJR-BUG-0006: el nivel de sensibilidad declarado en la config se
+    // estampa por documento; sin config aplica el default seguro.
+    sensitivityFor: (relPath) => resolveDocumentSensitivity(relPath, config),
+  });
+  log(
+    `hecho: ${result.indexedFiles} indexados, ${result.unchangedFiles} sin cambios, ` +
+      `${result.removedFiles} invalidados, ${result.chunksUpserted} chunks` +
+      (result.fullReindex ? ' (reindex completo por cambio de fingerprint)' : ''),
+  );
+  if (result.excluded.length > 0) {
+    log(`excluidos: ${result.excluded.map((e) => `${e.path} (${e.reason})`).join(', ')}`);
+  }
+  return result;
+}

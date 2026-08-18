@@ -1,0 +1,44 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: karajan_rag_pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: karajan
+      POSTGRES_PASSWORD: karajan
+      POSTGRES_DB: karajan_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - karajan_rag_pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U karajan -d karajan_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servidor Easy RAG sobre pgvector (KJR-TSK-0106). Requiere haber
+  # indexado antes contra el mismo Postgres, p. ej.:
+  #   PG_URL=postgres://karajan:karajan@localhost:5432/karajan_rag \
+  #     node bin/karajan-rag.js index . --store pgvector
+  rag:
+    build: .
+    container_name: karajan_rag_server
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      KARAJAN_STORE: pgvector
+      # Credenciales de desarrollo local (las mismas del servicio pgvector).
+      PG_URL: postgres://karajan:karajan@pgvector:5432/karajan_rag
+    ports:
+      - "8080:8080"
+    volumes:
+      # El manifest del índice (.karajan/manifest.json) vive junto a la fuente.
+      - ./:/data:ro
+    depends_on:
+      pgvector:
+        condition: service_healthy
+
+volumes:
+  karajan_rag_pgdata:

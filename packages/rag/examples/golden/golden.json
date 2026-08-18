@@ -1,0 +1,48 @@
+{
+  "description": "Golden set offline de karajan-rag (roadmap 0.4.0). Corre con stubs locales (HashEmbedder + InMemoryVectorStore) — sin credenciales. El baseline son mínimos agregados CALIBRADOS al pipeline de stubs (2026-07-22: faithfulness 0.74, precision 0.39, recall 0.83, relevance 0.79): es un guardián de regresión, no una meta de calidad absoluta. Si una media cae por debajo, el runner falla señalando métrica y peores casos.",
+  "topK": 3,
+  "baseline": {
+    "faithfulness": 0.7,
+    "contextPrecision": 0.35,
+    "contextRecall": 0.8,
+    "answerRelevance": 0.75
+  },
+  "cases": [
+    {
+      "id": "facturacion-emision",
+      "question": "¿Cuándo se emite la facturación mensual?",
+      "expectedAnswer": "La facturación mensual se emite el día 1 de cada mes.",
+      "relevantSources": ["facturacion.md"]
+    },
+    {
+      "id": "facturacion-rectificativa",
+      "question": "¿Cuánto tarda una factura rectificativa?",
+      "expectedAnswer": "Las facturas rectificativas se emiten en un plazo máximo de 5 días hábiles.",
+      "relevantSources": ["facturacion.md"]
+    },
+    {
+      "id": "envios-canarias",
+      "question": "¿Cuánto tardan los envíos a Canarias?",
+      "expectedAnswer": "Los envíos a Canarias tardan entre 5 y 7 días y pueden requerir despacho de aduanas.",
+      "relevantSources": ["envios.md"]
+    },
+    {
+      "id": "envios-peninsula",
+      "question": "¿Cuál es el plazo de entrega de los pedidos en península?",
+      "expectedAnswer": "Los pedidos se entregan en un plazo de 48 horas laborables en península.",
+      "relevantSources": ["envios.md"]
+    },
+    {
+      "id": "soporte-horario",
+      "question": "¿Cuál es el horario de soporte?",
+      "expectedAnswer": "El horario de soporte es de lunes a viernes de 9:00 a 18:00 CET.",
+      "relevantSources": ["soporte.md"]
+    },
+    {
+      "id": "soporte-urgencias",
+      "question": "¿Qué tiempo de respuesta tienen las urgencias enterprise?",
+      "expectedAnswer": "Las urgencias enterprise tienen un tiempo de primera respuesta de 30 minutos.",
+      "relevantSources": ["soporte.md"]
+    }
+  ]
+}
